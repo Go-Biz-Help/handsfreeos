@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { RecordPage } from '@/components/crm/record-page';
+import { assigneeOptions } from '@/lib/api/people';
 import { apiServer, unwrapPage } from '@/lib/api/server';
 
 export const metadata: Metadata = { title: 'Company' };
@@ -48,7 +49,7 @@ export default async function CompanyPage({
       files={files.files}
       leads={leads.items}
       tags={tags.tags}
-      members={members.members.map((m) => ({ id: m.userId, fullName: m.fullName || m.email }))}
+      members={assigneeOptions(members)}
       pipelines={pipelines.pipelines}
     />
   );

@@ -9,6 +9,7 @@ import { Input, Select } from '@/components/ui/input';
 import { apiBrowser, errorMessage, unwrap } from '@/lib/api/client';
 import { fieldErrors } from '@/lib/api/field-errors';
 import type { Pipeline } from '@/lib/api/types';
+import { RecordPicker, type PickedRecord } from './record-picker';
 import { parseMoney } from '@/lib/format';
 
 /** Creates a lead for a person or company. It starts in the first open stage unless another is picked. */
@@ -30,7 +31,8 @@ export function LeadDialog({
   pipelines: Pipeline[];
   members: { id: string; fullName: string }[];
   myUserId: string;
-  record: { personId?: string | null; companyId?: string | null; name: string };
+  /** Preset from a customer page; when absent the dialog asks who the lead is for. */
+  record?: { personId?: string | null; companyId?: string | null; name: string };
   defaultPipelineId?: string;
   defaultStageId?: string;
   onCreated?: (leadId: string) => void;
@@ -46,6 +48,7 @@ export function LeadDialog({
   const [nextAction, setNextAction] = useState('');
   const [nextAt, setNextAt] = useState('');
   const [source, setSource] = useState('');
+  const [picked, setPicked] = useState<PickedRecord | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
   const pipeline = active.find((p) => p.id === pipelineId) ?? active[0];
@@ -62,13 +65,25 @@ export function LeadDialog({
     setNextAction('');
     setNextAt('');
     setSource('');
+    setPicked(null);
     setErrors({});
   }, [open]);
 
   async function submit(e: FormEvent) {
     e.preventDefault();
     const cents = parseMoney(value);
+    const personId = record
+      ? (record.personId ?? null)
+      : picked?.kind === 'person'
+        ? picked.id
+        : null;
+    const companyId = record
+      ? (record.companyId ?? null)
+      : picked?.kind === 'company'
+        ? picked.id
+        : null;
     if (!title.trim()) return setErrors({ title: 'Give the lead a title.' });
+    if (!personId && !companyId) return setErrors({ personId: 'Pick who the lead is for.' });
     if (cents === null) return setErrors({ valueCents: 'Enter an amount in dollars.' });
     setBusy(true);
     setErrors({});
@@ -78,8 +93,8 @@ export function LeadDialog({
           body: {
             workspaceId,
             title: title.trim(),
-            personId: record.personId ?? null,
-            companyId: record.companyId ?? null,
+            personId,
+            companyId,
             pipelineId: pipeline?.id,
             stageId: stageId || undefined,
             valueCents: cents,
@@ -108,7 +123,11 @@ export function LeadDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         title="New lead"
-        description={`For ${record.name}. A lead without a next action is flagged on the pipeline.`}
+        description={
+          record
+            ? `For ${record.name}. A lead without a next action is flagged on the pipeline.`
+            : 'Starts in the first stage of the pipeline. Set a next action so it never goes cold.'
+        }
         className="w-[min(560px,calc(100vw-24px))] max-h-[calc(100vh-24px)] overflow-y-auto"
       >
         <form
@@ -117,13 +136,28 @@ export function LeadDialog({
           noValidate
           data-testid="lead-form"
         >
+          {record ? null : (
+            <Field
+              label="Who is it for?"
+              htmlFor="l-record"
+              error={errors.personId}
+              hint={picked ? undefined : 'Type a name, phone or company.'}
+            >
+              <RecordPicker
+                workspaceId={workspaceId}
+                value={picked}
+                onChange={setPicked}
+                id="l-record"
+              />
+            </Field>
+          )}
           <Field label="Title" htmlFor="l-title" error={errors.title}>
             <Input
               id="l-title"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="Roof replacement"
-              autoFocus
+              autoFocus={!!record}
               invalid={!!errors.title}
             />
           </Field>

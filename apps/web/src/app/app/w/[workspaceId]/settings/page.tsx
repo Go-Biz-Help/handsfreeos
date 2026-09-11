@@ -4,6 +4,7 @@ import { GoogleSection } from '@/components/settings/google-section';
 import { PasskeysSection } from '@/components/settings/passkeys-section';
 import { PasswordSection } from '@/components/settings/password-section';
 import { ProfileForm } from '@/components/settings/profile-form';
+import { SettingsNav } from '@/components/settings/settings-nav';
 import { PageHeader } from '@/components/shell/page-header';
 import { Card } from '@/components/ui/card';
 import { apiServer, fetchMe } from '@/lib/api/server';
@@ -11,15 +12,19 @@ import { parseTheme } from '@/lib/theme';
 
 export const metadata: Metadata = { title: 'Account settings' };
 
-export default async function SettingsPage() {
+export default async function SettingsPage({
+  params,
+}: {
+  params: Promise<{ workspaceId: string }>;
+}) {
+  const { workspaceId } = await params;
   const { api } = await apiServer();
   const me = await fetchMe(api);
+  const role = me.workspaces.find((w) => w.id === workspaceId)?.role;
   return (
     <>
-      <PageHeader
-        title="Account settings"
-        description="Your profile and how you sign in. These apply to every workspace you belong to."
-      />
+      <PageHeader title="Settings" description="Your account, and how this workspace is set up." />
+      <SettingsNav workspaceId={workspaceId} canManage={role === 'owner' || role === 'admin'} />
       <div className="grid grid-cols-1 items-start gap-5 xl:grid-cols-2">
         <div className="flex flex-col gap-5">
           <Card className="p-6">

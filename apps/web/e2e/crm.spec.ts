@@ -83,6 +83,43 @@ test('company → person with duplicate warning → lead → note → task → a
   await expect(page.getByTestId('open-lead-card')).not.toContainText('No follow-up scheduled');
   await expect(page.getByTestId('tab-leads')).toContainText('Leads · 1');
 
+  // On the board the card sits in New with its next action; drag it to Estimate sent.
+  await page.goto(`/app/w/${workspaceId}/pipeline`);
+  const card = page.getByTestId('stage-column-new').locator('[data-testid^="lead-card-"]').first();
+  await expect(card).toContainText('Roof replacement');
+  await expect(card).toContainText('Send the estimate');
+  const target = page.getByTestId('stage-column-estimate-sent');
+  const from = (await card.boundingBox())!;
+  const to = (await target.boundingBox())!;
+  await page.mouse.move(from.x + from.width / 2, from.y + 20);
+  await page.mouse.down();
+  await page.mouse.move(from.x + from.width / 2 + 12, from.y + 32, { steps: 4 });
+  await page.mouse.move(to.x + to.width / 2, to.y + 70, { steps: 12 });
+  await page.mouse.up();
+  await expect(target).toContainText('Roof replacement');
+  await expect(page.getByTestId('stage-column-new')).not.toContainText('Roof replacement');
+
+  // The sheet: lost with a reason, reopened, won, and reopened again so it is still open below.
+  await target.locator('[data-testid^="lead-card-"]').first().click();
+  await expect(page.getByTestId('lead-detail')).toContainText('Roof replacement');
+  await page.getByTestId('lead-lost-button').click();
+  await page.getByTestId('lost-reason-1').click();
+  await page.getByLabel('Anything else?').fill('Chose a cheaper patch job');
+  await page.getByTestId('lost-confirm').click();
+  await expect(page.getByTestId('lead-detail')).toHaveAttribute('data-status', 'lost');
+  await expect(page.getByTestId('lead-lost-reason')).toContainText(
+    'Decided not to do the work · Chose a cheaper patch job',
+  );
+  await page.getByTestId('lead-reopen-button').click();
+  await expect(page.getByTestId('lead-detail')).toHaveAttribute('data-status', 'open');
+  await page.getByTestId('lead-won-button').click();
+  await expect(page.getByTestId('lead-won')).toBeVisible();
+  await page.getByTestId('lead-reopen-button').click();
+  await expect(page.getByTestId('lead-detail')).toHaveAttribute('data-status', 'open');
+  await page.keyboard.press('Escape');
+  await expect(page.getByTestId('stage-column-new')).toContainText('Roof replacement');
+  await page.goto(personUrl);
+
   // A note and a call go on the timeline.
   await page.getByTestId('action-note').click();
   await page.getByLabel('Note').fill('Prefers texts over calls. Gate code 4471.');
@@ -129,6 +166,8 @@ test('company → person with duplicate warning → lead → note → task → a
   await page.goto(`/app/w/${workspaceId}/audit`);
   await expect(page.getByText('added Mike Johnson')).toBeVisible();
   await expect(page.getByText('created the lead Roof replacement in New')).toBeVisible();
+  await expect(page.getByText('moved Roof replacement from New to Estimate sent')).toBeVisible();
+  await expect(page.getByText('won the lead Roof replacement')).toBeVisible();
   await expect(page.getByText('completed the task Call Mike about the estimate')).toBeVisible();
   await expect(page.getByText('archived Mike Johnson')).toBeVisible();
   await expect(page.getByText('restored Mike Johnson')).toBeVisible();

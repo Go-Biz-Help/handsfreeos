@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { CustomersList } from '@/components/crm/customers-list';
 import { PageHeader } from '@/components/shell/page-header';
+import { assigneeOptions } from '@/lib/api/people';
 import { apiServer, unwrapPage } from '@/lib/api/server';
 
 export const metadata: Metadata = { title: 'Customers' };
@@ -57,7 +58,7 @@ export default async function CustomersPage({
         tab={tab}
         filters={filters}
         tags={tags.tags}
-        owners={members.members.map((m) => ({ id: m.userId, fullName: m.fullName || m.email }))}
+        owners={assigneeOptions(members)}
         people={people}
         companies={companies}
         counts={{ people: summary.people, companies: summary.companies }}
