@@ -1,0 +1,110 @@
+{
+  "artboards": [
+    {
+      "file": "Home.dc.html",
+      "title": "Home",
+      "x": 0,
+      "y": 0,
+      "w": 1280,
+      "h": 832,
+      "is_interactive": true
+    },
+    {
+      "file": "Main.dc.html",
+      "title": "Customers",
+      "x": 1360,
+      "y": 0,
+      "w": 1280,
+      "h": 832,
+      "is_interactive": true
+    },
+    {
+      "file": "Customer360.dc.html",
+      "title": "Customer 360",
+      "x": 2720,
+      "y": 0,
+      "w": 1280,
+      "h": 960,
+      "is_interactive": true
+    },
+    {
+      "file": "Pipeline.dc.html",
+      "title": "Pipeline",
+      "x": 0,
+      "y": 1100,
+      "w": 1280,
+      "h": 832,
+      "is_interactive": true
+    },
+    {
+      "file": "Tasks.dc.html",
+      "title": "Tasks",
+      "x": 1360,
+      "y": 1100,
+      "w": 1280,
+      "h": 832,
+      "is_interactive": true
+    },
+    {
+      "file": "Import.dc.html",
+      "title": "Import wizard",
+      "x": 2720,
+      "y": 1100,
+      "w": 1280,
+      "h": 832,
+      "is_interactive": true
+    },
+    {
+      "file": "Settings.dc.html",
+      "title": "Settings: pipelines, workspace, imports, tags",
+      "x": 0,
+      "y": 2070,
+      "w": 1280,
+      "h": 832,
+      "is_interactive": true
+    },
+    {
+      "file": "Phone.dc.html",
+      "title": "Phone",
+      "x": 1360,
+      "y": 2070,
+      "w": 390,
+      "h": 844,
+      "is_interactive": true
+    },
+    {
+      "file": "Foundations2.dc.html",
+      "title": "CRM foundations",
+      "x": 1830,
+      "y": 2070,
+      "w": 1280,
+      "h": 1180
+    }
+  ],
+  "annotations": [
+    {
+      "id": "direction",
+      "x": 0,
+      "y": -170,
+      "w": 640,
+      "text": "HandsFreeOS Milestone 2: CRM Core. Same system as Milestone 1 (clean & airy, accent #2D69D8, Hanken Grotesk). Every screen is clickable: tabs, dialogs, the lead sheet, stage moves, the lost-reason dialog, the import wizard (press Run), stage reordering, and the phone drawer and sheets. Use the Accent and Theme chips above any screen to preview it recolored or in dark mode."
+    },
+    {
+      "id": "sample-data",
+      "x": 1360,
+      "y": -170,
+      "w": 640,
+      "text": "Sample data only: Lone Star HVAC & Roofing is a fictional client workspace of Go Biz Help. People, companies, leads, values, phone numbers and addresses are placeholders."
+    },
+    {
+      "id": "phone-note",
+      "x": 1360,
+      "y": 2960,
+      "w": 390,
+      "text": "Phone: the bottom bar carries Home, Customers, Pipeline and Tasks; More opens the drawer with the full navigation. The pipeline defaults to the list view with a stage picker; the board view swipes between stages."
+    }
+  ],
+  "launch": {
+    "view": "canvas"
+  }
+}

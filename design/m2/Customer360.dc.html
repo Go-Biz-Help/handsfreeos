@@ -1,0 +1,327 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap">
+  <style>
+*{box-sizing:border-box}
+body{margin:0;background:transparent}
+.hf{font-family:"Hanken Grotesk",system-ui,-apple-system,"Segoe UI",Helvetica,Arial,sans-serif;font-size:14px;line-height:1.45;color:var(--text);background:var(--bg);-webkit-font-smoothing:antialiased}
+.hf h1,.hf h2,.hf h3,.hf p{margin:0}.hf h1,.hf h2,.hf h3{text-wrap:pretty}
+.theme-light{--bg:#f9fafd;--card:#ffffff;--card-2:#f2f4f8;--card-3:#e4e8ee;--border:#e4e8ee;--border-strong:#d2d6dd;--text:#191d25;--text-2:#5b616a;--text-3:#676c75;--placeholder:#a0a5ae;--accent-text:var(--accent);--accent-soft:color-mix(in oklab,var(--accent) 10%,#ffffff);--accent-soft-2:color-mix(in oklab,var(--accent) 18%,#ffffff);--accent-hover:color-mix(in oklab,var(--accent) 86%,#000000);--ring:color-mix(in oklab,var(--accent) 28%,transparent);--shadow-1:0 1px 2px rgba(25,29,37,.06),0 1px 3px rgba(25,29,37,.04);--shadow-2:0 8px 24px rgba(25,29,37,.10),0 2px 6px rgba(25,29,37,.06);--shadow-3:0 24px 60px rgba(25,29,37,.22),0 4px 12px rgba(25,29,37,.08);--success:#008743;--success-soft:#e0f7e5;--success-text:#005d2d;--warning:#996300;--warning-soft:#ffedd8;--warning-text:#6b4300;--danger:#c43335;--danger-soft:#ffebe9;--danger-text:#862726;--scrim:rgba(25,29,37,.45);--toast-bg:#191d25;--toast-text:#f2f4f8}
+.theme-dark{--bg:#0f131a;--card:#191d25;--card-2:#20252e;--card-3:#2c3139;--border:#2c3139;--border-strong:#3a4049;--text:#f2f4f8;--text-2:#a0a5ae;--text-3:#8a909a;--placeholder:#5b616a;--accent-text:color-mix(in oklab,var(--accent) 62%,#ffffff);--accent-soft:color-mix(in oklab,var(--accent) 22%,#191d25);--accent-soft-2:color-mix(in oklab,var(--accent) 34%,#191d25);--accent-hover:color-mix(in oklab,var(--accent) 84%,#ffffff);--ring:color-mix(in oklab,var(--accent) 45%,transparent);--shadow-1:0 1px 2px rgba(0,0,0,.45);--shadow-2:0 8px 24px rgba(0,0,0,.55);--shadow-3:0 24px 60px rgba(0,0,0,.65);--success:#3ccf7a;--success-soft:#10291b;--success-text:#7fe0a5;--warning:#f0a93b;--warning-soft:#2d2210;--warning-text:#f5c97a;--danger:#ff7b73;--danger-soft:#301816;--danger-text:#ffaaa3;--scrim:rgba(0,0,0,.6);--toast-bg:#f2f4f8;--toast-text:#191d25}
+.theme-dark .btn-danger,.theme-dark .toast.danger{color:#191d25}
+a{color:var(--accent-text);text-decoration:none}a:hover{color:var(--accent-hover);text-decoration:underline}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:36px;padding:0 14px;border-radius:8px;border:1px solid transparent;font:inherit;font-weight:500;font-size:14px;color:var(--text);background:transparent;cursor:pointer;white-space:nowrap;transition:background .12s,border-color .12s,box-shadow .12s,color .12s}
+.btn:focus-visible{outline:none;box-shadow:0 0 0 3px var(--ring)}
+.btn-primary{background:var(--accent);color:#fff}.btn-primary:hover{background:var(--accent-hover)}
+.btn-secondary{background:var(--card);border-color:var(--border-strong);box-shadow:var(--shadow-1)}.btn-secondary:hover{background:var(--card-2)}
+.btn-ghost{color:var(--text-2)}.btn-ghost:hover{background:var(--card-2);color:var(--text)}
+.btn-danger{background:var(--danger);color:#fff}.btn-danger:hover{filter:brightness(.92)}
+.btn-sm{height:32px;padding:0 10px;font-size:13px}.btn-lg{height:44px;padding:0 18px;font-size:15px;border-radius:10px}.btn:disabled{opacity:.5;cursor:not-allowed}
+.icon-btn{width:32px;height:32px;padding:0;border-radius:8px}
+.input,.select,.textarea{width:100%;height:40px;padding:0 12px;border-radius:8px;border:1px solid var(--border-strong);background:var(--card);color:var(--text);font:inherit;font-size:15px;transition:border-color .12s,box-shadow .12s}
+.textarea{height:auto;min-height:88px;padding:10px 12px;resize:vertical;line-height:1.45}
+.select{appearance:none;background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23777c86' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'><path d='m6 9 6 6 6-6'/></svg>");background-repeat:no-repeat;background-position:right 10px center;padding-right:32px}
+.input::placeholder,.textarea::placeholder{color:var(--placeholder)}.input:focus,.select:focus,.textarea:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--ring)}
+.input-sm,.select-sm{height:34px;font-size:14px}.input-error{border-color:var(--danger)}.select:disabled{opacity:.6;cursor:not-allowed}
+.label{display:block;font-size:13px;font-weight:500;color:var(--text);margin-bottom:6px}
+.hint{font-size:12.5px;color:var(--text-3);margin-top:6px}.err{font-size:12.5px;color:var(--danger-text);margin-top:6px}
+.field{margin-bottom:14px}
+.card{background:var(--card);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow-1)}
+.badge{display:inline-flex;align-items:center;gap:6px;height:22px;padding:0 8px;border-radius:999px;font-size:12px;font-weight:500;border:1px solid transparent;white-space:nowrap}
+.badge-owner{background:var(--accent-soft);color:var(--accent-text)}.badge-admin{background:var(--card-2);color:var(--text);border-color:var(--border)}.badge-member{border-color:var(--border-strong);color:var(--text-2)}
+.badge-pending{background:var(--warning-soft);color:var(--warning-text)}.badge-gray{background:var(--card-2);color:var(--text-2)}.badge-ok{background:var(--success-soft);color:var(--success-text)}.badge-danger{background:var(--danger-soft);color:var(--danger-text)}
+.stage{display:inline-flex;align-items:center;gap:6px;height:22px;padding:0 8px;border-radius:6px;font-size:12px;font-weight:500;white-space:nowrap;background:var(--accent-soft);color:var(--accent-text)}
+.stage-won{background:var(--success-soft);color:var(--success-text)}.stage-lost{background:var(--danger-soft);color:var(--danger-text)}
+.tag{display:inline-flex;align-items:center;gap:6px;height:22px;padding:0 8px;border-radius:999px;font-size:12px;font-weight:500;background:var(--card-2);color:var(--text-2);white-space:nowrap}
+.tag i{width:7px;height:7px;border-radius:999px;display:inline-block}
+.warn{display:inline-flex;align-items:center;gap:6px;color:var(--warning-text);background:var(--warning-soft);border-radius:7px;padding:4px 8px;font-size:12px;font-weight:500;white-space:nowrap}
+.callout{display:flex;gap:10px;align-items:flex-start;padding:12px 14px;border-radius:10px;font-size:13.5px}
+.callout-warning{background:var(--warning-soft);color:var(--warning-text)}.callout-info{background:var(--accent-soft);color:var(--accent-text)}.callout-danger{background:var(--danger-soft);color:var(--danger-text)}
+.mono{font-family:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12.5px}
+.avatar{width:32px;height:32px;border-radius:999px;display:inline-flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;color:#fff;background:var(--accent);flex:none;letter-spacing:.02em}
+.avatar-sm{width:24px;height:24px;font-size:10px}.avatar-lg{width:48px;height:48px;font-size:16px}
+.h1{font-size:24px;font-weight:600;letter-spacing:-.01em;line-height:1.25}.h2{font-size:18px;font-weight:600;letter-spacing:-.005em;line-height:1.3}.h3{font-size:15px;font-weight:600;line-height:1.35}
+.muted{color:var(--text-2)}.faint{color:var(--text-3)}.small{font-size:13px}.xs{font-size:12px}.strong{font-weight:500}
+.shell{display:flex;min-height:832px}
+.sidebar{position:relative;width:240px;flex:none;background:var(--card);border-right:1px solid var(--border);display:flex;flex-direction:column;padding:16px 12px 12px;gap:4px}
+.nav-item{display:flex;align-items:center;gap:10px;height:36px;padding:0 10px;border-radius:8px;color:var(--text-2);font-weight:500;cursor:pointer;background:transparent;border:0;font:inherit;font-size:14px;width:100%;text-align:left}
+.nav-item:hover{background:var(--card-2);color:var(--text)}.nav-item.active{background:var(--accent-soft);color:var(--accent-text)}
+.main{flex:1;min-width:0;padding:32px 40px;position:relative}
+.page-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:24px}
+.table{width:100%;border-collapse:separate;border-spacing:0}
+.table th{text-align:left;font-size:12px;font-weight:500;color:var(--text-3);letter-spacing:.02em;padding:10px 16px;border-bottom:1px solid var(--border);background:var(--card-2)}
+.table td{padding:12px 16px;border-bottom:1px solid var(--border);vertical-align:middle}
+.table tr:last-child td{border-bottom:0}.table tr.clickable{cursor:pointer}.table tr.clickable:hover td{background:var(--card-2)}
+.table th:first-child{border-top-left-radius:12px}.table th:last-child{border-top-right-radius:12px}
+.menu{position:absolute;right:0;top:36px;min-width:220px;background:var(--card);border:1px solid var(--border);border-radius:10px;box-shadow:var(--shadow-2);padding:6px;z-index:20}
+.menu-item{display:flex;align-items:center;gap:10px;width:100%;height:34px;padding:0 10px;border-radius:6px;border:0;background:transparent;font:inherit;font-size:14px;color:var(--text);cursor:pointer;text-align:left}
+.menu-item:hover{background:var(--card-2)}.menu-item.danger{color:var(--danger-text)}.menu-item:disabled{opacity:.5;cursor:not-allowed}
+.scrim{position:absolute;inset:0;background:var(--scrim);display:flex;align-items:center;justify-content:center;z-index:50}
+.dialog{width:480px;background:var(--card);border-radius:14px;box-shadow:var(--shadow-3);border:1px solid var(--border);padding:24px}
+.sheet{position:absolute;top:0;right:0;bottom:0;width:480px;background:var(--card);border-left:1px solid var(--border);box-shadow:var(--shadow-3);z-index:55;padding:24px;overflow:auto}
+.toast{position:absolute;left:50%;bottom:24px;transform:translateX(-50%);background:var(--toast-bg);color:var(--toast-text);padding:10px 14px;border-radius:10px;font-size:13.5px;box-shadow:var(--shadow-2);display:flex;gap:10px;align-items:center;z-index:60;white-space:nowrap}
+.toast.danger{background:var(--danger);color:#fff}
+.radio-card{display:flex;gap:12px;align-items:flex-start;padding:12px 14px;border:1px solid var(--border-strong);border-radius:10px;cursor:pointer;background:var(--card);text-align:left;font:inherit;color:var(--text);width:100%}
+.radio-card.selected{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent);background:var(--accent-soft)}
+.radio-dot{width:16px;height:16px;border-radius:999px;border:1.5px solid var(--border-strong);flex:none;margin-top:2px;display:flex;align-items:center;justify-content:center}
+.radio-card.selected .radio-dot{border-color:var(--accent)}.radio-card.selected .radio-dot::after{content:"";width:8px;height:8px;border-radius:999px;background:var(--accent)}
+.switcher{display:flex;align-items:center;gap:10px;width:100%;height:52px;padding:0 10px;border-radius:10px;border:1px solid var(--border);background:var(--card);font:inherit;color:var(--text);cursor:pointer;text-align:left}
+.icon{width:18px;height:18px;flex:none}.icon-sm{width:14px;height:14px;flex:none}
+.brand{display:flex;align-items:center;gap:10px;font-weight:600;font-size:15px;letter-spacing:-.01em;color:var(--text)}
+.mark{width:28px;height:28px;display:block;flex:none;object-fit:contain}.brand .os{color:var(--accent-text)}
+.row{display:flex;align-items:center;gap:12px}.between{justify-content:space-between}.stack{display:flex;flex-direction:column}.wrap{flex-wrap:wrap}
+.tabs{display:flex;gap:2px;border-bottom:1px solid var(--border);margin-bottom:20px;overflow-x:auto}
+.tab{height:38px;padding:0 12px;border:0;background:transparent;font:inherit;font-size:14px;font-weight:500;color:var(--text-2);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;white-space:nowrap}
+.tab:hover{color:var(--text)}.tab.active{color:var(--accent-text);border-bottom-color:var(--accent)}
+.seg{display:inline-flex;background:var(--card-2);border-radius:8px;padding:3px;gap:2px}
+.seg button{height:28px;padding:0 10px;border:0;border-radius:6px;background:transparent;font:inherit;font-size:13px;font-weight:500;color:var(--text-2);cursor:pointer}
+.seg button.active{background:var(--card);color:var(--text);box-shadow:var(--shadow-1)}
+.search{position:relative}.search .icon{position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--text-3)}.search .input{padding-left:34px}
+.board{display:flex;gap:14px;overflow-x:auto;padding-bottom:12px;align-items:flex-start}
+.col{width:262px;flex:none;background:var(--card-2);border-radius:12px;padding:8px;display:flex;flex-direction:column;gap:8px;min-height:120px}
+.col-head{display:flex;align-items:center;justify-content:space-between;padding:6px 6px 2px}
+.kcard{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:12px;box-shadow:var(--shadow-1);cursor:pointer;text-align:left;font:inherit;color:var(--text);width:100%}
+.kcard:hover{border-color:var(--border-strong)}.kcard.active{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+.grip{color:var(--text-3);opacity:.6}
+.timeline{position:relative;margin-left:8px;border-left:1px solid var(--border)}
+.tl{position:relative;padding:0 0 18px 24px}.tl:last-child{padding-bottom:0}
+.tl-dot{position:absolute;left:-8px;top:2px;width:15px;height:15px;border-radius:999px;border:2px solid var(--card);background:var(--card-3)}
+.tl-dot.note{background:var(--accent)}.tl-dot.call{background:var(--success)}.tl-dot.sys{background:var(--card-3)}.tl-dot.file{background:var(--warning)}
+.file-tile{border:1px solid var(--border);border-radius:10px;overflow:hidden;background:var(--card)}
+.file-thumb{height:104px;background:linear-gradient(135deg,var(--card-3),var(--card-2));display:flex;align-items:center;justify-content:center;color:var(--text-3)}
+.dropzone{border:1.5px dashed var(--border-strong);border-radius:12px;padding:22px;text-align:center;color:var(--text-2);background:var(--card)}
+.empty{padding:44px 24px;text-align:center;color:var(--text-2)}
+.progress{height:8px;border-radius:999px;background:var(--card-2);overflow:hidden}.progress i{display:block;height:100%;background:var(--accent);border-radius:999px;transform-origin:left center;transition:transform .3s}
+.steps{display:flex;gap:6px;align-items:center;margin-bottom:22px}
+.step{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text-3);font-weight:500}.step .n{width:24px;height:24px;border-radius:999px;border:1.5px solid var(--border-strong);display:inline-flex;align-items:center;justify-content:center;font-size:12px}
+.step.active{color:var(--accent-text)}.step.active .n{border-color:var(--accent);background:var(--accent);color:#fff}.step.done{color:var(--success-text)}.step.done .n{border-color:var(--success);background:var(--success);color:#fff}
+.step-line{width:32px;height:1px;background:var(--border)}
+.kv{display:grid;grid-template-columns:130px 1fr;gap:10px 16px;font-size:13.5px}.kv dt{color:var(--text-2)}.kv dd{margin:0;font-weight:500}
+.stat{padding:18px 20px}.stat .num{font-size:26px;font-weight:600;letter-spacing:-.01em;line-height:1.1}.stat .lbl{font-size:13px;color:var(--text-2);margin-top:4px}
+.phone{width:390px;min-height:844px;background:var(--bg);position:relative;overflow:hidden;display:flex;flex-direction:column}
+.topbar{height:56px;flex:none;display:flex;align-items:center;gap:10px;padding:0 12px;background:var(--card);border-bottom:1px solid var(--border)}
+.bottom-nav{position:absolute;left:0;right:0;bottom:0;height:66px;background:var(--card);border-top:1px solid var(--border);display:flex;padding-bottom:6px}
+.bn{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;font-size:11px;font-weight:500;color:var(--text-3);border:0;background:transparent;font-family:inherit;cursor:pointer}
+.bn.active{color:var(--accent-text)}
+.drawer{position:absolute;top:0;left:0;bottom:0;width:300px;background:var(--card);box-shadow:var(--shadow-3);z-index:55;padding:16px 12px;display:flex;flex-direction:column;gap:4px}
+.bottom-sheet{position:absolute;left:0;right:0;bottom:0;background:var(--card);border-radius:16px 16px 0 0;box-shadow:var(--shadow-3);z-index:55;padding:14px 16px 28px}
+.mcard{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px;box-shadow:var(--shadow-1)}
+.touch{min-height:44px}
+.divider{height:1px;background:var(--border)}
+  </style>
+</helmet>
+
+<div class="hf theme-{{ theme }}" style="--accent: {{ accent }}; width: 1280px; min-height: 960px; position: relative; overflow: hidden;">
+
+  <div class="shell">
+    <aside class="sidebar">
+      <div class="brand" style="padding: 4px 10px 14px;"><img class="mark" src="handsfreeos-icon.png" alt=""><span>HandsFree<span class="os">OS</span></span></div>
+      <button class="switcher">
+        <span class="avatar" style="border-radius: 8px; background: var(--accent-soft-2); color: var(--accent-text);">LS</span>
+        <span class="stack" style="min-width: 0; flex: 1;"><span style="font-weight: 600; font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">Lone Star HVAC &amp; Roofing</span><span class="xs faint">Go Biz Help</span></span>
+        <svg class="icon faint"  viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"></path></svg>
+      </button>
+      <div class="search" style="margin-top: 10px;"><svg class="icon"  viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.5-3.5"></path></svg><input class="input input-sm" placeholder="Search customers" style="font-size: 13px; height: 34px;"></div>
+      <nav class="stack" style="gap: 2px; margin-top: 8px;"><button class="nav-item"><svg class="icon"  viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"></path><path d="M5 9.5V21h14V9.5"></path></svg><span>Home</span></button><button class="nav-item active"><svg class="icon"  viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"></circle><path d="M2.5 20a6.5 6.5 0 0 1 13 0"></path><path d="M16 4.5a3.5 3.5 0 0 1 0 7"></path><path d="M17.5 14a6 6 0 0 1 4 5.5"></path></svg><span>Customers</span></button><button class="nav-item"><svg class="icon"  viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="5" height="16" rx="1"></rect><rect x="10" y="4" width="5" height="10" rx="1"></rect><rect x="17" y="4" width="4" height="13" rx="1"></rect></svg><span>Pipeline</span></button><button class="nav-item"><svg class="icon"  viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m4 12 3 3 5-6"></path><path d="M13 7h8M13 12h8M13 17h8"></path><path d="m4 18 3 3"></path></svg><span>Tasks</span></button><button class="nav-item"><svg class="icon"  viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"></circle><path d="M4 21a8 8 0 0 1 16 0"></path></svg><span>Members</span></button><button class="nav-item"><svg class="icon"  viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6h13M8 12h13M8 18h13"></path><path d="M3 6h.01M3 12h.01M3 18h.01"></path></svg><span>Audit log</span></button><button class="nav-item"><svg class="icon"  viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h8M18 6h2M4 12h2M10 12h10M4 18h12M20 18h0"></path><circle cx="14" cy="6" r="2"></circle><circle cx="8" cy="12" r="2"></circle><circle cx="18" cy="18" r="2"></circle></svg><span>Settings</span></button></nav>
+      <div style="flex: 1;"></div>
+      <div class="row" style="padding: 12px 6px 4px; border-top: 1px solid var(--border);">
+        <span class="avatar">DR</span>
+        <span class="stack" style="min-width: 0; flex: 1;"><span style="font-weight: 500; font-size: 13.5px;">Dale Ramsey</span><span class="xs faint" style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">dale@lonestarhvac.test</span></span>
+      </div>
+    </aside>
+    <main class="main" style="padding-bottom: 40px;">
+      <div class="row" style="gap: 6px; margin-bottom: 14px;"><a href="#" class="small">Customers</a><span class="small faint">/</span><span class="small muted">{{ name }}</span><span style="flex: 1;"></span><div class="seg"><button class="{{ personSeg }}" onClick="{{ showPerson }}">Person</button><button class="{{ companySeg }}" onClick="{{ showCompany }}">Company</button></div></div>
+
+      <div class="card" style="padding: 20px 24px; margin-bottom: 20px;">
+        <div class="row" style="align-items: flex-start; gap: 16px;">
+          <span class="avatar avatar-lg" style="{{ avatarStyle }}">{{ initials }}</span>
+          <div class="stack" style="flex: 1; min-width: 0; gap: 6px;">
+            <div class="row" style="gap: 10px;"><h1 class="h1">{{ name }}</h1><sc-if value="{{ isPerson }}" hint-placeholder-val="{{ true }}"><a href="#" class="small">{{ companyName }}</a></sc-if><span class="badge badge-gray">Customer since Jun 2025</span></div>
+            <div class="row" style="gap: 14px;" class="small">
+              <a href="#" class="row small" style="gap: 6px;"><svg class="icon-sm"  viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2"></path></svg> {{ phone }}</a>
+              <a href="#" class="row small" style="gap: 6px;"><svg class="icon-sm"  viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"></rect><path d="m3 7 9 6 9-6"></path></svg> {{ email }}</a>
+              <span class="row small muted" style="gap: 6px;"><svg class="icon-sm"  viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"></path><path d="M5 9.5V21h14V9.5"></path></svg> {{ address }}</span>
+            </div>
+            <div class="row" style="gap: 6px; flex-wrap: wrap;"><sc-for list="{{ tags }}" as="t" hint-placeholder-count="2"><span class="tag"><i style="{{ t.style }}"></i>{{ t.name }}</span></sc-for><button class="btn btn-ghost btn-sm" style="height: 22px; padding: 0 6px; font-size: 12px;"><svg class="icon-sm"  viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"></path></svg> Tag</button></div>
+          </div>
+          <div class="stack" style="align-items: flex-end; gap: 8px;">
+            <sc-if value="{{ hasNext }}" hint-placeholder-val="{{ true }}"><span class="stage"><svg class="icon-sm"  viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"></circle><path d="M12 7.5V12l3 2"></path></svg> Next: {{ nextAction }}</span></sc-if>
+            <sc-if value="{{ noNext }}" hint-placeholder-val="{{ false }}"><span class="warn"><svg class="icon-sm"  viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4 2.5 20h19z"></path><path d="M12 10v4M12 17h.01"></path></svg> No follow-up scheduled</span></sc-if>
+            <div style="position: relative;"><button class="btn btn-ghost icon-btn" onClick="{{ toggleMenu }}"><svg class="icon"  viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="5" cy="12" r="1.6" fill="currentColor"></circle><circle cx="12" cy="12" r="1.6" fill="currentColor"></circle><circle cx="19" cy="12" r="1.6" fill="currentColor"></circle></svg></button>
+              <sc-if value="{{ menuOpen }}" hint-placeholder-val="{{ false }}"><div onClick="{{ toggleMenu }}" style="position: fixed; inset: 0; z-index: 15;"></div><div class="menu"><button class="menu-item"><svg class="icon"  viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4l11-11-4-4L4 16z"></path><path d="m13 7 4 4"></path></svg><span>Edit details</span></button><button class="menu-item"><svg class="icon"  viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12V4h8l9 9-8 8z"></path><circle cx="7.5" cy="8.5" r="1.2"></circle></svg><span>Manage tags</span></button><button class="menu-item danger" onClick="{{ archive }}"><svg class="icon"  viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"></path></svg><span>Archive {{ kindLabel }}</span></button></div></sc-if>
+            </div>
+          </div>
+        </div>
+        <div class="row" style="gap: 8px; margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--border);">
+          <button class="btn btn-secondary btn-sm" onClick="{{ logNote }}"><svg class="icon-sm"  viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4l11-11-4-4L4 16z"></path><path d="m13 7 4 4"></path></svg> Note</button>
+          <button class="btn btn-secondary btn-sm" onClick="{{ logCall }}"><svg class="icon-sm"  viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2"></path></svg> Log call</button>
+          <button class="btn btn-secondary btn-sm" onClick="{{ newTask }}"><svg class="icon-sm"  viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m4 12 3 3 5-6"></path><path d="M13 7h8M13 12h8M13 17h8"></path><path d="m4 18 3 3"></path></svg> Task</button>
+          <button class="btn btn-secondary btn-sm" onClick="{{ newLead }}"><svg class="icon-sm"  viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="5" height="16" rx="1"></rect><rect x="10" y="4" width="5" height="10" rx="1"></rect><rect x="17" y="4" width="4" height="13" rx="1"></rect></svg> Lead</button>
+          <button class="btn btn-secondary btn-sm" onClick="{{ upload }}"><svg class="icon-sm"  viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4m0 0-4 4m4-4 4 4"></path><path d="M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"></path></svg> File</button>
+          <span style="flex: 1;"></span>
+          <span class="xs faint">Text and email arrive with Milestone 3</span>
+        </div>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 3fr 2fr; gap: 20px; align-items: start;">
+        <div>
+          <div class="tabs" style="margin-bottom: 16px;">
+            <button class="{{ tabTimeline }}" onClick="{{ goTimeline }}">Timeline</button>
+            <button class="{{ tabLeads }}" onClick="{{ goLeads }}">Leads · 2</button>
+            <button class="{{ tabTasks }}" onClick="{{ goTasks }}">Tasks · {{ openTasks }}</button>
+            <button class="{{ tabFiles }}" onClick="{{ goFiles }}">Files · {{ fileCount }}</button>
+            <button class="{{ tabDetails }}" onClick="{{ goDetails }}">Details</button>
+          </div>
+
+          <sc-if value="{{ onTimeline }}" hint-placeholder-val="{{ true }}">
+            <div class="card" style="padding: 20px 24px 8px;">
+              <div class="timeline">
+                <sc-for list="{{ entries }}" as="e" hint-placeholder-count="5">
+                  <div class="tl"><span class="{{ e.dotClass }}"></span>
+                    <div class="row between" style="align-items: flex-start;"><span class="small"><strong>{{ e.who }}</strong> {{ e.what }}</span><span class="xs faint" style="white-space: nowrap;">{{ e.when }}</span></div>
+                    <sc-if value="{{ e.hasBody }}" hint-placeholder-val="{{ true }}"><div class="small" style="margin-top: 6px; padding: 10px 12px; background: var(--card-2); border-radius: 8px; color: var(--text);">{{ e.body }}</div></sc-if>
+                    <sc-if value="{{ e.hasPhotos }}" hint-placeholder-val="{{ false }}"><div class="row" style="gap: 8px; margin-top: 8px;"><span class="file-thumb" style="width: 96px; height: 64px; border-radius: 8px;"><svg class="icon"  viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"></rect><circle cx="9" cy="10" r="2"></circle><path d="m21 16-5-5-8 8"></path></svg></span><span class="file-thumb" style="width: 96px; height: 64px; border-radius: 8px;"><svg class="icon"  viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"></rect><circle cx="9" cy="10" r="2"></circle><path d="m21 16-5-5-8 8"></path></svg></span></div></sc-if>
+                  </div>
+                </sc-for>
+              </div>
+              <div class="row" style="justify-content: center; padding: 12px 0 10px;"><button class="btn btn-ghost btn-sm">Show older</button></div>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ onLeads }}" hint-placeholder-val="{{ false }}">
+            <div class="card" style="padding: 0;">
+              <table class="table"><thead><tr><th>Lead</th><th>Stage</th><th>Value</th><th>Next action</th></tr></thead><tbody>
+                <tr class="clickable"><td><span class="strong">Roof replacement</span><br><span class="xs faint">Sales · created Aug 30 · Dale</span></td><td><span class="stage">Estimate sent</span></td><td>$12,500</td><td><span class="warn"><svg class="icon-sm"  viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4 2.5 20h19z"></path><path d="M12 10v4M12 17h.01"></path></svg> None</span></td></tr>
+                <tr class="clickable"><td><span class="strong">Gutter guards</span><br><span class="xs faint">Sales · created Jul 2 · Priya</span></td><td><span class="stage stage-won">Won</span></td><td>$1,850</td><td class="small faint">Won Jul 18</td></tr>
+              </tbody></table>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ onTasks }}" hint-placeholder-val="{{ false }}">
+            <div class="card" style="padding: 8px 24px;">
+              <sc-for list="{{ tasks }}" as="t" hint-placeholder-count="3">
+                <div class="row" style="padding: 12px 0; border-bottom: 1px solid var(--border); gap: 14px;">
+                  <button style="{{ t.dotStyle }}" onClick="{{ t.toggle }}"><sc-if value="{{ t.done }}" hint-placeholder-val="{{ false }}"><svg class="icon-sm" stroke-width="2.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 5 5L20 7"></path></svg></sc-if></button>
+                  <span class="stack" style="flex: 1;"><span style="{{ t.titleStyle }}">{{ t.title }}</span><span class="xs faint">{{ t.who }}</span></span>
+                  <span class="{{ t.dueClass }}">{{ t.due }}</span>
+                </div>
+              </sc-for>
+              <div class="row" style="padding: 12px 0;"><button class="btn btn-secondary btn-sm" onClick="{{ newTask }}"><svg class="icon-sm"  viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"></path></svg> New task</button></div>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ onFiles }}" hint-placeholder-val="{{ false }}">
+            <div class="stack" style="gap: 14px;">
+              <div class="dropzone"><svg class="icon"  viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4m0 0-4 4m4-4 4 4"></path><path d="M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"></path></svg><div class="small strong" style="margin-top: 6px; color: var(--text);">Drop photos or files here</div><div class="xs faint" style="margin-top: 2px;">JPEG, PNG, HEIC, PDF up to 25 MB</div><button class="btn btn-secondary btn-sm" style="margin-top: 10px;" onClick="{{ upload }}">Choose file</button></div>
+              <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px;">
+                <sc-for list="{{ files }}" as="f" hint-placeholder-count="4">
+                  <div class="file-tile"><div class="file-thumb">{{ f.iconName }}</div><div style="padding: 10px;"><div class="small strong" style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ f.name }}</div><div class="xs faint">{{ f.meta }}</div></div></div>
+                </sc-for>
+              </div>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ onDetails }}" hint-placeholder-val="{{ false }}">
+            <div class="card" style="padding: 20px 24px;">
+              <div class="row between" style="margin-bottom: 14px;"><h3 class="h3">Details</h3><button class="btn btn-secondary btn-sm"><svg class="icon-sm"  viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4l11-11-4-4L4 16z"></path><path d="m13 7 4 4"></path></svg> Edit</button></div>
+              <dl class="kv"><dt>Phone</dt><dd>{{ phone }}</dd><dt>Email</dt><dd>{{ email }}</dd><dt>Address</dt><dd>{{ address }}</dd><dt>Company</dt><dd>{{ companyName }}</dd><dt>Owner</dt><dd>Dale Ramsey</dd><dt>Source</dt><dd>Referral · Linda Okafor</dd><dt>Created</dt><dd>Jun 4, 2025 by Priya</dd><dt>Notes</dt><dd style="font-weight: 400;">Prefers texts over calls. Gate code 4471.</dd></dl>
+            </div>
+          </sc-if>
+        </div>
+
+        <div class="stack" style="gap: 16px;">
+          <div class="card" style="padding: 18px 20px;">
+            <div class="row between" style="margin-bottom: 10px;"><h3 class="h3">Open lead</h3><a href="#" class="small">Open pipeline</a></div>
+            <div class="strong">Roof replacement</div>
+            <div class="row" style="gap: 8px; margin: 6px 0 10px;"><span class="stage">Estimate sent</span><span class="small muted">3 days in stage</span></div>
+            <div class="row between small"><span class="muted">Value</span><span class="strong">$12,500</span></div>
+            <div class="row between small" style="margin-top: 6px;"><span class="muted">Assigned to</span><span class="strong">Dale Ramsey</span></div>
+            <div class="divider" style="margin: 12px 0;"></div>
+            <sc-if value="{{ noNext }}" hint-placeholder-val="{{ false }}"><div class="callout callout-warning" style="padding: 10px 12px;"><svg class="icon-sm"  viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4 2.5 20h19z"></path><path d="M12 10v4M12 17h.01"></path></svg><span class="small">No follow-up scheduled. <a href="#" onClick="{{ setNext }}">Set a next action</a></span></div></sc-if>
+            <sc-if value="{{ hasNext }}" hint-placeholder-val="{{ true }}"><div class="row" style="gap: 8px;"><svg class="icon-sm"  viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"></circle><path d="M12 7.5V12l3 2"></path></svg><span class="small"><strong>{{ nextAction }}</strong> · tomorrow 9:00 AM</span></div></sc-if>
+          </div>
+          <div class="card" style="padding: 18px 20px;">
+            <h3 class="h3" style="margin-bottom: 10px;">Relationships</h3>
+            <div class="stack" style="gap: 8px;">
+              <div class="row"><span class="avatar avatar-sm" style="border-radius: 6px; background: var(--card-3); color: var(--text);"><svg class="icon-sm"  viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="18" rx="1"></rect><path d="M9 7h2M13 7h2M9 11h2M13 11h2M9 15h2M13 15h2M10 21v-3h4v3"></path></svg></span><span class="small"><a href="#">ABC Dental</a> · office manager</span></div>
+              <div class="row"><span class="avatar avatar-sm" style="background: #c43335;">LO</span><span class="small"><a href="#">Linda Okafor</a> · referred Mike</span></div>
+            </div>
+            <div class="xs faint" style="margin-top: 10px;">Properties and equipment arrive with jobs in a later milestone.</div>
+          </div>
+        </div>
+      </div>
+
+      <sc-if value="{{ showLog }}" hint-placeholder-val="{{ false }}">
+        <div onClick="{{ closeLog }}" style="position: absolute; inset: 0; background: var(--scrim); z-index: 50;"></div>
+        <div class="sheet">
+          <div class="row between" style="margin-bottom: 4px;"><h2 class="h2">Log activity</h2><button class="btn btn-ghost icon-btn" onClick="{{ closeLog }}"><svg class="icon"  viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6l12 12M18 6 6 18"></path></svg></button></div>
+          <p class="small muted" style="margin-bottom: 16px;">Added to {{ name }}'s timeline and the audit log.</p>
+          <div class="seg" style="margin-bottom: 16px;"><button class="{{ kindNote }}" onClick="{{ pickNote }}">Note</button><button class="{{ kindCall }}" onClick="{{ pickCall }}">Call</button><button class="{{ kindVisit }}" onClick="{{ pickVisit }}">Visit</button></div>
+          <div class="field"><label class="label">{{ bodyLabel }}</label><textarea class="textarea" placeholder="{{ bodyPlaceholder }}" onInput="{{ onBody }}"></textarea></div>
+          <div class="row" style="gap: 12px; align-items: flex-start;"><div class="field" style="flex: 1;"><label class="label">When</label><input class="input" value="Today, 10:24 AM"></div><div class="field" style="flex: 1;"><label class="label">Related lead</label><select class="select"><option>Roof replacement</option><option>None</option></select></div></div>
+          <sc-if value="{{ isCall }}" hint-placeholder-val="{{ false }}"><div class="field"><label class="label">Outcome</label><select class="select"><option>Reached · spoke with them</option><option>Left voicemail</option><option>No answer</option></select></div></sc-if>
+          <div class="field"><label class="row small" style="gap: 8px;"><input type="checkbox" checked> Set a next action from this</label></div>
+          <div class="row" style="justify-content: flex-end; gap: 8px; margin-top: 8px;"><button class="btn btn-ghost" onClick="{{ closeLog }}">Cancel</button><button class="btn btn-primary" onClick="{{ saveLog }}">Save {{ kindLabel }}</button></div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ hasToast }}" hint-placeholder-val="{{ false }}"><div class="toast"><svg class="icon"  viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 5 5L20 7"></path></svg><span>{{ toast }}</span></div></sc-if>
+    </main>
+  </div>
+</div>
+</x-dc>
+<script data-dc-script data-props='{"accent": {"editor": "color", "default": "#2d69d8", "options": ["#2d69d8", "#1950b5", "#6199fd", "#008743"], "section": "Theme"}, "theme": {"editor": "enum", "default": "light", "options": ["light", "dark"], "section": "Theme"}, "$preview": {"width": 1280, "height": 960}}'>
+class Component extends DCLogic {
+  constructor(...args) { super(...args); this.state = { mode: 'person', tab: 'timeline', menu: false, showLog: false, kind: 'note', body: '', added: [], done: {}, next: null, toast: null }; }
+  flash(msg) { clearTimeout(this._t); this.setState({ toast: msg }); this._t = setTimeout(() => this.setState({ toast: null }), 2400); }
+  renderVals() {
+    const isPerson = this.state.mode === 'person';
+    const TAGS = { Residential: '#2d69d8', Referral: '#996300', Commercial: '#7c3aed', 'Maintenance plan': '#008743' };
+    const tag = (n) => ({ name: n, style: 'background: ' + TAGS[n] + ';' });
+    const person = { name: 'Mike Johnson', initials: 'MJ', avatarStyle: 'background: #2d69d8;', phone: '(713) 555-0142', email: 'mike.johnson@gmail.com', address: '123 Main St, Houston, TX 77002', companyName: 'ABC Dental', tags: ['Residential', 'Referral'].map(tag) };
+    const company = { name: 'ABC Dental', initials: 'AD', avatarStyle: 'background: var(--card-3); color: var(--text); border-radius: 12px;', phone: '(713) 555-0110', email: 'office@abcdental.com', address: '4100 Kirby Dr, Houston, TX 77098', companyName: '2 people', tags: ['Commercial'].map(tag) };
+    const rec = isPerson ? person : company;
+    const base = [
+      { kind: 'note', who: 'Priya Natarajan', what: 'added a note', when: 'Today, 9:12 AM', body: 'Mike asked whether the estimate includes hauling away the old shingles. Told him yes; he will talk to his wife tonight.' },
+      { kind: 'sys', who: 'Dale Ramsey', what: 'moved Roof replacement to Estimate sent', when: '3 days ago', body: '' },
+      { kind: 'file', who: 'Marco Villanueva', what: 'uploaded 2 photos', when: '4 days ago', body: '', photos: true },
+      { kind: 'call', who: 'Dale Ramsey', what: 'logged a call · reached', when: 'Sep 5', body: 'Walked the roof together. Two soft spots near the chimney; recommended full replacement over patching.' },
+      { kind: 'sys', who: 'Dale Ramsey', what: 'created the lead Roof replacement · $12,500', when: 'Aug 30', body: '' },
+      { kind: 'sys', who: 'Import', what: 'added Mike from customers.csv on behalf of Priya', when: 'Jun 4', body: '' }
+    ];
+    const entries = [...this.state.added, ...base].map(e => ({ ...e, dotClass: 'tl-dot ' + e.kind, hasBody: !!e.body, hasPhotos: !!e.photos }));
+    const tasksRaw = [ { id: 'a', title: 'Call Mike about the estimate', who: 'Dale · Roof replacement', due: 'Overdue · yesterday', over: true }, { id: 'b', title: 'Send financing options', who: 'Priya', due: 'Fri' }, { id: 'c', title: 'Schedule roof measurement', who: 'Marco', due: 'Done Sep 2', doneAlways: true } ];
+    const tasks = tasksRaw.map(t => { const done = t.doneAlways || !!this.state.done[t.id]; return { ...t, done, dotStyle: 'width: 22px; height: 22px; border-radius: 999px; border: 1.5px solid ' + (done ? 'var(--success)' : 'var(--border-strong)') + '; background: ' + (done ? 'var(--success)' : 'transparent') + '; color: #fff; cursor: pointer; padding: 0; display: flex; align-items: center; justify-content: center;', titleStyle: done ? 'font-weight: 500; color: var(--text-2); text-decoration: line-through;' : 'font-weight: 500;', dueClass: t.over && !done ? 'badge badge-danger' : 'small faint', toggle: () => { if (t.doneAlways) return; this.setState({ done: { ...this.state.done, [t.id]: !done } }); if (!done) this.flash('Task completed'); } }; });
+    const files = [ { name: 'roof-north-side.heic', meta: '2.1 MB · Marco · 4 days ago', iconName: 'IMG' }, { name: 'roof-chimney.heic', meta: '1.8 MB · Marco · 4 days ago', iconName: 'IMG' }, { name: 'estimate-2026-0912.pdf', meta: '340 KB · Dale · 3 days ago', iconName: 'PDF' }, { name: 'signed-proposal.pdf', meta: '512 KB · Mike · Jul 18', iconName: 'PDF' } ];
+    const kind = this.state.kind;
+    const kindLabel = { note: 'note', call: 'call', visit: 'visit' }[kind];
+    const hasNext = !!this.state.next;
+    return {
+      accent: this.props.accent ?? '#2d69d8', theme: this.props.theme ?? 'light',
+      isPerson, personSeg: isPerson ? 'active' : '', companySeg: isPerson ? '' : 'active', showPerson: () => this.setState({ mode: 'person' }), showCompany: () => this.setState({ mode: 'company' }),
+      ...rec, kindLabel: isPerson ? 'person' : 'company',
+      hasNext, noNext: !hasNext, nextAction: this.state.next, setNext: () => { this.setState({ next: 'Call Mike' }); this.flash('Next action set: Call Mike, tomorrow 9:00 AM'); },
+      menuOpen: this.state.menu, toggleMenu: () => this.setState({ menu: !this.state.menu }), archive: () => { this.setState({ menu: false }); this.flash('Archive asks to confirm; open leads block it'); },
+      tabTimeline: this.state.tab === 'timeline' ? 'tab active' : 'tab', tabLeads: this.state.tab === 'leads' ? 'tab active' : 'tab', tabTasks: this.state.tab === 'tasks' ? 'tab active' : 'tab', tabFiles: this.state.tab === 'files' ? 'tab active' : 'tab', tabDetails: this.state.tab === 'details' ? 'tab active' : 'tab',
+      goTimeline: () => this.setState({ tab: 'timeline' }), goLeads: () => this.setState({ tab: 'leads' }), goTasks: () => this.setState({ tab: 'tasks' }), goFiles: () => this.setState({ tab: 'files' }), goDetails: () => this.setState({ tab: 'details' }),
+      onTimeline: this.state.tab === 'timeline', onLeads: this.state.tab === 'leads', onTasks: this.state.tab === 'tasks', onFiles: this.state.tab === 'files', onDetails: this.state.tab === 'details',
+      entries, tasks, openTasks: tasks.filter(t => !t.done).length, files, fileCount: files.length,
+      logNote: () => this.setState({ showLog: true, kind: 'note', body: '' }), logCall: () => this.setState({ showLog: true, kind: 'call', body: '' }), closeLog: () => this.setState({ showLog: false }), showLog: this.state.showLog,
+      kindNote: kind === 'note' ? 'active' : '', kindCall: kind === 'call' ? 'active' : '', kindVisit: kind === 'visit' ? 'active' : '', pickNote: () => this.setState({ kind: 'note' }), pickCall: () => this.setState({ kind: 'call' }), pickVisit: () => this.setState({ kind: 'visit' }), isCall: kind === 'call',
+      bodyLabel: kind === 'note' ? 'Note' : kind === 'call' ? 'What was said' : 'What happened', bodyPlaceholder: kind === 'note' ? 'What do you want to remember?' : 'Summarize it in a sentence or two', onBody: (e) => this.setState({ body: e.target.value }),
+      saveLog: () => { const who = 'Dale Ramsey'; const what = kind === 'note' ? 'added a note' : kind === 'call' ? 'logged a call · reached' : 'logged a visit'; this.setState({ showLog: false, tab: 'timeline', added: [{ kind: kind === 'visit' ? 'call' : kind, who, what, when: 'Just now', body: this.state.body || (kind === 'note' ? 'Spoke to Mike, he is leaning toward the full replacement.' : 'Quick check-in; no changes.') }, ...this.state.added] }); this.flash(kindLabel[0].toUpperCase() + kindLabel.slice(1) + ' saved'); },
+      newTask: () => { this.setState({ tab: 'tasks' }); this.flash('New task dialog opens'); }, newLead: () => this.flash('New lead dialog opens with Mike selected'), upload: () => { this.setState({ tab: 'files' }); this.flash('File picker opens; uploads land on the timeline'); },
+      toast: this.state.toast, hasToast: !!this.state.toast
+    };
+  }
+}
+</script>
+</body>
+</html>

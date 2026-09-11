@@ -1,0 +1,213 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap">
+  <style>
+*{box-sizing:border-box}
+body{margin:0;background:transparent}
+.hf{font-family:"Hanken Grotesk",system-ui,-apple-system,"Segoe UI",Helvetica,Arial,sans-serif;font-size:14px;line-height:1.45;color:var(--text);background:var(--bg);-webkit-font-smoothing:antialiased}
+.hf h1,.hf h2,.hf h3,.hf p{margin:0}.hf h1,.hf h2,.hf h3{text-wrap:pretty}
+.theme-light{--bg:#f9fafd;--card:#ffffff;--card-2:#f2f4f8;--card-3:#e4e8ee;--border:#e4e8ee;--border-strong:#d2d6dd;--text:#191d25;--text-2:#5b616a;--text-3:#676c75;--placeholder:#a0a5ae;--accent-text:var(--accent);--accent-soft:color-mix(in oklab,var(--accent) 10%,#ffffff);--accent-soft-2:color-mix(in oklab,var(--accent) 18%,#ffffff);--accent-hover:color-mix(in oklab,var(--accent) 86%,#000000);--ring:color-mix(in oklab,var(--accent) 28%,transparent);--shadow-1:0 1px 2px rgba(25,29,37,.06),0 1px 3px rgba(25,29,37,.04);--shadow-2:0 8px 24px rgba(25,29,37,.10),0 2px 6px rgba(25,29,37,.06);--shadow-3:0 24px 60px rgba(25,29,37,.22),0 4px 12px rgba(25,29,37,.08);--success:#008743;--success-soft:#e0f7e5;--success-text:#005d2d;--warning:#996300;--warning-soft:#ffedd8;--warning-text:#6b4300;--danger:#c43335;--danger-soft:#ffebe9;--danger-text:#862726;--scrim:rgba(25,29,37,.45);--toast-bg:#191d25;--toast-text:#f2f4f8}
+.theme-dark{--bg:#0f131a;--card:#191d25;--card-2:#20252e;--card-3:#2c3139;--border:#2c3139;--border-strong:#3a4049;--text:#f2f4f8;--text-2:#a0a5ae;--text-3:#8a909a;--placeholder:#5b616a;--accent-text:color-mix(in oklab,var(--accent) 62%,#ffffff);--accent-soft:color-mix(in oklab,var(--accent) 22%,#191d25);--accent-soft-2:color-mix(in oklab,var(--accent) 34%,#191d25);--accent-hover:color-mix(in oklab,var(--accent) 84%,#ffffff);--ring:color-mix(in oklab,var(--accent) 45%,transparent);--shadow-1:0 1px 2px rgba(0,0,0,.45);--shadow-2:0 8px 24px rgba(0,0,0,.55);--shadow-3:0 24px 60px rgba(0,0,0,.65);--success:#3ccf7a;--success-soft:#10291b;--success-text:#7fe0a5;--warning:#f0a93b;--warning-soft:#2d2210;--warning-text:#f5c97a;--danger:#ff7b73;--danger-soft:#301816;--danger-text:#ffaaa3;--scrim:rgba(0,0,0,.6);--toast-bg:#f2f4f8;--toast-text:#191d25}
+.theme-dark .btn-danger,.theme-dark .toast.danger{color:#191d25}
+a{color:var(--accent-text);text-decoration:none}a:hover{color:var(--accent-hover);text-decoration:underline}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:36px;padding:0 14px;border-radius:8px;border:1px solid transparent;font:inherit;font-weight:500;font-size:14px;color:var(--text);background:transparent;cursor:pointer;white-space:nowrap;transition:background .12s,border-color .12s,box-shadow .12s,color .12s}
+.btn:focus-visible{outline:none;box-shadow:0 0 0 3px var(--ring)}
+.btn-primary{background:var(--accent);color:#fff}.btn-primary:hover{background:var(--accent-hover)}
+.btn-secondary{background:var(--card);border-color:var(--border-strong);box-shadow:var(--shadow-1)}.btn-secondary:hover{background:var(--card-2)}
+.btn-ghost{color:var(--text-2)}.btn-ghost:hover{background:var(--card-2);color:var(--text)}
+.btn-danger{background:var(--danger);color:#fff}.btn-danger:hover{filter:brightness(.92)}
+.btn-sm{height:32px;padding:0 10px;font-size:13px}.btn-lg{height:44px;padding:0 18px;font-size:15px;border-radius:10px}.btn:disabled{opacity:.5;cursor:not-allowed}
+.icon-btn{width:32px;height:32px;padding:0;border-radius:8px}
+.input,.select,.textarea{width:100%;height:40px;padding:0 12px;border-radius:8px;border:1px solid var(--border-strong);background:var(--card);color:var(--text);font:inherit;font-size:15px;transition:border-color .12s,box-shadow .12s}
+.textarea{height:auto;min-height:88px;padding:10px 12px;resize:vertical;line-height:1.45}
+.select{appearance:none;background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23777c86' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'><path d='m6 9 6 6 6-6'/></svg>");background-repeat:no-repeat;background-position:right 10px center;padding-right:32px}
+.input::placeholder,.textarea::placeholder{color:var(--placeholder)}.input:focus,.select:focus,.textarea:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--ring)}
+.input-sm,.select-sm{height:34px;font-size:14px}.input-error{border-color:var(--danger)}.select:disabled{opacity:.6;cursor:not-allowed}
+.label{display:block;font-size:13px;font-weight:500;color:var(--text);margin-bottom:6px}
+.hint{font-size:12.5px;color:var(--text-3);margin-top:6px}.err{font-size:12.5px;color:var(--danger-text);margin-top:6px}
+.field{margin-bottom:14px}
+.card{background:var(--card);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow-1)}
+.badge{display:inline-flex;align-items:center;gap:6px;height:22px;padding:0 8px;border-radius:999px;font-size:12px;font-weight:500;border:1px solid transparent;white-space:nowrap}
+.badge-owner{background:var(--accent-soft);color:var(--accent-text)}.badge-admin{background:var(--card-2);color:var(--text);border-color:var(--border)}.badge-member{border-color:var(--border-strong);color:var(--text-2)}
+.badge-pending{background:var(--warning-soft);color:var(--warning-text)}.badge-gray{background:var(--card-2);color:var(--text-2)}.badge-ok{background:var(--success-soft);color:var(--success-text)}.badge-danger{background:var(--danger-soft);color:var(--danger-text)}
+.stage{display:inline-flex;align-items:center;gap:6px;height:22px;padding:0 8px;border-radius:6px;font-size:12px;font-weight:500;white-space:nowrap;background:var(--accent-soft);color:var(--accent-text)}
+.stage-won{background:var(--success-soft);color:var(--success-text)}.stage-lost{background:var(--danger-soft);color:var(--danger-text)}
+.tag{display:inline-flex;align-items:center;gap:6px;height:22px;padding:0 8px;border-radius:999px;font-size:12px;font-weight:500;background:var(--card-2);color:var(--text-2);white-space:nowrap}
+.tag i{width:7px;height:7px;border-radius:999px;display:inline-block}
+.warn{display:inline-flex;align-items:center;gap:6px;color:var(--warning-text);background:var(--warning-soft);border-radius:7px;padding:4px 8px;font-size:12px;font-weight:500;white-space:nowrap}
+.callout{display:flex;gap:10px;align-items:flex-start;padding:12px 14px;border-radius:10px;font-size:13.5px}
+.callout-warning{background:var(--warning-soft);color:var(--warning-text)}.callout-info{background:var(--accent-soft);color:var(--accent-text)}.callout-danger{background:var(--danger-soft);color:var(--danger-text)}
+.mono{font-family:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12.5px}
+.avatar{width:32px;height:32px;border-radius:999px;display:inline-flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;color:#fff;background:var(--accent);flex:none;letter-spacing:.02em}
+.avatar-sm{width:24px;height:24px;font-size:10px}.avatar-lg{width:48px;height:48px;font-size:16px}
+.h1{font-size:24px;font-weight:600;letter-spacing:-.01em;line-height:1.25}.h2{font-size:18px;font-weight:600;letter-spacing:-.005em;line-height:1.3}.h3{font-size:15px;font-weight:600;line-height:1.35}
+.muted{color:var(--text-2)}.faint{color:var(--text-3)}.small{font-size:13px}.xs{font-size:12px}.strong{font-weight:500}
+.shell{display:flex;min-height:832px}
+.sidebar{position:relative;width:240px;flex:none;background:var(--card);border-right:1px solid var(--border);display:flex;flex-direction:column;padding:16px 12px 12px;gap:4px}
+.nav-item{display:flex;align-items:center;gap:10px;height:36px;padding:0 10px;border-radius:8px;color:var(--text-2);font-weight:500;cursor:pointer;background:transparent;border:0;font:inherit;font-size:14px;width:100%;text-align:left}
+.nav-item:hover{background:var(--card-2);color:var(--text)}.nav-item.active{background:var(--accent-soft);color:var(--accent-text)}
+.main{flex:1;min-width:0;padding:32px 40px;position:relative}
+.page-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:24px}
+.table{width:100%;border-collapse:separate;border-spacing:0}
+.table th{text-align:left;font-size:12px;font-weight:500;color:var(--text-3);letter-spacing:.02em;padding:10px 16px;border-bottom:1px solid var(--border);background:var(--card-2)}
+.table td{padding:12px 16px;border-bottom:1px solid var(--border);vertical-align:middle}
+.table tr:last-child td{border-bottom:0}.table tr.clickable{cursor:pointer}.table tr.clickable:hover td{background:var(--card-2)}
+.table th:first-child{border-top-left-radius:12px}.table th:last-child{border-top-right-radius:12px}
+.menu{position:absolute;right:0;top:36px;min-width:220px;background:var(--card);border:1px solid var(--border);border-radius:10px;box-shadow:var(--shadow-2);padding:6px;z-index:20}
+.menu-item{display:flex;align-items:center;gap:10px;width:100%;height:34px;padding:0 10px;border-radius:6px;border:0;background:transparent;font:inherit;font-size:14px;color:var(--text);cursor:pointer;text-align:left}
+.menu-item:hover{background:var(--card-2)}.menu-item.danger{color:var(--danger-text)}.menu-item:disabled{opacity:.5;cursor:not-allowed}
+.scrim{position:absolute;inset:0;background:var(--scrim);display:flex;align-items:center;justify-content:center;z-index:50}
+.dialog{width:480px;background:var(--card);border-radius:14px;box-shadow:var(--shadow-3);border:1px solid var(--border);padding:24px}
+.sheet{position:absolute;top:0;right:0;bottom:0;width:480px;background:var(--card);border-left:1px solid var(--border);box-shadow:var(--shadow-3);z-index:55;padding:24px;overflow:auto}
+.toast{position:absolute;left:50%;bottom:24px;transform:translateX(-50%);background:var(--toast-bg);color:var(--toast-text);padding:10px 14px;border-radius:10px;font-size:13.5px;box-shadow:var(--shadow-2);display:flex;gap:10px;align-items:center;z-index:60;white-space:nowrap}
+.toast.danger{background:var(--danger);color:#fff}
+.radio-card{display:flex;gap:12px;align-items:flex-start;padding:12px 14px;border:1px solid var(--border-strong);border-radius:10px;cursor:pointer;background:var(--card);text-align:left;font:inherit;color:var(--text);width:100%}
+.radio-card.selected{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent);background:var(--accent-soft)}
+.radio-dot{width:16px;height:16px;border-radius:999px;border:1.5px solid var(--border-strong);flex:none;margin-top:2px;display:flex;align-items:center;justify-content:center}
+.radio-card.selected .radio-dot{border-color:var(--accent)}.radio-card.selected .radio-dot::after{content:"";width:8px;height:8px;border-radius:999px;background:var(--accent)}
+.switcher{display:flex;align-items:center;gap:10px;width:100%;height:52px;padding:0 10px;border-radius:10px;border:1px solid var(--border);background:var(--card);font:inherit;color:var(--text);cursor:pointer;text-align:left}
+.icon{width:18px;height:18px;flex:none}.icon-sm{width:14px;height:14px;flex:none}
+.brand{display:flex;align-items:center;gap:10px;font-weight:600;font-size:15px;letter-spacing:-.01em;color:var(--text)}
+.mark{width:28px;height:28px;display:block;flex:none;object-fit:contain}.brand .os{color:var(--accent-text)}
+.row{display:flex;align-items:center;gap:12px}.between{justify-content:space-between}.stack{display:flex;flex-direction:column}.wrap{flex-wrap:wrap}
+.tabs{display:flex;gap:2px;border-bottom:1px solid var(--border);margin-bottom:20px;overflow-x:auto}
+.tab{height:38px;padding:0 12px;border:0;background:transparent;font:inherit;font-size:14px;font-weight:500;color:var(--text-2);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;white-space:nowrap}
+.tab:hover{color:var(--text)}.tab.active{color:var(--accent-text);border-bottom-color:var(--accent)}
+.seg{display:inline-flex;background:var(--card-2);border-radius:8px;padding:3px;gap:2px}
+.seg button{height:28px;padding:0 10px;border:0;border-radius:6px;background:transparent;font:inherit;font-size:13px;font-weight:500;color:var(--text-2);cursor:pointer}
+.seg button.active{background:var(--card);color:var(--text);box-shadow:var(--shadow-1)}
+.search{position:relative}.search .icon{position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--text-3)}.search .input{padding-left:34px}
+.board{display:flex;gap:14px;overflow-x:auto;padding-bottom:12px;align-items:flex-start}
+.col{width:262px;flex:none;background:var(--card-2);border-radius:12px;padding:8px;display:flex;flex-direction:column;gap:8px;min-height:120px}
+.col-head{display:flex;align-items:center;justify-content:space-between;padding:6px 6px 2px}
+.kcard{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:12px;box-shadow:var(--shadow-1);cursor:pointer;text-align:left;font:inherit;color:var(--text);width:100%}
+.kcard:hover{border-color:var(--border-strong)}.kcard.active{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+.grip{color:var(--text-3);opacity:.6}
+.timeline{position:relative;margin-left:8px;border-left:1px solid var(--border)}
+.tl{position:relative;padding:0 0 18px 24px}.tl:last-child{padding-bottom:0}
+.tl-dot{position:absolute;left:-8px;top:2px;width:15px;height:15px;border-radius:999px;border:2px solid var(--card);background:var(--card-3)}
+.tl-dot.note{background:var(--accent)}.tl-dot.call{background:var(--success)}.tl-dot.sys{background:var(--card-3)}.tl-dot.file{background:var(--warning)}
+.file-tile{border:1px solid var(--border);border-radius:10px;overflow:hidden;background:var(--card)}
+.file-thumb{height:104px;background:linear-gradient(135deg,var(--card-3),var(--card-2));display:flex;align-items:center;justify-content:center;color:var(--text-3)}
+.dropzone{border:1.5px dashed var(--border-strong);border-radius:12px;padding:22px;text-align:center;color:var(--text-2);background:var(--card)}
+.empty{padding:44px 24px;text-align:center;color:var(--text-2)}
+.progress{height:8px;border-radius:999px;background:var(--card-2);overflow:hidden}.progress i{display:block;height:100%;background:var(--accent);border-radius:999px;transform-origin:left center;transition:transform .3s}
+.steps{display:flex;gap:6px;align-items:center;margin-bottom:22px}
+.step{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text-3);font-weight:500}.step .n{width:24px;height:24px;border-radius:999px;border:1.5px solid var(--border-strong);display:inline-flex;align-items:center;justify-content:center;font-size:12px}
+.step.active{color:var(--accent-text)}.step.active .n{border-color:var(--accent);background:var(--accent);color:#fff}.step.done{color:var(--success-text)}.step.done .n{border-color:var(--success);background:var(--success);color:#fff}
+.step-line{width:32px;height:1px;background:var(--border)}
+.kv{display:grid;grid-template-columns:130px 1fr;gap:10px 16px;font-size:13.5px}.kv dt{color:var(--text-2)}.kv dd{margin:0;font-weight:500}
+.stat{padding:18px 20px}.stat .num{font-size:26px;font-weight:600;letter-spacing:-.01em;line-height:1.1}.stat .lbl{font-size:13px;color:var(--text-2);margin-top:4px}
+.phone{width:390px;min-height:844px;background:var(--bg);position:relative;overflow:hidden;display:flex;flex-direction:column}
+.topbar{height:56px;flex:none;display:flex;align-items:center;gap:10px;padding:0 12px;background:var(--card);border-bottom:1px solid var(--border)}
+.bottom-nav{position:absolute;left:0;right:0;bottom:0;height:66px;background:var(--card);border-top:1px solid var(--border);display:flex;padding-bottom:6px}
+.bn{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;font-size:11px;font-weight:500;color:var(--text-3);border:0;background:transparent;font-family:inherit;cursor:pointer}
+.bn.active{color:var(--accent-text)}
+.drawer{position:absolute;top:0;left:0;bottom:0;width:300px;background:var(--card);box-shadow:var(--shadow-3);z-index:55;padding:16px 12px;display:flex;flex-direction:column;gap:4px}
+.bottom-sheet{position:absolute;left:0;right:0;bottom:0;background:var(--card);border-radius:16px 16px 0 0;box-shadow:var(--shadow-3);z-index:55;padding:14px 16px 28px}
+.mcard{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px;box-shadow:var(--shadow-1)}
+.touch{min-height:44px}
+.divider{height:1px;background:var(--border)}
+  </style>
+</helmet>
+
+<div class="hf theme-{{ theme }}" style="--accent: {{ accent }}; width: 1280px; min-height: 832px; position: relative; overflow: hidden;">
+
+  <div class="shell">
+    <aside class="sidebar">
+      <div class="brand" style="padding: 4px 10px 14px;"><img class="mark" src="handsfreeos-icon.png" alt=""><span>HandsFree<span class="os">OS</span></span></div>
+      <button class="switcher">
+        <span class="avatar" style="border-radius: 8px; background: var(--accent-soft-2); color: var(--accent-text);">LS</span>
+        <span class="stack" style="min-width: 0; flex: 1;"><span style="font-weight: 600; font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">Lone Star HVAC &amp; Roofing</span><span class="xs faint">Go Biz Help</span></span>
+        <svg class="icon faint"  viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"></path></svg>
+      </button>
+      <div class="search" style="margin-top: 10px;"><svg class="icon"  viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.5-3.5"></path></svg><input class="input input-sm" placeholder="Search customers" style="font-size: 13px; height: 34px;"></div>
+      <nav class="stack" style="gap: 2px; margin-top: 8px;"><button class="nav-item active"><svg class="icon"  viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"></path><path d="M5 9.5V21h14V9.5"></path></svg><span>Home</span></button><button class="nav-item"><svg class="icon"  viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"></circle><path d="M2.5 20a6.5 6.5 0 0 1 13 0"></path><path d="M16 4.5a3.5 3.5 0 0 1 0 7"></path><path d="M17.5 14a6 6 0 0 1 4 5.5"></path></svg><span>Customers</span></button><button class="nav-item"><svg class="icon"  viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="5" height="16" rx="1"></rect><rect x="10" y="4" width="5" height="10" rx="1"></rect><rect x="17" y="4" width="4" height="13" rx="1"></rect></svg><span>Pipeline</span></button><button class="nav-item"><svg class="icon"  viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m4 12 3 3 5-6"></path><path d="M13 7h8M13 12h8M13 17h8"></path><path d="m4 18 3 3"></path></svg><span>Tasks</span></button><button class="nav-item"><svg class="icon"  viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"></circle><path d="M4 21a8 8 0 0 1 16 0"></path></svg><span>Members</span></button><button class="nav-item"><svg class="icon"  viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6h13M8 12h13M8 18h13"></path><path d="M3 6h.01M3 12h.01M3 18h.01"></path></svg><span>Audit log</span></button><button class="nav-item"><svg class="icon"  viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h8M18 6h2M4 12h2M10 12h10M4 18h12M20 18h0"></path><circle cx="14" cy="6" r="2"></circle><circle cx="8" cy="12" r="2"></circle><circle cx="18" cy="18" r="2"></circle></svg><span>Settings</span></button></nav>
+      <div style="flex: 1;"></div>
+      <div class="row" style="padding: 12px 6px 4px; border-top: 1px solid var(--border);">
+        <span class="avatar">DR</span>
+        <span class="stack" style="min-width: 0; flex: 1;"><span style="font-weight: 500; font-size: 13.5px;">Dale Ramsey</span><span class="xs faint" style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">dale@lonestarhvac.test</span></span>
+      </div>
+    </aside>
+    <main class="main">
+      <div class="page-head">
+        <div><h1 class="h1">Good morning, Dale</h1><p class="muted" style="margin-top: 4px;">Lone Star HVAC &amp; Roofing · Thursday, September 11</p></div>
+        <div class="row" style="gap: 8px;"><button class="btn btn-secondary"><svg class="icon"  viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"></path></svg><span>New lead</span></button><button class="btn btn-primary" onClick="{{ addPerson }}"><svg class="icon"  viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"></path></svg><span>Add person</span></button></div>
+      </div>
+
+      <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; margin-bottom: 20px;">
+        <div class="card stat"><div class="num">11</div><div class="lbl">Open leads · $58,400</div></div>
+        <div class="card stat" style="border-color: var(--warning); border-width: 1px;"><div class="num" style="color: var(--warning-text);">3</div><div class="lbl">Leads without a next action</div></div>
+        <div class="card stat"><div class="num">{{ dueToday }}</div><div class="lbl">Tasks due today</div></div>
+        <div class="card stat"><div class="num" style="color: var(--danger-text);">{{ overdue }}</div><div class="lbl">Overdue</div></div>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 3fr 2fr; gap: 20px;">
+        <div class="card" style="padding: 20px 24px;">
+          <div class="row between" style="margin-bottom: 8px;"><h2 class="h2">My tasks</h2><a href="#" class="small strong">All tasks</a></div>
+          <div class="stack">
+            <sc-for list="{{ tasks }}" as="t" hint-placeholder-count="4">
+              <div class="row" style="padding: 12px 0; border-bottom: 1px solid var(--border); gap: 14px;">
+                <button class="{{ t.dotClass }}" style="width: 22px; height: 22px; border-radius: 999px; border: 1.5px solid var(--border-strong); background: transparent; cursor: pointer; padding: 0; color: #fff; display: flex; align-items: center; justify-content: center;" onClick="{{ t.toggle }}"><sc-if value="{{ t.done }}" hint-placeholder-val="{{ false }}"><svg class="icon-sm" stroke-width="2.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 5 5L20 7"></path></svg></sc-if></button>
+                <span class="stack" style="flex: 1; min-width: 0;"><span style="{{ t.titleStyle }}">{{ t.title }}</span><span class="small faint">{{ t.about }}</span></span>
+                <span class="{{ t.dueClass }}">{{ t.due }}</span>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+        <div class="stack" style="gap: 20px;">
+          <div class="card" style="padding: 20px;">
+            <div class="row between" style="margin-bottom: 10px;"><h3 class="h3">Needs a next action</h3><span class="badge badge-pending">3</span></div>
+            <div class="stack" style="gap: 10px;">
+              <div class="row between"><span class="stack"><span class="strong small">Roof replacement · Mike Johnson</span><span class="xs faint">Estimate sent · 3 days</span></span><span class="warn"><svg class="icon-sm"  viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4 2.5 20h19z"></path><path d="M12 10v4M12 17h.01"></path></svg> No follow-up</span></div>
+              <div class="row between"><span class="stack"><span class="strong small">Ductwork repair · ABC Dental</span><span class="xs faint">New · today</span></span><span class="warn"><svg class="icon-sm"  viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4 2.5 20h19z"></path><path d="M12 10v4M12 17h.01"></path></svg> No follow-up</span></div>
+              <div class="row between"><span class="stack"><span class="strong small">Attic insulation · Angela Brooks</span><span class="xs faint">New · today</span></span><span class="warn"><svg class="icon-sm"  viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4 2.5 20h19z"></path><path d="M12 10v4M12 17h.01"></path></svg> No follow-up</span></div>
+            </div>
+          </div>
+          <div class="card" style="padding: 20px;">
+            <h3 class="h3" style="margin-bottom: 10px;">Recent activity</h3>
+            <div class="stack" style="gap: 10px;">
+              <div class="row" style="align-items: flex-start;"><span class="avatar avatar-sm" style="background: #008743;">PN</span><span class="small"><strong>Priya</strong> logged a call with Sarah Alvarez · <span class="faint">10 min ago</span></span></div>
+              <div class="row" style="align-items: flex-start;"><span class="avatar avatar-sm" style="background: var(--card-3); color: var(--text);">S</span><span class="small"><strong>Import</strong> added 42 people from customers.csv · <span class="faint">1 h ago</span></span></div>
+              <div class="row" style="align-items: flex-start;"><span class="avatar avatar-sm" style="background: #7c3aed;">MV</span><span class="small"><strong>Marco</strong> uploaded 2 photos to Linda Okafor · <span class="faint">yesterday</span></span></div>
+              <div class="row" style="align-items: flex-start;"><span class="avatar avatar-sm">DR</span><span class="small"><strong>You</strong> moved Roof replacement to Estimate sent · <span class="faint">3 days ago</span></span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <sc-if value="{{ hasToast }}" hint-placeholder-val="{{ false }}"><div class="toast"><svg class="icon"  viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 5 5L20 7"></path></svg><span>{{ toast }}</span></div></sc-if>
+    </main>
+  </div>
+</div>
+</x-dc>
+<script data-dc-script data-props='{"accent": {"editor": "color", "default": "#2d69d8", "options": ["#2d69d8", "#1950b5", "#6199fd", "#008743"], "section": "Theme"}, "theme": {"editor": "enum", "default": "light", "options": ["light", "dark"], "section": "Theme"}, "$preview": {"width": 1280, "height": 832}}'>
+class Component extends DCLogic {
+  constructor(...args) { super(...args); this.state = { done: {}, toast: null }; }
+  flash(msg) { clearTimeout(this._t); this.setState({ toast: msg }); this._t = setTimeout(() => this.setState({ toast: null }), 2400); }
+  renderVals() {
+    const raw = [
+      { id: 't1', title: 'Call Mike Johnson about the estimate', about: 'Roof replacement · Estimate sent', due: 'Overdue · yesterday', over: true },
+      { id: 't2', title: 'Send maintenance plan renewal to Sarah Alvarez', about: 'Sarah Alvarez', due: 'Today 2:00 PM' },
+      { id: 't3', title: 'Site visit at Riverside Apartments, building C', about: 'Riverside Apartments · Maria Santos', due: 'Today 4:30 PM' },
+      { id: 't4', title: 'Follow up on ABC Dental ductwork quote', about: 'Ductwork repair · ABC Dental', due: 'Tomorrow' }
+    ];
+    const tasks = raw.map(t => { const done = !!this.state.done[t.id]; return { ...t, done,
+      dotClass: done ? 'done' : '', titleStyle: done ? 'font-weight: 500; color: var(--text-2); text-decoration: line-through;' : 'font-weight: 500;',
+      dueClass: t.over && !done ? 'badge badge-danger' : 'small faint',
+      toggle: () => { this.setState({ done: { ...this.state.done, [t.id]: !done } }); if (!done) this.flash('Task completed'); } }; });
+    const open = tasks.filter(t => !t.done);
+    return { accent: this.props.accent ?? '#2d69d8', theme: this.props.theme ?? 'light', tasks,
+      dueToday: open.filter(t => /Today/.test(t.due)).length, overdue: open.filter(t => t.over).length,
+      addPerson: () => this.flash('Opens Add person'), toast: this.state.toast, hasToast: !!this.state.toast };
+  }
+}
+</script>
+</body>
+</html>
