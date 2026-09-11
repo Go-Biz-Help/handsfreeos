@@ -1,0 +1,156 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap">
+  <style>
+*{box-sizing:border-box}
+body{margin:0;background:transparent}
+.hf{font-family:"Hanken Grotesk",system-ui,-apple-system,"Segoe UI",Helvetica,Arial,sans-serif;font-size:14px;line-height:1.45;color:var(--text);background:var(--bg);-webkit-font-smoothing:antialiased}
+.hf h1,.hf h2,.hf h3,.hf p{margin:0}.hf h1,.hf h2,.hf h3{text-wrap:pretty}
+.theme-light{--bg:#f9fafd;--card:#ffffff;--card-2:#f2f4f8;--card-3:#e4e8ee;--border:#e4e8ee;--border-strong:#d2d6dd;--text:#191d25;--text-2:#5b616a;--text-3:#676c75;--placeholder:#a0a5ae;--accent-text:var(--accent);--accent-soft:color-mix(in oklab,var(--accent) 10%,#ffffff);--accent-soft-2:color-mix(in oklab,var(--accent) 18%,#ffffff);--accent-hover:color-mix(in oklab,var(--accent) 86%,#000000);--ring:color-mix(in oklab,var(--accent) 28%,transparent);--shadow-1:0 1px 2px rgba(25,29,37,.06),0 1px 3px rgba(25,29,37,.04);--shadow-2:0 8px 24px rgba(25,29,37,.10),0 2px 6px rgba(25,29,37,.06);--shadow-3:0 24px 60px rgba(25,29,37,.22),0 4px 12px rgba(25,29,37,.08);--success:#008743;--success-soft:#e0f7e5;--success-text:#005d2d;--warning:#996300;--warning-soft:#ffedd8;--warning-text:#6b4300;--danger:#c43335;--danger-soft:#ffebe9;--danger-text:#862726;--scrim:rgba(25,29,37,.45);--toast-bg:#191d25;--toast-text:#f2f4f8}
+.theme-dark{--bg:#0f131a;--card:#191d25;--card-2:#20252e;--card-3:#2c3139;--border:#2c3139;--border-strong:#3a4049;--text:#f2f4f8;--text-2:#a0a5ae;--text-3:#8a909a;--placeholder:#5b616a;--accent-text:color-mix(in oklab,var(--accent) 62%,#ffffff);--accent-soft:color-mix(in oklab,var(--accent) 22%,#191d25);--accent-soft-2:color-mix(in oklab,var(--accent) 34%,#191d25);--accent-hover:color-mix(in oklab,var(--accent) 84%,#ffffff);--ring:color-mix(in oklab,var(--accent) 45%,transparent);--shadow-1:0 1px 2px rgba(0,0,0,.45);--shadow-2:0 8px 24px rgba(0,0,0,.55);--shadow-3:0 24px 60px rgba(0,0,0,.65);--success:#3ccf7a;--success-soft:#10291b;--success-text:#7fe0a5;--warning:#f0a93b;--warning-soft:#2d2210;--warning-text:#f5c97a;--danger:#ff7b73;--danger-soft:#301816;--danger-text:#ffaaa3;--scrim:rgba(0,0,0,.6);--toast-bg:#f2f4f8;--toast-text:#191d25}
+a{color:var(--accent-text);text-decoration:none}a:hover{color:var(--accent-hover);text-decoration:underline}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:36px;padding:0 14px;border-radius:8px;border:1px solid transparent;font:inherit;font-weight:500;font-size:14px;color:var(--text);background:transparent;cursor:pointer;white-space:nowrap;transition:background .12s,border-color .12s,box-shadow .12s,color .12s}
+.btn:focus-visible{outline:none;box-shadow:0 0 0 3px var(--ring)}
+.btn-primary{background:var(--accent);color:#fff}.btn-primary:hover{background:var(--accent-hover)}
+.btn-secondary{background:var(--card);border-color:var(--border-strong);box-shadow:var(--shadow-1)}.btn-secondary:hover{background:var(--card-2)}
+.btn-ghost{color:var(--text-2)}.btn-ghost:hover{background:var(--card-2);color:var(--text)}
+.btn-lg{height:44px;padding:0 18px;font-size:15px;border-radius:10px}.btn-block{width:100%}.btn:disabled{opacity:.5;cursor:not-allowed}
+.input{width:100%;height:44px;padding:0 14px;border-radius:10px;border:1px solid var(--border-strong);background:var(--card);color:var(--text);font:inherit;font-size:15px;transition:border-color .12s,box-shadow .12s}
+.input::placeholder{color:var(--placeholder)}.input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--ring)}
+.input-error{border-color:var(--danger)}
+.label{display:block;font-size:13px;font-weight:500;color:var(--text);margin-bottom:6px}
+.err{font-size:12.5px;color:var(--danger-text);margin-top:6px}
+.card{background:var(--card);border:1px solid var(--border);border-radius:14px;box-shadow:var(--shadow-1)}
+.h1{font-size:26px;font-weight:600;letter-spacing:-.015em;line-height:1.2}
+.muted{color:var(--text-2)}.faint{color:var(--text-3)}.small{font-size:13px}.xs{font-size:12px}
+.auth{min-height:832px;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:48px 24px;gap:24px;background:radial-gradient(70% 45% at 50% 0%,color-mix(in oklab,var(--accent) 9%,transparent),transparent 75%)}
+.brand{display:flex;align-items:center;gap:10px;font-weight:600;font-size:16px;letter-spacing:-.01em;color:var(--text)}
+.mark{width:32px;height:32px;border-radius:9px;background:var(--accent);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;letter-spacing:-.02em}
+.row{display:flex;align-items:center;gap:12px}.between{justify-content:space-between}.stack{display:flex;flex-direction:column}
+.icon{width:18px;height:18px;flex:none}
+.divider{display:flex;align-items:center;gap:12px;color:var(--text-3);font-size:12.5px}.divider::before,.divider::after{content:"";flex:1;height:1px;background:var(--border)}
+.scrim{position:absolute;inset:0;background:var(--scrim);display:flex;align-items:center;justify-content:center;z-index:50}
+.sheet{width:360px;background:var(--card);border-radius:18px;box-shadow:var(--shadow-3);padding:28px 24px 20px;text-align:center}
+.pulse{animation:pulse 1.2s ease-in-out infinite}@keyframes pulse{0%,100%{opacity:1}50%{opacity:.45}}
+  </style>
+</helmet>
+
+<div class="hf theme-{{ theme }}" style="--accent: {{ accent }}; width: 1280px; min-height: 832px; position: relative; overflow: hidden;">
+  <div class="auth">
+    <div class="brand"><div class="mark">hf</div><span>HandsFreeOS</span></div>
+
+    <sc-if value="{{ showForm }}" hint-placeholder-val="{{ true }}">
+      <div class="card" style="width: 440px; padding: 36px;">
+        <h1 class="h1">Welcome back</h1>
+        <p class="muted" style="margin-top: 6px;">Sign in to your workspaces.</p>
+
+        <div class="stack" style="gap: 10px; margin-top: 24px;">
+          <button class="btn btn-secondary btn-lg btn-block" onClick="{{ passkey }}">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="15" r="4"></circle><path d="m10.8 12.2 9.2-9.2M15 6l3 3"></path></svg>
+            <span>Sign in with a passkey</span>
+          </button>
+          <button class="btn btn-secondary btn-lg btn-block" onClick="{{ google }}">
+            <svg class="icon" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9 3.5l6.7-6.7C35.6 2.6 30.2 0 24 0 14.6 0 6.5 5.4 2.6 13.3l7.8 6C12.3 13.6 17.7 9.5 24 9.5z"></path><path fill="#4285F4" d="M46.5 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.7c-.6 3-2.3 5.5-4.8 7.2l7.5 5.8c4.4-4.1 7.1-10.1 7.1-17.5z"></path><path fill="#FBBC05" d="M10.4 28.7A14.5 14.5 0 0 1 9.5 24c0-1.6.3-3.2.8-4.7l-7.8-6A24 24 0 0 0 0 24c0 3.9.9 7.5 2.6 10.7l7.8-6z"></path><path fill="#34A853" d="M24 48c6.5 0 11.9-2.1 15.9-5.8l-7.5-5.8c-2.1 1.4-4.9 2.3-8.4 2.3-6.3 0-11.7-4.1-13.6-9.9l-7.8 6C6.5 42.6 14.6 48 24 48z"></path></svg>
+            <span>Continue with Google</span>
+          </button>
+        </div>
+
+        <div class="divider" style="margin: 20px 0;">or with email</div>
+
+        <div class="stack" style="gap: 16px;">
+          <div>
+            <label class="label">Email</label>
+            <input class="{{ emailClass }}" type="email" placeholder="you@company.com" onInput="{{ onEmail }}" autocomplete="email">
+          </div>
+          <div>
+            <div class="row between" style="margin-bottom: 6px;"><label class="label" style="margin: 0;">Password</label><a href="#" class="small" onClick="{{ forgot }}">Forgot password?</a></div>
+            <input class="{{ pwClass }}" type="password" placeholder="Your password" onInput="{{ onPw }}" autocomplete="current-password">
+            <sc-if value="{{ hasError }}" hint-placeholder-val="{{ false }}"><div class="err">{{ error }}</div></sc-if>
+            <sc-if value="{{ hasNotice }}" hint-placeholder-val="{{ false }}"><div class="small" style="margin-top: 6px; color: var(--success-text);">{{ notice }}</div></sc-if>
+          </div>
+          <button class="btn btn-primary btn-lg btn-block" onClick="{{ submit }}" style="margin-top: 4px;">Continue</button>
+        </div>
+      </div>
+      <p class="small muted">New to HandsFreeOS? <a href="#" style="font-weight: 500;">Create an account</a></p>
+    </sc-if>
+
+    <sc-if value="{{ showDone }}" hint-placeholder-val="{{ false }}">
+      <div class="card" style="width: 440px; padding: 36px; text-align: center;">
+        <div style="width: 52px; height: 52px; border-radius: 999px; background: var(--success-soft); color: var(--success-text); display: flex; align-items: center; justify-content: center; margin: 0 auto 18px;">
+          <svg style="width: 24px; height: 24px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 5 5L20 7"></path></svg>
+        </div>
+        <h1 class="h1" style="font-size: 22px;">Signed in</h1>
+        <p class="muted" style="margin-top: 8px;">{{ doneDetail }}</p>
+        <p class="small faint" style="margin-top: 16px;">Opening Lone Star HVAC &amp; Roofing</p>
+        <button class="btn btn-ghost" onClick="{{ reset }}" style="margin-top: 20px;">Start over</button>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ showPasskey }}" hint-placeholder-val="{{ false }}">
+      <div class="scrim">
+        <div class="sheet">
+          <div class="pulse" style="width: 56px; height: 56px; border-radius: 999px; background: var(--accent-soft); color: var(--accent-text); display: flex; align-items: center; justify-content: center; margin: 0 auto 16px;">
+            <svg style="width: 28px; height: 28px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M7 12a5 5 0 0 1 10 0c0 3-1 5-2 7"></path><path d="M9.5 12a2.5 2.5 0 0 1 5 0c0 3-.5 5-1.5 7"></path><path d="M12 12v3"></path><path d="M5 9a8 8 0 0 1 14 0"></path><path d="M4.5 14c0 2 .5 4 1.5 6"></path></svg>
+          </div>
+          <div style="font-weight: 600; font-size: 16px;">Touch ID</div>
+          <p class="muted small" style="margin-top: 6px;">Use your passkey for <strong style="font-weight: 500; color: var(--text);">handsfreeos.com</strong></p>
+          <p class="xs faint" style="margin-top: 14px;">This prompt comes from your device, not from HandsFreeOS.</p>
+          <button class="btn btn-ghost btn-block" onClick="{{ cancelPasskey }}" style="margin-top: 14px;">Cancel</button>
+        </div>
+      </div>
+    </sc-if>
+  </div>
+</div>
+</x-dc>
+<script data-dc-script data-props='{"accent":{"editor":"color","default":"#2d69d8","options":["#2d69d8","#1950b5","#6199fd","#008743"],"section":"Theme"},"theme":{"editor":"enum","default":"light","options":["light","dark"],"section":"Theme"},"$preview":{"width":1280,"height":832}}'>
+class Component extends DCLogic {
+  constructor(...args) {
+    super(...args);
+    this.state = { email: '', pw: '', error: null, notice: null, phase: 'form', method: null };
+  }
+  componentWillUnmount() { clearTimeout(this._t); }
+  renderVals() {
+    const st = this.state;
+    const detail = { passkey: 'Verified with your passkey. No password needed.', google: 'Signed in with Google as chris@gobizhelp.com.', password: 'Signed in as ' + (st.email || 'chris@gobizhelp.com') + '.' }[st.method] || '';
+    return {
+      accent: this.props.accent ?? '#2d69d8',
+      theme: this.props.theme ?? 'light',
+      showForm: st.phase === 'form',
+      showDone: st.phase === 'done',
+      showPasskey: st.phase === 'passkey',
+      doneDetail: detail,
+      onEmail: (e) => this.setState({ email: e.target.value, error: null }),
+      onPw: (e) => this.setState({ pw: e.target.value, error: null }),
+      emailClass: 'input' + (st.error && !st.email ? ' input-error' : ''),
+      pwClass: 'input' + (st.error && !st.pw ? ' input-error' : ''),
+      error: st.error,
+      hasError: !!st.error,
+      notice: st.notice,
+      hasNotice: !!st.notice,
+      submit: () => {
+        if (!st.email.trim() || !st.pw) { this.setState({ error: 'Enter your email and password.' }); return; }
+        if (st.pw.length < 12) { this.setState({ error: 'That password does not match. Try again or use a passkey.' }); return; }
+        this.setState({ phase: 'done', method: 'password' });
+      },
+      google: () => this.setState({ phase: 'done', method: 'google' }),
+      passkey: () => {
+        this.setState({ phase: 'passkey' });
+        clearTimeout(this._t);
+        this._t = setTimeout(() => { if (this.state.phase === 'passkey') this.setState({ phase: 'done', method: 'passkey' }); }, 1600);
+      },
+      cancelPasskey: () => { clearTimeout(this._t); this.setState({ phase: 'form' }); },
+      forgot: (e) => { e.preventDefault(); this.setState({ notice: 'Password reset email sent to ' + (st.email || 'your address') + '. Check your inbox.', error: null }); },
+      reset: () => this.setState({ phase: 'form', method: null, pw: '', error: null, notice: null })
+    };
+  }
+}
+</script>
+</body>
+</html>

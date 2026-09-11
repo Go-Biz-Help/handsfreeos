@@ -1,0 +1,216 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap">
+  <style>
+*{box-sizing:border-box}
+body{margin:0;background:transparent}
+.hf{font-family:"Hanken Grotesk",system-ui,-apple-system,"Segoe UI",Helvetica,Arial,sans-serif;font-size:14px;line-height:1.45;color:var(--text);background:var(--bg);-webkit-font-smoothing:antialiased}
+.hf h1,.hf h2,.hf h3,.hf p{margin:0}.hf h1,.hf h2,.hf h3{text-wrap:pretty}
+.theme-light{--bg:#f9fafd;--card:#ffffff;--card-2:#f2f4f8;--card-3:#e4e8ee;--border:#e4e8ee;--border-strong:#d2d6dd;--text:#191d25;--text-2:#5b616a;--text-3:#676c75;--placeholder:#a0a5ae;--accent-text:var(--accent);--accent-soft:color-mix(in oklab,var(--accent) 10%,#ffffff);--accent-soft-2:color-mix(in oklab,var(--accent) 18%,#ffffff);--accent-hover:color-mix(in oklab,var(--accent) 86%,#000000);--ring:color-mix(in oklab,var(--accent) 28%,transparent);--shadow-1:0 1px 2px rgba(25,29,37,.06),0 1px 3px rgba(25,29,37,.04);--shadow-2:0 8px 24px rgba(25,29,37,.10),0 2px 6px rgba(25,29,37,.06);--shadow-3:0 24px 60px rgba(25,29,37,.22),0 4px 12px rgba(25,29,37,.08);--success:#008743;--success-soft:#e0f7e5;--success-text:#005d2d;--warning:#996300;--warning-soft:#ffedd8;--warning-text:#6b4300;--danger:#c43335;--danger-soft:#ffebe9;--danger-text:#862726;--scrim:rgba(25,29,37,.45);--toast-bg:#191d25;--toast-text:#f2f4f8}
+.theme-dark{--bg:#0f131a;--card:#191d25;--card-2:#20252e;--card-3:#2c3139;--border:#2c3139;--border-strong:#3a4049;--text:#f2f4f8;--text-2:#a0a5ae;--text-3:#8a909a;--placeholder:#5b616a;--accent-text:color-mix(in oklab,var(--accent) 62%,#ffffff);--accent-soft:color-mix(in oklab,var(--accent) 22%,#191d25);--accent-soft-2:color-mix(in oklab,var(--accent) 34%,#191d25);--accent-hover:color-mix(in oklab,var(--accent) 84%,#ffffff);--ring:color-mix(in oklab,var(--accent) 45%,transparent);--shadow-1:0 1px 2px rgba(0,0,0,.45);--shadow-2:0 8px 24px rgba(0,0,0,.55);--shadow-3:0 24px 60px rgba(0,0,0,.65);--success:#3ccf7a;--success-soft:#10291b;--success-text:#7fe0a5;--warning:#f0a93b;--warning-soft:#2d2210;--warning-text:#f5c97a;--danger:#ff7b73;--danger-soft:#301816;--danger-text:#ffaaa3;--scrim:rgba(0,0,0,.6);--toast-bg:#f2f4f8;--toast-text:#191d25}
+.theme-dark .btn-danger,.theme-dark .toast.danger{color:#191d25}
+a{color:var(--accent-text);text-decoration:none}a:hover{color:var(--accent-hover);text-decoration:underline}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:36px;padding:0 14px;border-radius:8px;border:1px solid transparent;font:inherit;font-weight:500;font-size:14px;color:var(--text);background:transparent;cursor:pointer;white-space:nowrap}
+.btn-primary{background:var(--accent);color:#fff}.btn-secondary{background:var(--card);border-color:var(--border-strong);box-shadow:var(--shadow-1)}.btn-ghost{color:var(--text-2)}.btn-danger{background:var(--danger);color:#fff}
+.btn-sm{height:32px;padding:0 10px;font-size:13px}.btn-lg{height:44px;padding:0 18px;font-size:15px;border-radius:10px}.btn:disabled{opacity:.5;cursor:not-allowed}
+.focus{box-shadow:0 0 0 3px var(--ring)}
+.input{width:100%;height:40px;padding:0 12px;border-radius:8px;border:1px solid var(--border-strong);background:var(--card);color:var(--text);font:inherit;font-size:15px}
+.input::placeholder{color:var(--placeholder)}.input.focused{border-color:var(--accent);box-shadow:0 0 0 3px var(--ring)}.input-error{border-color:var(--danger)}.input:disabled{background:var(--card-2);color:var(--text-2)}
+.label{display:block;font-size:13px;font-weight:500;color:var(--text);margin-bottom:6px}.hint{font-size:12.5px;color:var(--text-3);margin-top:6px}.err{font-size:12.5px;color:var(--danger-text);margin-top:6px}
+.card{background:var(--card);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow-1)}
+.badge{display:inline-flex;align-items:center;gap:6px;height:22px;padding:0 8px;border-radius:999px;font-size:12px;font-weight:500;border:1px solid transparent;white-space:nowrap}
+.badge-owner{background:var(--accent-soft);color:var(--accent-text)}.badge-admin{background:var(--card-2);color:var(--text);border-color:var(--border)}.badge-member{border-color:var(--border-strong);color:var(--text-2)}
+.badge-pending{background:var(--warning-soft);color:var(--warning-text)}.badge-revoked{background:var(--danger-soft);color:var(--danger-text)}.badge-ok{background:var(--success-soft);color:var(--success-text)}.badge-gray{background:var(--card-2);color:var(--text-2)}
+.mono{font-family:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12.5px}
+.h1{font-size:26px;font-weight:600;letter-spacing:-.015em;line-height:1.2}.h2{font-size:18px;font-weight:600;letter-spacing:-.005em;line-height:1.3}.h3{font-size:15px;font-weight:600;line-height:1.35}
+.muted{color:var(--text-2)}.faint{color:var(--text-3)}.small{font-size:13px}.xs{font-size:12px}
+.row{display:flex;align-items:center;gap:12px}.between{justify-content:space-between}.stack{display:flex;flex-direction:column}
+.section{margin-top:40px}.section-title{display:flex;align-items:baseline;gap:12px;margin-bottom:16px}.section-title .h2{min-width:160px}
+.sw{display:flex;flex-direction:column;gap:6px;min-width:0}.sw i{display:block;height:44px;border-radius:8px;border:1px solid rgba(0,0,0,.06)}.sw b{font-weight:500;font-size:12px}.sw span{font-size:11px;color:var(--text-3)}
+.type-row{display:grid;grid-template-columns:160px 1fr;gap:16px;align-items:baseline;padding:10px 0;border-bottom:1px solid var(--border)}
+.chip{display:inline-flex;align-items:center;gap:8px;height:28px;padding:0 10px;border-radius:999px;border:1px solid var(--border);background:var(--card);font-size:13px}
+.dot{width:10px;height:10px;border-radius:999px;display:inline-block}
+.surface{border-radius:12px;padding:20px;border:1px solid var(--border);background:var(--bg);color:var(--text)}
+.kv{display:grid;grid-template-columns:1fr auto;gap:8px 16px;font-size:13px}
+  </style>
+</helmet>
+
+<div class="hf theme-{{ theme }}" style="--accent: {{ accent }}; width: 1280px; min-height: 2360px; position: relative; overflow: hidden; padding: 40px 48px 56px;">
+  <div class="row between" style="align-items: flex-start;">
+    <div>
+      <h1 class="h1">HandsFreeOS design foundations</h1>
+      <p class="muted" style="margin-top: 6px; max-width: 640px;">Clean and airy. One accent color carries every action; everything else stays quiet so the owner's attention lands on what needs doing. Tokens are named as they will exist in the codebase.</p>
+    </div>
+    <div class="row" style="gap: 8px; flex-wrap: wrap; justify-content: flex-end; max-width: 460px;">
+      <span class="chip"><span class="dot" style="background: var(--accent);"></span><span class="mono">{{ accent }}</span></span>
+      <span class="chip">Hanken Grotesk</span>
+      <span class="chip mono">JetBrains Mono</span>
+      <span class="chip">8 / 12 px radii</span>
+      <span class="chip">36 px controls</span>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title"><h2 class="h2">Brand scale</h2><span class="small faint">Derived from the accent in OKLCH at a constant hue (261°). 600 is the accent itself; hover mixes the accent 14% toward black (close to 700); 50 to 100 are tints for selected states and badges.</span></div>
+    <div style="display: grid; grid-template-columns: repeat(11, minmax(0, 1fr)); gap: 10px;">
+      <div class="sw"><i style="background: #f2f7ff;"></i><b>brand-50</b><span class="mono">#f2f7ff</span></div>
+      <div class="sw"><i style="background: #e3edff;"></i><b>brand-100</b><span class="mono">#e3edff</span></div>
+      <div class="sw"><i style="background: #c7dcff;"></i><b>brand-200</b><span class="mono">#c7dcff</span></div>
+      <div class="sw"><i style="background: #9fc2ff;"></i><b>brand-300</b><span class="mono">#9fc2ff</span></div>
+      <div class="sw"><i style="background: #6199fd;"></i><b>brand-400</b><span class="mono">#6199fd</span></div>
+      <div class="sw"><i style="background: #3c7aed;"></i><b>brand-500</b><span class="mono">#3c7aed</span></div>
+      <div class="sw"><i style="background: #2d69d8; outline: 2px solid var(--text); outline-offset: 2px;"></i><b>brand-600 · accent</b><span class="mono">#2d69d8</span></div>
+      <div class="sw"><i style="background: #1950b5;"></i><b>brand-700 · ≈ hover</b><span class="mono">#1950b5</span></div>
+      <div class="sw"><i style="background: #143f8e;"></i><b>brand-800</b><span class="mono">#143f8e</span></div>
+      <div class="sw"><i style="background: #11316d;"></i><b>brand-900</b><span class="mono">#11316d</span></div>
+      <div class="sw"><i style="background: #0a1f47;"></i><b>brand-950</b><span class="mono">#0a1f47</span></div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title"><h2 class="h2">Neutrals</h2><span class="small faint">Cool grays tinted toward the accent hue at very low chroma, so surfaces and text feel like one family.</span></div>
+    <div style="display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 10px;">
+      <div class="sw"><i style="background: #ffffff;"></i><b>gray-0</b><span class="mono">#ffffff</span></div>
+      <div class="sw"><i style="background: #f9fafd;"></i><b>gray-50 · page</b><span class="mono">#f9fafd</span></div>
+      <div class="sw"><i style="background: #f2f4f8;"></i><b>gray-100</b><span class="mono">#f2f4f8</span></div>
+      <div class="sw"><i style="background: #e4e8ee;"></i><b>gray-200 · border</b><span class="mono">#e4e8ee</span></div>
+      <div class="sw"><i style="background: #d2d6dd;"></i><b>gray-300</b><span class="mono">#d2d6dd</span></div>
+      <div class="sw"><i style="background: #a0a5ae;"></i><b>gray-400</b><span class="mono">#a0a5ae</span></div>
+      <div class="sw"><i style="background: #777c86;"></i><b>gray-500</b><span class="mono">#777c86</span></div>
+      <div class="sw"><i style="background: #5b616a;"></i><b>gray-600 · text-2</b><span class="mono">#5b616a</span></div>
+      <div class="sw"><i style="background: #464b53;"></i><b>gray-700</b><span class="mono">#464b53</span></div>
+      <div class="sw"><i style="background: #2c3139;"></i><b>gray-800</b><span class="mono">#2c3139</span></div>
+      <div class="sw"><i style="background: #191d25;"></i><b>gray-900 · text</b><span class="mono">#191d25</span></div>
+      <div class="sw"><i style="background: #090d14;"></i><b>gray-950</b><span class="mono">#090d14</span></div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title"><h2 class="h2">Semantic</h2><span class="small faint">Same lightness and chroma as the accent, different hue. Each has a solid, a soft tint for badges and alerts, and a text color that passes AA on the tint.</span></div>
+    <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 20px;">
+      <div class="card" style="padding: 14px;"><div class="row between" style="margin-bottom: 10px;"><span class="h3">Info</span><span class="badge badge-owner">Owner</span></div><div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px;"><div class="sw"><i style="background: #2d69d8;"></i><span class="mono">#2d69d8</span></div><div class="sw"><i style="background: #e8f1ff;"></i><span class="mono">#e8f1ff</span></div><div class="sw"><i style="background: #214993;"></i><span class="mono">#214993</span></div></div></div>
+      <div class="card" style="padding: 14px;"><div class="row between" style="margin-bottom: 10px;"><span class="h3">Success</span><span class="badge badge-ok">Verified</span></div><div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px;"><div class="sw"><i style="background: #008743;"></i><span class="mono">#008743</span></div><div class="sw"><i style="background: #e0f7e5;"></i><span class="mono">#e0f7e5</span></div><div class="sw"><i style="background: #005d2d;"></i><span class="mono">#005d2d</span></div></div></div>
+      <div class="card" style="padding: 14px;"><div class="row between" style="margin-bottom: 10px;"><span class="h3">Warning</span><span class="badge badge-pending">Pending</span></div><div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px;"><div class="sw"><i style="background: #996300;"></i><span class="mono">#996300</span></div><div class="sw"><i style="background: #ffedd8;"></i><span class="mono">#ffedd8</span></div><div class="sw"><i style="background: #6b4300;"></i><span class="mono">#6b4300</span></div></div></div>
+      <div class="card" style="padding: 14px;"><div class="row between" style="margin-bottom: 10px;"><span class="h3">Danger</span><span class="badge badge-revoked">Revoked</span></div><div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px;"><div class="sw"><i style="background: #c43335;"></i><span class="mono">#c43335</span></div><div class="sw"><i style="background: #ffebe9;"></i><span class="mono">#ffebe9</span></div><div class="sw"><i style="background: #862726;"></i><span class="mono">#862726</span></div></div></div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title"><h2 class="h2">Surfaces</h2><span class="small faint">Both themes ship in Milestone 1. The same variable names resolve to different values: <span class="mono">.theme-dark</span> in this prototype, <span class="mono">data-theme="dark"</span> in the app.</span></div>
+    <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px;">
+      <div class="theme-light surface">
+        <div class="row between" style="margin-bottom: 14px;"><span class="h3">Light</span><span class="badge badge-gray">default</span></div>
+        <div class="card" style="padding: 16px;">
+          <div class="kv">
+            <span>Page background <span class="mono faint">--bg</span></span><span class="mono">#f9fafd</span>
+            <span>Card <span class="mono faint">--card</span></span><span class="mono">#ffffff</span>
+            <span>Raised / hover <span class="mono faint">--card-2</span></span><span class="mono">#f2f4f8</span>
+            <span>Border <span class="mono faint">--border</span></span><span class="mono">#e4e8ee</span>
+            <span>Text <span class="mono faint">--text</span></span><span class="mono">#191d25</span>
+            <span>Secondary text <span class="mono faint">--text-2</span></span><span class="mono">#5b616a</span>
+            <span>Accent text / links <span class="mono faint">--accent-text</span></span><span class="mono">= accent</span>
+          </div>
+          <div class="row" style="gap: 8px; margin-top: 14px;"><button class="btn btn-primary btn-sm">Primary</button><button class="btn btn-secondary btn-sm">Secondary</button><a href="#" class="small">Link</a></div>
+        </div>
+      </div>
+      <div class="theme-dark surface">
+        <div class="row between" style="margin-bottom: 14px;"><span class="h3">Dark</span><span class="badge badge-gray">data-theme="dark"</span></div>
+        <div class="card" style="padding: 16px;">
+          <div class="kv">
+            <span>Page background <span class="mono faint">--bg</span></span><span class="mono">#0f131a</span>
+            <span>Card <span class="mono faint">--card</span></span><span class="mono">#191d25</span>
+            <span>Raised / hover <span class="mono faint">--card-2</span></span><span class="mono">#20252e</span>
+            <span>Border <span class="mono faint">--border</span></span><span class="mono">#2c3139</span>
+            <span>Text <span class="mono faint">--text</span></span><span class="mono">#f2f4f8</span>
+            <span>Secondary text <span class="mono faint">--text-2</span></span><span class="mono">#a0a5ae</span>
+            <span>Accent text / links <span class="mono faint">--accent-text</span></span><span class="mono">accent + 62% white</span>
+          </div>
+          <div class="row" style="gap: 8px; margin-top: 14px;"><button class="btn btn-primary btn-sm">Primary</button><button class="btn btn-secondary btn-sm">Secondary</button><a href="#" class="small">Link</a></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title"><h2 class="h2">Type</h2><span class="small faint">Hanken Grotesk for everything a person reads; JetBrains Mono only for identifiers, tokens and raw values. Weights 400, 500, 600.</span></div>
+    <div class="card" style="padding: 8px 24px;">
+      <div class="type-row"><span class="small faint">Page title · 24 / 600 / -1%</span><span style="font-size: 24px; font-weight: 600; letter-spacing: -.01em;">Members</span></div>
+      <div class="type-row"><span class="small faint">Auth headline · 26 / 600</span><span style="font-size: 26px; font-weight: 600; letter-spacing: -.015em;">Welcome back</span></div>
+      <div class="type-row"><span class="small faint">Section · 18 / 600</span><span style="font-size: 18px; font-weight: 600;">Pending invitations</span></div>
+      <div class="type-row"><span class="small faint">Card title · 15 / 600</span><span style="font-size: 15px; font-weight: 600;">Sign-in methods</span></div>
+      <div class="type-row"><span class="small faint">Body · 14 / 400 / 1.45</span><span>Every change in the workspace, who made it, and why. Entries can never be edited or deleted.</span></div>
+      <div class="type-row"><span class="small faint">Small · 13 / secondary</span><span class="small muted">Added Sep 2, 2026 · Last used today</span></div>
+      <div class="type-row"><span class="small faint">Meta · 12 / 500 / faint</span><span class="xs faint" style="font-weight: 500; letter-spacing: .02em;">GO BIZ HELP · YOU ARE OWNER</span></div>
+      <div class="type-row" style="border-bottom: 0;"><span class="small faint">Mono · 12.5</span><span class="mono">membership.change_role · 0192a4b7-8c2e-7d31-9f60-4a1e2c9d7b10</span></div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title"><h2 class="h2">Controls</h2><span class="small faint">36 px default, 32 px in dense rows, 44 px on auth forms and every mobile target. One primary action per view.</span></div>
+    <div style="display: grid; grid-template-columns: 1.2fr 1fr; gap: 20px;">
+      <div class="card" style="padding: 20px;">
+        <div class="row" style="gap: 10px; flex-wrap: wrap;">
+          <button class="btn btn-primary">Primary</button>
+          <button class="btn btn-secondary">Secondary</button>
+          <button class="btn btn-ghost">Ghost</button>
+          <button class="btn btn-danger">Danger</button>
+          <button class="btn btn-primary" disabled="{{ true }}">Disabled</button>
+          <button class="btn btn-primary focus">Focused</button>
+        </div>
+        <div class="row" style="gap: 10px; margin-top: 14px; align-items: center;">
+          <button class="btn btn-secondary btn-sm">Small 32</button>
+          <button class="btn btn-secondary">Default 36</button>
+          <button class="btn btn-secondary btn-lg">Large 44</button>
+        </div>
+        <div class="row" style="gap: 8px; margin-top: 18px; flex-wrap: wrap;">
+          <span class="badge badge-owner">Owner</span><span class="badge badge-admin">Admin</span><span class="badge badge-member">Member</span>
+          <span class="badge badge-pending">Pending</span><span class="badge badge-ok">Accepted</span><span class="badge badge-revoked">Revoked</span><span class="badge badge-gray">You</span>
+        </div>
+      </div>
+      <div class="card" style="padding: 20px;">
+        <div class="stack" style="gap: 14px;">
+          <div><label class="label">Default</label><input class="input" placeholder="name@company.com"></div>
+          <div><label class="label">Focused</label><input class="input focused" defaultValue="sam@lonestarhvac.com"><div class="hint">3 px ring at 28% accent, border turns accent.</div></div>
+          <div><label class="label">Error</label><input class="input input-error" defaultValue="sam@lonestarhvac"><div class="err">Enter a valid email address.</div></div>
+          <div><label class="label">Read only</label><input class="input" disabled="{{ true }}" defaultValue="chris@gobizhelp.com"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title"><h2 class="h2">Elevation and shape</h2><span class="small faint">Depth comes from tone, not heavy shadows. Cards sit on the page; menus float; dialogs float highest.</span></div>
+    <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px;">
+      <div class="card" style="padding: 18px;"><span class="h3">Card</span><p class="small muted" style="margin-top: 4px;">radius 12 · shadow-1 · 1 px border</p></div>
+      <div class="card" style="padding: 18px; box-shadow: var(--shadow-2); border-radius: 10px;"><span class="h3">Menu / popover</span><p class="small muted" style="margin-top: 4px;">radius 10 · shadow-2</p></div>
+      <div class="card" style="padding: 18px; box-shadow: var(--shadow-3); border-radius: 14px;"><span class="h3">Dialog</span><p class="small muted" style="margin-top: 4px;">radius 14 · shadow-3 · 45% scrim</p></div>
+    </div>
+    <div class="row" style="gap: 24px; margin-top: 20px; align-items: flex-end;">
+      <div class="stack" style="gap: 6px; align-items: center;"><span style="width: 4px; height: 24px; background: var(--accent-soft-2); border-radius: 2px;"></span><span class="xs faint">4</span></div>
+      <div class="stack" style="gap: 6px; align-items: center;"><span style="width: 8px; height: 24px; background: var(--accent-soft-2); border-radius: 2px;"></span><span class="xs faint">8</span></div>
+      <div class="stack" style="gap: 6px; align-items: center;"><span style="width: 12px; height: 24px; background: var(--accent-soft-2); border-radius: 2px;"></span><span class="xs faint">12</span></div>
+      <div class="stack" style="gap: 6px; align-items: center;"><span style="width: 16px; height: 24px; background: var(--accent-soft-2); border-radius: 2px;"></span><span class="xs faint">16</span></div>
+      <div class="stack" style="gap: 6px; align-items: center;"><span style="width: 24px; height: 24px; background: var(--accent-soft-2); border-radius: 2px;"></span><span class="xs faint">24</span></div>
+      <div class="stack" style="gap: 6px; align-items: center;"><span style="width: 32px; height: 24px; background: var(--accent-soft-2); border-radius: 2px;"></span><span class="xs faint">32</span></div>
+      <div class="stack" style="gap: 6px; align-items: center;"><span style="width: 40px; height: 24px; background: var(--accent-soft-2); border-radius: 2px;"></span><span class="xs faint">40</span></div>
+      <span class="small faint" style="margin-left: 12px;">Spacing scale in px. Card padding 24, page padding 32/40, grid gap 20.</span>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script data-dc-script data-props='{"accent":{"editor":"color","default":"#2d69d8","options":["#2d69d8","#1950b5","#6199fd","#008743"],"section":"Theme"},"theme":{"editor":"enum","default":"light","options":["light","dark"],"section":"Theme"},"$preview":{"width":1280,"height":2360}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return { accent: this.props.accent ?? '#2d69d8', theme: this.props.theme ?? 'light' };
+  }
+}
+</script>
+</body>
+</html>

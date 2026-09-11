@@ -1,0 +1,13 @@
+node_modules
+.next
+dist
+.turbo
+coverage
+pnpm-lock.yaml
+design/
+supabase/migrations/
+supabase/
+packages/api-client/openapi.json
+packages/api-client/src/schema.d.ts
+apps/web/next-env.d.ts
+.claude/

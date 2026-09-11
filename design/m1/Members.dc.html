@@ -1,0 +1,372 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap">
+  <style>
+*{box-sizing:border-box}
+body{margin:0;background:transparent}
+.hf{font-family:"Hanken Grotesk",system-ui,-apple-system,"Segoe UI",Helvetica,Arial,sans-serif;font-size:14px;line-height:1.45;color:var(--text);background:var(--bg);-webkit-font-smoothing:antialiased}
+.hf h1,.hf h2,.hf h3,.hf p{margin:0}.hf h1,.hf h2,.hf h3{text-wrap:pretty}
+.theme-light{--bg:#f9fafd;--card:#ffffff;--card-2:#f2f4f8;--card-3:#e4e8ee;--border:#e4e8ee;--border-strong:#d2d6dd;--text:#191d25;--text-2:#5b616a;--text-3:#676c75;--placeholder:#a0a5ae;--accent-text:var(--accent);--accent-soft:color-mix(in oklab,var(--accent) 10%,#ffffff);--accent-soft-2:color-mix(in oklab,var(--accent) 18%,#ffffff);--accent-hover:color-mix(in oklab,var(--accent) 86%,#000000);--ring:color-mix(in oklab,var(--accent) 28%,transparent);--shadow-1:0 1px 2px rgba(25,29,37,.06),0 1px 3px rgba(25,29,37,.04);--shadow-2:0 8px 24px rgba(25,29,37,.10),0 2px 6px rgba(25,29,37,.06);--shadow-3:0 24px 60px rgba(25,29,37,.22),0 4px 12px rgba(25,29,37,.08);--success:#008743;--success-soft:#e0f7e5;--success-text:#005d2d;--warning:#996300;--warning-soft:#ffedd8;--warning-text:#6b4300;--danger:#c43335;--danger-soft:#ffebe9;--danger-text:#862726;--scrim:rgba(25,29,37,.45);--toast-bg:#191d25;--toast-text:#f2f4f8}
+.theme-dark{--bg:#0f131a;--card:#191d25;--card-2:#20252e;--card-3:#2c3139;--border:#2c3139;--border-strong:#3a4049;--text:#f2f4f8;--text-2:#a0a5ae;--text-3:#8a909a;--placeholder:#5b616a;--accent-text:color-mix(in oklab,var(--accent) 62%,#ffffff);--accent-soft:color-mix(in oklab,var(--accent) 22%,#191d25);--accent-soft-2:color-mix(in oklab,var(--accent) 34%,#191d25);--accent-hover:color-mix(in oklab,var(--accent) 84%,#ffffff);--ring:color-mix(in oklab,var(--accent) 45%,transparent);--shadow-1:0 1px 2px rgba(0,0,0,.45);--shadow-2:0 8px 24px rgba(0,0,0,.55);--shadow-3:0 24px 60px rgba(0,0,0,.65);--success:#3ccf7a;--success-soft:#10291b;--success-text:#7fe0a5;--warning:#f0a93b;--warning-soft:#2d2210;--warning-text:#f5c97a;--danger:#ff7b73;--danger-soft:#301816;--danger-text:#ffaaa3;--scrim:rgba(0,0,0,.6);--toast-bg:#f2f4f8;--toast-text:#191d25}
+.theme-dark .btn-danger,.theme-dark .toast.danger{color:#191d25}
+a{color:var(--accent-text);text-decoration:none}a:hover{color:var(--accent-hover);text-decoration:underline}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:36px;padding:0 14px;border-radius:8px;border:1px solid transparent;font:inherit;font-weight:500;font-size:14px;color:var(--text);background:transparent;cursor:pointer;white-space:nowrap;transition:background .12s,border-color .12s,box-shadow .12s,color .12s}
+.btn:focus-visible{outline:none;box-shadow:0 0 0 3px var(--ring)}
+.btn-primary{background:var(--accent);color:#fff}.btn-primary:hover{background:var(--accent-hover)}
+.btn-secondary{background:var(--card);border-color:var(--border-strong);box-shadow:var(--shadow-1)}.btn-secondary:hover{background:var(--card-2)}
+.btn-ghost{color:var(--text-2)}.btn-ghost:hover{background:var(--card-2);color:var(--text)}
+.btn-danger{background:var(--danger);color:#fff}.btn-danger:hover{filter:brightness(.92)}
+.btn-sm{height:32px;padding:0 10px;font-size:13px}.btn:disabled{opacity:.5;cursor:not-allowed}
+.icon-btn{width:32px;height:32px;padding:0;border-radius:8px}
+.input,.select{width:100%;height:40px;padding:0 12px;border-radius:8px;border:1px solid var(--border-strong);background:var(--card);color:var(--text);font:inherit;font-size:15px;transition:border-color .12s,box-shadow .12s}
+.select{appearance:none;background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23777c86' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'><path d='m6 9 6 6 6-6'/></svg>");background-repeat:no-repeat;background-position:right 10px center;padding-right:32px}
+.input::placeholder{color:var(--placeholder)}.input:focus,.select:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--ring)}
+.input-sm,.select-sm{height:34px;font-size:14px}.input-error{border-color:var(--danger)}.select:disabled{opacity:.6;cursor:not-allowed}
+.label{display:block;font-size:13px;font-weight:500;color:var(--text);margin-bottom:6px}
+.hint{font-size:12.5px;color:var(--text-3);margin-top:6px}.err{font-size:12.5px;color:var(--danger-text);margin-top:6px}
+.card{background:var(--card);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow-1)}
+.badge{display:inline-flex;align-items:center;gap:6px;height:22px;padding:0 8px;border-radius:999px;font-size:12px;font-weight:500;border:1px solid transparent;white-space:nowrap}
+.badge-owner{background:var(--accent-soft);color:var(--accent-text)}.badge-admin{background:var(--card-2);color:var(--text);border-color:var(--border)}.badge-member{border-color:var(--border-strong);color:var(--text-2)}
+.badge-pending{background:var(--warning-soft);color:var(--warning-text)}.badge-gray{background:var(--card-2);color:var(--text-2)}
+.avatar{width:32px;height:32px;border-radius:999px;display:inline-flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;color:#fff;background:var(--accent);flex:none;letter-spacing:.02em}
+.h1{font-size:24px;font-weight:600;letter-spacing:-.01em;line-height:1.25}.h2{font-size:18px;font-weight:600;letter-spacing:-.005em;line-height:1.3}.h3{font-size:15px;font-weight:600;line-height:1.35}
+.muted{color:var(--text-2)}.faint{color:var(--text-3)}.small{font-size:13px}.xs{font-size:12px}
+.shell{display:flex;min-height:832px}
+.sidebar{position:relative;width:240px;flex:none;background:var(--card);border-right:1px solid var(--border);display:flex;flex-direction:column;padding:16px 12px 12px;gap:4px}
+.nav-item{display:flex;align-items:center;gap:10px;height:36px;padding:0 10px;border-radius:8px;color:var(--text-2);font-weight:500;cursor:pointer;background:transparent;border:0;font:inherit;font-size:14px;width:100%;text-align:left}
+.nav-item:hover{background:var(--card-2);color:var(--text)}.nav-item.active{background:var(--accent-soft);color:var(--accent-text)}
+.main{flex:1;min-width:0;padding:32px 40px;position:relative}
+.page-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:24px}
+.table{width:100%;border-collapse:separate;border-spacing:0}
+.table th{text-align:left;font-size:12px;font-weight:500;color:var(--text-3);letter-spacing:.02em;padding:10px 16px;border-bottom:1px solid var(--border);background:var(--card-2)}
+.table td{padding:12px 16px;border-bottom:1px solid var(--border);vertical-align:middle}
+.table tr:last-child td{border-bottom:0}
+.table th:first-child{border-top-left-radius:12px}.table th:last-child{border-top-right-radius:12px}
+.menu{position:absolute;right:0;top:36px;min-width:220px;background:var(--card);border:1px solid var(--border);border-radius:10px;box-shadow:var(--shadow-2);padding:6px;z-index:20}
+.menu-item{display:flex;align-items:center;gap:10px;width:100%;height:34px;padding:0 10px;border-radius:6px;border:0;background:transparent;font:inherit;font-size:14px;color:var(--text);cursor:pointer;text-align:left}
+.menu-item:hover{background:var(--card-2)}.menu-item.danger{color:var(--danger-text)}.menu-item:disabled{opacity:.5;cursor:not-allowed}
+.scrim{position:absolute;inset:0;background:var(--scrim);display:flex;align-items:center;justify-content:center;z-index:50}
+.dialog{width:480px;background:var(--card);border-radius:14px;box-shadow:var(--shadow-3);border:1px solid var(--border);padding:24px}
+.toast{position:absolute;left:50%;bottom:24px;transform:translateX(-50%);background:var(--toast-bg);color:var(--toast-text);padding:10px 14px;border-radius:10px;font-size:13.5px;box-shadow:var(--shadow-2);display:flex;gap:10px;align-items:center;z-index:60;white-space:nowrap}
+.toast.danger{background:var(--danger);color:#fff}
+.radio-card{display:flex;gap:12px;align-items:flex-start;padding:12px 14px;border:1px solid var(--border-strong);border-radius:10px;cursor:pointer;background:var(--card);text-align:left;font:inherit;color:var(--text);width:100%}
+.radio-card.selected{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent);background:var(--accent-soft)}
+.radio-dot{width:16px;height:16px;border-radius:999px;border:1.5px solid var(--border-strong);flex:none;margin-top:2px;display:flex;align-items:center;justify-content:center}
+.radio-card.selected .radio-dot{border-color:var(--accent)}.radio-card.selected .radio-dot::after{content:"";width:8px;height:8px;border-radius:999px;background:var(--accent)}
+.switcher{display:flex;align-items:center;gap:10px;width:100%;height:52px;padding:0 10px;border-radius:10px;border:1px solid var(--border);background:var(--card);font:inherit;color:var(--text);cursor:pointer;text-align:left}
+.icon{width:18px;height:18px;flex:none}
+.brand{display:flex;align-items:center;gap:10px;font-weight:600;font-size:15px;letter-spacing:-.01em;color:var(--text)}
+.mark{width:28px;height:28px;border-radius:8px;background:var(--accent);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;letter-spacing:-.02em}
+.row{display:flex;align-items:center;gap:12px}.between{justify-content:space-between}.stack{display:flex;flex-direction:column}
+  </style>
+</helmet>
+
+<div class="hf theme-{{ theme }}" style="--accent: {{ accent }}; width: 1280px; min-height: 832px; position: relative; overflow: hidden;">
+  <div class="shell">
+    <aside class="sidebar">
+      <div class="brand" style="padding: 4px 10px 14px;"><div class="mark">hf</div><span>HandsFreeOS</span></div>
+      <button class="switcher">
+        <span class="avatar" style="border-radius: 8px; background: var(--accent-soft-2); color: var(--accent-text);">LS</span>
+        <span class="stack" style="min-width: 0; flex: 1;"><span style="font-weight: 600; font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">Lone Star HVAC &amp; Roofing</span><span class="xs faint">Go Biz Help</span></span>
+        <svg class="icon faint" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m7 9 5-5 5 5M7 15l5 5 5-5"></path></svg>
+      </button>
+      <nav class="stack" style="gap: 2px; margin-top: 10px;">
+        <button class="nav-item"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"></path><path d="M5 9.5V21h14V9.5"></path></svg><span>Home</span></button>
+        <button class="nav-item active"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"></circle><path d="M2.5 20a6.5 6.5 0 0 1 13 0"></path><path d="M16 4.5a3.5 3.5 0 0 1 0 7"></path><path d="M17.5 14a6 6 0 0 1 4 5.5"></path></svg><span>Members</span></button>
+        <button class="nav-item"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6h13M8 12h13M8 18h13"></path><path d="M3 6h.01M3 12h.01M3 18h.01"></path></svg><span>Audit log</span></button>
+        <button class="nav-item"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h8M18 6h2M4 12h2M10 12h10M4 18h12M20 18h0"></path><circle cx="14" cy="6" r="2"></circle><circle cx="8" cy="12" r="2"></circle><circle cx="18" cy="18" r="2"></circle></svg><span>Settings</span></button>
+      </nav>
+      <div style="flex: 1;"></div>
+      <div class="row" style="padding: 12px 6px 4px; border-top: 1px solid var(--border);">
+        <span class="avatar">CH</span>
+        <span class="stack" style="min-width: 0; flex: 1;"><span style="font-weight: 500; font-size: 13.5px;">Chris</span><span class="xs faint" style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">chris@gobizhelp.com</span></span>
+        <button class="btn btn-ghost icon-btn" title="Sign out"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h4"></path><path d="m15 8 5 4-5 4M20 12H9"></path></svg></button>
+      </div>
+    </aside>
+
+    <main class="main">
+      <div class="page-head">
+        <div>
+          <h1 class="h1">Members</h1>
+          <p class="muted" style="margin-top: 4px;">People who can work in Lone Star HVAC &amp; Roofing. Owners and admins of Go Biz Help also have access.</p>
+        </div>
+        <button class="btn btn-primary" onClick="{{ openInvite }}">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"></path></svg>
+          <span>Invite teammate</span>
+        </button>
+      </div>
+
+      <div class="card" style="padding: 0; overflow: visible;">
+        <table class="table">
+          <thead><tr><th style="width: 44%;">Person</th><th>Role</th><th>Joined</th><th style="width: 56px;"></th></tr></thead>
+          <tbody>
+            <sc-for list="{{ members }}" as="m" hint-placeholder-count="3">
+              <tr>
+                <td>
+                  <div class="row">
+                    <span class="avatar" style="{{ m.avatarStyle }}">{{ m.initials }}</span>
+                    <span class="stack" style="min-width: 0;">
+                      <span class="row" style="gap: 8px; font-weight: 500;"><span>{{ m.name }}</span><sc-if value="{{ m.isSelf }}" hint-placeholder-val="{{ false }}"><span class="badge badge-gray">You</span></sc-if></span>
+                      <span class="small faint">{{ m.email }}</span>
+                    </span>
+                  </div>
+                </td>
+                <td>
+                  <select class="select select-sm" style="width: 132px;" value="{{ m.role }}" onChange="{{ m.setRole }}" disabled="{{ m.isSelf }}" title="{{ m.roleTitle }}">
+                    <option value="owner">Owner</option>
+                    <option value="admin">Admin</option>
+                    <option value="member">Member</option>
+                  </select>
+                </td>
+                <td class="small muted">{{ m.joined }}</td>
+                <td style="position: relative;">
+                  <button class="btn btn-ghost icon-btn" onClick="{{ m.toggleMenu }}" title="More">
+                    <svg class="icon" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.6"></circle><circle cx="12" cy="12" r="1.6"></circle><circle cx="19" cy="12" r="1.6"></circle></svg>
+                  </button>
+                  <sc-if value="{{ m.menuOpen }}" hint-placeholder-val="{{ false }}">
+                    <div onClick="{{ m.toggleMenu }}" style="position: fixed; inset: 0; z-index: 15;"></div>
+                    <div class="menu" style="right: 16px;">
+                      <sc-if value="{{ m.isSelf }}" hint-placeholder-val="{{ false }}">
+                        <button class="menu-item" disabled="{{ m.lastOwner }}" onClick="{{ m.leave }}">
+                          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h4"></path><path d="m15 8 5 4-5 4M20 12H9"></path></svg>
+                          <span>Leave workspace</span>
+                        </button>
+                        <sc-if value="{{ m.lastOwner }}" hint-placeholder-val="{{ false }}"><div class="xs faint" style="padding: 4px 10px 6px;">Promote another Owner first.</div></sc-if>
+                      </sc-if>
+                      <sc-if value="{{ m.notSelf }}" hint-placeholder-val="{{ true }}">
+                        <button class="menu-item danger" onClick="{{ m.askRemove }}">
+                          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M10 11v6M14 11v6"></path><path d="M6 7l1 13h10l1-13"></path><path d="M9 7V4h6v3"></path></svg>
+                          <span>Remove from workspace</span>
+                        </button>
+                      </sc-if>
+                    </div>
+                  </sc-if>
+                </td>
+              </tr>
+            </sc-for>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="row between" style="margin: 32px 0 12px;">
+        <h2 class="h2">Pending invitations</h2>
+        <span class="small faint">Links expire 7 days after they are sent</span>
+      </div>
+      <div class="card" style="padding: 0;">
+        <sc-if value="{{ hasInvites }}" hint-placeholder-val="{{ true }}">
+          <table class="table">
+            <thead><tr><th style="width: 36%;">Email</th><th>Role</th><th>Invited by</th><th>Expires</th><th style="width: 260px;"></th></tr></thead>
+            <tbody>
+              <sc-for list="{{ invites }}" as="i" hint-placeholder-count="1">
+                <tr>
+                  <td><div class="row" style="gap: 10px;"><span class="badge badge-pending">Pending</span><span style="font-weight: 500;">{{ i.email }}</span></div></td>
+                  <td><span class="{{ i.badgeClass }}">{{ i.roleLabel }}</span></td>
+                  <td class="small muted">{{ i.invitedBy }}</td>
+                  <td class="small muted">{{ i.expires }}</td>
+                  <td>
+                    <div class="row" style="gap: 6px; justify-content: flex-end;">
+                      <button class="btn btn-secondary btn-sm" onClick="{{ i.copy }}" style="min-width: 96px;">
+                        <sc-if value="{{ i.copied }}" hint-placeholder-val="{{ false }}"><svg class="icon" style="width: 15px; height: 15px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 5 5L20 7"></path></svg></sc-if>
+                        <sc-if value="{{ i.notCopied }}" hint-placeholder-val="{{ true }}"><svg class="icon" style="width: 15px; height: 15px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"></rect><path d="M5 15V5a2 2 0 0 1 2-2h10"></path></svg></sc-if>
+                        <span>{{ i.copyLabel }}</span>
+                      </button>
+                      <button class="btn btn-ghost btn-sm" onClick="{{ i.resend }}">Resend</button>
+                      <button class="btn btn-ghost btn-sm" style="color: var(--danger-text);" onClick="{{ i.revoke }}">Revoke</button>
+                    </div>
+                  </td>
+                </tr>
+              </sc-for>
+            </tbody>
+          </table>
+        </sc-if>
+        <sc-if value="{{ noInvites }}" hint-placeholder-val="{{ false }}">
+          <div style="padding: 28px; text-align: center;" class="muted small">No pending invitations.</div>
+        </sc-if>
+      </div>
+
+      <sc-if value="{{ inviteOpen }}" hint-placeholder-val="{{ false }}">
+        <div class="scrim" style="position: fixed;">
+          <div class="dialog">
+            <div class="row between" style="margin-bottom: 4px;">
+              <h2 class="h2">Invite a teammate</h2>
+              <button class="btn btn-ghost icon-btn" onClick="{{ closeInvite }}" title="Close"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6l12 12M18 6 6 18"></path></svg></button>
+            </div>
+            <p class="muted small">They will get an email with a link that works once and expires in 7 days.</p>
+            <div style="margin-top: 20px;">
+              <label class="label">Email address</label>
+              <input class="{{ emailClass }}" type="email" placeholder="name@company.com" onInput="{{ onEmail }}" defaultValue="{{ inviteEmail }}">
+              <sc-if value="{{ hasEmailError }}" hint-placeholder-val="{{ false }}"><div class="err">{{ emailError }}</div></sc-if>
+            </div>
+            <div style="margin-top: 16px;">
+              <label class="label">Role</label>
+              <div class="stack" style="gap: 8px;">
+                <sc-for list="{{ roleOptions }}" as="r" hint-placeholder-count="3">
+                  <button class="{{ r.cardClass }}" onClick="{{ r.pick }}">
+                    <span class="radio-dot"></span>
+                    <span class="stack" style="gap: 2px;"><span style="font-weight: 500;">{{ r.label }}</span><span class="small faint">{{ r.desc }}</span></span>
+                  </button>
+                </sc-for>
+              </div>
+            </div>
+            <div class="row" style="justify-content: flex-end; gap: 8px; margin-top: 24px;">
+              <button class="btn btn-ghost" onClick="{{ closeInvite }}">Cancel</button>
+              <button class="btn btn-primary" onClick="{{ sendInvite }}">Send invite</button>
+            </div>
+          </div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ confirmOpen }}" hint-placeholder-val="{{ false }}">
+        <div class="scrim" style="position: fixed;">
+          <div class="dialog" style="width: 440px;">
+            <h2 class="h2">Remove {{ confirmName }}?</h2>
+            <p class="muted small" style="margin-top: 8px;">They lose access to Lone Star HVAC &amp; Roofing immediately. Their past activity stays in the audit log.</p>
+            <div class="row" style="justify-content: flex-end; gap: 8px; margin-top: 24px;">
+              <button class="btn btn-ghost" onClick="{{ cancelRemove }}">Cancel</button>
+              <button class="btn btn-danger" onClick="{{ doRemove }}">Remove</button>
+            </div>
+          </div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ hasToast }}" hint-placeholder-val="{{ false }}">
+        <div class="{{ toastClass }}">
+          <span>{{ toast }}</span>
+        </div>
+      </sc-if>
+    </main>
+  </div>
+</div>
+</x-dc>
+<script data-dc-script data-props='{"accent":{"editor":"color","default":"#2d69d8","options":["#2d69d8","#1950b5","#6199fd","#008743"],"section":"Theme"},"theme":{"editor":"enum","default":"light","options":["light","dark"],"section":"Theme"},"$preview":{"width":1280,"height":832}}'>
+class Component extends DCLogic {
+  constructor(...args) {
+    super(...args);
+    this.state = {
+      members: [
+        { id: 'u1', name: 'Chris', email: 'chris@gobizhelp.com', role: 'owner', initials: 'CH', joined: 'Aug 12, 2026', self: true, hue: 'var(--accent)' },
+        { id: 'u2', name: 'Sam Rivera', email: 'sam@lonestarhvac.com', role: 'admin', initials: 'SR', joined: 'Aug 14, 2026', hue: '#008743' },
+        { id: 'u3', name: 'Dana Whitfield', email: 'dana@lonestarhvac.com', role: 'member', initials: 'DW', joined: 'Sep 2, 2026', hue: '#996300' }
+      ],
+      invites: [
+        { id: 'i1', email: 'j.ortiz@lonestarhvac.com', role: 'member', invitedBy: 'Sam Rivera', expires: 'in 6 days' }
+      ],
+      menuFor: null,
+      confirmId: null,
+      inviteOpen: false,
+      inviteEmail: '',
+      inviteRole: 'member',
+      emailError: null,
+      copiedId: null,
+      toast: null,
+      toastKind: 'ok'
+    };
+  }
+  flash(msg, kind) {
+    clearTimeout(this._t);
+    this.setState({ toast: msg, toastKind: kind || 'ok' });
+    this._t = setTimeout(() => this.setState({ toast: null }), 2600);
+  }
+  renderVals() {
+    const s = this.state;
+    const owners = s.members.filter(m => m.role === 'owner').length;
+    const roleLabel = r => ({ owner: 'Owner', admin: 'Admin', member: 'Member' })[r];
+    const badgeClass = r => 'badge badge-' + r;
+
+    const members = s.members.map(m => ({
+      ...m,
+      isSelf: !!m.self,
+      notSelf: !m.self,
+      avatarStyle: 'background: ' + m.hue + ';',
+      roleTitle: m.self ? 'You cannot change your own role' : 'Change role',
+      menuOpen: s.menuFor === m.id,
+      lastOwner: m.role === 'owner' && owners === 1,
+      toggleMenu: () => this.setState({ menuFor: s.menuFor === m.id ? null : m.id }),
+      setRole: (e) => {
+        const next = e.target.value;
+        if (m.role === 'owner' && owners === 1 && next !== 'owner') {
+          e.target.value = 'owner';
+          this.flash('Lone Star HVAC & Roofing needs at least one Owner. Promote someone else first.', 'danger');
+          return;
+        }
+        this.setState({ members: s.members.map(x => x.id === m.id ? { ...x, role: next } : x) });
+        this.flash(m.name + ' is now ' + roleLabel(next) + '. Recorded in the audit log.');
+      },
+      askRemove: () => this.setState({ menuFor: null, confirmId: m.id }),
+      leave: () => { this.setState({ menuFor: null }); this.flash('You left Lone Star HVAC & Roofing. Opening Go Biz Help.'); }
+    }));
+
+    const invites = s.invites.map(i => ({
+      ...i,
+      roleLabel: roleLabel(i.role),
+      badgeClass: badgeClass(i.role),
+      copied: s.copiedId === i.id,
+      notCopied: s.copiedId !== i.id,
+      copyLabel: s.copiedId === i.id ? 'Copied' : 'Copy link',
+      copy: () => { clearTimeout(this._c); this.setState({ copiedId: i.id }); this._c = setTimeout(() => this.setState({ copiedId: null }), 1600); },
+      resend: () => this.flash('Invitation re-sent to ' + i.email + '. The old link no longer works.'),
+      revoke: () => { this.setState({ invites: s.invites.filter(x => x.id !== i.id) }); this.flash('Invitation for ' + i.email + ' revoked.'); }
+    }));
+
+    const roleDefs = [
+      { value: 'owner', label: 'Owner', desc: 'Full control, including deleting the workspace and managing other Owners.' },
+      { value: 'admin', label: 'Admin', desc: 'Manages people and settings. Cannot change or remove Owners.' },
+      { value: 'member', label: 'Member', desc: 'Works in the workspace. Cannot invite or manage people.' }
+    ];
+    const roleOptions = roleDefs.map(r => ({
+      ...r,
+      cardClass: 'radio-card' + (s.inviteRole === r.value ? ' selected' : ''),
+      pick: () => this.setState({ inviteRole: r.value })
+    }));
+
+    const confirmTarget = s.members.find(m => m.id === s.confirmId);
+
+    return {
+      accent: this.props.accent ?? '#2d69d8',
+      theme: this.props.theme ?? 'light',
+      members,
+      invites,
+      hasInvites: invites.length > 0,
+      noInvites: invites.length === 0,
+      inviteOpen: s.inviteOpen,
+      openInvite: () => this.setState({ inviteOpen: true, emailError: null, menuFor: null }),
+      closeInvite: () => this.setState({ inviteOpen: false, inviteEmail: '', inviteRole: 'member', emailError: null }),
+      inviteEmail: s.inviteEmail,
+      onEmail: (e) => this.setState({ inviteEmail: e.target.value, emailError: null }),
+      emailClass: 'input' + (s.emailError ? ' input-error' : ''),
+      emailError: s.emailError,
+      hasEmailError: !!s.emailError,
+      roleOptions,
+      sendInvite: () => {
+        const email = s.inviteEmail.trim().toLowerCase();
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { this.setState({ emailError: 'Enter a valid email address.' }); return; }
+        if (s.members.some(m => m.email === email)) { this.setState({ emailError: 'That person is already a member.' }); return; }
+        if (s.invites.some(i => i.email === email)) { this.setState({ emailError: 'An invitation is already pending for this address.' }); return; }
+        const inv = { id: 'i' + Date.now(), email, role: s.inviteRole, invitedBy: 'You', expires: 'in 7 days' };
+        this.setState({ invites: [inv, ...s.invites], inviteOpen: false, inviteEmail: '', inviteRole: 'member' });
+        this.flash('Invitation sent to ' + email + '.');
+      },
+      confirmOpen: !!confirmTarget,
+      confirmName: confirmTarget ? confirmTarget.name : '',
+      cancelRemove: () => this.setState({ confirmId: null }),
+      doRemove: () => {
+        if (!confirmTarget) return;
+        this.setState({ members: s.members.filter(m => m.id !== confirmTarget.id), confirmId: null });
+        this.flash(confirmTarget.name + ' removed from Lone Star HVAC & Roofing.');
+      },
+      toast: s.toast,
+      hasToast: !!s.toast,
+      toastClass: 'toast' + (s.toastKind === 'danger' ? ' danger' : '')
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,32 @@
+# dependencies
+node_modules/
+
+# env
+.env
+.env.*
+!.env.example
+
+# build output
+.next/
+dist/
+.turbo/
+coverage/
+playwright-report/
+test-results/
+
+# local supabase
+supabase/.branches/
+supabase/.temp/
+supabase/signing_keys.json
+
+# assembled design canvases (sources live in design/**/*.dc.html)
+design/**/preview/
+
+# os
+.DS_Store
+
+# design/impeccable hook cache
+.impeccable/
+
+# per-machine Claude Code settings
+.claude/settings.local.json

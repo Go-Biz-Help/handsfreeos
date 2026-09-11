@@ -1,0 +1,231 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap">
+  <style>
+*{box-sizing:border-box}
+body{margin:0;background:transparent}
+.hf{font-family:"Hanken Grotesk",system-ui,-apple-system,"Segoe UI",Helvetica,Arial,sans-serif;font-size:14px;line-height:1.45;color:var(--text);background:var(--bg);-webkit-font-smoothing:antialiased}
+.hf h1,.hf h2,.hf h3,.hf p{margin:0}.hf h1,.hf h2,.hf h3{text-wrap:pretty}
+.theme-light{--bg:#f9fafd;--card:#ffffff;--card-2:#f2f4f8;--card-3:#e4e8ee;--border:#e4e8ee;--border-strong:#d2d6dd;--text:#191d25;--text-2:#5b616a;--text-3:#676c75;--placeholder:#a0a5ae;--accent-text:var(--accent);--accent-soft:color-mix(in oklab,var(--accent) 10%,#ffffff);--accent-soft-2:color-mix(in oklab,var(--accent) 18%,#ffffff);--accent-hover:color-mix(in oklab,var(--accent) 86%,#000000);--ring:color-mix(in oklab,var(--accent) 28%,transparent);--shadow-1:0 1px 2px rgba(25,29,37,.06),0 1px 3px rgba(25,29,37,.04);--shadow-2:0 8px 24px rgba(25,29,37,.10),0 2px 6px rgba(25,29,37,.06);--shadow-3:0 24px 60px rgba(25,29,37,.22),0 4px 12px rgba(25,29,37,.08);--success:#008743;--success-soft:#e0f7e5;--success-text:#005d2d;--warning:#996300;--warning-soft:#ffedd8;--warning-text:#6b4300;--danger:#c43335;--danger-soft:#ffebe9;--danger-text:#862726;--scrim:rgba(25,29,37,.45);--toast-bg:#191d25;--toast-text:#f2f4f8}
+.theme-dark{--bg:#0f131a;--card:#191d25;--card-2:#20252e;--card-3:#2c3139;--border:#2c3139;--border-strong:#3a4049;--text:#f2f4f8;--text-2:#a0a5ae;--text-3:#8a909a;--placeholder:#5b616a;--accent-text:color-mix(in oklab,var(--accent) 62%,#ffffff);--accent-soft:color-mix(in oklab,var(--accent) 22%,#191d25);--accent-soft-2:color-mix(in oklab,var(--accent) 34%,#191d25);--accent-hover:color-mix(in oklab,var(--accent) 84%,#ffffff);--ring:color-mix(in oklab,var(--accent) 45%,transparent);--shadow-1:0 1px 2px rgba(0,0,0,.45);--shadow-2:0 8px 24px rgba(0,0,0,.55);--shadow-3:0 24px 60px rgba(0,0,0,.65);--success:#3ccf7a;--success-soft:#10291b;--success-text:#7fe0a5;--warning:#f0a93b;--warning-soft:#2d2210;--warning-text:#f5c97a;--danger:#ff7b73;--danger-soft:#301816;--danger-text:#ffaaa3;--scrim:rgba(0,0,0,.6);--toast-bg:#f2f4f8;--toast-text:#191d25}
+a{color:var(--accent-text);text-decoration:none}a:hover{color:var(--accent-hover);text-decoration:underline}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:36px;padding:0 14px;border-radius:8px;border:1px solid transparent;font:inherit;font-weight:500;font-size:14px;color:var(--text);background:transparent;cursor:pointer;white-space:nowrap;transition:background .12s,border-color .12s,box-shadow .12s,color .12s}
+.btn:focus-visible{outline:none;box-shadow:0 0 0 3px var(--ring)}
+.btn-secondary{background:var(--card);border-color:var(--border-strong);box-shadow:var(--shadow-1)}.btn-secondary:hover{background:var(--card-2)}
+.btn-ghost{color:var(--text-2)}.btn-ghost:hover{background:var(--card-2);color:var(--text)}
+.btn-sm{height:32px;padding:0 10px;font-size:13px}.icon-btn{width:32px;height:32px;padding:0;border-radius:8px}
+.input,.select{height:36px;padding:0 12px;border-radius:8px;border:1px solid var(--border-strong);background:var(--card);color:var(--text);font:inherit;font-size:14px;transition:border-color .12s,box-shadow .12s}
+.select{appearance:none;background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23777c86' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'><path d='m6 9 6 6 6-6'/></svg>");background-repeat:no-repeat;background-position:right 10px center;padding-right:32px}
+.input::placeholder{color:var(--placeholder)}.input:focus,.select:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--ring)}
+.card{background:var(--card);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow-1)}
+.badge{display:inline-flex;align-items:center;gap:6px;height:22px;padding:0 8px;border-radius:999px;font-size:12px;font-weight:500;border:1px solid transparent;white-space:nowrap}
+.badge-gray{background:var(--card-2);color:var(--text-2)}.badge-owner{background:var(--accent-soft);color:var(--accent-text)}
+.mono{font-family:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12.5px}
+.avatar{width:32px;height:32px;border-radius:999px;display:inline-flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;color:#fff;background:var(--accent);flex:none;letter-spacing:.02em}
+.avatar-sm{width:26px;height:26px;font-size:10.5px}
+.h1{font-size:24px;font-weight:600;letter-spacing:-.01em;line-height:1.25}.h3{font-size:13px;font-weight:600;line-height:1.35}
+.muted{color:var(--text-2)}.faint{color:var(--text-3)}.small{font-size:13px}.xs{font-size:12px}
+.shell{display:flex;min-height:960px}
+.sidebar{position:relative;width:240px;flex:none;background:var(--card);border-right:1px solid var(--border);display:flex;flex-direction:column;padding:16px 12px 12px;gap:4px}
+.nav-item{display:flex;align-items:center;gap:10px;height:36px;padding:0 10px;border-radius:8px;color:var(--text-2);font-weight:500;cursor:pointer;background:transparent;border:0;font:inherit;font-size:14px;width:100%;text-align:left}
+.nav-item:hover{background:var(--card-2);color:var(--text)}.nav-item.active{background:var(--accent-soft);color:var(--accent-text)}
+.main{flex:1;min-width:0;padding:32px 40px;position:relative}
+.page-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:20px}
+.switcher{display:flex;align-items:center;gap:10px;width:100%;height:52px;padding:0 10px;border-radius:10px;border:1px solid var(--border);background:var(--card);font:inherit;color:var(--text);cursor:pointer;text-align:left}
+.icon{width:18px;height:18px;flex:none}
+.brand{display:flex;align-items:center;gap:10px;font-weight:600;font-size:15px;letter-spacing:-.01em;color:var(--text)}
+.mark{width:28px;height:28px;border-radius:8px;background:var(--accent);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;letter-spacing:-.02em}
+.row{display:flex;align-items:center;gap:12px}.between{justify-content:space-between}.stack{display:flex;flex-direction:column}
+.seg{display:inline-flex;padding:3px;border-radius:9px;background:var(--card-2);border:1px solid var(--border)}
+.seg button{height:28px;padding:0 12px;border-radius:6px;border:0;background:transparent;font:inherit;font-size:13px;font-weight:500;color:var(--text-2);cursor:pointer}
+.seg button.on{background:var(--card);color:var(--text);box-shadow:var(--shadow-1)}
+.entry{display:grid;grid-template-columns:150px 1fr auto 28px;align-items:center;gap:16px;width:100%;padding:12px 16px;border:0;border-bottom:1px solid var(--border);background:transparent;font:inherit;color:var(--text);text-align:left;cursor:pointer}
+.entry:hover{background:var(--card-2)}.entry.open{background:var(--card-2)}
+.detail{padding:6px 16px 18px 182px;border-bottom:1px solid var(--border);background:var(--card-2)}
+.kv{display:grid;grid-template-columns:120px 1fr;gap:6px 12px;font-size:13px}
+.json{margin:0;padding:12px;border-radius:8px;background:var(--card);border:1px solid var(--border);font-family:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12px;line-height:1.55;color:var(--text);white-space:pre-wrap}
+.day{padding:10px 16px 6px;font-size:12px;font-weight:500;color:var(--text-3);letter-spacing:.02em;background:var(--card-2);border-bottom:1px solid var(--border)}
+  </style>
+</helmet>
+
+<div class="hf theme-{{ theme }}" style="--accent: {{ accent }}; width: 1280px; min-height: 960px; position: relative; overflow: hidden;">
+  <div class="shell">
+    <aside class="sidebar">
+      <div class="brand" style="padding: 4px 10px 14px;"><div class="mark">hf</div><span>HandsFreeOS</span></div>
+      <button class="switcher">
+        <span class="avatar" style="border-radius: 8px; background: var(--accent-soft-2); color: var(--accent-text);">LS</span>
+        <span class="stack" style="min-width: 0; flex: 1;"><span style="font-weight: 600; font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">Lone Star HVAC &amp; Roofing</span><span class="xs faint">Go Biz Help</span></span>
+        <svg class="icon faint" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m7 9 5-5 5 5M7 15l5 5 5-5"></path></svg>
+      </button>
+      <nav class="stack" style="gap: 2px; margin-top: 10px;">
+        <button class="nav-item"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"></path><path d="M5 9.5V21h14V9.5"></path></svg><span>Home</span></button>
+        <button class="nav-item"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"></circle><path d="M2.5 20a6.5 6.5 0 0 1 13 0"></path><path d="M16 4.5a3.5 3.5 0 0 1 0 7"></path><path d="M17.5 14a6 6 0 0 1 4 5.5"></path></svg><span>Members</span></button>
+        <button class="nav-item active"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6h13M8 12h13M8 18h13"></path><path d="M3 6h.01M3 12h.01M3 18h.01"></path></svg><span>Audit log</span></button>
+        <button class="nav-item"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h8M18 6h2M4 12h2M10 12h10M4 18h12M20 18h0"></path><circle cx="14" cy="6" r="2"></circle><circle cx="8" cy="12" r="2"></circle><circle cx="18" cy="18" r="2"></circle></svg><span>Settings</span></button>
+      </nav>
+      <div style="flex: 1;"></div>
+      <div class="row" style="padding: 12px 6px 4px; border-top: 1px solid var(--border);">
+        <span class="avatar">CH</span>
+        <span class="stack" style="min-width: 0; flex: 1;"><span style="font-weight: 500; font-size: 13.5px;">Chris</span><span class="xs faint" style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">chris@gobizhelp.com</span></span>
+        <button class="btn btn-ghost icon-btn" title="Sign out"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h4"></path><path d="m15 8 5 4-5 4M20 12H9"></path></svg></button>
+      </div>
+    </aside>
+
+    <main class="main">
+      <div class="page-head">
+        <div>
+          <h1 class="h1">Audit log</h1>
+          <p class="muted" style="margin-top: 4px;">Every change in Lone Star HVAC &amp; Roofing, who made it, and why. Entries can never be edited or deleted.</p>
+        </div>
+        <button class="btn btn-secondary">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 10l5 5 5-5"></path><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"></path></svg>
+          <span>Export CSV</span>
+        </button>
+      </div>
+
+      <div class="row" style="gap: 10px; margin-bottom: 16px; flex-wrap: wrap;">
+        <div class="seg">
+          <sc-for list="{{ ranges }}" as="r" hint-placeholder-count="3"><button class="{{ r.cls }}" onClick="{{ r.pick }}">{{ r.label }}</button></sc-for>
+        </div>
+        <select class="select" style="width: 170px;" onChange="{{ onActor }}">
+          <option value="all">Everyone</option>
+          <option value="u1">Chris</option>
+          <option value="u2">Sam Rivera</option>
+          <option value="u3">Dana Whitfield</option>
+          <option value="sys">HandsFreeOS (system)</option>
+        </select>
+        <select class="select" style="width: 170px;" onChange="{{ onCategory }}">
+          <option value="all">All activity</option>
+          <option value="members">Members</option>
+          <option value="invitations">Invitations</option>
+          <option value="workspace">Workspace</option>
+        </select>
+        <div style="position: relative; flex: 1; max-width: 320px;">
+          <svg class="icon faint" style="position: absolute; left: 10px; top: 9px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.5-3.5"></path></svg>
+          <input class="input" style="width: 100%; padding-left: 34px;" placeholder="Search names, emails, actions" onInput="{{ onSearch }}">
+        </div>
+        <span class="small faint" style="margin-left: auto;">{{ count }}</span>
+      </div>
+
+      <div class="card" style="padding: 0; overflow: hidden;">
+        <sc-for list="{{ groups }}" as="g" hint-placeholder-count="2">
+          <div class="day">{{ g.label }}</div>
+          <sc-for list="{{ g.entries }}" as="e" hint-placeholder-count="3">
+            <button class="{{ e.rowClass }}" onClick="{{ e.toggle }}">
+              <span class="small muted" style="font-variant-numeric: tabular-nums;">{{ e.time }}</span>
+              <span class="row" style="gap: 10px; min-width: 0;">
+                <span class="avatar avatar-sm" style="{{ e.avatarStyle }}">{{ e.initials }}</span>
+                <span style="min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"><strong style="font-weight: 600;">{{ e.actor }}</strong> {{ e.text }}</span>
+              </span>
+              <span class="row" style="gap: 8px;">
+                <span class="badge badge-gray">{{ e.categoryLabel }}</span>
+                <span class="badge badge-gray mono" style="font-size: 11px;">{{ e.channel }}</span>
+              </span>
+              <svg class="icon faint" style="{{ e.chevronStyle }}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"></path></svg>
+            </button>
+            <sc-if value="{{ e.open }}" hint-placeholder-val="{{ false }}">
+              <div class="detail">
+                <div style="display: grid; grid-template-columns: 300px 1fr 1fr; gap: 20px; align-items: start;">
+                  <div class="kv">
+                    <span class="faint">Action</span><span class="mono">{{ e.action }}</span>
+                    <span class="faint">Entity</span><span>{{ e.entity }}</span>
+                    <span class="faint">Channel</span><span>{{ e.channelLong }}</span>
+                    <span class="faint">Address</span><span class="mono">{{ e.ip }}</span>
+                    <span class="faint">Correlation</span><span class="row" style="gap: 6px;"><span class="mono" style="color: var(--text-2);">{{ e.correlation }}</span><button class="btn btn-ghost btn-sm" style="height: 24px; padding: 0 6px;" onClick="{{ e.copy }}">{{ e.copyLabel }}</button></span>
+                    <sc-if value="{{ e.hasCause }}" hint-placeholder-val="{{ false }}"><span class="faint">Caused by</span><span class="small">{{ e.cause }}</span></sc-if>
+                  </div>
+                  <div class="stack" style="gap: 6px;"><span class="h3 faint">Before</span><pre class="json">{{ e.before }}</pre></div>
+                  <div class="stack" style="gap: 6px;"><span class="h3 faint">After</span><pre class="json">{{ e.after }}</pre></div>
+                </div>
+              </div>
+            </sc-if>
+          </sc-for>
+        </sc-for>
+        <sc-if value="{{ empty }}" hint-placeholder-val="{{ false }}">
+          <div style="padding: 40px; text-align: center;" class="muted small">Nothing matches these filters.</div>
+        </sc-if>
+      </div>
+    </main>
+  </div>
+</div>
+</x-dc>
+<script data-dc-script data-props='{"accent":{"editor":"color","default":"#2d69d8","options":["#2d69d8","#1950b5","#6199fd","#008743"],"section":"Theme"},"theme":{"editor":"enum","default":"light","options":["light","dark"],"section":"Theme"},"$preview":{"width":1280,"height":960}}'>
+class Component extends DCLogic {
+  constructor(...args) {
+    super(...args);
+    this.state = { range: '30d', actor: 'all', category: 'all', q: '', openId: 'e1', copiedId: null };
+  }
+  renderVals() {
+    const s = this.state;
+    const people = {
+      u1: { name: 'Chris', initials: 'CH', hue: 'var(--accent)' },
+      u2: { name: 'Sam Rivera', initials: 'SR', hue: '#008743' },
+      u3: { name: 'Dana Whitfield', initials: 'DW', hue: '#996300' },
+      sys: { name: 'HandsFreeOS', initials: 'hf', hue: '#5b616a' }
+    };
+    const j = (o) => (o === null ? 'null' : JSON.stringify(o, null, 2));
+    const raw = [
+      { id: 'e1', day: 'Today', time: '9:14 AM', actor: 'u1', cat: 'members', text: "changed Sam Rivera's role from Member to Admin", action: 'membership.change_role', entity: 'workspace_membership · Sam Rivera', channel: 'web', channelLong: 'Web app (Chrome on macOS)', ip: '73.32.118.40', correlation: '0192a4b7-8c2e-7d31-9f60-4a1e2c9d7b10', before: { role: 'member' }, after: { role: 'admin' }, daysAgo: 0 },
+      { id: 'e2', day: 'Today', time: '9:02 AM', actor: 'u2', cat: 'invitations', text: 'invited j.ortiz@lonestarhvac.com as Member', action: 'membership.invite', entity: 'invitation · j.ortiz@lonestarhvac.com', channel: 'web', channelLong: 'Web app (Safari on iOS)', ip: '172.58.90.12', correlation: '0192a4b0-1e55-7a9c-8d21-b7f3c0a18e42', before: null, after: { email: 'j.ortiz@lonestarhvac.com', role: 'member', expires_at: '2026-09-18T14:02:11Z' }, daysAgo: 0 },
+      { id: 'e3', day: 'Today', time: '9:02 AM', actor: 'sys', cat: 'invitations', text: 'emailed the invitation link to j.ortiz@lonestarhvac.com', action: 'invitation.send', entity: 'invitation · j.ortiz@lonestarhvac.com', channel: 'worker', channelLong: 'Background worker', ip: 'internal', correlation: '0192a4b0-1e55-7a9c-8d21-b7f3c0a18e42', cause: 'invitation.created by Sam Rivera at 9:02 AM (same correlation)', before: { sent_at: null }, after: { sent_at: '2026-09-11T14:02:13Z' }, daysAgo: 0 },
+      { id: 'e4', day: 'Yesterday', time: '4:40 PM', actor: 'u1', cat: 'workspace', text: 'created the workspace Bayou Plumbing Co. in Go Biz Help', action: 'workspace.create', entity: 'workspace · Bayou Plumbing Co.', channel: 'web', channelLong: 'Web app (Chrome on macOS)', ip: '73.32.118.40', correlation: '0192a05c-77d0-7b02-a4e9-3c6d1f2b9a77', before: null, after: { name: 'Bayou Plumbing Co.', slug: 'bayou-plumbing', industry: 'home_services', timezone: 'America/Chicago' }, daysAgo: 1 },
+      { id: 'e5', day: 'Yesterday', time: '11:05 AM', actor: 'u3', cat: 'members', text: 'accepted an invitation and joined as Member', action: 'invitation.accept', entity: 'invitation · dana@lonestarhvac.com', channel: 'web', channelLong: 'Web app (Chrome on Android)', ip: '107.77.201.9', correlation: '01929f1a-3c88-7e40-b1d5-9e0a6c4f2d13', before: { accepted_at: null }, after: { accepted_at: '2026-09-10T16:05:41Z', accepted_by: 'Dana Whitfield' }, daysAgo: 1 },
+      { id: 'e6', day: 'Sep 8', time: '3:22 PM', actor: 'u1', cat: 'workspace', text: 'changed the time zone from Mountain to Central', action: 'workspace.update', entity: 'workspace · Lone Star HVAC & Roofing', channel: 'web', channelLong: 'Web app (Chrome on macOS)', ip: '73.32.118.40', correlation: '019295e8-9a14-7f6b-8c02-d4b7e1a35f90', before: { timezone: 'America/Denver' }, after: { timezone: 'America/Chicago' }, daysAgo: 3 },
+      { id: 'e7', day: 'Sep 8', time: '3:20 PM', actor: 'u1', cat: 'invitations', text: 'revoked the invitation for m.chen@lonestarhvac.com', action: 'invitation.revoke', entity: 'invitation · m.chen@lonestarhvac.com', channel: 'web', channelLong: 'Web app (Chrome on macOS)', ip: '73.32.118.40', correlation: '019295e6-2b70-7c1d-9e33-a8f0c6d21b54', before: { revoked_at: null }, after: { revoked_at: '2026-09-08T20:20:07Z' }, daysAgo: 3 },
+      { id: 'e8', day: 'Aug 12', time: '10:48 AM', actor: 'u1', cat: 'workspace', text: 'created Go Biz Help and its first workspace, Lone Star HVAC & Roofing', action: 'organization.create', entity: 'organization · Go Biz Help', channel: 'web', channelLong: 'Web app (Chrome on macOS)', ip: '73.32.118.40', correlation: '01920a3f-5d9e-7a88-b6c1-e2f4a7d90c36', before: null, after: { organization: 'Go Biz Help', workspace: 'Lone Star HVAC & Roofing', owner: 'Chris' }, daysAgo: 30 }
+    ];
+    const rangeDays = { today: 0, '7d': 7, '30d': 30 }[s.range];
+    const q = s.q.trim().toLowerCase();
+    const catLabel = { members: 'Members', invitations: 'Invitations', workspace: 'Workspace' };
+    const visible = raw.filter(e => e.daysAgo <= rangeDays)
+      .filter(e => s.actor === 'all' || e.actor === s.actor)
+      .filter(e => s.category === 'all' || e.cat === s.category)
+      .filter(e => !q || (people[e.actor].name + ' ' + e.text + ' ' + e.action + ' ' + e.entity).toLowerCase().includes(q))
+      .map(e => ({
+        ...e,
+        actor: people[e.actor].name,
+        initials: people[e.actor].initials,
+        avatarStyle: 'background: ' + people[e.actor].hue + ';',
+        categoryLabel: catLabel[e.cat],
+        open: s.openId === e.id,
+        rowClass: 'entry' + (s.openId === e.id ? ' open' : ''),
+        chevronStyle: s.openId === e.id ? 'transform: rotate(180deg); transition: transform .15s;' : 'transition: transform .15s;',
+        toggle: () => this.setState({ openId: s.openId === e.id ? null : e.id }),
+        before: j(e.before),
+        after: j(e.after),
+        hasCause: !!e.cause,
+        cause: e.cause || '',
+        copyLabel: s.copiedId === e.id ? 'Copied' : 'Copy',
+        copy: (ev) => { ev.stopPropagation(); clearTimeout(this._c); this.setState({ copiedId: e.id }); this._c = setTimeout(() => this.setState({ copiedId: null }), 1500); }
+      }));
+    const groups = [];
+    for (const e of visible) {
+      let g = groups.find(x => x.label === e.day);
+      if (!g) { g = { label: e.day, entries: [] }; groups.push(g); }
+      g.entries.push(e);
+    }
+    const ranges = [{ key: 'today', label: 'Today' }, { key: '7d', label: '7 days' }, { key: '30d', label: '30 days' }]
+      .map(r => ({ ...r, cls: s.range === r.key ? 'on' : '', pick: () => this.setState({ range: r.key }) }));
+    return {
+      accent: this.props.accent ?? '#2d69d8',
+      theme: this.props.theme ?? 'light',
+      ranges,
+      onActor: (e) => this.setState({ actor: e.target.value }),
+      onCategory: (e) => this.setState({ category: e.target.value }),
+      onSearch: (e) => this.setState({ q: e.target.value }),
+      groups,
+      empty: visible.length === 0,
+      count: visible.length + (visible.length === 1 ? ' entry' : ' entries')
+    };
+  }
+}
+</script>
+</body>
+</html>

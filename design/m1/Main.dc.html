@@ -1,0 +1,281 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap">
+  <style>
+*{box-sizing:border-box}
+body{margin:0;background:transparent}
+.hf{font-family:"Hanken Grotesk",system-ui,-apple-system,"Segoe UI",Helvetica,Arial,sans-serif;font-size:14px;line-height:1.45;color:var(--text);background:var(--bg);-webkit-font-smoothing:antialiased}
+.hf h1,.hf h2,.hf h3,.hf p{margin:0}.hf h1,.hf h2,.hf h3{text-wrap:pretty}
+.theme-light{--bg:#f9fafd;--card:#ffffff;--card-2:#f2f4f8;--card-3:#e4e8ee;--border:#e4e8ee;--border-strong:#d2d6dd;--text:#191d25;--text-2:#5b616a;--text-3:#676c75;--placeholder:#a0a5ae;--accent-text:var(--accent);--accent-soft:color-mix(in oklab,var(--accent) 10%,#ffffff);--accent-soft-2:color-mix(in oklab,var(--accent) 18%,#ffffff);--accent-hover:color-mix(in oklab,var(--accent) 86%,#000000);--ring:color-mix(in oklab,var(--accent) 28%,transparent);--shadow-1:0 1px 2px rgba(25,29,37,.06),0 1px 3px rgba(25,29,37,.04);--shadow-2:0 8px 24px rgba(25,29,37,.10),0 2px 6px rgba(25,29,37,.06);--shadow-3:0 24px 60px rgba(25,29,37,.22),0 4px 12px rgba(25,29,37,.08);--success:#008743;--success-soft:#e0f7e5;--success-text:#005d2d;--warning:#996300;--warning-soft:#ffedd8;--warning-text:#6b4300;--danger:#c43335;--danger-soft:#ffebe9;--danger-text:#862726;--scrim:rgba(25,29,37,.45);--toast-bg:#191d25;--toast-text:#f2f4f8}
+.theme-dark{--bg:#0f131a;--card:#191d25;--card-2:#20252e;--card-3:#2c3139;--border:#2c3139;--border-strong:#3a4049;--text:#f2f4f8;--text-2:#a0a5ae;--text-3:#8a909a;--placeholder:#5b616a;--accent-text:color-mix(in oklab,var(--accent) 62%,#ffffff);--accent-soft:color-mix(in oklab,var(--accent) 22%,#191d25);--accent-soft-2:color-mix(in oklab,var(--accent) 34%,#191d25);--accent-hover:color-mix(in oklab,var(--accent) 84%,#ffffff);--ring:color-mix(in oklab,var(--accent) 45%,transparent);--shadow-1:0 1px 2px rgba(0,0,0,.45);--shadow-2:0 8px 24px rgba(0,0,0,.55);--shadow-3:0 24px 60px rgba(0,0,0,.65);--success:#3ccf7a;--success-soft:#10291b;--success-text:#7fe0a5;--warning:#f0a93b;--warning-soft:#2d2210;--warning-text:#f5c97a;--danger:#ff7b73;--danger-soft:#301816;--danger-text:#ffaaa3;--scrim:rgba(0,0,0,.6);--toast-bg:#f2f4f8;--toast-text:#191d25}
+a{color:var(--accent-text);text-decoration:none}a:hover{color:var(--accent-hover);text-decoration:underline}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:36px;padding:0 14px;border-radius:8px;border:1px solid transparent;font:inherit;font-weight:500;font-size:14px;color:var(--text);background:transparent;cursor:pointer;white-space:nowrap;transition:background .12s,border-color .12s,box-shadow .12s,color .12s}
+.btn:focus-visible{outline:none;box-shadow:0 0 0 3px var(--ring)}
+.btn-primary{background:var(--accent);color:#fff}.btn-primary:hover{background:var(--accent-hover)}
+.btn-secondary{background:var(--card);border-color:var(--border-strong);box-shadow:var(--shadow-1)}.btn-secondary:hover{background:var(--card-2)}
+.btn-ghost{color:var(--text-2)}.btn-ghost:hover{background:var(--card-2);color:var(--text)}
+.btn-sm{height:32px;padding:0 10px;font-size:13px}.btn:disabled{opacity:.5;cursor:not-allowed}
+.icon-btn{width:32px;height:32px;padding:0;border-radius:8px}
+.input{width:100%;height:40px;padding:0 12px;border-radius:8px;border:1px solid var(--border-strong);background:var(--card);color:var(--text);font:inherit;font-size:15px;transition:border-color .12s,box-shadow .12s}
+.input::placeholder{color:var(--placeholder)}.input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--ring)}
+.input-sm{height:34px;font-size:14px}
+.card{background:var(--card);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow-1)}
+.badge{display:inline-flex;align-items:center;gap:6px;height:22px;padding:0 8px;border-radius:999px;font-size:12px;font-weight:500;border:1px solid transparent;white-space:nowrap}
+.badge-owner{background:var(--accent-soft);color:var(--accent-text)}.badge-gray{background:var(--card-2);color:var(--text-2)}
+.mono{font-family:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12.5px}
+.avatar{width:32px;height:32px;border-radius:999px;display:inline-flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;color:#fff;background:var(--accent);flex:none;letter-spacing:.02em}
+.avatar-sm{width:24px;height:24px;font-size:10px}
+.h1{font-size:24px;font-weight:600;letter-spacing:-.01em;line-height:1.25}.h2{font-size:18px;font-weight:600;letter-spacing:-.005em;line-height:1.3}.h3{font-size:15px;font-weight:600;line-height:1.35}
+.muted{color:var(--text-2)}.faint{color:var(--text-3)}.small{font-size:13px}.xs{font-size:12px}
+.shell{display:flex;min-height:832px}
+.sidebar{position:relative;width:240px;flex:none;background:var(--card);border-right:1px solid var(--border);display:flex;flex-direction:column;padding:16px 12px 12px;gap:4px}
+.nav-item{display:flex;align-items:center;gap:10px;height:36px;padding:0 10px;border-radius:8px;color:var(--text-2);font-weight:500;cursor:pointer;background:transparent;border:0;font:inherit;font-size:14px;width:100%;text-align:left}
+.nav-item:hover{background:var(--card-2);color:var(--text)}.nav-item.active{background:var(--accent-soft);color:var(--accent-text)}
+.main{flex:1;min-width:0;padding:32px 40px;position:relative}
+.page-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:24px}
+.menu-item{display:flex;align-items:center;gap:10px;width:100%;height:36px;padding:0 10px;border-radius:6px;border:0;background:transparent;font:inherit;font-size:14px;color:var(--text);cursor:pointer;text-align:left}
+.menu-item:hover{background:var(--card-2)}
+.toast{position:absolute;left:50%;bottom:24px;transform:translateX(-50%);background:var(--toast-bg);color:var(--toast-text);padding:10px 14px;border-radius:10px;font-size:13.5px;box-shadow:var(--shadow-2);display:flex;gap:10px;align-items:center;z-index:60;white-space:nowrap}
+.switcher{display:flex;align-items:center;gap:10px;width:100%;height:52px;padding:0 10px;border-radius:10px;border:1px solid var(--border);background:var(--card);font:inherit;color:var(--text);cursor:pointer;text-align:left}
+.switcher:hover{background:var(--card-2)}
+.icon{width:18px;height:18px;flex:none}
+.brand{display:flex;align-items:center;gap:10px;font-weight:600;font-size:15px;letter-spacing:-.01em;color:var(--text)}
+.mark{width:28px;height:28px;border-radius:8px;background:var(--accent);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;letter-spacing:-.02em}
+.row{display:flex;align-items:center;gap:12px}.between{justify-content:space-between}.stack{display:flex;flex-direction:column}
+.check-dot{width:22px;height:22px;border-radius:999px;border:1.5px solid var(--border-strong);display:flex;align-items:center;justify-content:center;flex:none;color:#fff}
+.check-dot.done{background:var(--success);border-color:var(--success)}
+.task{display:flex;align-items:center;gap:14px;padding:14px 0;border-bottom:1px solid var(--border)}.task:last-child{border-bottom:0}
+  </style>
+</helmet>
+
+<div class="hf theme-{{ theme }}" style="--accent: {{ accent }}; width: 1280px; min-height: 832px; position: relative; overflow: hidden;">
+  <div class="shell">
+    <aside class="sidebar">
+      <div class="brand" style="padding: 4px 10px 14px;"><div class="mark">hf</div><span>HandsFreeOS</span></div>
+
+      <button class="switcher" onClick="{{ toggle }}" aria-haspopup="listbox">
+        <span class="avatar" style="border-radius: 8px; background: var(--accent-soft-2); color: var(--accent-text);">{{ current.initials }}</span>
+        <span class="stack" style="min-width: 0; flex: 1;">
+          <span style="font-weight: 600; font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ current.name }}</span>
+          <span class="xs faint">Go Biz Help</span>
+        </span>
+        <svg class="icon faint" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m7 9 5-5 5 5M7 15l5 5 5-5"></path></svg>
+      </button>
+
+      <sc-if value="{{ open }}" hint-placeholder-val="{{ false }}">
+        <div onClick="{{ close }}" style="position: fixed; inset: 0; z-index: 25;"></div>
+        <div class="card" style="position: absolute; left: 12px; top: 116px; width: 304px; z-index: 30; padding: 0; box-shadow: var(--shadow-2);">
+          <div style="padding: 8px;">
+            <div style="position: relative;">
+              <svg class="icon faint" style="position: absolute; left: 10px; top: 8px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.5-3.5"></path></svg>
+              <input class="input input-sm" style="padding-left: 34px;" placeholder="Find a workspace" onInput="{{ onSearch }}" autofocus="{{ true }}">
+            </div>
+          </div>
+          <div style="height: 1px; background: var(--border);"></div>
+          <div style="padding: 6px;">
+            <sc-for list="{{ groups }}" as="g" hint-placeholder-count="1">
+              <div class="xs faint" style="padding: 6px 10px 4px; font-weight: 500;">{{ g.name }} · you are {{ g.role }}</div>
+              <sc-for list="{{ g.items }}" as="w" hint-placeholder-count="3">
+                <button class="menu-item" style="{{ w.itemStyle }}" onClick="{{ w.pick }}">
+                  <span class="avatar avatar-sm" style="border-radius: 6px; background: var(--card-3); color: var(--text);">{{ w.initials }}</span>
+                  <span style="flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ w.name }}</span>
+                  <sc-if value="{{ w.isCurrent }}" hint-placeholder-val="{{ false }}">
+                    <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 5 5L20 7"></path></svg>
+                  </sc-if>
+                </button>
+              </sc-for>
+            </sc-for>
+            <sc-if value="{{ noResults }}" hint-placeholder-val="{{ false }}">
+              <div class="small faint" style="padding: 10px 10px 8px;">No workspaces match.</div>
+            </sc-if>
+          </div>
+          <div style="height: 1px; background: var(--border);"></div>
+          <div style="padding: 6px;">
+            <button class="menu-item" onClick="{{ createWorkspace }}">
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"></path></svg>
+              <span>Create workspace</span>
+            </button>
+          </div>
+        </div>
+      </sc-if>
+
+      <nav class="stack" style="gap: 2px; margin-top: 10px;">
+        <button class="nav-item active"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"></path><path d="M5 9.5V21h14V9.5"></path></svg><span>Home</span></button>
+        <button class="nav-item"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"></circle><path d="M2.5 20a6.5 6.5 0 0 1 13 0"></path><path d="M16 4.5a3.5 3.5 0 0 1 0 7"></path><path d="M17.5 14a6 6 0 0 1 4 5.5"></path></svg><span>Members</span></button>
+        <button class="nav-item"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6h13M8 12h13M8 18h13"></path><path d="M3 6h.01M3 12h.01M3 18h.01"></path></svg><span>Audit log</span></button>
+        <button class="nav-item"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h8M18 6h2M4 12h2M10 12h10M4 18h12M20 18h0"></path><circle cx="14" cy="6" r="2"></circle><circle cx="8" cy="12" r="2"></circle><circle cx="18" cy="18" r="2"></circle></svg><span>Settings</span></button>
+      </nav>
+
+      <div style="flex: 1;"></div>
+      <div class="row" style="padding: 12px 6px 4px; border-top: 1px solid var(--border);">
+        <span class="avatar">CH</span>
+        <span class="stack" style="min-width: 0; flex: 1;">
+          <span style="font-weight: 500; font-size: 13.5px;">Chris</span>
+          <span class="xs faint" style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">chris@gobizhelp.com</span>
+        </span>
+        <button class="btn btn-ghost icon-btn" title="Sign out"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h4"></path><path d="m15 8 5 4-5 4M20 12H9"></path></svg></button>
+      </div>
+    </aside>
+
+    <main class="main">
+      <div class="page-head">
+        <div>
+          <h1 class="h1">Welcome back, Chris</h1>
+          <p class="muted" style="margin-top: 4px;">{{ current.name }} · Home services · America/Chicago</p>
+        </div>
+        <div class="row">
+          <button class="btn btn-secondary"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"></circle><path d="M2.5 20a6.5 6.5 0 0 1 13 0"></path><path d="M19 8v6M16 11h6"></path></svg><span>Invite teammate</span></button>
+        </div>
+      </div>
+
+      <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px;">
+        <div class="card" style="grid-column: span 2; padding: 24px;">
+          <div class="row between" style="margin-bottom: 6px;">
+            <h2 class="h2">Finish setting up</h2>
+            <span class="badge badge-gray">{{ doneCount }} of 5 done</span>
+          </div>
+          <p class="muted small">A few minutes now saves you from doing this in the middle of a busy day.</p>
+          <div style="height: 6px; border-radius: 999px; background: var(--card-2); margin: 16px 0 6px; overflow: hidden;">
+            <div style="height: 100%; width: 100%; transform: scaleX({{ progressScale }}); transform-origin: left center; background: var(--accent); border-radius: 999px; transition: transform .25s;"></div>
+          </div>
+          <div class="stack">
+            <sc-for list="{{ tasks }}" as="t" hint-placeholder-count="5">
+              <div class="task">
+                <span class="{{ t.dotClass }}">
+                  <sc-if value="{{ t.done }}" hint-placeholder-val="{{ false }}">
+                    <svg style="width: 14px; height: 14px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 5 5L20 7"></path></svg>
+                  </sc-if>
+                </span>
+                <span class="stack" style="flex: 1; min-width: 0;">
+                  <span style="{{ t.titleStyle }}">{{ t.title }}</span>
+                  <span class="small faint">{{ t.detail }}</span>
+                </span>
+                <sc-if value="{{ t.todo }}" hint-placeholder-val="{{ true }}">
+                  <button class="btn btn-secondary btn-sm" onClick="{{ t.complete }}">{{ t.action }}</button>
+                </sc-if>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+
+        <div class="stack" style="gap: 20px;">
+          <div class="card" style="padding: 20px;">
+            <div class="row between" style="margin-bottom: 14px;">
+              <h3 class="h3">Workspace</h3>
+              <span class="badge badge-owner">Owner</span>
+            </div>
+            <div class="stack" style="gap: 10px;">
+              <div class="row between small"><span class="muted">Business</span><span style="font-weight: 500;">{{ current.name }}</span></div>
+              <div class="row between small"><span class="muted">Industry</span><span style="font-weight: 500;">Home services</span></div>
+              <div class="row between small"><span class="muted">Time zone</span><span style="font-weight: 500;">America/Chicago</span></div>
+              <div class="row between small"><span class="muted">People</span><span style="font-weight: 500;">3 members · 1 invited</span></div>
+            </div>
+            <div style="height: 1px; background: var(--border); margin: 16px 0 12px;"></div>
+            <a href="#" class="small" style="font-weight: 500;">Manage members</a>
+          </div>
+
+          <div class="card" style="padding: 20px; background: var(--accent-soft); border-color: transparent;">
+            <h3 class="h3" style="color: var(--accent-text);">Next up</h3>
+            <p class="small" style="margin-top: 6px; color: var(--text-2);">Customers, pipeline and inbox arrive here in Milestone 2. Until then this page tracks setup and your team.</p>
+          </div>
+        </div>
+      </div>
+
+      <sc-if value="{{ hasToast }}" hint-placeholder-val="{{ false }}">
+        <div class="toast">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 5 5L20 7"></path></svg>
+          <span>{{ toast }}</span>
+        </div>
+      </sc-if>
+    </main>
+  </div>
+</div>
+</x-dc>
+<script data-dc-script data-props='{"accent":{"editor":"color","default":"#2d69d8","options":["#2d69d8","#1950b5","#6199fd","#008743"],"section":"Theme"},"theme":{"editor":"enum","default":"light","options":["light","dark"],"section":"Theme"},"$preview":{"width":1280,"height":832}}'>
+class Component extends DCLogic {
+  constructor(...args) {
+    super(...args);
+    this.state = {
+      open: false,
+      q: '',
+      current: 'ws1',
+      toast: null,
+      done: { email: true, business: true, invite: false, passkey: false, google: false }
+    };
+  }
+  flash(msg) {
+    clearTimeout(this._t);
+    this.setState({ toast: msg });
+    this._t = setTimeout(() => this.setState({ toast: null }), 2400);
+  }
+  renderVals() {
+    const orgs = [{
+      id: 'org1', name: 'Go Biz Help', role: 'Owner',
+      workspaces: [
+        { id: 'ws1', name: 'Lone Star HVAC & Roofing', initials: 'LS' },
+        { id: 'ws2', name: 'Bayou Plumbing Co.', initials: 'BP' },
+        { id: 'ws3', name: 'Summit Roofing', initials: 'SR' }
+      ]
+    }];
+    const q = this.state.q.trim().toLowerCase();
+    const all = orgs.flatMap(o => o.workspaces);
+    const current = all.find(w => w.id === this.state.current) || all[0];
+    const groups = orgs.map(o => ({
+      ...o,
+      items: o.workspaces
+        .filter(w => !q || w.name.toLowerCase().includes(q))
+        .map(w => ({
+          ...w,
+          isCurrent: w.id === current.id,
+          itemStyle: w.id === current.id ? 'background: var(--accent-soft); color: var(--accent-text); font-weight: 500;' : '',
+          pick: () => { this.setState({ current: w.id, open: false, q: '' }); this.flash('Switched to ' + w.name); }
+        }))
+    })).filter(g => g.items.length > 0);
+
+    const defs = [
+      { key: 'email', title: 'Confirm your email', detail: 'chris@gobizhelp.com is verified', action: 'Resend' },
+      { key: 'business', title: 'Create your business', detail: 'Lone Star HVAC & Roofing, Home services', action: 'Edit' },
+      { key: 'invite', title: 'Invite your team', detail: 'Owners, admins and members each get the right access', action: 'Invite' },
+      { key: 'passkey', title: 'Add a passkey', detail: 'Sign in with Touch ID instead of a password', action: 'Add passkey' },
+      { key: 'google', title: 'Connect Google sign-in', detail: 'One click to sign in on any device', action: 'Connect' }
+    ];
+    const done = this.state.done;
+    const tasks = defs.map(d => ({
+      ...d,
+      done: !!done[d.key],
+      todo: !done[d.key],
+      dotClass: done[d.key] ? 'check-dot done' : 'check-dot',
+      titleStyle: done[d.key] ? 'font-weight: 500; color: var(--text-2); text-decoration: line-through;' : 'font-weight: 500;',
+      complete: () => { this.setState({ done: { ...done, [d.key]: true } }); this.flash(d.title + ' marked done'); }
+    }));
+    const doneCount = tasks.filter(t => t.done).length;
+
+    return {
+      accent: this.props.accent ?? '#2d69d8',
+      theme: this.props.theme ?? 'light',
+      open: this.state.open,
+      toggle: () => this.setState({ open: !this.state.open }),
+      close: () => this.setState({ open: false, q: '' }),
+      onSearch: (e) => this.setState({ q: e.target.value }),
+      createWorkspace: () => { this.setState({ open: false }); this.flash('Create workspace opens in the real app'); },
+      groups,
+      noResults: groups.length === 0,
+      current,
+      tasks,
+      doneCount,
+      progressScale: (doneCount / tasks.length).toFixed(3),
+      toast: this.state.toast,
+      hasToast: !!this.state.toast
+    };
+  }
+}
+</script>
+</body>
+</html>

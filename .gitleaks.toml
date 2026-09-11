@@ -1,0 +1,28 @@
+# Secret scanning rules on top of the gitleaks defaults (run by CI and usable locally: gitleaks git .)
+title = "HandsFreeOS"
+
+[extend]
+useDefault = true
+
+[[rules]]
+id = "supabase-secret-key"
+description = "Supabase secret API key (sb_secret_...)"
+regex = '''sb_secret_[A-Za-z0-9_-]{20,}'''
+
+[[rules]]
+id = "supabase-service-role-jwt"
+description = "Supabase service-role JWT (legacy service_role key)"
+# The payload of a service-role JWT contains "service_role", which base64url-encodes to c2VydmljZV9yb2xl.
+regex = '''eyJ[A-Za-z0-9_-]{10,}\.eyJ[A-Za-z0-9_-]*c2VydmljZV9yb2xl[A-Za-z0-9_-]*\.[A-Za-z0-9_-]{10,}'''
+
+[[rules]]
+id = "postgres-superuser-url"
+description = "Database URL that connects as the postgres superuser"
+regex = '''postgres(ql)?://postgres:[^@\s'"]+@'''
+# The env tests prove the apps refuse such a URL; those literals are the point of the test.
+[rules.allowlist]
+paths = ['''apps/[^/]+/test/.*\.test\.ts$''']
+
+[allowlist]
+# Design prototypes carry made-up sample tokens; the lockfile carries integrity hashes.
+paths = ['''pnpm-lock\.yaml''', '''\.gitleaks\.toml''', '''design/.*\.dc\.html$''']

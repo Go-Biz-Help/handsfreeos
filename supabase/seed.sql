@@ -1,0 +1,3 @@
+-- Intentionally empty. The development seed is `pnpm db:seed` (apps/worker/scripts/seed.ts):
+-- it creates users through Supabase Auth and every change through the command pipeline, so seeded
+-- data carries real events, outbox rows, audit entries and worker emails, exactly like production.

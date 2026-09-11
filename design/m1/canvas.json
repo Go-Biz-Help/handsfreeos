@@ -1,0 +1,20 @@
+{
+  "artboards": [
+    { "file": "SignUp.dc.html", "title": "Sign up", "x": 0, "y": 0, "w": 1280, "h": 832, "is_interactive": true },
+    { "file": "SignIn.dc.html", "title": "Sign in", "x": 1360, "y": 0, "w": 1280, "h": 832, "is_interactive": true },
+    { "file": "CreateBusiness.dc.html", "title": "Create your business", "x": 2720, "y": 0, "w": 1280, "h": 832, "is_interactive": true },
+    { "file": "AcceptInvite.dc.html", "title": "Accept invite", "x": 4080, "y": 0, "w": 1280, "h": 832, "is_interactive": true },
+    { "file": "Main.dc.html", "title": "Workspace home + switcher", "x": 0, "y": 960, "w": 1280, "h": 832, "is_interactive": true },
+    { "file": "Members.dc.html", "title": "Members", "x": 1360, "y": 960, "w": 1280, "h": 832, "is_interactive": true },
+    { "file": "InviteTeammate.dc.html", "title": "Invite teammate", "x": 2720, "y": 960, "w": 760, "h": 600, "is_interactive": true },
+    { "file": "AccountSettings.dc.html", "title": "Account settings", "x": 3560, "y": 960, "w": 1280, "h": 832, "is_interactive": true },
+    { "file": "AuditLog.dc.html", "title": "Audit log", "x": 0, "y": 1920, "w": 1280, "h": 960, "is_interactive": true },
+    { "file": "Foundations.dc.html", "title": "Design foundations", "x": 1360, "y": 1920, "w": 1280, "h": 2360 }
+  ],
+  "annotations": [
+    { "id": "direction", "x": 0, "y": -170, "w": 600, "text": "HandsFreeOS Milestone 1 · Clean & airy\nAccent #2D69D8 · Hanken Grotesk + JetBrains Mono · 8/12 px radii · 36 px controls.\nUse the Accent and Theme chips above any screen to preview the whole system recolored or in dark mode. Every screen is clickable: the workspace switcher, invites, role changes, passkeys and audit filters all work." },
+    { "id": "sample-data", "x": 1360, "y": -170, "w": 600, "text": "Sample data only: Go Biz Help is the agency organization; Lone Star HVAC & Roofing, Bayou Plumbing Co. and Summit Roofing are fictional client workspaces. People, emails and times are placeholders. The Touch ID sheet is a mock of the device prompt." },
+    { "id": "reserved-ask", "x": 2720, "y": 1640, "w": 560, "text": "Reserved, not drawn: a persistent 'Ask HandsFreeOS' button joins the sidebar footer in Milestone 4 (assistant), and Customers / Pipeline / Inbox / Calendar join the nav as they ship. The Milestone 1 nav shows only what Milestone 1 delivers." }
+  ],
+  "launch": { "view": "canvas" }
+}

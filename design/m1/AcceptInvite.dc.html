@@ -1,0 +1,154 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap">
+  <style>
+*{box-sizing:border-box}
+body{margin:0;background:transparent}
+.hf{font-family:"Hanken Grotesk",system-ui,-apple-system,"Segoe UI",Helvetica,Arial,sans-serif;font-size:14px;line-height:1.45;color:var(--text);background:var(--bg);-webkit-font-smoothing:antialiased}
+.hf h1,.hf h2,.hf h3,.hf p{margin:0}.hf h1,.hf h2,.hf h3{text-wrap:pretty}
+.theme-light{--bg:#f9fafd;--card:#ffffff;--card-2:#f2f4f8;--card-3:#e4e8ee;--border:#e4e8ee;--border-strong:#d2d6dd;--text:#191d25;--text-2:#5b616a;--text-3:#676c75;--placeholder:#a0a5ae;--accent-text:var(--accent);--accent-soft:color-mix(in oklab,var(--accent) 10%,#ffffff);--accent-soft-2:color-mix(in oklab,var(--accent) 18%,#ffffff);--accent-hover:color-mix(in oklab,var(--accent) 86%,#000000);--ring:color-mix(in oklab,var(--accent) 28%,transparent);--shadow-1:0 1px 2px rgba(25,29,37,.06),0 1px 3px rgba(25,29,37,.04);--shadow-2:0 8px 24px rgba(25,29,37,.10),0 2px 6px rgba(25,29,37,.06);--shadow-3:0 24px 60px rgba(25,29,37,.22),0 4px 12px rgba(25,29,37,.08);--success:#008743;--success-soft:#e0f7e5;--success-text:#005d2d;--warning:#996300;--warning-soft:#ffedd8;--warning-text:#6b4300;--danger:#c43335;--danger-soft:#ffebe9;--danger-text:#862726;--scrim:rgba(25,29,37,.45);--toast-bg:#191d25;--toast-text:#f2f4f8}
+.theme-dark{--bg:#0f131a;--card:#191d25;--card-2:#20252e;--card-3:#2c3139;--border:#2c3139;--border-strong:#3a4049;--text:#f2f4f8;--text-2:#a0a5ae;--text-3:#8a909a;--placeholder:#5b616a;--accent-text:color-mix(in oklab,var(--accent) 62%,#ffffff);--accent-soft:color-mix(in oklab,var(--accent) 22%,#191d25);--accent-soft-2:color-mix(in oklab,var(--accent) 34%,#191d25);--accent-hover:color-mix(in oklab,var(--accent) 84%,#ffffff);--ring:color-mix(in oklab,var(--accent) 45%,transparent);--shadow-1:0 1px 2px rgba(0,0,0,.45);--shadow-2:0 8px 24px rgba(0,0,0,.55);--shadow-3:0 24px 60px rgba(0,0,0,.65);--success:#3ccf7a;--success-soft:#10291b;--success-text:#7fe0a5;--warning:#f0a93b;--warning-soft:#2d2210;--warning-text:#f5c97a;--danger:#ff7b73;--danger-soft:#301816;--danger-text:#ffaaa3;--scrim:rgba(0,0,0,.6);--toast-bg:#f2f4f8;--toast-text:#191d25}
+a{color:var(--accent-text);text-decoration:none}a:hover{color:var(--accent-hover);text-decoration:underline}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:36px;padding:0 14px;border-radius:8px;border:1px solid transparent;font:inherit;font-weight:500;font-size:14px;color:var(--text);background:transparent;cursor:pointer;white-space:nowrap;transition:background .12s,border-color .12s,box-shadow .12s,color .12s}
+.btn:focus-visible{outline:none;box-shadow:0 0 0 3px var(--ring)}
+.btn-primary{background:var(--accent);color:#fff}.btn-primary:hover{background:var(--accent-hover)}
+.btn-secondary{background:var(--card);border-color:var(--border-strong);box-shadow:var(--shadow-1)}.btn-secondary:hover{background:var(--card-2)}
+.btn-ghost{color:var(--text-2)}.btn-ghost:hover{background:var(--card-2);color:var(--text)}
+.btn-lg{height:44px;padding:0 18px;font-size:15px;border-radius:10px}.btn-block{width:100%}
+.card{background:var(--card);border:1px solid var(--border);border-radius:14px;box-shadow:var(--shadow-1)}
+.badge{display:inline-flex;align-items:center;gap:6px;height:24px;padding:0 10px;border-radius:999px;font-size:12.5px;font-weight:500;border:1px solid transparent;white-space:nowrap}
+.badge-admin{background:var(--card-2);color:var(--text);border-color:var(--border)}
+.h1{font-size:24px;font-weight:600;letter-spacing:-.015em;line-height:1.25}
+.muted{color:var(--text-2)}.faint{color:var(--text-3)}.small{font-size:13px}.xs{font-size:12px}
+.auth{min-height:832px;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:48px 24px;gap:24px;background:radial-gradient(70% 45% at 50% 0%,color-mix(in oklab,var(--accent) 9%,transparent),transparent 75%)}
+.brand{display:flex;align-items:center;gap:10px;font-weight:600;font-size:16px;letter-spacing:-.01em;color:var(--text)}
+.mark{width:32px;height:32px;border-radius:9px;background:var(--accent);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;letter-spacing:-.02em}
+.avatar{width:44px;height:44px;border-radius:999px;display:inline-flex;align-items:center;justify-content:center;font-size:15px;font-weight:600;color:#fff;background:#008743;flex:none}
+.row{display:flex;align-items:center;gap:12px}.between{justify-content:space-between}.stack{display:flex;flex-direction:column}
+.icon{width:18px;height:18px;flex:none}
+.alert{display:flex;gap:12px;padding:14px 16px;border-radius:10px;border:1px solid transparent;font-size:13.5px;line-height:1.5}
+.alert-danger{background:var(--danger-soft);color:var(--danger-text)}.alert-warning{background:var(--warning-soft);color:var(--warning-text)}
+.account{display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--border);border-radius:10px;background:var(--card-2)}
+  </style>
+</helmet>
+
+<div class="hf theme-{{ theme }}" style="--accent: {{ accent }}; width: 1280px; min-height: 832px; position: relative; overflow: hidden;">
+  <div class="auth">
+    <div class="brand"><div class="mark">hf</div><span>HandsFreeOS</span></div>
+
+    <sc-if value="{{ showInvite }}" hint-placeholder-val="{{ true }}">
+      <div class="card" style="width: 480px; padding: 36px;">
+        <div class="row" style="gap: 14px;">
+          <span class="avatar">SR</span>
+          <div class="stack" style="gap: 2px;">
+            <span class="small muted">Sam Rivera invited you to join</span>
+            <h1 class="h1">Lone Star HVAC &amp; Roofing</h1>
+          </div>
+        </div>
+        <div class="row" style="gap: 8px; margin-top: 16px;">
+          <span class="badge badge-admin">Admin</span>
+          <span class="small faint">Manage people and settings. Cannot change Owners.</span>
+        </div>
+
+        <sc-if value="{{ isValid }}" hint-placeholder-val="{{ true }}">
+          <div class="stack" style="gap: 10px; margin-top: 24px;">
+            <span class="xs faint" style="font-weight: 500;">Joining as</span>
+            <div class="account">
+              <span class="avatar" style="width: 28px; height: 28px; font-size: 11px; background: var(--accent);">JO</span>
+              <span class="stack" style="min-width: 0; flex: 1;"><span style="font-weight: 500;">Jordan Ortiz</span><span class="xs faint">j.ortiz@lonestarhvac.com</span></span>
+              <a href="#" class="small">Not you?</a>
+            </div>
+          </div>
+          <button class="btn btn-primary btn-lg btn-block" onClick="{{ accept }}" style="margin-top: 20px;">Accept invitation</button>
+          <p class="xs faint" style="margin-top: 14px; text-align: center;">This link works once and expires {{ expires }}.</p>
+        </sc-if>
+
+        <sc-if value="{{ isWrong }}" hint-placeholder-val="{{ false }}">
+          <div class="alert alert-danger" style="margin-top: 24px;">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="M12 8v5M12 16h.01"></path></svg>
+            <span>This invitation was sent to <strong style="font-weight: 600;">j.ortiz@lonestarhvac.com</strong>, but you are signed in as <strong style="font-weight: 600;">chris@gobizhelp.com</strong>. Invitations only work for the address they were sent to.</span>
+          </div>
+          <div class="stack" style="gap: 10px; margin-top: 20px;">
+            <button class="btn btn-primary btn-lg btn-block" onClick="{{ switchAccount }}">Sign out and switch account</button>
+            <button class="btn btn-ghost btn-block">Ask Sam to invite chris@gobizhelp.com instead</button>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ isExpired }}" hint-placeholder-val="{{ false }}">
+          <div class="alert alert-warning" style="margin-top: 24px;">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 2"></path></svg>
+            <span>This invitation expired on September 9. For safety, links stop working after 7 days.</span>
+          </div>
+          <button class="btn btn-secondary btn-lg btn-block" style="margin-top: 20px;">Ask Sam Rivera for a new invitation</button>
+        </sc-if>
+
+        <sc-if value="{{ isUsed }}" hint-placeholder-val="{{ false }}">
+          <div class="alert alert-warning" style="margin-top: 24px;">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="m8.5 12 2.5 2.5 4.5-5"></path></svg>
+            <span>This invitation was already accepted on September 10. Each link works once, so nothing else to do here.</span>
+          </div>
+          <button class="btn btn-primary btn-lg btn-block" style="margin-top: 20px;">Open Lone Star HVAC &amp; Roofing</button>
+        </sc-if>
+      </div>
+      <p class="small faint">Wrong workspace? Just close this page. Nothing changes until you accept.</p>
+    </sc-if>
+
+    <sc-if value="{{ isDone }}" hint-placeholder-val="{{ false }}">
+      <div class="card" style="width: 480px; padding: 36px; text-align: center;">
+        <div style="width: 52px; height: 52px; border-radius: 999px; background: var(--success-soft); color: var(--success-text); display: flex; align-items: center; justify-content: center; margin: 0 auto 18px;">
+          <svg style="width: 24px; height: 24px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 5 5L20 7"></path></svg>
+        </div>
+        <h1 class="h1" style="font-size: 22px;">You are in</h1>
+        <p class="muted" style="margin-top: 8px; line-height: 1.55;">You joined Lone Star HVAC &amp; Roofing as an Admin. Sam and the other owners were notified.</p>
+        <button class="btn btn-primary btn-lg" style="margin-top: 24px;">Open workspace</button>
+        <button class="btn btn-ghost" onClick="{{ reset }}" style="margin-top: 12px; display: flex; margin-left: auto; margin-right: auto;">Start over</button>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ isSwitched }}" hint-placeholder-val="{{ false }}">
+      <div class="card" style="width: 480px; padding: 36px; text-align: center;">
+        <h1 class="h1" style="font-size: 22px;">Signed out</h1>
+        <p class="muted" style="margin-top: 8px; line-height: 1.55;">Sign in as j.ortiz@lonestarhvac.com, then open the invitation link again.</p>
+        <button class="btn btn-primary btn-lg" style="margin-top: 24px;">Sign in</button>
+        <button class="btn btn-ghost" onClick="{{ reset }}" style="margin-top: 12px; display: flex; margin-left: auto; margin-right: auto;">Start over</button>
+      </div>
+    </sc-if>
+  </div>
+</div>
+</x-dc>
+<script data-dc-script data-props='{"accent":{"editor":"color","default":"#2d69d8","options":["#2d69d8","#1950b5","#6199fd","#008743"],"section":"Theme"},"theme":{"editor":"enum","default":"light","options":["light","dark"],"section":"Theme"},"scenario":{"editor":"enum","default":"valid","options":["valid","wrong-account","expired","used"],"section":"State"},"$preview":{"width":1280,"height":832}}'>
+class Component extends DCLogic {
+  constructor(...args) {
+    super(...args);
+    this.state = { phase: 'invite' };
+  }
+  renderVals() {
+    const scenario = this.props.scenario ?? 'valid';
+    const phase = this.state.phase;
+    return {
+      accent: this.props.accent ?? '#2d69d8',
+      theme: this.props.theme ?? 'light',
+      showInvite: phase === 'invite',
+      isValid: scenario === 'valid',
+      isWrong: scenario === 'wrong-account',
+      isExpired: scenario === 'expired',
+      isUsed: scenario === 'used',
+      isDone: phase === 'done',
+      isSwitched: phase === 'switched',
+      expires: 'in 6 days',
+      accept: () => this.setState({ phase: 'done' }),
+      switchAccount: () => this.setState({ phase: 'switched' }),
+      reset: () => this.setState({ phase: 'invite' })
+    };
+  }
+}
+</script>
+</body>
+</html>

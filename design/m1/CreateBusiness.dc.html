@@ -1,0 +1,160 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap">
+  <style>
+*{box-sizing:border-box}
+body{margin:0;background:transparent}
+.hf{font-family:"Hanken Grotesk",system-ui,-apple-system,"Segoe UI",Helvetica,Arial,sans-serif;font-size:14px;line-height:1.45;color:var(--text);background:var(--bg);-webkit-font-smoothing:antialiased}
+.hf h1,.hf h2,.hf h3,.hf p{margin:0}.hf h1,.hf h2,.hf h3{text-wrap:pretty}
+.theme-light{--bg:#f9fafd;--card:#ffffff;--card-2:#f2f4f8;--card-3:#e4e8ee;--border:#e4e8ee;--border-strong:#d2d6dd;--text:#191d25;--text-2:#5b616a;--text-3:#676c75;--placeholder:#a0a5ae;--accent-text:var(--accent);--accent-soft:color-mix(in oklab,var(--accent) 10%,#ffffff);--accent-soft-2:color-mix(in oklab,var(--accent) 18%,#ffffff);--accent-hover:color-mix(in oklab,var(--accent) 86%,#000000);--ring:color-mix(in oklab,var(--accent) 28%,transparent);--shadow-1:0 1px 2px rgba(25,29,37,.06),0 1px 3px rgba(25,29,37,.04);--shadow-2:0 8px 24px rgba(25,29,37,.10),0 2px 6px rgba(25,29,37,.06);--shadow-3:0 24px 60px rgba(25,29,37,.22),0 4px 12px rgba(25,29,37,.08);--success:#008743;--success-soft:#e0f7e5;--success-text:#005d2d;--warning:#996300;--warning-soft:#ffedd8;--warning-text:#6b4300;--danger:#c43335;--danger-soft:#ffebe9;--danger-text:#862726;--scrim:rgba(25,29,37,.45);--toast-bg:#191d25;--toast-text:#f2f4f8}
+.theme-dark{--bg:#0f131a;--card:#191d25;--card-2:#20252e;--card-3:#2c3139;--border:#2c3139;--border-strong:#3a4049;--text:#f2f4f8;--text-2:#a0a5ae;--text-3:#8a909a;--placeholder:#5b616a;--accent-text:color-mix(in oklab,var(--accent) 62%,#ffffff);--accent-soft:color-mix(in oklab,var(--accent) 22%,#191d25);--accent-soft-2:color-mix(in oklab,var(--accent) 34%,#191d25);--accent-hover:color-mix(in oklab,var(--accent) 84%,#ffffff);--ring:color-mix(in oklab,var(--accent) 45%,transparent);--shadow-1:0 1px 2px rgba(0,0,0,.45);--shadow-2:0 8px 24px rgba(0,0,0,.55);--shadow-3:0 24px 60px rgba(0,0,0,.65);--success:#3ccf7a;--success-soft:#10291b;--success-text:#7fe0a5;--warning:#f0a93b;--warning-soft:#2d2210;--warning-text:#f5c97a;--danger:#ff7b73;--danger-soft:#301816;--danger-text:#ffaaa3;--scrim:rgba(0,0,0,.6);--toast-bg:#f2f4f8;--toast-text:#191d25}
+a{color:var(--accent-text);text-decoration:none}a:hover{color:var(--accent-hover);text-decoration:underline}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:36px;padding:0 14px;border-radius:8px;border:1px solid transparent;font:inherit;font-weight:500;font-size:14px;color:var(--text);background:transparent;cursor:pointer;white-space:nowrap;transition:background .12s,border-color .12s,box-shadow .12s,color .12s}
+.btn:focus-visible{outline:none;box-shadow:0 0 0 3px var(--ring)}
+.btn-primary{background:var(--accent);color:#fff}.btn-primary:hover{background:var(--accent-hover)}
+.btn-secondary{background:var(--card);border-color:var(--border-strong);box-shadow:var(--shadow-1)}.btn-secondary:hover{background:var(--card-2)}
+.btn-ghost{color:var(--text-2)}.btn-ghost:hover{background:var(--card-2);color:var(--text)}
+.btn-lg{height:44px;padding:0 18px;font-size:15px;border-radius:10px}.btn-block{width:100%}.btn:disabled{opacity:.5;cursor:not-allowed}
+.input,.select{width:100%;height:44px;padding:0 14px;border-radius:10px;border:1px solid var(--border-strong);background:var(--card);color:var(--text);font:inherit;font-size:15px;transition:border-color .12s,box-shadow .12s}
+.select{appearance:none;background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23777c86' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'><path d='m6 9 6 6 6-6'/></svg>");background-repeat:no-repeat;background-position:right 12px center;padding-right:36px}
+.input::placeholder{color:var(--placeholder)}.input:focus,.select:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--ring)}
+.input-error{border-color:var(--danger)}
+.label{display:block;font-size:13px;font-weight:500;color:var(--text);margin-bottom:6px}
+.hint{font-size:12.5px;color:var(--text-3);margin-top:6px}.err{font-size:12.5px;color:var(--danger-text);margin-top:6px}
+.card{background:var(--card);border:1px solid var(--border);border-radius:14px;box-shadow:var(--shadow-1)}
+.h1{font-size:26px;font-weight:600;letter-spacing:-.015em;line-height:1.2}
+.muted{color:var(--text-2)}.faint{color:var(--text-3)}.small{font-size:13px}.xs{font-size:12px}
+.auth{min-height:832px;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:48px 24px;gap:24px;background:radial-gradient(70% 45% at 50% 0%,color-mix(in oklab,var(--accent) 9%,transparent),transparent 75%)}
+.brand{display:flex;align-items:center;gap:10px;font-weight:600;font-size:16px;letter-spacing:-.01em;color:var(--text)}
+.mark{width:32px;height:32px;border-radius:9px;background:var(--accent);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;letter-spacing:-.02em}
+.row{display:flex;align-items:center;gap:12px}.between{justify-content:space-between}.stack{display:flex;flex-direction:column}
+.icon{width:18px;height:18px;flex:none}
+.toggle{display:flex;align-items:flex-start;gap:12px;padding:14px;border:1px solid var(--border);border-radius:10px;background:var(--card-2);cursor:pointer;text-align:left;font:inherit;color:var(--text);width:100%}
+.switch{width:36px;height:20px;border-radius:999px;background:var(--border-strong);position:relative;flex:none;margin-top:1px;transition:background .15s}
+.switch::after{content:"";position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:999px;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.2);transition:left .15s}
+.toggle.on .switch{background:var(--accent)}.toggle.on .switch::after{left:18px}
+  </style>
+</helmet>
+
+<div class="hf theme-{{ theme }}" style="--accent: {{ accent }}; width: 1280px; min-height: 832px; position: relative; overflow: hidden;">
+  <div class="auth">
+    <div class="brand"><div class="mark">hf</div><span>HandsFreeOS</span></div>
+
+    <sc-if value="{{ showForm }}" hint-placeholder-val="{{ true }}">
+      <div class="card" style="width: 520px; padding: 36px;">
+        <div class="xs faint" style="font-weight: 500; letter-spacing: .04em; text-transform: uppercase;">Step 1 of 1</div>
+        <h1 class="h1" style="margin-top: 6px;">Set up your business</h1>
+        <p class="muted" style="margin-top: 6px;">This creates your first workspace. Everything HandsFreeOS does happens inside it.</p>
+
+        <div class="stack" style="gap: 18px; margin-top: 24px;">
+          <div>
+            <label class="label">Business name</label>
+            <input class="{{ nameClass }}" placeholder="Lone Star HVAC &amp; Roofing" onInput="{{ onName }}">
+            <sc-if value="{{ nameErr }}" hint-placeholder-val="{{ false }}"><div class="err">Give your business a name.</div></sc-if>
+            <sc-if value="{{ hasName }}" hint-placeholder-val="{{ false }}"><div class="hint">Your workspace will be called {{ name }}.</div></sc-if>
+          </div>
+          <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px;">
+            <div>
+              <label class="label">Industry</label>
+              <select class="select" onChange="{{ onIndustry }}" defaultValue="home_services">
+                <option value="home_services">Home services</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
+            <div>
+              <label class="label">Time zone</label>
+              <select class="select" onChange="{{ onTz }}" defaultValue="America/Chicago">
+                <option value="America/New_York">Eastern (New York)</option>
+                <option value="America/Chicago">Central (Chicago)</option>
+                <option value="America/Denver">Mountain (Denver)</option>
+                <option value="America/Los_Angeles">Pacific (Los Angeles)</option>
+              </select>
+            </div>
+          </div>
+
+          <button class="{{ toggleClass }}" onClick="{{ toggleAgency }}">
+            <span class="switch"></span>
+            <span class="stack" style="gap: 2px;">
+              <span style="font-weight: 500;">I run an agency that manages several businesses</span>
+              <span class="small faint">Each client becomes its own workspace under one organization you control.</span>
+            </span>
+          </button>
+
+          <sc-if value="{{ agency }}" hint-placeholder-val="{{ false }}">
+            <div>
+              <label class="label">Agency name</label>
+              <input class="input" placeholder="Go Biz Help" onInput="{{ onAgencyName }}">
+              <div class="hint">Shown in the workspace switcher as the organization that owns {{ nameOrPlaceholder }}.</div>
+            </div>
+          </sc-if>
+
+          <button class="btn btn-primary btn-lg btn-block" onClick="{{ submit }}" style="margin-top: 4px;">Create business</button>
+        </div>
+      </div>
+      <p class="small faint">Signed in as chris@gobizhelp.com · <a href="#">Sign out</a></p>
+    </sc-if>
+
+    <sc-if value="{{ showDone }}" hint-placeholder-val="{{ false }}">
+      <div class="card" style="width: 520px; padding: 36px; text-align: center;">
+        <div style="width: 52px; height: 52px; border-radius: 14px; background: var(--success-soft); color: var(--success-text); display: flex; align-items: center; justify-content: center; margin: 0 auto 18px;">
+          <svg style="width: 24px; height: 24px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 5 5L20 7"></path></svg>
+        </div>
+        <h1 class="h1" style="font-size: 22px;">{{ name }} is ready</h1>
+        <p class="muted" style="margin-top: 8px; line-height: 1.55;">{{ doneDetail }}</p>
+        <div class="row" style="justify-content: center; gap: 10px; margin-top: 24px;">
+          <button class="btn btn-secondary btn-lg">Invite your team</button>
+          <button class="btn btn-primary btn-lg">Go to workspace</button>
+        </div>
+        <button class="btn btn-ghost" onClick="{{ reset }}" style="margin-top: 16px;">Start over</button>
+      </div>
+    </sc-if>
+  </div>
+</div>
+</x-dc>
+<script data-dc-script data-props='{"accent":{"editor":"color","default":"#2d69d8","options":["#2d69d8","#1950b5","#6199fd","#008743"],"section":"Theme"},"theme":{"editor":"enum","default":"light","options":["light","dark"],"section":"Theme"},"$preview":{"width":1280,"height":832}}'>
+class Component extends DCLogic {
+  constructor(...args) {
+    super(...args);
+    this.state = { name: '', industry: 'home_services', tz: 'America/Chicago', agency: false, agencyName: '', nameErr: false, done: false };
+  }
+  renderVals() {
+    const st = this.state;
+    const name = st.name.trim();
+    const org = st.agency && st.agencyName.trim() ? st.agencyName.trim() : name;
+    const tzLabel = { 'America/New_York': 'Eastern', 'America/Chicago': 'Central', 'America/Denver': 'Mountain', 'America/Los_Angeles': 'Pacific' }[st.tz];
+    return {
+      accent: this.props.accent ?? '#2d69d8',
+      theme: this.props.theme ?? 'light',
+      showForm: !st.done,
+      showDone: st.done,
+      name: name || 'Your business',
+      nameOrPlaceholder: name || 'your business',
+      hasName: name.length > 0,
+      nameErr: st.nameErr,
+      nameClass: 'input' + (st.nameErr ? ' input-error' : ''),
+      onName: (e) => this.setState({ name: e.target.value, nameErr: false }),
+      onIndustry: (e) => this.setState({ industry: e.target.value }),
+      onTz: (e) => this.setState({ tz: e.target.value }),
+      agency: st.agency,
+      toggleClass: 'toggle' + (st.agency ? ' on' : ''),
+      toggleAgency: () => this.setState({ agency: !st.agency }),
+      onAgencyName: (e) => this.setState({ agencyName: e.target.value }),
+      submit: () => { if (!name) { this.setState({ nameErr: true }); return; } this.setState({ done: true }); },
+      doneDetail: (st.agency
+        ? 'Created the organization ' + org + ' with ' + name + ' as its first workspace. '
+        : 'Created your workspace with you as Owner. ')
+        + 'Time zone set to ' + tzLabel + '. You can add more businesses any time from the workspace switcher.',
+      reset: () => this.setState({ done: false })
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,175 @@
+@import 'tailwindcss';
+
+/* HandsFreeOS design tokens (see the M1 plan, "Design system"). Light is the default; dark is
+   switched with <html data-theme="dark">. Component classes arrive with the app shell. */
+:root,
+[data-theme='light'] {
+  --bg: #f9fafd;
+  --card: #ffffff;
+  --card-2: #f2f4f8;
+  --card-3: #e4e8ee;
+  --border: #e4e8ee;
+  --border-strong: #d2d6dd;
+  --text: #191d25;
+  --text-2: #5b616a;
+  --text-3: #676c75;
+  --placeholder: #a0a5ae;
+  --accent: #2d69d8;
+  --accent-hover: color-mix(in oklab, var(--accent) 86%, #000000);
+  --accent-text: var(--accent);
+  --accent-soft: color-mix(in oklab, var(--accent) 10%, #ffffff);
+  --accent-soft-2: color-mix(in oklab, var(--accent) 18%, #ffffff);
+  --ring: color-mix(in oklab, var(--accent) 28%, transparent);
+  --success: #008743;
+  --success-soft: #e0f7e5;
+  --success-text: #005d2d;
+  --warning: #996300;
+  --warning-soft: #ffedd8;
+  --warning-text: #6b4300;
+  --danger: #c43335;
+  --danger-soft: #ffebe9;
+  --danger-text: #862726;
+  --scrim: rgba(25, 29, 37, 0.45);
+  --shadow-1: 0 1px 2px rgba(25, 29, 37, 0.06), 0 1px 3px rgba(25, 29, 37, 0.04);
+  --shadow-2: 0 8px 24px rgba(25, 29, 37, 0.1), 0 2px 6px rgba(25, 29, 37, 0.06);
+  --shadow-3: 0 24px 60px rgba(25, 29, 37, 0.22), 0 4px 12px rgba(25, 29, 37, 0.08);
+  color-scheme: light;
+}
+
+[data-theme='dark'] {
+  --bg: #0f131a;
+  --card: #191d25;
+  --card-2: #20252e;
+  --card-3: #2c3139;
+  --border: #2c3139;
+  --border-strong: #3a4049;
+  --text: #f2f4f8;
+  --text-2: #a0a5ae;
+  --text-3: #8a909a;
+  --placeholder: #5b616a;
+  --accent-hover: color-mix(in oklab, var(--accent) 84%, #ffffff);
+  --accent-text: color-mix(in oklab, var(--accent) 62%, #ffffff);
+  --accent-soft: color-mix(in oklab, var(--accent) 22%, #191d25);
+  --accent-soft-2: color-mix(in oklab, var(--accent) 34%, #191d25);
+  --ring: color-mix(in oklab, var(--accent) 45%, transparent);
+  --success: #3ccf7a;
+  --success-soft: #10291b;
+  --success-text: #7fe0a5;
+  --warning: #f0a93b;
+  --warning-soft: #2d2210;
+  --warning-text: #f5c97a;
+  --danger: #ff7b73;
+  --danger-soft: #301816;
+  --danger-text: #ffaaa3;
+  --scrim: rgba(0, 0, 0, 0.6);
+  --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.45);
+  --shadow-2: 0 8px 24px rgba(0, 0, 0, 0.55);
+  --shadow-3: 0 24px 60px rgba(0, 0, 0, 0.65);
+  color-scheme: dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --bg: #0f131a;
+    --card: #191d25;
+    --card-2: #20252e;
+    --card-3: #2c3139;
+    --border: #2c3139;
+    --border-strong: #3a4049;
+    --text: #f2f4f8;
+    --text-2: #a0a5ae;
+    --text-3: #8a909a;
+    --placeholder: #5b616a;
+    --accent-hover: color-mix(in oklab, var(--accent) 84%, #ffffff);
+    --accent-text: color-mix(in oklab, var(--accent) 62%, #ffffff);
+    --accent-soft: color-mix(in oklab, var(--accent) 22%, #191d25);
+    --accent-soft-2: color-mix(in oklab, var(--accent) 34%, #191d25);
+    --ring: color-mix(in oklab, var(--accent) 45%, transparent);
+    --success: #3ccf7a;
+    --success-soft: #10291b;
+    --success-text: #7fe0a5;
+    --warning: #f0a93b;
+    --warning-soft: #2d2210;
+    --warning-text: #f5c97a;
+    --danger: #ff7b73;
+    --danger-soft: #301816;
+    --danger-text: #ffaaa3;
+    --scrim: rgba(0, 0, 0, 0.6);
+    --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.45);
+    --shadow-2: 0 8px 24px rgba(0, 0, 0, 0.55);
+    --shadow-3: 0 24px 60px rgba(0, 0, 0, 0.65);
+    color-scheme: dark;
+  }
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-card: var(--card);
+  --color-card-2: var(--card-2);
+  --color-card-3: var(--card-3);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-text: var(--text);
+  --color-text-2: var(--text-2);
+  --color-text-3: var(--text-3);
+  --color-placeholder: var(--placeholder);
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-text: var(--accent-text);
+  --color-accent-soft: var(--accent-soft);
+  --color-accent-soft-2: var(--accent-soft-2);
+  --color-ring: var(--ring);
+  --color-success: var(--success);
+  --color-success-soft: var(--success-soft);
+  --color-success-text: var(--success-text);
+  --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
+  --color-warning-text: var(--warning-text);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+  --color-danger-text: var(--danger-text);
+  --font-sans:
+    var(--font-hanken), system-ui, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif;
+  --font-mono: var(--font-jetbrains), ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --radius-control: 8px;
+  --radius-menu: 10px;
+  --radius-card: 12px;
+  --radius-dialog: 14px;
+  --shadow-1: var(--shadow-1);
+  --shadow-2: var(--shadow-2);
+  --shadow-3: var(--shadow-3);
+}
+
+html {
+  background: var(--bg);
+  color: var(--text);
+  -webkit-font-smoothing: antialiased;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+h1,
+h2,
+h3 {
+  text-wrap: pretty;
+}
+
+/* focus for keyboard users everywhere */
+:where(a, button, input, select, textarea, [tabindex]):focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--ring);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

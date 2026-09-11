@@ -1,0 +1,36 @@
+{
+  "name": "@hfos/api",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "build": "tsup",
+    "start": "node dist/server.js",
+    "lint": "eslint . --config ../../eslint.config.js",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "openapi:export": "tsx scripts/export-openapi.ts"
+  },
+  "dependencies": {
+    "@fastify/cors": "^11.0.0",
+    "@fastify/helmet": "^13.0.0",
+    "fastify": "^5.12.0",
+    "pino": "^10.0.0",
+    "@fastify/rate-limit": "^11.2.0",
+    "@fastify/swagger": "^9.8.0",
+    "@fastify/swagger-ui": "^6.1.0",
+    "@hfos/core": "workspace:*",
+    "@hfos/db": "workspace:*",
+    "fastify-type-provider-zod": "^7.0.0",
+    "jose": "^6.2.0",
+    "zod": "^4.6.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.0",
+    "pino-pretty": "^13.0.0",
+    "tsup": "^8.5.0",
+    "tsx": "^4.23.0",
+    "typescript": "^5.9.0",
+    "vitest": "^4.0.0"
+  }
+}

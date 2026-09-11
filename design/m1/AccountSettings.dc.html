@@ -1,0 +1,323 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap">
+  <style>
+*{box-sizing:border-box}
+body{margin:0;background:transparent}
+.hf{font-family:"Hanken Grotesk",system-ui,-apple-system,"Segoe UI",Helvetica,Arial,sans-serif;font-size:14px;line-height:1.45;color:var(--text);background:var(--bg);-webkit-font-smoothing:antialiased}
+.hf h1,.hf h2,.hf h3,.hf p{margin:0}.hf h1,.hf h2,.hf h3{text-wrap:pretty}
+.theme-light{--bg:#f9fafd;--card:#ffffff;--card-2:#f2f4f8;--card-3:#e4e8ee;--border:#e4e8ee;--border-strong:#d2d6dd;--text:#191d25;--text-2:#5b616a;--text-3:#676c75;--placeholder:#a0a5ae;--accent-text:var(--accent);--accent-soft:color-mix(in oklab,var(--accent) 10%,#ffffff);--accent-soft-2:color-mix(in oklab,var(--accent) 18%,#ffffff);--accent-hover:color-mix(in oklab,var(--accent) 86%,#000000);--ring:color-mix(in oklab,var(--accent) 28%,transparent);--shadow-1:0 1px 2px rgba(25,29,37,.06),0 1px 3px rgba(25,29,37,.04);--shadow-2:0 8px 24px rgba(25,29,37,.10),0 2px 6px rgba(25,29,37,.06);--shadow-3:0 24px 60px rgba(25,29,37,.22),0 4px 12px rgba(25,29,37,.08);--success:#008743;--success-soft:#e0f7e5;--success-text:#005d2d;--warning:#996300;--warning-soft:#ffedd8;--warning-text:#6b4300;--danger:#c43335;--danger-soft:#ffebe9;--danger-text:#862726;--scrim:rgba(25,29,37,.45);--toast-bg:#191d25;--toast-text:#f2f4f8}
+.theme-dark{--bg:#0f131a;--card:#191d25;--card-2:#20252e;--card-3:#2c3139;--border:#2c3139;--border-strong:#3a4049;--text:#f2f4f8;--text-2:#a0a5ae;--text-3:#8a909a;--placeholder:#5b616a;--accent-text:color-mix(in oklab,var(--accent) 62%,#ffffff);--accent-soft:color-mix(in oklab,var(--accent) 22%,#191d25);--accent-soft-2:color-mix(in oklab,var(--accent) 34%,#191d25);--accent-hover:color-mix(in oklab,var(--accent) 84%,#ffffff);--ring:color-mix(in oklab,var(--accent) 45%,transparent);--shadow-1:0 1px 2px rgba(0,0,0,.45);--shadow-2:0 8px 24px rgba(0,0,0,.55);--shadow-3:0 24px 60px rgba(0,0,0,.65);--success:#3ccf7a;--success-soft:#10291b;--success-text:#7fe0a5;--warning:#f0a93b;--warning-soft:#2d2210;--warning-text:#f5c97a;--danger:#ff7b73;--danger-soft:#301816;--danger-text:#ffaaa3;--scrim:rgba(0,0,0,.6);--toast-bg:#f2f4f8;--toast-text:#191d25}
+.theme-dark .btn-danger,.theme-dark .toast.danger{color:#191d25}
+a{color:var(--accent-text);text-decoration:none}a:hover{color:var(--accent-hover);text-decoration:underline}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:36px;padding:0 14px;border-radius:8px;border:1px solid transparent;font:inherit;font-weight:500;font-size:14px;color:var(--text);background:transparent;cursor:pointer;white-space:nowrap;transition:background .12s,border-color .12s,box-shadow .12s,color .12s}
+.btn:focus-visible{outline:none;box-shadow:0 0 0 3px var(--ring)}
+.btn-primary{background:var(--accent);color:#fff}.btn-primary:hover{background:var(--accent-hover)}
+.btn-secondary{background:var(--card);border-color:var(--border-strong);box-shadow:var(--shadow-1)}.btn-secondary:hover{background:var(--card-2)}
+.btn-ghost{color:var(--text-2)}.btn-ghost:hover{background:var(--card-2);color:var(--text)}
+.btn-danger{background:var(--danger);color:#fff}.btn-danger:hover{filter:brightness(.92)}
+.btn-sm{height:32px;padding:0 10px;font-size:13px}.btn:disabled{opacity:.5;cursor:not-allowed}
+.icon-btn{width:32px;height:32px;padding:0;border-radius:8px}
+.input{width:100%;height:40px;padding:0 12px;border-radius:8px;border:1px solid var(--border-strong);background:var(--card);color:var(--text);font:inherit;font-size:15px;transition:border-color .12s,box-shadow .12s}
+.input::placeholder{color:var(--placeholder)}.input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--ring)}
+.input-sm{height:34px;font-size:14px}.input[readonly]{background:var(--card-2);color:var(--text-2)}
+.label{display:block;font-size:13px;font-weight:500;color:var(--text);margin-bottom:6px}
+.hint{font-size:12.5px;color:var(--text-3);margin-top:6px}
+.card{background:var(--card);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow-1)}
+.badge{display:inline-flex;align-items:center;gap:6px;height:22px;padding:0 8px;border-radius:999px;font-size:12px;font-weight:500;border:1px solid transparent;white-space:nowrap}
+.badge-ok{background:var(--success-soft);color:var(--success-text)}.badge-gray{background:var(--card-2);color:var(--text-2)}
+.avatar{width:32px;height:32px;border-radius:999px;display:inline-flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;color:#fff;background:var(--accent);flex:none;letter-spacing:.02em}
+.h1{font-size:24px;font-weight:600;letter-spacing:-.01em;line-height:1.25}.h2{font-size:18px;font-weight:600;letter-spacing:-.005em;line-height:1.3}.h3{font-size:15px;font-weight:600;line-height:1.35}
+.muted{color:var(--text-2)}.faint{color:var(--text-3)}.small{font-size:13px}.xs{font-size:12px}
+.shell{display:flex;min-height:832px}
+.sidebar{position:relative;width:240px;flex:none;background:var(--card);border-right:1px solid var(--border);display:flex;flex-direction:column;padding:16px 12px 12px;gap:4px}
+.nav-item{display:flex;align-items:center;gap:10px;height:36px;padding:0 10px;border-radius:8px;color:var(--text-2);font-weight:500;cursor:pointer;background:transparent;border:0;font:inherit;font-size:14px;width:100%;text-align:left}
+.nav-item:hover{background:var(--card-2);color:var(--text)}.nav-item.active{background:var(--accent-soft);color:var(--accent-text)}
+.main{flex:1;min-width:0;padding:32px 40px;position:relative}
+.page-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:24px}
+.switcher{display:flex;align-items:center;gap:10px;width:100%;height:52px;padding:0 10px;border-radius:10px;border:1px solid var(--border);background:var(--card);font:inherit;color:var(--text);cursor:pointer;text-align:left}
+.icon{width:18px;height:18px;flex:none}
+.brand{display:flex;align-items:center;gap:10px;font-weight:600;font-size:15px;letter-spacing:-.01em;color:var(--text)}
+.mark{width:28px;height:28px;border-radius:8px;background:var(--accent);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;letter-spacing:-.02em}
+.row{display:flex;align-items:center;gap:12px}.between{justify-content:space-between}.stack{display:flex;flex-direction:column}
+.method{display:flex;align-items:center;gap:14px;padding:14px 0}
+.method-icon{width:36px;height:36px;border-radius:10px;background:var(--card-2);display:flex;align-items:center;justify-content:center;color:var(--text-2);flex:none}
+.sep{height:1px;background:var(--border)}
+.scrim{position:absolute;inset:0;background:var(--scrim);display:flex;align-items:center;justify-content:center;z-index:50}
+.dialog{width:440px;background:var(--card);border-radius:14px;box-shadow:var(--shadow-3);border:1px solid var(--border);padding:24px}
+.sheet{width:340px;background:var(--card);border-radius:18px;box-shadow:var(--shadow-3);padding:28px 24px 20px;text-align:center}
+.pulse{animation:pulse 1.2s ease-in-out infinite}@keyframes pulse{0%,100%{opacity:1}50%{opacity:.45}}
+.toast{position:absolute;left:50%;bottom:24px;transform:translateX(-50%);background:var(--toast-bg);color:var(--toast-text);padding:10px 14px;border-radius:10px;font-size:13.5px;box-shadow:var(--shadow-2);display:flex;gap:10px;align-items:center;z-index:60;white-space:nowrap}
+.seg{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.seg-item{display:flex;flex-direction:column;align-items:flex-start;gap:8px;padding:12px;border:1px solid var(--border-strong);border-radius:10px;background:var(--card);font:inherit;color:var(--text);cursor:pointer;text-align:left}
+.seg-item.selected{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent);background:var(--accent-soft)}
+.swatch{width:100%;height:34px;border-radius:6px;border:1px solid var(--border);display:flex;gap:4px;padding:6px;align-items:flex-end}
+  </style>
+</helmet>
+
+<div class="hf theme-{{ theme }}" style="--accent: {{ accent }}; width: 1280px; min-height: 832px; position: relative; overflow: hidden;">
+  <div class="shell">
+    <aside class="sidebar">
+      <div class="brand" style="padding: 4px 10px 14px;"><div class="mark">hf</div><span>HandsFreeOS</span></div>
+      <button class="switcher">
+        <span class="avatar" style="border-radius: 8px; background: var(--accent-soft-2); color: var(--accent-text);">LS</span>
+        <span class="stack" style="min-width: 0; flex: 1;"><span style="font-weight: 600; font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">Lone Star HVAC &amp; Roofing</span><span class="xs faint">Go Biz Help</span></span>
+        <svg class="icon faint" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m7 9 5-5 5 5M7 15l5 5 5-5"></path></svg>
+      </button>
+      <nav class="stack" style="gap: 2px; margin-top: 10px;">
+        <button class="nav-item"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"></path><path d="M5 9.5V21h14V9.5"></path></svg><span>Home</span></button>
+        <button class="nav-item"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"></circle><path d="M2.5 20a6.5 6.5 0 0 1 13 0"></path><path d="M16 4.5a3.5 3.5 0 0 1 0 7"></path><path d="M17.5 14a6 6 0 0 1 4 5.5"></path></svg><span>Members</span></button>
+        <button class="nav-item"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6h13M8 12h13M8 18h13"></path><path d="M3 6h.01M3 12h.01M3 18h.01"></path></svg><span>Audit log</span></button>
+        <button class="nav-item active"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h8M18 6h2M4 12h2M10 12h10M4 18h12M20 18h0"></path><circle cx="14" cy="6" r="2"></circle><circle cx="8" cy="12" r="2"></circle><circle cx="18" cy="18" r="2"></circle></svg><span>Settings</span></button>
+      </nav>
+      <div style="flex: 1;"></div>
+      <div class="row" style="padding: 12px 6px 4px; border-top: 1px solid var(--border);">
+        <span class="avatar">CH</span>
+        <span class="stack" style="min-width: 0; flex: 1;"><span style="font-weight: 500; font-size: 13.5px;">{{ displayName }}</span><span class="xs faint" style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">chris@gobizhelp.com</span></span>
+        <button class="btn btn-ghost icon-btn" title="Sign out"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h4"></path><path d="m15 8 5 4-5 4M20 12H9"></path></svg></button>
+      </div>
+    </aside>
+
+    <main class="main">
+      <div class="page-head">
+        <div>
+          <h1 class="h1">Account settings</h1>
+          <p class="muted" style="margin-top: 4px;">Your profile and how you sign in. These apply to every workspace you belong to.</p>
+        </div>
+      </div>
+
+      <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; align-items: start;">
+        <div class="stack" style="gap: 20px;">
+          <div class="card" style="padding: 24px;">
+            <h2 class="h2">Profile</h2>
+            <div class="row" style="gap: 16px; margin-top: 18px;">
+              <span class="avatar" style="width: 56px; height: 56px; font-size: 18px;">CH</span>
+              <div class="stack" style="gap: 4px;">
+                <button class="btn btn-secondary btn-sm">Change photo</button>
+                <span class="xs faint">PNG or JPG, up to 2 MB</span>
+              </div>
+            </div>
+            <div class="stack" style="gap: 14px; margin-top: 18px;">
+              <div>
+                <label class="label">Full name</label>
+                <input class="input" defaultValue="Chris" onInput="{{ onName }}">
+              </div>
+              <div>
+                <label class="label">Email</label>
+                <div style="position: relative;">
+                  <input class="input" readonly="{{ true }}" defaultValue="chris@gobizhelp.com">
+                  <span class="badge badge-ok" style="position: absolute; right: 10px; top: 9px;">Verified</span>
+                </div>
+                <div class="hint">Changing your email re-verifies it. Coming with security settings.</div>
+              </div>
+            </div>
+            <div class="row" style="justify-content: flex-end; margin-top: 18px;">
+              <button class="btn btn-primary" disabled="{{ saveDisabled }}" onClick="{{ saveProfile }}">Save changes</button>
+            </div>
+          </div>
+
+          <div class="card" style="padding: 24px;">
+            <h2 class="h2">Appearance</h2>
+            <p class="muted small" style="margin-top: 4px;">Only affects how HandsFreeOS looks on this device.</p>
+            <div class="seg" style="margin-top: 16px;">
+              <sc-for list="{{ themes }}" as="t" hint-placeholder-count="3">
+                <button class="{{ t.cls }}" onClick="{{ t.pick }}">
+                  <span class="swatch" style="{{ t.swatchStyle }}"><span style="{{ t.barA }}"></span><span style="{{ t.barB }}"></span></span>
+                  <span class="stack" style="gap: 1px;"><span style="font-weight: 500;">{{ t.label }}</span><span class="xs faint">{{ t.desc }}</span></span>
+                </button>
+              </sc-for>
+            </div>
+          </div>
+        </div>
+
+        <div class="card" style="padding: 24px;">
+          <h2 class="h2">Sign-in methods</h2>
+          <p class="muted small" style="margin-top: 4px;">Keep at least two so you are never locked out.</p>
+
+          <div class="stack" style="margin-top: 10px;">
+            <div class="method">
+              <span class="method-icon"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="10" width="16" height="11" rx="2"></rect><path d="M8 10V7a4 4 0 0 1 8 0v3"></path></svg></span>
+              <span class="stack" style="flex: 1; min-width: 0;"><span style="font-weight: 500;">Password</span><span class="small faint">{{ passwordDetail }}</span></span>
+              <button class="btn btn-secondary btn-sm" onClick="{{ togglePw }}">{{ pwButton }}</button>
+            </div>
+            <sc-if value="{{ pwOpen }}" hint-placeholder-val="{{ false }}">
+              <div class="stack" style="gap: 12px; padding: 4px 0 16px 50px;">
+                <div><label class="label">Current password</label><input class="input input-sm" type="password" onInput="{{ onCurPw }}"></div>
+                <div><label class="label">New password</label><input class="input input-sm" type="password" placeholder="At least 12 characters" onInput="{{ onNewPw }}"></div>
+                <div class="row" style="justify-content: flex-end; gap: 8px;"><button class="btn btn-ghost btn-sm" onClick="{{ togglePw }}">Cancel</button><button class="btn btn-primary btn-sm" disabled="{{ pwSaveDisabled }}" onClick="{{ savePw }}">Update password</button></div>
+              </div>
+            </sc-if>
+            <div class="sep"></div>
+
+            <div class="method">
+              <span class="method-icon"><svg class="icon" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9 3.5l6.7-6.7C35.6 2.6 30.2 0 24 0 14.6 0 6.5 5.4 2.6 13.3l7.8 6C12.3 13.6 17.7 9.5 24 9.5z"></path><path fill="#4285F4" d="M46.5 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.7c-.6 3-2.3 5.5-4.8 7.2l7.5 5.8c4.4-4.1 7.1-10.1 7.1-17.5z"></path><path fill="#FBBC05" d="M10.4 28.7A14.5 14.5 0 0 1 9.5 24c0-1.6.3-3.2.8-4.7l-7.8-6A24 24 0 0 0 0 24c0 3.9.9 7.5 2.6 10.7l7.8-6z"></path><path fill="#34A853" d="M24 48c6.5 0 11.9-2.1 15.9-5.8l-7.5-5.8c-2.1 1.4-4.9 2.3-8.4 2.3-6.3 0-11.7-4.1-13.6-9.9l-7.8 6C6.5 42.6 14.6 48 24 48z"></path></svg></span>
+              <span class="stack" style="flex: 1; min-width: 0;"><span style="font-weight: 500;">Google</span><span class="small faint">{{ googleDetail }}</span></span>
+              <button class="btn btn-secondary btn-sm" onClick="{{ toggleGoogle }}">{{ googleButton }}</button>
+            </div>
+            <div class="sep"></div>
+
+            <div class="row between" style="padding: 18px 0 8px;">
+              <span class="stack" style="gap: 2px;"><span class="h3">Passkeys</span><span class="small faint">Sign in with Touch ID, Face ID or a security key. Phishing-resistant.</span></span>
+              <button class="btn btn-primary btn-sm" onClick="{{ addPasskey }}">
+                <svg class="icon" style="width: 15px; height: 15px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"></path></svg>
+                <span>Add passkey</span>
+              </button>
+            </div>
+            <div class="stack">
+              <sc-for list="{{ passkeys }}" as="p" hint-placeholder-count="2">
+                <div class="method" style="padding: 12px 0;">
+                  <span class="method-icon" style="background: var(--accent-soft); color: var(--accent-text);"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="15" r="4"></circle><path d="m10.8 12.2 9.2-9.2M15 6l3 3"></path></svg></span>
+                  <span class="stack" style="flex: 1; min-width: 0; gap: 2px;">
+                    <sc-if value="{{ p.renaming }}" hint-placeholder-val="{{ false }}">
+                      <span class="row" style="gap: 8px;"><input class="input input-sm" style="max-width: 220px;" defaultValue="{{ p.name }}" onInput="{{ p.onRename }}" autofocus="{{ true }}"><button class="btn btn-primary btn-sm" onClick="{{ p.saveRename }}">Save</button><button class="btn btn-ghost btn-sm" onClick="{{ p.cancelRename }}">Cancel</button></span>
+                    </sc-if>
+                    <sc-if value="{{ p.notRenaming }}" hint-placeholder-val="{{ true }}">
+                      <span style="font-weight: 500;">{{ p.name }}</span>
+                    </sc-if>
+                    <span class="small faint">{{ p.detail }}</span>
+                  </span>
+                  <sc-if value="{{ p.notRenaming }}" hint-placeholder-val="{{ true }}">
+                    <button class="btn btn-ghost btn-sm" onClick="{{ p.rename }}">Rename</button>
+                    <button class="btn btn-ghost btn-sm" style="color: var(--danger-text);" onClick="{{ p.askRemove }}">Remove</button>
+                  </sc-if>
+                </div>
+              </sc-for>
+              <sc-if value="{{ noPasskeys }}" hint-placeholder-val="{{ false }}">
+                <div class="small faint" style="padding: 14px 0;">No passkeys yet. Add one to skip passwords on this device.</div>
+              </sc-if>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <sc-if value="{{ confirmOpen }}" hint-placeholder-val="{{ false }}">
+        <div class="scrim" style="position: fixed;">
+          <div class="dialog">
+            <h2 class="h2">Remove {{ confirmName }}?</h2>
+            <p class="muted small" style="margin-top: 8px; line-height: 1.5;">{{ confirmDetail }}</p>
+            <div class="row" style="justify-content: flex-end; gap: 8px; margin-top: 24px;">
+              <button class="btn btn-ghost" onClick="{{ cancelRemove }}">Cancel</button>
+              <button class="btn btn-danger" onClick="{{ doRemove }}">Remove passkey</button>
+            </div>
+          </div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ adding }}" hint-placeholder-val="{{ false }}">
+        <div class="scrim" style="position: fixed;">
+          <div class="sheet">
+            <div class="pulse" style="width: 56px; height: 56px; border-radius: 999px; background: var(--accent-soft); color: var(--accent-text); display: flex; align-items: center; justify-content: center; margin: 0 auto 16px;">
+              <svg style="width: 28px; height: 28px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M7 12a5 5 0 0 1 10 0c0 3-1 5-2 7"></path><path d="M9.5 12a2.5 2.5 0 0 1 5 0c0 3-.5 5-1.5 7"></path><path d="M12 12v3"></path><path d="M5 9a8 8 0 0 1 14 0"></path><path d="M4.5 14c0 2 .5 4 1.5 6"></path></svg>
+            </div>
+            <div style="font-weight: 600; font-size: 16px;">Touch ID</div>
+            <p class="muted small" style="margin-top: 6px;">Create a passkey for <strong style="font-weight: 500; color: var(--text);">handsfreeos.com</strong></p>
+            <p class="xs faint" style="margin-top: 14px;">This prompt comes from your device, not from HandsFreeOS.</p>
+            <button class="btn btn-ghost" style="margin-top: 14px; width: 100%;" onClick="{{ cancelAdd }}">Cancel</button>
+          </div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ hasToast }}" hint-placeholder-val="{{ false }}">
+        <div class="toast"><span>{{ toast }}</span></div>
+      </sc-if>
+    </main>
+  </div>
+</div>
+</x-dc>
+<script data-dc-script data-props='{"accent":{"editor":"color","default":"#2d69d8","options":["#2d69d8","#1950b5","#6199fd","#008743"],"section":"Theme"},"theme":{"editor":"enum","default":"light","options":["light","dark"],"section":"Theme"},"$preview":{"width":1280,"height":832}}'>
+class Component extends DCLogic {
+  constructor(...args) {
+    super(...args);
+    this.state = {
+      name: 'Chris', savedName: 'Chris', nameDirty: false,
+      pwOpen: false, curPw: '', newPw: '', pwChanged: 'Last changed 3 months ago',
+      google: true,
+      passkeys: [
+        { id: 'p1', name: 'iCloud Keychain', added: 'Sep 2, 2026', used: 'today' },
+        { id: 'p2', name: '1Password', added: 'Aug 20, 2026', used: 'Sep 4' }
+      ],
+      renameId: null, renameVal: '',
+      confirmId: null,
+      adding: false,
+      themeChoice: 'system',
+      toast: null
+    };
+  }
+  componentWillUnmount() { clearTimeout(this._t); clearTimeout(this._a); }
+  flash(msg) { clearTimeout(this._t); this.setState({ toast: msg }); this._t = setTimeout(() => this.setState({ toast: null }), 2600); }
+  renderVals() {
+    const s = this.state;
+    const deviceTheme = this.props.theme ?? 'light';
+    const theme = s.themeChoice === 'system' ? deviceTheme : s.themeChoice;
+    const confirmTarget = s.passkeys.find(p => p.id === s.confirmId);
+    const passkeys = s.passkeys.map(p => ({
+      ...p,
+      detail: 'Added ' + p.added + ' · Last used ' + p.used,
+      renaming: s.renameId === p.id,
+      notRenaming: s.renameId !== p.id,
+      rename: () => this.setState({ renameId: p.id, renameVal: p.name }),
+      onRename: (e) => this.setState({ renameVal: e.target.value }),
+      saveRename: () => { const v = s.renameVal.trim() || p.name; this.setState({ passkeys: s.passkeys.map(x => x.id === p.id ? { ...x, name: v } : x), renameId: null }); this.flash('Passkey renamed to ' + v + '.'); },
+      cancelRename: () => this.setState({ renameId: null }),
+      askRemove: () => this.setState({ confirmId: p.id })
+    }));
+    const themes = [
+      { key: 'light', label: 'Light', desc: 'Always light', swatchStyle: 'background: #f9fafd; border-color: #e4e8ee;', barA: 'flex: 1; height: 10px; border-radius: 3px; background: #ffffff; border: 1px solid #e4e8ee;', barB: 'flex: 1; height: 10px; border-radius: 3px; background: ' + (this.props.accent ?? '#2d69d8') + ';' },
+      { key: 'dark', label: 'Dark', desc: 'Always dark', swatchStyle: 'background: #0f131a; border-color: #2c3139;', barA: 'flex: 1; height: 10px; border-radius: 3px; background: #191d25; border: 1px solid #2c3139;', barB: 'flex: 1; height: 10px; border-radius: 3px; background: ' + (this.props.accent ?? '#2d69d8') + ';' },
+      { key: 'system', label: 'System', desc: 'Follows this device', swatchStyle: 'background: linear-gradient(90deg, #f9fafd 50%, #0f131a 50%); border-color: #d2d6dd;', barA: 'flex: 1; height: 10px; border-radius: 3px; background: #ffffff; border: 1px solid #e4e8ee;', barB: 'flex: 1; height: 10px; border-radius: 3px; background: #191d25; border: 1px solid #2c3139;' }
+    ].map(t => ({ ...t, cls: 'seg-item' + (s.themeChoice === t.key ? ' selected' : ''), pick: () => this.setState({ themeChoice: t.key }) }));
+    return {
+      accent: this.props.accent ?? '#2d69d8',
+      theme,
+      displayName: s.name.trim() || 'Chris',
+      onName: (e) => this.setState({ name: e.target.value, nameDirty: e.target.value.trim() !== s.savedName }),
+      saveDisabled: !s.nameDirty,
+      saveProfile: () => { this.setState({ nameDirty: false, savedName: s.name.trim() || s.savedName }); this.flash('Profile saved.'); },
+      passwordDetail: s.pwChanged,
+      pwOpen: s.pwOpen,
+      pwButton: s.pwOpen ? 'Close' : 'Change',
+      togglePw: () => this.setState({ pwOpen: !s.pwOpen, curPw: '', newPw: '' }),
+      onCurPw: (e) => this.setState({ curPw: e.target.value }),
+      onNewPw: (e) => this.setState({ newPw: e.target.value }),
+      pwSaveDisabled: !(s.curPw && s.newPw.length >= 12),
+      savePw: () => { this.setState({ pwOpen: false, curPw: '', newPw: '', pwChanged: 'Last changed just now' }); this.flash('Password updated. Other sessions were signed out.'); },
+      googleDetail: s.google ? 'Connected as chris@gobizhelp.com' : 'Not connected',
+      googleButton: s.google ? 'Disconnect' : 'Connect',
+      toggleGoogle: () => { this.setState({ google: !s.google }); this.flash(s.google ? 'Google disconnected.' : 'Google connected.'); },
+      passkeys,
+      noPasskeys: passkeys.length === 0,
+      addPasskey: () => {
+        this.setState({ adding: true });
+        clearTimeout(this._a);
+        this._a = setTimeout(() => {
+          if (!this.state.adding) return;
+          const p = { id: 'p' + Date.now(), name: 'Chrome on this Mac', added: 'just now', used: 'just now' };
+          this.setState({ adding: false, passkeys: [...this.state.passkeys, p] });
+          this.flash('Passkey added. You can sign in with Touch ID on this device.');
+        }, 1600);
+      },
+      adding: s.adding,
+      cancelAdd: () => { clearTimeout(this._a); this.setState({ adding: false }); },
+      confirmOpen: !!confirmTarget,
+      confirmName: confirmTarget ? confirmTarget.name : '',
+      confirmDetail: s.passkeys.length <= 1
+        ? 'This is your only passkey. You can still sign in with your password' + (s.google ? ' or Google' : '') + ', and add a new passkey any time.'
+        : 'You will no longer be able to sign in with this device or password manager. Your other passkeys keep working.',
+      cancelRemove: () => this.setState({ confirmId: null }),
+      doRemove: () => { if (!confirmTarget) return; this.setState({ passkeys: s.passkeys.filter(p => p.id !== confirmTarget.id), confirmId: null }); this.flash(confirmTarget.name + ' removed.'); },
+      themes,
+      toast: s.toast,
+      hasToast: !!s.toast
+    };
+  }
+}
+</script>
+</body>
+</html>

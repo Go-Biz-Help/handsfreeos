@@ -1,0 +1,95 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CI: true
+
+jobs:
+  verify:
+    name: Lint, typecheck, tests, browser tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.117.0
+
+      - name: Start the local Supabase stack (auth, database, mailpit)
+        run: node scripts/supabase.mjs start -x realtime,storage-api,imgproxy,studio,edge-runtime,logflare,vector
+
+      - name: Write local env files
+        run: pnpm env:local
+
+      - run: pnpm lint
+
+      - run: pnpm typecheck
+
+      - run: pnpm format:check
+
+      - name: Generated API client is fresh
+        run: pnpm --filter @hfos/api openapi:export && pnpm --filter @hfos/api-client check
+
+      - name: Unit, database, API and worker tests
+        run: pnpm test
+
+      - name: The seed builds through the command pipeline
+        run: pnpm db:seed
+
+      - name: Build the web app
+        run: pnpm --filter @hfos/web build
+
+      - name: The web build ships no secret key
+        run: |
+          if grep -rq "sb_secret_" apps/web/.next/static; then
+            echo "A Supabase secret key is in the web assets"; exit 1
+          fi
+
+      - name: Install the Playwright browser
+        run: pnpm --filter @hfos/web exec playwright install --with-deps chromium
+
+      - name: Browser tests
+        run: pnpm test:e2e
+
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: |
+            apps/web/playwright-report
+            apps/web/test-results
+          retention-days: 7
+
+      - name: Stop the local stack
+        if: always()
+        run: node scripts/supabase.mjs stop --no-backup
+
+  secrets:
+    name: Secret scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
