@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { asUser, rows, sql, type Db, type Tx } from '@hfos/db/client';
+import { asUser, asWorker, rows, sql, type Db, type Tx } from '@hfos/db/client';
 import { auditLogs, events, outbox } from '@hfos/db/schema';
 import type { z } from 'zod';
 import { HfosError } from '../errors';
@@ -14,13 +14,14 @@ import {
 import { translateDbError } from './pg-errors';
 import { redact } from './redact';
 import type {
+  Actor,
   CommandDef,
   EmitInput,
-  HumanActor,
   QueryDef,
   RequestMeta,
   ResolvedScope,
   ScopeRef,
+  SystemActor,
 } from './types';
 
 function parseInput<I extends z.ZodType>(schema: I, raw: unknown): z.output<I> {
@@ -67,6 +68,36 @@ async function resolveScope(tx: Tx, ref: ScopeRef): Promise<ResolvedScope> {
   }
 }
 
+/** A system actor may only address its own tenant; anything else does not exist for it. */
+function resolveSystemScope(actor: SystemActor, ref: ScopeRef): ResolvedScope {
+  switch (ref.kind) {
+    case 'workspace':
+      if (ref.workspaceId !== actor.workspaceId) throw HfosError.notFound('Workspace not found.');
+      return {
+        workspaceId: actor.workspaceId,
+        organizationId: actor.organizationId,
+        workspaceRole: null,
+        orgRole: null,
+      };
+    case 'organization':
+      if (ref.organizationId !== actor.organizationId)
+        throw HfosError.notFound('Organization not found.');
+      return {
+        workspaceId: null,
+        organizationId: actor.organizationId,
+        workspaceRole: null,
+        orgRole: null,
+      };
+    default:
+      return {
+        workspaceId: actor.workspaceId,
+        organizationId: actor.organizationId,
+        workspaceRole: null,
+        orgRole: null,
+      };
+  }
+}
+
 function assertPermission(scope: ResolvedScope, permission: Permission): void {
   const ok = isOrgPermission(permission)
     ? hasOrgPermission(scope.orgRole, permission)
@@ -81,7 +112,7 @@ function actorRoleLabel(scope: ResolvedScope): string | null {
 async function recordEvent(
   tx: Tx,
   commandName: string,
-  actor: HumanActor,
+  actor: Actor,
   scope: ResolvedScope,
   meta: RequestMeta,
   e: EmitInput,
@@ -90,16 +121,23 @@ async function recordEvent(
   const organizationId = e.organizationId !== undefined ? e.organizationId : scope.organizationId;
   const workspaceId = e.workspaceId !== undefined ? e.workspaceId : scope.workspaceId;
   const entityId = e.entityId ?? null;
+  const actorType = actor.type;
+  const actorId = actor.type === 'human' ? actor.userId : null;
+  const payload = redact({
+    ...(e.payload ?? {}),
+    ...(actor.type === 'system' && actor.onBehalfOf ? { onBehalfOf: actor.onBehalfOf } : {}),
+    ...(e.broadcast === false ? { _broadcast: false } : {}),
+  });
   await tx.insert(events).values({
     id: eventId,
     organizationId,
     workspaceId,
     eventType: e.type,
-    actorType: 'human',
-    actorId: actor.userId,
+    actorType,
+    actorId,
     entityType: e.entityType,
     entityId,
-    payload: redact(e.payload ?? {}),
+    payload,
     correlationId: meta.correlationId,
     causationId: meta.causationId ?? null,
   });
@@ -108,9 +146,9 @@ async function recordEvent(
     eventId,
     organizationId,
     workspaceId,
-    actorType: 'human',
-    actorId: actor.userId,
-    actorRole: actorRoleLabel(scope),
+    actorType,
+    actorId,
+    actorRole: actor.type === 'human' ? actorRoleLabel(scope) : 'system',
     action: commandName,
     entityType: e.entityType,
     entityId,
@@ -139,28 +177,43 @@ export async function executeCommand<I extends z.ZodType, O extends z.ZodType>(
   db: Db,
   cmd: CommandDef<I, O>,
   rawInput: unknown,
-  actor: HumanActor,
+  actor: Actor,
   meta: RequestMeta,
 ): Promise<ExecuteResult<z.output<O>>> {
+  const allowed = cmd.actors ?? ['human'];
+  if (!allowed.includes(actor.type))
+    throw HfosError.forbidden(`${cmd.name} cannot be run by a ${actor.type} actor.`);
   const input = parseInput(cmd.input, rawInput);
   const scopeRef = cmd.scope(input);
+  const run = async (tx: Tx, scope: ResolvedScope): Promise<ExecuteResult<z.output<O>>> => {
+    const eventIds: string[] = [];
+    const emit = async (e: EmitInput): Promise<string> => {
+      if (!cmd.emits.includes(e.type))
+        throw new Error(`${cmd.name} emitted undeclared event ${e.type}`);
+      const id = await recordEvent(tx, cmd.name, actor, scope, meta, e);
+      eventIds.push(id);
+      return id;
+    };
+    const result = await cmd.handler(
+      { tx, actor, scope, meta, commandName: cmd.name, emit },
+      input,
+    );
+    return { output: cmd.output.parse(result) as z.output<O>, eventIds };
+  };
   try {
+    if (actor.type === 'system') {
+      // Root within its tenant (no permission check), bound by the service_actor policies.
+      const scope = resolveSystemScope(actor, scopeRef);
+      return await asWorker(
+        db,
+        { workspaceId: actor.workspaceId, organizationId: actor.organizationId },
+        (tx) => run(tx, scope),
+      );
+    }
     return await asUser(db, actor.claims, async (tx) => {
       const scope = await resolveScope(tx, scopeRef);
       if (cmd.permission) assertPermission(scope, cmd.permission);
-      const eventIds: string[] = [];
-      const emit = async (e: EmitInput): Promise<string> => {
-        if (!cmd.emits.includes(e.type))
-          throw new Error(`${cmd.name} emitted undeclared event ${e.type}`);
-        const id = await recordEvent(tx, cmd.name, actor, scope, meta, e);
-        eventIds.push(id);
-        return id;
-      };
-      const result = await cmd.handler(
-        { tx, actor, scope, meta, commandName: cmd.name, emit },
-        input,
-      );
-      return { output: cmd.output.parse(result) as z.output<O>, eventIds };
+      return run(tx, scope);
     });
   } catch (e) {
     throw translateDbError(e);
@@ -171,9 +224,11 @@ export async function executeQuery<I extends z.ZodType, O extends z.ZodType>(
   db: Db,
   query: QueryDef<I, O>,
   rawInput: unknown,
-  actor: HumanActor,
+  actor: Actor,
   meta: RequestMeta,
 ): Promise<z.output<O>> {
+  if (actor.type !== 'human')
+    throw HfosError.forbidden(`${query.name} cannot be run by a ${actor.type} actor.`);
   const input = parseInput(query.input, rawInput);
   const scopeRef = query.scope(input);
   try {

@@ -14,6 +14,31 @@ function unwrap(e: unknown): PgLike {
 }
 
 const RULES: Record<string, { status: number; message: string }> = {
+  // Milestone 2 rules raised by the CRM triggers (detail = rule id).
+  stage_has_leads: {
+    status: 409,
+    message: 'Move the leads out of this stage before changing what it means.',
+  },
+  last_stage_of_kind: {
+    status: 409,
+    message: 'A pipeline needs at least one open, one won and one lost stage.',
+  },
+  pipeline_has_open_leads: {
+    status: 409,
+    message: 'This pipeline still has open leads. Move or close them first.',
+  },
+  lost_reason_required: { status: 400, message: 'Add a reason to mark this lead lost.' },
+  stage_pipeline_mismatch: { status: 400, message: 'That stage belongs to a different pipeline.' },
+  stage_not_found: { status: 404, message: 'Stage not found.' },
+  company_workspace_mismatch: { status: 400, message: 'That company is not in this workspace.' },
+  record_workspace_mismatch: { status: 400, message: 'That record is not in this workspace.' },
+  archive_forbidden: { status: 403, message: 'Only owners and admins archive or restore records.' },
+  system_activity_immutable: { status: 403, message: 'System timeline entries cannot be changed.' },
+  file_confirm_forbidden: { status: 403, message: 'Only the uploader can confirm a file.' },
+  file_delete_forbidden: { status: 403, message: 'You cannot delete this file.' },
+  file_status_transition: { status: 409, message: 'This file was already confirmed.' },
+  file_not_uploaded: { status: 409, message: 'The file has not finished uploading.' },
+  import_not_ready: { status: 409, message: 'This import cannot start yet.' },
   last_owner: {
     status: 409,
     message:
@@ -42,12 +67,9 @@ export function translateDbError(e: unknown): unknown {
   const rule = pg.detail && RULES[pg.detail] ? pg.detail : undefined;
   if (rule) {
     const r = RULES[rule]!;
+    // Rule violations keep their own code so clients can branch on `rule`; only sign-in and existence differ.
     return new HfosError(
-      rule === 'not_authenticated'
-        ? 'unauthenticated'
-        : rule === 'invitation_not_found'
-          ? 'not_found'
-          : 'rule_violation',
+      r.status === 401 ? 'unauthenticated' : r.status === 404 ? 'not_found' : 'rule_violation',
       r.status,
       r.message,
       undefined,

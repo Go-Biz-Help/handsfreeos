@@ -8,6 +8,9 @@ export function loadEnv(): void {
 
 export interface WorkerEnv {
   readonly databaseUrl: string;
+  /** The Supabase project URL and secret key: the worker is the only app allowed to hold it (Storage deletes, imports). */
+  readonly supabaseUrl: string | null;
+  readonly supabaseSecretKey: string | null;
   readonly smtpUrl: string;
   readonly mailFrom: string;
   readonly webUrl: string;
@@ -24,8 +27,12 @@ export function readEnv(env: NodeJS.ProcessEnv = process.env): WorkerEnv {
     throw new Error('DATABASE_URL_WORKER must not connect as the postgres role');
   const smtpUrl = env.SMTP_URL ?? '';
   if (!/^smtps?:\/\//.test(smtpUrl)) throw new Error('SMTP_URL must be an smtp:// or smtps:// URL');
+  const supabaseUrl = (env.SUPABASE_URL ?? '').replace(/\/+$/, '') || null;
+  const supabaseSecretKey = env.SUPABASE_SECRET_KEY || null;
   return {
     databaseUrl,
+    supabaseUrl,
+    supabaseSecretKey,
     smtpUrl,
     mailFrom: env.MAIL_FROM ?? 'HandsFreeOS <hello@handsfreeos.local>',
     webUrl: (env.WEB_URL ?? 'http://localhost:3000').replace(/\/+$/, ''),

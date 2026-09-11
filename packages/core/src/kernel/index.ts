@@ -4,3 +4,5 @@ export * from './execute';
 export * from './registry';
 export * from './redact';
 export * from './pg-errors';
+export * from './actor';
+export * from './pagination';

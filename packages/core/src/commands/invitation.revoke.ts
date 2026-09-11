@@ -3,6 +3,7 @@ import { invitations } from '@hfos/db/schema';
 import { HfosError } from '../errors';
 import { defineCommand } from '../kernel/define';
 import { InvitationRevokeInput, InvitationRevokeOutput } from '../schemas/invitation';
+import { requireHuman } from '../kernel/actor';
 
 export const invitationRevoke = defineCommand({
   name: 'invitation.revoke',
@@ -16,7 +17,7 @@ export const invitationRevoke = defineCommand({
   async handler(ctx, input) {
     const [inv] = await ctx.tx
       .update(invitations)
-      .set({ revokedAt: new Date(), revokedBy: ctx.actor.userId })
+      .set({ revokedAt: new Date(), revokedBy: requireHuman(ctx).userId })
       .where(
         and(
           eq(invitations.id, input.invitationId),

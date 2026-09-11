@@ -1,3 +1,4 @@
+import { registry } from '@hfos/core/server';
 import { closeTestDbs } from '@hfos/db/testing';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { readEnv } from '../src/env';
@@ -41,15 +42,13 @@ describe('GET /healthz', () => {
     const res = await app.inject({ method: 'GET', url: '/openapi.json' });
     expect(res.statusCode).toBe(200);
     const paths = Object.keys(res.json().paths);
-    expect(paths).toEqual(
-      expect.arrayContaining([
-        '/v1/commands/organization.create',
-        '/v1/commands/membership.invite',
-        '/v1/queries/account.me',
-        '/v1/queries/audit.list',
-      ]),
-    );
-    expect(paths.filter((p) => p.startsWith('/v1/'))).toHaveLength(16);
+    const expected = [
+      ...registry.commands.map((c) => `/v1/commands/${c.name}`),
+      ...registry.queries.map((q) => `/v1/queries/${q.name}`),
+    ];
+    expect(paths).toEqual(expect.arrayContaining(expected));
+    expect(paths.filter((p) => p.startsWith('/v1/'))).toHaveLength(expected.length);
+    expect(expected.length).toBeGreaterThanOrEqual(71);
   });
 });
 

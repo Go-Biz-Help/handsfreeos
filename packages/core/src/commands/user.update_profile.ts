@@ -3,6 +3,7 @@ import { users } from '@hfos/db/schema';
 import { HfosError } from '../errors';
 import { defineCommand } from '../kernel/define';
 import { UserUpdateProfileInput, UserUpdateProfileOutput } from '../schemas/user';
+import { requireHuman } from '../kernel/actor';
 
 export const userUpdateProfile = defineCommand({
   name: 'user.update_profile',
@@ -14,7 +15,10 @@ export const userUpdateProfile = defineCommand({
   scope: () => ({ kind: 'account' }),
   emits: ['user.profile_updated'],
   async handler(ctx, input) {
-    const [current] = await ctx.tx.select().from(users).where(eq(users.id, ctx.actor.userId));
+    const [current] = await ctx.tx
+      .select()
+      .from(users)
+      .where(eq(users.id, requireHuman(ctx).userId));
     if (!current) throw HfosError.notFound('Profile not found.');
     const patch: {
       fullName?: string;

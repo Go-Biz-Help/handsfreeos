@@ -10,16 +10,18 @@ import { Input, Select } from '@/components/ui/input';
 import { Segmented } from '@/components/ui/segmented';
 import { apiBrowser, errorMessage, unwrap } from '@/lib/api/client';
 import type { AuditEntry, AuditList } from '@/lib/api/types';
-import { auditCategory, describeAudit } from '@/lib/audit-describe';
+import { AUDIT_CATEGORY_LABEL, auditCategory, describeAudit } from '@/lib/audit-describe';
 import { cn } from '@/lib/utils';
 
 type Range = 'today' | '7d' | '30d';
 const RANGE_MS: Record<Range, number> = { today: 0, '7d': 7 * 86_400_000, '30d': 30 * 86_400_000 };
+/** Categories that map to one action prefix are filtered by the API; the rest are filtered here. */
 const ACTION_PREFIX: Record<string, string | undefined> = {
   all: undefined,
   members: 'membership.',
   invitations: 'invitation.',
-  workspace: 'workspace.',
+  files: 'file.',
+  imports: 'import.',
 };
 
 function sinceFor(range: Range): string {
@@ -92,7 +94,7 @@ export function AuditLog({ workspaceId, initial }: { workspaceId: string; initia
     const needle = q.trim().toLowerCase();
     return data.entries.filter((e) => {
       if (actor === 'system' && e.actor.type !== 'system') return false;
-      if (category === 'workspace' && auditCategory(e.action) !== 'workspace') return false;
+      if (category !== 'all' && auditCategory(e.action) !== category) return false;
       if (!needle) return true;
       return `${e.actor.fullName ?? 'HandsFreeOS'} ${describeAudit(e)} ${e.action}`
         .toLowerCase()
@@ -170,6 +172,11 @@ export function AuditLog({ workspaceId, initial }: { workspaceId: string; initia
           <option value="members">Members</option>
           <option value="invitations">Invitations</option>
           <option value="workspace">Workspace</option>
+          <option value="customers">Customers</option>
+          <option value="leads">Leads</option>
+          <option value="tasks">Tasks</option>
+          <option value="files">Files</option>
+          <option value="imports">Imports</option>
         </Select>
         <div className="relative max-w-[320px] flex-1">
           <Search
@@ -233,16 +240,7 @@ export function AuditLog({ workspaceId, initial }: { workspaceId: string; initia
                       </span>
                     </span>
                     <span className="hidden items-center gap-2 lg:flex">
-                      <Badge variant="gray">
-                        {
-                          {
-                            members: 'Members',
-                            invitations: 'Invitations',
-                            workspace: 'Workspace',
-                            other: 'Other',
-                          }[auditCategory(e.action)]
-                        }
-                      </Badge>
+                      <Badge variant="gray">{AUDIT_CATEGORY_LABEL[auditCategory(e.action)]}</Badge>
                       <Badge variant="gray" className="font-mono text-[11px]">
                         {e.channel}
                       </Badge>

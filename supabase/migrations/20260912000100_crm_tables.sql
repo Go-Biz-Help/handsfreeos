@@ -267,6 +267,7 @@ create table app.leads (
   lost_at timestamptz,
   lost_reason text check (lost_reason is null or length(lost_reason) <= 300),
   position bigint not null default 0,
+  stage_entered_at timestamptz not null default now(),
   archived_at timestamptz,
   archived_by uuid references app.users (id) on delete set null,
   created_by uuid references app.users (id) on delete set null,
@@ -308,6 +309,9 @@ begin
     raise exception 'A reason is required to mark a lead lost' using errcode = '23514', detail = 'lost_reason_required';
   end if;
   new.status := v_kind::text::app.lead_status;
+  if tg_op = 'INSERT' or old.stage_id <> new.stage_id then
+    new.stage_entered_at := now();
+  end if;
   if v_kind = 'won' then
     new.won_at := coalesce(case when tg_op = 'UPDATE' and old.status = 'won' then old.won_at end, now());
     new.lost_at := null;

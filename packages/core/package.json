@@ -14,6 +14,7 @@
   "dependencies": {
     "@hfos/db": "workspace:*",
     "drizzle-orm": "^0.45.0",
+    "libphonenumber-js": "^1.13.13",
     "zod": "^4.6.0"
   },
   "devDependencies": {

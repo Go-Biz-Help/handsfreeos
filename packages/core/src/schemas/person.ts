@@ -1,0 +1,107 @@
+import { z } from 'zod';
+import { isoDateTime, uuid } from './common';
+import {
+  AddressInput,
+  AddressOut,
+  CompanyRef,
+  ListInput,
+  notes,
+  optionalEmail,
+  phoneInput,
+  source,
+  tagIds,
+  TagRef,
+  UserRef,
+} from './crm';
+
+const personFields = {
+  firstName: z.string().trim().max(80).default(''),
+  lastName: z.string().trim().max(80).default(''),
+  email: optionalEmail,
+  phone: phoneInput,
+  phoneAlt: phoneInput,
+  companyId: uuid.nullable().optional(),
+  address: AddressInput.optional(),
+  notes,
+  source,
+  ownerUserId: uuid.nullable().optional(),
+};
+
+export const PersonCreateInput = z
+  .object({
+    workspaceId: uuid,
+    ...personFields,
+    tagIds: tagIds.optional(),
+    ignoreDuplicates: z.boolean().default(false),
+  })
+  .refine((v) => (v.firstName + v.lastName).trim().length > 0, {
+    path: ['firstName'],
+    error: 'Enter a first or last name.',
+  });
+export const PersonCreateOutput = z.object({ personId: uuid });
+
+export const PersonUpdateInput = z.object({
+  workspaceId: uuid,
+  personId: uuid,
+  firstName: z.string().trim().max(80).optional(),
+  lastName: z.string().trim().max(80).optional(),
+  email: optionalEmail,
+  phone: phoneInput,
+  phoneAlt: phoneInput,
+  companyId: uuid.nullable().optional(),
+  address: AddressInput.optional(),
+  notes,
+  source,
+  ownerUserId: uuid.nullable().optional(),
+});
+export const PersonUpdateOutput = z.object({ personId: uuid, updated: z.array(z.string()) });
+
+export const PersonArchiveInput = z.object({
+  workspaceId: uuid,
+  personId: uuid,
+  force: z.boolean().default(false),
+});
+export const PersonArchiveOutput = z.object({ personId: uuid, archivedLeads: z.number().int() });
+export const PersonRestoreInput = z.object({ workspaceId: uuid, personId: uuid });
+export const PersonRestoreOutput = z.object({ personId: uuid });
+
+export const PersonSummary = z.object({
+  id: uuid,
+  firstName: z.string(),
+  lastName: z.string(),
+  fullName: z.string(),
+  email: z.string().nullable(),
+  phone: z.string().nullable(),
+  phoneE164: z.string().nullable(),
+  phoneAlt: z.string().nullable(),
+  address: AddressOut,
+  source: z.string().nullable(),
+  company: CompanyRef.nullable(),
+  owner: UserRef,
+  tags: z.array(TagRef),
+  openLeads: z.number().int(),
+  lastActivityAt: isoDateTime.nullable(),
+  archivedAt: isoDateTime.nullable(),
+  createdAt: isoDateTime,
+  updatedAt: isoDateTime,
+});
+export type PersonSummary = z.infer<typeof PersonSummary>;
+
+export const PersonListInput = ListInput.extend({
+  workspaceId: uuid,
+  q: z.string().trim().max(120).optional(),
+  tagId: uuid.optional(),
+  companyId: uuid.optional(),
+  ownerUserId: uuid.optional(),
+  includeArchived: z.boolean().default(false),
+  sort: z.enum(['name', 'recent']).default('name'),
+});
+export const PersonListOutput = z.object({
+  items: z.array(PersonSummary),
+  nextCursor: z.string().nullable(),
+});
+
+export const PersonGetInput = z.object({ workspaceId: uuid, personId: uuid });
+export const PersonGetOutput = z.object({
+  person: PersonSummary.extend({ notes: z.string().nullable() }),
+});

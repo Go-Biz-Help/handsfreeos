@@ -12,7 +12,19 @@ export interface HumanActor {
   readonly email: string;
   readonly claims: UserClaims;
 }
-export type Actor = HumanActor;
+/**
+ * A non-human actor (the worker today; the assistant and AI employees later). Runs inside the worker's
+ * tenant scope with the `service_actor` policies, so it is root within one workspace and nothing outside it.
+ */
+export interface SystemActor {
+  readonly type: 'system';
+  readonly workspaceId: string;
+  readonly organizationId: string;
+  /** The person whose request this work fulfils (for example the importer). Recorded, never impersonated. */
+  readonly onBehalfOf?: string | null;
+}
+export type Actor = HumanActor | SystemActor;
+export type ActorKind = Actor['type'];
 
 export interface RequestMeta {
   readonly correlationId: string;
@@ -46,6 +58,8 @@ export interface EmitInput {
   /** Override the scope's ids (bootstrap paths where the scope is not known up front). */
   readonly organizationId?: string | null;
   readonly workspaceId?: string | null;
+  /** false keeps the event out of the live-updates broadcast (bulk work emits one progress event instead). */
+  readonly broadcast?: boolean;
 }
 
 export interface QueryContext {
@@ -73,6 +87,8 @@ export interface CommandDef<I extends z.ZodType = z.ZodType, O extends z.ZodType
   readonly permission: Permission | null;
   readonly scope: (input: z.output<I>) => ScopeRef;
   readonly emits: readonly string[];
+  /** Who may run this command. Defaults to humans only; bulk paths (import) opt in to the system actor. */
+  readonly actors?: readonly ActorKind[];
   readonly handler: (ctx: CommandContext, input: z.output<I>) => Promise<z.input<O>>;
 }
 

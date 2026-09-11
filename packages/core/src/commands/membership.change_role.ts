@@ -4,6 +4,7 @@ import { HfosError } from '../errors';
 import { defineCommand } from '../kernel/define';
 import { canActOnRole } from '../permissions';
 import { MembershipChangeRoleInput, MembershipChangeRoleOutput } from '../schemas/membership';
+import { requireHuman } from '../kernel/actor';
 
 export const membershipChangeRole = defineCommand({
   name: 'membership.change_role',
@@ -15,7 +16,7 @@ export const membershipChangeRole = defineCommand({
   scope: (i) => ({ kind: 'workspace', workspaceId: i.workspaceId }),
   emits: ['membership.role_changed'],
   async handler(ctx, input) {
-    if (input.userId === ctx.actor.userId)
+    if (input.userId === requireHuman(ctx).userId)
       throw HfosError.forbidden('You cannot change your own role.', 'own_role');
     const [target] = await ctx.tx
       .select({ id: workspaceMemberships.id, role: workspaceMemberships.role })

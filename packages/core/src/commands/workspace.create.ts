@@ -4,6 +4,7 @@ import { HfosError } from '../errors';
 import { defineCommand } from '../kernel/define';
 import { WorkspaceCreateInput, WorkspaceCreateOutput } from '../schemas/workspace';
 import { slugify } from '../slug';
+import { requireHuman } from '../kernel/actor';
 
 export const workspaceCreate = defineCommand({
   name: 'workspace.create',
@@ -24,7 +25,7 @@ export const workspaceCreate = defineCommand({
         slug,
         timezone: input.timezone,
         industry: input.industry,
-        createdBy: ctx.actor.userId,
+        createdBy: requireHuman(ctx).userId,
       })
       .returning({ id: workspaces.id });
     if (!ws) throw HfosError.internal('workspace insert returned no row');

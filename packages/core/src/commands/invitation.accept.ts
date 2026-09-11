@@ -3,6 +3,7 @@ import { rows, sql } from '@hfos/db/client';
 import { HfosError } from '../errors';
 import { defineCommand } from '../kernel/define';
 import { InvitationAcceptInput, InvitationAcceptOutput } from '../schemas/invitation';
+import { requireHuman } from '../kernel/actor';
 
 export const hashInvitationToken = (token: string): Buffer =>
   createHash('sha256').update(token).digest();
@@ -38,9 +39,9 @@ export const invitationAccept = defineCommand({
     await ctx.emit({
       type: 'membership.created',
       entityType: 'workspace_membership',
-      entityId: ctx.actor.userId,
+      entityId: requireHuman(ctx).userId,
       ...ids,
-      payload: { userId: ctx.actor.userId, role: row.inv_role, via: 'invitation' },
+      payload: { userId: requireHuman(ctx).userId, role: row.inv_role, via: 'invitation' },
       after: { role: row.inv_role },
     });
     return {

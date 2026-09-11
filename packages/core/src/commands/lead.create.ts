@@ -1,0 +1,110 @@
+import { and, asc, eq, isNull } from 'drizzle-orm';
+import { leads, pipelines, pipelineStages } from '@hfos/db/schema';
+import { logSystemActivity } from '../crm/activities';
+import { placeInStage } from '../crm/positions';
+import { requireCompany, requirePerson, setRecordTags } from '../crm/records';
+import { HfosError } from '../errors';
+import { userIdOf } from '../kernel/actor';
+import { defineCommand } from '../kernel/define';
+import { LeadCreateInput, LeadCreateOutput } from '../schemas/lead';
+
+export const leadCreate = defineCommand({
+  name: 'lead.create',
+  description:
+    'Add a lead for a person or company. It starts in the first open stage of the pipeline.',
+  risk: 1,
+  input: LeadCreateInput,
+  output: LeadCreateOutput,
+  permission: 'records.write',
+  scope: (i) => ({ kind: 'workspace', workspaceId: i.workspaceId }),
+  emits: ['lead.created'],
+  async handler(ctx, input) {
+    const workspaceId = ctx.scope.workspaceId!;
+    if (input.personId) await requirePerson(ctx.tx, workspaceId, input.personId);
+    if (input.companyId) await requireCompany(ctx.tx, workspaceId, input.companyId);
+    const [pipeline] = input.pipelineId
+      ? await ctx.tx
+          .select()
+          .from(pipelines)
+          .where(
+            and(
+              eq(pipelines.id, input.pipelineId),
+              eq(pipelines.workspaceId, workspaceId),
+              isNull(pipelines.archivedAt),
+            ),
+          )
+      : await ctx.tx
+          .select()
+          .from(pipelines)
+          .where(and(eq(pipelines.workspaceId, workspaceId), isNull(pipelines.archivedAt)))
+          .orderBy(asc(pipelines.position), asc(pipelines.createdAt))
+          .limit(1);
+    if (!pipeline) throw HfosError.notFound('Pipeline not found.');
+    const [stage] = input.stageId
+      ? await ctx.tx
+          .select()
+          .from(pipelineStages)
+          .where(
+            and(eq(pipelineStages.id, input.stageId), eq(pipelineStages.pipelineId, pipeline.id)),
+          )
+      : await ctx.tx
+          .select()
+          .from(pipelineStages)
+          .where(and(eq(pipelineStages.pipelineId, pipeline.id), eq(pipelineStages.kind, 'open')))
+          .orderBy(asc(pipelineStages.position))
+          .limit(1);
+    if (!stage) throw HfosError.notFound('Stage not found.');
+    const position = await placeInStage(ctx.tx, stage.id, undefined, null);
+    const [row] = await ctx.tx
+      .insert(leads)
+      .values({
+        workspaceId,
+        pipelineId: pipeline.id,
+        stageId: stage.id,
+        personId: input.personId ?? null,
+        companyId: input.companyId ?? null,
+        title: input.title,
+        valueCents: input.valueCents,
+        source: input.source ?? null,
+        assigneeUserId: input.assigneeUserId ?? null,
+        expectedCloseOn: input.expectedCloseOn ?? null,
+        nextAction: input.nextAction ?? null,
+        nextActionAt: input.nextActionAt ? new Date(input.nextActionAt) : null,
+        lostReason: stage.kind === 'lost' ? 'Created as lost' : null,
+        position,
+        createdBy: userIdOf(ctx.actor),
+      })
+      .returning();
+    if (!row) throw HfosError.forbidden();
+    if (input.tagIds?.length)
+      await setRecordTags(ctx.tx, workspaceId, 'lead', row.id, input.tagIds, userIdOf(ctx.actor));
+    const eventId = await ctx.emit({
+      type: 'lead.created',
+      entityType: 'lead',
+      entityId: row.id,
+      payload: {
+        title: row.title,
+        valueCents: row.valueCents,
+        stage: stage.name,
+        pipeline: pipeline.name,
+      },
+      after: {
+        title: row.title,
+        stage: stage.name,
+        pipeline: pipeline.name,
+        valueCents: row.valueCents,
+        nextAction: row.nextAction,
+      },
+    });
+    await logSystemActivity(ctx, {
+      subtype: 'lead_created',
+      leadId: row.id,
+      personId: row.personId,
+      companyId: row.companyId,
+      body: row.title,
+      meta: { stage: stage.name, valueCents: row.valueCents },
+      eventId,
+    });
+    return { leadId: row.id, stageId: stage.id };
+  },
+});

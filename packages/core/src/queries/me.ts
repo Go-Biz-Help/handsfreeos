@@ -4,6 +4,7 @@ import { organizationMemberships, organizations, users } from '@hfos/db/schema';
 import { HfosError } from '../errors';
 import { defineQuery } from '../kernel/define';
 import { MeInput, MeOutput } from '../schemas/user';
+import { requireHuman } from '../kernel/actor';
 
 export const me = defineQuery({
   name: 'account.me',
@@ -14,7 +15,10 @@ export const me = defineQuery({
   permission: null,
   scope: () => ({ kind: 'account' }),
   async handler(ctx) {
-    const [user] = await ctx.tx.select().from(users).where(eq(users.id, ctx.actor.userId));
+    const [user] = await ctx.tx
+      .select()
+      .from(users)
+      .where(eq(users.id, requireHuman(ctx).userId));
     if (!user) throw HfosError.notFound('Profile not found.');
     const orgs = await ctx.tx
       .select({
@@ -25,7 +29,7 @@ export const me = defineQuery({
       })
       .from(organizationMemberships)
       .innerJoin(organizations, eq(organizations.id, organizationMemberships.organizationId))
-      .where(eq(organizationMemberships.userId, ctx.actor.userId))
+      .where(eq(organizationMemberships.userId, requireHuman(ctx).userId))
       .orderBy(organizations.name);
     const wss = await rows<{
       id: string;

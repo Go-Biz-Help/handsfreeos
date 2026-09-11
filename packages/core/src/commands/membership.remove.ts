@@ -4,6 +4,7 @@ import { HfosError } from '../errors';
 import { defineCommand } from '../kernel/define';
 import { canActOnRole } from '../permissions';
 import { MembershipRemoveInput, MembershipRemoveOutput } from '../schemas/membership';
+import { requireHuman } from '../kernel/actor';
 
 export const membershipRemove = defineCommand({
   name: 'membership.remove',
@@ -15,7 +16,7 @@ export const membershipRemove = defineCommand({
   scope: (i) => ({ kind: 'workspace', workspaceId: i.workspaceId }),
   emits: ['membership.removed'],
   async handler(ctx, input) {
-    const leaving = input.userId === ctx.actor.userId;
+    const leaving = input.userId === requireHuman(ctx).userId;
     const [target] = await ctx.tx
       .select({ id: workspaceMemberships.id, role: workspaceMemberships.role })
       .from(workspaceMemberships)

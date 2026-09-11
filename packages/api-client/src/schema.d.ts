@@ -37,6 +37,266 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/activity.delete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Delete a note, call or visit (yours, or any as an owner or admin).
+         * @description Risk level 2. Requires records.write. Emits activity.deleted.
+         */
+        post: operations["command_activity_delete"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/activity.log": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Log a note, call or visit on a person, company or lead.
+         * @description Risk level 1. Requires records.write. Emits activity.logged.
+         */
+        post: operations["command_activity_log"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/activity.update": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Edit a note, call or visit you logged.
+         * @description Risk level 1. Requires records.write. Emits activity.updated.
+         */
+        post: operations["command_activity_update"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/company.archive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Archive a company. Refused while it has open leads or tasks unless forced, which archives the leads too.
+         * @description Risk level 3. Requires records.archive. Emits company.archived.
+         */
+        post: operations["command_company_archive"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/company.create": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add a company. Warns when one with the same email, phone or name already exists.
+         * @description Risk level 1. Requires records.write. Emits company.created.
+         */
+        post: operations["command_company_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/company.restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Bring an archived company back.
+         * @description Risk level 2. Requires records.archive. Emits company.restored.
+         */
+        post: operations["command_company_restore"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/company.update": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Change a company’s details.
+         * @description Risk level 1. Requires records.write. Emits company.updated.
+         */
+        post: operations["command_company_update"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/file.begin_upload": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reserve a place for a file on a record. Upload to the returned path, then confirm.
+         * @description Risk level 1. Requires records.write. Emits .
+         */
+        post: operations["command_file_begin_upload"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/file.confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Mark an uploaded file ready once the object exists in storage.
+         * @description Risk level 1. Requires records.write. Emits file.attached.
+         */
+        post: operations["command_file_confirm"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/file.delete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Remove a file from a record. The worker deletes the stored object afterwards.
+         * @description Risk level 2. Requires records.write. Emits file.deleted.
+         */
+        post: operations["command_file_delete"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/import.cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Stop an import that is pending or running. Rows already imported stay.
+         * @description Risk level 2. Requires records.import. Emits import.cancelled.
+         */
+        post: operations["command_import_cancel"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/import.create": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reserve an import. Upload the CSV to the returned path, then start it with a column mapping.
+         * @description Risk level 1. Requires records.import. Emits .
+         */
+        post: operations["command_import_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/import.start": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start a reserved import with the column mapping and how to treat matches.
+         * @description Risk level 3. Requires records.import. Emits import.requested.
+         */
+        post: operations["command_import_start"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/invitation.accept": {
         parameters: {
             query?: never;
@@ -91,6 +351,126 @@ export interface paths {
          * @description Risk level 2. Requires invitations.revoke. Emits invitation.revoked.
          */
         post: operations["command_invitation_revoke"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/lead.archive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Archive a lead so it leaves the pipeline without losing its history.
+         * @description Risk level 2. Requires records.archive. Emits lead.archived.
+         */
+        post: operations["command_lead_archive"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/lead.create": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add a lead for a person or company. It starts in the first open stage of the pipeline.
+         * @description Risk level 1. Requires records.write. Emits lead.created.
+         */
+        post: operations["command_lead_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/lead.move_stage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Move a lead to another stage of its pipeline (and to a spot within it). A lost stage needs a reason.
+         * @description Risk level 1. Requires records.write. Emits lead.stage_changed, lead.won, lead.lost, lead.reopened.
+         */
+        post: operations["command_lead_move_stage"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/lead.restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Bring an archived lead back to its stage.
+         * @description Risk level 2. Requires records.archive. Emits lead.restored.
+         */
+        post: operations["command_lead_restore"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/lead.set_next_action": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Set or clear the one thing to do next on a lead, and when.
+         * @description Risk level 1. Requires records.write. Emits lead.next_action_set, lead.next_action_cleared.
+         */
+        post: operations["command_lead_set_next_action"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/lead.update": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Change a lead’s title, value, source, people, expected close date or assignee.
+         * @description Risk level 1. Requires records.write. Emits lead.updated, lead.assigned.
+         */
+        post: operations["command_lead_update"];
         delete?: never;
         options?: never;
         head?: never;
@@ -171,6 +551,406 @@ export interface paths {
          * @description Risk level 1. Emits organization.created, workspace.created.
          */
         post: operations["command_organization_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/person.archive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Archive a person. Refused while they have open leads or tasks unless forced, which archives the leads too.
+         * @description Risk level 3. Requires records.archive. Emits person.archived.
+         */
+        post: operations["command_person_archive"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/person.create": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add a person. Warns when someone with the same email or phone already exists.
+         * @description Risk level 1. Requires records.write. Emits person.created.
+         */
+        post: operations["command_person_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/person.restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Bring an archived person back.
+         * @description Risk level 2. Requires records.archive. Emits person.restored.
+         */
+        post: operations["command_person_restore"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/person.update": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Change a person’s details. Changing the company also moves their open leads to it.
+         * @description Risk level 1. Requires records.write. Emits person.updated.
+         */
+        post: operations["command_person_update"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/pipeline.archive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Archive a pipeline that has no open leads. The last active pipeline stays.
+         * @description Risk level 3. Requires pipelines.manage. Emits pipeline.archived.
+         */
+        post: operations["command_pipeline_archive"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/pipeline.create": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add a pipeline with its stages (the default template is New, Contacted, Estimate sent, Won, Lost).
+         * @description Risk level 2. Requires pipelines.manage. Emits pipeline.created.
+         */
+        post: operations["command_pipeline_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/pipeline.update": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Rename or reorder a pipeline.
+         * @description Risk level 1. Requires pipelines.manage. Emits pipeline.updated.
+         */
+        post: operations["command_pipeline_update"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/record.set_tags": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Replace the tags on a person, company or lead.
+         * @description Risk level 1. Requires records.write. Emits record.tags_changed.
+         */
+        post: operations["command_record_set_tags"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/stage.create": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add a stage to a pipeline, at the end or right after another stage.
+         * @description Risk level 2. Requires pipelines.manage. Emits stage.created.
+         */
+        post: operations["command_stage_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/stage.delete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Delete a stage. Leads in it move to another stage of the same kind.
+         * @description Risk level 3. Requires pipelines.manage. Emits stage.deleted.
+         */
+        post: operations["command_stage_delete"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/stage.reorder": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Set the order of every stage in a pipeline.
+         * @description Risk level 1. Requires pipelines.manage. Emits stage.reordered.
+         */
+        post: operations["command_stage_reorder"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/stage.update": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Rename a stage or change what it means (open, won or lost). Kind changes need an empty stage.
+         * @description Risk level 2. Requires pipelines.manage. Emits stage.updated.
+         */
+        post: operations["command_stage_update"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/tag.create": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add a tag to the workspace.
+         * @description Risk level 1. Requires records.write. Emits tag.created.
+         */
+        post: operations["command_tag_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/tag.delete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Delete a tag and remove it from every record.
+         * @description Risk level 2. Requires tags.manage. Emits tag.deleted.
+         */
+        post: operations["command_tag_delete"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/tag.update": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Rename or recolor a tag everywhere it is used.
+         * @description Risk level 1. Requires tags.manage. Emits tag.updated.
+         */
+        post: operations["command_tag_update"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/task.complete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Mark a task done.
+         * @description Risk level 1. Requires records.write. Emits task.completed.
+         */
+        post: operations["command_task_complete"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/task.create": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add a task, optionally tied to a person, company or lead and assigned to someone.
+         * @description Risk level 1. Requires records.write. Emits task.created.
+         */
+        post: operations["command_task_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/task.delete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Delete a task you created (owners and admins can delete any).
+         * @description Risk level 2. Requires records.write. Emits task.deleted.
+         */
+        post: operations["command_task_delete"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/task.reopen": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reopen a completed task.
+         * @description Risk level 1. Requires records.write. Emits task.reopened.
+         */
+        post: operations["command_task_reopen"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/task.update": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Change a task’s title, notes, due date, assignee or related records.
+         * @description Risk level 1. Requires records.write. Emits task.updated.
+         */
+        post: operations["command_task_update"];
         delete?: never;
         options?: never;
         head?: never;
@@ -277,6 +1057,146 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/queries/company.get": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * One company with its details and people.
+         * @description Requires records.read.
+         */
+        post: operations["query_company_get"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/company.list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Companies in the workspace, searchable, with people and open-lead counts.
+         * @description Requires records.read.
+         */
+        post: operations["query_company_list"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/crm.find_matches": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Existing people or companies that look like the one being typed (same email, phone or name).
+         * @description Requires records.read.
+         */
+        post: operations["query_crm_find_matches"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/crm.summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The numbers on the home screen: open leads and value, leads without a next action, tasks due and overdue.
+         * @description Requires records.read.
+         */
+        post: operations["query_crm_summary"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/file.list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Files attached to a person, company or lead.
+         * @description Requires records.read.
+         */
+        post: operations["query_file_list"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/import.get": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * An import’s progress, result and the rows that failed.
+         * @description Requires records.import.
+         */
+        post: operations["query_import_get"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/import.list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Recent imports in the workspace.
+         * @description Requires records.import.
+         */
+        post: operations["query_import_list"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/queries/invitation.preview": {
         parameters: {
             query?: never;
@@ -291,6 +1211,186 @@ export interface paths {
          * @description Any signed-in user.
          */
         post: operations["query_invitation_preview"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/lead.board": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * A pipeline as a board: stages in order, each with its leads, count and total value.
+         * @description Requires records.read.
+         */
+        post: operations["query_lead_board"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/lead.get": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * One lead with its card details and the stages of its pipeline.
+         * @description Requires records.read.
+         */
+        post: operations["query_lead_get"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/lead.list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Leads as a list, newest change first, with filters.
+         * @description Requires records.read.
+         */
+        post: operations["query_lead_list"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/person.get": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * One person with company, owner, tags and counts (the Customer 360 header).
+         * @description Requires records.read.
+         */
+        post: operations["query_person_get"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/person.list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * People in the workspace: search by name, phone, email or street, filter by tag, company or owner.
+         * @description Requires records.read.
+         */
+        post: operations["query_person_list"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/pipeline.list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The workspace’s pipelines with their stages and how many leads sit in each.
+         * @description Requires records.read.
+         */
+        post: operations["query_pipeline_list"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/tag.list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The workspace’s tags and how many records use each.
+         * @description Requires records.read.
+         */
+        post: operations["query_tag_list"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/task.list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Tasks for you or everyone, open or done, with due buckets in the workspace’s time zone.
+         * @description Requires records.read.
+         */
+        post: operations["query_task_list"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/timeline.list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Everything that happened on a person, company or lead, newest first.
+         * @description Requires records.read.
+         */
+        post: operations["query_timeline_list"];
         delete?: never;
         options?: never;
         head?: never;
@@ -369,6 +1469,497 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    command_activity_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    activityId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        activityId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_activity_log: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    body: string;
+                    companyId?: string | null;
+                    /** @enum {string} */
+                    kind: "note" | "call" | "visit";
+                    leadId?: string | null;
+                    /** Format: date-time */
+                    occurredAt?: string;
+                    personId?: string | null;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        activityId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_activity_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    activityId: string;
+                    body?: string;
+                    /** Format: date-time */
+                    occurredAt?: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        activityId: string;
+                        updated: string[];
+                    };
+                };
+            };
+        };
+    };
+    command_company_archive: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    companyId: string;
+                    /** @default false */
+                    force?: boolean;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        archivedLeads: number;
+                        /** Format: uuid */
+                        companyId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_company_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    address?: {
+                        city?: string | null;
+                        country?: string;
+                        line1?: string | null;
+                        line2?: string | null;
+                        postalCode?: string | null;
+                        state?: string | null;
+                    };
+                    email?: string | null;
+                    /** @default false */
+                    ignoreDuplicates?: boolean;
+                    name: string;
+                    notes?: string | null;
+                    ownerUserId?: string | null;
+                    phone?: string | null;
+                    source?: string | null;
+                    tagIds?: string[];
+                    website?: string | null;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        companyId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_company_restore: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    companyId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        companyId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_company_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    address?: {
+                        city?: string | null;
+                        country?: string;
+                        line1?: string | null;
+                        line2?: string | null;
+                        postalCode?: string | null;
+                        state?: string | null;
+                    };
+                    /** Format: uuid */
+                    companyId: string;
+                    email?: string | null;
+                    name?: string;
+                    notes?: string | null;
+                    ownerUserId?: string | null;
+                    phone?: string | null;
+                    source?: string | null;
+                    website?: string | null;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        companyId: string;
+                        updated: string[];
+                    };
+                };
+            };
+        };
+    };
+    command_file_begin_upload: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {string} */
+                    mimeType: "image/jpeg" | "image/png" | "image/webp" | "image/heic" | "image/heif" | "image/gif" | "application/pdf" | "application/vnd.openxmlformats-officedocument.wordprocessingml.document" | "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" | "text/plain" | "text/csv";
+                    name: string;
+                    /** Format: uuid */
+                    recordId: string;
+                    /** @enum {string} */
+                    recordType: "person" | "company" | "lead";
+                    sizeBytes: number;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        bucket: string;
+                        /** Format: uuid */
+                        fileId: string;
+                        objectPath: string;
+                    };
+                };
+            };
+        };
+    };
+    command_file_confirm: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    fileId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        fileId: string;
+                        mimeType: string;
+                        sizeBytes: number;
+                    };
+                };
+            };
+        };
+    };
+    command_file_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    fileId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        fileId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_import_cancel: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    importId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        importId: string;
+                        /** @enum {string} */
+                        status: "pending" | "running" | "done" | "failed" | "cancelled";
+                    };
+                };
+            };
+        };
+    };
+    command_import_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    fileName: string;
+                    /** @enum {string} */
+                    kind: "people" | "companies";
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        bucket: string;
+                        /** Format: uuid */
+                        importId: string;
+                        objectPath: string;
+                    };
+                };
+            };
+        };
+    };
+    command_import_start: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    importId: string;
+                    mapping: {
+                        [key: string]: string;
+                    };
+                    /**
+                     * @default {
+                     *       "onMatch": "skip"
+                     *     }
+                     */
+                    options?: {
+                        /**
+                         * @default skip
+                         * @enum {string}
+                         */
+                        onMatch?: "skip" | "update";
+                    };
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        importId: string;
+                    };
+                };
+            };
+        };
+    };
     command_invitation_accept: {
         parameters: {
             query?: never;
@@ -465,6 +2056,234 @@ export interface operations {
                         email: string;
                         /** Format: uuid */
                         invitationId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_lead_archive: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    leadId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        leadId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_lead_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    assigneeUserId?: string | null;
+                    companyId?: string | null;
+                    expectedCloseOn?: string | null;
+                    nextAction?: string | null;
+                    nextActionAt?: string | null;
+                    personId?: string | null;
+                    /** Format: uuid */
+                    pipelineId?: string;
+                    source?: string | null;
+                    /** Format: uuid */
+                    stageId?: string;
+                    tagIds?: string[];
+                    title: string;
+                    /** @default 0 */
+                    valueCents?: number;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        leadId: string;
+                        /** Format: uuid */
+                        stageId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_lead_move_stage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    afterLeadId?: string | null;
+                    /** Format: uuid */
+                    leadId: string;
+                    lostReason?: string;
+                    /** Format: uuid */
+                    stageId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        leadId: string;
+                        position: number;
+                        /** Format: uuid */
+                        stageId: string;
+                        /** @enum {string} */
+                        status: "open" | "won" | "lost";
+                    };
+                };
+            };
+        };
+    };
+    command_lead_restore: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    leadId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        leadId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_lead_set_next_action: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    dueAt?: string | null;
+                    /** Format: uuid */
+                    leadId: string;
+                    text: string | null;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        leadId: string;
+                        nextAction: string | null;
+                        nextActionAt: string | null;
+                    };
+                };
+            };
+        };
+    };
+    command_lead_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    assigneeUserId?: string | null;
+                    companyId?: string | null;
+                    expectedCloseOn?: string | null;
+                    /** Format: uuid */
+                    leadId: string;
+                    personId?: string | null;
+                    source?: string | null;
+                    title?: string;
+                    valueCents?: number;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        leadId: string;
+                        updated: string[];
                     };
                 };
             };
@@ -616,6 +2435,739 @@ export interface operations {
                         organizationId: string;
                         /** Format: uuid */
                         workspaceId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_person_archive: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @default false */
+                    force?: boolean;
+                    /** Format: uuid */
+                    personId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        archivedLeads: number;
+                        /** Format: uuid */
+                        personId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_person_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    address?: {
+                        city?: string | null;
+                        country?: string;
+                        line1?: string | null;
+                        line2?: string | null;
+                        postalCode?: string | null;
+                        state?: string | null;
+                    };
+                    companyId?: string | null;
+                    email?: string | null;
+                    /** @default  */
+                    firstName?: string;
+                    /** @default false */
+                    ignoreDuplicates?: boolean;
+                    /** @default  */
+                    lastName?: string;
+                    notes?: string | null;
+                    ownerUserId?: string | null;
+                    phone?: string | null;
+                    phoneAlt?: string | null;
+                    source?: string | null;
+                    tagIds?: string[];
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        personId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_person_restore: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    personId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        personId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_person_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    address?: {
+                        city?: string | null;
+                        country?: string;
+                        line1?: string | null;
+                        line2?: string | null;
+                        postalCode?: string | null;
+                        state?: string | null;
+                    };
+                    companyId?: string | null;
+                    email?: string | null;
+                    firstName?: string;
+                    lastName?: string;
+                    notes?: string | null;
+                    ownerUserId?: string | null;
+                    /** Format: uuid */
+                    personId: string;
+                    phone?: string | null;
+                    phoneAlt?: string | null;
+                    source?: string | null;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        personId: string;
+                        updated: string[];
+                    };
+                };
+            };
+        };
+    };
+    command_pipeline_archive: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    pipelineId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        pipelineId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_pipeline_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    name: string;
+                    stages?: {
+                        /** @enum {string} */
+                        kind: "open" | "won" | "lost";
+                        name: string;
+                    }[];
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        pipelineId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_pipeline_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    name?: string;
+                    /** Format: uuid */
+                    pipelineId: string;
+                    position?: number;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        pipelineId: string;
+                        updated: string[];
+                    };
+                };
+            };
+        };
+    };
+    command_record_set_tags: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    recordId: string;
+                    /** @enum {string} */
+                    recordType: "person" | "company" | "lead";
+                    tagIds: string[];
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        tags: {
+                            color: string;
+                            /** Format: uuid */
+                            id: string;
+                            name: string;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    command_stage_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    afterStageId?: string | null;
+                    /**
+                     * @default open
+                     * @enum {string}
+                     */
+                    kind?: "open" | "won" | "lost";
+                    name: string;
+                    /** Format: uuid */
+                    pipelineId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        stageId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_stage_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    moveLeadsToStageId?: string | null;
+                    /** Format: uuid */
+                    stageId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        movedLeads: number;
+                        /** Format: uuid */
+                        stageId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_stage_reorder: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    pipelineId: string;
+                    stageIds: string[];
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        order: string[];
+                        /** Format: uuid */
+                        pipelineId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_stage_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {string} */
+                    kind?: "open" | "won" | "lost";
+                    name?: string;
+                    /** Format: uuid */
+                    stageId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        stageId: string;
+                        updated: string[];
+                    };
+                };
+            };
+        };
+    };
+    command_tag_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @default #2d69d8 */
+                    color?: string;
+                    name: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        tagId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_tag_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    tagId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        removedFrom: number;
+                        /** Format: uuid */
+                        tagId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_tag_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    color?: string;
+                    name?: string;
+                    /** Format: uuid */
+                    tagId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        tagId: string;
+                        updated: string[];
+                    };
+                };
+            };
+        };
+    };
+    command_task_complete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    taskId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: date-time */
+                        doneAt: string;
+                        /** Format: uuid */
+                        taskId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_task_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @default true */
+                    allDay?: boolean;
+                    assigneeUserId?: string | null;
+                    companyId?: string | null;
+                    dueAt?: string | null;
+                    leadId?: string | null;
+                    notes?: string | null;
+                    personId?: string | null;
+                    title: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        taskId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_task_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    taskId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        taskId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_task_reopen: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    taskId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        taskId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_task_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    allDay?: boolean;
+                    assigneeUserId?: string | null;
+                    companyId?: string | null;
+                    dueAt?: string | null;
+                    leadId?: string | null;
+                    notes?: string | null;
+                    personId?: string | null;
+                    /** Format: uuid */
+                    taskId: string;
+                    title?: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        taskId: string;
+                        updated: string[];
                     };
                 };
             };
@@ -857,6 +3409,421 @@ export interface operations {
             };
         };
     };
+    query_company_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    companyId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        company: {
+                            address: {
+                                city: string | null;
+                                country: string;
+                                line1: string | null;
+                                line2: string | null;
+                                postalCode: string | null;
+                                state: string | null;
+                            };
+                            archivedAt: string | null;
+                            /** Format: date-time */
+                            createdAt: string;
+                            email: string | null;
+                            /** Format: uuid */
+                            id: string;
+                            name: string;
+                            notes: string | null;
+                            openLeads: number;
+                            owner: {
+                                fullName: string;
+                                /** Format: uuid */
+                                id: string;
+                            } | null;
+                            peopleCount: number;
+                            phone: string | null;
+                            phoneE164: string | null;
+                            source: string | null;
+                            tags: {
+                                color: string;
+                                /** Format: uuid */
+                                id: string;
+                                name: string;
+                            }[];
+                            /** Format: date-time */
+                            updatedAt: string;
+                            website: string | null;
+                        };
+                        people: {
+                            archived: boolean;
+                            email: string | null;
+                            fullName: string;
+                            /** Format: uuid */
+                            id: string;
+                            phone: string | null;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    query_company_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    cursor?: string;
+                    /** @default false */
+                    includeArchived?: boolean;
+                    /** @default 50 */
+                    limit?: number;
+                    q?: string;
+                    /** Format: uuid */
+                    tagId?: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: {
+                            address: {
+                                city: string | null;
+                                country: string;
+                                line1: string | null;
+                                line2: string | null;
+                                postalCode: string | null;
+                                state: string | null;
+                            };
+                            archivedAt: string | null;
+                            /** Format: date-time */
+                            createdAt: string;
+                            email: string | null;
+                            /** Format: uuid */
+                            id: string;
+                            name: string;
+                            openLeads: number;
+                            owner: {
+                                fullName: string;
+                                /** Format: uuid */
+                                id: string;
+                            } | null;
+                            peopleCount: number;
+                            phone: string | null;
+                            phoneE164: string | null;
+                            source: string | null;
+                            tags: {
+                                color: string;
+                                /** Format: uuid */
+                                id: string;
+                                name: string;
+                            }[];
+                            /** Format: date-time */
+                            updatedAt: string;
+                            website: string | null;
+                        }[];
+                        nextCursor: string | null;
+                    };
+                };
+            };
+        };
+    };
+    query_crm_find_matches: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    email?: string | null;
+                    /** Format: uuid */
+                    exceptId?: string;
+                    /** @enum {string} */
+                    kind: "person" | "company";
+                    name?: string | null;
+                    phone?: string | null;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        matches: {
+                            email: string | null;
+                            /** Format: uuid */
+                            id: string;
+                            /** @enum {string} */
+                            matchedOn: "email" | "phone" | "name";
+                            name: string;
+                            phone: string | null;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    query_crm_summary: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        companies: number;
+                        leadsWithoutNextAction: number;
+                        openLeads: number;
+                        openValueCents: number;
+                        people: number;
+                        tasksDueToday: number;
+                        tasksOverdue: number;
+                    };
+                };
+            };
+        };
+    };
+    query_file_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    recordId: string;
+                    /** @enum {string} */
+                    recordType: "person" | "company" | "lead";
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        files: {
+                            bucket: string;
+                            /** Format: date-time */
+                            createdAt: string;
+                            /** Format: uuid */
+                            id: string;
+                            isImage: boolean;
+                            mimeType: string | null;
+                            name: string;
+                            objectPath: string;
+                            /** Format: uuid */
+                            recordId: string;
+                            /** @enum {string} */
+                            recordType: "person" | "company" | "lead";
+                            sizeBytes: number | null;
+                            uploadedBy: {
+                                fullName: string;
+                                /** Format: uuid */
+                                id: string;
+                            } | null;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    query_import_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    importId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        errors: {
+                            message: string;
+                            raw: {
+                                [key: string]: unknown;
+                            } | null;
+                            rowNumber: number;
+                        }[];
+                        import: {
+                            /** Format: date-time */
+                            createdAt: string;
+                            createdBy: {
+                                fullName: string;
+                                /** Format: uuid */
+                                id: string;
+                            } | null;
+                            createdCount: number;
+                            errorCount: number;
+                            fileName: string;
+                            finishedAt: string | null;
+                            /** Format: uuid */
+                            id: string;
+                            /** @enum {string} */
+                            kind: "people" | "companies";
+                            lastError: string | null;
+                            mapping: {
+                                [key: string]: string;
+                            };
+                            options: {
+                                /**
+                                 * @default skip
+                                 * @enum {string}
+                                 */
+                                onMatch: "skip" | "update";
+                            };
+                            processedRows: number;
+                            skippedCount: number;
+                            startedAt: string | null;
+                            /** @enum {string} */
+                            status: "pending" | "running" | "done" | "failed" | "cancelled";
+                            totalRows: number;
+                            updatedCount: number;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    query_import_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        imports: {
+                            /** Format: date-time */
+                            createdAt: string;
+                            createdBy: {
+                                fullName: string;
+                                /** Format: uuid */
+                                id: string;
+                            } | null;
+                            createdCount: number;
+                            errorCount: number;
+                            fileName: string;
+                            finishedAt: string | null;
+                            /** Format: uuid */
+                            id: string;
+                            /** @enum {string} */
+                            kind: "people" | "companies";
+                            lastError: string | null;
+                            mapping: {
+                                [key: string]: string;
+                            };
+                            options: {
+                                /**
+                                 * @default skip
+                                 * @enum {string}
+                                 */
+                                onMatch: "skip" | "update";
+                            };
+                            processedRows: number;
+                            skippedCount: number;
+                            startedAt: string | null;
+                            /** @enum {string} */
+                            status: "pending" | "running" | "done" | "failed" | "cancelled";
+                            totalRows: number;
+                            updatedCount: number;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
     query_invitation_preview: {
         parameters: {
             query?: never;
@@ -890,6 +3857,703 @@ export interface operations {
                         /** @enum {string} */
                         status: "pending" | "used" | "revoked" | "expired";
                         workspaceName: string;
+                    };
+                };
+            };
+        };
+    };
+    query_lead_board: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    pipelineId?: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        pipeline: {
+                            /** Format: uuid */
+                            id: string;
+                            name: string;
+                        };
+                        pipelines: {
+                            /** Format: uuid */
+                            id: string;
+                            name: string;
+                        }[];
+                        stages: {
+                            count: number;
+                            /** Format: uuid */
+                            id: string;
+                            /** @enum {string} */
+                            kind: "open" | "won" | "lost";
+                            leads: {
+                                archivedAt: string | null;
+                                assignee: {
+                                    fullName: string;
+                                    /** Format: uuid */
+                                    id: string;
+                                } | null;
+                                company: {
+                                    archived: boolean;
+                                    /** Format: uuid */
+                                    id: string;
+                                    name: string;
+                                } | null;
+                                /** Format: date-time */
+                                createdAt: string;
+                                expectedCloseOn: string | null;
+                                /** Format: uuid */
+                                id: string;
+                                lostAt: string | null;
+                                lostReason: string | null;
+                                needsNextAction: boolean;
+                                nextAction: string | null;
+                                nextActionAt: string | null;
+                                person: {
+                                    archived: boolean;
+                                    fullName: string;
+                                    /** Format: uuid */
+                                    id: string;
+                                } | null;
+                                /** Format: uuid */
+                                pipelineId: string;
+                                position: number;
+                                source: string | null;
+                                /** Format: date-time */
+                                stageEnteredAt: string;
+                                /** Format: uuid */
+                                stageId: string;
+                                /** @enum {string} */
+                                stageKind: "open" | "won" | "lost";
+                                stageName: string;
+                                /** @enum {string} */
+                                status: "open" | "won" | "lost";
+                                tags: {
+                                    color: string;
+                                    /** Format: uuid */
+                                    id: string;
+                                    name: string;
+                                }[];
+                                title: string;
+                                /** Format: date-time */
+                                updatedAt: string;
+                                valueCents: number;
+                                wonAt: string | null;
+                            }[];
+                            name: string;
+                            position: number;
+                            valueCents: number;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    query_lead_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    leadId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        lead: {
+                            archivedAt: string | null;
+                            assignee: {
+                                fullName: string;
+                                /** Format: uuid */
+                                id: string;
+                            } | null;
+                            company: {
+                                archived: boolean;
+                                /** Format: uuid */
+                                id: string;
+                                name: string;
+                            } | null;
+                            /** Format: date-time */
+                            createdAt: string;
+                            expectedCloseOn: string | null;
+                            /** Format: uuid */
+                            id: string;
+                            lostAt: string | null;
+                            lostReason: string | null;
+                            needsNextAction: boolean;
+                            nextAction: string | null;
+                            nextActionAt: string | null;
+                            person: {
+                                archived: boolean;
+                                fullName: string;
+                                /** Format: uuid */
+                                id: string;
+                            } | null;
+                            /** Format: uuid */
+                            pipelineId: string;
+                            position: number;
+                            source: string | null;
+                            /** Format: date-time */
+                            stageEnteredAt: string;
+                            /** Format: uuid */
+                            stageId: string;
+                            /** @enum {string} */
+                            stageKind: "open" | "won" | "lost";
+                            stageName: string;
+                            /** @enum {string} */
+                            status: "open" | "won" | "lost";
+                            tags: {
+                                color: string;
+                                /** Format: uuid */
+                                id: string;
+                                name: string;
+                            }[];
+                            title: string;
+                            /** Format: date-time */
+                            updatedAt: string;
+                            valueCents: number;
+                            wonAt: string | null;
+                        };
+                        stages: {
+                            /** Format: uuid */
+                            id: string;
+                            /** @enum {string} */
+                            kind: "open" | "won" | "lost";
+                            name: string;
+                            position: number;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    query_lead_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    assigneeUserId?: string;
+                    /** Format: uuid */
+                    companyId?: string;
+                    cursor?: string;
+                    /** @default false */
+                    includeArchived?: boolean;
+                    /** @default 50 */
+                    limit?: number;
+                    /** Format: uuid */
+                    personId?: string;
+                    /** Format: uuid */
+                    pipelineId?: string;
+                    q?: string;
+                    /** @enum {string} */
+                    status?: "open" | "won" | "lost";
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: {
+                            archivedAt: string | null;
+                            assignee: {
+                                fullName: string;
+                                /** Format: uuid */
+                                id: string;
+                            } | null;
+                            company: {
+                                archived: boolean;
+                                /** Format: uuid */
+                                id: string;
+                                name: string;
+                            } | null;
+                            /** Format: date-time */
+                            createdAt: string;
+                            expectedCloseOn: string | null;
+                            /** Format: uuid */
+                            id: string;
+                            lostAt: string | null;
+                            lostReason: string | null;
+                            needsNextAction: boolean;
+                            nextAction: string | null;
+                            nextActionAt: string | null;
+                            person: {
+                                archived: boolean;
+                                fullName: string;
+                                /** Format: uuid */
+                                id: string;
+                            } | null;
+                            /** Format: uuid */
+                            pipelineId: string;
+                            position: number;
+                            source: string | null;
+                            /** Format: date-time */
+                            stageEnteredAt: string;
+                            /** Format: uuid */
+                            stageId: string;
+                            /** @enum {string} */
+                            stageKind: "open" | "won" | "lost";
+                            stageName: string;
+                            /** @enum {string} */
+                            status: "open" | "won" | "lost";
+                            tags: {
+                                color: string;
+                                /** Format: uuid */
+                                id: string;
+                                name: string;
+                            }[];
+                            title: string;
+                            /** Format: date-time */
+                            updatedAt: string;
+                            valueCents: number;
+                            wonAt: string | null;
+                        }[];
+                        nextCursor: string | null;
+                    };
+                };
+            };
+        };
+    };
+    query_person_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    personId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        person: {
+                            address: {
+                                city: string | null;
+                                country: string;
+                                line1: string | null;
+                                line2: string | null;
+                                postalCode: string | null;
+                                state: string | null;
+                            };
+                            archivedAt: string | null;
+                            company: {
+                                archived: boolean;
+                                /** Format: uuid */
+                                id: string;
+                                name: string;
+                            } | null;
+                            /** Format: date-time */
+                            createdAt: string;
+                            email: string | null;
+                            firstName: string;
+                            fullName: string;
+                            /** Format: uuid */
+                            id: string;
+                            lastActivityAt: string | null;
+                            lastName: string;
+                            notes: string | null;
+                            openLeads: number;
+                            owner: {
+                                fullName: string;
+                                /** Format: uuid */
+                                id: string;
+                            } | null;
+                            phone: string | null;
+                            phoneAlt: string | null;
+                            phoneE164: string | null;
+                            source: string | null;
+                            tags: {
+                                color: string;
+                                /** Format: uuid */
+                                id: string;
+                                name: string;
+                            }[];
+                            /** Format: date-time */
+                            updatedAt: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    query_person_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    companyId?: string;
+                    cursor?: string;
+                    /** @default false */
+                    includeArchived?: boolean;
+                    /** @default 50 */
+                    limit?: number;
+                    /** Format: uuid */
+                    ownerUserId?: string;
+                    q?: string;
+                    /**
+                     * @default name
+                     * @enum {string}
+                     */
+                    sort?: "name" | "recent";
+                    /** Format: uuid */
+                    tagId?: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: {
+                            address: {
+                                city: string | null;
+                                country: string;
+                                line1: string | null;
+                                line2: string | null;
+                                postalCode: string | null;
+                                state: string | null;
+                            };
+                            archivedAt: string | null;
+                            company: {
+                                archived: boolean;
+                                /** Format: uuid */
+                                id: string;
+                                name: string;
+                            } | null;
+                            /** Format: date-time */
+                            createdAt: string;
+                            email: string | null;
+                            firstName: string;
+                            fullName: string;
+                            /** Format: uuid */
+                            id: string;
+                            lastActivityAt: string | null;
+                            lastName: string;
+                            openLeads: number;
+                            owner: {
+                                fullName: string;
+                                /** Format: uuid */
+                                id: string;
+                            } | null;
+                            phone: string | null;
+                            phoneAlt: string | null;
+                            phoneE164: string | null;
+                            source: string | null;
+                            tags: {
+                                color: string;
+                                /** Format: uuid */
+                                id: string;
+                                name: string;
+                            }[];
+                            /** Format: date-time */
+                            updatedAt: string;
+                        }[];
+                        nextCursor: string | null;
+                    };
+                };
+            };
+        };
+    };
+    query_pipeline_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @default false */
+                    includeArchived?: boolean;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        pipelines: {
+                            archivedAt: string | null;
+                            /** Format: uuid */
+                            id: string;
+                            isDefault: boolean;
+                            name: string;
+                            position: number;
+                            stages: {
+                                /** Format: uuid */
+                                id: string;
+                                /** @enum {string} */
+                                kind: "open" | "won" | "lost";
+                                leadCount: number;
+                                name: string;
+                                position: number;
+                            }[];
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    query_tag_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        tags: {
+                            color: string;
+                            /** Format: uuid */
+                            id: string;
+                            name: string;
+                            usage: number;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    query_task_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    companyId?: string;
+                    cursor?: string;
+                    /** Format: uuid */
+                    leadId?: string;
+                    /** @default 50 */
+                    limit?: number;
+                    /** Format: uuid */
+                    personId?: string;
+                    /**
+                     * @default mine
+                     * @enum {string}
+                     */
+                    scope?: "mine" | "all";
+                    /**
+                     * @default open
+                     * @enum {string}
+                     */
+                    status?: "open" | "done" | "all";
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: {
+                            allDay: boolean;
+                            assignee: {
+                                fullName: string;
+                                /** Format: uuid */
+                                id: string;
+                            } | null;
+                            company: {
+                                archived: boolean;
+                                /** Format: uuid */
+                                id: string;
+                                name: string;
+                            } | null;
+                            /** Format: date-time */
+                            createdAt: string;
+                            createdBy: {
+                                fullName: string;
+                                /** Format: uuid */
+                                id: string;
+                            } | null;
+                            doneAt: string | null;
+                            doneBy: {
+                                fullName: string;
+                                /** Format: uuid */
+                                id: string;
+                            } | null;
+                            dueAt: string | null;
+                            /** @enum {string} */
+                            dueBucket: "overdue" | "today" | "week" | "later" | "none";
+                            /** Format: uuid */
+                            id: string;
+                            lead: {
+                                /** Format: uuid */
+                                id: string;
+                                title: string;
+                            } | null;
+                            notes: string | null;
+                            person: {
+                                archived: boolean;
+                                fullName: string;
+                                /** Format: uuid */
+                                id: string;
+                            } | null;
+                            title: string;
+                            /** Format: date-time */
+                            updatedAt: string;
+                        }[];
+                        nextCursor: string | null;
+                        timezone: string;
+                    };
+                };
+            };
+        };
+    };
+    query_timeline_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    cursor?: string;
+                    /** @default 50 */
+                    limit?: number;
+                    /** Format: uuid */
+                    recordId: string;
+                    /** @enum {string} */
+                    recordType: "person" | "company" | "lead";
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: {
+                            actor: {
+                                fullName: string;
+                                /** Format: uuid */
+                                id: string;
+                            } | null;
+                            actorType: string;
+                            body: string | null;
+                            companyId: string | null;
+                            /** @enum {string} */
+                            entry: "activity" | "task" | "file";
+                            /** Format: uuid */
+                            id: string;
+                            kind: string;
+                            leadId: string | null;
+                            meta: {
+                                [key: string]: unknown;
+                            };
+                            /** Format: date-time */
+                            occurredAt: string;
+                            personId: string | null;
+                            subtype: string | null;
+                        }[];
+                        nextCursor: string | null;
                     };
                 };
             };

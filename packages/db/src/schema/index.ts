@@ -408,6 +408,7 @@ export const leads = app.table('leads', {
   lostAt: ts('lost_at'),
   lostReason: text('lost_reason'),
   position: bigint('position', { mode: 'number' }).notNull().default(0),
+  stageEnteredAt: ts('stage_entered_at').notNull().defaultNow(),
   archivedAt: ts('archived_at'),
   archivedBy: userRef('archived_by'),
   createdBy: userRef('created_by'),

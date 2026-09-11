@@ -4,6 +4,7 @@ import { HfosError } from '../errors';
 import { defineCommand } from '../kernel/define';
 import { canActOnRole } from '../permissions';
 import { MembershipInviteInput, MembershipInviteOutput } from '../schemas/membership';
+import { requireHuman } from '../kernel/actor';
 
 export const INVITATION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
@@ -61,7 +62,7 @@ export const membershipInvite = defineCommand({
         workspaceId: input.workspaceId,
         email: input.email,
         role: input.role,
-        invitedBy: ctx.actor.userId,
+        invitedBy: requireHuman(ctx).userId,
         expiresAt,
       })
       .returning({
@@ -75,7 +76,7 @@ export const membershipInvite = defineCommand({
       type: 'invitation.created',
       entityType: 'invitation',
       entityId: inv.id,
-      payload: { email: inv.email, role: inv.role, invitedBy: ctx.actor.userId },
+      payload: { email: inv.email, role: inv.role, invitedBy: requireHuman(ctx).userId },
       after: { email: inv.email, role: inv.role, expiresAt },
     });
     return {
