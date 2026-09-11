@@ -87,7 +87,8 @@ beforeAll(async () => {
     handlers,
     webUrl: 'http://localhost:3000',
     workerId: WORKER_ID,
-    batchSize: 20,
+    // Wide batches: the other suites run at the same time and leave pending rows ahead of ours.
+    batchSize: 200,
   };
 });
 afterAll(closeTestDbs);
