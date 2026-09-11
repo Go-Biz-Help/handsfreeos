@@ -14,7 +14,24 @@ import {
 } from '../schemas/company';
 import { fullName } from '../crm/records';
 
-type Row = typeof companies.$inferSelect & {
+/** Raw rows come back snake_case with timestamps as strings (drizzle's postgres driver leaves dates unparsed). */
+type Row = {
+  id: string;
+  name: string;
+  email: string | null;
+  phone_e164: string | null;
+  website: string | null;
+  address_line1: string | null;
+  address_line2: string | null;
+  city: string | null;
+  state: string | null;
+  postal_code: string | null;
+  country: string;
+  source: string | null;
+  owner_user_id: string | null;
+  archived_at: string | Date | null;
+  created_at: string | Date;
+  updated_at: string | Date;
   people_count: number;
   open_leads: number;
   owner_name: string | null;
@@ -27,20 +44,27 @@ function summary(r: Row, tags: CompanySummary['tags']): CompanySummary {
     id: r.id,
     name: r.name,
     email: r.email,
-    phone: phoneOut(r.phoneE164),
-    phoneE164: r.phoneE164,
+    phone: phoneOut(r.phone_e164),
+    phoneE164: r.phone_e164,
     website: r.website,
-    address: addressOut(r),
+    address: addressOut({
+      addressLine1: r.address_line1,
+      addressLine2: r.address_line2,
+      city: r.city,
+      state: r.state,
+      postalCode: r.postal_code,
+      country: r.country,
+    }),
     source: r.source,
-    owner: r.ownerUserId
-      ? { id: r.ownerUserId, fullName: r.owner_name || r.owner_email || 'Former member' }
+    owner: r.owner_user_id
+      ? { id: r.owner_user_id, fullName: r.owner_name || r.owner_email || 'Former member' }
       : null,
     tags,
     peopleCount: Number(r.people_count),
     openLeads: Number(r.open_leads),
-    archivedAt: r.archivedAt?.toISOString() ?? null,
-    createdAt: r.createdAt.toISOString(),
-    updatedAt: r.updatedAt.toISOString(),
+    archivedAt: r.archived_at ? new Date(r.archived_at).toISOString() : null,
+    createdAt: new Date(r.created_at).toISOString(),
+    updatedAt: new Date(r.updated_at).toISOString(),
   };
 }
 
@@ -79,20 +103,9 @@ export const companyList = defineQuery({
       'company',
       list.map((r) => r.id),
     );
-    const camel = list.map((r) => ({
-      ...r,
-      phoneE164: (r as unknown as { phone_e164: string | null }).phone_e164,
-      ownerUserId: (r as unknown as { owner_user_id: string | null }).owner_user_id,
-      archivedAt: (r as unknown as { archived_at: Date | null }).archived_at,
-      createdAt: (r as unknown as { created_at: Date }).created_at,
-      updatedAt: (r as unknown as { updated_at: Date }).updated_at,
-      addressLine1: (r as unknown as { address_line1: string | null }).address_line1,
-      addressLine2: (r as unknown as { address_line2: string | null }).address_line2,
-      postalCode: (r as unknown as { postal_code: string | null }).postal_code,
-    }));
-    const result = page(camel, input.limit, (r) => ({ sort: r.sort_key, id: r.id }));
+    const result = page(list, input.limit, (r) => ({ sort: r.sort_key, id: r.id }));
     return {
-      items: result.items.map((r) => summary(r as Row, tags.get(r.id) ?? [])),
+      items: result.items.map((r) => summary(r, tags.get(r.id) ?? [])),
       nextCursor: result.nextCursor,
     };
   },
@@ -127,7 +140,22 @@ export const companyGet = defineQuery({
       company: {
         ...summary(
           {
-            ...c,
+            id: c.id,
+            name: c.name,
+            email: c.email,
+            phone_e164: c.phoneE164,
+            website: c.website,
+            address_line1: c.addressLine1,
+            address_line2: c.addressLine2,
+            city: c.city,
+            state: c.state,
+            postal_code: c.postalCode,
+            country: c.country,
+            source: c.source,
+            owner_user_id: c.ownerUserId,
+            archived_at: c.archivedAt,
+            created_at: c.createdAt,
+            updated_at: c.updatedAt,
             people_count: counts?.people_count ?? 0,
             open_leads: counts?.open_leads ?? 0,
             owner_name: owner?.fullName ?? null,

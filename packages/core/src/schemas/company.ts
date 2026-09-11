@@ -30,6 +30,9 @@ export const CompanyCreateInput = z.object({
   tagIds: tagIds.optional(),
   /** Save even when an existing company matches the email, phone or name. */
   ignoreDuplicates: z.boolean().default(false),
+  /** Set by the import worker only: makes a retried batch a no-op. */
+  importId: uuid.optional(),
+  importRow: z.number().int().min(1).optional(),
 });
 export const CompanyCreateOutput = z.object({ companyId: uuid });
 

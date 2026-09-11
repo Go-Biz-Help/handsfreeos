@@ -20,6 +20,10 @@ export const personCreate = defineCommand({
   actors: ['human', 'system'],
   async handler(ctx, input) {
     const workspaceId = ctx.scope.workspaceId!;
+    if ((input.importId || input.importRow) && ctx.actor.type !== 'system')
+      throw HfosError.validation([
+        { path: 'importId', message: 'Only an import can set the import row.' },
+      ]);
     if (input.companyId) await requireCompany(ctx.tx, workspaceId, input.companyId);
     if (!input.ignoreDuplicates) {
       const matches = await findMatches(ctx.tx, workspaceId, 'person', {
@@ -51,6 +55,8 @@ export const personCreate = defineCommand({
         source: input.source ?? null,
         ownerUserId: input.ownerUserId ?? null,
         createdBy: userIdOf(ctx.actor),
+        importId: input.importId ?? null,
+        importRow: input.importRow ?? null,
       })
       .returning();
     if (!row) throw HfosError.forbidden();

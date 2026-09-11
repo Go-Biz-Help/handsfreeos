@@ -1,0 +1,10 @@
+First Name,Last Name,Email Address,Cell,Company,Street,City,State,Zip,Tags,Notes
+Mike,Johnson,mike.johnson@example.com,(713) 555-0142,,123 Main St,Houston,TX,77002,Residential; Referral,Prefers texts
+Sarah,Alvarez,salvarez@example.com,281-555-0199,,48 Oak Hollow Dr,Katy,TX,77494,Residential,
+Robert,Chen,rchen@abcdental.example,713.555.0110,ABC Dental,4100 Kirby Dr,Houston,TX,77098,Commercial,Office manager
+,,,,,,,,,,
+Mike,Johnson,MIKE.JOHNSON@example.com,,,,,,,VIP,Same email as row 2
+Linda,Okafor,not-an-email,832-555-0177,,902 Pecan Grove Ln,Sugar Land,TX,77479,,
+Maria,Santos,msantos@riverside.example,281 555 0121,Riverside Apartments,800 Riverside Dr,Houston,TX,77007,Commercial; Maintenance plan,
+,,,281-555-0199,,,,,,,No name at all
+James,Whitfield,jwhit@example.com,713-555-0163,ABC Dental,17 Bayou Bend Ct,Pearland,TX,77584,Residential,

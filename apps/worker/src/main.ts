@@ -5,6 +5,7 @@ import { loadEnv, readEnv } from './env';
 import { handlers } from './handlers/index';
 import { createSmtpMailer } from './mailer';
 import { processOnce } from './outbox';
+import { createSupabaseStore, unconfiguredStore } from './storage';
 
 loadEnv();
 const env = readEnv();
@@ -18,6 +19,10 @@ const handle = createDb(env.databaseUrl, { max: 4, applicationName: 'hfos-worker
 const deps = {
   db: handle.db,
   mailer: createSmtpMailer(env.smtpUrl, env.mailFrom),
+  store:
+    env.supabaseUrl && env.supabaseSecretKey
+      ? createSupabaseStore(env.supabaseUrl, env.supabaseSecretKey)
+      : unconfiguredStore,
   log,
   handlers,
   webUrl: env.webUrl,
@@ -28,7 +33,12 @@ const deps = {
 let running = true;
 let inFlight: Promise<void> = Promise.resolve();
 
-log.info({ pollMs: env.pollMs, handlers: Object.keys(handlers) }, 'worker started');
+log.info(
+  { pollMs: env.pollMs, handlers: Object.keys(handlers), storage: !!env.supabaseSecretKey },
+  'worker started',
+);
+if (!env.supabaseSecretKey)
+  log.warn('SUPABASE_SECRET_KEY is not set: file removals and imports will fail until it is');
 
 const tick = async () => {
   try {

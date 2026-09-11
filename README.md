@@ -6,17 +6,17 @@ The operating system for running the customer side of a small business with as l
 
 ## What is in the repo
 
-| Path                  | What it is                                                                                                                                   |
-| --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
-| `apps/web`            | Next.js app (the product UI). Talks to Supabase Auth and the API only, never to the database.                                                |
-| `apps/api`            | Fastify API. Every write is a command: validate → permission → handler → event + outbox + audit rows in one transaction. OpenAPI at `/docs`. |
-| `apps/worker`         | Background worker. Drains the outbox and sends the invitation emails. Also hosts the development seed.                                       |
-| `packages/core`       | Browser-safe domain: permissions, command kernel, commands, queries, zod schemas, typed errors.                                              |
-| `packages/db`         | Drizzle schema mirror, the role-scoped database clients (`asUser`, `asWorker`) and shared test helpers.                                      |
-| `packages/api-client` | Generated, typed client for the API (`openapi-typescript` + `openapi-fetch`).                                                                |
-| `packages/ai`         | Swappable AI provider seam. Interface only until Milestone 4.                                                                                |
-| `supabase/`           | Local stack config, SQL migrations (roles, tables, RLS, functions, triggers) and email templates.                                            |
-| `design/m1`           | Clickable prototype sources for the Milestone 1 screens.                                                                                     |
+| Path                  | What it is                                                                                                                                        |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `apps/web`            | Next.js app (the product UI). Talks to Supabase Auth and the API only, never to the database.                                                     |
+| `apps/api`            | Fastify API. Every write is a command: validate → permission → handler → event + outbox + audit rows in one transaction. OpenAPI at `/docs`.      |
+| `apps/worker`         | Background worker. Drains the outbox: invitation emails, CSV imports (as the system actor, in batches), stored-file removal. Also hosts the seed. |
+| `packages/core`       | Browser-safe domain: permissions, command kernel, commands, queries, zod schemas, typed errors.                                                   |
+| `packages/db`         | Drizzle schema mirror, the role-scoped database clients (`asUser`, `asWorker`) and shared test helpers.                                           |
+| `packages/api-client` | Generated, typed client for the API (`openapi-typescript` + `openapi-fetch`).                                                                     |
+| `packages/ai`         | Swappable AI provider seam. Interface only until Milestone 4.                                                                                     |
+| `supabase/`           | Local stack config, SQL migrations (roles, tables, RLS, functions, triggers) and email templates.                                                 |
+| `design/m1`           | Clickable prototype sources for the Milestone 1 screens.                                                                                          |
 
 ## Run it locally
 

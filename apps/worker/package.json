@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "@hfos/db": "workspace:*",
+    "@supabase/supabase-js": "^2.116.0",
     "drizzle-orm": "^0.45.0",
     "nodemailer": "^10.0.0",
     "papaparse": "^5.7.0",

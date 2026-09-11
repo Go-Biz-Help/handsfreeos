@@ -443,4 +443,37 @@ describe('the worker in scope', () => {
     );
     expect(unscoped).toHaveLength(0);
   });
+
+  it('may create tags and apply them inside its scope only (the import worker)', async () => {
+    const scoped = asService({ workspaceId: wsA, organizationId: orgA });
+    const [tag] = await scoped((tx) =>
+      rows<{ id: string }>(
+        tx,
+        sql`insert into app.tags (workspace_id, name, color, created_by) values (${wsA}, ${`Imported ${randomUUID().slice(0, 6)}`}, '#2d69d8', null) returning id`,
+      ),
+    );
+    expect(tag).toBeDefined();
+    const [person] = await scoped((tx) =>
+      rows<{ id: string }>(
+        tx,
+        sql`insert into app.people (workspace_id, first_name, last_name, created_by) values (${wsA}, 'Tagged', 'Import', null) returning id`,
+      ),
+    );
+    const applied = await scoped((tx) =>
+      rows(
+        tx,
+        sql`insert into app.record_tags (workspace_id, tag_id, record_type, record_id, created_by) values (${wsA}, ${tag!.id}, 'person', ${person!.id}, null) returning tag_id`,
+      ),
+    );
+    expect(applied).toHaveLength(1);
+    const foreignTag = await expectPgError(() =>
+      asService({ workspaceId: wsB, organizationId: orgB })((tx) =>
+        rows(
+          tx,
+          sql`insert into app.tags (workspace_id, name, color, created_by) values (${wsA}, 'Foreign', '#2d69d8', null)`,
+        ),
+      ),
+    );
+    expect(foreignTag.code).toBe('42501');
+  });
 });

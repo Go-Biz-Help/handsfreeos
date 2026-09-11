@@ -21,6 +21,7 @@ export const phoneInput = z
   .nullable()
   .optional()
   .transform((value, ctx) => {
+    if (value === undefined) return undefined; // absent on an update: leave the stored value alone
     if (!value) return null;
     const e164 = normalizePhone(value);
     if (!e164) {
@@ -38,6 +39,7 @@ export const optionalEmail = z
   .nullable()
   .optional()
   .transform((value, ctx) => {
+    if (value === undefined) return undefined; // absent on an update: leave the stored value alone
     if (!value) return null;
     if (!z.email().safeParse(value).success) {
       ctx.addIssue({ code: 'custom', message: 'Enter a valid email address.' });

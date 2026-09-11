@@ -26,6 +26,7 @@ import pino from 'pino';
 import { handlers } from '../src/handlers/index';
 import { createSmtpMailer } from '../src/mailer';
 import { processOnce, type OutboxDeps } from '../src/outbox';
+import { createSupabaseStore, unconfiguredStore } from '../src/storage';
 
 export const SEED_PASSWORD = 'HandsFree-Demo-2026';
 
@@ -119,6 +120,10 @@ async function main(): Promise<void> {
       process.env.SMTP_URL ?? 'smtp://127.0.0.1:54425',
       process.env.MAIL_FROM ?? 'HandsFreeOS <hello@handsfreeos.local>',
     ),
+    store:
+      process.env.SUPABASE_URL && process.env.SUPABASE_SECRET_KEY
+        ? createSupabaseStore(process.env.SUPABASE_URL, process.env.SUPABASE_SECRET_KEY)
+        : unconfiguredStore,
     log: pino({ level: 'warn' }),
     handlers,
     webUrl: (process.env.WEB_URL ?? 'http://localhost:3000').replace(/\/+$/, ''),

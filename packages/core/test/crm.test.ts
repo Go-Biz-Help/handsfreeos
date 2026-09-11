@@ -20,6 +20,12 @@ import {
   activityLog,
   companyArchive,
   companyCreate,
+  companyGet,
+  companyList,
+  fileList,
+  importGet,
+  importList,
+  tagList,
   crmFindMatches,
   crmSummary,
   fileBeginUpload,
@@ -263,6 +269,33 @@ describe('people and companies', () => {
     await run(personArchive, { workspaceId: wsId, personId: forced.output.personId }, owner);
   });
 
+  it('updates touch only the fields sent: an absent phone or email is kept, an empty one clears', async () => {
+    const p = await run(
+      personCreate,
+      {
+        workspaceId: wsId,
+        firstName: 'Patch',
+        lastName: 'Person',
+        phone: '713-555-0199',
+        email: 'patch@example.com',
+      },
+      member,
+    );
+    const first = await run(
+      personUpdate,
+      { workspaceId: wsId, personId: p.output.personId, notes: 'Only notes' },
+      member,
+    );
+    expect(first.output.updated).toEqual(['notes']);
+    let got = await ask(personGet, { workspaceId: wsId, personId: p.output.personId }, member);
+    expect(got.person).toMatchObject({ phone: '(713) 555-0199', email: 'patch@example.com' });
+    await run(personUpdate, { workspaceId: wsId, personId: p.output.personId, email: '' }, member);
+    got = await ask(personGet, { workspaceId: wsId, personId: p.output.personId }, member);
+    expect(got.person.email).toBeNull();
+    expect(got.person.phone).toBe('(713) 555-0199');
+    await run(personArchive, { workspaceId: wsId, personId: p.output.personId }, owner);
+  });
+
   it('a company change on a person moves their open leads; archiving with open leads needs force', async () => {
     const abc = await run(
       companyCreate,
@@ -344,6 +377,64 @@ describe('people and companies', () => {
     expect(third.nextCursor).toBeNull();
   });
 
+  it('company.list and company.get map raw rows (dates, phones, counts) and search by name', async () => {
+    const created = await run(
+      companyCreate,
+      {
+        workspaceId: wsId,
+        name: 'Riverside Apartments',
+        phone: '281-555-0121',
+        email: 'Office@Riverside.example',
+        address: { line1: '800 Riverside Dr', city: 'Houston', state: 'TX' },
+      },
+      member,
+    );
+    const p = await run(
+      personCreate,
+      {
+        workspaceId: wsId,
+        firstName: 'Maria',
+        lastName: 'Santos',
+        companyId: created.output.companyId,
+      },
+      member,
+    );
+    const listed = await ask(companyList, { workspaceId: wsId, q: 'riverside' }, member);
+    const row = listed.items.find((c) => c.id === created.output.companyId)!;
+    expect(row).toMatchObject({
+      name: 'Riverside Apartments',
+      phone: '(281) 555-0121',
+      phoneE164: '+12815550121',
+      email: 'office@riverside.example',
+      peopleCount: 1,
+      openLeads: 0,
+      archivedAt: null,
+    });
+    expect(row.address.city).toBe('Houston');
+    expect(new Date(row.createdAt).getTime()).toBeGreaterThan(Date.now() - 60_000);
+    const got = await ask(
+      companyGet,
+      { workspaceId: wsId, companyId: created.output.companyId },
+      member,
+    );
+    expect(got.company.name).toBe('Riverside Apartments');
+    expect(got.people.map((x) => x.id)).toEqual([p.output.personId]);
+    await expectHfos(
+      () => ask(companyGet, { workspaceId: wsId, companyId: randomUUID() }, member),
+      'not_found',
+    );
+    const paged = await ask(companyList, { workspaceId: wsId, limit: 1 }, member);
+    expect(paged.items).toHaveLength(1);
+    if (paged.nextCursor) {
+      const next = await ask(
+        companyList,
+        { workspaceId: wsId, limit: 1, cursor: paged.nextCursor },
+        member,
+      );
+      expect(next.items[0]?.id).not.toBe(paged.items[0]!.id);
+    }
+  });
+
   it('tags are workspace-wide and applied through record.set_tags', async () => {
     const vip = await run(tagCreate, { workspaceId: wsId, name: 'VIP', color: '#c43335' }, member);
     const p = await run(
@@ -363,6 +454,12 @@ describe('people and companies', () => {
     );
     expect(set.output.tags.map((t) => t.name)).toEqual(['VIP']);
     await expectHfos(() => run(tagCreate, { workspaceId: wsId, name: 'vip' }, member), 'conflict');
+    const { tags } = await ask(tagList, { workspaceId: wsId }, member);
+    expect(tags.find((t) => t.id === vip.output.tagId)).toMatchObject({
+      name: 'VIP',
+      color: '#c43335',
+      usage: 1,
+    });
   });
 });
 
@@ -726,6 +823,13 @@ describe('files and imports', () => {
         ),
       'validation',
     );
+    // Pending rows stay out of the list until confirmed.
+    const { files } = await ask(
+      fileList,
+      { workspaceId: wsId, recordType: 'person', recordId: personId },
+      member,
+    );
+    expect(files).toEqual([]);
   });
 
   it('imports are reserved, need the object to start, and can be cancelled', async () => {
@@ -764,6 +868,19 @@ describe('files and imports', () => {
       owner,
     );
     expect(cancelled.output.status).toBe('cancelled');
+    const got = await ask(importGet, { workspaceId: wsId, importId: res.output.importId }, owner);
+    expect(got.import).toMatchObject({
+      kind: 'people',
+      fileName: 'customers.csv',
+      status: 'cancelled',
+      totalRows: 0,
+      startedAt: null,
+    });
+    expect(new Date(got.import.createdAt).getTime()).toBeGreaterThan(Date.now() - 60_000);
+    expect(got.errors).toEqual([]);
+    const listed = await ask(importList, { workspaceId: wsId }, owner);
+    expect(listed.imports.map((i) => i.id)).toContain(res.output.importId);
+    await expectHfos(() => ask(importList, { workspaceId: wsId }, member), 'forbidden');
   });
 });
 

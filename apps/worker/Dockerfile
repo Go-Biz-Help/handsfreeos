@@ -1,7 +1,8 @@
 # syntax=docker/dockerfile:1
 # Build from the repository root:  docker build -f apps/worker/Dockerfile -t hfos-worker .
 # Runtime env (apps/worker/src/env.ts): DATABASE_URL_WORKER (the hfos_worker role), SMTP_URL, MAIL_FROM,
-# WEB_URL, optional WORKER_POLL_MS, WORKER_BATCH_SIZE and LOG_LEVEL.
+# WEB_URL, SUPABASE_URL and SUPABASE_SECRET_KEY (Storage deletes and CSV imports; the worker is the only
+# app that holds the secret key), optional WORKER_POLL_MS, WORKER_BATCH_SIZE and LOG_LEVEL.
 
 FROM node:22-alpine AS base
 RUN npm install -g pnpm@12.3.4

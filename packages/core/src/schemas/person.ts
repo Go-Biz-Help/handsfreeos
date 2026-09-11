@@ -33,6 +33,9 @@ export const PersonCreateInput = z
     ...personFields,
     tagIds: tagIds.optional(),
     ignoreDuplicates: z.boolean().default(false),
+    /** Set by the import worker only: makes a retried batch a no-op. */
+    importId: uuid.optional(),
+    importRow: z.number().int().min(1).optional(),
   })
   .refine((v) => (v.firstName + v.lastName).trim().length > 0, {
     path: ['firstName'],

@@ -4,10 +4,12 @@ import { events, outbox } from '@hfos/db/schema';
 import type { Logger } from 'pino';
 import type { HandlerMap } from './handlers/types';
 import type { Mailer } from './mailer';
+import type { ObjectStore } from './storage';
 
 export interface OutboxDeps {
   readonly db: Db;
   readonly mailer: Mailer;
+  readonly store: ObjectStore;
   readonly log: Logger;
   readonly handlers: HandlerMap;
   readonly webUrl: string;
@@ -46,7 +48,7 @@ export async function processOnce(deps: OutboxDeps): Promise<OutboxStats> {
           where o.event_id in (
             select event_id from app.outbox
             where status = 'pending' and next_attempt_at <= now()
-              and (locked_at is null or locked_at < now() - interval '5 minutes')
+              and (locked_at is null or locked_at < now() - interval '5 minutes' or locked_by = ${deps.workerId})
             order by created_at
             limit ${deps.batchSize}
             for update skip locked)
@@ -68,25 +70,27 @@ export async function processOnce(deps: OutboxDeps): Promise<OutboxStats> {
         stats.done++;
         continue;
       }
-      await asWorker(
-        deps.db,
-        { organizationId: row.organization_id, workspaceId: row.workspace_id },
-        async (tx) => {
-          const [event] = await tx.select().from(events).where(eq(events.id, row.event_id));
-          if (!event) throw new Error(`event ${row.event_id} not visible in its own scope`);
-          await handler({
-            tx,
-            event,
-            mailer: deps.mailer,
-            webUrl: deps.webUrl,
-            log: deps.log.child({ eventId: event.id, eventType: event.eventType }),
-          });
-          await tx
-            .update(outbox)
-            .set({ status: 'done', lockedAt: null, lockedBy: null, lastError: null })
-            .where(eq(outbox.eventId, row.event_id));
-        },
-      );
+      const scope = { organizationId: row.organization_id, workspaceId: row.workspace_id };
+      await asWorker(deps.db, scope, async (tx) => {
+        const [event] = await tx.select().from(events).where(eq(events.id, row.event_id));
+        if (!event) throw new Error(`event ${row.event_id} not visible in its own scope`);
+        await handler({
+          tx,
+          event,
+          db: deps.db,
+          scope,
+          attempt: row.attempts + 1,
+          maxAttempts: MAX_ATTEMPTS,
+          mailer: deps.mailer,
+          store: deps.store,
+          webUrl: deps.webUrl,
+          log: deps.log.child({ eventId: event.id, eventType: event.eventType }),
+        });
+        await tx
+          .update(outbox)
+          .set({ status: 'done', lockedAt: null, lockedBy: null, lastError: null })
+          .where(eq(outbox.eventId, row.event_id));
+      });
       stats.done++;
     } catch (e) {
       const attempts = row.attempts + 1;
