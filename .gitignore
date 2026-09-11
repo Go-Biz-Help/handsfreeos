@@ -30,3 +30,6 @@ design/**/preview/
 
 # per-machine Claude Code settings
 .claude/settings.local.json
+
+# TypeScript incremental build state
+*.tsbuildinfo
