@@ -58,8 +58,9 @@ jobs:
         run: pnpm --filter @hfos/web build
 
       - name: The web build ships no secret key
+        # Match a real key, not the bare prefix: supabase-js itself checks key formats with the literal string.
         run: |
-          if grep -rq "sb_secret_" apps/web/.next/static; then
+          if grep -rqE "sb_secret_[A-Za-z0-9_-]{20,}" apps/web/.next/static; then
             echo "A Supabase secret key is in the web assets"; exit 1
           fi
 

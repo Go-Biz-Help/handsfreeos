@@ -120,3 +120,15 @@ docker build -f apps/api/Dockerfile -t hfos-api .
 ```
 
 Each image needs only its runtime environment (documented at the top of `apps/api/src/env.ts` and `apps/worker/src/env.ts`). CI in `.github/workflows/ci.yml` runs lint, typecheck, every test suite and the browser tests against a local Supabase stack, checks that the generated API client is fresh, builds the web app and checks it ships no secret key, and scans the history for leaked secrets.
+
+## Hosted project
+
+The demo project lives in the Go Biz Help Supabase organization (ref `ybupfghakoszfcxhyrby`, region us-east-1). It signs tokens with ES256, which is the only algorithm the API accepts. Its non-secret values and the app role passwords are kept in the gitignored `.env.hosted` on the machine that set it up.
+
+To bring the hosted database up to date with `supabase/migrations`:
+
+```bash
+supabase login && supabase link --project-ref ybupfghakoszfcxhyrby && supabase db push
+```
+
+After the first push, set the passwords for `hfos_api` and `hfos_worker` with `ALTER ROLE ... PASSWORD` (the migrations create them with local-only passwords), and configure Auth in the dashboard or with `supabase config push`: site URL and redirect URLs for the web app, the email templates from `supabase/templates`, passkeys with relying party id `handsfreeos.com` and the app's origin in the allowed origins, minimum password length 12, manual identity linking on, and the Google OAuth client. The API and worker connect through the session pooler (`aws-0-us-east-1.pooler.supabase.com:5432`, user `hfos_api.<ref>`); the direct host is IPv6 only.
