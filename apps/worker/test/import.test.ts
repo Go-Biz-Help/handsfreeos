@@ -157,7 +157,16 @@ describe('CSV import through the outbox', () => {
       { onMatch: 'skip' },
       { viaOutbox: true },
     );
-    const stats = await processOnce(deps);
+    // Other suites leave pending rows behind while the full suite runs: keep going until ours is done.
+    let stats = await processOnce(deps);
+    for (let pass = 0; pass < 25; pass++) {
+      const [row] = await testDbs()
+        .admin.db.select()
+        .from(outbox)
+        .where(eq(outbox.eventId, event.id));
+      if (row && row.status !== 'pending') break;
+      stats = await processOnce(deps);
+    }
     expect(stats.failed).toBe(0);
 
     const got = await executeQuery(

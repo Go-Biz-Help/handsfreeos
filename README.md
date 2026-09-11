@@ -98,7 +98,7 @@ pnpm test             # unit + database (RLS) + API + worker suites, against the
 ```
 
 ```bash
-pnpm test:e2e         # Playwright (Chromium); starts the API and web servers if none are running
+pnpm test:e2e         # Playwright (desktop Chromium and a 390 px phone project); starts the API and web servers if none are running
 ```
 
 ```bash
@@ -113,6 +113,9 @@ Run `pnpm --filter @hfos/web exec playwright install chromium` once before the b
 - **One pipeline for every change.** The commands in `packages/core/src/commands` are the only way data changes. Each declares its input, permission, scope and events. The kernel validates, checks the permission, runs the handler and writes the event, outbox and audit rows in the same transaction, tagged with the request's correlation id.
 - **Events drive side effects.** The worker claims outbox rows with `FOR UPDATE SKIP LOCKED`, runs the handler for the event type, retries with backoff, and records its own system events (for example `invitation.sent`) so the audit log tells the whole story.
 - **Auth is Supabase Auth.** Email + password with confirmations on, Google, and passkeys added from Account settings after sign-up. The API verifies ES256 tokens against the project's JWKS and refuses to start if a secret key is in its environment.
+- **Live screens ride the event stream.** A database trigger broadcasts every `app.events` row (ids only, never data) to the private Realtime topic `workspace:<id>`; RLS on `realtime.messages` admits members of that workspace. The browser drops its own echoes by correlation id and refetches through the API, so nothing in the browser reads tables.
+- **Files stay behind reserved paths.** `file.begin_upload` reserves a server-made object path in the private `attachments` bucket; the browser uploads there with its own session (Storage RLS admits only that path), `file.confirm` marks it ready, and only the worker ever deletes an object. The CSV import works the same way through the `imports` bucket.
+- **The worker is an actor too.** Imports run `person.create` and friends as the `system` actor inside the job's workspace: the same validation, duplicate rules, timeline entries and audit rows as manual entry, committed in batches with a heartbeat so progress is live and a crashed run resumes.
 
 ## Deploying
 

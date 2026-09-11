@@ -14,7 +14,7 @@ import {
 import { arrayMove, sortableKeyboardCoordinates } from '@dnd-kit/sortable';
 import { KanbanSquare, List, MoreHorizontal, Plus } from 'lucide-react';
 import { usePathname, useRouter } from 'next/navigation';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useId, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { NextActionChip, StageBadge } from '@/components/crm/chips';
 import { LeadDialog } from '@/components/crm/lead-dialog';
@@ -66,6 +66,7 @@ export function PipelineBoard({
 }) {
   const router = useRouter();
   const pathname = usePathname();
+  const dndId = useId();
   const [board, setBoard] = useState<LeadBoard>(initial);
   const [view, setView] = useState<View>(initialView ?? 'board');
   const [selected, setSelected] = useState<string | null>(null);
@@ -303,6 +304,7 @@ export function PipelineBoard({
         </Card>
       ) : view === 'board' ? (
         <DndContext
+          id={dndId}
           sensors={sensors}
           collisionDetection={closestCorners}
           onDragStart={onDragStart}

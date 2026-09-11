@@ -2,7 +2,9 @@ import { expect, test } from '@playwright/test';
 import { createBusiness, signUpAndConfirm } from './helpers';
 
 /** Pipeline and workspace settings, the tasks page, and the home summary once customers exist. */
-test('owner edits pipelines and the workspace; tasks and the home briefing reflect the work', async ({ page }) => {
+test('owner edits pipelines and the workspace; tasks and the home briefing reflect the work', async ({
+  page,
+}) => {
   await signUpAndConfirm(page, 'settings-owner');
   const workspaceId = await createBusiness(page, { name: 'Summit Roofing' });
 
@@ -59,7 +61,10 @@ test('owner edits pipelines and the workspace; tasks and the home briefing refle
   await expect(page.getByTestId('open-lead-card')).toContainText('No follow-up scheduled');
   await page.getByTestId('tab-tasks').click();
   await page.getByTestId('task-new').click();
-  await page.getByTestId('task-form').getByLabel('Task', { exact: true }).fill('Send the roof photos');
+  await page
+    .getByTestId('task-form')
+    .getByLabel('Task', { exact: true })
+    .fill('Send the roof photos');
   await page.getByLabel('Due').fill('2020-01-15');
   await page.getByTestId('task-save').click();
   await expect(page.getByTestId('task-list')).toContainText('Overdue');
@@ -73,7 +78,9 @@ test('owner edits pipelines and the workspace; tasks and the home briefing refle
   await page.goto(`/app/w/${workspaceId}`);
   await expect(page.getByTestId('home-summary')).toContainText('Leads without a next action');
   await expect(page.getByTestId('home-summary')).toContainText('Hail damage repair');
-  await expect(page.getByTestId('home-summary')).toContainText('completed the task Send the roof photos');
+  await expect(page.getByTestId('home-summary')).toContainText(
+    'completed the task Send the roof photos',
+  );
 
   // Members see the settings sub-nav without the workspace pages.
   await page.goto(`/app/w/${workspaceId}/settings`);

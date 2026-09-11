@@ -27,6 +27,7 @@ import { handlers } from '../src/handlers/index';
 import { createSmtpMailer } from '../src/mailer';
 import { processOnce, type OutboxDeps } from '../src/outbox';
 import { createSupabaseStore, unconfiguredStore } from '../src/storage';
+import { seedCrm } from './seed-crm';
 
 export const SEED_PASSWORD = 'HandsFree-Demo-2026';
 
@@ -227,6 +228,16 @@ async function main(): Promise<void> {
   );
   await drainOutbox(deps);
 
+  await seedCrm(
+    { api: api.db, admin: admin.db, store: deps.store, actor, meta, step },
+    {
+      lonestar: { id: lonestar, dale, priya, marco },
+      bayou: { id: bayou, owner: renee },
+      summit: { id: summit, owner: tom },
+    },
+  );
+  await drainOutbox(deps);
+
   step('Northstar Electric: a separate organization that sees none of the above');
   await executeCommand(
     api.db,
@@ -247,6 +258,7 @@ Seeded in ${((Date.now() - started) / 1000).toFixed(1)}s. Sign in at ${deps.webU
   ${tom.email.padEnd(30)} Owner, Summit Roofing
   ${riley.email.padEnd(30)} Owner of Northstar Electric (separate organization)
 
+Lone Star HVAC & Roofing has about thirty customers, two pipelines, twenty leads, tasks, notes and two photos.
 Emails the stack sent, including the pending invitation for ${PENDING_INVITEE}: ${env.mailpitUrl}
 `);
 }

@@ -9,6 +9,8 @@ export interface ObjectStore {
   remove(bucket: string, path: string): Promise<void>;
   download(bucket: string, path: string): Promise<Buffer>;
   exists(bucket: string, path: string): Promise<boolean>;
+  /** Used by the seed only: production uploads come from the browser with the user's own session. */
+  upload(bucket: string, path: string, data: Buffer, contentType: string): Promise<void>;
 }
 
 export function createSupabaseStore(url: string, secretKey: string): ObjectStore {
@@ -26,6 +28,12 @@ export function createSupabaseStore(url: string, secretKey: string): ObjectStore
       if (error || !data)
         throw new Error(`storage download failed: ${error?.message ?? 'no data'}`);
       return Buffer.from(await data.arrayBuffer());
+    },
+    async upload(bucket, path, data, contentType) {
+      const { error } = await client.storage
+        .from(bucket)
+        .upload(path, data, { contentType, upsert: false });
+      if (error) throw new Error(`storage upload failed: ${error.message}`);
     },
     async exists(bucket, path) {
       const dir = path.split('/').slice(0, -1).join('/');
@@ -52,6 +60,11 @@ export const unconfiguredStore: ObjectStore = {
     );
   },
   exists: async () => {
+    throw new Error(
+      'Storage is not configured: set SUPABASE_URL and SUPABASE_SECRET_KEY for the worker',
+    );
+  },
+  upload: async () => {
     throw new Error(
       'Storage is not configured: set SUPABASE_URL and SUPABASE_SECRET_KEY for the worker',
     );
