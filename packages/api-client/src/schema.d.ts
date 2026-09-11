@@ -1631,6 +1631,9 @@ export interface operations {
                     email?: string | null;
                     /** @default false */
                     ignoreDuplicates?: boolean;
+                    /** Format: uuid */
+                    importId?: string;
+                    importRow?: number;
                     name: string;
                     notes?: string | null;
                     ownerUserId?: string | null;
@@ -2499,6 +2502,9 @@ export interface operations {
                     firstName?: string;
                     /** @default false */
                     ignoreDuplicates?: boolean;
+                    /** Format: uuid */
+                    importId?: string;
+                    importRow?: number;
                     /** @default  */
                     lastName?: string;
                     notes?: string | null;
