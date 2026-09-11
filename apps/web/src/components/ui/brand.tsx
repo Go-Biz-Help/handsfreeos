@@ -1,22 +1,19 @@
+import Image from 'next/image';
+import icon from '@/assets/brand/handsfreeos-icon.png';
 import { cn } from '@/lib/utils';
 
+/** The HandsFreeOS icon (design/brand/handsfreeos-icon.png is the master). */
 export function BrandMark({ className, size = 28 }: { className?: string; size?: number }) {
   return (
-    <span
+    <Image
+      src={icon}
+      alt=""
       aria-hidden
-      className={cn(
-        'inline-flex items-center justify-center rounded-control bg-accent font-bold text-white',
-        className,
-      )}
-      style={{
-        width: size,
-        height: size,
-        fontSize: Math.round(size * 0.43),
-        letterSpacing: '-0.02em',
-      }}
-    >
-      hf
-    </span>
+      width={size}
+      height={size}
+      priority
+      className={cn('shrink-0 select-none', className)}
+    />
   );
 }
 
@@ -29,7 +26,9 @@ export function Brand({ className, size = 28 }: { className?: string; size?: num
       )}
     >
       <BrandMark size={size} />
-      HandsFreeOS
+      <span>
+        HandsFree<span className="text-accent-text">OS</span>
+      </span>
     </span>
   );
 }

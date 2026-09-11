@@ -1,3 +1,5 @@
+<img src="design/brand/handsfreeos-icon.png" width="72" alt="">
+
 # HandsFreeOS
 
 The operating system for running the customer side of a small business with as little manual work as possible. Milestone 1 is the foundation: multi-tenant accounts (organization → workspace → user), sign-in with password, Google and passkeys, invitations with fixed roles, and the command → event → audit pipeline every later feature rides on.
