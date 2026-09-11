@@ -47,7 +47,7 @@ a{color:var(--accent-text);text-decoration:none}a:hover{color:var(--accent-hover
 .switcher:hover{background:var(--card-2)}
 .icon{width:18px;height:18px;flex:none}
 .brand{display:flex;align-items:center;gap:10px;font-weight:600;font-size:15px;letter-spacing:-.01em;color:var(--text)}
-.mark{width:28px;height:28px;border-radius:8px;background:var(--accent);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;letter-spacing:-.02em}
+.mark{width:28px;height:28px;display:block;flex:none;object-fit:contain}.brand .os{color:var(--accent-text)}
 .row{display:flex;align-items:center;gap:12px}.between{justify-content:space-between}.stack{display:flex;flex-direction:column}
 .check-dot{width:22px;height:22px;border-radius:999px;border:1.5px solid var(--border-strong);display:flex;align-items:center;justify-content:center;flex:none;color:#fff}
 .check-dot.done{background:var(--success);border-color:var(--success)}
@@ -58,7 +58,7 @@ a{color:var(--accent-text);text-decoration:none}a:hover{color:var(--accent-hover
 <div class="hf theme-{{ theme }}" style="--accent: {{ accent }}; width: 1280px; min-height: 832px; position: relative; overflow: hidden;">
   <div class="shell">
     <aside class="sidebar">
-      <div class="brand" style="padding: 4px 10px 14px;"><div class="mark">hf</div><span>HandsFreeOS</span></div>
+      <div class="brand" style="padding: 4px 10px 14px;"><img class="mark" src="handsfreeos-icon.png" alt=""><span>HandsFree<span class="os">OS</span></span></div>
 
       <button class="switcher" onClick="{{ toggle }}" aria-haspopup="listbox">
         <span class="avatar" style="border-radius: 8px; background: var(--accent-soft-2); color: var(--accent-text);">{{ current.initials }}</span>

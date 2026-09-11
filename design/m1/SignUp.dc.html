@@ -32,7 +32,7 @@ a{color:var(--accent-text);text-decoration:none}a:hover{color:var(--accent-hover
 .muted{color:var(--text-2)}.faint{color:var(--text-3)}.small{font-size:13px}.xs{font-size:12px}
 .auth{min-height:832px;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:48px 24px;gap:24px;background:radial-gradient(70% 45% at 50% 0%,color-mix(in oklab,var(--accent) 9%,transparent),transparent 75%)}
 .brand{display:flex;align-items:center;gap:10px;font-weight:600;font-size:16px;letter-spacing:-.01em;color:var(--text)}
-.mark{width:32px;height:32px;border-radius:9px;background:var(--accent);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;letter-spacing:-.02em}
+.mark{width:32px;height:32px;display:block;flex:none;object-fit:contain}.brand .os{color:var(--accent-text)}
 .row{display:flex;align-items:center;gap:12px}.between{justify-content:space-between}.stack{display:flex;flex-direction:column}
 .icon{width:18px;height:18px;flex:none}
 .divider{display:flex;align-items:center;gap:12px;color:var(--text-3);font-size:12.5px}.divider::before,.divider::after{content:"";flex:1;height:1px;background:var(--border)}
@@ -42,7 +42,7 @@ a{color:var(--accent-text);text-decoration:none}a:hover{color:var(--accent-hover
 
 <div class="hf theme-{{ theme }}" style="--accent: {{ accent }}; width: 1280px; min-height: 832px; position: relative; overflow: hidden;">
   <div class="auth">
-    <div class="brand"><div class="mark">hf</div><span>HandsFreeOS</span></div>
+    <div class="brand"><img class="mark" src="handsfreeos-icon.png" alt=""><span>HandsFree<span class="os">OS</span></span></div>
 
     <sc-if value="{{ showForm }}" hint-placeholder-val="{{ true }}">
       <div class="card" style="width: 440px; padding: 36px;">

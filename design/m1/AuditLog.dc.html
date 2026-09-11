@@ -41,7 +41,7 @@ a{color:var(--accent-text);text-decoration:none}a:hover{color:var(--accent-hover
 .switcher{display:flex;align-items:center;gap:10px;width:100%;height:52px;padding:0 10px;border-radius:10px;border:1px solid var(--border);background:var(--card);font:inherit;color:var(--text);cursor:pointer;text-align:left}
 .icon{width:18px;height:18px;flex:none}
 .brand{display:flex;align-items:center;gap:10px;font-weight:600;font-size:15px;letter-spacing:-.01em;color:var(--text)}
-.mark{width:28px;height:28px;border-radius:8px;background:var(--accent);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;letter-spacing:-.02em}
+.mark{width:28px;height:28px;display:block;flex:none;object-fit:contain}.brand .os{color:var(--accent-text)}
 .row{display:flex;align-items:center;gap:12px}.between{justify-content:space-between}.stack{display:flex;flex-direction:column}
 .seg{display:inline-flex;padding:3px;border-radius:9px;background:var(--card-2);border:1px solid var(--border)}
 .seg button{height:28px;padding:0 12px;border-radius:6px;border:0;background:transparent;font:inherit;font-size:13px;font-weight:500;color:var(--text-2);cursor:pointer}
@@ -58,7 +58,7 @@ a{color:var(--accent-text);text-decoration:none}a:hover{color:var(--accent-hover
 <div class="hf theme-{{ theme }}" style="--accent: {{ accent }}; width: 1280px; min-height: 960px; position: relative; overflow: hidden;">
   <div class="shell">
     <aside class="sidebar">
-      <div class="brand" style="padding: 4px 10px 14px;"><div class="mark">hf</div><span>HandsFreeOS</span></div>
+      <div class="brand" style="padding: 4px 10px 14px;"><img class="mark" src="handsfreeos-icon.png" alt=""><span>HandsFree<span class="os">OS</span></span></div>
       <button class="switcher">
         <span class="avatar" style="border-radius: 8px; background: var(--accent-soft-2); color: var(--accent-text);">LS</span>
         <span class="stack" style="min-width: 0; flex: 1;"><span style="font-weight: 600; font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">Lone Star HVAC &amp; Roofing</span><span class="xs faint">Go Biz Help</span></span>
