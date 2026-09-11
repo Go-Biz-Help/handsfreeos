@@ -71,6 +71,7 @@ Good to know:
 - Open the web app on `localhost`, not `127.0.0.1`. Passkeys are bound to the `localhost` relying party.
 - New accounts confirm their email first. Locally the confirmation link lands in Mailpit.
 - `pnpm db:reset` wipes the database, re-applies every migration and seeds again.
+- Milestone 2 uses Realtime and Storage. A local stack started before those migrations existed must be restarted once (`pnpm supabase:stop && pnpm supabase:start`) so the Realtime service creates its tables; the migration that adds the live-updates policy warns instead of failing when they are missing.
 - Docker via Colima: the `pnpm supabase:*` scripts point the CLI at Colima's socket for you. If you call `supabase` directly, export `DOCKER_HOST="unix://$HOME/.colima/default/docker.sock"` first.
 - The local stack uses ports 54421–54429 (API 54421, Postgres 54422, Studio 54423, Mailpit 54424, SMTP 54425) so it does not collide with other projects' stacks on the default 543xx ports.
 

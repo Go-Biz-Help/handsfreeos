@@ -33,8 +33,8 @@ jobs:
         with:
           version: 2.117.0
 
-      - name: Start the local Supabase stack (auth, database, mailpit)
-        run: node scripts/supabase.mjs start -x realtime,storage-api,imgproxy,studio,edge-runtime,logflare,vector
+      - name: Start the local Supabase stack (auth, database, realtime, storage, mailpit)
+        run: node scripts/supabase.mjs start -x imgproxy,studio,edge-runtime,logflare,vector
 
       - name: Write local env files
         run: pnpm env:local
