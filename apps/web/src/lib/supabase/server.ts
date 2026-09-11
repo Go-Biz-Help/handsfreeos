@@ -26,11 +26,28 @@ export interface ServerSession {
   readonly email: string;
 }
 
-/** The signed-in session, or null. The token is verified by the API on every call. */
+function decodeJwtPayload(token: string): Record<string, unknown> | null {
+  const part = token.split('.')[1];
+  if (!part) return null;
+  try {
+    return JSON.parse(Buffer.from(part, 'base64url').toString('utf8')) as Record<string, unknown>;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * The signed-in session, or null. Identity for display comes from the token's own claims rather than
+ * the cookie's user object; every data access goes through the API, which verifies the token's
+ * signature on each call.
+ */
 export async function getServerSession(): Promise<ServerSession | null> {
   const supabase = await supabaseServer();
   const { data } = await supabase.auth.getSession();
-  const s = data.session;
-  if (!s?.access_token || !s.user?.id) return null;
-  return { accessToken: s.access_token, userId: s.user.id, email: s.user.email ?? '' };
+  const token = data.session?.access_token;
+  if (!token) return null;
+  const claims = decodeJwtPayload(token);
+  const userId = typeof claims?.sub === 'string' ? claims.sub : null;
+  if (!userId) return null;
+  return { accessToken: token, userId, email: typeof claims?.email === 'string' ? claims.email : '' };
 }

@@ -1,10 +1,18 @@
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { parseEnv } from 'node:util';
 import { defineConfig, devices } from '@playwright/test';
 
+// The test helpers need the local stack's addresses from .env.local. Privileged keys stay out of
+// process.env on purpose: Playwright hands its environment to the servers it starts and the API
+// refuses to boot with one (the worker reads its own apps/worker/.env).
+const PRIVILEGED = /SECRET|SERVICE_ROLE|SIGNING_KEY/i;
 for (const c of ['../../.env.local', '.env.local']) {
   const p = resolve(process.cwd(), c);
-  if (existsSync(p)) process.loadEnvFile(p);
+  if (!existsSync(p)) continue;
+  for (const [k, v] of Object.entries(parseEnv(readFileSync(p, 'utf8')))) {
+    if (!PRIVILEGED.test(k) && process.env[k] === undefined) process.env[k] = v;
+  }
 }
 
 const CI = !!process.env.CI;

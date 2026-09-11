@@ -66,8 +66,13 @@ test('theme choice is saved and survives a reload', async ({ page }) => {
   await signUpAndConfirm(page, 'theme');
   const id = await createBusiness(page, { name: 'Theme Co' });
   await page.goto(`/app/w/${id}/settings`);
+  // The choice applies instantly on this device; wait for the account save before reloading.
+  const saved = page.waitForResponse(
+    (r) => r.url().endsWith('/v1/commands/user.update_profile') && r.ok(),
+  );
   await page.getByTestId('theme-dark').click();
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
+  await saved;
   await page.reload();
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
   await page.getByTestId('theme-light').click();

@@ -4,7 +4,7 @@ import { MembersTable } from '@/components/members/members-table';
 import { OrgAdmins } from '@/components/members/org-admins';
 import { PendingInvitations } from '@/components/members/pending-invitations';
 import { PageHeader } from '@/components/shell/page-header';
-import { apiServer, unwrap } from '@/lib/api/server';
+import { apiServer, unwrapPage } from '@/lib/api/server';
 
 export const metadata: Metadata = { title: 'Members' };
 
@@ -18,13 +18,13 @@ export default async function MembersPage({
   const { workspaceId } = await params;
   const sp = await searchParams;
   const { api, userId } = await apiServer();
-  const got = unwrap(await api.POST('/v1/queries/workspace.get', { body: { workspaceId } }));
+  const got = unwrapPage(await api.POST('/v1/queries/workspace.get', { body: { workspaceId } }));
   const myRole = got.workspace.role;
   const canManage = myRole === 'owner' || myRole === 'admin';
   const [members, invitations] = await Promise.all([
-    unwrap(await api.POST('/v1/queries/workspace.members', { body: { workspaceId } })),
+    unwrapPage(await api.POST('/v1/queries/workspace.members', { body: { workspaceId } })),
     canManage
-      ? unwrap(await api.POST('/v1/queries/workspace.invitations', { body: { workspaceId } }))
+      ? unwrapPage(await api.POST('/v1/queries/workspace.invitations', { body: { workspaceId } }))
       : Promise.resolve({ invitations: [] }),
   ]);
   return (

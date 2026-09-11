@@ -5,7 +5,7 @@ import { PageHeader } from '@/components/shell/page-header';
 import { Badge, RoleBadge } from '@/components/ui/badge';
 import { ButtonLink } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { apiServer, fetchMe, unwrap } from '@/lib/api/server';
+import { apiServer, fetchMe, unwrapPage } from '@/lib/api/server';
 
 const INDUSTRY: Record<string, string> = { home_services: 'Home services', other: 'Other' };
 
@@ -18,7 +18,7 @@ export default async function WorkspaceHomePage({
   const { api } = await apiServer();
   const [me, got] = await Promise.all([
     await fetchMe(api),
-    unwrap(await api.POST('/v1/queries/workspace.get', { body: { workspaceId } })),
+    unwrapPage(await api.POST('/v1/queries/workspace.get', { body: { workspaceId } })),
   ]);
   const ws = got.workspace;
   const firstName = (me.user.fullName || me.user.email).split(/\s+/)[0];
