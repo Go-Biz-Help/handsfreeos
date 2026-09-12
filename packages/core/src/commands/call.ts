@@ -340,10 +340,12 @@ export const callUpdateStatus = defineCommand({
   actors: ['system'],
   async handler(ctx, input) {
     const c = await loadCall(ctx, input);
+    // An ended call is settled: the parent call's own "completed" (or a leg that lost the race) arrives after
+    // the leg that carried the conversation, and must not change the status or the length.
+    if (FINAL.has(c.status)) return { callId: c.id, status: c.status, changed: false };
     const at = input.at ? new Date(input.at) : new Date();
     const patch: Partial<typeof calls.$inferInsert> = {};
-    const forward = rank(input.status) >= rank(c.status);
-    if (forward && input.status !== c.status) patch.status = input.status;
+    if (rank(input.status) > rank(c.status)) patch.status = input.status;
     if (input.answeredVia) patch.answeredVia = input.answeredVia;
     if (input.answeredByUserId !== undefined) patch.answeredByUserId = input.answeredByUserId;
     if (input.answeredNumber !== undefined) patch.answeredNumber = input.answeredNumber;

@@ -14,6 +14,8 @@ import { twilioSignature } from './signature';
 /** Not secrets: the fake signs its callbacks with this token, and tests sign fixtures with it too. */
 export const FAKE_MASTER_SID = 'ACfakemasteraccount';
 export const FAKE_AUTH_TOKEN = 'fake-twilio-auth-token';
+/** Signs the fake's browser call tokens (not a secret either). */
+export const FAKE_VOICE_KEY_SECRET = 'fake-voice-key-secret';
 
 const CAPS: Capabilities = { sms: true, mms: true, voice: true };
 const SID_PREFIX: Record<RegistrationKind, string> = {
@@ -40,6 +42,8 @@ export interface FakeTelephony extends TelephonyProvider {
   readonly sent: FakeSent[];
   /** Registration steps in the order they were submitted. */
   readonly registrations: RegistrationRequest[];
+  /** Recording and transcription ids deleted at the "provider". */
+  readonly deleted: string[];
 }
 
 export interface FakeOptions {
@@ -58,6 +62,7 @@ export interface FakeOptions {
 export function createFakeTelephony(opts: FakeOptions): FakeTelephony {
   const sent: FakeSent[] = [];
   const registrations: RegistrationRequest[] = [];
+  const deleted: string[] = [];
   const owned = new Map<string, { sid: string; e164: string; accountSid: string }>();
   const regs = new Map<string, { at: number; reject: boolean }>();
 
@@ -87,11 +92,18 @@ export function createFakeTelephony(opts: FakeOptions): FakeTelephony {
     masterAuthToken: FAKE_AUTH_TOKEN,
     sent,
     registrations,
+    deleted,
     async createSubaccount() {
       return { sid: fakeSid('AC'), authToken: FAKE_AUTH_TOKEN };
     },
     async createMessagingService() {
       return fakeSid('MG');
+    },
+    async createApiKey() {
+      return { sid: fakeSid('SK'), secret: FAKE_VOICE_KEY_SECRET };
+    },
+    async createTwimlApp() {
+      return fakeSid('AP');
     },
     async searchNumbers({ numberType, areaCode, limit }) {
       const areas = areaCode
@@ -172,6 +184,15 @@ export function createFakeTelephony(opts: FakeOptions): FakeTelephony {
       };
     },
     async deleteMedia() {},
+    async fetchRecording() {
+      return { data: voicemailAudio(), contentType: 'audio/wav' };
+    },
+    async deleteRecording(_account, recordingSid) {
+      deleted.push(recordingSid);
+    },
+    async deleteTranscription(_account, transcriptionSid) {
+      deleted.push(transcriptionSid);
+    },
     async submitRegistration(_account, request) {
       registrations.push(request);
       const sid = fakeSid(SID_PREFIX[request.kind]);
@@ -209,4 +230,33 @@ export function createFakeTelephony(opts: FakeOptions): FakeTelephony {
       };
     },
   };
+}
+
+/** Three seconds of a soft two-note chime (8 kHz mono WAV): what the fake plays for every voicemail. */
+function voicemailAudio(): Buffer {
+  const rate = 8000;
+  const samples = rate * 3;
+  const data = Buffer.alloc(samples * 2);
+  for (let i = 0; i < samples; i++) {
+    const t = i / rate;
+    const phase = t % 0.5;
+    const hz = t % 1 < 0.5 ? 523 : 659;
+    const envelope = Math.min(1, phase * 20) * Math.max(0, 1 - phase * 2);
+    data.writeInt16LE(Math.round(Math.sin(2 * Math.PI * hz * t) * 2500 * envelope), i * 2);
+  }
+  const head = Buffer.alloc(44);
+  head.write('RIFF', 0, 'ascii');
+  head.writeUInt32LE(36 + data.length, 4);
+  head.write('WAVE', 8, 'ascii');
+  head.write('fmt ', 12, 'ascii');
+  head.writeUInt32LE(16, 16);
+  head.writeUInt16LE(1, 20);
+  head.writeUInt16LE(1, 22);
+  head.writeUInt32LE(rate, 24);
+  head.writeUInt32LE(rate * 2, 28);
+  head.writeUInt16LE(2, 32);
+  head.writeUInt16LE(16, 34);
+  head.write('data', 36, 'ascii');
+  head.writeUInt32LE(data.length, 40);
+  return Buffer.concat([head, data]);
 }

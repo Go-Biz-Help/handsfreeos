@@ -18,6 +18,11 @@ export interface ProviderAccount {
   readonly sid: string;
   readonly authToken: string;
   readonly messagingServiceSid: string | null;
+  /** The subaccount's own API key (it signs browser call tokens); null until calls are set up. */
+  readonly apiKeySid: string | null;
+  readonly apiKeySecret: string | null;
+  /** The TwiML app browsers place calls through. */
+  readonly twimlAppSid: string | null;
 }
 
 export interface Capabilities {
@@ -43,6 +48,8 @@ export interface WebhookUrls {
   readonly smsStatusUrl: string;
   readonly voiceUrl: string;
   readonly voiceStatusUrl: string;
+  /** The TwiML app's voice URL: builds a call a teammate places from the browser. */
+  readonly voiceOutboundUrl: string;
 }
 
 export interface OutboundMessage {
@@ -89,6 +96,16 @@ export interface TelephonyProvider {
     account: ProviderAccount,
     opts: { friendlyName: string; inboundUrl: string; statusCallbackUrl: string },
   ): Promise<string>;
+  /** A standard API key in the subaccount; the provider shows its secret once. */
+  createApiKey(
+    account: ProviderAccount,
+    friendlyName: string,
+  ): Promise<{ sid: string; secret: string }>;
+  /** The TwiML app browser calls go through. */
+  createTwimlApp(
+    account: ProviderAccount,
+    opts: { friendlyName: string; voiceUrl: string; statusCallbackUrl: string },
+  ): Promise<string>;
   searchNumbers(opts: {
     numberType: NumberType;
     areaCode?: string;
@@ -112,6 +129,14 @@ export interface TelephonyProvider {
   ): Promise<{ sid: string; status: string }>;
   fetchMedia(account: ProviderAccount, url: string): Promise<{ data: Buffer; contentType: string }>;
   deleteMedia(account: ProviderAccount, url: string): Promise<void>;
+  /** A voicemail's audio. */
+  fetchRecording(
+    account: ProviderAccount,
+    recordingSid: string,
+  ): Promise<{ data: Buffer; contentType: string }>;
+  /** Removes the provider's copy once ours is stored; one that is already gone is fine. */
+  deleteRecording(account: ProviderAccount, recordingSid: string): Promise<void>;
+  deleteTranscription(account: ProviderAccount, transcriptionSid: string): Promise<void>;
   submitRegistration(
     account: ProviderAccount,
     request: RegistrationRequest,

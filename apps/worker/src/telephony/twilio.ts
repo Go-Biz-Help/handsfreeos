@@ -487,6 +487,32 @@ export function createTwilioTelephony(master: {
       return res.sid;
     },
 
+    async createApiKey(account, friendlyName) {
+      const res = await call<{ sid: string; secret: string }>(
+        credsOf(account),
+        'POST',
+        `${API}/Accounts/${account.sid}/Keys.json`,
+        { FriendlyName: friendlyName.slice(0, 64) },
+      );
+      return { sid: res.sid, secret: res.secret };
+    },
+
+    async createTwimlApp(account, opts) {
+      const res = await call<{ sid: string }>(
+        credsOf(account),
+        'POST',
+        `${API}/Accounts/${account.sid}/Applications.json`,
+        {
+          FriendlyName: opts.friendlyName.slice(0, 64),
+          VoiceUrl: opts.voiceUrl,
+          VoiceMethod: 'POST',
+          StatusCallback: opts.statusCallbackUrl,
+          StatusCallbackMethod: 'POST',
+        },
+      );
+      return res.sid;
+    },
+
     async searchNumbers({ numberType, areaCode, contains, limit }) {
       const res = await call<{
         available_phone_numbers: {
@@ -607,6 +633,50 @@ export function createTwilioTelephony(master: {
     async deleteMedia(account, url) {
       try {
         await call(credsOf(account), 'DELETE', url.endsWith('.json') ? url : `${url}.json`);
+      } catch (e) {
+        if (!(e instanceof ProviderError && e.httpStatus === 404)) throw e;
+      }
+    },
+
+    async fetchRecording(account, recordingSid) {
+      const res = await fetch(`${API}/Accounts/${account.sid}/Recordings/${recordingSid}.mp3`, {
+        headers: {
+          authorization: `Basic ${Buffer.from(`${account.sid}:${account.authToken}`).toString('base64')}`,
+        },
+      });
+      // A fresh recording can take a moment to appear, so every failure here is retried.
+      if (!res.ok)
+        throw new ProviderError(
+          `Recording fetch failed (${res.status})`,
+          String(res.status),
+          false,
+          res.status,
+        );
+      return {
+        data: Buffer.from(await res.arrayBuffer()),
+        contentType: res.headers.get('content-type') ?? 'audio/mpeg',
+      };
+    },
+
+    async deleteRecording(account, recordingSid) {
+      try {
+        await call(
+          credsOf(account),
+          'DELETE',
+          `${API}/Accounts/${account.sid}/Recordings/${recordingSid}.json`,
+        );
+      } catch (e) {
+        if (!(e instanceof ProviderError && e.httpStatus === 404)) throw e;
+      }
+    },
+
+    async deleteTranscription(account, transcriptionSid) {
+      try {
+        await call(
+          credsOf(account),
+          'DELETE',
+          `${API}/Accounts/${account.sid}/Transcriptions/${transcriptionSid}.json`,
+        );
       } catch (e) {
         if (!(e instanceof ProviderError && e.httpStatus === 404)) throw e;
       }

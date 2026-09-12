@@ -190,6 +190,15 @@ describe('calls', () => {
     expect(
       await sys(callUpdateStatus, { workspaceId: wsId, providerSid: callSid, status: 'ringing' }),
     ).toMatchObject({ status: 'completed', changed: false });
+    // The parent call's own "completed" arrives after the leg's and changes nothing, not even the length.
+    expect(
+      await sys(callUpdateStatus, {
+        workspaceId: wsId,
+        providerSid: callSid,
+        status: 'completed',
+        durationSeconds: 300,
+      }),
+    ).toMatchObject({ status: 'completed', changed: false });
 
     const got = await ask(
       conversationGet,

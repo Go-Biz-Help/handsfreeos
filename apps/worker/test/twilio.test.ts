@@ -61,6 +61,9 @@ const account: ProviderAccount = {
   sid: 'ACsubtest',
   authToken: 'sub-token',
   messagingServiceSid: 'MGservicetest',
+  apiKeySid: null,
+  apiKeySecret: null,
+  twimlAppSid: null,
 };
 const business = {
   legalName: 'Lone Star HVAC LLC',
@@ -107,6 +110,7 @@ const urls = {
   smsStatusUrl: 'https://hooks.example.com/webhooks/twilio/messaging/status',
   voiceUrl: 'https://hooks.example.com/webhooks/twilio/voice/inbound',
   voiceStatusUrl: 'https://hooks.example.com/webhooks/twilio/voice/status',
+  voiceOutboundUrl: 'https://hooks.example.com/webhooks/twilio/voice/outbound',
 };
 
 describe('numbers and texts', () => {
@@ -528,6 +532,59 @@ describe('local numbers (10DLC)', () => {
     ).toMatchObject({
       providerStatus: 'VERIFIED',
       status: 'approved',
+    });
+  });
+});
+
+describe('browser calls and voicemail recordings', () => {
+  it('makes the subaccount key and TwiML app, fetches recordings as MP3, and deletes the provider copies', async () => {
+    const sub = /^(POST|GET|DELETE) api\.twilio\.com\/2010-04-01\/Accounts\/ACsubtest\//;
+    const seen = mockTwilio([
+      [
+        new RegExp(`${sub.source}Keys\\.json$`),
+        () => ({ status: 201, json: { sid: 'SKkeytest', secret: 'key-secret-test' } }),
+      ],
+      [
+        new RegExp(`${sub.source}Applications\\.json$`),
+        () => ({ status: 201, json: { sid: 'APapptest' } }),
+      ],
+      [new RegExp(`${sub.source}Recordings/REtest\\.mp3$`), () => ({ json: { audio: true } })],
+      [new RegExp(`${sub.source}Recordings/REtest\\.json$`), () => ({ status: 204 })],
+      [
+        new RegExp(`${sub.source}Transcriptions/TRtest\\.json$`),
+        () => ({ status: 404, json: { code: 20404 } }),
+      ],
+    ]);
+    const t = createTwilioTelephony(MASTER);
+    expect(await t.createApiKey(account, 'HandsFreeOS calls 1234')).toEqual({
+      sid: 'SKkeytest',
+      secret: 'key-secret-test',
+    });
+    expect(
+      await t.createTwimlApp(account, {
+        friendlyName: 'HandsFreeOS calls 1234',
+        voiceUrl: urls.voiceOutboundUrl,
+        statusCallbackUrl: urls.voiceStatusUrl,
+      }),
+    ).toBe('APapptest');
+    expect((await t.fetchRecording(account, 'REtest')).data.length).toBeGreaterThan(0);
+    await t.deleteRecording(account, 'REtest');
+    // Already gone at the provider is what we wanted.
+    await t.deleteTranscription(account, 'TRtest');
+    expect(seen.map((x) => `${x.method} ${x.path.split('/').pop()}`)).toEqual([
+      'POST Keys.json',
+      'POST Applications.json',
+      'GET REtest.mp3',
+      'DELETE REtest.json',
+      'DELETE TRtest.json',
+    ]);
+    expect(seen.every((x) => x.auth === 'ACsubtest:sub-token')).toBe(true);
+    expect(Object.fromEntries(seen[1]!.body)).toEqual({
+      FriendlyName: 'HandsFreeOS calls 1234',
+      VoiceUrl: urls.voiceOutboundUrl,
+      VoiceMethod: 'POST',
+      StatusCallback: urls.voiceStatusUrl,
+      StatusCallbackMethod: 'POST',
     });
   });
 });
