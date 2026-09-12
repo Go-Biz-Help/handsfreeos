@@ -119,3 +119,29 @@ export function textingRejectedEmail(input: {
   );
   return { subject, text, html };
 }
+
+/** A connected mailbox lost access: new mail with customers stops until someone reconnects it. */
+export function mailboxReconnectEmail(input: {
+  provider: 'microsoft' | 'google';
+  account: string;
+  lostAt: Date;
+  timeZone: string;
+  link: string;
+}): EmailContent {
+  const name = input.provider === 'google' ? 'Gmail' : 'Outlook';
+  const when = input.lostAt.toLocaleDateString('en-US', {
+    month: 'long',
+    day: 'numeric',
+    timeZone: input.timeZone,
+  });
+  const subject = `Reconnect your ${name} mailbox`;
+  const text = `HandsFreeOS lost access to ${input.account} on ${when}, so new email with customers isn’t reaching the inbox. Reconnecting takes a minute.\n\nReconnect ${name}: ${input.link}\n\nNothing was lost. Mail from the gap comes in once you reconnect.`;
+  const html = shell(
+    para(
+      `HandsFreeOS lost access to <strong>${escapeHtml(input.account)}</strong> on ${escapeHtml(when)}, so new email with customers isn’t reaching the inbox. Reconnecting takes a minute.`,
+    ) +
+      button(input.link, `Reconnect ${name}`) +
+      small('Nothing was lost. Mail from the gap comes in once you reconnect.'),
+  );
+  return { subject, text, html };
+}

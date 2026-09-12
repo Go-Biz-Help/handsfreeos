@@ -24,6 +24,7 @@ import { rows, sql, type Db } from '@hfos/db/client';
 import { closeTestDbs, createTestUser, testDbs, testEnv, type TestUser } from '@hfos/db/testing';
 import pino from 'pino';
 import { createSealer } from '../src/crypto';
+import { fakeMailboxServices } from '../src/mailbox/index';
 import { createLocalEmail, LOCAL_WEBHOOK_PASSWORD } from '../src/email/local';
 import { handlers } from '../src/handlers/index';
 import { createSmtpMailer } from '../src/mailer';
@@ -159,6 +160,10 @@ async function main(): Promise<void> {
       webhookUser: 'postmark',
       webhookPassword: LOCAL_WEBHOOK_PASSWORD,
     },
+    mailboxes: fakeMailboxServices(
+      (process.env.WORKER_PUBLIC_URL ?? 'http://127.0.0.1:4100').replace(/\/+$/, ''),
+      60_000,
+    ),
     workerId: `seed:${hostname()}:${process.pid}`,
     batchSize: 50,
     reservedOnly: true,

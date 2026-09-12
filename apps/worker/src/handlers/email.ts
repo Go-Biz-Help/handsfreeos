@@ -14,6 +14,7 @@ import {
   type messages,
 } from '@hfos/db/schema';
 import { renderEmailHtml } from '../email/render';
+import { sendThroughMailbox } from '../mailbox/send';
 import {
   isPermanentEmailError,
   mailbox,
@@ -41,14 +42,7 @@ export async function sendQueuedEmail(ctx: HandlerContext, m: Message): Promise<
       systemActor(scope),
       metaOf(ctx),
     );
-  if (m.mailboxConnectionId) {
-    await update({
-      status: 'failed',
-      errorCode: 'mailbox_not_ready',
-      errorMessage: 'Sending through a connected mailbox isn’t available yet.',
-    });
-    return;
-  }
+  if (m.mailboxConnectionId) return sendThroughMailbox(ctx, m, update);
   const [conv] = await ctx.tx
     .select({ token: conversations.emailReplyToken })
     .from(conversations)

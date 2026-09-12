@@ -13,6 +13,7 @@ import { conversations, people, telephonyRegistrations, users } from '@hfos/db/s
 import { unansweredEmail } from './emails/templates';
 import { advanceRegistrations, managers } from './handlers/telephony';
 import type { JobHandler, JobMap } from './jobs';
+import { mailboxSync } from './mailbox/sync';
 import { systemActor, tenantOf, workerMeta, type WorkerServices } from './services';
 import { recordSystemEvent } from './system-event';
 import { loadAccount } from './telephony/accounts';
@@ -194,6 +195,7 @@ export const jobs: JobMap = {
   'registration.poll': registrationPoll,
   'conversation.unsnooze': unsnooze,
   'webhook_deliveries.sweep': sweepDeliveries,
+  'mailbox.sync': mailboxSync,
 };
 
 /** Periodic jobs exist exactly once (their dedupe key keeps one pending row). */

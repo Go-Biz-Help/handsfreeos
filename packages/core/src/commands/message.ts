@@ -851,8 +851,9 @@ export const messageUpdateStatus = defineCommand({
             errorCode: input.errorCode ?? null,
             errorMessage: input.errorMessage ?? null,
           },
-          // "sent" is a waypoint: only the outcome refreshes open screens.
-          broadcast: type !== 'message.sent',
+          // "sent" is a waypoint: only the outcome refreshes open screens. Mail sent through a connected
+          // mailbox gets no delivery report, so for it "sent" is the outcome.
+          broadcast: type !== 'message.sent' || m.mailboxConnectionId !== null,
         });
       if (
         m.activityId &&

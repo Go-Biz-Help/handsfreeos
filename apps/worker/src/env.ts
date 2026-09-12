@@ -49,6 +49,16 @@ export interface WorkerEnv {
   readonly postmarkWebhookPassword: string;
   /** The shared subdomain (mirrors private.shared_mail_domain()). */
   readonly mailDomain: string;
+  /** Connected mailboxes: Microsoft's and Google's apps, or local mailboxes with a sign-in page on the worker. */
+  readonly mailboxProvider: 'real' | 'fake';
+  readonly microsoftClientId: string | null;
+  readonly microsoftClientSecret: string | null;
+  readonly googleClientId: string | null;
+  readonly googleClientSecret: string | null;
+  /** Tests shorten how often mailboxes are checked (milliseconds). */
+  readonly mailboxSyncMs: number | null;
+  /** How far back a new mailbox's first sync looks. */
+  readonly mailboxBackfillDays: number;
 }
 
 const list = (value: string | undefined): string[] =>
@@ -107,6 +117,19 @@ export function readEnv(env: NodeJS.ProcessEnv = process.env): WorkerEnv {
   if (production && postmarkWebhookPassword.length < 24)
     throw new Error('POSTMARK_WEBHOOK_PASSWORD must be a long random value (24+ characters)');
 
+  const microsoftClientId = env.MICROSOFT_OAUTH_CLIENT_ID || null;
+  const microsoftClientSecret = env.MICROSOFT_OAUTH_CLIENT_SECRET || null;
+  const googleClientId = env.GOOGLE_OAUTH_CLIENT_ID || null;
+  const googleClientSecret = env.GOOGLE_OAUTH_CLIENT_SECRET || null;
+  // Local development gets mailboxes that live in memory unless a real OAuth app is configured.
+  const mailboxProvider = (env.MAILBOX_PROVIDER ??
+    (production || microsoftClientId || googleClientId ? 'real' : 'fake')) as string;
+  if (mailboxProvider !== 'real' && mailboxProvider !== 'fake')
+    throw new Error('MAILBOX_PROVIDER must be real or fake');
+  if (production && mailboxProvider === 'fake')
+    throw new Error('MAILBOX_PROVIDER=fake is for development and tests only');
+  const mailboxSyncMs = env.MAILBOX_SYNC_MS ? Number(env.MAILBOX_SYNC_MS) : null;
+
   const reminder = env.UNANSWERED_ALERT_MS ? Number(env.UNANSWERED_ALERT_MS) : null;
   return {
     databaseUrl,
@@ -145,5 +168,13 @@ export function readEnv(env: NodeJS.ProcessEnv = process.env): WorkerEnv {
     postmarkWebhookUser: env.POSTMARK_WEBHOOK_USER || 'postmark',
     postmarkWebhookPassword: postmarkWebhookPassword || LOCAL_WEBHOOK_PASSWORD,
     mailDomain: (env.MAIL_DOMAIN || 'mail.handsfreeos.com').toLowerCase(),
+    mailboxProvider,
+    microsoftClientId,
+    microsoftClientSecret,
+    googleClientId,
+    googleClientSecret,
+    mailboxSyncMs:
+      mailboxSyncMs && Number.isFinite(mailboxSyncMs) && mailboxSyncMs > 0 ? mailboxSyncMs : null,
+    mailboxBackfillDays: Math.min(90, Math.max(1, Number(env.MAILBOX_BACKFILL_DAYS ?? 30) || 30)),
   };
 }

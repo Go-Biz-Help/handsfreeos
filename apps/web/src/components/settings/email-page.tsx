@@ -905,6 +905,7 @@ export function EmailPage({
   blocked,
   unmatched,
   tags,
+  mailboxResult,
 }: {
   workspaceId: string;
   workspaceName: string;
@@ -912,9 +913,26 @@ export function EmailPage({
   blocked: EmailSuppression[];
   unmatched: EmailUnmatched[];
   tags: Tag[];
+  /** How the sign-in went, when the browser just came back from Microsoft or Google. */
+  mailboxResult: string | null;
 }) {
   const router = useRouter();
   const refresh = () => router.refresh();
+  const told = useRef(false);
+  useEffect(() => {
+    if (!mailboxResult || told.current) return;
+    told.current = true;
+    if (mailboxResult === 'connected')
+      toast.success('Connected. Email with customers comes in over the next few minutes.');
+    else if (mailboxResult === 'cancelled') toast('Sign-in cancelled. Nothing was connected.');
+    else if (mailboxResult === 'missing_permissions')
+      toast.error(
+        'HandsFreeOS needs permission to read and send mail. Connect again and leave every box ticked.',
+      );
+    else toast.error('That mailbox didn’t connect. Try again in a minute.');
+    // Once told, the address loses the result so a reload doesn't say it again.
+    router.replace(`/app/w/${workspaceId}/settings/email`, { scroll: false });
+  }, [mailboxResult, router, workspaceId]);
   // The worker answers domain checks and mailbox sign-ins a moment later; those changes arrive live.
   useLiveRefresh([
     'email_domain',

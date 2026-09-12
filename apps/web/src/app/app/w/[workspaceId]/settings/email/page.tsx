@@ -10,10 +10,14 @@ export const metadata: Metadata = { title: 'Email' };
 /** Owners and admins set up the workspace's sending address, its own domain and connected mailboxes here. */
 export default async function EmailSettingsPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ workspaceId: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const { workspaceId } = await params;
+  // Coming back from Microsoft's or Google's sign-in: how it went.
+  const { mailbox } = await searchParams;
   const { api } = await apiServer();
   const got = unwrapPage(await api.POST('/v1/queries/workspace.get', { body: { workspaceId } }));
   const canManage = got.workspace.role === 'owner' || got.workspace.role === 'admin';
@@ -39,6 +43,7 @@ export default async function EmailSettingsPage({
         blocked={blocked.items}
         unmatched={unmatched.items}
         tags={tags.tags}
+        mailboxResult={typeof mailbox === 'string' ? mailbox : null}
       />
     </>
   );

@@ -7,6 +7,7 @@ import {
 import { onFileDeleted } from './file-removed';
 import { onImportRequested } from './import-run';
 import { onInvitationCreated, onInvitationResendRequested } from './invitation-email';
+import { onMailboxReauthRequired, onMailboxSyncWanted } from './mailbox';
 import {
   onConversationLinked,
   onConversationSnoozed,
@@ -35,4 +36,7 @@ export const handlers: HandlerMap = {
   'email_domain.verify_requested': onEmailDomainVerifyRequested,
   'email_domain.removed': onEmailDomainRemoved,
   'email.unmatched_claimed': onUnmatchedClaimed,
+  'mailbox.connected': onMailboxSyncWanted,
+  'mailbox.resync_requested': onMailboxSyncWanted,
+  'mailbox.reauth_required': onMailboxReauthRequired,
 };

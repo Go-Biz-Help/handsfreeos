@@ -147,6 +147,56 @@ own domain in Settings → Email; once its DNS records verify, it can send from 
 - **Gmail waits on Google.** Settings → Email shows Connect Gmail as waiting on Google's review until the web
   app is built with `NEXT_PUBLIC_GMAIL_ENABLED=true`. Turn it on once Google approves the restricted scopes.
 
+## Connected mailboxes: Outlook and Gmail
+
+A teammate can connect their Outlook or Gmail mailbox in Settings → Email. HandsFreeOS then brings in email
+between that mailbox and people in Customers (nothing else is stored), and replies written in the inbox can
+go out through it. Outlook works for every client once the Microsoft app exists; Gmail stays switched off
+until Google finishes its security review.
+
+### Microsoft (Outlook and Microsoft 365)
+
+1. In the Microsoft Entra admin center, open App registrations and add one. Supported account types:
+   accounts in any organizational directory and personal Microsoft accounts.
+2. Add a redirect URI of type **Web** (not SPA, whose sign-ins expire after a day):
+   `https://hooks.handsfreeos.com/oauth/microsoft/callback`.
+3. Under API permissions, add the delegated Microsoft Graph permissions `User.Read`, `Mail.Read`,
+   `Mail.ReadWrite`, `Mail.Send` and `offline_access`. None of them needs an admin's consent.
+4. Under Certificates & secrets, create a client secret. Put its expiry date in your calendar: when it lapses,
+   every Outlook mailbox stops syncing until a new secret is set.
+5. Give the worker the app's ids:
+
+   ```bash
+   fly secrets set --app handsfreeos-worker \
+     MICROSOFT_OAUTH_CLIENT_ID='<Application (client) ID>' \
+     MICROSOFT_OAUTH_CLIENT_SECRET='<client secret value>'
+   ```
+
+6. Start publisher verification (it needs a Microsoft AI Cloud Partner Program account and the
+   `handsfreeos.com` domain). Many business tenants block unverified apps until an admin approves them.
+
+### Google (Gmail)
+
+1. In Google Cloud, create a project and an external OAuth consent screen with the HandsFreeOS name, logo,
+   privacy policy and terms on `handsfreeos.com`, and `handsfreeos.com` as an authorized domain.
+2. Create an OAuth client of type Web application with the redirect URI
+   `https://hooks.handsfreeos.com/oauth/google/callback`, and add the scopes `gmail.readonly` and `gmail.send`.
+3. Set `GOOGLE_OAUTH_CLIENT_ID` and `GOOGLE_OAUTH_CLIENT_SECRET` on the worker the same way as Microsoft's.
+4. While the app is in testing, add your own Gmail address as a test user. Google makes testing sign-ins
+   lapse every seven days, so HandsFreeOS will email you to reconnect weekly.
+5. Apply for restricted-scope verification with a CASA security assessment (a paid, yearly review by an
+   authorized lab; plan on four to eight weeks). Once Google approves, build the web app with
+   `NEXT_PUBLIC_GMAIL_ENABLED=true` to open Connect Gmail to everyone.
+
+### Good to know
+
+- **Outlook pushes, Gmail is polled.** Outlook tells the worker about new mail within a minute; the worker also
+  checks every five minutes in case a notification goes missing. Gmail is checked every two minutes.
+- **A lost sign-in emails the person who connected it** (every owner and admin for a shared mailbox), and the
+  mailbox shows "Needs reconnecting". Mail from the gap comes in after they reconnect.
+- **Locally, nothing reaches Microsoft or Google.** Without the client ids, Connect Outlook opens a stand-in
+  sign-in page on the worker, and the mailboxes live in memory.
+
 ## Local development
 
 `pnpm dev` runs the web app, the API and the worker. Locally the worker uses a fake carrier: numbers, texts,

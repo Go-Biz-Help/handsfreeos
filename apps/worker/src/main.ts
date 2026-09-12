@@ -7,6 +7,7 @@ import { createEmail } from './email/index';
 import { processDeliveries } from './deliveries';
 import { loadEnv, readEnv } from './env';
 import { handlers } from './handlers/index';
+import { createMailboxes } from './mailbox/index';
 import { buildHttpServer } from './http/server';
 import { processJobs } from './jobs';
 import { createSmtpMailer } from './mailer';
@@ -42,6 +43,7 @@ const services: WorkerServices = {
   reminderOverrideMs: env.reminderOverrideMs,
   registrationPollMs: env.registrationPollMs,
   email: createEmail(env, log),
+  mailboxes: createMailboxes(env),
 };
 const workerId = `${hostname()}:${process.pid}`;
 const loopDeps = { ...services, workerId, batchSize: env.batchSize };
@@ -65,6 +67,7 @@ log.info(
     publicUrl: env.publicUrl,
     telephony: services.telephony.name,
     email: services.email.transport.name,
+    mailboxes: env.mailboxProvider,
     handlers: Object.keys(handlers),
     storage: !!env.supabaseSecretKey,
   },

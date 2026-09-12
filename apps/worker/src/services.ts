@@ -4,6 +4,7 @@ import type { Db } from '@hfos/db/client';
 import type { Logger } from 'pino';
 import type { Sealer } from './crypto';
 import type { EmailServices } from './email/index';
+import type { MailboxServices } from './mailbox/index';
 import type { Mailer } from './mailer';
 import type { ObjectStore } from './storage';
 import type { TelephonyProvider } from './telephony/provider';
@@ -25,6 +26,8 @@ export interface WorkerServices {
   readonly registrationPollMs: number;
   /** Workspace email: the transport, workspace domains, the shared subdomain and the webhook credentials. */
   readonly email: EmailServices;
+  /** Connected Outlook and Gmail mailboxes (in-memory ones locally and in tests). */
+  readonly mailboxes: MailboxServices;
 }
 
 export interface TenantScope {
