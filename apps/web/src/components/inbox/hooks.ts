@@ -122,6 +122,10 @@ export interface PendingText {
   readonly clientId: string;
   readonly body: string;
   readonly at: string;
+  /** Email shows as a mail card while it sends. */
+  readonly channel?: 'sms' | 'email';
+  readonly subject?: string;
+  readonly from?: string;
   readonly messageId: string | null;
   readonly error: string | null;
 }

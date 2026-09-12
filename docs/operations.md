@@ -144,6 +144,8 @@ own domain in Settings → Email; once its DNS records verify, it can send from 
 - **Replies always route through `mail.handsfreeos.com`,** even for a business on its own domain, so a
   business never needs MX changes on its own domain.
 - **Nothing is tracked.** Open and link tracking are off for customer email.
+- **Gmail waits on Google.** Settings → Email shows Connect Gmail as waiting on Google's review until the web
+  app is built with `NEXT_PUBLIC_GMAIL_ENABLED=true`. Turn it on once Google approves the restricted scopes.
 
 ## Local development
 

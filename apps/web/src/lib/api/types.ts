@@ -61,3 +61,14 @@ export type PhoneNumberInfo = NonNullable<PhoneSetupStatus['number']>;
 export type RegistrationInfo = PhoneSetupStatus['registrations'][number];
 export type InboxBox = 'mine' | 'unassigned' | 'all';
 export type ConversationStatus = 'open' | 'snoozed' | 'closed';
+
+// Milestone 3: email
+export type EmailSetupStatus = Ok<'/v1/queries/email.setup_status'>;
+export type EmailAddressInfo = EmailSetupStatus['addresses'][number];
+export type EmailDomainInfo = EmailSetupStatus['domains'][number];
+export type MailboxInfo = EmailSetupStatus['mailboxes'][number];
+export type EmailSuppressionList = Ok<'/v1/queries/email_suppression.list'>;
+export type EmailSuppression = EmailSuppressionList['items'][number];
+export type EmailUnmatchedList = Ok<'/v1/queries/email.unmatched_list'>;
+export type EmailUnmatched = EmailUnmatchedList['items'][number];
+export type EmailComposeOptions = Ok<'/v1/queries/email.compose_options'>;

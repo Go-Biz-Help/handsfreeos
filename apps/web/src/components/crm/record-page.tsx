@@ -106,7 +106,12 @@ export function RecordPage(props: RecordPageProps) {
   const [newLead, setNewLead] = useState(false);
   const [nextAction, setNextAction] = useState<LeadCard | null>(null);
   const [addPerson, setAddPerson] = useState(false);
-  const [texting, setTexting] = useState(false);
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const [sheetChannel, setSheetChannel] = useState<'sms' | 'email'>('sms');
+  const openSheet = (channel: 'sms' | 'email') => {
+    setSheetChannel(channel);
+    setSheetOpen(true);
+  };
   const calls = useCalls();
   useLiveRefresh([
     'person',
@@ -197,7 +202,18 @@ export function RecordPage(props: RecordPageProps) {
                   {phone}
                 </a>
               ) : null}
-              {email ? (
+              {email && person && !archived ? (
+                // Email from the workspace address (and into the thread), not the viewer's own mail app.
+                <button
+                  type="button"
+                  onClick={() => openSheet('email')}
+                  className="inline-flex items-center gap-1.5 text-accent-text hover:underline"
+                  data-testid="header-email"
+                >
+                  <Mail className="h-3.5 w-3.5" strokeWidth={1.75} />
+                  {email}
+                </button>
+              ) : email ? (
                 <a
                   href={`mailto:${email}`}
                   className="inline-flex items-center gap-1.5 text-accent-text hover:underline"
@@ -275,9 +291,9 @@ export function RecordPage(props: RecordPageProps) {
           </div>
         ) : (
           <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-border pt-4">
-            {person && phoneE164 ? (
+            {person && (phoneE164 || person.email) ? (
               <>
-                {calls.available ? (
+                {phoneE164 && calls.available ? (
                   <Button
                     variant="primary"
                     size="sm"
@@ -294,15 +310,28 @@ export function RecordPage(props: RecordPageProps) {
                     Call
                   </Button>
                 ) : null}
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={() => setTexting(true)}
-                  data-testid="action-text"
-                >
-                  <MessageCircle className="h-4 w-4" strokeWidth={1.5} />
-                  Text
-                </Button>
+                {phoneE164 ? (
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => openSheet('sms')}
+                    data-testid="action-text"
+                  >
+                    <MessageCircle className="h-4 w-4" strokeWidth={1.5} />
+                    Text
+                  </Button>
+                ) : null}
+                {person.email ? (
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => openSheet('email')}
+                    data-testid="action-email"
+                  >
+                    <Mail className="h-4 w-4" strokeWidth={1.5} />
+                    Email
+                  </Button>
+                ) : null}
                 <span aria-hidden className="mx-1 h-5 w-px bg-border" />
               </>
             ) : null}
@@ -514,11 +543,7 @@ export function RecordPage(props: RecordPageProps) {
 
         <div className="flex flex-col gap-4">
           {person ? (
-            <ConversationsCard
-              workspaceId={workspaceId}
-              person={person}
-              onOpen={() => setTexting(true)}
-            />
+            <ConversationsCard workspaceId={workspaceId} person={person} onOpen={openSheet} />
           ) : null}
           <Card className="p-4 md:p-5" data-testid="open-lead-card">
             <div className="mb-2.5 flex items-center justify-between">
@@ -687,9 +712,15 @@ export function RecordPage(props: RecordPageProps) {
             fullName: person.fullName,
             phone: person.phone,
             phoneE164: person.phoneE164,
+            email: person.email,
           }}
-          open={texting}
-          onOpenChange={setTexting}
+          channel={sheetChannel}
+          open={sheetOpen}
+          onOpenChange={setSheetOpen}
+          onEditPerson={() => {
+            setSheetOpen(false);
+            setEditing(true);
+          }}
         />
       ) : null}
       {person ? (

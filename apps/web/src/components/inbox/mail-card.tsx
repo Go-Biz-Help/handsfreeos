@@ -146,3 +146,47 @@ export function MailCard({
     </div>
   );
 }
+
+/** An email on its way: the card at once, replaced by the stored message when it arrives. */
+export function PendingMailCard({
+  subject,
+  from,
+  body,
+  compact,
+}: {
+  subject: string;
+  from: string;
+  body: string;
+  compact?: boolean;
+}) {
+  return (
+    <div
+      data-testid="pending-email"
+      className={cn(
+        'mt-2 flex flex-col items-end gap-[3px] self-end',
+        compact ? 'w-full max-w-[92%]' : 'max-w-[88%] max-md:max-w-[94%]',
+      )}
+    >
+      <article
+        className={cn(
+          'flex flex-col gap-2 rounded-dialog border border-[color-mix(in_oklab,var(--accent)_35%,var(--border))] bg-card px-4 py-3.5',
+          compact ? 'w-full' : 'w-[520px] max-w-full max-md:w-full',
+        )}
+      >
+        <header className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <div className="text-[13px] font-medium [overflow-wrap:anywhere]">{subject}</div>
+            {compact ? null : <div className="truncate text-xs text-text-3">You · {from}</div>}
+          </div>
+          <span className="whitespace-nowrap text-xs text-text-3">Now</span>
+        </header>
+        <div className="whitespace-pre-wrap text-[13.5px] leading-[1.5] text-text [overflow-wrap:anywhere]">
+          {body}
+        </div>
+      </article>
+      {compact ? null : (
+        <div className="px-1 text-[11.5px] text-text-3 max-md:hidden">Sending…</div>
+      )}
+    </div>
+  );
+}

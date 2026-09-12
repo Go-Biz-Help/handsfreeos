@@ -9,7 +9,7 @@ import { clockTime, dayDivider } from '@/lib/inbox';
 import { cn } from '@/lib/utils';
 import { DayDivider, MediaThumb, SystemEntry } from './bits';
 import { firstName } from './conversation-row';
-import { MailCard } from './mail-card';
+import { MailCard, PendingMailCard } from './mail-card';
 import type { PendingText } from './hooks';
 
 const FAILED = new Set(['failed', 'undelivered']);
@@ -136,14 +136,23 @@ export function MessageLog({
         {pending.map((p) => (
           <Fragment key={p.clientId}>
             {withDay(p.at) ? <DayDivider>{dayDivider(p.at)}</DayDivider> : null}
-            <div className="mt-2 flex max-w-[84%] flex-col items-end gap-[3px] self-end md:max-w-[76%]">
-              <div className="whitespace-pre-wrap rounded-2xl rounded-br-[5px] bg-accent px-[13px] py-[9px] text-[15px] leading-[1.45] text-white [overflow-wrap:anywhere] md:text-sm">
-                {p.body}
+            {p.channel === 'email' ? (
+              <PendingMailCard
+                subject={p.subject ?? ''}
+                from={p.from ?? ''}
+                body={p.body}
+                compact={compact}
+              />
+            ) : (
+              <div className="mt-2 flex max-w-[84%] flex-col items-end gap-[3px] self-end md:max-w-[76%]">
+                <div className="whitespace-pre-wrap rounded-2xl rounded-br-[5px] bg-accent px-[13px] py-[9px] text-[15px] leading-[1.45] text-white [overflow-wrap:anywhere] md:text-sm">
+                  {p.body}
+                </div>
+                <div className="flex items-center gap-[5px] whitespace-nowrap px-1 text-[11.5px] text-text-3">
+                  You · now · Sending…
+                </div>
               </div>
-              <div className="flex items-center gap-[5px] whitespace-nowrap px-1 text-[11.5px] text-text-3">
-                You · now · Sending…
-              </div>
-            </div>
+            )}
           </Fragment>
         ))}
       </div>

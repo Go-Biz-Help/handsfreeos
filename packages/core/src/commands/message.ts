@@ -847,6 +847,7 @@ export const messageUpdateStatus = defineCommand({
           before: { status: m.status },
           after: {
             status,
+            channel: m.channel,
             errorCode: input.errorCode ?? null,
             errorMessage: input.errorMessage ?? null,
           },

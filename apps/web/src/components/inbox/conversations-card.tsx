@@ -10,15 +10,15 @@ import { useUnread } from '@/lib/realtime/unread-provider';
 import { ChannelIcon, WaitChip } from './bits';
 import { firstName } from './conversation-row';
 
-/** On the customer's page: their conversations, one per channel; a click opens the message sheet. */
+/** On the customer's page: their conversations, one per channel; a click opens the message sheet in that channel. */
 export function ConversationsCard({
   workspaceId,
   person,
   onOpen,
 }: {
   workspaceId: string;
-  person: { id: string; fullName: string; phoneE164: string | null };
-  onOpen: () => void;
+  person: { id: string; fullName: string; phoneE164: string | null; email?: string | null };
+  onOpen: (channel: 'sms' | 'email') => void;
 }) {
   const live = useLiveVersion(['conversation', 'message'], 300);
   const threshold = useUnread().summary?.waitingThresholdMinutes ?? 10;
@@ -48,16 +48,29 @@ export function ConversationsCard({
         <div className="text-[13px] text-text-3">Loading…</div>
       ) : items.length === 0 ? (
         <div className="text-[13px] text-text-3">
-          No texts yet.
+          {person.email ? 'No messages yet.' : 'No texts yet.'}
           {person.phoneE164 ? (
             <>
               {' '}
               <button
                 type="button"
-                onClick={onOpen}
+                onClick={() => onOpen('sms')}
                 className="font-medium text-accent-text hover:underline"
               >
                 Text {firstName(person.fullName)}
+              </button>
+            </>
+          ) : null}
+          {person.email ? (
+            <>
+              {person.phoneE164 ? ' or ' : ' '}
+              <button
+                type="button"
+                onClick={() => onOpen('email')}
+                className="font-medium text-accent-text hover:underline"
+              >
+                {person.phoneE164 ? 'email' : 'Email'}{' '}
+                {person.phoneE164 ? 'them' : firstName(person.fullName)}
               </button>
             </>
           ) : null}
@@ -70,7 +83,7 @@ export function ConversationsCard({
               <button
                 key={c.id}
                 type="button"
-                onClick={onOpen}
+                onClick={() => onOpen(c.channel)}
                 data-testid={`customer-conversation-${c.id}`}
                 className="flex items-start gap-2.5 rounded-[6px] p-2.5 text-left hover:bg-card-2"
               >

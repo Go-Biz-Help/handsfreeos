@@ -28,11 +28,11 @@ interface Form {
   tagIds: string[];
 }
 
-const empty = (companyId = '', phone = ''): Form => ({
-  firstName: '',
-  lastName: '',
+const empty = (companyId = '', phone = '', email = '', name = ''): Form => ({
+  firstName: name.trim().split(/\s+/)[0] ?? '',
+  lastName: name.trim().split(/\s+/).slice(1).join(' '),
   phone,
-  email: '',
+  email,
   companyId,
   line1: '',
   city: '',
@@ -67,6 +67,8 @@ export function PersonDialog({
   initial,
   defaultCompanyId,
   defaultPhone,
+  defaultEmail,
+  defaultName,
   onSaved,
 }: {
   workspaceId: string;
@@ -77,11 +79,16 @@ export function PersonDialog({
   defaultCompanyId?: string;
   /** A number to start with (adding the sender of a text as a customer). */
   defaultPhone?: string;
+  /** An address and name to start with (adding someone who emailed as a customer). */
+  defaultEmail?: string;
+  defaultName?: string;
   onSaved?: (personId: string) => void;
 }) {
   const router = useRouter();
   const [form, setForm] = useState<Form>(() =>
-    initial ? fromPerson(initial) : empty(defaultCompanyId, defaultPhone),
+    initial
+      ? fromPerson(initial)
+      : empty(defaultCompanyId, defaultPhone, defaultEmail, defaultName),
   );
   const [companies, setCompanies] = useState<{ id: string; name: string }[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -91,7 +98,11 @@ export function PersonDialog({
 
   useEffect(() => {
     if (!open) return;
-    setForm(initial ? fromPerson(initial) : empty(defaultCompanyId, defaultPhone));
+    setForm(
+      initial
+        ? fromPerson(initial)
+        : empty(defaultCompanyId, defaultPhone, defaultEmail, defaultName),
+    );
     setErrors({});
     setMatches([]);
     setMore(!!initial);

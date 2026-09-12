@@ -36,7 +36,13 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { apiBrowser, errorMessage, unwrap } from '@/lib/api/client';
-import type { ConversationGet, ConversationThread, Pipeline, Tag } from '@/lib/api/types';
+import type {
+  ConversationGet,
+  ConversationThread,
+  PersonDetail,
+  Pipeline,
+  Tag,
+} from '@/lib/api/types';
 import { useCalls } from '@/lib/calls/call-provider';
 import { formatMoney } from '@/lib/format';
 import { snoozeOptions, zonedWhen } from '@/lib/inbox';
@@ -80,7 +86,7 @@ function SheetAction({
 
 /**
  * One conversation: the header with assign, snooze and close; the thread; the composer; and the customer
- * beside it (a sheet below 1280px). On a phone it fills the screen with its own top bar and a details sheet.
+ * beside it (a sheet below 1440px, where the three panes get too narrow for the header). On a phone it fills the screen with its own top bar and a details sheet.
  */
 export function ConversationView({
   data,
@@ -115,18 +121,24 @@ export function ConversationView({
   };
   const actions = useConversationActions(workspaceId, c.id, after);
   const calls = useCalls();
-  // Calls go to the conversation's number, known customer or not; customers see the business number.
+  const email = c.channel === 'email';
+  // Calls go to the conversation's number, known customer or not (an email thread uses the customer's
+  // phone); customers see the business number.
+  const callPhone = email ? (person?.phoneE164 ?? null) : c.counterpart;
+  const canCall = calls.available && !!callPhone;
   const callTarget = {
     name,
-    phone: c.counterpart,
+    phone: callPhone ?? '',
     personId: person?.id ?? null,
-    conversationId: c.id,
+    conversationId: email ? undefined : c.id,
   };
   const [addPerson, setAddPerson] = useState(false);
   const [linkPerson, setLinkPerson] = useState(false);
   const [details, setDetails] = useState(false);
   const [assignSheet, setAssignSheet] = useState(false);
   const [contextSheet, setContextSheet] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
+  const [editing, setEditing] = useState<PersonDetail | null>(null);
 
   // Reading the conversation clears its unread count, again whenever a new message comes in while it's open.
   const markedFor = useRef('');
@@ -160,10 +172,11 @@ export function ConversationView({
     minute: '2-digit',
   }).format(tomorrow.until);
 
-  async function copyNumber() {
+  async function copyCounterpart() {
+    const value = email ? c.counterpart : c.counterpartDisplay;
     try {
-      await navigator.clipboard.writeText(c.counterpartDisplay);
-      toast.success(`Copied ${c.counterpartDisplay}`);
+      await navigator.clipboard.writeText(value);
+      toast.success(`Copied ${value}`);
     } catch {
       toast.error('Your browser didn’t allow copying.');
     }
@@ -195,12 +208,30 @@ export function ConversationView({
     }
   }
 
+  // The bounced-email note offers to fix the customer's address without leaving the thread.
+  async function editPerson() {
+    if (!person) return;
+    try {
+      const got = unwrap(
+        await apiBrowser().POST('/v1/queries/person.get', {
+          body: { workspaceId, personId: person.id },
+        }),
+      );
+      setEditing(got.person);
+      setEditOpen(true);
+    } catch (e) {
+      toast.error(errorMessage(e));
+    }
+  }
+
   const target: ComposerTarget = {
     workspaceId,
     conversationId: c.id,
     personId: person?.id ?? null,
     firstName: first,
-    phoneDisplay: c.counterpartDisplay,
+    channel: c.channel,
+    phoneDisplay: email ? (person?.phone ?? '') : c.counterpartDisplay,
+    email: email ? c.counterpart : (person?.email ?? null),
     canText: data.canText,
     quiet: data.quiet,
     fromNumber: data.fromNumber,
@@ -208,13 +239,16 @@ export function ConversationView({
   };
   const composer = (
     <Composer
+      key={c.id}
       target={target}
       variant={phone ? 'phone' : 'desktop'}
       onPending={t.addPending}
       onSettled={t.settlePending}
       onDropPending={t.dropPending}
-      onSent={() => {
-        if (c.status !== 'open') toast.success('Sent. The conversation is open again.');
+      onEditPerson={person ? () => void editPerson() : undefined}
+      onSent={(out) => {
+        if (!out.crossChannel && c.status !== 'open')
+          toast.success('Sent. The conversation is open again.');
         t.refresh();
         after();
       }}
@@ -244,9 +278,11 @@ export function ConversationView({
               {name}
             </div>
             <div className="truncate text-xs text-text-3">
-              {person
-                ? `${person.phone ?? c.counterpartDisplay} · Texts`
-                : 'Texts · not in Customers yet'}
+              {email
+                ? `${c.counterpart} · Email`
+                : person
+                  ? `${person.phone ?? c.counterpartDisplay} · Texts`
+                  : 'Texts · not in Customers yet'}
             </div>
           </div>
           <DropdownMenu>
@@ -341,7 +377,7 @@ export function ConversationView({
           <Button
             variant="ghost"
             size="icon"
-            className="xl:hidden"
+            className="min-[1440px]:hidden"
             title="Customer details"
             aria-label="Customer details"
             onClick={() => setContextSheet(true)}
@@ -355,7 +391,7 @@ export function ConversationView({
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent className="min-w-[220px]">
-              {calls.available ? (
+              {canCall ? (
                 <DropdownMenuItem
                   onSelect={() => calls.openDialer(callTarget)}
                   data-testid="thread-call"
@@ -382,9 +418,9 @@ export function ConversationView({
                 <Mail className="h-3.5 w-3.5" strokeWidth={1.5} />
                 Mark as unread
               </DropdownMenuItem>
-              <DropdownMenuItem onSelect={() => void copyNumber()}>
+              <DropdownMenuItem onSelect={() => void copyCounterpart()} data-testid="thread-copy">
                 <Copy className="h-3.5 w-3.5" strokeWidth={1.5} />
-                Copy phone number
+                {email ? 'Copy email address' : 'Copy phone number'}
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -404,10 +440,14 @@ export function ConversationView({
           <div className="ml-1.5 min-w-0 flex-1">
             <div className="truncate text-[15px] font-semibold">{name}</div>
             <div className="truncate text-xs text-text-3">
-              {person ? `${person.phone ?? c.counterpartDisplay} · Texts` : 'Texts'}
+              {email
+                ? `${c.counterpart} · Email`
+                : person
+                  ? `${person.phone ?? c.counterpartDisplay} · Texts`
+                  : 'Texts'}
             </div>
           </div>
-          {calls.available ? (
+          {canCall ? (
             <button
               type="button"
               aria-label="Call"
@@ -521,6 +561,7 @@ export function ConversationView({
               items={t.items}
               pending={t.pending}
               customerFirstName={first}
+              customerName={person?.fullName ?? null}
               hasEarlier={t.hasEarlier}
               loadingEarlier={t.loadingEarlier}
               onLoadEarlier={() => void t.loadEarlier()}
@@ -533,7 +574,7 @@ export function ConversationView({
 
       <aside
         aria-label="Customer"
-        className="hidden w-[300px] flex-none overflow-y-auto border-l border-border bg-card px-[18px] py-5 xl:block"
+        className="hidden w-[300px] flex-none overflow-y-auto border-l border-border bg-card px-[18px] py-5 min-[1440px]:block"
       >
         {context}
       </aside>
@@ -550,7 +591,7 @@ export function ConversationView({
               <h2 className="truncate text-lg font-semibold tracking-tight">{name}</h2>
               <div className="text-[13px] text-text-3">
                 {person
-                  ? `${person.phone ?? c.counterpartDisplay} · Customer since ${new Date(person.customerSince).getFullYear()}`
+                  ? `${email ? c.counterpart : (person.phone ?? c.counterpartDisplay)} · Customer since ${new Date(person.customerSince).getFullYear()}`
                   : 'Not in Customers yet'}
               </div>
             </div>
@@ -565,7 +606,7 @@ export function ConversationView({
             </div>
           ) : null}
           <div className="mt-3.5 flex flex-col gap-0.5">
-            {calls.available ? (
+            {canCall ? (
               <SheetAction
                 icon={Phone}
                 testId="sheet-call"
@@ -696,6 +737,16 @@ export function ConversationView({
         onOpenChange={setLinkPerson}
         onLinked={after}
       />
+      {editing ? (
+        <PersonDialog
+          workspaceId={workspaceId}
+          tags={tags}
+          open={editOpen}
+          onOpenChange={setEditOpen}
+          initial={editing}
+          onSaved={() => after()}
+        />
+      ) : null}
     </div>
   );
 }

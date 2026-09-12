@@ -183,9 +183,11 @@ export function describeAudit(e: AuditEntry): string {
     case 'message.send':
       return e.entityType === 'conversation'
         ? `started a conversation with ${withWho(e)}`
-        : `sent a text to ${s(e.after?.to)}`;
+        : s(e.after?.subject)
+          ? `sent an email to ${s(e.after?.to)} · ${s(e.after?.subject)}`
+          : `sent a text to ${s(e.after?.to)}`;
     case 'message.retry':
-      return `tried the text to ${s(e.after?.to)} again`;
+      return `tried the ${s(e.after?.to).includes('@') ? 'email' : 'text'} to ${s(e.after?.to)} again`;
     case 'message.receive':
       return receiveSentence(e);
     case 'message.update_status':
@@ -208,6 +210,53 @@ export function describeAudit(e: AuditEntry): string {
       return s(e.after?.status) === 'completed'
         ? `wrote out the voicemail from ${s(e.after?.with)}`
         : `could not write out the voicemail from ${s(e.after?.with)}`;
+    // Email: addresses, the workspace's own domain, connected mailboxes, blocked and unmatched mail
+    case 'email.receive':
+      return emailReceiveSentence(e);
+    case 'email_domain.add':
+      return `added ${s(e.after?.domain)} for sending email`;
+    case 'email_domain.verify':
+      return `asked to check the DNS records for ${s(e.after?.domain)}`;
+    case 'email_domain.remove':
+      return `removed the domain ${s(e.before?.domain)}`;
+    case 'email_domain.record':
+      return s(e.after?.status) === 'verified'
+        ? `recorded that ${s(e.after?.domain)} is verified for sending`
+        : s(e.after?.status) === 'failed'
+          ? `recorded that ${s(e.after?.domain)} did not verify${s(e.after?.error) ? `: ${s(e.after?.error)}` : ''}`
+          : `saved the DNS records for ${s(e.after?.domain)}`;
+    case 'email_address.create':
+      return `added the email address ${s(e.after?.address)}${e.after?.isDefault ? ' as the default' : ''}`;
+    case 'email_address.update':
+      return e.after?.isDefault
+        ? `made ${s(e.after?.address)} the default email address`
+        : s(e.after?.displayName)
+          ? `changed the name on ${s(e.after?.address)} to ${s(e.after?.displayName)}`
+          : `updated the email address ${s(e.after?.address)}`;
+    case 'mailbox.connect':
+      return `started connecting ${s(e.after?.provider) === 'google' ? 'a Gmail' : 'an Outlook'} mailbox`;
+    case 'mailbox.activate':
+      return s(e.after?.status) === 'disconnected'
+        ? `replaced the earlier connection to ${s(e.after?.account)}`
+        : `connected the ${mailboxName(e)} mailbox ${s(e.after?.account)}`;
+    case 'mailbox.disconnect':
+      return `disconnected the ${mailboxName(e)} mailbox ${s(e.after?.account)}`;
+    case 'mailbox.resync':
+      return `asked ${s(e.after?.account)} to sync again`;
+    case 'mailbox.fail':
+      return s(e.after?.status) === 'reauth_required'
+        ? `recorded that ${s(e.after?.account)} needs reconnecting`
+        : `recorded that ${s(e.after?.account)} stopped syncing${s(e.after?.error) ? `: ${s(e.after?.error)}` : ''}`;
+    case 'email.claim_unmatched':
+      return `filed the email from ${s(e.after?.from)} under ${s(e.after?.person)}`;
+    case 'email.dismiss_unmatched':
+      return `dismissed the email from ${s(e.after?.from)}`;
+    case 'email_suppression.record':
+      return `stopped emailing ${s(e.after?.address)} (${s(e.after?.reason) === 'spam_complaint' ? 'marked as spam' : 'the address bounced'})`;
+    case 'email_suppression.add':
+      return `stopped emailing ${s(e.after?.address)}`;
+    case 'email_suppression.release':
+      return `unblocked ${s(e.after?.address)}`;
     case 'person.set_sms_consent':
       return e.after?.smsConsent === 'opted_out'
         ? `marked ${s(e.after?.name)} as not wanting texts`
@@ -270,10 +319,29 @@ function statusSentence(e: AuditEntry): string {
   if (s(e.after?.smsConsent) === 'opted_out')
     return `recorded that ${s(e.after?.number)} no longer takes texts (the carrier said so)`;
   const status = s(e.after?.status);
-  if (status === 'delivered') return 'confirmed a text was delivered';
+  const what = s(e.after?.channel) === 'email' ? 'an email' : 'a text';
+  if (status === 'delivered') return `confirmed ${what} was delivered`;
+  if (status === 'bounced')
+    return `recorded that an email bounced${s(e.after?.errorMessage) ? `: ${s(e.after?.errorMessage)}` : ''}`;
+  if (status === 'complained') return 'recorded that a customer marked an email as spam';
   if (status === 'failed' || status === 'undelivered')
-    return `recorded that a text was not delivered${s(e.after?.errorCode) ? ` (carrier error ${s(e.after?.errorCode)})` : ''}`;
-  return `recorded a text as ${status || 'updated'}`;
+    return s(e.after?.channel) === 'email'
+      ? `recorded that an email was not sent${s(e.after?.errorMessage) ? `: ${s(e.after?.errorMessage)}` : ''}`
+      : `recorded that a text was not delivered${s(e.after?.errorCode) ? ` (carrier error ${s(e.after?.errorCode)})` : ''}`;
+  return `recorded ${what} as ${status || 'updated'}`;
+}
+
+const mailboxName = (e: AuditEntry) => (s(e.after?.provider) === 'google' ? 'Gmail' : 'Outlook');
+
+function emailReceiveSentence(e: AuditEntry): string {
+  if (e.entityType === 'email_unmatched')
+    return `held an email from ${s(e.after?.from)}, who isn’t in Customers yet`;
+  if (e.entityType === 'conversation')
+    return s(e.after?.person)
+      ? `matched ${s(e.after?.with)} to ${s(e.after?.person)}`
+      : `started an email conversation with ${withWho(e)}`;
+  const from = s(e.after?.from);
+  return `received an email${from ? ` from ${from}` : ''}`;
 }
 
 const name = (e: AuditEntry) => s(e.after?.name) || s(e.before?.name) || e.entityName || 'a record';
@@ -301,7 +369,7 @@ export const AUDIT_CATEGORY_LABEL: Record<AuditCategory, string> = {
   invitations: 'Invitations',
   workspace: 'Workspace',
   customers: 'Customers',
-  inbox: 'Inbox & texting',
+  inbox: 'Texts, calls & email',
   leads: 'Leads',
   tasks: 'Tasks',
   files: 'Files',
@@ -315,9 +383,19 @@ export function auditCategory(action: string): AuditCategory {
   if (action.startsWith('workspace.') || action.startsWith('organization.')) return 'workspace';
   if (
     action === 'person.set_sms_consent' ||
-    ['conversation.', 'message.', 'call.', 'phone_number.', 'phone.', 'registration.'].some((p) =>
-      action.startsWith(p),
-    )
+    [
+      'conversation.',
+      'message.',
+      'call.',
+      'phone_number.',
+      'phone.',
+      'registration.',
+      'email.',
+      'email_domain.',
+      'email_address.',
+      'email_suppression.',
+      'mailbox.',
+    ].some((p) => action.startsWith(p))
   )
     return 'inbox';
   if (

@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { expect, type Page } from '@playwright/test';
 
 export const PASSWORD = 'correct-horse-battery-staple';
-const MAILPIT = process.env.MAILPIT_URL ?? 'http://127.0.0.1:54424';
+export const MAILPIT = process.env.MAILPIT_URL ?? 'http://127.0.0.1:54424';
 
 export const uniqueEmail = (label: string): string =>
   `${label}-${randomUUID().slice(0, 8)}@hfos.test`;

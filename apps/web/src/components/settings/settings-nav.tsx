@@ -21,6 +21,7 @@ export function SettingsNav({
           { href: `${base}/pipelines`, label: 'Pipelines' },
           { href: `${base}/imports`, label: 'Imports' },
           { href: `${base}/texting`, label: 'Texting & calls' },
+          { href: `${base}/email`, label: 'Email' },
         ]
       : []),
   ];

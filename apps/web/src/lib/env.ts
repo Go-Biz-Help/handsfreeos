@@ -14,4 +14,6 @@ export const publicEnv = {
   /** The worker's HTTP server: number search now, voice tokens and mailbox sign-in later. */
   workerUrl: (process.env.NEXT_PUBLIC_WORKER_URL ?? 'http://127.0.0.1:4100').replace(/\/+$/, ''),
   passkeysEnabled: process.env.NEXT_PUBLIC_PASSKEYS_ENABLED !== 'false',
+  /** Connect Gmail opens up once Google finishes its security review of HandsFreeOS. */
+  gmailEnabled: process.env.NEXT_PUBLIC_GMAIL_ENABLED === 'true',
 };
