@@ -1,20 +1,24 @@
 'use client';
-import { formatClock } from '@hfos/core';
+import { formatClock, formatPhone, normalizePhone } from '@hfos/core';
 import {
   Check,
   CircleAlert,
   CircleCheck,
   Clock,
   Copy,
+  Globe,
+  Info,
   MessageCircle,
   MoreHorizontal,
   Phone,
+  Plus,
   Search,
   Send,
   Trash2,
+  Volume2,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
+import { useEffect, useId, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { toast } from 'sonner';
 import { Callout } from '@/components/crm/chips';
 import { ChannelIcon, Pill } from '@/components/inbox/bits';
@@ -75,11 +79,14 @@ export function TextingPage({
   businessName,
   status,
   me,
+  team,
 }: {
   workspaceId: string;
   businessName: string;
   status: Status;
   me: { fullName: string; email: string };
+  /** First names of the people whose browsers ring for calls. */
+  team: string[];
 }) {
   useLiveRefresh(['phone_number', 'registration', 'workspace']);
   const router = useRouter();
@@ -105,6 +112,7 @@ export function TextingPage({
           businessName={businessName}
           status={status}
           number={status.number}
+          team={team}
           onViewSent={() => setShowSent(true)}
           contactPhone={String(
             (submission?.['contact'] as { phone?: string } | undefined)?.phone ?? '',
@@ -1094,6 +1102,7 @@ function Configured({
   businessName,
   status,
   number: n,
+  team,
   onViewSent,
   contactPhone,
 }: {
@@ -1101,10 +1110,12 @@ function Configured({
   businessName: string;
   status: Status;
   number: PhoneNumberInfo;
+  team: string[];
   onViewSent: () => void;
   contactPhone: string;
 }) {
   const router = useRouter();
+  const calls = useRouting(workspaceId, n);
   const [release, setRelease] = useState(false);
   const [test, setTest] = useState(false);
   const [quiet, setQuiet] = useState(status.settings.quietHours);
@@ -1263,102 +1274,115 @@ function Configured({
             View what we sent
           </Button>
         </Card>
+
+        <Card className="p-6">
+          <h2 className="text-lg font-semibold tracking-tight">Texting rules</h2>
+          <div className="mt-2">
+            <SetRow
+              first
+              title="Quiet hours"
+              description="Automatic texts wait until morning. People on the team get a “send anyway?” check first."
+              body={
+                <div className="mt-2 flex flex-wrap items-center gap-2">
+                  <Select
+                    selectSize="sm"
+                    className="w-[110px]"
+                    aria-label="Quiet hours start"
+                    disabled={!quiet.enabled}
+                    value={quiet.start}
+                    onChange={(e) =>
+                      setQuietHours({ ...quiet, start: e.target.value }, 'Quiet hours saved')
+                    }
+                  >
+                    {START_TIMES.map((t) => (
+                      <option key={t} value={t}>
+                        {formatClock(t)}
+                      </option>
+                    ))}
+                  </Select>
+                  <span className="text-[13px] text-text-3">to</span>
+                  <Select
+                    selectSize="sm"
+                    className="w-[110px]"
+                    aria-label="Quiet hours end"
+                    disabled={!quiet.enabled}
+                    value={quiet.end}
+                    onChange={(e) =>
+                      setQuietHours({ ...quiet, end: e.target.value }, 'Quiet hours saved')
+                    }
+                  >
+                    {END_TIMES.map((t) => (
+                      <option key={t} value={t}>
+                        {formatClock(t)}
+                      </option>
+                    ))}
+                  </Select>
+                  <span className="text-xs text-text-3">{city} time</span>
+                </div>
+              }
+            >
+              <Switch
+                checked={quiet.enabled}
+                label="Quiet hours"
+                testId="quiet-hours-switch"
+                onChange={(on) =>
+                  setQuietHours(
+                    { ...quiet, enabled: on },
+                    on ? 'Quiet hours on' : 'Quiet hours off',
+                  )
+                }
+              />
+            </SetRow>
+            <SetRow
+              title="Remind the team when a customer waits"
+              description="One email to whoever the conversation is assigned to, or to every owner and admin when nobody is."
+            >
+              <Select
+                selectSize="sm"
+                className="w-[130px]"
+                aria-label="Remind after"
+                value={String(reminder)}
+                onChange={(e) => {
+                  const minutes = Number(e.target.value);
+                  setReminder(minutes);
+                  void save(
+                    { unansweredReminderMinutes: minutes },
+                    minutes === 0
+                      ? 'Reminders off'
+                      : `Reminders after ${label(
+                          REMINDERS.map(([m, l]) => [String(m), l] as const),
+                          String(minutes),
+                        )}`,
+                  );
+                }}
+              >
+                {REMINDERS.map(([m, l]) => (
+                  <option key={m} value={m}>
+                    {l}
+                  </option>
+                ))}
+              </Select>
+            </SetRow>
+            <SetRow
+              center
+              title="STOP, START and HELP"
+              description="Handled automatically. Opted-out customers can’t be texted until they text START."
+            >
+              <Badge variant="gray">Always on</Badge>
+            </SetRow>
+          </div>
+        </Card>
       </div>
 
-      <Card className="p-6">
-        <h2 className="text-lg font-semibold tracking-tight">Texting rules</h2>
-        <div className="mt-2">
-          <SetRow
-            first
-            title="Quiet hours"
-            description="Automatic texts wait until morning. People on the team get a “send anyway?” check first."
-            body={
-              <div className="mt-2 flex flex-wrap items-center gap-2">
-                <Select
-                  selectSize="sm"
-                  className="w-[110px]"
-                  aria-label="Quiet hours start"
-                  disabled={!quiet.enabled}
-                  value={quiet.start}
-                  onChange={(e) =>
-                    setQuietHours({ ...quiet, start: e.target.value }, 'Quiet hours saved')
-                  }
-                >
-                  {START_TIMES.map((t) => (
-                    <option key={t} value={t}>
-                      {formatClock(t)}
-                    </option>
-                  ))}
-                </Select>
-                <span className="text-[13px] text-text-3">to</span>
-                <Select
-                  selectSize="sm"
-                  className="w-[110px]"
-                  aria-label="Quiet hours end"
-                  disabled={!quiet.enabled}
-                  value={quiet.end}
-                  onChange={(e) =>
-                    setQuietHours({ ...quiet, end: e.target.value }, 'Quiet hours saved')
-                  }
-                >
-                  {END_TIMES.map((t) => (
-                    <option key={t} value={t}>
-                      {formatClock(t)}
-                    </option>
-                  ))}
-                </Select>
-                <span className="text-xs text-text-3">{city} time</span>
-              </div>
-            }
-          >
-            <Switch
-              checked={quiet.enabled}
-              label="Quiet hours"
-              testId="quiet-hours-switch"
-              onChange={(on) =>
-                setQuietHours({ ...quiet, enabled: on }, on ? 'Quiet hours on' : 'Quiet hours off')
-              }
-            />
-          </SetRow>
-          <SetRow
-            title="Remind the team when a customer waits"
-            description="One email to whoever the conversation is assigned to, or to every owner and admin when nobody is."
-          >
-            <Select
-              selectSize="sm"
-              className="w-[130px]"
-              aria-label="Remind after"
-              value={String(reminder)}
-              onChange={(e) => {
-                const minutes = Number(e.target.value);
-                setReminder(minutes);
-                void save(
-                  { unansweredReminderMinutes: minutes },
-                  minutes === 0
-                    ? 'Reminders off'
-                    : `Reminders after ${label(
-                        REMINDERS.map(([m, l]) => [String(m), l] as const),
-                        String(minutes),
-                      )}`,
-                );
-              }}
-            >
-              {REMINDERS.map(([m, l]) => (
-                <option key={m} value={m}>
-                  {l}
-                </option>
-              ))}
-            </Select>
-          </SetRow>
-          <SetRow
-            center
-            title="STOP, START and HELP"
-            description="Handled automatically. Opted-out customers can’t be texted until they text START."
-          >
-            <Badge variant="gray">Always on</Badge>
-          </SetRow>
-        </div>
-      </Card>
+      <div className="flex flex-col gap-5">
+        <CallsCard routing={calls.routing} save={calls.save} update={calls.update} team={team} />
+        <VoicemailCard
+          routing={calls.routing}
+          save={calls.save}
+          update={calls.update}
+          businessName={businessName}
+        />
+      </div>
 
       <ReleaseNumberDialog
         workspaceId={workspaceId}
@@ -1377,5 +1401,431 @@ function Configured({
         onOpenChange={setTest}
       />
     </div>
+  );
+}
+
+type Routing = PhoneNumberInfo['routing'];
+type RoutingChange = (routing: Routing) => Routing;
+type RoutingSave = (change: RoutingChange, opts?: { optimistic?: boolean }) => Promise<void>;
+type RoutingUpdate = (change: RoutingChange, success: string) => void;
+type Issue = { path?: string; message?: string };
+
+/** The design's choices, the default first (the core allows 10 to 25). */
+const RING_SECONDS: readonly number[] = [20, 15, 25];
+const MAX_PHONES = 3;
+/** The core schema's limit for the voicemail greeting. */
+const GREETING_MAX = 500;
+
+const defaultGreeting = (businessName: string) =>
+  `You’ve reached ${businessName}. Leave your name, number and what you need, and we’ll call you back today.`;
+
+/** "Dale", "Dale and Priya", "Dale, Priya and Marco". */
+function listNames(names: string[]): string {
+  if (names.length <= 1) return names.join('');
+  return `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
+}
+
+/** The command's field problems when it refused the input, else null. */
+function validationIssues(err: unknown): Issue[] | null {
+  return err instanceof ApiError && err.code === 'validation' && Array.isArray(err.details)
+    ? (err.details as Issue[])
+    : null;
+}
+
+/**
+ * Who rings and for how long, as the page shows it: what the server last accepted plus the flips still on
+ * their way. Saves go one at a time, and each applies its change to what the server last accepted, so quick
+ * flips never overwrite each other. Every save sends the whole routing, as the command expects.
+ */
+function useRouting(workspaceId: string, number: PhoneNumberInfo) {
+  const router = useRouter();
+  const [routing, setRouting] = useState<Routing>(number.routing);
+  const saved = useRef<Routing>(number.routing);
+  const pending = useRef<RoutingChange[]>([]);
+  const queue = useRef<Promise<unknown>>(Promise.resolve());
+  const show = () => setRouting(pending.current.reduce((r, change) => change(r), saved.current));
+
+  /** Resolves once saved and rejects with the command's error. Optimistic changes show before it answers. */
+  const save: RoutingSave = (change, { optimistic = true } = {}) => {
+    if (optimistic) {
+      pending.current = [...pending.current, change];
+      show();
+    }
+    const job = queue.current.then(async () => {
+      const next = change(saved.current);
+      try {
+        unwrap(
+          await apiBrowser().POST('/v1/commands/phone_number.set_routing', {
+            body: { workspaceId, phoneNumberId: number.id, routing: next },
+          }),
+        );
+        saved.current = next;
+        router.refresh();
+      } finally {
+        pending.current = pending.current.filter((c) => c !== change);
+        show();
+      }
+    });
+    queue.current = job.catch(() => undefined);
+    return job;
+  };
+
+  /** Saves at once, then a short confirmation (or the error). */
+  const update: RoutingUpdate = (change, success) => {
+    void save(change).then(
+      () => {
+        toast.success(success);
+      },
+      (e: unknown) => {
+        toast.error(errorMessage(e));
+      },
+    );
+  };
+
+  return { routing, save, update };
+}
+
+function CallsCard({
+  routing,
+  save,
+  update,
+  team,
+}: {
+  routing: Routing;
+  save: RoutingSave;
+  update: RoutingUpdate;
+  team: string[];
+}) {
+  const uid = useId();
+  const addPhoneId = `${uid}-add-phone`;
+  const errorId = `${uid}-add-error`;
+  const [adding, setAdding] = useState(false);
+  const [label, setLabel] = useState('');
+  const [phone, setPhone] = useState('');
+  const [errors, setErrors] = useState<{ label?: string; phone?: string; form?: string }>({});
+  const [busy, setBusy] = useState(false);
+  const refocus = useRef(false);
+  const phones = routing.forwarding;
+  const ringOptions = RING_SECONDS.includes(routing.ringSeconds)
+    ? RING_SECONDS
+    : [...RING_SECONDS, routing.ringSeconds];
+
+  // Once the add form closes, the keyboard goes back to "Add a phone" instead of the top of the page.
+  useEffect(() => {
+    if (adding || !refocus.current) return;
+    refocus.current = false;
+    document.getElementById(addPhoneId)?.focus();
+  }, [adding, addPhoneId]);
+
+  function close() {
+    refocus.current = true;
+    setAdding(false);
+    setLabel('');
+    setPhone('');
+    setErrors({});
+  }
+
+  async function add(e: FormEvent) {
+    e.preventDefault();
+    const name = label.trim();
+    const typed = phone.trim();
+    if (!name || !typed) {
+      setErrors({
+        label: name ? undefined : 'Name this phone.',
+        phone: typed ? undefined : 'Enter a phone number.',
+      });
+      return;
+    }
+    setErrors({});
+    setBusy(true);
+    // The core schema normalizes the same way; a number it can't read goes as typed so it says why.
+    const e164 = normalizePhone(typed) ?? typed;
+    let index = -1;
+    try {
+      await save(
+        (r) => {
+          index = r.forwarding.length;
+          return { ...r, forwarding: [...r.forwarding, { e164, label: name, enabled: true }] };
+        },
+        { optimistic: false },
+      );
+      toast.success(`${name} rings on the next call`);
+      close();
+    } catch (err) {
+      const issues = validationIssues(err);
+      if (!issues) {
+        toast.error(errorMessage(err));
+        return;
+      }
+      const next: typeof errors = {};
+      for (const issue of issues) {
+        const key =
+          issue.path === `routing.forwarding.${index}.e164`
+            ? 'phone'
+            : issue.path === `routing.forwarding.${index}.label`
+              ? 'label'
+              : 'form';
+        next[key] ??= issue.message ?? 'Check this.';
+      }
+      setErrors(next);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Card className="p-6">
+      <h2 className="text-lg font-semibold tracking-tight">When a customer calls</h2>
+      <p className="mt-1 text-[13px] text-text-2">
+        Everything below rings at the same time. The first to answer takes the call.
+      </p>
+      <div className="mt-3.5 flex items-center gap-3 pb-3 pt-1">
+        <ChannelIcon icon={Globe} />
+        <div className="min-w-0 flex-1">
+          <div className="text-[13px] font-medium">Team browsers</div>
+          <div className="text-xs text-text-3">
+            {team.length > 0
+              ? `Anyone with HandsFreeOS open: ${listNames(team)}`
+              : 'Anyone with HandsFreeOS open'}
+          </div>
+        </div>
+        <Badge variant="gray">Always</Badge>
+      </div>
+      {phones.map((p) => {
+        const nameId = `${uid}-phone-${p.e164}`;
+        return (
+          <div
+            key={p.e164}
+            role="group"
+            aria-labelledby={nameId}
+            className="flex items-center gap-3 border-t border-border py-3"
+          >
+            <ChannelIcon icon={Phone} />
+            <div className="min-w-0 flex-1">
+              <div id={nameId} className="truncate text-[13px] font-medium">
+                {p.label}
+              </div>
+              <div className="font-mono text-xs text-text-3">{formatPhone(p.e164)}</div>
+            </div>
+            <Button
+              variant="ghost"
+              size="icon"
+              title="Remove"
+              aria-label={`Remove ${p.label}`}
+              onClick={() =>
+                update(
+                  (r) => ({ ...r, forwarding: r.forwarding.filter((f) => f.e164 !== p.e164) }),
+                  `${p.label} removed`,
+                )
+              }
+            >
+              <Trash2 className="h-3.5 w-3.5" strokeWidth={1.5} />
+            </Button>
+            <Switch
+              checked={p.enabled}
+              label="Ring this phone"
+              onChange={(on) =>
+                update(
+                  (r) => ({
+                    ...r,
+                    forwarding: r.forwarding.map((f) =>
+                      f.e164 === p.e164 ? { ...f, enabled: on } : f,
+                    ),
+                  }),
+                  on ? `${p.label} rings now` : `${p.label} won’t ring`,
+                )
+              }
+            />
+          </div>
+        );
+      })}
+      {adding ? (
+        <form
+          noValidate
+          onSubmit={(e) => void add(e)}
+          onKeyDown={(e) => {
+            if (e.key === 'Escape') close();
+          }}
+          className="border-t border-border py-3"
+        >
+          <div className="flex flex-wrap items-center gap-2">
+            <Input
+              inputSize="sm"
+              autoFocus
+              aria-label="Phone name"
+              placeholder="Name, like Priya’s cell"
+              maxLength={40}
+              className="min-w-[140px] flex-1"
+              value={label}
+              onChange={(e) => setLabel(e.target.value)}
+              invalid={!!errors.label}
+              aria-describedby={errors.label ? errorId : undefined}
+            />
+            <Input
+              inputSize="sm"
+              aria-label="Phone number"
+              placeholder="(713) 555-0123"
+              inputMode="tel"
+              maxLength={40}
+              className="w-[150px] flex-none font-mono text-[13px]"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              invalid={!!errors.phone}
+              aria-describedby={errors.phone ? errorId : undefined}
+            />
+            <div className="flex gap-2">
+              <Button type="submit" size="sm" loading={busy}>
+                Add
+              </Button>
+              <Button variant="ghost" size="sm" onClick={close}>
+                Cancel
+              </Button>
+            </div>
+          </div>
+          <FieldError id={errorId}>{errors.label ?? errors.phone ?? errors.form}</FieldError>
+        </form>
+      ) : null}
+      <div className="mt-2.5 flex items-center justify-between gap-3">
+        <Button
+          id={addPhoneId}
+          variant="ghost"
+          size="sm"
+          className="-ml-2.5"
+          disabled={phones.length >= MAX_PHONES || adding}
+          onClick={() => setAdding(true)}
+        >
+          <Plus className="h-3.5 w-3.5" strokeWidth={1.5} />
+          Add a phone
+        </Button>
+        <span className="text-xs text-text-3">{`${phones.length} of ${MAX_PHONES} phones`}</span>
+      </div>
+      <SetRow center title="Ring for" className="mt-2">
+        <Select
+          selectSize="sm"
+          className="w-[130px]"
+          aria-label="Ring for"
+          value={String(routing.ringSeconds)}
+          onChange={(e) => {
+            const seconds = Number(e.target.value);
+            update((r) => ({ ...r, ringSeconds: seconds }), `Rings for ${seconds} seconds`);
+          }}
+        >
+          {ringOptions.map((s) => (
+            <option key={s} value={s}>
+              {`${s} seconds`}
+            </option>
+          ))}
+        </Select>
+      </SetRow>
+      <Callout tone="info" icon={Info} className="mt-1.5">
+        <span className="text-[13px]">
+          Forwarded phones hear “Press 1 to take this call,” so a cell’s own voicemail can never
+          grab the call first.
+        </span>
+      </Callout>
+    </Card>
+  );
+}
+
+function VoicemailCard({
+  routing,
+  save,
+  update,
+  businessName,
+}: {
+  routing: Routing;
+  save: RoutingSave;
+  update: RoutingUpdate;
+  businessName: string;
+}) {
+  const [greeting, setGreeting] = useState(
+    () => routing.voicemailGreeting || defaultGreeting(businessName),
+  );
+  const [error, setError] = useState<string>();
+  const [saving, setSaving] = useState(false);
+
+  // A greeting still reading aloud stops when the page goes.
+  useEffect(
+    () => () => {
+      if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+    },
+    [],
+  );
+
+  function play() {
+    if (!('speechSynthesis' in window) || typeof SpeechSynthesisUtterance === 'undefined') {
+      toast.error('Your browser can’t play the greeting');
+      return;
+    }
+    const speech = new SpeechSynthesisUtterance(greeting.trim() || defaultGreeting(businessName));
+    speech.lang = 'en-US';
+    window.speechSynthesis.cancel();
+    window.speechSynthesis.speak(speech);
+  }
+
+  async function saveGreeting() {
+    setSaving(true);
+    setError(undefined);
+    const text = greeting.trim();
+    try {
+      await save((r) => ({ ...r, voicemailGreeting: text || null }), { optimistic: false });
+      toast.success('Greeting saved');
+    } catch (err) {
+      const issue = validationIssues(err)?.find((i) => i.path === 'routing.voicemailGreeting');
+      if (issue?.message) setError(issue.message);
+      else toast.error(errorMessage(err));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <Card className="p-6">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h2 className="text-lg font-semibold tracking-tight">Voicemail</h2>
+          <p className="mt-1 text-[13px] text-text-2">
+            When nobody answers, callers can leave a message.
+          </p>
+        </div>
+        <Switch
+          checked={routing.voicemailEnabled}
+          label="Voicemail"
+          onChange={(on) =>
+            update((r) => ({ ...r, voicemailEnabled: on }), on ? 'Voicemail on' : 'Voicemail off')
+          }
+        />
+      </div>
+      {routing.voicemailEnabled ? (
+        <>
+          <Field
+            label="Greeting"
+            htmlFor="voicemail-greeting"
+            className="mb-3.5 mt-4"
+            error={error}
+            hint="Read aloud by a natural-sounding voice. Messages and their transcripts land in the inbox."
+          >
+            <Textarea
+              id="voicemail-greeting"
+              className="min-h-[76px]"
+              maxLength={GREETING_MAX}
+              value={greeting}
+              onChange={(e) => setGreeting(e.target.value)}
+              invalid={!!error}
+              aria-describedby={error ? 'voicemail-greeting-error' : undefined}
+            />
+          </Field>
+          <div className="flex flex-wrap gap-2">
+            <Button variant="secondary" size="sm" onClick={play}>
+              <Volume2 className="h-3.5 w-3.5" strokeWidth={1.5} />
+              Play greeting
+            </Button>
+            <Button size="sm" loading={saving} onClick={() => void saveGreeting()}>
+              Save
+            </Button>
+          </div>
+        </>
+      ) : null}
+    </Card>
   );
 }

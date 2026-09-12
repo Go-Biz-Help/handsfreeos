@@ -2,7 +2,7 @@ import type { InputHTMLAttributes, SelectHTMLAttributes } from 'react';
 import { cn } from '@/lib/utils';
 
 const base =
-  'w-full rounded-control border border-border-strong bg-card px-3 text-[15px] text-text placeholder:text-placeholder transition-[border-color,box-shadow] focus:border-accent focus:outline-none focus:ring-[3px] focus:ring-ring disabled:bg-card-2 disabled:text-text-2 read-only:bg-card-2 read-only:text-text-2';
+  'w-full rounded-control border border-border-strong bg-card px-3 text-[15px] text-text placeholder:text-placeholder transition-[border-color,box-shadow] focus:border-accent focus:outline-none focus:ring-[3px] focus:ring-ring disabled:bg-card-2 disabled:text-text-2 [&[readonly]]:bg-card-2 [&[readonly]]:text-text-2';
 
 export interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
   invalid?: boolean;

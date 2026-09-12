@@ -1,3 +1,4 @@
+import { hasWorkspacePermission } from '@hfos/core';
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { SettingsNav } from '@/components/settings/settings-nav';
@@ -15,13 +16,18 @@ export default async function TextingSettingsPage({
 }) {
   const { workspaceId } = await params;
   const { api } = await apiServer();
-  const [got, status, me] = await Promise.all([
+  const [got, status, me, members] = await Promise.all([
     unwrapPage(await api.POST('/v1/queries/workspace.get', { body: { workspaceId } })),
     unwrapPage(await api.POST('/v1/queries/phone.setup_status', { body: { workspaceId } })),
     fetchMe(api),
+    unwrapPage(await api.POST('/v1/queries/workspace.members', { body: { workspaceId } })),
   ]);
   const canManage = got.workspace.role === 'owner' || got.workspace.role === 'admin';
   if (!canManage) notFound();
+  // "Team browsers": everyone who can use the inbox, by first name.
+  const team = members.members
+    .filter((m) => hasWorkspacePermission(m.role, 'inbox.use'))
+    .map((m) => (m.fullName.trim() || m.email).split(/\s+/)[0] ?? m.email);
   return (
     <>
       <PageHeader title="Settings" description="Your account, and how this workspace is set up." />
@@ -31,6 +37,7 @@ export default async function TextingSettingsPage({
         businessName={got.workspace.name}
         status={status}
         me={{ fullName: me.user.fullName, email: me.user.email }}
+        team={team}
       />
     </>
   );
