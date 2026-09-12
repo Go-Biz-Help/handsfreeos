@@ -1,0 +1,40 @@
+# HandsFreeOS API on Fly.io. Deployed from the repository root by .github/workflows/deploy.yml:
+#   flyctl deploy . --config apps/api/fly.toml --dockerfile apps/api/Dockerfile --remote-only
+#
+# Secrets (set once, never in this file):
+#   fly secrets set --app handsfreeos-api DATABASE_URL='<connection string for the hfos_api role>'
+# The API refuses to boot if it is handed a Supabase secret key or any provider credential.
+
+app = "handsfreeos-api"
+primary_region = "dfw"
+kill_signal = "SIGTERM"
+kill_timeout = "15s"
+
+[env]
+  NODE_ENV = "production"
+  HOST = "0.0.0.0"
+  PORT = "4000"
+  # Fly's proxy sets X-Forwarded-For; trust it for client addresses in logs and limits.
+  TRUST_PROXY = "true"
+  WEB_ORIGINS = "https://app.handsfreeos.com"
+  SUPABASE_URL = "https://ybupfghakoszfcxhyrby.supabase.co"
+  LOG_LEVEL = "info"
+
+[http_service]
+  internal_port = 4000
+  force_https = true
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  # One machine stays warm so the first request of the morning doesn't wait for a cold start.
+  min_machines_running = 1
+
+  [[http_service.checks]]
+    grace_period = "10s"
+    interval = "30s"
+    method = "GET"
+    path = "/healthz"
+    timeout = "5s"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "512mb"

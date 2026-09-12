@@ -1,0 +1,51 @@
+name: Deploy
+
+# After CI passes on main, ship the API and the worker to Fly.io. Until the FLY_API_TOKEN repository secret
+# exists this workflow only notes that it skipped, so main stays green before the Fly organization is set up.
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: API and worker to Fly.io
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+    steps:
+      - name: Is Fly.io set up?
+        id: check
+        run: |
+          if [ -z "$FLY_API_TOKEN" ]; then
+            echo "::notice::FLY_API_TOKEN is not set, so nothing was deployed."
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/checkout@v4
+        if: steps.check.outputs.ready == 'true'
+        with:
+          # The commit CI just verified, not whatever main points at now.
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+
+      - uses: superfly/flyctl-actions/setup-flyctl@1.5
+        if: steps.check.outputs.ready == 'true'
+
+      # Both images build from the repository root (they copy the shared packages); Fly's builders do the work.
+      - name: Deploy the worker (webhooks first, so providers never hit a half-deployed pair)
+        if: steps.check.outputs.ready == 'true'
+        run: flyctl deploy . --config apps/worker/fly.toml --dockerfile apps/worker/Dockerfile --remote-only --wait-timeout 300
+
+      - name: Deploy the API
+        if: steps.check.outputs.ready == 'true'
+        run: flyctl deploy . --config apps/api/fly.toml --dockerfile apps/api/Dockerfile --remote-only --wait-timeout 300

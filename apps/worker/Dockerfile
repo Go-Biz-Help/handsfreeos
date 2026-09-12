@@ -34,4 +34,5 @@ COPY --from=build /out/node_modules ./node_modules
 COPY --from=build /out/dist ./dist
 USER node
 EXPOSE 4100
+HEALTHCHECK --interval=30s --timeout=3s --start-period=10s CMD wget -qO- http://127.0.0.1:4100/healthz || exit 1
 CMD ["node", "dist/main.js"]

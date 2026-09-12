@@ -1,0 +1,51 @@
+# HandsFreeOS worker on Fly.io: the outbox, webhook and job loops plus the HTTP server providers call.
+# Deployed from the repository root by .github/workflows/deploy.yml:
+#   flyctl deploy . --config apps/worker/fly.toml --dockerfile apps/worker/Dockerfile --remote-only
+#
+# Secrets (set once, never in this file):
+#   fly secrets set --app handsfreeos-worker \
+#     DATABASE_URL_WORKER='<connection string for the hfos_worker role>' \
+#     SUPABASE_SECRET_KEY='…' SMTP_URL='smtps://…' \
+#     WORKER_ENCRYPTION_KEY="$(openssl rand -base64 32)" \
+#     TWILIO_ACCOUNT_SID='…' TWILIO_AUTH_TOKEN='…'
+#   Later: TWILIO_PRIMARY_PROFILE_SID (local-number registration), POSTMARK_* and OAuth client secrets.
+# Keep WORKER_ENCRYPTION_KEY somewhere safe: without it the sealed subaccount tokens can't be opened.
+
+app = "handsfreeos-worker"
+primary_region = "dfw"
+kill_signal = "SIGTERM"
+# The worker closes its listener, then finishes the pass it is in.
+kill_timeout = "30s"
+
+[env]
+  NODE_ENV = "production"
+  WORKER_HTTP_PORT = "4100"
+  WORKER_HTTP_HOST = "0.0.0.0"
+  # The https address Twilio (and later Postmark and the mailbox providers) call; signatures are checked
+  # against it, never against the Host header.
+  WORKER_PUBLIC_URL = "https://hooks.handsfreeos.com"
+  WEB_URL = "https://app.handsfreeos.com"
+  WEB_ORIGINS = "https://app.handsfreeos.com"
+  SUPABASE_URL = "https://ybupfghakoszfcxhyrby.supabase.co"
+  MAIL_FROM = "HandsFreeOS <alerts@handsfreeos.com>"
+  TELEPHONY_PROVIDER = "twilio"
+  LOG_LEVEL = "info"
+
+[http_service]
+  internal_port = 4100
+  force_https = true
+  # Webhooks must never reach a sleeping machine, and the loops must keep running between requests.
+  auto_stop_machines = "off"
+  auto_start_machines = true
+  min_machines_running = 1
+
+  [[http_service.checks]]
+    grace_period = "15s"
+    interval = "30s"
+    method = "GET"
+    path = "/healthz"
+    timeout = "5s"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "512mb"

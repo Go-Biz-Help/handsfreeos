@@ -2,21 +2,22 @@
 
 # HandsFreeOS
 
-The operating system for running the customer side of a small business with as little manual work as possible. Milestone 1 is the foundation: multi-tenant accounts (organization → workspace → user), sign-in with password, Google and passkeys, invitations with fixed roles, and the command → event → audit pipeline every later feature rides on.
+The operating system for running the customer side of a small business with as little manual work as possible. Milestone 1 is the foundation: multi-tenant accounts (organization → workspace → user), sign-in with password, Google and passkeys, invitations with fixed roles, and the command → event → audit pipeline every later feature rides on. Milestone 2 adds the CRM (customers, pipelines, leads, tasks, timeline, files, live updates, CSV import). Milestone 3 turns it into the place a business talks to its customers: a business number, carrier registration, texting and a shared inbox, with calls and email to follow.
 
 ## What is in the repo
 
-| Path                  | What it is                                                                                                                                        |
-| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `apps/web`            | Next.js app (the product UI). Talks to Supabase Auth and the API only, never to the database.                                                     |
-| `apps/api`            | Fastify API. Every write is a command: validate → permission → handler → event + outbox + audit rows in one transaction. OpenAPI at `/docs`.      |
-| `apps/worker`         | Background worker. Drains the outbox: invitation emails, CSV imports (as the system actor, in batches), stored-file removal. Also hosts the seed. |
-| `packages/core`       | Browser-safe domain: permissions, command kernel, commands, queries, zod schemas, typed errors.                                                   |
-| `packages/db`         | Drizzle schema mirror, the role-scoped database clients (`asUser`, `asWorker`) and shared test helpers.                                           |
-| `packages/api-client` | Generated, typed client for the API (`openapi-typescript` + `openapi-fetch`).                                                                     |
-| `packages/ai`         | Swappable AI provider seam. Interface only until Milestone 4.                                                                                     |
-| `supabase/`           | Local stack config, SQL migrations (roles, tables, RLS, functions, triggers) and email templates.                                                 |
-| `design/m1`           | Clickable prototype sources for the Milestone 1 screens.                                                                                          |
+| Path                  | What it is                                                                                                                                                                                                                                                     |
+| --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `apps/web`            | Next.js app (the product UI). Talks to Supabase Auth and the API only, never to the database.                                                                                                                                                                  |
+| `apps/api`            | Fastify API. Every write is a command: validate → permission → handler → event + outbox + audit rows in one transaction. OpenAPI at `/docs`.                                                                                                                   |
+| `apps/worker`         | Background worker. Drains the outbox (invitation emails, CSV imports, file removal, buying numbers, sending texts), processes provider webhooks and scheduled jobs, and serves a small HTTP server for Twilio webhooks and number search. Also hosts the seed. |
+| `packages/core`       | Browser-safe domain: permissions, command kernel, commands, queries, zod schemas, typed errors.                                                                                                                                                                |
+| `packages/db`         | Drizzle schema mirror, the role-scoped database clients (`asUser`, `asWorker`) and shared test helpers.                                                                                                                                                        |
+| `packages/api-client` | Generated, typed client for the API (`openapi-typescript` + `openapi-fetch`).                                                                                                                                                                                  |
+| `packages/ai`         | Swappable AI provider seam. Interface only until Milestone 4.                                                                                                                                                                                                  |
+| `supabase/`           | Local stack config, SQL migrations (roles, tables, RLS, functions, triggers) and email templates.                                                                                                                                                              |
+| `design/m1`–`m3`      | Design canvas sources for each milestone's screens.                                                                                                                                                                                                            |
+| `docs/operations.md`  | Hosting, the phone carrier and the keys: the steps that live outside the code.                                                                                                                                                                                 |
 
 ## Run it locally
 
@@ -49,7 +50,7 @@ pnpm db:seed          # demo data: the Go Biz Help agency, three client workspac
 ```
 
 ```bash
-pnpm dev              # web http://localhost:3000, API http://127.0.0.1:4000, worker
+pnpm dev              # web http://localhost:3000, API http://127.0.0.1:4000, worker http://127.0.0.1:4100
 ```
 
 Sign in at http://localhost:3000/sign-in with any seeded account. The password for all of them is `HandsFree-Demo-2026`.
@@ -72,6 +73,8 @@ Good to know:
 - New accounts confirm their email first. Locally the confirmation link lands in Mailpit.
 - `pnpm db:reset` wipes the database, re-applies every migration and seeds again.
 - Milestone 2 uses Realtime and Storage. A local stack started before those migrations existed must be restarted once (`pnpm supabase:stop && pnpm supabase:start`) so the Realtime service creates its tables; the migration that adds the live-updates policy warns instead of failing when they are missing.
+- Texting runs against a fake phone carrier locally: buying a number, carrier approval, sending, delivery receipts and inbound texts all happen in memory inside the worker, so nothing costs money. The reminder email for an unanswered customer waits the workspace's 10 minutes; set `UNANSWERED_ALERT_MS=8000` in `apps/worker/.env` to see it sooner.
+- The browser tests start their own worker on port 4100 with an 8-second reminder; stop `pnpm dev` first so the tests get it.
 - Docker via Colima: the `pnpm supabase:*` scripts point the CLI at Colima's socket for you. If you call `supabase` directly, export `DOCKER_HOST="unix://$HOME/.colima/default/docker.sock"` first.
 - The local stack uses ports 54421–54429 (API 54421, Postgres 54422, Studio 54423, Mailpit 54424, SMTP 54425) so it does not collide with other projects' stacks on the default 543xx ports.
 
@@ -115,6 +118,7 @@ Run `pnpm --filter @hfos/web exec playwright install chromium` once before the b
 - **Auth is Supabase Auth.** Email + password with confirmations on, Google, and passkeys added from Account settings after sign-up. The API verifies ES256 tokens against the project's JWKS and refuses to start if a secret key is in its environment.
 - **Live screens ride the event stream.** A database trigger broadcasts every `app.events` row (ids only, never data) to the private Realtime topic `workspace:<id>`; RLS on `realtime.messages` admits members of that workspace. The browser drops its own echoes by correlation id and refetches through the API, so nothing in the browser reads tables.
 - **Files stay behind reserved paths.** `file.begin_upload` reserves a server-made object path in the private `attachments` bucket; the browser uploads there with its own session (Storage RLS admits only that path), `file.confirm` marks it ready, and only the worker ever deletes an object. The CSV import works the same way through the `imports` bucket.
+- **Providers talk to the worker, never the API.** Twilio's webhooks land on the worker's HTTP server, are checked against the signing account's token and the public URL, stored once per provider id, answered at once, and processed by the worker's loops as system commands. Each client workspace has its own Twilio subaccount, whose token is sealed with the worker's key before it reaches the database; the API refuses to start with any provider key in its environment.
 - **The worker is an actor too.** Imports run `person.create` and friends as the `system` actor inside the job's workspace: the same validation, duplicate rules, timeline entries and audit rows as manual entry, committed in batches with a heartbeat so progress is live and a crashed run resumes.
 
 ## Deploying
@@ -125,7 +129,7 @@ Run `pnpm --filter @hfos/web exec playwright install chromium` once before the b
 docker build -f apps/api/Dockerfile -t hfos-api .
 ```
 
-Each image needs only its runtime environment (documented at the top of `apps/api/src/env.ts` and `apps/worker/src/env.ts`). CI in `.github/workflows/ci.yml` runs lint, typecheck, every test suite and the browser tests against a local Supabase stack, checks that the generated API client is fresh, builds the web app and checks it ships no secret key, and scans the history for leaked secrets.
+Each image needs only its runtime environment (documented at the top of `apps/api/src/env.ts` and `apps/worker/src/env.ts`). Both run on Fly.io (`apps/api/fly.toml`, `apps/worker/fly.toml`); `.github/workflows/deploy.yml` deploys them after CI passes on `main` once the `FLY_API_TOKEN` secret exists. The one-time setup is in `docs/operations.md`. CI in `.github/workflows/ci.yml` runs lint, typecheck, every test suite and the browser tests against a local Supabase stack, checks that the generated API client is fresh, builds the web app and checks it ships no secret key, and scans the history for leaked secrets.
 
 ## Hosted project
 
