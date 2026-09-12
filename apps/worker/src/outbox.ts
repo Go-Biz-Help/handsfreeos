@@ -1,26 +1,28 @@
 import { eq } from 'drizzle-orm';
-import { asWorker, rows, sql, type Db } from '@hfos/db/client';
+import { asWorker, rows, sql } from '@hfos/db/client';
 import { events, outbox } from '@hfos/db/schema';
-import type { Logger } from 'pino';
 import type { HandlerMap } from './handlers/types';
-import type { Mailer } from './mailer';
-import type { ObjectStore } from './storage';
+import type { WorkerServices } from './services';
 
-export interface OutboxDeps {
-  readonly db: Db;
-  readonly mailer: Mailer;
-  readonly store: ObjectStore;
-  readonly log: Logger;
+export interface OutboxDeps extends WorkerServices {
   readonly handlers: HandlerMap;
-  readonly webUrl: string;
   readonly workerId: string;
   readonly batchSize: number;
+  /** Only claim rows this worker id already reserved (tests and the seed, which share a database with other pollers). */
+  readonly reservedOnly?: boolean;
 }
 
 export const MAX_ATTEMPTS = 5;
 /** 5s, 10s, 20s, 40s ... capped at 10 minutes. */
 export function backoffMs(attempts: number): number {
   return Math.min(5_000 * 2 ** Math.max(0, attempts - 1), 10 * 60_000);
+}
+
+/** One line for logs and last_error columns, including the driver's cause. */
+export function errorMessage(e: unknown): string {
+  return e instanceof Error
+    ? `${e.message}${e.cause instanceof Error ? ` (${e.cause.message})` : ''}`
+    : String(e);
 }
 
 type Claimed = {
@@ -49,6 +51,7 @@ export async function processOnce(deps: OutboxDeps): Promise<OutboxStats> {
             select event_id from app.outbox
             where status = 'pending' and next_attempt_at <= now()
               and (locked_at is null or locked_at < now() - interval '5 minutes' or locked_by = ${deps.workerId})
+              ${deps.reservedOnly ? sql`and locked_by = ${deps.workerId}` : sql``}
             order by created_at
             limit ${deps.batchSize}
             for update skip locked)
@@ -75,15 +78,12 @@ export async function processOnce(deps: OutboxDeps): Promise<OutboxStats> {
         const [event] = await tx.select().from(events).where(eq(events.id, row.event_id));
         if (!event) throw new Error(`event ${row.event_id} not visible in its own scope`);
         await handler({
+          ...deps,
           tx,
           event,
-          db: deps.db,
           scope,
           attempt: row.attempts + 1,
           maxAttempts: MAX_ATTEMPTS,
-          mailer: deps.mailer,
-          store: deps.store,
-          webUrl: deps.webUrl,
           log: deps.log.child({ eventId: event.id, eventType: event.eventType }),
         });
         await tx
@@ -95,10 +95,7 @@ export async function processOnce(deps: OutboxDeps): Promise<OutboxStats> {
     } catch (e) {
       const attempts = row.attempts + 1;
       const failed = attempts >= MAX_ATTEMPTS;
-      const message =
-        e instanceof Error
-          ? `${e.message}${e.cause instanceof Error ? ` (${e.cause.message})` : ''}`
-          : String(e);
+      const message = errorMessage(e);
       deps.log.warn(
         { eventId: row.event_id, eventType: row.event_type, attempts, failed, err: message },
         'outbox handler failed',

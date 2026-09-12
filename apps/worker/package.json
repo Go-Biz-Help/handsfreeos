@@ -12,12 +12,16 @@
     "seed": "tsx scripts/seed.ts"
   },
   "dependencies": {
+    "@fastify/cors": "^11.0.0",
+    "@fastify/formbody": "^8.0.0",
     "@hfos/db": "workspace:*",
     "@supabase/supabase-js": "^2.116.0",
     "drizzle-orm": "^0.45.0",
+    "fastify": "^5.12.0",
     "nodemailer": "^10.0.0",
     "papaparse": "^5.7.0",
-    "pino": "^10.0.0"
+    "pino": "^10.0.0",
+    "zod": "^4.6.0"
   },
   "devDependencies": {
     "@hfos/core": "workspace:*",

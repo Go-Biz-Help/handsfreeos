@@ -16,18 +16,15 @@ import { auditLogs, events, files, invitations, outbox } from '@hfos/db/schema';
 import { rows, sql } from '@hfos/db/client';
 import { closeTestDbs, createTestUser, testDbs, testEnv, type TestUser } from '@hfos/db/testing';
 import { createClient } from '@supabase/supabase-js';
-import pino from 'pino';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { handlers } from '../src/handlers/index';
-import { createSmtpMailer } from '../src/mailer';
 import { backoffMs, MAX_ATTEMPTS, processOnce, type OutboxDeps } from '../src/outbox';
 import { readEnv } from '../src/env';
 import { assertInWorkspace } from '../src/handlers/file-removed';
-import { createSupabaseStore } from '../src/storage';
+import { testServices } from './helpers';
 
 const env = testEnv();
 const WORKER_ID = `vitest-worker-${process.pid}`;
-const smtpUrl = process.env.SMTP_URL ?? 'smtp://127.0.0.1:54425';
 const actor = (u: TestUser): HumanActor => ({
   type: 'human',
   userId: u.id,
@@ -50,6 +47,16 @@ async function reserveForTests(eventIds: readonly string[]): Promise<void> {
       testDbs().admin.db,
       sql`update app.outbox set locked_at = now(), locked_by = ${WORKER_ID} where event_id = ${id}`,
     );
+}
+
+/** Reserves every pending outbox row of this suite's workspace, then runs one pass over reserved rows. */
+async function processReserved(d: OutboxDeps = deps) {
+  await rows(
+    testDbs().admin.db,
+    sql`update app.outbox set locked_at = now(), locked_by = ${WORKER_ID}
+        where status = 'pending' and workspace_id = ${workspaceId}`,
+  );
+  return processOnce(d);
 }
 
 interface MailpitMessage {
@@ -80,15 +87,12 @@ beforeAll(async () => {
   );
   workspaceId = output.workspaceId;
   deps = {
-    db: testDbs().worker.db,
-    mailer: createSmtpMailer(smtpUrl, 'HandsFreeOS <hello@handsfreeos.local>'),
-    store: createSupabaseStore(env.supabaseUrl, env.secretKey),
-    log: pino({ level: 'silent' }),
+    ...testServices(),
     handlers,
-    webUrl: 'http://localhost:3000',
     workerId: WORKER_ID,
-    // Wide batches: the other suites run at the same time and leave pending rows ahead of ours.
     batchSize: 200,
+    // Only rows this suite reserved: other suites share the database and leave their own work pending.
+    reservedOnly: true,
   };
 });
 afterAll(closeTestDbs);
@@ -122,7 +126,7 @@ describe('invitation emails', () => {
     );
     invitationId = output.invitationId;
     await reserveForTests(eventIds);
-    const first = await processOnce(deps);
+    const first = await processReserved(deps);
     expect(first.claimed).toBeGreaterThan(0);
     const [mine] = await testDbs()
       .admin.db.select()
@@ -147,7 +151,7 @@ describe('invitation emails', () => {
     expect(createHash('sha256').update(token!).digest().equals(firstHash)).toBe(true);
     expect(body).not.toContain(invitee.toUpperCase());
 
-    await processOnce(deps);
+    await processReserved(deps);
     expect(await mailpitSearch(invitee)).toHaveLength(1);
   });
 
@@ -160,7 +164,7 @@ describe('invitation emails', () => {
       meta(),
     );
     await reserveForTests(resent.eventIds);
-    await processOnce(deps);
+    await processReserved(deps);
     const [inv] = await testDbs()
       .admin.db.select()
       .from(invitations)
@@ -235,7 +239,7 @@ describe('failure handling', () => {
       },
     };
 
-    await processOnce(exploding);
+    await processReserved(exploding);
     let [row] = await admin.select().from(outbox).where(eq(outbox.eventId, eventId));
     expect(row).toMatchObject({ status: 'pending', attempts: MAX_ATTEMPTS - 1 });
     expect(row!.lastError).toContain('boom');
@@ -245,7 +249,7 @@ describe('failure handling', () => {
       .update(outbox)
       .set({ nextAttemptAt: new Date(0) })
       .where(eq(outbox.eventId, eventId));
-    await processOnce(exploding);
+    await processReserved(exploding);
     [row] = await admin.select().from(outbox).where(eq(outbox.eventId, eventId));
     expect(row).toMatchObject({ status: 'failed', attempts: MAX_ATTEMPTS });
 
@@ -257,7 +261,7 @@ describe('failure handling', () => {
     await admin.execute(
       `insert into app.outbox (event_id, organization_id, workspace_id, event_type) select id, organization_id, workspace_id, event_type from app.events where id = '${unknownId}'`,
     );
-    await processOnce(deps);
+    await processReserved(deps);
     const [done] = await admin.select().from(outbox).where(eq(outbox.eventId, unknownId));
     expect(done?.status).toBe('done');
   });
@@ -306,7 +310,7 @@ describe('file removal and the pending sweep', () => {
       actor(owner),
       meta(),
     );
-    await processOnce(deps); // drains file.attached (no handler)
+    await processReserved(deps); // drains file.attached (no handler)
     expect(await store().exists(begun.output.bucket, begun.output.objectPath)).toBe(true);
 
     const deleted = await executeCommand(
@@ -316,7 +320,7 @@ describe('file removal and the pending sweep', () => {
       actor(owner),
       meta(),
     );
-    const first = await processOnce(deps);
+    const first = await processReserved(deps);
     expect(first.done).toBeGreaterThan(0);
     expect(await store().exists(begun.output.bucket, begun.output.objectPath)).toBe(false);
     const [job] = await testDbs()
@@ -388,7 +392,7 @@ describe('file removal and the pending sweep', () => {
       workspaceId,
       eventType: 'file.deleted',
     });
-    const second = await processOnce(deps);
+    const second = await processReserved(deps);
     expect(second.retried).toBe(1);
     const [forgedJob] = await testDbs()
       .admin.db.select()
@@ -460,7 +464,7 @@ describe('file removal and the pending sweep', () => {
       actor(owner),
       meta(),
     );
-    await processOnce(deps);
+    await processReserved(deps);
 
     const remaining = await rows<{ object_path: string }>(
       testDbs().admin.db,

@@ -257,6 +257,8 @@ export const conversationReopen = defineCommand({
   permission: 'inbox.use',
   scope: inWorkspace,
   emits: ['conversation.reopened'],
+  // The worker brings snoozed conversations back when their time comes.
+  actors: ['human', 'system'],
   async handler(ctx, input) {
     const c = await loadConversation(ctx, input.conversationId);
     if (c.status === 'open') return { conversationId: c.id };

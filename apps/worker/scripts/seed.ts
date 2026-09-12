@@ -8,7 +8,7 @@
  *
  * Local only: reads the repo-root .env.local written by `pnpm env:local`.
  */
-import { randomUUID } from 'node:crypto';
+import { randomBytes, randomUUID } from 'node:crypto';
 import { hostname } from 'node:os';
 import {
   executeCommand,
@@ -23,10 +23,12 @@ import {
 import { rows, sql } from '@hfos/db/client';
 import { closeTestDbs, createTestUser, testDbs, testEnv, type TestUser } from '@hfos/db/testing';
 import pino from 'pino';
+import { createSealer } from '../src/crypto';
 import { handlers } from '../src/handlers/index';
 import { createSmtpMailer } from '../src/mailer';
 import { processOnce, type OutboxDeps } from '../src/outbox';
 import { createSupabaseStore, unconfiguredStore } from '../src/storage';
+import { createFakeTelephony } from '../src/telephony/fake';
 import { seedCrm } from './seed-crm';
 
 export const SEED_PASSWORD = 'HandsFree-Demo-2026';
@@ -115,6 +117,7 @@ async function main(): Promise<void> {
   }
 
   const started = Date.now();
+  const log = pino({ level: 'warn' });
   const deps: OutboxDeps = {
     db: worker.db,
     mailer: createSmtpMailer(
@@ -125,9 +128,15 @@ async function main(): Promise<void> {
       process.env.SUPABASE_URL && process.env.SUPABASE_SECRET_KEY
         ? createSupabaseStore(process.env.SUPABASE_URL, process.env.SUPABASE_SECRET_KEY)
         : unconfiguredStore,
-    log: pino({ level: 'warn' }),
+    log,
     handlers,
     webUrl: (process.env.WEB_URL ?? 'http://localhost:3000').replace(/\/+$/, ''),
+    publicUrl: (process.env.WORKER_PUBLIC_URL ?? 'http://127.0.0.1:4100').replace(/\/+$/, ''),
+    // The seed never reaches a carrier: the fake stands in, and sealed tokens use the dev worker's key.
+    telephony: createFakeTelephony({ approvalMs: 0, callbacks: false, log }),
+    sealer: createSealer(process.env.WORKER_ENCRYPTION_KEY || randomBytes(32).toString('base64')),
+    reminderOverrideMs: null,
+    registrationPollMs: 50,
     workerId: `seed:${hostname()}:${process.pid}`,
     batchSize: 50,
   };

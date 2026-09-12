@@ -1,22 +1,32 @@
 import { hostname } from 'node:os';
+import { createTokenVerifier } from '@hfos/core/server';
 import { createDb } from '@hfos/db/client';
 import pino from 'pino';
+import { createSealer } from './crypto';
+import { processDeliveries } from './deliveries';
 import { loadEnv, readEnv } from './env';
 import { handlers } from './handlers/index';
+import { buildHttpServer } from './http/server';
+import { processJobs } from './jobs';
 import { createSmtpMailer } from './mailer';
 import { processOnce } from './outbox';
+import { processors } from './processors/index';
+import { ensureRecurringJobs, jobs } from './scheduled';
+import type { WorkerServices } from './services';
 import { createSupabaseStore, unconfiguredStore } from './storage';
+import { createTelephony } from './telephony/index';
 
 loadEnv();
 const env = readEnv();
 const log = pino(
-  process.env.NODE_ENV === 'production'
+  env.production
     ? { level: env.logLevel }
     : { level: env.logLevel, transport: { target: 'pino-pretty', options: { colorize: true } } },
 );
 
 const handle = createDb(env.databaseUrl, { max: 4, applicationName: 'hfos-worker' });
-const deps = {
+const httpHandle = createDb(env.databaseUrl, { max: 3, applicationName: 'hfos-worker-http' });
+const services: WorkerServices = {
   db: handle.db,
   mailer: createSmtpMailer(env.smtpUrl, env.mailFrom),
   store:
@@ -24,28 +34,57 @@ const deps = {
       ? createSupabaseStore(env.supabaseUrl, env.supabaseSecretKey)
       : unconfiguredStore,
   log,
-  handlers,
   webUrl: env.webUrl,
-  workerId: `${hostname()}:${process.pid}`,
-  batchSize: env.batchSize,
+  publicUrl: env.publicUrl,
+  telephony: createTelephony(env, log),
+  sealer: createSealer(env.encryptionKey, env.encryptionKeysPrevious),
+  reminderOverrideMs: env.reminderOverrideMs,
+  registrationPollMs: env.registrationPollMs,
 };
+const workerId = `${hostname()}:${process.pid}`;
+const loopDeps = { ...services, workerId, batchSize: env.batchSize };
+
+const app = await buildHttpServer({
+  ...services,
+  httpDb: httpHandle.db,
+  verifyToken:
+    env.jwksUrl && env.jwtIssuer
+      ? createTokenVerifier({ jwksUrl: env.jwksUrl, jwtIssuer: env.jwtIssuer })
+      : null,
+  webOrigins: env.webOrigins,
+});
+await app.listen({ port: env.httpPort, host: env.httpHost });
+await ensureRecurringJobs(services);
+
+log.info(
+  {
+    pollMs: env.pollMs,
+    http: `${env.httpHost}:${env.httpPort}`,
+    publicUrl: env.publicUrl,
+    telephony: services.telephony.name,
+    handlers: Object.keys(handlers),
+    storage: !!env.supabaseSecretKey,
+  },
+  'worker started',
+);
+if (!env.supabaseSecretKey)
+  log.warn(
+    'SUPABASE_SECRET_KEY is not set: file removals, imports and photos will fail until it is',
+  );
 
 let running = true;
 let inFlight: Promise<void> = Promise.resolve();
 
-log.info(
-  { pollMs: env.pollMs, handlers: Object.keys(handlers), storage: !!env.supabaseSecretKey },
-  'worker started',
-);
-if (!env.supabaseSecretKey)
-  log.warn('SUPABASE_SECRET_KEY is not set: file removals and imports will fail until it is');
-
 const tick = async () => {
   try {
-    const stats = await processOnce(deps);
-    if (stats.claimed > 0) log.info(stats, 'outbox pass');
+    const outbox = await processOnce({ ...loopDeps, handlers });
+    if (outbox.claimed > 0) log.info(outbox, 'outbox pass');
+    const deliveries = await processDeliveries({ ...loopDeps, processors });
+    if (deliveries.claimed > 0) log.info(deliveries, 'webhook pass');
+    const due = await processJobs({ ...loopDeps, jobs });
+    if (due.claimed > 0) log.info(due, 'jobs pass');
   } catch (e) {
-    log.error({ err: e }, 'outbox pass crashed');
+    log.error({ err: e }, 'worker pass crashed');
   }
 };
 const loop = async () => {
@@ -59,9 +98,10 @@ void loop();
 
 const shutdown = async (signal: string) => {
   running = false;
-  log.info({ signal }, 'worker stopping after the current pass');
+  log.info({ signal }, 'worker stopping: closing the listener, then finishing the current pass');
+  await app.close();
   await inFlight;
-  await handle.close();
+  await Promise.all([handle.close(), httpHandle.close()]);
   process.exit(0);
 };
 process.on('SIGINT', () => void shutdown('SIGINT'));

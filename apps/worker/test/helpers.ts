@@ -1,0 +1,34 @@
+import { randomBytes } from 'node:crypto';
+import { testDbs, testEnv } from '@hfos/db/testing';
+import pino from 'pino';
+import { createSealer } from '../src/crypto';
+import { createSmtpMailer } from '../src/mailer';
+import type { WorkerServices } from '../src/services';
+import { createSupabaseStore } from '../src/storage';
+import { createFakeTelephony, type FakeTelephony } from '../src/telephony/fake';
+
+/** Signatures are computed against this base; tests call the server with inject(), never a real port. */
+export const TEST_PUBLIC_URL = 'https://hooks.worker.test';
+
+export type TestServices = WorkerServices & { readonly telephony: FakeTelephony };
+
+/** Worker services for tests: the real database, Mailpit and Storage, the fake carrier without callbacks. */
+export function testServices(opts: { reminderOverrideMs?: number | null } = {}): TestServices {
+  const env = testEnv();
+  const log = pino({ level: 'silent' });
+  return {
+    db: testDbs().worker.db,
+    mailer: createSmtpMailer(
+      process.env.SMTP_URL ?? 'smtp://127.0.0.1:54425',
+      'HandsFreeOS <hello@handsfreeos.local>',
+    ),
+    store: createSupabaseStore(env.supabaseUrl, env.secretKey),
+    log,
+    webUrl: 'http://localhost:3000',
+    publicUrl: TEST_PUBLIC_URL,
+    telephony: createFakeTelephony({ approvalMs: 0, callbacks: false, log }),
+    sealer: createSealer(randomBytes(32).toString('base64')),
+    reminderOverrideMs: opts.reminderOverrideMs ?? null,
+    registrationPollMs: 50,
+  };
+}

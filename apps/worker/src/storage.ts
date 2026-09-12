@@ -9,8 +9,16 @@ export interface ObjectStore {
   remove(bucket: string, path: string): Promise<void>;
   download(bucket: string, path: string): Promise<Buffer>;
   exists(bucket: string, path: string): Promise<boolean>;
-  /** Used by the seed only: production uploads come from the browser with the user's own session. */
-  upload(bucket: string, path: string, data: Buffer, contentType: string): Promise<void>;
+  /** Server-side copies (MMS photos, recordings, the seed); people upload from the browser with their own session. */
+  upload(
+    bucket: string,
+    path: string,
+    data: Buffer,
+    contentType: string,
+    opts?: { upsert?: boolean },
+  ): Promise<void>;
+  /** A short-lived link a provider can fetch (outbound picture messages). */
+  signedUrl(bucket: string, path: string, expiresInSeconds: number): Promise<string>;
 }
 
 export function createSupabaseStore(url: string, secretKey: string): ObjectStore {
@@ -29,10 +37,10 @@ export function createSupabaseStore(url: string, secretKey: string): ObjectStore
         throw new Error(`storage download failed: ${error?.message ?? 'no data'}`);
       return Buffer.from(await data.arrayBuffer());
     },
-    async upload(bucket, path, data, contentType) {
+    async upload(bucket, path, data, contentType, opts) {
       const { error } = await client.storage
         .from(bucket)
-        .upload(path, data, { contentType, upsert: false });
+        .upload(path, data, { contentType, upsert: opts?.upsert ?? false });
       if (error) throw new Error(`storage upload failed: ${error.message}`);
     },
     async exists(bucket, path) {
@@ -44,29 +52,28 @@ export function createSupabaseStore(url: string, secretKey: string): ObjectStore
       if (error) throw new Error(`storage list failed: ${error.message}`);
       return (data ?? []).some((o) => o.name === name);
     },
+    async signedUrl(bucket, path, expiresInSeconds) {
+      const { data, error } = await client.storage
+        .from(bucket)
+        .createSignedUrl(path, expiresInSeconds);
+      if (error || !data?.signedUrl)
+        throw new Error(`storage signed url failed: ${error?.message ?? 'no url'}`);
+      return data.signedUrl;
+    },
   };
 }
 
+const notConfigured = async (): Promise<never> => {
+  throw new Error(
+    'Storage is not configured: set SUPABASE_URL and SUPABASE_SECRET_KEY for the worker',
+  );
+};
+
 /** Used when SUPABASE_URL / SUPABASE_SECRET_KEY are not set: storage jobs fail loudly and retry. */
 export const unconfiguredStore: ObjectStore = {
-  remove: async () => {
-    throw new Error(
-      'Storage is not configured: set SUPABASE_URL and SUPABASE_SECRET_KEY for the worker',
-    );
-  },
-  download: async () => {
-    throw new Error(
-      'Storage is not configured: set SUPABASE_URL and SUPABASE_SECRET_KEY for the worker',
-    );
-  },
-  exists: async () => {
-    throw new Error(
-      'Storage is not configured: set SUPABASE_URL and SUPABASE_SECRET_KEY for the worker',
-    );
-  },
-  upload: async () => {
-    throw new Error(
-      'Storage is not configured: set SUPABASE_URL and SUPABASE_SECRET_KEY for the worker',
-    );
-  },
+  remove: notConfigured,
+  download: notConfigured,
+  exists: notConfigured,
+  upload: notConfigured,
+  signedUrl: notConfigured,
 };

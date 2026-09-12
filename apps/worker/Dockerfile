@@ -1,8 +1,10 @@
 # syntax=docker/dockerfile:1
 # Build from the repository root:  docker build -f apps/worker/Dockerfile -t hfos-worker .
 # Runtime env (apps/worker/src/env.ts): DATABASE_URL_WORKER (the hfos_worker role), SMTP_URL, MAIL_FROM,
-# WEB_URL, SUPABASE_URL and SUPABASE_SECRET_KEY (Storage deletes and CSV imports; the worker is the only
-# app that holds the secret key), optional WORKER_POLL_MS, WORKER_BATCH_SIZE and LOG_LEVEL.
+# WEB_URL, SUPABASE_URL and SUPABASE_SECRET_KEY (Storage, imports, photos; the worker is the only app that
+# holds provider secrets), WORKER_ENCRYPTION_KEY (seals subaccount tokens), WORKER_PUBLIC_URL (the https
+# address providers call), WEB_ORIGINS, TWILIO_ACCOUNT_SID and TWILIO_AUTH_TOKEN, optional
+# WORKER_ENCRYPTION_KEYS_PREVIOUS, WORKER_HTTP_PORT (4100), WORKER_POLL_MS, WORKER_BATCH_SIZE, LOG_LEVEL.
 
 FROM node:22-alpine AS base
 RUN npm install -g pnpm@12.3.4
@@ -31,4 +33,5 @@ COPY --from=build /out/package.json ./
 COPY --from=build /out/node_modules ./node_modules
 COPY --from=build /out/dist ./dist
 USER node
+EXPOSE 4100
 CMD ["node", "dist/main.js"]

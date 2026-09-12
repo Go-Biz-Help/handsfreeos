@@ -19,7 +19,7 @@ export interface ApiEnv {
   readonly trustProxy: boolean;
 }
 
-const FORBIDDEN = /SECRET|SERVICE_ROLE|SIGNING_KEY/i;
+const FORBIDDEN = /SECRET|SERVICE_ROLE|SIGNING_KEY|ENCRYPTION_KEY|TWILIO_|POSTMARK_|OAUTH_/i;
 
 /** Reads and validates the API process environment. Refuses to boot with privileged keys present. */
 export function readEnv(env: NodeJS.ProcessEnv = process.env): ApiEnv {

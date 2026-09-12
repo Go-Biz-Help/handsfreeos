@@ -549,11 +549,12 @@ export const messageReceive = defineCommand({
         after: { number: formatPhone(input.from), smsConsent: consentChange },
       });
     }
-    if (needsReply && m.settings.unansweredReminderMinutes > 0)
+    const reminderMs = input.reminderAfterMs ?? m.settings.unansweredReminderMinutes * 60_000;
+    if (needsReply && reminderMs > 0)
       await scheduleJob(ctx.tx, {
         kind: 'conversation.unanswered_check',
         dedupeKey: `unanswered:${conv.id}`,
-        runAt: new Date(at.getTime() + m.settings.unansweredReminderMinutes * 60_000),
+        runAt: new Date(at.getTime() + reminderMs),
         payload: { conversationId: conv.id },
         workspaceId,
         organizationId: m.organizationId,

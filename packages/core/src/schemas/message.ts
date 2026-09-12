@@ -58,6 +58,8 @@ export const MessageReceiveInput = z.object({
   media: z.array(MediaRefSchema).max(10).default([]),
   /** Photos the provider still holds; the worker copies them and calls message.attach_media. */
   mediaCount: z.number().int().min(0).max(10).default(0),
+  /** Tests and demos shorten the reply reminder; otherwise the workspace setting decides. */
+  reminderAfterMs: z.number().int().min(1000).max(86_400_000).optional(),
   occurredAt: isoDateTime.optional(),
 });
 export const MessageReceiveOutput = z.object({

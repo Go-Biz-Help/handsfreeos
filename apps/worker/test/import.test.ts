@@ -20,14 +20,13 @@ import { rows, sql } from '@hfos/db/client';
 import { auditLogs, events, imports, outbox } from '@hfos/db/schema';
 import { closeTestDbs, createTestUser, testDbs, testEnv, type TestUser } from '@hfos/db/testing';
 import { createClient } from '@supabase/supabase-js';
-import pino from 'pino';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { handlers } from '../src/handlers/index';
 import { runImport } from '../src/handlers/import-run';
 import type { HandlerContext } from '../src/handlers/types';
-import { createSmtpMailer } from '../src/mailer';
 import { MAX_ATTEMPTS, processOnce, type OutboxDeps } from '../src/outbox';
 import { createSupabaseStore } from '../src/storage';
+import { testServices } from './helpers';
 
 const env = testEnv();
 const WORKER_ID = `vitest-import-${process.pid}`;
@@ -102,16 +101,13 @@ async function startImport(
 }
 
 function contextFor(event: typeof events.$inferSelect, attempt = 1): Omit<HandlerContext, 'tx'> {
+  const { handlers: _handlers, workerId: _workerId, batchSize: _batchSize, ...services } = deps;
   return {
+    ...services,
     event,
-    db: deps.db,
     scope: { workspaceId, organizationId },
     attempt,
     maxAttempts: MAX_ATTEMPTS,
-    mailer: deps.mailer,
-    store: deps.store,
-    webUrl: deps.webUrl,
-    log: deps.log,
   };
 }
 
@@ -127,18 +123,12 @@ beforeAll(async () => {
   workspaceId = output.workspaceId;
   organizationId = output.organizationId;
   deps = {
-    db: testDbs().worker.db,
-    mailer: createSmtpMailer(
-      process.env.SMTP_URL ?? 'smtp://127.0.0.1:54425',
-      'HandsFreeOS <hello@handsfreeos.local>',
-    ),
-    store: createSupabaseStore(env.supabaseUrl, env.secretKey),
-    log: pino({ level: 'silent' }),
+    ...testServices(),
     handlers,
-    webUrl: 'http://localhost:3000',
     workerId: WORKER_ID,
-    // Wide batches: the other suites run at the same time and leave pending rows ahead of ours.
     batchSize: 200,
+    // Only rows this suite reserved (startImport pre-locks them): other suites leave their own work pending.
+    reservedOnly: true,
   };
 });
 afterAll(closeTestDbs);
@@ -158,7 +148,7 @@ describe('CSV import through the outbox', () => {
       { onMatch: 'skip' },
       { viaOutbox: true },
     );
-    // Other suites leave pending rows behind while the full suite runs: keep going until ours is done.
+    // Keep going until ours is done (the import may take more than one pass).
     let stats = await processOnce(deps);
     for (let pass = 0; pass < 25; pass++) {
       const [row] = await testDbs()
