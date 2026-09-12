@@ -546,6 +546,26 @@ export type RegistrationKind = (typeof registrationKind.enumValues)[number];
 export type RegistrationStatus = (typeof registrationStatus.enumValues)[number];
 export type SmsConsent = (typeof smsConsent.enumValues)[number];
 
+// Milestone 3: email (0012)
+export const emailDomainStatus = app.enum('email_domain_status', ['pending', 'verified', 'failed']);
+export const mailboxProvider = app.enum('mailbox_provider', ['microsoft', 'google']);
+export const mailboxStatus = app.enum('mailbox_status', [
+  'pending',
+  'active',
+  'reauth_required',
+  'error',
+  'disconnected',
+]);
+export const suppressionReason = app.enum('suppression_reason', [
+  'hard_bounce',
+  'spam_complaint',
+  'manual',
+]);
+export type EmailDomainStatus = (typeof emailDomainStatus.enumValues)[number];
+export type MailboxProvider = (typeof mailboxProvider.enumValues)[number];
+export type MailboxStatus = (typeof mailboxStatus.enumValues)[number];
+export type SuppressionReason = (typeof suppressionReason.enumValues)[number];
+
 /** A forwarding phone that rings with the browsers when a customer calls. */
 export interface ForwardingPhone {
   readonly e164: string;
@@ -655,6 +675,11 @@ export const conversations = app.table('conversations', {
   closedBy: userRef('closed_by'),
   createdBy: userRef('created_by'),
   ...timestamps(),
+  emailAddressId: uuid('email_address_id').references(() => emailAddresses.id, {
+    onDelete: 'set null',
+  }),
+  /** Reply-To carries it as the mailbox hash, so a reply finds its conversation. */
+  emailReplyToken: text('email_reply_token').unique(),
 });
 
 export const messages = app.table('messages', {
@@ -699,6 +724,12 @@ export const messages = app.table('messages', {
   deliveredAt: ts('delivered_at'),
   activityId: uuid('activity_id').references(() => activities.id, { onDelete: 'set null' }),
   ...timestamps(),
+  emailAddressId: uuid('email_address_id').references(() => emailAddresses.id, {
+    onDelete: 'set null',
+  }),
+  mailboxConnectionId: uuid('mailbox_connection_id').references(() => mailboxConnections.id, {
+    onDelete: 'set null',
+  }),
 });
 
 export const calls = app.table('calls', {
@@ -793,7 +824,139 @@ export const scheduledJobs = app.table('scheduled_jobs', {
   ...timestamps(),
 });
 
+/** A workspace's own sending domain and the DNS records Postmark wants for it. */
+export const emailDomains = app.table('email_domains', {
+  id: id(),
+  workspaceId: workspaceRef(),
+  domain: text('domain').notNull().unique(),
+  providerDomainId: text('provider_domain_id'),
+  dkimHost: text('dkim_host'),
+  dkimValue: text('dkim_value'),
+  returnPathHost: text('return_path_host'),
+  returnPathValue: text('return_path_value'),
+  status: emailDomainStatus('status').notNull().default('pending'),
+  dkimVerifiedAt: ts('dkim_verified_at'),
+  returnPathVerifiedAt: ts('return_path_verified_at'),
+  lastCheckedAt: ts('last_checked_at'),
+  lastError: text('last_error'),
+  createdBy: userRef('created_by'),
+  ...timestamps(),
+});
+
+/** A sending address: on the shared subdomain (no domain) or on a verified workspace domain. */
+export const emailAddresses = app.table('email_addresses', {
+  id: id(),
+  workspaceId: workspaceRef(),
+  emailDomainId: uuid('email_domain_id').references(() => emailDomains.id, {
+    onDelete: 'cascade',
+  }),
+  localPart: text('local_part').notNull(),
+  address: text('address').notNull().unique(),
+  displayName: text('display_name').notNull(),
+  isDefault: boolean('is_default').notNull().default(false),
+  verifiedAt: ts('verified_at'),
+  createdBy: userRef('created_by'),
+  ...timestamps(),
+});
+
+/** An Outlook or Gmail mailbox; tokens and sign-in secrets are sealed by the worker. */
+export const mailboxConnections = app.table('mailbox_connections', {
+  id: id(),
+  workspaceId: workspaceRef(),
+  provider: mailboxProvider('provider').notNull(),
+  accountEmail: text('account_email'),
+  displayName: text('display_name'),
+  userId: userRef('user_id'),
+  shared: boolean('shared').notNull().default(false),
+  scopes: text('scopes')
+    .array()
+    .notNull()
+    .default(sql`'{}'`),
+  status: mailboxStatus('status').notNull().default('pending'),
+  oauthStateHash: text('oauth_state_hash').unique(),
+  oauthStateExpiresAt: ts('oauth_state_expires_at'),
+  pkceVerifierEnc: text('pkce_verifier_enc'),
+  tokenEnc: text('token_enc'),
+  tokenKeyId: text('token_key_id'),
+  tokenExpiresAt: ts('token_expires_at'),
+  syncCursor: jsonb('sync_cursor').$type<Json>().notNull().default({}),
+  subscriptionId: text('subscription_id').unique(),
+  subscriptionExpiresAt: ts('subscription_expires_at'),
+  subscriptionClientStateHash: text('subscription_client_state_hash'),
+  nextSyncAt: ts('next_sync_at'),
+  lastSyncedAt: ts('last_synced_at'),
+  lastError: text('last_error'),
+  connectedAt: ts('connected_at'),
+  disconnectedAt: ts('disconnected_at'),
+  createdBy: userRef('created_by'),
+  ...timestamps(),
+});
+
+export const emailSuppressions = app.table('email_suppressions', {
+  id: id(),
+  workspaceId: workspaceRef(),
+  address: text('address').notNull(),
+  reason: suppressionReason('reason').notNull(),
+  origin: text('origin'),
+  messageId: uuid('message_id').references(() => messages.id, { onDelete: 'set null' }),
+  providerRef: text('provider_ref'),
+  releasedAt: ts('released_at'),
+  releasedBy: userRef('released_by'),
+  createdBy: userRef('created_by'),
+  ...timestamps(),
+});
+
+/** Mail from someone we don't know, kept whole until it is claimed or dismissed. */
+export const emailInboundUnmatched = app.table('email_inbound_unmatched', {
+  id: id(),
+  workspaceId: workspaceRef(),
+  emailAddressId: uuid('email_address_id').references(() => emailAddresses.id, {
+    onDelete: 'set null',
+  }),
+  deliveryId: uuid('delivery_id').references(() => webhookDeliveries.id, {
+    onDelete: 'set null',
+  }),
+  fromAddress: text('from_address').notNull(),
+  fromName: text('from_name'),
+  toAddresses: text('to_addresses')
+    .array()
+    .notNull()
+    .default(sql`'{}'`),
+  ccAddresses: text('cc_addresses')
+    .array()
+    .notNull()
+    .default(sql`'{}'`),
+  subject: text('subject'),
+  snippet: text('snippet'),
+  bodyText: text('body_text'),
+  bodyHtml: text('body_html'),
+  media: jsonb('media').$type<MediaRef[]>().notNull().default([]),
+  messageIdHeader: text('message_id_header'),
+  inReplyToHeader: text('in_reply_to_header'),
+  referencesHeaders: text('references_headers')
+    .array()
+    .notNull()
+    .default(sql`'{}'`),
+  receivedAt: ts('received_at').notNull().defaultNow(),
+  resolvedPersonId: uuid('resolved_person_id').references(() => people.id, {
+    onDelete: 'set null',
+  }),
+  resolvedMessageId: uuid('resolved_message_id').references(() => messages.id, {
+    onDelete: 'set null',
+  }),
+  resolvedAt: ts('resolved_at'),
+  resolvedBy: userRef('resolved_by'),
+  dismissedAt: ts('dismissed_at'),
+  dismissedBy: userRef('dismissed_by'),
+  ...timestamps(),
+});
+
 export const tables = {
+  emailDomains,
+  emailAddresses,
+  mailboxConnections,
+  emailSuppressions,
+  emailInboundUnmatched,
   organizations,
   workspaces,
   locations,
