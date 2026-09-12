@@ -32,6 +32,7 @@ import { processOnce, type OutboxDeps } from '../src/outbox';
 import { createSupabaseStore, unconfiguredStore } from '../src/storage';
 import { createFakeTelephony } from '../src/telephony/fake';
 import { seedCrm } from './seed-crm';
+import { LONE_STAR_NUMBER, seedMessaging } from './seed-messaging';
 
 export const SEED_PASSWORD = 'HandsFree-Demo-2026';
 
@@ -275,6 +276,11 @@ async function main(): Promise<void> {
   );
   await drainOutbox(deps, admin.db, since);
 
+  const messaging = await seedMessaging(
+    { api: api.db, admin: admin.db, worker: deps, actor, meta, step, since },
+    { id: lonestar, organizationId: org.organizationId, dale, priya },
+  );
+
   step('Northstar Electric: a separate organization that sees none of the above');
   await executeCommand(
     api.db,
@@ -295,7 +301,9 @@ Seeded in ${((Date.now() - started) / 1000).toFixed(1)}s. Sign in at ${deps.webU
   ${tom.email.padEnd(30)} Owner, Summit Roofing
   ${riley.email.padEnd(30)} Owner of Northstar Electric (separate organization)
 
-Lone Star HVAC & Roofing has about thirty customers, two pipelines, twenty leads, tasks, notes and two photos.
+Lone Star HVAC & Roofing has about thirty customers, two pipelines, twenty leads, tasks, notes and two photos,
+the business number ${LONE_STAR_NUMBER} with texting approved, ${messaging.conversations} conversations (texts, email, an unknown
+number, a STOP) and ${messaging.calls} calls including a voicemail with its transcript.
 Emails the stack sent, including the pending invitation for ${PENDING_INVITEE}: ${env.mailpitUrl}
 `);
 }

@@ -10,7 +10,7 @@ The operating system for running the customer side of a small business with as l
 | --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `apps/web`            | Next.js app (the product UI). Talks to Supabase Auth and the API only, never to the database.                                                                                                                                                                  |
 | `apps/api`            | Fastify API. Every write is a command: validate → permission → handler → event + outbox + audit rows in one transaction. OpenAPI at `/docs`.                                                                                                                   |
-| `apps/worker`         | Background worker. Drains the outbox (invitation emails, CSV imports, file removal, buying numbers, sending texts), processes provider webhooks and scheduled jobs, and serves a small HTTP server for Twilio webhooks and number search. Also hosts the seed. |
+| `apps/worker`         | Background worker. Drains the outbox (invitation emails, CSV imports, file removal, buying numbers, sending texts and email), processes provider webhooks (Twilio, Postmark, Outlook) and scheduled jobs (reply reminders, mailbox syncs), and serves a small HTTP server for webhooks, voice tokens, number search and mailbox sign-in. Also hosts the seed. |
 | `packages/core`       | Browser-safe domain: permissions, command kernel, commands, queries, zod schemas, typed errors.                                                                                                                                                                |
 | `packages/db`         | Drizzle schema mirror, the role-scoped database clients (`asUser`, `asWorker`) and shared test helpers.                                                                                                                                                        |
 | `packages/api-client` | Generated, typed client for the API (`openapi-typescript` + `openapi-fetch`).                                                                                                                                                                                  |
@@ -46,7 +46,8 @@ pnpm env:local        # writes .env.local and the per-app env files from `supaba
 ```
 
 ```bash
-pnpm db:seed          # demo data: the Go Biz Help agency, three client workspaces and their people
+pnpm db:seed          # demo data: the Go Biz Help agency, three client workspaces and their people;
+                      # Lone Star also gets a business number, conversations, calls and email
 ```
 
 ```bash
