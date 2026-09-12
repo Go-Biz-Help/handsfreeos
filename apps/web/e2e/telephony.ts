@@ -21,6 +21,47 @@ export const fakeMessageSid = (): string =>
     .toString('base64url')
     .replace(/[^A-Za-z]/g, '')}`;
 
+/** Fake call ids, like the message ids. */
+export const fakeCallSid = (): string =>
+  `CAfake${randomBytes(12)
+    .toString('base64url')
+    .replace(/[^A-Za-z]/g, '')}`;
+
+/**
+ * Posts a call webhook to the worker as Twilio would, signed with the fake carrier's token. Pass the
+ * workspace's subaccount (the voice token's `sub`), so status reports land in the right workspace.
+ * Returns the TwiML (or nothing, for status reports).
+ */
+export async function postVoice(path: string, params: Record<string, string>): Promise<string> {
+  const url = `${WORKER_URL}/webhooks/twilio/voice/${path}`;
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/x-www-form-urlencoded',
+      'x-twilio-signature': sign(url, params),
+    },
+    body: new URLSearchParams(params),
+  });
+  if (res.status >= 300) throw new Error(`the worker refused the ${path} webhook (${res.status})`);
+  return res.text();
+}
+
+const unescapeXml = (s: string) =>
+  s
+    .replace(/&quot;/g, '"')
+    .replace(/&apos;/g, "'")
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&amp;/g, '&');
+
+/** The <Parameter> values our TwiML hands the browsers (who is calling, what else rings). */
+export function twimlParameters(xml: string): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const m of xml.matchAll(/<Parameter name="([^"]+)" value="([^"]*)"\/>/g))
+    out[m[1]!] = unescapeXml(m[2]!);
+  return out;
+}
+
 /** A 1x1 PNG, for picture messages. */
 export const TINY_PNG =
   'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';

@@ -2,7 +2,7 @@ import Link, { type LinkProps } from 'next/link';
 import type { AnchorHTMLAttributes, ButtonHTMLAttributes, ReactNode } from 'react';
 import { cn } from '@/lib/utils';
 
-export type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger';
+export type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger' | 'success';
 export type ButtonSize = 'sm' | 'md' | 'lg' | 'icon';
 
 const variants: Record<ButtonVariant, string> = {
@@ -10,6 +10,8 @@ const variants: Record<ButtonVariant, string> = {
   secondary: 'bg-card text-text border border-border-strong shadow-1 hover:bg-card-2',
   ghost: 'text-text-2 hover:bg-card-2 hover:text-text',
   danger: 'bg-danger text-white hover:brightness-95 dark:text-text',
+  /** Answer and Call. */
+  success: 'bg-success text-white hover:brightness-95 dark:text-[#0f131a]',
 };
 const sizes: Record<ButtonSize, string> = {
   sm: 'h-8 px-2.5 text-[13px] rounded-control',

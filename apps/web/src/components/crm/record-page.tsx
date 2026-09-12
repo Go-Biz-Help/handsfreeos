@@ -50,6 +50,7 @@ import type {
   TimelineList,
 } from '@/lib/api/types';
 import { addressLine, daysLabel, formatDate, formatMoney, monthYear, telHref } from '@/lib/format';
+import { useCalls } from '@/lib/calls/call-provider';
 import { useLiveRefresh } from '@/lib/realtime/live-provider';
 import { ConversationsCard } from '@/components/inbox/conversations-card';
 import { MessageSheet } from '@/components/inbox/message-sheet';
@@ -106,6 +107,7 @@ export function RecordPage(props: RecordPageProps) {
   const [nextAction, setNextAction] = useState<LeadCard | null>(null);
   const [addPerson, setAddPerson] = useState(false);
   const [texting, setTexting] = useState(false);
+  const calls = useCalls();
   useLiveRefresh([
     'person',
     'company',
@@ -115,6 +117,7 @@ export function RecordPage(props: RecordPageProps) {
     'tag',
     'message',
     'conversation',
+    'call',
   ]);
 
   async function setTags(ids: string[]) {
@@ -274,6 +277,23 @@ export function RecordPage(props: RecordPageProps) {
           <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-border pt-4">
             {person && phoneE164 ? (
               <>
+                {calls.available ? (
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    onClick={() =>
+                      calls.openDialer({
+                        name: person.fullName,
+                        phone: phoneE164,
+                        personId: person.id,
+                      })
+                    }
+                    data-testid="action-call-customer"
+                  >
+                    <Phone className="h-4 w-4" strokeWidth={1.5} />
+                    Call
+                  </Button>
+                ) : null}
                 <Button
                   variant="secondary"
                   size="sm"

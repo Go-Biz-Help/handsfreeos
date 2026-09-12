@@ -16,6 +16,7 @@ import { NextActionChip, StageBadge, TagChip } from '@/components/crm/chips';
 import { LeadDialog } from '@/components/crm/lead-dialog';
 import { TaskDialog } from '@/components/tasks/task-dialog';
 import { Button, ButtonLink } from '@/components/ui/button';
+import { useCalls } from '@/lib/calls/call-provider';
 import { apiBrowser, errorMessage, unwrap } from '@/lib/api/client';
 import type { ConversationGet, Pipeline } from '@/lib/api/types';
 import { addressLine, formatDate, formatMoney } from '@/lib/format';
@@ -63,6 +64,7 @@ export function ContextPanel({
   const [newLead, setNewLead] = useState(false);
   const [newTask, setNewTask] = useState(false);
   const [completing, setCompleting] = useState<string | null>(null);
+  const calls = useCalls();
 
   async function complete(taskId: string) {
     setCompleting(taskId);
@@ -137,14 +139,35 @@ export function ContextPanel({
             ))}
           </div>
         ) : null}
-        <ButtonLink
-          href={`/app/w/${workspaceId}/customers/people/${person.id}`}
-          size="sm"
-          className="mt-1"
-        >
-          Open customer
-          <ArrowRight className="h-3.5 w-3.5" strokeWidth={1.5} />
-        </ButtonLink>
+        <div className="mt-1 flex gap-2">
+          {calls.available ? (
+            <Button
+              variant="secondary"
+              size="sm"
+              className="flex-1"
+              data-testid="context-call"
+              onClick={() =>
+                calls.openDialer({
+                  name: person.fullName,
+                  phone: c.counterpart,
+                  personId: person.id,
+                  conversationId: c.id,
+                })
+              }
+            >
+              <Phone className="h-3.5 w-3.5" strokeWidth={1.5} />
+              Call
+            </Button>
+          ) : null}
+          <ButtonLink
+            href={`/app/w/${workspaceId}/customers/people/${person.id}`}
+            size="sm"
+            className="flex-1"
+          >
+            Open customer
+            <ArrowRight className="h-3.5 w-3.5" strokeWidth={1.5} />
+          </ButtonLink>
+        </div>
       </section>
 
       <div className="h-px bg-border" />

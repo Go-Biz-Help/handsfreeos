@@ -26,7 +26,7 @@ const PAGE = 30;
  * refetch as many rows as are showing (so "Show more" pages survive a live refresh).
  */
 export function useInboxList(workspaceId: string, filters: InboxFilters) {
-  const live = useLiveVersion(['conversation', 'message', 'person'], 300);
+  const live = useLiveVersion(['conversation', 'message', 'call', 'person'], 300);
   const key = `${filters.box}|${filters.status}|${filters.channel ?? ''}|${filters.q ?? ''}`;
   const [state, setState] = useState<{
     key: string;

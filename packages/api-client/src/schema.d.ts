@@ -4847,6 +4847,7 @@ export interface operations {
                             /** Format: date-time */
                             occurredAt: string;
                             recordingPath: string | null;
+                            recordingSeconds: number | null;
                             sentBy: {
                                 fullName: string;
                                 /** Format: uuid */
@@ -5652,6 +5653,7 @@ export interface operations {
                             /** Format: date-time */
                             occurredAt: string;
                             recordingPath: string | null;
+                            recordingSeconds: number | null;
                             sentBy: {
                                 fullName: string;
                                 /** Format: uuid */

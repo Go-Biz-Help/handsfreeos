@@ -1,6 +1,8 @@
 import type { TimelineEntry } from '@/lib/api/types';
+import { clock } from '@/lib/calls/format';
 
 const str = (v: unknown): string => (typeof v === 'string' ? v : '');
+const num = (v: unknown): number | null => (typeof v === 'number' ? v : null);
 
 /** Texts and emails mirror a conversation: what the customer sent, or what the business sent them. */
 export function isChannelEntry(e: TimelineEntry): boolean {
@@ -16,6 +18,8 @@ const undelivered = (e: TimelineEntry) =>
  */
 export function timelineActor(e: TimelineEntry, subjectName?: string): string {
   if (inbound(e)) return subjectName || 'The customer';
+  // A call a teammate placed: the worker settled it, but the teammate called.
+  if (e.kind === 'call' && e.actor) return e.actor.fullName;
   if (e.actorType === 'system') return e.meta.onBehalfOf ? 'Import' : 'HandsFreeOS';
   return e.actor?.fullName ?? 'Former member';
 }
@@ -24,9 +28,11 @@ export function timelineActor(e: TimelineEntry, subjectName?: string): string {
 export function describeTimeline(
   e: TimelineEntry,
   recordType: 'person' | 'company' | 'lead',
+  /** Who is reading, for "you answered in the browser". */
+  viewerId?: string,
 ): string {
   if (e.kind === 'note') return 'added a note';
-  if (e.kind === 'call') return 'logged a call';
+  if (e.kind === 'call') return describeCall(e, viewerId);
   if (e.kind === 'visit') return 'logged a visit';
   if (e.kind === 'sms') {
     const keyword = str(e.meta.keyword);
@@ -81,6 +87,29 @@ export function describeTimeline(
   }
 }
 
+/** A call through the business number (it has a call id), or one logged by hand. */
+function describeCall(e: TimelineEntry, viewerId?: string): string {
+  if (!e.meta.callId) return 'logged a call';
+  switch (e.subtype) {
+    case 'voicemail':
+      return `left a voicemail · ${clock(num(e.meta.recordingSeconds))}`;
+    case 'missed':
+    case 'outbound_missed':
+      return 'called, no answer';
+    case 'answered': {
+      const how =
+        e.meta.answeredVia === 'forwarding'
+          ? 'answered on a forwarding phone'
+          : viewerId && e.meta.answeredByUserId === viewerId
+            ? 'you answered in the browser'
+            : 'answered in the browser';
+      return `called · ${clock(num(e.meta.durationSeconds))} · ${how}`;
+    }
+    default:
+      return `called · ${clock(num(e.meta.durationSeconds))}`;
+  }
+}
+
 /** Whether the row shows the body in a quiet well (notes, calls, texts, task titles, file names). */
 export function timelineBody(e: TimelineEntry): string | null {
   if (e.kind !== 'system') return e.body;
@@ -100,6 +129,8 @@ export function timelineDotClass(e: TimelineEntry): string {
   if (e.kind === 'sms' && str(e.meta.keyword) === 'stop') return 'bg-card-3';
   if (e.kind === 'sms' || e.kind === 'email') return undelivered(e) ? 'bg-danger' : 'bg-accent';
   if (e.kind === 'note') return 'bg-accent';
+  if (e.kind === 'call' && ['missed', 'outbound_missed', 'voicemail'].includes(e.subtype ?? ''))
+    return 'bg-warning';
   if (e.kind === 'call' || e.kind === 'visit') return 'bg-success';
   if (e.subtype === 'file_added') return 'bg-warning';
   if (e.subtype === 'won') return 'bg-success';

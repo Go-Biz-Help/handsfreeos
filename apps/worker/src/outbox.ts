@@ -46,7 +46,7 @@ export async function processOnce(deps: OutboxDeps): Promise<OutboxStats> {
   const claimed = await asWorker(deps.db, {}, (tx) =>
     rows<Claimed>(
       tx,
-      sql`update app.outbox o set locked_at = now(), locked_by = ${deps.workerId}
+      sql`with claimed as (update app.outbox o set locked_at = now(), locked_by = ${deps.workerId}
           where o.event_id in (
             select event_id from app.outbox
             where status = 'pending' and next_attempt_at <= now()
@@ -55,7 +55,9 @@ export async function processOnce(deps: OutboxDeps): Promise<OutboxStats> {
             order by created_at
             limit ${deps.batchSize}
             for update skip locked)
-          returning o.event_id, o.organization_id, o.workspace_id, o.event_type, o.attempts`,
+          returning o.event_id, o.organization_id, o.workspace_id, o.event_type, o.attempts, o.created_at)
+          select event_id, organization_id, workspace_id, event_type, attempts from claimed
+          order by created_at, event_id`,
     ),
   );
   stats.claimed = claimed.length;

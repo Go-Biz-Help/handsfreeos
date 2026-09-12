@@ -42,7 +42,7 @@ export async function processDeliveries(deps: DeliveryDeps): Promise<DeliverySta
   const claimed = await asWorker(deps.db, {}, (tx) =>
     rows<{ id: string }>(
       tx,
-      sql`update app.webhook_deliveries d set locked_at = now(), locked_by = ${deps.workerId}
+      sql`with claimed as (update app.webhook_deliveries d set locked_at = now(), locked_by = ${deps.workerId}
           where d.id in (
             select id from app.webhook_deliveries
             where status = 'pending' and next_attempt_at <= now()
@@ -51,7 +51,8 @@ export async function processDeliveries(deps: DeliveryDeps): Promise<DeliverySta
             order by received_at
             limit ${deps.batchSize}
             for update skip locked)
-          returning d.id`,
+          returning d.id, d.received_at)
+          select id from claimed order by received_at, id`,
     ),
   );
   stats.claimed = claimed.length;

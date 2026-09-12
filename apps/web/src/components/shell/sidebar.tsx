@@ -1,3 +1,4 @@
+import { CallsPill } from '@/components/calls/calls-pill';
 import { Brand } from '@/components/ui/brand';
 import type { Me, WorkspaceSummary } from '@/lib/api/types';
 import { NavLinks } from './nav-links';
@@ -15,6 +16,7 @@ export function Sidebar({ me, current }: { me: Me; current: WorkspaceSummary }) 
       <SearchField workspaceId={current.id} className="mt-2" />
       <NavLinks workspaceId={current.id} />
       <div className="flex-1" />
+      <CallsPill />
       <UserMenu user={me.user} />
     </aside>
   );

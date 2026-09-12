@@ -64,3 +64,19 @@ export function searchNumbers(input: {
 }): Promise<{ numbers: AvailableNumber[] }> {
   return workerPost('/v1/telephony/available-numbers', input);
 }
+
+export interface VoiceToken {
+  readonly token: string;
+  /** The identity this browser rings as. */
+  readonly identity: string;
+  readonly expiresAt: string;
+  /** The business number customers see. */
+  readonly callerId: string;
+  /** "fake" when the worker runs the fake carrier: the browser uses a stand-in device. */
+  readonly provider: 'twilio' | 'fake';
+}
+
+/** A one-hour token for this browser to ring and place calls (anyone who uses the inbox). */
+export function voiceToken(workspaceId: string): Promise<VoiceToken> {
+  return workerPost('/v1/telephony/voice-token', { workspaceId });
+}

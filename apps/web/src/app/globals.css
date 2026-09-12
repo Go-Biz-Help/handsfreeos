@@ -33,6 +33,11 @@
   --shadow-1: 0 1px 2px rgba(25, 29, 37, 0.06), 0 1px 3px rgba(25, 29, 37, 0.04);
   --shadow-2: 0 8px 24px rgba(25, 29, 37, 0.1), 0 2px 6px rgba(25, 29, 37, 0.06);
   --shadow-3: 0 24px 60px rgba(25, 29, 37, 0.22), 0 4px 12px rgba(25, 29, 37, 0.08);
+  /* The in-call bar (and dark toasts): inverted surfaces. */
+  --toast-bg: #191d25;
+  --toast-text: #f2f4f8;
+  /* Text on solid success, danger and warning fills. */
+  --on-solid: #ffffff;
   color-scheme: light;
 }
 
@@ -65,6 +70,9 @@
   --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.45);
   --shadow-2: 0 8px 24px rgba(0, 0, 0, 0.55);
   --shadow-3: 0 24px 60px rgba(0, 0, 0, 0.65);
+  --toast-bg: #f2f4f8;
+  --toast-text: #191d25;
+  --on-solid: #191d25;
   color-scheme: dark;
 }
 
@@ -98,6 +106,9 @@
     --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.45);
     --shadow-2: 0 8px 24px rgba(0, 0, 0, 0.55);
     --shadow-3: 0 24px 60px rgba(0, 0, 0, 0.65);
+    --toast-bg: #f2f4f8;
+    --toast-text: #191d25;
+    --on-solid: #191d25;
     color-scheme: dark;
   }
 }
@@ -128,6 +139,9 @@
   --color-danger: var(--danger);
   --color-danger-soft: var(--danger-soft);
   --color-danger-text: var(--danger-text);
+  --color-toast-bg: var(--toast-bg);
+  --color-toast-text: var(--toast-text);
+  --color-on-solid: var(--on-solid);
   --font-sans:
     var(--font-hanken), system-ui, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif;
   --font-mono: var(--font-jetbrains), ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
@@ -172,4 +186,30 @@ h3 {
     animation-duration: 0.01ms !important;
     transition-duration: 0.01ms !important;
   }
+}
+
+/* The incoming-call ring: a soft pulse around the phone icon (reduced motion stills it). */
+@keyframes call-ring {
+  0% {
+    transform: scale(0.88);
+    opacity: 0.7;
+  }
+  100% {
+    transform: scale(1.22);
+    opacity: 0;
+  }
+}
+.call-ring::after {
+  content: '';
+  position: absolute;
+  inset: -5px;
+  border-radius: 999px;
+  border: 2px solid var(--success);
+  animation: call-ring 1.6s ease-out infinite;
+}
+
+/* While a call is on, toasts sit above the call bar and its keypad. */
+body[data-call='on'] [data-sonner-toaster][data-y-position='bottom'] {
+  --offset-bottom: 92px !important;
+  --mobile-offset-bottom: 156px !important;
 }

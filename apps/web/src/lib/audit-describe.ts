@@ -1,4 +1,5 @@
 import type { AuditEntry } from './api/types';
+import { clock } from '@/lib/calls/format';
 
 const ROLE: Record<string, string> = { owner: 'Owner', admin: 'Admin', member: 'Member' };
 const s = (v: unknown): string => (typeof v === 'string' ? v : '');
@@ -193,6 +194,20 @@ export function describeAudit(e: AuditEntry): string {
       const n = Number(e.after?.photos ?? 0);
       return `saved ${n === 1 ? 'a photo' : `${n} photos`} from a text`;
     }
+    case 'call.start':
+      return `called ${s(e.after?.to) || 'a customer'} from the browser`;
+    case 'call.record':
+      return `took a call from ${s(e.after?.from) || 'a caller'}`;
+    case 'call.update_status':
+      return s(e.after?.duration)
+        ? `logged a ${s(e.after?.duration)} call ${s(e.after?.direction) === 'outbound' ? 'to' : 'from'} ${s(e.after?.with)}`
+        : `logged a missed call ${s(e.after?.direction) === 'outbound' ? 'to' : 'from'} ${s(e.after?.with)}`;
+    case 'call.attach_recording':
+      return `saved a ${clock(Number(e.after?.seconds ?? 0))} voicemail from ${s(e.after?.with)}`;
+    case 'call.attach_transcript':
+      return s(e.after?.status) === 'completed'
+        ? `wrote out the voicemail from ${s(e.after?.with)}`
+        : `could not write out the voicemail from ${s(e.after?.with)}`;
     case 'person.set_sms_consent':
       return e.after?.smsConsent === 'opted_out'
         ? `marked ${s(e.after?.name)} as not wanting texts`
@@ -300,7 +315,7 @@ export function auditCategory(action: string): AuditCategory {
   if (action.startsWith('workspace.') || action.startsWith('organization.')) return 'workspace';
   if (
     action === 'person.set_sms_consent' ||
-    ['conversation.', 'message.', 'phone_number.', 'phone.', 'registration.'].some((p) =>
+    ['conversation.', 'message.', 'call.', 'phone_number.', 'phone.', 'registration.'].some((p) =>
       action.startsWith(p),
     )
   )

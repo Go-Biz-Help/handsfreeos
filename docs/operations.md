@@ -85,6 +85,25 @@ with the current one. Remove an old key only after every stored credential has b
 - **Costs** come per number each month, per text and minute, and per registration; they show on the Twilio
   bill of the master account.
 
+### Calls
+
+- **Nothing to set up per client.** When a business buys its number, the worker also creates what browser
+  calls need in that business's subaccount: an API key (its secret is sealed with the worker's encryption key)
+  and a "TwiML app" that places the calls teammates make from the browser.
+- **Protect recordings.** In the Twilio console, under Voice settings, turn on "Enforce HTTP Auth on Media
+  URLs". The worker always signs in to download a voicemail, copies it into Supabase Storage, and deletes
+  Twilio's copy once the transcript arrives.
+- **Transcripts** use Twilio's built-in voicemail transcription (English, messages up to two minutes). Twilio
+  has marked that feature as deprecated; the assistant in Milestone 4 replaces it.
+- **Try these with real phones before a client relies on calls:**
+  1. Call the business number with one forwarding phone on. Every open browser and the forwarding phone
+     should ring, and the forwarding phone should hear "Press 1 to take it" before it connects.
+  2. Let the forwarding phone's own voicemail pick up. The call must keep ringing the browsers, then go to
+     the business's voicemail, not the cell's. Twilio's documentation does not say whether the other phones
+     stop ringing at that moment, so this needs checking.
+  3. Call a customer from the browser. The customer should see the business number.
+- **Microphones need HTTPS.** Browsers only allow calls from pages served over HTTPS (or localhost).
+
 ## Local development
 
 `pnpm dev` runs the web app, the API and the worker. Locally the worker uses a fake carrier: numbers, texts,

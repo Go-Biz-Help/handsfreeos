@@ -1,12 +1,13 @@
 'use client';
 import { smsKeyword } from '@hfos/core';
-import { CheckCheck, CircleAlert, Phone, PhoneMissed, Voicemail } from 'lucide-react';
+import { CheckCheck, CircleAlert } from 'lucide-react';
 import { Fragment } from 'react';
+import { CallCard } from '@/components/calls/call-card';
 import { Button } from '@/components/ui/button';
 import type { ThreadItem } from '@/lib/api/types';
 import { clockTime, dayDivider } from '@/lib/inbox';
 import { cn } from '@/lib/utils';
-import { ChannelIcon, DayDivider, MediaThumb, SystemEntry } from './bits';
+import { DayDivider, MediaThumb, SystemEntry } from './bits';
 import { firstName } from './conversation-row';
 import type { PendingText } from './hooks';
 
@@ -29,6 +30,17 @@ function failureHelp(item: ThreadItem): string {
     default:
       return item.errorMessage || 'The carrier didn’t deliver this text.';
   }
+}
+
+/** The time under an entry; the record page's sheet adds the weekday. */
+function entryTime(iso: string, compact?: boolean): string {
+  return compact
+    ? new Date(iso).toLocaleString('en-US', {
+        weekday: 'short',
+        hour: 'numeric',
+        minute: '2-digit',
+      })
+    : clockTime(iso);
 }
 
 function dayKey(iso: string): string {
@@ -98,7 +110,7 @@ export function MessageLog({
               <DayDivider>{dayDivider(item.occurredAt)}</DayDivider>
             ) : null}
             {item.type === 'call' ? (
-              <CallEntry item={item} />
+              <CallCard item={item} time={entryTime(item.occurredAt, compact)} compact={compact} />
             ) : (
               <MessageEntry
                 item={item}
@@ -140,13 +152,7 @@ function MessageEntry({
 }) {
   const out = item.direction === 'outbound';
   const failed = out && FAILED.has(item.status);
-  const time = compact
-    ? new Date(item.occurredAt).toLocaleString('en-US', {
-        weekday: 'short',
-        hour: 'numeric',
-        minute: '2-digit',
-      })
-    : clockTime(item.occurredAt);
+  const time = entryTime(item.occurredAt, compact);
   const keyword = !out && item.body ? smsKeyword(item.body) : null;
   const sender = item.sentBy ? firstName(item.sentBy.fullName) : 'HandsFreeOS';
   const mediaNames = item.media.map((m) => m.name).join(', ');
@@ -241,36 +247,4 @@ function DeliveryStatus({ status }: { status: string }) {
       </span>
     );
   return null;
-}
-
-const duration = (s: number | null) =>
-  s === null ? '' : `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
-
-/** Calls sit in the same thread (they arrive with the calls step; a plain card until then). */
-function CallEntry({ item }: { item: ThreadItem }) {
-  const missed = item.status !== 'completed' || item.isVoicemail;
-  return (
-    <div className="mt-2 flex w-[360px] max-w-[80%] flex-col gap-2.5 self-start rounded-[14px] border border-border bg-card px-3.5 py-3">
-      <div className="flex items-center gap-2.5">
-        <ChannelIcon
-          icon={item.isVoicemail ? Voicemail : missed ? PhoneMissed : Phone}
-          tone={missed ? 'warning' : 'success'}
-        />
-        <div className="min-w-0 flex-1">
-          <div className="text-[13px] font-medium">
-            {item.isVoicemail
-              ? 'Missed call · left a voicemail'
-              : missed
-                ? 'Missed call'
-                : `${item.direction === 'inbound' ? 'Incoming' : 'Outgoing'} call`}
-          </div>
-          <div className="text-xs text-text-3">{clockTime(item.occurredAt)}</div>
-        </div>
-        {!missed ? (
-          <span className="font-mono text-xs text-text-3">{duration(item.durationSeconds)}</span>
-        ) : null}
-      </div>
-      {item.transcript ? <p className="text-[13px] leading-[1.5]">“{item.transcript}”</p> : null}
-    </div>
-  );
 }

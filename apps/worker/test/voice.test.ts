@@ -265,7 +265,11 @@ describe('browser calling', () => {
     });
     expect(res.statusCode).toBe(200);
     const got = res.json() as { token: string; identity: string; expiresAt: string };
-    expect(got.identity).toBe(identityOf(member.id));
+    expect(got).toMatchObject({
+      identity: identityOf(member.id),
+      callerId: businessNumber,
+      provider: 'fake',
+    });
     const [head, payload, signature] = got.token.split('.') as [string, string, string];
     expect(JSON.parse(Buffer.from(head, 'base64url').toString())).toEqual({
       alg: 'HS256',

@@ -270,7 +270,7 @@ export function registerVoiceRoutes(app: FastifyInstance, deps: HttpDeps): void 
       )[0],
       (
         await tx
-          .select({ id: phoneNumbers.id })
+          .select({ id: phoneNumbers.id, e164: phoneNumbers.e164 })
           .from(phoneNumbers)
           .where(and(eq(phoneNumbers.workspaceId, workspaceId), eq(phoneNumbers.status, 'active')))
       )[0],
@@ -301,6 +301,7 @@ export function registerVoiceRoutes(app: FastifyInstance, deps: HttpDeps): void 
       identity,
       ttlSeconds: TOKEN_TTL_SECONDS,
     });
-    return { token, identity, expiresAt };
+    // The caller ID customers see, and whether the carrier is the fake one (the browser then uses a stand-in device).
+    return { token, identity, expiresAt, callerId: number.e164, provider: deps.telephony.name };
   });
 }

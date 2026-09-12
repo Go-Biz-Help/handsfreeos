@@ -42,7 +42,7 @@ export async function processJobs(deps: JobDeps): Promise<JobStats> {
   const claimed = await asWorker(deps.db, {}, (tx) =>
     rows<{ id: string }>(
       tx,
-      sql`update app.scheduled_jobs j set locked_at = now(), locked_by = ${deps.workerId}
+      sql`with claimed as (update app.scheduled_jobs j set locked_at = now(), locked_by = ${deps.workerId}
           where j.id in (
             select id from app.scheduled_jobs
             where status = 'pending' and run_at <= now()
@@ -51,7 +51,8 @@ export async function processJobs(deps: JobDeps): Promise<JobStats> {
             order by run_at
             limit ${deps.batchSize}
             for update skip locked)
-          returning j.id`,
+          returning j.id, j.run_at)
+          select id from claimed order by run_at, id`,
     ),
   );
   stats.claimed = claimed.length;

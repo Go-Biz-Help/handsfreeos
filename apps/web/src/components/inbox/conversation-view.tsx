@@ -37,6 +37,7 @@ import {
 import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { apiBrowser, errorMessage, unwrap } from '@/lib/api/client';
 import type { ConversationGet, ConversationThread, Pipeline, Tag } from '@/lib/api/types';
+import { useCalls } from '@/lib/calls/call-provider';
 import { formatMoney } from '@/lib/format';
 import { snoozeOptions, zonedWhen } from '@/lib/inbox';
 import { useLiveRefresh } from '@/lib/realtime/live-provider';
@@ -113,6 +114,14 @@ export function ConversationView({
     router.refresh();
   };
   const actions = useConversationActions(workspaceId, c.id, after);
+  const calls = useCalls();
+  // Calls go to the conversation's number, known customer or not; customers see the business number.
+  const callTarget = {
+    name,
+    phone: c.counterpart,
+    personId: person?.id ?? null,
+    conversationId: c.id,
+  };
   const [addPerson, setAddPerson] = useState(false);
   const [linkPerson, setLinkPerson] = useState(false);
   const [details, setDetails] = useState(false);
@@ -346,6 +355,15 @@ export function ConversationView({
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent className="min-w-[220px]">
+              {calls.available ? (
+                <DropdownMenuItem
+                  onSelect={() => calls.openDialer(callTarget)}
+                  data-testid="thread-call"
+                >
+                  <Phone className="h-3.5 w-3.5" strokeWidth={1.5} />
+                  Call
+                </DropdownMenuItem>
+              ) : null}
               {customerHref ? (
                 <DropdownMenuItem onSelect={() => router.push(customerHref)}>
                   <UserRound className="h-3.5 w-3.5" strokeWidth={1.5} />
@@ -389,6 +407,18 @@ export function ConversationView({
               {person ? `${person.phone ?? c.counterpartDisplay} · Texts` : 'Texts'}
             </div>
           </div>
+          {calls.available ? (
+            <button
+              type="button"
+              aria-label="Call"
+              title="Call"
+              data-testid="thread-call-phone"
+              onClick={() => calls.openDialer(callTarget)}
+              className="flex h-11 w-11 flex-none items-center justify-center rounded-full text-text-2"
+            >
+              <Phone className="h-[18px] w-[18px]" strokeWidth={1.5} />
+            </button>
+          ) : null}
           <button
             type="button"
             aria-label="Details and actions"
@@ -535,6 +565,18 @@ export function ConversationView({
             </div>
           ) : null}
           <div className="mt-3.5 flex flex-col gap-0.5">
+            {calls.available ? (
+              <SheetAction
+                icon={Phone}
+                testId="sheet-call"
+                onClick={() => {
+                  setDetails(false);
+                  calls.openDialer(callTarget);
+                }}
+              >
+                Call
+              </SheetAction>
+            ) : null}
             {customerHref ? (
               <SheetAction icon={UserRound} onClick={() => router.push(customerHref)}>
                 Open customer

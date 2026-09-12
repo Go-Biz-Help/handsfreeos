@@ -3,6 +3,7 @@ import { ArrowLeft, Menu, MoreHorizontal, Search, SquarePen } from 'lucide-react
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useState } from 'react';
+import { CallsPill } from '@/components/calls/calls-pill';
 import { Brand } from '@/components/ui/brand';
 import { Input } from '@/components/ui/input';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
@@ -134,6 +135,7 @@ export function MobileShell({ me, current }: { me: Me; current: WorkspaceSummary
           <WorkspaceSwitcher me={me} current={current} />
           <NavLinks workspaceId={current.id} onNavigate={() => setDrawer(false)} />
           <div className="flex-1" />
+          <CallsPill />
           <UserMenu user={me.user} />
         </SheetContent>
       </Sheet>

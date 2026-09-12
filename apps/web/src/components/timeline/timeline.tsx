@@ -3,6 +3,7 @@ import { MoreHorizontal, Trash2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { toast } from 'sonner';
+import { VoicemailPlayer } from '@/components/calls/voicemail-player';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -115,7 +116,7 @@ export function Timeline({
               <div className="flex items-start justify-between gap-3">
                 <span className="text-[13px] leading-5">
                   <strong className="font-semibold">{timelineActor(e, subjectName)}</strong>{' '}
-                  {describeTimeline(e, recordType)}
+                  {describeTimeline(e, recordType, myUserId)}
                 </span>
                 <span className="flex flex-none items-center gap-1">
                   <time
@@ -146,7 +147,25 @@ export function Timeline({
                   ) : null}
                 </span>
               </div>
-              {body ? (
+              {e.kind === 'call' &&
+              e.subtype === 'voicemail' &&
+              typeof e.meta.recordingPath === 'string' ? (
+                <div
+                  className="mt-1.5 flex flex-col gap-2 rounded-control bg-card-2 px-3 py-2.5"
+                  data-testid="timeline-voicemail"
+                >
+                  <VoicemailPlayer
+                    path={e.meta.recordingPath}
+                    seconds={
+                      typeof e.meta.recordingSeconds === 'number' ? e.meta.recordingSeconds : null
+                    }
+                    seed={typeof e.meta.callId === 'string' ? e.meta.callId : e.id}
+                    surface="card"
+                    bars={34}
+                  />
+                  {body ? <p className="text-[13px] leading-[1.5] text-text">“{body}”</p> : null}
+                </div>
+              ) : body ? (
                 <div className="mt-1.5 whitespace-pre-wrap rounded-control bg-card-2 px-3 py-2.5 text-[13px] text-text">
                   {body}
                 </div>
