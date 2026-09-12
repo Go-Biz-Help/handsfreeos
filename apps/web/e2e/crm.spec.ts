@@ -44,7 +44,8 @@ test('company → person with duplicate warning → lead → note → task → a
     'href',
     'tel:+17135550142',
   );
-  await expect(page.getByRole('link', { name: 'mike.johnson@example.com' })).toBeVisible();
+  // A customer's address opens the email sheet (it sends from the workspace address, not the viewer's mail app).
+  await expect(page.getByRole('button', { name: 'mike.johnson@example.com' })).toBeVisible();
   await expect(page.getByTestId('tag-picker')).toContainText('Residential');
 
   // The same phone again warns before saving; "save anyway" creates a second record.
