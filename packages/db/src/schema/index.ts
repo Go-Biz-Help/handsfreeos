@@ -532,7 +532,7 @@ export const callStatus = app.enum('call_status', [
   'canceled',
 ]);
 export const callAnsweredVia = app.enum('call_answered_via', ['browser', 'forwarding']);
-export const optOutSource = app.enum('opt_out_source', ['stop_keyword', 'manual', 'carrier_error']);
+export const optOutSource = app.enum('opt_out_source', ['keyword', 'manual', 'carrier_error']);
 export const deliveryStatus = app.enum('delivery_status', ['pending', 'done', 'failed', 'ignored']);
 export const jobStatus = app.enum('job_status', ['pending', 'done', 'failed', 'cancelled']);
 
@@ -599,7 +599,10 @@ export const phoneNumbers = app.table('phone_numbers', {
   label: text('label'),
   capabilities: jsonb('capabilities').$type<Json>().notNull().default({}),
   status: phoneNumberStatus('status').notNull().default('provisioning'),
-  routing: jsonb('routing').$type<PhoneRouting>().notNull(),
+  routing: jsonb('routing')
+    .$type<PhoneRouting>()
+    .notNull()
+    .default({ forwarding: [], ringSeconds: 20, voicemailEnabled: true, voicemailGreeting: null }),
   lastError: text('last_error'),
   purchasedAt: ts('purchased_at'),
   releasedAt: ts('released_at'),

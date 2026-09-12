@@ -38,17 +38,36 @@ describe('GET /healthz', () => {
     expect(replaced.headers['x-correlation-id']).not.toContain('drop');
   });
 
-  it('serves the OpenAPI document with every command and query', async () => {
+  it('serves the OpenAPI document with every command people run and every query', async () => {
     const res = await app.inject({ method: 'GET', url: '/openapi.json' });
     expect(res.statusCode).toBe(200);
     const paths = Object.keys(res.json().paths);
+    const forPeople = registry.commands.filter((c) => (c.actors ?? ['human']).includes('human'));
     const expected = [
-      ...registry.commands.map((c) => `/v1/commands/${c.name}`),
+      ...forPeople.map((c) => `/v1/commands/${c.name}`),
       ...registry.queries.map((q) => `/v1/queries/${q.name}`),
     ];
     expect(paths).toEqual(expect.arrayContaining(expected));
     expect(paths.filter((p) => p.startsWith('/v1/'))).toHaveLength(expected.length);
     expect(expected.length).toBeGreaterThanOrEqual(71);
+  });
+
+  it('keeps worker-only commands (carrier answers, inbound texts) off the public API', async () => {
+    const res = await app.inject({ method: 'GET', url: '/openapi.json' });
+    const paths = Object.keys(res.json().paths);
+    const workerOnly = registry.commands
+      .filter((c) => !(c.actors ?? ['human']).includes('human'))
+      .map((c) => c.name);
+    expect(workerOnly).toEqual(
+      expect.arrayContaining(['message.receive', 'message.update_status', 'phone_number.activate']),
+    );
+    for (const name of workerOnly) expect(paths).not.toContain(`/v1/commands/${name}`);
+    const direct = await app.inject({
+      method: 'POST',
+      url: '/v1/commands/message.receive',
+      payload: {},
+    });
+    expect(direct.statusCode).toBe(404);
   });
 });
 

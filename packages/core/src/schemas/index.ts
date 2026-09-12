@@ -16,3 +16,6 @@ export * from './activity';
 export * from './file';
 export * from './import';
 export * from './crm-queries';
+export * from './telephony';
+export * from './conversation';
+export * from './message';

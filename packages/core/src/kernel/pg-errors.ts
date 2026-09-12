@@ -52,6 +52,35 @@ const RULES: Record<string, { status: number; message: string }> = {
     message: 'This invitation was sent to a different email address.',
   },
   invitation_not_found: { status: 404, message: 'Invitation not found.' },
+  // Milestone 3 rules raised by the messaging triggers.
+  phone_number_provider_fields: {
+    status: 403,
+    message: 'Only HandsFreeOS changes a number’s carrier details.',
+  },
+  phone_number_status_transition: {
+    status: 409,
+    message: 'That number can’t change to that status.',
+  },
+  registration_provider_fields: {
+    status: 403,
+    message: 'Only HandsFreeOS records the carrier’s answer.',
+  },
+  registration_in_review: {
+    status: 409,
+    message: 'The carriers are reviewing this registration. Changes wait until they answer.',
+  },
+  registration_status_transition: {
+    status: 409,
+    message: 'A registration can only be saved or sent.',
+  },
+  message_status_transition: {
+    status: 409,
+    message: 'Only a message that did not go out can be sent again.',
+  },
+  conversation_mismatch: {
+    status: 400,
+    message: 'That message belongs to a different conversation.',
+  },
   not_authenticated: { status: 401, message: 'Sign in to continue.' },
   profile_missing: {
     status: 500,

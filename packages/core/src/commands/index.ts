@@ -1,6 +1,34 @@
 import type { CommandDef } from '../kernel/types';
 import { activityDelete, activityLog, activityUpdate } from './activity';
 import { companyArchive } from './company.archive';
+import {
+  conversationAssign,
+  conversationClose,
+  conversationLinkPerson,
+  conversationMarkRead,
+  conversationMarkUnread,
+  conversationOpen,
+  conversationReopen,
+  conversationSnooze,
+} from './conversation';
+import {
+  messageAttachMedia,
+  messageReceive,
+  messageRetry,
+  messageSend,
+  messageUpdateStatus,
+  personSetSmsConsent,
+} from './message';
+import {
+  phoneNumberActivate,
+  phoneNumberBuy,
+  phoneNumberFail,
+  phoneNumberMarkReleased,
+  phoneNumberRelease,
+  phoneNumberSetRouting,
+  phoneUpdateSettings,
+} from './phone';
+import { registrationSubmit, registrationUpdateStatus } from './registration';
 import { companyCreate } from './company.create';
 import { companyRestore } from './company.restore';
 import { companyUpdate } from './company.update';
@@ -39,6 +67,29 @@ import { workspaceCreate } from './workspace.create';
 import { workspaceUpdate } from './workspace.update';
 
 export {
+  conversationAssign,
+  conversationClose,
+  conversationLinkPerson,
+  conversationMarkRead,
+  conversationMarkUnread,
+  conversationOpen,
+  conversationReopen,
+  conversationSnooze,
+  messageAttachMedia,
+  messageReceive,
+  messageRetry,
+  messageSend,
+  messageUpdateStatus,
+  personSetSmsConsent,
+  phoneNumberActivate,
+  phoneNumberBuy,
+  phoneNumberFail,
+  phoneNumberMarkReleased,
+  phoneNumberRelease,
+  phoneNumberSetRouting,
+  phoneUpdateSettings,
+  registrationSubmit,
+  registrationUpdateStatus,
   activityDelete,
   activityLog,
   activityUpdate,
@@ -144,4 +195,27 @@ export const commands: readonly CommandDef[] = [
   importCreate,
   importStart,
   importCancel,
+  phoneNumberBuy,
+  phoneNumberRelease,
+  phoneNumberSetRouting,
+  phoneUpdateSettings,
+  phoneNumberActivate,
+  phoneNumberFail,
+  phoneNumberMarkReleased,
+  registrationSubmit,
+  registrationUpdateStatus,
+  conversationOpen,
+  conversationMarkRead,
+  conversationMarkUnread,
+  conversationAssign,
+  conversationSnooze,
+  conversationClose,
+  conversationReopen,
+  conversationLinkPerson,
+  messageSend,
+  messageRetry,
+  messageReceive,
+  messageUpdateStatus,
+  messageAttachMedia,
+  personSetSmsConsent,
 ] as unknown as readonly CommandDef[];

@@ -19,6 +19,8 @@ const RATE_LIMITED: Record<string, { max: number; timeWindow: string }> = {
 export function registerOperations(app: FastifyInstance, db: Db): void {
   const typed = app.withTypeProvider<ZodTypeProvider>();
   for (const cmd of registry.commands) {
+    // Worker-only commands (the carrier's answers, inbound texts) never become public routes.
+    if (!(cmd.actors ?? ['human']).includes('human')) continue;
     typed.route({
       method: 'POST',
       url: `/v1/commands/${cmd.name}`,

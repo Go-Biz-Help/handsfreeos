@@ -177,6 +177,166 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/conversation.assign": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Give a conversation to a teammate, or leave it for anyone.
+         * @description Risk level 1. Requires inbox.use. Emits conversation.assigned.
+         */
+        post: operations["command_conversation_assign"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/conversation.close": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Close a conversation that needs nothing more. A new message opens it again.
+         * @description Risk level 0. Requires inbox.use. Emits conversation.closed.
+         */
+        post: operations["command_conversation_close"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/conversation.link_person": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Tie a conversation from an unknown number or address to a customer. Earlier messages and calls join their timeline.
+         * @description Risk level 1. Requires inbox.use. Emits conversation.linked.
+         */
+        post: operations["command_conversation_link_person"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/conversation.mark_read": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Mark a conversation read for the whole team.
+         * @description Risk level 0. Requires inbox.use. Emits conversation.read.
+         */
+        post: operations["command_conversation_mark_read"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/conversation.mark_unread": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Mark a conversation unread so it stands out in the inbox again.
+         * @description Risk level 0. Requires inbox.use. Emits conversation.marked_unread.
+         */
+        post: operations["command_conversation_mark_unread"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/conversation.open": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Open the text or email conversation with a customer, starting it if needed.
+         * @description Risk level 1. Requires inbox.use. Emits conversation.created, conversation.linked.
+         */
+        post: operations["command_conversation_open"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/conversation.reopen": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Bring a closed or snoozed conversation back into the inbox.
+         * @description Risk level 0. Requires inbox.use. Emits conversation.reopened.
+         */
+        post: operations["command_conversation_reopen"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/conversation.snooze": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Hide a conversation until a set time. It comes back then, or sooner if the customer writes again.
+         * @description Risk level 0. Requires inbox.use. Emits conversation.snoozed.
+         */
+        post: operations["command_conversation_snooze"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/file.begin_upload": {
         parameters: {
             query?: never;
@@ -537,6 +697,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/message.retry": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Send a text that did not go out one more time.
+         * @description Risk level 2. Requires inbox.use. Emits message.queued.
+         */
+        post: operations["command_message_retry"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/message.send": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Text a customer from the business number. The message is queued here and the worker hands it to the carrier.
+         * @description Risk level 2. Requires inbox.use. Emits message.queued, conversation.created.
+         */
+        post: operations["command_message_send"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/organization.create": {
         parameters: {
             query?: never;
@@ -617,6 +817,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/person.set_sms_consent": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Record that a customer asked not to be texted (or agreed to texts again) outside of a STOP or START text.
+         * @description Risk level 1. Requires inbox.use. Emits person.opted_out, person.opted_in.
+         */
+        post: operations["command_person_set_sms_consent"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/person.update": {
         parameters: {
             query?: never;
@@ -631,6 +851,86 @@ export interface paths {
          * @description Risk level 1. Requires records.write. Emits person.updated.
          */
         post: operations["command_person_update"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/phone_number.buy": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Buy the workspace’s business number from the search results. HandsFreeOS provisions it with the carrier; calls ring as soon as it is active.
+         * @description Risk level 3. Requires channels.manage. Emits phone_number.purchase_requested.
+         */
+        post: operations["command_phone_number_buy"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/phone_number.release": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Give the business number back to the carrier. Calls and texts to it stop, and it cannot be recovered.
+         * @description Risk level 4. Requires channels.manage. Emits phone_number.release_requested.
+         */
+        post: operations["command_phone_number_release"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/phone_number.set_routing": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Choose which phones ring with the browsers when a customer calls, how long they ring, and the voicemail greeting.
+         * @description Risk level 2. Requires channels.manage. Emits phone_number.routing_updated.
+         */
+        post: operations["command_phone_number_set_routing"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/phone.update_settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Quiet hours for texts and the reminder email when a customer waits for a reply.
+         * @description Risk level 2. Requires channels.manage. Emits phone.settings_updated.
+         */
+        post: operations["command_phone_update_settings"];
         delete?: never;
         options?: never;
         head?: never;
@@ -711,6 +1011,26 @@ export interface paths {
          * @description Risk level 1. Requires records.write. Emits record.tags_changed.
          */
         post: operations["command_record_set_tags"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/registration.submit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Send the business details the carriers need before texts can go out: toll-free verification, or the 10DLC brand and campaign for a local number.
+         * @description Risk level 3. Requires channels.manage. Emits registration.submitted.
+         */
+        post: operations["command_registration_submit"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1097,6 +1417,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/queries/conversation.get": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * One conversation with the customer beside it: contact details, open lead, open tasks, and whether a text can go out now.
+         * @description Requires inbox.use.
+         */
+        post: operations["query_conversation_get"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/conversation.thread": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The messages and calls in one conversation, newest first.
+         * @description Requires inbox.use.
+         */
+        post: operations["query_conversation_thread"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/queries/crm.find_matches": {
         parameters: {
             query?: never;
@@ -1197,6 +1557,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/queries/inbox.list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Conversations newest first: mine, unassigned or everyone’s; open, snoozed or closed; texts or email; with search.
+         * @description Requires inbox.use.
+         */
+        post: operations["query_inbox_list"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/inbox.summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Unread and open counts for the badges, and how many customers are waiting too long.
+         * @description Requires inbox.use.
+         */
+        post: operations["query_inbox_summary"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/queries/invitation.preview": {
         parameters: {
             query?: never;
@@ -1277,6 +1677,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/queries/message.get": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * One message, as it appears in the thread.
+         * @description Requires inbox.use.
+         */
+        post: operations["query_message_get"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/queries/person.get": {
         parameters: {
             query?: never;
@@ -1311,6 +1731,26 @@ export interface paths {
          * @description Requires records.read.
          */
         post: operations["query_person_list"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/phone.setup_status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Where texting and calls stand: the business number, the carrier registration, the next step, and the texting rules.
+         * @description Requires inbox.use.
+         */
+        post: operations["query_phone_setup_status"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1736,6 +2176,276 @@ export interface operations {
                         /** Format: uuid */
                         companyId: string;
                         updated: string[];
+                    };
+                };
+            };
+        };
+    };
+    command_conversation_assign: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    assigneeUserId: string | null;
+                    /** Format: uuid */
+                    conversationId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        conversationId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_conversation_close: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    conversationId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        conversationId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_conversation_link_person: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    conversationId: string;
+                    /** Format: uuid */
+                    personId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        conversationId: string;
+                        /** Format: uuid */
+                        personId: string;
+                        phoneAdded: boolean;
+                    };
+                };
+            };
+        };
+    };
+    command_conversation_mark_read: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    conversationId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        conversationId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_conversation_mark_unread: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    conversationId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        conversationId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_conversation_open: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /**
+                     * @default sms
+                     * @enum {string}
+                     */
+                    channel?: "sms" | "email";
+                    /** Format: uuid */
+                    personId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        conversationId: string;
+                        created: boolean;
+                    };
+                };
+            };
+        };
+    };
+    command_conversation_reopen: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    conversationId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        conversationId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_conversation_snooze: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    conversationId: string;
+                    /** Format: date-time */
+                    until: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        conversationId: string;
                     };
                 };
             };
@@ -2404,6 +3114,89 @@ export interface operations {
             };
         };
     };
+    command_message_retry: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    messageId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        messageId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_message_send: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @default false */
+                    acknowledgeQuietHours?: boolean;
+                    /** @default [] */
+                    attachmentFileIds?: string[];
+                    body: string;
+                    /**
+                     * @default sms
+                     * @enum {string}
+                     */
+                    channel?: "sms" | "email";
+                    clientId?: string;
+                    /** Format: uuid */
+                    conversationId?: string;
+                    /** Format: uuid */
+                    personId?: string;
+                    subject?: string;
+                    toPhone?: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        conversationId: string;
+                        duplicate: boolean;
+                        /** Format: uuid */
+                        messageId: string;
+                        status: string;
+                    };
+                };
+            };
+        };
+    };
     command_organization_create: {
         parameters: {
             query?: never;
@@ -2565,6 +3358,42 @@ export interface operations {
             };
         };
     };
+    command_person_set_sms_consent: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {string} */
+                    consent: "opted_in" | "opted_out";
+                    /** Format: uuid */
+                    personId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {string} */
+                        consent: "unknown" | "opted_in" | "opted_out";
+                        /** Format: uuid */
+                        personId: string;
+                    };
+                };
+            };
+        };
+    };
     command_person_update: {
         parameters: {
             query?: never;
@@ -2610,6 +3439,157 @@ export interface operations {
                         /** Format: uuid */
                         personId: string;
                         updated: string[];
+                    };
+                };
+            };
+        };
+    };
+    command_phone_number_buy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    e164: string;
+                    /** @enum {string} */
+                    numberType: "local" | "toll_free";
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        phoneNumberId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_phone_number_release: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    confirmE164: string;
+                    /** Format: uuid */
+                    phoneNumberId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        phoneNumberId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_phone_number_set_routing: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    phoneNumberId: string;
+                    routing: {
+                        forwarding: {
+                            e164: string;
+                            /** @default true */
+                            enabled?: boolean;
+                            label: string;
+                        }[];
+                        ringSeconds: number;
+                        voicemailEnabled: boolean;
+                        voicemailGreeting: string | null;
+                    };
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        phoneNumberId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_phone_update_settings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    quietHours?: {
+                        enabled: boolean;
+                        end: string;
+                        start: string;
+                    };
+                    unansweredReminderMinutes?: number;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        settings: {
+                            quietHours: {
+                                enabled: boolean;
+                                end: string;
+                                start: string;
+                            };
+                            unansweredReminderMinutes: number;
+                        };
                     };
                 };
             };
@@ -2752,6 +3732,69 @@ export interface operations {
                             id: string;
                             name: string;
                         }[];
+                    };
+                };
+            };
+        };
+    };
+    command_registration_submit: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    business: {
+                        address: {
+                            city: string;
+                            /**
+                             * @default US
+                             * @enum {string}
+                             */
+                            country?: "US";
+                            line1: string;
+                            postalCode: string;
+                            state: string;
+                        };
+                        /** @enum {string} */
+                        businessType: "llc" | "corporation" | "sole_proprietor" | "partnership" | "non_profit";
+                        contact: {
+                            /** Format: email */
+                            email: string;
+                            firstName: string;
+                            lastName: string;
+                            phone: string;
+                        };
+                        ein?: string | null;
+                        legalName: string;
+                        messageSamples: string[];
+                        /** @enum {string} */
+                        monthlyVolume: "under_1000" | "1000_10000" | "10000_100000" | "over_100000";
+                        optInDescription: string;
+                        /** @enum {string} */
+                        useCase: "customer_care" | "mixed" | "marketing";
+                        /** Format: uri */
+                        website: string;
+                    };
+                    /** @enum {string} */
+                    kind: "toll_free_verification" | "a2p_10dlc";
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        registrationIds: string[];
                     };
                 };
             };
@@ -3563,6 +4606,196 @@ export interface operations {
             };
         };
     };
+    query_conversation_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    conversationId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        canText: {
+                            ok: boolean;
+                            reason: ("no_number" | "not_ready" | "opted_out" | "no_phone" | "email_channel") | null;
+                        };
+                        conversation: {
+                            assignee: {
+                                fullName: string;
+                                /** Format: uuid */
+                                id: string;
+                            } | null;
+                            awaitingReplySince: string | null;
+                            /** @enum {string} */
+                            channel: "sms" | "email";
+                            counterpart: string;
+                            counterpartDisplay: string;
+                            /** Format: date-time */
+                            createdAt: string;
+                            /** Format: uuid */
+                            id: string;
+                            lastDirection: ("inbound" | "outbound") | null;
+                            lastMessageAt: string | null;
+                            lastPreview: string | null;
+                            openLead: {
+                                /** Format: uuid */
+                                id: string;
+                                nextAction: string | null;
+                                nextActionAt: string | null;
+                                stageName: string;
+                                title: string;
+                                valueCents: number;
+                            } | null;
+                            person: {
+                                fullName: string;
+                                /** Format: uuid */
+                                id: string;
+                            } | null;
+                            snoozedUntil: string | null;
+                            /** @enum {string} */
+                            status: "open" | "snoozed" | "closed";
+                            unreadCount: number;
+                        };
+                        fromNumber: string | null;
+                        openTasks: {
+                            allDay: boolean;
+                            dueAt: string | null;
+                            /** Format: uuid */
+                            id: string;
+                            overdue: boolean;
+                            title: string;
+                        }[];
+                        person: {
+                            address: {
+                                city: string | null;
+                                country: string;
+                                line1: string | null;
+                                line2: string | null;
+                                postalCode: string | null;
+                                state: string | null;
+                            };
+                            archived: boolean;
+                            /** Format: date-time */
+                            customerSince: string;
+                            email: string | null;
+                            fullName: string;
+                            /** Format: uuid */
+                            id: string;
+                            phone: string | null;
+                            phoneE164: string | null;
+                            /** @enum {string} */
+                            smsConsent: "unknown" | "opted_in" | "opted_out";
+                            tags: {
+                                color: string;
+                                /** Format: uuid */
+                                id: string;
+                                name: string;
+                            }[];
+                        } | null;
+                        quiet: {
+                            endsAt: string | null;
+                            localTime: string;
+                            quiet: boolean;
+                        };
+                        timezone: string;
+                    };
+                };
+            };
+        };
+    };
+    query_conversation_thread: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    conversationId: string;
+                    cursor?: string;
+                    /** @default 50 */
+                    limit?: number;
+                    /** Format: date-time */
+                    since?: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: {
+                            answeredBy: {
+                                fullName: string;
+                                /** Format: uuid */
+                                id: string;
+                            } | null;
+                            body: string | null;
+                            channel: ("sms" | "email") | null;
+                            deliveredAt: string | null;
+                            /** @enum {string} */
+                            direction: "inbound" | "outbound";
+                            durationSeconds: number | null;
+                            errorCode: string | null;
+                            errorMessage: string | null;
+                            fromAddress: string | null;
+                            hasRecording: boolean;
+                            /** Format: uuid */
+                            id: string;
+                            isVoicemail: boolean;
+                            media: {
+                                bucket: string;
+                                contentType: string;
+                                /** Format: uuid */
+                                fileId?: string;
+                                name: string;
+                                objectPath: string;
+                                sizeBytes: number;
+                            }[];
+                            /** Format: date-time */
+                            occurredAt: string;
+                            sentBy: {
+                                fullName: string;
+                                /** Format: uuid */
+                                id: string;
+                            } | null;
+                            status: string;
+                            subject: string | null;
+                            transcript: string | null;
+                            /** @enum {string} */
+                            type: "message" | "call";
+                        }[];
+                        nextCursor: string | null;
+                    };
+                };
+            };
+        };
+    };
     query_crm_find_matches: {
         parameters: {
             query?: never;
@@ -3825,6 +5058,128 @@ export interface operations {
                             totalRows: number;
                             updatedCount: number;
                         }[];
+                    };
+                };
+            };
+        };
+    };
+    query_inbox_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /**
+                     * @default all
+                     * @enum {string}
+                     */
+                    box?: "mine" | "unassigned" | "all";
+                    /** @enum {string} */
+                    channel?: "sms" | "email";
+                    cursor?: string;
+                    /** @default 50 */
+                    limit?: number;
+                    q?: string;
+                    /**
+                     * @default open
+                     * @enum {string}
+                     */
+                    status?: "open" | "snoozed" | "closed";
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: {
+                            assignee: {
+                                fullName: string;
+                                /** Format: uuid */
+                                id: string;
+                            } | null;
+                            awaitingReplySince: string | null;
+                            /** @enum {string} */
+                            channel: "sms" | "email";
+                            counterpart: string;
+                            counterpartDisplay: string;
+                            /** Format: date-time */
+                            createdAt: string;
+                            /** Format: uuid */
+                            id: string;
+                            lastDirection: ("inbound" | "outbound") | null;
+                            lastMessageAt: string | null;
+                            lastPreview: string | null;
+                            openLead: {
+                                /** Format: uuid */
+                                id: string;
+                                nextAction: string | null;
+                                nextActionAt: string | null;
+                                stageName: string;
+                                title: string;
+                                valueCents: number;
+                            } | null;
+                            person: {
+                                fullName: string;
+                                /** Format: uuid */
+                                id: string;
+                            } | null;
+                            snoozedUntil: string | null;
+                            /** @enum {string} */
+                            status: "open" | "snoozed" | "closed";
+                            unreadCount: number;
+                        }[];
+                        nextCursor: string | null;
+                    };
+                };
+            };
+        };
+    };
+    query_inbox_summary: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        open: {
+                            all: number;
+                            mine: number;
+                            unassigned: number;
+                        };
+                        unread: {
+                            all: number;
+                            mine: number;
+                            unassigned: number;
+                        };
+                        waiting: number;
+                        waitingThresholdMinutes: number;
                     };
                 };
             };
@@ -4163,6 +5518,79 @@ export interface operations {
             };
         };
     };
+    query_message_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    messageId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        conversationId: string;
+                        message: {
+                            answeredBy: {
+                                fullName: string;
+                                /** Format: uuid */
+                                id: string;
+                            } | null;
+                            body: string | null;
+                            channel: ("sms" | "email") | null;
+                            deliveredAt: string | null;
+                            /** @enum {string} */
+                            direction: "inbound" | "outbound";
+                            durationSeconds: number | null;
+                            errorCode: string | null;
+                            errorMessage: string | null;
+                            fromAddress: string | null;
+                            hasRecording: boolean;
+                            /** Format: uuid */
+                            id: string;
+                            isVoicemail: boolean;
+                            media: {
+                                bucket: string;
+                                contentType: string;
+                                /** Format: uuid */
+                                fileId?: string;
+                                name: string;
+                                objectPath: string;
+                                sizeBytes: number;
+                            }[];
+                            /** Format: date-time */
+                            occurredAt: string;
+                            sentBy: {
+                                fullName: string;
+                                /** Format: uuid */
+                                id: string;
+                            } | null;
+                            status: string;
+                            subject: string | null;
+                            transcript: string | null;
+                            /** @enum {string} */
+                            type: "message" | "call";
+                        };
+                    };
+                };
+            };
+        };
+    };
     query_person_get: {
         parameters: {
             query?: never;
@@ -4323,6 +5751,92 @@ export interface operations {
                             updatedAt: string;
                         }[];
                         nextCursor: string | null;
+                    };
+                };
+            };
+        };
+    };
+    query_phone_setup_status: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        accountStatus: string | null;
+                        canManage: boolean;
+                        messagingReady: boolean;
+                        /** @enum {string} */
+                        nextStep: "buy_number" | "provisioning" | "releasing" | "submit_registration" | "awaiting_approval" | "rejected" | "ready";
+                        number: {
+                            display: string;
+                            e164: string;
+                            /** Format: uuid */
+                            id: string;
+                            label: string | null;
+                            lastError: string | null;
+                            /** @enum {string} */
+                            numberType: "local" | "toll_free";
+                            purchasedAt: string | null;
+                            routing: {
+                                forwarding: {
+                                    e164: string;
+                                    enabled: boolean;
+                                    label: string;
+                                }[];
+                                ringSeconds: number;
+                                voicemailEnabled: boolean;
+                                voicemailGreeting: string | null;
+                            };
+                            /** @enum {string} */
+                            status: "provisioning" | "active" | "failed" | "releasing" | "released";
+                        } | null;
+                        quiet: {
+                            endsAt: string | null;
+                            localTime: string;
+                            quiet: boolean;
+                        };
+                        registrations: {
+                            approvedAt: string | null;
+                            /** Format: uuid */
+                            id: string;
+                            /** @enum {string} */
+                            kind: "toll_free_verification" | "a2p_customer_profile" | "a2p_trust_product" | "a2p_brand" | "a2p_campaign";
+                            providerStatus: string | null;
+                            rejectionReason: string | null;
+                            /** @enum {string} */
+                            status: "draft" | "submitted" | "in_review" | "approved" | "rejected" | "failed";
+                            submission: {
+                                [key: string]: unknown;
+                            };
+                            submittedAt: string | null;
+                        }[];
+                        settings: {
+                            quietHours: {
+                                enabled: boolean;
+                                end: string;
+                                start: string;
+                            };
+                            unansweredReminderMinutes: number;
+                        };
+                        timezone: string;
+                        voiceReady: boolean;
                     };
                 };
             };

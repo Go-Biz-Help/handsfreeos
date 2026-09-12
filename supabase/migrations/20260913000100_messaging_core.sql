@@ -27,7 +27,7 @@ create type app.call_status as enum (
   'initiated', 'ringing', 'in_progress', 'completed', 'no_answer', 'busy', 'failed', 'canceled'
 );
 create type app.call_answered_via as enum ('browser', 'forwarding');
-create type app.opt_out_source as enum ('stop_keyword', 'manual', 'carrier_error');
+create type app.opt_out_source as enum ('keyword', 'manual', 'carrier_error');
 create type app.sms_consent as enum ('unknown', 'opted_in', 'opted_out');
 create type app.delivery_status as enum ('pending', 'done', 'failed', 'ignored');
 create type app.job_status as enum ('pending', 'done', 'failed', 'cancelled');
