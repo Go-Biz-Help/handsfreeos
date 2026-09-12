@@ -176,6 +176,11 @@ describe('registry', () => {
       'message.update_status',
       'message.attach_media',
       'person.set_sms_consent',
+      'call.start',
+      'call.record',
+      'call.update_status',
+      'call.attach_recording',
+      'call.attach_transcript',
     ]);
     expect(registry.queries.map((q) => q.name)).toEqual([
       'account.me',

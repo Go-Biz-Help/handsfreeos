@@ -29,6 +29,13 @@ import {
   phoneUpdateSettings,
 } from './phone';
 import { registrationSubmit, registrationUpdateStatus } from './registration';
+import {
+  callAttachRecording,
+  callAttachTranscript,
+  callRecord,
+  callStart,
+  callUpdateStatus,
+} from './call';
 import { companyCreate } from './company.create';
 import { companyRestore } from './company.restore';
 import { companyUpdate } from './company.update';
@@ -90,6 +97,11 @@ export {
   phoneUpdateSettings,
   registrationSubmit,
   registrationUpdateStatus,
+  callAttachRecording,
+  callAttachTranscript,
+  callRecord,
+  callStart,
+  callUpdateStatus,
   activityDelete,
   activityLog,
   activityUpdate,
@@ -218,4 +230,10 @@ export const commands: readonly CommandDef[] = [
   messageUpdateStatus,
   messageAttachMedia,
   personSetSmsConsent,
+  callStart,
+  callRecord,
+  callUpdateStatus,
+  callAttachRecording,
+  callAttachTranscript,
 ] as unknown as readonly CommandDef[];
+export { callPreview } from './call';

@@ -97,6 +97,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/call.start": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Call a customer from the browser. Returns what the browser dials with; customers see the business number.
+         * @description Risk level 1. Requires inbox.use. Emits call.started.
+         */
+        post: operations["command_call_start"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/company.archive": {
         parameters: {
             query?: never;
@@ -2010,6 +2030,47 @@ export interface operations {
                         /** Format: uuid */
                         activityId: string;
                         updated: string[];
+                    };
+                };
+            };
+        };
+    };
+    command_call_start: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    conversationId?: string;
+                    /** Format: uuid */
+                    personId?: string;
+                    toPhone?: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        callId: string;
+                        /** Format: uuid */
+                        conversationId: string;
+                        params: {
+                            [key: string]: string;
+                        };
+                        to: string;
                     };
                 };
             };

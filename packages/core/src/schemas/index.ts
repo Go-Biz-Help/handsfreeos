@@ -19,3 +19,4 @@ export * from './crm-queries';
 export * from './telephony';
 export * from './conversation';
 export * from './message';
+export * from './call';
