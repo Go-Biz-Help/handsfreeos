@@ -48,3 +48,16 @@ export type ImportList = Ok<'/v1/queries/import.list'>;
 export type FindMatches = Ok<'/v1/queries/crm.find_matches'>;
 export type Match = FindMatches['matches'][number];
 export type RecordType = 'person' | 'company' | 'lead';
+
+// Milestone 3: texting and the inbox
+export type InboxList = Ok<'/v1/queries/inbox.list'>;
+export type ConversationSummary = InboxList['items'][number];
+export type InboxSummary = Ok<'/v1/queries/inbox.summary'>;
+export type ConversationGet = Ok<'/v1/queries/conversation.get'>;
+export type ConversationThread = Ok<'/v1/queries/conversation.thread'>;
+export type ThreadItem = ConversationThread['items'][number];
+export type PhoneSetupStatus = Ok<'/v1/queries/phone.setup_status'>;
+export type PhoneNumberInfo = NonNullable<PhoneSetupStatus['number']>;
+export type RegistrationInfo = PhoneSetupStatus['registrations'][number];
+export type InboxBox = 'mine' | 'unassigned' | 'all';
+export type ConversationStatus = 'open' | 'snoozed' | 'closed';

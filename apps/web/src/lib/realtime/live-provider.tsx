@@ -41,7 +41,7 @@ const MAX_BACKOFF_MS = 30_000;
 
 /**
  * One private Realtime channel per workspace. Screens subscribe through useLiveRefresh (server-rendered
- * pages) or useLiveVersion (client-fetched components). Own changes are dropped by correlation id;
+ * pages) or useLiveVersion (client-fetched components). This tab's own edits are dropped by correlation id;
  * a reconnect re-syncs because Realtime does not replay what happened while the channel was down.
  */
 export function LiveProvider({
@@ -109,7 +109,9 @@ export function LiveProvider({
       channel = supabase.channel(`workspace:${workspaceId}`, { config: { private: true } });
       channel.on('broadcast', { event: 'change' }, (msg) => {
         const payload = msg.payload as LiveChange;
-        if (isOwnRequest(payload.correlationId)) return;
+        // Echoes of this tab's own edits are dropped. The worker's follow-ups (system events, no actor) share
+        // the request's correlation id but are news here, so they always come through.
+        if (payload.actorId && isOwnRequest(payload.correlationId)) return;
         notify(payload);
       });
       channel.subscribe((status) => {

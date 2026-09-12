@@ -15,7 +15,13 @@ import { apiBrowser, errorMessage, unwrap } from '@/lib/api/client';
 import type { RecordType, TimelineEntry, TimelineList } from '@/lib/api/types';
 import { formatDate } from '@/lib/format';
 import { cn, relativeTime } from '@/lib/utils';
-import { describeTimeline, timelineActor, timelineBody, timelineDotClass } from './describe';
+import {
+  describeTimeline,
+  isChannelEntry,
+  timelineActor,
+  timelineBody,
+  timelineDotClass,
+} from './describe';
 
 export function Timeline({
   workspaceId,
@@ -24,6 +30,7 @@ export function Timeline({
   initial,
   myUserId,
   canModerate,
+  subjectName,
 }: {
   workspaceId: string;
   recordType: RecordType;
@@ -31,6 +38,8 @@ export function Timeline({
   initial: TimelineList;
   myUserId: string;
   canModerate: boolean;
+  /** The customer's name, for what they sent us (texts, emails, calls). */
+  subjectName?: string;
 }) {
   const router = useRouter();
   const key = `${initial.items[0]?.id ?? ''}:${initial.items.length}`;
@@ -77,7 +86,7 @@ export function Timeline({
   if (items.length === 0)
     return (
       <EmptyState title="Nothing here yet">
-        Notes, calls, tasks and files show up here as they happen.
+        Notes, calls, texts, tasks and files show up here as they happen.
       </EmptyState>
     );
   return (
@@ -85,7 +94,9 @@ export function Timeline({
       <ol className="relative ml-2 border-l border-border">
         {items.map((e) => {
           const body = timelineBody(e);
-          const mine = e.kind !== 'system' && e.actor?.id === myUserId;
+          // Texts and emails mirror the conversation, so they are never deleted from here.
+          const editable = e.kind !== 'system' && !isChannelEntry(e);
+          const mine = editable && e.actor?.id === myUserId;
           const at = new Date(e.occurredAt);
           const recent = Date.now() - at.getTime() < 6 * 86_400_000;
           return (
@@ -103,7 +114,7 @@ export function Timeline({
               />
               <div className="flex items-start justify-between gap-3">
                 <span className="text-[13px] leading-5">
-                  <strong className="font-semibold">{timelineActor(e)}</strong>{' '}
+                  <strong className="font-semibold">{timelineActor(e, subjectName)}</strong>{' '}
                   {describeTimeline(e, recordType)}
                 </span>
                 <span className="flex flex-none items-center gap-1">
@@ -114,7 +125,7 @@ export function Timeline({
                   >
                     {recent ? relativeTime(e.occurredAt) : formatDate(e.occurredAt)}
                   </time>
-                  {e.kind !== 'system' && (mine || canModerate) ? (
+                  {editable && (mine || canModerate) ? (
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
                         <button

@@ -20,6 +20,7 @@ export function SettingsNav({
           { href: `${base}/workspace`, label: 'Workspace' },
           { href: `${base}/pipelines`, label: 'Pipelines' },
           { href: `${base}/imports`, label: 'Imports' },
+          { href: `${base}/texting`, label: 'Texting & calls' },
         ]
       : []),
   ];

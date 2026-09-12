@@ -55,6 +55,7 @@ type ConversationRow = {
   last_message_at: Date | null;
   last_preview: string | null;
   last_direction: 'inbound' | 'outbound' | null;
+  last_sender: { id: string; fullName: string } | null;
   awaiting_reply_since: Date | null;
   snoozed_until: Date | null;
   created_at: Date;
@@ -78,6 +79,10 @@ const conversationSelect = (workspaceId: string) => sql`
        from app.leads l join app.pipeline_stages s on s.id = l.stage_id
        where c.person_id is not null and l.person_id = c.person_id and l.status = 'open' and l.archived_at is null
        order by l.updated_at desc limit 1) as open_lead,
+    (select json_build_object('id', su.id, 'fullName', coalesce(nullif(su.full_name, ''), su.email::text))
+       from app.messages lm join app.users su on su.id = lm.sent_by
+       where lm.conversation_id = c.id and lm.direction = 'outbound'
+       order by lm.occurred_at desc limit 1) as last_sender,
     ${SORT_KEY(sql`coalesce(c.last_message_at, c.created_at)`)} as sort_key
   from app.conversations c
   left join app.people p on p.id = c.person_id
@@ -101,6 +106,7 @@ function summary(r: ConversationRow): ConversationSummary {
     lastMessageAt: iso(r.last_message_at),
     lastPreview: r.last_preview,
     lastDirection: r.last_direction,
+    lastSentBy: r.last_direction === 'outbound' ? r.last_sender : null,
     awaitingReplySince: iso(r.awaiting_reply_since),
     snoozedUntil: iso(r.snoozed_until),
     openLead: r.open_lead
@@ -133,7 +139,7 @@ export const inboxList = defineQuery({
     const list = await rows<ConversationRow>(
       ctx.tx,
       sql`select * from (${conversationSelect(input.workspaceId)}
-            and c.status = ${input.status}::app.conversation_status
+            ${input.personId ? sql`and c.person_id = ${input.personId}` : sql`and c.status = ${input.status}::app.conversation_status and c.last_message_at is not null`}
             ${input.box === 'mine' ? sql`and c.assignee_user_id = ${me}` : input.box === 'unassigned' ? sql`and c.assignee_user_id is null` : sql``}
             ${input.channel ? sql`and c.channel = ${input.channel}::app.channel` : sql``}
             ${
@@ -176,7 +182,7 @@ export const inboxSummary = defineQuery({
             count(*) filter (where c.status = 'open' and c.unread_count > 0 and c.assignee_user_id is null)::int as unread_unassigned,
             count(*) filter (where c.status = 'open' and c.awaiting_reply_since is not null
               and c.awaiting_reply_since <= now() - make_interval(mins => ${threshold}))::int as waiting
-          from app.conversations c where c.workspace_id = ${input.workspaceId}`,
+          from app.conversations c where c.workspace_id = ${input.workspaceId} and c.last_message_at is not null`,
     );
     const n = (k: string) => Number(s?.[k] ?? 0);
     return {

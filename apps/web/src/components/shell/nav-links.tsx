@@ -2,6 +2,7 @@
 import {
   ClipboardList,
   Home,
+  Inbox,
   KanbanSquare,
   ListOrdered,
   Settings2,
@@ -11,6 +12,7 @@ import {
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import type { ComponentType } from 'react';
+import { useUnread } from '@/lib/realtime/unread-provider';
 import { cn } from '@/lib/utils';
 
 export interface NavItem {
@@ -27,6 +29,7 @@ export function navItems(workspaceId: string): NavItem[] {
   const base = `/app/w/${workspaceId}`;
   return [
     { key: 'home', href: base, label: 'Home', icon: Home, exact: true, primary: true },
+    { key: 'inbox', href: `${base}/inbox`, label: 'Inbox', icon: Inbox, primary: true },
     { key: 'customers', href: `${base}/customers`, label: 'Customers', icon: Users, primary: true },
     {
       key: 'pipeline',
@@ -35,7 +38,8 @@ export function navItems(workspaceId: string): NavItem[] {
       icon: KanbanSquare,
       primary: true,
     },
-    { key: 'tasks', href: `${base}/tasks`, label: 'Tasks', icon: ClipboardList, primary: true },
+    // Tasks moved to the drawer on phones when the inbox joined the bottom bar.
+    { key: 'tasks', href: `${base}/tasks`, label: 'Tasks', icon: ClipboardList },
     { key: 'members', href: `${base}/members`, label: 'Members', icon: UserCircle },
     { key: 'audit', href: `${base}/audit`, label: 'Audit log', icon: ListOrdered },
     { key: 'settings', href: `${base}/settings`, label: 'Settings', icon: Settings2 },
@@ -46,6 +50,23 @@ export function isActive(item: NavItem, pathname: string): boolean {
   return item.exact ? pathname === item.href : pathname.startsWith(item.href);
 }
 
+/** The count on the Inbox item: open conversations with something unread. */
+export function UnreadCount({ count, className }: { count: number; className?: string }) {
+  if (count <= 0) return null;
+  return (
+    <span
+      data-testid="unread-badge"
+      className={cn(
+        'inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-accent px-1.5 text-[11px] font-semibold leading-none text-white',
+        className,
+      )}
+    >
+      <span aria-hidden>{count > 99 ? '99+' : count}</span>
+      <span className="sr-only">{count} unread</span>
+    </span>
+  );
+}
+
 export function NavLinks({
   workspaceId,
   onNavigate,
@@ -54,6 +75,7 @@ export function NavLinks({
   onNavigate?: () => void;
 }) {
   const pathname = usePathname();
+  const unread = useUnread().summary?.unread.all ?? 0;
   return (
     <nav className="mt-2.5 flex flex-col gap-0.5" aria-label="Workspace">
       {navItems(workspaceId).map((item) => {
@@ -74,6 +96,7 @@ export function NavLinks({
           >
             <Icon className="h-[18px] w-[18px]" strokeWidth={1.5} />
             {item.label}
+            {item.key === 'inbox' ? <UnreadCount count={unread} className="ml-auto" /> : null}
           </Link>
         );
       })}

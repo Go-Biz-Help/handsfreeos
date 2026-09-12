@@ -7,7 +7,7 @@ import {
   KanbanSquare,
   Mail,
   MapPin,
-  MessageSquare,
+  MessageCircle,
   MoreHorizontal,
   Pencil,
   Phone,
@@ -49,16 +49,10 @@ import type {
   Task,
   TimelineList,
 } from '@/lib/api/types';
-import {
-  addressLine,
-  daysLabel,
-  formatDate,
-  formatMoney,
-  monthYear,
-  smsHref,
-  telHref,
-} from '@/lib/format';
+import { addressLine, daysLabel, formatDate, formatMoney, monthYear, telHref } from '@/lib/format';
 import { useLiveRefresh } from '@/lib/realtime/live-provider';
+import { ConversationsCard } from '@/components/inbox/conversations-card';
+import { MessageSheet } from '@/components/inbox/message-sheet';
 import { ArchiveDialog } from './archive-dialog';
 import { NextActionChip, StageBadge } from './chips';
 import { CompanyDialog } from './company-dialog';
@@ -111,7 +105,17 @@ export function RecordPage(props: RecordPageProps) {
   const [newLead, setNewLead] = useState(false);
   const [nextAction, setNextAction] = useState<LeadCard | null>(null);
   const [addPerson, setAddPerson] = useState(false);
-  useLiveRefresh(['person', 'company', 'lead', 'task', 'activity', 'tag']);
+  const [texting, setTexting] = useState(false);
+  useLiveRefresh([
+    'person',
+    'company',
+    'lead',
+    'task',
+    'activity',
+    'tag',
+    'message',
+    'conversation',
+  ]);
 
   async function setTags(ids: string[]) {
     try {
@@ -268,6 +272,20 @@ export function RecordPage(props: RecordPageProps) {
           </div>
         ) : (
           <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-border pt-4">
+            {person && phoneE164 ? (
+              <>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => setTexting(true)}
+                  data-testid="action-text"
+                >
+                  <MessageCircle className="h-4 w-4" strokeWidth={1.5} />
+                  Text
+                </Button>
+                <span aria-hidden className="mx-1 h-5 w-px bg-border" />
+              </>
+            ) : null}
             <Button
               variant="secondary"
               size="sm"
@@ -313,19 +331,6 @@ export function RecordPage(props: RecordPageProps) {
               <Upload className="h-4 w-4" strokeWidth={1.5} />
               File
             </Button>
-            {phoneE164 ? (
-              <a
-                href={smsHref(phoneE164) ?? '#'}
-                className="inline-flex h-8 items-center gap-2 rounded-control border border-border-strong bg-card px-2.5 text-[13px] font-medium shadow-1 hover:bg-card-2 md:hidden"
-              >
-                <MessageSquare className="h-4 w-4" strokeWidth={1.5} />
-                Text
-              </a>
-            ) : null}
-            <span className="flex-1" />
-            <span className="hidden text-xs text-text-3 lg:inline">
-              Text and email arrive with Milestone 3
-            </span>
           </div>
         )}
       </Card>
@@ -364,6 +369,7 @@ export function RecordPage(props: RecordPageProps) {
                 initial={props.timeline}
                 myUserId={myUserId}
                 canModerate={canModerate}
+                subjectName={person?.fullName}
               />
             </Card>
           </TabsContent>
@@ -487,6 +493,13 @@ export function RecordPage(props: RecordPageProps) {
         </Tabs>
 
         <div className="flex flex-col gap-4">
+          {person ? (
+            <ConversationsCard
+              workspaceId={workspaceId}
+              person={person}
+              onOpen={() => setTexting(true)}
+            />
+          ) : null}
           <Card className="p-4 md:p-5" data-testid="open-lead-card">
             <div className="mb-2.5 flex items-center justify-between">
               <h3 className="text-[15px] font-semibold">{lead ? 'Open lead' : 'Leads'}</h3>
@@ -646,6 +659,19 @@ export function RecordPage(props: RecordPageProps) {
         leads={leadsForForms}
         onSaved={() => setTab('timeline')}
       />
+      {person ? (
+        <MessageSheet
+          workspaceId={workspaceId}
+          person={{
+            id: person.id,
+            fullName: person.fullName,
+            phone: person.phone,
+            phoneE164: person.phoneE164,
+          }}
+          open={texting}
+          onOpenChange={setTexting}
+        />
+      ) : null}
       {person ? (
         <PersonDialog
           workspaceId={workspaceId}

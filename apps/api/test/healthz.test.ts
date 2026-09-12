@@ -79,6 +79,17 @@ describe('readEnv', () => {
   it('refuses privileged keys in the API process', () => {
     expect(() => readEnv({ ...base, SUPABASE_SECRET_KEY: 'x' })).toThrow(/privileged/);
     expect(() => readEnv({ ...base, SUPABASE_SERVICE_ROLE_KEY: 'x' })).toThrow(/privileged/);
+    // Provider credentials and the worker's sealing key belong to the worker only.
+    for (const name of [
+      'TWILIO_AUTH_TOKEN',
+      'POSTMARK_SERVER_TOKEN',
+      'GOOGLE_OAUTH_CLIENT_ID',
+      'MICROSOFT_OAUTH_CLIENT_SECRET',
+      'WORKER_ENCRYPTION_KEY',
+    ])
+      expect(() => readEnv({ ...base, [name]: 'x' })).toThrow(/privileged/);
+    // Unrelated names that merely contain OAUTH (a developer's shell) are fine.
+    expect(() => readEnv({ ...base, CLAUDE_CODE_OAUTH_SCOPES: 'x' })).not.toThrow();
   });
   it('refuses to connect as postgres and derives the JWKS url', () => {
     expect(() =>

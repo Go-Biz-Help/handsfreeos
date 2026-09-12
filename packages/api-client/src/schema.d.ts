@@ -4653,6 +4653,11 @@ export interface operations {
                             lastDirection: ("inbound" | "outbound") | null;
                             lastMessageAt: string | null;
                             lastPreview: string | null;
+                            lastSentBy: {
+                                fullName: string;
+                                /** Format: uuid */
+                                id: string;
+                            } | null;
                             openLead: {
                                 /** Format: uuid */
                                 id: string;
@@ -5083,6 +5088,8 @@ export interface operations {
                     cursor?: string;
                     /** @default 50 */
                     limit?: number;
+                    /** Format: uuid */
+                    personId?: string;
                     q?: string;
                     /**
                      * @default open
@@ -5120,6 +5127,11 @@ export interface operations {
                             lastDirection: ("inbound" | "outbound") | null;
                             lastMessageAt: string | null;
                             lastPreview: string | null;
+                            lastSentBy: {
+                                fullName: string;
+                                /** Format: uuid */
+                                id: string;
+                            } | null;
                             openLead: {
                                 /** Format: uuid */
                                 id: string;

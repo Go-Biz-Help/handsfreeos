@@ -560,6 +560,7 @@ export function LeadDetail({
             initial={data.timeline}
             myUserId={myUserId}
             canModerate={canModerate}
+            subjectName={lead.person?.fullName}
           />
         </Card>
       </section>

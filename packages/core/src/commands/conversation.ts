@@ -39,6 +39,14 @@ async function personLabel(ctx: CommandContext, personId: string | null): Promis
   return p ? fullName(p.firstName, p.lastName) : null;
 }
 
+/** Who a conversation is with, for audit sentences: the customer's name once linked, else the number or address. */
+async function withWhom(
+  ctx: CommandContext,
+  c: { channel: string; counterpart: string; personId: string | null },
+): Promise<string> {
+  return (await personLabel(ctx, c.personId)) ?? withWho(c);
+}
+
 export const conversationOpen = defineCommand({
   name: 'conversation.open',
   description: 'Open the text or email conversation with a customer, starting it if needed.',
@@ -111,7 +119,7 @@ export const conversationMarkRead = defineCommand({
       entityId: c.id,
       payload: { unread: c.unreadCount },
       before: { unreadCount: c.unreadCount },
-      after: { unreadCount: 0, with: withWho(c) },
+      after: { unreadCount: 0, with: await withWhom(ctx, c) },
     });
     return { conversationId: c.id };
   },
@@ -136,7 +144,7 @@ export const conversationMarkUnread = defineCommand({
       entityId: c.id,
       payload: {},
       before: { unreadCount: 0 },
-      after: { unreadCount: 1, with: withWho(c) },
+      after: { unreadCount: 1, with: await withWhom(ctx, c) },
     });
     return { conversationId: c.id };
   },
@@ -171,7 +179,7 @@ export const conversationAssign = defineCommand({
       entityId: c.id,
       payload: { assigneeUserId: input.assigneeUserId },
       before: { assignee: before?.fullName ?? null },
-      after: { assignee: after?.fullName ?? null, with: withWho(c) },
+      after: { assignee: after?.fullName ?? null, with: await withWhom(ctx, c) },
     });
     return { conversationId: c.id };
   },
@@ -207,7 +215,7 @@ export const conversationSnooze = defineCommand({
       entityId: c.id,
       payload: { until: until.toISOString() },
       before: { status: c.status },
-      after: { status: 'snoozed', until: until.toISOString(), with: withWho(c) },
+      after: { status: 'snoozed', until: until.toISOString(), with: await withWhom(ctx, c) },
     });
     return { conversationId: c.id };
   },
@@ -242,7 +250,7 @@ export const conversationClose = defineCommand({
       entityId: c.id,
       payload: {},
       before: { status: c.status },
-      after: { status: 'closed', with: withWho(c) },
+      after: { status: 'closed', with: await withWhom(ctx, c) },
     });
     return { conversationId: c.id };
   },
@@ -272,7 +280,7 @@ export const conversationReopen = defineCommand({
       entityId: c.id,
       payload: {},
       before: { status: c.status },
-      after: { status: 'open', with: withWho(c) },
+      after: { status: 'open', with: await withWhom(ctx, c) },
     });
     return { conversationId: c.id };
   },

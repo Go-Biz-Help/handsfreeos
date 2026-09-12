@@ -18,13 +18,16 @@ const EXT_TYPES: Record<string, string> = {
   txt: 'text/plain',
 };
 
-/** Uploads straight to Storage at the path the server reserves, then confirms the file with the API. */
+/**
+ * Uploads straight to Storage at the path the server reserves, then confirms the file with the API.
+ * Returns the file's id (texts attach customer files by id).
+ */
 export async function uploadFile(
   workspaceId: string,
   recordType: RecordType,
   recordId: string,
   file: File,
-): Promise<void> {
+): Promise<string> {
   const ext = file.name.split('.').pop()?.toLowerCase() ?? '';
   const mimeType = file.type || EXT_TYPES[ext] || '';
   if (!(ATTACHMENT_TYPES as readonly string[]).includes(mimeType))
@@ -51,6 +54,7 @@ export async function uploadFile(
       body: { workspaceId, fileId: begun.fileId },
     }),
   );
+  return begun.fileId;
 }
 
 export function UploadZone({

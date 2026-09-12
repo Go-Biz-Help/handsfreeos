@@ -1,0 +1,1381 @@
+'use client';
+import { formatClock } from '@hfos/core';
+import {
+  Check,
+  CircleAlert,
+  CircleCheck,
+  Clock,
+  Copy,
+  MessageCircle,
+  MoreHorizontal,
+  Phone,
+  Search,
+  Send,
+  Trash2,
+} from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
+import { toast } from 'sonner';
+import { Callout } from '@/components/crm/chips';
+import { ChannelIcon, Pill } from '@/components/inbox/bits';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { Checkbox } from '@/components/ui/checkbox';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { Field, FieldError, Label } from '@/components/ui/field';
+import { Input, Select } from '@/components/ui/input';
+import { RadioCard } from '@/components/ui/radio-card';
+import { Sheet, SheetContent } from '@/components/ui/sheet';
+import { Switch } from '@/components/ui/switch';
+import { Textarea } from '@/components/ui/textarea';
+import { apiBrowser, ApiError, errorMessage, unwrap } from '@/lib/api/client';
+import type { PhoneNumberInfo, PhoneSetupStatus, RegistrationInfo } from '@/lib/api/types';
+import { searchNumbers, type AvailableNumber } from '@/lib/api/worker';
+import { formatDate } from '@/lib/format';
+import { useLiveRefresh } from '@/lib/realtime/live-provider';
+import { cn } from '@/lib/utils';
+import { ReleaseNumberDialog } from './release-number-dialog';
+import { SetRow } from './set-row';
+import { TestTextDialog } from './test-text-dialog';
+
+type Status = PhoneSetupStatus;
+type NumberType = 'local' | 'toll_free';
+
+const BUSINESS_TYPES = [
+  ['llc', 'Limited liability company (LLC)'],
+  ['corporation', 'Corporation'],
+  ['sole_proprietor', 'Sole proprietor'],
+  ['partnership', 'Partnership'],
+  ['non_profit', 'Nonprofit'],
+] as const;
+const USE_CASES = [
+  ['customer_care', 'Appointments, estimates and customer care'],
+  ['mixed', 'Customer care and occasional promotions'],
+  ['marketing', 'Marketing and promotions'],
+] as const;
+const VOLUMES = [
+  ['under_1000', 'Under 1,000'],
+  ['1000_10000', '1,000 to 10,000'],
+  ['10000_100000', '10,000 to 100,000'],
+  ['over_100000', 'Over 100,000'],
+] as const;
+const label = (list: readonly (readonly [string, string])[], value: unknown) =>
+  list.find(([v]) => v === value)?.[1] ?? String(value ?? '');
+
+/** Settings → Texting & calls: the setup wizard until the carriers approve, then the configured page. */
+export function TextingPage({
+  workspaceId,
+  businessName,
+  status,
+  me,
+}: {
+  workspaceId: string;
+  businessName: string;
+  status: Status;
+  me: { fullName: string; email: string };
+}) {
+  useLiveRefresh(['phone_number', 'registration', 'workspace']);
+  const router = useRouter();
+  // Buying and releasing take seconds: check again every few, in case the live channel is down.
+  const busy = status.nextStep === 'provisioning' || status.nextStep === 'releasing';
+  useEffect(() => {
+    if (!busy) return;
+    const timer = setInterval(() => router.refresh(), 3000);
+    return () => clearInterval(timer);
+  }, [busy, router]);
+  const [fixing, setFixing] = useState(false);
+  const [showSent, setShowSent] = useState(false);
+  const submission = latestSubmission(status.registrations);
+  const sentSheet = (
+    <SubmissionSheet open={showSent} onOpenChange={setShowSent} submission={submission} />
+  );
+
+  if (status.nextStep === 'ready' && status.number)
+    return (
+      <>
+        <Configured
+          workspaceId={workspaceId}
+          businessName={businessName}
+          status={status}
+          number={status.number}
+          onViewSent={() => setShowSent(true)}
+          contactPhone={String(
+            (submission?.['contact'] as { phone?: string } | undefined)?.phone ?? '',
+          )}
+        />
+        {sentSheet}
+      </>
+    );
+
+  const step = status.nextStep;
+  const current =
+    step === 'buy_number' || step === 'provisioning' || step === 'releasing'
+      ? 0
+      : step === 'submit_registration' || fixing
+        ? 1
+        : 2;
+  return (
+    <Card className="max-w-[820px] p-5 md:p-7" data-testid="texting-setup" data-step={step}>
+      <Steps current={current} turnedDown={step === 'rejected' && !fixing} />
+      {step === 'buy_number' ? (
+        <NumberStep
+          workspaceId={workspaceId}
+          failed={status.number?.status === 'failed' ? status.number : null}
+        />
+      ) : step === 'provisioning' || step === 'releasing' ? (
+        <div className="flex items-center gap-3 py-6 text-[13.5px] text-text-2" role="status">
+          <span className="h-4 w-4 animate-spin rounded-full border-2 border-accent border-t-transparent" />
+          {step === 'provisioning'
+            ? `Setting up ${status.number?.display ?? 'your number'}. This takes a few seconds.`
+            : `Releasing ${status.number?.display ?? 'the number'}.`}
+        </div>
+      ) : step === 'submit_registration' || fixing ? (
+        <BusinessStep
+          workspaceId={workspaceId}
+          businessName={businessName}
+          number={status.number!}
+          me={me}
+          initial={fixing ? submission : null}
+          onBack={fixing ? () => setFixing(false) : undefined}
+          onSubmitted={() => setFixing(false)}
+        />
+      ) : step === 'rejected' ? (
+        <Rejected
+          status={status}
+          businessName={businessName}
+          onFix={() => setFixing(true)}
+          onViewSent={() => setShowSent(true)}
+        />
+      ) : (
+        <Review status={status} businessName={businessName} onViewSent={() => setShowSent(true)} />
+      )}
+      {sentSheet}
+    </Card>
+  );
+}
+
+function latestSubmission(regs: RegistrationInfo[]): Record<string, unknown> | null {
+  const withData = regs
+    .filter((r) => r.submission && Object.keys(r.submission).length > 0)
+    .sort((a, b) => (b.submittedAt ?? '').localeCompare(a.submittedAt ?? ''));
+  return withData[0]?.submission ?? null;
+}
+
+function Steps({ current, turnedDown }: { current: number; turnedDown: boolean }) {
+  const labels = ['Number', 'Business details', 'Carrier review'];
+  return (
+    <ol className="mb-[22px] flex flex-wrap items-center gap-1.5" aria-label="Setup steps">
+      {labels.map((l, i) => {
+        const done = i < current;
+        const active = i === current;
+        return (
+          <li key={l} className="flex items-center gap-1.5">
+            {i > 0 ? <span aria-hidden className="h-px w-8 bg-border" /> : null}
+            <span
+              aria-current={active ? 'step' : undefined}
+              className={cn(
+                'flex items-center gap-2 text-[13px] font-medium',
+                done ? 'text-success-text' : active ? 'text-accent-text' : 'text-text-3',
+                active && turnedDown && 'text-danger-text',
+              )}
+            >
+              <span
+                className={cn(
+                  'inline-flex h-6 w-6 items-center justify-center rounded-full border-[1.5px] text-xs',
+                  done
+                    ? 'border-success bg-success text-white'
+                    : active
+                      ? turnedDown
+                        ? 'border-danger bg-danger text-white'
+                        : 'border-accent bg-accent text-white'
+                      : 'border-border-strong',
+                )}
+              >
+                {done ? <Check className="h-3.5 w-3.5" strokeWidth={2.5} /> : i + 1}
+              </span>
+              {l}
+            </span>
+          </li>
+        );
+      })}
+    </ol>
+  );
+}
+
+function NumberStep({
+  workspaceId,
+  failed,
+}: {
+  workspaceId: string;
+  failed: PhoneNumberInfo | null;
+}) {
+  const router = useRouter();
+  const [type, setType] = useState<NumberType>('toll_free');
+  const [area, setArea] = useState('');
+  const [prefix, setPrefix] = useState('');
+  const [results, setResults] = useState<AvailableNumber[] | null>(null);
+  const [picked, setPicked] = useState<string | null>(null);
+  const [searching, setSearching] = useState(false);
+  const [buying, setBuying] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const pickedNumber = results?.find((r) => r.e164 === picked) ?? null;
+
+  function choose(next: NumberType) {
+    setType(next);
+    setResults(null);
+    setPicked(null);
+    setError(null);
+  }
+
+  async function search() {
+    setSearching(true);
+    setError(null);
+    try {
+      const code = type === 'local' ? area : prefix;
+      const out = await searchNumbers({
+        workspaceId,
+        numberType: type,
+        ...(code ? { areaCode: code } : {}),
+      });
+      setResults(out.numbers);
+      setPicked(out.numbers[0]?.e164 ?? null);
+      if (out.numbers.length === 0)
+        setError('No numbers are free there right now. Try another area code.');
+    } catch (e) {
+      setError(errorMessage(e));
+    } finally {
+      setSearching(false);
+    }
+  }
+
+  async function buy() {
+    if (!pickedNumber) return;
+    setBuying(true);
+    try {
+      unwrap(
+        await apiBrowser().POST('/v1/commands/phone_number.buy', {
+          body: { workspaceId, e164: pickedNumber.e164, numberType: type },
+        }),
+      );
+      toast.success(`${pickedNumber.display} bought. Calls ring now.`);
+      router.refresh();
+    } catch (e) {
+      toast.error(errorMessage(e));
+    } finally {
+      setBuying(false);
+    }
+  }
+
+  return (
+    <div data-testid="number-step">
+      <h2 className="text-lg font-semibold tracking-tight">Get a business number</h2>
+      <p className="mb-[18px] mt-1 text-[13px] text-text-2">
+        Customers text and call this number. Calls work as soon as you buy it; texting starts once
+        the carriers approve you.
+      </p>
+      {failed ? (
+        <Callout tone="danger" icon={CircleAlert} className="mb-4">
+          We couldn’t buy {failed.display}
+          {failed.lastError ? `: ${failed.lastError}` : '.'} Pick another number.
+        </Callout>
+      ) : null}
+      <div
+        role="radiogroup"
+        aria-label="Kind of number"
+        className="mb-[18px] grid grid-cols-1 gap-3 sm:grid-cols-2"
+      >
+        <RadioCard
+          selected={type === 'toll_free'}
+          onSelect={() => choose('toll_free')}
+          testId="type-toll-free"
+          title={
+            <span className="flex items-center gap-2">
+              Toll-free <Badge variant="ok">Faster approval</Badge>
+            </span>
+          }
+          description="An (833), (844) or (855) number. Texting approval usually takes a few days."
+        />
+        <RadioCard
+          selected={type === 'local'}
+          onSelect={() => choose('local')}
+          testId="type-local"
+          title="Local"
+          description="Your own area code, like (713). The carrier registration usually takes 1 to 3 weeks."
+        />
+      </div>
+      <form
+        className="mb-3 flex flex-wrap items-end gap-2"
+        onSubmit={(e) => {
+          e.preventDefault();
+          void search();
+        }}
+      >
+        {type === 'local' ? (
+          <div>
+            <Label htmlFor="area-code">Area code</Label>
+            <Input
+              id="area-code"
+              inputMode="numeric"
+              maxLength={3}
+              value={area}
+              onChange={(e) => setArea(e.target.value.replace(/[^0-9]/g, ''))}
+              placeholder="713"
+              className="h-9 w-40"
+            />
+          </div>
+        ) : (
+          <div>
+            <Label htmlFor="toll-free-prefix">Starts with</Label>
+            <Select
+              id="toll-free-prefix"
+              value={prefix}
+              onChange={(e) => setPrefix(e.target.value)}
+              className="h-9 w-40"
+            >
+              <option value="">Any</option>
+              <option value="833">833</option>
+              <option value="844">844</option>
+              <option value="855">855</option>
+            </Select>
+          </div>
+        )}
+        <Button type="submit" variant="secondary" loading={searching} data-testid="show-numbers">
+          {searching ? null : <Search className="h-3.5 w-3.5" strokeWidth={1.5} />}
+          Show numbers
+        </Button>
+      </form>
+      {error ? <FieldError>{error}</FieldError> : null}
+      {results && results.length > 0 ? (
+        <div
+          role="radiogroup"
+          aria-label="Available numbers"
+          className="overflow-hidden rounded-card border border-border"
+          data-testid="number-results"
+        >
+          {results.map((r) => (
+            <button
+              key={r.e164}
+              type="button"
+              role="radio"
+              aria-checked={picked === r.e164}
+              onClick={() => setPicked(r.e164)}
+              className={cn(
+                'flex w-full items-center gap-3 border-b border-border px-4 py-3 text-left last:border-b-0',
+                picked === r.e164 ? 'bg-accent-soft' : 'hover:bg-card-2',
+              )}
+            >
+              <span
+                aria-hidden
+                className={cn(
+                  'h-4 w-4 flex-none rounded-full border-[1.5px]',
+                  picked === r.e164
+                    ? 'border-accent bg-accent shadow-[inset_0_0_0_3px_var(--card)]'
+                    : 'border-border-strong',
+                )}
+              />
+              <span className="flex-1 font-mono text-[15px] font-medium">{r.display}</span>
+              <span className="text-xs text-text-3">
+                {type === 'toll_free'
+                  ? 'Toll-free'
+                  : [r.locality, r.region].filter(Boolean).join(', ') || 'Local'}
+              </span>
+              <Pill className="hidden sm:inline-flex">Calls · Texts · Photos</Pill>
+            </button>
+          ))}
+        </div>
+      ) : null}
+      <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
+        <p className="text-[13px] text-text-2">
+          Calls ring right away. You can add forwarding phones next.
+        </p>
+        <Button
+          disabled={!pickedNumber}
+          loading={buying}
+          onClick={() => void buy()}
+          data-testid="buy-number"
+        >
+          {pickedNumber ? `Buy ${pickedNumber.display}` : 'Buy a number'}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+interface BizForm {
+  legalName: string;
+  businessType: string;
+  ein: string;
+  website: string;
+  line1: string;
+  city: string;
+  state: string;
+  postalCode: string;
+  contactFirst: string;
+  contactLast: string;
+  contactPhone: string;
+  contactEmail: string;
+  optIn: string;
+  sample1: string;
+  sample2: string;
+  useCase: string;
+  volume: string;
+}
+
+/** Server paths of the business profile, mapped to the form's fields. */
+const ERROR_FIELD: Record<string, keyof BizForm> = {
+  'business.legalName': 'legalName',
+  'business.businessType': 'businessType',
+  'business.ein': 'ein',
+  'business.website': 'website',
+  'business.address.line1': 'line1',
+  'business.address.city': 'city',
+  'business.address.state': 'state',
+  'business.address.postalCode': 'postalCode',
+  'business.contact.firstName': 'contactFirst',
+  'business.contact.lastName': 'contactLast',
+  'business.contact.phone': 'contactPhone',
+  'business.contact.email': 'contactEmail',
+  'business.optInDescription': 'optIn',
+  'business.messageSamples': 'sample2',
+  'business.messageSamples.0': 'sample1',
+  'business.messageSamples.1': 'sample2',
+  'business.useCase': 'useCase',
+  'business.monthlyVolume': 'volume',
+};
+
+function formFrom(
+  initial: Record<string, unknown> | null,
+  businessName: string,
+  me: { fullName: string; email: string },
+): BizForm {
+  const b = (initial ?? {}) as {
+    legalName?: string;
+    businessType?: string;
+    ein?: string | null;
+    website?: string;
+    address?: { line1?: string; city?: string; state?: string; postalCode?: string };
+    contact?: { firstName?: string; lastName?: string; email?: string; phone?: string };
+    optInDescription?: string;
+    messageSamples?: string[];
+    useCase?: string;
+    monthlyVolume?: string;
+  };
+  const [meFirst = '', ...meRest] = me.fullName.trim().split(/\s+/);
+  return {
+    legalName: b.legalName ?? businessName,
+    businessType: b.businessType ?? 'llc',
+    ein: b.ein ?? '',
+    website: b.website ?? '',
+    line1: b.address?.line1 ?? '',
+    city: b.address?.city ?? '',
+    state: b.address?.state ?? '',
+    postalCode: b.address?.postalCode ?? '',
+    contactFirst: b.contact?.firstName ?? meFirst,
+    contactLast: b.contact?.lastName ?? meRest.join(' '),
+    contactPhone: b.contact?.phone ?? '',
+    contactEmail: b.contact?.email ?? me.email,
+    optIn: b.optInDescription ?? '',
+    sample1: b.messageSamples?.[0] ?? '',
+    sample2: b.messageSamples?.[1] ?? '',
+    useCase: b.useCase ?? 'customer_care',
+    volume: b.monthlyVolume ?? 'under_1000',
+  };
+}
+
+function BusinessStep({
+  workspaceId,
+  businessName,
+  number,
+  me,
+  initial,
+  onBack,
+  onSubmitted,
+}: {
+  workspaceId: string;
+  businessName: string;
+  number: PhoneNumberInfo;
+  me: { fullName: string; email: string };
+  initial: Record<string, unknown> | null;
+  onBack?: () => void;
+  onSubmitted: () => void;
+}) {
+  const router = useRouter();
+  const [form, setForm] = useState<BizForm>(() => formFrom(initial, businessName, me));
+  const [errors, setErrors] = useState<Partial<Record<keyof BizForm, string>>>({});
+  const [agreed, setAgreed] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const local = number.numberType === 'local';
+  const set = (k: keyof BizForm) => (v: string) => setForm((f) => ({ ...f, [k]: v }));
+  const soleProp = form.businessType === 'sole_proprietor';
+
+  async function submit(e: FormEvent) {
+    e.preventDefault();
+    setBusy(true);
+    setErrors({});
+    const website = /^https?:\/\//i.test(form.website.trim())
+      ? form.website.trim()
+      : form.website.trim()
+        ? `https://${form.website.trim()}`
+        : '';
+    try {
+      unwrap(
+        await apiBrowser().POST('/v1/commands/registration.submit', {
+          body: {
+            workspaceId,
+            kind: local ? 'a2p_10dlc' : 'toll_free_verification',
+            business: {
+              legalName: form.legalName,
+              businessType: form.businessType as 'llc',
+              ein: soleProp ? null : form.ein || null,
+              website,
+              address: {
+                line1: form.line1,
+                city: form.city,
+                state: form.state,
+                postalCode: form.postalCode,
+                country: 'US',
+              },
+              contact: {
+                firstName: form.contactFirst,
+                lastName: form.contactLast,
+                email: form.contactEmail,
+                phone: form.contactPhone,
+              },
+              useCase: form.useCase as 'customer_care',
+              messageSamples: [form.sample1, form.sample2].map((s) => s.trim()).filter(Boolean),
+              optInDescription: form.optIn,
+              monthlyVolume: form.volume as 'under_1000',
+            },
+          },
+        }),
+      );
+      toast.success('Sent to the carriers');
+      onSubmitted();
+      router.refresh();
+    } catch (err) {
+      if (err instanceof ApiError && err.code === 'validation' && Array.isArray(err.details)) {
+        const next: Partial<Record<keyof BizForm, string>> = {};
+        for (const d of err.details as { path?: string; message?: string }[]) {
+          const key = ERROR_FIELD[d.path ?? ''];
+          if (key && !next[key]) next[key] = d.message ?? 'Check this.';
+        }
+        setErrors(next);
+        toast.error(Object.keys(next).length ? 'A few details need a look.' : err.message);
+      } else toast.error(errorMessage(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const text = (
+    k: keyof BizForm,
+    lbl: string,
+    props: Partial<Parameters<typeof Input>[0]> = {},
+    span = false,
+  ) => (
+    <Field
+      label={lbl}
+      htmlFor={`biz-${k}`}
+      error={errors[k]}
+      className={cn('mb-3.5', span && 'sm:col-span-2')}
+    >
+      <Input
+        id={`biz-${k}`}
+        value={form[k]}
+        onChange={(e) => set(k)(e.target.value)}
+        invalid={!!errors[k]}
+        {...props}
+      />
+    </Field>
+  );
+
+  return (
+    <form onSubmit={(e) => void submit(e)} data-testid="business-step" noValidate>
+      {onBack ? null : (
+        <Callout tone="info" icon={CircleCheck} className="mb-[18px]">
+          <strong>{number.display} is yours.</strong> Calls ring now. To turn on texting, the
+          carriers need to know who is texting and why.
+        </Callout>
+      )}
+      <h2 className="text-lg font-semibold tracking-tight">Business details for the carriers</h2>
+      <p className="mb-4 mt-1 text-[13px] text-text-2">
+        We send these to the carriers for you. Use the legal details on your tax paperwork.
+      </p>
+      <div className="grid grid-cols-1 gap-x-3.5 sm:grid-cols-2">
+        {text('legalName', 'Legal business name')}
+        <Field
+          label="Business type"
+          htmlFor="biz-businessType"
+          error={errors.businessType}
+          className="mb-3.5"
+        >
+          <Select
+            id="biz-businessType"
+            value={form.businessType}
+            onChange={(e) => set('businessType')(e.target.value)}
+          >
+            {BUSINESS_TYPES.map(([v, l]) => (
+              <option key={v} value={v}>
+                {l}
+              </option>
+            ))}
+          </Select>
+        </Field>
+        {soleProp ? (
+          <p className="mb-3.5 self-end text-[12.5px] text-text-3 sm:pb-3">
+            Sole proprietors don’t need an EIN
+            {local ? ', but local numbers need one: pick toll-free instead' : ''}.
+          </p>
+        ) : (
+          text('ein', 'EIN (tax ID)', {
+            className: 'font-mono text-sm',
+            placeholder: '12-3456789',
+            inputMode: 'numeric',
+          })
+        )}
+        {text('website', 'Website', { placeholder: 'https://', inputMode: 'url' })}
+        <div className="mb-3.5 sm:col-span-2">
+          <Label htmlFor="biz-line1">Business address</Label>
+          <div className="grid grid-cols-6 gap-2">
+            <Input
+              id="biz-line1"
+              className="col-span-6"
+              placeholder="Street"
+              value={form.line1}
+              onChange={(e) => set('line1')(e.target.value)}
+              invalid={!!errors.line1}
+            />
+            <Input
+              aria-label="City"
+              className="col-span-3"
+              placeholder="City"
+              value={form.city}
+              onChange={(e) => set('city')(e.target.value)}
+              invalid={!!errors.city}
+            />
+            <Input
+              aria-label="State"
+              className="col-span-1"
+              placeholder="TX"
+              maxLength={2}
+              value={form.state}
+              onChange={(e) => set('state')(e.target.value.toUpperCase())}
+              invalid={!!errors.state}
+            />
+            <Input
+              aria-label="ZIP code"
+              className="col-span-2"
+              placeholder="ZIP"
+              inputMode="numeric"
+              value={form.postalCode}
+              onChange={(e) => set('postalCode')(e.target.value)}
+              invalid={!!errors.postalCode}
+            />
+          </div>
+          <FieldError>
+            {errors.line1 ?? errors.city ?? errors.state ?? errors.postalCode}
+          </FieldError>
+        </div>
+        <div className="mb-3.5">
+          <Label htmlFor="biz-contactFirst">Contact person</Label>
+          <div className="grid grid-cols-2 gap-2">
+            <Input
+              id="biz-contactFirst"
+              placeholder="First name"
+              value={form.contactFirst}
+              onChange={(e) => set('contactFirst')(e.target.value)}
+              invalid={!!errors.contactFirst}
+            />
+            <Input
+              aria-label="Last name"
+              placeholder="Last name"
+              value={form.contactLast}
+              onChange={(e) => set('contactLast')(e.target.value)}
+              invalid={!!errors.contactLast}
+            />
+          </div>
+          <FieldError>{errors.contactFirst ?? errors.contactLast}</FieldError>
+        </div>
+        <div className="mb-3.5">
+          <Label htmlFor="biz-contactPhone">Contact phone and email</Label>
+          <div className="grid grid-cols-2 gap-2">
+            <Input
+              id="biz-contactPhone"
+              placeholder="(713) 555-0123"
+              inputMode="tel"
+              value={form.contactPhone}
+              onChange={(e) => set('contactPhone')(e.target.value)}
+              invalid={!!errors.contactPhone}
+            />
+            <Input
+              aria-label="Contact email"
+              placeholder="you@business.com"
+              inputMode="email"
+              value={form.contactEmail}
+              onChange={(e) => set('contactEmail')(e.target.value)}
+              invalid={!!errors.contactEmail}
+            />
+          </div>
+          <FieldError>{errors.contactPhone ?? errors.contactEmail}</FieldError>
+        </div>
+      </div>
+      <Field
+        label="How customers agree to get texts"
+        htmlFor="biz-optIn"
+        error={errors.optIn}
+        className="mb-3.5"
+      >
+        <Textarea
+          id="biz-optIn"
+          className="min-h-16"
+          value={form.optIn}
+          onChange={(e) => set('optIn')(e.target.value)}
+          invalid={!!errors.optIn}
+          placeholder="Customers give us their cell number when they call, book on our website or sign an estimate, and we ask if we can text them about their appointment."
+        />
+      </Field>
+      <div className="mb-3.5">
+        <Label htmlFor="biz-sample1">{local ? 'Two example texts' : 'Example texts'}</Label>
+        <div className="flex flex-col gap-2">
+          <Input
+            id="biz-sample1"
+            value={form.sample1}
+            onChange={(e) => set('sample1')(e.target.value)}
+            invalid={!!errors.sample1}
+            placeholder={`Hi Mike, this is ${businessName}. Marco is on the way and should arrive around 2:30. Reply STOP to opt out.`}
+          />
+          <Input
+            aria-label="Second example text"
+            value={form.sample2}
+            onChange={(e) => set('sample2')(e.target.value)}
+            invalid={!!errors.sample2}
+            placeholder="Your estimate for the roof replacement is ready. Reply with any questions. Reply STOP to opt out."
+          />
+        </div>
+        <FieldError>{errors.sample1 ?? errors.sample2}</FieldError>
+      </div>
+      <div className="flex flex-col gap-x-3.5 sm:flex-row">
+        <Field label="What you text about" htmlFor="biz-useCase" className="mb-3.5 flex-1">
+          <Select
+            id="biz-useCase"
+            value={form.useCase}
+            onChange={(e) => set('useCase')(e.target.value)}
+          >
+            {USE_CASES.map(([v, l]) => (
+              <option key={v} value={v}>
+                {l}
+              </option>
+            ))}
+          </Select>
+        </Field>
+        <Field label="Texts a month" htmlFor="biz-volume" className="mb-3.5 sm:w-[220px]">
+          <Select
+            id="biz-volume"
+            value={form.volume}
+            onChange={(e) => set('volume')(e.target.value)}
+          >
+            {VOLUMES.map(([v, l]) => (
+              <option key={v} value={v}>
+                {l}
+              </option>
+            ))}
+          </Select>
+        </Field>
+      </div>
+      <Checkbox
+        className="mb-[18px] mt-1 text-[13px]"
+        label="These details are accurate, and we only text customers who agreed to it."
+        checked={agreed}
+        onChange={(e) => setAgreed(e.target.checked)}
+        data-testid="business-agree"
+      />
+      <div className="flex items-center justify-between gap-3">
+        {onBack ? (
+          <Button variant="ghost" onClick={onBack}>
+            Back
+          </Button>
+        ) : (
+          <span />
+        )}
+        <Button type="submit" disabled={!agreed} loading={busy} data-testid="submit-registration">
+          Submit for approval
+        </Button>
+      </div>
+    </form>
+  );
+}
+
+type RowState = 'done' | 'review' | 'next' | 'turned_down';
+
+function ReviewRow({ title, sub, state }: { title: string; sub: string; state: RowState }) {
+  const tile =
+    state === 'done' ? (
+      <ChannelIcon icon={Check} tone="success" />
+    ) : state === 'next' ? (
+      <ChannelIcon icon={MessageCircle} />
+    ) : (
+      <ChannelIcon icon={Clock} tone="warning" />
+    );
+  const badge =
+    state === 'done' ? (
+      <Badge variant="ok">Done</Badge>
+    ) : state === 'review' ? (
+      <Badge variant="pending">In review</Badge>
+    ) : state === 'turned_down' ? (
+      <Badge variant="danger">Turned down</Badge>
+    ) : (
+      <Badge variant="gray">Next</Badge>
+    );
+  return (
+    <div className="flex items-center gap-3 border-b border-border px-4 py-3.5 last:border-b-0">
+      {tile}
+      <div className="min-w-0 flex-1">
+        <div className="text-[13px] font-medium">{title}</div>
+        <div className="text-xs text-text-3">{sub}</div>
+      </div>
+      {badge}
+    </div>
+  );
+}
+
+const stateOf = (regs: (RegistrationInfo | undefined)[]): RowState => {
+  const present = regs.filter((r): r is RegistrationInfo => !!r);
+  if (present.length === 0) return 'next';
+  if (present.some((r) => r.status === 'rejected' || r.status === 'failed')) return 'turned_down';
+  if (present.length === regs.length && present.every((r) => r.status === 'approved'))
+    return 'done';
+  return 'review';
+};
+
+function latestOf(
+  regs: RegistrationInfo[],
+  kind: RegistrationInfo['kind'],
+): RegistrationInfo | undefined {
+  return regs
+    .filter((r) => r.kind === kind)
+    .sort((a, b) => (b.submittedAt ?? '').localeCompare(a.submittedAt ?? ''))[0];
+}
+
+function Review({
+  status,
+  businessName,
+  onViewSent,
+}: {
+  status: Status;
+  businessName: string;
+  onViewSent: () => void;
+}) {
+  const n = status.number!;
+  const local = n.numberType === 'local';
+  const regs = status.registrations;
+  const submitted = regs
+    .map((r) => r.submittedAt)
+    .filter((d): d is string => !!d)
+    .sort()[0];
+  const brand = [
+    latestOf(regs, 'a2p_customer_profile'),
+    latestOf(regs, 'a2p_trust_product'),
+    latestOf(regs, 'a2p_brand'),
+  ];
+  const brandState = stateOf(brand);
+  const brandApproved = brand
+    .map((r) => r?.approvedAt)
+    .filter(Boolean)
+    .sort()
+    .pop();
+  return (
+    <div data-testid="review-step">
+      <h2 className="text-lg font-semibold tracking-tight">
+        The carriers are reviewing {businessName}
+      </h2>
+      <p className="mb-5 mt-1 text-[13px] text-text-2">
+        {local
+          ? 'Local numbers go through a brand and campaign registration that usually takes 1 to 3 weeks.'
+          : 'Toll-free verification usually takes a few days.'}{' '}
+        We check every 15 minutes and email you when texting is on. Calls already work.
+      </p>
+      <div
+        className="overflow-hidden rounded-card border border-border"
+        data-testid="review-checklist"
+      >
+        <ReviewRow title="Number bought" sub={`${n.display} · calls ring now`} state="done" />
+        {local ? (
+          <>
+            <ReviewRow
+              title="Business profile and brand"
+              sub={
+                brandState === 'done' && brandApproved
+                  ? `Approved ${formatDate(brandApproved)}`
+                  : 'Usually a few days'
+              }
+              state={brandState}
+            />
+            <ReviewRow
+              title="Texting campaign"
+              sub="Usually 1 to 3 weeks"
+              state={brandState === 'done' ? stateOf([latestOf(regs, 'a2p_campaign')]) : 'next'}
+            />
+          </>
+        ) : (
+          <ReviewRow
+            title="Toll-free verification"
+            sub="Usually a few days"
+            state={stateOf([latestOf(regs, 'toll_free_verification')])}
+          />
+        )}
+        <ReviewRow title="Texting turns on" sub="We email you the moment it does" state="next" />
+      </div>
+      <div className="mt-5 flex flex-wrap items-center gap-2">
+        <Button variant="secondary" onClick={onViewSent}>
+          View what we sent
+        </Button>
+        <Button variant="secondary" disabled title="Texting isn’t approved yet">
+          Text me a test
+        </Button>
+        <span className="flex-1" />
+        {submitted ? (
+          <span className="text-xs text-text-3">Submitted {formatDate(submitted)}</span>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+function Rejected({
+  status,
+  businessName,
+  onFix,
+  onViewSent,
+}: {
+  status: Status;
+  businessName: string;
+  onFix: () => void;
+  onViewSent: () => void;
+}) {
+  const bad = status.registrations.find((r) => r.status === 'rejected' || r.status === 'failed');
+  const reason = bad?.rejectionReason ?? null;
+  const optIn = !!reason && /opt|consent|agree|permission/i.test(reason);
+  return (
+    <div data-testid="rejected-step">
+      <Callout tone="danger" icon={CircleAlert} className="mb-[18px]">
+        <div className="flex flex-col gap-1">
+          <strong>The carriers turned down the texting registration.</strong>
+          <span>{reason ? `Their reason: “${reason}”` : 'They didn’t give a reason.'}</span>
+        </div>
+      </Callout>
+      <h2 className="text-lg font-semibold tracking-tight">What to fix</h2>
+      <p className="mb-4 mt-1 text-[13px] text-text-2">
+        {optIn
+          ? 'Add a line to your booking and contact forms, then send the details again. Nothing else changes, and calls keep working.'
+          : 'Change what the carriers asked about, then send the details again. Nothing else changes, and calls keep working.'}
+      </p>
+      {optIn ? (
+        <div className="mb-[18px] rounded-[10px] bg-card-2 p-3">
+          <div className="text-xs text-text-3">A line you can copy onto your website form</div>
+          <p className="mt-1 text-[13px]">
+            “By giving us your cell number you agree to receive texts from {businessName} about your
+            service. Message rates may apply. Reply STOP to opt out.”
+          </p>
+        </div>
+      ) : null}
+      <div className="flex flex-wrap gap-2">
+        <Button onClick={onFix} data-testid="fix-registration">
+          Fix and send again
+        </Button>
+        <Button variant="ghost" onClick={onViewSent}>
+          View what we sent
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+function SubmissionSheet({
+  open,
+  onOpenChange,
+  submission,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  submission: Record<string, unknown> | null;
+}) {
+  const b = (submission ?? {}) as {
+    legalName?: string;
+    businessType?: string;
+    ein?: string | null;
+    website?: string;
+    address?: { line1?: string; city?: string; state?: string; postalCode?: string };
+    contact?: { firstName?: string; lastName?: string; email?: string; phone?: string };
+    optInDescription?: string;
+    messageSamples?: string[];
+    useCase?: string;
+    monthlyVolume?: string;
+  };
+  const rows: [string, ReactNode][] = [
+    ['Legal name', b.legalName],
+    ['Business type', label(BUSINESS_TYPES, b.businessType)],
+    ['EIN', b.ein || '—'],
+    ['Website', b.website],
+    [
+      'Address',
+      [b.address?.line1, b.address?.city, b.address?.state, b.address?.postalCode]
+        .filter(Boolean)
+        .join(', '),
+    ],
+    [
+      'Contact',
+      [
+        `${b.contact?.firstName ?? ''} ${b.contact?.lastName ?? ''}`.trim(),
+        b.contact?.phone,
+        b.contact?.email,
+      ]
+        .filter(Boolean)
+        .join(' · '),
+    ],
+    ['Texts about', label(USE_CASES, b.useCase)],
+    ['Texts a month', label(VOLUMES, b.monthlyVolume)],
+    ['How customers agree', b.optInDescription],
+    [
+      'Example texts',
+      <ul key="samples" className="flex flex-col gap-1.5">
+        {(b.messageSamples ?? []).map((s) => (
+          <li key={s} className="rounded-control bg-card-2 px-2.5 py-2">
+            {s}
+          </li>
+        ))}
+      </ul>,
+    ],
+  ];
+  return (
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent
+        title="What we sent the carriers"
+        description="Read-only while the carriers review it. To change something after a decision, send the details again."
+      >
+        {submission ? (
+          <dl className="grid grid-cols-[120px_1fr] gap-x-4 gap-y-3 text-[13px]">
+            {rows.map(([k, v]) => (
+              <div key={k} className="contents">
+                <dt className="text-text-2">{k}</dt>
+                <dd className="min-w-0 break-words font-medium">{v || '—'}</dd>
+              </div>
+            ))}
+          </dl>
+        ) : (
+          <p className="text-[13px] text-text-2">Nothing sent yet.</p>
+        )}
+      </SheetContent>
+    </Sheet>
+  );
+}
+
+/** Every hour, so a business with early or late shifts can set its own window. */
+const HOURS = Array.from({ length: 24 }, (_, h) => `${String(h).padStart(2, '0')}:00`);
+const START_TIMES = HOURS;
+const END_TIMES = HOURS;
+const REMINDERS = [
+  [10, '10 minutes'],
+  [5, '5 minutes'],
+  [15, '15 minutes'],
+  [30, '30 minutes'],
+  [60, '1 hour'],
+  [0, 'Never'],
+] as const;
+
+function Configured({
+  workspaceId,
+  businessName,
+  status,
+  number: n,
+  onViewSent,
+  contactPhone,
+}: {
+  workspaceId: string;
+  businessName: string;
+  status: Status;
+  number: PhoneNumberInfo;
+  onViewSent: () => void;
+  contactPhone: string;
+}) {
+  const router = useRouter();
+  const [release, setRelease] = useState(false);
+  const [test, setTest] = useState(false);
+  const [quiet, setQuiet] = useState(status.settings.quietHours);
+  const [reminder, setReminder] = useState(status.settings.unansweredReminderMinutes);
+  const city = status.timezone.split('/').pop()?.replace(/_/g, ' ') ?? status.timezone;
+  const local = n.numberType === 'local';
+  const regs = status.registrations;
+  const approved = (kind: RegistrationInfo['kind']) => latestOf(regs, kind)?.approvedAt;
+  const useCase = String(latestSubmission(regs)?.['useCase'] ?? '');
+
+  async function save(
+    change: { quietHours?: typeof quiet; unansweredReminderMinutes?: number },
+    success: string,
+  ) {
+    try {
+      unwrap(
+        await apiBrowser().POST('/v1/commands/phone.update_settings', {
+          body: { workspaceId, ...change },
+        }),
+      );
+      toast.success(success);
+      router.refresh();
+    } catch (e) {
+      toast.error(errorMessage(e));
+      setQuiet(status.settings.quietHours);
+      setReminder(status.settings.unansweredReminderMinutes);
+    }
+  }
+  const setQuietHours = (next: typeof quiet, success: string) => {
+    setQuiet(next);
+    void save({ quietHours: next }, success);
+  };
+
+  async function copy() {
+    try {
+      await navigator.clipboard.writeText(n.display);
+      toast.success(`Copied ${n.display}`);
+    } catch {
+      toast.error('Your browser didn’t allow copying.');
+    }
+  }
+
+  const regRows: [string, string | null | undefined][] = local
+    ? [
+        ['Business profile', approved('a2p_customer_profile')],
+        ['Messaging profile', approved('a2p_trust_product')],
+        ['Brand', approved('a2p_brand')],
+        [`Texting campaign · ${label(USE_CASES, useCase).toLowerCase()}`, approved('a2p_campaign')],
+      ]
+    : [['Toll-free verification', approved('toll_free_verification')]];
+
+  return (
+    <div
+      className="grid grid-cols-1 items-start gap-5 xl:grid-cols-2"
+      data-testid="texting-configured"
+    >
+      <div className="flex flex-col gap-5">
+        <Card className="p-6">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <h2 className="text-lg font-semibold tracking-tight">Business number</h2>
+              <p className="mt-1 text-[13px] text-text-2">
+                Customers text and call {businessName} here.
+              </p>
+            </div>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" aria-label="Number actions" title="More">
+                  <MoreHorizontal className="h-[18px] w-[18px]" strokeWidth={1.5} />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent className="min-w-[220px]">
+                <DropdownMenuItem onSelect={() => void copy()}>
+                  <Copy className="h-3.5 w-3.5" strokeWidth={1.5} />
+                  Copy number
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  danger
+                  onSelect={() => setRelease(true)}
+                  data-testid="release-menu"
+                >
+                  <Trash2 className="h-3.5 w-3.5" strokeWidth={1.5} />
+                  Release this number
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+          <div className="mt-4 flex items-center gap-3.5">
+            <ChannelIcon icon={Phone} size={44} />
+            <div>
+              <div
+                className="font-mono text-xl font-medium tracking-[-0.01em]"
+                data-testid="business-number"
+              >
+                {n.display}
+              </div>
+              <div className="text-xs text-text-3">
+                {local ? 'Local' : 'Toll-free'}
+                {n.purchasedAt ? ` · bought ${formatDate(n.purchasedAt)}` : ''}
+              </div>
+            </div>
+          </div>
+          <div className="mt-3.5 flex flex-wrap gap-1.5">
+            <Badge variant="ok">
+              <Phone className="h-3.5 w-3.5" strokeWidth={1.75} />
+              Calls ready
+            </Badge>
+            <Badge variant="ok">
+              <MessageCircle className="h-3.5 w-3.5" strokeWidth={1.75} />
+              Texting approved
+            </Badge>
+            <Badge variant="gray">Photos and picture texts</Badge>
+          </div>
+          <div className="mt-[18px] flex flex-wrap gap-2">
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => setTest(true)}
+              data-testid="text-me-a-test"
+            >
+              <Send className="h-3.5 w-3.5" strokeWidth={1.5} />
+              Text me a test
+            </Button>
+          </div>
+        </Card>
+
+        <Card className="p-6">
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="text-lg font-semibold tracking-tight">Carrier registration</h2>
+            <Badge variant="ok">Approved</Badge>
+          </div>
+          <p className="mt-1 text-[13px] text-text-2">
+            Carriers only deliver business texts from registered senders.
+          </p>
+          <div className="mt-3.5">
+            {regRows.map(([title, date], i) => (
+              <SetRow
+                key={title}
+                first={i === 0}
+                center
+                title={
+                  <span className="flex items-center gap-2.5 font-normal">
+                    <ChannelIcon icon={Check} tone="success" size={24} />
+                    {title}
+                  </span>
+                }
+              >
+                <span className="text-xs text-text-3">
+                  {date ? `Approved ${formatDate(date)}` : 'Approved'}
+                </span>
+              </SetRow>
+            ))}
+          </div>
+          <Button variant="ghost" size="sm" className="-ml-2.5 mt-1.5" onClick={onViewSent}>
+            View what we sent
+          </Button>
+        </Card>
+      </div>
+
+      <Card className="p-6">
+        <h2 className="text-lg font-semibold tracking-tight">Texting rules</h2>
+        <div className="mt-2">
+          <SetRow
+            first
+            title="Quiet hours"
+            description="Automatic texts wait until morning. People on the team get a “send anyway?” check first."
+            body={
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                <Select
+                  selectSize="sm"
+                  className="w-[110px]"
+                  aria-label="Quiet hours start"
+                  disabled={!quiet.enabled}
+                  value={quiet.start}
+                  onChange={(e) =>
+                    setQuietHours({ ...quiet, start: e.target.value }, 'Quiet hours saved')
+                  }
+                >
+                  {START_TIMES.map((t) => (
+                    <option key={t} value={t}>
+                      {formatClock(t)}
+                    </option>
+                  ))}
+                </Select>
+                <span className="text-[13px] text-text-3">to</span>
+                <Select
+                  selectSize="sm"
+                  className="w-[110px]"
+                  aria-label="Quiet hours end"
+                  disabled={!quiet.enabled}
+                  value={quiet.end}
+                  onChange={(e) =>
+                    setQuietHours({ ...quiet, end: e.target.value }, 'Quiet hours saved')
+                  }
+                >
+                  {END_TIMES.map((t) => (
+                    <option key={t} value={t}>
+                      {formatClock(t)}
+                    </option>
+                  ))}
+                </Select>
+                <span className="text-xs text-text-3">{city} time</span>
+              </div>
+            }
+          >
+            <Switch
+              checked={quiet.enabled}
+              label="Quiet hours"
+              testId="quiet-hours-switch"
+              onChange={(on) =>
+                setQuietHours({ ...quiet, enabled: on }, on ? 'Quiet hours on' : 'Quiet hours off')
+              }
+            />
+          </SetRow>
+          <SetRow
+            title="Remind the team when a customer waits"
+            description="One email to whoever the conversation is assigned to, or to every owner and admin when nobody is."
+          >
+            <Select
+              selectSize="sm"
+              className="w-[130px]"
+              aria-label="Remind after"
+              value={String(reminder)}
+              onChange={(e) => {
+                const minutes = Number(e.target.value);
+                setReminder(minutes);
+                void save(
+                  { unansweredReminderMinutes: minutes },
+                  minutes === 0
+                    ? 'Reminders off'
+                    : `Reminders after ${label(
+                        REMINDERS.map(([m, l]) => [String(m), l] as const),
+                        String(minutes),
+                      )}`,
+                );
+              }}
+            >
+              {REMINDERS.map(([m, l]) => (
+                <option key={m} value={m}>
+                  {l}
+                </option>
+              ))}
+            </Select>
+          </SetRow>
+          <SetRow
+            center
+            title="STOP, START and HELP"
+            description="Handled automatically. Opted-out customers can’t be texted until they text START."
+          >
+            <Badge variant="gray">Always on</Badge>
+          </SetRow>
+        </div>
+      </Card>
+
+      <ReleaseNumberDialog
+        workspaceId={workspaceId}
+        phoneNumberId={n.id}
+        display={n.display}
+        e164={n.e164}
+        open={release}
+        onOpenChange={setRelease}
+        onReleased={() => router.refresh()}
+      />
+      <TestTextDialog
+        workspaceId={workspaceId}
+        businessName={businessName}
+        defaultPhone={contactPhone}
+        open={test}
+        onOpenChange={setTest}
+      />
+    </div>
+  );
+}

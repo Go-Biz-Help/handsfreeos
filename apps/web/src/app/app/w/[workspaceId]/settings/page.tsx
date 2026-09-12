@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { AppearanceSection } from '@/components/settings/appearance-section';
 import { GoogleSection } from '@/components/settings/google-section';
+import { NotificationsSection } from '@/components/settings/notifications-section';
 import { PasskeysSection } from '@/components/settings/passkeys-section';
 import { PasswordSection } from '@/components/settings/password-section';
 import { ProfileForm } from '@/components/settings/profile-form';
@@ -33,6 +34,15 @@ export default async function SettingsPage({
           <Card className="p-6" id="appearance">
             <AppearanceSection
               initial={parseTheme((me.user.settings as { theme?: unknown }).theme)}
+            />
+          </Card>
+          <Card className="p-6" id="notifications">
+            <NotificationsSection
+              initial={{
+                unansweredEmail:
+                  (me.user.settings as { notifications?: { unansweredEmail?: boolean } })
+                    .notifications?.unansweredEmail !== false,
+              }}
             />
           </Card>
         </div>

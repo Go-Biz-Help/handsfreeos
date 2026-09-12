@@ -30,6 +30,8 @@ export const ConversationSummary = z.object({
   lastMessageAt: isoDateTime.nullable(),
   lastPreview: z.string().nullable(),
   lastDirection: messageDirection.nullable(),
+  /** Who sent the last message when the business sent it ("You: …", "Marco: …" in the list). */
+  lastSentBy: UserRef,
   awaitingReplySince: isoDateTime.nullable(),
   snoozedUntil: isoDateTime.nullable(),
   openLead: OpenLeadRef.nullable(),
@@ -43,6 +45,8 @@ export const InboxListInput = ListInput.extend({
   status: conversationStatus.default('open'),
   channel: messageChannel.optional(),
   q: z.string().trim().max(100).optional(),
+  /** One customer's conversations in any status (the record page); `status` is ignored with it. */
+  personId: uuid.optional(),
 });
 export const InboxListOutput = z.object({
   items: z.array(ConversationSummary),

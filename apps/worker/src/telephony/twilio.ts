@@ -504,7 +504,7 @@ export function createTwilioTelephony(master: {
           MmsEnabled: 'true',
           VoiceEnabled: 'true',
           PageSize: String(limit),
-          ...(areaCode && numberType === 'local' ? { AreaCode: areaCode } : {}),
+          ...(areaCode ? { AreaCode: areaCode } : {}),
           ...(contains ? { Contains: contains } : {}),
         },
       );

@@ -1,13 +1,15 @@
 'use client';
-import { ArrowLeft, Menu, MoreHorizontal, Search } from 'lucide-react';
+import { ArrowLeft, Menu, MoreHorizontal, Search, SquarePen } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { Brand } from '@/components/ui/brand';
+import { Input } from '@/components/ui/input';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
 import type { Me, WorkspaceSummary } from '@/lib/api/types';
+import { useUnread } from '@/lib/realtime/unread-provider';
 import { cn } from '@/lib/utils';
-import { isActive, navItems, NavLinks } from './nav-links';
+import { isActive, navItems, NavLinks, UnreadCount } from './nav-links';
 import { SearchField } from './search-field';
 import { UserMenu } from './user-menu';
 import { WorkspaceSwitcher } from './workspace-switcher';
@@ -22,15 +24,27 @@ export function MobileShell({ me, current }: { me: Me; current: WorkspaceSummary
   const active = items.find((i) => isActive(i, pathname));
   const nested = active && !active.exact && pathname !== active.href;
   const title = active?.label ?? current.name;
+  const unread = useUnread().summary?.unread.all ?? 0;
+  // A conversation fills the phone screen: the composer takes the bottom bar's place.
+  const inThread = new RegExp(`^/app/w/${current.id}/inbox/[^/]+`).test(pathname);
+  const inboxHref = `/app/w/${current.id}/inbox`;
+  const inInbox = pathname === inboxHref;
+  // Opened from an email link there is no page to go back to: go up to the section instead.
+  const goBack = () => (window.history.length > 1 ? router.back() : router.push(active!.href));
 
   return (
     <>
-      <header className="sticky top-0 z-30 flex h-14 flex-none items-center gap-1 border-b border-border bg-card px-2 md:hidden">
+      <header
+        className={cn(
+          'sticky top-0 z-30 flex h-14 flex-none items-center gap-1 border-b border-border bg-card px-2 md:hidden',
+          inThread && 'hidden',
+        )}
+      >
         {nested ? (
           <button
             type="button"
             aria-label="Back"
-            onClick={() => router.back()}
+            onClick={goBack}
             className="flex h-11 w-11 items-center justify-center rounded-control text-text-2 hover:bg-card-2"
           >
             <ArrowLeft className="h-5 w-5" strokeWidth={1.5} />
@@ -47,9 +61,19 @@ export function MobileShell({ me, current }: { me: Me; current: WorkspaceSummary
           </button>
         )}
         <span className="min-w-0 flex-1 truncate text-base font-semibold">{title}</span>
+        {inInbox ? (
+          <Link
+            href={`${inboxHref}?new=1`}
+            aria-label="New message"
+            data-testid="mobile-new-message"
+            className="flex h-11 w-11 items-center justify-center rounded-control text-text-2 hover:bg-card-2"
+          >
+            <SquarePen className="h-5 w-5" strokeWidth={1.5} />
+          </Link>
+        ) : null}
         <button
           type="button"
-          aria-label="Search customers"
+          aria-label={inInbox ? 'Search conversations' : 'Search customers'}
           onClick={() => setSearch(true)}
           className="flex h-11 w-11 items-center justify-center rounded-control text-text-2 hover:bg-card-2"
         >
@@ -59,7 +83,10 @@ export function MobileShell({ me, current }: { me: Me; current: WorkspaceSummary
 
       <nav
         aria-label="Primary"
-        className="fixed inset-x-0 bottom-0 z-30 flex h-[66px] border-t border-border bg-card pb-1.5 md:hidden"
+        className={cn(
+          'fixed inset-x-0 bottom-0 z-30 flex h-[66px] border-t border-border bg-card pb-1.5 md:hidden',
+          inThread && 'hidden',
+        )}
       >
         {items
           .filter((i) => i.primary)
@@ -76,7 +103,15 @@ export function MobileShell({ me, current }: { me: Me; current: WorkspaceSummary
                   on ? 'text-accent-text' : 'text-text-3',
                 )}
               >
-                <Icon className="h-[22px] w-[22px]" strokeWidth={on ? 2 : 1.5} />
+                <span className="relative">
+                  <Icon className="h-[22px] w-[22px]" strokeWidth={on ? 2 : 1.5} />
+                  {item.key === 'inbox' ? (
+                    <UnreadCount
+                      count={unread}
+                      className="absolute -right-2.5 -top-1.5 h-4 min-w-4 px-1 text-[10px] ring-2 ring-card"
+                    />
+                  ) : null}
+                </span>
                 {item.label}
               </Link>
             );
@@ -104,17 +139,42 @@ export function MobileShell({ me, current }: { me: Me; current: WorkspaceSummary
       </Sheet>
 
       <Sheet open={search} onOpenChange={setSearch}>
-        <SheetContent
-          title="Search"
-          description="Find a person or company by name, phone, email or street."
-        >
-          <SearchField
-            workspaceId={current.id}
-            size="lg"
-            autoFocus
-            onSubmitted={() => setSearch(false)}
-          />
-        </SheetContent>
+        {inInbox ? (
+          <SheetContent
+            title="Search conversations"
+            description="Find a conversation by name, number or what was said."
+          >
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                const q = String(new FormData(e.currentTarget).get('q') ?? '').trim();
+                router.push(q ? `${inboxHref}?q=${encodeURIComponent(q)}` : inboxHref);
+                setSearch(false);
+              }}
+            >
+              <Input
+                name="q"
+                inputSize="lg"
+                autoFocus
+                enterKeyHint="search"
+                placeholder="Search conversations"
+                aria-label="Search conversations"
+              />
+            </form>
+          </SheetContent>
+        ) : (
+          <SheetContent
+            title="Search"
+            description="Find a person or company by name, phone, email or street."
+          >
+            <SearchField
+              workspaceId={current.id}
+              size="lg"
+              autoFocus
+              onSubmitted={() => setSearch(false)}
+            />
+          </SheetContent>
+        )}
       </Sheet>
     </>
   );

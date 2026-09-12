@@ -138,9 +138,127 @@ export function describeAudit(e: AuditEntry): string {
       return `imported ${s(e.after?.processedRows) || '?'} rows so far`;
     case 'import.finish':
       return `finished importing ${s(e.after?.fileName)}: ${s(e.after?.created)} added, ${s(e.after?.updated)} updated, ${s(e.after?.skipped)} skipped, ${s(e.after?.errors)} errors`;
+    // Milestone 3: numbers, carrier registration, texting and the inbox
+    case 'phone_number.buy':
+      return `started buying the ${s(e.after?.numberType) === 'local' ? 'local' : 'toll-free'} number ${s(e.after?.number)}`;
+    case 'phone_number.activate':
+      return `turned on the number ${s(e.after?.number)}`;
+    case 'phone_number.fail':
+      return `could not buy ${s(e.after?.number)}${s(e.after?.error) ? `: ${s(e.after?.error)}` : ''}`;
+    case 'phone_number.release':
+      return `released the number ${s(e.after?.number) || s(e.before?.number)}`;
+    case 'phone_number.mark_released':
+      return `gave ${s(e.after?.number)} back to the carrier`;
+    case 'phone_number.set_routing':
+      return 'changed how calls ring';
+    case 'phone.update_settings':
+      return 'updated the texting settings';
+    case 'registration.submit':
+      return `sent ${s(e.after?.legalName)}'s ${s(e.after?.kind) === 'a2p_10dlc' ? 'local-number registration' : 'toll-free verification'} to the carriers`;
+    case 'registration.update_status':
+      return registrationSentence(e);
+    case 'conversation.open':
+      return `started a conversation with ${withWho(e)}`;
+    case 'conversation.mark_read':
+      return `read the conversation with ${withWho(e)}`;
+    case 'conversation.mark_unread':
+      return `marked the conversation with ${withWho(e)} unread`;
+    case 'conversation.assign':
+      return s(e.after?.assignee)
+        ? `assigned the conversation with ${withWho(e)} to ${s(e.after?.assignee)}`
+        : `unassigned the conversation with ${withWho(e)}`;
+    case 'conversation.snooze':
+      return `snoozed the conversation with ${withWho(e)} until ${when(e.after?.until)}`;
+    case 'conversation.close':
+      return `closed the conversation with ${withWho(e)}`;
+    case 'conversation.reopen':
+      return e.actor.userId
+        ? `reopened the conversation with ${withWho(e)}`
+        : `brought back the conversation with ${withWho(e)} (snooze ended)`;
+    case 'conversation.link_person':
+      return `linked the conversation with ${withWho(e)} to ${s(e.after?.person)}`;
+    case 'conversation.unanswered_check':
+      return `emailed ${list(e.after?.emailed) || 'nobody'} that ${s(e.after?.with)} is waiting for a reply`;
+    case 'message.send':
+      return e.entityType === 'conversation'
+        ? `started a conversation with ${withWho(e)}`
+        : `sent a text to ${s(e.after?.to)}`;
+    case 'message.retry':
+      return `tried the text to ${s(e.after?.to)} again`;
+    case 'message.receive':
+      return receiveSentence(e);
+    case 'message.update_status':
+      return statusSentence(e);
+    case 'message.attach_media': {
+      const n = Number(e.after?.photos ?? 0);
+      return `saved ${n === 1 ? 'a photo' : `${n} photos`} from a text`;
+    }
+    case 'person.set_sms_consent':
+      return e.after?.smsConsent === 'opted_out'
+        ? `marked ${s(e.after?.name)} as not wanting texts`
+        : `marked ${s(e.after?.name)} as agreeing to texts`;
     default:
       return e.action;
   }
+}
+
+const withWho = (e: AuditEntry) =>
+  s(e.after?.with) || s(e.before?.with) || e.entityName || 'a customer';
+const when = (v: unknown) => {
+  const d = typeof v === 'string' ? new Date(v) : null;
+  return d && !Number.isNaN(d.getTime())
+    ? d.toLocaleString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
+      })
+    : 'later';
+};
+
+const REGISTRATION_KIND: Record<string, string> = {
+  toll_free_verification: 'toll-free verification',
+  a2p_customer_profile: 'business profile',
+  a2p_trust_product: 'messaging profile',
+  a2p_brand: 'brand registration',
+  a2p_campaign: 'texting campaign',
+};
+
+function registrationSentence(e: AuditEntry): string {
+  const kind = REGISTRATION_KIND[s(e.after?.kind)] ?? 'registration';
+  const reason = s(e.after?.rejectionReason) ? `: ${s(e.after?.rejectionReason)}` : '';
+  switch (s(e.after?.status)) {
+    case 'submitted':
+      return `sent the ${kind} to the carriers`;
+    case 'in_review':
+      return `noted the carriers are reviewing the ${kind}`;
+    case 'approved':
+      return `recorded that the carriers approved the ${kind}`;
+    case 'rejected':
+      return `recorded that the carriers turned down the ${kind}${reason}`;
+    default:
+      return `recorded that the ${kind} could not be sent${reason}`;
+  }
+}
+
+function receiveSentence(e: AuditEntry): string {
+  if (e.entityType === 'message') return `received a text from ${s(e.after?.from)}`;
+  if (s(e.after?.smsConsent) === 'opted_out')
+    return `recorded that ${s(e.after?.number)} opted out of texts`;
+  if (s(e.after?.smsConsent) === 'opted_in')
+    return `recorded that ${s(e.after?.number)} opted back in to texts`;
+  if (s(e.after?.person)) return `matched ${s(e.after?.with)} to ${s(e.after?.person)}`;
+  return 'received a text';
+}
+
+function statusSentence(e: AuditEntry): string {
+  if (s(e.after?.smsConsent) === 'opted_out')
+    return `recorded that ${s(e.after?.number)} no longer takes texts (the carrier said so)`;
+  const status = s(e.after?.status);
+  if (status === 'delivered') return 'confirmed a text was delivered';
+  if (status === 'failed' || status === 'undelivered')
+    return `recorded that a text was not delivered${s(e.after?.errorCode) ? ` (carrier error ${s(e.after?.errorCode)})` : ''}`;
+  return `recorded a text as ${status || 'updated'}`;
 }
 
 const name = (e: AuditEntry) => s(e.after?.name) || s(e.before?.name) || e.entityName || 'a record';
@@ -156,6 +274,7 @@ export type AuditCategory =
   | 'invitations'
   | 'workspace'
   | 'customers'
+  | 'inbox'
   | 'leads'
   | 'tasks'
   | 'files'
@@ -167,6 +286,7 @@ export const AUDIT_CATEGORY_LABEL: Record<AuditCategory, string> = {
   invitations: 'Invitations',
   workspace: 'Workspace',
   customers: 'Customers',
+  inbox: 'Inbox & texting',
   leads: 'Leads',
   tasks: 'Tasks',
   files: 'Files',
@@ -178,6 +298,13 @@ export function auditCategory(action: string): AuditCategory {
   if (action.startsWith('membership.')) return 'members';
   if (action.startsWith('invitation.')) return 'invitations';
   if (action.startsWith('workspace.') || action.startsWith('organization.')) return 'workspace';
+  if (
+    action === 'person.set_sms_consent' ||
+    ['conversation.', 'message.', 'phone_number.', 'phone.', 'registration.'].some((p) =>
+      action.startsWith(p),
+    )
+  )
+    return 'inbox';
   if (
     action.startsWith('person.') ||
     action.startsWith('company.') ||

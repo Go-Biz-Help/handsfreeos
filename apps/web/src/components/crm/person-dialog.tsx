@@ -28,10 +28,10 @@ interface Form {
   tagIds: string[];
 }
 
-const empty = (companyId = ''): Form => ({
+const empty = (companyId = '', phone = ''): Form => ({
   firstName: '',
   lastName: '',
-  phone: '',
+  phone,
   email: '',
   companyId,
   line1: '',
@@ -66,6 +66,7 @@ export function PersonDialog({
   onOpenChange,
   initial,
   defaultCompanyId,
+  defaultPhone,
   onSaved,
 }: {
   workspaceId: string;
@@ -74,11 +75,13 @@ export function PersonDialog({
   onOpenChange: (open: boolean) => void;
   initial?: PersonDetail;
   defaultCompanyId?: string;
+  /** A number to start with (adding the sender of a text as a customer). */
+  defaultPhone?: string;
   onSaved?: (personId: string) => void;
 }) {
   const router = useRouter();
   const [form, setForm] = useState<Form>(() =>
-    initial ? fromPerson(initial) : empty(defaultCompanyId),
+    initial ? fromPerson(initial) : empty(defaultCompanyId, defaultPhone),
   );
   const [companies, setCompanies] = useState<{ id: string; name: string }[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -88,7 +91,7 @@ export function PersonDialog({
 
   useEffect(() => {
     if (!open) return;
-    setForm(initial ? fromPerson(initial) : empty(defaultCompanyId));
+    setForm(initial ? fromPerson(initial) : empty(defaultCompanyId, defaultPhone));
     setErrors({});
     setMatches([]);
     setMore(!!initial);

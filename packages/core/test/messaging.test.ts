@@ -981,6 +981,18 @@ describe('working the inbox', () => {
     expect((await ask(inboxList, { workspaceId: wsId, channel: 'email' }, member)).items).toEqual(
       [],
     );
+    // One customer's conversations whatever their status (the record page), with who sent the last text.
+    const mikes = await ask(
+      inboxList,
+      { workspaceId: wsId, personId: mikeId, status: 'closed' },
+      member,
+    );
+    expect(mikes.items.map((c) => c.id)).toEqual([mikeConversation]);
+    for (const c of [...mikes.items, ...first.items])
+      if (c.lastSentBy) {
+        expect(c.lastDirection).toBe('outbound');
+        expect(c.lastSentBy.fullName.length).toBeGreaterThan(0);
+      } else if (c.lastDirection === 'inbound') expect(c.lastSentBy).toBeNull();
   });
 
   it('keeps other workspaces and worker-only commands out of reach', async () => {

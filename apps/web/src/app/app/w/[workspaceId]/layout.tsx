@@ -3,8 +3,10 @@ import type { ReactNode } from 'react';
 import { MobileShell } from '@/components/shell/mobile-shell';
 import { Sidebar } from '@/components/shell/sidebar';
 import { ThemeSync } from '@/components/shell/theme-sync';
+import { WorkspaceMain } from '@/components/shell/workspace-main';
 import { ApiError, apiServer, fetchMe, unwrap } from '@/lib/api/server';
 import { LiveProvider } from '@/lib/realtime/live-provider';
+import { UnreadProvider } from '@/lib/realtime/unread-provider';
 import { parseTheme } from '@/lib/theme';
 
 export default async function WorkspaceLayout({
@@ -31,14 +33,16 @@ export default async function WorkspaceLayout({
   }
   return (
     <LiveProvider workspaceId={workspaceId}>
-      <div className="flex min-h-screen bg-bg">
-        <ThemeSync theme={parseTheme((me.user.settings as { theme?: unknown }).theme)} />
-        <Sidebar me={me} current={current} />
-        <div className="flex min-w-0 flex-1 flex-col">
-          <MobileShell me={me} current={current} />
-          <main className="min-w-0 flex-1 px-4 pb-24 pt-4 md:px-10 md:py-8">{children}</main>
+      <UnreadProvider workspaceId={workspaceId}>
+        <div className="flex min-h-screen bg-bg">
+          <ThemeSync theme={parseTheme((me.user.settings as { theme?: unknown }).theme)} />
+          <Sidebar me={me} current={current} />
+          <div className="flex min-w-0 flex-1 flex-col">
+            <MobileShell me={me} current={current} />
+            <WorkspaceMain workspaceId={workspaceId}>{children}</WorkspaceMain>
+          </div>
         </div>
-      </div>
+      </UnreadProvider>
     </LiveProvider>
   );
 }

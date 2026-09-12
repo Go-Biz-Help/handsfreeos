@@ -2,7 +2,7 @@ import type { HTMLAttributes } from 'react';
 import { cn } from '@/lib/utils';
 
 export type BadgeVariant =
-  'owner' | 'admin' | 'member' | 'pending' | 'revoked' | 'ok' | 'gray' | 'accent';
+  'owner' | 'admin' | 'member' | 'pending' | 'revoked' | 'danger' | 'ok' | 'gray' | 'accent';
 
 const variants: Record<BadgeVariant, string> = {
   owner: 'bg-accent-soft text-accent-text',
@@ -11,6 +11,7 @@ const variants: Record<BadgeVariant, string> = {
   member: 'border-border-strong text-text-2',
   pending: 'bg-warning-soft text-warning-text',
   revoked: 'bg-danger-soft text-danger-text',
+  danger: 'bg-danger-soft text-danger-text',
   ok: 'bg-success-soft text-success-text',
   gray: 'bg-card-2 text-text-2',
 };

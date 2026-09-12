@@ -36,10 +36,7 @@ test('navigates with the drawer and bottom bar, opens a customer, and moves a le
   await page.getByTestId('person-save').click();
   await expect(page).toHaveURL(/\/customers\/people\//);
   await expect(page.getByTestId('record-name')).toHaveText('Maria Santos');
-  await expect(page.getByRole('link', { name: 'Text' })).toHaveAttribute(
-    'href',
-    'sms:+12815550121',
-  );
+  await expect(page.getByTestId('action-text')).toBeVisible();
   await page.getByTestId('action-lead').click();
   await page.getByLabel('Title').fill('Rooftop units');
   await page.getByTestId('lead-save').click();

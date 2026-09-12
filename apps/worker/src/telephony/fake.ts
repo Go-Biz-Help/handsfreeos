@@ -94,7 +94,11 @@ export function createFakeTelephony(opts: FakeOptions): FakeTelephony {
       return fakeSid('MG');
     },
     async searchNumbers({ numberType, areaCode, limit }) {
-      const areas = numberType === 'toll_free' ? ['833', '844', '855', '877'] : [areaCode || '713'];
+      const areas = areaCode
+        ? [areaCode]
+        : numberType === 'toll_free'
+          ? ['833', '844', '855', '877']
+          : ['713'];
       return Array.from({ length: Math.min(limit, 6) }, (_, i) => ({
         e164: `+1${areas[i % areas.length]}555${String(1000 + Math.floor(Math.random() * 8999))}`,
         locality: numberType === 'toll_free' ? null : 'Houston',

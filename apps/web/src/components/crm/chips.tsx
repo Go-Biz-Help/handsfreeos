@@ -1,5 +1,5 @@
 import { AlertTriangle, Clock } from 'lucide-react';
-import type { HTMLAttributes } from 'react';
+import type { ComponentType, HTMLAttributes, ReactNode } from 'react';
 import { cn } from '@/lib/utils';
 
 /** A workspace tag: pill with the tag's color dot. */
@@ -89,11 +89,17 @@ export function NextActionChip({
 
 export function Callout({
   tone = 'warning',
+  icon: Icon = AlertTriangle,
+  action,
   className,
   children,
   ...props
 }: HTMLAttributes<HTMLDivElement> & {
-  tone?: 'warning' | 'info' | 'danger';
+  tone?: 'warning' | 'info' | 'danger' | 'neutral';
+  /** The design gives each callout its own icon (AlarmClock, UserPlus, Moon, ...). */
+  icon?: ComponentType<{ className?: string; strokeWidth?: number }>;
+  /** A small button at the end of the row. */
+  action?: ReactNode;
 }) {
   return (
     <div
@@ -104,11 +110,13 @@ export function Callout({
         tone === 'warning' && 'bg-warning-soft text-warning-text',
         tone === 'info' && 'bg-accent-soft text-accent-text',
         tone === 'danger' && 'bg-danger-soft text-danger-text',
+        tone === 'neutral' && 'bg-card-2 text-text-2',
         className,
       )}
     >
-      <AlertTriangle className="mt-0.5 h-4 w-4 flex-none" strokeWidth={1.75} />
+      <Icon className="mt-0.5 h-4 w-4 flex-none" strokeWidth={1.75} />
       <div className="min-w-0 flex-1">{children}</div>
+      {action ? <div className="flex-none">{action}</div> : null}
     </div>
   );
 }

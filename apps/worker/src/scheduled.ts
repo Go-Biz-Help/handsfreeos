@@ -67,6 +67,12 @@ export const unansweredCheck: JobHandler = async (ctx) => {
     const contact = c.channel === 'sms' ? formatPhone(c.counterpart) : c.counterpart;
     const customer = person ? `${person.firstName} ${person.lastName}`.trim() : contact;
     const firstName = person?.firstName || customer;
+    const [latest] = await rows<{ photos: number }>(
+      tx,
+      sql`select coalesce(jsonb_array_length(media), 0)::int as photos from app.messages
+          where conversation_id = ${c.id} and direction = 'inbound'
+          order by occurred_at desc limit 1`,
+    );
     const mail = unansweredEmail({
       customer,
       firstName,
@@ -80,6 +86,7 @@ export const unansweredCheck: JobHandler = async (ctx) => {
       contact,
       link: `${ctx.webUrl}/app/w/${scope.workspaceId}/inbox/${c.id}`,
       assignedToYou: !!c.assigneeUserId,
+      photos: latest?.photos ?? 0,
     });
     for (const r of recipients) await ctx.mailer.send({ to: r.email, ...mail });
     await recordSystemEvent(tx, {
