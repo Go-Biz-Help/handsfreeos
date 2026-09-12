@@ -7,6 +7,7 @@ export * from './kernel/index';
 export * from './commands/index';
 export * from './queries/index';
 export * from './crm/matching';
+export * from './auth/token';
 import { commands } from './commands/index';
 import { createRegistry } from './kernel/registry';
 import { queries } from './queries/index';

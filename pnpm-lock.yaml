@@ -350,6 +350,9 @@ importers:
       drizzle-orm:
         specifier: ^0.45.0
         version: 0.45.2(postgres@3.4.9)
+      jose:
+        specifier: ^6.2.0
+        version: 6.2.12
       libphonenumber-js:
         specifier: ^1.13.13
         version: 1.13.13

@@ -27,6 +27,8 @@ export const ROLE_PERMISSIONS = {
     'pipelines.manage',
     'tags.manage',
     'files.delete',
+    'inbox.use',
+    'channels.manage',
   ],
   admin: [
     'workspace.read',
@@ -45,8 +47,10 @@ export const ROLE_PERMISSIONS = {
     'pipelines.manage',
     'tags.manage',
     'files.delete',
+    'inbox.use',
+    'channels.manage',
   ],
-  member: ['workspace.read', 'members.read', 'records.read', 'records.write'],
+  member: ['workspace.read', 'members.read', 'records.read', 'records.write', 'inbox.use'],
   org_owner: [
     'org.read',
     'org.update',

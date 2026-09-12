@@ -336,6 +336,9 @@ export const companies = app.table('companies', {
   ),
 });
 
+/** Milestone 3: whether a person agreed to texts (declared here because `people` uses it). */
+export const smsConsent = app.enum('sms_consent', ['unknown', 'opted_in', 'opted_out']);
+
 export const people = app.table('people', {
   id: id(),
   workspaceId: workspaceRef(),
@@ -359,6 +362,10 @@ export const people = app.table('people', {
   searchText: text('search_text').generatedAlwaysAs(
     sql`lower(coalesce(first_name, '') || ' ' || coalesce(last_name, '') || ' ' || coalesce(email::text, '') || ' ' || coalesce(phone_e164, '') || ' ' || coalesce(city, '') || ' ' || coalesce(address_line1, ''))`,
   ),
+  // Milestone 3
+  smsConsent: smsConsent('sms_consent').notNull().default('unknown'),
+  smsConsentAt: ts('sms_consent_at'),
+  smsConsentSource: text('sms_consent_source'),
 });
 
 export const tags = app.table('tags', {
@@ -469,6 +476,320 @@ export const files = app.table('files', {
   ...timestamps(),
 });
 
+// ---------- Milestone 3: communication ----------
+export const telephonyProvider = app.enum('telephony_provider', ['twilio', 'fake']);
+export const telephonyAccountStatus = app.enum('telephony_account_status', [
+  'provisioning',
+  'active',
+  'suspended',
+  'closed',
+]);
+export const phoneNumberType = app.enum('phone_number_type', ['local', 'toll_free']);
+export const phoneNumberStatus = app.enum('phone_number_status', [
+  'provisioning',
+  'active',
+  'failed',
+  'releasing',
+  'released',
+]);
+export const registrationKind = app.enum('registration_kind', [
+  'toll_free_verification',
+  'a2p_customer_profile',
+  'a2p_trust_product',
+  'a2p_brand',
+  'a2p_campaign',
+]);
+export const registrationStatus = app.enum('registration_status', [
+  'draft',
+  'submitted',
+  'in_review',
+  'approved',
+  'rejected',
+  'failed',
+]);
+export const channel = app.enum('channel', ['sms', 'email']);
+export const conversationStatus = app.enum('conversation_status', ['open', 'snoozed', 'closed']);
+export const direction = app.enum('direction', ['inbound', 'outbound']);
+export const messageStatus = app.enum('message_status', [
+  'queued',
+  'sending',
+  'sent',
+  'delivered',
+  'undelivered',
+  'failed',
+  'received',
+  'bounced',
+  'complained',
+]);
+export const callStatus = app.enum('call_status', [
+  'initiated',
+  'ringing',
+  'in_progress',
+  'completed',
+  'no_answer',
+  'busy',
+  'failed',
+  'canceled',
+]);
+export const callAnsweredVia = app.enum('call_answered_via', ['browser', 'forwarding']);
+export const optOutSource = app.enum('opt_out_source', ['stop_keyword', 'manual', 'carrier_error']);
+export const deliveryStatus = app.enum('delivery_status', ['pending', 'done', 'failed', 'ignored']);
+export const jobStatus = app.enum('job_status', ['pending', 'done', 'failed', 'cancelled']);
+
+export type Channel = (typeof channel.enumValues)[number];
+export type ConversationStatus = (typeof conversationStatus.enumValues)[number];
+export type Direction = (typeof direction.enumValues)[number];
+export type MessageStatus = (typeof messageStatus.enumValues)[number];
+export type CallStatus = (typeof callStatus.enumValues)[number];
+export type PhoneNumberStatus = (typeof phoneNumberStatus.enumValues)[number];
+export type RegistrationKind = (typeof registrationKind.enumValues)[number];
+export type RegistrationStatus = (typeof registrationStatus.enumValues)[number];
+export type SmsConsent = (typeof smsConsent.enumValues)[number];
+
+/** A forwarding phone that rings with the browsers when a customer calls. */
+export interface ForwardingPhone {
+  readonly e164: string;
+  readonly label: string;
+  readonly enabled: boolean;
+}
+export interface PhoneRouting {
+  readonly forwarding: readonly ForwardingPhone[];
+  readonly ringSeconds: number;
+  readonly voicemailEnabled: boolean;
+  readonly voicemailGreeting: string | null;
+}
+/** A stored copy of an MMS photo, a recording or an email attachment in the `telephony` bucket. */
+export interface MediaRef {
+  readonly bucket: string;
+  readonly objectPath: string;
+  readonly contentType: string;
+  readonly sizeBytes: number;
+  readonly name: string;
+  /** A customer file (app.files) sent as an outbound attachment. */
+  readonly fileId?: string;
+}
+
+export const telephonyAccounts = app.table('telephony_accounts', {
+  id: id(),
+  workspaceId: uuid('workspace_id')
+    .notNull()
+    .unique()
+    .references(() => workspaces.id, { onDelete: 'cascade' }),
+  provider: telephonyProvider('provider').notNull(),
+  accountSid: text('account_sid').unique(),
+  authTokenEnc: text('auth_token_enc'),
+  apiKeySid: text('api_key_sid'),
+  apiKeySecretEnc: text('api_key_secret_enc'),
+  twimlAppSid: text('twiml_app_sid'),
+  messagingServiceSid: text('messaging_service_sid'),
+  keyId: text('key_id'),
+  webhookBaseUrl: text('webhook_base_url'),
+  status: telephonyAccountStatus('status').notNull().default('provisioning'),
+  lastError: text('last_error'),
+  ...timestamps(),
+});
+
+export const phoneNumbers = app.table('phone_numbers', {
+  id: id(),
+  workspaceId: workspaceRef(),
+  accountId: uuid('account_id').references(() => telephonyAccounts.id, { onDelete: 'set null' }),
+  providerSid: text('provider_sid').unique(),
+  e164: text('e164').notNull(),
+  numberType: phoneNumberType('number_type').notNull(),
+  label: text('label'),
+  capabilities: jsonb('capabilities').$type<Json>().notNull().default({}),
+  status: phoneNumberStatus('status').notNull().default('provisioning'),
+  routing: jsonb('routing').$type<PhoneRouting>().notNull(),
+  lastError: text('last_error'),
+  purchasedAt: ts('purchased_at'),
+  releasedAt: ts('released_at'),
+  createdBy: userRef('created_by'),
+  ...timestamps(),
+});
+
+export const telephonyRegistrations = app.table('telephony_registrations', {
+  id: id(),
+  workspaceId: workspaceRef(),
+  accountId: uuid('account_id').references(() => telephonyAccounts.id, { onDelete: 'set null' }),
+  phoneNumberId: uuid('phone_number_id').references(() => phoneNumbers.id, {
+    onDelete: 'set null',
+  }),
+  kind: registrationKind('kind').notNull(),
+  status: registrationStatus('status').notNull().default('draft'),
+  dependsOnId: uuid('depends_on_id'),
+  providerSid: text('provider_sid'),
+  providerStatus: text('provider_status'),
+  submission: jsonb('submission').$type<Json>().notNull().default({}),
+  rejectionReason: text('rejection_reason'),
+  submittedAt: ts('submitted_at'),
+  approvedAt: ts('approved_at'),
+  nextPollAt: ts('next_poll_at'),
+  pollCount: integer('poll_count').notNull().default(0),
+  createdBy: userRef('created_by'),
+  ...timestamps(),
+});
+
+export const conversations = app.table('conversations', {
+  id: id(),
+  workspaceId: workspaceRef(),
+  channel: channel('channel').notNull(),
+  counterpart: text('counterpart').notNull(),
+  phoneNumberId: uuid('phone_number_id').references(() => phoneNumbers.id, {
+    onDelete: 'set null',
+  }),
+  personId: uuid('person_id').references(() => people.id, { onDelete: 'set null' }),
+  status: conversationStatus('status').notNull().default('open'),
+  assigneeUserId: userRef('assignee_user_id'),
+  snoozedUntil: ts('snoozed_until'),
+  unreadCount: integer('unread_count').notNull().default(0),
+  lastMessageAt: ts('last_message_at'),
+  lastInboundAt: ts('last_inbound_at'),
+  lastOutboundAt: ts('last_outbound_at'),
+  lastPreview: text('last_preview'),
+  lastDirection: direction('last_direction'),
+  awaitingReplySince: ts('awaiting_reply_since'),
+  closedAt: ts('closed_at'),
+  closedBy: userRef('closed_by'),
+  createdBy: userRef('created_by'),
+  ...timestamps(),
+});
+
+export const messages = app.table('messages', {
+  id: id(),
+  workspaceId: workspaceRef(),
+  conversationId: uuid('conversation_id')
+    .notNull()
+    .references(() => conversations.id, { onDelete: 'cascade' }),
+  channel: channel('channel').notNull(),
+  direction: direction('direction').notNull(),
+  status: messageStatus('status').notNull(),
+  fromAddress: text('from_address'),
+  toAddresses: text('to_addresses')
+    .array()
+    .notNull()
+    .default(sql`'{}'`),
+  ccAddresses: text('cc_addresses')
+    .array()
+    .notNull()
+    .default(sql`'{}'`),
+  subject: text('subject'),
+  bodyText: text('body_text'),
+  bodyHtml: text('body_html'),
+  media: jsonb('media').$type<MediaRef[]>().notNull().default([]),
+  provider: text('provider'),
+  providerMessageId: text('provider_message_id'),
+  dedupeKey: text('dedupe_key'),
+  messageIdHeader: text('message_id_header'),
+  inReplyToHeader: text('in_reply_to_header'),
+  referencesHeaders: text('references_headers')
+    .array()
+    .notNull()
+    .default(sql`'{}'`),
+  providerThreadId: text('provider_thread_id'),
+  segments: integer('segments'),
+  errorCode: text('error_code'),
+  errorMessage: text('error_message'),
+  sentBy: userRef('sent_by'),
+  clientId: text('client_id'),
+  occurredAt: ts('occurred_at').notNull().defaultNow(),
+  sentAt: ts('sent_at'),
+  deliveredAt: ts('delivered_at'),
+  activityId: uuid('activity_id').references(() => activities.id, { onDelete: 'set null' }),
+  ...timestamps(),
+});
+
+export const calls = app.table('calls', {
+  id: id(),
+  workspaceId: workspaceRef(),
+  conversationId: uuid('conversation_id').references(() => conversations.id, {
+    onDelete: 'set null',
+  }),
+  phoneNumberId: uuid('phone_number_id').references(() => phoneNumbers.id, {
+    onDelete: 'set null',
+  }),
+  personId: uuid('person_id').references(() => people.id, { onDelete: 'set null' }),
+  direction: direction('direction').notNull(),
+  fromE164: text('from_e164'),
+  toE164: text('to_e164'),
+  providerSid: text('provider_sid').unique(),
+  status: callStatus('status').notNull().default('initiated'),
+  answeredVia: callAnsweredVia('answered_via'),
+  answeredByUserId: userRef('answered_by_user_id'),
+  answeredNumber: text('answered_number'),
+  placedBy: userRef('placed_by'),
+  startedAt: ts('started_at').notNull().defaultNow(),
+  answeredAt: ts('answered_at'),
+  endedAt: ts('ended_at'),
+  durationSeconds: integer('duration_seconds'),
+  isVoicemail: boolean('is_voicemail').notNull().default(false),
+  recordingSid: text('recording_sid'),
+  recordingObjectPath: text('recording_object_path'),
+  recordingSeconds: integer('recording_seconds'),
+  transcript: text('transcript'),
+  transcriptStatus: text('transcript_status'),
+  activityId: uuid('activity_id').references(() => activities.id, { onDelete: 'set null' }),
+  ...timestamps(),
+});
+
+export const optOuts = app.table('opt_outs', {
+  id: id(),
+  workspaceId: workspaceRef(),
+  counterpartE164: text('counterpart_e164').notNull(),
+  phoneNumberId: uuid('phone_number_id').references(() => phoneNumbers.id, {
+    onDelete: 'set null',
+  }),
+  optedOut: boolean('opted_out').notNull().default(true),
+  source: optOutSource('source').notNull(),
+  lastKeyword: text('last_keyword'),
+  optedOutAt: ts('opted_out_at'),
+  optedInAt: ts('opted_in_at'),
+  createdBy: userRef('created_by'),
+  ...timestamps(),
+});
+
+export const webhookDeliveries = app.table('webhook_deliveries', {
+  id: id(),
+  organizationId: uuid('organization_id').references(() => organizations.id, {
+    onDelete: 'cascade',
+  }),
+  workspaceId: uuid('workspace_id').references(() => workspaces.id, { onDelete: 'cascade' }),
+  provider: text('provider').notNull(),
+  kind: text('kind').notNull(),
+  dedupeKey: text('dedupe_key').notNull(),
+  accountRef: text('account_ref'),
+  url: text('url'),
+  params: jsonb('params').$type<Json>().notNull().default({}),
+  signatureValid: boolean('signature_valid').notNull().default(false),
+  status: deliveryStatus('status').notNull().default('pending'),
+  attempts: integer('attempts').notNull().default(0),
+  nextAttemptAt: ts('next_attempt_at').notNull().defaultNow(),
+  lockedAt: ts('locked_at'),
+  lockedBy: text('locked_by'),
+  lastError: text('last_error'),
+  receivedAt: ts('received_at').notNull().defaultNow(),
+  processedAt: ts('processed_at'),
+  ...timestamps(),
+});
+
+export const scheduledJobs = app.table('scheduled_jobs', {
+  id: id(),
+  organizationId: uuid('organization_id').references(() => organizations.id, {
+    onDelete: 'cascade',
+  }),
+  workspaceId: uuid('workspace_id').references(() => workspaces.id, { onDelete: 'cascade' }),
+  kind: text('kind').notNull(),
+  dedupeKey: text('dedupe_key'),
+  runAt: ts('run_at').notNull(),
+  payload: jsonb('payload').$type<Json>().notNull().default({}),
+  status: jobStatus('status').notNull().default('pending'),
+  attempts: integer('attempts').notNull().default(0),
+  lockedAt: ts('locked_at'),
+  lockedBy: text('locked_by'),
+  lastError: text('last_error'),
+  finishedAt: ts('finished_at'),
+  ...timestamps(),
+});
+
 export const tables = {
   organizations,
   workspaces,
@@ -494,4 +815,13 @@ export const tables = {
   tasks,
   activities,
   files,
+  telephonyAccounts,
+  phoneNumbers,
+  telephonyRegistrations,
+  conversations,
+  messages,
+  calls,
+  optOuts,
+  webhookDeliveries,
+  scheduledJobs,
 } as const;
