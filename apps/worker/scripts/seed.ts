@@ -20,7 +20,7 @@ import {
   type HumanActor,
   type RequestMeta,
 } from '@hfos/core/server';
-import { rows, sql } from '@hfos/db/client';
+import { rows, sql, type Db } from '@hfos/db/client';
 import { closeTestDbs, createTestUser, testDbs, testEnv, type TestUser } from '@hfos/db/testing';
 import pino from 'pino';
 import { createSealer } from '../src/crypto';
@@ -58,9 +58,17 @@ const meta = (): RequestMeta => ({
 });
 const step = (msg: string): void => console.log(`• ${msg}`);
 
-/** Runs the worker's outbox loop until nothing is pending, so emails go out and system events land. */
-async function drainOutbox(deps: OutboxDeps): Promise<void> {
+/**
+ * Runs the worker's outbox loop until nothing is pending, so emails go out and system events land. Only work
+ * the seed created is claimed: test suites that ran against the same database leave their own events behind.
+ */
+async function drainOutbox(deps: OutboxDeps, admin: Db, since: string): Promise<void> {
   for (let pass = 0; pass < 20; pass++) {
+    await rows(
+      admin,
+      sql`update app.outbox set locked_at = now(), locked_by = ${deps.workerId}
+          where status = 'pending' and created_at >= ${since}::timestamptz`,
+    );
     const stats = await processOnce(deps);
     if (stats.retried > 0 || stats.failed > 0) {
       throw new Error(
@@ -117,6 +125,7 @@ async function main(): Promise<void> {
   }
 
   const started = Date.now();
+  const since = (await rows<{ now: string }>(admin.db, sql`select now()::text as now`))[0]!.now;
   const log = pino({ level: 'warn' });
   const deps: OutboxDeps = {
     db: worker.db,
@@ -139,6 +148,7 @@ async function main(): Promise<void> {
     registrationPollMs: 50,
     workerId: `seed:${hostname()}:${process.pid}`,
     batchSize: 50,
+    reservedOnly: true,
   };
 
   step('Creating accounts (confirmed, one shared demo password)');
@@ -210,7 +220,7 @@ async function main(): Promise<void> {
       meta(),
     );
   }
-  await drainOutbox(deps);
+  await drainOutbox(deps, admin.db, since);
 
   step('Accepting the invitations from the emailed links');
   for (const invite of invites) {
@@ -235,7 +245,7 @@ async function main(): Promise<void> {
     actor(priya),
     meta(),
   );
-  await drainOutbox(deps);
+  await drainOutbox(deps, admin.db, since);
 
   await seedCrm(
     { api: api.db, admin: admin.db, store: deps.store, actor, meta, step },
@@ -245,7 +255,7 @@ async function main(): Promise<void> {
       summit: { id: summit, owner: tom },
     },
   );
-  await drainOutbox(deps);
+  await drainOutbox(deps, admin.db, since);
 
   step('Northstar Electric: a separate organization that sees none of the above');
   await executeCommand(

@@ -33,7 +33,11 @@ import {
   type WorkerServices,
 } from '../services';
 import { ensureAccount, loadAccount, webhookUrls } from '../telephony/accounts';
-import { isPermanentProviderError, type RegistrationKind } from '../telephony/provider';
+import {
+  isPermanentProviderError,
+  type RegistrationKind,
+  type RegistrationState,
+} from '../telephony/provider';
 import type { EventHandler, HandlerContext } from './types';
 
 const metaOf = (ctx: HandlerContext) => workerMeta(ctx.event.correlationId, ctx.event.id);
@@ -104,12 +108,16 @@ export const onReleaseRequested: EventHandler = async (ctx) => {
   );
 };
 
-type Registration = typeof telephonyRegistrations.$inferSelect;
 const REVIEWING = new Set(['submitted', 'in_review']);
+/** Twilio reviews the 10DLC customer profile and trust product while the brand goes ahead. */
+const PROCEED_WHILE_REVIEWING = new Set<RegistrationKind>([
+  'a2p_customer_profile',
+  'a2p_trust_product',
+]);
 
 /**
- * Walks the workspace's registration chain in order: sends the first step that is waiting (once the step it
- * builds on is approved) and keeps a poll going for the step under review. Safe to call again at any time.
+ * Walks the workspace's registration chain in order: sends each step that is waiting once the steps before it
+ * are usable, and keeps a poll going for every step under review. Safe to call again at any time.
  */
 export async function advanceRegistrations(
   services: WorkerServices,
@@ -133,73 +141,67 @@ export async function advanceRegistrations(
   if (!account) throw new Error('no telephony account for this workspace');
   const latest = latestByKind(regs);
   const meta = workerMeta(causation.correlationId, causation.causationId);
-  const approved = new Map<string, Registration>();
-  for (const kind of FAMILY_KINDS[familyFor(number.numberType)]) {
+  const update = (input: Record<string, unknown>) =>
+    executeCommand(
+      services.db,
+      registrationUpdateStatus,
+      { workspaceId: scope.workspaceId, ...input },
+      systemActor(scope),
+      meta,
+    );
+  // Provider ids of the steps later ones may build on.
+  const usable: Partial<Record<RegistrationKind, string>> = {};
+  for (const kind of FAMILY_KINDS[familyFor(number.numberType)] as readonly RegistrationKind[]) {
     const reg = latest.get(kind);
     if (!reg) return;
     if (reg.status === 'approved') {
-      approved.set(reg.id, reg);
+      if (reg.providerSid) usable[kind] = reg.providerSid;
       continue;
     }
     if (!REVIEWING.has(reg.status)) return; // rejected, failed or draft: people act next
     if (reg.providerSid) {
       await ensurePoll(services, scope, reg.id);
-      return;
+      if (!PROCEED_WHILE_REVIEWING.has(kind)) return;
+      usable[kind] = reg.providerSid;
+      continue;
     }
-    const dep = reg.dependsOnId ? (regs.find((r) => r.id === reg.dependsOnId) ?? null) : null;
-    if (dep && dep.status !== 'approved' && !approved.has(dep.id)) return;
     const submission = reg.submission as Record<string, unknown>;
     const contact = (submission['contact'] ?? {}) as { email?: string };
+    let state: RegistrationState;
     try {
-      const state = await services.telephony.submitRegistration(account, {
-        kind: kind as RegistrationKind,
+      state = await services.telephony.submitRegistration(account, {
+        kind,
         submission,
         phoneNumberSid: number.providerSid,
         phoneNumberE164: number.e164,
-        dependsOn: dep?.providerSid
-          ? { kind: dep.kind as RegistrationKind, providerSid: dep.providerSid }
-          : null,
+        previous: { ...usable },
         messagingServiceSid: account.messagingServiceSid,
         notifyEmail: contact.email ?? '',
       });
-      await executeCommand(
-        services.db,
-        registrationUpdateStatus,
-        {
-          workspaceId: scope.workspaceId,
-          registrationId: reg.id,
-          status: state.status,
-          providerSid: state.providerSid,
-          providerStatus: state.providerStatus,
-          rejectionReason: state.rejectionReason,
-          nextPollAt: REVIEWING.has(state.status)
-            ? new Date(Date.now() + services.registrationPollMs).toISOString()
-            : null,
-        },
-        systemActor(scope),
-        meta,
-      );
-      if (state.status !== 'approved') {
-        if (REVIEWING.has(state.status)) await ensurePoll(services, scope, reg.id);
-        return;
-      }
-      approved.set(reg.id, { ...reg, status: 'approved', providerSid: state.providerSid });
     } catch (e) {
       if (!isPermanentProviderError(e)) throw e;
-      await executeCommand(
-        services.db,
-        registrationUpdateStatus,
-        {
-          workspaceId: scope.workspaceId,
-          registrationId: reg.id,
-          status: 'failed',
-          rejectionReason: e.message,
-        },
-        systemActor(scope),
-        meta,
-      );
+      await update({ registrationId: reg.id, status: 'failed', rejectionReason: e.message });
       return;
     }
+    const reviewing = REVIEWING.has(state.status);
+    await update({
+      registrationId: reg.id,
+      status: state.status,
+      providerSid: state.providerSid,
+      providerStatus: state.providerStatus,
+      rejectionReason: state.rejectionReason,
+      nextPollAt: reviewing
+        ? new Date(Date.now() + services.registrationPollMs).toISOString()
+        : null,
+    });
+    if (state.status === 'approved') {
+      usable[kind] = state.providerSid;
+      continue;
+    }
+    if (!reviewing) return;
+    await ensurePoll(services, scope, reg.id);
+    if (!PROCEED_WHILE_REVIEWING.has(kind)) return;
+    usable[kind] = state.providerSid;
   }
 }
 

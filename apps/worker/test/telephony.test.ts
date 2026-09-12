@@ -1,5 +1,5 @@
 import { randomBytes, randomUUID } from 'node:crypto';
-import { and, desc, eq } from 'drizzle-orm';
+import { and, asc, desc, eq } from 'drizzle-orm';
 import {
   conversationLinkPerson,
   conversationSnooze,
@@ -684,5 +684,92 @@ describe('releasing the number', () => {
     );
     await drain();
     expect((await numberRow(numberId))?.status).toBe('released');
+  });
+});
+
+describe('local numbers (10DLC)', () => {
+  it('walks the carrier chain in order and starts the brand while the profile is in review', async () => {
+    // A local number never ending in 0000 (the fake carrier refuses those).
+    const local = `+1713${String(Math.floor(Math.random() * 1e6)).padStart(6, '0')}7`;
+    const bought = await executeCommand(
+      api(),
+      phoneNumberBuy,
+      { workspaceId, e164: local, numberType: 'local' },
+      actor(owner),
+      meta(),
+    );
+    await drain();
+    expect((await numberRow(bought.output.phoneNumberId))?.status).toBe('active');
+    const before = s.telephony.registrations.length;
+    await executeCommand(
+      api(),
+      registrationSubmit,
+      {
+        workspaceId,
+        kind: 'a2p_10dlc',
+        business: {
+          ...business,
+          messageSamples: [
+            business.messageSamples[0],
+            'Hi Mike, your estimate for the new AC unit is ready. Reply with questions or STOP to opt out.',
+          ],
+        },
+      },
+      actor(owner),
+      meta(),
+    );
+    const chain = async () =>
+      (
+        await admin()
+          .select()
+          .from(telephonyRegistrations)
+          .where(eq(telephonyRegistrations.workspaceId, workspaceId))
+      ).filter((r) => r.kind.startsWith('a2p_'));
+    await drain({
+      until: async () =>
+        (await chain()).find((r) => r.kind === 'a2p_campaign')?.status === 'approved',
+      timeoutMs: 15_000,
+    });
+    const rows4 = await chain();
+    expect(rows4.map((r) => `${r.kind}:${r.status}`).sort()).toEqual([
+      'a2p_brand:approved',
+      'a2p_campaign:approved',
+      'a2p_customer_profile:approved',
+      'a2p_trust_product:approved',
+    ]);
+    const sid = Object.fromEntries(rows4.map((r) => [r.kind, r.providerSid]));
+    const asked = s.telephony.registrations.slice(before);
+    expect(asked.map((r) => r.kind)).toEqual([
+      'a2p_customer_profile',
+      'a2p_trust_product',
+      'a2p_brand',
+      'a2p_campaign',
+    ]);
+    expect(asked[0]!.previous).toEqual({});
+    expect(asked[1]!.previous).toEqual({ a2p_customer_profile: sid['a2p_customer_profile'] });
+    expect(asked[2]!.previous).toEqual({
+      a2p_customer_profile: sid['a2p_customer_profile'],
+      a2p_trust_product: sid['a2p_trust_product'],
+    });
+    expect(asked[3]!.previous).toMatchObject({ a2p_brand: sid['a2p_brand'] });
+    expect(asked[3]!.messagingServiceSid).toMatch(/^MGfake/);
+    // The brand went in before the profile's review finished.
+    const changes = await admin()
+      .select()
+      .from(events)
+      .where(
+        and(
+          eq(events.workspaceId, workspaceId),
+          eq(events.eventType, 'registration.status_changed'),
+        ),
+      )
+      .orderBy(asc(events.createdAt));
+    const at = (kind: string, to: string) =>
+      changes.findIndex((e) => {
+        const p = e.payload as { kind?: string; to?: string };
+        return p.kind === kind && p.to === to;
+      });
+    expect(at('a2p_brand', 'in_review')).toBeGreaterThan(-1);
+    expect(at('a2p_brand', 'in_review')).toBeLessThan(at('a2p_customer_profile', 'approved'));
   });
 });

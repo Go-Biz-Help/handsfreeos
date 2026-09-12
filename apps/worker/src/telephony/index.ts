@@ -10,6 +10,7 @@ export function createTelephony(env: WorkerEnv, log: Logger): TelephonyProvider 
     return createTwilioTelephony({
       accountSid: env.twilioAccountSid!,
       authToken: env.twilioAuthToken!,
+      primaryProfileSid: env.twilioPrimaryProfileSid,
     });
   return createFakeTelephony({ approvalMs: env.fakeApprovalMs, callbacks: true, log });
 }

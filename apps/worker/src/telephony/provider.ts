@@ -60,8 +60,11 @@ export interface RegistrationRequest {
   readonly submission: Readonly<Record<string, unknown>>;
   readonly phoneNumberSid: string | null;
   readonly phoneNumberE164: string;
-  /** The approved step this one builds on (the brand needs the customer profile, the campaign the brand). */
-  readonly dependsOn: { readonly kind: RegistrationKind; readonly providerSid: string } | null;
+  /**
+   * Provider ids of the earlier steps this one builds on: approved ones, plus the customer profile and trust
+   * product while still in review (Twilio lets the brand go ahead). The brand needs both; the campaign the brand.
+   */
+  readonly previous: Readonly<Partial<Record<RegistrationKind, string>>>;
   readonly messagingServiceSid: string | null;
   /** Where the carrier writes about the registration. */
   readonly notifyEmail: string;

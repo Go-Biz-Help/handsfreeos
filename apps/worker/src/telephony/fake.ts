@@ -6,6 +6,7 @@ import {
   type OutboundMessage,
   type ProviderAccount,
   type RegistrationKind,
+  type RegistrationRequest,
   type TelephonyProvider,
 } from './provider';
 import { twilioSignature } from './signature';
@@ -37,6 +38,8 @@ export interface FakeSent extends OutboundMessage {
 
 export interface FakeTelephony extends TelephonyProvider {
   readonly sent: FakeSent[];
+  /** Registration steps in the order they were submitted. */
+  readonly registrations: RegistrationRequest[];
 }
 
 export interface FakeOptions {
@@ -54,6 +57,7 @@ export interface FakeOptions {
  */
 export function createFakeTelephony(opts: FakeOptions): FakeTelephony {
   const sent: FakeSent[] = [];
+  const registrations: RegistrationRequest[] = [];
   const owned = new Map<string, { sid: string; e164: string; accountSid: string }>();
   const regs = new Map<string, { at: number; reject: boolean }>();
 
@@ -82,6 +86,7 @@ export function createFakeTelephony(opts: FakeOptions): FakeTelephony {
     masterAccountSid: FAKE_MASTER_SID,
     masterAuthToken: FAKE_AUTH_TOKEN,
     sent,
+    registrations,
     async createSubaccount() {
       return { sid: fakeSid('AC'), authToken: FAKE_AUTH_TOKEN };
     },
@@ -164,6 +169,7 @@ export function createFakeTelephony(opts: FakeOptions): FakeTelephony {
     },
     async deleteMedia() {},
     async submitRegistration(_account, request) {
+      registrations.push(request);
       const sid = fakeSid(SID_PREFIX[request.kind]);
       const legalName = String(request.submission['legalName'] ?? '');
       regs.set(sid, { at: Date.now(), reject: /reject/i.test(legalName) });

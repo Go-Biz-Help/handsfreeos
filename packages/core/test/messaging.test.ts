@@ -316,8 +316,25 @@ describe('the business number and carrier approval', () => {
   });
 
   it('a registration matches the number type and stays in review until the carrier answers', async () => {
+    // Local numbers need two example texts before the number type is even checked.
     await expectHfos(
       () => run(registrationSubmit, { workspaceId: wsId, kind: 'a2p_10dlc', business }, owner),
+      'validation',
+    );
+    const twoSamples = {
+      ...business,
+      messageSamples: [
+        ...business.messageSamples,
+        'Hi Mike, your estimate is ready. Reply with questions or STOP to opt out.',
+      ],
+    };
+    await expectHfos(
+      () =>
+        run(
+          registrationSubmit,
+          { workspaceId: wsId, kind: 'a2p_10dlc', business: twoSamples },
+          owner,
+        ),
       'rule_violation',
       'registration_kind_mismatch',
     );

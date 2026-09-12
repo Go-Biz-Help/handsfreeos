@@ -29,6 +29,8 @@ export interface WorkerEnv {
   readonly telephonyProvider: 'twilio' | 'fake';
   readonly twilioAccountSid: string | null;
   readonly twilioAuthToken: string | null;
+  /** HandsFreeOS's approved ISV customer profile (BU...): local (10DLC) registrations link under it. */
+  readonly twilioPrimaryProfileSid: string | null;
   readonly encryptionKey: string;
   readonly encryptionKeysPrevious: readonly string[];
   /** Local demos and tests shorten the reply reminder (milliseconds); production uses workspace settings. */
@@ -103,6 +105,7 @@ export function readEnv(env: NodeJS.ProcessEnv = process.env): WorkerEnv {
     telephonyProvider,
     twilioAccountSid,
     twilioAuthToken,
+    twilioPrimaryProfileSid: env.TWILIO_PRIMARY_PROFILE_SID || null,
     encryptionKey,
     encryptionKeysPrevious: list(env.WORKER_ENCRYPTION_KEYS_PREVIOUS),
     reminderOverrideMs: reminder && Number.isFinite(reminder) && reminder > 0 ? reminder : null,

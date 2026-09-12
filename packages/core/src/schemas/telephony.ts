@@ -177,11 +177,17 @@ export const BusinessProfile = z
   });
 export type BusinessProfile = z.infer<typeof BusinessProfile>;
 
-export const RegistrationSubmitInput = z.object({
-  workspaceId: uuid,
-  kind: registrationFamily,
-  business: BusinessProfile,
-});
+export const RegistrationSubmitInput = z
+  .object({
+    workspaceId: uuid,
+    kind: registrationFamily,
+    business: BusinessProfile,
+  })
+  // Carriers refuse a 10DLC campaign with fewer than two example texts.
+  .refine((v) => v.kind !== 'a2p_10dlc' || v.business.messageSamples.length >= 2, {
+    path: ['business', 'messageSamples'],
+    error: 'Local numbers need at least two example texts.',
+  });
 export const RegistrationSubmitOutput = z.object({ registrationIds: z.array(uuid) });
 export const RegistrationUpdateStatusInput = z.object({
   workspaceId: uuid,
