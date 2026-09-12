@@ -215,6 +215,8 @@ describe('calls', () => {
     );
     expect(timeline.items.find((e) => e.kind === 'call')).toMatchObject({
       subtype: 'outbound',
+      // The worker settles the call, but the row credits the teammate who placed it.
+      actor: expect.objectContaining({ id: member.id }),
       meta: expect.objectContaining({ direction: 'outbound', durationSeconds: 252 }),
     });
   });

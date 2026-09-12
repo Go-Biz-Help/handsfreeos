@@ -26,7 +26,8 @@ test('owner edits pipelines and the workspace; tasks and the home briefing refle
   // The last won stage cannot go.
   await rows.nth(3).getByRole('button', { name: 'Delete Won' }).click();
   await page.getByTestId('stage-delete-confirm').click();
-  await expect(page.getByText(/at least one/i)).toBeVisible();
+  // The dialog's own description also says "at least one"; look for the refusal itself.
+  await expect(page.getByText(/needs at least one/i)).toBeVisible();
   await page.keyboard.press('Escape');
   // A second pipeline appears in the board's picker.
   await page.getByTestId('pipeline-new').click();

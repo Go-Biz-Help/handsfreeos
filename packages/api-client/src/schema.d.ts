@@ -4821,6 +4821,7 @@ export interface operations {
                                 /** Format: uuid */
                                 id: string;
                             } | null;
+                            answeredVia: ("browser" | "forwarding") | null;
                             body: string | null;
                             channel: ("sms" | "email") | null;
                             deliveredAt: string | null;
@@ -4845,6 +4846,7 @@ export interface operations {
                             }[];
                             /** Format: date-time */
                             occurredAt: string;
+                            recordingPath: string | null;
                             sentBy: {
                                 fullName: string;
                                 /** Format: uuid */
@@ -5624,6 +5626,7 @@ export interface operations {
                                 /** Format: uuid */
                                 id: string;
                             } | null;
+                            answeredVia: ("browser" | "forwarding") | null;
                             body: string | null;
                             channel: ("sms" | "email") | null;
                             deliveredAt: string | null;
@@ -5648,6 +5651,7 @@ export interface operations {
                             }[];
                             /** Format: date-time */
                             occurredAt: string;
+                            recordingPath: string | null;
                             sentBy: {
                                 fullName: string;
                                 /** Format: uuid */

@@ -120,6 +120,9 @@ export const ThreadItem = z.object({
   durationSeconds: z.number().int().nullable(),
   isVoicemail: z.boolean(),
   hasRecording: z.boolean(),
+  /** The stored recording (telephony bucket), for the voicemail player. */
+  recordingPath: z.string().nullable(),
+  answeredVia: z.enum(['browser', 'forwarding']).nullable(),
   transcript: z.string().nullable(),
   answeredBy: UserRef,
 });

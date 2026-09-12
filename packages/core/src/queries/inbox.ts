@@ -315,6 +315,8 @@ type ThreadRow = {
   transcript: string | null;
   answered_by: string | null;
   answered_name: string | null;
+  recording_path: string | null;
+  answered_via: 'browser' | 'forwarding' | null;
   sort_key: string;
 };
 
@@ -323,7 +325,8 @@ const messageBranch = (workspaceId: string) => sql`
     m.channel::text as channel, m.body_text as body, m.subject, m.from_address, m.media, m.sent_by as user_id,
     coalesce(nullif(su.full_name, ''), su.email::text) as user_name, m.error_code, m.error_message, m.delivered_at,
     null::int as duration_seconds, false as is_voicemail, false as has_recording, null::text as transcript,
-    null::uuid as answered_by, null::text as answered_name, ${SORT_KEY(sql`m.occurred_at`)} as sort_key
+    null::uuid as answered_by, null::text as answered_name, null::text as recording_path, null::text as answered_via,
+    ${SORT_KEY(sql`m.occurred_at`)} as sort_key
   from app.messages m left join app.users su on su.id = m.sent_by
   where m.workspace_id = ${workspaceId}`;
 
@@ -346,6 +349,8 @@ function threadItem(r: ThreadRow): ThreadItem {
     durationSeconds: r.duration_seconds,
     isVoicemail: !!r.is_voicemail,
     hasRecording: !!r.has_recording,
+    recordingPath: r.recording_path,
+    answeredVia: r.answered_via,
     transcript: r.transcript,
     answeredBy: r.answered_by
       ? { id: r.answered_by, fullName: r.answered_name ?? 'Former member' }
@@ -375,7 +380,8 @@ export const conversationThread = defineQuery({
             select 'call'::text, c.id, c.conversation_id, c.started_at, c.direction::text, c.status::text, null::text, null::text, null::text,
               c.from_e164, '[]'::jsonb, c.placed_by, coalesce(nullif(pu.full_name, ''), pu.email::text), null::text, null::text, null::timestamptz,
               c.duration_seconds, c.is_voicemail, c.recording_object_path is not null, c.transcript, c.answered_by_user_id,
-              coalesce(nullif(au.full_name, ''), au.email::text), ${SORT_KEY(sql`c.started_at`)}
+              coalesce(nullif(au.full_name, ''), au.email::text), c.recording_object_path, c.answered_via::text,
+              ${SORT_KEY(sql`c.started_at`)}
             from app.calls c
             left join app.users pu on pu.id = c.placed_by
             left join app.users au on au.id = c.answered_by_user_id

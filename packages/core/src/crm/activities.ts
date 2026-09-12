@@ -23,6 +23,8 @@ export interface ChannelActivityInput {
   readonly occurredAt?: Date;
   readonly meta?: Record<string, unknown>;
   readonly eventId?: string | null;
+  /** Credit someone other than the actor (the worker settles a call a teammate placed). */
+  readonly authorUserId?: string | null;
 }
 
 /**
@@ -44,7 +46,12 @@ export async function logChannelActivity(
       personId: input.personId,
       body: input.body ?? null,
       occurredAt: input.occurredAt ?? new Date(),
-      authorUserId: ctx.actor.type === 'human' ? ctx.actor.userId : null,
+      authorUserId:
+        input.authorUserId !== undefined
+          ? input.authorUserId
+          : ctx.actor.type === 'human'
+            ? ctx.actor.userId
+            : null,
       actorType: ctx.actor.type,
       eventId: input.eventId ?? null,
       meta: {

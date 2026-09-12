@@ -286,6 +286,8 @@ async function settleCall(ctx: CommandContext, c: Call, at: Date): Promise<void>
       body: c.transcript,
       occurredAt: c.startedAt,
       eventId,
+      // A call a teammate placed reads "Dale Ramsey called" on the customer's timeline.
+      authorUserId: c.direction === 'outbound' ? c.placedBy : null,
       meta: {
         direction: c.direction,
         callId: c.id,
@@ -297,6 +299,7 @@ async function settleCall(ctx: CommandContext, c: Call, at: Date): Promise<void>
         placedBy: c.placedBy,
         voicemail: c.isVoicemail,
         recordingSeconds: c.recordingSeconds,
+        recordingPath: c.recordingObjectPath,
       },
     });
     if (activityId) await ctx.tx.update(calls).set({ activityId }).where(eq(calls.id, c.id));
@@ -398,7 +401,7 @@ export const callAttachRecording = defineCommand({
         .update(activities)
         .set({
           ...(next.isVoicemail ? { subtype: 'voicemail' } : {}),
-          meta: sql`${activities.meta} || ${JSON.stringify({ voicemail: next.isVoicemail, recordingSeconds: input.seconds })}::jsonb`,
+          meta: sql`${activities.meta} || ${JSON.stringify({ voicemail: next.isVoicemail, recordingSeconds: input.seconds, recordingPath: input.objectPath })}::jsonb`,
         })
         .where(eq(activities.id, c.activityId));
     await refreshPreview(ctx, next);

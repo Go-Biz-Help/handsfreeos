@@ -12459,6 +12459,26 @@
                           "hasRecording": {
                             "type": "boolean"
                           },
+                          "recordingPath": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "answeredVia": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "enum": [
+                                  "browser",
+                                  "forwarding"
+                                ]
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
                           "transcript": {
                             "type": [
                               "string",
@@ -12509,6 +12529,8 @@
                           "durationSeconds",
                           "isVoicemail",
                           "hasRecording",
+                          "recordingPath",
+                          "answeredVia",
                           "transcript",
                           "answeredBy"
                         ],
@@ -12749,6 +12771,26 @@
                         "hasRecording": {
                           "type": "boolean"
                         },
+                        "recordingPath": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "answeredVia": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "enum": [
+                                "browser",
+                                "forwarding"
+                              ]
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
                         "transcript": {
                           "type": [
                             "string",
@@ -12799,6 +12841,8 @@
                         "durationSeconds",
                         "isVoicemail",
                         "hasRecording",
+                        "recordingPath",
+                        "answeredVia",
                         "transcript",
                         "answeredBy"
                       ],
