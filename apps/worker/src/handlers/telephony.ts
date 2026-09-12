@@ -24,6 +24,7 @@ import {
   workspaces,
 } from '@hfos/db/schema';
 import { textingApprovedEmail, textingRejectedEmail } from '../emails/templates';
+import { sendQueuedEmail } from './email';
 import { TEXT_STATUS } from '../processors/twilio-messaging';
 import {
   systemActor,
@@ -284,7 +285,10 @@ export const onMessageQueued: EventHandler = async (ctx) => {
   const [m] = await ctx.tx.select().from(messages).where(eq(messages.id, ctx.event.entityId!));
   if (!m || m.direction !== 'outbound' || m.providerMessageId) return;
   if (m.status !== 'queued' && m.status !== 'sending') return;
-  if (m.channel !== 'sms') return; // email is sent by its own handler
+  if (m.channel === 'email') {
+    await sendQueuedEmail(ctx, m);
+    return;
+  }
   const fail = (errorCode: string, errorMessage: string) =>
     executeCommand(
       ctx.db,

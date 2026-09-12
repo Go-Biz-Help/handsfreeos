@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { and, eq, inArray, isNull } from 'drizzle-orm';
+import type { z } from 'zod';
 import { sql } from '@hfos/db/client';
 import {
   activities,
@@ -17,6 +18,21 @@ import { fullName, requirePerson } from '../crm/records';
 import { HfosError } from '../errors';
 import { defineCommand } from '../kernel/define';
 import type { CommandContext } from '../kernel/types';
+import {
+  activeSuppression,
+  emailAttachments,
+  emailDedupeKey,
+  emailPreview,
+  newMessageIdHeader,
+  pickFromAddress,
+  replySubject,
+  resolveEmailConversation,
+  sendableMailboxes,
+  SHARED_MAIL_DOMAIN,
+  suppressionMessage,
+  threadHeaders,
+  workspaceAddresses,
+} from '../messaging/email';
 import { formatClock, quietHoursState } from '../messaging/quiet-hours';
 import { messagePreview, smsKeyword, smsSegments } from '../messaging/sms';
 import {
@@ -234,10 +250,186 @@ async function setConsent(
       .where(eq(people.id, input.personId));
 }
 
+/**
+ * Email from a workspace address (the worker sends it through Postmark) or a connected mailbox. Threads under
+ * the conversation's last email, and refuses addresses that bounced, complained or were stopped.
+ */
+async function sendEmail(ctx: CommandContext, input: z.infer<typeof MessageSendInput>) {
+  const workspaceId = ctx.scope.workspaceId!;
+  const { conversation: conv, created } = await resolveEmailConversation(ctx, input);
+  if (input.clientId) {
+    const [dup] = await ctx.tx
+      .select({ id: messages.id, status: messages.status })
+      .from(messages)
+      .where(and(eq(messages.conversationId, conv.id), eq(messages.clientId, input.clientId)));
+    if (dup)
+      return { messageId: dup.id, conversationId: conv.id, status: dup.status, duplicate: true };
+  }
+  const stopped = await activeSuppression(ctx.tx, workspaceId, conv.counterpart);
+  if (stopped)
+    throw HfosError.rule('recipient_suppressed', 409, suppressionMessage(stopped.reason));
+  for (const address of input.cc)
+    if (await activeSuppression(ctx.tx, workspaceId, address))
+      throw HfosError.validation([
+        { path: 'cc', message: `Email to ${address} is stopped. Take it out of Cc.` },
+      ]);
+
+  const me = ctx.actor.type === 'human' ? ctx.actor.userId : null;
+  let from: {
+    address: string;
+    domain: string;
+    emailAddressId: string | null;
+    mailboxConnectionId: string | null;
+    provider: string;
+  };
+  if (input.mailboxConnectionId) {
+    const mailbox = (await sendableMailboxes(ctx.tx, workspaceId, null)).find(
+      (m) => m.id === input.mailboxConnectionId,
+    );
+    if (!mailbox?.accountEmail)
+      throw HfosError.rule(
+        'mailbox_not_active',
+        409,
+        'Reconnect this mailbox in Settings → Email to send from it.',
+      );
+    if (!mailbox.shared && me && mailbox.userId !== me)
+      throw HfosError.rule(
+        'mailbox_not_shared',
+        403,
+        'Only the person who connected this mailbox can send from it.',
+      );
+    from = {
+      address: mailbox.accountEmail,
+      domain: mailbox.accountEmail.split('@')[1] ?? SHARED_MAIL_DOMAIN,
+      emailAddressId: null,
+      mailboxConnectionId: mailbox.id,
+      provider: mailbox.provider,
+    };
+  } else {
+    const list = await workspaceAddresses(ctx.tx, workspaceId);
+    if (input.emailAddressId) {
+      const wanted = list.find((a) => a.id === input.emailAddressId);
+      if (!wanted) throw HfosError.notFound('Address not found.');
+      if (!wanted.usable)
+        throw HfosError.rule(
+          'email_domain_unverified',
+          409,
+          'That address’s domain isn’t verified yet. Send from another address.',
+        );
+    }
+    const a = pickFromAddress(list, [input.emailAddressId, conv.emailAddressId]);
+    if (!a)
+      throw HfosError.rule(
+        'no_email_address',
+        409,
+        'This workspace has no address to send from yet.',
+      );
+    from = {
+      address: a.address,
+      domain: a.domain,
+      emailAddressId: a.id,
+      mailboxConnectionId: null,
+      provider: 'postmark',
+    };
+  }
+
+  const thread = await threadHeaders(ctx.tx, conv.id);
+  const subject = input.subject?.trim() || replySubject(thread.subject);
+  if (!subject) throw HfosError.validation([{ path: 'subject', message: 'Add a subject.' }]);
+  const media = await emailAttachments(ctx, input.attachmentFileIds);
+  const messageId = randomUUID();
+  const now = new Date();
+  const header = newMessageIdHeader(from.domain);
+  const preview = emailPreview(subject, input.body, media.length);
+  if (created)
+    await ctx.emit({
+      type: 'conversation.created',
+      entityType: 'conversation',
+      entityId: conv.id,
+      payload: { channel: 'email', personId: conv.personId },
+      after: { with: conv.counterpart, channel: 'email' },
+    });
+  const eventId = await ctx.emit({
+    type: 'message.queued',
+    entityType: 'message',
+    entityId: messageId,
+    payload: {
+      conversationId: conv.id,
+      personId: conv.personId,
+      channel: 'email',
+      mediaCount: media.length,
+      via: from.mailboxConnectionId ? 'mailbox' : 'address',
+    },
+    after: { to: conv.counterpart, from: from.address, subject, mediaCount: media.length },
+  });
+  const activityId = await logChannelActivity(ctx, {
+    kind: 'email',
+    subtype: 'outbound',
+    personId: conv.personId,
+    body: input.body,
+    occurredAt: now,
+    eventId,
+    meta: {
+      direction: 'outbound',
+      messageId,
+      conversationId: conv.id,
+      status: 'queued',
+      subject,
+      from: from.address,
+      mediaCount: media.length,
+      attachments: media.map(({ name, bucket, objectPath }) => ({ name, bucket, objectPath })),
+    },
+  });
+  await ctx.tx.insert(messages).values({
+    id: messageId,
+    workspaceId,
+    conversationId: conv.id,
+    channel: 'email',
+    direction: 'outbound',
+    status: 'queued',
+    fromAddress: from.address,
+    toAddresses: [conv.counterpart],
+    ccAddresses: input.cc,
+    subject,
+    bodyText: input.body,
+    media,
+    provider: from.provider,
+    dedupeKey: emailDedupeKey(header),
+    messageIdHeader: header,
+    inReplyToHeader: thread.inReplyTo,
+    referencesHeaders: thread.references,
+    emailAddressId: from.emailAddressId,
+    mailboxConnectionId: from.mailboxConnectionId,
+    sentBy: me,
+    clientId: input.clientId ?? null,
+    occurredAt: now,
+    activityId,
+  });
+  await ctx.tx
+    .update(conversations)
+    .set({
+      lastMessageAt: now,
+      lastOutboundAt: now,
+      lastPreview: preview,
+      lastDirection: 'outbound',
+      awaitingReplySince: null,
+      unreadCount: 0,
+      status: 'open',
+      snoozedUntil: null,
+      closedAt: null,
+      closedBy: null,
+      ...(!conv.emailAddressId && from.emailAddressId
+        ? { emailAddressId: from.emailAddressId }
+        : {}),
+    })
+    .where(eq(conversations.id, conv.id));
+  return { messageId, conversationId: conv.id, status: 'queued', duplicate: false };
+}
+
 export const messageSend = defineCommand({
   name: 'message.send',
   description:
-    'Text a customer from the business number. The message is queued here and the worker hands it to the carrier.',
+    'Text or email a customer: a text from the business number, an email from a workspace address or a connected mailbox. The message is queued here and the worker sends it.',
   risk: 2,
   input: MessageSendInput,
   output: MessageSendOutput,
@@ -246,8 +438,7 @@ export const messageSend = defineCommand({
   emits: ['message.queued', 'conversation.created'],
   actors: ['human', 'system'],
   async handler(ctx, input) {
-    if (input.channel === 'email')
-      throw HfosError.rule('email_not_ready', 409, 'Email sending arrives with the email setup.');
+    if (input.channel === 'email') return sendEmail(ctx, input);
     const workspaceId = ctx.scope.workspaceId!;
     const { conversation: conv, created } = await resolveSmsConversation(ctx, input);
     if (input.clientId) {
@@ -341,7 +532,7 @@ export const messageSend = defineCommand({
 
 export const messageRetry = defineCommand({
   name: 'message.retry',
-  description: 'Send a text that did not go out one more time.',
+  description: 'Send a text or email that did not go out one more time.',
   risk: 2,
   input: MessageRetryInput,
   output: MessageRetryOutput,
@@ -362,10 +553,12 @@ export const messageRetry = defineCommand({
         409,
         'Only a message that did not go out can be sent again.',
       );
-    if (m.channel !== 'sms')
-      throw HfosError.rule('email_not_ready', 409, 'Email sending arrives with the email setup.');
     const conv = await loadConversation(ctx, m.conversationId);
-    await assertCanText(ctx, conv, { acknowledgeQuietHours: true, skipQuietHours: true });
+    if (m.channel === 'email') {
+      const stopped = await activeSuppression(ctx.tx, ctx.scope.workspaceId!, conv.counterpart);
+      if (stopped)
+        throw HfosError.rule('recipient_suppressed', 409, suppressionMessage(stopped.reason));
+    } else await assertCanText(ctx, conv, { acknowledgeQuietHours: true, skipQuietHours: true });
     await ctx.tx
       .update(messages)
       .set({ status: 'queued', errorCode: null, errorMessage: null })
@@ -381,7 +574,11 @@ export const messageRetry = defineCommand({
         retry: true,
       },
       before: { status: m.status, errorCode: m.errorCode },
-      after: { to: formatPhone(conv.counterpart), status: 'queued', retry: true },
+      after: {
+        to: m.channel === 'sms' ? formatPhone(conv.counterpart) : conv.counterpart,
+        status: 'queued',
+        retry: true,
+      },
     });
     return { messageId: m.id };
   },
@@ -565,13 +762,21 @@ export const messageReceive = defineCommand({
 
 export const messageUpdateStatus = defineCommand({
   name: 'message.update_status',
-  description: 'Worker: the carrier reported where a text is (sent, delivered or failed).',
+  description:
+    'Worker: the carrier or mail service reported where a message is (sent, delivered, failed, bounced or marked as spam).',
   risk: 1,
   input: MessageUpdateStatusInput,
   output: MessageUpdateStatusOutput,
   permission: 'inbox.use',
   scope: inWorkspace,
-  emits: ['message.sent', 'message.delivered', 'message.failed', 'person.opted_out'],
+  emits: [
+    'message.sent',
+    'message.delivered',
+    'message.failed',
+    'message.bounced',
+    'message.complained',
+    'person.opted_out',
+  ],
   actors: ['system'],
   async handler(ctx, input) {
     const workspaceId = ctx.scope.workspaceId!;
@@ -602,6 +807,10 @@ export const messageUpdateStatus = defineCommand({
     if (input.errorCode !== undefined) patch.errorCode = input.errorCode;
     if (input.errorMessage !== undefined) patch.errorMessage = input.errorMessage;
     if (input.segments !== undefined) patch.segments = input.segments;
+    if (input.messageIdHeader && input.messageIdHeader !== m.messageIdHeader) {
+      patch.messageIdHeader = input.messageIdHeader;
+      patch.dedupeKey = emailDedupeKey(input.messageIdHeader);
+    }
     if (input.messageId && input.providerMessageId && !m.providerMessageId) {
       patch.providerMessageId = input.providerMessageId;
       if (!m.dedupeKey) patch.dedupeKey = input.providerMessageId;
@@ -620,11 +829,15 @@ export const messageUpdateStatus = defineCommand({
       const type =
         status === 'delivered'
           ? 'message.delivered'
-          : failed
-            ? 'message.failed'
-            : status === 'sent'
-              ? 'message.sent'
-              : null;
+          : status === 'bounced'
+            ? 'message.bounced'
+            : status === 'complained'
+              ? 'message.complained'
+              : failed
+                ? 'message.failed'
+                : status === 'sent'
+                  ? 'message.sent'
+                  : null;
       if (type)
         await ctx.emit({
           type,
@@ -640,13 +853,16 @@ export const messageUpdateStatus = defineCommand({
           // "sent" is a waypoint: only the outcome refreshes open screens.
           broadcast: type !== 'message.sent',
         });
-      if (m.activityId && (failed || status === 'delivered'))
+      if (
+        m.activityId &&
+        (failed || status === 'delivered' || status === 'bounced' || status === 'complained')
+      )
         await ctx.tx
           .update(activities)
           .set({ meta: sql`${activities.meta} || ${JSON.stringify({ status })}::jsonb` })
           .where(eq(activities.id, m.activityId));
     }
-    if (input.errorCode === UNSUBSCRIBED_ERROR && m.toAddresses[0]) {
+    if (m.channel === 'sms' && input.errorCode === UNSUBSCRIBED_ERROR && m.toAddresses[0]) {
       const conv = await loadConversation(ctx, m.conversationId);
       if (!(await customerOptedOut(ctx, conv))) {
         await setConsent(ctx, {

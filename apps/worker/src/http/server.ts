@@ -13,6 +13,7 @@ import {
   verifiedTwilio,
   type HttpDeps,
 } from './common';
+import { registerEmailRoutes } from './email';
 import { registerVoiceRoutes } from './voice';
 
 export type { HttpDeps } from './common';
@@ -123,6 +124,7 @@ export async function buildHttpServer(deps: HttpDeps): Promise<FastifyInstance> 
     reply: 'empty',
   });
   registerVoiceRoutes(app, deps);
+  registerEmailRoutes(app, deps);
 
   app.post('/v1/telephony/available-numbers', async (req) => {
     const actor = await authenticate(deps, req);

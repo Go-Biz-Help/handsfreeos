@@ -3,6 +3,7 @@ import type { RequestMeta, SystemActor } from '@hfos/core/server';
 import type { Db } from '@hfos/db/client';
 import type { Logger } from 'pino';
 import type { Sealer } from './crypto';
+import type { EmailServices } from './email/index';
 import type { Mailer } from './mailer';
 import type { ObjectStore } from './storage';
 import type { TelephonyProvider } from './telephony/provider';
@@ -22,6 +23,8 @@ export interface WorkerServices {
   readonly reminderOverrideMs: number | null;
   /** How often to ask the carrier about a registration under review. */
   readonly registrationPollMs: number;
+  /** Workspace email: the transport, workspace domains, the shared subdomain and the webhook credentials. */
+  readonly email: EmailServices;
 }
 
 export interface TenantScope {

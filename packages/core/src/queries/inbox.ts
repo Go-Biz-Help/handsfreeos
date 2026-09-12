@@ -318,6 +318,10 @@ type ThreadRow = {
   recording_path: string | null;
   recording_seconds: number | null;
   answered_via: 'browser' | 'forwarding' | null;
+  body_html: string | null;
+  to_addresses: string[] | null;
+  cc_addresses: string[] | null;
+  via: 'microsoft' | 'google' | null;
   sort_key: string;
 };
 
@@ -327,8 +331,10 @@ const messageBranch = (workspaceId: string) => sql`
     coalesce(nullif(su.full_name, ''), su.email::text) as user_name, m.error_code, m.error_message, m.delivered_at,
     null::int as duration_seconds, false as is_voicemail, false as has_recording, null::text as transcript,
     null::uuid as answered_by, null::text as answered_name, null::text as recording_path, null::int as recording_seconds, null::text as answered_via,
+    m.body_html, m.to_addresses, m.cc_addresses, mc.provider::text as via,
     ${SORT_KEY(sql`m.occurred_at`)} as sort_key
   from app.messages m left join app.users su on su.id = m.sent_by
+  left join app.mailbox_connections mc on mc.id = m.mailbox_connection_id
   where m.workspace_id = ${workspaceId}`;
 
 function threadItem(r: ThreadRow): ThreadItem {
@@ -357,6 +363,10 @@ function threadItem(r: ThreadRow): ThreadItem {
     answeredBy: r.answered_by
       ? { id: r.answered_by, fullName: r.answered_name ?? 'Former member' }
       : null,
+    bodyHtml: r.body_html,
+    toAddresses: r.to_addresses ?? [],
+    ccAddresses: r.cc_addresses ?? [],
+    via: r.via,
   };
 }
 
@@ -383,6 +393,7 @@ export const conversationThread = defineQuery({
               c.from_e164, '[]'::jsonb, c.placed_by, coalesce(nullif(pu.full_name, ''), pu.email::text), null::text, null::text, null::timestamptz,
               c.duration_seconds, c.is_voicemail, c.recording_object_path is not null, c.transcript, c.answered_by_user_id,
               coalesce(nullif(au.full_name, ''), au.email::text), c.recording_object_path, c.recording_seconds, c.answered_via::text,
+              null::text, '{}'::text[], '{}'::text[], null::text,
               ${SORT_KEY(sql`c.started_at`)}
             from app.calls c
             left join app.users pu on pu.id = c.placed_by

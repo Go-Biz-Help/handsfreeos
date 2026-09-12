@@ -181,6 +181,23 @@ describe('registry', () => {
       'call.update_status',
       'call.attach_recording',
       'call.attach_transcript',
+      'email_domain.add',
+      'email_domain.verify',
+      'email_domain.remove',
+      'email_domain.record',
+      'email_address.create',
+      'email_address.update',
+      'mailbox.connect',
+      'mailbox.disconnect',
+      'mailbox.resync',
+      'mailbox.activate',
+      'mailbox.fail',
+      'email.claim_unmatched',
+      'email.dismiss_unmatched',
+      'email_suppression.add',
+      'email_suppression.release',
+      'email.receive',
+      'email_suppression.record',
     ]);
     expect(registry.queries.map((q) => q.name)).toEqual([
       'account.me',
@@ -211,6 +228,10 @@ describe('registry', () => {
       'conversation.get',
       'conversation.thread',
       'message.get',
+      'email.setup_status',
+      'email_suppression.list',
+      'email.unmatched_list',
+      'email.compose_options',
     ]);
     expect(registry.command('membership.invite')?.risk).toBe(2);
   });

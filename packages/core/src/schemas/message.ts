@@ -15,24 +15,52 @@ export const MediaRefSchema = z.object({
 });
 export type MediaRefOut = z.infer<typeof MediaRefSchema>;
 
+/** A required email address, trimmed and lower-cased. */
+export const requiredEmail = z
+  .string()
+  .trim()
+  .toLowerCase()
+  .max(254)
+  .pipe(z.email({ error: 'Enter a valid email address.' }));
+
 export const MessageSendInput = z
   .object({
     workspaceId: uuid,
     conversationId: uuid.optional(),
     personId: uuid.optional(),
     toPhone: phoneRequired.optional(),
+    toEmail: requiredEmail.optional(),
     channel: messageChannel.default('sms'),
     body: z.string().trim().min(1, 'Write a message.').max(10000),
     subject: z.string().trim().max(200).optional(),
+    /** Email: copies to other people. */
+    cc: z.array(requiredEmail).max(10).default([]),
+    /** Email: the workspace address it goes from (otherwise the conversation's, then the default). */
+    emailAddressId: uuid.optional(),
+    /** Email: send through a connected Outlook or Gmail mailbox instead of a workspace address. */
+    mailboxConnectionId: uuid.optional(),
     attachmentFileIds: z.array(uuid).max(10).default([]),
     /** Set by the composer so a double-clicked send lands once. */
     clientId: z.string().trim().min(1).max(64).optional(),
     /** People confirm a text during quiet hours; automations never can. */
     acknowledgeQuietHours: z.boolean().default(false),
   })
-  .refine((v) => [v.conversationId, v.personId, v.toPhone].filter(Boolean).length === 1, {
-    path: ['conversationId'],
-    error: 'Pick one conversation, customer or number.',
+  .refine(
+    (v) => [v.conversationId, v.personId, v.toPhone, v.toEmail].filter(Boolean).length === 1,
+    {
+      path: ['conversationId'],
+      error: 'Pick one conversation, customer, number or email address.',
+    },
+  )
+  .refine(
+    (v) =>
+      v.channel === 'email' ||
+      (!v.toEmail && v.cc.length === 0 && !v.emailAddressId && !v.mailboxConnectionId),
+    { path: ['toEmail'], error: 'Texts go to a phone number.' },
+  )
+  .refine((v) => v.channel !== 'email' || !v.toPhone, {
+    path: ['toPhone'],
+    error: 'Email goes to an email address.',
   })
   .refine((v) => v.channel !== 'sms' || v.body.length <= 1600, {
     path: ['body'],
@@ -74,6 +102,8 @@ export const deliveryStatusUpdate = z.enum([
   'delivered',
   'undelivered',
   'failed',
+  'bounced',
+  'complained',
 ]);
 export const MessageUpdateStatusInput = z
   .object({
@@ -84,6 +114,8 @@ export const MessageUpdateStatusInput = z
     errorCode: z.string().trim().max(20).nullable().optional(),
     errorMessage: z.string().trim().max(500).nullable().optional(),
     segments: z.number().int().min(0).max(50).optional(),
+    /** Email: the Message-ID the provider actually used (Outlook assigns its own). */
+    messageIdHeader: z.string().trim().min(3).max(998).optional(),
   })
   .refine((v) => !!v.messageId || !!v.providerMessageId, {
     path: ['messageId'],
@@ -127,6 +159,11 @@ export const ThreadItem = z.object({
   answeredVia: z.enum(['browser', 'forwarding']).nullable(),
   transcript: z.string().nullable(),
   answeredBy: UserRef,
+  /** Email: the sanitized HTML body (received mail), the recipients, and the mailbox it went through. */
+  bodyHtml: z.string().nullable(),
+  toAddresses: z.array(z.string()),
+  ccAddresses: z.array(z.string()),
+  via: z.enum(['microsoft', 'google']).nullable(),
 });
 export type ThreadItem = z.infer<typeof ThreadItem>;
 export const ConversationThreadInput = ListInput.extend({
@@ -148,3 +185,105 @@ export const PersonSetSmsConsentInput = z.object({
   consent: z.enum(['opted_in', 'opted_out']),
 });
 export const PersonSetSmsConsentOutput = z.object({ personId: uuid, consent: smsConsent });
+
+// ---------- email ----------
+export const EmailParty = z.object({
+  address: requiredEmail,
+  name: z.string().trim().max(200).nullable().optional(),
+});
+
+/** Worker: an email arrived (Postmark inbound), or a connected mailbox synced one in either direction. */
+export const EmailReceiveInput = z.object({
+  workspaceId: uuid,
+  provider: z.enum(['postmark', 'microsoft', 'google', 'fake']),
+  providerMessageId: z.string().trim().min(1).max(300),
+  /** Mailbox sync also brings in what the mailbox's owner sent customers from Outlook or Gmail. */
+  direction: messageDirection.default('inbound'),
+  messageIdHeader: z.string().trim().max(998).nullable().optional(),
+  inReplyTo: z.string().trim().max(998).nullable().optional(),
+  references: z.array(z.string().trim().max(998)).max(50).default([]),
+  from: EmailParty,
+  to: z.array(EmailParty).max(50).default([]),
+  cc: z.array(EmailParty).max(50).default([]),
+  subject: z.string().trim().max(998).nullable().optional(),
+  bodyText: z.string().max(100_000).nullable().optional(),
+  /** Already sanitized by the worker. */
+  bodyHtml: z.string().max(1_000_000).nullable().optional(),
+  media: z.array(MediaRefSchema).max(20).default([]),
+  /** The Reply-To mailbox hash that names the conversation. */
+  replyToken: z
+    .string()
+    .trim()
+    .regex(/^[a-z2-7]{10}$/i)
+    .nullable()
+    .optional(),
+  /** The workspace address it was sent to. */
+  emailAddressId: uuid.nullable().optional(),
+  mailboxConnectionId: uuid.nullable().optional(),
+  providerThreadId: z.string().trim().max(300).nullable().optional(),
+  occurredAt: isoDateTime.optional(),
+  /** Someone claimed it from the unmatched list for this customer. */
+  personId: uuid.optional(),
+  /** Mailbox imports keep only mail with known customers. */
+  knownOnly: z.boolean().default(false),
+  /** Tests and demos shorten the reply reminder. */
+  reminderAfterMs: z.number().int().min(1000).max(86_400_000).optional(),
+});
+export const EmailReceiveOutput = z.object({
+  outcome: z.enum(['filed', 'duplicate', 'unmatched', 'skipped']),
+  messageId: uuid.nullable(),
+  conversationId: uuid.nullable(),
+  unmatchedId: uuid.nullable(),
+});
+
+/** Worker: an address bounced for good or its owner marked an email as spam. */
+export const EmailSuppressionRecordInput = z.object({
+  workspaceId: uuid,
+  address: requiredEmail,
+  reason: z.enum(['hard_bounce', 'spam_complaint']),
+  messageId: uuid.optional(),
+  providerRef: z.string().trim().max(200).optional(),
+  origin: z.string().trim().max(200).optional(),
+});
+export const EmailSuppressionRecordOutput = z.object({ suppressionId: uuid, created: z.boolean() });
+
+export const EmailComposeOptionsInput = z
+  .object({ workspaceId: uuid, conversationId: uuid.optional(), personId: uuid.optional() })
+  .refine((v) => !!v.conversationId !== !!v.personId, {
+    path: ['personId'],
+    error: 'Pick a conversation or a customer.',
+  });
+export const EmailComposeOptionsOutput = z.object({
+  /** The customer's address (null when they have none). */
+  to: z.string().nullable(),
+  conversationId: uuid.nullable(),
+  canEmail: z.object({
+    ok: z.boolean(),
+    reason: z.enum(['no_email', 'suppressed']).nullable(),
+  }),
+  suppressed: z
+    .object({ reason: z.enum(['hard_bounce', 'spam_complaint', 'manual']), since: isoDateTime })
+    .nullable(),
+  addresses: z.array(
+    z.object({
+      id: uuid,
+      address: z.string(),
+      displayName: z.string(),
+      isDefault: z.boolean(),
+      usable: z.boolean(),
+    }),
+  ),
+  /** Where this email goes from unless someone picks another. */
+  fromAddressId: uuid.nullable(),
+  /** Connected mailboxes this person may send through. */
+  mailboxes: z.array(
+    z.object({
+      id: uuid,
+      provider: z.enum(['microsoft', 'google']),
+      accountEmail: z.string().nullable(),
+      displayName: z.string().nullable(),
+    }),
+  ),
+  /** "Re: …" for a reply in this thread. */
+  replySubject: z.string().nullable(),
+});

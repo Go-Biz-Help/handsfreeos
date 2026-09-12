@@ -1,4 +1,5 @@
 import type { ProcessorMap } from '../deliveries';
+import { onEmailEvent, onInboundEmail } from './postmark';
 import { onInboundText, onTextStatus } from './twilio-messaging';
 import {
   onCallStatus,
@@ -21,4 +22,6 @@ export const processors: ProcessorMap = {
   'twilio:voice.screened': onScreened,
   'twilio:voice.recording': onRecording,
   'twilio:voice.transcription': onTranscription,
+  'postmark:email.inbound': onInboundEmail,
+  'postmark:email.event': onEmailEvent,
 };

@@ -30,6 +30,24 @@ import {
 } from './phone';
 import { registrationSubmit, registrationUpdateStatus } from './registration';
 import {
+  emailAddressCreate,
+  emailAddressUpdate,
+  emailClaimUnmatched,
+  emailDismissUnmatched,
+  emailDomainAdd,
+  emailDomainRecord,
+  emailDomainRemove,
+  emailDomainVerify,
+  emailSuppressionAdd,
+  emailSuppressionRelease,
+  mailboxActivate,
+  mailboxConnect,
+  mailboxDisconnect,
+  mailboxFail,
+  mailboxResync,
+} from './email';
+import { emailReceive, emailSuppressionRecord } from './email-inbound';
+import {
   callAttachRecording,
   callAttachTranscript,
   callRecord,
@@ -102,6 +120,21 @@ export {
   callRecord,
   callStart,
   callUpdateStatus,
+  emailAddressCreate,
+  emailAddressUpdate,
+  emailClaimUnmatched,
+  emailDismissUnmatched,
+  emailDomainAdd,
+  emailDomainRecord,
+  emailDomainRemove,
+  emailDomainVerify,
+  emailSuppressionAdd,
+  emailSuppressionRelease,
+  mailboxActivate,
+  mailboxConnect,
+  mailboxDisconnect,
+  mailboxFail,
+  mailboxResync,
   activityDelete,
   activityLog,
   activityUpdate,
@@ -157,6 +190,8 @@ export { INVITATION_TTL_MS } from './membership.invite';
 export { DEFAULT_STAGES } from './pipeline.create';
 
 /** Explicit list on purpose: greppable, bundler-safe, and the order the docs list them in. */
+export { emailReceive, emailSuppressionRecord };
+
 export const commands: readonly CommandDef[] = [
   organizationCreate,
   workspaceCreate,
@@ -235,5 +270,22 @@ export const commands: readonly CommandDef[] = [
   callUpdateStatus,
   callAttachRecording,
   callAttachTranscript,
+  emailDomainAdd,
+  emailDomainVerify,
+  emailDomainRemove,
+  emailDomainRecord,
+  emailAddressCreate,
+  emailAddressUpdate,
+  mailboxConnect,
+  mailboxDisconnect,
+  mailboxResync,
+  mailboxActivate,
+  mailboxFail,
+  emailClaimUnmatched,
+  emailDismissUnmatched,
+  emailSuppressionAdd,
+  emailSuppressionRelease,
+  emailReceive,
+  emailSuppressionRecord,
 ] as unknown as readonly CommandDef[];
 export { callPreview } from './call';

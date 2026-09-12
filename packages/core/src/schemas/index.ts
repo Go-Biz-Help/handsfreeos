@@ -20,3 +20,4 @@ export * from './telephony';
 export * from './conversation';
 export * from './message';
 export * from './call';
+export * from './email';

@@ -2,6 +2,7 @@ import { randomBytes } from 'node:crypto';
 import { testDbs, testEnv } from '@hfos/db/testing';
 import pino from 'pino';
 import { createSealer } from '../src/crypto';
+import { createLocalEmail, LOCAL_WEBHOOK_PASSWORD } from '../src/email/local';
 import { createSmtpMailer } from '../src/mailer';
 import type { WorkerServices } from '../src/services';
 import { createSupabaseStore } from '../src/storage';
@@ -30,5 +31,17 @@ export function testServices(opts: { reminderOverrideMs?: number | null } = {}):
     sealer: createSealer(randomBytes(32).toString('base64')),
     reminderOverrideMs: opts.reminderOverrideMs ?? null,
     registrationPollMs: 50,
+    email: {
+      ...createLocalEmail({
+        smtpUrl: process.env.SMTP_URL ?? 'smtp://127.0.0.1:54425',
+        eventsUrl: null,
+        webhookUser: 'postmark',
+        webhookPassword: LOCAL_WEBHOOK_PASSWORD,
+        log,
+      }),
+      mailDomain: 'mail.handsfreeos.com',
+      webhookUser: 'postmark',
+      webhookPassword: LOCAL_WEBHOOK_PASSWORD,
+    },
   };
 }

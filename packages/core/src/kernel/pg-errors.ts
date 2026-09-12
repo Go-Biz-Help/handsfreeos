@@ -81,12 +81,30 @@ const RULES: Record<string, { status: number; message: string }> = {
     status: 400,
     message: 'That message belongs to a different conversation.',
   },
+  // Email (0012): the address and domain guards.
+  email_local_part_reserved: {
+    status: 400,
+    message: 'That name is reserved on the shared address. Pick another.',
+  },
+  email_domain_unverified: { status: 409, message: 'Verify the domain before sending from it.' },
+  email_address_in_use: {
+    status: 409,
+    message: 'This address has sent mail, so it keeps its name. Add a new address instead.',
+  },
+  email_domain_in_use: { status: 409, message: 'Make another address the default first.' },
+  mailbox_status_transition: { status: 409, message: 'People can only disconnect a mailbox.' },
   not_authenticated: { status: 401, message: 'Sign in to continue.' },
   profile_missing: {
     status: 500,
     message: 'Your account profile is missing. Please sign out and back in.',
   },
 };
+
+/** True when a statement hit a unique index (the named one, if given), so a handler can raise its own rule. */
+export function isUniqueViolation(e: unknown, constraint?: string): boolean {
+  const pg = unwrap(e);
+  return pg.code === '23505' && (!constraint || pg.constraint_name === constraint);
+}
 
 /** Maps a database error to the HfosError a client should see; unknown errors pass through untouched. */
 export function translateDbError(e: unknown): unknown {

@@ -3,6 +3,7 @@ import { createTokenVerifier } from '@hfos/core/server';
 import { createDb } from '@hfos/db/client';
 import pino from 'pino';
 import { createSealer } from './crypto';
+import { createEmail } from './email/index';
 import { processDeliveries } from './deliveries';
 import { loadEnv, readEnv } from './env';
 import { handlers } from './handlers/index';
@@ -40,6 +41,7 @@ const services: WorkerServices = {
   sealer: createSealer(env.encryptionKey, env.encryptionKeysPrevious),
   reminderOverrideMs: env.reminderOverrideMs,
   registrationPollMs: env.registrationPollMs,
+  email: createEmail(env, log),
 };
 const workerId = `${hostname()}:${process.pid}`;
 const loopDeps = { ...services, workerId, batchSize: env.batchSize };
@@ -62,6 +64,7 @@ log.info(
     http: `${env.httpHost}:${env.httpPort}`,
     publicUrl: env.publicUrl,
     telephony: services.telephony.name,
+    email: services.email.transport.name,
     handlers: Object.keys(handlers),
     storage: !!env.supabaseSecretKey,
   },

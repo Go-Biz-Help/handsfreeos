@@ -1,3 +1,9 @@
+import {
+  onEmailDomainAdded,
+  onEmailDomainRemoved,
+  onEmailDomainVerifyRequested,
+  onUnmatchedClaimed,
+} from './email';
 import { onFileDeleted } from './file-removed';
 import { onImportRequested } from './import-run';
 import { onInvitationCreated, onInvitationResendRequested } from './invitation-email';
@@ -25,4 +31,8 @@ export const handlers: HandlerMap = {
   'message.queued': onMessageQueued,
   'conversation.linked': onConversationLinked,
   'conversation.snoozed': onConversationSnoozed,
+  'email_domain.added': onEmailDomainAdded,
+  'email_domain.verify_requested': onEmailDomainVerifyRequested,
+  'email_domain.removed': onEmailDomainRemoved,
+  'email.unmatched_claimed': onUnmatchedClaimed,
 };

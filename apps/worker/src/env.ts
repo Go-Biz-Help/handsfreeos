@@ -1,5 +1,6 @@
 import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { LOCAL_WEBHOOK_PASSWORD } from './email/local';
 
 export function loadEnv(): void {
   const path = resolve(process.cwd(), '.env');
@@ -37,6 +38,17 @@ export interface WorkerEnv {
   readonly reminderOverrideMs: number | null;
   readonly registrationPollMs: number;
   readonly fakeApprovalMs: number;
+  /** Workspace email: Postmark in production; locally Mailpit over SMTP, with domains that verify themselves. */
+  readonly emailTransport: 'postmark' | 'smtp';
+  readonly postmarkServerToken: string | null;
+  /** The Domains API (workspaces' own domains) needs the account token. */
+  readonly postmarkAccountToken: string | null;
+  readonly postmarkMessageStream: string;
+  /** Basic auth on Postmark's webhooks (Postmark signs nothing). */
+  readonly postmarkWebhookUser: string;
+  readonly postmarkWebhookPassword: string;
+  /** The shared subdomain (mirrors private.shared_mail_domain()). */
+  readonly mailDomain: string;
 }
 
 const list = (value: string | undefined): string[] =>
@@ -82,6 +94,19 @@ export function readEnv(env: NodeJS.ProcessEnv = process.env): WorkerEnv {
   if (production && !/^https:\/\//.test(publicUrl))
     throw new Error('WORKER_PUBLIC_URL must be the https:// address providers call');
 
+  const emailTransport = (env.EMAIL_TRANSPORT ?? (production ? 'postmark' : 'smtp')) as string;
+  if (emailTransport !== 'postmark' && emailTransport !== 'smtp')
+    throw new Error('EMAIL_TRANSPORT must be postmark or smtp');
+  const postmarkServerToken = env.POSTMARK_SERVER_TOKEN || null;
+  const postmarkAccountToken = env.POSTMARK_ACCOUNT_TOKEN || null;
+  if (emailTransport === 'postmark' && (!postmarkServerToken || !postmarkAccountToken))
+    throw new Error(
+      'POSTMARK_SERVER_TOKEN and POSTMARK_ACCOUNT_TOKEN are required with EMAIL_TRANSPORT=postmark',
+    );
+  const postmarkWebhookPassword = env.POSTMARK_WEBHOOK_PASSWORD || '';
+  if (production && postmarkWebhookPassword.length < 24)
+    throw new Error('POSTMARK_WEBHOOK_PASSWORD must be a long random value (24+ characters)');
+
   const reminder = env.UNANSWERED_ALERT_MS ? Number(env.UNANSWERED_ALERT_MS) : null;
   return {
     databaseUrl,
@@ -113,5 +138,12 @@ export function readEnv(env: NodeJS.ProcessEnv = process.env): WorkerEnv {
       env.REGISTRATION_POLL_MS ?? (telephonyProvider === 'fake' ? 2_000 : 15 * 60_000),
     ),
     fakeApprovalMs: Number(env.FAKE_APPROVAL_MS ?? 3_000),
+    emailTransport,
+    postmarkServerToken,
+    postmarkAccountToken,
+    postmarkMessageStream: env.POSTMARK_MESSAGE_STREAM || 'outbound',
+    postmarkWebhookUser: env.POSTMARK_WEBHOOK_USER || 'postmark',
+    postmarkWebhookPassword: postmarkWebhookPassword || LOCAL_WEBHOOK_PASSWORD,
+    mailDomain: (env.MAIL_DOMAIN || 'mail.handsfreeos.com').toLowerCase(),
   };
 }

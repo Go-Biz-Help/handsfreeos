@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { VoicemailPlayer } from '@/components/calls/voicemail-player';
+import { AttachmentChip } from '@/components/inbox/attachment-chip';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -168,6 +169,17 @@ export function Timeline({
               ) : body ? (
                 <div className="mt-1.5 whitespace-pre-wrap rounded-control bg-card-2 px-3 py-2.5 text-[13px] text-text">
                   {body}
+                </div>
+              ) : null}
+              {e.kind === 'email' &&
+              Array.isArray(e.meta.attachments) &&
+              e.meta.attachments.length > 0 ? (
+                <div className="mt-1.5 flex flex-wrap gap-1.5">
+                  {(
+                    e.meta.attachments as { name: string; bucket: string; objectPath: string }[]
+                  ).map((a) => (
+                    <AttachmentChip key={a.objectPath} file={a} />
+                  ))}
                 </div>
               ) : null}
             </li>

@@ -3,6 +3,8 @@ import { auditList } from './audit.list';
 import { companyGet, companyList } from './company';
 import { crmFindMatches, crmSummary, fileList, importGet, importList, tagList } from './crm-misc';
 import { conversationGet, conversationThread, inboxList, inboxSummary, messageGet } from './inbox';
+import { emailSetupStatus, emailSuppressionList, emailUnmatchedList } from './email';
+import { emailComposeOptions } from './email-compose';
 import { invitationPreview } from './invitation.preview';
 import { phoneSetupStatus } from './phone';
 import { leadBoard, leadGet, leadList } from './lead';
@@ -21,6 +23,9 @@ export {
   inboxList,
   inboxSummary,
   messageGet,
+  emailSetupStatus,
+  emailSuppressionList,
+  emailUnmatchedList,
   phoneSetupStatus,
   auditList,
   companyGet,
@@ -45,6 +50,8 @@ export {
   workspaceInvitations,
   workspaceMembers,
 };
+
+export { emailComposeOptions };
 
 export const queries: readonly QueryDef[] = [
   me,
@@ -75,4 +82,8 @@ export const queries: readonly QueryDef[] = [
   conversationGet,
   conversationThread,
   messageGet,
+  emailSetupStatus,
+  emailSuppressionList,
+  emailUnmatchedList,
+  emailComposeOptions,
 ] as unknown as readonly QueryDef[];

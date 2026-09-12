@@ -357,6 +357,186 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/email_address.create": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add a sending address on the shared subdomain or on a verified domain of the business’s own, optionally as the default.
+         * @description Risk level 2. Requires channels.manage. Emits email_address.created.
+         */
+        post: operations["command_email_address_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/email_address.update": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Change the name customers see on an address, rename it while it has not sent mail, or make it the default.
+         * @description Risk level 2. Requires channels.manage. Emits email_address.updated.
+         */
+        post: operations["command_email_address_update"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/email_domain.add": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add the business’s own domain for sending email. HandsFreeOS sets it up with Postmark and shows the DNS records to add.
+         * @description Risk level 2. Requires channels.manage. Emits email_domain.added.
+         */
+        post: operations["command_email_domain_add"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/email_domain.remove": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Remove one of the business’s domains and the addresses on it. The default address has to live elsewhere first.
+         * @description Risk level 3. Requires channels.manage. Emits email_domain.removed.
+         */
+        post: operations["command_email_domain_remove"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/email_domain.verify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Ask Postmark to check the domain’s DKIM and Return-Path records now. The answer shows in Settings → Email.
+         * @description Risk level 1. Requires channels.manage. Emits email_domain.verify_requested.
+         */
+        post: operations["command_email_domain_verify"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/email_suppression.add": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Stop email to an address. Nothing goes to it until the suppression is released.
+         * @description Risk level 2. Requires channels.manage. Emits email_suppression.added.
+         */
+        post: operations["command_email_suppression_add"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/email_suppression.release": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Let email go to an address again after a bounce, a spam complaint or a manual stop.
+         * @description Risk level 2. Requires channels.manage. Emits email_suppression.released.
+         */
+        post: operations["command_email_suppression_release"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/email.claim_unmatched": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * File an email from an unknown sender under a customer. It joins their conversation and timeline.
+         * @description Risk level 1. Requires inbox.use. Emits email.unmatched_claimed.
+         */
+        post: operations["command_email_claim_unmatched"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/email.dismiss_unmatched": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Dismiss an email from an unknown sender without filing it under anyone.
+         * @description Risk level 1. Requires inbox.use. Emits email.unmatched_dismissed.
+         */
+        post: operations["command_email_dismiss_unmatched"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/file.begin_upload": {
         parameters: {
             query?: never;
@@ -657,6 +837,66 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/mailbox.connect": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start connecting an Outlook or Gmail mailbox. Returns a one-time state; the browser signs in to Microsoft or Google through the worker.
+         * @description Risk level 3. Requires channels.manage. Emits mailbox.connect_started.
+         */
+        post: operations["command_mailbox_connect"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/mailbox.disconnect": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Disconnect a mailbox. HandsFreeOS forgets its sign-in and stops syncing; mail already in the inbox stays.
+         * @description Risk level 2. Requires channels.manage. Emits mailbox.disconnected.
+         */
+        post: operations["command_mailbox_disconnect"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/mailbox.resync": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Check a connected mailbox for new mail now instead of waiting for the next sync.
+         * @description Risk level 1. Requires channels.manage. Emits mailbox.resync_requested.
+         */
+        post: operations["command_mailbox_resync"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/membership.change_role": {
         parameters: {
             query?: never;
@@ -727,7 +967,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Send a text that did not go out one more time.
+         * Send a text or email that did not go out one more time.
          * @description Risk level 2. Requires inbox.use. Emits message.queued.
          */
         post: operations["command_message_retry"];
@@ -747,7 +987,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Text a customer from the business number. The message is queued here and the worker hands it to the carrier.
+         * Text or email a customer: a text from the business number, an email from a workspace address or a connected mailbox. The message is queued here and the worker sends it.
          * @description Risk level 2. Requires inbox.use. Emits message.queued, conversation.created.
          */
         post: operations["command_message_send"];
@@ -1511,6 +1751,86 @@ export interface paths {
          * @description Requires records.read.
          */
         post: operations["query_crm_summary"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/email_suppression.list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Addresses email cannot go to (bounces, spam complaints, stopped by hand), newest first; released ones on request.
+         * @description Requires inbox.use.
+         */
+        post: operations["query_email_suppression_list"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/email.compose_options": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * What the composer needs to email a customer: their address, whether email to them is stopped, the addresses and mailboxes to send from, and the reply subject.
+         * @description Requires inbox.use.
+         */
+        post: operations["query_email_compose_options"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/email.setup_status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Where email stands: the sending addresses, the business’s own domains with their DNS records, connected mailboxes, and what waits in suppressions and unmatched mail.
+         * @description Requires inbox.use.
+         */
+        post: operations["query_email_setup_status"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/email.unmatched_list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Email from senders who are not customers yet, waiting to be filed under someone or dismissed, newest first.
+         * @description Requires inbox.use.
+         */
+        post: operations["query_email_unmatched_list"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2512,6 +2832,305 @@ export interface operations {
             };
         };
     };
+    command_email_address_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    displayName: string;
+                    emailDomainId?: string | null;
+                    /** @default false */
+                    isDefault?: boolean;
+                    localPart: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        address: string;
+                        /** Format: uuid */
+                        emailAddressId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_email_address_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    displayName?: string;
+                    /** Format: uuid */
+                    emailAddressId: string;
+                    isDefault?: boolean;
+                    localPart?: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        address: string;
+                        /** Format: uuid */
+                        emailAddressId: string;
+                        updated: string[];
+                    };
+                };
+            };
+        };
+    };
+    command_email_domain_add: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    domain: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        emailDomainId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_email_domain_remove: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    emailDomainId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        emailDomainId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_email_domain_verify: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    emailDomainId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        emailDomainId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_email_suppression_add: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    address: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        suppressionId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_email_suppression_release: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    suppressionId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        suppressionId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_email_claim_unmatched: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    personId: string;
+                    /** Format: uuid */
+                    unmatchedId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        personId: string;
+                        /** Format: uuid */
+                        unmatchedId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_email_dismiss_unmatched: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    unmatchedId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        unmatchedId: string;
+                    };
+                };
+            };
+        };
+    };
     command_file_begin_upload: {
         parameters: {
             query?: never;
@@ -3063,6 +3682,105 @@ export interface operations {
             };
         };
     };
+    command_mailbox_connect: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {string} */
+                    provider: "microsoft" | "google";
+                    /** @default false */
+                    shared?: boolean;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        connectionId: string;
+                        state: string;
+                    };
+                };
+            };
+        };
+    };
+    command_mailbox_disconnect: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    connectionId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        connectionId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_mailbox_resync: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    connectionId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        connectionId: string;
+                    };
+                };
+            };
+        };
+    };
     command_membership_change_role: {
         parameters: {
             query?: never;
@@ -3222,6 +3940,8 @@ export interface operations {
                     /** @default [] */
                     attachmentFileIds?: string[];
                     body: string;
+                    /** @default [] */
+                    cc?: string[];
                     /**
                      * @default sms
                      * @enum {string}
@@ -3231,8 +3951,13 @@ export interface operations {
                     /** Format: uuid */
                     conversationId?: string;
                     /** Format: uuid */
+                    emailAddressId?: string;
+                    /** Format: uuid */
+                    mailboxConnectionId?: string;
+                    /** Format: uuid */
                     personId?: string;
                     subject?: string;
+                    toEmail?: string;
                     toPhone?: string;
                     /** Format: uuid */
                     workspaceId: string;
@@ -4823,6 +5548,8 @@ export interface operations {
                             } | null;
                             answeredVia: ("browser" | "forwarding") | null;
                             body: string | null;
+                            bodyHtml: string | null;
+                            ccAddresses: string[];
                             channel: ("sms" | "email") | null;
                             deliveredAt: string | null;
                             /** @enum {string} */
@@ -4855,9 +5582,11 @@ export interface operations {
                             } | null;
                             status: string;
                             subject: string | null;
+                            toAddresses: string[];
                             transcript: string | null;
                             /** @enum {string} */
                             type: "message" | "call";
+                            via: ("microsoft" | "google") | null;
                         }[];
                         nextCursor: string | null;
                     };
@@ -4939,6 +5668,243 @@ export interface operations {
                         people: number;
                         tasksDueToday: number;
                         tasksOverdue: number;
+                    };
+                };
+            };
+        };
+    };
+    query_email_suppression_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    cursor?: string;
+                    /** @default false */
+                    includeReleased?: boolean;
+                    /** @default 50 */
+                    limit?: number;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: {
+                            address: string;
+                            /** Format: date-time */
+                            createdAt: string;
+                            createdBy: {
+                                fullName: string;
+                                /** Format: uuid */
+                                id: string;
+                            } | null;
+                            /** Format: uuid */
+                            id: string;
+                            origin: string | null;
+                            /** @enum {string} */
+                            reason: "hard_bounce" | "spam_complaint" | "manual";
+                            releasedAt: string | null;
+                            releasedBy: {
+                                fullName: string;
+                                /** Format: uuid */
+                                id: string;
+                            } | null;
+                        }[];
+                        nextCursor: string | null;
+                    };
+                };
+            };
+        };
+    };
+    query_email_compose_options: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    conversationId?: string;
+                    /** Format: uuid */
+                    personId?: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        addresses: {
+                            address: string;
+                            displayName: string;
+                            /** Format: uuid */
+                            id: string;
+                            isDefault: boolean;
+                            usable: boolean;
+                        }[];
+                        canEmail: {
+                            ok: boolean;
+                            reason: ("no_email" | "suppressed") | null;
+                        };
+                        conversationId: string | null;
+                        fromAddressId: string | null;
+                        mailboxes: {
+                            accountEmail: string | null;
+                            displayName: string | null;
+                            /** Format: uuid */
+                            id: string;
+                            /** @enum {string} */
+                            provider: "microsoft" | "google";
+                        }[];
+                        replySubject: string | null;
+                        suppressed: {
+                            /** @enum {string} */
+                            reason: "hard_bounce" | "spam_complaint" | "manual";
+                            /** Format: date-time */
+                            since: string;
+                        } | null;
+                        to: string | null;
+                    };
+                };
+            };
+        };
+    };
+    query_email_setup_status: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        addresses: {
+                            address: string;
+                            displayName: string;
+                            domain: string | null;
+                            emailDomainId: string | null;
+                            /** Format: uuid */
+                            id: string;
+                            isDefault: boolean;
+                            localPart: string;
+                            usable: boolean;
+                        }[];
+                        counts: {
+                            suppressions: number;
+                            unmatched: number;
+                        };
+                        domains: {
+                            /** Format: date-time */
+                            createdAt: string;
+                            dkimHost: string | null;
+                            dkimValue: string | null;
+                            dkimVerifiedAt: string | null;
+                            domain: string;
+                            /** Format: uuid */
+                            id: string;
+                            lastCheckedAt: string | null;
+                            lastError: string | null;
+                            returnPathHost: string | null;
+                            returnPathValue: string | null;
+                            returnPathVerifiedAt: string | null;
+                            /** @enum {string} */
+                            status: "pending" | "verified" | "failed";
+                        }[];
+                        mailboxes: {
+                            accountEmail: string | null;
+                            connectedAt: string | null;
+                            displayName: string | null;
+                            /** Format: uuid */
+                            id: string;
+                            lastError: string | null;
+                            lastSyncedAt: string | null;
+                            /** @enum {string} */
+                            provider: "microsoft" | "google";
+                            shared: boolean;
+                            /** @enum {string} */
+                            status: "pending" | "active" | "reauth_required" | "error" | "disconnected";
+                            userId: string | null;
+                            userName: string | null;
+                        }[];
+                        sharedDomain: string;
+                    };
+                };
+            };
+        };
+    };
+    query_email_unmatched_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    cursor?: string;
+                    /** @default 50 */
+                    limit?: number;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: {
+                            fromAddress: string;
+                            fromName: string | null;
+                            /** Format: uuid */
+                            id: string;
+                            /** Format: date-time */
+                            receivedAt: string;
+                            snippet: string | null;
+                            subject: string | null;
+                            toAddress: string | null;
+                        }[];
+                        nextCursor: string | null;
                     };
                 };
             };
@@ -5629,6 +6595,8 @@ export interface operations {
                             } | null;
                             answeredVia: ("browser" | "forwarding") | null;
                             body: string | null;
+                            bodyHtml: string | null;
+                            ccAddresses: string[];
                             channel: ("sms" | "email") | null;
                             deliveredAt: string | null;
                             /** @enum {string} */
@@ -5661,9 +6629,11 @@ export interface operations {
                             } | null;
                             status: string;
                             subject: string | null;
+                            toAddresses: string[];
                             transcript: string | null;
                             /** @enum {string} */
                             type: "message" | "call";
+                            via: ("microsoft" | "google") | null;
                         };
                     };
                 };

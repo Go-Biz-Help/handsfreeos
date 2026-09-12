@@ -1,0 +1,123 @@
+/**
+ * Local and test email: messages go to Mailpit over SMTP, the "mail service" reports delivery to the
+ * worker's own events webhook (an address at bounce.example.com bounces instead), and domains verify when
+ * asked. Nothing leaves the machine.
+ */
+import { randomUUID } from 'node:crypto';
+import nodemailer from 'nodemailer';
+import type { Logger } from 'pino';
+import type { DomainState, EmailDomains, EmailTransport } from './transport';
+
+/** Not a secret: local and test webhooks use it, and the browser tests post with it. */
+export const LOCAL_WEBHOOK_PASSWORD = 'local-postmark-webhook-password';
+
+const localState = (id: string, domain: string, verified: boolean): DomainState => ({
+  providerDomainId: id,
+  dkimHost: `20260912000000pm._domainkey.${domain}`,
+  dkimValue: 'k=rsa; p=LOCAL-DEVELOPMENT-KEY-NOT-REAL',
+  returnPathHost: `pm-bounces.${domain}`,
+  returnPathValue: 'pm.mtasv.net',
+  dkimVerified: verified,
+  returnPathVerified: verified,
+});
+
+export function createLocalEmail(opts: {
+  smtpUrl: string;
+  /** Where to post the delivery reports (the worker's own events webhook); null in unit tests. */
+  eventsUrl: string | null;
+  webhookUser: string;
+  webhookPassword: string;
+  log: Logger;
+}): { transport: EmailTransport; domains: EmailDomains } {
+  const smtp = nodemailer.createTransport(opts.smtpUrl);
+  const domains = new Map<string, { name: string; verified: boolean }>();
+  const report = (payload: Record<string, unknown>) => {
+    if (!opts.eventsUrl) return;
+    const url = opts.eventsUrl;
+    const timer = setTimeout(() => {
+      fetch(url, {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          authorization: `Basic ${Buffer.from(`${opts.webhookUser}:${opts.webhookPassword}`).toString('base64')}`,
+        },
+        body: JSON.stringify(payload),
+      }).catch((e: unknown) => opts.log.warn({ err: e }, 'local email report failed'));
+    }, 600);
+    timer.unref();
+  };
+
+  return {
+    transport: {
+      name: 'smtp',
+      async send(email) {
+        await smtp.sendMail({
+          from: { name: email.from.name, address: email.from.address },
+          to: [...email.to],
+          cc: [...email.cc],
+          ...(email.replyTo ? { replyTo: email.replyTo } : {}),
+          subject: email.subject,
+          text: email.text,
+          html: email.html,
+          messageId: email.messageIdHeader,
+          ...(email.inReplyTo ? { inReplyTo: email.inReplyTo } : {}),
+          ...(email.references.length > 0 ? { references: [...email.references] } : {}),
+          attachments: email.attachments.map((a) => ({
+            filename: a.name,
+            content: a.content,
+            contentType: a.contentType,
+            ...(a.contentId ? { cid: a.contentId } : {}),
+          })),
+        });
+        const providerMessageId = `local-${randomUUID()}`;
+        const to = email.to[0] ?? '';
+        const at = new Date().toISOString();
+        report(
+          /@bounce\.example\.com$/i.test(to)
+            ? {
+                RecordType: 'Bounce',
+                Type: 'HardBounce',
+                TypeCode: 1,
+                MessageID: providerMessageId,
+                Email: to,
+                Inactive: true,
+                CanActivate: true,
+                Description: 'The server was unable to deliver your message (ex: unknown user).',
+                Details: 'smtp;550 5.1.1 user unknown',
+                BouncedAt: at,
+                Metadata: email.metadata,
+              }
+            : {
+                RecordType: 'Delivery',
+                MessageID: providerMessageId,
+                Recipient: to,
+                DeliveredAt: at,
+                Details: '250 2.0.0 OK',
+                Metadata: email.metadata,
+              },
+        );
+        return { providerMessageId, messageIdHeader: email.messageIdHeader };
+      },
+    },
+    domains: {
+      async create(domain) {
+        const id = `local-${domain}`;
+        domains.set(id, { name: domain, verified: false });
+        return localState(id, domain, false);
+      },
+      async get(id) {
+        const d = domains.get(id);
+        // A restarted worker forgets its domains; treat those as verified.
+        return localState(id, d?.name ?? id.replace(/^local-/, ''), d?.verified ?? true);
+      },
+      async verify(id) {
+        const name = domains.get(id)?.name ?? id.replace(/^local-/, '');
+        domains.set(id, { name, verified: true });
+        return localState(id, name, true);
+      },
+      async remove(id) {
+        domains.delete(id);
+      },
+    },
+  };
+}

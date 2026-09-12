@@ -104,6 +104,47 @@ with the current one. Remove an old key only after every stored credential has b
   3. Call a customer from the browser. The customer should see the business number.
 - **Microphones need HTTPS.** Browsers only allow calls from pages served over HTTPS (or localhost).
 
+## Email: Postmark
+
+Every business sends from its own address on `mail.handsfreeos.com` (like `lone-star@mail.handsfreeos.com`,
+with the business name shown), and customers' replies come back to the same subdomain. A business can add its
+own domain in Settings → Email; once its DNS records verify, it can send from that domain instead.
+
+### One-time setup
+
+1. Create a Postmark account and one server for production. Keep its default "outbound" (transactional)
+   stream, and add an inbound stream.
+2. In Postmark's Sender Signatures, add the domain `mail.handsfreeos.com` and put the DKIM TXT record and the
+   Return-Path CNAME (`pm-bounces.mail.handsfreeos.com` pointing to `pm.mtasv.net`) it shows at your DNS
+   provider. Do the same for `handsfreeos.com` if platform mail (invitations, alerts) moves to Postmark too.
+3. Point `mail.handsfreeos.com`'s MX record at `inbound.postmarkapp.com` (priority 10), and set it as the
+   inbound stream's inbound domain.
+4. Make up a long random webhook password (keep it in your password manager). Set the inbound stream's
+   webhook to `https://postmark:<password>@hooks.handsfreeos.com/webhooks/postmark/inbound`, and add an
+   outbound webhook for Delivery, Bounce and Spam Complaint to
+   `https://postmark:<password>@hooks.handsfreeos.com/webhooks/postmark/events`.
+5. Give the worker its secrets. The account token lets it add businesses' own domains.
+
+   ```bash
+   fly secrets set --app handsfreeos-worker \
+     POSTMARK_SERVER_TOKEN='<server API token>' \
+     POSTMARK_ACCOUNT_TOKEN='<account API token>' \
+     POSTMARK_WEBHOOK_PASSWORD='<the webhook password>'
+   ```
+
+6. Add a DMARC record for `mail.handsfreeos.com` that starts at `v=DMARC1; p=none; rua=mailto:<your address>`,
+   and tighten it once reports look clean.
+
+### Good to know
+
+- **Stopped addresses are shared.** Postmark stops an address for the whole stream after a hard bounce or a
+  spam complaint, so a bad address one business used is stopped for every business. HandsFreeOS also keeps
+  each business's own list, shown in Settings → Email. If a business ever needs its own list, it can move to
+  its own Postmark stream or server later.
+- **Replies always route through `mail.handsfreeos.com`,** even for a business on its own domain, so a
+  business never needs MX changes on its own domain.
+- **Nothing is tracked.** Open and link tracking are off for customer email.
+
 ## Local development
 
 `pnpm dev` runs the web app, the API and the worker. Locally the worker uses a fake carrier: numbers, texts,

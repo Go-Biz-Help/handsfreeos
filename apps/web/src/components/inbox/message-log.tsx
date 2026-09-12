@@ -9,6 +9,7 @@ import { clockTime, dayDivider } from '@/lib/inbox';
 import { cn } from '@/lib/utils';
 import { DayDivider, MediaThumb, SystemEntry } from './bits';
 import { firstName } from './conversation-row';
+import { MailCard } from './mail-card';
 import type { PendingText } from './hooks';
 
 const FAILED = new Set(['failed', 'undelivered']);
@@ -55,6 +56,7 @@ export function MessageLog({
   items,
   pending,
   customerFirstName,
+  customerName = null,
   hasEarlier,
   loadingEarlier,
   onLoadEarlier,
@@ -65,6 +67,8 @@ export function MessageLog({
   pending: PendingText[];
   /** For "Mike opted out of texts"; null for a number nobody has linked. */
   customerFirstName: string | null;
+  /** The customer's full name, on the emails they sent. */
+  customerName?: string | null;
   hasEarlier: boolean;
   loadingEarlier: boolean;
   onLoadEarlier: () => void;
@@ -111,6 +115,14 @@ export function MessageLog({
             ) : null}
             {item.type === 'call' ? (
               <CallCard item={item} time={entryTime(item.occurredAt, compact)} compact={compact} />
+            ) : item.channel === 'email' ? (
+              <MailCard
+                item={item}
+                time={entryTime(item.occurredAt, compact)}
+                customerName={customerName}
+                compact={compact}
+                onRetry={onRetry}
+              />
             ) : (
               <MessageEntry
                 item={item}
