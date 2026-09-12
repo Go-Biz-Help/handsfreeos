@@ -1,0 +1,400 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap">
+  <style>
+*{box-sizing:border-box}
+body{margin:0;background:transparent}
+.hf{font-family:"Hanken Grotesk",system-ui,-apple-system,"Segoe UI",Helvetica,Arial,sans-serif;font-size:14px;line-height:1.45;color:var(--text);background:var(--bg);-webkit-font-smoothing:antialiased}
+.hf h1,.hf h2,.hf h3,.hf p{margin:0}.hf h1,.hf h2,.hf h3{text-wrap:pretty}
+.theme-light{--bg:#f9fafd;--card:#ffffff;--card-2:#f2f4f8;--card-3:#e4e8ee;--border:#e4e8ee;--border-strong:#d2d6dd;--text:#191d25;--text-2:#5b616a;--text-3:#676c75;--placeholder:#a0a5ae;--accent-text:var(--accent);--accent-soft:color-mix(in oklab,var(--accent) 10%,#ffffff);--accent-soft-2:color-mix(in oklab,var(--accent) 18%,#ffffff);--accent-hover:color-mix(in oklab,var(--accent) 86%,#000000);--ring:color-mix(in oklab,var(--accent) 28%,transparent);--shadow-1:0 1px 2px rgba(25,29,37,.06),0 1px 3px rgba(25,29,37,.04);--shadow-2:0 8px 24px rgba(25,29,37,.10),0 2px 6px rgba(25,29,37,.06);--shadow-3:0 24px 60px rgba(25,29,37,.22),0 4px 12px rgba(25,29,37,.08);--success:#008743;--success-soft:#e0f7e5;--success-text:#005d2d;--warning:#996300;--warning-soft:#ffedd8;--warning-text:#6b4300;--danger:#c43335;--danger-soft:#ffebe9;--danger-text:#862726;--scrim:rgba(25,29,37,.45);--toast-bg:#191d25;--toast-text:#f2f4f8}
+.theme-dark{--bg:#0f131a;--card:#191d25;--card-2:#20252e;--card-3:#2c3139;--border:#2c3139;--border-strong:#3a4049;--text:#f2f4f8;--text-2:#a0a5ae;--text-3:#8a909a;--placeholder:#5b616a;--accent-text:color-mix(in oklab,var(--accent) 62%,#ffffff);--accent-soft:color-mix(in oklab,var(--accent) 22%,#191d25);--accent-soft-2:color-mix(in oklab,var(--accent) 34%,#191d25);--accent-hover:color-mix(in oklab,var(--accent) 84%,#ffffff);--ring:color-mix(in oklab,var(--accent) 45%,transparent);--shadow-1:0 1px 2px rgba(0,0,0,.45);--shadow-2:0 8px 24px rgba(0,0,0,.55);--shadow-3:0 24px 60px rgba(0,0,0,.65);--success:#3ccf7a;--success-soft:#10291b;--success-text:#7fe0a5;--warning:#f0a93b;--warning-soft:#2d2210;--warning-text:#f5c97a;--danger:#ff7b73;--danger-soft:#301816;--danger-text:#ffaaa3;--scrim:rgba(0,0,0,.6);--toast-bg:#f2f4f8;--toast-text:#191d25}
+.theme-dark .btn-danger,.theme-dark .toast.danger{color:#191d25}
+a{color:var(--accent-text);text-decoration:none}a:hover{color:var(--accent-hover);text-decoration:underline}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:36px;padding:0 14px;border-radius:8px;border:1px solid transparent;font:inherit;font-weight:500;font-size:14px;color:var(--text);background:transparent;cursor:pointer;white-space:nowrap;transition:background .12s,border-color .12s,box-shadow .12s,color .12s}
+.btn:focus-visible{outline:none;box-shadow:0 0 0 3px var(--ring)}
+.btn-primary{background:var(--accent);color:#fff}.btn-primary:hover{background:var(--accent-hover)}
+.btn-secondary{background:var(--card);border-color:var(--border-strong);box-shadow:var(--shadow-1)}.btn-secondary:hover{background:var(--card-2)}
+.btn-ghost{color:var(--text-2)}.btn-ghost:hover{background:var(--card-2);color:var(--text)}
+.btn-danger{background:var(--danger);color:#fff}.btn-danger:hover{filter:brightness(.92)}
+.btn-sm{height:32px;padding:0 10px;font-size:13px}.btn-lg{height:44px;padding:0 18px;font-size:15px;border-radius:10px}.btn:disabled{opacity:.5;cursor:not-allowed}
+.icon-btn{width:32px;height:32px;padding:0;border-radius:8px}
+.input,.select,.textarea{width:100%;height:40px;padding:0 12px;border-radius:8px;border:1px solid var(--border-strong);background:var(--card);color:var(--text);font:inherit;font-size:15px;transition:border-color .12s,box-shadow .12s}
+.textarea{height:auto;min-height:88px;padding:10px 12px;resize:vertical;line-height:1.45}
+.select{appearance:none;background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23777c86' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'><path d='m6 9 6 6 6-6'/></svg>");background-repeat:no-repeat;background-position:right 10px center;padding-right:32px}
+.input::placeholder,.textarea::placeholder{color:var(--placeholder)}.input:focus,.select:focus,.textarea:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--ring)}
+.input-sm,.select-sm{height:34px;font-size:14px}.input-error{border-color:var(--danger)}.select:disabled{opacity:.6;cursor:not-allowed}
+.label{display:block;font-size:13px;font-weight:500;color:var(--text);margin-bottom:6px}
+.hint{font-size:12.5px;color:var(--text-3);margin-top:6px}.err{font-size:12.5px;color:var(--danger-text);margin-top:6px}
+.field{margin-bottom:14px}
+.card{background:var(--card);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow-1)}
+.badge{display:inline-flex;align-items:center;gap:6px;height:22px;padding:0 8px;border-radius:999px;font-size:12px;font-weight:500;border:1px solid transparent;white-space:nowrap}
+.badge-owner{background:var(--accent-soft);color:var(--accent-text)}.badge-admin{background:var(--card-2);color:var(--text);border-color:var(--border)}.badge-member{border-color:var(--border-strong);color:var(--text-2)}
+.badge-pending{background:var(--warning-soft);color:var(--warning-text)}.badge-gray{background:var(--card-2);color:var(--text-2)}.badge-ok{background:var(--success-soft);color:var(--success-text)}.badge-danger{background:var(--danger-soft);color:var(--danger-text)}
+.stage{display:inline-flex;align-items:center;gap:6px;height:22px;padding:0 8px;border-radius:6px;font-size:12px;font-weight:500;white-space:nowrap;background:var(--accent-soft);color:var(--accent-text)}
+.stage-won{background:var(--success-soft);color:var(--success-text)}.stage-lost{background:var(--danger-soft);color:var(--danger-text)}
+.tag{display:inline-flex;align-items:center;gap:6px;height:22px;padding:0 8px;border-radius:999px;font-size:12px;font-weight:500;background:var(--card-2);color:var(--text-2);white-space:nowrap}
+.tag i{width:7px;height:7px;border-radius:999px;display:inline-block}
+.warn{display:inline-flex;align-items:center;gap:6px;color:var(--warning-text);background:var(--warning-soft);border-radius:7px;padding:4px 8px;font-size:12px;font-weight:500;white-space:nowrap}
+.callout{display:flex;gap:10px;align-items:flex-start;padding:12px 14px;border-radius:10px;font-size:13.5px}
+.callout-warning{background:var(--warning-soft);color:var(--warning-text)}.callout-info{background:var(--accent-soft);color:var(--accent-text)}.callout-danger{background:var(--danger-soft);color:var(--danger-text)}
+.mono{font-family:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12.5px}
+.avatar{width:32px;height:32px;border-radius:999px;display:inline-flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;color:#fff;background:var(--accent);flex:none;letter-spacing:.02em}
+.avatar-sm{width:24px;height:24px;font-size:10px}.avatar-lg{width:48px;height:48px;font-size:16px}
+.h1{font-size:24px;font-weight:600;letter-spacing:-.01em;line-height:1.25}.h2{font-size:18px;font-weight:600;letter-spacing:-.005em;line-height:1.3}.h3{font-size:15px;font-weight:600;line-height:1.35}
+.muted{color:var(--text-2)}.faint{color:var(--text-3)}.small{font-size:13px}.xs{font-size:12px}.strong{font-weight:500}
+.shell{display:flex;min-height:832px}
+.sidebar{position:relative;width:240px;flex:none;background:var(--card);border-right:1px solid var(--border);display:flex;flex-direction:column;padding:16px 12px 12px;gap:4px}
+.nav-item{display:flex;align-items:center;gap:10px;height:36px;padding:0 10px;border-radius:8px;color:var(--text-2);font-weight:500;cursor:pointer;background:transparent;border:0;font:inherit;font-size:14px;width:100%;text-align:left}
+.nav-item:hover{background:var(--card-2);color:var(--text)}.nav-item.active{background:var(--accent-soft);color:var(--accent-text)}
+.main{flex:1;min-width:0;padding:32px 40px;position:relative}
+.page-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:24px}
+.table{width:100%;border-collapse:separate;border-spacing:0}
+.table th{text-align:left;font-size:12px;font-weight:500;color:var(--text-3);letter-spacing:.02em;padding:10px 16px;border-bottom:1px solid var(--border);background:var(--card-2)}
+.table td{padding:12px 16px;border-bottom:1px solid var(--border);vertical-align:middle}
+.table tr:last-child td{border-bottom:0}.table tr.clickable{cursor:pointer}.table tr.clickable:hover td{background:var(--card-2)}
+.table th:first-child{border-top-left-radius:12px}.table th:last-child{border-top-right-radius:12px}
+.menu{position:absolute;right:0;top:36px;min-width:220px;background:var(--card);border:1px solid var(--border);border-radius:10px;box-shadow:var(--shadow-2);padding:6px;z-index:20}
+.menu-item{display:flex;align-items:center;gap:10px;width:100%;height:34px;padding:0 10px;border-radius:6px;border:0;background:transparent;font:inherit;font-size:14px;color:var(--text);cursor:pointer;text-align:left}
+.menu-item:hover{background:var(--card-2)}.menu-item.danger{color:var(--danger-text)}.menu-item:disabled{opacity:.5;cursor:not-allowed}
+.scrim{position:absolute;inset:0;background:var(--scrim);display:flex;align-items:center;justify-content:center;z-index:50}
+.dialog{width:480px;background:var(--card);border-radius:14px;box-shadow:var(--shadow-3);border:1px solid var(--border);padding:24px}
+.sheet{position:absolute;top:0;right:0;bottom:0;width:480px;background:var(--card);border-left:1px solid var(--border);box-shadow:var(--shadow-3);z-index:55;padding:24px;overflow:auto}
+.toast{position:absolute;left:50%;bottom:24px;transform:translateX(-50%);background:var(--toast-bg);color:var(--toast-text);padding:10px 14px;border-radius:10px;font-size:13.5px;box-shadow:var(--shadow-2);display:flex;gap:10px;align-items:center;z-index:60;white-space:nowrap}
+.toast.danger{background:var(--danger);color:#fff}
+.radio-card{display:flex;gap:12px;align-items:flex-start;padding:12px 14px;border:1px solid var(--border-strong);border-radius:10px;cursor:pointer;background:var(--card);text-align:left;font:inherit;color:var(--text);width:100%}
+.radio-card.selected{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent);background:var(--accent-soft)}
+.radio-dot{width:16px;height:16px;border-radius:999px;border:1.5px solid var(--border-strong);flex:none;margin-top:2px;display:flex;align-items:center;justify-content:center}
+.radio-card.selected .radio-dot{border-color:var(--accent)}.radio-card.selected .radio-dot::after{content:"";width:8px;height:8px;border-radius:999px;background:var(--accent)}
+.switcher{display:flex;align-items:center;gap:10px;width:100%;height:52px;padding:0 10px;border-radius:10px;border:1px solid var(--border);background:var(--card);font:inherit;color:var(--text);cursor:pointer;text-align:left}
+.icon{width:18px;height:18px;flex:none}.icon-sm{width:14px;height:14px;flex:none}
+.brand{display:flex;align-items:center;gap:10px;font-weight:600;font-size:15px;letter-spacing:-.01em;color:var(--text)}
+.mark{width:28px;height:28px;display:block;flex:none;object-fit:contain}.brand .os{color:var(--accent-text)}
+.row{display:flex;align-items:center;gap:12px}.between{justify-content:space-between}.stack{display:flex;flex-direction:column}.wrap{flex-wrap:wrap}
+.tabs{display:flex;gap:2px;border-bottom:1px solid var(--border);margin-bottom:20px;overflow-x:auto}
+.tab{height:38px;padding:0 12px;border:0;background:transparent;font:inherit;font-size:14px;font-weight:500;color:var(--text-2);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;white-space:nowrap}
+.tab:hover{color:var(--text)}.tab.active{color:var(--accent-text);border-bottom-color:var(--accent)}
+.seg{display:inline-flex;background:var(--card-2);border-radius:8px;padding:3px;gap:2px}
+.seg button{height:28px;padding:0 10px;border:0;border-radius:6px;background:transparent;font:inherit;font-size:13px;font-weight:500;color:var(--text-2);cursor:pointer}
+.seg button.active{background:var(--card);color:var(--text);box-shadow:var(--shadow-1)}
+.search{position:relative}.search .icon{position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--text-3)}.search .input{padding-left:34px}
+.board{display:flex;gap:14px;overflow-x:auto;padding-bottom:12px;align-items:flex-start}
+.col{width:262px;flex:none;background:var(--card-2);border-radius:12px;padding:8px;display:flex;flex-direction:column;gap:8px;min-height:120px}
+.col-head{display:flex;align-items:center;justify-content:space-between;padding:6px 6px 2px}
+.kcard{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:12px;box-shadow:var(--shadow-1);cursor:pointer;text-align:left;font:inherit;color:var(--text);width:100%}
+.kcard:hover{border-color:var(--border-strong)}.kcard.active{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+.grip{color:var(--text-3);opacity:.6}
+.timeline{position:relative;margin-left:8px;border-left:1px solid var(--border)}
+.tl{position:relative;padding:0 0 18px 24px}.tl:last-child{padding-bottom:0}
+.tl-dot{position:absolute;left:-8px;top:2px;width:15px;height:15px;border-radius:999px;border:2px solid var(--card);background:var(--card-3)}
+.tl-dot.note{background:var(--accent)}.tl-dot.call{background:var(--success)}.tl-dot.sys{background:var(--card-3)}.tl-dot.file{background:var(--warning)}
+.file-tile{border:1px solid var(--border);border-radius:10px;overflow:hidden;background:var(--card)}
+.file-thumb{height:104px;background:linear-gradient(135deg,var(--card-3),var(--card-2));display:flex;align-items:center;justify-content:center;color:var(--text-3)}
+.dropzone{border:1.5px dashed var(--border-strong);border-radius:12px;padding:22px;text-align:center;color:var(--text-2);background:var(--card)}
+.empty{padding:44px 24px;text-align:center;color:var(--text-2)}
+.progress{height:8px;border-radius:999px;background:var(--card-2);overflow:hidden}.progress i{display:block;height:100%;background:var(--accent);border-radius:999px;transform-origin:left center;transition:transform .3s}
+.steps{display:flex;gap:6px;align-items:center;margin-bottom:22px}
+.step{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text-3);font-weight:500}.step .n{width:24px;height:24px;border-radius:999px;border:1.5px solid var(--border-strong);display:inline-flex;align-items:center;justify-content:center;font-size:12px}
+.step.active{color:var(--accent-text)}.step.active .n{border-color:var(--accent);background:var(--accent);color:#fff}.step.done{color:var(--success-text)}.step.done .n{border-color:var(--success);background:var(--success);color:#fff}
+.step-line{width:32px;height:1px;background:var(--border)}
+.kv{display:grid;grid-template-columns:130px 1fr;gap:10px 16px;font-size:13.5px}.kv dt{color:var(--text-2)}.kv dd{margin:0;font-weight:500}
+.stat{padding:18px 20px}.stat .num{font-size:26px;font-weight:600;letter-spacing:-.01em;line-height:1.1}.stat .lbl{font-size:13px;color:var(--text-2);margin-top:4px}
+.phone{width:390px;min-height:844px;background:var(--bg);position:relative;overflow:hidden;display:flex;flex-direction:column}
+.topbar{height:56px;flex:none;display:flex;align-items:center;gap:10px;padding:0 12px;background:var(--card);border-bottom:1px solid var(--border)}
+.bottom-nav{position:absolute;left:0;right:0;bottom:0;height:66px;background:var(--card);border-top:1px solid var(--border);display:flex;padding-bottom:6px}
+.bn{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;font-size:11px;font-weight:500;color:var(--text-3);border:0;background:transparent;font-family:inherit;cursor:pointer}
+.bn.active{color:var(--accent-text)}
+.drawer{position:absolute;top:0;left:0;bottom:0;width:300px;background:var(--card);box-shadow:var(--shadow-3);z-index:55;padding:16px 12px;display:flex;flex-direction:column;gap:4px}
+.bottom-sheet{position:absolute;left:0;right:0;bottom:0;background:var(--card);border-radius:16px 16px 0 0;box-shadow:var(--shadow-3);z-index:55;padding:14px 16px 28px}
+.mcard{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px;box-shadow:var(--shadow-1)}
+.touch{min-height:44px}
+.divider{height:1px;background:var(--border)}
+.chip{display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 12px;border-radius:999px;border:1px solid var(--border-strong);background:var(--card);font:inherit;font-size:13px;font-weight:500;color:var(--text-2);white-space:nowrap;cursor:pointer}
+.chip.on{background:var(--accent-soft);color:var(--accent-text);border-color:transparent}
+.nav-count{margin-left:auto;min-width:20px;height:20px;padding:0 6px;border-radius:999px;background:var(--accent);color:#fff;font-size:11px;font-weight:600;display:inline-flex;align-items:center;justify-content:center;line-height:1}
+.count{min-width:18px;height:18px;padding:0 5px;border-radius:999px;background:var(--accent);color:#fff;font-size:11px;font-weight:600;display:inline-flex;align-items:center;justify-content:center;line-height:1;flex:none}
+.wait{display:inline-flex;align-items:center;gap:4px;height:20px;padding:0 6px;border-radius:6px;font-size:11.5px;font-weight:500;background:var(--warning-soft);color:var(--warning-text);white-space:nowrap}
+.pill{display:inline-flex;align-items:center;gap:4px;height:20px;padding:0 6px;border-radius:6px;font-size:11.5px;font-weight:500;background:var(--card-2);color:var(--text-2);white-space:nowrap}
+.dot{width:8px;height:8px;border-radius:999px;display:inline-block;flex:none}
+.ib{display:flex;flex:1;min-width:0;min-height:0}
+.ib-list{width:340px;flex:none;border-right:1px solid var(--border);background:var(--card);display:flex;flex-direction:column;min-height:0}
+.ib-head{padding:18px 16px 12px;display:flex;flex-direction:column;gap:12px;border-bottom:1px solid var(--border)}
+.ib-rows{flex:1;overflow:auto;min-height:0}
+.ib-thread{flex:1;min-width:0;display:flex;flex-direction:column;background:var(--bg);position:relative;min-height:0}
+.ib-ctx{width:300px;flex:none;border-left:1px solid var(--border);background:var(--card);overflow:auto;padding:20px 18px;display:flex;flex-direction:column;gap:18px}
+.cv{display:flex;gap:12px;padding:12px 16px;border:0;border-bottom:1px solid var(--border);background:transparent;cursor:pointer;text-align:left;width:100%;font:inherit;color:var(--text)}
+.cv:hover{background:var(--card-2)}.cv.active,.cv.active:hover{background:var(--accent-soft)}
+.cv-top{display:flex;align-items:center;gap:6px;min-width:0}
+.cv-name{font-size:14px;font-weight:500;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cv.unread .cv-name{font-weight:600}
+.cv-time{margin-left:auto;font-size:12px;color:var(--text-3);flex:none;white-space:nowrap}
+.cv.unread .cv-time{color:var(--accent-text);font-weight:600}
+.cv-prev{font-size:13px;line-height:1.4;color:var(--text-2);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;margin-top:2px}
+.cv.unread .cv-prev{color:var(--text)}
+.cv-meta{display:flex;align-items:center;gap:6px;margin-top:7px;min-height:20px}
+.th-head{height:64px;flex:none;display:flex;align-items:center;gap:8px;padding:0 16px 0 20px;background:var(--card);border-bottom:1px solid var(--border)}
+.log{flex:1;min-height:0;overflow:auto;padding:12px 24px 18px;display:flex;flex-direction:column-reverse}
+.day{align-self:center;font-size:12px;font-weight:500;color:var(--text-3);margin:18px 0 4px}
+.msg{max-width:76%;display:flex;flex-direction:column;gap:3px;margin-top:8px}
+.msg.in{align-self:flex-start}.msg.out{align-self:flex-end;align-items:flex-end}
+.bubble{padding:9px 13px;border-radius:16px;font-size:14px;line-height:1.45;white-space:pre-wrap;overflow-wrap:anywhere}
+.msg.in .bubble{background:var(--card);border:1px solid var(--border);border-bottom-left-radius:5px}
+.msg.out .bubble{background:var(--accent);color:#fff;border-bottom-right-radius:5px}
+.msg.failed .bubble{background:var(--danger-soft);color:var(--danger-text)}
+.meta{display:flex;align-items:center;gap:5px;font-size:11.5px;color:var(--text-3);padding:0 4px;white-space:nowrap}
+.meta .ok{display:inline-flex;align-items:center;gap:3px;color:var(--success-text)}
+.meta .bad{display:inline-flex;align-items:center;gap:3px;color:var(--danger-text);font-weight:500}
+.media{width:200px;height:150px;border-radius:14px;border:1px solid var(--border);background:linear-gradient(135deg,var(--card-3),var(--card-2));display:flex;align-items:center;justify-content:center;color:var(--text-3)}
+.sys{align-self:center;display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--text-3);margin:12px 0 2px}
+.callcard{align-self:flex-start;width:420px;max-width:80%;background:var(--card);border:1px solid var(--border);border-radius:14px;padding:12px 14px;display:flex;flex-direction:column;gap:10px;margin-top:8px}
+.callic{width:32px;height:32px;border-radius:999px;display:inline-flex;align-items:center;justify-content:center;flex:none}
+.callic.missed{background:var(--warning-soft);color:var(--warning-text)}.callic.done{background:var(--success-soft);color:var(--success-text)}.callic.outgoing{background:var(--accent-soft);color:var(--accent-text)}
+.vm{display:flex;align-items:center;gap:10px;background:var(--card-2);border-radius:10px;padding:7px 10px 7px 7px}
+.vm-play{width:30px;height:30px;border-radius:999px;border:0;background:var(--accent);color:#fff;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;flex:none;padding:0}
+.wave{flex:1;height:24px;display:flex;align-items:center;gap:2px;overflow:hidden}
+.wave i{display:block;width:3px;flex:none;border-radius:2px;background:var(--border-strong)}
+.wave.playing i.p{background:var(--accent)}
+.transcript{font-size:13px;line-height:1.5;color:var(--text)}
+.mailcard{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:14px 16px;display:flex;flex-direction:column;gap:8px;width:520px;max-width:100%}
+.msg.out .mailcard{border-color:color-mix(in oklab,var(--accent) 35%,var(--border))}
+.mail-body{font-size:13.5px;line-height:1.5;white-space:pre-wrap;color:var(--text)}
+.attach{display:inline-flex;align-items:center;gap:8px;height:34px;padding:0 10px;border:1px solid var(--border);border-radius:8px;background:var(--card-2);font-size:12.5px;font-weight:500;color:var(--text);white-space:nowrap}
+.composer{flex:none;background:var(--card);border-top:1px solid var(--border);padding:12px 16px 12px;display:flex;flex-direction:column;gap:8px}
+.cmp{border:1px solid var(--border-strong);border-radius:12px;background:var(--card);transition:border-color .12s,box-shadow .12s}
+.cmp:focus-within{border-color:var(--accent);box-shadow:0 0 0 3px var(--ring)}
+.cmp textarea{display:block;width:100%;border:0;outline:none;resize:none;font:inherit;font-size:14.5px;line-height:1.45;padding:10px 12px 2px;background:transparent;color:var(--text);min-height:46px}
+.cmp textarea::placeholder{color:var(--placeholder)}
+.cmp-bar{display:flex;align-items:center;gap:4px;padding:4px 6px 6px}
+.cmp.off{background:var(--card-2);border-color:var(--border)}
+.cmp.off textarea{cursor:not-allowed}
+.cmp-text{padding:10px 12px 2px;font-size:14.5px;line-height:1.45;min-height:46px;color:var(--text);white-space:pre-wrap}
+.cmp-text.ph{color:var(--placeholder)}
+.segc{font-size:12px;color:var(--text-3);font-variant-numeric:tabular-nums;padding:0 6px;white-space:nowrap}
+.ctx-sec{display:flex;flex-direction:column;gap:8px}
+.ctx-label{font-size:11.5px;font-weight:600;color:var(--text-3);letter-spacing:.04em;text-transform:uppercase}
+.ctx-row{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text-2);min-width:0}
+.ctx-row span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.minicard{border:1px solid var(--border);border-radius:10px;padding:12px;background:var(--card)}
+.later{display:flex;align-items:center;justify-content:space-between;font-size:13px;color:var(--text-3);height:26px}
+.call-toast{position:absolute;top:18px;right:18px;width:360px;background:var(--card);border:1px solid var(--border);border-radius:14px;box-shadow:var(--shadow-3);padding:16px;z-index:70;display:flex;flex-direction:column;gap:14px}
+.ring{position:relative;width:44px;height:44px;border-radius:999px;background:var(--success-soft);color:var(--success-text);display:inline-flex;align-items:center;justify-content:center;flex:none}
+.ring::after{content:"";position:absolute;inset:-5px;border-radius:999px;border:2px solid var(--success);animation:ring 1.6s ease-out infinite}
+@keyframes ring{0%{transform:scale(.88);opacity:.7}100%{transform:scale(1.22);opacity:0}}
+.btn-answer{background:var(--success);color:#fff}.btn-answer:hover{filter:brightness(.94)}
+.theme-dark .btn-answer{color:#0f131a}
+.call-bar{position:absolute;left:50%;bottom:20px;transform:translateX(-50%);display:flex;align-items:center;gap:12px;padding:8px 8px 8px 12px;border-radius:14px;background:var(--toast-bg);color:var(--toast-text);box-shadow:var(--shadow-3);z-index:65;white-space:nowrap}
+.cb-btn{width:36px;height:36px;border-radius:999px;border:0;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;background:color-mix(in oklab,var(--toast-text) 14%,transparent);color:inherit;padding:0}
+.cb-btn.on{background:var(--warning);color:#fff}
+.cb-end{background:var(--danger);color:#fff}
+.theme-dark .cb-end,.theme-dark .cb-btn.on{color:#191d25}
+.timer{font-family:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:13px;font-variant-numeric:tabular-nums}
+.keypad{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.key{height:50px;border-radius:10px;border:1px solid var(--border);background:var(--card);font:inherit;font-size:19px;font-weight:500;color:var(--text);cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1}
+.key:hover{background:var(--card-2)}
+.key small{font-size:9.5px;letter-spacing:.14em;color:var(--text-3);margin-top:3px;font-weight:600}
+.snav{display:flex;gap:2px;border-bottom:1px solid var(--border);margin-bottom:20px;overflow-x:auto}
+.snav button{height:40px;padding:0 12px;border:0;border-bottom:2px solid transparent;margin-bottom:-1px;background:transparent;font:inherit;font-size:14px;font-weight:500;color:var(--text-2);cursor:pointer;white-space:nowrap}
+.snav button.active{color:var(--accent-text);border-bottom-color:var(--accent)}
+.switch{position:relative;width:36px;height:20px;border-radius:999px;background:var(--border-strong);border:0;cursor:pointer;flex:none;padding:0;transition:background .15s}
+.switch::after{content:"";position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:999px;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.25);transition:transform .15s}
+.switch.on{background:var(--accent)}.switch.on::after{transform:translateX(16px)}
+.copy{display:flex;align-items:center;gap:8px;min-height:34px;padding:3px 3px 3px 10px;border:1px solid var(--border);border-radius:8px;background:var(--card-2);min-width:0}
+.copy .mono{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.set-row{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;padding:14px 0;border-top:1px solid var(--border)}
+.sec-title{font-size:18px;font-weight:600;letter-spacing:-.005em;line-height:1.3}
+.sec-desc{font-size:13px;color:var(--text-2);margin-top:4px}
+.pthread{position:absolute;inset:0;display:flex;flex-direction:column;background:var(--bg);z-index:30}
+.pcomp{flex:none;background:var(--card);border-top:1px solid var(--border);padding:8px 10px 26px;display:flex;align-items:flex-end;gap:6px}
+.pinput{flex:1;min-width:0;height:44px;border-radius:22px;border:1px solid var(--border-strong);padding:0 16px;font:inherit;font-size:16px;background:var(--card);color:var(--text);outline:none}
+.pinput:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--ring)}
+.pinput::placeholder{color:var(--placeholder)}
+.round{width:44px;height:44px;border-radius:999px;border:0;display:inline-flex;align-items:center;justify-content:center;flex:none;cursor:pointer;padding:0;background:transparent;color:var(--text-2)}
+.round.primary{background:var(--accent);color:#fff}
+.round:disabled{opacity:.45;cursor:not-allowed}
+.bn-ico{position:relative;display:inline-flex}
+.bn-badge{position:absolute;top:-6px;left:13px;min-width:18px;height:18px;padding:0 5px;border-radius:999px;background:var(--accent);color:#fff;font-size:10.5px;font-weight:600;display:inline-flex;align-items:center;justify-content:center;box-shadow:0 0 0 2px var(--card)}
+.bn svg{width:22px;height:22px}.bn.active svg{stroke-width:2}
+.mailwin{background:var(--card);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow-2);overflow:hidden}
+.mailwin-head{padding:14px 20px;border-bottom:1px solid var(--border);display:grid;grid-template-columns:64px 1fr;row-gap:6px;font-size:13px;margin:0}
+.mailwin-head dt{color:var(--text-3)}.mailwin-head dd{margin:0;color:var(--text);font-weight:500}
+.mailbody{background:#ffffff;color:#191d25;padding:32px 36px;font-family:system-ui,-apple-system,"Segoe UI",sans-serif}
+  </style>
+</helmet>
+
+<div class="hf theme-{{ theme }}" style="--accent: {{ accent }}; width: 1280px; height: 1000px; position: relative; overflow: hidden;">
+  <div class="shell" style="height: 1000px; min-height: 1000px;">
+    <aside class="sidebar">
+      <div class="brand" style="padding: 4px 10px 14px;"><img class="mark" src="handsfreeos-icon.png" alt=""><span>HandsFree<span class="os">OS</span></span></div>
+      <button class="switcher">
+        <span class="avatar" style="border-radius: 8px; background: var(--accent-soft-2); color: var(--accent-text);">LS</span>
+        <span class="stack" style="min-width: 0; flex: 1;"><span style="font-weight: 600; font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">Lone Star HVAC &amp; Roofing</span><span class="xs faint">Go Biz Help</span></span>
+        <svg class="icon faint"  viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"></path></svg>
+      </button>
+      <div class="search" style="margin-top: 10px;"><svg class="icon"  viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.5-3.5"></path></svg><input class="input input-sm" placeholder="Search customers" style="font-size: 13px; height: 34px;"></div>
+      <nav class="stack" style="gap: 2px; margin-top: 8px;"><button class="nav-item"><svg class="icon"  viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"></path><path d="M5 9.5V21h14V9.5"></path></svg><span>Home</span></button><button class="nav-item"><svg class="icon"  viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 13h5l2 3h4l2-3h5"></path><path d="M5 5h14l2 8v6H3v-6z"></path></svg><span>Inbox</span><span class="nav-count">3</span></button><button class="nav-item"><svg class="icon"  viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"></circle><path d="M2.5 20a6.5 6.5 0 0 1 13 0"></path><path d="M16 4.5a3.5 3.5 0 0 1 0 7"></path><path d="M17.5 14a6 6 0 0 1 4 5.5"></path></svg><span>Customers</span></button><button class="nav-item"><svg class="icon"  viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="5" height="16" rx="1"></rect><rect x="10" y="4" width="5" height="10" rx="1"></rect><rect x="17" y="4" width="4" height="13" rx="1"></rect></svg><span>Pipeline</span></button><button class="nav-item"><svg class="icon"  viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m4 12 3 3 5-6"></path><path d="M13 7h8M13 12h8M13 17h8"></path><path d="m4 18 3 3"></path></svg><span>Tasks</span></button><button class="nav-item"><svg class="icon"  viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"></circle><path d="M4 21a8 8 0 0 1 16 0"></path></svg><span>Members</span></button><button class="nav-item"><svg class="icon"  viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6h13M8 12h13M8 18h13"></path><path d="M3 6h.01M3 12h.01M3 18h.01"></path></svg><span>Audit log</span></button><button class="nav-item active"><svg class="icon"  viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h8M18 6h2M4 12h2M10 12h10M4 18h12M20 18h0"></path><circle cx="14" cy="6" r="2"></circle><circle cx="8" cy="12" r="2"></circle><circle cx="18" cy="18" r="2"></circle></svg><span>Settings</span></button></nav>
+      <div style="flex: 1;"></div>
+      
+      <div class="row" style="padding: 12px 6px 4px; border-top: 1px solid var(--border);">
+        <span class="avatar">DR</span>
+        <span class="stack" style="min-width: 0; flex: 1;"><span style="font-weight: 500; font-size: 13.5px;">Dale Ramsey</span><span class="xs faint" style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">dale@lonestarhvac.test</span></span>
+      </div>
+    </aside>
+    <main class="main" style="overflow: hidden;">
+      <div class="page-head" style="margin-bottom: 20px;"><div><h1 class="h1">Settings</h1><p class="muted" style="margin-top: 4px;">Your account, and how this workspace is set up.</p></div></div>
+      <nav class="snav" aria-label="Settings"><button class="">Account</button><button class="">Workspace</button><button class="">Pipelines</button><button class="">Imports</button><button class="active">Texting &amp; calls</button><button class="">Email</button></nav>
+      <div class="card" style="max-width: 820px; padding: 28px;">
+        <div class="steps">
+          <span class="{{ s1 }}"><span class="n">{{ n1 }}</span>Number</span><span class="step-line"></span>
+          <span class="{{ s2 }}"><span class="n">{{ n2 }}</span>Business details</span><span class="step-line"></span>
+          <span class="{{ s3 }}"><span class="n">3</span>Carrier review</span>
+        </div>
+
+        <sc-if value="{{ onNumber }}" hint-placeholder-val="{{ true }}">
+          <h2 class="h2">Get a business number</h2>
+          <p class="small muted" style="margin: 4px 0 18px;">Customers text and call this number. Calls work as soon as you buy it; texting starts once the carriers approve you.</p>
+          <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-bottom: 18px;">
+            <button class="{{ tollCls }}" onClick="{{ pickToll }}"><span class="radio-dot"></span><span class="stack" style="gap: 4px;"><span class="row" style="gap: 8px;"><span class="strong">Toll-free</span><span class="badge badge-ok">Faster approval</span></span><span class="small muted">An (833), (844) or (855) number. Texting approval usually takes a few days.</span></span></button>
+            <button class="{{ localCls }}" onClick="{{ pickLocal }}"><span class="radio-dot"></span><span class="stack" style="gap: 4px;"><span class="strong">Local</span><span class="small muted">Your own area code, like (713). The carrier registration usually takes 1 to 3 weeks.</span></span></button>
+          </div>
+          <div class="row" style="gap: 8px; align-items: flex-end; margin-bottom: 12px;">
+            <sc-if value="{{ isLocal }}" hint-placeholder-val="{{ false }}"><div style="width: 160px;"><label class="label">Area code</label><input class="input" value="713" style="height: 36px;"></div></sc-if>
+            <sc-if value="{{ isToll }}" hint-placeholder-val="{{ true }}"><div style="width: 160px;"><label class="label">Starts with</label><select class="select" style="height: 36px;"><option>Any</option><option>833</option><option>844</option><option>855</option></select></div></sc-if>
+            <button class="btn btn-secondary" onClick="{{ search }}"><svg class="icon-sm"  viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.5-3.5"></path></svg><span>Show numbers</span></button>
+          </div>
+          <div class="card" style="padding: 0; box-shadow: none;">
+            <sc-for list="{{ numbers }}" as="p" hint-placeholder-count="4">
+              <button class="{{ p.cls }}" onClick="{{ p.pick }}" style="display: flex; align-items: center; gap: 12px; width: 100%; padding: 12px 16px; border: 0; border-bottom: 1px solid var(--border); background: {{ p.bg }}; font: inherit; color: var(--text); cursor: pointer; text-align: left;">
+                <span class="radio-dot" style="{{ p.dotStyle }}"></span>
+                <span class="mono" style="font-size: 15px; font-weight: 500; flex: 1;">{{ p.num }}</span>
+                <span class="xs faint">{{ p.place }}</span>
+                <span class="pill">Calls · Texts · Photos</span>
+              </button>
+            </sc-for>
+          </div>
+          <div class="row between" style="margin-top: 20px;">
+            <span class="small muted">Calls ring right away. You can add forwarding phones next.</span>
+            <button class="btn btn-primary" onClick="{{ buy }}">Buy {{ picked }}</button>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ onBusiness }}" hint-placeholder-val="{{ false }}">
+          <div class="callout callout-info" style="margin-bottom: 18px;"><svg class="icon"  viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="m8.5 12.5 2.5 2.5 4.5-5.5"></path></svg><span><strong>{{ picked }} is yours.</strong> Calls ring now. To turn on texting, the carriers need to know who is texting and why.</span></div>
+          <h2 class="h2">Business details for the carriers</h2>
+          <p class="small muted" style="margin: 4px 0 18px;">We send these to the carriers for you. Use the legal details on your tax paperwork.</p>
+          <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 14px;">
+            <div class="field"><label class="label">Legal business name</label><input class="input" value="Lone Star HVAC &amp; Roofing LLC"></div>
+            <div class="field"><label class="label">Business type</label><select class="select"><option>Limited liability company (LLC)</option><option>Corporation</option><option>Sole proprietor</option><option>Partnership</option></select></div>
+            <div class="field"><label class="label">EIN (tax ID)</label><input class="input mono" value="12-3456789" style="font-size: 14px;"></div>
+            <div class="field"><label class="label">Website</label><input class="input" value="https://lonestarhvac.test"></div>
+            <div class="field" style="grid-column: span 2;"><label class="label">Business address</label><input class="input" value="4410 Westpark Dr, Houston, TX 77027"></div>
+            <div class="field"><label class="label">Contact person</label><input class="input" value="Dale Ramsey"></div>
+            <div class="field"><label class="label">Contact phone and email</label><input class="input" value="(713) 555-0161 · dale@lonestarhvac.test"></div>
+          </div>
+          <div class="field"><label class="label">How customers agree to get texts</label><textarea class="textarea" style="min-height: 64px;">Customers give us their cell number when they call, book on our website or sign an estimate, and we ask if we can text them about their appointment.</textarea></div>
+          <div class="field"><label class="label">Two example texts</label>
+            <div class="stack" style="gap: 8px;"><input class="input" value="Hi Mike, this is Lone Star HVAC. Marco is on the way and should arrive around 2:30. Reply STOP to opt out."><input class="input" value="Your estimate for the roof replacement is ready. Reply with any questions. Reply STOP to opt out."></div>
+          </div>
+          <div class="row" style="gap: 14px;">
+            <div class="field" style="flex: 1;"><label class="label">What you text about</label><select class="select"><option>Appointments, estimates and customer care</option><option>Marketing and promotions</option></select></div>
+            <div class="field" style="width: 220px;"><label class="label">Texts a month</label><select class="select"><option>Under 1,000</option><option>1,000 to 10,000</option></select></div>
+          </div>
+          <label class="row small" style="gap: 10px; align-items: flex-start; margin: 4px 0 18px; cursor: pointer;"><button class="{{ agreeCls }}" onClick="{{ toggleAgree }}" style="width: 18px; height: 18px; border-radius: 5px; flex: none; margin-top: 1px; display: inline-flex; align-items: center; justify-content: center; padding: 0; cursor: pointer;"><svg class="icon-sm"  viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 5 5L20 7"></path></svg></button><span>These details are accurate, and we only text customers who agreed to it.</span></label>
+          <div class="row between"><button class="btn btn-ghost" onClick="{{ backToNumber }}">Back</button><button class="btn btn-primary" onClick="{{ submit }}" disabled="{{ cantSubmit }}">Submit for approval</button></div>
+        </sc-if>
+
+        <sc-if value="{{ onReview }}" hint-placeholder-val="{{ false }}">
+          <h2 class="h2">The carriers are reviewing Lone Star</h2>
+          <p class="small muted" style="margin: 4px 0 20px;">{{ reviewNote }} We check every 15 minutes and email you when texting is on. Calls already work.</p>
+          <div class="stack" style="gap: 0; border: 1px solid var(--border); border-radius: 12px; overflow: hidden;">
+            <sc-for list="{{ checks }}" as="k" hint-placeholder-count="3">
+              <div class="row" style="gap: 12px; padding: 14px 16px; border-bottom: 1px solid var(--border);">
+                <span class="{{ k.icCls }}">
+                  <sc-if value="{{ k.done }}" hint-placeholder-val="{{ true }}"><svg class="icon-sm"  viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 5 5L20 7"></path></svg></sc-if>
+                  <sc-if value="{{ k.waiting }}" hint-placeholder-val="{{ false }}"><svg class="icon-sm"  viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"></circle><path d="M12 7.5V12l3 2"></path></svg></sc-if>
+                  <sc-if value="{{ k.todo }}" hint-placeholder-val="{{ false }}"><svg class="icon-sm"  viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a8 8 0 0 1-8 8H8l-5 3 1.5-4.5A8 8 0 1 1 21 12z"></path></svg></sc-if>
+                </span>
+                <span class="stack" style="flex: 1;"><span class="small strong">{{ k.title }}</span><span class="xs faint">{{ k.sub }}</span></span>
+                <span class="{{ k.badgeCls }}">{{ k.badge }}</span>
+              </div>
+            </sc-for>
+          </div>
+          <div class="row" style="gap: 8px; margin-top: 20px;"><button class="btn btn-secondary" onClick="{{ viewDetails }}">View what we sent</button><button class="btn btn-secondary" disabled>Text me a test</button><span style="flex: 1;"></span><span class="xs faint">Submitted Sep 8 by Dale Ramsey</span></div>
+        </sc-if>
+
+        <sc-if value="{{ onRejected }}" hint-placeholder-val="{{ false }}">
+          <div class="callout callout-danger" style="margin-bottom: 18px;"><svg class="icon"  viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="M12 7.5V13M12 16.5h.01"></path></svg><span class="stack" style="gap: 4px;"><strong>The carriers turned down the texting registration on Sep 12.</strong><span>Their reason: “The website doesn’t say how customers agree to receive texts.”</span></span></div>
+          <h2 class="h2">What to fix</h2>
+          <p class="small muted" style="margin: 4px 0 16px;">Add a line to your booking and contact forms, then send the details again. Nothing else changes, and calls keep working.</p>
+          <div class="minicard" style="background: var(--card-2); border-color: transparent; margin-bottom: 18px;"><div class="xs faint" style="margin-bottom: 4px;">A line you can copy onto your website form</div><div class="small">“By giving us your cell number you agree to receive texts from Lone Star HVAC &amp; Roofing about your service. Message rates may apply. Reply STOP to opt out.”</div></div>
+          <div class="row" style="gap: 8px;"><button class="btn btn-primary" onClick="{{ fixDetails }}">Fix and send again</button><button class="btn btn-ghost" onClick="{{ viewDetails }}">View what we sent</button></div>
+        </sc-if>
+      </div>
+    </main>
+  </div>
+  <sc-if value="{{ hasToast }}" hint-placeholder-val="{{ false }}"><div class="toast"><svg class="icon"  viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 5 5L20 7"></path></svg><span>{{ toast }}</span></div></sc-if>
+</div>
+</x-dc>
+<script data-dc-script data-props='{"accent": {"editor": "color", "default": "#2d69d8", "options": ["#2d69d8", "#1950b5", "#6199fd", "#008743"], "section": "Theme"}, "theme": {"editor": "enum", "default": "light", "options": ["light", "dark"], "section": "Theme"}, "stage": {"editor": "enum", "default": "number", "options": ["number", "business", "review", "rejected"], "section": "Preview"}, "$preview": {"width": 1280, "height": 1000}}'>
+class Component extends DCLogic {
+  constructor(...args) {
+    super(...args);
+    this.state = { stage: this.props.stage || 'number', type: 'toll', picked: 0, agree: true, toast: null };
+  }
+  componentDidUpdate(prev) { if (prev.stage !== this.props.stage) this.setState({ stage: this.props.stage || 'number' }); }
+  componentWillUnmount() { clearTimeout(this._t); }
+  flash(msg) { clearTimeout(this._t); this.setState({ toast: msg }); this._t = setTimeout(() => this.setState({ toast: null }), 2600); }
+  renderVals() {
+    const st = this.state;
+    const toll = st.type === 'toll';
+    const list = toll
+      ? [['(833) 555-0148', 'Toll-free'], ['(844) 555-0172', 'Toll-free'], ['(855) 555-0119', 'Toll-free'], ['(877) 555-0163', 'Toll-free']]
+      : [['(713) 555-0100', 'Houston, TX'], ['(713) 555-0126', 'Houston, TX'], ['(713) 555-0184', 'Bellaire, TX'], ['(713) 555-0137', 'Pasadena, TX']];
+    const picked = list[st.picked][0];
+    const stage = st.stage;
+    const step = stage === 'number' ? 1 : stage === 'business' ? 2 : 3;
+    const cls = (n) => (n < step ? 'step done' : n === step ? 'step active' : 'step');
+    const checks = toll
+      ? [
+          { title: 'Number bought', sub: picked + ' · calls ring now', state: 'done' },
+          { title: 'Toll-free verification', sub: 'Usually a few days', state: stage === 'rejected' ? 'rejected' : 'waiting' },
+          { title: 'Texting turns on', sub: 'We email you the moment it does', state: 'todo' }
+        ]
+      : [
+          { title: 'Number bought', sub: picked + ' · calls ring now', state: 'done' },
+          { title: 'Business profile and brand', sub: 'Approved Sep 8', state: 'done' },
+          { title: 'Texting campaign', sub: 'Usually 1 to 3 weeks', state: stage === 'rejected' ? 'rejected' : 'waiting' },
+          { title: 'Texting turns on', sub: 'We email you the moment it does', state: 'todo' }
+        ];
+    const badge = { done: ['badge badge-ok', 'Done'], waiting: ['badge badge-pending', 'In review'], todo: ['badge badge-gray', 'Next'], rejected: ['badge badge-danger', 'Turned down'] };
+    const ic = { done: 'callic done', waiting: 'callic missed', todo: 'callic outgoing', rejected: 'callic missed' };
+    return {
+      accent: this.props.accent ?? '#2d69d8', theme: this.props.theme ?? 'light',
+      s1: cls(1), s2: cls(2), s3: cls(3), n1: step > 1 ? '✓' : '1', n2: step > 2 ? '✓' : '2',
+      onNumber: stage === 'number', onBusiness: stage === 'business', onReview: stage === 'review', onRejected: stage === 'rejected',
+      tollCls: toll ? 'radio-card selected' : 'radio-card', localCls: toll ? 'radio-card' : 'radio-card selected', isToll: toll, isLocal: !toll,
+      pickToll: () => this.setState({ type: 'toll', picked: 0 }), pickLocal: () => this.setState({ type: 'local', picked: 0 }),
+      search: () => this.flash('Shows numbers that are free right now'),
+      numbers: list.map((n, i) => ({ num: n[0], place: n[1], cls: 'num-row', bg: i === st.picked ? 'var(--accent-soft)' : 'transparent',
+        dotStyle: i === st.picked ? 'border-color: var(--accent); box-shadow: inset 0 0 0 4px var(--card), inset 0 0 0 8px var(--accent);' : '', pick: () => this.setState({ picked: i }) })),
+      picked: picked,
+      buy: () => { this.setState({ stage: 'business' }); this.flash(picked + ' bought. Calls ring now.'); },
+      agreeCls: st.agree ? 'btn btn-primary' : 'btn btn-secondary', toggleAgree: () => this.setState({ agree: !st.agree }),
+      backToNumber: () => this.setState({ stage: 'number' }), cantSubmit: !st.agree,
+      submit: () => { this.setState({ stage: 'review' }); this.flash('Sent to the carriers'); },
+      reviewNote: toll ? 'Toll-free verification usually takes a few days.' : 'Local numbers go through a brand and campaign registration that usually takes 1 to 3 weeks.',
+      checks: checks.map((k) => ({ title: k.title, sub: k.sub, done: k.state === 'done', waiting: k.state === 'waiting' || k.state === 'rejected', todo: k.state === 'todo', icCls: ic[k.state], badgeCls: badge[k.state][0], badge: badge[k.state][1] })),
+      viewDetails: () => this.flash('Shows the details you sent, read-only while the carriers review them'),
+      fixDetails: () => this.setState({ stage: 'business' }),
+      toast: st.toast, hasToast: !!st.toast
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,116 @@
+{
+  "artboards": [
+    {
+      "file": "Main.dc.html",
+      "title": "Inbox",
+      "x": 0,
+      "y": 0,
+      "w": 1440,
+      "h": 900,
+      "is_interactive": true
+    },
+    {
+      "file": "Phone.dc.html",
+      "title": "Inbox on a phone",
+      "x": 1520,
+      "y": 0,
+      "w": 390,
+      "h": 844,
+      "is_interactive": true
+    },
+    {
+      "file": "Calls.dc.html",
+      "title": "Calls and texts on a customer",
+      "x": 1990,
+      "y": 0,
+      "w": 1280,
+      "h": 900,
+      "is_interactive": true
+    },
+    {
+      "file": "TextingSetup.dc.html",
+      "title": "Texting setup: number and carrier approval",
+      "x": 0,
+      "y": 1040,
+      "w": 1280,
+      "h": 1000,
+      "is_interactive": true
+    },
+    {
+      "file": "Texting.dc.html",
+      "title": "Settings: Texting & calls",
+      "x": 1360,
+      "y": 1040,
+      "w": 1280,
+      "h": 1060,
+      "is_interactive": true
+    },
+    {
+      "file": "EmailSettings.dc.html",
+      "title": "Settings: Email",
+      "x": 2720,
+      "y": 1040,
+      "w": 1280,
+      "h": 1100,
+      "is_interactive": true
+    },
+    {
+      "file": "Composer.dc.html",
+      "title": "Thread and composer states",
+      "x": 0,
+      "y": 2280,
+      "w": 1280,
+      "h": 1080
+    },
+    {
+      "file": "AlertEmail.dc.html",
+      "title": "Emails the team gets",
+      "x": 1360,
+      "y": 2280,
+      "w": 1280,
+      "h": 920,
+      "is_interactive": true
+    },
+    {
+      "file": "Foundations3.dc.html",
+      "title": "Communication foundations",
+      "x": 2720,
+      "y": 2280,
+      "w": 1280,
+      "h": 1240
+    }
+  ],
+  "annotations": [
+    {
+      "id": "direction",
+      "x": 0,
+      "y": -190,
+      "w": 700,
+      "text": "HandsFreeOS Milestone 3: Communication. Same system as Milestones 1 and 2 (clean & airy, accent #2D69D8, Hanken Grotesk). Every screen is clickable: open conversations, reply, assign, snooze and close in the Inbox; answer, mute and hang up on the Calls screen; buy a number and walk through the carrier approval; add a domain and check its DNS records. The Preview chips above some screens jump to a state (a ringing call, quiet hours, a turned-down registration). Accent and Theme chips recolor a screen or switch it to dark."
+    },
+    {
+      "id": "sample-data",
+      "x": 1520,
+      "y": -190,
+      "w": 640,
+      "text": "Sample data only: Lone Star HVAC & Roofing is a fictional client workspace of Go Biz Help. People, phone numbers, domains and messages are placeholders (555 numbers and .test domains)."
+    },
+    {
+      "id": "phone-note",
+      "x": 1520,
+      "y": 870,
+      "w": 390,
+      "text": "Phone: Inbox joins the bottom bar (Home, Inbox, Customers, Pipeline, More) and Tasks moves into More. A conversation opens full screen without the bar; the i button holds the customer, assign, snooze and close."
+    },
+    {
+      "id": "one-thread-per-channel",
+      "x": 0,
+      "y": 920,
+      "w": 700,
+      "text": "Each conversation is one customer on one channel: Mike's texts are one thread, his email another. Switching the composer to Email in a text thread sends the email into Mike's email thread. The customer's page still shows every channel together on the timeline."
+    }
+  ],
+  "launch": {
+    "view": "canvas"
+  }
+}
