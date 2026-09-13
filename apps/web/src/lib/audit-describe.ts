@@ -1,5 +1,6 @@
 import { LABEL_NAMES, type CalendarLabel, type RequestChannel } from '@hfos/core';
 import type { AuditEntry } from './api/types';
+import { reminderNoun, reminderWhy } from '@/lib/calendar/reminders';
 import { clock } from '@/lib/calls/format';
 
 const ROLE: Record<string, string> = { owner: 'Owner', admin: 'Admin', member: 'Member' };
@@ -377,12 +378,20 @@ function describeAction(e: AuditEntry): string {
       return `added ${s(e.after?.customer) || 'a customer'} to the waitlist for ${s(e.after?.calendar) || 'a calendar'}`;
     case 'waitlist.remove':
       return 'took someone off a waitlist';
+    case 'waitlist.promote':
+      return `gave a waitlisted customer a place on ${apptTitle(e)} on ${when(e.after?.startsAt)}`;
     case 'waitlist.offer':
-      return 'offered an opening to the next person on the waitlist';
+      return s(e.after?.customer)
+        ? `offered ${s(e.after?.customer)} the ${s(e.after?.calendar) || 'open'} time on ${when(e.after?.startsAt)}, held until ${when(e.after?.expiresAt)}`
+        : 'offered an opening to the next person on the waitlist';
     case 'waitlist.expire':
-      return 'passed an unclaimed waitlist offer to the next person';
-    case 'appointment.record_reminder':
-      return `sent a reminder about ${apptTitle(e)}`;
+      return offerExpiredSentence(e);
+    case 'waitlist.claim_online':
+      return claimSentence(e);
+    case 'attendee.record_reminder':
+      return reminderSentence(e);
+    case 'appointment.team_email':
+      return `emailed ${names(e.after?.emailed) || 'the team'} that ${s(e.after?.customer) || 'a customer'} ${s(e.after?.about) === 'cancelled' ? 'cancelled' : 'booked'} ${apptTitle(e)}`;
     default:
       return e.action;
   }
@@ -475,6 +484,38 @@ function calendarSaveSentence(e: AuditEntry): string {
     return `restored ${name(e)} to ${restored.slice('Restored '.length)}, saved as revision ${revision}${labels}`;
   const [first, ...rest] = changes.filter((c) => !c.startsWith('Restored'));
   return `saved ${name(e)} as revision ${revision}${labels}${first ? `: ${first}${rest.length ? ` and ${rest.length} more ${rest.length === 1 ? 'change' : 'changes'}` : ''}` : ''}`;
+}
+
+/** attendee.reminder_recorded: "sent Mike Johnson the day-before reminder for AC tune-up by text". */
+function reminderSentence(e: AuditEntry): string {
+  const customer = s(e.after?.customer) || 'a customer';
+  const noun = reminderNoun(s(e.after?.reminder));
+  const about = s(e.after?.title) ? ` for ${s(e.after?.title)}` : '';
+  const first = s(e.after?.customer).trim().split(/\s+/)[0] ?? '';
+  const why = reminderWhy(s(e.after?.reason) || null, first);
+  if (s(e.after?.status) === 'skipped')
+    return `skipped ${customer}’s ${noun}${about}${why ? `: ${why}` : ''}`;
+  const email = s(e.after?.channel) === 'email';
+  return `sent ${customer} the ${noun}${about} by ${email ? 'email' : 'text'}${email && why ? ` (${why})` : ''}`;
+}
+
+/** waitlist.offer_expired: the time went back to the waitlist, or they wait again (someone else took it). */
+function offerExpiredSentence(e: AuditEntry): string {
+  const who = s(e.after?.customer) || 'a customer';
+  const cal = s(e.after?.calendar) ? ` for ${s(e.after?.calendar)}` : '';
+  return s(e.after?.status) === 'waiting'
+    ? `put ${who} back on the waitlist${cal}: someone else took the time before their offer ran out`
+    : `ended ${who}’s waitlist offer${cal}: it wasn’t claimed in time`;
+}
+
+/** waitlist.claim_online writes the booking, the new customer and lead, and waitlist.claimed. */
+function claimSentence(e: AuditEntry): string {
+  if (e.entityType === 'person') return `added ${name(e)}`;
+  if (e.entityType === 'lead')
+    return `created the lead ${title(e)}${s(e.after?.stage) ? ` in ${s(e.after?.stage)}` : ''}`;
+  if (s(e.after?.title))
+    return `booked ${apptTitle(e)}${forWhom(e)}${withStaff(e)} for ${when(e.after?.startsAt)} from a waitlist offer`;
+  return `recorded that ${s(e.after?.customer) || 'a customer'} claimed their waitlist offer for ${when(e.after?.startsAt)}`;
 }
 
 function calendarStatusSentence(e: AuditEntry): string {

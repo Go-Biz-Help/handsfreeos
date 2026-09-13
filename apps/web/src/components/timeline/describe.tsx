@@ -109,6 +109,8 @@ function describeAppointment(e: TimelineEntry, timeZone?: string): string {
         : `booked ${what} for ${at(e.meta.startsAt)}`;
     case 'appointment_booked_online':
       return `booked ${what} online for ${at(e.meta.startsAt)}`;
+    case 'appointment_booked_waitlist':
+      return `booked ${what} from the waitlist for ${at(e.meta.startsAt)}`;
     case 'appointment_rescheduled':
       return `rescheduled ${what} from ${at(e.meta.from)} to ${at(e.meta.to)}`;
     case 'appointment_cancelled':
@@ -171,7 +173,11 @@ export function timelineDotClass(e: TimelineEntry): string {
   if (e.kind === 'call' || e.kind === 'visit') return 'bg-success';
   if (e.subtype === 'file_added') return 'bg-warning';
   if (e.subtype === 'appointment_booked_online') return 'bg-warning';
-  if (e.subtype === 'appointment_booked' || e.subtype === 'appointment_rescheduled')
+  if (
+    e.subtype === 'appointment_booked' ||
+    e.subtype === 'appointment_booked_waitlist' ||
+    e.subtype === 'appointment_rescheduled'
+  )
     return 'bg-accent';
   if (e.subtype === 'appointment_cancelled') return 'bg-danger';
   if (e.subtype === 'appointment_completed') return 'bg-success';

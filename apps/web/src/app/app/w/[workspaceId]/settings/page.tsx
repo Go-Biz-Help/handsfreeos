@@ -22,6 +22,12 @@ export default async function SettingsPage({
   const { api } = await apiServer();
   const me = await fetchMe(api);
   const role = me.workspaces.find((w) => w.id === workspaceId)?.role;
+  // Both on unless turned off.
+  const notifications = (
+    me.user.settings as {
+      notifications?: { unansweredEmail?: boolean; bookingEmail?: boolean };
+    }
+  ).notifications;
   return (
     <>
       <PageHeader title="Settings" description="Your account, and how this workspace is set up." />
@@ -39,9 +45,8 @@ export default async function SettingsPage({
           <Card className="p-6" id="notifications">
             <NotificationsSection
               initial={{
-                unansweredEmail:
-                  (me.user.settings as { notifications?: { unansweredEmail?: boolean } })
-                    .notifications?.unansweredEmail !== false,
+                unansweredEmail: notifications?.unansweredEmail !== false,
+                bookingEmail: notifications?.bookingEmail !== false,
               }}
             />
           </Card>

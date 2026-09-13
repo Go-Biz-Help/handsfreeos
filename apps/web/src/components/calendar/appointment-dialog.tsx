@@ -27,6 +27,7 @@ import { addressLine } from '@/lib/format';
 import { firstName, namesText } from './appt';
 import { calendarConfig } from './config-cache';
 import { CustomerPicker, type PickedCustomer } from './customer-picker';
+import { TellField, useTextingReady } from './tell-field';
 
 const LOCATION_LABEL: Record<LocationKind, string> = {
   customer_address: 'Customer’s address',
@@ -57,7 +58,9 @@ export interface AppointmentPrefill {
 /**
  * New appointment: customer, calendar, service, who, date, start, length and place. Warnings (outside hours,
  * busy, time off, buffers, a past time) come back from the server and can be booked over with "Book
- * anyway"; another appointment at the same time never can. Times are the workspace's zone, labelled.
+ * anyway"; another appointment at the same time never can. Times are the workspace's zone, labelled. Tell
+ * (ticked by default) sends the customer a confirmation; the reminders follow the calendar's settings either
+ * way.
  */
 export function AppointmentDialog({
   workspaceId,
@@ -87,6 +90,9 @@ export function AppointmentDialog({
   const [person, setPerson] = useState<PickedCustomer | null>(prefill.person ?? null);
   const [address, setAddress] = useState('');
   const [postalCode, setPostalCode] = useState<string | null>(null);
+  const [contact, setContact] = useState<{ id: string; phone: boolean; email: boolean } | null>(
+    null,
+  );
   const [calendarId, setCalendarId] = useState(prefill.calendarId ?? '');
   const [config, setConfig] = useState<{ id: string; config: CalendarConfig } | null>(null);
   const [serviceId, setServiceId] = useState(prefill.serviceId ?? '');
@@ -95,10 +101,12 @@ export function AppointmentDialog({
   const [time, setTime] = useState(prefill.time ? parseClock(prefill.time) : 9 * 60);
   const [duration, setDuration] = useState(60);
   const [locationIdx, setLocationIdx] = useState(0);
+  const [tell, setTell] = useState(true);
   const [warnings, setWarnings] = useState<AppointmentWarning[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const clientId = useRef(crypto.randomUUID());
+  const textingReady = useTextingReady(workspaceId, open);
 
   // Calendars and services, once per opening (keyed by the calendars' ids: the page hands in a new array
   // on every render, and that alone shouldn't fetch again).
@@ -134,7 +142,7 @@ export function AppointmentDialog({
     // `given` is read through its ids (givenKey).
   }, [open, workspaceId, givenKey, prefill.userId, myUserId]);
 
-  // The customer's address, for visits at their place.
+  // The customer's address, for visits at their place, and how they can be reached, for the line under Tell.
   const personId = person?.id ?? prefill.personId ?? null;
   useEffect(() => {
     if (!open || !personId) return;
@@ -147,6 +155,11 @@ export function AppointmentDialog({
         if (!person) setPerson({ id: out.person.id, fullName: out.person.fullName });
         setAddress(addressLine(out.person.address));
         setPostalCode(out.person.address.postalCode);
+        setContact({
+          id: out.person.id,
+          phone: !!out.person.phoneE164,
+          email: !!out.person.email,
+        });
       })
       .catch(() => {});
     return () => {
@@ -191,6 +204,7 @@ export function AppointmentDialog({
   const travel = current?.buffers.travelMinutes ?? 0;
   const mode = current?.team.assignment;
   const many = mode === 'collective' || (current?.team.crewSize ?? 1) > 1;
+  const reach = contact && person && contact.id === person.id ? contact : null;
 
   // Keep choices valid as the calendar or service changes.
   const length = lengths.includes(duration) ? duration : (lengths[0] ?? 60);
@@ -246,6 +260,7 @@ export function AppointmentDialog({
             leadId: prefill.leadId ?? null,
             acknowledgeWarnings: !!warnings,
             clientId: clientId.current,
+            notify: tell,
           },
         }),
       );
@@ -450,10 +465,14 @@ export function AppointmentDialog({
               </div>
             ) : null}
             {person ? (
-              <p className="text-[12.5px] text-text-3">
-                {firstName(person.fullName)} hears from us the way this calendar’s notifications are
-                set.
-              </p>
+              <TellField
+                name={firstName(person.fullName)}
+                notifications={current?.notifications ?? null}
+                reach={reach ? { phone: reach.phone, email: reach.email, textingReady } : null}
+                checked={tell}
+                onChange={setTell}
+                testId="appointment-tell"
+              />
             ) : null}
           </div>
         )}

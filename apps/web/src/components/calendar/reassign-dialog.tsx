@@ -118,6 +118,7 @@ export function ReassignDialog({
               label={<span className="font-medium">{tellText}</span>}
               checked={tell}
               onChange={(e) => setTell(e.target.checked)}
+              data-testid="reassign-tell"
             />
           ) : null}
         </div>

@@ -1,5 +1,5 @@
 'use client';
-import { addDays, formatDuration, localInstant, type CalendarConfig } from '@hfos/core';
+import { addDays, localInstant, type CalendarConfig } from '@hfos/core';
 import {
   CalendarClock,
   Check,
@@ -17,16 +17,19 @@ import { useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { MessageSheet } from '@/components/inbox/message-sheet';
 import { Avatar } from '@/components/ui/avatar';
-import { Badge } from '@/components/ui/badge';
+import { Badge, type BadgeVariant } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetClose, SheetContent } from '@/components/ui/sheet';
 import { ApiError, apiBrowser, errorMessage, unwrap } from '@/lib/api/client';
 import type { AppointmentDetail } from '@/lib/api/types';
 import { useCalls } from '@/lib/calls/call-provider';
+import { byLead, reminderKeyOf, reminderLabel, reminderWhy } from '@/lib/calendar/reminders';
 import {
   dateOf,
+  fmtAt,
   fmtDateLong,
   fmtLength,
+  fmtMonthDay,
   fmtRange,
   fmtTime,
   todayIn,
@@ -35,7 +38,8 @@ import {
 } from '@/lib/calendar/time';
 import { telHref } from '@/lib/format';
 import { useLiveVersion } from '@/lib/realtime/live-provider';
-import { statusOf, useNow } from './appt';
+import { AddAttendeeDialog } from './add-attendee-dialog';
+import { firstName, statusOf, useNow } from './appt';
 import { CancelDialog } from './cancel-dialog';
 import { calendarConfig } from './config-cache';
 import { MoveDialog } from './move-dialog';
@@ -61,44 +65,132 @@ const Section = ({
   </div>
 );
 
+type Attendee = AppointmentDetail['attendees'][number];
+type Entry = NonNullable<Attendee['reminders']['confirmation']>;
+
 interface ReminderRow {
   readonly key: string;
   readonly label: string;
   readonly detail: string;
   readonly text: boolean;
-  readonly future: boolean;
+  /** What the worker recorded; `replaced` is for an earlier start, `planned` is from settings alone. */
+  readonly state: 'scheduled' | 'sent' | 'skipped' | 'replaced' | 'planned';
 }
 
-/** The planned reminders (what was sent arrives with the reminders step). */
-function reminderRows(
+interface ReminderGroup {
+  readonly id: string;
+  /** Whose they are, when more than one customer is booked. */
+  readonly name: string | null;
+  readonly rows: readonly ReminderRow[];
+}
+
+const BADGE: Record<ReminderRow['state'], { label: string; variant: BadgeVariant } | null> = {
+  scheduled: { label: 'Scheduled', variant: 'accent' },
+  sent: { label: 'Sent', variant: 'ok' },
+  skipped: { label: 'Skipped', variant: 'gray' },
+  replaced: { label: 'Replaced', variant: 'gray' },
+  planned: null,
+};
+
+const capital = (s: string) => s[0]!.toUpperCase() + s.slice(1);
+
+/** "Today 4:00 PM", "Wed 4:00 PM" within a week either way, else "Sep 24, 4:00 PM". */
+function dayTime(at: number | string, timeZone: string): string {
+  const d = dateOf(at, timeZone);
+  const today = todayIn(timeZone);
+  const days = Math.round(
+    (Date.parse(`${d}T12:00:00Z`) - Date.parse(`${today}T12:00:00Z`)) / 86_400_000,
+  );
+  if (days === 0) return `Today ${fmtTime(at, timeZone)}`;
+  if (Math.abs(days) < 7) return `${weekdayShort(d)} ${fmtTime(at, timeZone)}`;
+  return `${fmtMonthDay(d, Number(today.slice(0, 4)))}, ${fmtTime(at, timeZone)}`;
+}
+
+/**
+ * What the worker recorded for each customer: the confirmation, then each reminder in the order they go.
+ * Scheduled ones show when they go, sent ones when and how, skipped ones why. An entry for an earlier start
+ * (the appointment moved since) shows as replaced.
+ */
+function recordedGroups(
+  a: AppointmentDetail,
+  attendees: readonly Attendee[],
+  config: CalendarConfig | null,
+  timeZone: string,
+): ReminderGroup[] {
+  const start = Date.parse(a.startsAt);
+  const many = attendees.length > 1;
+  return attendees
+    .map((t) => {
+      const name = firstName(t.fullName);
+      const byText = (key: string) =>
+        t.smsOk &&
+        (key === 'confirmation'
+          ? config?.notifications.confirmation.text
+          : config?.notifications.reminderChannels.text) !== false;
+      const entries: (readonly [string, Entry])[] = [
+        ...(t.reminders.confirmation ? [['confirmation', t.reminders.confirmation] as const] : []),
+        ...Object.keys(t.reminders.reminders)
+          .sort(byLead)
+          .map((k) => [k, t.reminders.reminders[k]!] as const),
+      ];
+      const rows = entries.map(([key, e]): ReminderRow => {
+        const base = {
+          key,
+          label: reminderLabel(key),
+          text: e.channel ? e.channel === 'sms' : byText(key),
+        };
+        if (Date.parse(e.startsAt) !== start)
+          return { ...base, state: 'replaced', detail: `Was for ${fmtAt(e.startsAt, timeZone)}` };
+        const why = reminderWhy(e.reason, name);
+        if (e.status === 'sent')
+          return {
+            ...base,
+            state: 'sent',
+            detail: `${dayTime(e.at, timeZone)} by ${e.channel === 'email' ? 'email' : 'text'}${e.channel === 'email' && why ? `, since ${why}` : ''}`,
+          };
+        if (e.status === 'skipped')
+          return { ...base, state: 'skipped', detail: capital(why ?? 'not sent') };
+        return {
+          ...base,
+          state: 'scheduled',
+          detail: e.dueAt
+            ? `${dayTime(e.dueAt, timeZone)}${e.reason === 'quiet_hours' ? ', after quiet hours' : ''}`
+            : 'Waiting to go',
+        };
+      });
+      return { id: t.id, name: many ? t.fullName : null, rows };
+    })
+    .filter((g) => g.rows.length > 0);
+}
+
+/** Before the worker has recorded anything: the reminders the calendar's settings plan. */
+function plannedRows(
   a: AppointmentDetail,
   config: CalendarConfig,
   timeZone: string,
   now: number | null,
 ): ReminderRow[] {
+  const n = config.notifications;
+  if (!n.reminderChannels.text && !n.reminderChannels.email) return [];
   const start = Date.parse(a.startsAt);
   const date = dateOf(start, timeZone);
   const booked = a.attendees.filter((x) => x.status === 'booked');
-  const text = booked.some((x) => x.smsOk) && config.notifications.reminderChannels.text;
-  const today = todayIn(timeZone);
-  return config.notifications.reminders.map((r, i) => {
+  const text = booked.some((x) => x.smsOk) && n.reminderChannels.text;
+  return n.reminders.map((r) => {
     const at =
       r.kind === 'day_before'
         ? localInstant(addDays(date, -1), r.at, timeZone)
         : start - r.minutes * 60_000;
-    const d = dateOf(at, timeZone);
-    const day = d === today ? 'Today' : weekdayShort(d);
+    const key = reminderKeyOf(r);
     return {
-      key: `${r.kind}-${i}`,
-      label:
-        r.kind === 'day_before' ? 'Day before' : `${capital(formatDuration(r.minutes))} before`,
-      detail: `${day} ${fmtTime(at, timeZone)}${booked.length > 1 ? `, to ${booked.length} people` : ''}`,
+      key,
+      label: reminderLabel(key),
+      detail: `${dayTime(at, timeZone)}${booked.length > 1 ? `, to ${booked.length} people` : ''}`,
       text,
-      future: now !== null && at > now,
+      state: now !== null && at > now && a.status === 'scheduled' ? 'scheduled' : 'planned',
     };
   });
 }
-const capital = (s: string) => s[0]!.toUpperCase() + s.slice(1);
 
 /**
  * An appointment's details, from the right on wide screens and from the bottom on phones: the customer (or
@@ -126,7 +218,7 @@ export function AppointmentSheet({
   const [appt, setAppt] = useState<AppointmentDetail | null>(null);
   const [missing, setMissing] = useState(false);
   const [config, setConfig] = useState<CalendarConfig | null>(null);
-  const [action, setAction] = useState<'reschedule' | 'cancel' | 'reassign' | null>(null);
+  const [action, setAction] = useState<'reschedule' | 'cancel' | 'reassign' | 'add' | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [message, setMessage] = useState<'sms' | 'email' | null>(null);
 
@@ -185,6 +277,7 @@ export function AppointmentSheet({
   const status = appt ? statusOf(appt, now) : null;
   const booked = appt?.attendees.filter((x) => x.status !== 'cancelled') ?? [];
   const single = appt && appt.capacity === 1 && booked.length === 1 ? booked[0]! : null;
+  const seatsLeft = appt ? Math.max(0, appt.capacity - appt.seatsTaken) : 0;
   const travel =
     config && appt?.location.kind === 'customer_address' ? config.buffers.travelMinutes : 0;
   const whenNote = [
@@ -208,8 +301,16 @@ export function AppointmentSheet({
           ? 'Host'
           : 'Assigned';
   const address = appt?.location.address ?? null;
-  const reminders =
-    appt && config && booked.length ? reminderRows(appt, config, timeZone, now) : [];
+  const recorded = appt && booked.length ? recordedGroups(appt, booked, config, timeZone) : [];
+  const planned =
+    appt && config && booked.length && !recorded.length
+      ? plannedRows(appt, config, timeZone, now)
+      : [];
+  const reminders: readonly ReminderGroup[] = recorded.length
+    ? recorded
+    : planned.length
+      ? [{ id: 'planned', name: null, rows: planned }]
+      : [];
 
   return (
     <>
@@ -330,9 +431,22 @@ export function AppointmentSheet({
                 <Section
                   label="Seats"
                   action={
-                    <span className="text-xs text-text-3">
-                      {appt.capacity - appt.seatsTaken} left
-                      {config?.waitlist.enabled ? ' · waitlist on' : ''}
+                    <span className="flex items-center gap-2">
+                      <span className="text-xs text-text-3">
+                        {seatsLeft} left
+                        {config?.waitlist.enabled ? ' · waitlist on' : ''}
+                      </span>
+                      {appt.status === 'scheduled' && seatsLeft > 0 ? (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7"
+                          onClick={() => setAction('add')}
+                          data-testid="sheet-add-attendee"
+                        >
+                          Add
+                        </Button>
+                      ) : null}
                     </span>
                   }
                 >
@@ -433,26 +547,35 @@ export function AppointmentSheet({
 
               {reminders.length ? (
                 <Section label="Reminders">
-                  {reminders.map((r) => (
-                    <div
-                      key={r.key}
-                      className="flex items-start gap-2.5 py-1.5 text-[13px]"
-                      data-testid="sheet-reminder"
-                    >
-                      <span className="mt-0.5 text-text-3">
-                        {r.text ? (
-                          <MessageCircle className="h-3.5 w-3.5" strokeWidth={1.5} />
-                        ) : (
-                          <Mail className="h-3.5 w-3.5" strokeWidth={1.5} />
-                        )}
-                      </span>
-                      <span className="min-w-0 flex-1">
-                        <span className="font-medium">{r.label}</span>
-                        <span className="text-text-3"> · {r.detail}</span>
-                      </span>
-                      {r.future && appt.status === 'scheduled' ? (
-                        <Badge variant="accent">Scheduled</Badge>
+                  {reminders.map((g) => (
+                    <div key={g.id}>
+                      {g.name ? (
+                        <div className="pt-1.5 text-xs font-medium text-text-2">{g.name}</div>
                       ) : null}
+                      {g.rows.map((r) => {
+                        const badge = BADGE[r.state];
+                        return (
+                          <div
+                            key={r.key}
+                            className="flex items-start gap-2.5 py-1.5 text-[13px]"
+                            data-testid="sheet-reminder"
+                            data-state={r.state}
+                          >
+                            <span className="mt-0.5 text-text-3">
+                              {r.text ? (
+                                <MessageCircle className="h-3.5 w-3.5" strokeWidth={1.5} />
+                              ) : (
+                                <Mail className="h-3.5 w-3.5" strokeWidth={1.5} />
+                              )}
+                            </span>
+                            <span className="min-w-0 flex-1">
+                              <span className="font-medium">{r.label}</span>
+                              <span className="text-text-3"> · {r.detail}</span>
+                            </span>
+                            {badge ? <Badge variant={badge.variant}>{badge.label}</Badge> : null}
+                          </div>
+                        );
+                      })}
                     </div>
                   ))}
                 </Section>
@@ -577,6 +700,18 @@ export function AppointmentSheet({
           workspaceId={workspaceId}
           appt={appt}
           people={people}
+          onClose={() => setAction(null)}
+          onDone={() => {
+            setAction(null);
+            changed();
+          }}
+        />
+      ) : null}
+      {appt && action === 'add' ? (
+        <AddAttendeeDialog
+          workspaceId={workspaceId}
+          appt={appt}
+          config={config}
           onClose={() => setAction(null)}
           onDone={() => {
             setAction(null);
