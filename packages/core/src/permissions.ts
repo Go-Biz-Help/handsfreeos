@@ -32,6 +32,8 @@ export const ROLE_PERMISSIONS = {
     'assistant.use',
     'calendars.manage',
     'appointments.write',
+    'workflows.manage',
+    'knowledge.manage',
   ],
   admin: [
     'workspace.read',
@@ -55,6 +57,8 @@ export const ROLE_PERMISSIONS = {
     'assistant.use',
     'calendars.manage',
     'appointments.write',
+    'workflows.manage',
+    'knowledge.manage',
   ],
   member: [
     'workspace.read',
@@ -72,8 +76,9 @@ export const ROLE_PERMISSIONS = {
     'org.members.manage',
     'workspace.create',
     'org.audit.read',
+    'org.templates.manage',
   ],
-  org_admin: ['org.read', 'workspace.create', 'org.audit.read'],
+  org_admin: ['org.read', 'workspace.create', 'org.audit.read', 'org.templates.manage'],
 } as const satisfies Record<string, readonly string[]>;
 
 export type RoleKey = keyof typeof ROLE_PERMISSIONS;
