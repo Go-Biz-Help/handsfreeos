@@ -75,6 +75,13 @@ export interface RegistrationRequest {
   readonly messagingServiceSid: string | null;
   /** Where the carrier writes about the registration. */
   readonly notifyEmail: string;
+  /**
+   * The carrier's id for this step's earlier request, when people send it again after the carrier turned it
+   * down: a toll-free request is edited (or replaced once Twilio no longer takes edits), a campaign is
+   * replaced, a brand is resubmitted, and a Trust Hub bundle (which support corrects in the console) is
+   * only looked at. Null for a first request.
+   */
+  readonly replaces: string | null;
 }
 
 export type RegistrationOutcome = 'submitted' | 'in_review' | 'approved' | 'rejected' | 'failed';

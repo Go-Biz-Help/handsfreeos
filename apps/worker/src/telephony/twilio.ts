@@ -243,6 +243,47 @@ async function evaluateAndSubmit(
   return stateOf(res.sid, res.status ?? 'pending-review', BUNDLE_STATUS, res);
 }
 
+/** A resource that may be gone (404): null instead of an error. */
+async function getIfThere<T>(creds: Creds, url: string): Promise<T | null> {
+  try {
+    return await call<T>(creds, 'GET', url);
+  } catch (e) {
+    if (e instanceof ProviderError && e.httpStatus === 404) return null;
+    throw e;
+  }
+}
+
+/** Removes a resource; one that is already gone is what we wanted. */
+async function deleteIfThere(creds: Creds, url: string): Promise<void> {
+  try {
+    await call(creds, 'DELETE', url);
+  } catch (e) {
+    if (!(e instanceof ProviderError && e.httpStatus === 404)) throw e;
+  }
+}
+
+async function fetchBundle(creds: Creds, bundle: Bundle, sid: string): Promise<RegistrationState> {
+  const res = await call<TwilioStatus>(creds, 'GET', `${TRUST_HUB}/${bundle}/${sid}`);
+  return stateOf(res.sid, res.status ?? '', BUNDLE_STATUS, res);
+}
+
+/** Twilio just took a request again: a verdict its answer still shows is the old one, so it reads as in review. */
+const reviewingAgain = (state: RegistrationState): RegistrationState =>
+  state.status === 'rejected' ? { ...state, status: 'in_review', rejectionReason: null } : state;
+
+interface TollFreeVerification extends TwilioStatus {
+  edit_allowed?: boolean | null;
+  edit_expiration?: string | null;
+}
+
+/** Twilio takes edits of a rejected verification for about seven days after its decision, and reviews them first. */
+const editable = (v: TollFreeVerification) =>
+  v.edit_allowed === true && (!v.edit_expiration || Date.parse(v.edit_expiration) > Date.now());
+
+/**
+ * Toll-free verification. Sent again after a rejection, the same request is edited while Twilio allows it;
+ * after that the old one is deleted and a new one waits in the normal queue.
+ */
 async function submitTollFree(
   account: ProviderAccount,
   request: RegistrationRequest,
@@ -250,43 +291,63 @@ async function submitTollFree(
 ): Promise<RegistrationState> {
   if (!request.phoneNumberSid)
     throw new ProviderError('The number has no carrier id yet.', 'no_number_sid', false);
-  const res = await call<TwilioStatus>(
-    credsOf(account),
-    'POST',
-    `${MESSAGING}/Tollfree/Verifications`,
-    {
-      TollfreePhoneNumberSid: request.phoneNumberSid,
-      BusinessName: b.legalName,
-      BusinessType: TOLL_FREE_BUSINESS_TYPE[b.businessType] ?? 'PRIVATE_PROFIT',
-      ...(b.businessType !== 'sole_proprietor' && b.ein
-        ? {
-            BusinessRegistrationNumber: b.ein.replace('-', ''),
-            BusinessRegistrationAuthority: 'EIN',
-            BusinessRegistrationCountry: 'US',
-          }
-        : {}),
-      BusinessWebsite: b.website,
-      NotificationEmail: request.notifyEmail || b.contact.email,
-      UseCaseCategories: USE_CASES[b.useCase] ?? USE_CASES['customer_care'],
-      UseCaseSummary: b.optInDescription,
-      ProductionMessageSample: b.messageSamples.join('\n\n'),
-      OptInImageUrls: [b.website],
-      OptInType: 'VERBAL',
-      MessageVolume: MESSAGE_VOLUME[b.monthlyVolume] ?? '1,000',
-      BusinessStreetAddress: b.address.line1,
-      BusinessCity: b.address.city,
-      BusinessStateProvinceRegion: b.address.state,
-      BusinessPostalCode: b.address.postalCode,
-      BusinessCountry: b.address.country ?? 'US',
-      BusinessContactFirstName: b.contact.firstName,
-      BusinessContactLastName: b.contact.lastName,
-      BusinessContactEmail: b.contact.email,
-      BusinessContactPhone: b.contact.phone,
-      AdditionalInformation: b.optInDescription,
-      ExternalReferenceId: request.phoneNumberE164,
-    },
-  );
+  const creds = credsOf(account);
+  const url = `${MESSAGING}/Tollfree/Verifications`;
+  if (request.replaces) {
+    const earlier = await getIfThere<TollFreeVerification>(creds, `${url}/${request.replaces}`);
+    // Back in review or approved already (sent again twice, say): there is nothing to fix.
+    if (earlier && earlier.status !== 'TWILIO_REJECTED')
+      return stateOf(earlier.sid, earlier.status ?? '', TOLL_FREE_STATUS, earlier);
+    if (earlier && editable(earlier)) {
+      const res = await call<TwilioStatus>(creds, 'POST', `${url}/${earlier.sid}`, {
+        ...tollFreeDetails(request, b),
+        EditReason: 'Corrected the business details the carriers asked about.',
+      });
+      return reviewingAgain(
+        stateOf(res.sid, res.status ?? 'PENDING_REVIEW', TOLL_FREE_STATUS, res),
+      );
+    }
+    if (earlier) await deleteIfThere(creds, `${url}/${earlier.sid}`);
+  }
+  const res = await call<TwilioStatus>(creds, 'POST', url, {
+    TollfreePhoneNumberSid: request.phoneNumberSid,
+    ...tollFreeDetails(request, b),
+    ExternalReferenceId: request.phoneNumberE164,
+  });
   return stateOf(res.sid, res.status ?? 'PENDING_REVIEW', TOLL_FREE_STATUS, res);
+}
+
+/** The business details of a toll-free verification: the same fields for a new request and an edit. */
+function tollFreeDetails(request: RegistrationRequest, b: Business): Params {
+  return {
+    BusinessName: b.legalName,
+    BusinessType: TOLL_FREE_BUSINESS_TYPE[b.businessType] ?? 'PRIVATE_PROFIT',
+    ...(b.businessType !== 'sole_proprietor' && b.ein
+      ? {
+          BusinessRegistrationNumber: b.ein.replace('-', ''),
+          BusinessRegistrationAuthority: 'EIN',
+          BusinessRegistrationCountry: 'US',
+        }
+      : {}),
+    BusinessWebsite: b.website,
+    NotificationEmail: request.notifyEmail || b.contact.email,
+    UseCaseCategories: USE_CASES[b.useCase] ?? USE_CASES['customer_care'],
+    UseCaseSummary: b.optInDescription,
+    ProductionMessageSample: b.messageSamples.join('\n\n'),
+    OptInImageUrls: [b.website],
+    OptInType: 'VERBAL',
+    MessageVolume: MESSAGE_VOLUME[b.monthlyVolume] ?? '1,000',
+    BusinessStreetAddress: b.address.line1,
+    BusinessCity: b.address.city,
+    BusinessStateProvinceRegion: b.address.state,
+    BusinessPostalCode: b.address.postalCode,
+    BusinessCountry: b.address.country ?? 'US',
+    BusinessContactFirstName: b.contact.firstName,
+    BusinessContactLastName: b.contact.lastName,
+    BusinessContactEmail: b.contact.email,
+    BusinessContactPhone: b.contact.phone,
+    AdditionalInformation: b.optInDescription,
+  };
 }
 
 /**
@@ -299,6 +360,8 @@ async function submitCustomerProfile(
   b: Business,
   primaryProfileSid: string | null,
 ): Promise<RegistrationState> {
+  // Sent again: support corrects a turned-down profile in the Twilio console, so here it is only looked at.
+  if (request.replaces) return fetchBundle(credsOf(account), 'CustomerProfiles', request.replaces);
   if (!primaryProfileSid)
     throw new ProviderError(
       'Local numbers cannot be registered yet: HandsFreeOS is finishing its own carrier profile. Use a toll-free number for now.',
@@ -375,6 +438,8 @@ async function submitTrustProduct(
   request: RegistrationRequest,
   b: Business,
 ): Promise<RegistrationState> {
+  // Sent again: support corrects a turned-down trust product in the Twilio console; here it is only looked at.
+  if (request.replaces) return fetchBundle(credsOf(account), 'TrustProducts', request.replaces);
   const profileSid = request.previous.a2p_customer_profile;
   if (!profileSid) throw new ProviderError('The customer profile goes first.', 'a2p_order', false);
   const creds = credsOf(account);
@@ -400,6 +465,16 @@ async function submitBrand(
   request: RegistrationRequest,
   b: Business,
 ): Promise<RegistrationState> {
+  if (request.replaces) {
+    // Twilio checks the brand again against the business profile as it stands now (support corrects that in
+    // the Twilio console first). Three of these are free; after that Twilio refuses (21724) until support asks.
+    const res = await call<TwilioStatus>(
+      credsOf(account),
+      'POST',
+      `${MESSAGING}/a2p/BrandRegistrations/${request.replaces}`,
+    );
+    return reviewingAgain(stateOf(res.sid, res.status ?? 'PENDING', BRAND_STATUS, res));
+  }
   const profileSid = request.previous.a2p_customer_profile;
   const productSid = request.previous.a2p_trust_product;
   if (!profileSid || !productSid)
@@ -434,6 +509,13 @@ async function submitCampaign(
       'Local numbers need at least two example texts. Add another example and submit again.',
       'a2p_samples',
       true,
+    );
+  // A campaign the carriers turned down is replaced (Twilio's edit in place is still a private beta); the new
+  // one may be charged the vetting fee again.
+  if (request.replaces)
+    await deleteIfThere(
+      credsOf(account),
+      `${MESSAGING}/Services/${serviceSid}/Compliance/Usa2p/${request.replaces}`,
     );
   const res = await call<TwilioStatus & { campaign_status?: string }>(
     credsOf(account),

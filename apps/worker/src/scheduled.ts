@@ -1,7 +1,9 @@
 import { randomUUID } from 'node:crypto';
 import { eq, inArray } from 'drizzle-orm';
 import {
+  carrierHasDetails,
   conversationReopen,
+  emailDomainRecord,
   executeCommand,
   formatPhone,
   registrationUpdateStatus,
@@ -9,12 +11,26 @@ import {
   workspaceMessaging,
 } from '@hfos/core/server';
 import { asWorker, rows, sql } from '@hfos/db/client';
-import { conversations, people, telephonyRegistrations, users } from '@hfos/db/schema';
+import {
+  conversations,
+  emailDomains,
+  people,
+  telephonyRegistrations,
+  users,
+} from '@hfos/db/schema';
 import { unansweredEmail } from './emails/templates';
+import { domainRecordInput, lapsedMessage, sharedAddress } from './handlers/email';
 import { advanceRegistrations, managers } from './handlers/telephony';
 import type { JobHandler, JobMap } from './jobs';
 import { mailboxSync } from './mailbox/sync';
-import { systemActor, tenantOf, workerMeta, type WorkerServices } from './services';
+import { errorMessage } from './outbox';
+import {
+  systemActor,
+  tenantOf,
+  workerMeta,
+  type TenantScope,
+  type WorkerServices,
+} from './services';
 import { recordSystemEvent } from './system-event';
 import { loadAccount } from './telephony/accounts';
 import type { RegistrationKind } from './telephony/provider';
@@ -124,14 +140,16 @@ export const registrationPoll: JobHandler = async (ctx) => {
       ] as const,
   );
   if (!reg || (reg.status !== 'submitted' && reg.status !== 'in_review')) return;
-  if (!reg.providerSid) {
+  // Details the carrier hasn't got (never sent, or sent again by people): send those instead of asking about
+  // the old request, which would only repeat its old answer.
+  if (!carrierHasDetails(reg)) {
     await advanceRegistrations(ctx, scope);
     return;
   }
   if (!account) throw new Error('no telephony account for this workspace');
   const state = await ctx.telephony.fetchRegistration(account, {
     kind: reg.kind as RegistrationKind,
-    providerSid: reg.providerSid,
+    providerSid: reg.providerSid!,
   });
   const stillReviewing = state.status === 'submitted' || state.status === 'in_review';
   await executeCommand(
@@ -190,24 +208,96 @@ export const sweepDeliveries: JobHandler = async (ctx) => {
   return { rescheduleAt: new Date(Date.now() + DAY) };
 };
 
+/**
+ * One workspace domain, looked at again: a pending (or failed) one whose records now pass turns verified; a
+ * verified one whose records are gone moves to failed, and its mail goes out from the shared address until they
+ * are back. Anything else is no news and writes nothing. The owners hear about both changes (handlers/email).
+ */
+export async function checkEmailDomain(
+  services: WorkerServices,
+  scope: TenantScope,
+  emailDomainId: string,
+): Promise<void> {
+  const [d, shared] = await asWorker(
+    services.db,
+    scope,
+    async (tx) =>
+      [
+        (await tx.select().from(emailDomains).where(eq(emailDomains.id, emailDomainId)))[0],
+        await sharedAddress(tx, scope.workspaceId),
+      ] as const,
+  );
+  if (!d?.providerDomainId) return;
+  const state = await services.email.domains.verify(d.providerDomainId);
+  const passes = state.dkimVerified && state.returnPathVerified;
+  if (passes === (d.status === 'verified')) return;
+  await executeCommand(
+    services.db,
+    emailDomainRecord,
+    {
+      workspaceId: scope.workspaceId,
+      emailDomainId: d.id,
+      ...domainRecordInput(state),
+      ...(passes ? {} : { error: lapsedMessage(state, shared) }),
+    },
+    systemActor(scope),
+    workerMeta(),
+  );
+}
+
+/** Daily: every workspace domain the mail service knows is looked at again (Settings → Email promises it). */
+export const checkEmailDomains: JobHandler = async (ctx) => {
+  const due = await asWorker(ctx.db, {}, (tx) =>
+    rows<{ email_domain_id: string; workspace_id: string; organization_id: string }>(
+      tx,
+      sql`select email_domain_id, workspace_id, organization_id from private.email_domains_to_check()`,
+    ),
+  );
+  for (const d of due)
+    try {
+      await checkEmailDomain(
+        ctx,
+        { workspaceId: d.workspace_id, organizationId: d.organization_id },
+        d.email_domain_id,
+      );
+    } catch (e) {
+      // The mail service or DNS not answering for one domain waits for tomorrow; the others go on.
+      ctx.log.warn(
+        { emailDomainId: d.email_domain_id, err: errorMessage(e) },
+        'email domain check failed',
+      );
+    }
+  return { rescheduleAt: new Date(Date.now() + DAY) };
+};
+
 export const jobs: JobMap = {
   'conversation.unanswered_check': unansweredCheck,
   'registration.poll': registrationPoll,
   'conversation.unsnooze': unsnooze,
   'webhook_deliveries.sweep': sweepDeliveries,
+  'email_domains.check': checkEmailDomains,
   'mailbox.sync': mailboxSync,
 };
 
-/** Periodic jobs exist exactly once (their dedupe key keeps one pending row). */
+/** Periodic jobs exist exactly once (their dedupe key keeps one pending row); the first run is an hour out. */
 export async function ensureRecurringJobs(services: WorkerServices): Promise<void> {
-  await asWorker(services.db, {}, (tx) =>
-    scheduleJob(tx, {
+  const runAt = new Date(Date.now() + 60 * 60_000);
+  await asWorker(services.db, {}, async (tx) => {
+    await scheduleJob(tx, {
       kind: 'webhook_deliveries.sweep',
       dedupeKey: 'sweep:webhook_deliveries',
-      runAt: new Date(Date.now() + 60 * 60_000),
+      runAt,
       payload: {},
       workspaceId: null,
       organizationId: null,
-    }),
-  );
+    });
+    await scheduleJob(tx, {
+      kind: 'email_domains.check',
+      dedupeKey: 'check:email_domains',
+      runAt,
+      payload: {},
+      workspaceId: null,
+      organizationId: null,
+    });
+  });
 }

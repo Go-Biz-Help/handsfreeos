@@ -648,6 +648,8 @@ export const telephonyRegistrations = app.table('telephony_registrations', {
   approvedAt: ts('approved_at'),
   nextPollAt: ts('next_poll_at'),
   pollCount: integer('poll_count').notNull().default(0),
+  /** The submitted_at of the details the carrier last received; a different submitted_at is not sent yet. */
+  carrierSubmittedAt: ts('carrier_submitted_at'),
   createdBy: userRef('created_by'),
   ...timestamps(),
 });

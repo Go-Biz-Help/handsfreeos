@@ -5,6 +5,7 @@ import { HfosError } from '../errors';
 import { userIdOf } from '../kernel/actor';
 import { defineCommand } from '../kernel/define';
 import {
+  carrierHasDetails,
   FAMILY_KINDS,
   familyFor,
   latestByKind,
@@ -26,7 +27,7 @@ const inWorkspace = (i: { workspaceId: string }) => ({
 export const registrationSubmit = defineCommand({
   name: 'registration.submit',
   description:
-    'Send the business details the carriers need before texts can go out: toll-free verification, or the 10DLC brand and campaign for a local number.',
+    'Send the business details the carriers need before texts can go out: toll-free verification, or the 10DLC brand and campaign for a local number. After the carriers turn one down, send the corrected details again: a toll-free request is edited or replaced and a campaign is registered again. A local number’s business profile and brand are checked against what HandsFreeOS support corrected with the carriers, so changed details there apply to the campaign only.',
   risk: 3,
   input: RegistrationSubmitInput,
   output: RegistrationSubmitOutput,
@@ -50,7 +51,12 @@ export const registrationSubmit = defineCommand({
       (await loadRegistrations(ctx.tx, workspaceId)).filter((r) => kinds.includes(r.kind)),
     );
     const chain = kinds.map((k) => latest.get(k));
-    if (chain.some((r) => r && (r.status === 'submitted' || r.status === 'in_review')))
+    // Only what the carrier has is under review; a step still waiting to be sent can change.
+    if (
+      chain.some(
+        (r) => r && (r.status === 'submitted' || r.status === 'in_review') && carrierHasDetails(r),
+      )
+    )
       throw HfosError.rule(
         'registration_in_review',
         409,
@@ -67,7 +73,8 @@ export const registrationSubmit = defineCommand({
     const now = new Date();
     const ids: string[] = [];
     let previous: string | null = null;
-    // Approved steps stay approved; anything else in the chain is (re)sent in order.
+    // Approved steps stay approved; anything else in the chain is (re)sent in order. A step the carrier turned
+    // down keeps its provider id: the worker edits or replaces that request with these details.
     for (const kind of kinds) {
       const existing = latest.get(kind);
       if (existing?.status === 'approved') {
@@ -151,6 +158,10 @@ export const registrationUpdateStatus = defineCommand({
     else if (input.status !== 'rejected' && input.status !== 'failed') patch.rejectionReason = null;
     if (input.nextPollAt !== undefined)
       patch.nextPollAt = input.nextPollAt ? new Date(input.nextPollAt) : null;
+    if (input.carrierSubmittedAt !== undefined)
+      patch.carrierSubmittedAt = input.carrierSubmittedAt
+        ? new Date(input.carrierSubmittedAt)
+        : null;
     if (input.status === 'approved' && !reg.approvedAt) patch.approvedAt = new Date();
     await ctx.tx
       .update(telephonyRegistrations)

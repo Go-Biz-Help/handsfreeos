@@ -1,5 +1,6 @@
 import { and, asc, eq, isNull } from 'drizzle-orm';
 import {
+  carrierHasDetails,
   executeCommand,
   FAMILY_KINDS,
   familyFor,
@@ -34,8 +35,11 @@ import {
   type WorkerServices,
 } from '../services';
 import { ensureAccount, loadAccount, webhookUrls } from '../telephony/accounts';
+import { errorMessage } from '../outbox';
 import {
   isPermanentProviderError,
+  ProviderError,
+  type OwnedNumber,
   type RegistrationKind,
   type RegistrationState,
 } from '../telephony/provider';
@@ -43,7 +47,22 @@ import type { EventHandler, HandlerContext } from './types';
 
 const metaOf = (ctx: HandlerContext) => workerMeta(ctx.event.correlationId, ctx.event.id);
 
-/** Buys the number people picked: subaccount and messaging service first (each committed), then the number. */
+/** Why buying kept failing, in words that fit "We couldn’t buy {number}: {reason} Pick another number." */
+function purchaseTrouble(e: unknown): string {
+  if (e instanceof ProviderError) {
+    if (e.httpStatus === 401 || e.httpStatus === 403)
+      return 'The phone carrier refused HandsFreeOS’s account.';
+    if (e.httpStatus === 429) return 'The phone carrier is too busy right now.';
+    return 'The phone carrier did not answer.';
+  }
+  return 'Setting up the number kept failing.';
+}
+
+/**
+ * Buys the number people picked: subaccount and messaging service first (each committed), then the number.
+ * A refusal is recorded at once; trouble worth retrying is retried, and on the last try the number is marked
+ * failed too, so the page asks for another number instead of "Setting up" for good.
+ */
 export const onPurchaseRequested: EventHandler = async (ctx) => {
   const scope = tenantOf(ctx.scope);
   const [n] = await ctx.tx
@@ -51,9 +70,18 @@ export const onPurchaseRequested: EventHandler = async (ctx) => {
     .from(phoneNumbers)
     .where(eq(phoneNumbers.id, ctx.event.entityId!));
   if (!n || n.status !== 'provisioning') return;
-  const account = await ensureAccount(ctx, scope);
+  const fail = (error: string) =>
+    executeCommand(
+      ctx.db,
+      phoneNumberFail,
+      { workspaceId: scope.workspaceId, phoneNumberId: n.id, error },
+      systemActor(scope),
+      metaOf(ctx),
+    );
+  let bought: OwnedNumber | null = null;
   try {
-    const bought =
+    const account = await ensureAccount(ctx, scope);
+    bought =
       (await ctx.telephony.findOwnedNumber(account, n.e164)) ??
       (await ctx.telephony.buyNumber(account, { e164: n.e164, urls: webhookUrls(ctx.publicUrl) }));
     if (account.messagingServiceSid)
@@ -72,14 +100,14 @@ export const onPurchaseRequested: EventHandler = async (ctx) => {
       metaOf(ctx),
     );
   } catch (e) {
-    if (!isPermanentProviderError(e)) throw e;
-    await executeCommand(
-      ctx.db,
-      phoneNumberFail,
-      { workspaceId: scope.workspaceId, phoneNumberId: n.id, error: e.message },
-      systemActor(scope),
-      metaOf(ctx),
-    );
+    if (isPermanentProviderError(e)) {
+      await fail(e.message);
+      return;
+    }
+    // A number already bought stays "Setting up" for an operator: telling the owner it wasn't bought is wrong.
+    if (ctx.attempt < ctx.maxAttempts || bought) throw e;
+    ctx.log.warn({ err: errorMessage(e) }, 'number purchase gave up after the last try');
+    await fail(purchaseTrouble(e));
   }
 };
 
@@ -117,8 +145,10 @@ const PROCEED_WHILE_REVIEWING = new Set<RegistrationKind>([
 ]);
 
 /**
- * Walks the workspace's registration chain in order: sends each step that is waiting once the steps before it
- * are usable, and keeps a poll going for every step under review. Safe to call again at any time.
+ * Walks the workspace's registration chain in order: sends each step whose details the carrier doesn't have yet
+ * (new, or sent again by people after a rejection) once the steps before it are usable, and keeps a poll going
+ * for every step under review. A step sent again waits for the steps before it to be approved, since the
+ * carriers check it against them. Safe to call again at any time.
  */
 export async function advanceRegistrations(
   services: WorkerServices,
@@ -152,6 +182,7 @@ export async function advanceRegistrations(
     );
   // Provider ids of the steps later ones may build on.
   const usable: Partial<Record<RegistrationKind, string>> = {};
+  let approvedSoFar = true;
   for (const kind of FAMILY_KINDS[familyFor(number.numberType)] as readonly RegistrationKind[]) {
     const reg = latest.get(kind);
     if (!reg) return;
@@ -160,12 +191,15 @@ export async function advanceRegistrations(
       continue;
     }
     if (!REVIEWING.has(reg.status)) return; // rejected, failed or draft: people act next
-    if (reg.providerSid) {
+    if (carrierHasDetails(reg)) {
       await ensurePoll(services, scope, reg.id);
       if (!PROCEED_WHILE_REVIEWING.has(kind)) return;
-      usable[kind] = reg.providerSid;
+      usable[kind] = reg.providerSid!;
+      approvedSoFar = false;
       continue;
     }
+    // Sent again after the carriers turned it down: it goes once the steps before it are approved.
+    if (reg.providerSid && !approvedSoFar) return;
     const submission = reg.submission as Record<string, unknown>;
     const contact = (submission['contact'] ?? {}) as { email?: string };
     let state: RegistrationState;
@@ -178,6 +212,7 @@ export async function advanceRegistrations(
         previous: { ...usable },
         messagingServiceSid: account.messagingServiceSid,
         notifyEmail: contact.email ?? '',
+        replaces: reg.providerSid,
       });
     } catch (e) {
       if (!isPermanentProviderError(e)) throw e;
@@ -194,6 +229,8 @@ export async function advanceRegistrations(
       nextPollAt: reviewing
         ? new Date(Date.now() + services.registrationPollMs).toISOString()
         : null,
+      // The version the carrier now has: people sending again later makes this differ.
+      carrierSubmittedAt: reg.submittedAt?.toISOString() ?? null,
     });
     if (state.status === 'approved') {
       usable[kind] = state.providerSid;
@@ -203,6 +240,7 @@ export async function advanceRegistrations(
     await ensurePoll(services, scope, reg.id);
     if (!PROCEED_WHILE_REVIEWING.has(kind)) return;
     usable[kind] = state.providerSid;
+    approvedSoFar = false;
   }
 }
 

@@ -1,6 +1,7 @@
 /**
  * Postmark over plain HTTPS: sending with the server token, workspace domains with the account token.
  */
+import { cnameInDns, dkimInDns, systemDns, type DnsLookup } from './dns';
 import {
   EmailError,
   mailbox,
@@ -71,10 +72,34 @@ const stateOf = (d: PostmarkDomain): DomainState => ({
   returnPathVerified: !!d.ReturnPathDomainVerified,
 });
 
+/**
+ * Postmark keeps DKIM "verified" once it ever was, even after the record is removed, so what it calls verified
+ * is looked up in DNS too (the key that signs now, not a pending one). Only a definite "not there" turns a check
+ * off; a lookup that fails trusts Postmark.
+ */
+async function confirmedInDns(d: PostmarkDomain, dns: DnsLookup): Promise<DomainState> {
+  const state = stateOf(d);
+  const [dkim, returnPath] = await Promise.all([
+    state.dkimVerified && d.DKIMHost && d.DKIMTextValue
+      ? dkimInDns(dns, d.DKIMHost, d.DKIMTextValue)
+      : null,
+    state.returnPathVerified && d.ReturnPathDomain
+      ? cnameInDns(dns, d.ReturnPathDomain, d.ReturnPathDomainCNAMEValue || 'pm.mtasv.net')
+      : null,
+  ]);
+  return {
+    ...state,
+    dkimVerified: state.dkimVerified && dkim !== false,
+    returnPathVerified: state.returnPathVerified && returnPath !== false,
+  };
+}
+
 export function createPostmark(opts: {
   serverToken: string;
   accountToken: string | null;
   stream: string;
+  /** DNS lookups for the domain checks (the system resolver unless a test passes its own). */
+  dns?: DnsLookup;
 }): { transport: EmailTransport; domains: EmailDomains } {
   const server: Token = { header: 'X-Postmark-Server-Token', value: opts.serverToken };
   const account = (): Token => {
@@ -82,6 +107,7 @@ export function createPostmark(opts: {
       throw new EmailError('POSTMARK_ACCOUNT_TOKEN is not set', 'no_account_token', false);
     return { header: 'X-Postmark-Account-Token', value: opts.accountToken };
   };
+  const dns = opts.dns ?? systemDns;
   const getDomain = async (id: string) =>
     stateOf(await call<PostmarkDomain>(account(), 'GET', `/domains/${id}`));
 
@@ -154,7 +180,7 @@ export function createPostmark(opts: {
             // Records not in DNS yet: the state below says which.
             if (!(e instanceof EmailError && e.permanent)) throw e;
           }
-        return getDomain(id);
+        return confirmedInDns(await call<PostmarkDomain>(account(), 'GET', `/domains/${id}`), dns);
       },
       async remove(id) {
         try {

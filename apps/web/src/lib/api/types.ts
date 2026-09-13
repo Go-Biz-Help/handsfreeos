@@ -58,6 +58,9 @@ export type ConversationThread = Ok<'/v1/queries/conversation.thread'>;
 export type ThreadItem = ConversationThread['items'][number];
 export type PhoneSetupStatus = Ok<'/v1/queries/phone.setup_status'>;
 export type PhoneNumberInfo = NonNullable<PhoneSetupStatus['number']>;
+export type RegistrationSubmitBody = NonNullable<
+  paths['/v1/commands/registration.submit']['post']['requestBody']
+>['content']['application/json'];
 export type RegistrationInfo = PhoneSetupStatus['registrations'][number];
 export type InboxBox = 'mine' | 'unassigned' | 'all';
 export type ConversationStatus = 'open' | 'snoozed' | 'closed';

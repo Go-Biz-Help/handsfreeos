@@ -16,6 +16,7 @@ import {
   emailAddressCreate,
   emailAddressUpdate,
   emailClaimUnmatched,
+  emailComposeOptions,
   emailDismissUnmatched,
   emailDomainAdd,
   emailDomainRecord,
@@ -31,6 +32,7 @@ import {
   mailboxDisconnect,
   mailboxFail,
   mailboxResync,
+  messageSend,
   organizationCreate,
   personArchive,
   personCreate,
@@ -329,10 +331,10 @@ describe('email settings', () => {
     ]);
     expect(evs[1]!.payload).toEqual({ domain: DOMAIN, providerDomainId: null });
     expect(evs.slice(2).map((e) => e.payload)).toEqual([
-      { status: 'pending', changed: false },
-      { status: 'failed', changed: true },
-      { status: 'verified', changed: true },
-      { status: 'verified', changed: false },
+      { status: 'pending', changed: false, from: 'pending' },
+      { status: 'failed', changed: true, from: 'pending' },
+      { status: 'verified', changed: true, from: 'failed' },
+      { status: 'verified', changed: false, from: 'verified' },
     ]);
   });
 
@@ -548,6 +550,101 @@ describe('email settings', () => {
       address: `office-${u}@${SHARED}`,
       updated: ['displayName'],
     });
+  });
+
+  it('a verified domain that stops verifying moves to failed, and email falls back to the shared address', async () => {
+    // Its address is the default when a check finds the DKIM record gone.
+    await run(
+      emailAddressUpdate,
+      { workspaceId: wsId, emailAddressId: supportId, isDefault: true },
+      owner,
+    );
+    expect(
+      await sys(emailDomainRecord, {
+        workspaceId: wsId,
+        emailDomainId: domainId,
+        dkimVerified: false,
+        returnPathVerified: true,
+        error: `The DKIM record stopped verifying, so email goes out from ${sharedDefaultAddress} until it’s fixed.`,
+      }),
+    ).toEqual({ emailDomainId: domainId, status: 'failed', changed: true });
+    const [d] = await rows<{ dkim: string | null; rp: string | null; last_error: string }>(
+      admin(),
+      sql`select dkim_verified_at::text as dkim, return_path_verified_at::text as rp, last_error
+          from app.email_domains where id = ${domainId}`,
+    );
+    // The missing record shows as not found again; the one still there keeps its stamp.
+    expect(d).toMatchObject({
+      dkim: null,
+      last_error: expect.stringContaining(sharedDefaultAddress),
+    });
+    expect(d!.rp).not.toBeNull();
+    expect((await eventsFor(domainId)).at(-1)).toEqual({
+      event_type: 'email_domain.checked',
+      payload: { status: 'failed', changed: true, from: 'verified' },
+    });
+
+    // Its addresses stop sending: the next email goes from the shared-subdomain address.
+    const s = await ask(emailSetupStatus, { workspaceId: wsId }, member);
+    expect(s.addresses.find((a) => a.id === supportId)).toMatchObject({
+      isDefault: true,
+      usable: false,
+    });
+    const to = `lapse-${u}@example.com`;
+    const sent = await run(
+      messageSend,
+      {
+        workspaceId: wsId,
+        channel: 'email',
+        toEmail: to,
+        subject: 'Your quote',
+        body: 'Hi, the quote is attached.',
+      },
+      owner,
+    );
+    const [m] = await rows<{ email_address_id: string; from_address: string }>(
+      admin(),
+      sql`select email_address_id, from_address from app.messages where id = ${sent.messageId}`,
+    );
+    expect(m).toEqual({ email_address_id: sharedDefaultId, from_address: sharedDefaultAddress });
+    const options = await ask(
+      emailComposeOptions,
+      { workspaceId: wsId, conversationId: sent.conversationId },
+      member,
+    );
+    expect(options.fromAddressId).toBe(sharedDefaultId);
+    await expectHfos(
+      () =>
+        run(
+          messageSend,
+          {
+            workspaceId: wsId,
+            channel: 'email',
+            toEmail: to,
+            subject: 'Again',
+            body: 'Hi again.',
+            emailAddressId: supportId,
+          },
+          owner,
+        ),
+      'rule_violation',
+      'email_domain_unverified',
+    );
+
+    // Back once the record is; then the default moves to the shared subdomain so the domain can go.
+    expect(
+      await sys(emailDomainRecord, {
+        workspaceId: wsId,
+        emailDomainId: domainId,
+        dkimVerified: true,
+        returnPathVerified: true,
+      }),
+    ).toMatchObject({ status: 'verified', changed: true });
+    await run(
+      emailAddressUpdate,
+      { workspaceId: wsId, emailAddressId: salesId, isDefault: true },
+      owner,
+    );
   });
 
   it('removes a domain and its addresses once the default lives elsewhere', async () => {

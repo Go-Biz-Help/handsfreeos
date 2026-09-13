@@ -42,7 +42,7 @@ import { readEnv } from '../src/env';
 import { handlers } from '../src/handlers/index';
 import { buildHttpServer } from '../src/http/server';
 import { processJobs } from '../src/jobs';
-import { processOnce } from '../src/outbox';
+import { MAX_ATTEMPTS, processOnce } from '../src/outbox';
 import { processors } from '../src/processors/index';
 import { jobs, unansweredCheck } from '../src/scheduled';
 import { FAKE_AUTH_TOKEN, fakeSid } from '../src/telephony/fake';
@@ -337,6 +337,62 @@ describe('buying a number', () => {
     expect(n?.lastError).toMatch(/no longer available/);
   });
 
+  it('gives up after the last try when the carrier keeps failing, so the owner can pick another number', async () => {
+    const { output } = await executeCommand(
+      api(),
+      phoneNumberBuy,
+      { workspaceId, e164: tollFree('0503'), numberType: 'toll_free' },
+      actor(owner),
+      meta(),
+    );
+    const [requested] = await admin()
+      .select()
+      .from(events)
+      .where(
+        and(
+          eq(events.entityId, output.phoneNumberId),
+          eq(events.eventType, 'phone_number.purchase_requested'),
+        ),
+      );
+    for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+      // Skip the backoff: each try is due at once.
+      await rows(
+        admin(),
+        sql`update app.outbox set next_attempt_at = now() where event_id = ${requested!.id}`,
+      );
+      await reserve();
+      await processOnce({
+        ...s,
+        workerId: WORKER_ID,
+        batchSize: 200,
+        reservedOnly: true,
+        handlers,
+      });
+      expect((await numberRow(output.phoneNumberId))?.status).toBe(
+        attempt < MAX_ATTEMPTS ? 'provisioning' : 'failed',
+      );
+    }
+    expect((await numberRow(output.phoneNumberId))?.lastError).toBe(
+      'The phone carrier did not answer.',
+    );
+    const [outboxRow] = await rows<{ status: string; attempts: number }>(
+      admin(),
+      sql`select status::text as status, attempts from app.outbox where event_id = ${requested!.id}`,
+    );
+    expect(outboxRow).toEqual({ status: 'done', attempts: MAX_ATTEMPTS - 1 });
+    const [failed] = await admin()
+      .select()
+      .from(events)
+      .where(
+        and(
+          eq(events.entityId, output.phoneNumberId),
+          eq(events.eventType, 'phone_number.purchase_failed'),
+        ),
+      );
+    expect(failed?.payload).toMatchObject({ error: 'The phone carrier did not answer.' });
+    await drain();
+  });
+
   it('buys through the workspace subaccount and keeps the subaccount token sealed', async () => {
     businessNumber = tollFree();
     const { output } = await executeCommand(
@@ -366,14 +422,7 @@ describe('buying a number', () => {
 });
 
 describe('carrier registration', () => {
-  it('submits toll-free verification, polls until approved, and tells the owner', async () => {
-    await executeCommand(
-      api(),
-      registrationSubmit,
-      { workspaceId, kind: 'toll_free_verification', business },
-      actor(owner),
-      meta(),
-    );
+  it('submits toll-free verification; turned down, it is fixed and sent again as an edit, then approved', async () => {
     const registration = async () =>
       (
         await admin()
@@ -381,10 +430,63 @@ describe('carrier registration', () => {
           .from(telephonyRegistrations)
           .where(eq(telephonyRegistrations.workspaceId, workspaceId))
       )[0];
+    const before = s.telephony.registrations.length;
+    // The fake carrier turns down a legal name that says "reject".
+    await executeCommand(
+      api(),
+      registrationSubmit,
+      {
+        workspaceId,
+        kind: 'toll_free_verification',
+        business: { ...business, legalName: 'Reject Me HVAC LLC' },
+      },
+      actor(owner),
+      meta(),
+    );
+    await drain({ until: async () => (await registration())?.status === 'rejected' });
+    const turnedDown = (await registration())!;
+    expect(turnedDown).toMatchObject({
+      status: 'rejected',
+      providerStatus: 'TWILIO_REJECTED',
+      rejectionReason: expect.stringContaining('agree to receive texts'),
+    });
+    await drain();
+    await waitForMail(owner.email, `The carriers need a change before ${BUSINESS_NAME} can text`);
+
+    // Fix and send again: the corrected details reach the carrier as an edit of the same request.
+    await executeCommand(
+      api(),
+      registrationSubmit,
+      { workspaceId, kind: 'toll_free_verification', business },
+      actor(owner),
+      meta(),
+    );
     await drain({ until: async () => (await registration())?.status === 'approved' });
     const r = await registration();
-    expect(r).toMatchObject({ status: 'approved', providerStatus: 'TWILIO_APPROVED' });
+    expect(r).toMatchObject({
+      status: 'approved',
+      providerStatus: 'TWILIO_APPROVED',
+      providerSid: turnedDown.providerSid,
+      rejectionReason: null,
+    });
     expect(r?.providerSid).toMatch(/^HHfake/);
+    expect(r?.carrierSubmittedAt?.getTime()).toBe(r?.submittedAt?.getTime());
+    const asked = s.telephony.registrations.slice(before);
+    expect(asked.map((a) => [a.kind, a.replaces, a.submission['legalName']])).toEqual([
+      ['toll_free_verification', null, 'Reject Me HVAC LLC'],
+      ['toll_free_verification', turnedDown.providerSid, business.legalName],
+    ]);
+    const changes = await admin()
+      .select()
+      .from(events)
+      .where(and(eq(events.entityId, r!.id), eq(events.eventType, 'registration.status_changed')))
+      .orderBy(asc(events.createdAt));
+    expect(changes.map((e) => (e.payload as { to: string }).to)).toEqual([
+      'in_review',
+      'rejected',
+      'in_review',
+      'approved',
+    ]);
     await drain();
     await waitForMail(owner.email, `Texting is on for ${BUSINESS_NAME}`);
     expect((await mailTo(member.email)).length).toBe(0);
@@ -701,23 +803,20 @@ describe('local numbers (10DLC)', () => {
     await drain();
     expect((await numberRow(bought.output.phoneNumberId))?.status).toBe('active');
     const before = s.telephony.registrations.length;
-    await executeCommand(
-      api(),
-      registrationSubmit,
-      {
-        workspaceId,
-        kind: 'a2p_10dlc',
-        business: {
-          ...business,
-          messageSamples: [
-            business.messageSamples[0],
-            'Hi Mike, your estimate for the new AC unit is ready. Reply with questions or STOP to opt out.',
-          ],
+    const fixedSample =
+      'Hi Mike, your estimate for the new AC unit is ready. Reply with questions or STOP to opt out.';
+    const submit = (secondSample: string) =>
+      executeCommand(
+        api(),
+        registrationSubmit,
+        {
+          workspaceId,
+          kind: 'a2p_10dlc',
+          business: { ...business, messageSamples: [business.messageSamples[0], secondSample] },
         },
-      },
-      actor(owner),
-      meta(),
-    );
+        actor(owner),
+        meta(),
+      );
     const chain = async () =>
       (
         await admin()
@@ -725,9 +824,20 @@ describe('local numbers (10DLC)', () => {
           .from(telephonyRegistrations)
           .where(eq(telephonyRegistrations.workspaceId, workspaceId))
       ).filter((r) => r.kind.startsWith('a2p_'));
+    const campaign = async () => (await chain()).find((r) => r.kind === 'a2p_campaign');
+    // The fake carrier turns down a campaign whose example texts say "reject".
+    await submit(
+      'Hi Mike, your estimate is ready. Accept or reject it here, or reply STOP to opt out.',
+    );
     await drain({
-      until: async () =>
-        (await chain()).find((r) => r.kind === 'a2p_campaign')?.status === 'approved',
+      until: async () => (await campaign())?.status === 'rejected',
+      timeoutMs: 15_000,
+    });
+    const turnedDown = (await campaign())!;
+    // Fix and send again: only the campaign goes back, as a new one in place of the old.
+    await submit(fixedSample);
+    await drain({
+      until: async () => (await campaign())?.status === 'approved',
       timeoutMs: 15_000,
     });
     const rows4 = await chain();
@@ -738,12 +848,19 @@ describe('local numbers (10DLC)', () => {
       'a2p_trust_product:approved',
     ]);
     const sid = Object.fromEntries(rows4.map((r) => [r.kind, r.providerSid]));
+    expect(sid['a2p_campaign']).not.toBe(turnedDown.providerSid);
     const asked = s.telephony.registrations.slice(before);
     expect(asked.map((r) => r.kind)).toEqual([
       'a2p_customer_profile',
       'a2p_trust_product',
       'a2p_brand',
       'a2p_campaign',
+      'a2p_campaign',
+    ]);
+    expect(asked.map((r) => r.replaces)).toEqual([null, null, null, null, turnedDown.providerSid]);
+    expect(asked[4]!.submission['messageSamples']).toEqual([
+      business.messageSamples[0],
+      fixedSample,
     ]);
     expect(asked[0]!.previous).toEqual({});
     expect(asked[1]!.previous).toEqual({ a2p_customer_profile: sid['a2p_customer_profile'] });

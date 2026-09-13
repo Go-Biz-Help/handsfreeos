@@ -120,6 +120,47 @@ export function textingRejectedEmail(input: {
   return { subject, text, html };
 }
 
+/** The business's own domain passed both checks: addresses on it can send. */
+export function emailDomainVerifiedEmail(input: {
+  business: string;
+  domain: string;
+  link: string;
+}): EmailContent {
+  const subject = `${input.domain} is verified`;
+  const text = `The DNS records for ${input.domain} check out, so ${input.business} can send email from addresses on it. Add one, or make one the default, in Settings → Email.\n\nOpen Settings → Email: ${input.link}`;
+  const html = shell(
+    para(
+      `The DNS records for <strong>${escapeHtml(input.domain)}</strong> check out, so ${escapeHtml(input.business)} can send email from addresses on it. Add one, or make one the default, in Settings → Email.`,
+    ) +
+      button(input.link, 'Open Settings → Email') +
+      small(`Sent to the owners and admins of ${escapeHtml(input.business)}.`),
+  );
+  return { subject, text, html };
+}
+
+/** A verified domain's records stopped verifying: its mail goes out from the shared address until they're back. */
+export function emailDomainLapsedEmail(input: {
+  business: string;
+  domain: string;
+  /** "DKIM record", "Return-Path record" or "DKIM and Return-Path records". */
+  records: string;
+  sharedAddress: string;
+  link: string;
+}): EmailContent {
+  const subject = `${input.domain} stopped verifying`;
+  const them = input.records.endsWith('records') ? 'the records' : 'the record';
+  const text = `The ${input.records} for ${input.domain} stopped verifying, so email from ${input.business} now goes out from ${input.sharedAddress} until the records are fixed. Put ${them} back at your DNS provider, then press Check now in Settings → Email.\n\nOpen Settings → Email: ${input.link}\n\nCustomers’ replies still reach the inbox.`;
+  const html = shell(
+    para(
+      `The ${escapeHtml(input.records)} for <strong>${escapeHtml(input.domain)}</strong> stopped verifying, so email from ${escapeHtml(input.business)} now goes out from <strong>${escapeHtml(input.sharedAddress)}</strong> until the records are fixed.`,
+    ) +
+      para(`Put ${them} back at your DNS provider, then press Check now in Settings → Email.`) +
+      button(input.link, 'Open Settings → Email') +
+      small('Customers’ replies still reach the inbox.'),
+  );
+  return { subject, text, html };
+}
+
 /** A connected mailbox lost access: new mail with customers stops until someone reconnects it. */
 export function mailboxReconnectEmail(input: {
   provider: 'microsoft' | 'google';

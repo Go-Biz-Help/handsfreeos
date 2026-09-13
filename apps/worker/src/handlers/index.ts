@@ -1,5 +1,6 @@
 import {
   onEmailDomainAdded,
+  onEmailDomainChecked,
   onEmailDomainRemoved,
   onEmailDomainVerifyRequested,
   onUnmatchedClaimed,
@@ -34,6 +35,7 @@ export const handlers: HandlerMap = {
   'conversation.snoozed': onConversationSnoozed,
   'email_domain.added': onEmailDomainAdded,
   'email_domain.verify_requested': onEmailDomainVerifyRequested,
+  'email_domain.checked': onEmailDomainChecked,
   'email_domain.removed': onEmailDomainRemoved,
   'email.unmatched_claimed': onUnmatchedClaimed,
   'mailbox.connected': onMailboxSyncWanted,

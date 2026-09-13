@@ -6,14 +6,17 @@ import {
   executeCommand,
   messageUpdateStatus,
 } from '@hfos/core/server';
+import type { Tx } from '@hfos/db/client';
 import {
   conversations,
   emailAddresses,
   emailDomains,
   emailInboundUnmatched,
+  workspaces,
   type messages,
 } from '@hfos/db/schema';
 import { renderEmailHtml } from '../email/render';
+import { emailDomainLapsedEmail, emailDomainVerifiedEmail } from '../emails/templates';
 import { sendThroughMailbox } from '../mailbox/send';
 import {
   isPermanentEmailError,
@@ -22,6 +25,7 @@ import {
   type EmailAttachment,
 } from '../email/transport';
 import { systemActor, tenantOf, workerMeta, type TenantScope } from '../services';
+import { managers } from './telephony';
 import type { EventHandler, HandlerContext } from './types';
 
 const metaOf = (ctx: HandlerContext) => workerMeta(ctx.event.correlationId, ctx.event.id);
@@ -134,6 +138,40 @@ export async function sendQueuedEmail(ctx: HandlerContext, m: Message): Promise<
   }
 }
 
+/** What the mail service said about a domain, as email_domain.record takes it (what it left out stays as is). */
+export const domainRecordInput = (state: DomainState): Record<string, unknown> =>
+  Object.fromEntries(Object.entries(state).filter(([, v]) => v !== null && v !== undefined));
+
+/** The records that don't verify: "DKIM record", "Return-Path record", or both. */
+export function missingRecords(state: {
+  dkimVerified: boolean;
+  returnPathVerified: boolean;
+}): string {
+  if (!state.dkimVerified && !state.returnPathVerified) return 'DKIM and Return-Path records';
+  return state.dkimVerified ? 'Return-Path record' : 'DKIM record';
+}
+
+/** What Settings → Email says about a verified domain whose records stopped verifying. */
+export function lapsedMessage(
+  state: { dkimVerified: boolean; returnPathVerified: boolean },
+  shared: string | null,
+): string {
+  const records = missingRecords(state);
+  const plural = records.endsWith('records');
+  return `The ${records} stopped verifying, so email goes out from ${shared ?? 'the shared address'} until ${plural ? 'they’re' : 'it’s'} fixed. Put the ${plural ? 'records' : 'record'} back at your DNS provider, then press Check now.`;
+}
+
+/** The workspace's address on the shared subdomain (the default one first): where its mail goes when its own domain can't. */
+export async function sharedAddress(tx: Tx, workspaceId: string): Promise<string | null> {
+  const [a] = await tx
+    .select({ address: emailAddresses.address })
+    .from(emailAddresses)
+    .where(and(eq(emailAddresses.workspaceId, workspaceId), isNull(emailAddresses.emailDomainId)))
+    .orderBy(desc(emailAddresses.isDefault), asc(emailAddresses.createdAt))
+    .limit(1);
+  return a?.address ?? null;
+}
+
 async function recordDomain(
   ctx: HandlerContext,
   scope: TenantScope,
@@ -141,13 +179,15 @@ async function recordDomain(
   state: DomainState | null,
   error?: string,
 ) {
-  const found = state
-    ? Object.fromEntries(Object.entries(state).filter(([, v]) => v !== null && v !== undefined))
-    : {};
   await executeCommand(
     ctx.db,
     emailDomainRecord,
-    { workspaceId: scope.workspaceId, emailDomainId, ...found, ...(error ? { error } : {}) },
+    {
+      workspaceId: scope.workspaceId,
+      emailDomainId,
+      ...(state ? domainRecordInput(state) : {}),
+      ...(error ? { error } : {}),
+    },
     systemActor(scope),
     metaOf(ctx),
   );
@@ -181,6 +221,44 @@ export const onEmailDomainVerifyRequested: EventHandler = async (ctx) => {
     if (!isPermanentEmailError(e)) throw e;
     await recordDomain(ctx, scope, d.id, null, e.message);
   }
+};
+
+/**
+ * Owners and admins hear when their domain verifies (after Check now or the daily check), and when a verified one
+ * stops verifying: its mail then goes out from the shared address until the records are back.
+ */
+export const onEmailDomainChecked: EventHandler = async (ctx) => {
+  const p = ctx.event.payload as { status?: string; changed?: boolean; from?: string };
+  if (!p.changed) return;
+  const lapsed = p.status === 'failed' && p.from === 'verified';
+  if (p.status !== 'verified' && !lapsed) return;
+  const scope = tenantOf(ctx.scope);
+  const d = await loadDomain(ctx);
+  // Removed since, or changed again by a later check: the email would no longer be true.
+  if (!d || d.status !== p.status) return;
+  const recipients = await managers(ctx.tx, scope.workspaceId);
+  if (recipients.length === 0) return;
+  const [ws] = await ctx.tx
+    .select({ name: workspaces.name })
+    .from(workspaces)
+    .where(eq(workspaces.id, scope.workspaceId));
+  const business = ws?.name ?? 'your business';
+  const link = `${ctx.webUrl}/app/w/${scope.workspaceId}/settings/email`;
+  const mail = lapsed
+    ? emailDomainLapsedEmail({
+        business,
+        domain: d.domain,
+        records: missingRecords({
+          dkimVerified: !!d.dkimVerifiedAt,
+          returnPathVerified: !!d.returnPathVerifiedAt,
+        }),
+        sharedAddress:
+          (await sharedAddress(ctx.tx, scope.workspaceId)) ??
+          `your ${ctx.email.mailDomain} address`,
+        link,
+      })
+    : emailDomainVerifiedEmail({ business, domain: d.domain, link });
+  for (const r of recipients) await ctx.mailer.send({ to: r.email, ...mail });
 };
 
 /** The workspace removed its domain: remove it at the mail service too. */

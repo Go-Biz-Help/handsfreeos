@@ -57,7 +57,8 @@ export interface FakeOptions {
 /**
  * An in-memory Twilio. Texts get "sent" then "delivered" callbacks (a body containing [fail] gets a
  * failure instead), registrations are approved after `approvalMs` (a legal name containing "reject" is
- * turned down), and a number ending in 0000 is "no longer available".
+ * turned down, and so is a local number's campaign with an example text containing it), a number ending
+ * in 0000 is "no longer available", and one ending in 0503 finds the carrier down on every try.
  */
 export function createFakeTelephony(opts: FakeOptions): FakeTelephony {
   const sent: FakeSent[] = [];
@@ -65,6 +66,13 @@ export function createFakeTelephony(opts: FakeOptions): FakeTelephony {
   const deleted: string[] = [];
   const owned = new Map<string, { sid: string; e164: string; accountSid: string }>();
   const regs = new Map<string, { at: number; reject: boolean }>();
+  const turnedDown = (request: RegistrationRequest) => {
+    const samples = (request.submission['messageSamples'] ?? []) as unknown[];
+    return (
+      /reject/i.test(String(request.submission['legalName'] ?? '')) ||
+      (request.kind === 'a2p_campaign' && samples.some((s) => /reject/i.test(String(s))))
+    );
+  };
 
   const callback = (
     url: string,
@@ -125,6 +133,9 @@ export function createFakeTelephony(opts: FakeOptions): FakeTelephony {
     async buyNumber(account, { e164 }) {
       if (e164.endsWith('0000'))
         throw new ProviderError('That number is no longer available.', '21422', true, 400);
+      // Search never offers an ending below 1000, so only a test asks for this one.
+      if (e164.endsWith('0503'))
+        throw new ProviderError('Service Unavailable', '20503', false, 503);
       const sid = fakeSid('PN');
       owned.set(sid, { sid, e164, accountSid: account.sid });
       return { sid, capabilities: CAPS };
@@ -195,9 +206,12 @@ export function createFakeTelephony(opts: FakeOptions): FakeTelephony {
     },
     async submitRegistration(_account, request) {
       registrations.push(request);
-      const sid = fakeSid(SID_PREFIX[request.kind]);
-      const legalName = String(request.submission['legalName'] ?? '');
-      regs.set(sid, { at: Date.now(), reject: /reject/i.test(legalName) });
+      // Sent again after a rejection: a campaign is replaced; a toll-free edit, a brand resubmission and a
+      // Trust Hub bundle keep their id. Either way the carrier looks at the details anew.
+      const kept = request.replaces && request.kind !== 'a2p_campaign' ? request.replaces : null;
+      if (request.replaces && !kept) regs.delete(request.replaces);
+      const sid = kept ?? fakeSid(SID_PREFIX[request.kind]);
+      regs.set(sid, { at: Date.now(), reject: turnedDown(request) });
       return {
         providerSid: sid,
         providerStatus: 'PENDING_REVIEW',

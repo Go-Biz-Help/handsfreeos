@@ -430,3 +430,41 @@ describe('suppressions and mail from strangers', () => {
     expect(rewrite.code).toBe('42501');
   });
 });
+
+describe('the daily domain check', () => {
+  it('lists every domain the mail service knows, with its tenant, to the worker only', async () => {
+    const known = `${token()}.example.com`;
+    const [d] = await worker(
+      wsA,
+      orgA,
+    )((tx) =>
+      rows<{ id: string }>(
+        tx,
+        sql`insert into app.email_domains (workspace_id, domain, provider_domain_id)
+            values (${wsA}, ${known}, ${`local-${known}`}) returning id`,
+      ),
+    );
+    // Not created at the mail service yet: nothing to check.
+    const [fresh] = await worker(
+      wsA,
+      orgA,
+    )((tx) =>
+      rows<{ id: string }>(
+        tx,
+        sql`insert into app.email_domains (workspace_id, domain) values (${wsA}, ${`${token()}.example.com`}) returning id`,
+      ),
+    );
+    const listed = await unscoped((tx) =>
+      rows<{ email_domain_id: string; workspace_id: string; organization_id: string }>(
+        tx,
+        sql`select email_domain_id, workspace_id, organization_id from private.email_domains_to_check()
+            where email_domain_id in (${d!.id}, ${fresh!.id})`,
+      ),
+    );
+    expect(listed).toEqual([{ email_domain_id: d!.id, workspace_id: wsA, organization_id: orgA }]);
+    const asPerson = await expectPgError(() =>
+      as(owner)((tx) => rows(tx, sql`select * from private.email_domains_to_check()`)),
+    );
+    expect(asPerson.code).toBe('42501');
+  });
+});

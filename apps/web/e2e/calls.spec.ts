@@ -64,11 +64,19 @@ test('calls: ring, answer, move around, hang up, voicemail, and call a customer'
   await expect(page).toHaveURL(/\/customers\/people\//);
   const customerUrl = page.url();
 
-  // Turn calls on in this browser.
+  // The worker out of reach: the calls control stays, says why on hover, and asks again when pressed.
+  await page.route('**/v1/telephony/voice-token', (route) => route.abort());
+  await page.goto(`/app/w/${workspaceId}/inbox`);
+  const unavailable = page.getByTestId('calls-unavailable');
+  await expect(unavailable).toContainText('Calls unavailable');
+  await expect(unavailable).toHaveAttribute('title', /not reachable/);
+  await page.unroute('**/v1/telephony/voice-token');
+
+  // Back within reach: turn calls on in this browser.
   const tokenResponse = page.waitForResponse(
     (r) => r.url().endsWith('/v1/telephony/voice-token') && r.ok(),
   );
-  await page.goto(`/app/w/${workspaceId}/inbox`);
+  await unavailable.click();
   const { token } = (await (await tokenResponse).json()) as { token: string };
   const {
     sub: accountSid,

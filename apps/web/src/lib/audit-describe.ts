@@ -222,9 +222,11 @@ export function describeAudit(e: AuditEntry): string {
     case 'email_domain.record':
       return s(e.after?.status) === 'verified'
         ? `recorded that ${s(e.after?.domain)} is verified for sending`
-        : s(e.after?.status) === 'failed'
-          ? `recorded that ${s(e.after?.domain)} did not verify${s(e.after?.error) ? `: ${s(e.after?.error)}` : ''}`
-          : `saved the DNS records for ${s(e.after?.domain)}`;
+        : s(e.after?.status) === 'failed' && s(e.before?.status) === 'verified'
+          ? `found that ${s(e.after?.domain)} stopped verifying, so email goes out from the shared address again`
+          : s(e.after?.status) === 'failed'
+            ? `recorded that ${s(e.after?.domain)} did not verify${s(e.after?.error) ? `: ${s(e.after?.error)}` : ''}`
+            : `saved the DNS records for ${s(e.after?.domain)}`;
     case 'email_address.create':
       return `added the email address ${s(e.after?.address)}${e.after?.isDefault ? ' as the default' : ''}`;
     case 'email_address.update':

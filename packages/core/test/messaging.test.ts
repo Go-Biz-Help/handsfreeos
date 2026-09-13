@@ -361,6 +361,38 @@ describe('the business number and carrier approval', () => {
     expect((await ask(phoneSetupStatus, { workspaceId: wsId }, owner)).nextStep).toBe(
       'awaiting_approval',
     );
+    // Not at the carrier yet: sending again replaces the details waiting to go.
+    const queued = await run(
+      registrationSubmit,
+      {
+        workspaceId: wsId,
+        kind: 'toll_free_verification',
+        business: { ...business, website: 'https://example.com/booking' },
+      },
+      owner,
+    );
+    expect(queued.registrationIds).toEqual([registrationId]);
+    const carrierHas = async () =>
+      (
+        await rows<{ same: boolean | null }>(
+          admin(),
+          sql`select carrier_submitted_at = submitted_at as same from app.telephony_registrations where id = ${registrationId}`,
+        )
+      )[0]!.same;
+    expect(await carrierHas()).toBeNull();
+    // The worker sent it and records which details the carrier has: now it waits for the carriers.
+    const [sent] = await rows<{ ms: number }>(
+      admin(),
+      sql`select (extract(epoch from submitted_at) * 1000)::float8 as ms from app.telephony_registrations where id = ${registrationId}`,
+    );
+    await sys(registrationUpdateStatus, {
+      workspaceId: wsId,
+      registrationId,
+      status: 'in_review',
+      providerSid: 'HHfakecoretest',
+      carrierSubmittedAt: new Date(sent!.ms).toISOString(),
+    });
+    expect(await carrierHas()).toBe(true);
     await expectHfos(
       () =>
         run(
@@ -393,6 +425,8 @@ describe('the business number and carrier approval', () => {
       owner,
     );
     expect(again.registrationIds).toEqual([registrationId]);
+    // The carrier doesn't have the corrected details yet: the worker sends them instead of asking about the old ones.
+    expect(await carrierHas()).toBe(false);
     await sys(registrationUpdateStatus, { workspaceId: wsId, registrationId, status: 'approved' });
     const ready = await ask(phoneSetupStatus, { workspaceId: wsId }, member);
     expect(ready).toMatchObject({ nextStep: 'ready', messagingReady: true });
@@ -413,6 +447,8 @@ describe('the business number and carrier approval', () => {
     );
     expect(events.map((e) => e.event_type)).toEqual([
       'registration.submitted',
+      'registration.submitted',
+      'registration.status_changed',
       'registration.status_changed',
       'registration.submitted',
       'registration.status_changed',

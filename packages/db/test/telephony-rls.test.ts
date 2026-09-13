@@ -291,6 +291,45 @@ describe('carrier registrations', () => {
       ),
     );
     expect(approved.code).toBe('42501');
+    const preSent = await expectPgError(() =>
+      as(owner)((tx) =>
+        rows(
+          tx,
+          sql`insert into app.telephony_registrations (workspace_id, kind, status, submitted_at, carrier_submitted_at, created_by)
+              values (${wsA}, 'a2p_brand', 'submitted', now(), now(), ${owner.id})`,
+        ),
+      ),
+    );
+    expect(preSent.code).toBe('42501');
+    // The carrier doesn't have it yet: people may still change what goes, never which details the carrier has.
+    const queued = await as(owner)((tx) =>
+      rows<{ status: string }>(
+        tx,
+        sql`update app.telephony_registrations set submission = '{"legalName": "Telephony A LLC", "optIn": "queued"}'
+            where id = ${reg!.id} returning status::text as status`,
+      ),
+    );
+    expect(queued).toEqual([{ status: 'submitted' }]);
+    const marker = await expectPgError(() =>
+      as(owner)((tx) =>
+        rows(
+          tx,
+          sql`update app.telephony_registrations set carrier_submitted_at = submitted_at where id = ${reg!.id}`,
+        ),
+      ),
+    );
+    expect(marker.detail).toBe('registration_provider_fields');
+    // The worker sent it: from now on it waits for the carriers.
+    await worker(
+      wsA,
+      orgA,
+    )((tx) =>
+      rows(
+        tx,
+        sql`update app.telephony_registrations set status = 'in_review', provider_sid = 'HHfakerlstest', carrier_submitted_at = submitted_at
+            where id = ${reg!.id}`,
+      ),
+    );
     const edit = await expectPgError(() =>
       as(owner)((tx) =>
         rows(
@@ -326,6 +365,15 @@ describe('carrier registrations', () => {
       ),
     );
     expect(resent).toEqual([{ status: 'submitted' }]);
+    // Sent again, the carrier hasn't seen these details yet: they can still change until the worker sends them.
+    const again = await as(owner)((tx) =>
+      rows<{ status: string }>(
+        tx,
+        sql`update app.telephony_registrations set submission = '{"legalName": "Telephony A LLC", "optIn": "fixed again"}'
+            where id = ${reg!.id} returning status::text as status`,
+      ),
+    );
+    expect(again).toEqual([{ status: 'submitted' }]);
   });
 });
 

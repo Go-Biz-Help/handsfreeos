@@ -40,7 +40,12 @@ import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { apiBrowser, ApiError, errorMessage, unwrap } from '@/lib/api/client';
-import type { PhoneNumberInfo, PhoneSetupStatus, RegistrationInfo } from '@/lib/api/types';
+import type {
+  PhoneNumberInfo,
+  PhoneSetupStatus,
+  RegistrationInfo,
+  RegistrationSubmitBody,
+} from '@/lib/api/types';
 import { searchNumbers, type AvailableNumber } from '@/lib/api/worker';
 import { formatDate } from '@/lib/format';
 import { useLiveRefresh } from '@/lib/realtime/live-provider';
@@ -156,6 +161,7 @@ export function TextingPage({
         />
       ) : step === 'rejected' ? (
         <Rejected
+          workspaceId={workspaceId}
           status={status}
           businessName={businessName}
           onFix={() => setFixing(true)}
@@ -956,12 +962,21 @@ function Review({
   );
 }
 
+/** Steps the carriers check against the business profile HandsFreeOS keeps for the business with them. */
+const PROFILE_STEPS = new Set<RegistrationInfo['kind']>([
+  'a2p_customer_profile',
+  'a2p_trust_product',
+  'a2p_brand',
+]);
+
 function Rejected({
+  workspaceId,
   status,
   businessName,
   onFix,
   onViewSent,
 }: {
+  workspaceId: string;
   status: Status;
   businessName: string;
   onFix: () => void;
@@ -970,14 +985,34 @@ function Rejected({
   const bad = status.registrations.find((r) => r.status === 'rejected' || r.status === 'failed');
   const reason = bad?.rejectionReason ?? null;
   const optIn = !!reason && /opt|consent|agree|permission/i.test(reason);
+  const callout = (
+    <Callout tone="danger" icon={CircleAlert} className="mb-[18px]">
+      <div className="flex flex-col gap-1">
+        <strong>The carriers turned down the texting registration.</strong>
+        <span>{reason ? `Their reason: “${reason}”` : 'They didn’t give a reason.'}</span>
+      </div>
+    </Callout>
+  );
+  // A local number's business profile or brand turned down by the carriers: support corrects it with them.
+  if (
+    status.number?.numberType === 'local' &&
+    bad?.status === 'rejected' &&
+    PROFILE_STEPS.has(bad.kind)
+  )
+    return (
+      <div data-testid="rejected-step">
+        {callout}
+        <SupportFix
+          workspaceId={workspaceId}
+          status={status}
+          businessName={businessName}
+          onViewSent={onViewSent}
+        />
+      </div>
+    );
   return (
     <div data-testid="rejected-step">
-      <Callout tone="danger" icon={CircleAlert} className="mb-[18px]">
-        <div className="flex flex-col gap-1">
-          <strong>The carriers turned down the texting registration.</strong>
-          <span>{reason ? `Their reason: “${reason}”` : 'They didn’t give a reason.'}</span>
-        </div>
-      </Callout>
+      {callout}
       <h2 className="text-lg font-semibold tracking-tight">What to fix</h2>
       <p className="mb-4 mt-1 text-[13px] text-text-2">
         {optIn
@@ -1002,6 +1037,65 @@ function Rejected({
         </Button>
       </div>
     </div>
+  );
+}
+
+/**
+ * The carriers turned down a local number's business profile or brand. They check those against the profile
+ * HandsFreeOS keeps for the business with them, which support corrects in Twilio; then the same details go again.
+ */
+function SupportFix({
+  workspaceId,
+  status,
+  businessName,
+  onViewSent,
+}: {
+  workspaceId: string;
+  status: Status;
+  businessName: string;
+  onViewSent: () => void;
+}) {
+  const router = useRouter();
+  const [busy, setBusy] = useState(false);
+  async function sendAgain() {
+    const sent = latestSubmission(status.registrations);
+    if (!sent) return;
+    setBusy(true);
+    try {
+      const business = Object.fromEntries(
+        Object.entries(sent).filter(([k]) => k !== 'forNumber'),
+      ) as RegistrationSubmitBody['business'];
+      unwrap(
+        await apiBrowser().POST('/v1/commands/registration.submit', {
+          body: { workspaceId, kind: 'a2p_10dlc', business },
+        }),
+      );
+      toast.success('Sent to the carriers');
+      router.refresh();
+    } catch (e) {
+      toast.error(errorMessage(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <>
+      <h2 className="text-lg font-semibold tracking-tight">What happens next</h2>
+      <p className="mb-4 mt-1 text-[13px] text-text-2">
+        The carriers check {businessName}’s brand against the business profile HandsFreeOS keeps for
+        you with them, and that profile can’t be changed from this page. Contact HandsFreeOS support
+        and share their reason. Once support tells you it’s fixed, send it again. Calls keep
+        working.
+      </p>
+      <div className="flex flex-wrap gap-2">
+        <Button loading={busy} onClick={() => void sendAgain()} data-testid="resend-registration">
+          Send again
+        </Button>
+        <Button variant="ghost" onClick={onViewSent}>
+          View what we sent
+        </Button>
+      </div>
+    </>
   );
 }
 

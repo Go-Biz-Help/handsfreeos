@@ -30,7 +30,7 @@ export function createLocalEmail(opts: {
   log: Logger;
 }): { transport: EmailTransport; domains: EmailDomains } {
   const smtp = nodemailer.createTransport(opts.smtpUrl);
-  const domains = new Map<string, { name: string; verified: boolean }>();
+  const domains = new Map<string, { name: string; verified: boolean; checks: number }>();
   const report = (payload: Record<string, unknown>) => {
     if (!opts.eventsUrl) return;
     const url = opts.eventsUrl;
@@ -102,7 +102,7 @@ export function createLocalEmail(opts: {
     domains: {
       async create(domain) {
         const id = `local-${domain}`;
-        domains.set(id, { name: domain, verified: false });
+        domains.set(id, { name: domain, verified: false, checks: 0 });
         return localState(id, domain, false);
       },
       async get(id) {
@@ -111,9 +111,13 @@ export function createLocalEmail(opts: {
         return localState(id, d?.name ?? id.replace(/^local-/, ''), d?.verified ?? true);
       },
       async verify(id) {
-        const name = domains.get(id)?.name ?? id.replace(/^local-/, '');
-        domains.set(id, { name, verified: true });
-        return localState(id, name, true);
+        const known = domains.get(id);
+        const name = known?.name ?? id.replace(/^local-/, '');
+        const checks = (known?.checks ?? 0) + 1;
+        // A domain named lapsed-… verifies the first time, then its records "disappear" (the daily check's case).
+        const verified = !(/^lapsed-/.test(name) && checks > 1);
+        domains.set(id, { name, verified, checks });
+        return localState(id, name, verified);
       },
       async remove(id) {
         domains.delete(id);

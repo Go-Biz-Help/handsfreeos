@@ -304,14 +304,18 @@ export const emailDomainRecord = defineCommand({
     if (input.returnPathValue !== undefined) patch.returnPathValue = input.returnPathValue;
     if (input.dkimVerified && !d.dkimVerifiedAt) patch.dkimVerifiedAt = now;
     if (input.returnPathVerified && !d.returnPathVerifiedAt) patch.returnPathVerifiedAt = now;
+    // A record a check found missing loses its stamp, so Settings → Email shows it as not found again.
+    if (input.dkimVerified === false) patch.dkimVerifiedAt = null;
+    if (input.returnPathVerified === false) patch.returnPathVerifiedAt = null;
     await ctx.tx.update(emailDomains).set(patch).where(eq(emailDomains.id, d.id));
     const changed = status !== d.status;
-    // Broadcast every check so Settings → Email updates its "last checked" live.
+    // Broadcast every check so Settings → Email updates its "last checked" live; `from` tells the worker whether
+    // a domain just verified or stopped verifying (the owners get an email for either).
     await ctx.emit({
       type: 'email_domain.checked',
       entityType: 'email_domain',
       entityId: d.id,
-      payload: { status, changed },
+      payload: { status, changed, from: d.status },
       before: { status: d.status },
       after: { domain: d.domain, status, ...(input.error ? { error: input.error } : {}) },
     });

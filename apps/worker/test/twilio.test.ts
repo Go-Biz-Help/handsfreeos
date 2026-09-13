@@ -104,6 +104,7 @@ const request = (
   previous,
   messagingServiceSid: 'MGservicetest',
   notifyEmail: 'dale@example.com',
+  replaces: null,
 });
 const urls = {
   smsUrl: 'https://hooks.example.com/webhooks/twilio/messaging/inbound',
@@ -533,6 +534,180 @@ describe('local numbers (10DLC)', () => {
       providerStatus: 'VERIFIED',
       status: 'approved',
     });
+  });
+});
+
+describe('sending a turned-down registration again', () => {
+  const inAWeek = () => new Date(Date.now() + 7 * 86_400_000).toISOString();
+
+  it('edits a rejected toll-free verification while Twilio takes edits', async () => {
+    const seen = mockTwilio([
+      [
+        /^GET messaging\.twilio\.com\/v1\/Tollfree\/Verifications\/HHverifytest$/,
+        () => ({
+          json: {
+            sid: 'HHverifytest',
+            status: 'TWILIO_REJECTED',
+            rejection_reason: 'Opt-in is unclear.',
+            edit_allowed: true,
+            edit_expiration: inAWeek(),
+          },
+        }),
+      ],
+      [
+        /^POST messaging\.twilio\.com\/v1\/Tollfree\/Verifications\/HHverifytest$/,
+        () => ({
+          json: {
+            sid: 'HHverifytest',
+            status: 'TWILIO_REJECTED',
+            rejection_reason: 'Opt-in is unclear.',
+          },
+        }),
+      ],
+    ]);
+    const state = await createTwilioTelephony(MASTER).submitRegistration(account, {
+      ...request('toll_free_verification'),
+      replaces: 'HHverifytest',
+    });
+    // The answer may still show the old decision: the edit itself is under review.
+    expect(state).toEqual({
+      providerSid: 'HHverifytest',
+      providerStatus: 'TWILIO_REJECTED',
+      status: 'in_review',
+      rejectionReason: null,
+    });
+    expect(seen.map((x) => `${x.method} ${x.path}`)).toEqual([
+      'GET /v1/Tollfree/Verifications/HHverifytest',
+      'POST /v1/Tollfree/Verifications/HHverifytest',
+    ]);
+    const body = Object.fromEntries(seen[1]!.body);
+    expect(body).toMatchObject({
+      BusinessName: 'Lone Star HVAC LLC',
+      BusinessRegistrationNumber: '123456789',
+      EditReason: expect.any(String),
+    });
+    expect(body).not.toHaveProperty('TollfreePhoneNumberSid');
+    expect(body).not.toHaveProperty('ExternalReferenceId');
+    expect(seen.every((x) => x.auth === 'ACsubtest:sub-token')).toBe(true);
+  });
+
+  it('replaces it with a new request once the edit window closed, and leaves one back in review alone', async () => {
+    let status = 'TWILIO_REJECTED';
+    const seen = mockTwilio([
+      [
+        /^GET messaging\.twilio\.com\/v1\/Tollfree\/Verifications\/HHverifytest$/,
+        () => ({
+          json: {
+            sid: 'HHverifytest',
+            status,
+            edit_allowed: false,
+            edit_expiration: new Date(Date.now() - 86_400_000).toISOString(),
+          },
+        }),
+      ],
+      [
+        /^DELETE messaging\.twilio\.com\/v1\/Tollfree\/Verifications\/HHverifytest$/,
+        () => ({ status: 204 }),
+      ],
+      [
+        /^POST messaging\.twilio\.com\/v1\/Tollfree\/Verifications$/,
+        () => ({ status: 201, json: { sid: 'HHnewtest', status: 'PENDING_REVIEW' } }),
+      ],
+    ]);
+    const t = createTwilioTelephony(MASTER);
+    const again = { ...request('toll_free_verification'), replaces: 'HHverifytest' };
+    expect(await t.submitRegistration(account, again)).toMatchObject({
+      providerSid: 'HHnewtest',
+      status: 'in_review',
+    });
+    expect(seen.map((x) => `${x.method} ${x.path}`)).toEqual([
+      'GET /v1/Tollfree/Verifications/HHverifytest',
+      'DELETE /v1/Tollfree/Verifications/HHverifytest',
+      'POST /v1/Tollfree/Verifications',
+    ]);
+    expect(seen[2]!.body.get('TollfreePhoneNumberSid')).toBe('PNnumbertest');
+    // Sent twice: the first is already back in review, so there is nothing to change.
+    status = 'IN_REVIEW';
+    seen.length = 0;
+    expect(await t.submitRegistration(account, again)).toMatchObject({
+      providerSid: 'HHverifytest',
+      status: 'in_review',
+    });
+    expect(seen.map((x) => x.method)).toEqual(['GET']);
+  });
+
+  it('replaces a failed campaign, resubmits a failed brand, and only looks at the Trust Hub bundles', async () => {
+    const seen = mockTwilio([
+      [
+        /^DELETE messaging\.twilio\.com\/v1\/Services\/MGservicetest\/Compliance\/Usa2p\/QEoldtest$/,
+        () => ({ status: 204 }),
+      ],
+      [
+        /^POST messaging\.twilio\.com\/v1\/Services\/MGservicetest\/Compliance\/Usa2p$/,
+        () => ({ status: 201, json: { sid: 'QEnewtest', campaign_status: 'PENDING' } }),
+      ],
+      [
+        /^POST messaging\.twilio\.com\/v1\/a2p\/BrandRegistrations\/BNbrandtest$/,
+        () => ({ json: { sid: 'BNbrandtest', status: 'IN_REVIEW' } }),
+      ],
+      [
+        /^GET trusthub\.twilio\.com\/v1\/CustomerProfiles\/BUclienttest$/,
+        () => ({ json: { sid: 'BUclienttest', status: 'pending-review' } }),
+      ],
+      [
+        /^GET trusthub\.twilio\.com\/v1\/TrustProducts\/BUproducttest$/,
+        () => ({
+          json: {
+            sid: 'BUproducttest',
+            status: 'twilio-rejected',
+            errors: [{ description: 'The business type does not match.' }],
+          },
+        }),
+      ],
+    ]);
+    const t = createTwilioTelephony({ ...MASTER, primaryProfileSid: 'BUprimarytest' });
+    // One example text is refused before the old campaign goes.
+    await expect(
+      t.submitRegistration(account, {
+        ...request(
+          'a2p_campaign',
+          { a2p_brand: 'BNbrandtest' },
+          { ...business, messageSamples: [business.messageSamples[0]] },
+        ),
+        replaces: 'QEoldtest',
+      }),
+    ).rejects.toMatchObject({ code: 'a2p_samples' });
+    expect(seen).toHaveLength(0);
+    expect(
+      await t.submitRegistration(account, {
+        ...request('a2p_campaign', { a2p_brand: 'BNbrandtest' }),
+        replaces: 'QEoldtest',
+      }),
+    ).toMatchObject({ providerSid: 'QEnewtest', status: 'in_review' });
+    expect(
+      await t.submitRegistration(account, { ...request('a2p_brand'), replaces: 'BNbrandtest' }),
+    ).toMatchObject({ providerSid: 'BNbrandtest', status: 'in_review' });
+    expect(
+      await t.submitRegistration(account, {
+        ...request('a2p_customer_profile'),
+        replaces: 'BUclienttest',
+      }),
+    ).toMatchObject({ providerSid: 'BUclienttest', status: 'in_review' });
+    expect(
+      await t.submitRegistration(account, {
+        ...request('a2p_trust_product'),
+        replaces: 'BUproducttest',
+      }),
+    ).toMatchObject({ status: 'rejected', rejectionReason: 'The business type does not match.' });
+    expect(seen.map((x) => `${x.method} ${x.path}`)).toEqual([
+      'DELETE /v1/Services/MGservicetest/Compliance/Usa2p/QEoldtest',
+      'POST /v1/Services/MGservicetest/Compliance/Usa2p',
+      'POST /v1/a2p/BrandRegistrations/BNbrandtest',
+      'GET /v1/CustomerProfiles/BUclienttest',
+      'GET /v1/TrustProducts/BUproducttest',
+    ]);
+    // The brand resubmission names only the brand.
+    expect(seen[2]!.body.toString()).toBe('');
   });
 });
 

@@ -197,6 +197,8 @@ export const RegistrationUpdateStatusInput = z.object({
   providerStatus: z.string().trim().max(64).nullable().optional(),
   rejectionReason: z.string().trim().max(2000).nullable().optional(),
   nextPollAt: isoDateTime.nullable().optional(),
+  /** The submitted_at of the details the worker just sent the carrier (the version the carrier now has). */
+  carrierSubmittedAt: isoDateTime.nullable().optional(),
 });
 export const RegistrationUpdateStatusOutput = z.object({
   registrationId: uuid,

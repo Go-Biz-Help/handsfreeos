@@ -20,9 +20,11 @@ import { firstNameOf } from './format';
 
 /**
  * checking: asking the worker whether calls work here; unavailable: no business number yet (or no access);
- * off: this browser hasn't turned calls on; ready: it rings; blocked: the microphone is blocked.
+ * error: the worker couldn't say (out of reach, or calls still being set up), so the control shows why and
+ * retries; off: this browser hasn't turned calls on; ready: it rings; blocked: the microphone is blocked.
  */
-export type CallsReadiness = 'checking' | 'unavailable' | 'off' | 'starting' | 'ready' | 'blocked';
+export type CallsReadiness =
+  'checking' | 'unavailable' | 'error' | 'off' | 'starting' | 'ready' | 'blocked';
 
 export interface CallParty {
   readonly name: string;
@@ -62,6 +64,8 @@ export interface CallsValue {
   readonly workspaceId: string;
   readonly workspaceName: string;
   readonly readiness: CallsReadiness;
+  /** Why calls are unavailable when readiness is `error`, in words to show. */
+  readonly problem: string | null;
   /** Whether Call buttons show: the workspace has a number this person may call from. */
   readonly available: boolean;
   /** The business number customers see. */
@@ -69,6 +73,8 @@ export interface CallsValue {
   readonly view: CallView;
   readonly dialer: CallTarget | null;
   enable(): Promise<boolean>;
+  /** Asks the worker again after an `error`; a second failure shows its reason. */
+  retry(): Promise<void>;
   openDialer(target: CallTarget): void;
   closeDialer(): void;
   placeCall(target: CallTarget): Promise<void>;
@@ -103,6 +109,22 @@ function remember(workspaceId: string): void {
   }
 }
 
+type TokenCheck = { readonly token: VoiceToken } | { readonly problem: string | null };
+
+/**
+ * Asks the worker for a calling token. No business number yet (or no inbox access) is no problem: calls just
+ * don't apply here. Anything else (the worker out of reach, calls still being set up) is, and says why.
+ */
+async function checkCalls(workspaceId: string): Promise<TokenCheck> {
+  try {
+    return { token: await voiceToken(workspaceId) };
+  } catch (e) {
+    const notHere =
+      e instanceof ApiError && (e.status === 403 || (e.status === 409 && e.rule === 'no_number'));
+    return { problem: notHere ? null : errorMessage(e) };
+  }
+}
+
 /** "Dale’s cell and 2 teammates", for the ringing card and the decline toast. */
 export function alsoRingingText(info: IncomingInfo): string {
   const n = info.otherTeammates;
@@ -117,11 +139,13 @@ const NONE: CallsValue = {
   workspaceId: '',
   workspaceName: '',
   readiness: 'unavailable',
+  problem: null,
   available: false,
   callerId: null,
   view: IDLE,
   dialer: null,
   enable: async () => false,
+  retry: async () => undefined,
   openDialer: noop,
   closeDialer: noop,
   placeCall: async () => undefined,
@@ -151,6 +175,7 @@ export function CallProvider({
   children: ReactNode;
 }) {
   const [readiness, setReadiness] = useState<CallsReadiness>('checking');
+  const [problem, setProblem] = useState<string | null>(null);
   const [callerId, setCallerId] = useState<string | null>(null);
   const [view, setViewState] = useState<CallView>(IDLE);
   const [dialer, setDialer] = useState<CallTarget | null>(null);
@@ -284,24 +309,35 @@ export function CallProvider({
   // Whether calls work here: a token means yes. Browsers that turned calls on before start ringing again.
   const enableRef = useRef(enable);
   enableRef.current = enable;
+  const applyCheck = useCallback(
+    async (result: TokenCheck) => {
+      if ('token' in result) {
+        tokenRef.current = result.token;
+        setCallerId(result.token.callerId);
+        setProblem(null);
+        if (remembered(workspaceId)) await enableRef.current();
+        else setReadiness('off');
+        return;
+      }
+      setProblem(result.problem);
+      setReadiness(result.problem ? 'error' : 'unavailable');
+    },
+    [workspaceId],
+  );
   useEffect(() => {
     if (deviceRef.current) return;
     let cancelled = false;
-    void voiceToken(workspaceId)
-      .then(async (token) => {
-        if (cancelled) return;
-        tokenRef.current = token;
-        setCallerId(token.callerId);
-        if (remembered(workspaceId)) await enableRef.current();
-        else setReadiness('off');
-      })
-      .catch(() => {
-        if (!cancelled) setReadiness('unavailable');
-      });
+    void checkCalls(workspaceId).then((result) => (cancelled ? undefined : applyCheck(result)));
     return () => {
       cancelled = true;
     };
-  }, [workspaceId, numbers]);
+  }, [workspaceId, numbers, applyCheck]);
+
+  const retry = useCallback(async () => {
+    const result = await checkCalls(workspaceId);
+    await applyCheck(result);
+    if ('problem' in result && result.problem) toast.error(result.problem);
+  }, [applyCheck, workspaceId]);
 
   useEffect(
     () => () => {
@@ -419,11 +455,13 @@ export function CallProvider({
       workspaceId,
       workspaceName,
       readiness,
+      problem,
       available: readiness !== 'checking' && readiness !== 'unavailable',
       callerId,
       view,
       dialer,
       enable,
+      retry,
       openDialer: setDialer,
       closeDialer: () => setDialer(null),
       placeCall,
@@ -437,10 +475,12 @@ export function CallProvider({
       workspaceId,
       workspaceName,
       readiness,
+      problem,
       callerId,
       view,
       dialer,
       enable,
+      retry,
       placeCall,
       answer,
       decline,

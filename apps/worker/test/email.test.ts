@@ -11,7 +11,7 @@ import {
   personCreate,
   type HumanActor,
 } from '@hfos/core/server';
-import { rows, sql } from '@hfos/db/client';
+import { asWorker, rows, sql } from '@hfos/db/client';
 import { conversations, messages } from '@hfos/db/schema';
 import { closeTestDbs, createTestUser, testDbs, testEnv, type TestUser } from '@hfos/db/testing';
 import type { FastifyInstance } from 'fastify';
@@ -23,7 +23,7 @@ import { buildHttpServer } from '../src/http/server';
 import { processJobs } from '../src/jobs';
 import { processOnce } from '../src/outbox';
 import { processors } from '../src/processors/index';
-import { jobs } from '../src/scheduled';
+import { checkEmailDomain, ensureRecurringJobs, jobs } from '../src/scheduled';
 import { testServices, type TestServices } from './helpers';
 
 const env = testEnv();
@@ -424,6 +424,87 @@ describe('a workspace domain', () => {
     );
     await drain();
     expect(await row()).toBeUndefined();
+  });
+});
+
+describe('the daily domain check', () => {
+  it('verifies a domain once its records show, notices when they go, and tells the owners both times', async () => {
+    // The local mail service verifies a lapsed-… domain the first time, then finds its records gone.
+    const domain = `lapsed-${token()}.example.com`;
+    const added = await executeCommand(
+      api(),
+      emailDomainAdd,
+      { workspaceId, domain },
+      actor(owner),
+      meta(),
+    );
+    const id = added.output.emailDomainId;
+    await drain();
+    const row = async () =>
+      (
+        await rows<{ status: string; last_error: string | null; dkim: string | null }>(
+          admin(),
+          sql`select status::text as status, last_error, dkim_verified_at::text as dkim
+              from app.email_domains where id = ${id}`,
+        )
+      )[0]!;
+    expect((await row()).status).toBe('pending');
+    // It is on the list the daily job walks, with its tenant.
+    const listed = await asWorker(testDbs().worker.db, {}, (tx) =>
+      rows<{ email_domain_id: string; workspace_id: string }>(
+        tx,
+        sql`select email_domain_id, workspace_id from private.email_domains_to_check()
+            where email_domain_id = ${id}`,
+      ),
+    );
+    expect(listed).toEqual([{ email_domain_id: id, workspace_id: workspaceId }]);
+    const scope = { workspaceId, organizationId };
+
+    // The records show up: verified without anyone pressing Check now.
+    await checkEmailDomain(s, scope, id);
+    expect(await row()).toMatchObject({ status: 'verified', last_error: null });
+    await drain();
+    const verified = await mailTo(owner.email, `${domain} is verified`);
+    expect(verified.Text).toContain(`${domain} check out`);
+
+    // The next day its records are gone: failed, and email goes out from the shared address.
+    await checkEmailDomain(s, scope, id);
+    const lapsed = await row();
+    expect(lapsed).toMatchObject({ status: 'failed', dkim: null });
+    expect(lapsed.last_error).toContain(shared.address);
+    await drain();
+    const mail = await mailTo(owner.email, `${domain} stopped verifying`);
+    expect(mail.Text).toContain(`now goes out from ${shared.address} until the records are fixed`);
+
+    // While nothing changes, a check writes nothing.
+    await checkEmailDomain(s, scope, id);
+    const checks = await rows<{ payload: Record<string, unknown> }>(
+      admin(),
+      sql`select payload from app.events
+          where entity_id = ${id} and event_type = 'email_domain.checked' order by created_at`,
+    );
+    expect(checks.map((c) => c.payload)).toEqual([
+      { status: 'pending', changed: false, from: 'pending' },
+      { status: 'verified', changed: true, from: 'pending' },
+      { status: 'failed', changed: true, from: 'verified' },
+    ]);
+    const audit = await rows<{ action: string; actor_type: string }>(
+      admin(),
+      sql`select action, actor_type::text as actor_type from app.audit_logs
+          where entity_id = ${id} and action = 'email_domain.record' order by created_at`,
+    );
+    expect(audit).toHaveLength(3);
+    expect(audit.every((a) => a.actor_type === 'system')).toBe(true);
+  });
+
+  it('is registered once, like the webhook sweep', async () => {
+    await ensureRecurringJobs(s);
+    await ensureRecurringJobs(s);
+    const [pending] = await rows<{ n: number }>(
+      admin(),
+      sql`select count(*)::int as n from app.scheduled_jobs where kind = 'email_domains.check' and status = 'pending'`,
+    );
+    expect(pending?.n).toBe(1);
   });
 });
 

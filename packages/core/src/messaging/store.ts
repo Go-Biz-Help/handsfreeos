@@ -70,6 +70,21 @@ export function latestByKind<T extends { kind: string }>(regs: readonly T[]): Ma
   return map;
 }
 
+/**
+ * Whether the carrier has this registration's current details: sent, and not sent again by people since. A row
+ * waiting in `submitted` without them is still the worker's to send, and people may still change it.
+ */
+export function carrierHasDetails(reg: {
+  providerSid: string | null;
+  submittedAt: Date | null;
+  carrierSubmittedAt: Date | null;
+}): boolean {
+  return (
+    !!reg.providerSid &&
+    (reg.carrierSubmittedAt?.getTime() ?? null) === (reg.submittedAt?.getTime() ?? null)
+  );
+}
+
 export interface Readiness {
   readonly voiceReady: boolean;
   readonly messagingReady: boolean;
