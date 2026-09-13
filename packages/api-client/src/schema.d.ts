@@ -8375,6 +8375,7 @@ export interface operations {
                                 type: "numbers";
                                 value: string;
                             } | {
+                                aside?: string;
                                 items: {
                                     detail: string;
                                     href: string | null;
@@ -8385,6 +8386,50 @@ export interface operations {
                                 title: string;
                                 /** @enum {string} */
                                 type: "list";
+                            } | {
+                                calendar: {
+                                    /** Format: uuid */
+                                    id: string;
+                                    name: string;
+                                };
+                                days: {
+                                    date: string;
+                                    label: string;
+                                    times: {
+                                        label: string;
+                                        /** Format: date-time */
+                                        startsAt: string;
+                                    }[];
+                                }[];
+                                durationMinutes: number;
+                                href: string;
+                                person: {
+                                    fullName: string;
+                                    /** Format: uuid */
+                                    userId: string;
+                                } | null;
+                                service: {
+                                    /** Format: uuid */
+                                    id: string;
+                                    name: string;
+                                } | null;
+                                timezone: string;
+                                title: string;
+                                /** @enum {string} */
+                                type: "slots";
+                                zone: string;
+                            } | {
+                                /** Format: uuid */
+                                appointmentId: string;
+                                customer: string | null;
+                                href: string;
+                                /** @enum {string} */
+                                status: "scheduled" | "completed" | "cancelled" | "no_show";
+                                /** @enum {string} */
+                                type: "appointment";
+                                what: string;
+                                when: string;
+                                with: string | null;
                             } | {
                                 detail: string;
                                 href: string | null;

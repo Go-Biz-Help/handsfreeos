@@ -1,9 +1,11 @@
 import { z } from 'zod';
+import { AppointmentStatusValue } from './calendar';
 import { isoDateTime, uuid } from './common';
 
 /** Where a card's row or button goes: an app path only (the panel never renders other links). */
 const appPath = z.string().regex(/^\/app\/w\/[0-9a-f-]{36}(\/[A-Za-z0-9_\-/?=&.]*)?$/);
 const tone = z.enum(['accent', 'warning', 'danger', 'muted']);
+const named = z.object({ id: uuid, name: z.string() });
 
 /**
  * What the panel draws under an answer. Every card is built by the worker from real records, so
@@ -63,9 +65,49 @@ export const AssistantCard = z.discriminatedUnion('type', [
   z.object({
     type: z.literal('list'),
     title: z.string(),
+    /** Beside the title: "Thu, Sep 17 · Central Time". */
+    aside: z.string().optional(),
     items: z
       .array(z.object({ title: z.string(), detail: z.string(), tone, href: appPath.nullable() }))
       .max(12),
+  }),
+  /** "When is Priya free Thursday?": open times on one calendar, a day per row; tapping one asks to book it. */
+  z.object({
+    type: z.literal('slots'),
+    /** The teammate asked about, else the calendar's name. */
+    title: z.string(),
+    /** "Central Time", and the IANA zone the times are in. */
+    zone: z.string(),
+    timezone: z.string(),
+    calendar: named,
+    service: named.nullable(),
+    person: z.object({ userId: uuid, fullName: z.string() }).nullable(),
+    durationMinutes: z.int(),
+    days: z
+      .array(
+        z.object({
+          /** The local date, 2026-09-24. */
+          date: z.string(),
+          /** "Thu, Sep 24". */
+          label: z.string(),
+          times: z.array(z.object({ startsAt: isoDateTime, label: z.string() })).max(8),
+        }),
+      )
+      .max(3),
+    href: appPath,
+  }),
+  /** One appointment: what, who it's for, when, who works it and where it stands. */
+  z.object({
+    type: z.literal('appointment'),
+    appointmentId: uuid,
+    /** The service or the appointment's title: "AC tune-up". */
+    what: z.string(),
+    customer: z.string().nullable(),
+    /** "Fri, Sep 18, 10:00–11:00 AM". */
+    when: z.string(),
+    with: z.string().nullable(),
+    status: AppointmentStatusValue,
+    href: appPath,
   }),
   z.object({
     type: z.literal('done'),
@@ -85,12 +127,15 @@ export const AssistantCard = z.discriminatedUnion('type', [
     personId: uuid.nullable(),
     conversationId: uuid.nullable(),
     title: z.string(),
-    /** Label and value pairs: To, From, Subject, Name, Phone… */
+    /** Label and value pairs: To, From, Subject, Name, Phone; Customer, What, When, With… */
     fields: z.array(z.object({ label: z.string(), value: z.string() })).max(6),
     body: z.string().nullable(),
     stageFrom: z.string().nullable(),
     stageTo: z.string().nullable(),
-    /** Rules the person should see before saying yes (quiet hours, a possible duplicate). */
+    /**
+     * Rules the person should see before saying yes: quiet hours, a possible duplicate; for appointments
+     * conflict, outside_hours, busy, time_off, in_past and no_text_consent.
+     */
     warnings: z.array(z.object({ kind: z.string(), text: z.string() })).max(3),
     /** Lost reasons to pick from when moving a lead to a lost stage. */
     reasons: z.array(z.string()).max(12),
@@ -163,9 +208,9 @@ export const AssistantThreadRenameInput = z.object({
 export const AssistantThreadArchiveInput = z.object({ workspaceId: uuid, threadId: uuid });
 export const AssistantThreadOutput = z.object({ threadId: uuid });
 
-/** The page the person is looking at when they ask (from the address bar). */
+/** The page the person is looking at when they ask (from the address bar; /calendar?appt= is an appointment). */
 export const AssistantPageRecord = z.object({
-  type: z.enum(['person', 'company', 'lead', 'conversation']),
+  type: z.enum(['person', 'company', 'lead', 'conversation', 'appointment']),
   id: uuid,
 });
 

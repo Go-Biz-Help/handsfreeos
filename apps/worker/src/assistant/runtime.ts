@@ -39,6 +39,8 @@ export interface ToolOutcome {
   readonly isError?: boolean;
   /** A card for the panel; a "done" card gets its tool call id from the runtime. */
   readonly card?: AssistantCard | null;
+  /** More cards after it (a customer's next appointment, today's tasks after its appointments). */
+  readonly cards?: readonly AssistantCard[];
   readonly command?: string | null;
   /** Kept with the tool call: a sentence and a link for the panel, and what Undo needs. */
   readonly record?: Record<string, unknown>;
@@ -103,6 +105,7 @@ const STEP_LABEL: Record<string, string> = {
   what_needs_attention: 'Checking what’s waiting',
   list_tasks: 'Looking at tasks',
   todays_schedule: 'Looking at today',
+  find_availability: 'Checking open times',
   get_conversation: 'Reading the conversation',
   list_inbox: 'Checking the inbox',
   list_team: 'Looking up the team',
@@ -280,8 +283,9 @@ export async function ask(
               result: out.record ?? null,
               command: out.command ?? null,
             });
-            if (out.card) {
-              const card = out.card.type === 'done' ? { ...out.card, toolCallId: id } : out.card;
+            for (const shown of [out.card, ...(out.cards ?? [])]) {
+              if (!shown) continue;
+              const card = shown.type === 'done' ? { ...shown, toolCallId: id } : shown;
               cards.push(card);
               emit({ type: 'card', card });
             }

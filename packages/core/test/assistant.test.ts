@@ -4,6 +4,7 @@ import { closeTestDbs, createTestUser, testDbs, type TestUser } from '@hfos/db/t
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { z } from 'zod';
 import { assistantTools, toolInputSchema } from '../src/assistant/tools';
+import { AssistantCard } from '../src/schemas/assistant';
 import { HfosError } from '../src/errors';
 import { executeCommand, executeQuery } from '../src/kernel/execute';
 import type { CommandDef, HumanActor, QueryDef, RequestMeta } from '../src/kernel/types';
@@ -95,6 +96,77 @@ describe('Assistant tools', () => {
       expect(schema).toMatchObject({ type: 'object' });
       expect(schema).not.toHaveProperty('$schema');
     }
+  });
+});
+
+describe('Assistant calendar tools', () => {
+  const tool = (name: string) => assistantTools.find((t) => t.name === name)!;
+  const id = randomUUID();
+
+  it('look up times on their own, and book, move or cancel only on Confirm with appointments.write', () => {
+    expect(tool('find_availability')).toMatchObject({
+      autonomy: 'auto',
+      permission: 'workspace.read',
+    });
+    for (const name of ['book_appointment', 'reschedule_appointment', 'cancel_appointment'])
+      expect(tool(name)).toMatchObject({ autonomy: 'confirm', permission: 'appointments.write' });
+    expect(tool('todays_schedule').description).not.toMatch(/later update|not available/);
+  });
+
+  it('keep whole local days for the calendar’s zone and turn offset times into UTC', () => {
+    const find = tool('find_availability').input;
+    expect(
+      find.parse({ calendarId: id, from: '2026-09-17', to: '2026-09-18T17:00:00-05:00' }),
+    ).toMatchObject({ from: '2026-09-17', to: '2026-09-18T22:00:00.000Z' });
+    expect(find.safeParse({ calendarId: id, from: '2026-02-30' }).success).toBe(false);
+    expect(find.safeParse({ calendarId: id, from: '2026-09-17T09:00:00' }).success).toBe(false);
+    expect(
+      tool('book_appointment').input.parse({
+        calendarId: id,
+        personId: id,
+        startsAt: '2026-09-18T10:00:00-05:00',
+      }),
+    ).toMatchObject({ startsAt: '2026-09-18T15:00:00.000Z' });
+    expect(tool('cancel_appointment').input.parse({ appointmentId: id })).toEqual({
+      appointmentId: id,
+      notify: true,
+    });
+  });
+
+  it('draw open times and appointments that link only inside the app', () => {
+    const ws = randomUUID();
+    const slots = {
+      type: 'slots',
+      title: 'Priya Natarajan',
+      zone: 'Central Time',
+      timezone: 'America/Chicago',
+      calendar: { id, name: 'Tune-ups' },
+      service: { id, name: 'AC tune-up' },
+      person: { userId: id, fullName: 'Priya Natarajan' },
+      durationMinutes: 60,
+      days: [
+        {
+          date: '2026-09-24',
+          label: 'Thu, Sep 24',
+          times: [{ startsAt: '2026-09-24T13:00:00.000Z', label: '8:00 AM' }],
+        },
+      ],
+      href: `/app/w/${ws}/calendar?view=week&date=2026-09-24&people=${id}`,
+    };
+    expect(AssistantCard.safeParse(slots).success).toBe(true);
+    expect(AssistantCard.safeParse({ ...slots, href: 'https://example.com' }).success).toBe(false);
+    expect(
+      AssistantCard.safeParse({
+        type: 'appointment',
+        appointmentId: id,
+        what: 'AC tune-up',
+        customer: 'Mike Johnson',
+        when: 'Fri, Sep 18, 10:00–11:00 AM',
+        with: 'Priya Natarajan',
+        status: 'scheduled',
+        href: `/app/w/${ws}/calendar?date=2026-09-18&appt=${id}`,
+      }).success,
+    ).toBe(true);
   });
 });
 

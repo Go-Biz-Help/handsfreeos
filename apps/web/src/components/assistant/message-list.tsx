@@ -3,6 +3,7 @@ import type { AssistantCard } from '@hfos/core';
 import {
   ArrowRight,
   Building2,
+  CalendarDays,
   Check,
   KanbanSquare,
   LoaderCircle,
@@ -15,6 +16,7 @@ import { apiBrowser, unwrap } from '@/lib/api/client';
 import type { PageRecord, PageRecordType } from '@/lib/assistant/page-record';
 import { cn } from '@/lib/utils';
 import { useAssistant, type AnswerMessage, type Step } from './assistant-provider';
+import { AppointmentCard, SlotsCard } from './calendar-cards';
 import {
   AttentionCard,
   CallCard,
@@ -55,6 +57,18 @@ async function labelFor(workspaceId: string, page: PageRecord): Promise<string> 
       const who = conversation.person?.fullName ?? conversation.counterpartDisplay;
       return `${conversation.channel === 'email' ? 'Email' : 'Texts'} with ${who}`;
     }
+    case 'appointment': {
+      const { appointment } = unwrap(
+        await api.POST('/v1/queries/appointment.get', {
+          body: { workspaceId, appointmentId: page.id },
+        }),
+      );
+      const who = appointment.attendees
+        .filter((p) => p.status !== 'cancelled')
+        .map((p) => p.fullName);
+      const what = appointment.service?.name ?? appointment.title;
+      return who.length ? `${what} with ${who.join(', ')}` : what;
+    }
   }
 }
 
@@ -80,6 +94,7 @@ const PAGE_ICON: Record<PageRecordType, typeof UserRound> = {
   company: Building2,
   lead: KanbanSquare,
   conversation: MessageCircle,
+  appointment: CalendarDays,
 };
 
 interface Suggestion {
@@ -130,8 +145,8 @@ function Welcome({ label }: { label: string | null }) {
           What can I help with?
         </h2>
         <p className="text-[13px] text-text-2">
-          Ask about customers, leads and tasks, or tell me what to do. I ask before I text or email
-          a customer, or change a lead or a customer.
+          Ask about customers, leads, tasks and the calendar, or tell me what to do. I ask before I
+          text or email a customer, or change a lead, a customer or an appointment.
         </p>
       </div>
       <div className="flex flex-col gap-2">
@@ -202,6 +217,10 @@ function AnswerCardView({
       return <ConfirmCard card={card} onEdit={onEdit} />;
     case 'call':
       return <CallCard card={card} />;
+    case 'slots':
+      return <SlotsCard card={card} />;
+    case 'appointment':
+      return <AppointmentCard card={card} />;
   }
 }
 

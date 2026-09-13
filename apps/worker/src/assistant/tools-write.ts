@@ -7,6 +7,7 @@ import type {
   ToolExecutor,
   ToolOutcome,
 } from './runtime';
+import { calendarConfirmTools } from './tools-calendar';
 import { command, money, paths, query, readTools, when } from './tools-read';
 
 /** The same choices as the pipeline's lost-reason dialog (apps/web/src/components/pipeline/lost-reason-dialog.tsx). */
@@ -782,6 +783,7 @@ const confirmTools: Record<string, ConfirmTool> = {
   update_customer: updateCustomer,
   create_lead: createLead,
   update_lead: updateLead,
+  ...calendarConfirmTools,
 };
 
 /** Every tool the Assistant can call has one of these; worker tests check none is missing. */

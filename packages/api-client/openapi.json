@@ -20504,6 +20504,9 @@
                                     "title": {
                                       "type": "string"
                                     },
+                                    "aside": {
+                                      "type": "string"
+                                    },
                                     "items": {
                                       "maxItems": 12,
                                       "type": "array",
@@ -20551,6 +20554,217 @@
                                     "type",
                                     "title",
                                     "items"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "type": {
+                                      "type": "string",
+                                      "enum": [
+                                        "slots"
+                                      ]
+                                    },
+                                    "title": {
+                                      "type": "string"
+                                    },
+                                    "zone": {
+                                      "type": "string"
+                                    },
+                                    "timezone": {
+                                      "type": "string"
+                                    },
+                                    "calendar": {
+                                      "type": "object",
+                                      "properties": {
+                                        "id": {
+                                          "type": "string",
+                                          "format": "uuid",
+                                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                        },
+                                        "name": {
+                                          "type": "string"
+                                        }
+                                      },
+                                      "required": [
+                                        "id",
+                                        "name"
+                                      ],
+                                      "additionalProperties": false
+                                    },
+                                    "service": {
+                                      "anyOf": [
+                                        {
+                                          "type": "object",
+                                          "properties": {
+                                            "id": {
+                                              "type": "string",
+                                              "format": "uuid",
+                                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                            },
+                                            "name": {
+                                              "type": "string"
+                                            }
+                                          },
+                                          "required": [
+                                            "id",
+                                            "name"
+                                          ],
+                                          "additionalProperties": false
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    },
+                                    "person": {
+                                      "anyOf": [
+                                        {
+                                          "type": "object",
+                                          "properties": {
+                                            "userId": {
+                                              "type": "string",
+                                              "format": "uuid",
+                                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                            },
+                                            "fullName": {
+                                              "type": "string"
+                                            }
+                                          },
+                                          "required": [
+                                            "userId",
+                                            "fullName"
+                                          ],
+                                          "additionalProperties": false
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    },
+                                    "durationMinutes": {
+                                      "type": "integer",
+                                      "minimum": -9007199254740991,
+                                      "maximum": 9007199254740991
+                                    },
+                                    "days": {
+                                      "maxItems": 3,
+                                      "type": "array",
+                                      "items": {
+                                        "type": "object",
+                                        "properties": {
+                                          "date": {
+                                            "type": "string"
+                                          },
+                                          "label": {
+                                            "type": "string"
+                                          },
+                                          "times": {
+                                            "maxItems": 8,
+                                            "type": "array",
+                                            "items": {
+                                              "type": "object",
+                                              "properties": {
+                                                "startsAt": {
+                                                  "type": "string",
+                                                  "format": "date-time",
+                                                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                                                },
+                                                "label": {
+                                                  "type": "string"
+                                                }
+                                              },
+                                              "required": [
+                                                "startsAt",
+                                                "label"
+                                              ],
+                                              "additionalProperties": false
+                                            }
+                                          }
+                                        },
+                                        "required": [
+                                          "date",
+                                          "label",
+                                          "times"
+                                        ],
+                                        "additionalProperties": false
+                                      }
+                                    },
+                                    "href": {
+                                      "type": "string",
+                                      "pattern": "^\\/app\\/w\\/[0-9a-f-]{36}(\\/[A-Za-z0-9_\\-/?=&.]*)?$"
+                                    }
+                                  },
+                                  "required": [
+                                    "type",
+                                    "title",
+                                    "zone",
+                                    "timezone",
+                                    "calendar",
+                                    "service",
+                                    "person",
+                                    "durationMinutes",
+                                    "days",
+                                    "href"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "type": {
+                                      "type": "string",
+                                      "enum": [
+                                        "appointment"
+                                      ]
+                                    },
+                                    "appointmentId": {
+                                      "type": "string",
+                                      "format": "uuid",
+                                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                    },
+                                    "what": {
+                                      "type": "string"
+                                    },
+                                    "customer": {
+                                      "type": [
+                                        "string",
+                                        "null"
+                                      ]
+                                    },
+                                    "when": {
+                                      "type": "string"
+                                    },
+                                    "with": {
+                                      "type": [
+                                        "string",
+                                        "null"
+                                      ]
+                                    },
+                                    "status": {
+                                      "type": "string",
+                                      "enum": [
+                                        "scheduled",
+                                        "completed",
+                                        "cancelled",
+                                        "no_show"
+                                      ]
+                                    },
+                                    "href": {
+                                      "type": "string",
+                                      "pattern": "^\\/app\\/w\\/[0-9a-f-]{36}(\\/[A-Za-z0-9_\\-/?=&.]*)?$"
+                                    }
+                                  },
+                                  "required": [
+                                    "type",
+                                    "appointmentId",
+                                    "what",
+                                    "customer",
+                                    "when",
+                                    "with",
+                                    "status",
+                                    "href"
                                   ],
                                   "additionalProperties": false
                                 },

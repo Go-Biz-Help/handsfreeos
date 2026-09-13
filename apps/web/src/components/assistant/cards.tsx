@@ -206,6 +206,9 @@ export function ListCard({ card }: { card: CardOf<'list'> }) {
     <div className={cardShell} data-testid="assistant-card-list">
       <div className={cardHead}>
         <CardTitle>{card.title}</CardTitle>
+        {card.aside ? (
+          <span className="max-w-[55%] flex-none truncate text-xs text-text-3">{card.aside}</span>
+        ) : null}
       </div>
       {card.items.length === 0 ? (
         <div className={cn(cardRow, 'text-text-3')}>Nothing here.</div>

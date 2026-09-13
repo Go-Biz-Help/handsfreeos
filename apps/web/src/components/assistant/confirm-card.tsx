@@ -3,8 +3,12 @@ import type { AssistantCard } from '@hfos/core';
 import {
   ArrowRight,
   Ban,
+  CalendarClock,
+  CalendarOff,
+  CalendarX2,
   CircleCheck,
   Clock,
+  MessageSquareOff,
   Moon,
   ShieldCheck,
   TriangleAlert,
@@ -27,12 +31,25 @@ import { cardFoot, cardShell, Result, touchButton } from './card-parts';
 
 export type ConfirmCardData = Extract<AssistantCard, { type: 'confirm' }>;
 
+const CAUTION = 'bg-warning-soft text-warning-text';
 const WARNING: Record<string, { icon: LucideIcon; className: string }> = {
-  quiet_hours: { icon: Moon, className: 'bg-warning-soft text-warning-text' },
+  quiet_hours: { icon: Moon, className: CAUTION },
   duplicate: { icon: Users, className: 'bg-accent-soft text-accent-text' },
   blocked: { icon: Ban, className: 'bg-danger-soft text-danger-text' },
+  // Appointments: things staff can book over (design/m5/Assistant.dc.html).
+  conflict: { icon: CalendarX2, className: CAUTION },
+  outside_hours: { icon: Clock, className: CAUTION },
+  busy: { icon: CalendarClock, className: CAUTION },
+  time_off: { icon: CalendarOff, className: CAUTION },
+  no_text_consent: { icon: MessageSquareOff, className: CAUTION },
 };
-const OTHER_WARNING = { icon: TriangleAlert, className: 'bg-warning-soft text-warning-text' };
+const OTHER_WARNING = { icon: TriangleAlert, className: CAUTION };
+
+/** A move shows the old time struck through and the new one in bold. */
+const FIELD_VALUE: Record<string, string> = {
+  Was: 'text-text-3 line-through',
+  Now: 'font-semibold',
+};
 
 const lostMove = (card: ConfirmCardData) =>
   card.reasons.length > 0 || card.confirmLabel === 'Mark as lost' || /lost\?$/.test(card.title);
@@ -61,6 +78,14 @@ function cancelledText(card: ConfirmCardData): string {
       return 'Nothing added.';
     case 'create_lead':
       return 'No lead opened.';
+    case 'book_appointment':
+      return 'Not booked. Nothing was added to the calendar.';
+    case 'reschedule_appointment': {
+      const was = card.fields.find((f) => f.label === 'Was')?.value;
+      return was ? `Not moved. It stays ${was}.` : 'Not moved.';
+    }
+    case 'cancel_appointment':
+      return 'Kept. The appointment is still on.';
     default:
       return 'Not changed.';
   }
@@ -76,8 +101,9 @@ const openLabel = (tool: string) =>
         : 'Open';
 
 /**
- * Anything that reaches a customer, or changes a lead or a customer, waits here for the person's OK
- * (design/m4/Confirm.dc.html). Confirm runs exactly what the card shows; Cancel records a no.
+ * Anything that reaches a customer, or changes a lead, a customer or an appointment, waits here for the
+ * person's OK (design/m4/Confirm.dc.html, design/m5/Assistant.dc.html). Confirm runs exactly what the card
+ * shows; Cancel ("Keep it" on a cancellation) records a no.
  */
 export function ConfirmCard({
   card,
@@ -102,6 +128,8 @@ export function ConfirmCard({
   const blocked = !card.confirmLabel;
   const needsReason = card.reasons.length > 0;
   const moving = !!(card.stageFrom && card.stageTo);
+  /** Cancelling an appointment: a red button, and the way out reads "Keep it". */
+  const cancelling = card.tool === 'cancel_appointment';
   const leadLine = moving ? card.fields.find((f) => f.label === 'Lead')?.value : undefined;
   const fields = moving ? card.fields.filter((f) => f.label !== 'Lead') : card.fields;
 
@@ -167,7 +195,9 @@ export function ConfirmCard({
             {fields.map((f, i) => (
               <div key={`${f.label}-${i}`} className="contents">
                 <dt className="min-w-12 text-text-3">{f.label}</dt>
-                <dd className="m-0 min-w-0 [overflow-wrap:anywhere]">{f.value}</dd>
+                <dd className={cn('m-0 min-w-0 [overflow-wrap:anywhere]', FIELD_VALUE[f.label])}>
+                  {f.value}
+                </dd>
               </div>
             ))}
           </dl>
@@ -222,6 +252,7 @@ export function ConfirmCard({
           {blocked ? null : (
             <Button
               size="sm"
+              variant={cancelling ? 'danger' : 'primary'}
               className={touchButton}
               loading={busy === 'confirm'}
               disabled={!!busy || (needsReason && !reason)}
@@ -253,7 +284,7 @@ export function ConfirmCard({
             onClick={() => void decide('cancel')}
             data-testid="assistant-cancel"
           >
-            {blocked ? 'Close' : 'Cancel'}
+            {blocked ? 'Close' : cancelling ? 'Keep it' : 'Cancel'}
           </Button>
         </div>
       ) : state.status === 'confirmed' ? (

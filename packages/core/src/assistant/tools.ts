@@ -1,12 +1,13 @@
 import { z } from 'zod';
+import { isLocalDate } from '../calendar/engine/zoned';
 import type { Permission } from '../permissions';
 import { uuid } from '../schemas/common';
 
 /**
  * The Assistant's tools: each one maps to commands and queries people already use, so the Assistant
  * can only do what the signed-in person can do, with the same rules, events and audit. Tools that
- * reach a customer or change a lead or customer wait for the person's OK ("confirm"); look-ups,
- * tasks and notes run on their own ("auto").
+ * reach a customer or change a lead, a customer or an appointment wait for the person's OK ("confirm");
+ * look-ups, tasks and notes run on their own ("auto").
  */
 export type ToolAutonomy = 'auto' | 'confirm';
 
@@ -29,6 +30,15 @@ const when = z.iso
   .datetime({ offset: true })
   .describe('ISO 8601 date and time with the workspace offset, e.g. 2026-09-14T09:00:00-05:00')
   .transform((s) => new Date(s).toISOString());
+/** A whole local day ('2026-09-17', kept as it is for the worker to place in the calendar's zone) or an instant. */
+const dayOrWhen = z.union([
+  z
+    .string()
+    .refine(isLocalDate, { error: 'Use a date like 2026-09-17.' })
+    .describe('A local date for the whole day, e.g. 2026-09-17'),
+  when,
+]);
+const minutes = z.int().min(5).max(720).describe('Length in minutes');
 
 export const assistantTools = [
   // ---------- looking things up (auto) ----------
@@ -43,7 +53,7 @@ export const assistantTools = [
   define({
     name: 'get_customer',
     description:
-      'One person in full: contact details, open leads, open tasks and their conversations.',
+      'One person in full: contact details, open leads, open tasks, upcoming appointments (with ids) and their conversations.',
     input: z.object({ personId: uuid }),
     autonomy: 'auto',
     permission: 'records.read',
@@ -102,10 +112,25 @@ export const assistantTools = [
   define({
     name: 'todays_schedule',
     description:
-      'What is on for today. The calendar arrives in a later update, so this lists tasks due today and says so.',
+      'What is on for today: the business’s appointments still to come (with ids), then the person’s tasks due today.',
     input: z.object({}),
     autonomy: 'auto',
     permission: 'records.read',
+  }),
+  define({
+    name: 'find_availability',
+    description:
+      'Open times on one calendar (ids are in the context), optionally for a service, one teammate and a length. Give a local date for a whole day, or times with the offset; `to` defaults to the end of `from`’s day. Shows the times as a card and returns each time with its exact start to book.',
+    input: z.object({
+      calendarId: uuid,
+      serviceId: uuid.optional(),
+      userId: uuid.optional().describe('Only times this teammate works'),
+      from: dayOrWhen,
+      to: dayOrWhen.optional(),
+      durationMinutes: minutes.optional(),
+    }),
+    autonomy: 'auto',
+    permission: 'workspace.read',
   }),
   define({
     name: 'get_conversation',
@@ -285,6 +310,47 @@ export const assistantTools = [
     }),
     autonomy: 'confirm',
     permission: 'inbox.use',
+  }),
+  define({
+    name: 'book_appointment',
+    description:
+      'Book a customer on a calendar at a time. Leave out userIds to let the calendar pick who (round robin, first available…). The card shows who, where, reminders and any warnings (outside hours, busy, time off) before the person books it.',
+    input: z.object({
+      calendarId: uuid,
+      personId: uuid,
+      startsAt: when,
+      durationMinutes: minutes.optional(),
+      serviceId: uuid.optional(),
+      userIds: z.array(uuid).min(1).max(10).optional().describe('Teammates who work it'),
+      leadId: uuid.optional(),
+      notes: z.string().trim().max(5000).optional(),
+    }),
+    autonomy: 'confirm',
+    permission: 'appointments.write',
+  }),
+  define({
+    name: 'reschedule_appointment',
+    description:
+      'Move an appointment to a new time, optionally to other teammates. The customer is told the new time.',
+    input: z.object({
+      appointmentId: uuid,
+      startsAt: when,
+      userIds: z.array(uuid).min(1).max(10).optional(),
+    }),
+    autonomy: 'confirm',
+    permission: 'appointments.write',
+  }),
+  define({
+    name: 'cancel_appointment',
+    description:
+      'Cancel an appointment for everyone on it, and tell the customer unless the person says not to.',
+    input: z.object({
+      appointmentId: uuid,
+      reason: z.string().trim().max(500).optional(),
+      notify: z.boolean().default(true).describe('Tell the customer it is cancelled'),
+    }),
+    autonomy: 'confirm',
+    permission: 'appointments.write',
   }),
 ] as const;
 

@@ -2,6 +2,12 @@ import { executeCommand, registry, type AssistantCard } from '@hfos/core/server'
 import type { Db } from '@hfos/db/client';
 import { personQuery } from './context';
 import type { ToolContext, ToolOutcome } from './runtime';
+import {
+  appointmentCard,
+  calendarReadTools,
+  todaysAppointments,
+  upcomingFor,
+} from './tools-calendar';
 
 /** App pages the cards link to (the panel follows only these). */
 export const paths = (ws: string) => ({
@@ -235,7 +241,7 @@ export const readTools: Record<string, ReadTool> = {
   async get_customer(db, ctx, args) {
     const personId = String(args['personId']);
     const { person } = await query<{ person: PersonItem }>(db, ctx, 'person.get', { personId });
-    const [leads, tasks, convs] = await Promise.all([
+    const [leads, tasks, convs, upcoming] = await Promise.all([
       query<{ items: LeadItem[] }>(db, ctx, 'lead.list', { personId, status: 'open', limit: 5 }),
       query<{ items: TaskItem[] }>(db, ctx, 'task.list', {
         scope: 'all',
@@ -246,7 +252,9 @@ export const readTools: Record<string, ReadTool> = {
       query<{ items: ConversationItem[] }>(db, ctx, 'inbox.list', { personId, limit: 5 }).catch(
         () => ({ items: [] }),
       ),
+      upcomingFor(db, ctx, personId),
     ]);
+    const next = upcoming.items[0];
     return {
       result: {
         person: {
@@ -265,6 +273,7 @@ export const readTools: Record<string, ReadTool> = {
           due: when(t.dueAt, ctx.timezone),
           assignee: t.assignee?.fullName ?? null,
         })),
+        upcomingAppointments: upcoming.results,
         conversations: convs.items.map((c) => ({
           id: c.id,
           channel: c.channel,
@@ -274,6 +283,7 @@ export const readTools: Record<string, ReadTool> = {
         })),
       },
       card: await customerCard(db, ctx, person),
+      cards: next ? [appointmentCard(ctx, next, ctx.timezone)] : [],
     };
   },
 
@@ -503,36 +513,42 @@ export const readTools: Record<string, ReadTool> = {
   },
 
   async todays_schedule(db, ctx) {
-    const { items } = await query<{ items: TaskItem[] }>(db, ctx, 'task.list', {
-      scope: 'mine',
-      status: 'open',
-      limit: 60,
-    });
+    const [appointments, { items }] = await Promise.all([
+      todaysAppointments(db, ctx),
+      query<{ items: TaskItem[] }>(db, ctx, 'task.list', {
+        scope: 'mine',
+        status: 'open',
+        limit: 60,
+      }),
+    ]);
     const due = items.filter((t) => t.dueBucket === 'overdue' || t.dueBucket === 'today');
     return {
       result: {
-        calendar: 'not available yet; tasks due today are below',
-        dueToday: due.map((t) => ({
+        ...appointments.result,
+        tasksDueToday: due.map((t) => ({
           title: t.title,
           due: when(t.dueAt, ctx.timezone),
           overdue: t.dueBucket === 'overdue',
         })),
       },
-      card: due.length
-        ? {
-            type: 'list',
-            title: 'Due today',
-            items: due.map((t) => ({
-              title: t.title,
-              detail:
-                t.dueBucket === 'overdue'
-                  ? `Overdue · ${t.assignee?.fullName ?? 'You'}`
-                  : when(t.dueAt, ctx.timezone),
-              tone: t.dueBucket === 'overdue' ? 'danger' : 'accent',
-              href: paths(ctx.workspaceId).tasks(),
-            })),
-          }
-        : null,
+      card: appointments.card,
+      cards: due.length
+        ? [
+            {
+              type: 'list',
+              title: 'Due today',
+              items: due.slice(0, 12).map((t) => ({
+                title: t.title,
+                detail:
+                  t.dueBucket === 'overdue'
+                    ? `Overdue · ${t.assignee?.fullName ?? 'You'}`
+                    : when(t.dueAt, ctx.timezone),
+                tone: t.dueBucket === 'overdue' ? 'danger' : 'accent',
+                href: paths(ctx.workspaceId).tasks(),
+              })),
+            },
+          ]
+        : [],
     };
   },
 
@@ -669,6 +685,8 @@ export const readTools: Record<string, ReadTool> = {
       card: { type: 'call', personId: person.id, fullName: person.fullName, phone: person.phone },
     };
   },
+
+  ...calendarReadTools,
 };
 
 export { executeCommand };
