@@ -2,14 +2,12 @@
 # Deployed from the repository root by .github/workflows/deploy.yml:
 #   flyctl deploy . --config apps/worker/fly.toml --dockerfile apps/worker/Dockerfile --remote-only
 #
-# Secrets (set once, never in this file):
-#   fly secrets set --app handsfreeos-worker \
-#     DATABASE_URL_WORKER='<connection string for the hfos_worker role>' \
-#     SUPABASE_SECRET_KEY='…' SMTP_URL='smtps://…' \
-#     WORKER_ENCRYPTION_KEY="$(openssl rand -base64 32)" \
-#     TWILIO_ACCOUNT_SID='…' TWILIO_AUTH_TOKEN='…'
-#   Later: TWILIO_PRIMARY_PROFILE_SID (local-number registration), POSTMARK_* and OAuth client secrets.
-# Keep WORKER_ENCRYPTION_KEY somewhere safe: without it the sealed subaccount tokens can't be opened.
+# Secrets never go in this file: docs/operations.md (Fly Part 6) sets them with `fly secrets import`.
+# In production the worker refuses to start without DATABASE_URL_WORKER, SMTP_URL (smtp://…:587?requireTLS=true;
+# Postmark has no port 465), WORKER_ENCRYPTION_KEY, TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, POSTMARK_SERVER_TOKEN,
+# POSTMARK_ACCOUNT_TOKEN and POSTMARK_WEBHOOK_PASSWORD (24+ characters). SUPABASE_SECRET_KEY (files),
+# TWILIO_PRIMARY_PROFILE_SID (local numbers) and the Microsoft and Google OAuth client values turn features on.
+# Save WORKER_ENCRYPTION_KEY in the password manager before setting it: without it sealed tokens can't be opened.
 
 app = "handsfreeos-worker"
 primary_region = "dfw"

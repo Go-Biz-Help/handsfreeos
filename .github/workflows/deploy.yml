@@ -38,7 +38,7 @@ jobs:
           # The commit CI just verified, not whatever main points at now.
           ref: ${{ github.event.workflow_run.head_sha || github.sha }}
 
-      - uses: superfly/flyctl-actions/setup-flyctl@1.5
+      - uses: superfly/flyctl-actions/setup-flyctl@1.6
         if: steps.check.outputs.ready == 'true'
 
       # Both images build from the repository root (they copy the shared packages); Fly's builders do the work.

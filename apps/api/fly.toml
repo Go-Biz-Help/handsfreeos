@@ -1,8 +1,8 @@
 # HandsFreeOS API on Fly.io. Deployed from the repository root by .github/workflows/deploy.yml:
 #   flyctl deploy . --config apps/api/fly.toml --dockerfile apps/api/Dockerfile --remote-only
 #
-# Secrets (set once, never in this file):
-#   fly secrets set --app handsfreeos-api DATABASE_URL='<connection string for the hfos_api role>'
+# Secrets never go in this file. The one secret, DATABASE_URL (the hfos_api role's connection string), is set with
+# `fly secrets import` (docs/operations.md, Fly Part 6).
 # The API refuses to boot if it is handed a Supabase secret key or any provider credential.
 
 app = "handsfreeos-api"
