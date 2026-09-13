@@ -15502,6 +15502,9 @@
                                           "type": "null"
                                         }
                                       ]
+                                    },
+                                    "undoable": {
+                                      "type": "boolean"
                                     }
                                   },
                                   "required": [
@@ -15510,7 +15513,8 @@
                                     "kind",
                                     "title",
                                     "detail",
-                                    "href"
+                                    "href",
+                                    "undoable"
                                   ],
                                   "additionalProperties": false
                                 },
@@ -15530,6 +15534,30 @@
                                     },
                                     "tool": {
                                       "type": "string"
+                                    },
+                                    "personId": {
+                                      "anyOf": [
+                                        {
+                                          "type": "string",
+                                          "format": "uuid",
+                                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    },
+                                    "conversationId": {
+                                      "anyOf": [
+                                        {
+                                          "type": "string",
+                                          "format": "uuid",
+                                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
                                     },
                                     "title": {
                                       "type": "string"
@@ -15610,6 +15638,8 @@
                                     "type",
                                     "toolCallId",
                                     "tool",
+                                    "personId",
+                                    "conversationId",
                                     "title",
                                     "fields",
                                     "body",
@@ -15716,6 +15746,9 @@
                                 "type": "null"
                               }
                             ]
+                          },
+                          "undone": {
+                            "type": "boolean"
                           }
                         },
                         "required": [
@@ -15724,7 +15757,8 @@
                           "status",
                           "outcome",
                           "error",
-                          "href"
+                          "href",
+                          "undone"
                         ],
                         "additionalProperties": false
                       }

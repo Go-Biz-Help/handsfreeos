@@ -7,7 +7,7 @@ import { defineConfig, devices } from '@playwright/test';
 // process.env on purpose: Playwright hands its environment to the servers it starts and the API
 // refuses to boot with one (the worker reads its own apps/worker/.env).
 const PRIVILEGED =
-  /SECRET|SERVICE_ROLE|SIGNING_KEY|ENCRYPTION_KEY|^TWILIO_|^POSTMARK_|^(MICROSOFT|GOOGLE)_OAUTH_/i;
+  /SECRET|SERVICE_ROLE|SIGNING_KEY|ENCRYPTION_KEY|^TWILIO_|^POSTMARK_|^(MICROSOFT|GOOGLE)_OAUTH_|^(ANTHROPIC|OPENAI)_/i;
 for (const c of ['../../.env.local', '.env.local']) {
   const p = resolve(process.cwd(), c);
   if (!existsSync(p)) continue;
@@ -17,6 +17,14 @@ for (const c of ['../../.env.local', '.env.local']) {
 }
 
 const CI = !!process.env.CI;
+
+/** What the servers Playwright starts inherit: this shell's environment minus anything privileged (a shell
+ *  may carry names like ANTHROPIC_BASE_URL, and the API refuses to boot with one). */
+const serverEnv = Object.fromEntries(
+  Object.entries(process.env).filter(
+    (e): e is [string, string] => e[1] !== undefined && !PRIVILEGED.test(e[0]),
+  ),
+);
 
 export default defineConfig({
   testDir: 'e2e',
@@ -56,6 +64,7 @@ export default defineConfig({
       command: 'pnpm --filter @hfos/api exec tsx src/server.ts',
       url: 'http://127.0.0.1:4000/healthz',
       cwd: resolve(process.cwd(), '../..'),
+      env: serverEnv,
       reuseExistingServer: !CI,
       timeout: 60_000,
     },
@@ -64,6 +73,7 @@ export default defineConfig({
       command: CI ? 'pnpm --filter @hfos/web start' : 'pnpm --filter @hfos/web dev',
       url: 'http://localhost:3000/sign-in',
       cwd: resolve(process.cwd(), '../..'),
+      env: serverEnv,
       reuseExistingServer: !CI,
       timeout: 120_000,
     },

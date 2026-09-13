@@ -74,11 +74,16 @@ export const AssistantCard = z.discriminatedUnion('type', [
     title: z.string(),
     detail: z.string(),
     href: appPath.nullable(),
+    /** Whether Undo can take it back (adding a task or a note, completing a task). */
+    undoable: z.boolean(),
   }),
   z.object({
     type: z.literal('confirm'),
     toolCallId: uuid,
     tool: z.string(),
+    /** Who a text or email goes to, so Edit opens the right composer. */
+    personId: uuid.nullable(),
+    conversationId: uuid.nullable(),
     title: z.string(),
     /** Label and value pairs: To, From, Subject, Name, Phone… */
     fields: z.array(z.object({ label: z.string(), value: z.string() })).max(6),
@@ -119,6 +124,8 @@ export const AssistantToolCallOut = z.object({
   outcome: z.string().nullable(),
   error: z.string().nullable(),
   href: appPath.nullable(),
+  /** A task or note the Assistant added on its own that someone took back with Undo. */
+  undone: z.boolean(),
 });
 
 export const AssistantMessageOut = z.object({

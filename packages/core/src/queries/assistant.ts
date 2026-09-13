@@ -88,6 +88,7 @@ export const assistantThreadGet = defineQuery({
         outcome: dsql<string | null>`${assistantToolCalls.result}->>'outcome'`,
         href: dsql<string | null>`${assistantToolCalls.result}->>'href'`,
         error: assistantToolCalls.error,
+        undone: dsql<boolean>`coalesce((${assistantToolCalls.result}->>'undone')::boolean, false)`,
       })
       .from(assistantToolCalls)
       .where(eq(assistantToolCalls.threadId, thread.id))

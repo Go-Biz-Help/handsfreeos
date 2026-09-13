@@ -31,9 +31,10 @@ const defined = (o: Args) =>
 function confirmCard(
   toolCallId: string,
   tool: string,
-  card: Omit<ConfirmCard, 'type' | 'toolCallId' | 'tool'>,
+  card: Omit<ConfirmCard, 'type' | 'toolCallId' | 'tool' | 'personId' | 'conversationId'> &
+    Partial<Pick<ConfirmCard, 'personId' | 'conversationId'>>,
 ): ConfirmCard {
-  return { type: 'confirm', toolCallId, tool, ...card };
+  return { type: 'confirm', toolCallId, tool, personId: null, conversationId: null, ...card };
 }
 
 interface Members {
@@ -63,11 +64,14 @@ const autoWrites: Record<string, (db: Db, ctx: ToolContext, args: Args) => Promi
       notes: str(args['notes']) ?? null,
       dueAt: args['dueAt'] ?? null,
       allDay: args['allDay'] ?? false,
-      assigneeUserId: args['assigneeUserId'] ?? null,
+      // A task nobody was named for is the asker's own, as when they add one themselves.
+      assigneeUserId: args['assigneeUserId'] ?? ctx.actor.userId,
       personId: args['personId'] ?? null,
       leadId: args['leadId'] ?? null,
     });
-    const who = (await teammate(db, ctx, args['assigneeUserId'])) ?? 'You';
+    const assignee = args['assigneeUserId'] ?? ctx.actor.userId;
+    const who =
+      assignee === ctx.actor.userId ? 'You' : ((await teammate(db, ctx, assignee)) ?? 'A teammate');
     const due = args['dueAt'] ? when(String(args['dueAt']), ctx.timezone) : 'No due date';
     const href = paths(ctx.workspaceId).tasks();
     const title = String(args['title']);
@@ -81,6 +85,7 @@ const autoWrites: Record<string, (db: Db, ctx: ToolContext, args: Args) => Promi
         title,
         detail: `${who} · ${due}`,
         href,
+        undoable: true,
       },
       record: { taskId, outcome: `Added “${title}”`, href },
     };
@@ -110,6 +115,7 @@ const autoWrites: Record<string, (db: Db, ctx: ToolContext, args: Args) => Promi
         title: str(args['title']) ?? 'Task changed',
         detail: changed.length ? `Changed the ${changed.join(' and ')}` : 'Nothing needed changing',
         href,
+        undoable: false,
       },
       record: { taskId: args['taskId'], outcome: 'Changed the task', href, undo: false },
     };
@@ -128,6 +134,7 @@ const autoWrites: Record<string, (db: Db, ctx: ToolContext, args: Args) => Promi
         title: 'Task done',
         detail: 'Marked complete',
         href,
+        undoable: true,
       },
       record: { taskId: args['taskId'], outcome: 'Marked the task done', href },
     };
@@ -171,6 +178,7 @@ const autoWrites: Record<string, (db: Db, ctx: ToolContext, args: Args) => Promi
         title: `Note on ${name}`,
         detail: `“${body.length > 120 ? `${body.slice(0, 117)}…` : body}”`,
         href,
+        undoable: true,
       },
       record: { activityId, outcome: `Added a note on ${name}`, href },
     };
@@ -294,6 +302,8 @@ const sendText: ConfirmTool = {
       });
     return {
       card: confirmCard(toolCallId, 'send_text', {
+        personId: t.personId,
+        conversationId: t.conversationId,
         title: `Send this text to ${first}?`,
         fields: [
           { label: 'To', value: [t.name, t.phone].filter(Boolean).join(' · ') },
@@ -389,6 +399,8 @@ const sendEmail: ConfirmTool = {
         : `Email to ${e.opts.to} is stopped after a bounce or a complaint.`;
     return {
       card: confirmCard(toolCallId, 'send_email', {
+        personId: e.personId,
+        conversationId: e.conversationId,
         title: `Email ${first}?`,
         fields: [
           { label: 'To', value: [e.name, e.opts.to].filter(Boolean).join(' · ') },

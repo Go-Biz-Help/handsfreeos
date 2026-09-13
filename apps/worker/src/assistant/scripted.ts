@@ -22,8 +22,11 @@ const parse = (json: string | undefined): Record<string, unknown> => {
 };
 /** Tomorrow at 9:00 AM in Houston (Central daylight time), as the model would write it. */
 const tomorrowAtNine = () => {
-  const d = new Date(Date.now() + 86_400_000);
-  return `${d.toISOString().slice(0, 10)}T09:00:00-05:00`;
+  // The calendar date in Houston, not in UTC: after 7 PM there it is already tomorrow in UTC.
+  const day = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Chicago' }).format(
+    new Date(Date.now() + 86_400_000),
+  );
+  return `${day}T09:00:00-05:00`;
 };
 
 const rules: ScriptRule[] = [

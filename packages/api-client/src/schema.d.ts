@@ -5449,14 +5449,17 @@ export interface operations {
                                 toolCallId: string;
                                 /** @enum {string} */
                                 type: "done";
+                                undoable: boolean;
                             } | {
                                 body: string | null;
                                 confirmLabel: string;
+                                conversationId: string | null;
                                 editable: boolean;
                                 fields: {
                                     label: string;
                                     value: string;
                                 }[];
+                                personId: string | null;
                                 reasons: string[];
                                 stageFrom: string | null;
                                 stageTo: string | null;
@@ -5502,6 +5505,7 @@ export interface operations {
                             /** @enum {string} */
                             status: "done" | "failed" | "awaiting_confirmation" | "confirmed" | "cancelled" | "expired";
                             tool: string;
+                            undone: boolean;
                         }[];
                     };
                 };
