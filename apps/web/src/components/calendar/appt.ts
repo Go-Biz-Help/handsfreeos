@@ -8,6 +8,21 @@ export const customersOf = (a: Pick<Appointment, 'attendees'>) =>
 
 export const firstName = (name: string): string => name.trim().split(/\s+/)[0] || name;
 
+/** What a booking reserves, in words: "1 Red light bed", "2 × Truck". */
+export const reservedText = (quantity: number, name: string): string =>
+  quantity === 1 ? `1 ${name}` : `${quantity} × ${name}`;
+
+/** The open times a 409 resource_full offers instead: `details.slots[].startsAt`, as with slot_taken. */
+export function freshTimes(details: unknown): string[] {
+  const slots = (details as { slots?: unknown } | null | undefined)?.slots;
+  if (!Array.isArray(slots)) return [];
+  return slots
+    .map((s: unknown) =>
+      typeof s === 'string' ? s : (s as { startsAt?: unknown } | null)?.startsAt,
+    )
+    .filter((s): s is string => typeof s === 'string');
+}
+
 /** "Priya and Marco", "Priya, Marco and Dale". */
 export function namesText(names: readonly string[]): string {
   if (names.length <= 1) return names[0] ?? '';

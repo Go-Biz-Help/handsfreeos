@@ -44,6 +44,8 @@ export const onCalendarReauthRequired: EventHandler = async (ctx) => {
 /**
  * An appointment was booked, moved, reassigned, cancelled or finished: its events in people's calendars follow.
  * Events about several appointments (a series, whose entity id is the series) list them in `appointmentIds`.
+ * An appointment nobody works (a calendar without staff) is skipped: queueCalendarSync only queues one when
+ * someone on it has a connected calendar or an event was written for it before.
  */
 export const onAppointmentChanged: EventHandler = async (ctx) => {
   const scope = tenantOf(ctx.scope);

@@ -199,11 +199,18 @@ const ASSIGNMENT: readonly { value: AssignmentMode; title: string; description: 
     title: 'Collective',
     description: 'Everyone goes together. All must be free.',
   },
+  {
+    value: 'none',
+    title: 'No staff needed',
+    description: 'Bookings depend only on your open hours and free equipment, like beds or rooms.',
+  },
 ];
 
 function TeamModule({ draft, patch, catalogs, people, territories }: ModuleProps) {
   const members = draft.team.members;
   const mode = draft.team.assignment;
+  /** No staff needed: nobody to add or order, only a note and how it works. */
+  const staffless = mode === 'none';
   const byId = new globalThis.Map(people.map((p) => [p.userId, p]));
   const setMembers = (next: typeof members) => patch({ team: { members: [...next] } });
   const available = people.filter((p) => !members.some((m) => m.userId === p.userId));
@@ -219,127 +226,137 @@ function TeamModule({ draft, patch, catalogs, people, territories }: ModuleProps
         title="Team & assignment"
         description="Who takes bookings on this calendar, and how each booking picks a person."
       />
-      <div data-testid="team-members">
-        {members.map((m, i) => {
-          const p = byId.get(m.userId);
-          const name = p?.fullName ?? 'A former teammate';
-          const areas = territories
-            .filter((t) => t.userIds.includes(m.userId))
-            .map((t) => t.name)
-            .join(', ');
-          return (
-            <div
-              key={m.userId}
-              className="flex items-center gap-3 border-t border-border py-2.5"
-              data-testid={`team-member-${m.userId}`}
-            >
-              <Avatar name={name} seed={m.userId} />
-              <span className="flex min-w-0 flex-1 flex-col">
-                <span className="truncate text-[13px] font-medium">{name}</span>
-                <span className="truncate text-xs text-text-3">
-                  {p ? p.role : 'No longer on the team'}
-                  {draft.territory.routing === 'zip' ? ` · ${areas || 'No territory yet'}` : ''}
+      {staffless ? (
+        <p
+          className="border-t border-border py-3 text-[13px] leading-[1.5] text-text-2"
+          data-testid="team-none-note"
+        >
+          Nobody is assigned to these bookings, so there’s nobody to add. Your open hours
+          (Availability) and free equipment (Resources) decide what customers can book.
+        </p>
+      ) : (
+        <div data-testid="team-members">
+          {members.map((m, i) => {
+            const p = byId.get(m.userId);
+            const name = p?.fullName ?? 'A former teammate';
+            const areas = territories
+              .filter((t) => t.userIds.includes(m.userId))
+              .map((t) => t.name)
+              .join(', ');
+            return (
+              <div
+                key={m.userId}
+                className="flex items-center gap-3 border-t border-border py-2.5"
+                data-testid={`team-member-${m.userId}`}
+              >
+                <Avatar name={name} seed={m.userId} />
+                <span className="flex min-w-0 flex-1 flex-col">
+                  <span className="truncate text-[13px] font-medium">{name}</span>
+                  <span className="truncate text-xs text-text-3">
+                    {p ? p.role : 'No longer on the team'}
+                    {draft.territory.routing === 'zip' ? ` · ${areas || 'No territory yet'}` : ''}
+                  </span>
                 </span>
-              </span>
-              {mode === 'collective' ? (
-                <Checkbox
-                  label="Must go"
-                  checked={m.required}
-                  onChange={(e) =>
-                    setMembers(
-                      members.map((x, j) => (j === i ? { ...x, required: e.target.checked } : x)),
-                    )
-                  }
-                />
-              ) : null}
-              {mode === 'first_available' ? (
-                <span className="flex flex-none items-center">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    aria-label={`Move ${firstName(name)} up`}
-                    disabled={i === 0}
-                    onClick={() => move(i, -1)}
-                  >
-                    <ArrowUp className="h-4 w-4" strokeWidth={1.5} />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    aria-label={`Move ${firstName(name)} down`}
-                    disabled={i === members.length - 1}
-                    onClick={() => move(i, 1)}
-                  >
-                    <ArrowDown className="h-4 w-4" strokeWidth={1.5} />
-                  </Button>
-                </span>
-              ) : null}
-              {/* Weights only count for weighted turns; shown otherwise only when set, so it can be cleared. */}
-              {mode === 'weighted' || m.weight !== 1 ? (
-                <span
-                  className={`flex flex-none items-center ${mode === 'weighted' ? '' : 'opacity-60'}`}
-                >
-                  <span className="mr-2 hidden text-xs text-text-3 @md:inline">Weight</span>
-                  <Stepper
-                    value={m.weight}
-                    min={1}
-                    max={100}
-                    label={`Weight for ${firstName(name)}`}
-                    onChange={(weight) =>
-                      setMembers(members.map((x, j) => (j === i ? { ...x, weight } : x)))
+                {mode === 'collective' ? (
+                  <Checkbox
+                    label="Must go"
+                    checked={m.required}
+                    onChange={(e) =>
+                      setMembers(
+                        members.map((x, j) => (j === i ? { ...x, required: e.target.checked } : x)),
+                      )
                     }
                   />
-                </span>
-              ) : null}
-              <Button
-                variant="ghost"
-                size="icon"
-                className="flex-none"
-                title={`Take ${firstName(name)} off this calendar`}
-                aria-label={`Take ${firstName(name)} off this calendar`}
-                onClick={() => setMembers(members.filter((x) => x.userId !== m.userId))}
-              >
-                <X className="h-4 w-4" strokeWidth={1.5} />
-              </Button>
-            </div>
-          );
-        })}
-        <div className="flex items-center justify-between border-t border-border pt-3">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant="ghost"
-                size="sm"
-                disabled={!available.length}
-                title={available.length ? undefined : 'Everyone is on this calendar'}
-                data-testid="team-add"
-              >
-                <UserPlus className="h-4 w-4" strokeWidth={1.5} />
-                Add a teammate
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start">
-              {available.map((p) => (
-                <DropdownMenuItem
-                  key={p.userId}
-                  onSelect={() =>
-                    setMembers([
-                      ...members,
-                      { userId: p.userId, weight: 1, priority: 0, required: false },
-                    ])
-                  }
+                ) : null}
+                {mode === 'first_available' ? (
+                  <span className="flex flex-none items-center">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      aria-label={`Move ${firstName(name)} up`}
+                      disabled={i === 0}
+                      onClick={() => move(i, -1)}
+                    >
+                      <ArrowUp className="h-4 w-4" strokeWidth={1.5} />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      aria-label={`Move ${firstName(name)} down`}
+                      disabled={i === members.length - 1}
+                      onClick={() => move(i, 1)}
+                    >
+                      <ArrowDown className="h-4 w-4" strokeWidth={1.5} />
+                    </Button>
+                  </span>
+                ) : null}
+                {/* Weights only count for weighted turns; shown otherwise only when set, so it can be cleared. */}
+                {mode === 'weighted' || m.weight !== 1 ? (
+                  <span
+                    className={`flex flex-none items-center ${mode === 'weighted' ? '' : 'opacity-60'}`}
+                  >
+                    <span className="mr-2 hidden text-xs text-text-3 @md:inline">Weight</span>
+                    <Stepper
+                      value={m.weight}
+                      min={1}
+                      max={100}
+                      label={`Weight for ${firstName(name)}`}
+                      onChange={(weight) =>
+                        setMembers(members.map((x, j) => (j === i ? { ...x, weight } : x)))
+                      }
+                    />
+                  </span>
+                ) : null}
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="flex-none"
+                  title={`Take ${firstName(name)} off this calendar`}
+                  aria-label={`Take ${firstName(name)} off this calendar`}
+                  onClick={() => setMembers(members.filter((x) => x.userId !== m.userId))}
                 >
-                  <Avatar name={p.fullName} seed={p.userId} size="sm" />
-                  {p.fullName}
-                </DropdownMenuItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
-          <span className="text-xs text-text-3">
-            {members.length === 1 ? '1 person' : `${members.length} people`}
-          </span>
+                  <X className="h-4 w-4" strokeWidth={1.5} />
+                </Button>
+              </div>
+            );
+          })}
+          <div className="flex items-center justify-between border-t border-border pt-3">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  disabled={!available.length}
+                  title={available.length ? undefined : 'Everyone is on this calendar'}
+                  data-testid="team-add"
+                >
+                  <UserPlus className="h-4 w-4" strokeWidth={1.5} />
+                  Add a teammate
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start">
+                {available.map((p) => (
+                  <DropdownMenuItem
+                    key={p.userId}
+                    onSelect={() =>
+                      setMembers([
+                        ...members,
+                        { userId: p.userId, weight: 1, priority: 0, required: false },
+                      ])
+                    }
+                  >
+                    <Avatar name={p.fullName} seed={p.userId} size="sm" />
+                    {p.fullName}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+            <span className="text-xs text-text-3">
+              {members.length === 1 ? '1 person' : `${members.length} people`}
+            </span>
+          </div>
         </div>
-      </div>
+      )}
 
       <div className="mb-2 mt-[22px] text-[13px] font-medium">How a booking picks a person</div>
       <div
@@ -359,21 +376,29 @@ function TeamModule({ draft, patch, catalogs, people, territories }: ModuleProps
           />
         ))}
       </div>
-      <SetRow
-        className="mt-[18px]"
-        center
-        title="People per booking"
-        description="Raise it to send a crew. Each person is picked the same way, without repeats."
-      >
-        <Stepper
-          value={draft.team.crewSize}
-          min={1}
-          max={10}
-          label="People per booking"
-          onChange={(crewSize) => patch({ team: { crewSize } })}
-        />
-      </SetRow>
-      <Callout>{teamSentence(draft, catalogs)}</Callout>
+      {staffless ? (
+        <div className="mt-3.5">
+          <Callout>{teamSentence(draft, catalogs)}</Callout>
+        </div>
+      ) : (
+        <>
+          <SetRow
+            className="mt-[18px]"
+            center
+            title="People per booking"
+            description="Raise it to send a crew. Each person is picked the same way, without repeats."
+          >
+            <Stepper
+              value={draft.team.crewSize}
+              min={1}
+              max={10}
+              label="People per booking"
+              onChange={(crewSize) => patch({ team: { crewSize } })}
+            />
+          </SetRow>
+          <Callout>{teamSentence(draft, catalogs)}</Callout>
+        </>
+      )}
     </>
   );
 }
@@ -547,11 +572,16 @@ function ServicesModule({ draft, patch, services, resources, workspaceId }: Modu
 
 function AvailabilityModule({ draft, patch }: ModuleProps) {
   const hours = draft.schedule.hours;
+  const staffless = draft.team.assignment === 'none';
   return (
     <>
       <Heading
         title="Availability"
-        description="When this calendar can be booked. Each person’s own hours and time off always apply too."
+        description={
+          staffless
+            ? 'When this calendar can be booked. With no staff, these are your open hours, so set them to the shop’s.'
+            : 'When this calendar can be booked. Each person’s own hours and time off always apply too.'
+        }
       />
       <div role="radiogroup" aria-label="How it books" className="grid gap-2.5 @md:grid-cols-2">
         <RadioCard
@@ -573,7 +603,11 @@ function AvailabilityModule({ draft, patch }: ModuleProps) {
         className="mt-3"
         center
         title="Calendar hours"
-        description="Only offer times inside these hours, on top of each person’s own."
+        description={
+          staffless
+            ? 'Only offer times inside these hours. Off means any hour of every day.'
+            : 'Only offer times inside these hours, on top of each person’s own.'
+        }
       >
         <Switch
           checked={!!hours}

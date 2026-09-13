@@ -74,8 +74,30 @@ export function joinWords(list: readonly string[], word = 'and'): string {
 
 const lengths = (list: readonly number[], word = 'or') => joinWords(list.map(fmtLength), word);
 
+/** What a booking reserves: the calendar's resources and those of its services, by name. */
+export function reservedNames(config: CalendarConfig, catalogs: CalendarCatalogs): string[] {
+  const ids = [
+    ...config.resources.required.map((r) => r.resourceId),
+    ...config.services.items.flatMap(
+      (i) =>
+        catalogs.services
+          .find((s) => s.id === i.serviceId)
+          ?.requiredResources.map((r) => r.resourceId) ?? [],
+    ),
+  ];
+  return [...new Set(ids)].map(
+    (id) => catalogs.resources.find((r) => r.id === id)?.name ?? 'a resource',
+  );
+}
+
 export function teamSentence(config: CalendarConfig, catalogs: CalendarCatalogs): string {
   const { members, assignment, crewSize } = config.team;
+  if (assignment === 'none') {
+    const reserved = reservedNames(config, catalogs);
+    return reserved.length
+      ? `No staff needed. A time is open while the calendar is open and a ${joinWords(reserved, 'or')} is free.`
+      : 'No staff needed. Nothing limits how many bookings share a time until you add a resource.';
+  }
   const name = (userId: string) => firstName(personName(catalogs, userId));
   const names = members.map((m) => name(m.userId));
   if (!names.length) return 'Nobody is on this calendar yet, so nobody can be booked.';
@@ -173,7 +195,13 @@ export function describeCalendar(config: CalendarConfig, catalogs: CalendarCatal
   out.push(
     config.schedule.mode === 'sessions'
       ? `Customers take seats in the dates you publish, ${ahead}.`
-      : `Bookable ${config.schedule.hours ? formatHours(config.schedule.hours) : 'during each person’s own hours'}, ${ahead}.`,
+      : `Bookable ${
+          config.schedule.hours
+            ? formatHours(config.schedule.hours)
+            : config.team.assignment === 'none'
+              ? 'at any hour of every day'
+              : 'during each person’s own hours'
+        }, ${ahead}.`,
   );
   const reminders = reminderWords(config);
   const confirm = config.notifications.confirmation.text || config.notifications.confirmation.email;
@@ -195,6 +223,7 @@ const METHOD = {
   weighted: 'weighted turns',
   first_available: 'first available',
   collective: 'all together',
+  none: 'no staff needed',
 } as const;
 
 const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
@@ -207,6 +236,7 @@ export function moduleSummary(
 ): string {
   switch (key) {
     case 'team': {
+      if (config.team.assignment === 'none') return 'No staff needed';
       const n = config.team.members.length;
       return n
         ? `${plural(n, 'person', 'people')} · ${METHOD[config.team.assignment]}`
@@ -221,7 +251,9 @@ export function moduleSummary(
         ? 'Fixed sessions'
         : config.schedule.hours
           ? formatHours(config.schedule.hours)
-          : 'Each person’s own hours';
+          : config.team.assignment === 'none'
+            ? 'Open all day, every day'
+            : 'Each person’s own hours';
     case 'capacity':
       return config.capacity.seats === 1
         ? '1 customer per visit'

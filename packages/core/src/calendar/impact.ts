@@ -54,7 +54,8 @@ export function analyzeImpact(
 ): ImpactAnalysis {
   const impacts: Impact[] = [];
   const kept = new Set(after.team.members.map((m) => m.userId));
-  const canReassign = after.team.members.length > 0;
+  // Without staff there is nobody to hand appointments to.
+  const canReassign = after.team.assignment !== 'none' && after.team.members.length > 0;
   for (const m of before.team.members) {
     const count = upcoming.members.find((u) => u.userId === m.userId)?.appointments ?? 0;
     if (kept.has(m.userId) || count === 0) continue;

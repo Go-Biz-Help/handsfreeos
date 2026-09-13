@@ -40,6 +40,8 @@ export const AssignmentMode = z.enum([
   'weighted',
   'first_available',
   'collective',
+  /** No staff: resources and hours alone decide what's bookable. */
+  'none',
 ]);
 export type AssignmentMode = z.infer<typeof AssignmentMode>;
 

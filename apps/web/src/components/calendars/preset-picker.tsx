@@ -1,5 +1,5 @@
 'use client';
-import { configFromPreset, inferLabels, type PresetKey } from '@hfos/core';
+import { CALENDAR_PRESETS, configFromPreset, inferLabels, type PresetKey } from '@hfos/core';
 import {
   CalendarDays,
   Info,
@@ -22,10 +22,16 @@ import { Card } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Field, Hint, Label } from '@/components/ui/field';
 import { Input, Select } from '@/components/ui/input';
+import { Segmented } from '@/components/ui/segmented';
+import { Stepper } from '@/components/ui/stepper';
 import { apiBrowser, errorMessage, unwrap } from '@/lib/api/client';
-import type { ResourceItem, ServiceItem } from '@/lib/api/types';
+import type { ResourceItem, ResourceKind, ServiceItem } from '@/lib/api/types';
 import { cn } from '@/lib/utils';
 import { LabelChips } from './chips';
+import { RESOURCE_KINDS } from './resources-page';
+
+/** Stands in for a resource made along with the calendar, so the labels preview counts it. */
+const PENDING_RESOURCE = '00000000-0000-4000-8000-000000000000';
 
 interface PresetCopy {
   readonly title: string;
@@ -74,8 +80,9 @@ export const PRESET_COPY: Record<PresetKey, PresetCopy> = {
   },
   resource: {
     title: 'Resource',
-    description: 'Books a room, a truck or a piece of equipment.',
-    fills: 'A resource, one person or taking turns',
+    // Core's own words for it (no staff by default).
+    description: CALENDAR_PRESETS.find((p) => p.key === 'resource')!.description,
+    fills: 'A resource, no staff needed',
     icon: Truck,
     name: () => 'Equipment',
   },
@@ -138,13 +145,34 @@ export function PresetPicker({
   const [team, setTeam] = useState<string[]>(people.map((p) => p.id));
   const [partner, setPartner] = useState(others[0]?.id ?? '');
   const [picked, setPicked] = useState<string[]>(services.map((s) => s.id));
-  const [resource, setResource] = useState(resources[0]?.id ?? '');
+  const live = resources.filter((r) => !r.archivedAt);
+  const [resource, setResource] = useState(live[0]?.id ?? '');
+  // The Resource preset's follow-up: one you have, or a new one made along with the calendar.
+  const [resourceMode, setResourceMode] = useState<'existing' | 'new'>(
+    live.length ? 'existing' : 'new',
+  );
+  const [draftResource, setDraftResource] = useState<{
+    name: string;
+    kind: ResourceKind;
+    quantity: number;
+  }>({ name: '', kind: 'equipment', quantity: 1 });
+  const [made, setMade] = useState<{ key: string; id: string } | null>(null);
   const [busy, setBusy] = useState(false);
 
   const turns = pick === 'round_robin' || pick === 'dispatch';
   const teammates = turns ? team : pick === 'collective' && partner ? [partner] : [];
   const chosenServices = pick === 'service' ? picked : [];
-  const chosenResources = pick === 'resource' && resource ? [resource] : [];
+  const adding = pick === 'resource' && resourceMode === 'new';
+  const chosenResources =
+    pick !== 'resource'
+      ? []
+      : adding
+        ? draftResource.name.trim()
+          ? [PENDING_RESOURCE]
+          : []
+        : resource
+          ? [resource]
+          : [];
   const labels = useMemo(
     () =>
       inferLabels(
@@ -163,9 +191,24 @@ export function PresetPicker({
     if (!edited) setName(PRESET_COPY[key].name(first));
   }
 
+  /** The new resource's id, made once: trying again after a failed create reuses it. */
+  async function newResourceId(): Promise<string> {
+    const body = { ...draftResource, name: draftResource.name.trim() };
+    const key = JSON.stringify(body);
+    if (made?.key === key) return made.id;
+    const { resourceId } = unwrap(
+      await apiBrowser().POST('/v1/commands/resource.create', {
+        body: { workspaceId, ...body, location: null, hours: null },
+      }),
+    );
+    setMade({ key, id: resourceId });
+    return resourceId;
+  }
+
   async function create() {
     setBusy(true);
     try {
+      const resourceIds = adding ? [await newResourceId()] : chosenResources;
       const out = unwrap(
         await apiBrowser().POST('/v1/commands/calendar.create', {
           body: {
@@ -174,12 +217,12 @@ export function PresetPicker({
             preset: pick,
             teammates,
             services: chosenServices,
-            resources: chosenResources,
+            resources: resourceIds,
           },
         }),
       );
       toast.success(
-        `Created “${name.trim()}” from ${PRESET_COPY[pick].title}. It starts as a draft.`,
+        `Created “${name.trim()}” from ${PRESET_COPY[pick].title}.${adding ? ` ${draftResource.name.trim()} is under Resources now.` : ''} It starts as a draft.`,
       );
       router.push(`/app/w/${workspaceId}/settings/calendars/${out.calendarId}`);
     } catch (e) {
@@ -311,26 +354,90 @@ export function PresetPicker({
         </fieldset>
       ) : null}
       {pick === 'resource' ? (
-        <div className="mt-5 max-w-sm">
-          <Field
-            label="Which resource?"
-            htmlFor="preset-resource"
-            hint={resources.length ? undefined : 'No resources yet. Add one under Resources.'}
-          >
-            <Select
-              id="preset-resource"
-              value={resource}
-              onChange={(e) => setResource(e.target.value)}
-              disabled={!resources.length}
-            >
-              {resources.length ? null : <option value="">None yet</option>}
-              {resources.map((r) => (
-                <option key={r.id} value={r.id}>
-                  {r.name}
-                </option>
-              ))}
-            </Select>
-          </Field>
+        <div
+          role="group"
+          aria-labelledby="preset-resource-label"
+          className="mt-5 flex max-w-xl flex-col gap-3"
+          data-testid="preset-resource-step"
+        >
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <span id="preset-resource-label" className="text-[13px] font-medium">
+              What does each booking reserve?
+            </span>
+            {live.length ? (
+              <Segmented
+                value={resourceMode}
+                onChange={setResourceMode}
+                ariaLabel="One you have or a new one"
+                options={[
+                  { value: 'existing', label: 'One you have', testId: 'preset-resource-existing' },
+                  { value: 'new', label: 'A new one', testId: 'preset-resource-new' },
+                ]}
+              />
+            ) : null}
+          </div>
+          {adding ? (
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-[minmax(0,1fr)_150px_auto]">
+              <Field label="Resource name" htmlFor="preset-resource-name">
+                <Input
+                  id="preset-resource-name"
+                  value={draftResource.name}
+                  maxLength={120}
+                  placeholder="Red light bed"
+                  onChange={(e) => setDraftResource({ ...draftResource, name: e.target.value })}
+                />
+              </Field>
+              <Field label="Kind" htmlFor="preset-resource-kind">
+                <Select
+                  id="preset-resource-kind"
+                  value={draftResource.kind}
+                  onChange={(e) =>
+                    setDraftResource({ ...draftResource, kind: e.target.value as ResourceKind })
+                  }
+                >
+                  {(Object.keys(RESOURCE_KINDS) as ResourceKind[]).map((k) => (
+                    <option key={k} value={k}>
+                      {RESOURCE_KINDS[k].label}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+              <div>
+                <Label>How many</Label>
+                <div className="flex h-10 items-center">
+                  <Stepper
+                    value={draftResource.quantity}
+                    min={1}
+                    max={100}
+                    label="How many"
+                    testId="preset-resource-quantity"
+                    onChange={(quantity) => setDraftResource({ ...draftResource, quantity })}
+                  />
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="max-w-sm">
+              <Field label="Which resource?" htmlFor="preset-resource">
+                <Select
+                  id="preset-resource"
+                  value={resource}
+                  onChange={(e) => setResource(e.target.value)}
+                >
+                  {live.map((r) => (
+                    <option key={r.id} value={r.id}>
+                      {r.name}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+            </div>
+          )}
+          <Hint className="mt-0">
+            {adding
+              ? 'How many there are decides how many people can book the same time. It’s added under Resources with the calendar.'
+              : 'Each booking reserves one. How many there are decides how many people can book the same time.'}
+          </Hint>
         </div>
       ) : null}
 
@@ -369,7 +476,7 @@ export function PresetPicker({
         </Link>
         <Button
           loading={busy}
-          disabled={!name.trim()}
+          disabled={!name.trim() || (adding && !draftResource.name.trim())}
           onClick={() => void create()}
           data-testid="calendar-create"
         >

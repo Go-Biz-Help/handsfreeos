@@ -4282,7 +4282,7 @@ export interface operations {
                              * @default fixed
                              * @enum {string}
                              */
-                            assignment?: "fixed" | "customer_choice" | "round_robin" | "weighted" | "first_available" | "collective";
+                            assignment?: "fixed" | "customer_choice" | "round_robin" | "weighted" | "first_available" | "collective" | "none";
                             /** @default 1 */
                             crewSize?: number;
                             /** @default [] */
@@ -7162,7 +7162,7 @@ export interface operations {
                     /** Format: date-time */
                     startsAt: string;
                     title?: string;
-                    userIds: string[];
+                    userIds?: string[];
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -9017,7 +9017,7 @@ export interface operations {
                                      * @default fixed
                                      * @enum {string}
                                      */
-                                    assignment: "fixed" | "customer_choice" | "round_robin" | "weighted" | "first_available" | "collective";
+                                    assignment: "fixed" | "customer_choice" | "round_robin" | "weighted" | "first_available" | "collective" | "none";
                                     /** @default 1 */
                                     crewSize: number;
                                     /** @default [] */

@@ -437,9 +437,12 @@ async function bookingInfo(tx: Tx, calendar: LoadedCalendar, botCheck: BotCheck)
   let postalCodes: string[] | null = null;
   if (config.territory.routing === 'zip') {
     const chosen = config.territory.territoryIds;
+    // With no staff, every selected territory is served; otherwise only those someone on it covers.
+    const none = config.team.assignment === 'none';
     const covered = (await loadTerritories(tx, ws)).filter(
       (t) =>
-        (!chosen.length || chosen.includes(t.id)) && t.userIds.some((u) => memberIds.includes(u)),
+        (!chosen.length || chosen.includes(t.id)) &&
+        (none || t.userIds.some((u) => memberIds.includes(u))),
     );
     postalCodes = [
       ...new Set(covered.flatMap((t) => t.postalCodes.map(zip5)).filter((z) => z.length === 5)),

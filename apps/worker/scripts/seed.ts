@@ -36,6 +36,7 @@ import { createFakeTelephony } from '../src/telephony/fake';
 import { seedAssistant } from './seed-assistant';
 import { seedCalendar } from './seed-calendar';
 import { seedCrm } from './seed-crm';
+import { seedGlow } from './seed-glow';
 import { LONE_STAR_NUMBER, seedMessaging } from './seed-messaging';
 
 export const SEED_PASSWORD = 'HandsFree-Demo-2026';
@@ -304,6 +305,11 @@ async function main(): Promise<void> {
     { id: lonestar, organizationId: org.organizationId, dale, priya, marco },
   );
 
+  const glow = await seedGlow(
+    { api: api.db, admin: admin.db, worker: deps, actor, meta, step, since },
+    { organizationId: org.organizationId, chris },
+  );
+
   step('Northstar Electric: a separate organization that sees none of the above');
   await executeCommand(
     api.db,
@@ -331,6 +337,9 @@ panel (Cmd+J) holds two earlier chats; answering new questions needs ANTHROPIC_A
 Its calendar (${calendar.seconds.toFixed(1)}s of the seed) has ${calendar.appointments} appointments over about two weeks, three class sessions (one full,
 ${calendar.waiting} waiting) and Dale's stand-in Google calendar with ${calendar.busyTimes} busy times. Customers book at ${deps.webUrl}/book/${calendar.site}:
 ${calendar.calendars.map((c) => `  ${c.name.padEnd(22)} ${c.labels.padEnd(34)} ${deps.webUrl}/book/${calendar.site}/${c.slug}`).join('\n')}
+Glow Red Light Studio (${glow.seconds.toFixed(1)}s of the seed) books its four red light beds with no staff: ${glow.bookings} bookings over
+the next three weekdays, every bed taken at 5 PM once. Customers book at ${deps.webUrl}/book/${glow.site}:
+  ${glow.calendar.name.padEnd(22)} ${glow.calendar.labels.padEnd(34)} ${deps.webUrl}/book/${glow.site}/${glow.calendar.slug}
 Emails the stack sent, including the pending invitation for ${PENDING_INVITEE}: ${env.mailpitUrl}
 `);
 }

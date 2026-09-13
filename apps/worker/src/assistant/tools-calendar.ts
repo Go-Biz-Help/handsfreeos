@@ -289,6 +289,13 @@ export const calendarReadTools: Record<string, ReadTool> = {
     const { team } = calendar.config;
     const userId = str(args['userId']);
     const person = userId ? (names.get(userId) ?? 'That teammate') : null;
+    if (userId && team.assignment === 'none')
+      return {
+        result: {
+          error: `The ${calendar.name} calendar books without staff, so there’s nobody to pick.`,
+        },
+        isError: true,
+      };
     if (userId && !team.members.some((m) => m.userId === userId))
       return {
         result: { error: `${person} isn’t on the ${calendar.name} calendar.` },
@@ -582,7 +589,8 @@ function bookingInput(args: Args, calendar: CalendarGet['calendar'], person: Per
     startsAt: args['startsAt'],
     durationMinutes: args['durationMinutes'],
     serviceId: str(args['serviceId']),
-    userIds: args['userIds'],
+    // A calendar without staff books nobody; people the model named are dropped.
+    userIds: calendar.config.team.assignment === 'none' ? undefined : args['userIds'],
     leadId: str(args['leadId']),
     notes: str(args['notes']),
     location: address
@@ -634,7 +642,10 @@ const bookAppointment: ConfirmTool = {
           { label: 'Customer', value: [person.fullName, person.phone].filter(Boolean).join(' · ') },
           { label: 'What', value: what },
           { label: 'When', value: `${rangeLabel(start, end, tz)} ${zoneLabel(tz, start)}` },
-          { label: 'With', value: `${joinAnd(staff)}${picked ? `, ${picked}` : ''}` },
+          // Nobody works it on a calendar without staff: no With row.
+          ...(staff.length
+            ? [{ label: 'With', value: `${joinAnd(staff)}${picked ? `, ${picked}` : ''}` }]
+            : []),
           ...(where ? [{ label: 'Where', value: where }] : []),
           { label: 'Reminders', value: reminders.line },
           ...(tell ? [tell] : []),
@@ -687,7 +698,11 @@ async function scheduledAppointment(db: Db, ctx: ToolContext, appointmentId: unk
         : 'That appointment already happened.',
     );
   const { calendar } = await calendarGet(db, ctx, appt.calendar.id);
-  return { appt, timeZone: calendar.timezone };
+  return {
+    appt,
+    timeZone: calendar.timezone,
+    noStaff: calendar.config.team.assignment === 'none',
+  };
 }
 
 /** "Mike’s AC tune-up", or "the HVAC class" when it isn't one customer's. */
@@ -718,15 +733,18 @@ function tellRow(
 
 const sameOrder = (a: readonly string[], b: readonly string[]) => a.join() === b.join();
 
-/** Moves it (and hands it to other people when asked); Prepare and Confirm run the same steps. */
-async function move(db: Db, ctx: ToolContext, args: Args, appt: Appointment) {
+/**
+ * Moves it (and hands it to other people when asked, unless the calendar books without staff); Prepare and
+ * Confirm run the same steps.
+ */
+async function move(db: Db, ctx: ToolContext, args: Args, appt: Appointment, noStaff: boolean) {
   const moved = await cmd<MoveOut>(db, ctx, 'appointment.reschedule', {
     appointmentId: appt.id,
     startsAt: args['startsAt'],
     acknowledgeWarnings: true,
     notify: true,
   });
-  const userIds = args['userIds'] as string[] | undefined;
+  const userIds = noStaff ? undefined : (args['userIds'] as string[] | undefined);
   const warnings = [...moved.warnings];
   if (
     userIds?.length &&
@@ -749,7 +767,7 @@ async function move(db: Db, ctx: ToolContext, args: Args, appt: Appointment) {
 
 const rescheduleAppointment: ConfirmTool = {
   async prepare(db, ctx, args, toolCallId) {
-    const [{ appt, timeZone: tz }, canText] = await Promise.all([
+    const [{ appt, timeZone: tz, noStaff }, canText] = await Promise.all([
       scheduledAppointment(db, ctx, args['appointmentId']),
       textingReady(db, ctx),
     ]);
@@ -758,7 +776,7 @@ const rescheduleAppointment: ConfirmTool = {
       warnings: raw,
       after,
     } = await dryRun(db, async (tx) => {
-      const m = await move(tx, ctx, args, appt);
+      const m = await move(tx, ctx, args, appt, noStaff);
       return { ...m, after: await appointmentGet(tx, ctx, appt.id) };
     });
     const was = { start: Date.parse(appt.startsAt), end: Date.parse(appt.endsAt) };
@@ -775,7 +793,7 @@ const rescheduleAppointment: ConfirmTool = {
         fields: [
           { label: 'Was', value: rangeLabel(was.start, was.end, tz) },
           { label: 'Now', value: rangeLabel(now.start, now.end, tz) },
-          { label: 'With', value: joinAnd(staffOf(after)) || 'Nobody yet' },
+          ...(noStaff ? [] : [{ label: 'With', value: joinAnd(staffOf(after)) || 'Nobody yet' }]),
           ...(tell ? [tell] : []),
         ],
         warnings,
@@ -792,8 +810,12 @@ const rescheduleAppointment: ConfirmTool = {
     };
   },
   async commit(db, ctx, args) {
-    const { appt, timeZone: tz } = await scheduledAppointment(db, ctx, args['appointmentId']);
-    const { moved } = await move(db, ctx, args, appt);
+    const {
+      appt,
+      timeZone: tz,
+      noStaff,
+    } = await scheduledAppointment(db, ctx, args['appointmentId']);
+    const { moved } = await move(db, ctx, args, appt, noStaff);
     const start = Date.parse(moved.startsAt);
     return {
       outcome: `Moved to ${atLabel(start, tz)}.`,

@@ -5439,6 +5439,67 @@ Each visitor's internet address may load the pages 60 times a minute, make 5 boo
 
 Texts about appointments go out from the workspace's business number. When a client fills in **Business details for the carriers** ("What a client fills in" in "The phone carrier: Twilio"), check that **What you text about** is **Appointments, estimates and customer care**, and that **How customers agree to get texts** and the example texts cover appointment confirmations and reminders. The opt-in description should name the booking page's **Text me about this appointment** checkbox, which starts unticked.
 
+### Calendars with no staff (beds, rooms, equipment)
+
+Some businesses book a thing, not a person: a red light therapy studio books its beds, a studio rents out its rooms, a shop rents out its equipment. A calendar with no staff books by the business's hours and by how many of that thing are free. Nobody is assigned to its bookings, and nobody's own hours, time off or Google or Outlook calendar count.
+
+How it decides what customers can book:
+
+- A time is offered when it fits inside the calendar's hours (and the service's own hours, if it has any) and at least one of the thing is free for the whole visit, including the cleanup time after it.
+- Bookings can start at staggered times. With four beds, a 10:00 and a 10:10 booking simply take two beds.
+- When every bed is taken, customers see "No Red light bed is free then." with the nearest free times. The team gets the same message in **Calendar**, with no **Book anyway**: a bed that is in use can't be booked twice. A time outside the calendar's hours is still only a warning for the team.
+- Confirmations and reminders don't name anyone, for example "Glow Red Light Studio: You're booked for a red light session on Fri, Sep 18 at 10:00 AM CT."
+- The team's "New booking" email goes to the calendar's owner (the person who created it). If the calendar has no owner, or the owner has left, it goes to the workspace's owners and admins. Each person's own **Booking emails** switch still applies.
+- These appointments have nobody on them, so they don't show under a person in the **Team** view of **Calendar**, and they aren't added to anyone's Google or Outlook calendar. Filter **Calendar** by the calendar, or use its **Resources** view, to see them. They can be moved and cancelled, but not handed to someone.
+
+Set one up (owners and admins):
+
+1. Open **Settings** → **Calendars**, then the **Resources** tab. Add what customers book: in **Name**, enter what customers call it, for example `Red light bed`. Pick a **Kind**, enter how many you have in **How many**, for example `4`, and save it.
+
+   You should see it in the list with its quantity.
+
+2. Open the **Services** tab and add what customers book it for, for example `Red light session`. Add its lengths (for example 15 and 20 minutes), set **Cleanup after** to the time a bed needs between customers (for example 10 minutes), and under **Needs** add the resource from step 1. Save it.
+
+   You should see the service in the list with its lengths.
+
+3. Back on the **Calendars** tab, click **New calendar** and choose **Resource**, "Books a bed, room or piece of equipment. No staff needed." Pick the resource from step 1, name the calendar, for example `Book a bed`, and click **Create calendar**.
+
+   You should see the calendar's settings with the label **Resource**, the resource under **Resources**, and nobody under **Team & assignment**.
+
+4. Under **Services**, add the service from step 2. Under **Calendar hours**, set when customers can come, for example Monday to Friday 7 AM to 8 PM and Saturday 8 AM to 4 PM. Turn on **Customers can book it online**, then click **Save**.
+
+   You should see no conflicts in the builder's side panel. If you see "Open all day, every day", the calendar has no hours yet: click **Set hours Mon–Fri 9–5**, or set your own.
+
+5. Click **Turn on**.
+
+   You should see the calendar's booking link.
+
+6. Open the booking link in a private browser window.
+
+   You should see the service with its lengths and open times, and no step to pick a person.
+
+To change an existing calendar to one with no staff, open it, choose **No staff needed** under **Team & assignment**, and clear its people. When its settings fight, the calendar says so and offers a fix:
+
+| Message                                                          | What it means                                                                                               | The fix it offers                                         |
+| ---------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- | --------------------------------------------------------- |
+| "With no staff, something has to limit bookings: add a resource" | Nothing stops any number of people booking the same time. The calendar can't be turned on until it's fixed. | **Add** the first resource, or **Switch to fixed person** |
+| "With no staff, the people listed are ignored"                   | People are still listed, but nobody is assigned.                                                            | **Clear people**                                          |
+| "Open all day, every day"                                        | Neither the calendar, the service nor the resource has hours, so customers could book at 3 AM.              | **Set hours Mon–Fri 9–5**                                 |
+
+To try one on your laptop, the seed sets up Glow Red Light Studio in the Go Biz Help organization. Sign in as `chris@gobizhelp.test` and open Glow Red Light Studio.
+
+1. Open **Calendar** and go to the next weekday.
+
+   You should see four bookings in the morning, three of them at 10:00, 10:10 and 10:20, each with nobody on it.
+
+2. Go one weekday further.
+
+   You should see four bookings at 5:00 PM, one for each bed.
+
+3. In a private browser window, open `http://localhost:3000/book/glow-studio/book-a-bed` and pick that day.
+
+   You should see no 5:00 PM time: every bed is taken then.
+
 ### Reminders and notices
 
 The worker texts or emails customers about their appointments, and emails the team about bookings made online. What goes out is set for each calendar in the **Notifications** section of its settings (**Settings** → **Calendars**, then the calendar). New calendars start with the defaults below.

@@ -3,6 +3,9 @@
  * windows; sessions mode: sessions with seats left) → constraints (notice, date window, daily limits, ZIP
  * territory) → staff feasibility by strategy → resources by quantity → seats and party size.
  *
+ * With no staff (assignment 'none') the staff step is skipped: a start is open when it fits the calendar ∩
+ * service hours and every required resource has room, and its slot lists nobody.
+ *
  * Conflict rule, for people and resources alike: the new appointment's `blocked` span (buffers and travel
  * included) must not overlap anyone's `during`, and its `during` must not overlap anyone's `blocked`.
  * Busy times count as appointments without buffers. Intervals are half-open, so back-to-back is fine.
@@ -148,6 +151,33 @@ function resourceStarts(resource: ResourceInput, need: number, spans: Spans): In
   ]);
 }
 
+/** Each required resource's feasible starts, or null when one is missing from the input (nothing fits). */
+function requiredResourceStarts(input: SlotInput, terms: Terms, spans: Spans): Interval[][] | null {
+  const byId = new Map((input.resources ?? []).map((r) => [r.resourceId, r]));
+  const out: Interval[][] = [];
+  for (const need of terms.requiredResources) {
+    const resource = byId.get(need.resourceId);
+    if (!resource) return null;
+    out.push(resourceStarts(resource, need.quantity, spans));
+  }
+  return out;
+}
+
+/**
+ * No staff: ZIP routing only asks whether the customer's ZIP is in one of the calendar's territories (any of
+ * the workspace's when none are picked). Without a ZIP (a staff booking), routing isn't applied.
+ */
+function zipServed(input: SlotInput): boolean {
+  const zip = zip5(input.postalCode);
+  const { routing, territoryIds } = input.config.territory;
+  if (routing !== 'zip' || !zip) return true;
+  return (input.territories ?? []).some(
+    (t) =>
+      (!territoryIds.length || territoryIds.includes(t.id)) &&
+      t.postalCodes.some((p) => zip5(p) === zip),
+  );
+}
+
 function seatsLeft(s: SessionInput): number {
   return s.capacity - s.seatsTaken;
 }
@@ -202,6 +232,26 @@ export function computeSlots(input: SlotInput): Slot[] {
   const joins = terms.seats > 1 ? sessions.filter((s) => s.end - s.start === d) : [];
   const joinStarts = new Set(joins.map((s) => s.start));
 
+  const dayCache = new Map<string, number>();
+  const dayStart = (date: string) => {
+    let at = dayCache.get(date);
+    if (at === undefined) dayCache.set(date, (at = startOfLocalDay(date, input.timeZone)));
+    return at;
+  };
+  const resourceFeasible = requiredResourceStarts(input, terms, spans);
+  if (!resourceFeasible) return joins.map(joinSlot).sort(bySlot);
+  const roomAt = (s: number) => resourceFeasible.every((r) => containsPoint(r, s));
+  const slots: Slot[] = joins.map(joinSlot);
+
+  if (config.team.assignment === 'none') {
+    // No staff: a start needs only the hours (candidateStarts) and room on every required resource.
+    if (!zipServed(input)) return joins.map(joinSlot).sort(bySlot);
+    for (const s of candidateStarts(input, bounds, d, step, dayStart))
+      if (!joinStarts.has(s) && roomAt(s))
+        slots.push({ start: s, end: s + d, userIds: [], seatsLeft: terms.seats, sessionId: null });
+    return slots.sort(bySlot);
+  }
+
   const pool = candidatePool(input, terms);
   const staffById = new Map(input.staff.map((s) => [s.userId, s]));
   const mode = config.team.assignment;
@@ -217,12 +267,6 @@ export function computeSlots(input: SlotInput): Slot[] {
   }
   if (host !== null && !pool.includes(host)) return joins.map(joinSlot).sort(bySlot);
 
-  const dayCache = new Map<string, number>();
-  const dayStart = (date: string) => {
-    let at = dayCache.get(date);
-    if (at === undefined) dayCache.set(date, (at = startOfLocalDay(date, input.timeZone)));
-    return at;
-  };
   const limit = config.window.dailyLimitPerPerson
     ? {
         perDay: config.window.dailyLimitPerPerson,
@@ -236,18 +280,8 @@ export function computeSlots(input: SlotInput): Slot[] {
     feasible.set(u, staff ? staffStarts(staff, spans, limit, dayStart) : []);
   }
 
-  const resourcesById = new Map((input.resources ?? []).map((r) => [r.resourceId, r]));
-  const resourceFeasible: Interval[][] = [];
-  for (const need of terms.requiredResources) {
-    const resource = resourcesById.get(need.resourceId);
-    if (!resource) return joins.map(joinSlot).sort(bySlot);
-    resourceFeasible.push(resourceStarts(resource, need.quantity, spans));
-  }
-
-  const slots: Slot[] = joins.map(joinSlot);
   for (const s of candidateStarts(input, bounds, d, step, dayStart)) {
-    if (joinStarts.has(s)) continue;
-    if (!resourceFeasible.every((r) => containsPoint(r, s))) continue;
+    if (joinStarts.has(s) || !roomAt(s)) continue;
     const free = pool.filter((u) => containsPoint(feasible.get(u)!, s));
     let userIds: string[] | null = null;
     if (mode === 'collective') {

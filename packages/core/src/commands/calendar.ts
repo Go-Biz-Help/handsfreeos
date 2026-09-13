@@ -237,6 +237,7 @@ async function reassignAway(
 ): Promise<boolean> {
   const ws = calendar.workspaceId;
   const { config } = calendar;
+  if (config.team.assignment === 'none') return false;
   const appt = await requireAppointment(ctx.tx, ws, appointmentId);
   const staffIds = await staffIdsOf(ctx.tx, appt.id);
   const service = appt.serviceId ? await loadCatalogService(ctx.tx, ws, appt.serviceId) : null;

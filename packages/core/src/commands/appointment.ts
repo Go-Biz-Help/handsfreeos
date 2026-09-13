@@ -33,6 +33,7 @@ import {
   joinSession,
   lockBooking,
   needsConfirmation,
+  resourceFullError,
   staffSource,
   type AttendeeDraft,
   type BookingResult,
@@ -219,7 +220,24 @@ async function checkExisting(
     before: appt.bufferBefore * MIN,
     after: appt.bufferAfter * MIN,
   };
-  const check = checkBooking(data, span, change.userIds, needs);
+  // A calendar without staff can't be booked past its resources, not even anyway.
+  const hardResources = calendar.config.team.assignment === 'none';
+  const check = checkBooking(data, span, change.userIds, needs, { hardResources });
+  if (check.full)
+    throw await resourceFullError(
+      ctx.tx,
+      calendar,
+      {
+        from: change.start,
+        to: change.start + 1,
+        durationMinutes: change.minutes,
+        locationKind: null,
+        excludeAppointmentIds: [appt.id],
+      },
+      change.start,
+      service,
+      check.full,
+    );
   if (check.blocked) throw check.blocked;
   if (check.warnings.length && !acknowledge)
     throw needsConfirmation(check.warnings, change.userIds);
@@ -385,6 +403,12 @@ export const appointmentReassign = defineCommand({
     const appt = await requireAppointment(ctx.tx, ws, input.appointmentId);
     requireScheduled(appt);
     const calendar = await loadCalendar(ctx.tx, ws, appt.calendarId);
+    if (calendar.config.team.assignment === 'none')
+      throw HfosError.rule(
+        'calendar_has_no_staff',
+        409,
+        'This calendar books without staff, so there’s nobody to hand it to.',
+      );
     const userIds = [...new Set(input.userIds)];
     const was = await staffIdsOf(ctx.tx, appt.id);
     if (JSON.stringify(was) === JSON.stringify(userIds))

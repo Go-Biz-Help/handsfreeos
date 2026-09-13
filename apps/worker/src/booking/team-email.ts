@@ -1,21 +1,47 @@
 /**
  * The team hears about online bookings and cancellations: one email to each person on the appointment whose
  * account allows it (users.settings.notifications.bookingEmail, on unless turned off), when the calendar sends
- * staff emails. A marker event (appointment.team_emailed, caused by the event it answers) keeps a retry from
- * sending twice; it commits on its own, so a later handler failing can't take it back.
+ * staff emails. A booking nobody works (a calendar without staff) goes to the calendar's owner while they can
+ * still reach the workspace, else to the workspace's owners and admins, each as their setting allows. A marker
+ * event (appointment.team_emailed, caused by the event it answers) keeps a retry from sending twice; it commits
+ * on its own, so a later handler failing can't take it back.
  */
 import { randomUUID } from 'node:crypto';
 import { inArray } from 'drizzle-orm';
 import { formatPhone } from '@hfos/core/server';
-import { asWorker, rows, sql } from '@hfos/db/client';
+import { asWorker, rows, sql, type Tx } from '@hfos/db/client';
 import { users } from '@hfos/db/schema';
 import { teamBookingEmail } from '../emails/templates';
 import type { HandlerContext } from '../handlers/types';
-import { tenantOf } from '../services';
+import { tenantOf, type TenantScope } from '../services';
 import { recordSystemEvent } from '../system-event';
 import { inSentence, whereLine, withArticle } from './messages';
 import { loadBooking } from './visit';
 import { clock, dayShort, timeRange, weekdayShort, zoneName } from './when';
+
+/**
+ * Who hears about a booking nobody works: the calendar's owner while they can still reach the workspace (a
+ * member, or in its organization), otherwise the workspace's owners and admins.
+ */
+async function standIns(tx: Tx, scope: TenantScope, ownerUserId: string | null): Promise<string[]> {
+  if (ownerUserId) {
+    const [reach] = await rows<{ ok: boolean }>(
+      tx,
+      sql`select exists (select 1 from app.workspace_memberships wm
+                where wm.workspace_id = ${scope.workspaceId} and wm.user_id = ${ownerUserId})
+            or exists (select 1 from app.organization_memberships om
+                where om.organization_id = ${scope.organizationId} and om.user_id = ${ownerUserId}) as ok`,
+    );
+    if (reach?.ok) return [ownerUserId];
+  }
+  const heads = await rows<{ user_id: string }>(
+    tx,
+    sql`select wm.user_id from app.workspace_memberships wm
+        where wm.workspace_id = ${scope.workspaceId} and wm.role in ('owner', 'admin')
+        order by wm.created_at, wm.user_id`,
+  );
+  return heads.map((h) => h.user_id);
+}
 
 export async function emailTeam(
   ctx: HandlerContext,
@@ -33,7 +59,10 @@ export async function emailTeam(
   );
   if (done) return;
   const b = await loadBooking(ctx.tx, ctx, attendeeId);
-  if (!b || !b.calendar.config.notifications.staffEmail || b.staffIds.length === 0) return;
+  if (!b || !b.calendar.config.notifications.staffEmail) return;
+  const staffed = b.staffIds.length > 0;
+  const ids = staffed ? b.staffIds : await standIns(ctx.tx, scope, b.calendar.ownerUserId);
+  if (ids.length === 0) return;
   const team = await ctx.tx
     .select({
       id: users.id,
@@ -42,7 +71,7 @@ export async function emailTeam(
       settings: users.settings,
     })
     .from(users)
-    .where(inArray(users.id, [...b.staffIds]));
+    .where(inArray(users.id, [...ids]));
   const recipients = team.filter(
     (u) =>
       (u.settings as { notifications?: { bookingEmail?: boolean } }).notifications?.bookingEmail !==
@@ -63,7 +92,7 @@ export async function emailTeam(
         ? `was booked into ${v.title} from the waitlist`
         : group
           ? `booked ${seats} in ${v.title} online`
-          : `booked ${withArticle(inSentence(v.title))} with you online`;
+          : `booked ${withArticle(inSentence(v.title))}${staffed ? ' with you' : ''} online`;
   const phone = b.attendee.contactPhoneE164
     ? `${formatPhone(b.attendee.contactPhoneE164)} · ${b.attendee.smsOk ? 'texts OK' : 'no texts'}`
     : null;

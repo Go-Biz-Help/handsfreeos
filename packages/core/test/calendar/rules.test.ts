@@ -25,6 +25,8 @@ import {
   SOUTH,
   STAGE_OLD,
   TRUCK,
+  TUNE_UP,
+  WEEKDAYS_8_TO_5,
 } from './fixtures';
 
 interface Case {
@@ -37,6 +39,8 @@ interface Case {
 
 const me = { userId: DALE };
 const address = { options: [{ kind: 'customer_address' as const }] };
+const bed = { required: [{ resourceId: TRUCK }] };
+const TRUCK_WITHOUT_HOURS = { id: TRUCK, name: 'Truck 2', quantity: 2, archived: false };
 
 /** The smallest settings that trigger each rule. */
 const CASES: Case[] = [
@@ -63,6 +67,25 @@ const CASES: Case[] = [
     severity: 'warning',
     patch: { team: { members: [me], assignment: 'customer_choice' } },
     message: 'Customer’s choice with one person',
+  },
+  {
+    code: 'none_without_limit',
+    severity: 'error',
+    patch: { team: { assignment: 'none' } },
+    message: 'With no staff, something has to limit bookings: add a resource',
+  },
+  {
+    code: 'members_ignored',
+    severity: 'warning',
+    patch: { team: { members: [me], assignment: 'none' }, resources: bed },
+    message: 'With no staff, the people listed are ignored',
+  },
+  {
+    code: 'open_all_day',
+    severity: 'warning',
+    patch: { team: { assignment: 'none' }, resources: bed },
+    catalogs: { resources: [TRUCK_WITHOUT_HOURS] },
+    message: 'Open all day, every day',
   },
   {
     code: 'sessions_multi_duration',
@@ -264,6 +287,73 @@ it('offers the plan’s second fixes too', () => {
     'make_private',
   ]);
   expect(labels(patchOf('lead_stage_gone'), 'lead_stage_gone')).toEqual(['pick_stage', 'lead_off']);
+  expect(labels(patchOf('none_without_limit'), 'none_without_limit')).toEqual([
+    'add_resource',
+    'switch_to_fixed',
+  ]);
+});
+
+describe('a calendar without staff', () => {
+  const noStaff = (patch: ConfigPatch, cats: CalendarCatalogs = catalogs) =>
+    validateCalendar(
+      applyPatch(applyPatch(defaultConfig(), { team: { assignment: 'none' } }), patch),
+      cats,
+      NOW,
+    ).map((i) => i.code);
+
+  it('skips the rules about people: crew, weights, who covers a ZIP, who does a service, who left, a public team', () => {
+    expect(
+      noStaff({
+        public: true,
+        team: { members: [{ userId: PRIYA, weight: 3 }, { userId: JESS }], crewSize: 3 },
+        services: { mode: 'one', items: [{ serviceId: DUCT }] },
+        resources: bed,
+        territory: { routing: 'zip', territoryIds: [SOUTH] },
+        locations: address,
+      }),
+    ).toEqual(['members_ignored']);
+  });
+
+  it('needs every service a customer can pick to use a resource, in open hours only', () => {
+    const cats = {
+      ...catalogs,
+      services: catalogs.services.map((s) =>
+        s.id === TUNE_UP ? { ...s, requiredResources: [{ resourceId: TRUCK, quantity: 1 }] } : s,
+      ),
+    };
+    const one = { mode: 'one' as const, items: [{ serviceId: TUNE_UP }] };
+    const both = { mode: 'choice' as const, items: [{ serviceId: TUNE_UP }, { serviceId: DUCT }] };
+    expect(noStaff({ services: one }, cats)).not.toContain('none_without_limit');
+    expect(noStaff({ services: both }, cats)).toContain('none_without_limit');
+    expect(noStaff({ schedule: { mode: 'sessions' } })).not.toContain('none_without_limit');
+  });
+
+  it('reads the calendar’s, the service’s and the resources’ hours', () => {
+    const cats = {
+      ...catalogs,
+      resources: [TRUCK_WITHOUT_HOURS],
+      services: catalogs.services.map((s) =>
+        s.id === TUNE_UP ? { ...s, hours: WEEKDAYS_8_TO_5 } : s,
+      ),
+    };
+    const allDay = (patch: ConfigPatch, c: CalendarCatalogs = cats) =>
+      noStaff({ resources: bed, ...patch }, c).includes('open_all_day');
+    expect(allDay({})).toBe(true);
+    expect(allDay({ schedule: { hours: WEEKDAYS_8_TO_5 } })).toBe(false);
+    expect(allDay({ services: { mode: 'one', items: [{ serviceId: TUNE_UP }] } })).toBe(false);
+    expect(allDay({}, catalogs)).toBe(false);
+    // The truck's own hours (8 to 5) are what a 10-hour length has to fit in.
+    const long = validateCalendar(
+      applyPatch(defaultConfig(), {
+        team: { assignment: 'none' },
+        resources: bed,
+        durations: { minutes: [600] },
+      }),
+      catalogs,
+      NOW,
+    ).find((i) => i.code === 'duration_no_fit');
+    expect(long?.message).toBe('10 hours doesn’t fit in any open window');
+  });
 });
 
 it('adds the eligible person to a narrowed service list', () => {

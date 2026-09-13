@@ -76,6 +76,7 @@ const PICKS: Record<string, string> = {
   weighted: 'weighted round robin',
   first_available: 'first available',
   collective: 'everyone together',
+  none: 'without staff (its resources and hours decide)',
 };
 
 function pageLines(page: NonNullable<PromptContext['page']>): string[] {
@@ -125,7 +126,11 @@ export function contextText(c: PromptContext): string {
               k.services.length
                 ? `services ${k.services.map((s) => `${s.name} (service id ${s.id})`).join(', ')}`
                 : 'no services',
-              k.people.length ? `people ${k.people.join(', ')}` : 'nobody on it yet',
+              k.assignment === 'none'
+                ? 'no staff needed'
+                : k.people.length
+                  ? `people ${k.people.join(', ')}`
+                  : 'nobody on it yet',
               `books ${PICKS[k.assignment] ?? k.assignment}`,
             ];
             const status = k.status === 'active' ? '' : ` [${k.status}]`;

@@ -10,6 +10,10 @@
  * A 23P01 (the person was just booked on another calendar) or 40P01 rolls back the savepoint and gets one
  * retry on fresh data, which picks the next eligible person; after that it is a 409 slot_taken carrying up
  * to six fresh nearby open times.
+ *
+ * A calendar without staff (assignment 'none') writes no staff rows: the resource locks and quantities are
+ * what keep it honest, and a resource with no room is a 409 resource_full (with nearby times) for customers
+ * and staff alike.
  */
 import { and, eq } from 'drizzle-orm';
 import { rows, sql, type Tx } from '@hfos/db/client';
@@ -86,14 +90,14 @@ export const slotOut = (s: Slot): SlotOut => ({
   sessionId: s.sessionId,
 });
 
-/** 409 slot_taken with up to six open times nearest the one asked for (that day and the next two). */
-export async function slotTakenError(
+/** Up to six open times nearest the one asked for (that day and the next two). */
+async function nearbySlots(
   tx: Tx,
   calendar: LoadedCalendar,
   base: SlotRequest,
   start: number,
   service: CatalogService | null,
-): Promise<HfosError> {
+): Promise<SlotOut[]> {
   const tz = calendar.timeZone;
   const day = localDateOf(start, tz);
   const loaded = await loadSlotInput(
@@ -102,17 +106,89 @@ export async function slotTakenError(
     { ...base, from: startOfLocalDay(day, tz), to: startOfLocalDay(addDays(day, 3), tz) },
     { service },
   );
-  const near = computeSlots(loaded.input)
+  return computeSlots(loaded.input)
     .sort((a, b) => Math.abs(a.start - start) - Math.abs(b.start - start) || a.start - b.start)
     .slice(0, 6)
-    .sort((a, b) => a.start - b.start);
+    .sort((a, b) => a.start - b.start)
+    .map(slotOut);
+}
+
+/** 409 slot_taken with up to six open times nearest the one asked for (that day and the next two). */
+export async function slotTakenError(
+  tx: Tx,
+  calendar: LoadedCalendar,
+  base: SlotRequest,
+  start: number,
+  service: CatalogService | null,
+): Promise<HfosError> {
   return new HfosError(
     'conflict',
     409,
     'That time was just taken. Pick another time.',
-    { slots: near.map(slotOut) },
+    { slots: await nearbySlots(tx, calendar, base, start, service) },
     'slot_taken',
   );
+}
+
+/** A required resource with no room at a time (its quantity, cleanup and setup buffers included). */
+export interface FullResource {
+  readonly resourceId: string;
+  readonly name: string;
+  /** How many the booking needs. */
+  readonly quantity: number;
+}
+
+const fullMessage = (r: FullResource): string =>
+  r.quantity === 1
+    ? `No ${r.name} is free then.`
+    : `Fewer than ${r.quantity} of ${r.name} are free then.`;
+
+/**
+ * 409 resource_full with nearby open times. A calendar without staff can't book past its resources: there
+ * is no "book anyway" over a physical limit.
+ */
+export async function resourceFullError(
+  tx: Tx,
+  calendar: LoadedCalendar,
+  base: SlotRequest,
+  start: number,
+  service: CatalogService | null,
+  full: FullResource,
+): Promise<HfosError> {
+  return new HfosError(
+    'conflict',
+    409,
+    fullMessage(full),
+    { resourceId: full.resourceId, slots: await nearbySlots(tx, calendar, base, start, service) },
+    'resource_full',
+  );
+}
+
+/**
+ * Why a customer can't have a time, with nearby open times: resource_full when a calendar without staff has
+ * no room on a required resource then, otherwise slot_taken.
+ */
+export async function unavailableError(
+  tx: Tx,
+  calendar: LoadedCalendar,
+  base: SlotRequest,
+  start: number,
+  service: CatalogService | null,
+): Promise<HfosError> {
+  if (calendar.config.team.assignment === 'none') {
+    const loaded = await loadSlotInput(tx, calendar, base, { service });
+    const span: BookingSpan = {
+      start,
+      end: start + loaded.durationMinutes * MIN,
+      before: loaded.bufferBefore * MIN,
+      after: loaded.bufferAfter * MIN,
+    };
+    const data = await checkDataFor(tx, loaded);
+    const needs = loaded.terms.requiredResources;
+    const check = checkBooking(data, span, [], needs, { hardResources: true });
+    if (check.full) return resourceFullError(tx, calendar, base, start, service, check.full);
+  }
+  return slotTakenError(tx, calendar, base, start, service);
 }
 
 export function needsConfirmation(
@@ -209,15 +285,21 @@ function peakLoad(
 export interface BookingCheck {
   /** Why it can't be booked at all (someone or something is already in use then). */
   readonly blocked: HfosError | null;
+  /** With hard resources: the resource that has no room (`blocked` is its resource_full, without times). */
+  readonly full?: FullResource | null;
   readonly warnings: AppointmentWarning[];
 }
 
-/** Everything staff should hear about a time before booking it. */
+/**
+ * Everything staff should hear about a time before booking it. With `hardResources` (a calendar without
+ * staff), a resource with no room then, buffers included, blocks the booking instead of warning.
+ */
 export function checkBooking(
   data: CheckData,
   span: BookingSpan,
   userIds: readonly string[],
   needs: readonly { readonly resourceId: string; readonly quantity: number }[],
+  opts: { readonly hardResources?: boolean } = {},
 ): BookingCheck {
   const warnings: AppointmentWarning[] = [];
   if (span.start < data.now) warnings.push(warn('in_past', 'That time has already passed'));
@@ -254,7 +336,25 @@ export function checkBooking(
       };
     const durings = r.bookings.map((b) => ({ span: b.during, quantity: b.quantity }));
     const blockeds = r.bookings.map((b) => ({ span: b.blocked, quantity: b.quantity }));
-    if (peakLoad(durings, span) + need.quantity > r.quantity)
+    const inUse = peakLoad(durings, span) + need.quantity > r.quantity;
+    const tooClose =
+      peakLoad(durings, blocked) + need.quantity > r.quantity ||
+      peakLoad(blockeds, span) + need.quantity > r.quantity;
+    if (opts.hardResources && (inUse || tooClose)) {
+      const full = { resourceId: r.resourceId, name: r.name, quantity: need.quantity };
+      return {
+        blocked: new HfosError(
+          'conflict',
+          409,
+          fullMessage(full),
+          { resourceId: r.resourceId, slots: [] },
+          'resource_full',
+        ),
+        full,
+        warnings,
+      };
+    }
+    if (inUse)
       return {
         blocked: new HfosError(
           'conflict',
@@ -265,10 +365,7 @@ export function checkBooking(
         ),
         warnings,
       };
-    if (
-      peakLoad(durings, blocked) + need.quantity > r.quantity ||
-      peakLoad(blockeds, span) + need.quantity > r.quantity
-    )
+    if (tooClose)
       warnings.push(
         warn('buffer_clash', `Too close to ${r.name}’s other booking`, null, r.resourceId),
       );
@@ -558,7 +655,7 @@ async function bookAsCustomer(
       if (!isRetryable(e)) throw e;
     }
   }
-  throw await slotTakenError(ctx.tx, req.calendar, base, req.startsAt, service);
+  throw await unavailableError(ctx.tx, req.calendar, base, req.startsAt, service);
 }
 
 /** People the strategy may pick from for a staff booking: free ones first, then ones with warnings. */
@@ -604,6 +701,13 @@ async function bookAsStaff(
   service: CatalogService | null,
   base: SlotRequest,
 ): Promise<BookingResult> {
+  // No staff: nobody is picked, and a resource with no room is a hard stop.
+  const none = req.calendar.config.team.assignment === 'none';
+  if (none && choice.userIds?.length)
+    throw HfosError.validation(
+      [{ path: 'userIds', message: 'This calendar books without staff. Leave out who works it.' }],
+      'This calendar books without staff. Leave out who works it.',
+    );
   const byHand = choice.userIds?.length ? [...new Set(choice.userIds)] : null;
   for (let attempt = 0; attempt < 2; attempt++) {
     const loaded = await loadSlotInput(ctx.tx, req.calendar, base, {
@@ -618,9 +722,12 @@ async function bookAsStaff(
       after: loaded.bufferAfter * MIN,
     };
     let userIds: string[];
-    const state = await loadAssignmentState(ctx.tx, req.calendar.id);
+    const state = none ? {} : await loadAssignmentState(ctx.tx, req.calendar.id);
     let next: AssignmentState;
-    if (byHand) {
+    if (none) {
+      userIds = [];
+      next = state;
+    } else if (byHand) {
       userIds = byHand;
       next = bumpState(state, userIds, loaded.input.now);
     } else {
@@ -640,7 +747,11 @@ async function bookAsStaff(
       userIds = picked.userIds;
       next = picked.nextState;
     }
-    const check = checkBooking(data, span, userIds, loaded.terms.requiredResources);
+    const check = checkBooking(data, span, userIds, loaded.terms.requiredResources, {
+      hardResources: none,
+    });
+    if (check.full)
+      throw await resourceFullError(ctx.tx, req.calendar, base, req.startsAt, service, check.full);
     if (check.blocked) throw check.blocked;
     if (check.warnings.length && !choice.acknowledgeWarnings)
       throw needsConfirmation(check.warnings, userIds);
@@ -702,7 +813,8 @@ async function commit(
         location,
         seriesId: req.seriesId ?? null,
         occurrence: req.occurrence ?? null,
-        ownerUserId: req.ownerUserId ?? null,
+        // Nobody works it: the calendar's owner answers for it.
+        ownerUserId: req.ownerUserId ?? (userIds.length ? null : calendar.ownerUserId),
         leadId: req.leadId ?? null,
         source: req.source,
         notes: req.notes ?? null,
@@ -712,14 +824,16 @@ async function commit(
       .returning({ id: appointments.id });
     const appointmentId = appt!.id;
     // Sorted by user id: every transaction takes people's rows in the same order, so none deadlock.
-    await sp.insert(appointmentStaff).values(
-      [...userIds].sort().map((userId) => ({
-        workspaceId,
-        appointmentId,
-        userId,
-        role: userId === userIds[0] ? ('host' as const) : ('crew' as const),
-      })),
-    );
+    // A calendar without staff writes none.
+    if (userIds.length)
+      await sp.insert(appointmentStaff).values(
+        [...userIds].sort().map((userId) => ({
+          workspaceId,
+          appointmentId,
+          userId,
+          role: userId === userIds[0] ? ('host' as const) : ('crew' as const),
+        })),
+      );
     if (needs.length)
       await sp.insert(appointmentResources).values(
         needs.map((n) => ({

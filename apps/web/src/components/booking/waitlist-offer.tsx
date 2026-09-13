@@ -130,10 +130,14 @@ export function WaitlistOffer({ token }: { token: string }) {
     try {
       setClaimed(await claimOffer(token));
     } catch (e) {
-      // Someone else was faster, the hold ran out, or the offer closed: show the page as it is now.
+      // Someone else was faster (or took the last bed or room), the hold ran out, or the offer closed:
+      // show the page as it is now.
       if (
         e instanceof ApiError &&
-        (e.rule === 'slot_taken' || e.rule === 'offer_expired' || e.rule === 'offer_not_active')
+        (e.rule === 'slot_taken' ||
+          e.rule === 'resource_full' ||
+          e.rule === 'offer_expired' ||
+          e.rule === 'offer_not_active')
       )
         await load();
       else setError(messageOf(e));

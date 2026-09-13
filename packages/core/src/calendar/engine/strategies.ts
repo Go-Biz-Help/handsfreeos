@@ -9,6 +9,7 @@
  *   and pays back the total. Shares track weights within one booking.
  * - first_available: the highest priority free person, ties in team order.
  * - collective: everyone the slot lists.
+ * - none: nobody; the calendar books without staff.
  * - crew (crewSize k > 1): the strategy runs k times without repeats; extra crew for fixed and customer's
  *   choice come by round robin.
  * - series: the first occurrence's people are kept when free.
@@ -34,9 +35,10 @@ export function chooseAssignment(
   state: AssignmentState,
   options: AssignmentOptions = {},
 ): Assignment {
+  const mode = config.team.assignment;
+  if (mode === 'none') return { userIds: [], nextState: state };
   if (slot.sessionId) return { userIds: [...slot.userIds], nextState: state };
   const now = options.now ?? Date.now();
-  const mode = config.team.assignment;
   const order = new Map(config.team.members.map((m, i) => [m.userId, i]));
   const weight = new Map(config.team.members.map((m) => [m.userId, m.weight]));
   const priority = new Map(config.team.members.map((m) => [m.userId, m.priority]));

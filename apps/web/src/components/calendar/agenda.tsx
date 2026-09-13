@@ -231,17 +231,19 @@ export function Agenda({
                     ) : null;
                   })()}
                   <span className="mt-[5px] flex items-center gap-1.5">
-                    <span className="flex pr-1">
-                      {a.staff.map((s) => (
-                        <Avatar
-                          key={s.userId}
-                          name={s.fullName}
-                          seed={s.userId}
-                          size="sm"
-                          className="-mr-1 ring-2 ring-card"
-                        />
-                      ))}
-                    </span>
+                    {a.staff.length ? (
+                      <span className="flex pr-1">
+                        {a.staff.map((s) => (
+                          <Avatar
+                            key={s.userId}
+                            name={s.fullName}
+                            seed={s.userId}
+                            size="sm"
+                            className="-mr-1 ring-2 ring-card"
+                          />
+                        ))}
+                      </span>
+                    ) : null}
                     {a.resources.map((x) => (
                       <span key={x.resourceId} className="cal-mini">
                         <Truck className="h-3 w-3" strokeWidth={1.5} />

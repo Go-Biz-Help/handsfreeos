@@ -72,8 +72,8 @@ export const CALENDAR_PRESETS: readonly CalendarPreset[] = [
   {
     key: 'resource',
     name: 'Resource',
-    description: 'Each booking reserves a room, truck or piece of equipment.',
-    config: { public: true, team: { assignment: 'fixed' } },
+    description: 'Books a bed, room or piece of equipment. No staff needed.',
+    config: { public: true, team: { assignment: 'none' } },
   },
   {
     key: 'collective',
@@ -104,7 +104,7 @@ export const CALENDAR_PRESETS: readonly CalendarPreset[] = [
 export interface PresetContext {
   /** The person creating the calendar. */
   readonly me: string;
-  /** People picked in the preset step (Round Robin, Dispatch, Resource use them instead of you). */
+  /** People picked in the preset step (Round Robin and Dispatch use them instead of you; Resource has none). */
   readonly teammates?: readonly string[];
   readonly services?: readonly string[];
   readonly resources?: readonly string[];
@@ -122,10 +122,10 @@ function people(key: PresetKey, ctx: PresetContext): TeamMember[] {
   const picked = unique(ctx.teammates ?? []);
   switch (key) {
     case 'scratch':
+    case 'resource':
       return [];
     case 'round_robin':
     case 'dispatch':
-    case 'resource':
       return (picked.length ? picked : [ctx.me]).map((u) => member(u));
     case 'service':
       return unique([ctx.me, ...picked]).map((u) => member(u));
@@ -148,11 +148,10 @@ export function configFromPreset(preset: PresetKey, ctx: PresetContext): Calenda
       services: { items: unique(ctx.services).map((serviceId) => ({ serviceId })) },
     });
   if (preset === 'resource') {
+    // No staff: the resource and the hours alone decide what can be booked.
     const [resourceId] = ctx.resources ?? [];
-    config = applyPatch(config, {
-      team: { assignment: members.length > 1 ? 'round_robin' : 'fixed' },
-      ...(resourceId ? { resources: { required: [{ resourceId, quantity: 1 }] } } : {}),
-    });
+    if (resourceId)
+      config = applyPatch(config, { resources: { required: [{ resourceId, quantity: 1 }] } });
   }
   return config;
 }

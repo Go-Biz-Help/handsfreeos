@@ -569,7 +569,12 @@ export function BookingFlow({
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
-  const [taken, setTaken] = useState<{ at: string; slots: PublicSlot[] } | null>(null);
+  /** The time went while they typed: fresh times, and the server's words when a resource is full. */
+  const [taken, setTaken] = useState<{
+    at: string;
+    slots: PublicSlot[];
+    message: string | null;
+  } | null>(null);
   const [off, setOff] = useState(false);
   const [booked, setBooked] = useState<Booked | null>(null);
   const [waitFor, setWaitFor] = useState<WaitlistTarget | null>(null);
@@ -590,11 +595,16 @@ export function BookingFlow({
       setError('Something went wrong. Please try again.');
       return;
     }
-    if (e.rule === 'slot_taken' && slot) {
+    // Someone was faster, or every bed or room it needs is in use then (resource_full): fresh times.
+    if ((e.rule === 'slot_taken' || e.rule === 'resource_full') && slot) {
       const fresh = (
         (e.details as { slots?: Omit<PublicSlot, 'people'>[] } | undefined)?.slots ?? []
       ).map((s) => ({ ...s, people: [] }));
-      setTaken({ at: slot.startsAt, slots: fresh });
+      setTaken({
+        at: slot.startsAt,
+        slots: fresh,
+        message: e.rule === 'resource_full' ? e.message : null,
+      });
       setSlot(null);
       return;
     }
@@ -1298,7 +1308,7 @@ export function BookingFlow({
               <CircleX size={17} className="mt-0.5 flex-none" aria-hidden />
               <span className="flex flex-col gap-0.5">
                 <strong className="font-semibold">
-                  Sorry, {timeOf(taken.at, tz)} was just taken
+                  {taken.message ?? `Sorry, ${timeOf(taken.at, tz)} was just taken`}
                 </strong>
                 <span>
                   {taken.slots.length

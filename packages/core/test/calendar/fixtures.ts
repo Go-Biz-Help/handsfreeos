@@ -74,7 +74,8 @@ export const catalogs: CalendarCatalogs = {
     },
   ],
   resources: [
-    { id: TRUCK, name: 'Truck 2', quantity: 2, archived: false },
+    // Hours of its own, so the Resource preset (no staff) isn't open all day.
+    { id: TRUCK, name: 'Truck 2', quantity: 2, archived: false, hours: WEEKDAYS_8_TO_5 },
     { id: OLD_VAN, name: 'Old van', quantity: 1, archived: true },
   ],
   territories: [

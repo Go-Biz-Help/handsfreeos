@@ -19,12 +19,24 @@ import type {
   AppointmentLocationIn,
   AppointmentWarning,
   CalendarSummary,
+  ResourceItem,
   ServiceItem,
 } from '@/lib/api/types';
 import { serviceCatalog } from '@/lib/calendar/catalogs';
-import { fmtAt, fmtLength, TIME_OPTIONS, todayIn, zoneLabel } from '@/lib/calendar/time';
+import { joinWords } from '@/lib/calendar/describe';
+import {
+  dateOf,
+  fmtAt,
+  fmtLength,
+  fmtTime,
+  minutesOf,
+  timeOptionsWith,
+  todayIn,
+  weekdayShort,
+  zoneLabel,
+} from '@/lib/calendar/time';
 import { addressLine } from '@/lib/format';
-import { firstName, namesText } from './appt';
+import { firstName, freshTimes, namesText, reservedText } from './appt';
 import { calendarConfig } from './config-cache';
 import { CustomerPicker, type PickedCustomer } from './customer-picker';
 import { TellField, useTextingReady } from './tell-field';
@@ -35,6 +47,43 @@ const LOCATION_LABEL: Record<LocationKind, string> = {
   virtual: 'Video call',
   phone: 'Phone call',
 };
+
+/** The open times offered after a 409 resource_full; picking one fills in the date and start. */
+export function FreshTimes({
+  times,
+  date,
+  timeZone,
+  onPick,
+  testId,
+}: {
+  times: readonly string[];
+  /** The date being asked about: times on it show just the clock. */
+  date: string;
+  timeZone: string;
+  onPick: (startsAt: string) => void;
+  testId: string;
+}) {
+  return (
+    <div role="group" aria-label="Open times nearby" className="flex flex-col gap-1.5">
+      <span className="text-[12.5px] text-text-3">Open times nearby</span>
+      <div className="grid grid-cols-3 gap-1.5">
+        {times.map((t) => (
+          <button
+            key={t}
+            type="button"
+            data-testid={testId}
+            onClick={() => onPick(t)}
+            className="inline-flex h-[34px] items-center justify-center whitespace-nowrap rounded-control border border-border-strong bg-card px-1.5 text-[13px] font-medium hover:border-accent focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring"
+          >
+            {dateOf(t, timeZone) === date
+              ? fmtTime(t, timeZone)
+              : `${weekdayShort(dateOf(t, timeZone))} ${fmtTime(t, timeZone)}`}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 export interface BookedResult {
   readonly appointmentId: string;
@@ -87,6 +136,7 @@ export function AppointmentDialog({
 }) {
   const [calendars, setCalendars] = useState<readonly CalendarSummary[] | null>(given ?? null);
   const [services, setServices] = useState<ServiceItem[]>([]);
+  const [resources, setResources] = useState<ResourceItem[]>([]);
   const [person, setPerson] = useState<PickedCustomer | null>(prefill.person ?? null);
   const [address, setAddress] = useState('');
   const [postalCode, setPostalCode] = useState<string | null>(null);
@@ -103,6 +153,8 @@ export function AppointmentDialog({
   const [locationIdx, setLocationIdx] = useState(0);
   const [tell, setTell] = useState(true);
   const [warnings, setWarnings] = useState<AppointmentWarning[] | null>(null);
+  /** A 409 resource_full: its message and the nearest open times. Never booked over. */
+  const [full, setFull] = useState<{ message: string; times: string[] } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const clientId = useRef(crypto.randomUUID());
@@ -116,17 +168,19 @@ export function AppointmentDialog({
     let cancelled = false;
     void (async () => {
       try {
-        const [cals, svcs] = await Promise.all([
+        const [cals, svcs, res] = await Promise.all([
           given
             ? Promise.resolve({ items: given })
             : apiBrowser()
                 .POST('/v1/queries/calendar.list', { body: { workspaceId } })
                 .then(unwrap),
           apiBrowser().POST('/v1/queries/service.list', { body: { workspaceId } }).then(unwrap),
+          apiBrowser().POST('/v1/queries/resource.list', { body: { workspaceId } }).then(unwrap),
         ]);
         if (cancelled) return;
         setCalendars(cals.items);
         setServices(svcs.items);
+        setResources(res.items);
         setCalendarId((current) => {
           if (current && cals.items.some((c) => c.id === current)) return current;
           const who = prefill.userId ?? myUserId;
@@ -194,16 +248,22 @@ export function AppointmentDialog({
     [current, services],
   );
   const service = offered.find((s) => s.id === serviceId) ?? offered[0] ?? null;
-  const lengths = current
-    ? resolveTerms(current, service ? serviceCatalog(service) : null).durations
-    : [60];
+  const terms = current ? resolveTerms(current, service ? serviceCatalog(service) : null) : null;
+  const lengths = terms?.durations ?? [60];
   const team = current?.team.members.map((m) => m.userId) ?? [];
   const nameOf = (id: string) => people.find((p) => p.userId === id)?.fullName ?? 'Someone';
   const places = current?.locations.options ?? [];
   const place = places[locationIdx] ?? places[0] ?? null;
   const travel = current?.buffers.travelMinutes ?? 0;
   const mode = current?.team.assignment;
+  /** Needs no staff: there's nobody to pick, and the equipment it reserves shows instead. */
+  const staffless = mode === 'none';
   const many = mode === 'collective' || (current?.team.crewSize ?? 1) > 1;
+  const uses = staffless
+    ? (terms?.requiredResources ?? []).map((r) =>
+        reservedText(r.quantity, resources.find((x) => x.id === r.resourceId)?.name ?? 'resource'),
+      )
+    : [];
   const reach = contact && person && contact.id === person.id ? contact : null;
 
   // Keep choices valid as the calendar or service changes.
@@ -218,6 +278,8 @@ export function AppointmentDialog({
           ? 'Everyone it needs'
           : 'Let the calendar choose';
   const withChoice = who || (mode === 'fixed' && team.length ? team[0]! : '');
+  // A fresh time offered after a full resource can fall between the quarter hours.
+  const timeOptions = timeOptionsWith(time);
 
   const change =
     <T,>(set: (v: T) => void) =>
@@ -225,6 +287,7 @@ export function AppointmentDialog({
       set(v);
       setWarnings(null);
       setError(null);
+      setFull(null);
     };
 
   async function book() {
@@ -253,7 +316,7 @@ export function AppointmentDialog({
             startsAt: new Date(localInstant(date, minutesToClock(time), timeZone)).toISOString(),
             durationMinutes: length,
             serviceId: service?.id ?? null,
-            ...(withChoice && !many ? { userIds: [withChoice] } : {}),
+            ...(withChoice && !many && !staffless ? { userIds: [withChoice] } : {}),
             personId: person?.id ?? null,
             partySize: 1,
             ...(location ? { location } : {}),
@@ -265,8 +328,9 @@ export function AppointmentDialog({
         }),
       );
       const title = service?.name ?? calendars?.find((c) => c.id === calendarId)?.name ?? 'It';
+      const names = namesText(out.userIds.map((u) => firstName(nameOf(u))));
       toast.success(
-        `Booked ${title} with ${namesText(out.userIds.map((u) => firstName(nameOf(u))))} for ${fmtAt(out.startsAt, timeZone)}.`,
+        `Booked ${title}${names ? ` with ${names}` : ''} for ${fmtAt(out.startsAt, timeZone)}.`,
       );
       clientId.current = crypto.randomUUID();
       setWarnings(null);
@@ -274,6 +338,10 @@ export function AppointmentDialog({
     } catch (e) {
       if (e instanceof ApiError && e.rule === 'needs_confirmation') {
         setWarnings((e.details as { warnings?: AppointmentWarning[] }).warnings ?? []);
+      } else if (e instanceof ApiError && e.rule === 'resource_full') {
+        // Every one of the equipment is in use then: a hard stop with fresh times, never "Book anyway".
+        setWarnings(null);
+        setFull({ message: e.message, times: freshTimes(e.details) });
       } else setError(errorMessage(e));
     } finally {
       setBusy(false);
@@ -324,7 +392,9 @@ export function AppointmentDialog({
                 </Select>
               </Field>
             </div>
-            <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)]">
+            <div
+              className={`grid grid-cols-1 gap-2.5 sm:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)]${offered.length || !staffless || uses.length ? '' : ' hidden'}`}
+            >
               {offered.length ? (
                 <Field label="Service" htmlFor="appt-service" className="min-w-0">
                   <Select
@@ -340,27 +410,43 @@ export function AppointmentDialog({
                   </Select>
                 </Field>
               ) : null}
-              <Field
-                label="With"
-                htmlFor="appt-with"
-                className={offered.length ? 'min-w-0' : 'min-w-0 sm:col-span-2'}
-              >
-                <Select
-                  id="appt-with"
-                  value={withChoice}
-                  disabled={!team.length}
-                  onChange={(e) => change(setUserId)(e.target.value)}
+              {staffless ? (
+                uses.length ? (
+                  <div
+                    className={offered.length ? 'min-w-0' : 'min-w-0 sm:col-span-2'}
+                    data-testid="appointment-uses"
+                  >
+                    <Label>Uses</Label>
+                    <span className="flex h-10 min-w-0 items-center truncate rounded-control border border-border bg-card-2 px-3 text-[14px] text-text-2">
+                      {joinWords(uses)}
+                    </span>
+                  </div>
+                ) : null
+              ) : (
+                <Field
+                  label="With"
+                  htmlFor="appt-with"
+                  className={offered.length ? 'min-w-0' : 'min-w-0 sm:col-span-2'}
                 >
-                  {mode !== 'fixed' || !team.length ? <option value="">{autoLabel}</option> : null}
-                  {many
-                    ? null
-                    : team.map((u) => (
-                        <option key={u} value={u}>
-                          {nameOf(u)}
-                        </option>
-                      ))}
-                </Select>
-              </Field>
+                  <Select
+                    id="appt-with"
+                    value={withChoice}
+                    disabled={!team.length}
+                    onChange={(e) => change(setUserId)(e.target.value)}
+                  >
+                    {mode !== 'fixed' || !team.length ? (
+                      <option value="">{autoLabel}</option>
+                    ) : null}
+                    {many
+                      ? null
+                      : team.map((u) => (
+                          <option key={u} value={u}>
+                            {nameOf(u)}
+                          </option>
+                        ))}
+                  </Select>
+                </Field>
+              )}
             </div>
             <div className="grid grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_minmax(0,1fr)] gap-2.5">
               <Field label="Date" htmlFor="appt-date" className="min-w-0">
@@ -377,7 +463,7 @@ export function AppointmentDialog({
                   value={String(time)}
                   onChange={(e) => change(setTime)(Number(e.target.value))}
                 >
-                  {TIME_OPTIONS.map(([m, label]) => (
+                  {timeOptions.map(([m, label]) => (
                     <option key={m} value={m}>
                       {label}
                     </option>
@@ -453,6 +539,29 @@ export function AppointmentDialog({
                     <span>{w.message}</span>
                   </div>
                 ))}
+              </div>
+            ) : null}
+            {full ? (
+              <div className="flex flex-col gap-2" data-testid="appointment-full">
+                <div
+                  role="alert"
+                  className="flex items-start gap-2.5 rounded-menu bg-danger-soft px-3 py-2.5 text-[13px] leading-[1.45] text-danger-text"
+                >
+                  <CircleAlert className="mt-px h-4 w-4 flex-none" strokeWidth={1.75} />
+                  <span>{full.message}</span>
+                </div>
+                {full.times.length ? (
+                  <FreshTimes
+                    times={full.times}
+                    date={date}
+                    timeZone={timeZone}
+                    testId="appointment-fresh-time"
+                    onPick={(t) => {
+                      change(setDate)(dateOf(t, timeZone));
+                      setTime(minutesOf(t, timeZone));
+                    }}
+                  />
+                ) : null}
               </div>
             ) : null}
             {error ? (

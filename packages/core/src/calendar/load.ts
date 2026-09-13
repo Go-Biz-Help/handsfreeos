@@ -816,10 +816,12 @@ export async function loadSlotInput(
   const now = opts.now ?? (await dbNow(tx));
   const exclude = req.excludeAppointmentIds ?? [];
   const zone = await workspaceZone(tx, calendar.workspaceId);
+  // With no staff the team is ignored: only people asked for by name (an appointment's own) are read.
+  const none = config.team.assignment === 'none';
   const userIds = unique([
-    ...config.team.members.map((m) => m.userId),
+    ...(none ? [] : config.team.members.map((m) => m.userId)),
     ...(opts.extraUserIds ?? []),
-    ...(req.chosenUserId ? [req.chosenUserId] : []),
+    ...(req.chosenUserId && !none ? [req.chosenUserId] : []),
   ]);
   const staff = await loadStaffData(tx, calendar.workspaceId, userIds, span, {
     workspaceZone: zone,

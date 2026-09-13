@@ -137,9 +137,14 @@ export function ManageBooking({ token: initialToken }: { token: string }) {
       setFailure(toFailure(e));
       return;
     }
-    if (e instanceof ApiError && e.rule === 'slot_taken') {
+    if (e instanceof ApiError && (e.rule === 'slot_taken' || e.rule === 'resource_full')) {
       setSlot(null);
-      setError('That time was just taken. Pick another time.');
+      // A full bed or room says so in its own words ("No Red light bed is free then.").
+      setError(
+        e.rule === 'resource_full'
+          ? `${e.message} Pick another time.`
+          : 'That time was just taken. Pick another time.',
+      );
       return;
     }
     setError(e instanceof ApiError ? e.message : 'Something went wrong. Please try again.');

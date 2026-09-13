@@ -17,6 +17,7 @@ import {
   localInstant,
   organizationCreate,
   personCreate,
+  resourceCreate,
   ROLE_PERMISSIONS,
   scheduleSet,
   serviceCreate,
@@ -45,6 +46,7 @@ import { atLabel, rangeLabel } from '../src/assistant/calendar-format';
 import { questionContext, toolsFor } from '../src/assistant/context';
 import { ask as runQuestion } from '../src/assistant/runtime';
 import { scriptedAssistant } from '../src/assistant/scripted';
+import { calendarConfirmTools, calendarReadTools } from '../src/assistant/tools-calendar';
 import { createToolExecutor } from '../src/assistant/tools-write';
 import { buildHttpServer } from '../src/http/server';
 import { testServices } from './helpers';
@@ -531,5 +533,96 @@ describe('the Assistant on the calendar', () => {
     expect(
       (await appointments()).filter((a) => a.status === 'scheduled' && a.source === 'assistant'),
     ).toHaveLength(0);
+  });
+
+  it('offers a bed’s open times and books one with nobody on the card', async () => {
+    const { resourceId } = await run(
+      resourceCreate,
+      { workspaceId, name: 'Red light bed', kind: 'equipment', quantity: 2 },
+      owner,
+    );
+    const created = await run(
+      calendarCreate,
+      { workspaceId, name: 'Book a bed', preset: 'resource', resources: [resourceId] },
+      owner,
+    );
+    const { calendar } = await executeQuery(
+      api(),
+      calendarGet,
+      { workspaceId, calendarId: created.calendarId },
+      actor(owner),
+      meta(),
+    );
+    const draft = applyPatch(calendar.config as CalendarConfig, {
+      durations: { minutes: [20] },
+      window: { minNoticeMinutes: 0 },
+      schedule: {
+        hours: [0, 1, 2, 3, 4, 5, 6].map((day) => ({ day, start: '08:00', end: '17:00' })),
+      },
+    });
+    await run(
+      calendarSave,
+      { workspaceId, calendarId: created.calendarId, baseRevision: calendar.revision, draft },
+      owner,
+    );
+    await run(
+      calendarSetStatus,
+      { workspaceId, calendarId: created.calendarId, status: 'active' },
+      owner,
+    );
+    const ctx = {
+      actor: actor(owner),
+      workspaceId,
+      organizationId,
+      correlationId: randomUUID(),
+      timezone: CHI,
+    };
+    const db = testDbs().worker.db;
+
+    const open = await calendarReadTools.find_availability!(db, ctx, {
+      calendarId: created.calendarId,
+      from: tomorrow(),
+    });
+    expect(open.card).toMatchObject({
+      type: 'slots',
+      title: 'Book a bed',
+      person: null,
+      calendar: { id: created.calendarId, name: 'Book a bed' },
+      durationMinutes: 20,
+    });
+    expect(open.result).toMatchObject({ person: null });
+    expect(
+      await calendarReadTools.find_availability!(db, ctx, {
+        calendarId: created.calendarId,
+        from: tomorrow(),
+        userId: priya.id,
+      }),
+    ).toMatchObject({
+      isError: true,
+      result: { error: 'The Book a bed calendar books without staff, so there’s nobody to pick.' },
+    });
+
+    // People the model names are dropped: nobody works a bed.
+    const { card, result } = await calendarConfirmTools.book_appointment!.prepare(
+      db,
+      ctx,
+      {
+        calendarId: created.calendarId,
+        personId: mikeId,
+        startsAt: iso(tomorrowAt(10)),
+        userIds: [priya.id],
+      },
+      randomUUID(),
+    );
+    const confirm = card as Extract<AssistantCard, { type: 'confirm' }>;
+    expect(confirm.fields.map((f) => f.label)).toEqual([
+      'Customer',
+      'What',
+      'When',
+      'Reminders',
+      'Tell Mike',
+    ]);
+    expect(confirm.warnings).toEqual([]);
+    expect(result).toMatchObject({ with: [] });
   });
 });

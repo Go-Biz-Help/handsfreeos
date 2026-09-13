@@ -153,3 +153,10 @@ export const TIME_OPTIONS: readonly (readonly [number, string])[] = Array.from(
   { length: 96 },
   (_, i) => [i * 15, clockLabel(i * 15)] as const,
 );
+
+/** TIME_OPTIONS, plus `minutes` itself when it falls between the quarter hours (an offered time, an odd start). */
+export function timeOptionsWith(minutes: number): readonly (readonly [number, string])[] {
+  return TIME_OPTIONS.some(([m]) => m === minutes)
+    ? TIME_OPTIONS
+    : [...TIME_OPTIONS, [minutes, clockLabel(minutes)] as const].sort((a, b) => a[0] - b[0]);
+}

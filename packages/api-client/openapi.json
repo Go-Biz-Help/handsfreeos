@@ -7224,7 +7224,8 @@
                               "round_robin",
                               "weighted",
                               "first_available",
-                              "collective"
+                              "collective",
+                              "none"
                             ]
                           },
                           "crewSize": {
@@ -11181,8 +11182,7 @@
                 "required": [
                   "workspaceId",
                   "calendarId",
-                  "startsAt",
-                  "userIds"
+                  "startsAt"
                 ]
               }
             }
@@ -21507,7 +21507,8 @@
                                     "round_robin",
                                     "weighted",
                                     "first_available",
-                                    "collective"
+                                    "collective",
+                                    "none"
                                   ]
                                 },
                                 "crewSize": {

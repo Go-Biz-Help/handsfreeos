@@ -38,7 +38,7 @@ import {
   loadAssignmentState,
   lockBooking,
   saveAssignmentState,
-  slotTakenError,
+  unavailableError,
   type AttendeeDraft,
   type BookingResult,
 } from '../calendar/booking';
@@ -425,7 +425,8 @@ export const appointmentBookOnline = defineCommand({
     const host = result.userIds[0] ?? null;
     const owner =
       config.crm.ownership === 'assigned_staff'
-        ? host
+        ? // Nobody works it (a calendar without staff): the calendar's owner stands in.
+          (host ?? calendar.ownerUserId)
         : config.crm.ownership === 'calendar_owner'
           ? calendar.ownerUserId
           : null;
@@ -574,7 +575,7 @@ export const attendeeRescheduleOnline = defineCommand({
         });
         return { appointmentId: appt.id, attendeeId: att.id, ...to };
       }
-      throw await slotTakenError(ctx.tx, calendar, base, start, service);
+      throw await unavailableError(ctx.tx, calendar, base, start, service);
     }
 
     // A seat in a session or group time: take a seat at the new time, then give up the old one.

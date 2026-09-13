@@ -14,6 +14,7 @@ import {
   addDays,
   messageSend,
   personCreate,
+  resourceCreate,
   smsSegments,
 } from '@hfos/core/server';
 import { asWorker, rows, sql } from '@hfos/db/client';
@@ -414,5 +415,65 @@ describe('the team, and change and cancel notices', () => {
         keepConversationStatus: true,
       }),
     ).rejects.toMatchObject({ code: 'validation' });
+  });
+});
+
+describe('a calendar with no staff', () => {
+  it('confirms without naming anyone, emails the calendar’s owner (else the owners and admins), and writes to nobody’s calendar', async () => {
+    const { resourceId } = await run(w, resourceCreate, {
+      workspaceId: w.workspaceId,
+      name: 'Red light bed',
+      kind: 'equipment',
+      quantity: 4,
+    });
+    const beds = await makeCalendar(w, 'Red light session', {
+      team: { members: [], assignment: 'none' },
+      resources: { required: [{ resourceId }] },
+      durations: { minutes: [20], step: 10 },
+      buffers: { after: 10 },
+    });
+    // Dale's own calendar is connected: a booking he worked would be written into it.
+    const [conn] = await rows<{ id: string }>(
+      admin(),
+      sql`insert into app.calendar_connections (workspace_id, user_id, provider, status, created_by)
+          values (${w.workspaceId}, ${w.owner.id}, 'google', 'active', ${w.owner.id}) returning id`,
+    );
+    try {
+      const start = at(8, '10:00');
+      const texted = customer('Ava');
+      const booked = await bookOnline(w, beds.slug, start, { ...texted, smsConsent: true });
+      await drain(w);
+      expect(textsTo(w, texted.phone).at(-1)!.body).toBe(
+        `${BUSINESS}: You're booked for a red light session on ${dayShort(start, CHI)} at 10:00 AM CT. Change or cancel: http://localhost:3000/m/${booked.manageToken} Reply STOP to opt out.`,
+      );
+      const team = await waitForMail(
+        w.owner.email,
+        `New booking: Ava Customer, Red light session, ${weekdayShort(start, CHI)} 10:00 AM`,
+      );
+      expect(team.text).toContain('Ava Customer booked a red light session online.');
+      const attendee = await attendeeByToken(booked.manageToken);
+      const [sync] = await rows<{ n: number }>(
+        admin(),
+        sql`select count(*)::int as n from app.scheduled_jobs
+            where kind = 'appointment.calendar_sync' and payload ->> 'appointmentId' = ${attendee.appointment_id}`,
+      );
+      expect(sync!.n).toBe(0);
+
+      // With no owner on the calendar, the workspace's owners and admins hear; by email, no "Who" line.
+      await rows(admin(), sql`update app.calendars set owner_user_id = null where id = ${beds.id}`);
+      const emailed = customer('Ben');
+      await bookOnline(w, beds.slug, at(8, '11:00'), { ...emailed, smsConsent: false });
+      await drain(w);
+      const confirmation = await waitForMail(emailed.email, 'You’re booked: Red light session');
+      expect(confirmation.text).toContain('What: Red light session · 20 min');
+      expect(confirmation.text).not.toContain('Who:');
+      const heads = await waitForMail(
+        w.owner.email,
+        'New booking: Ben Customer, Red light session',
+      );
+      expect(heads.text).toContain('Ben Customer booked a red light session online.');
+    } finally {
+      await rows(admin(), sql`delete from app.calendar_connections where id = ${conn!.id}`);
+    }
   });
 });

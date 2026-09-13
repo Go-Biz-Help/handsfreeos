@@ -102,6 +102,8 @@ const STATUS: Record<CardOf<'appointment'>['status'], { label: string; className
 /** One appointment: what, when, who it's for and who works it, with where it stands. */
 export function AppointmentCard({ card }: { card: CardOf<'appointment'> }) {
   const status = STATUS[card.status];
+  // Calendars that need no staff have nobody to name: no "with" at all.
+  const withWhom = card.with?.trim() || null;
   return (
     <div className={cardShell} data-testid="assistant-card-appointment">
       <div className={cardHead}>
@@ -119,12 +121,12 @@ export function AppointmentCard({ card }: { card: CardOf<'appointment'> }) {
           {status.label}
         </span>
       </div>
-      {card.customer || card.with ? (
+      {card.customer || withWhom ? (
         <div className={cardRow}>
           <span className="min-w-0 flex-1 truncate">{card.customer ?? 'No customer yet'}</span>
-          {card.with ? (
+          {withWhom ? (
             <span className="max-w-[50%] flex-none truncate text-xs text-text-3">
-              with {card.with}
+              with {withWhom}
             </span>
           ) : null}
         </div>

@@ -150,6 +150,80 @@ function randomWorld(r: Rng, modes: readonly Mode[] = ASSIGNMENTS): SlotInput {
   };
 }
 
+/** A booking on a bed: 15 to 60 minutes, a few minutes' setup sometimes, cleanup after, from either calendar. */
+function bedBooking(r: Rng) {
+  const s = r.int(960, 3600);
+  const during = { start: at(s), end: at(Math.min(DOMAIN, s + r.pick([15, 20, 30, 45, 60]))) };
+  const before = r.pick([0, 0, 5]) * MIN;
+  const after = r.pick([0, 10, 10, 15]) * MIN;
+  return {
+    during,
+    blocked: { start: during.start - before, end: during.end + after },
+    calendarId: r.chance(0.5) ? CAL : 'other',
+    quantity: r.int(1, 2),
+  };
+}
+
+/** No staff: only hours, beds (quantities, staggered bookings, cleanup, shared with another calendar) and ZIPs. */
+function randomNoStaffWorld(r: Rng): SlotInput {
+  const d = r.pick([15, 20, 30, 45, 60]);
+  const config = applyPatch(defaultConfig(), {
+    // People listed on a calendar without staff are ignored.
+    team: { members: r.chance(0.2) ? [{ userId: A }] : [], assignment: 'none' },
+    durations: { minutes: [d], step: r.pick([5, 10, 15, 30]) },
+    buffers: { before: r.pick([0, 0, 5]), after: r.pick([0, 10, 15]) },
+    window: {
+      minNoticeMinutes: r.pick([0, 0, 60, 240]),
+      maxDaysAhead: r.pick([1, 60, 60]),
+      dailyLimitPerPerson: r.chance(0.2) ? 1 : null,
+    },
+    territory: {
+      routing: r.chance(0.25) ? 'zip' : 'off',
+      territoryIds: r.chance(0.5) ? [] : [TER[0]!],
+    },
+    resources: {
+      required: r.subset(RES, 1).map((resourceId) => ({ resourceId, quantity: r.int(1, 2) })),
+    },
+  });
+  const service: CatalogService | null = r.chance(0.3)
+    ? {
+        id: uid(41),
+        name: 'Session',
+        durations: [d],
+        bufferBefore: r.pick([0, 5]),
+        bufferAfter: r.pick([0, 10]),
+        eligibleUserIds: [],
+        requiredResources: r.chance(0.5) ? [{ resourceId: RES[1]!, quantity: 1 }] : [],
+        archived: false,
+      }
+    : null;
+  const from = at(1440 + r.int(-360, 720));
+  return {
+    config,
+    calendarId: CAL,
+    timeZone: TZ,
+    now: from - r.int(0, 600) * MIN,
+    from,
+    to: from + r.int(360, 2160) * MIN,
+    service,
+    durationMinutes: d,
+    postalCode: r.pick([null, '75201', '75203', '99999']),
+    calendarWindows: r.chance(0.5) ? spans(r, 3, 60, 900) : null,
+    serviceWindows: r.chance(0.3) ? spans(r, 3, 60, 900) : null,
+    staff: r.chance(0.3) ? [randomStaff(r, A)] : [],
+    resources: RES.filter(() => r.chance(0.95)).map((resourceId): ResourceInput => ({
+      resourceId,
+      quantity: r.int(1, 4),
+      windows: r.chance(0.6) ? null : spans(r, 3, 120, 900),
+      bookings: Array.from({ length: r.int(0, 8) }, () => bedBooking(r)),
+    })),
+    territories: [
+      { id: TER[0]!, name: 'A', postalCodes: ['75201'], userIds: [] },
+      { id: TER[1]!, name: 'B', postalCodes: ['75202', '75203'], userIds: [] },
+    ],
+  };
+}
+
 // ---- The oracle: every minute, checked one minute at a time ----
 
 function oracle(input: SlotInput): Slot[] {
@@ -197,16 +271,17 @@ function oracle(input: SlotInput): Slot[] {
   if (svc?.eligibleUserIds.length) pool = pool.filter((u) => svc.eligibleUserIds.includes(u));
   const digits = (input.postalCode ?? '').replace(/\D/g, '');
   const zip = digits.length >= 5 ? digits.slice(0, 5) : null;
+  const mode = config.team.assignment;
   if (config.territory.routing === 'zip' && zip) {
     const ids = config.territory.territoryIds;
-    const ok = new Set(
-      (input.territories ?? [])
-        .filter((t) => (!ids.length || ids.includes(t.id)) && t.postalCodes.includes(zip))
-        .flatMap((t) => t.userIds),
+    const serving = (input.territories ?? []).filter(
+      (t) => (!ids.length || ids.includes(t.id)) && t.postalCodes.includes(zip),
     );
+    // No staff: the ZIP only has to be in a selected territory.
+    if (mode === 'none' && !serving.length) return [];
+    const ok = new Set(serving.flatMap((t) => t.userIds));
     pool = pool.filter((u) => ok.has(u));
   }
-  const mode = config.team.assignment;
   const k = config.team.crewSize;
   const host =
     mode === 'fixed'
@@ -299,7 +374,8 @@ function oracle(input: SlotInput): Slot[] {
     if (!aligned(minute(t)) || !inBounds(t) || !resourcesOk(t)) continue;
     const free = pool.filter((u) => isFree(u, t));
     let userIds: string[] | null = null;
-    if (mode === 'collective') {
+    if (mode === 'none') userIds = [];
+    else if (mode === 'collective') {
       if (required.every((u) => free.includes(u))) userIds = free;
     } else if (host !== null) {
       const others = free.filter((u) => u !== host);
@@ -429,6 +505,76 @@ describe('property tests against a minute-by-minute oracle', () => {
         expect(users.reduce((sum, u) => sum + state[u]!.credit, 0)).toBe(0);
       },
       28_000,
+    );
+  });
+});
+
+describe('property tests without staff (resources and hours alone)', () => {
+  it('matches the oracle on 300 resource-only worlds', () => {
+    let found = 0;
+    forSeeds(
+      300,
+      (r) => {
+        const world = randomNoStaffWorld(r);
+        const want = oracle(world);
+        found += want.length;
+        expect(computeSlots(world)).toEqual(want);
+      },
+      40_000,
+    );
+    // Not vacuous: the fixed seeds produce about 7,100 slots (skipped when replaying one seed).
+    if (!process.env.CALENDAR_SEED) expect(found, `slots found: ${found}`).toBeGreaterThan(5000);
+  });
+
+  it('never adds slots when a bed is booked', () => {
+    forSeeds(
+      300,
+      (r) => {
+        const world = randomNoStaffWorld(r);
+        const list = world.resources ?? [];
+        if (!list.length) return;
+        const i = r.int(0, list.length - 1);
+        const resources = list.map((x, j) =>
+          j === i ? { ...x, bookings: [...x.bookings, bedBooking(r)] } : x,
+        );
+        const before = new Set(computeSlots(world).map((s) => s.start));
+        for (const s of computeSlots({ ...world, resources }))
+          expect(before.has(s.start)).toBe(true);
+      },
+      47_000,
+    );
+  });
+
+  it('never removes slots when there are more beds', () => {
+    forSeeds(
+      300,
+      (r) => {
+        const world = randomNoStaffWorld(r);
+        const resources = (world.resources ?? []).map((x) => ({
+          ...x,
+          quantity: x.quantity + r.int(0, 2),
+        }));
+        const after = new Set(computeSlots({ ...world, resources }).map((s) => s.start));
+        for (const s of computeSlots(world)) expect(after.has(s.start)).toBe(true);
+      },
+      54_000,
+    );
+  });
+
+  it('counts a shared bed the same whichever calendar booked it, and never looks at people', () => {
+    forSeeds(
+      300,
+      (r) => {
+        const world = randomNoStaffWorld(r);
+        const shared = (world.resources ?? []).map((x) => ({
+          ...x,
+          bookings: x.bookings.map((b) => ({ ...b, calendarId: r.pick([CAL, 'other']) })),
+        }));
+        const want = computeSlots(world);
+        expect(computeSlots({ ...world, resources: shared })).toEqual(want);
+        expect(computeSlots({ ...world, staff: [] })).toEqual(want);
+      },
+      61_000,
     );
   });
 });
@@ -707,6 +853,173 @@ describe('seats and sessions', () => {
       ),
     );
     expect(clocks(pair)).toEqual(['09:00', '11:00']);
+  });
+});
+
+describe('no staff: beds and hours alone', () => {
+  const BED = RES[0]!;
+  /** A bed calendar: 20-minute sessions every 10 minutes, 10 minutes' cleanup after. */
+  const beds = (patch: ConfigPatch = {}): ConfigPatch => ({
+    team: { assignment: 'none' },
+    resources: { required: [{ resourceId: BED, quantity: 1 }] },
+    durations: { minutes: [20], step: 10 },
+    buffers: { after: 10 },
+    ...patch,
+  });
+  const taken = (from: string, to: string, clean: string, calendarId = CAL) => ({
+    during: span(MON, from, to),
+    blocked: span(MON, from, clean),
+    calendarId,
+    quantity: 1,
+  });
+  const bedsOf = (quantity: number, bookings: ResourceInput['bookings'] = []): ResourceInput => ({
+    resourceId: BED,
+    quantity,
+    windows: null,
+    bookings,
+  });
+  const morning = [span(MON, '09:00', '11:00')];
+  const tenToEleven = [span(MON, '10:00', '11:00')];
+
+  it('offers a start when the hours fit and a bed is free, staggered starts included', () => {
+    const staggered = [taken('09:00', '09:20', '09:30'), taken('09:10', '09:30', '09:40')];
+    const two = computeSlots(
+      world(beds(), { calendarWindows: morning, resources: [bedsOf(2, staggered)] }),
+    );
+    // Both beds are busy or being cleaned from 09:10 to 09:30.
+    expect(clocks(two)).toEqual([
+      '09:30',
+      '09:40',
+      '09:50',
+      '10:00',
+      '10:10',
+      '10:20',
+      '10:30',
+      '10:40',
+    ]);
+    expect(two.every((s) => s.userIds.length === 0 && s.seatsLeft === 1 && !s.sessionId)).toBe(
+      true,
+    );
+    const three = computeSlots(
+      world(beds(), { calendarWindows: morning, resources: [bedsOf(3, staggered)] }),
+    );
+    expect(clocks(three)[0]).toBe('09:00');
+    expect(three).toHaveLength(11);
+  });
+
+  it('takes as many bookings at one time as there are beds', () => {
+    const at10 = (n: number) => Array.from({ length: n }, () => taken('10:00', '10:20', '10:30'));
+    const open = (n: number) =>
+      clocks(
+        computeSlots(
+          world(beds(), { calendarWindows: tenToEleven, resources: [bedsOf(4, at10(n))] }),
+        ),
+      );
+    expect(open(3)).toEqual(['10:00', '10:10', '10:20', '10:30', '10:40']);
+    expect(open(4)).toEqual(['10:30', '10:40']);
+  });
+
+  it('keeps a bed out until it is clean, and its own cleanup off the next booking', () => {
+    const slots = computeSlots(
+      world(beds(), {
+        calendarWindows: [span(MON, '10:00', '11:30')],
+        resources: [
+          bedsOf(1, [taken('10:00', '10:20', '10:30'), taken('11:00', '11:20', '11:30')]),
+        ],
+      }),
+    );
+    expect(clocks(slots)).toEqual(['10:30']);
+  });
+
+  it('counts another calendar’s bookings on a shared bed', () => {
+    const other = Array.from({ length: 4 }, () => taken('10:00', '10:20', '10:30', 'other'));
+    expect(
+      clocks(
+        computeSlots(
+          world(beds(), { calendarWindows: tenToEleven, resources: [bedsOf(4, other)] }),
+        ),
+      ),
+    ).toEqual(['10:30', '10:40']);
+  });
+
+  it('with ZIP routing, asks only that the ZIP is in a selected territory', () => {
+    const territories = [
+      { id: TER[0]!, name: 'North', postalCodes: ['75201'], userIds: [] },
+      { id: TER[1]!, name: 'South', postalCodes: ['75215'], userIds: [] },
+    ];
+    const north = beds({ territory: { routing: 'zip', territoryIds: [TER[0]!] } });
+    const count = (postalCode: string | null, patch = north) =>
+      computeSlots(
+        world(patch, { calendarWindows: morning, resources: [bedsOf(1)], territories, postalCode }),
+      ).length;
+    expect(count('75201-1234')).toBe(11);
+    expect(count('75215')).toBe(0);
+    expect(count(null)).toBe(11);
+    expect(count('75215', beds({ territory: { routing: 'zip' } }))).toBe(11);
+  });
+
+  it('lets customers join an open group time, and counts its bed', () => {
+    const group = {
+      id: 'g1',
+      start: local(MON, '10:00'),
+      end: local(MON, '10:20'),
+      capacity: 4,
+      seatsTaken: 3,
+      userIds: [],
+    };
+    const open = (partySize: number) =>
+      computeSlots(
+        world(beds({ capacity: { seats: 4, maxPartySize: 2 } }), {
+          calendarWindows: tenToEleven,
+          resources: [bedsOf(1, [taken('10:00', '10:20', '10:30')])],
+          sessions: [group],
+          partySize,
+        }),
+      );
+    expect(
+      open(1).map((s) => [clockFormat.format(s.start), s.sessionId, s.seatsLeft, s.userIds]),
+    ).toEqual([
+      ['10:00', 'g1', 1, []],
+      ['10:30', null, 4, []],
+      ['10:40', null, 4, []],
+    ]);
+    expect(clocks(open(2))).toEqual(['10:30', '10:40']);
+  });
+
+  it('never looks at people, even ones listed', () => {
+    const busy = person(A, [], { busy: [span(MON, '00:00', '24:00')] });
+    const slots = computeSlots(
+      world(beds({ team: { members: [{ userId: A }], assignment: 'none' } }), {
+        calendarWindows: morning,
+        resources: [bedsOf(1)],
+        staff: [busy],
+      }),
+    );
+    expect(slots).toHaveLength(11);
+  });
+
+  it('opens every start in the hours when nothing limits it (none_without_limit says so)', () => {
+    const slots = computeSlots(
+      world(
+        { team: { assignment: 'none' }, durations: { minutes: [30] } },
+        { calendarWindows: [span(MON, '09:00', '10:00')] },
+      ),
+    );
+    expect(clocks(slots)).toEqual(['09:00', '09:30']);
+  });
+
+  it('picks nobody', () => {
+    const config = applyPatch(defaultConfig(), { team: { assignment: 'none' } });
+    const state: AssignmentState = { [A]: { assignedCount: 1, lastAssignedAt: 1, credit: 0 } };
+    const slot: Slot = { start: 0, end: 1, userIds: [], seatsLeft: 1, sessionId: null };
+    expect(chooseAssignment(slot, config, state, { now: 5 })).toEqual({
+      userIds: [],
+      nextState: state,
+    });
+    expect(chooseAssignment({ ...slot, sessionId: 'g1' }, config, state)).toEqual({
+      userIds: [],
+      nextState: state,
+    });
   });
 });
 

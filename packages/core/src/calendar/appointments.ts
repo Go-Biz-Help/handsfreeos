@@ -225,7 +225,10 @@ export async function cancelAppointment(
   return eventId;
 }
 
-/** Replaces who works an appointment, inserting rows in user-id order (the first listed hosts). */
+/**
+ * Replaces who works an appointment, inserting rows in user-id order (the first listed hosts). Nobody (a
+ * calendar without staff) leaves it with none.
+ */
 export async function replaceStaff(
   tx: Tx,
   workspaceId: string,
@@ -233,6 +236,7 @@ export async function replaceStaff(
   userIds: readonly string[],
 ): Promise<void> {
   await tx.delete(appointmentStaff).where(eq(appointmentStaff.appointmentId, appointmentId));
+  if (!userIds.length) return;
   await tx.insert(appointmentStaff).values(
     [...new Set(userIds)].sort().map((userId) => ({
       workspaceId,

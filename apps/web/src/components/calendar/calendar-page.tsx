@@ -13,6 +13,7 @@ import {
 } from '@hfos/core';
 import {
   AlertTriangle,
+  CalendarDays,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
@@ -220,13 +221,63 @@ export function CalendarPage(props: {
     );
   }
 
-  function resourceColumn(r: ResourceItem): GridColumn {
+  /** A resource's open hours that day, or null when it can be booked any time. */
+  function resourceOpen(r: ResourceItem): MinuteSpan[] | null {
     const weekly = r.hours as WeeklyHours | null;
-    const open = weekly
+    return weekly
       ? weekly
           .filter((h) => h.day === weekdayOf(date))
           .map((h) => ({ top: parseClock(h.start), bottom: parseClock(h.end) }))
       : null;
+  }
+
+  /**
+   * Team day: appointments that need no staff get a column per resource they reserve (the first one, so
+   * each shows once), only on days that have any. Overlaps sit side by side in it.
+   */
+  function stafflessColumns(): GridColumn[] {
+    const groups = new Map<string, Appointment[]>();
+    for (const a of visible) {
+      if (a.staff.length || !placeOnDay(Date.parse(a.startsAt), Date.parse(a.endsAt), date, tz))
+        continue;
+      const key = a.resources[0]?.resourceId ?? '';
+      groups.set(key, [...(groups.get(key) ?? []), a]);
+    }
+    return [...groups].map(([resourceId, events]) => {
+      const r = resources.find((x) => x.id === resourceId) ?? null;
+      const name = r?.name ?? events[0]!.resources[0]?.name ?? 'No staff needed';
+      const count = events.filter((a) => dateOf(a.startsAt, tz) === date).length;
+      return {
+        key: `staffless-${resourceId || 'none'}`,
+        date,
+        today: date === today,
+        open: r ? resourceOpen(r) : null,
+        blocks: [],
+        events,
+        userId: null,
+        header: (
+          <>
+            <span className="inline-flex h-[30px] w-[30px] flex-none items-center justify-center rounded-full bg-card-2 text-text-2">
+              {r ? (
+                <ResourceIcon kind={r.kind} />
+              ) : (
+                <CalendarDays className="h-4 w-4" strokeWidth={1.5} />
+              )}
+            </span>
+            <span className="flex min-w-0 flex-col">
+              <span className="truncate text-[13px] font-medium">{name}</span>
+              <span className="truncate text-xs text-text-3">
+                No staff · {count} {date === today ? 'today' : 'booked'}
+              </span>
+            </span>
+          </>
+        ),
+      };
+    });
+  }
+
+  function resourceColumn(r: ResourceItem): GridColumn {
+    const open = resourceOpen(r);
     const events = visible.filter(
       (a) =>
         a.resources.some((x) => x.resourceId === r.id) &&
@@ -290,12 +341,15 @@ export function CalendarPage(props: {
     columns = [personColumn(focus, date, focus.userId, personHead(focus, date, count))];
   } else if (q.view === 'resources') columns = resources.map(resourceColumn);
   else
-    columns = team.map((p) => {
-      const count = visible.filter(
-        (a) => a.staff.some((s) => s.userId === p.userId) && dateOf(a.startsAt, tz) === date,
-      ).length;
-      return personColumn(p, date, p.userId, personHead(p, date, count));
-    });
+    columns = [
+      ...team.map((p) => {
+        const count = visible.filter(
+          (a) => a.staff.some((s) => s.userId === p.userId) && dateOf(a.startsAt, tz) === date,
+        ).length;
+        return personColumn(p, date, p.userId, personHead(p, date, count));
+      }),
+      ...stafflessColumns(),
+    ];
 
   const hours = visibleHours(
     columns.flatMap((c) => [

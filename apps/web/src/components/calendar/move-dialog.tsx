@@ -17,10 +17,11 @@ import {
   fmtWhen,
   minutesBetween,
   minutesOf,
-  TIME_OPTIONS,
+  timeOptionsWith,
   zoneLabel,
 } from '@/lib/calendar/time';
-import { customersOf, firstName, namesText } from './appt';
+import { FreshTimes } from './appointment-dialog';
+import { customersOf, firstName, freshTimes, namesText } from './appt';
 
 const LENGTHS = [15, 30, 45, 60, 75, 90, 120, 150, 180, 240, 300, 360, 480];
 
@@ -73,6 +74,8 @@ export function MoveDialog({
   const [length, setLength] = useState(wasLength);
   const [tell, setTell] = useState(true);
   const [warnings, setWarnings] = useState<AppointmentWarning[] | null>(null);
+  /** A 409 resource_full: its message and the nearest open times. Never moved over. */
+  const [full, setFull] = useState<{ message: string; times: string[] } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState<{ time: boolean; staff: boolean }>({
@@ -96,6 +99,7 @@ export function MoveDialog({
   const reset = () => {
     setWarnings(null);
     setError(null);
+    setFull(null);
   };
 
   async function move() {
@@ -144,7 +148,11 @@ export function MoveDialog({
     } catch (e) {
       if (e instanceof ApiError && e.rule === 'needs_confirmation')
         setWarnings((e.details as { warnings?: AppointmentWarning[] }).warnings ?? []);
-      else setError(errorMessage(e));
+      else if (e instanceof ApiError && e.rule === 'resource_full') {
+        // No room on the equipment then: a hard stop with other times, never "Move anyway".
+        setWarnings(null);
+        setFull({ message: e.message, times: freshTimes(e.details) });
+      } else setError(errorMessage(e));
     } finally {
       setBusy(false);
     }
@@ -192,7 +200,7 @@ export function MoveDialog({
                     reset();
                   }}
                 >
-                  {TIME_OPTIONS.map(([m, label]) => (
+                  {timeOptionsWith(time).map(([m, label]) => (
                     <option key={m} value={m}>
                       {label}
                     </option>
@@ -258,6 +266,30 @@ export function MoveDialog({
                   <span>{w.message}</span>
                 </div>
               ))}
+            </div>
+          ) : null}
+          {full ? (
+            <div className="mt-3 flex flex-col gap-2" data-testid="move-full">
+              <div
+                role="alert"
+                className="flex items-start gap-2.5 rounded-menu bg-danger-soft px-3 py-2.5 text-[13px] leading-[1.45] text-danger-text"
+              >
+                <CircleAlert className="mt-px h-4 w-4 flex-none" strokeWidth={1.75} />
+                <span>{full.message}</span>
+              </div>
+              {target.kind === 'pick' && full.times.length ? (
+                <FreshTimes
+                  times={full.times}
+                  date={date}
+                  timeZone={timeZone}
+                  testId="move-fresh-time"
+                  onPick={(t) => {
+                    setDate(dateOf(t, timeZone));
+                    setTime(minutesOf(t, timeZone));
+                    reset();
+                  }}
+                />
+              ) : null}
             </div>
           ) : null}
           {error ? (

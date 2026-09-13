@@ -37,16 +37,23 @@ export interface CalendarLabels {
 
 const ROTATING = new Set(['round_robin', 'weighted']);
 
-/** Checked in order: Event, Group/Class, Collective, Dispatch, Round Robin, Resource, Service, Personal. */
+/**
+ * Checked in order: Event, Group/Class, Collective, Dispatch, Round Robin, Resource, Service, Personal. With no
+ * staff there is no Collective, Round Robin or Personal, and Resource moves up behind Event and Group/Class:
+ * the resource is what gets booked.
+ */
 export function inferLabels(config: CalendarConfig): CalendarLabels {
   const people = config.team.members.length;
+  const none = config.team.assignment === 'none';
+  const resource: [CalendarLabel, boolean] = ['resource', config.resources.required.length > 0];
   const checks: [CalendarLabel, boolean][] = [
     ['event', config.schedule.mode === 'sessions'],
     ['group', config.capacity.seats > 1],
-    ['collective', config.team.assignment === 'collective' || config.team.crewSize > 1],
+    ...(none ? [resource] : []),
+    ['collective', !none && (config.team.assignment === 'collective' || config.team.crewSize > 1)],
     ['dispatch', config.territory.routing === 'zip' || config.buffers.travelMinutes > 0],
     ['round_robin', ROTATING.has(config.team.assignment) && people >= 2],
-    ['resource', config.resources.required.length > 0],
+    ...(none ? [] : [resource]),
     ['service', config.services.mode !== 'none'],
     ['personal', people === 1 && config.team.assignment === 'fixed' && config.capacity.seats === 1],
   ];

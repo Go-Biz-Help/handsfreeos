@@ -301,6 +301,9 @@ export function AppointmentSheet({
           ? 'Host'
           : 'Assigned';
   const address = appt?.location.address ?? null;
+  /** On a calendar that needs no staff: no people to show or change, only the equipment. */
+  const staffless =
+    !!appt && appt.staff.length === 0 && (!config || config.team.assignment === 'none');
   const recorded = appt && booked.length ? recordedGroups(appt, booked, config, timeZone) : [];
   const planned =
     appt && config && booked.length && !recorded.length
@@ -507,43 +510,49 @@ export function AppointmentSheet({
                 </Section>
               ) : null}
 
-              <Section
-                label="People and equipment"
-                action={
-                  appt.status === 'scheduled' ? (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-7"
-                      onClick={() => setAction('reassign')}
-                      data-testid="sheet-reassign"
+              {staffless && !appt.resources.length ? null : (
+                <Section
+                  label={staffless ? 'Equipment' : 'People and equipment'}
+                  action={
+                    appt.status === 'scheduled' && !staffless ? (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7"
+                        onClick={() => setAction('reassign')}
+                        data-testid="sheet-reassign"
+                      >
+                        Change
+                      </Button>
+                    ) : undefined
+                  }
+                >
+                  {appt.staff.map((s) => (
+                    <div
+                      key={s.userId}
+                      className="flex items-center gap-2.5 py-[5px]"
+                      data-testid="sheet-person"
                     >
-                      Change
-                    </Button>
-                  ) : undefined
-                }
-              >
-                {appt.staff.map((s) => (
-                  <div
-                    key={s.userId}
-                    className="flex items-center gap-2.5 py-[5px]"
-                    data-testid="sheet-person"
-                  >
-                    <Avatar name={s.fullName} seed={s.userId} size="sm" />
-                    <span className="flex-1 text-[13px]">{s.fullName}</span>
-                    <span className="text-xs text-text-3">{role(s.role)}</span>
-                  </div>
-                ))}
-                {appt.resources.map((r) => (
-                  <div key={r.resourceId} className="flex items-center gap-2.5 py-[5px]">
-                    <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-card-2 text-text-2">
-                      <Truck className="h-3.5 w-3.5" strokeWidth={1.5} />
-                    </span>
-                    <span className="flex-1 text-[13px]">{r.name}</span>
-                    <span className="text-xs text-text-3">{r.quantity} reserved</span>
-                  </div>
-                ))}
-              </Section>
+                      <Avatar name={s.fullName} seed={s.userId} size="sm" />
+                      <span className="flex-1 text-[13px]">{s.fullName}</span>
+                      <span className="text-xs text-text-3">{role(s.role)}</span>
+                    </div>
+                  ))}
+                  {appt.resources.map((r) => (
+                    <div
+                      key={r.resourceId}
+                      className="flex items-center gap-2.5 py-[5px]"
+                      data-testid="sheet-resource"
+                    >
+                      <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-card-2 text-text-2">
+                        <Truck className="h-3.5 w-3.5" strokeWidth={1.5} />
+                      </span>
+                      <span className="flex-1 text-[13px]">{r.name}</span>
+                      <span className="text-xs text-text-3">{r.quantity} reserved</span>
+                    </div>
+                  ))}
+                </Section>
+              )}
 
               {reminders.length ? (
                 <Section label="Reminders">

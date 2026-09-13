@@ -165,8 +165,11 @@ export function TimeGrid({
     } else {
       d.nextTop = Math.min(Math.max(d.top + delta, first), last - length);
       d.nextBottom = d.nextTop + length;
-      if (crossColumns)
+      // Only between people's columns (or days): an appointment that needs no staff keeps its lane, and
+      // nobody's appointment lands in one.
+      if (crossColumns && d.col.userId)
         for (const c of columns) {
+          if (!c.userId) continue;
           const rect = colEls.current.get(c.key)?.getBoundingClientRect();
           if (rect && e.clientX >= rect.left && e.clientX < rect.right) d.target = c;
         }

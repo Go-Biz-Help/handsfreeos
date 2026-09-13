@@ -17,6 +17,9 @@ export const ISSUE_CODES = [
   'crew_exceeds_team',
   'weights_ignored',
   'choice_with_one',
+  'none_without_limit',
+  'members_ignored',
+  'open_all_day',
   'sessions_multi_duration',
   'sessions_customer_series',
   'travel_without_visits',
@@ -111,6 +114,8 @@ function customerAddressFix(config: CalendarConfig): IssueFix[] {
 
 function teamRules({ config, catalogs, memberIds, activeIds, push }: Ctx): void {
   const { members, assignment, crewSize } = config.team;
+  // With no staff, people are ignored: only members_ignored speaks about them.
+  const none = assignment === 'none';
   const firstOutsider = catalogs.team.find((p) => p.active && !memberIds.has(p.userId));
   const toFixed: IssueFix = {
     id: 'switch_to_fixed',
@@ -138,7 +143,7 @@ function teamRules({ config, catalogs, memberIds, activeIds, push }: Ctx): void 
       ],
     });
 
-  if (crewSize > 1 && crewSize > members.length)
+  if (!none && crewSize > 1 && crewSize > members.length)
     push({
       code: 'crew_exceeds_team',
       severity: 'error',
@@ -153,7 +158,7 @@ function teamRules({ config, catalogs, memberIds, activeIds, push }: Ctx): void 
       ],
     });
 
-  if (assignment !== 'weighted' && members.some((m) => m.weight !== 1))
+  if (!none && assignment !== 'weighted' && members.some((m) => m.weight !== 1))
     push({
       code: 'weights_ignored',
       severity: 'warning',
@@ -182,8 +187,17 @@ function teamRules({ config, catalogs, memberIds, activeIds, push }: Ctx): void 
       fixes: [toFixed],
     });
 
+  if (none && members.length)
+    push({
+      code: 'members_ignored',
+      severity: 'warning',
+      message: 'With no staff, the people listed are ignored',
+      fields: ['team.members', 'team.assignment'],
+      fixes: [{ id: 'clear_people', label: 'Clear people', patch: withMembers([]) }],
+    });
+
   for (const m of members) {
-    if (activeIds.has(m.userId)) continue;
+    if (none || activeIds.has(m.userId)) continue;
     const name = personName(catalogs, m.userId);
     push({
       code: 'member_gone',
@@ -200,7 +214,7 @@ function teamRules({ config, catalogs, memberIds, activeIds, push }: Ctx): void 
     });
   }
 
-  if (config.public && !members.some((m) => activeIds.has(m.userId)))
+  if (config.public && !none && !members.some((m) => activeIds.has(m.userId)))
     push({
       code: 'public_without_team',
       severity: 'error',
@@ -279,6 +293,8 @@ function visitRules({ config, catalogs, push }: Ctx): void {
         ...customerAddressFix(config),
       ],
     });
+  // With no staff, routing only checks the customer's ZIP against the territories; nobody needs covering.
+  if (config.team.assignment === 'none') return;
   const chosen = config.territory.territoryIds;
   const selected = chosen.length
     ? catalogs.territories.filter((t) => chosen.includes(t.id))
@@ -403,6 +419,7 @@ function serviceRules({ config, catalogs, memberIds, activeIds, push }: Ctx): vo
         ],
       });
     }
+  if (config.team.assignment === 'none') return;
   for (const { item, service } of liveServices(config, catalogs)) {
     const terms = resolveTerms(config, service);
     if (eligibleMembers(config, terms).some((u) => activeIds.has(u))) continue;
@@ -451,6 +468,84 @@ function serviceRules({ config, catalogs, memberIds, activeIds, push }: Ctx): vo
   }
 }
 
+/** What a booking can be for: each live service, or the calendar's own terms when none are offered. */
+function bookingTargets(
+  config: CalendarConfig,
+  catalogs: CalendarCatalogs,
+): (CatalogService | null)[] {
+  const live = liveServices(config, catalogs).map((s) => s.service);
+  return live.length ? live : [null];
+}
+
+const WEEKDAYS_9_TO_5: WeeklyHours = [1, 2, 3, 4, 5].map((day) => ({
+  day,
+  start: '09:00',
+  end: '17:00',
+}));
+
+/**
+ * No staff (hours mode): the required resources and the hours are all that limit bookings. Every service a
+ * customer can pick must need a resource, or one time could be booked without end; and with no calendar,
+ * service or resource hours the calendar takes bookings around the clock.
+ */
+function noStaffRules({ config, catalogs, push }: Ctx): void {
+  if (config.team.assignment !== 'none' || config.schedule.mode !== 'hours') return;
+  const targets = bookingTargets(config, catalogs);
+  const needs = (service: CatalogService | null) => resolveTerms(config, service).requiredResources;
+  if (targets.some((service) => needs(service).length === 0)) {
+    const resource = catalogs.resources.find((r) => !r.archived);
+    push({
+      code: 'none_without_limit',
+      severity: 'error',
+      message: 'With no staff, something has to limit bookings: add a resource',
+      fields: ['team.assignment', 'resources.required'],
+      fixes: [
+        ...(resource
+          ? [
+              {
+                id: 'add_resource',
+                label: `Add ${resource.name}`,
+                patch: {
+                  resources: {
+                    required: [
+                      ...config.resources.required,
+                      { resourceId: resource.id, quantity: 1 },
+                    ],
+                  },
+                },
+              },
+            ]
+          : []),
+        {
+          id: 'switch_to_fixed',
+          label: 'Switch to fixed person',
+          patch: { team: { assignment: 'fixed' } },
+        },
+      ],
+    });
+  }
+  if (config.schedule.hours) return;
+  const hoursOf = (id: string) => catalogs.resources.find((r) => r.id === id)?.hours;
+  if (
+    targets.some(
+      (service) => !service?.hours && needs(service).every((r) => !hoursOf(r.resourceId)),
+    )
+  )
+    push({
+      code: 'open_all_day',
+      severity: 'warning',
+      message: 'Open all day, every day',
+      fields: ['schedule.hours', 'resources.required'],
+      fixes: [
+        {
+          id: 'set_hours',
+          label: 'Set hours Mon–Fri 9–5',
+          patch: { schedule: { hours: WEEKDAYS_9_TO_5 } },
+        },
+      ],
+    });
+}
+
 /** Longest open stretch in a week for these terms (minutes), and whether the calendar's hours cause the squeeze. */
 function openStretch(
   config: CalendarConfig,
@@ -459,17 +554,26 @@ function openStretch(
   withCalendarHours: boolean,
 ): number | null {
   const terms = resolveTerms(config, service);
-  const people = eligibleMembers(config, terms).filter((u) =>
-    catalogs.team.some((p) => p.userId === u && p.active),
-  );
-  if (!people.length) return null;
-  const hoursOf = (u: string) => weekIntervals(catalogs.team.find((p) => p.userId === u)?.hours);
   let staff: Interval[];
-  if (config.team.assignment === 'collective') {
-    const marked = config.team.members.filter((m) => m.required).map((m) => m.userId);
-    const required = (marked.length ? marked : people).filter((u) => people.includes(u));
-    staff = required.reduce<Interval[]>((acc, u) => intersect(acc, hoursOf(u)), FULL_WEEK);
-  } else staff = people.reduce<Interval[]>((acc, u) => union(acc, hoursOf(u)), []);
+  if (config.team.assignment === 'none') {
+    // No people: the required resources' hours take their place (a resource without hours is always open).
+    staff = terms.requiredResources.reduce<Interval[]>(
+      (acc, r) =>
+        intersect(acc, weekIntervals(catalogs.resources.find((x) => x.id === r.resourceId)?.hours)),
+      FULL_WEEK,
+    );
+  } else {
+    const people = eligibleMembers(config, terms).filter((u) =>
+      catalogs.team.some((p) => p.userId === u && p.active),
+    );
+    if (!people.length) return null;
+    const hoursOf = (u: string) => weekIntervals(catalogs.team.find((p) => p.userId === u)?.hours);
+    if (config.team.assignment === 'collective') {
+      const marked = config.team.members.filter((m) => m.required).map((m) => m.userId);
+      const required = (marked.length ? marked : people).filter((u) => people.includes(u));
+      staff = required.reduce<Interval[]>((acc, u) => intersect(acc, hoursOf(u)), FULL_WEEK);
+    } else staff = people.reduce<Interval[]>((acc, u) => union(acc, hoursOf(u)), []);
+  }
   const calendar = withCalendarHours ? weekIntervals(config.schedule.hours) : FULL_WEEK;
   return longest(intersect(intersect(calendar, weekIntervals(service?.hours)), staff));
 }
@@ -642,6 +746,7 @@ export function validateCalendar(
     push: (issue) => issues.push(issue),
   };
   teamRules(ctx);
+  noStaffRules(ctx);
   scheduleRules(ctx);
   visitRules(ctx);
   capacityRules(ctx);

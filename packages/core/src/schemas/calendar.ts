@@ -679,7 +679,10 @@ export const SessionPublishInput = z.object({
   startsAt: isoDateTime,
   durationMinutes: lengthMinutes.optional(),
   serviceId: uuid.nullable().optional(),
-  userIds: z.array(uuid).min(1).max(10),
+  /**
+   * Who runs it; missing lets the calendar choose. Leave it out on a calendar that books without staff.
+   */
+  userIds: z.array(uuid).min(1).max(10).optional(),
   /** Seats; defaults to the calendar's (or the service's). */
   capacity: z.int().min(1).max(1000).optional(),
   title: title.optional(),

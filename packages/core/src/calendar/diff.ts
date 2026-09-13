@@ -14,6 +14,7 @@ export const ASSIGNMENT_NAMES: Readonly<Record<AssignmentMode, string>> = {
   weighted: 'weighted round robin',
   first_available: 'first available',
   collective: 'everyone together',
+  none: 'no staff',
 };
 
 export const LOCATION_NAMES: Readonly<Record<LocationKind, string>> = {

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   analyzeImpact,
   applyPatch,
+  CALENDAR_PRESETS,
   configFromPreset,
   defaultConfig,
   diffConfigs,
@@ -91,6 +92,32 @@ describe('labels', () => {
     ).toEqual(['resource', 'personal']);
   });
 
+  it('with no staff, leads with Resource behind Event and Group/Class, and drops the people labels', () => {
+    const bed = { required: [{ resourceId: TRUCK }] };
+    expect(labelsOf({ team: { assignment: 'none' }, resources: bed }).tags).toEqual(['resource']);
+    expect(
+      labelsOf({ team: { members: [{ userId: DALE }], assignment: 'none' }, resources: bed }).tags,
+    ).toEqual(['resource']);
+    expect(labelsOf({ team: { members: two, assignment: 'none', crewSize: 2 } }).tags).toEqual([
+      'custom',
+    ]);
+    expect(
+      labelsOf({
+        team: { assignment: 'none' },
+        resources: bed,
+        territory: { routing: 'zip' },
+        services: { mode: 'one', items: [{ serviceId: TUNE_UP }] },
+      }).tags,
+    ).toEqual(['resource', 'dispatch', 'service']);
+    expect(
+      labelsOf({ team: { assignment: 'none' }, resources: bed, capacity: { seats: 6 } }).tags,
+    ).toEqual(['group', 'resource']);
+    expect(
+      labelsOf({ team: { assignment: 'none' }, resources: bed, schedule: { mode: 'sessions' } })
+        .primary,
+    ).toBe('event');
+  });
+
   it('changes as a Personal calendar becomes Round Robin, then Service, then Group', () => {
     const personal = configFromPreset('personal', presetContext);
     expect(formatLabels(inferLabels(personal))).toBe('Personal');
@@ -107,8 +134,28 @@ describe('labels', () => {
   });
 });
 
+describe('the Resource preset', () => {
+  it('books the first resource picked, with no staff', () => {
+    const preset = CALENDAR_PRESETS.find((p) => p.key === 'resource')!;
+    expect(preset.description).toBe('Books a bed, room or piece of equipment. No staff needed.');
+    const config = configFromPreset('resource', presetContext);
+    expect(config.public).toBe(true);
+    expect(config.team).toEqual({ members: [], assignment: 'none', crewSize: 1 });
+    expect(config.resources.required).toEqual([{ resourceId: TRUCK, quantity: 1 }]);
+    expect(configFromPreset('resource', { me: DALE }).resources.required).toEqual([]);
+  });
+});
+
 describe('diff', () => {
   const personal = configFromPreset('personal', presetContext);
+
+  it('names a calendar without staff', () => {
+    const none = applyPatch(personal, { team: { members: [], assignment: 'none' } });
+    expect(diffConfigs(personal, none, catalogs)).toEqual([
+      'Removed Dale',
+      'Assignment: fixed person → no staff',
+    ]);
+  });
 
   it('is empty when nothing changed', () => {
     expect(diffConfigs(personal, applyPatch(personal, {}), catalogs)).toEqual([]);
@@ -211,6 +258,14 @@ describe('impact', () => {
     const impacts = analyzeImpact(team, after, upcoming, catalogs).impacts;
     expect(impacts.map((i) => i.userId)).toEqual([DALE, MARCO]);
     expect(impacts.every((i) => !i.decisions.includes('reassign'))).toBe(true);
+  });
+
+  it('offers no reassigning once the calendar books without staff', () => {
+    const after = applyPatch(team, { team: { members: [{ userId: DALE }], assignment: 'none' } });
+    const impacts = analyzeImpact(team, after, upcoming, catalogs).impacts;
+    expect(impacts.map((i) => [i.userId, i.decisions])).toEqual([
+      [MARCO, ['keep', 'cancel_and_notify']],
+    ]);
   });
 
   it('flags seats below what upcoming sessions already hold, keeping existing bookings', () => {

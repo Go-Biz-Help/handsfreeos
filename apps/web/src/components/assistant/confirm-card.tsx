@@ -131,7 +131,8 @@ export function ConfirmCard({
   /** Cancelling an appointment: a red button, and the way out reads "Keep it". */
   const cancelling = card.tool === 'cancel_appointment';
   const leadLine = moving ? card.fields.find((f) => f.label === 'Lead')?.value : undefined;
-  const fields = moving ? card.fields.filter((f) => f.label !== 'Lead') : card.fields;
+  // An empty value (a "With" on a calendar that needs no staff) is left out rather than shown blank.
+  const fields = card.fields.filter((f) => f.value.trim() && !(moving && f.label === 'Lead'));
 
   async function decide(kind: 'confirm' | 'cancel') {
     setBusy(kind);
