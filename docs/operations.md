@@ -1,6 +1,6 @@
 # Running HandsFreeOS
 
-This guide covers everything about HandsFreeOS that lives outside the code: the database, hosting, the web app, the phone carrier, email, connected mailboxes, the Assistant, your laptop setup, and going live. Each section gives the steps in order, with what you should see after each one. Secrets never go in this repository: they live in Fly.io secrets, GitHub repository secrets, Vercel environment variables and your password manager, and nowhere else.
+This guide covers everything about HandsFreeOS that lives outside the code: the database, hosting, the web app, the phone carrier, email, connected mailboxes, the Assistant, the calendar and online booking, your laptop setup, and going live. Each section gives the steps in order, with what you should see after each one. Secrets never go in this repository: they live in Fly.io secrets, GitHub repository secrets, Vercel environment variables and your password manager, and nowhere else.
 
 If you are setting up HandsFreeOS for the first time, start with the checklist in "Going live, and when something goes wrong". It tells you which parts of the other sections to do, and in what order.
 
@@ -23,6 +23,7 @@ A plain "step 5" means step 5 of the list you are reading, or of the part named 
 - [Email: Postmark](#email-postmark)
 - [Connected mailboxes: Outlook and Gmail](#connected-mailboxes-outlook-and-gmail)
 - [The Assistant: Anthropic](#the-assistant-anthropic)
+- [The calendar: Google, Outlook and online booking](#the-calendar-google-outlook-and-online-booking)
 - [Local development](#local-development)
 - [Going live, and when something goes wrong](#going-live-and-when-something-goes-wrong)
 
@@ -32,19 +33,19 @@ A plain "step 5" means step 5 of the list you are reading, or of the part named 
 
 Go Biz Help (or the company that owns HandsFreeOS, if it has its own) holds and pays for every account below. Client businesses never get accounts of their own: their phone lines live in Twilio subaccounts under your master account, and their email goes through your one Postmark server. Prices were checked in September 2026 and will change.
 
-| Account                                                             | What HandsFreeOS uses it for                                                      | Rough cost                                                                                                                                                                                                                         | More in                                     |
-| ------------------------------------------------------------------- | --------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------- |
-| Supabase, organization `Go Biz Help` (already exists)               | The database, sign-in, file storage and live updates                              | Pro plan from $25 a month for the whole organization, plus about $10 a month for this project's Micro compute. Point-in-time recovery is optional, about $105 a month more.                                                        | "The database: Supabase (hosted)"           |
-| Fly.io (a new organization, with a card)                            | Runs the API and the worker                                                       | About $8 a month in `dfw` with one worker machine (about $6.40 in `iad`), or about $12 with two                                                                                                                                    | "Hosting: the API and the worker on Fly.io" |
-| Vercel (a Pro team)                                                 | Runs the web app at `https://app.handsfreeos.com`                                 | $20 a month, including one seat that can deploy and $20 of usage credit. 14-day trial.                                                                                                                                             | "The web app on Vercel"                     |
-| Twilio (one master account, upgraded to paid)                       | Phone numbers, texts and calls for every client                                   | A starting balance of about $50. Then $1.15 a month per local number, $2.15 per toll-free number, texts and minutes, and carrier registration fees for local numbers. All client subaccounts draw on the master account's balance. | "The phone carrier: Twilio"                 |
-| Postmark (Platform plan recommended)                                | Business email, customers' replies, platform mail and sign-in email               | $18 a month for 10,000 emails on Platform ($16.50 on Pro, which allows only 10 domains)                                                                                                                                            | "Email: Postmark"                           |
-| Microsoft Entra tenant, plus the Microsoft AI Cloud Partner Program | The Outlook app registration and publisher verification                           | Free (an Azure sign-up may ask for a card to confirm who you are)                                                                                                                                                                  | "Connected mailboxes: Outlook and Gmail"    |
-| Google Cloud                                                        | The Gmail client and the Google sign-in client                                    | Free from Google. The CASA security assessment is paid to an authorized lab: for example $675 to $855 one time for the lowest level, or $4,500 to $5,400 a year on a lab's yearly plan.                                            | "Connected mailboxes: Outlook and Gmail"    |
-| Anthropic (a Claude Console organization, with prepaid credits)     | Claude, the model behind the Assistant                                            | Pay as you go from prepaid credits. With Claude Sonnet 5, $2 per million tokens sent and $10 per million tokens written back. HandsFreeOS caps each workspace at 2,000,000 tokens a day, so at most about $20 a day per workspace. | "The Assistant: Anthropic"                  |
-| GitHub, account `gobizhelp` (already exists)                        | The repository `gobizhelp/handsfreeos`, CI and the Deploy workflow                | No new cost                                                                                                                                                                                                                        | "Hosting: the API and the worker on Fly.io" |
-| Cloudflare (already holds the DNS for `handsfreeos.com`)            | DNS records, and optionally a tunnel for laptop testing                           | DNS: no new cost. Zero Trust Free plan for the tunnel.                                                                                                                                                                             | Several sections                            |
-| A website host for `handsfreeos.com`                                | Public home page, `/privacy` and `/terms` pages. Google and Microsoft check them. | Depends on the host                                                                                                                                                                                                                | "Connected mailboxes: Outlook and Gmail"    |
+| Account                                                             | What HandsFreeOS uses it for                                                                       | Rough cost                                                                                                                                                                                                                         | More in                                     |
+| ------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------- |
+| Supabase, organization `Go Biz Help` (already exists)               | The database, sign-in, file storage and live updates                                               | Pro plan from $25 a month for the whole organization, plus about $10 a month for this project's Micro compute. Point-in-time recovery is optional, about $105 a month more.                                                        | "The database: Supabase (hosted)"           |
+| Fly.io (a new organization, with a card)                            | Runs the API and the worker                                                                        | About $8 a month in `dfw` with one worker machine (about $6.40 in `iad`), or about $12 with two                                                                                                                                    | "Hosting: the API and the worker on Fly.io" |
+| Vercel (a Pro team)                                                 | Runs the web app at `https://app.handsfreeos.com`                                                  | $20 a month, including one seat that can deploy and $20 of usage credit. 14-day trial.                                                                                                                                             | "The web app on Vercel"                     |
+| Twilio (one master account, upgraded to paid)                       | Phone numbers, texts and calls for every client                                                    | A starting balance of about $50. Then $1.15 a month per local number, $2.15 per toll-free number, texts and minutes, and carrier registration fees for local numbers. All client subaccounts draw on the master account's balance. | "The phone carrier: Twilio"                 |
+| Postmark (Platform plan recommended)                                | Business email, customers' replies, platform mail and sign-in email                                | $18 a month for 10,000 emails on Platform ($16.50 on Pro, which allows only 10 domains)                                                                                                                                            | "Email: Postmark"                           |
+| Microsoft Entra tenant, plus the Microsoft AI Cloud Partner Program | The Outlook app registration and publisher verification                                            | Free (an Azure sign-up may ask for a card to confirm who you are)                                                                                                                                                                  | "Connected mailboxes: Outlook and Gmail"    |
+| Google Cloud                                                        | The Gmail client, the Google Calendar client (its own project) and the Google sign-in client       | Free from Google. The CASA security assessment is paid to an authorized lab: for example $675 to $855 one time for the lowest level, or $4,500 to $5,400 a year on a lab's yearly plan.                                            | "Connected mailboxes: Outlook and Gmail"    |
+| Anthropic (a Claude Console organization, with prepaid credits)     | Claude, the model behind the Assistant                                                             | Pay as you go from prepaid credits. With Claude Sonnet 5, $2 per million tokens sent and $10 per million tokens written back. HandsFreeOS caps each workspace at 2,000,000 tokens a day, so at most about $20 a day per workspace. | "The Assistant: Anthropic"                  |
+| GitHub, account `gobizhelp` (already exists)                        | The repository `gobizhelp/handsfreeos`, CI and the Deploy workflow                                 | No new cost                                                                                                                                                                                                                        | "Hosting: the API and the worker on Fly.io" |
+| Cloudflare (already holds the DNS for `handsfreeos.com`)            | DNS records, optionally a tunnel for laptop testing, and optionally Turnstile for the booking page | DNS: no new cost. Zero Trust Free plan for the tunnel. Turnstile is free.                                                                                                                                                          | Several sections                            |
+| A website host for `handsfreeos.com`                                | Public home page, `/privacy` and `/terms` pages. Google and Microsoft check them.                  | Depends on the host                                                                                                                                                                                                                | "Connected mailboxes: Outlook and Gmail"    |
 
 ### Tools on your Mac
 
@@ -124,14 +125,16 @@ Make one folder in your password manager named `HandsFreeOS`. Every secret in th
 | Worker SMTP_URL                                                            | The finished `smtp://...` string built from the server API token                                                                                                     | Fly.io secret `SMTP_URL` on `handsfreeos-worker`                                                                                                                                                                                |
 | Microsoft Entra app                                                        | The **Application (client) ID**, the client secret **Value**, its expiry date, and your Partner Global Account (PGA) ID                                              | Fly.io secrets `MICROSOFT_OAUTH_CLIENT_ID` and `MICROSOFT_OAUTH_CLIENT_SECRET` on `handsfreeos-worker`. The PGA ID goes only into the Entra app's **Branding & properties** page, under **Add Partner ID to verify publisher**. |
 | Google Gmail client                                                        | The Gmail OAuth client's **Client ID** and **Client secret**                                                                                                         | Fly.io secrets `GOOGLE_OAUTH_CLIENT_ID` and `GOOGLE_OAUTH_CLIENT_SECRET` on `handsfreeos-worker`                                                                                                                                |
+| Google Calendar client                                                     | The Google Calendar OAuth client's **Client ID** and **Client secret**, in the separate `HandsFreeOS Calendar` project                                               | Fly.io secrets `GOOGLE_CALENDAR_OAUTH_CLIENT_ID` and `GOOGLE_CALENDAR_OAUTH_CLIENT_SECRET` on `handsfreeos-worker`                                                                                                              |
 | Google sign-in client                                                      | The separate OAuth client for Sign in with Google                                                                                                                    | Supabase's Google provider only                                                                                                                                                                                                 |
 | Google local sign-in client                                                | The OAuth client for Sign in with Google on the local stack (see "Local development")                                                                                | The repository-root `.env` on your Mac only, as `SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID` and `SUPABASE_AUTH_EXTERNAL_GOOGLE_SECRET`. Git ignores that file.                                                                    |
 | Anthropic API key                                                          | The production key (starts with `sk-ant-api`), linked to the `handsfreeos-worker` service account. A key for your laptop is a separate entry, "Anthropic local key". | Fly.io secret `ANTHROPIC_API_KEY` on `handsfreeos-worker` only. The local key goes only in `apps/worker/.env` on your Mac.                                                                                                      |
+| Cloudflare Turnstile                                                       | The booking page widget's site key (not secret) and secret key                                                                                                       | Site key: Vercel `NEXT_PUBLIC_TURNSTILE_SITE_KEY`. Secret key: Fly.io secret `TURNSTILE_SECRET_KEY` on `handsfreeos-worker` only                                                                                                |
 | Dev tunnel token, Postmark dev server token, Postmark dev webhook password | Laptop testing only (see "Local development")                                                                                                                        | On your Mac only: the tunnel token in `~/.cloudflared/handsfreeos-dev.token`, the two Postmark dev values in `apps/worker/.env`. The dev webhook password also goes inside the dev server's webhook address in Postmark.        |
 
 Two values do not follow the pattern. The Fly.io deploy token (`FLY_API_TOKEN`) lives only in GitHub, not in your password manager: if it is lost, you make a new one. The file `.env.hosted` at the repository root already holds the two database passwords, the two finished connection strings and the publishable key. It is gitignored and exists only on your Mac. Never commit, attach or paste it anywhere.
 
-The API refuses to start if it holds any variable whose name contains `SECRET`, `SERVICE_ROLE`, `SIGNING_KEY` or `ENCRYPTION_KEY`, or starts with `TWILIO_`, `POSTMARK_`, `MICROSOFT_OAUTH_`, `GOOGLE_OAUTH_`, `ANTHROPIC_` or `OPENAI_`. So every provider secret goes on `handsfreeos-worker`, never on `handsfreeos-api`, and never in Vercel or GitHub.
+The API refuses to start if it holds any variable whose name contains `SECRET`, `SERVICE_ROLE`, `SIGNING_KEY`, `ENCRYPTION_KEY` or `_OAUTH_` (such as `MICROSOFT_OAUTH_`, `GOOGLE_OAUTH_` and `GOOGLE_CALENDAR_OAUTH_`), or starts with `TWILIO_`, `POSTMARK_`, `TURNSTILE_`, `ANTHROPIC_` or `OPENAI_`. So every provider secret goes on `handsfreeos-worker`, never on `handsfreeos-api`, and never in Vercel or GitHub.
 
 ## The database: Supabase (hosted)
 
@@ -1281,7 +1284,7 @@ Nothing on Fly reads a `.env` file. The images contain none, because `.dockerign
 | `SUPABASE_JWT_ISSUER` | Leave unset   | No                                      | `<SUPABASE_URL>/auth/v1`                                | Worked out from `SUPABASE_URL`                                                                       |
 | `SUPABASE_JWKS_URL`   | Leave unset   | No                                      | `<SUPABASE_URL>/auth/v1/.well-known/jwks.json`          | Worked out from `SUPABASE_URL`                                                                       |
 
-`DATABASE_URL` is the API's only secret. At startup the API checks the name of every variable. It refuses to start if a name contains `SECRET`, `SERVICE_ROLE`, `SIGNING_KEY` or `ENCRYPTION_KEY`, or starts with `TWILIO_`, `POSTMARK_`, `MICROSOFT_OAUTH_`, `GOOGLE_OAUTH_`, `ANTHROPIC_` or `OPENAI_` (upper or lower case). Its log then says `The API process must never hold privileged keys. Remove: <names>`. Fly's own variables (`FLY_*`, `PRIMARY_REGION`) are fine. Never run a worker secrets command with `--app handsfreeos-api`.
+`DATABASE_URL` is the API's only secret. At startup the API checks the name of every variable. It refuses to start if a name contains `SECRET`, `SERVICE_ROLE`, `SIGNING_KEY`, `ENCRYPTION_KEY` or `_OAUTH_` (such as `MICROSOFT_OAUTH_`, `GOOGLE_OAUTH_` and `GOOGLE_CALENDAR_OAUTH_`), or starts with `TWILIO_`, `POSTMARK_`, `TURNSTILE_`, `ANTHROPIC_` or `OPENAI_` (upper or lower case). Its log then says `The API process must never hold privileged keys. Remove: <names>`. Fly's own variables (`FLY_*`, `PRIMARY_REGION`) are fine. Never run a worker secrets command with `--app handsfreeos-api`.
 
 Both apps check sign-ins against Supabase's published signing keys and cache them. So rotating Supabase's signing keys needs no deploy.
 
@@ -1319,44 +1322,49 @@ If the Twilio or Postmark screens have moved, search their consoles for "Account
 
 #### The worker: Fly secrets for features
 
-| Name                              | Required                                                      | Without it                                                                                                                                                                                                                                                               | Where to copy the value from                                                                                                                                                                                                            |
-| --------------------------------- | ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `SUPABASE_SECRET_KEY`             | Yes in practice                                               | The worker starts but logs `SUPABASE_SECRET_KEY is not set: file removals, imports and photos will fail until it is`. Picture texts, voicemails and any inbound email with attachments fail too. Such an email is refused whole, with a 500 error, until the key is set. | The Supabase dashboard for project `ybupfghakoszfcxhyrby`, **Project Settings** → **API Keys**: the secret key named `hfos_worker` (starts with `sb_secret_`). If the page has moved, search the dashboard for "API keys". Worker only. |
-| `TWILIO_PRIMARY_PROFILE_SID`      | Only for local (10DLC) numbers                                | Local-number registrations are turned down. Toll-free numbers still work.                                                                                                                                                                                                | Twilio Trust Hub: HandsFreeOS's approved primary customer profile (starts with `BU`). See Twilio Step 4.                                                                                                                                |
-| `MICROSOFT_OAUTH_CLIENT_ID`       | Only for Connect Outlook                                      | Connect Outlook shows a page titled "Outlook isn’t set up yet".                                                                                                                                                                                                          | The Microsoft Entra app registration: **Application (client) ID**. See "Connected mailboxes: Outlook and Gmail".                                                                                                                        |
-| `MICROSOFT_OAUTH_CLIENT_SECRET`   | Only for Connect Outlook                                      | Same as above.                                                                                                                                                                                                                                                           | The Entra app, **Certificates & secrets**: the client secret value. It expires.                                                                                                                                                         |
-| `GOOGLE_OAUTH_CLIENT_ID`          | Only for Connect Gmail                                        | Connect Gmail shows a page titled "Gmail isn’t set up yet".                                                                                                                                                                                                              | The Google Cloud OAuth client (type Web application).                                                                                                                                                                                   |
-| `GOOGLE_OAUTH_CLIENT_SECRET`      | Only for Connect Gmail                                        | Same as above.                                                                                                                                                                                                                                                           | The same Google Cloud OAuth client (starts with `GOCSPX-`).                                                                                                                                                                             |
-| `ANTHROPIC_API_KEY`               | Only for the Assistant                                        | The worker starts, and its `worker started` line shows `"assistant":"none"`. The Assistant panel says "The Assistant isn’t available yet". Everything else works.                                                                                                        | The Claude Console, **Settings** → **API keys**: the key linked to the `handsfreeos-worker` service account and tied to the `HandsFreeOS` workspace (starts with `sk-ant-api`). See "The Assistant: Anthropic". Worker only.            |
-| `WORKER_ENCRYPTION_KEYS_PREVIOUS` | Only after a key rotation. Leave it unset on the first setup. | Nothing, until a key is rotated.                                                                                                                                                                                                                                         | Old `WORKER_ENCRYPTION_KEY` values from your password manager, separated by commas. Each must be a valid key, or the worker will not start.                                                                                             |
+| Name                                  | Required                                                      | Without it                                                                                                                                                                                                                                                               | Where to copy the value from                                                                                                                                                                                                                       |
+| ------------------------------------- | ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `SUPABASE_SECRET_KEY`                 | Yes in practice                                               | The worker starts but logs `SUPABASE_SECRET_KEY is not set: file removals, imports and photos will fail until it is`. Picture texts, voicemails and any inbound email with attachments fail too. Such an email is refused whole, with a 500 error, until the key is set. | The Supabase dashboard for project `ybupfghakoszfcxhyrby`, **Project Settings** → **API Keys**: the secret key named `hfos_worker` (starts with `sb_secret_`). If the page has moved, search the dashboard for "API keys". Worker only.            |
+| `TWILIO_PRIMARY_PROFILE_SID`          | Only for local (10DLC) numbers                                | Local-number registrations are turned down. Toll-free numbers still work.                                                                                                                                                                                                | Twilio Trust Hub: HandsFreeOS's approved primary customer profile (starts with `BU`). See Twilio Step 4.                                                                                                                                           |
+| `MICROSOFT_OAUTH_CLIENT_ID`           | Only for Outlook mailboxes and calendars                      | Connect Outlook, in **Settings** → **Email** and in **Settings** → **My calendar**, shows a page titled "Outlook isn’t set up yet".                                                                                                                                      | The Microsoft Entra app registration: **Application (client) ID**. See "Connected mailboxes: Outlook and Gmail".                                                                                                                                   |
+| `MICROSOFT_OAUTH_CLIENT_SECRET`       | Only for Outlook mailboxes and calendars                      | Same as above.                                                                                                                                                                                                                                                           | The Entra app, **Certificates & secrets**: the client secret value. It expires.                                                                                                                                                                    |
+| `GOOGLE_OAUTH_CLIENT_ID`              | Only for Connect Gmail                                        | Connect Gmail shows a page titled "Gmail isn’t set up yet".                                                                                                                                                                                                              | The Google Cloud OAuth client (type Web application).                                                                                                                                                                                              |
+| `GOOGLE_OAUTH_CLIENT_SECRET`          | Only for Connect Gmail                                        | Same as above.                                                                                                                                                                                                                                                           | The same Google Cloud OAuth client (starts with `GOCSPX-`).                                                                                                                                                                                        |
+| `ANTHROPIC_API_KEY`                   | Only for the Assistant                                        | The worker starts, and its `worker started` line shows `"assistant":"none"`. The Assistant panel says "The Assistant isn’t available yet". Everything else works.                                                                                                        | The Claude Console, **Settings** → **API keys**: the key linked to the `handsfreeos-worker` service account and tied to the `HandsFreeOS` workspace (starts with `sk-ant-api`). See "The Assistant: Anthropic". Worker only.                       |
+| `GOOGLE_CALENDAR_OAUTH_CLIENT_ID`     | Only for Google Calendar in **Settings** → **My calendar**    | The **Google** button in **Settings** → **My calendar** shows a page titled "Google Calendar isn’t set up yet".                                                                                                                                                          | The Web application OAuth client in the separate `HandsFreeOS Calendar` Google Cloud project, not the Gmail client. See "The calendar: Google, Outlook and online booking". Worker only.                                                           |
+| `GOOGLE_CALENDAR_OAUTH_CLIENT_SECRET` | Only for Google Calendar                                      | Same as above.                                                                                                                                                                                                                                                           | The same Google Calendar client's secret (starts with `GOCSPX-`).                                                                                                                                                                                  |
+| `TURNSTILE_SECRET_KEY`                | Optional, for the booking page's bot check                    | Bookings rely on the per-address limits, a hidden field only bots fill in, and the database's caps.                                                                                                                                                                      | Cloudflare's **Turnstile** page: the widget's secret key. Set its site key on Vercel (`NEXT_PUBLIC_TURNSTILE_SITE_KEY`) first. Production refuses Cloudflare's test secret. See "Protect the booking page with Turnstile (optional)". Worker only. |
+| `WORKER_ENCRYPTION_KEYS_PREVIOUS`     | Only after a key rotation. Leave it unset on the first setup. | Nothing, until a key is rotated.                                                                                                                                                                                                                                         | Old `WORKER_ENCRYPTION_KEY` values from your password manager, separated by commas. Each must be a valid key, or the worker will not start.                                                                                                        |
 
 #### The worker: leave these unset
 
 The defaults are right in production. Setting some of these changes real behavior.
 
-| Name                                       | Default                                                       | Why to leave it alone                                                                                                                                                         |
-| ------------------------------------------ | ------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `EMAIL_TRANSPORT`                          | `postmark` in production                                      | `smtp` is the local stand-in: domains verify themselves and delivery reports are fake. Production does not refuse it, so never set it to get around a missing Postmark token. |
-| `MAILBOX_PROVIDER`                         | `real` in production                                          | Production refuses `fake`.                                                                                                                                                    |
-| `POSTMARK_WEBHOOK_USER`                    | `postmark`                                                    | The user name in Postmark's webhook addresses.                                                                                                                                |
-| `POSTMARK_MESSAGE_STREAM`                  | `outbound`                                                    | Postmark's default stream for customer email.                                                                                                                                 |
-| `MAIL_DOMAIN`                              | `mail.handsfreeos.com`                                        | Must match the shared mail domain the database uses.                                                                                                                          |
-| `SUPABASE_JWKS_URL`, `SUPABASE_JWT_ISSUER` | Worked out from `SUPABASE_URL`                                | Nothing to change.                                                                                                                                                            |
-| `WORKER_POLL_MS`                           | `1000` (one second between loop passes)                       | Tuning only.                                                                                                                                                                  |
-| `WORKER_BATCH_SIZE`                        | `20`                                                          | Tuning only.                                                                                                                                                                  |
-| `REGISTRATION_POLL_MS`                     | `900000` (15 minutes) with Twilio                             | How often carrier registrations are checked.                                                                                                                                  |
-| `MAILBOX_BACKFILL_DAYS`                    | `30` (kept between 1 and 90)                                  | How far back a new mailbox's first sync looks.                                                                                                                                |
-| `MAILBOX_SYNC_MS`                          | Not set: Outlook every 5 minutes, Gmail every 2               | A test override. It changes how often every mailbox is checked.                                                                                                               |
-| `UNANSWERED_ALERT_MS`                      | Not set: each workspace's own setting, in minutes             | A demo override. It changes every workspace's alert timing.                                                                                                                   |
-| `FAKE_APPROVAL_MS`                         | `3000`                                                        | Used only by the fake carrier.                                                                                                                                                |
-| `ASSISTANT_PROVIDER`                       | `anthropic` when `ANTHROPIC_API_KEY` is set, otherwise `none` | Production refuses `scripted`, the stand-in the tests use. `none` turns the Assistant off even with a key.                                                                    |
-| `ASSISTANT_MODEL`                          | `claude-sonnet-5`                                             | The Claude model the Assistant uses. Change it only as "Change the model" in "The Assistant: Anthropic" describes.                                                            |
-| `ASSISTANT_DAILY_TOKENS`                   | `2000000` tokens per workspace per day                        | Change it only as "Change the daily limit" in "The Assistant: Anthropic" describes.                                                                                           |
+| Name                                       | Default                                                                    | Why to leave it alone                                                                                                                                                         |
+| ------------------------------------------ | -------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `EMAIL_TRANSPORT`                          | `postmark` in production                                                   | `smtp` is the local stand-in: domains verify themselves and delivery reports are fake. Production does not refuse it, so never set it to get around a missing Postmark token. |
+| `MAILBOX_PROVIDER`                         | `real` in production                                                       | Production refuses `fake`.                                                                                                                                                    |
+| `POSTMARK_WEBHOOK_USER`                    | `postmark`                                                                 | The user name in Postmark's webhook addresses.                                                                                                                                |
+| `POSTMARK_MESSAGE_STREAM`                  | `outbound`                                                                 | Postmark's default stream for customer email.                                                                                                                                 |
+| `MAIL_DOMAIN`                              | `mail.handsfreeos.com`                                                     | Must match the shared mail domain the database uses.                                                                                                                          |
+| `SUPABASE_JWKS_URL`, `SUPABASE_JWT_ISSUER` | Worked out from `SUPABASE_URL`                                             | Nothing to change.                                                                                                                                                            |
+| `WORKER_POLL_MS`                           | `1000` (one second between loop passes)                                    | Tuning only.                                                                                                                                                                  |
+| `WORKER_BATCH_SIZE`                        | `20`                                                                       | Tuning only.                                                                                                                                                                  |
+| `REGISTRATION_POLL_MS`                     | `900000` (15 minutes) with Twilio                                          | How often carrier registrations are checked.                                                                                                                                  |
+| `MAILBOX_BACKFILL_DAYS`                    | `30` (kept between 1 and 90)                                               | How far back a new mailbox's first sync looks.                                                                                                                                |
+| `MAILBOX_SYNC_MS`                          | Not set: Outlook every 5 minutes, Gmail every 2                            | A test override. It changes how often every mailbox is checked.                                                                                                               |
+| `CALENDAR_PROVIDER`                        | `real` in production                                                       | Production refuses `fake`, the stand-in for local development and tests.                                                                                                      |
+| `CALENDAR_REFRESH_MS`                      | `600000` (every connected calendar's busy times are read every 10 minutes) | Must be a whole number of milliseconds, 1000 or more. A smaller number reads every calendar more often.                                                                       |
+| `UNANSWERED_ALERT_MS`                      | Not set: each workspace's own setting, in minutes                          | A demo override. It changes every workspace's alert timing.                                                                                                                   |
+| `FAKE_APPROVAL_MS`                         | `3000`                                                                     | Used only by the fake carrier.                                                                                                                                                |
+| `ASSISTANT_PROVIDER`                       | `anthropic` when `ANTHROPIC_API_KEY` is set, otherwise `none`              | Production refuses `scripted`, the stand-in the tests use. `none` turns the Assistant off even with a key.                                                                    |
+| `ASSISTANT_MODEL`                          | `claude-sonnet-5`                                                          | The Claude model the Assistant uses. Change it only as "Change the model" in "The Assistant: Anthropic" describes.                                                            |
+| `ASSISTANT_DAILY_TOKENS`                   | `2000000` tokens per workspace per day                                     | Change it only as "Change the daily limit" in "The Assistant: Anthropic" describes.                                                                                           |
 
 #### Settings outside Fly that must match
 
 - **GitHub:** the repository secret `FLY_API_TOKEN` (Fly Part 9).
-- **Vercel:** `NEXT_PUBLIC_API_URL` must be `https://api.handsfreeos.com`, and `NEXT_PUBLIC_WORKER_URL` must be `https://hooks.handsfreeos.com` (Fly Part 10). If the API address is missing, the web app tries `http://127.0.0.1:4000`. If the worker address is missing, number search, browser calls and mailbox sign-in try `http://127.0.0.1:4100`.
+- **Vercel:** `NEXT_PUBLIC_API_URL` must be `https://api.handsfreeos.com`, and `NEXT_PUBLIC_WORKER_URL` must be `https://hooks.handsfreeos.com` (Fly Part 10). If the API address is missing, the web app tries `http://127.0.0.1:4000`. If the worker address is missing, number search, browser calls, mailbox and calendar sign-in and the booking pages try `http://127.0.0.1:4100`.
 - **Providers:** Twilio, Postmark, Microsoft and Google must call `https://hooks.handsfreeos.com`, never `handsfreeos-worker.fly.dev`. A Twilio request sent to any other address fails with `403 Invalid signature`.
 - **Never change `hooks.handsfreeos.com`.** The worker writes that address into every Twilio number it buys, and into each business's Messaging Service and browser-call (TwiML) app. Nothing re-points any of them afterwards (see "If the public address ever changes" in "The phone carrier: Twilio").
 
@@ -1571,7 +1579,7 @@ The worker only checks that these three values are present, never that they are 
 
 8. Delete the "handsfreeos-worker first import" note from your password manager. Each value already has its own entry, and a leftover note would be one more copy of every secret that no rotation step updates.
 
-Add the feature secrets later, as their own sections describe: `TWILIO_PRIMARY_PROFILE_SID` (Twilio Step 4), the Microsoft and Google values ("Connected mailboxes: Outlook and Gmail") and `ANTHROPIC_API_KEY` ("The Assistant: Anthropic"). After the first deploy, each secrets change restarts the worker.
+Add the feature secrets later, as their own sections describe: `TWILIO_PRIMARY_PROFILE_SID` (Twilio Step 4), the Microsoft and Google values ("Connected mailboxes: Outlook and Gmail"), `ANTHROPIC_API_KEY` ("The Assistant: Anthropic"), and the Google Calendar values and the optional `TURNSTILE_SECRET_KEY` ("The calendar: Google, Outlook and online booking"). After the first deploy, each secrets change restarts the worker.
 
 ### Fly Part 7: The first deploy, by hand
 
@@ -2018,24 +2026,27 @@ Both apps log one JSON object per line. The message is in the `msg` field. `"lev
 
 #### Messages worth knowing
 
-| Log message                                                                                                                                                                                                       | What it means                                                                                                                                                 | What to do                                                                                                                                                                                                           |
-| ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `worker started`                                                                                                                                                                                                  | The worker is up. The line shows `publicUrl`, its providers (`telephony`, `email`, `mailboxes`, `assistant`) and whether `storage` is set.                    | Check that `publicUrl` is `https://hooks.handsfreeos.com`, `telephony` is `twilio`, `email` is `postmark`, `mailboxes` is `real` and `storage` is `true`. Once the Anthropic key is set, `assistant` is `anthropic`. |
-| `worker stopping: closing the listener, then finishing the current pass`                                                                                                                                          | A normal stop during a deploy or restart.                                                                                                                     | Nothing.                                                                                                                                                                                                             |
-| `worker pass crashed`                                                                                                                                                                                             | One loop pass failed. The health check stays green.                                                                                                           | Read the `err` field. It is often a database problem. If it repeats, save the lines for a developer.                                                                                                                 |
-| `worker http error`                                                                                                                                                                                               | The worker answered a provider or the browser with a 500 error, `Something went wrong on our side.`                                                           | Read `err`. If it says `No key <id> to open this value. Add the old key to WORKER_ENCRYPTION_KEYS_PREVIOUS.`, an old encryption key is missing.                                                                      |
-| `outbox handler failed`                                                                                                                                                                                           | A background job failed. The worker tries each job 5 times in all, waiting 5, 10, 20 and 40 seconds between tries, then gives up. `eventType` says which job. | Read `err`.                                                                                                                                                                                                          |
-| `webhook delivery failed`                                                                                                                                                                                         | A stored webhook failed to process. The worker tries it 5 times in all, with the same waits, then gives up. `kind` says which provider.                       | Read `err`.                                                                                                                                                                                                          |
-| An `err` field containing `Storage is not configured: set SUPABASE_URL and SUPABASE_SECRET_KEY for the worker`, on a `worker http error`, `webhook delivery failed`, `outbox handler failed` or `job failed` line | The worker has no Supabase secret key, so it cannot store or remove files. Inbound email with attachments is refused.                                         | Set `SUPABASE_SECRET_KEY` on the worker.                                                                                                                                                                             |
-| `SUPABASE_SECRET_KEY is not set: file removals, imports and photos will fail until it is`                                                                                                                         | The worker has no Supabase secret key.                                                                                                                        | Set `SUPABASE_SECRET_KEY` on the worker.                                                                                                                                                                             |
-| `rejected an unsigned or mis-signed webhook`                                                                                                                                                                      | A Twilio request failed its signature check and got `403 Invalid signature`. The line has the path and the `accountSid`.                                      | See "Twilio webhooks are rejected" in "Going live, and when something goes wrong".                                                                                                                                   |
-| `rejected an inbound mail webhook without the right credentials` or `rejected a mail event webhook without the right credentials`                                                                                 | Postmark's webhook password does not match `POSTMARK_WEBHOOK_PASSWORD`. A 403 tells Postmark to stop retrying, so that mail is lost.                          | See "Postmark webhooks are rejected" in "Going live, and when something goes wrong".                                                                                                                                 |
-| `refused a browser call that call.start did not record`                                                                                                                                                           | A browser call was refused.                                                                                                                                   | See "Calls do not ring, or cannot be placed" in "Going live, and when something goes wrong".                                                                                                                         |
-| `a mailbox did not connect`                                                                                                                                                                                       | An Outlook or Gmail sign-in failed at the last step.                                                                                                          | See "When a connection fails" in "Connected mailboxes: Outlook and Gmail".                                                                                                                                           |
-| `mailbox sync failed`                                                                                                                                                                                             | An Outlook or Gmail mailbox could not sync.                                                                                                                   | See "When a sign-in stops working" in "Connected mailboxes: Outlook and Gmail".                                                                                                                                      |
-| `no Outlook notifications for now`                                                                                                                                                                                | Microsoft refused the change notifications. Outlook still syncs every five minutes, and the worker tries again about 6 hours later.                           | Check that `hooks.handsfreeos.com` answers over HTTPS.                                                                                                                                                               |
-| `assistant run failed`                                                                                                                                                                                            | An Assistant question failed partway. The person saw "Something went wrong" or, when Anthropic was busy, "The Assistant is busy right now".                   | Read `err`. See "When a question fails" in "The Assistant: Anthropic".                                                                                                                                               |
-| `Max client connections reached` or `MaxClientsInSessionMode`                                                                                                                                                     | Too many database connections through the session pooler.                                                                                                     | See "How many connections the apps use" in "The database: Supabase (hosted)".                                                                                                                                        |
+| Log message                                                                                                                                                                                                       | What it means                                                                                                                                                        | What to do                                                                                                                                                                                                                            |
+| ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `worker started`                                                                                                                                                                                                  | The worker is up. The line shows `publicUrl`, its providers (`telephony`, `email`, `mailboxes`, `calendars`, `assistant`) and whether `storage` is set.              | Check that `publicUrl` is `https://hooks.handsfreeos.com`, `telephony` is `twilio`, `email` is `postmark`, `mailboxes` and `calendars` are `real` and `storage` is `true`. Once the Anthropic key is set, `assistant` is `anthropic`. |
+| `worker stopping: closing the listener, then finishing the current pass`                                                                                                                                          | A normal stop during a deploy or restart.                                                                                                                            | Nothing.                                                                                                                                                                                                                              |
+| `worker pass crashed`                                                                                                                                                                                             | One loop pass failed. The health check stays green.                                                                                                                  | Read the `err` field. It is often a database problem. If it repeats, save the lines for a developer.                                                                                                                                  |
+| `worker http error`                                                                                                                                                                                               | The worker answered a provider or the browser with a 500 error, `Something went wrong on our side.`                                                                  | Read `err`. If it says `No key <id> to open this value. Add the old key to WORKER_ENCRYPTION_KEYS_PREVIOUS.`, an old encryption key is missing.                                                                                       |
+| `outbox handler failed`                                                                                                                                                                                           | A background job failed. The worker tries each job 5 times in all, waiting 5, 10, 20 and 40 seconds between tries, then gives up. `eventType` says which job.        | Read `err`.                                                                                                                                                                                                                           |
+| `webhook delivery failed`                                                                                                                                                                                         | A stored webhook failed to process. The worker tries it 5 times in all, with the same waits, then gives up. `kind` says which provider.                              | Read `err`.                                                                                                                                                                                                                           |
+| An `err` field containing `Storage is not configured: set SUPABASE_URL and SUPABASE_SECRET_KEY for the worker`, on a `worker http error`, `webhook delivery failed`, `outbox handler failed` or `job failed` line | The worker has no Supabase secret key, so it cannot store or remove files. Inbound email with attachments is refused.                                                | Set `SUPABASE_SECRET_KEY` on the worker.                                                                                                                                                                                              |
+| `SUPABASE_SECRET_KEY is not set: file removals, imports and photos will fail until it is`                                                                                                                         | The worker has no Supabase secret key.                                                                                                                               | Set `SUPABASE_SECRET_KEY` on the worker.                                                                                                                                                                                              |
+| `rejected an unsigned or mis-signed webhook`                                                                                                                                                                      | A Twilio request failed its signature check and got `403 Invalid signature`. The line has the path and the `accountSid`.                                             | See "Twilio webhooks are rejected" in "Going live, and when something goes wrong".                                                                                                                                                    |
+| `rejected an inbound mail webhook without the right credentials` or `rejected a mail event webhook without the right credentials`                                                                                 | Postmark's webhook password does not match `POSTMARK_WEBHOOK_PASSWORD`. A 403 tells Postmark to stop retrying, so that mail is lost.                                 | See "Postmark webhooks are rejected" in "Going live, and when something goes wrong".                                                                                                                                                  |
+| `refused a browser call that call.start did not record`                                                                                                                                                           | A browser call was refused.                                                                                                                                          | See "Calls do not ring, or cannot be placed" in "Going live, and when something goes wrong".                                                                                                                                          |
+| `a mailbox did not connect`                                                                                                                                                                                       | An Outlook or Gmail sign-in failed at the last step.                                                                                                                 | See "When a connection fails" in "Connected mailboxes: Outlook and Gmail".                                                                                                                                                            |
+| `mailbox sync failed`                                                                                                                                                                                             | An Outlook or Gmail mailbox could not sync.                                                                                                                          | See "When a sign-in stops working" in "Connected mailboxes: Outlook and Gmail".                                                                                                                                                       |
+| `no Outlook notifications for now`                                                                                                                                                                                | Microsoft refused the change notifications. Outlook still syncs every five minutes, and the worker tries again about 6 hours later.                                  | Check that `hooks.handsfreeos.com` answers over HTTPS.                                                                                                                                                                                |
+| `a calendar did not connect`                                                                                                                                                                                      | A Google Calendar or Outlook calendar sign-in failed at the last step.                                                                                               | See "When a calendar needs reconnecting" in "The calendar: Google, Outlook and online booking".                                                                                                                                       |
+| `calendar refresh failed`                                                                                                                                                                                         | Reading a connected calendar's busy times failed. The worker tries again, waiting longer each time. After five failures in a row the calendar shows **Not syncing**. | Read `err`. See "When a calendar needs reconnecting" in "The calendar: Google, Outlook and online booking".                                                                                                                           |
+| `calendar write-through failed`                                                                                                                                                                                   | Adding, moving or removing an appointment's event in someone's calendar failed.                                                                                      | Read `err`. The worker tries again, and the calendar's next check also catches up.                                                                                                                                                    |
+| `assistant run failed`                                                                                                                                                                                            | An Assistant question failed partway. The person saw "Something went wrong" or, when Anthropic was busy, "The Assistant is busy right now".                          | Read `err`. See "When a question fails" in "The Assistant: Anthropic".                                                                                                                                                                |
+| `Max client connections reached` or `MaxClientsInSessionMode`                                                                                                                                                     | Too many database connections through the session pooler.                                                                                                            | See "How many connections the apps use" in "The database: Supabase (hosted)".                                                                                                                                                         |
 
 #### Errors that stop an app from starting
 
@@ -2195,19 +2206,21 @@ How changes reach the apps:
 
 The console steps below describe the goal. If a console has moved or works differently, search it for the name in the middle column.
 
-| Secret                                 | Where the new value comes from                     | How to switch without breaking things                                                                                                                                                                                                                                              |
-| -------------------------------------- | -------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `DATABASE_URL`, `DATABASE_URL_WORKER`  | A new password from `openssl rand -hex 32`         | See "Change an app role password" in "The database: Supabase (hosted)".                                                                                                                                                                                                            |
-| `SUPABASE_SECRET_KEY`                  | The Supabase dashboard's **API Keys** page         | Create a new secret key, check it with steps 5 to 7 of "Check the Postmark tokens and the Supabase key" in Fly Part 6, set it on the worker, then delete the old key in the dashboard (see "Copy the publishable key and the secret key" in "The database: Supabase (hosted)").    |
-| `POSTMARK_SERVER_TOKEN` and `SMTP_URL` | Postmark, the production server's **API Tokens**   | Check the new token with steps 1, 2 and 7 of "Check the Postmark tokens and the Supabase key" in Fly Part 6. Both contain the server token, so change them in one import. Then remove the old token in Postmark. See "Changing a token" under "Good to know" in "Email: Postmark". |
-| `POSTMARK_ACCOUNT_TOKEN`               | Postmark, the account's **API Tokens**             | Check the new token with steps 3, 4 and 7 of "Check the Postmark tokens and the Supabase key" in Fly Part 6. Set it, then remove the old one in Postmark.                                                                                                                          |
-| `POSTMARK_WEBHOOK_PASSWORD`            | `openssl rand -hex 24`                             | Follow "Changing the Postmark webhook password" below. A mismatch loses mail.                                                                                                                                                                                                      |
-| `TWILIO_AUTH_TOKEN`                    | The Twilio console, master account, **Auth Token** | See "Rotate the master Auth Token later" in "The phone carrier: Twilio". Subaccount tokens are separate and do not change.                                                                                                                                                         |
-| `MICROSOFT_OAUTH_CLIENT_SECRET`        | The Entra app, **Certificates & secrets**          | See "Rotating the client secrets" in "Connected mailboxes: Outlook and Gmail". Put the new expiry date in your calendar.                                                                                                                                                           |
-| `GOOGLE_OAUTH_CLIENT_SECRET`           | The Google Cloud OAuth client                      | See "Rotating the client secrets" in "Connected mailboxes: Outlook and Gmail".                                                                                                                                                                                                     |
-| `FLY_API_TOKEN`                        | `fly tokens create org` (Fly Part 9)               | Store the new token in GitHub, then find the old token's ID and revoke it (end of Fly Part 9).                                                                                                                                                                                     |
-| `WORKER_ENCRYPTION_KEY`                | `openssl rand -base64 32`                          | See "Rotating the worker encryption key" below.                                                                                                                                                                                                                                    |
-| `ANTHROPIC_API_KEY`                    | The Claude Console, **Settings** → **API keys**    | See "Rotate the key" in "The Assistant: Anthropic". Give the worker the new key before you disable the old one.                                                                                                                                                                    |
+| Secret                                 | Where the new value comes from                           | How to switch without breaking things                                                                                                                                                                                                                                              |
+| -------------------------------------- | -------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `DATABASE_URL`, `DATABASE_URL_WORKER`  | A new password from `openssl rand -hex 32`               | See "Change an app role password" in "The database: Supabase (hosted)".                                                                                                                                                                                                            |
+| `SUPABASE_SECRET_KEY`                  | The Supabase dashboard's **API Keys** page               | Create a new secret key, check it with steps 5 to 7 of "Check the Postmark tokens and the Supabase key" in Fly Part 6, set it on the worker, then delete the old key in the dashboard (see "Copy the publishable key and the secret key" in "The database: Supabase (hosted)").    |
+| `POSTMARK_SERVER_TOKEN` and `SMTP_URL` | Postmark, the production server's **API Tokens**         | Check the new token with steps 1, 2 and 7 of "Check the Postmark tokens and the Supabase key" in Fly Part 6. Both contain the server token, so change them in one import. Then remove the old token in Postmark. See "Changing a token" under "Good to know" in "Email: Postmark". |
+| `POSTMARK_ACCOUNT_TOKEN`               | Postmark, the account's **API Tokens**                   | Check the new token with steps 3, 4 and 7 of "Check the Postmark tokens and the Supabase key" in Fly Part 6. Set it, then remove the old one in Postmark.                                                                                                                          |
+| `POSTMARK_WEBHOOK_PASSWORD`            | `openssl rand -hex 24`                                   | Follow "Changing the Postmark webhook password" below. A mismatch loses mail.                                                                                                                                                                                                      |
+| `TWILIO_AUTH_TOKEN`                    | The Twilio console, master account, **Auth Token**       | See "Rotate the master Auth Token later" in "The phone carrier: Twilio". Subaccount tokens are separate and do not change.                                                                                                                                                         |
+| `MICROSOFT_OAUTH_CLIENT_SECRET`        | The Entra app, **Certificates & secrets**                | See "Rotating the client secrets" in "Connected mailboxes: Outlook and Gmail". Put the new expiry date in your calendar. Outlook calendars use the same secret.                                                                                                                    |
+| `GOOGLE_OAUTH_CLIENT_SECRET`           | The Google Cloud OAuth client                            | See "Rotating the client secrets" in "Connected mailboxes: Outlook and Gmail".                                                                                                                                                                                                     |
+| `GOOGLE_CALENDAR_OAUTH_CLIENT_SECRET`  | The `HandsFreeOS Calendar` project's Google OAuth client | See "Rotating the Google Calendar client secret" in "The calendar: Google, Outlook and online booking".                                                                                                                                                                            |
+| `TURNSTILE_SECRET_KEY`                 | Cloudflare's **Turnstile** page, the widget's settings   | See the end of "Protect the booking page with Turnstile (optional)" in "The calendar: Google, Outlook and online booking". Give the worker the new secret at once.                                                                                                                 |
+| `FLY_API_TOKEN`                        | `fly tokens create org` (Fly Part 9)                     | Store the new token in GitHub, then find the old token's ID and revoke it (end of Fly Part 9).                                                                                                                                                                                     |
+| `WORKER_ENCRYPTION_KEY`                | `openssl rand -base64 32`                                | See "Rotating the worker encryption key" below.                                                                                                                                                                                                                                    |
+| `ANTHROPIC_API_KEY`                    | The Claude Console, **Settings** → **API keys**          | See "Rotate the key" in "The Assistant: Anthropic". Give the worker the new key before you disable the old one.                                                                                                                                                                    |
 
 #### Changing the Postmark webhook password
 
@@ -2365,7 +2378,7 @@ Other bills:
 
 ## The web app on Vercel
 
-The web app (`apps/web`, a Next.js app) runs on Vercel at `https://app.handsfreeos.com`. Vercel builds it from GitHub by itself: every push to `main` goes live, and every other branch gets a preview. The web app holds no secrets. Every value it needs is public and ends up in the browser, so the Vercel project gets seven plain settings and nothing else.
+The web app (`apps/web`, a Next.js app) runs on Vercel at `https://app.handsfreeos.com`. Vercel builds it from GitHub by itself: every push to `main` goes live, and every other branch gets a preview. The web app holds no secrets. Every value it needs is public and ends up in the browser, so the Vercel project gets seven plain settings, an optional eighth for the booking page's bot check, and nothing else.
 
 Set up the API (`handsfreeos-api`) and the worker (`handsfreeos-worker`) on Fly.io first (see "Hosting: the API and the worker on Fly.io"). The web app is only useful once both answer.
 
@@ -2538,16 +2551,17 @@ Never use the root `pnpm build` as the build command. It builds the API and the 
 
 ### Environment variables
 
-The web app reads six settings, and Vercel reads one more for the install. All seven are plain, public values. Next.js copies the `NEXT_PUBLIC_` ones into the pages, so anyone can read them in a browser. That is why none of them may ever be a secret.
+The web app reads six settings, plus an optional seventh for the booking page's bot check, and Vercel reads one more for the install. All of them are plain, public values. Next.js copies the `NEXT_PUBLIC_` ones into the pages, so anyone can read them in a browser. That is why none of them may ever be a secret.
 
 | Name                                   | Value                                      | What it does                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
 | -------------------------------------- | ------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `NEXT_PUBLIC_API_URL`                  | `https://api.handsfreeos.com`              | The API on Fly.io. Without it the app calls `http://127.0.0.1:4000` and no page loads.                                                                                                                                                                                                                                                                                                                                                                                                                |
-| `NEXT_PUBLIC_WORKER_URL`               | `https://hooks.handsfreeos.com`            | The worker: number search, browser calls, **Connect Outlook** and **Connect Gmail**. Must match `WORKER_PUBLIC_URL` in `apps/worker/fly.toml`. Without it, those features point at `http://127.0.0.1:4100`, and number search and calls show "The phone service is not reachable right now. Try again in a minute."                                                                                                                                                                                   |
+| `NEXT_PUBLIC_WORKER_URL`               | `https://hooks.handsfreeos.com`            | The worker: number search, browser calls, **Connect Outlook** and **Connect Gmail**, calendar connections and the booking pages. Must match `WORKER_PUBLIC_URL` in `apps/worker/fly.toml`. Without it, those features point at `http://127.0.0.1:4100`, and number search and calls show "The phone service is not reachable right now. Try again in a minute."                                                                                                                                       |
 | `NEXT_PUBLIC_SUPABASE_URL`             | `https://ybupfghakoszfcxhyrby.supabase.co` | The hosted Supabase project. Required: without it the build or the first page fails, usually with an error that starts `NEXT_PUBLIC_SUPABASE_URL is not set`. The message goes on to say to run `pnpm env:local`, but that only applies on your laptop. On Vercel, add the variable in **Settings** → **Environment Variables** and redeploy. An error saying the project's URL and Key are required to create a Supabase client means the same thing. Look for either in the deployment's build log. |
 | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | `<publishable key>`                        | Copied from Supabase **Project Settings** → **API Keys** and kept in your password manager. Starts with `sb_publishable_`. Required, like the URL, and fails the same way without it.                                                                                                                                                                                                                                                                                                                 |
 | `NEXT_PUBLIC_PASSKEYS_ENABLED`         | `true`                                     | Shows passkey sign-in and the passkey settings. Only the exact value `false` turns them off.                                                                                                                                                                                                                                                                                                                                                                                                          |
 | `NEXT_PUBLIC_GMAIL_ENABLED`            | `false`                                    | Keeps **Connect Gmail** off until Google approves the restricted scopes. Only the exact value `true`, in lower case, turns it on; `True`, `1` or `yes` leave Gmail off. Leaving it unset also keeps Gmail off.                                                                                                                                                                                                                                                                                        |
+| `NEXT_PUBLIC_TURNSTILE_SITE_KEY`       | `<Turnstile site key>` (optional)          | The public site key of the Cloudflare Turnstile widget that checks bookings come from people. The check shows only once the worker also has `TURNSTILE_SECRET_KEY`. Set this one and redeploy before the worker gets its secret: with the secret and no site key, every online booking fails. See "Protect the booking page with Turnstile (optional)" in "The calendar: Google, Outlook and online booking".                                                                                         |
 | `ENABLE_EXPERIMENTAL_COREPACK`         | `1`                                        | Read by Vercel, not by the app. Makes the install use pnpm 12.3.4, the version pinned in the root `package.json` (the `packageManager` field). If the build log names another pnpm version, use "If the build fails".                                                                                                                                                                                                                                                                                 |
 
 To add or change a variable after the import:
@@ -2566,11 +2580,11 @@ To add or change a variable after the import:
 
 To delete a variable, click the three dots to the right of its name and choose **Delete**.
 
-Never add any of the following to Vercel. They live only in Fly.io secrets (the worker's, plus `DATABASE_URL` in the API's) and in your password manager. CI checks the browser files of its own web build for a real Supabase secret key and a few provider secret names. It does not check for database addresses or `SMTP_URL`, it does not check the server code, and it cannot see what you type into Vercel. So this rule depends on you. Before you save a Vercel variable, check that it is one of the seven above.
+Never add any of the following to Vercel. They live only in Fly.io secrets (the worker's, plus `DATABASE_URL` in the API's) and in your password manager. CI checks the browser files of its own web build for a real Supabase secret key and a few provider secret names. It does not check for database addresses or `SMTP_URL`, it does not check the server code, and it cannot see what you type into Vercel. So this rule depends on you. Before you save a Vercel variable, check that it is one of the names in the table above.
 
 - a Supabase key that starts with `sb_secret_`, or `SUPABASE_SECRET_KEY`
 - `DATABASE_URL`, `DATABASE_URL_WORKER` or any other database connection string
-- anything that starts with `TWILIO_`, `POSTMARK_`, `MICROSOFT_OAUTH_`, `GOOGLE_OAUTH_`, `ANTHROPIC_` or `OPENAI_`
+- anything that starts with `TWILIO_`, `POSTMARK_`, `TURNSTILE_`, `ANTHROPIC_` or `OPENAI_`, or contains `_OAUTH_` (such as `MICROSOFT_OAUTH_CLIENT_SECRET`, `GOOGLE_OAUTH_CLIENT_SECRET` and `GOOGLE_CALENDAR_OAUTH_CLIENT_SECRET`)
 - `WORKER_ENCRYPTION_KEY` or `SMTP_URL`
 
 Do not paste or upload `.env.hosted` or any other `.env` file from your laptop into Vercel. `.env.hosted` also holds the database passwords. Copy only the publishable key. In Vercel its name must be exactly `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`.
@@ -5096,6 +5110,476 @@ fly secrets unset --app handsfreeos-worker ANTHROPIC_API_KEY
 
 Leave `ASSISTANT_PROVIDER` unset. The worker uses `anthropic` when the key is set and `none` when it is not. It refuses to start with `scripted`, the stand-in the automated tests use.
 
+## The calendar: Google, Outlook and online booking
+
+Each person in a workspace can connect their own Google or Outlook calendar in **Settings** → **My calendar**. HandsFreeOS then reads when they are busy, so nobody books them over it, and adds their HandsFreeOS appointments to that calendar as events, so the appointments show on their phone too. It reads only busy times, never what the events are, and it never shows or edits their other events. This section also covers the public booking pages, where customers book online, and the optional bot check that protects them.
+
+How a sign-in travels: it is the same trip as a connected mailbox's. The **Google** or **Outlook** button in **Settings** → **My calendar** sends the browser to the worker at `https://hooks.handsfreeos.com/oauth/<provider>/start`. The worker sends it on to Google or Microsoft. After the person approves, the browser comes back to `https://hooks.handsfreeos.com/oauth/<provider>/callback`. The worker seals the sign-in with `WORKER_ENCRYPTION_KEY`, stores it, and returns the browser to **Settings** → **My calendar**. The words used here (client ID, client secret, redirect URI, consent screen, scope) mean the same as in "Connected mailboxes: Outlook and Gmail".
+
+Two things differ from mailboxes:
+
+- **Google Calendar has its own Google Cloud project,** separate from the Gmail one. Gmail's `gmail.readonly` scope is restricted, and Google reviews a project's scopes together, so a shared project would make the calendar wait for Gmail's CASA security assessment. On its own, the calendar needs at most Google's lighter review. The Google Calendar client has its own two values, `GOOGLE_CALENDAR_OAUTH_CLIENT_ID` and `GOOGLE_CALENDAR_OAUTH_CLIENT_SECRET`.
+- **Outlook calendars use the existing Microsoft Entra app.** You add one permission, `Calendars.ReadWrite`, and the worker uses the `MICROSOFT_OAUTH_CLIENT_ID` and `MICROSOFT_OAUTH_CLIENT_SECRET` it already has.
+
+Both Google clients send people back to the same address, `https://hooks.handsfreeos.com/oauth/google/callback`. That is expected: the worker tells a Gmail sign-in from a calendar sign-in by the sign-in's state.
+
+The new secrets go on the worker only (`handsfreeos-worker`) and in your password manager. The API refuses to start if it sees any name that contains `_OAUTH_` or starts with `TURNSTILE_` (it stops with "The API process must never hold privileged keys. Remove: ..."). Never commit any of these values, never put them in a `.env` file in this repository, and never add them to `handsfreeos-api` or GitHub. Only the Turnstile site key goes on Vercel.
+
+| Name                                  | Copy it from                                                                                                | Put it in                                                                         |
+| ------------------------------------- | ----------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
+| `GOOGLE_CALENDAR_OAUTH_CLIENT_ID`     | **Google Auth platform** → **Clients** → your client → **Client ID**, in the `HandsFreeOS Calendar` project | `handsfreeos-worker` and the password manager ("Google Calendar client")          |
+| `GOOGLE_CALENDAR_OAUTH_CLIENT_SECRET` | The same client's **Client secret** (shown in full once)                                                    | `handsfreeos-worker` and the password manager ("Google Calendar client")          |
+| `TURNSTILE_SECRET_KEY`                | Optional. Cloudflare's **Turnstile** page: the widget's secret key                                          | `handsfreeos-worker` and the password manager ("Cloudflare Turnstile")            |
+| `NEXT_PUBLIC_TURNSTILE_SITE_KEY`      | Optional. The same widget's site key. Not a secret.                                                         | Vercel, Production environment, and the password manager ("Cloudflare Turnstile") |
+
+Leave `CALENDAR_PROVIDER` and `CALENDAR_REFRESH_MS` unset on the worker. In production the worker always uses the real providers and refuses `CALENDAR_PROVIDER=fake`. `CALENDAR_REFRESH_MS` sets how often every connected calendar's busy times are read again, in milliseconds. It defaults to `600000`, every 10 minutes.
+
+### Before you start
+
+- The worker is deployed and answers on its public address.
+
+  ```bash
+  curl -s https://hooks.handsfreeos.com/healthz
+  ```
+
+  You should see `{"ok":true}`.
+
+- Vercel's Production environment has `NEXT_PUBLIC_WORKER_URL` set to `https://hooks.handsfreeos.com`. The **Google** and **Outlook** buttons in **Settings** → **My calendar** and the booking pages all reach the worker through it.
+- The Microsoft Entra app from "Microsoft (Outlook and Microsoft 365)" in "Connected mailboxes: Outlook and Gmail", with its two values on the worker ("Give the worker the Microsoft values" there).
+- The three public pages on `handsfreeos.com` from "Before you start" in "Connected mailboxes: Outlook and Gmail". Google's consent screen links to them, and its review checks them. The privacy policy must also cover calendar data (see "Verification with Google" below).
+- An account on `https://app.handsfreeos.com` ("Create your first account" in "The database: Supabase (hosted)"). Every member of a workspace sees **Settings** → **My calendar**, not only owners and admins.
+
+### What it does and what it costs
+
+What people get:
+
+- **Busy times.** HandsFreeOS reads the next 60 days of each connected calendar's busy times every 10 minutes, and at once when the person clicks **Sync now**. It reads only when they are busy, never titles or anything else about their events. Busy times keep that person out of the open times on the booking pages, and show as **Busy** in HandsFreeOS's **Calendar**.
+- **Events.** Each HandsFreeOS appointment a person is on is added to their calendar as an event with no attendees, so nobody gets an invitation. When the appointment moves, the event moves. When it is cancelled, or the person comes off it, the event is removed. The event's description links back to HandsFreeOS and says that changes made in the calendar aren't copied back.
+- **Who connects.** Each person connects their own calendar, one at a time. Owners and admins can open anyone's page from **Members** and disconnect a calendar there, but only the person can connect or reconnect it.
+
+What it costs:
+
+| Item                                   | Cost                                                                                                  |
+| -------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| Google Calendar API                    | Free at HandsFreeOS's scale                                                                           |
+| Microsoft Graph calendar calls         | Free at HandsFreeOS's scale                                                                           |
+| Google's review of the calendar scopes | Free. There is no security lab to pay: the CASA assessment is only for restricted scopes like Gmail's |
+| Cloudflare Turnstile (optional)        | Free                                                                                                  |
+| Texts about appointments               | Ordinary texts on the Twilio master account's bill (see "Costs" in "The phone carrier: Twilio")       |
+
+### The Google Calendar project
+
+Google moved its old consent screen pages into the **Google Auth platform** (see "Google (Gmail)" in "Connected mailboxes: Outlook and Gmail"). If a menu below has moved, search the Cloud console for the page name.
+
+#### Create the project and turn on the Calendar API
+
+1. Open `https://console.cloud.google.com` and sign in with the Google account that owns the Gmail project. Google sends its review emails to the project's owners and editors, starting with this account.
+2. Open the project picker in the top bar.
+3. Click **New project**.
+4. In **Project name**, enter `HandsFreeOS Calendar`.
+5. Click **Create**.
+6. Select `HandsFreeOS Calendar` in the project picker. Check the name in the top bar before each step below: the Gmail project is called `HandsFreeOS`, and nothing in this part belongs there.
+7. Open the menu and go to **APIs & Services** → **Library**.
+8. Search for `Google Calendar API` and open it.
+9. Click **Enable**.
+
+   You should see the Google Calendar API's page showing it as enabled.
+
+Turn the API on before the Data Access step; until it is on, the Calendar scopes don't show in the scope picker. Don't turn on the Calendar API in the Gmail project, and don't turn on the Gmail API here.
+
+#### Set up the Google Auth platform
+
+1. Open the menu and go to **Google Auth platform** → **Branding**.
+2. Click **Get started**.
+3. Under **App Information**, enter `HandsFreeOS` in **App name**. People see this name on Google's consent screen.
+4. In **User support email**, pick your address.
+5. Click **Next**.
+6. Under **Audience**, choose **External**.
+7. Click **Next**.
+8. Under **Contact Information**, enter an email address Google can reach you at.
+9. Click **Next**.
+10. Under **Finish**, tick the box to agree to the **Google API Services: User Data Policy**.
+11. Click **Continue**.
+12. Click **Create**.
+
+    You should see the Google Auth platform's **Overview** page for the project.
+
+#### Fill in Branding
+
+`handsfreeos.com` must be verified in Google Search Console by a Google account that is an **Owner** or **Editor** on this project. If you verified it for the Gmail project with the same account ("Verify the domain and fill in Branding" in "Google (Gmail)"), that is already done. Otherwise do the Search Console steps there first.
+
+1. Go to **Google Auth platform** → **Branding**.
+2. Check that **App name** is `HandsFreeOS` and **User support email** is right.
+3. Upload `design/brand/handsfreeos-icon.png` from this repository as the **App logo**.
+4. In **Application home page**, enter `https://handsfreeos.com`.
+5. In **Application privacy policy link**, enter `https://handsfreeos.com/privacy`.
+6. In **Application terms of service link**, enter `https://handsfreeos.com/terms`.
+7. Under **Authorized domains**, click **Add domain**.
+8. Enter `handsfreeos.com`. That also covers `hooks.handsfreeos.com`.
+9. Under **Developer contact information**, enter your email address.
+10. Click **Save**.
+
+    You should see the Branding page keep your values after a reload.
+
+#### Add the Calendar scopes (Data Access)
+
+1. Go to **Google Auth platform** → **Data Access**.
+2. Click **Add or remove scopes**.
+3. Filter the list for Calendar and tick `https://www.googleapis.com/auth/calendar.freebusy`.
+4. Tick `https://www.googleapis.com/auth/calendar.events.owned`.
+5. Tick `openid` and `https://www.googleapis.com/auth/userinfo.email` (the list may show it shortened to `.../auth/userinfo.email`).
+6. If any of the four is missing from the list, paste its full address into **Manually add scopes** and add it to the table.
+7. Click **Update**.
+8. Click **Save** on the Data Access page.
+
+   You should see the four scopes on the Data Access page. Note which heading each Calendar scope sits under: the sensitive scopes or the non-sensitive scopes. "Verification with Google" below depends on it.
+
+These are the scopes the worker asks for (`apps/worker/src/calendar/google.ts`). `calendar.freebusy` reads busy times, `calendar.events.owned` adds, moves and removes events in the calendars the person owns, and `openid` and `email` only tell the worker which account signed in. The worker refuses a connection unless both Calendar scopes were granted. Don't add `https://www.googleapis.com/auth/calendar` or `https://www.googleapis.com/auth/calendar.events`: they reach far more of a person's calendars than HandsFreeOS uses.
+
+#### Add test users (Audience)
+
+1. Go to **Google Auth platform** → **Audience**.
+2. Check that **Publishing status** is **Testing** and **User type** is **External**.
+3. Under **Test users**, click **Add users**.
+4. Enter your own Google address, and those of anyone else who will test.
+5. Click **Save**.
+
+   You should see the addresses under **Test users**.
+
+While the app is in Testing:
+
+- There can be at most 100 test users, and each address counts as soon as it is added.
+- Only test users can connect. Google blocks everyone else. Unlike Connect Gmail, there is no switch in the web app: the **Google** button in **Settings** → **My calendar** shows for everyone as soon as the worker has the values.
+- Each Google Calendar sign-in lapses seven days after the person approves it. HandsFreeOS then shows the calendar as **Needs reconnecting** and emails the person "Reconnect your calendar", so test users reconnect every week until Google approves the app.
+
+#### Create the OAuth client (Clients)
+
+1. Go to **Google Auth platform** → **Clients**.
+2. Click **Create client**.
+3. In **Application type**, choose **Web application**.
+4. In **Name**, enter `HandsFreeOS calendar worker`. Only you see this name.
+5. Leave **Authorized JavaScript origins** empty.
+6. Under **Authorized redirect URIs**, click **Add URI**.
+7. Enter exactly `https://hooks.handsfreeos.com/oauth/google/callback`. It is the same address as the Gmail client's, on purpose.
+8. Click **Create**.
+
+   You should see a window with the new client's **Client ID** and **Client secret**. Don't close it until both are in your password manager.
+
+9. Copy the **Client ID** (it ends in `.apps.googleusercontent.com`) into a new password manager entry named "Google Calendar client". This is `GOOGLE_CALENDAR_OAUTH_CLIENT_ID`.
+10. Copy the **Client secret** (it starts with `GOCSPX-`) into the same entry. This is `GOOGLE_CALENDAR_OAUTH_CLIENT_SECRET`. Google shows the full secret only now. Never commit it or paste it into a file in this repository.
+
+If the redirect URI doesn't match exactly, Google stops the sign-in with `redirect_uri_mismatch`. Keep the two Google clients apart: `GOOGLE_OAUTH_CLIENT_ID` and `GOOGLE_OAUTH_CLIENT_SECRET` stay the Gmail client's.
+
+### Verification with Google
+
+While the app is in Testing, only test users can connect, and their sign-ins lapse every week. To open Google Calendar to everyone, publish the app. If Google counts either Calendar scope as sensitive, it must also verify the app before people can connect without a warning. This review is lighter than Gmail's: there is no CASA security assessment and no lab to pay.
+
+Start by checking the scopes:
+
+1. Go to **Google Auth platform** → **Data Access**.
+
+   You should see each Calendar scope under either the sensitive scopes or the non-sensitive scopes. If either is under the sensitive scopes, do everything below. If both are under the non-sensitive scopes, **Verification Center** may show that nothing more is needed once the app is published; if so, stop after step 6 of "Submit".
+
+Have these ready before you submit:
+
+- `handsfreeos.com` verified in Search Console, and Branding complete.
+- A public home page at `https://handsfreeos.com` that describes HandsFreeOS.
+- A privacy policy at `https://handsfreeos.com/privacy` that also covers calendar data. It must say that HandsFreeOS reads only when the person is busy (never event titles or details), keeps those times to stop bookings over them, and adds HandsFreeOS appointments to the person's own calendar. It must also say HandsFreeOS follows Google's Limited Use requirements: the data is used only for features people see in HandsFreeOS, and is never used for ads or sold.
+- A demo video in English, usually an unlisted YouTube link. It shows the whole sign-in from the **Google** button in **Settings** → **My calendar**, with the client ID visible in the browser's address bar, then a Google Calendar event showing as **Busy** in HandsFreeOS after **Sync now**, then a HandsFreeOS appointment appearing in Google Calendar. Record it while you do steps 6 to 14 of "Give the worker the values and check".
+- A short reason for each Calendar scope. For example: `calendar.freebusy` reads when a team member is busy, times only, so customers and teammates can't book them over it; `calendar.events.owned` adds, moves and removes that person's HandsFreeOS appointments in their own calendar, with no guests, and nothing else in the calendar is read or changed.
+
+Submit:
+
+1. Go to **Google Auth platform** → **Branding**.
+2. Click **Verify branding**.
+3. When it passes, click **Publish branding** within seven days.
+4. Go to **Google Auth platform** → **Audience**.
+5. Click **Publish app**.
+6. Confirm in the window that opens.
+
+   You should see **Publishing status** change to **In production**. That ends the seven-day sign-in lapse. If a Calendar scope is sensitive, then until Google approves, people see an unverified-app warning and at most 100 new users can connect in total.
+
+7. Open **Verification Center** (`https://console.cloud.google.com/auth/verification`), with `HandsFreeOS Calendar` selected in the project picker.
+8. Click **Prepare for verification**.
+9. Review the details and click **Save and Continue**.
+10. Enter the scope reasons and the video link.
+11. Click **Submit for verification**.
+
+    You should see an email from Google to the project's owners and editors about the submission.
+
+12. Wait for Google's approval email. Outlook calendars, and Google Calendar for your test users, keep working in the meantime.
+
+### Outlook calendars: add Calendars.ReadWrite
+
+Outlook calendars use the Entra app you registered for Outlook mailboxes. There is nothing new to create, only one permission to add.
+
+1. Open `https://entra.microsoft.com` and sign in with the work account.
+2. Go to **Entra ID** → **App registrations** → **HandsFreeOS**.
+3. Click **API permissions**.
+4. Click **Add a permission**.
+5. Click **Microsoft Graph**.
+6. Click **Delegated permissions**.
+7. Use the search box to find and tick `Calendars.ReadWrite` (under **Calendars**).
+8. Click **Add permissions**.
+
+   You should see six rows under **Configured permissions**, all of type **Delegated**: `User.Read`, `offline_access`, `Mail.Read`, `Mail.ReadWrite`, `Mail.Send` and `Calendars.ReadWrite`.
+
+The **Admin consent required** column says **No** for `Calendars.ReadWrite`, so don't click **Grant admin consent for** your tenant. As with mail, a business's own consent settings can still ask for an admin's approval, and the ways to give it are the same ("Business clients: admin approval" in "Connected mailboxes: Outlook and Gmail"). An admin who approved HandsFreeOS for their organization before you added this permission approved mail only, so employees there may need that approval again before they can connect a calendar.
+
+The worker asks for `offline_access`, `User.Read` and `Calendars.ReadWrite` (`apps/worker/src/calendar/graph.ts`), and refuses a connection without `Calendars.ReadWrite`. It reads busy times from `/me/calendarView`, which works for personal Outlook.com accounts as well as Microsoft 365 work accounts. The redirect URI and the worker's Microsoft values stay as they are, and connected Outlook mailboxes keep working.
+
+### Give the worker the values and check
+
+1. Start an import on the worker. It keeps the values out of your shell history.
+
+   ```bash
+   fly secrets import --app handsfreeos-worker
+   ```
+
+2. Paste these two lines, with the values from the "Google Calendar client" entry in place of the placeholders, then press Return and Control-D. Fly restarts the worker with them.
+
+   ```text
+   GOOGLE_CALENDAR_OAUTH_CLIENT_ID=<Google Calendar client ID>
+   GOOGLE_CALENDAR_OAUTH_CLIENT_SECRET=<Google Calendar client secret>
+   ```
+
+   You should see the command finish without an error.
+
+3. Clear the clipboard.
+
+   ```bash
+   pbcopy < /dev/null
+   ```
+
+4. List the worker's secrets.
+
+   ```bash
+   fly secrets list --app handsfreeos-worker
+   ```
+
+   You should see `GOOGLE_CALENDAR_OAUTH_CLIENT_ID` and `GOOGLE_CALENDAR_OAUTH_CLIENT_SECRET` in the `NAME` column, as well as `MICROSOFT_OAUTH_CLIENT_ID` and `MICROSOFT_OAUTH_CLIENT_SECRET`.
+
+5. Watch the worker's log.
+
+   ```bash
+   fly logs --app handsfreeos-worker
+   ```
+
+   You should see a `worker started` line with `"calendars":"real"`. Press Control-C to stop watching. That line only shows that the real calendar providers are on, which production always uses. The next steps check the values themselves.
+
+6. Sign in at `https://app.handsfreeos.com`, open a workspace, and open **Settings** → **My calendar**.
+
+   You should see "Not connected yet" with a **Google** and an **Outlook** button.
+
+7. Click **Google**.
+
+   You should see Google's sign-in page. If you see a HandsFreeOS page titled "Google Calendar isn’t set up yet", one of the two Google values is missing; click **Back to My calendar**.
+
+8. Sign in with an address you added as a test user. Google warns that it hasn't verified the app. As a test user, click **Continue**. If you see **Advanced** instead, click **Advanced**, then click the link that goes on to HandsFreeOS.
+9. On the consent screen, leave both calendar permissions ticked, then click **Continue**.
+
+   You should see **Settings** → **My calendar** again with "Connected. Your busy times are checked from now on, and appointments show there as events." and a row for the account with the badge **Connected**.
+
+10. In Google Calendar, add an event for tomorrow at 10:00, with any title.
+11. Back in **Settings** → **My calendar**, click **Sync now**.
+
+    You should see "Checking busy times now." and, a moment later, the line under the address say when busy times were checked.
+
+12. In the sidebar, click **Calendar** and go to tomorrow.
+
+    You should see a block marked **Busy** at 10:00, without the event's title.
+
+13. Click **New appointment** and book a test appointment for later this week, with yourself on it.
+
+    You should see it in Google Calendar within a minute, with no guests, and a description that ends "Added by HandsFreeOS. Changes made in this calendar aren’t copied back."
+
+14. Cancel the test appointment in HandsFreeOS.
+
+    You should see its event leave Google Calendar within a minute.
+
+15. To test Outlook, go back to **Settings** → **My calendar**, click the three dots next to the calendar, choose **Disconnect**, and confirm. Each person connects one calendar at a time.
+16. Click **Outlook** and sign in with a personal Outlook.com account. On the consent screen, click **Accept** (a personal account may show **Yes**).
+
+    You should see a row for the account with the badge **Connected**.
+
+17. Check the worker's log for problems.
+
+    ```bash
+    fly logs --app handsfreeos-worker --no-tail
+    ```
+
+    You should see no `a calendar did not connect`, `calendar refresh failed` or `calendar write-through failed` lines.
+
+To test a Microsoft 365 work account, repeat steps 15 and 16 with it. If Microsoft asks for an admin's approval, see "Outlook calendars: add Calendars.ReadWrite" above.
+
+### Online booking pages
+
+Customers book on pages the web app serves at `https://app.handsfreeos.com`. The open times and the bookings come from the worker, through `NEXT_PUBLIC_WORKER_URL`. There is nothing else to set up for them in Fly.io or Vercel.
+
+| Address                                              | What it is                                                                                                     |
+| ---------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| `https://app.handsfreeos.com/book/<site>`            | The business's booking site. It lists every calendar customers can book online.                                |
+| `https://app.handsfreeos.com/book/<site>/<calendar>` | One calendar's booking page.                                                                                   |
+| `https://app.handsfreeos.com/book/c/<calendar id>`   | Always works, and sends customers on to the calendar's current address. Use it where a link must never change. |
+| `https://app.handsfreeos.com/m/<code>`               | A customer's change-or-cancel link, sent with the booking's confirmation. Search engines never list it.        |
+
+Owners and admins set up a workspace's booking site:
+
+1. Open **Settings** → **Calendars**, then the **Booking site** tab.
+2. Check **Business name shown**.
+3. In **Link name**, enter the `<site>` part of the address: letters, numbers and dashes. Changing it later breaks links already shared.
+4. Leave **Taking bookings online** on. When it is off, the pages tell customers to call instead.
+5. Click **Set up booking site** (**Save** after the first time).
+
+   You should see the site's full address above the form, with a copy button.
+
+6. Open each calendar customers may book, and turn on **Customers can book it online**. A calendar with it off looks exactly like one that doesn't exist.
+
+Each visitor's internet address may load the pages 60 times a minute, make 5 bookings or waitlist requests in 10 minutes, and open a change-or-cancel link 30 times and change it 10 times a minute. Past that, the page says "That’s a lot of tries from here. Wait a minute and try again." The pages also have a hidden field that only bots fill in, and accept only US and Canadian phone numbers. A calendar's page is kept for up to 30 seconds, so a change to its settings can take that long to show.
+
+Texts about appointments go out from the workspace's business number. When a client fills in **Business details for the carriers** ("What a client fills in" in "The phone carrier: Twilio"), check that **What you text about** is **Appointments, estimates and customer care**, and that **How customers agree to get texts** and the example texts cover appointment confirmations and reminders. The opt-in description should name the booking page's **Text me about this appointment** checkbox, which starts unticked.
+
+### Protect the booking page with Turnstile (optional)
+
+Cloudflare Turnstile checks that a booking comes from a person, usually without asking the person to do anything. It is free. Without it, the booking page relies on the limits in "Online booking pages". It has two keys:
+
+- The site key is public. It goes on Vercel as `NEXT_PUBLIC_TURNSTILE_SITE_KEY`.
+- The secret key goes on the worker as `TURNSTILE_SECRET_KEY`, and nowhere else. The API refuses to start with any name that starts with `TURNSTILE_`.
+
+The worker decides whether the page shows the check, and the page needs the site key to show it. So set the site key on Vercel first. With the secret on the worker and no site key in the web build, every online booking fails with "Please confirm you’re a person, then try again."
+
+Cloudflare renames its dashboard menus from time to time. If a label below has moved, search the dashboard for "Turnstile".
+
+1. Sign in at `https://dash.cloudflare.com` and open the account that holds `handsfreeos.com`.
+2. Open **Turnstile** from the sidebar.
+3. Click **Add widget**. If the wording differs, look for the button that adds a new widget.
+4. Name it `HandsFreeOS booking`.
+5. Add the hostname `app.handsfreeos.com`.
+6. For the widget mode, choose **Managed**, the mode Cloudflare recommends. If it asks about pre-clearance, choose no.
+7. Create the widget.
+
+   You should see its site key and secret key.
+
+8. Save both in a new password manager entry named "Cloudflare Turnstile".
+9. In Vercel, add `NEXT_PUBLIC_TURNSTILE_SITE_KEY` with the site key as its value, with the steps in "Environment variables" in "The web app on Vercel".
+10. Redeploy with "Redeploy after a change" in "The web app on Vercel".
+
+    You should see the deployment finish as **Ready**. The booking page looks the same until the worker has the secret.
+
+11. Start an import on the worker.
+
+    ```bash
+    fly secrets import --app handsfreeos-worker
+    ```
+
+12. Paste `TURNSTILE_SECRET_KEY=<Turnstile secret key>`, then press Return and Control-D. Fly restarts the worker.
+13. Clear the clipboard.
+
+    ```bash
+    pbcopy < /dev/null
+    ```
+
+14. Open a calendar's booking page, `https://app.handsfreeos.com/book/<site>/<calendar>`, and pick a time.
+
+    You should see Cloudflare's check above the **Book** button. The button stays greyed out until the check passes.
+
+15. Book a test appointment with your own details, then cancel it with the change-or-cancel link.
+
+    You should see the booking confirmed, then cancelled.
+
+In production the worker refuses to start with Cloudflare's always-pass test secret (`TURNSTILE_SECRET_KEY is Cloudflare’s test secret; use the real one`). If Cloudflare can't be reached, bookings are refused with "We couldn’t check this booking just now. Try again in a minute, or give us a call."
+
+To replace the secret key, make a new one in the widget's settings on Cloudflare's Turnstile page (look for the option that rotates the secret key). Save it in the "Cloudflare Turnstile" entry, then give it to the worker at once with steps 11 to 13. The site key stays the same.
+
+To turn Turnstile off, remove the worker's secret first. Then, if you like, delete the Vercel setting and redeploy.
+
+```bash
+fly secrets unset --app handsfreeos-worker TURNSTILE_SECRET_KEY
+```
+
+### Rotating the Google Calendar client secret
+
+A Google client can hold two secrets at once, so you can rotate whenever you like. Check that the project picker shows `HandsFreeOS Calendar` before you start.
+
+1. Go to **Google Auth platform** → **Clients**.
+2. Open **HandsFreeOS calendar worker**.
+3. Click **Add Secret**.
+4. Copy the new secret into the "Google Calendar client" entry in your password manager. Never commit it.
+5. Start an import on the worker.
+
+   ```bash
+   fly secrets import --app handsfreeos-worker
+   ```
+
+6. Paste `GOOGLE_CALENDAR_OAUTH_CLIENT_SECRET=<new Google Calendar client secret>`, then press Return and Control-D.
+7. Clear the clipboard.
+
+   ```bash
+   pbcopy < /dev/null
+   ```
+
+8. Wait two hours, so every Google calendar renews its sign-in with the new secret.
+9. Open the worker's log.
+
+   ```bash
+   fly logs --app handsfreeos-worker --no-tail
+   ```
+
+   You should see no `calendar refresh failed` line that mentions `invalid_client`.
+
+10. Open **Settings** → **My calendar** as someone whose Google calendar is connected.
+
+    You should see the calendar still **Connected**, with busy times checked in the last few minutes.
+
+11. Next to the old secret, click **Disable**.
+12. After a day with no problems, delete the disabled secret.
+
+Outlook calendars use the Microsoft client secret. When you rotate it ("Rotating the client secrets" in "Connected mailboxes: Outlook and Gmail"), also check that an Outlook calendar stays **Connected**. If that secret expires, Outlook calendars stop reading busy times along with the mailboxes.
+
+### When a calendar needs reconnecting
+
+A connected calendar loses access when, for example:
+
+- the person changes or resets their password,
+- the person, or their admin, removes HandsFreeOS from their Google or Microsoft account,
+- Google's seven-day limit runs out (Google Calendar, while the app is in Testing).
+
+What HandsFreeOS does:
+
+- The worker notices the next time it renews the sign-in, or when Google or Microsoft turns a request down. Expect it within about an hour and a half.
+- The badge in **Settings** → **My calendar** changes to **Needs reconnecting**, with a line that says Google Calendar or Outlook stopped letting HandsFreeOS in, and that until the person reconnects they can be booked over busy times. HandsFreeOS's **Calendar** shows the same warning. The worker stops reading that calendar and stops adding events to it.
+- The person gets one email from the worker's `MAIL_FROM` address, titled "Reconnect your calendar". It says HandsFreeOS lost access on that date, and that until they reconnect, their busy times there don't block bookings and new appointments aren't added. It has a **Reconnect your calendar** button that opens **Settings** → **My calendar**, and ends with "Nothing was lost. Your appointments are all still in HandsFreeOS." It is sent once per lapse, and only to that person.
+
+To fix it, the person opens **Settings** → **My calendar**, clicks **Reconnect**, and signs in with the same account. Owners and admins see the badge on that person's page, but only the person can reconnect. The first check after reconnecting reads busy times again and adds any appointments made in the gap.
+
+Other problems look different:
+
+- **Not syncing.** Network errors, Google or Microsoft outages and throttling are retried, waiting longer each time (up to an hour). After five failed checks in a row, the badge shows **Not syncing** with the last error and "We keep trying." Nobody is emailed. **Sync now** tries again at once, and the badge goes back to **Connected** after the next good check.
+- **An expired or wrong client secret.** Google or Microsoft answers `invalid_client`. HandsFreeOS treats that as a server problem, not a lost sign-in. After five failed checks, every calendar of that provider shows **Not syncing** with "Google Calendar refused the sign-in (invalid_client)." or "Microsoft refused the sign-in (invalid_client)." **Reconnect** doesn't help. Setting a new secret on the worker fixes it, and the calendars recover on their next check.
+- **A lost `WORKER_ENCRYPTION_KEY`.** The stored sign-ins are sealed with it, so without it every calendar must be reconnected.
+
+What the badges mean:
+
+| Badge                  | Meaning                                                                               |
+| ---------------------- | ------------------------------------------------------------------------------------- |
+| **Connected**          | Checking normally. The line under the address says when busy times were last checked. |
+| **Needs reconnecting** | Google or Microsoft stopped accepting the sign-in. The person clicks **Reconnect**.   |
+| **Not syncing**        | Five checks in a row failed. The line under the address shows the last error.         |
+
+If connecting fails:
+
+| What you see                                                                                       | Why                                                                | What to do                                                                                                                                                                         |
+| -------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| A HandsFreeOS page "Google Calendar isn’t set up yet" or "Outlook isn’t set up yet"                | The worker is missing that provider's client ID or secret          | Set the Google Calendar values ("Give the worker the values and check") or the Microsoft ones ("Give the worker the Microsoft values" in "Connected mailboxes: Outlook and Gmail") |
+| A HandsFreeOS page "This sign-in link has expired"                                                 | More than ten minutes passed, or the link was used before          | Go back to **Settings** → **My calendar** and connect again                                                                                                                        |
+| Google error `redirect_uri_mismatch`                                                               | The redirect URI on the Google Calendar client doesn't match       | Set it to `https://hooks.handsfreeos.com/oauth/google/callback`                                                                                                                    |
+| Google blocks the sign-in                                                                          | The app is in Testing and the account isn't a test user            | Add the address under **Audience** → **Test users** in the `HandsFreeOS Calendar` project                                                                                          |
+| "Some permissions were left unticked, so it didn’t connect. Try again and allow everything asked." | A permission was unticked on the consent screen                    | Connect again and leave every box ticked                                                                                                                                           |
+| "Sign-in cancelled. Nothing was connected."                                                        | The person cancelled or declined, or an admin's approval is needed | Connect again if they want to; for business Outlook accounts, see "Business clients: admin approval" in "Connected mailboxes: Outlook and Gmail"                                   |
+| "That calendar didn’t connect. Try again in a minute."                                             | The worker couldn't finish the sign-in                             | Check `fly logs --app handsfreeos-worker` for `a calendar did not connect` and the reason after it                                                                                 |
+
+**Disconnect**, in the menu behind the three dots next to a calendar, forgets the sign-in and stops the busy times blocking bookings at once. Events HandsFreeOS already added stay in the calendar. Owners and admins can disconnect anyone's calendar. People can also remove HandsFreeOS from their account's app permissions (for Google, `https://myaccount.google.com/permissions`).
+
 ## Local development
 
 This section runs all of HandsFreeOS on your Mac: the web app, the API, the worker, and a private copy of Supabase in Docker. It never touches the hosted Supabase project. By default nothing reaches Twilio, Postmark, Microsoft or Google either. The worker uses stand-ins for all of them, so nothing costs money and no phone is needed. The last part of this section explains how to swap one stand-in for the real provider when you need to.
@@ -5466,6 +5950,45 @@ Good to know:
 - The browser tests never call Anthropic. Their worker uses a scripted stand-in and an empty key, and the empty key wins over the one in `apps/worker/.env`.
 - After 30 days the key expires. Questions then end with "Something went wrong", and the `pnpm dev` window shows `assistant run failed` with `authentication_error`. Make a new local key and replace the line.
 
+### Trying the calendar locally
+
+While neither `MICROSOFT_OAUTH_CLIENT_ID` nor `GOOGLE_CALENDAR_OAUTH_CLIENT_ID` is set in `apps/worker/.env`, calendars use a stand-in and nothing reaches Google or Microsoft. The `worker started` line then shows `calendars: "fake"`.
+
+1. Sign in with a seeded account, open a workspace, and open **Settings** → **My calendar**.
+2. Click **Google** (or **Outlook**).
+
+   You should see a page on the worker titled "Sign in to Google Calendar" that reads "A stand-in for Google’s sign-in on this development server. No real calendar is touched." No Google account is needed.
+
+3. Leave **Email address** as `owner@gmail.fake` or type another address, then click **Allow**. (**Cancel** shows what happens when someone backs out.)
+
+   You should land back on **Settings** → **My calendar** with the badge **Connected**.
+
+How the stand-in behaves:
+
+- Each stand-in calendar's busy times and events live in the worker's memory, and a worker restart empties them. Busy times are read every 10 minutes (`CALENDAR_REFRESH_MS`), or at once with **Sync now**.
+- The worker has two test-only addresses for the stand-in. They need no login, and they exist only while the stand-in is on. To add a busy time, post it. Set `account` to the address you used on the stand-in page, and change the two times to a day in the next 60 days (they are in UTC, which is what the `Z` means).
+
+  ```bash
+  curl -H 'content-type: application/json' \
+    -d '{"account":"owner@gmail.fake","start":"2026-10-06T15:00:00Z","end":"2026-10-06T16:00:00Z"}' \
+    http://127.0.0.1:4100/test/calendars/busy
+  ```
+
+  You should see `{"ok":true}`. Click **Sync now**, and the time shows as **Busy** in the **Calendar**.
+
+- To see what HandsFreeOS wrote into a stand-in calendar:
+
+  ```bash
+  curl 'http://127.0.0.1:4100/test/calendars/events?account=owner@gmail.fake'
+  ```
+
+  You should see `{"events":[...]}`, one entry for each appointment that person is on, each with `"attendees":[]`.
+
+- The booking page works locally too. Owners and admins set up the booking site in **Settings** → **Calendars** → **Booking site**, and turn on **Customers can book it online** for a calendar. Then open `http://localhost:3000/book/<site>/<calendar>`, where `<site>` is the booking site's **Link name** and `<calendar>` is the calendar's link name. The seed makes neither. Locally each address may book ten times as often as in production, because every test comes from one address.
+- There is no Turnstile check locally. To see it, add Cloudflare's always-pass test secret, `TURNSTILE_SECRET_KEY=1x0000000000000000000000000000000AA`, to `apps/worker/.env` and restart `pnpm dev`. The worker hands the page the matching test site key, so the web app needs nothing.
+- Setting `MICROSOFT_OAUTH_CLIENT_ID` (as in "Outlook" under "Trying a real provider from your laptop") switches calendars to the real providers too. The **Google** button then opens "Google Calendar isn’t set up yet" unless the Google Calendar values are set as well. To keep the calendar stand-in while you try real Outlook mail, also add `CALENDAR_PROVIDER=fake` to `apps/worker/.env`. `pnpm env:local` removes that line, and the Turnstile one, when it rewrites the file.
+- A running tunnel exposes the two test addresses above, like `/test/mailboxes/deliver`.
+
 ### Running the tests
 
 Both kinds of tests need the local stack running and `pnpm env:local` done.
@@ -5569,7 +6092,7 @@ The stand-ins cover almost everything. Switch one to the real provider only to c
 #### Rules for real keys on a laptop
 
 - **Provider keys go only in `apps/worker/.env`.** Git ignores that file. Never commit it, and never put keys in any other file in the repository.
-- **Never `export` a provider key in your shell.** The API checks every variable it can see and refuses to start with `The API process must never hold privileged keys. Remove: <names>`. That covers any name containing `SECRET`, `SERVICE_ROLE`, `SIGNING_KEY` or `ENCRYPTION_KEY`, and any name starting with `TWILIO_`, `POSTMARK_`, `MICROSOFT_OAUTH_`, `GOOGLE_OAUTH_`, `ANTHROPIC_` or `OPENAI_`.
+- **Never `export` a provider key in your shell.** The API checks every variable it can see and refuses to start with `The API process must never hold privileged keys. Remove: <names>`. That covers any name containing `SECRET`, `SERVICE_ROLE`, `SIGNING_KEY`, `ENCRYPTION_KEY` or `_OAUTH_`, and any name starting with `TWILIO_`, `POSTMARK_`, `TURNSTILE_`, `ANTHROPIC_` or `OPENAI_`.
 - **`pnpm env:local` erases your edits.** It rewrites `apps/worker/.env` and `apps/web/.env.local`, keeping only the worker's encryption key and the Assistant's lines. Keep any other lines you add in a secure note in your password manager, and paste them back after each run.
 - **Restart after every edit.** Stop `pnpm dev` with Control-C, start it again, and read the `worker started` line to confirm which providers are live.
 - **Only the worker's public address changes.** `NEXT_PUBLIC_WORKER_URL` in `apps/web/.env.local` stays `http://127.0.0.1:4100`, because your browser still reaches the worker directly.
@@ -6190,7 +6713,7 @@ Never run these against the hosted project. They are for the local stack only:
 - `pnpm test:e2e` (the Playwright suite; it drives the fake carrier, Mailpit and stand-in mailboxes).
 - `pnpm env:local`, `pnpm db:reset` and `supabase config push` (see "Push with the Supabase CLI" in "The database: Supabase (hosted)").
 
-Vercel only holds `NEXT_PUBLIC_` values. Every one of them ends up in the browser, so a secret must never go there. GitHub's CI checks its own build of the web app for secret key formats and secret names. It never sees the values you type into Vercel, so nothing catches a secret pasted there. Before you save a Vercel variable, check that it is one of the seven in "Environment variables" in "The web app on Vercel".
+Vercel only holds `NEXT_PUBLIC_` values. Every one of them ends up in the browser, so a secret must never go there. GitHub's CI checks its own build of the web app for secret key formats and secret names. It never sees the values you type into Vercel, so nothing catches a secret pasted there. Before you save a Vercel variable, check that it is one of the names in "Environment variables" in "The web app on Vercel".
 
 ### The go-live checklist
 
@@ -6311,6 +6834,8 @@ Several checks from here on sign in to the web app, so your first account comes 
 
 6. Do the checks in "Before you start" in "Connected mailboxes: Outlook and Gmail". Before Postmark approves the account, its invitation check only reaches an address on `handsfreeos.com`. If you have no mailbox there, do that one check after approval.
 7. Give the worker the Microsoft client ID and secret ("Give the worker the Microsoft values") and the Google client ID and secret ("Give the worker the Google values"), both in "Connected mailboxes: Outlook and Gmail". The worker starts without them, but Connect Outlook needs the Microsoft pair. The Google pair does not turn on Connect Gmail; only the web build flag does that.
+8. Set up the calendar with "The calendar: Google, Outlook and online booking": the Google Calendar project, `Calendars.ReadWrite` on the Microsoft app, and the worker's Google Calendar values. Then connect your own calendar in **Settings** → **My calendar**, and record the demo video for Google's review as you do. Outlook calendars work at once; Google Calendar stays limited to your test users until Google approves it.
+9. Before any workspace turns on its booking site, decide whether you want Turnstile. If you do, set it up with "Protect the booking page with Turnstile (optional)" in the same section.
 
 #### Stage 7: sign-in email and Sign in with Google
 
@@ -6470,13 +6995,13 @@ Each entry gives the symptom, the likely cause and the fix. Start with `fly logs
 
 **Symptom.** The deploy fails on the API step, `https://api.handsfreeos.com/healthz` does not answer, and `fly logs --app handsfreeos-api` shows one of the errors below. The machine keeps restarting and fails its health check.
 
-| Error in the log                                                   | What to do                                                                                                                                                                                                                                                                                                                                                              |
-| ------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `The API process must never hold privileged keys. Remove: <names>` | The API app holds a secret whose name matches its guard: any name containing `SECRET`, `SERVICE_ROLE`, `SIGNING_KEY` or `ENCRYPTION_KEY`, or starting with `TWILIO_`, `POSTMARK_`, `MICROSOFT_OAUTH_`, `GOOGLE_OAUTH_`, `ANTHROPIC_` or `OPENAI_` (upper or lower case). Usually a worker secret was set with `--app handsfreeos-api` by mistake. Follow the fix below. |
-| `Invalid PORT: <value>`                                            | A `PORT` secret overrides the `4000` set in `apps/api/fly.toml`, or the value there was changed. Remove the secret (command below), or restore `PORT = "4000"` under `[env]` in `apps/api/fly.toml`.                                                                                                                                                                    |
-| `DATABASE_URL must be a postgres:// URL for the hfos_api role`     | Set `DATABASE_URL` on the API.                                                                                                                                                                                                                                                                                                                                          |
-| `DATABASE_URL must not connect as the postgres role`               | Use the user `hfos_api.ybupfghakoszfcxhyrby` in the string. The postgres check does not catch every form of the postgres user, so always use `hfos_api.ybupfghakoszfcxhyrby`.                                                                                                                                                                                           |
-| `SUPABASE_URL must be set to the Supabase API URL`                 | Restore `SUPABASE_URL` under `[env]` in `apps/api/fly.toml`.                                                                                                                                                                                                                                                                                                            |
+| Error in the log                                                   | What to do                                                                                                                                                                                                                                                                                                                                                  |
+| ------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `The API process must never hold privileged keys. Remove: <names>` | The API app holds a secret whose name matches its guard: any name containing `SECRET`, `SERVICE_ROLE`, `SIGNING_KEY`, `ENCRYPTION_KEY` or `_OAUTH_`, or starting with `TWILIO_`, `POSTMARK_`, `TURNSTILE_`, `ANTHROPIC_` or `OPENAI_` (upper or lower case). Usually a worker secret was set with `--app handsfreeos-api` by mistake. Follow the fix below. |
+| `Invalid PORT: <value>`                                            | A `PORT` secret overrides the `4000` set in `apps/api/fly.toml`, or the value there was changed. Remove the secret (command below), or restore `PORT = "4000"` under `[env]` in `apps/api/fly.toml`.                                                                                                                                                        |
+| `DATABASE_URL must be a postgres:// URL for the hfos_api role`     | Set `DATABASE_URL` on the API.                                                                                                                                                                                                                                                                                                                              |
+| `DATABASE_URL must not connect as the postgres role`               | Use the user `hfos_api.ybupfghakoszfcxhyrby` in the string. The postgres check does not catch every form of the postgres user, so always use `hfos_api.ybupfghakoszfcxhyrby`.                                                                                                                                                                               |
+| `SUPABASE_URL must be set to the Supabase API URL`                 | Restore `SUPABASE_URL` under `[env]` in `apps/api/fly.toml`.                                                                                                                                                                                                                                                                                                |
 
 **Fix for the privileged-keys error.**
 
@@ -6536,10 +7061,14 @@ A wrong password or user inside `DATABASE_URL` does not stop the API. It starts 
 | `POSTMARK_WEBHOOK_PASSWORD must be a long random value (24+ characters)`                      | Set a password of 24 or more characters. `openssl rand -hex 24` makes 48. The worker needs it on Fly.io even before Postmark's webhooks are set up.                                                                                                           |
 | `MAILBOX_PROVIDER must be real or fake`                                                       | Remove any `MAILBOX_PROVIDER` secret.                                                                                                                                                                                                                         |
 | `MAILBOX_PROVIDER=fake is for development and tests only`                                     | Same fix.                                                                                                                                                                                                                                                     |
+| `CALENDAR_PROVIDER must be real or fake`                                                      | Remove any `CALENDAR_PROVIDER` secret.                                                                                                                                                                                                                        |
+| `CALENDAR_PROVIDER=fake is for development and tests only`                                    | Same fix.                                                                                                                                                                                                                                                     |
+| `CALENDAR_REFRESH_MS must be a whole number of milliseconds, 1000 or more`                    | Set digits only, with no commas (for example `600000`), or remove the secret to use the default of 10 minutes.                                                                                                                                                |
 | `ASSISTANT_PROVIDER must be anthropic, scripted or none`                                      | A value is misspelled. Remove any `ASSISTANT_PROVIDER` secret: the worker picks `anthropic` itself when `ANTHROPIC_API_KEY` is set.                                                                                                                           |
 | `ASSISTANT_PROVIDER=scripted is for development and tests only`                               | Same fix.                                                                                                                                                                                                                                                     |
 | `ANTHROPIC_API_KEY is required with ASSISTANT_PROVIDER=anthropic`                             | Set `ANTHROPIC_API_KEY` ("Give the worker the key" in "The Assistant: Anthropic"), or remove the `ASSISTANT_PROVIDER` secret.                                                                                                                                 |
 | `ASSISTANT_DAILY_TOKENS must be a whole number above zero`                                    | Set digits only, with no commas or spaces (for example `2000000`), or remove the secret to use the default.                                                                                                                                                   |
+| `TURNSTILE_SECRET_KEY is Cloudflare’s test secret; use the real one`                          | Replace it with the widget's real secret key ("Protect the booking page with Turnstile (optional)" in "The calendar: Google, Outlook and online booking"), or remove the secret.                                                                              |
 | `WORKER_ENCRYPTION_KEY must be 32 random bytes, base64 encoded (openssl rand -base64 32)`     | Checked after all the others. The key was cut or changed when pasted. Paste the saved key again exactly. The same check runs on every key in `WORKER_ENCRYPTION_KEYS_PREVIOUS`.                                                                               |
 
 Two more errors come from Supabase's connection pooler, not from the worker, and they only show after every check above passes. `password authentication failed for user` means the password in `DATABASE_URL_WORKER` is wrong: copy the `DATABASE_URL_WORKER` value from `.env.hosted` again (right after a password change, wait 30 seconds first). `Tenant or user not found` means the user is not `hfos_worker.ybupfghakoszfcxhyrby`, or the pooler host is wrong; a bare `hfos_worker` fails.
@@ -6580,7 +7109,7 @@ Two more errors come from Supabase's connection pooler, not from the worker, and
 
    You should see `worker started`.
 
-Some gaps do not stop the worker but break features later: a missing or wrong `SUPABASE_SECRET_KEY` (photos, voicemails, attachments, imports), missing Microsoft client values (Connect Outlook), a missing `TWILIO_PRIMARY_PROFILE_SID` (local-number registrations), and a missing or wrong `ANTHROPIC_API_KEY` (the Assistant). Each has its own entry below or in its section. The worker also starts with Postmark tokens that are set but wrong; customer email then fails, and so does adding a business's own domain. "Check the Postmark tokens and the Supabase key" in Fly Part 6 catches a wrong key or token before it goes live.
+Some gaps do not stop the worker but break features later: a missing or wrong `SUPABASE_SECRET_KEY` (photos, voicemails, attachments, imports), missing Microsoft client values (Connect Outlook, for mailboxes and calendars), missing Google Calendar values (the **Google** button in **Settings** → **My calendar**), a missing `TWILIO_PRIMARY_PROFILE_SID` (local-number registrations), and a missing or wrong `ANTHROPIC_API_KEY` (the Assistant). Each has its own entry below or in its section. The worker also starts with Postmark tokens that are set but wrong; customer email then fails, and so does adding a business's own domain. "Check the Postmark tokens and the Supabase key" in Fly Part 6 catches a wrong key or token before it goes live.
 
 #### The Deploy workflow did nothing
 
