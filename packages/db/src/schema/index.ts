@@ -1519,6 +1519,8 @@ export const waitlistEntries = app.table('waitlist_entries', {
   publicRef: text('public_ref')
     .notNull()
     .default(sql`private.new_public_ref()`),
+  /** What the worker offered: the freed time, its length, service and kind of place (0019). */
+  offer: jsonb('offer').$type<Json>(),
 });
 
 /** Write-through state for an appointment in one person's own calendar (the worker's). */

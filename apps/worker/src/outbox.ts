@@ -1,7 +1,7 @@
 import { eq } from 'drizzle-orm';
 import { asWorker, rows, sql } from '@hfos/db/client';
 import { events, outbox } from '@hfos/db/schema';
-import type { HandlerMap } from './handlers/types';
+import { handlersFor, type HandlerMap } from './handlers/types';
 import type { WorkerServices } from './services';
 
 export interface OutboxDeps extends WorkerServices {
@@ -63,9 +63,9 @@ export async function processOnce(deps: OutboxDeps): Promise<OutboxStats> {
   stats.claimed = claimed.length;
 
   for (const row of claimed) {
-    const handler = deps.handlers[row.event_type];
+    const list = handlersFor(deps.handlers, row.event_type);
     try {
-      if (!handler) {
+      if (list.length === 0) {
         await asWorker(deps.db, {}, (tx) =>
           tx
             .update(outbox)
@@ -79,7 +79,7 @@ export async function processOnce(deps: OutboxDeps): Promise<OutboxStats> {
       await asWorker(deps.db, scope, async (tx) => {
         const [event] = await tx.select().from(events).where(eq(events.id, row.event_id));
         if (!event) throw new Error(`event ${row.event_id} not visible in its own scope`);
-        await handler({
+        const ctx = {
           ...deps,
           tx,
           event,
@@ -87,7 +87,9 @@ export async function processOnce(deps: OutboxDeps): Promise<OutboxStats> {
           attempt: row.attempts + 1,
           maxAttempts: MAX_ATTEMPTS,
           log: deps.log.child({ eventId: event.id, eventType: event.eventType }),
-        });
+        };
+        // In order, in this one transaction; a retry runs every one of them again.
+        for (const handler of list) await handler(ctx);
         await tx
           .update(outbox)
           .set({ status: 'done', lockedAt: null, lockedBy: null, lastError: null })

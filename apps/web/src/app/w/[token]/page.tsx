@@ -1,28 +1,19 @@
-import { Clock } from 'lucide-react';
 import type { Metadata } from 'next';
-import { PublicFrame, PublicState } from '@/components/booking/public-shell';
+import { WaitlistOffer } from '@/components/booking/waitlist-offer';
 
+/** The link carries the offer's key: never indexed, never sent on as a referrer. */
 export const metadata: Metadata = {
-  title: { absolute: 'A spot opened up' },
+  title: { absolute: 'A time opened up' },
   robots: { index: false, follow: false },
   referrer: 'no-referrer',
 };
 
-/**
- * A waitlist offer's link (/w/<token>). Claiming the offer online arrives with the reminders and
- * waitlist-offer step; until then this page says so.
- */
-export default function WaitlistOfferPage() {
-  return (
-    <PublicFrame business={null}>
-      <PublicState
-        tone="accent"
-        icon={<Clock size={20} />}
-        title="Claiming a spot online is coming soon"
-      >
-        This page will let you claim a time that opened up. For now, call the business and they’ll
-        book you in.
-      </PublicState>
-    </PublicFrame>
-  );
+/** A waitlist offer's link (/w/<token>): the time held for this customer, and booking it. */
+export default async function WaitlistOfferPage({
+  params,
+}: {
+  params: Promise<{ token: string }>;
+}) {
+  const { token } = await params;
+  return <WaitlistOffer token={token} />;
 }

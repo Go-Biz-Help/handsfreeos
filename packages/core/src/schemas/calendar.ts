@@ -575,6 +575,11 @@ export const AppointmentCreateInput = z.object({
   /** Book anyway despite buffers, hours, busy times, time off or a time in the past. */
   acknowledgeWarnings: z.boolean().default(false),
   clientId: clientId.optional(),
+  /**
+   * Tell the customer: a confirmation by text or email ("Tell Mike"). Reminders follow the calendar's
+   * settings either way.
+   */
+  notify: z.boolean().default(true),
 });
 export const AppointmentCreateOutput = z.object({
   appointmentId: uuid,
@@ -648,6 +653,8 @@ export const AppointmentAddAttendeeInput = z.object({
   appointmentId: uuid,
   personId: uuid,
   seats: z.int().min(1).max(100).default(1),
+  /** Tell them: a confirmation by text or email. */
+  notify: z.boolean().default(true),
 });
 export const AppointmentAddAttendeeOutput = z.object({
   appointmentId: uuid,
@@ -749,6 +756,31 @@ export const WaitlistRemoveOutput = z.object({ entryId: uuid });
 
 // ---- Reading appointments ----
 
+/** A booking's confirmation or one of its reminders, as the worker recorded it (reminder_state). */
+export const ReminderEntry = z.object({
+  status: z.enum(['scheduled', 'sent', 'skipped']),
+  channel: z.enum(['sms', 'email']).nullable(),
+  /**
+   * Why it was skipped, went by email instead of text, or waits: booked_late, quiet_hours, cancelled,
+   * started, reminders_off, opted_out, no_consent, no_phone, texting_not_ready, no_contact.
+   */
+  reason: z.string().nullable(),
+  /** The start it was for: after a reschedule, an entry for the old start no longer applies. */
+  startsAt: isoDateTime,
+  /** When a scheduled one goes. */
+  dueAt: isoDateTime.nullable(),
+  /** When this was recorded. */
+  at: isoDateTime,
+  messageId: uuid.nullable(),
+});
+export type ReminderEntry = z.infer<typeof ReminderEntry>;
+export const ReminderState = z.object({
+  confirmation: ReminderEntry.nullable(),
+  /** By reminder: 'day_before', or 'before_<minutes>' (the calendar's notification settings). */
+  reminders: z.record(z.string(), ReminderEntry),
+});
+export type ReminderState = z.infer<typeof ReminderState>;
+
 export const AppointmentAttendeeOut = z.object({
   id: uuid,
   personId: uuid,
@@ -811,6 +843,8 @@ export const AppointmentGetOutput = z.object({
         source: AppointmentSourceValue,
         rescheduleCount: z.int(),
         cancelledAt: isoDateTime.nullable(),
+        /** The confirmation and each reminder: scheduled, sent (by text or email) or skipped, and why. */
+        reminders: ReminderState,
       }),
     ),
     series: z.object({ id: uuid, rule: z.record(z.string(), z.unknown()) }).nullable(),

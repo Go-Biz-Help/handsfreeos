@@ -16,4 +16,16 @@ export interface HandlerContext extends WorkerServices {
 }
 
 export type EventHandler = (ctx: HandlerContext) => Promise<void>;
-export type HandlerMap = Readonly<Record<string, EventHandler>>;
+
+/**
+ * Event type → its handler, or several that run in order in the one transaction. A retry runs them all again,
+ * so every handler must be safe to repeat: fixed clientIds for messages, state re-read, markers for emails.
+ */
+export type HandlerMap = Readonly<Record<string, EventHandler | readonly EventHandler[]>>;
+
+/** An event type's handlers in order (none when it has none). */
+export function handlersFor(map: HandlerMap, eventType: string): readonly EventHandler[] {
+  const found = map[eventType];
+  if (!found) return [];
+  return typeof found === 'function' ? [found] : found;
+}

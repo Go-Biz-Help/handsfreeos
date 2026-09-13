@@ -646,7 +646,13 @@ describe('texting', () => {
       .where(eq(scheduledJobs.dedupeKey, `unanswered:${mikeConversationId}`))
       .orderBy(desc(scheduledJobs.createdAt))
       .limit(1);
-    await unansweredCheck({ ...s, job: job!, scope: { workspaceId, organizationId }, attempt: 1 });
+    await unansweredCheck({
+      ...s,
+      job: job!,
+      scope: { workspaceId, organizationId },
+      attempt: 1,
+      now: Date.now(),
+    });
     expect(await alerted()).toHaveLength(1);
     expect((await mailTo(owner.email)).filter((m) => m.Subject === subject)).toHaveLength(1);
     expect((await mailTo(member.email)).filter((m) => m.Subject === subject)).toHaveLength(0);

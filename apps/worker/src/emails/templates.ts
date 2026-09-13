@@ -187,6 +187,56 @@ export function mailboxReconnectEmail(input: {
   return { subject, text, html };
 }
 
+const detailRow = (label: string, value: string) =>
+  `<tr><td style="padding: 6px 0; color: #676c75; width: 52px; vertical-align: top; border-top: 1px solid #e4e8ee;">${escapeHtml(label)}</td><td style="padding: 6px 0; border-top: 1px solid #e4e8ee;">${escapeHtml(value)}</td></tr>`;
+
+/** A customer booked or cancelled online: one email to each person on the appointment. */
+export function teamBookingEmail(input: {
+  about: 'booked' | 'cancelled';
+  customer: string;
+  /** "booked an AC tune-up with you online", "cancelled their AC tune-up online". */
+  sentence: string;
+  title: string;
+  /** "Fri 1:00 PM" */
+  whenShort: string;
+  /** "Fri, Sep 18, 1:00–2:00 PM Central Time" */
+  when: string;
+  where: string | null;
+  /** "(713) 555-0188 · texts OK" */
+  phone: string | null;
+  email: string | null;
+  reason: string | null;
+  link: string;
+}): EmailContent {
+  const subject = `${input.about === 'booked' ? 'New booking' : 'Cancelled'}: ${input.customer}, ${input.title}, ${input.whenShort}`;
+  const rows: [string, string | null][] = [
+    ['When', input.when],
+    ['Where', input.where],
+    ['Phone', input.phone],
+    ['Email', input.phone ? null : input.email],
+    ['Why', input.reason],
+  ];
+  const shown = rows.filter((r): r is [string, string] => !!r[1]);
+  const off = 'Turn these off in Settings, then Account.';
+  const text = [
+    `${input.customer} ${input.sentence}.`,
+    '',
+    ...shown.map(([k, v]) => `${k}: ${v}`),
+    '',
+    `Open in HandsFreeOS: ${input.link}`,
+    '',
+    off,
+  ].join('\n');
+  const html = shell(
+    wordmark +
+      `<p style="font-size: 15px; line-height: 1.5; margin: 0 0 12px;"><strong>${escapeHtml(input.customer)}</strong> ${escapeHtml(input.sentence)}.</p>` +
+      `<table style="width: 100%; border-collapse: collapse; font-size: 13px; margin: 0 0 14px;">${shown.map(([k, v]) => detailRow(k, v)).join('')}</table>` +
+      button(input.link, 'Open in HandsFreeOS') +
+      small(off),
+  );
+  return { subject, text, html };
+}
+
 /** A connected calendar lost access: one email to the person whose calendar it is. */
 export function calendarReconnectEmail(input: {
   provider: 'microsoft' | 'google';

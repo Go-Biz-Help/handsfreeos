@@ -20,6 +20,7 @@ import {
   computeSlots,
   executeCommand,
   executeQuery,
+  findBookingByClientId,
   formatPhone,
   HfosError,
   IntakeAnswers,
@@ -29,9 +30,13 @@ import {
   loadTerritories,
   LocationKind,
   normalizePhone,
+  offerStillOpen,
   parseConfig,
+  parseWaitlistOffer,
   slotOut,
   userNames,
+  waitlistClaimOnline,
+  waitlistClientId,
   waitlistJoinOnline,
   type CalendarConfig,
   type LoadedCalendar,
@@ -48,13 +53,14 @@ import {
   calendarRevisions,
   phoneNumbers,
   services as serviceRows,
+  waitlistEntries,
   workspaces,
 } from '@hfos/db/schema';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { passThroughBotCheck, type BotCheck } from '../booking/bot-check';
 import { icsCalendar, icsSequence } from '../booking/ics';
-import { manageToken, resolveManageToken } from '../booking/links';
+import { manageToken, resolveManageToken, resolveWaitlistToken } from '../booking/links';
 import { systemActor, type TenantScope } from '../services';
 import { parseBody, type HttpDeps } from './common';
 
@@ -707,6 +713,87 @@ export async function registerBookingRoutes(app: FastifyInstance, deps: HttpDeps
     });
   }
 
+  /** Checks a waitlist offer's link: 404 when it isn't one. */
+  async function offerLink(token: string) {
+    const r = await resolveWaitlistToken(deps.httpDb, links, token);
+    if (r.status === 'invalid') throw linkNotFound();
+    return r;
+  }
+
+  /**
+   * A waitlist offer as its page shows it: the time it holds and until when ('offered'), someone else
+   * booking it first ('taken'), the hold running out ('expired'), claimed ('booked', with the booking's
+   * change-or-cancel link), or no offer at all ('closed').
+   */
+  function offerView(scope: TenantScope, entryId: string) {
+    return worker(scope, async (tx) => {
+      const ws = scope.workspaceId;
+      const [e] = await tx.select().from(waitlistEntries).where(eq(waitlistEntries.id, entryId));
+      if (!e) throw linkNotFound();
+      const calendar = await loadCalendar(tx, ws, e.calendarId);
+      const [site] = await tx.select().from(bookingSites).where(eq(bookingSites.workspaceId, ws));
+      const business = await businessIn(tx, ws, site?.name ?? null);
+      const bookable = calendar.status === 'active' && calendar.config.public && !!site?.enabled;
+      const offer = parseWaitlistOffer(e.offer);
+      const service = offer?.serviceId ? await loadCatalogService(tx, ws, offer.serviceId) : null;
+      const holding = !!e.offerExpiresAt && e.offerExpiresAt.getTime() > Date.now();
+      let state: 'offered' | 'taken' | 'expired' | 'booked' | 'closed' = 'closed';
+      let manage: string | null = null;
+      if (e.status === 'booked') {
+        state = 'booked';
+        const earlier = await findBookingByClientId(tx, ws, waitlistClientId(e.id));
+        const [a] = earlier?.attendeeId
+          ? await tx
+              .select({
+                id: appointmentAttendees.id,
+                publicRef: appointmentAttendees.publicRef,
+                manageVersion: appointmentAttendees.manageVersion,
+              })
+              .from(appointmentAttendees)
+              .where(eq(appointmentAttendees.id, earlier.attendeeId))
+          : [];
+        if (a)
+          manage = manageToken(links, {
+            publicRef: a.publicRef,
+            attendeeId: a.id,
+            manageVersion: a.manageVersion,
+          });
+      } else if (offer && e.status === 'offered' && holding)
+        state = (await offerStillOpen(tx, calendar, offer, e.seats)) ? 'offered' : 'taken';
+      else if (offer && (e.status === 'offered' || e.status === 'expired')) state = 'expired';
+      // Offered, then someone else booked the time: they wait again, in their old place.
+      else if (offer && e.status === 'waiting') state = 'taken';
+      const businessAddress =
+        calendar.config.locations.options.find((o) => o.kind === 'business')?.address ?? null;
+      return {
+        state,
+        business,
+        calendar: {
+          name: calendar.name,
+          bookingPath: bookable && site ? `/book/${site.slug}/${calendar.slug}` : null,
+        },
+        offer: offer
+          ? {
+              title: service?.name ?? calendar.name,
+              startsAt: offer.startsAt,
+              endsAt: offer.endsAt,
+              durationMinutes: offer.durationMinutes,
+              timezone: calendar.timeZone,
+              timezoneLabel: zoneLabel(calendar.timeZone),
+              where: whereText({
+                kind: offer.locationKind,
+                address: offer.locationKind === 'business' ? businessAddress : null,
+              }),
+              seats: e.seats,
+            }
+          : null,
+        expiresAt: state === 'offered' ? e.offerExpiresAt!.toISOString() : null,
+        manageToken: manage,
+        manageUrl: manage ? `${links.webUrl}/m/${manage}` : null,
+      };
+    });
+  }
+
   await app.register(async (pub) => {
     await pub.register(rateLimit, {
       global: false,
@@ -1105,6 +1192,40 @@ export async function registerBookingRoutes(app: FastifyInstance, deps: HttpDeps
           .header('cache-control', 'no-store')
           .header('referrer-policy', 'no-referrer')
           .send(file);
+      },
+    );
+
+    // ---------- a waitlist offer: the time it holds, and claiming it ----------
+    pub.get<{ Params: { token: string } }>(
+      '/public/waitlist/:token',
+      { config: { rateLimit: limits.manageRead } },
+      async (req, reply) => {
+        const w = await offerLink(req.params.token);
+        void reply.header('cache-control', 'no-store').header('referrer-policy', 'no-referrer');
+        return offerView(w.scope, w.entryId);
+      },
+    );
+
+    /** Books the held time (idempotent: the entry's own clientId); 409 slot_taken or 410 offer_expired. */
+    pub.post<{ Params: { token: string } }>(
+      '/public/waitlist/:token/claim',
+      { config: { rateLimit: limits.manageWrite } },
+      async (req, reply) => {
+        const w = await offerLink(req.params.token);
+        void reply.header('cache-control', 'no-store').header('referrer-policy', 'no-referrer');
+        const { output } = await executeCommand(
+          deps.httpDb,
+          waitlistClaimOnline,
+          { workspaceId: w.scope.workspaceId, entryId: w.entryId },
+          systemActor(w.scope),
+          meta(),
+        );
+        const {
+          sequence: _sequence,
+          attendeeId: _attendeeId,
+          ...view
+        } = await manageView(w.scope, output.attendeeId);
+        return { ...view, duplicate: output.duplicate };
       },
     );
   });

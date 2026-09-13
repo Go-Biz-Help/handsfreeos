@@ -39,6 +39,7 @@ import {
   uuidArray,
   workspaceZone,
 } from '../calendar/load';
+import { parseReminderState } from '../calendar/reminders';
 import { validateCalendar } from '../calendar/rules';
 import { resolveTerms } from '../calendar/terms';
 import { HfosError } from '../errors';
@@ -477,6 +478,7 @@ export const appointmentGet = defineQuery({
           source: a.source,
           rescheduleCount: a.rescheduleCount,
           cancelledAt: a.cancelledAt?.toISOString() ?? null,
+          reminders: parseReminderState(a.reminderState),
         })),
         series: series ? { id: series.id, rule: series.rule } : null,
         waitlist: waitlist.map((w) => ({

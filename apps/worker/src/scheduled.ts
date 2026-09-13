@@ -18,6 +18,9 @@ import {
   telephonyRegistrations,
   users,
 } from '@hfos/db/schema';
+import { appointmentNotice } from './booking/notices';
+import { appointmentReminder } from './booking/reminders';
+import { waitlistOfferExpire, waitlistOfferJob } from './booking/waitlist';
 import { appointmentCalendarSync, calendarRefresh } from './calendar/sync';
 import { unansweredEmail } from './emails/templates';
 import { domainRecordInput, lapsedMessage, sharedAddress } from './handlers/email';
@@ -280,6 +283,10 @@ export const jobs: JobMap = {
   'mailbox.sync': mailboxSync,
   'calendar.refresh': calendarRefresh,
   'appointment.calendar_sync': appointmentCalendarSync,
+  'appointment.reminder': appointmentReminder,
+  'appointment.notice': appointmentNotice,
+  'waitlist.offer': waitlistOfferJob,
+  'waitlist.offer_expire': waitlistOfferExpire,
 };
 
 /** Periodic jobs exist exactly once (their dedupe key keeps one pending row); the first run is an hour out. */

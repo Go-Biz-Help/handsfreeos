@@ -240,6 +240,11 @@ describe('registry', () => {
       'calendar_connection.sync_now',
       'calendar_connection.activate',
       'calendar_connection.fail',
+      'attendee.record_reminder',
+      'waitlist.promote',
+      'waitlist.offer',
+      'waitlist.expire',
+      'waitlist.claim_online',
     ]);
     expect(registry.queries.map((q) => q.name)).toEqual([
       'account.me',

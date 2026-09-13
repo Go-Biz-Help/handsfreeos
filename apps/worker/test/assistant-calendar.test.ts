@@ -295,6 +295,7 @@ describe('the Assistant on the calendar', () => {
         { label: 'Where', value: '123 Main St, Houston, TX 77002' },
         // No business number yet, so reminders can only go by email.
         { label: 'Reminders', value: 'By email, since texting isn’t set up yet' },
+        { label: 'Tell Mike', value: 'An email with the details' },
       ],
       warnings: [],
       confirmLabel: 'Book',

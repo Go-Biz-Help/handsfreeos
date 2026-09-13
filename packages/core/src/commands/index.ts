@@ -22,6 +22,13 @@ import {
   attendeeRescheduleOnline,
 } from './appointment-online';
 import { waitlistJoinOnline } from './waitlist-online';
+import { attendeeRecordReminder } from './reminder';
+import {
+  waitlistClaimOnline,
+  waitlistExpire,
+  waitlistOffer,
+  waitlistPromote,
+} from './waitlist-offer';
 import {
   calendarCreate,
   calendarRestoreRevision,
@@ -405,8 +412,15 @@ export const commands: readonly CommandDef[] = [
   attendeeCancelOnline,
   waitlistJoinOnline,
   ...calendarConnectionCommands,
+  attendeeRecordReminder,
+  waitlistPromote,
+  waitlistOffer,
+  waitlistExpire,
+  waitlistClaimOnline,
 ] as unknown as readonly CommandDef[];
 export { callPreview } from './call';
 export { attendeeFromPerson } from './appointment';
 export { validateIntake } from './appointment-online';
 export * from './calendar-connection';
+export * from './reminder';
+export * from './waitlist-offer';

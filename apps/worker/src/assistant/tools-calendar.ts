@@ -588,6 +588,8 @@ function bookingInput(args: Args, calendar: CalendarGet['calendar'], person: Per
     location: address
       ? { kind: 'customer_address', address, postalCode: person.address.postalCode }
       : undefined,
+    // "Tell Mike": a confirmation by text or email, unless the person said not to.
+    notify: args['notify'] !== false,
   });
 }
 
@@ -622,6 +624,8 @@ const bookAppointment: ConfirmTool = {
     );
     const where = whereOf(appt.location);
     const what = `${whatOf(appt)} · ${formatDuration(Math.round((end - start) / MIN))}`;
+    const notify = args['notify'] !== false;
+    const tell = tellRow(appt, first, notify, canText, 'with the details');
     return {
       card: confirmCard(toolCallId, 'book_appointment', {
         personId: person.id,
@@ -633,6 +637,7 @@ const bookAppointment: ConfirmTool = {
           { label: 'With', value: `${joinAnd(staff)}${picked ? `, ${picked}` : ''}` },
           ...(where ? [{ label: 'Where', value: where }] : []),
           { label: 'Reminders', value: reminders.line },
+          ...(tell ? [tell] : []),
         ],
         warnings: [...warnings, ...(reminders.warning ? [reminders.warning] : [])],
         confirmLabel: warnings.length ? 'Book anyway' : 'Book',
@@ -642,6 +647,7 @@ const bookAppointment: ConfirmTool = {
         what,
         when: atLabel(start, tz),
         with: staff,
+        tellCustomer: notify,
         ...(warnings.length ? { warnings: warnings.map((w) => w.text) } : {}),
       },
     };
@@ -733,7 +739,8 @@ async function move(db: Db, ctx: ToolContext, args: Args, appt: Appointment) {
       appointmentId: appt.id,
       userIds,
       acknowledgeWarnings: true,
-      notify: true,
+      // One notice for the customer: the new time's already tells them who is coming.
+      notify: Date.parse(moved.startsAt) === Date.parse(appt.startsAt),
     });
     warnings.push(...r.warnings);
   }

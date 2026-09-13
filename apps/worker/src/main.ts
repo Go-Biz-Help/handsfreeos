@@ -80,6 +80,8 @@ const app = await buildHttpServer({
     botCheck: createBotCheck(env.turnstileSecretKey),
     limitFactor: env.bookingRateLimitFactor,
   },
+  // Playwright runs due jobs through a test route; only with the fake carrier, never in production.
+  testRoutes: !env.production && env.telephonyProvider === 'fake' ? { jobs } : null,
   assistant: model
     ? {
         provider: model,

@@ -17,6 +17,7 @@ import {
 import { registerBookingRoutes } from './booking';
 import { registerEmailRoutes } from './email';
 import { registerOAuthRoutes } from './oauth';
+import { registerTestRoutes } from './test-routes';
 import { registerVoiceRoutes } from './voice';
 
 export type { HttpDeps } from './common';
@@ -137,6 +138,7 @@ export async function buildHttpServer(deps: HttpDeps): Promise<FastifyInstance> 
   registerOAuthRoutes(app, deps);
   registerAssistantRoutes(app, deps, deps.assistant ?? null);
   await registerBookingRoutes(app, deps);
+  if (deps.testRoutes) registerTestRoutes(app, deps, deps.testRoutes);
 
   app.post('/v1/telephony/available-numbers', async (req) => {
     const actor = await authenticate(deps, req);

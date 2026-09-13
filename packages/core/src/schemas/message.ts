@@ -44,6 +44,11 @@ export const MessageSendInput = z
     clientId: z.string().trim().min(1).max(64).optional(),
     /** People confirm a text during quiet hours; automations never can. */
     acknowledgeQuietHours: z.boolean().default(false),
+    /**
+     * HandsFreeOS's own messages (booking confirmations, reminders): the conversation keeps its status, unread
+     * count and waiting-for-reply time, and one this message starts begins closed. The system actor only.
+     */
+    keepConversationStatus: z.boolean().default(false),
   })
   .refine(
     (v) => [v.conversationId, v.personId, v.toPhone, v.toEmail].filter(Boolean).length === 1,

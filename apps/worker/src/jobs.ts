@@ -10,6 +10,8 @@ export interface JobContext extends WorkerServices {
   readonly job: JobRow;
   readonly scope: SystemScope;
   readonly attempt: number;
+  /** The moment the job runs as of: now, except when the test route runs a job as of when it was due. */
+  readonly now: number;
 }
 
 /** A job either finishes or asks to run again later (a reminder that is not due yet, a registration still in review). */
@@ -23,6 +25,8 @@ export interface JobDeps extends WorkerServices {
   readonly batchSize: number;
   /** Only claim rows this worker id already reserved (tests and the seed, which share a database with other pollers). */
   readonly reservedOnly?: boolean;
+  /** The moment each job runs as of (the test route and tests; default: now). */
+  readonly clock?: (job: JobRow) => number;
 }
 
 export interface JobStats {
@@ -84,6 +88,7 @@ export async function processJobs(deps: JobDeps): Promise<JobStats> {
         job,
         scope: { workspaceId: job.workspaceId, organizationId: job.organizationId },
         attempt: job.attempts + 1,
+        now: deps.clock ? deps.clock(job) : Date.now(),
         log: deps.log.child({ jobId: id, kind: job.kind }),
       });
       if (result?.rescheduleAt) {

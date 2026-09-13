@@ -267,7 +267,8 @@ export const appointmentCreate = defineCommand({
       clientId: input.clientId,
       source,
     });
-    if (!result.duplicate) await announceBooked(ctx, result, 'appointment_booked');
+    if (!result.duplicate)
+      await announceBooked(ctx, result, 'appointment_booked', { notify: input.notify });
     return {
       appointmentId: result.appointmentId,
       startsAt: iso(result.startsAt),
@@ -531,6 +532,7 @@ export const appointmentAddAttendee = defineCommand({
         attendeeId: joined.attendeeId,
         personId: input.personId,
         seats: input.seats,
+        notify: input.notify,
       },
       after: await appointmentSnapshot(ctx.tx, fresh),
     });

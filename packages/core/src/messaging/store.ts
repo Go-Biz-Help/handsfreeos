@@ -235,7 +235,11 @@ export async function findOrCreateConversation(
   return { conversation: raced, created: false };
 }
 
-/** Queues delayed work. A pending job with the same kind and key wins (the first reminder time stands). */
+/**
+ * Queues delayed work. A pending job with the same kind and key wins (the first reminder time stands), unless
+ * `pullEarlier` is set: then the pending job keeps whichever time is sooner, so a reminder re-armed for an
+ * earlier start moves up. Jobs re-read their state when they run, so running early only makes them wait again.
+ */
 export async function scheduleJob(
   tx: Tx,
   job: {
@@ -246,11 +250,15 @@ export async function scheduleJob(
     workspaceId: string | null;
     organizationId: string | null;
   },
+  opts: { readonly pullEarlier?: boolean } = {},
 ): Promise<void> {
+  const onConflict = opts.pullEarlier
+    ? sql`do update set run_at = least(app.scheduled_jobs.run_at, excluded.run_at)`
+    : sql`do nothing`;
   await tx.execute(
     sql`insert into app.scheduled_jobs (organization_id, workspace_id, kind, dedupe_key, run_at, payload)
         values (${job.organizationId}, ${job.workspaceId}, ${job.kind}, ${job.dedupeKey}, ${job.runAt.toISOString()}::timestamptz, ${JSON.stringify(job.payload)}::jsonb)
-        on conflict (kind, dedupe_key) where status = 'pending' and dedupe_key is not null do nothing`,
+        on conflict (kind, dedupe_key) where status = 'pending' and dedupe_key is not null ${onConflict}`,
   );
 }
 

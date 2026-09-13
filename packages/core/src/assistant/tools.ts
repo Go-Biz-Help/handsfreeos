@@ -314,7 +314,7 @@ export const assistantTools = [
   define({
     name: 'book_appointment',
     description:
-      'Book a customer on a calendar at a time. Leave out userIds to let the calendar pick who (round robin, first available…). The card shows who, where, reminders and any warnings (outside hours, busy, time off) before the person books it.',
+      'Book a customer on a calendar at a time. Leave out userIds to let the calendar pick who (round robin, first available…). The customer gets a confirmation unless the person says not to. The card shows who, where, reminders, how the customer is told and any warnings (outside hours, busy, time off) before the person books it.',
     input: z.object({
       calendarId: uuid,
       personId: uuid,
@@ -324,6 +324,7 @@ export const assistantTools = [
       userIds: z.array(uuid).min(1).max(10).optional().describe('Teammates who work it'),
       leadId: uuid.optional(),
       notes: z.string().trim().max(5000).optional(),
+      notify: z.boolean().default(true).describe('Send the customer a confirmation'),
     }),
     autonomy: 'confirm',
     permission: 'appointments.write',

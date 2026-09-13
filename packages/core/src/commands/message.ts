@@ -251,6 +251,25 @@ async function setConsent(
 }
 
 /**
+ * How an outbound message leaves its conversation. People's messages reopen it and mark it read and answered.
+ * HandsFreeOS's own (booking confirmations and reminders, `keepConversationStatus`) leave its status, unread
+ * count and the customer's waiting time alone, and a conversation one of them starts begins closed: nothing
+ * waits on it until the customer replies, which opens it.
+ */
+function afterOutbound(keep: boolean, created: boolean, now: Date) {
+  if (!keep)
+    return {
+      awaitingReplySince: null,
+      unreadCount: 0,
+      status: 'open' as const,
+      snoozedUntil: null,
+      closedAt: null,
+      closedBy: null,
+    };
+  return created ? { status: 'closed' as const, closedAt: now } : {};
+}
+
+/**
  * Email from a workspace address (the worker sends it through Postmark) or a connected mailbox. Threads under
  * the conversation's last email, and refuses addresses that bounced, complained or were stopped.
  */
@@ -412,12 +431,7 @@ async function sendEmail(ctx: CommandContext, input: z.infer<typeof MessageSendI
       lastOutboundAt: now,
       lastPreview: preview,
       lastDirection: 'outbound',
-      awaitingReplySince: null,
-      unreadCount: 0,
-      status: 'open',
-      snoozedUntil: null,
-      closedAt: null,
-      closedBy: null,
+      ...afterOutbound(input.keepConversationStatus, created, now),
       ...(!conv.emailAddressId && from.emailAddressId
         ? { emailAddressId: from.emailAddressId }
         : {}),
@@ -438,6 +452,13 @@ export const messageSend = defineCommand({
   emits: ['message.queued', 'conversation.created'],
   actors: ['human', 'system'],
   async handler(ctx, input) {
+    if (input.keepConversationStatus && ctx.actor.type !== 'system')
+      throw HfosError.validation([
+        {
+          path: 'keepConversationStatus',
+          message: 'Only HandsFreeOS itself sends without reopening the conversation.',
+        },
+      ]);
     if (input.channel === 'email') return sendEmail(ctx, input);
     const workspaceId = ctx.scope.workspaceId!;
     const { conversation: conv, created } = await resolveSmsConversation(ctx, input);
@@ -517,12 +538,7 @@ export const messageSend = defineCommand({
         lastOutboundAt: now,
         lastPreview: preview,
         lastDirection: 'outbound',
-        awaitingReplySince: null,
-        unreadCount: 0,
-        status: 'open',
-        snoozedUntil: null,
-        closedAt: null,
-        closedBy: null,
+        ...afterOutbound(input.keepConversationStatus, created, now),
         phoneNumberId: conv.phoneNumberId ?? number.id,
       })
       .where(eq(conversations.id, conv.id));

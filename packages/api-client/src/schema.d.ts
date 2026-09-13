@@ -3367,6 +3367,8 @@ export interface operations {
                 "application/json": {
                     /** Format: uuid */
                     appointmentId: string;
+                    /** @default true */
+                    notify?: boolean;
                     /** Format: uuid */
                     personId: string;
                     /** @default 1 */
@@ -3460,6 +3462,8 @@ export interface operations {
                         postalCode?: string | null;
                     };
                     notes?: string | null;
+                    /** @default true */
+                    notify?: boolean;
                     /** @default 1 */
                     partySize?: number;
                     personId?: string | null;
@@ -6059,6 +6063,8 @@ export interface operations {
                     conversationId?: string;
                     /** Format: uuid */
                     emailAddressId?: string;
+                    /** @default false */
+                    keepConversationStatus?: boolean;
                     /** Format: uuid */
                     mailboxConnectionId?: string;
                     /** Format: uuid */
@@ -8082,6 +8088,34 @@ export interface operations {
                                 };
                                 /** Format: uuid */
                                 personId: string;
+                                reminders: {
+                                    confirmation: {
+                                        /** Format: date-time */
+                                        at: string;
+                                        channel: ("sms" | "email") | null;
+                                        dueAt: string | null;
+                                        messageId: string | null;
+                                        reason: string | null;
+                                        /** Format: date-time */
+                                        startsAt: string;
+                                        /** @enum {string} */
+                                        status: "scheduled" | "sent" | "skipped";
+                                    } | null;
+                                    reminders: {
+                                        [key: string]: {
+                                            /** Format: date-time */
+                                            at: string;
+                                            channel: ("sms" | "email") | null;
+                                            dueAt: string | null;
+                                            messageId: string | null;
+                                            reason: string | null;
+                                            /** Format: date-time */
+                                            startsAt: string;
+                                            /** @enum {string} */
+                                            status: "scheduled" | "sent" | "skipped";
+                                        };
+                                    };
+                                };
                                 rescheduleCount: number;
                                 seats: number;
                                 smsOk: boolean;

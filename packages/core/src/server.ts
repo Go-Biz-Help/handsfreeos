@@ -11,6 +11,7 @@ export * from './auth/token';
 export * from './messaging/store';
 export * from './calendar/load';
 export * from './calendar/booking';
+export * from './calendar/reminders';
 import { commands } from './commands/index';
 import { createRegistry } from './kernel/registry';
 import { queries } from './queries/index';
