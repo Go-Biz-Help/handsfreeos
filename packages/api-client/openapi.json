@@ -4906,7 +4906,7 @@
     "/v1/commands/registration.submit": {
       "post": {
         "operationId": "command_registration_submit",
-        "summary": "Send the business details the carriers need before texts can go out: toll-free verification, or the 10DLC brand and campaign for a local number.",
+        "summary": "Send the business details the carriers need before texts can go out: toll-free verification, or the 10DLC brand and campaign for a local number. After the carriers turn one down, send the corrected details again: a toll-free request is edited or replaced and a campaign is registered again. A local number’s business profile and brand are checked against what HandsFreeOS support corrected with the carriers, so changed details there apply to the campaign only.",
         "tags": [
           "commands"
         ],

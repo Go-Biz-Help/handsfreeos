@@ -11,7 +11,7 @@ const DOMAIN = {
   Name: 'lonestarhvac.example',
   DKIMVerified: true,
   DKIMHost: '20260912pm._domainkey.lonestarhvac.example',
-  DKIMTextValue: 'k=rsa;p=MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQC1',
+  DKIMTextValue: 'k=rsa;p=fake0dkim0public0part0for0tests',
   DKIMPendingHost: '',
   DKIMPendingTextValue: '',
   ReturnPathDomain: 'pm-bounces.lonestarhvac.example',
@@ -57,14 +57,14 @@ const domains = (lookup: DnsLookup) =>
     stream: 'outbound',
     dns: lookup,
   }).domains;
-const KEY = 'MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQC1';
+const PUBLISHED_DKIM = 'fake0dkim0public0part0for0tests';
 
 describe('checking a workspace domain', () => {
   it('asks Postmark to look again, then finds both records in DNS', async () => {
     const seen = mockPostmark();
     // The TXT record as a DNS provider may split it, with a version tag; the CNAME in capitals with its dot.
     const state = await domains(
-      dns({ txt: [['v=DKIM1; k=rsa; ', `p=${KEY}`]], cname: ['PM.MTASV.NET.'] }),
+      dns({ txt: [['v=DKIM1; k=rsa; ', `p=${PUBLISHED_DKIM}`]], cname: ['PM.MTASV.NET.'] }),
     ).verify('4410123');
     expect(state).toMatchObject({
       providerDomainId: '4410123',
@@ -100,7 +100,7 @@ describe('checking a workspace domain', () => {
     ).toMatchObject({ dkimVerified: true, returnPathVerified: true });
     mockPostmark({ ...DOMAIN, DKIMVerified: false, ReturnPathDomainVerified: false });
     expect(
-      await domains(dns({ txt: [[`k=rsa;p=${KEY}`]], cname: ['pm.mtasv.net'] })).verify('4410123'),
+      await domains(dns({ txt: [[`k=rsa;p=${PUBLISHED_DKIM}`]], cname: ['pm.mtasv.net'] })).verify('4410123'),
     ).toMatchObject({ dkimVerified: false, returnPathVerified: false });
   });
 });

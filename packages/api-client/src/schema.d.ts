@@ -1287,7 +1287,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Send the business details the carriers need before texts can go out: toll-free verification, or the 10DLC brand and campaign for a local number.
+         * Send the business details the carriers need before texts can go out: toll-free verification, or the 10DLC brand and campaign for a local number. After the carriers turn one down, send the corrected details again: a toll-free request is edited or replaced and a campaign is registered again. A local number’s business profile and brand are checked against what HandsFreeOS support corrected with the carriers, so changed details there apply to the campaign only.
          * @description Risk level 3. Requires channels.manage. Emits registration.submitted.
          */
         post: operations["command_registration_submit"];
