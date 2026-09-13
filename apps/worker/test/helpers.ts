@@ -1,6 +1,7 @@
 import { randomBytes } from 'node:crypto';
 import { testDbs, testEnv } from '@hfos/db/testing';
 import pino from 'pino';
+import { createBookingLinks } from '../src/booking/links';
 import type { FakeCalendars } from '../src/calendar/fake';
 import { fakeCalendarServices, type CalendarServices } from '../src/calendar/index';
 import { createSealer } from '../src/crypto';
@@ -55,5 +56,9 @@ export function testServices(opts: { reminderOverrideMs?: number | null } = {}):
     mailboxes: fakeMailboxServices(TEST_PUBLIC_URL, 60_000),
     // Refreshes run when a test asks (the job's next run is a minute out).
     calendars: fakeCalendarServices(TEST_PUBLIC_URL, 60_000),
+    bookingLinks: createBookingLinks({
+      webUrl: 'http://localhost:3000',
+      key: randomBytes(32).toString('base64'),
+    }),
   };
 }

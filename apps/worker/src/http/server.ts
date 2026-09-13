@@ -14,6 +14,7 @@ import {
   verifiedTwilio,
   type HttpDeps,
 } from './common';
+import { registerBookingRoutes } from './booking';
 import { registerEmailRoutes } from './email';
 import { registerOAuthRoutes } from './oauth';
 import { registerVoiceRoutes } from './voice';
@@ -80,7 +81,13 @@ const AvailableNumbersInput = z.object({
 });
 
 export async function buildHttpServer(deps: HttpDeps): Promise<FastifyInstance> {
-  const app = Fastify({ logger: false, bodyLimit: 1_048_576 });
+  // Fly's proxy is the one hop in front, so request.ip is the caller's own address (the booking page's
+  // per-address limits); signatures still use WORKER_PUBLIC_URL, never forwarded headers.
+  const app = Fastify({
+    logger: false,
+    bodyLimit: 1_048_576,
+    trustProxy: (_address: string, hop: number) => hop < 1,
+  });
   await app.register(formbody);
   await app.register(cors, {
     origin: [...deps.webOrigins],
@@ -129,6 +136,7 @@ export async function buildHttpServer(deps: HttpDeps): Promise<FastifyInstance> 
   registerEmailRoutes(app, deps);
   registerOAuthRoutes(app, deps);
   registerAssistantRoutes(app, deps, deps.assistant ?? null);
+  await registerBookingRoutes(app, deps);
 
   app.post('/v1/telephony/available-numbers', async (req) => {
     const actor = await authenticate(deps, req);

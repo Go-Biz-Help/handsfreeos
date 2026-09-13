@@ -234,6 +234,7 @@ describe('registry', () => {
       'appointment.book_online',
       'attendee.reschedule_online',
       'attendee.cancel_online',
+      'waitlist.join_online',
       'calendar_connection.connect',
       'calendar_connection.disconnect',
       'calendar_connection.sync_now',

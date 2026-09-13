@@ -21,6 +21,7 @@ import {
   attendeeCancelOnline,
   attendeeRescheduleOnline,
 } from './appointment-online';
+import { waitlistJoinOnline } from './waitlist-online';
 import {
   calendarCreate,
   calendarRestoreRevision,
@@ -262,6 +263,7 @@ export {
   appointmentBookOnline,
   attendeeRescheduleOnline,
   attendeeCancelOnline,
+  waitlistJoinOnline,
 };
 export { hashInvitationToken } from './invitation.accept';
 export { INVITATION_TTL_MS } from './membership.invite';
@@ -401,6 +403,7 @@ export const commands: readonly CommandDef[] = [
   appointmentBookOnline,
   attendeeRescheduleOnline,
   attendeeCancelOnline,
+  waitlistJoinOnline,
   ...calendarConnectionCommands,
 ] as unknown as readonly CommandDef[];
 export { callPreview } from './call';

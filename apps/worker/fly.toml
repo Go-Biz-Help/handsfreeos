@@ -10,6 +10,8 @@
 # calendars reuse the Microsoft ones), GOOGLE_CALENDAR_OAUTH_CLIENT_ID and GOOGLE_CALENDAR_OAUTH_CLIENT_SECRET
 # (Google Calendar, its own Google Cloud project) and ANTHROPIC_API_KEY (the Assistant) turn features on.
 # CALENDAR_REFRESH_MS (default 600000) sets how often connected calendars' busy times are read.
+# TURNSTILE_SECRET_KEY turns on Cloudflare Turnstile for the public booking page (its site key goes on Vercel as
+# NEXT_PUBLIC_TURNSTILE_SITE_KEY); without it bookings rely on rate limits, the honeypot and database caps.
 # Save WORKER_ENCRYPTION_KEY in the password manager before setting it: without it sealed tokens can't be opened.
 
 app = "handsfreeos-worker"

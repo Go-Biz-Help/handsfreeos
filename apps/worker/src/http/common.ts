@@ -5,6 +5,7 @@ import type { z } from 'zod';
 import type { AssistantServices } from '../assistant/routes';
 import type { WorkerServices } from '../services';
 import { verifyTwilioSignature, type WebhookParams } from '../telephony/signature';
+import type { BookingHttpOptions } from './booking';
 
 export interface HttpDeps extends WorkerServices {
   /** A separate small pool, so the loops never starve webhooks. */
@@ -13,6 +14,8 @@ export interface HttpDeps extends WorkerServices {
   readonly webOrigins: readonly string[];
   /** The Assistant, when a model is configured (null: the panel says it isn't set up). */
   readonly assistant?: AssistantServices | null;
+  /** The public booking page's bot check and per-address limits (default: no bot check, production limits). */
+  readonly booking?: BookingHttpOptions;
 }
 
 export const header = (req: FastifyRequest, name: string): string | undefined => {

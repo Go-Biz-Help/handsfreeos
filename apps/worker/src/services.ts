@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import type { RequestMeta, SystemActor } from '@hfos/core/server';
 import type { Db } from '@hfos/db/client';
 import type { Logger } from 'pino';
+import type { BookingLinks } from './booking/links';
 import type { CalendarServices } from './calendar/index';
 import type { Sealer } from './crypto';
 import type { EmailServices } from './email/index';
@@ -31,6 +32,8 @@ export interface WorkerServices {
   readonly mailboxes: MailboxServices;
   /** People's own Google and Outlook calendars (in-memory ones locally and in tests). */
   readonly calendars: CalendarServices;
+  /** Signs and checks customers' change-or-cancel and waitlist-offer links (booking/links.ts). */
+  readonly bookingLinks: BookingLinks;
 }
 
 export interface TenantScope {

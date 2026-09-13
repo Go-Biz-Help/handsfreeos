@@ -74,6 +74,13 @@ export interface WorkerEnv {
   readonly assistantModel: string;
   /** Tokens one workspace's Assistant may use per day, cache reads and writes included. */
   readonly assistantDailyTokens: number;
+  /** Cloudflare Turnstile on the public booking page (its site key lives on the web); unset: no bot check. */
+  readonly turnstileSecretKey: string | null;
+  /**
+   * Multiplies the booking page's per-address limits: 1 in production, 10 elsewhere, because local
+   * development and Playwright book from one address.
+   */
+  readonly bookingRateLimitFactor: number;
 }
 
 const list = (value: string | undefined): string[] =>
@@ -172,6 +179,11 @@ export function readEnv(env: NodeJS.ProcessEnv = process.env): WorkerEnv {
   if (!Number.isInteger(assistantDailyTokens) || assistantDailyTokens < 1)
     throw new Error('ASSISTANT_DAILY_TOKENS must be a whole number above zero');
 
+  const turnstileSecretKey = env.TURNSTILE_SECRET_KEY || null;
+  // Cloudflare's always-pass test secret (booking/bot-check.ts) would let any bot book.
+  if (production && turnstileSecretKey === '1x0000000000000000000000000000000AA')
+    throw new Error('TURNSTILE_SECRET_KEY is Cloudflare’s test secret; use the real one');
+
   const reminder = env.UNANSWERED_ALERT_MS ? Number(env.UNANSWERED_ALERT_MS) : null;
   return {
     databaseUrl,
@@ -226,5 +238,7 @@ export function readEnv(env: NodeJS.ProcessEnv = process.env): WorkerEnv {
     anthropicApiKey,
     assistantModel: env.ASSISTANT_MODEL || 'claude-sonnet-5',
     assistantDailyTokens,
+    turnstileSecretKey,
+    bookingRateLimitFactor: production ? 1 : 10,
   };
 }

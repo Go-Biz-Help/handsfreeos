@@ -5,6 +5,8 @@ import { createDb } from '@hfos/db/client';
 import pino from 'pino';
 import { scriptedAssistant } from './assistant/scripted';
 import { createToolExecutor } from './assistant/tools-write';
+import { createBotCheck } from './booking/bot-check';
+import { createBookingLinks } from './booking/links';
 import { createSealer } from './crypto';
 import { createEmail } from './email/index';
 import { processDeliveries } from './deliveries';
@@ -50,6 +52,11 @@ const services: WorkerServices = {
   email: createEmail(env, log),
   mailboxes: createMailboxes(env),
   calendars: createCalendars(env),
+  bookingLinks: createBookingLinks({
+    webUrl: env.webUrl,
+    key: env.encryptionKey,
+    previousKeys: env.encryptionKeysPrevious,
+  }),
 };
 const workerId = `${hostname()}:${process.pid}`;
 const loopDeps = { ...services, workerId, batchSize: env.batchSize };
@@ -69,6 +76,10 @@ const app = await buildHttpServer({
       ? createTokenVerifier({ jwksUrl: env.jwksUrl, jwtIssuer: env.jwtIssuer })
       : null,
   webOrigins: env.webOrigins,
+  booking: {
+    botCheck: createBotCheck(env.turnstileSecretKey),
+    limitFactor: env.bookingRateLimitFactor,
+  },
   assistant: model
     ? {
         provider: model,

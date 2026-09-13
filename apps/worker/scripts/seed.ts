@@ -23,6 +23,7 @@ import {
 import { rows, sql, type Db } from '@hfos/db/client';
 import { closeTestDbs, createTestUser, testDbs, testEnv, type TestUser } from '@hfos/db/testing';
 import pino from 'pino';
+import { createBookingLinks } from '../src/booking/links';
 import { createSealer } from '../src/crypto';
 import { fakeCalendarServices } from '../src/calendar/index';
 import { fakeMailboxServices } from '../src/mailbox/index';
@@ -171,6 +172,10 @@ async function main(): Promise<void> {
       (process.env.WORKER_PUBLIC_URL ?? 'http://127.0.0.1:4100').replace(/\/+$/, ''),
       60_000,
     ),
+    bookingLinks: createBookingLinks({
+      webUrl: (process.env.WEB_URL ?? 'http://localhost:3000').replace(/\/+$/, ''),
+      key: process.env.WORKER_ENCRYPTION_KEY || randomBytes(32).toString('base64'),
+    }),
     workerId: `seed:${hostname()}:${process.pid}`,
     batchSize: 50,
     reservedOnly: true,

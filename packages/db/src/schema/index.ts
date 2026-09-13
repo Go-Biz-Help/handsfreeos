@@ -1486,6 +1486,10 @@ export const appointmentAttendees = app.table('appointment_attendees', {
   cancelledAt: ts('cancelled_at'),
   createdBy: userRef('created_by'),
   ...timestamps(),
+  /** 8 random base62 characters, unique and not secret: the start of the change-or-cancel link (/m/...). */
+  publicRef: text('public_ref')
+    .notNull()
+    .default(sql`private.new_public_ref()`),
 });
 
 export const waitlistEntries = app.table('waitlist_entries', {
@@ -1511,6 +1515,10 @@ export const waitlistEntries = app.table('waitlist_entries', {
   source: appointmentSource('source').notNull().default('staff'),
   createdBy: userRef('created_by'),
   ...timestamps(),
+  /** 8 random base62 characters, unique and not secret: the start of a waitlist offer link (/w/...). */
+  publicRef: text('public_ref')
+    .notNull()
+    .default(sql`private.new_public_ref()`),
 });
 
 /** Write-through state for an appointment in one person's own calendar (the worker's). */
