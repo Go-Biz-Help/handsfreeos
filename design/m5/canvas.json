@@ -1,0 +1,169 @@
+{
+  "artboards": [
+    {
+      "file": "Main.dc.html",
+      "title": "Calendar: the team’s day",
+      "x": 0,
+      "y": 0,
+      "w": 1440,
+      "h": 900,
+      "is_interactive": true
+    },
+    {
+      "file": "Week.dc.html",
+      "title": "A week, and trucks and rooms",
+      "x": 1520,
+      "y": 0,
+      "w": 1440,
+      "h": 900
+    },
+    {
+      "file": "Phone.dc.html",
+      "title": "On a phone",
+      "x": 3040,
+      "y": 0,
+      "w": 390,
+      "h": 844,
+      "is_interactive": true
+    },
+    {
+      "file": "Appointment.dc.html",
+      "title": "Booking and changing an appointment",
+      "x": 0,
+      "y": 1020,
+      "w": 1280,
+      "h": 1120
+    },
+    {
+      "file": "Presets.dc.html",
+      "title": "New calendar: how should it work?",
+      "x": 1360,
+      "y": 1020,
+      "w": 1280,
+      "h": 900,
+      "is_interactive": true
+    },
+    {
+      "file": "Builder.dc.html",
+      "title": "The calendar builder",
+      "x": 2720,
+      "y": 1020,
+      "w": 1440,
+      "h": 1100,
+      "is_interactive": true
+    },
+    {
+      "file": "Conflicts.dc.html",
+      "title": "Conflicts, impact, history",
+      "x": 0,
+      "y": 2260,
+      "w": 1280,
+      "h": 1200,
+      "is_interactive": true
+    },
+    {
+      "file": "Catalogs.dc.html",
+      "title": "Services, resources, territories, hours",
+      "x": 1360,
+      "y": 2260,
+      "w": 1280,
+      "h": 1280
+    },
+    {
+      "file": "Records.dc.html",
+      "title": "Customer page and Home",
+      "x": 2720,
+      "y": 2260,
+      "w": 1280,
+      "h": 1120
+    },
+    {
+      "file": "Booking.dc.html",
+      "title": "Booking page on a phone",
+      "x": 0,
+      "y": 3660,
+      "w": 390,
+      "h": 844,
+      "is_interactive": true
+    },
+    {
+      "file": "BookingScreens.dc.html",
+      "title": "Booking page screens",
+      "x": 470,
+      "y": 3660,
+      "w": 1760,
+      "h": 1880
+    },
+    {
+      "file": "Assistant.dc.html",
+      "title": "Ask HandsFreeOS about the calendar",
+      "x": 2310,
+      "y": 3660,
+      "w": 1280,
+      "h": 1120
+    },
+    {
+      "file": "Messages.dc.html",
+      "title": "Texts and emails",
+      "x": 0,
+      "y": 5660,
+      "w": 1280,
+      "h": 900
+    },
+    {
+      "file": "States.dc.html",
+      "title": "Empty and problem states",
+      "x": 1360,
+      "y": 5660,
+      "w": 1280,
+      "h": 1120
+    }
+  ],
+  "annotations": [
+    {
+      "id": "direction",
+      "x": 0,
+      "y": -300,
+      "w": 900,
+      "text": "HandsFreeOS Milestone 5: the Calendar. Same look as Milestones 1 to 4. There are no calendar types. Every calendar is the same thing, and its settings make it work like Personal, Round Robin, Service, Group/Class, Event, Resource, Collective or Dispatch, or any mix. Presets only fill in settings, labels are worked out from the settings, clashes come with a Fix button, and the booking link never changes.\nTry: Main (click an appointment; turn calendars and people on and off), Phone (tap a day, an appointment, then Cancel), Presets (pick a card), Builder (change how a booking picks a person, the weights and the crew size, then Fix and Save), Conflicts (Fix, Undo, Restore) and Booking (book an AC tune-up)."
+    },
+    {
+      "id": "sample-data",
+      "x": 1520,
+      "y": -300,
+      "w": 640,
+      "text": "Sample data only: Lone Star HVAC & Roofing is a fictional client workspace of Go Biz Help. Every screen is Thursday, September 17, 10:40 AM Central Time. People, numbers and addresses are placeholders."
+    },
+    {
+      "id": "phone-note",
+      "x": 3510,
+      "y": 0,
+      "w": 380,
+      "text": "Phone: the bottom bar is now Home, Inbox, Pipeline, Calendar, More. Customers moves into More, and the search at the top still finds customers. The + button starts a booking."
+    },
+    {
+      "id": "decisions",
+      "x": 4240,
+      "y": 1020,
+      "w": 560,
+      "text": "For you to decide on this canvas:\n1. The preset names and one-line descriptions (New calendar screen).\n2. The reminder wording and timing: the day before at 4 PM and about 2 hours before (Texts and emails).\n3. The default booking window: 4 hours to 60 days ahead.\n4. Whether the booking page shows “Booking by HandsFreeOS” at the bottom."
+    },
+    {
+      "id": "assumptions",
+      "x": 4240,
+      "y": 1420,
+      "w": 560,
+      "text": "Choices I made that the plan didn’t spell out:\n• Settings gets two tabs: My calendar (everyone) and Calendars (owners and admins). Services, resources, territories and the booking site sit inside Calendars.\n• Staff booking warnings cover buffers, travel and hours. A true clash with another appointment is never allowed.\n• “Maria’s rooftop unit tune-up” is a service that needs Truck 2 and a crew of two.\n• Customers see the tech’s first name on the booking page and in texts.\n• Texts carry a short change-or-cancel link. The real signed link is longer, so we may need a short-link step."
+    },
+    {
+      "id": "booking-note",
+      "x": 0,
+      "y": 4544,
+      "w": 390,
+      "text": "Booking: the customer’s side, with no HandsFreeOS menus. Use Preview to jump to a step, and Theme to see dark."
+    }
+  ],
+  "launch": {
+    "view": "canvas"
+  }
+}
