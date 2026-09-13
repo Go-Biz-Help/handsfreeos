@@ -3810,21 +3810,31 @@ The worker is the only part of HandsFreeOS that holds Postmark secrets. Fly Part
 
    You should see a line containing `"msg":"worker started"` with `"email":"postmark"` and `"storage":true` in it. These only show that the values are set; steps 1 to 4 and 7 of "Check the Postmark tokens and the Supabase key" in Fly Part 6 show that the tokens work. Each log line is one long line of text. Press Control-C to stop following the logs. If the worker won't start, the log names the missing setting; see "The worker refuses to start" in "Going live, and when something goes wrong".
 
-6. Check that the events webhook accepts your password. Replace `<webhook password>`, including the `<` and `>`:
+6. Check that the events webhook accepts your password. First load the password into a shell variable, which keeps it off the screen and out of your shell history: run this, paste the "Postmark webhook password" from your password manager and press Return. Nothing appears while you paste.
 
    ```bash
-   curl -i -u 'postmark:<webhook password>' -H 'content-type: application/json' -d '{"RecordType":"Delivery","MessageID":"test-1"}' https://hooks.handsfreeos.com/webhooks/postmark/events
+   read -s P
+   ```
+
+   Then send a test event:
+
+   ```bash
+   curl -i -u "postmark:$P" -H 'content-type: application/json' -d '{"RecordType":"Delivery","MessageID":"test-1"}' https://hooks.handsfreeos.com/webhooks/postmark/events
    ```
 
    You should see a first line ending in `200`, and `{"ok":true}` at the end. The test belongs to no workspace, so nothing is recorded. A `403` means the password doesn't match the worker's `POSTMARK_WEBHOOK_PASSWORD`.
 
-7. Check that the inbound webhook accepts your password:
+7. Check that the inbound webhook accepts it too:
 
    ```bash
-   curl -i -u 'postmark:<webhook password>' -H 'content-type: application/json' -d '{"MessageID":"test-1","ToFull":[{"Email":"nobody-test@mail.handsfreeos.com"}]}' https://hooks.handsfreeos.com/webhooks/postmark/inbound
+   curl -i -u "postmark:$P" -H 'content-type: application/json' -d '{"MessageID":"test-1","ToFull":[{"Email":"nobody-test@mail.handsfreeos.com"}]}' https://hooks.handsfreeos.com/webhooks/postmark/inbound
    ```
 
-   You should see `200` and `{"ok":true}`. No workspace owns that address, so the worker drops the message.
+   You should see `200` and `{"ok":true}`. No workspace owns that address, so the worker drops the message. Then clear the variable:
+
+   ```bash
+   unset P
+   ```
 
 ### Postmark Part G: Set up inbound for customers' replies
 
@@ -5061,10 +5071,11 @@ The worker uses the fake carrier whenever `TELEPHONY_PROVIDER` is `fake` or not 
 - **Every email** the local stack sends lands in Mailpit at `http://127.0.0.1:54424`: sign-in emails from Supabase Auth, invitations and reminder alerts from the worker, and email a business sends to its customers. Nothing reaches a real inbox.
 - **Delivery reports.** About 0.6 seconds after a business emails a customer, the worker reports the email as delivered to itself, the way Postmark would. If the first recipient's address ends in `@bounce.example.com`, it reports a hard bounce (`smtp;550 5.1.1 user unknown`) instead.
 - **A business's own domain.** In **Settings** → **Email**, type the domain and click **Add domain**, then click **Check now**. It verifies at once. The DNS records it shows are placeholders (the DKIM value reads `LOCAL-DEVELOPMENT-KEY-NOT-REAL`). After a worker restart, domains it no longer remembers count as verified.
-- **A customer writing in** has no button either. Post a message to the worker the way Postmark's inbound webhook would. The example writes as Mike Johnson (`mike.johnson@example.com`), one of Lone Star's seeded customers. Replace `<Lone Star address>` in both places with Lone Star's address on `mail.handsfreeos.com`, shown in Lone Star's **Settings** → **Email**. The login `postmark:local-postmark-webhook-password` is a fixed local value, not a secret. If you set your own `POSTMARK_WEBHOOK_PASSWORD` in `apps/worker/.env`, use that instead.
+- **A customer writing in** has no button either. Post a message to the worker the way Postmark's inbound webhook would. The example writes as Mike Johnson (`mike.johnson@example.com`), one of Lone Star's seeded customers. Replace `<Lone Star address>` in both places with Lone Star's address on `mail.handsfreeos.com`, shown in Lone Star's **Settings** → **Email**. The first line sets the local webhook password, a fixed value that is not a secret. If you set your own `POSTMARK_WEBHOOK_PASSWORD` in `apps/worker/.env`, use that instead.
 
   ```bash
-  curl -u postmark:local-postmark-webhook-password \
+  P=local-postmark-webhook-password
+  curl -u "postmark:$P" \
     -H 'content-type: application/json' \
     -d '{"MessageID":"local-test-1","From":"mike.johnson@example.com","FromFull":{"Email":"mike.johnson@example.com","Name":"Mike Johnson"},"ToFull":[{"Email":"<Lone Star address>","Name":"","MailboxHash":""}],"OriginalRecipient":"<Lone Star address>","Subject":"Question about my quote","TextBody":"Can you come out on Tuesday?"}' \
     http://127.0.0.1:4100/webhooks/postmark/inbound

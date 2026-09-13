@@ -1,0 +1,5 @@
+# False positives: example curl commands with placeholder webhook passwords in docs/operations.md.
+# The next commit rewrote them to read the password from a shell variable.
+adc13d17ed46e83751c95a331f3881be665e3958:docs/operations.md:curl-auth-user:3816
+adc13d17ed46e83751c95a331f3881be665e3958:docs/operations.md:curl-auth-user:3824
+adc13d17ed46e83751c95a331f3881be665e3958:docs/operations.md:curl-auth-user:5067
