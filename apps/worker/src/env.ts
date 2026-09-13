@@ -59,6 +59,12 @@ export interface WorkerEnv {
   readonly mailboxSyncMs: number | null;
   /** How far back a new mailbox's first sync looks. */
   readonly mailboxBackfillDays: number;
+  /** The Assistant: Claude, a scripted stand-in for tests, or none (the panel says it isn't set up). */
+  readonly assistantProvider: 'anthropic' | 'scripted' | 'none';
+  readonly anthropicApiKey: string | null;
+  readonly assistantModel: string;
+  /** Tokens one workspace's Assistant may use per day, cache reads and writes included. */
+  readonly assistantDailyTokens: number;
 }
 
 const list = (value: string | undefined): string[] =>
@@ -130,6 +136,19 @@ export function readEnv(env: NodeJS.ProcessEnv = process.env): WorkerEnv {
     throw new Error('MAILBOX_PROVIDER=fake is for development and tests only');
   const mailboxSyncMs = env.MAILBOX_SYNC_MS ? Number(env.MAILBOX_SYNC_MS) : null;
 
+  const anthropicApiKey = env.ANTHROPIC_API_KEY || null;
+  const assistantProvider = (env.ASSISTANT_PROVIDER ??
+    (anthropicApiKey ? 'anthropic' : 'none')) as string;
+  if (!['anthropic', 'scripted', 'none'].includes(assistantProvider))
+    throw new Error('ASSISTANT_PROVIDER must be anthropic, scripted or none');
+  if (production && assistantProvider === 'scripted')
+    throw new Error('ASSISTANT_PROVIDER=scripted is for development and tests only');
+  if (assistantProvider === 'anthropic' && !anthropicApiKey)
+    throw new Error('ANTHROPIC_API_KEY is required with ASSISTANT_PROVIDER=anthropic');
+  const assistantDailyTokens = Number(env.ASSISTANT_DAILY_TOKENS ?? 2_000_000);
+  if (!Number.isInteger(assistantDailyTokens) || assistantDailyTokens < 1)
+    throw new Error('ASSISTANT_DAILY_TOKENS must be a whole number above zero');
+
   const reminder = env.UNANSWERED_ALERT_MS ? Number(env.UNANSWERED_ALERT_MS) : null;
   return {
     databaseUrl,
@@ -176,5 +195,9 @@ export function readEnv(env: NodeJS.ProcessEnv = process.env): WorkerEnv {
     mailboxSyncMs:
       mailboxSyncMs && Number.isFinite(mailboxSyncMs) && mailboxSyncMs > 0 ? mailboxSyncMs : null,
     mailboxBackfillDays: Math.min(90, Math.max(1, Number(env.MAILBOX_BACKFILL_DAYS ?? 30) || 30)),
+    assistantProvider: assistantProvider as WorkerEnv['assistantProvider'],
+    anthropicApiKey,
+    assistantModel: env.ASSISTANT_MODEL || 'claude-sonnet-5',
+    assistantDailyTokens,
   };
 }

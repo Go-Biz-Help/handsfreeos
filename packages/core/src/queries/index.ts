@@ -1,7 +1,16 @@
 import type { QueryDef } from '../kernel/types';
+import { assistantThreadGet, assistantThreadList } from './assistant';
 import { auditList } from './audit.list';
 import { companyGet, companyList } from './company';
-import { crmFindMatches, crmSummary, fileList, importGet, importList, tagList } from './crm-misc';
+import {
+  crmFindMatches,
+  crmMetrics,
+  crmSummary,
+  fileList,
+  importGet,
+  importList,
+  tagList,
+} from './crm-misc';
 import { conversationGet, conversationThread, inboxList, inboxSummary, messageGet } from './inbox';
 import { emailSetupStatus, emailSuppressionList, emailUnmatchedList } from './email';
 import { emailComposeOptions } from './email-compose';
@@ -27,10 +36,13 @@ export {
   emailSuppressionList,
   emailUnmatchedList,
   phoneSetupStatus,
+  assistantThreadGet,
+  assistantThreadList,
   auditList,
   companyGet,
   companyList,
   crmFindMatches,
+  crmMetrics,
   crmSummary,
   fileList,
   importGet,
@@ -76,6 +88,7 @@ export const queries: readonly QueryDef[] = [
   importList,
   crmFindMatches,
   crmSummary,
+  crmMetrics,
   phoneSetupStatus,
   inboxList,
   inboxSummary,
@@ -86,4 +99,6 @@ export const queries: readonly QueryDef[] = [
   emailSuppressionList,
   emailUnmatchedList,
   emailComposeOptions,
+  assistantThreadList,
+  assistantThreadGet,
 ] as unknown as readonly QueryDef[];

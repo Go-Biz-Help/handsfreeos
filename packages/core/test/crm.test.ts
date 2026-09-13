@@ -714,6 +714,41 @@ describe('leads and stages', () => {
     );
     expect(second.items.map((l) => l.id)).not.toContain(first.items[0]!.id);
   });
+
+  it('lead.list narrows to leads that came in after a time, or to open leads without a next action', async () => {
+    const create = async (title: string, nextAction?: string) =>
+      (await run(leadCreate, { workspaceId: wsId, title, personId, nextAction }, member)).output
+        .leadId;
+    const fresh = await create('Fresh lead');
+    const planned = await create('Planned lead', 'Send the estimate');
+    const old = await create('Old lead');
+    await rows(
+      testDbs().admin.db,
+      sql`update app.leads set created_at = now() - interval '3 days' where id = ${old}`,
+    );
+    const recent = await ask(
+      leadList,
+      {
+        workspaceId: wsId,
+        createdAfter: new Date(Date.now() - 86_400_000).toISOString(),
+        limit: 100,
+      },
+      member,
+    );
+    const recentIds = recent.items.map((l) => l.id);
+    expect(recentIds).toEqual(expect.arrayContaining([fresh, planned]));
+    expect(recentIds).not.toContain(old);
+    const waiting = await ask(
+      leadList,
+      { workspaceId: wsId, withoutNextAction: true, limit: 100 },
+      member,
+    );
+    expect(waiting.items.length).toBeGreaterThan(0);
+    expect(waiting.items.every((l) => l.needsNextAction)).toBe(true);
+    const waitingIds = waiting.items.map((l) => l.id);
+    expect(waitingIds).toEqual(expect.arrayContaining([fresh, old]));
+    expect(waitingIds).not.toContain(planned);
+  });
 });
 
 describe('tasks, activities and the home summary', () => {
@@ -772,6 +807,22 @@ describe('tasks, activities and the home summary', () => {
       () => run(activityLog, { workspaceId: wsId, kind: 'note', body: 'x' }, member),
       'validation',
     );
+  });
+
+  it('task.list narrows to one teammate’s tasks', async () => {
+    const create = async (title: string, assigneeUserId: string) =>
+      (await run(taskCreate, { workspaceId: wsId, title, assigneeUserId }, member)).output.taskId;
+    const mine = await create('Member task', member.id);
+    const theirs = await create('Teammate task', member2.id);
+    const listed = await ask(
+      taskList,
+      { workspaceId: wsId, scope: 'all', assigneeUserId: member2.id },
+      member,
+    );
+    const ids = listed.items.map((t) => t.id);
+    expect(ids).toContain(theirs);
+    expect(ids).not.toContain(mine);
+    expect(listed.items.every((t) => t.assignee?.id === member2.id)).toBe(true);
   });
 
   it('the summary counts open leads, missing next actions and tasks', async () => {

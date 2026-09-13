@@ -78,6 +78,7 @@ export const taskList = defineQuery({
           where t.workspace_id = ${input.workspaceId}
             ${input.scope === 'mine' ? sql`and (t.assignee_user_id = ${me} or (t.assignee_user_id is null and t.created_by = ${me}))` : sql``}
             ${input.status === 'open' ? sql`and t.done_at is null` : input.status === 'done' ? sql`and t.done_at is not null` : sql``}
+            ${input.assigneeUserId ? sql`and t.assignee_user_id = ${input.assigneeUserId}` : sql``}
             ${input.personId ? sql`and t.person_id = ${input.personId}` : sql``}
             ${input.companyId ? sql`and t.company_id = ${input.companyId}` : sql``}
             ${input.leadId ? sql`and t.lead_id = ${input.leadId}` : sql``}

@@ -566,6 +566,25 @@ export type MailboxProvider = (typeof mailboxProvider.enumValues)[number];
 export type MailboxStatus = (typeof mailboxStatus.enumValues)[number];
 export type SuppressionReason = (typeof suppressionReason.enumValues)[number];
 
+// Milestone 4: the Assistant (0014)
+export const assistantRole = app.enum('assistant_role', ['user', 'assistant']);
+export const assistantRunStatus = app.enum('assistant_run_status', [
+  'running',
+  'done',
+  'failed',
+  'cancelled',
+]);
+export const assistantAutonomy = app.enum('assistant_autonomy', ['auto', 'confirm']);
+export const assistantToolStatus = app.enum('assistant_tool_status', [
+  'done',
+  'failed',
+  'awaiting_confirmation',
+  'confirmed',
+  'cancelled',
+  'expired',
+]);
+export type AssistantToolStatus = (typeof assistantToolStatus.enumValues)[number];
+
 /** A forwarding phone that rings with the browsers when a customer calls. */
 export interface ForwardingPhone {
   readonly e164: string;
@@ -953,7 +972,86 @@ export const emailInboundUnmatched = app.table('email_inbound_unmatched', {
   ...timestamps(),
 });
 
+/** The person a chat belongs to: chats are private, and go when the person does. */
+const ownerRef = () =>
+  uuid('user_id')
+    .notNull()
+    .references(() => users.id, { onDelete: 'cascade' });
+
+export const assistantThreads = app.table('assistant_threads', {
+  id: id(),
+  workspaceId: workspaceRef(),
+  userId: ownerRef(),
+  title: text('title').notNull().default('New chat'),
+  lastMessageAt: ts('last_message_at').notNull().defaultNow(),
+  archivedAt: ts('archived_at'),
+  ...timestamps(),
+});
+
+export const assistantRuns = app.table('assistant_runs', {
+  id: id(),
+  workspaceId: workspaceRef(),
+  userId: ownerRef(),
+  threadId: uuid('thread_id')
+    .notNull()
+    .references(() => assistantThreads.id, { onDelete: 'cascade' }),
+  model: text('model').notNull(),
+  status: assistantRunStatus('status').notNull().default('running'),
+  inputTokens: integer('input_tokens').notNull().default(0),
+  outputTokens: integer('output_tokens').notNull().default(0),
+  cacheReadTokens: integer('cache_read_tokens').notNull().default(0),
+  cacheWriteTokens: integer('cache_write_tokens').notNull().default(0),
+  toolRounds: integer('tool_rounds').notNull().default(0),
+  correlationId: uuid('correlation_id').notNull(),
+  error: text('error'),
+  startedAt: ts('started_at').notNull().defaultNow(),
+  endedAt: ts('ended_at'),
+  ...timestamps(),
+});
+
+export const assistantMessages = app.table('assistant_messages', {
+  id: id(),
+  workspaceId: workspaceRef(),
+  userId: ownerRef(),
+  threadId: uuid('thread_id')
+    .notNull()
+    .references(() => assistantThreads.id, { onDelete: 'cascade' }),
+  role: assistantRole('role').notNull(),
+  text: text('text').notNull().default(''),
+  cards: jsonb('cards').$type<Json[]>().notNull().default([]),
+  context: jsonb('context').$type<Json>().notNull().default({}),
+  runId: uuid('run_id').references(() => assistantRuns.id, { onDelete: 'set null' }),
+  createdAt: ts('created_at').notNull().defaultNow(),
+});
+
+export const assistantToolCalls = app.table('assistant_tool_calls', {
+  id: id(),
+  workspaceId: workspaceRef(),
+  userId: ownerRef(),
+  threadId: uuid('thread_id')
+    .notNull()
+    .references(() => assistantThreads.id, { onDelete: 'cascade' }),
+  runId: uuid('run_id')
+    .notNull()
+    .references(() => assistantRuns.id, { onDelete: 'cascade' }),
+  providerCallId: text('provider_call_id'),
+  tool: text('tool').notNull(),
+  arguments: jsonb('arguments').$type<Json>().notNull().default({}),
+  autonomy: assistantAutonomy('autonomy').notNull(),
+  status: assistantToolStatus('status').notNull(),
+  result: jsonb('result').$type<Json | Json[]>(),
+  error: text('error'),
+  command: text('command'),
+  correlationId: uuid('correlation_id'),
+  confirmedAt: ts('confirmed_at'),
+  ...timestamps(),
+});
+
 export const tables = {
+  assistantThreads,
+  assistantRuns,
+  assistantMessages,
+  assistantToolCalls,
   emailDomains,
   emailAddresses,
   mailboxConnections,

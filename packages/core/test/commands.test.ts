@@ -198,6 +198,8 @@ describe('registry', () => {
       'email_suppression.release',
       'email.receive',
       'email_suppression.record',
+      'assistant_thread.rename',
+      'assistant_thread.archive',
     ]);
     expect(registry.queries.map((q) => q.name)).toEqual([
       'account.me',
@@ -222,6 +224,7 @@ describe('registry', () => {
       'import.list',
       'crm.find_matches',
       'crm.summary',
+      'crm.metrics',
       'phone.setup_status',
       'inbox.list',
       'inbox.summary',
@@ -232,6 +235,8 @@ describe('registry', () => {
       'email_suppression.list',
       'email.unmatched_list',
       'email.compose_options',
+      'assistant_thread.list',
+      'assistant_thread.get',
     ]);
     expect(registry.command('membership.invite')?.risk).toBe(2);
   });
@@ -561,5 +566,25 @@ describe('account and reads', () => {
     const onlyInvites = await ask(auditList, { workspaceId: wsId, action: 'invitation.' }, owner);
     expect(onlyInvites.entries.every((e) => e.action.startsWith('invitation.'))).toBe(true);
     await expectHfos(() => ask(auditList, { workspaceId: wsId }, outsider), 'not_found');
+  });
+
+  it('audit.list filters by where a change was made from', async () => {
+    const corr = randomUUID();
+    await run(workspaceUpdate, { workspaceId: wsId, timezone: 'America/Denver' }, owner, {
+      ...meta(corr),
+      channel: 'assistant',
+    });
+    await run(workspaceUpdate, { workspaceId: wsId, timezone: 'America/Chicago' }, owner);
+    const viaAssistant = await ask(auditList, { workspaceId: wsId, channel: 'assistant' }, owner);
+    expect(viaAssistant.entries.map((e) => [e.correlationId, e.channel])).toEqual([
+      [corr, 'assistant'],
+    ]);
+    const viaTests = await ask(auditList, { workspaceId: wsId, channel: 'test' }, owner);
+    expect(viaTests.entries.length).toBeGreaterThan(0);
+    expect(viaTests.entries.every((e) => e.channel === 'test')).toBe(true);
+    await expectHfos(
+      () => ask(auditList, { workspaceId: wsId, channel: 'fax' }, owner),
+      'validation',
+    );
   });
 });

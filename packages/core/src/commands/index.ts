@@ -1,5 +1,6 @@
 import type { CommandDef } from '../kernel/types';
 import { activityDelete, activityLog, activityUpdate } from './activity';
+import { assistantThreadArchive, assistantThreadRename } from './assistant';
 import { companyArchive } from './company.archive';
 import {
   conversationAssign,
@@ -184,6 +185,8 @@ export {
   userUpdateProfile,
   workspaceCreate,
   workspaceUpdate,
+  assistantThreadArchive,
+  assistantThreadRename,
 };
 export { hashInvitationToken } from './invitation.accept';
 export { INVITATION_TTL_MS } from './membership.invite';
@@ -287,5 +290,7 @@ export const commands: readonly CommandDef[] = [
   emailSuppressionRelease,
   emailReceive,
   emailSuppressionRecord,
+  assistantThreadRename,
+  assistantThreadArchive,
 ] as unknown as readonly CommandDef[];
 export { callPreview } from './call';

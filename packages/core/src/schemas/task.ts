@@ -61,6 +61,8 @@ export const TaskListInput = ListInput.extend({
   workspaceId: uuid,
   scope: z.enum(['mine', 'all']).default('mine'),
   status: z.enum(['open', 'done', 'all']).default('open'),
+  /** Only this teammate's tasks (with scope "all" for anyone but yourself). */
+  assigneeUserId: uuid.optional(),
   personId: uuid.optional(),
   companyId: uuid.optional(),
   leadId: uuid.optional(),

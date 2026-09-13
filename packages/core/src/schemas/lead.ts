@@ -128,6 +128,10 @@ export const LeadListInput = ListInput.extend({
   assigneeUserId: uuid.optional(),
   personId: uuid.optional(),
   companyId: uuid.optional(),
+  /** Only leads created at or after this time. */
+  createdAfter: isoDateTime.optional(),
+  /** Only open leads with no next action (the rule behind LeadCard.needsNextAction). */
+  withoutNextAction: z.boolean().optional(),
   includeArchived: z.boolean().default(false),
 });
 export const LeadListOutput = z.object({

@@ -2,6 +2,7 @@ import { bearerToken, HfosError, type HumanActor, type TokenVerifier } from '@hf
 import { asWorker, rows, sql, type Db } from '@hfos/db/client';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import type { z } from 'zod';
+import type { AssistantServices } from '../assistant/routes';
 import type { WorkerServices } from '../services';
 import { verifyTwilioSignature, type WebhookParams } from '../telephony/signature';
 
@@ -10,6 +11,8 @@ export interface HttpDeps extends WorkerServices {
   readonly httpDb: Db;
   readonly verifyToken: TokenVerifier | null;
   readonly webOrigins: readonly string[];
+  /** The Assistant, when a model is configured (null: the panel says it isn't set up). */
+  readonly assistant?: AssistantServices | null;
 }
 
 export const header = (req: FastifyRequest, name: string): string | undefined => {

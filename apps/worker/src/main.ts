@@ -1,7 +1,10 @@
 import { hostname } from 'node:os';
+import { AnthropicProvider } from '@hfos/ai';
 import { createTokenVerifier } from '@hfos/core/server';
 import { createDb } from '@hfos/db/client';
 import pino from 'pino';
+import { scriptedAssistant } from './assistant/scripted';
+import { createToolExecutor } from './assistant/tools-write';
 import { createSealer } from './crypto';
 import { createEmail } from './email/index';
 import { processDeliveries } from './deliveries';
@@ -27,7 +30,8 @@ const log = pino(
 );
 
 const handle = createDb(env.databaseUrl, { max: 4, applicationName: 'hfos-worker' });
-const httpHandle = createDb(env.databaseUrl, { max: 3, applicationName: 'hfos-worker-http' });
+// Webhooks, sign-ins and the Assistant's questions; each question holds a connection only per step.
+const httpHandle = createDb(env.databaseUrl, { max: 6, applicationName: 'hfos-worker-http' });
 const services: WorkerServices = {
   db: handle.db,
   mailer: createSmtpMailer(env.smtpUrl, env.mailFrom),
@@ -48,6 +52,13 @@ const services: WorkerServices = {
 const workerId = `${hostname()}:${process.pid}`;
 const loopDeps = { ...services, workerId, batchSize: env.batchSize };
 
+const model =
+  env.assistantProvider === 'anthropic' && env.anthropicApiKey
+    ? new AnthropicProvider({ apiKey: env.anthropicApiKey, model: env.assistantModel })
+    : env.assistantProvider === 'scripted'
+      ? scriptedAssistant()
+      : null;
+
 const app = await buildHttpServer({
   ...services,
   httpDb: httpHandle.db,
@@ -56,6 +67,13 @@ const app = await buildHttpServer({
       ? createTokenVerifier({ jwksUrl: env.jwksUrl, jwtIssuer: env.jwtIssuer })
       : null,
   webOrigins: env.webOrigins,
+  assistant: model
+    ? {
+        provider: model,
+        tools: createToolExecutor(httpHandle.db),
+        dailyTokens: env.assistantDailyTokens,
+      }
+    : null,
 });
 await app.listen({ port: env.httpPort, host: env.httpHost });
 await ensureRecurringJobs(services);
@@ -68,6 +86,7 @@ log.info(
     telephony: services.telephony.name,
     email: services.email.transport.name,
     mailboxes: env.mailboxProvider,
+    assistant: env.assistantProvider,
     handlers: Object.keys(handlers),
     storage: !!env.supabaseSecretKey,
   },

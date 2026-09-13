@@ -11,3 +11,5 @@ export * from './crm/phone';
 export * from './crm/import-mapping';
 export * from './messaging/sms';
 export * from './messaging/quiet-hours';
+export * from './schemas/assistant';
+export * from './assistant/tools';

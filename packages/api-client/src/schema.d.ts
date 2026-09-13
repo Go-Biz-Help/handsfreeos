@@ -97,6 +97,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/assistant_thread.archive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Archive one of your chats so it leaves your chat history.
+         * @description Risk level 1. Requires assistant.use. Emits .
+         */
+        post: operations["command_assistant_thread_archive"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/assistant_thread.rename": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Rename one of your chats with the Assistant.
+         * @description Risk level 1. Requires assistant.use. Emits .
+         */
+        post: operations["command_assistant_thread_rename"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/call.start": {
         parameters: {
             query?: never;
@@ -1617,6 +1657,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/queries/assistant_thread.get": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * One of your chats: its messages oldest first with their cards, and where each tool call stands.
+         * @description Requires assistant.use.
+         */
+        post: operations["query_assistant_thread_get"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/assistant_thread.list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Your chats with the Assistant in this workspace, most recent first.
+         * @description Requires assistant.use.
+         */
+        post: operations["query_assistant_thread_list"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/queries/audit.list": {
         parameters: {
             query?: never;
@@ -1731,6 +1811,26 @@ export interface paths {
          * @description Requires records.read.
          */
         post: operations["query_crm_find_matches"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/crm.metrics": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Counts for a period: leads that came in, won and lost (with the won value), new customers, and texts, emails and calls in and out, with missed calls.
+         * @description Requires records.read.
+         */
+        post: operations["query_crm_metrics"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2350,6 +2450,71 @@ export interface operations {
                         /** Format: uuid */
                         activityId: string;
                         updated: string[];
+                    };
+                };
+            };
+        };
+    };
+    command_assistant_thread_archive: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    threadId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        threadId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_assistant_thread_rename: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    threadId: string;
+                    title: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        threadId: string;
                     };
                 };
             };
@@ -5177,6 +5342,196 @@ export interface operations {
             };
         };
     };
+    query_assistant_thread_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    threadId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        messages: {
+                            cards: ({
+                                detail: string;
+                                fullName: string;
+                                href: string;
+                                lead: {
+                                    stageName: string;
+                                    title: string;
+                                    valueCents: number;
+                                } | null;
+                                /** Format: uuid */
+                                personId: string;
+                                /** @enum {string} */
+                                type: "customer";
+                                waitingSince: string | null;
+                            } | {
+                                items: {
+                                    detail: string;
+                                    href: string;
+                                    /** Format: uuid */
+                                    id: string;
+                                    label: string;
+                                }[];
+                                title: string;
+                                /** @enum {string} */
+                                type: "choices";
+                            } | {
+                                items: {
+                                    detail: string;
+                                    href: string;
+                                    title: string;
+                                    /** @enum {string} */
+                                    tone: "accent" | "warning" | "danger" | "muted";
+                                    waitingSince: string | null;
+                                }[];
+                                /** @enum {string} */
+                                type: "attention";
+                            } | {
+                                delta: string | null;
+                                href: string | null;
+                                label: string;
+                                stats: {
+                                    label: string;
+                                    value: string;
+                                }[];
+                                /** @enum {string} */
+                                type: "numbers";
+                                value: string;
+                            } | {
+                                items: {
+                                    detail: string;
+                                    href: string | null;
+                                    title: string;
+                                    /** @enum {string} */
+                                    tone: "accent" | "warning" | "danger" | "muted";
+                                }[];
+                                title: string;
+                                /** @enum {string} */
+                                type: "list";
+                            } | {
+                                detail: string;
+                                href: string | null;
+                                /** @enum {string} */
+                                kind: "task" | "note";
+                                title: string;
+                                /** Format: uuid */
+                                toolCallId: string;
+                                /** @enum {string} */
+                                type: "done";
+                            } | {
+                                body: string | null;
+                                confirmLabel: string;
+                                editable: boolean;
+                                fields: {
+                                    label: string;
+                                    value: string;
+                                }[];
+                                reasons: string[];
+                                stageFrom: string | null;
+                                stageTo: string | null;
+                                title: string;
+                                tool: string;
+                                /** Format: uuid */
+                                toolCallId: string;
+                                /** @enum {string} */
+                                type: "confirm";
+                                warnings: {
+                                    kind: string;
+                                    text: string;
+                                }[];
+                            } | {
+                                fullName: string;
+                                /** Format: uuid */
+                                personId: string;
+                                phone: string;
+                                /** @enum {string} */
+                                type: "call";
+                            })[];
+                            /** Format: date-time */
+                            createdAt: string;
+                            /** Format: uuid */
+                            id: string;
+                            /** @enum {string} */
+                            role: "user" | "assistant";
+                            text: string;
+                        }[];
+                        thread: {
+                            /** Format: uuid */
+                            id: string;
+                            /** Format: date-time */
+                            lastMessageAt: string;
+                            title: string;
+                        };
+                        toolCalls: {
+                            error: string | null;
+                            href: string | null;
+                            /** Format: uuid */
+                            id: string;
+                            outcome: string | null;
+                            /** @enum {string} */
+                            status: "done" | "failed" | "awaiting_confirmation" | "confirmed" | "cancelled" | "expired";
+                            tool: string;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    query_assistant_thread_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @default 20 */
+                    limit?: number;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: {
+                            /** Format: uuid */
+                            id: string;
+                            /** Format: date-time */
+                            lastMessageAt: string;
+                            title: string;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
     query_audit_list: {
         parameters: {
             query?: never;
@@ -5192,6 +5547,8 @@ export interface operations {
                     actorId?: string;
                     /** Format: date-time */
                     before?: string;
+                    /** @enum {string} */
+                    channel?: "web" | "api" | "worker" | "cli" | "sms" | "assistant" | "test";
                     /** @default 50 */
                     limit?: number;
                     /** Format: date-time */
@@ -5633,6 +5990,50 @@ export interface operations {
                             name: string;
                             phone: string | null;
                         }[];
+                    };
+                };
+            };
+        };
+    };
+    query_crm_metrics: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: date-time */
+                    since: string;
+                    /** Format: date-time */
+                    until?: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        callsIn: number;
+                        callsMissed: number;
+                        callsOut: number;
+                        emailsIn: number;
+                        emailsOut: number;
+                        leadsCreated: number;
+                        leadsLost: number;
+                        leadsWon: number;
+                        newPeople: number;
+                        textsIn: number;
+                        textsOut: number;
+                        wonValueCents: number;
                     };
                 };
             };
@@ -6475,6 +6876,8 @@ export interface operations {
                     assigneeUserId?: string;
                     /** Format: uuid */
                     companyId?: string;
+                    /** Format: date-time */
+                    createdAfter?: string;
                     cursor?: string;
                     /** @default false */
                     includeArchived?: boolean;
@@ -6487,6 +6890,7 @@ export interface operations {
                     q?: string;
                     /** @enum {string} */
                     status?: "open" | "won" | "lost";
+                    withoutNextAction?: boolean;
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -6983,6 +7387,8 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": {
+                    /** Format: uuid */
+                    assigneeUserId?: string;
                     /** Format: uuid */
                     companyId?: string;
                     cursor?: string;

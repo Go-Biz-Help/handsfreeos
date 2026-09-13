@@ -86,6 +86,7 @@ describe('readEnv', () => {
       'GOOGLE_OAUTH_CLIENT_ID',
       'MICROSOFT_OAUTH_CLIENT_SECRET',
       'WORKER_ENCRYPTION_KEY',
+      'ANTHROPIC_API_KEY',
     ])
       expect(() => readEnv({ ...base, [name]: 'x' })).toThrow(/privileged/);
     // Unrelated names that merely contain OAUTH (a developer's shell) are fine.

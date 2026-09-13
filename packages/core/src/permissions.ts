@@ -29,6 +29,7 @@ export const ROLE_PERMISSIONS = {
     'files.delete',
     'inbox.use',
     'channels.manage',
+    'assistant.use',
   ],
   admin: [
     'workspace.read',
@@ -49,8 +50,16 @@ export const ROLE_PERMISSIONS = {
     'files.delete',
     'inbox.use',
     'channels.manage',
+    'assistant.use',
   ],
-  member: ['workspace.read', 'members.read', 'records.read', 'records.write', 'inbox.use'],
+  member: [
+    'workspace.read',
+    'members.read',
+    'records.read',
+    'records.write',
+    'inbox.use',
+    'assistant.use',
+  ],
   org_owner: [
     'org.read',
     'org.update',

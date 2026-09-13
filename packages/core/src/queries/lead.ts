@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, isNull, lt, or, sql as dsql, type SQL } from 'drizzle-orm';
+import { and, asc, desc, eq, gte, isNull, lt, or, sql as dsql, type SQL } from 'drizzle-orm';
 import { leads, pipelines, pipelineStages } from '@hfos/db/schema';
 import { leadCards } from '../crm/lead-cards';
 import { HfosError } from '../errors';
@@ -77,6 +77,12 @@ export const leadList = defineQuery({
     if (input.assigneeUserId) conditions.push(eq(leads.assigneeUserId, input.assigneeUserId));
     if (input.personId) conditions.push(eq(leads.personId, input.personId));
     if (input.companyId) conditions.push(eq(leads.companyId, input.companyId));
+    if (input.createdAfter) conditions.push(gte(leads.createdAt, new Date(input.createdAfter)));
+    if (input.withoutNextAction)
+      conditions.push(
+        eq(leads.status, 'open'),
+        or(isNull(leads.nextAction), eq(leads.nextAction, ''))!,
+      );
     if (cursor) {
       const at = new Date(cursor.sort);
       conditions.push(

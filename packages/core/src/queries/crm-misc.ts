@@ -6,6 +6,8 @@ import { workspaceTimezone } from '../crm/records';
 import { HfosError } from '../errors';
 import { defineQuery } from '../kernel/define';
 import {
+  CrmMetricsInput,
+  CrmMetricsOutput,
   CrmSummaryInput,
   CrmSummaryOutput,
   FindMatchesInput,
@@ -223,6 +225,78 @@ export const crmSummary = defineQuery({
       tasksOverdue: s?.overdue ?? 0,
       people: s?.people ?? 0,
       companies: s?.companies ?? 0,
+    };
+  },
+});
+
+export const crmMetrics = defineQuery({
+  name: 'crm.metrics',
+  description:
+    'Counts for a period: leads that came in, won and lost (with the won value), new customers, and texts, emails and calls in and out, with missed calls.',
+  input: CrmMetricsInput,
+  output: CrmMetricsOutput,
+  permission: 'records.read',
+  scope: (i) => ({ kind: 'workspace', workspaceId: i.workspaceId }),
+  async handler(ctx, input) {
+    const ws = input.workspaceId;
+    // Outbound messages that failed never left; a missed call is an inbound one that ended with
+    // nobody answering (voicemails included), the same rule as the call.missed event.
+    const [m] = await rows<{
+      leads_created: number;
+      leads_won: number;
+      leads_lost: number;
+      won_value: number;
+      new_people: number;
+      texts_in: number;
+      texts_out: number;
+      emails_in: number;
+      emails_out: number;
+      calls_in: number;
+      calls_out: number;
+      calls_missed: number;
+    }>(
+      ctx.tx,
+      sql`with w as (select ${input.since}::timestamptz as since, coalesce(${input.until ?? null}::timestamptz, now()) as until)
+        select
+          (select count(*) from app.leads l where l.workspace_id = ${ws} and l.archived_at is null and l.created_at >= w.since and l.created_at < w.until)::int as leads_created,
+          (select count(*) from app.leads l where l.workspace_id = ${ws} and l.archived_at is null and l.won_at >= w.since and l.won_at < w.until)::int as leads_won,
+          (select count(*) from app.leads l where l.workspace_id = ${ws} and l.archived_at is null and l.lost_at >= w.since and l.lost_at < w.until)::int as leads_lost,
+          (select coalesce(sum(l.value_cents), 0) from app.leads l where l.workspace_id = ${ws} and l.archived_at is null and l.won_at >= w.since and l.won_at < w.until)::bigint as won_value,
+          (select count(*) from app.people p where p.workspace_id = ${ws} and p.archived_at is null and p.created_at >= w.since and p.created_at < w.until)::int as new_people,
+          ms.*, cl.*
+        from w
+        cross join lateral (
+          select
+            count(*) filter (where m.channel = 'sms' and m.direction = 'inbound')::int as texts_in,
+            count(*) filter (where m.channel = 'sms' and m.direction = 'outbound' and m.status <> 'failed')::int as texts_out,
+            count(*) filter (where m.channel = 'email' and m.direction = 'inbound')::int as emails_in,
+            count(*) filter (where m.channel = 'email' and m.direction = 'outbound' and m.status <> 'failed')::int as emails_out
+          from app.messages m
+          where m.workspace_id = ${ws} and m.occurred_at >= w.since and m.occurred_at < w.until
+        ) ms
+        cross join lateral (
+          select
+            count(*) filter (where c.direction = 'inbound')::int as calls_in,
+            count(*) filter (where c.direction = 'outbound')::int as calls_out,
+            count(*) filter (where c.direction = 'inbound' and c.answered_at is null
+              and c.status in ('completed', 'no_answer', 'busy', 'failed', 'canceled'))::int as calls_missed
+          from app.calls c
+          where c.workspace_id = ${ws} and c.started_at >= w.since and c.started_at < w.until
+        ) cl`,
+    );
+    return {
+      leadsCreated: m?.leads_created ?? 0,
+      leadsWon: m?.leads_won ?? 0,
+      leadsLost: m?.leads_lost ?? 0,
+      wonValueCents: Number(m?.won_value ?? 0),
+      newPeople: m?.new_people ?? 0,
+      textsIn: m?.texts_in ?? 0,
+      textsOut: m?.texts_out ?? 0,
+      emailsIn: m?.emails_in ?? 0,
+      emailsOut: m?.emails_out ?? 0,
+      callsIn: m?.calls_in ?? 0,
+      callsOut: m?.calls_out ?? 0,
+      callsMissed: m?.calls_missed ?? 0,
     };
   },
 });

@@ -1,6 +1,9 @@
 import { z } from 'zod';
 import { isoDateTime, uuid } from './common';
 
+/** Where a change was made from (the kernel's RequestMeta.channel): the web app, the Assistant… */
+export const requestChannel = z.enum(['web', 'api', 'worker', 'cli', 'sms', 'assistant', 'test']);
+
 export const AuditListInput = z.object({
   workspaceId: uuid,
   limit: z.number().int().min(1).max(200).default(50),
@@ -11,6 +14,7 @@ export const AuditListInput = z.object({
   actorId: uuid.optional(),
   /** Command name prefix, e.g. "membership." */
   action: z.string().max(80).optional(),
+  channel: requestChannel.optional(),
 });
 
 export const AuditEntry = z.object({

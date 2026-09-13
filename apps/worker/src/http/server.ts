@@ -4,6 +4,7 @@ import { formatPhone, HfosError } from '@hfos/core/server';
 import { asWorker, rows, sql } from '@hfos/db/client';
 import Fastify, { type FastifyInstance } from 'fastify';
 import { z } from 'zod';
+import { registerAssistantRoutes } from '../assistant/routes';
 import { ProviderError } from '../telephony/provider';
 import {
   authenticate,
@@ -127,6 +128,7 @@ export async function buildHttpServer(deps: HttpDeps): Promise<FastifyInstance> 
   registerVoiceRoutes(app, deps);
   registerEmailRoutes(app, deps);
   registerMailboxRoutes(app, deps);
+  registerAssistantRoutes(app, deps, deps.assistant ?? null);
 
   app.post('/v1/telephony/available-numbers', async (req) => {
     const actor = await authenticate(deps, req);

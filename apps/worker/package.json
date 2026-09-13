@@ -14,6 +14,7 @@
   "dependencies": {
     "@fastify/cors": "^11.0.0",
     "@fastify/formbody": "^8.0.0",
+    "@hfos/ai": "workspace:*",
     "@hfos/db": "workspace:*",
     "@supabase/supabase-js": "^2.116.0",
     "drizzle-orm": "^0.45.0",

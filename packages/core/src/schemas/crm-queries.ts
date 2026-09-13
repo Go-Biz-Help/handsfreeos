@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { uuid } from './common';
+import { isoDateTime, uuid } from './common';
 import { optionalEmail, phoneInput } from './crm';
 
 export const FindMatchesInput = z.object({
@@ -31,4 +31,25 @@ export const CrmSummaryOutput = z.object({
   tasksOverdue: z.number().int(),
   people: z.number().int(),
   companies: z.number().int(),
+});
+
+export const CrmMetricsInput = z.object({
+  workspaceId: uuid,
+  since: isoDateTime,
+  /** End of the period, exclusive. Defaults to now. */
+  until: isoDateTime.optional(),
+});
+export const CrmMetricsOutput = z.object({
+  leadsCreated: z.number().int(),
+  leadsWon: z.number().int(),
+  leadsLost: z.number().int(),
+  wonValueCents: z.number(),
+  newPeople: z.number().int(),
+  textsIn: z.number().int(),
+  textsOut: z.number().int(),
+  emailsIn: z.number().int(),
+  emailsOut: z.number().int(),
+  callsIn: z.number().int(),
+  callsOut: z.number().int(),
+  callsMissed: z.number().int(),
 });

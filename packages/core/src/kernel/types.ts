@@ -1,10 +1,12 @@
 import type { Tx, UserClaims } from '@hfos/db/client';
 import type { z } from 'zod';
 import type { OrgRole, Permission, WorkspaceRole } from '../permissions';
+import type { requestChannel } from '../schemas/audit';
 
 /** Blueprint action levels: 0 read, 1 safe, 2 external, 3 sensitive, 4 admin. Used by the assistant in M4. */
 export type RiskLevel = 0 | 1 | 2 | 3 | 4;
-export type Channel = 'web' | 'api' | 'worker' | 'cli' | 'sms' | 'assistant' | 'test';
+/** 'web' | 'api' | 'worker' | 'cli' | 'sms' | 'assistant' | 'test' (one list, shared with the audit filter). */
+export type Channel = z.infer<typeof requestChannel>;
 
 export interface HumanActor {
   readonly type: 'human';

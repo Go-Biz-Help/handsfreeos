@@ -17,6 +17,7 @@ export const auditList = defineQuery({
     if (input.since) conditions.push(gte(auditLogs.createdAt, new Date(input.since)));
     if (input.actorId) conditions.push(eq(auditLogs.actorId, input.actorId));
     if (input.action) conditions.push(like(auditLogs.action, `${input.action}%`));
+    if (input.channel) conditions.push(eq(auditLogs.channel, input.channel));
     const target = alias(users, 'target');
     const list = await ctx.tx
       .select({ a: auditLogs, actorName: users.fullName, entityName: target.fullName })
