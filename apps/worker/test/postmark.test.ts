@@ -100,7 +100,9 @@ describe('checking a workspace domain', () => {
     ).toMatchObject({ dkimVerified: true, returnPathVerified: true });
     mockPostmark({ ...DOMAIN, DKIMVerified: false, ReturnPathDomainVerified: false });
     expect(
-      await domains(dns({ txt: [[`k=rsa;p=${PUBLISHED_DKIM}`]], cname: ['pm.mtasv.net'] })).verify('4410123'),
+      await domains(dns({ txt: [[`k=rsa;p=${PUBLISHED_DKIM}`]], cname: ['pm.mtasv.net'] })).verify(
+        '4410123',
+      ),
     ).toMatchObject({ dkimVerified: false, returnPathVerified: false });
   });
 });
