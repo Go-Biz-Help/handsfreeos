@@ -1,5 +1,8 @@
+import { hasWorkspacePermission } from '@hfos/core';
 import { notFound } from 'next/navigation';
 import type { ReactNode } from 'react';
+import { AssistantPanel } from '@/components/assistant/assistant-panel';
+import { AssistantProvider } from '@/components/assistant/assistant-provider';
 import { CallOverlays } from '@/components/calls/call-overlays';
 import { MobileShell } from '@/components/shell/mobile-shell';
 import { Sidebar } from '@/components/shell/sidebar';
@@ -37,15 +40,24 @@ export default async function WorkspaceLayout({
     <LiveProvider workspaceId={workspaceId}>
       <UnreadProvider workspaceId={workspaceId}>
         <CallProvider workspaceId={workspaceId} workspaceName={current.name}>
-          <div className="flex min-h-screen bg-bg">
-            <ThemeSync theme={parseTheme((me.user.settings as { theme?: unknown }).theme)} />
-            <Sidebar me={me} current={current} />
-            <div className="flex min-w-0 flex-1 flex-col">
-              <MobileShell me={me} current={current} />
-              <WorkspaceMain workspaceId={workspaceId}>{children}</WorkspaceMain>
+          {/* Inside LiveProvider: pages refresh when the Assistant changes something. */}
+          <AssistantProvider
+            key={workspaceId}
+            workspaceId={workspaceId}
+            workspaceName={current.name}
+            enabled={hasWorkspacePermission(current.role, 'assistant.use')}
+          >
+            <div className="flex min-h-screen bg-bg">
+              <ThemeSync theme={parseTheme((me.user.settings as { theme?: unknown }).theme)} />
+              <Sidebar me={me} current={current} />
+              <div className="flex min-w-0 flex-1 flex-col">
+                <MobileShell me={me} current={current} />
+                <WorkspaceMain workspaceId={workspaceId}>{children}</WorkspaceMain>
+              </div>
+              <AssistantPanel />
             </div>
-          </div>
-          <CallOverlays />
+            <CallOverlays />
+          </AssistantProvider>
         </CallProvider>
       </UnreadProvider>
     </LiveProvider>

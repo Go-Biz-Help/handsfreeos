@@ -208,6 +208,28 @@ h3 {
   animation: call-ring 1.6s ease-out infinite;
 }
 
+/* The Assistant's typing caret while an answer streams in (still for reduced motion). */
+@keyframes assistant-caret {
+  50% {
+    opacity: 0;
+  }
+}
+.assistant-caret {
+  display: inline-block;
+  width: 7px;
+  height: 15px;
+  margin-left: 2px;
+  vertical-align: -2px;
+  border-radius: 1px;
+  background: var(--accent);
+  animation: assistant-caret 1s steps(1) infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .assistant-caret {
+    animation: none;
+  }
+}
+
 /* While a call is on, toasts sit above the call bar and its keypad. */
 body[data-call='on'] [data-sonner-toaster][data-y-position='bottom'] {
   --offset-bottom: 92px !important;

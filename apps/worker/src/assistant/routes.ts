@@ -164,6 +164,7 @@ export function registerAssistantRoutes(
     outcome: string | null,
     href: string | null,
     error: string | null,
+    undone = false,
   ) => ({
     id,
     tool,
@@ -171,6 +172,7 @@ export function registerAssistantRoutes(
     outcome,
     href,
     error,
+    undone,
   });
 
   app.post<{ Params: { id: string } }>('/v1/assistant/tool-calls/:id/confirm', async (req) => {
@@ -220,6 +222,6 @@ export function registerAssistantRoutes(
       status: 'done',
       result: { ...record, undone: true, outcome },
     });
-    return out(call.id, call.tool, 'done', outcome, null, null);
+    return out(call.id, call.tool, 'done', outcome, null, null, true);
   });
 }

@@ -16,15 +16,11 @@ for (const c of ['../../.env.local', '.env.local']) {
   }
 }
 
-const CI = !!process.env.CI;
+// The servers Playwright starts inherit this process's environment (a server's own `env` can only add to it),
+// so privileged names this shell carries, like ANTHROPIC_BASE_URL, are removed here or the API refuses to boot.
+for (const k of Object.keys(process.env)) if (PRIVILEGED.test(k)) delete process.env[k];
 
-/** What the servers Playwright starts inherit: this shell's environment minus anything privileged (a shell
- *  may carry names like ANTHROPIC_BASE_URL, and the API refuses to boot with one). */
-const serverEnv = Object.fromEntries(
-  Object.entries(process.env).filter(
-    (e): e is [string, string] => e[1] !== undefined && !PRIVILEGED.test(e[0]),
-  ),
-);
+const CI = !!process.env.CI;
 
 export default defineConfig({
   testDir: 'e2e',
@@ -64,7 +60,6 @@ export default defineConfig({
       command: 'pnpm --filter @hfos/api exec tsx src/server.ts',
       url: 'http://127.0.0.1:4000/healthz',
       cwd: resolve(process.cwd(), '../..'),
-      env: serverEnv,
       reuseExistingServer: !CI,
       timeout: 60_000,
     },
@@ -73,7 +68,6 @@ export default defineConfig({
       command: CI ? 'pnpm --filter @hfos/web start' : 'pnpm --filter @hfos/web dev',
       url: 'http://localhost:3000/sign-in',
       cwd: resolve(process.cwd(), '../..'),
-      env: serverEnv,
       reuseExistingServer: !CI,
       timeout: 120_000,
     },

@@ -75,3 +75,11 @@ export type EmailSuppression = EmailSuppressionList['items'][number];
 export type EmailUnmatchedList = Ok<'/v1/queries/email.unmatched_list'>;
 export type EmailUnmatched = EmailUnmatchedList['items'][number];
 export type EmailComposeOptions = Ok<'/v1/queries/email.compose_options'>;
+
+// Milestone 4: the Assistant
+export type AssistantThreadList = Ok<'/v1/queries/assistant_thread.list'>;
+export type AssistantThreadSummary = AssistantThreadList['items'][number];
+export type AssistantThreadGet = Ok<'/v1/queries/assistant_thread.get'>;
+export type AssistantSavedMessage = AssistantThreadGet['messages'][number];
+export type AssistantToolCall = AssistantThreadGet['toolCalls'][number];
+export type AssistantToolStatus = AssistantToolCall['status'];

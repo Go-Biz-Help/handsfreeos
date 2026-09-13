@@ -189,7 +189,11 @@ describe('the Assistant', () => {
 
     const undo = await decide(ownerToken, callId, 'undo');
     expect(undo.statusCode).toBe(200);
-    expect(undo.json()).toMatchObject({ status: 'done', outcome: expect.stringMatching(/gone/) });
+    expect(undo.json()).toMatchObject({
+      status: 'done',
+      undone: true,
+      outcome: expect.stringMatching(/gone/),
+    });
     expect(await rows(admin(), sql`select id from app.tasks where id = ${taskId}`)).toHaveLength(0);
     expect((await decide(ownerToken, callId, 'undo')).statusCode).toBe(409);
   });

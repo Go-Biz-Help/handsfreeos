@@ -22,6 +22,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { toast } from 'sonner';
+import { useAssistant } from '@/components/assistant/assistant-provider';
 import { Callout, StageBadge } from '@/components/crm/chips';
 import { PersonDialog } from '@/components/crm/person-dialog';
 import { Avatar } from '@/components/ui/avatar';
@@ -43,6 +44,7 @@ import type {
   Pipeline,
   Tag,
 } from '@/lib/api/types';
+import { dropDraft, useComposerDraft } from '@/lib/assistant/drafts';
 import { useCalls } from '@/lib/calls/call-provider';
 import { formatMoney } from '@/lib/format';
 import { snoozeOptions, zonedWhen } from '@/lib/inbox';
@@ -113,6 +115,10 @@ export function ConversationView({
   const customerHref = person ? `/app/w/${workspaceId}/customers/people/${person.id}` : null;
   const canManage = role === 'owner' || role === 'admin';
   const phone = useMediaQuery('(max-width: 767px)') === true;
+  // With the Assistant docked beside the inbox, the customer pane folds away (Customer details opens it).
+  const assistantDocked = useAssistant().docked;
+  // Edit on an Assistant text or email card for a number that isn't in Customers lands here.
+  const handedDraft = useComposerDraft(c.id);
   const t = useThread(workspaceId, c.id, thread);
   useLiveRefresh(['conversation', 'person', 'lead', 'task']);
   const after = () => {
@@ -239,16 +245,22 @@ export function ConversationView({
   };
   const composer = (
     <Composer
-      key={c.id}
+      key={handedDraft ? `${c.id}:${handedDraft.id}` : c.id}
       target={target}
       variant={phone ? 'phone' : 'desktop'}
       onPending={t.addPending}
       onSettled={t.settlePending}
       onDropPending={t.dropPending}
       onEditPerson={person ? () => void editPerson() : undefined}
+      initialText={handedDraft?.text}
+      initialSubject={handedDraft?.subject}
       onSent={(out) => {
         if (!out.crossChannel && c.status !== 'open')
           toast.success('Sent. The conversation is open again.');
+        if (handedDraft) {
+          handedDraft.onSent?.();
+          dropDraft(c.id);
+        }
         t.refresh();
         after();
       }}
@@ -377,7 +389,7 @@ export function ConversationView({
           <Button
             variant="ghost"
             size="icon"
-            className="min-[1440px]:hidden"
+            className={assistantDocked ? undefined : 'min-[1440px]:hidden'}
             title="Customer details"
             aria-label="Customer details"
             onClick={() => setContextSheet(true)}
@@ -574,7 +586,11 @@ export function ConversationView({
 
       <aside
         aria-label="Customer"
-        className="hidden w-[300px] flex-none overflow-y-auto border-l border-border bg-card px-[18px] py-5 min-[1440px]:block"
+        className={
+          assistantDocked
+            ? 'hidden'
+            : 'hidden w-[300px] flex-none overflow-y-auto border-l border-border bg-card px-[18px] py-5 min-[1440px]:block'
+        }
       >
         {context}
       </aside>

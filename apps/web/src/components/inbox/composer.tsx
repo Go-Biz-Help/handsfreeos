@@ -215,6 +215,8 @@ export function Composer({
   onDropPending,
   onSent,
   onEditPerson,
+  initialText,
+  initialSubject,
 }: {
   target: ComposerTarget;
   variant: 'desktop' | 'phone' | 'sheet';
@@ -225,10 +227,13 @@ export function Composer({
   onSent?: (out: { messageId: string; conversationId: string; crossChannel: boolean }) => void;
   /** Opens the customer's edit dialog (the bounced-email note offers it). */
   onEditPerson?: () => void;
+  /** A draft to start from (the Assistant's Edit). */
+  initialText?: string;
+  initialSubject?: string;
 }) {
   const channel: Mode = target.channel ?? 'sms';
   const [mode, setMode] = useState<Mode>(channel);
-  const [text, setText] = useState('');
+  const [text, setText] = useState(initialText ?? '');
   const [files, setFiles] = useState<Attachment[]>([]);
   const [uploading, setUploading] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -236,7 +241,7 @@ export function Composer({
   const [setup, setSetup] = useState<PhoneSetupStatus | null>(null);
   const [opts, setOpts] = useState<EmailComposeOptions | null>(null);
   const [optsNonce, setOptsNonce] = useState(0);
-  const [subject, setSubject] = useState<string | null>(null);
+  const [subject, setSubject] = useState<string | null>(initialSubject ?? null);
   const [cc, setCc] = useState('');
   const [ccOpen, setCcOpen] = useState(false);
   const [fromKey, setFromKey] = useState<string | null>(null);

@@ -27,6 +27,9 @@ export function MessageSheet({
   open,
   onOpenChange,
   onEditPerson,
+  initialText,
+  initialSubject,
+  onSent,
 }: {
   workspaceId: string;
   person: {
@@ -41,6 +44,11 @@ export function MessageSheet({
   onOpenChange: (open: boolean) => void;
   /** Opens the customer's edit dialog (offered when their email address bounced). */
   onEditPerson?: () => void;
+  /** A draft to start from (the Assistant's Edit). */
+  initialText?: string;
+  initialSubject?: string;
+  /** Once a message goes out from the sheet. */
+  onSent?: () => void;
 }) {
   const [state, setState] = useState<Loaded | { error: string } | null>(null);
 
@@ -112,6 +120,9 @@ export function MessageSheet({
             channel={channel}
             person={person}
             onEditPerson={onEditPerson}
+            initialText={initialText}
+            initialSubject={initialSubject}
+            onSent={onSent}
           />
         )}
       </SheetContent>
@@ -125,12 +136,18 @@ function SheetThread({
   channel,
   person,
   onEditPerson,
+  initialText,
+  initialSubject,
+  onSent,
 }: {
   workspaceId: string;
   loaded: Loaded;
   channel: Channel;
   person: { fullName: string; phone: string | null; email?: string | null };
   onEditPerson?: () => void;
+  initialText?: string;
+  initialSubject?: string;
+  onSent?: () => void;
 }) {
   const router = useRouter();
   const { data } = loaded;
@@ -171,9 +188,12 @@ function SheetThread({
         onSettled={t.settlePending}
         onDropPending={t.dropPending}
         onEditPerson={onEditPerson}
+        initialText={initialText}
+        initialSubject={initialSubject}
         onSent={() => {
           t.refresh();
           router.refresh();
+          onSent?.();
         }}
       />
       <div className="flex-none px-5 pb-4 pt-1">

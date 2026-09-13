@@ -33,6 +33,16 @@ function sinceFor(range: Range): string {
   return new Date(Date.now() - RANGE_MS[range]).toISOString();
 }
 
+/** What the API filters by for the choices on screen. "Assistant" is where a change came from. */
+function filters(range: Range, actor: string, category: string) {
+  return {
+    since: sinceFor(range),
+    ...(actor !== 'all' && actor !== 'system' ? { actorId: actor } : {}),
+    ...(ACTION_PREFIX[category] ? { action: ACTION_PREFIX[category] } : {}),
+    ...(category === 'assistant' ? { channel: 'assistant' as const } : {}),
+  };
+}
+
 function dayLabel(iso: string): string {
   const d = new Date(iso);
   const today = new Date();
@@ -62,13 +72,7 @@ export function AuditLog({ workspaceId, initial }: { workspaceId: string; initia
       try {
         const res = unwrap(
           await apiBrowser().POST('/v1/queries/audit.list', {
-            body: {
-              workspaceId,
-              limit: 50,
-              since: sinceFor(range),
-              ...(actor !== 'all' && actor !== 'system' ? { actorId: actor } : {}),
-              ...(ACTION_PREFIX[category] ? { action: ACTION_PREFIX[category] } : {}),
-            },
+            body: { workspaceId, limit: 50, ...filters(range, actor, category) },
           }),
         );
         if (!cancelled) setData(res);
@@ -94,7 +98,9 @@ export function AuditLog({ workspaceId, initial }: { workspaceId: string; initia
     const needle = q.trim().toLowerCase();
     return data.entries.filter((e) => {
       if (actor === 'system' && e.actor.type !== 'system') return false;
-      if (category !== 'all' && auditCategory(e.action) !== category) return false;
+      if (category === 'assistant') {
+        if (e.channel !== 'assistant') return false;
+      } else if (category !== 'all' && auditCategory(e.action) !== category) return false;
       if (!needle) return true;
       return `${e.actor.fullName ?? 'HandsFreeOS'} ${describeAudit(e)} ${e.action}`
         .toLowerCase()
@@ -112,9 +118,7 @@ export function AuditLog({ workspaceId, initial }: { workspaceId: string; initia
             workspaceId,
             limit: 50,
             before: data.nextCursor,
-            since: sinceFor(range),
-            ...(actor !== 'all' && actor !== 'system' ? { actorId: actor } : {}),
-            ...(ACTION_PREFIX[category] ? { action: ACTION_PREFIX[category] } : {}),
+            ...filters(range, actor, category),
           },
         }),
       );
@@ -178,6 +182,7 @@ export function AuditLog({ workspaceId, initial }: { workspaceId: string; initia
           <option value="tasks">Tasks</option>
           <option value="files">Files</option>
           <option value="imports">Imports</option>
+          <option value="assistant">Assistant</option>
         </Select>
         <div className="relative max-w-[320px] flex-1">
           <Search

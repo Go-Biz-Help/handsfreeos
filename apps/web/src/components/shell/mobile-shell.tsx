@@ -3,6 +3,7 @@ import { ArrowLeft, Menu, MoreHorizontal, Search, SquarePen } from 'lucide-react
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useState } from 'react';
+import { MobileAskButton } from '@/components/assistant/ask-button';
 import { CallsPill } from '@/components/calls/calls-pill';
 import { Brand } from '@/components/ui/brand';
 import { Input } from '@/components/ui/input';
@@ -72,6 +73,7 @@ export function MobileShell({ me, current }: { me: Me; current: WorkspaceSummary
             <SquarePen className="h-5 w-5" strokeWidth={1.5} />
           </Link>
         ) : null}
+        <MobileAskButton />
         <button
           type="button"
           aria-label={inInbox ? 'Search conversations' : 'Search customers'}

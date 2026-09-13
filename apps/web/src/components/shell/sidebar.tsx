@@ -1,3 +1,4 @@
+import { AskButton } from '@/components/assistant/ask-button';
 import { CallsPill } from '@/components/calls/calls-pill';
 import { Brand } from '@/components/ui/brand';
 import type { Me, WorkspaceSummary } from '@/lib/api/types';
@@ -14,6 +15,7 @@ export function Sidebar({ me, current }: { me: Me; current: WorkspaceSummary }) 
       </div>
       <WorkspaceSwitcher me={me} current={current} />
       <SearchField workspaceId={current.id} className="mt-2" />
+      <AskButton className="mt-1.5" />
       <NavLinks workspaceId={current.id} />
       <div className="flex-1" />
       <CallsPill />

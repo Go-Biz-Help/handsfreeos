@@ -6,8 +6,16 @@ const s = (v: unknown): string => (typeof v === 'string' ? v : '');
 const who = (e: AuditEntry) =>
   e.entityName || s(e.after?.email) || s(e.before?.email) || 'a person';
 
-/** One plain-English sentence per audit row, in the third person after the actor's name. */
+/**
+ * One plain-English sentence per audit row, in the third person after the actor's name. What the Assistant
+ * did for someone ends "via Assistant" (their name still leads the row).
+ */
 export function describeAudit(e: AuditEntry): string {
+  const sentence = describeAction(e);
+  return e.channel === 'assistant' ? `${sentence} via Assistant` : sentence;
+}
+
+function describeAction(e: AuditEntry): string {
   switch (e.action) {
     case 'organization.create':
       return e.entityType === 'organization'
