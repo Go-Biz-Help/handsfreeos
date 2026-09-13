@@ -1,4 +1,5 @@
 /** Inbox display helpers: waiting chips, list times, and snooze times in the business's time zone. */
+import { zonedParts, zonedTime } from '@hfos/core';
 
 export function minutesWaiting(since: string | null | undefined, now = Date.now()): number | null {
   if (!since) return null;
@@ -50,61 +51,8 @@ export function clockTime(iso: string): string {
   return new Date(iso).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
 }
 
-interface ZonedParts {
-  readonly year: number;
-  readonly month: number;
-  readonly day: number;
-  readonly hour: number;
-  readonly minute: number;
-  /** 0 is Sunday. */
-  readonly weekday: number;
-}
-
-const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-
-function zonedParts(at: Date, timeZone: string): ZonedParts {
-  const parts = new Intl.DateTimeFormat('en-US', {
-    timeZone,
-    hourCycle: 'h23',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    weekday: 'short',
-  }).formatToParts(at);
-  const get = (type: string) => parts.find((p) => p.type === type)?.value ?? '';
-  return {
-    year: Number(get('year')),
-    month: Number(get('month')),
-    day: Number(get('day')),
-    hour: Number(get('hour')) % 24,
-    minute: Number(get('minute')),
-    weekday: WEEKDAYS.indexOf(get('weekday')),
-  };
-}
-
-/** Minutes the zone is ahead of UTC at that instant. */
-function zoneOffsetMinutes(at: number, timeZone: string): number {
-  const p = zonedParts(new Date(at), timeZone);
-  const asUtc = Date.UTC(p.year, p.month - 1, p.day, p.hour, p.minute);
-  return Math.round((asUtc - Math.floor(at / 60_000) * 60_000) / 60_000);
-}
-
-/** The instant a wall-clock time happens in a zone (settled twice so a daylight-saving change lands right). */
-export function zonedTime(
-  year: number,
-  month: number,
-  day: number,
-  hour: number,
-  minute: number,
-  timeZone: string,
-): Date {
-  const wall = Date.UTC(year, month - 1, day, hour, minute);
-  let at = wall - zoneOffsetMinutes(wall, timeZone) * 60_000;
-  at = wall - zoneOffsetMinutes(at, timeZone) * 60_000;
-  return new Date(at);
-}
+/** Wall-clock helpers live in core (shared with the calendar engine); re-exported for existing imports. */
+export { zonedTime };
 
 export interface SnoozeOption {
   readonly key: '1h' | '3h' | 'tomorrow' | 'next_week';
