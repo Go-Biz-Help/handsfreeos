@@ -31,6 +31,7 @@ import { createSmtpMailer } from '../src/mailer';
 import { processOnce, type OutboxDeps } from '../src/outbox';
 import { createSupabaseStore, unconfiguredStore } from '../src/storage';
 import { createFakeTelephony } from '../src/telephony/fake';
+import { seedAssistant } from './seed-assistant';
 import { seedCrm } from './seed-crm';
 import { LONE_STAR_NUMBER, seedMessaging } from './seed-messaging';
 
@@ -281,6 +282,12 @@ async function main(): Promise<void> {
     { id: lonestar, organizationId: org.organizationId, dale, priya },
   );
 
+  await seedAssistant(
+    { worker: worker.db, admin: admin.db, actor, step, log },
+    { id: lonestar, dale },
+  );
+  await drainOutbox(deps, admin.db, since);
+
   step('Northstar Electric: a separate organization that sees none of the above');
   await executeCommand(
     api.db,
@@ -303,7 +310,8 @@ Seeded in ${((Date.now() - started) / 1000).toFixed(1)}s. Sign in at ${deps.webU
 
 Lone Star HVAC & Roofing has about thirty customers, two pipelines, twenty leads, tasks, notes and two photos,
 the business number ${LONE_STAR_NUMBER} with texting approved, ${messaging.conversations} conversations (texts, email, an unknown
-number, a STOP) and ${messaging.calls} calls including a voicemail with its transcript.
+number, a STOP) and ${messaging.calls} calls including a voicemail with its transcript. Dale's Assistant
+panel (Cmd+J) holds two earlier chats; answering new questions needs ANTHROPIC_API_KEY in apps/worker/.env.
 Emails the stack sent, including the pending invitation for ${PENDING_INVITEE}: ${env.mailpitUrl}
 `);
 }

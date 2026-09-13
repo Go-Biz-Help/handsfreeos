@@ -1,6 +1,6 @@
 # Running HandsFreeOS
 
-This guide covers everything about HandsFreeOS that lives outside the code: the database, hosting, the web app, the phone carrier, email, connected mailboxes, your laptop setup, and going live. Each section gives the steps in order, with what you should see after each one. Secrets never go in this repository: they live in Fly.io secrets, GitHub repository secrets, Vercel environment variables and your password manager, and nowhere else.
+This guide covers everything about HandsFreeOS that lives outside the code: the database, hosting, the web app, the phone carrier, email, connected mailboxes, the Assistant, your laptop setup, and going live. Each section gives the steps in order, with what you should see after each one. Secrets never go in this repository: they live in Fly.io secrets, GitHub repository secrets, Vercel environment variables and your password manager, and nowhere else.
 
 If you are setting up HandsFreeOS for the first time, start with the checklist in "Going live, and when something goes wrong". It tells you which parts of the other sections to do, and in what order.
 
@@ -22,6 +22,7 @@ A plain "step 5" means step 5 of the list you are reading, or of the part named 
 - [The phone carrier: Twilio](#the-phone-carrier-twilio)
 - [Email: Postmark](#email-postmark)
 - [Connected mailboxes: Outlook and Gmail](#connected-mailboxes-outlook-and-gmail)
+- [The Assistant: Anthropic](#the-assistant-anthropic)
 - [Local development](#local-development)
 - [Going live, and when something goes wrong](#going-live-and-when-something-goes-wrong)
 
@@ -40,6 +41,7 @@ Go Biz Help (or the company that owns HandsFreeOS, if it has its own) holds and 
 | Postmark (Platform plan recommended)                                | Business email, customers' replies, platform mail and sign-in email               | $18 a month for 10,000 emails on Platform ($16.50 on Pro, which allows only 10 domains)                                                                                                                                            | "Email: Postmark"                           |
 | Microsoft Entra tenant, plus the Microsoft AI Cloud Partner Program | The Outlook app registration and publisher verification                           | Free (an Azure sign-up may ask for a card to confirm who you are)                                                                                                                                                                  | "Connected mailboxes: Outlook and Gmail"    |
 | Google Cloud                                                        | The Gmail client and the Google sign-in client                                    | Free from Google. The CASA security assessment is paid to an authorized lab: for example $675 to $855 one time for the lowest level, or $4,500 to $5,400 a year on a lab's yearly plan.                                            | "Connected mailboxes: Outlook and Gmail"    |
+| Anthropic (a Claude Console organization, with prepaid credits)     | Claude, the model behind the Assistant                                            | Pay as you go from prepaid credits. With Claude Sonnet 5, $2 per million tokens sent and $10 per million tokens written back. HandsFreeOS caps each workspace at 2,000,000 tokens a day, so at most about $20 a day per workspace. | "The Assistant: Anthropic"                  |
 | GitHub, account `gobizhelp` (already exists)                        | The repository `gobizhelp/handsfreeos`, CI and the Deploy workflow                | No new cost                                                                                                                                                                                                                        | "Hosting: the API and the worker on Fly.io" |
 | Cloudflare (already holds the DNS for `handsfreeos.com`)            | DNS records, and optionally a tunnel for laptop testing                           | DNS: no new cost. Zero Trust Free plan for the tunnel.                                                                                                                                                                             | Several sections                            |
 | A website host for `handsfreeos.com`                                | Public home page, `/privacy` and `/terms` pages. Google and Microsoft check them. | Depends on the host                                                                                                                                                                                                                | "Connected mailboxes: Outlook and Gmail"    |
@@ -104,31 +106,32 @@ Run each check in Terminal and install only what is missing.
 
 Make one folder in your password manager named `HandsFreeOS`. Every secret in this guide goes there first, then only into the one place named below. Never commit a secret, never save it in a file inside the repository folder, and never paste it into a chat, an email or a support ticket. CI runs gitleaks over the whole git history and checks that the web build has no Supabase secret key, but do not count on either to catch every key or password.
 
-| Entry                                                                      | Holds                                                                                                                   | Where the value goes                                                                                                                                                                                                            |
-| -------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Supabase postgres password                                                 | The hosted database password for the `postgres` user                                                                    | Only the Supabase CLI, typed in when it asks. No app.                                                                                                                                                                           |
-| hfos_api database password                                                 | The `hfos_api` password and the finished `DATABASE_URL` string                                                          | Fly.io secret `DATABASE_URL` on `handsfreeos-api`                                                                                                                                                                               |
-| hfos_worker database password                                              | The `hfos_worker` password and the finished `DATABASE_URL_WORKER` string                                                | Fly.io secret `DATABASE_URL_WORKER` on `handsfreeos-worker`                                                                                                                                                                     |
-| Supabase publishable key                                                   | The `sb_publishable_...` key. Not secret.                                                                               | Vercel `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`                                                                                                                                                                                   |
-| Supabase secret key (worker)                                               | The `sb_secret_...` key named `hfos_worker`                                                                             | Fly.io secret `SUPABASE_SECRET_KEY` on `handsfreeos-worker` only                                                                                                                                                                |
-| Worker encryption key (current)                                            | `WORKER_ENCRYPTION_KEY`. Old keys stay as separate entries labeled "previous, retired <date>" and are never deleted.    | Fly.io secrets `WORKER_ENCRYPTION_KEY` and, after a rotation, `WORKER_ENCRYPTION_KEYS_PREVIOUS` on `handsfreeos-worker`                                                                                                         |
-| Twilio master account                                                      | The master **Account SID** and **Auth Token**                                                                           | Fly.io secrets `TWILIO_ACCOUNT_SID` and `TWILIO_AUTH_TOKEN` on `handsfreeos-worker`                                                                                                                                             |
-| Twilio primary customer profile SID                                        | The approved Trust Hub profile (`BU...`)                                                                                | Fly.io secret `TWILIO_PRIMARY_PROFILE_SID` on `handsfreeos-worker`                                                                                                                                                              |
-| Postmark login                                                             | Your Postmark password                                                                                                  | Nowhere else                                                                                                                                                                                                                    |
-| Postmark server API token                                                  | The production server's API token                                                                                       | Fly.io secrets `POSTMARK_SERVER_TOKEN` and, inside it, `SMTP_URL` on `handsfreeos-worker`. Supabase's SMTP settings only if you do not use an SMTP token.                                                                       |
-| Postmark account API token                                                 | The account-level API token                                                                                             | Fly.io secret `POSTMARK_ACCOUNT_TOKEN` on `handsfreeos-worker`                                                                                                                                                                  |
-| Postmark webhook password                                                  | A value you make with `openssl rand -hex 24`                                                                            | Fly.io secret `POSTMARK_WEBHOOK_PASSWORD` on `handsfreeos-worker`, and inside both Postmark webhook addresses                                                                                                                   |
-| Postmark SMTP token                                                        | An Access Key and Secret Key                                                                                            | Supabase's SMTP settings only                                                                                                                                                                                                   |
-| Worker SMTP_URL                                                            | The finished `smtp://...` string built from the server API token                                                        | Fly.io secret `SMTP_URL` on `handsfreeos-worker`                                                                                                                                                                                |
-| Microsoft Entra app                                                        | The **Application (client) ID**, the client secret **Value**, its expiry date, and your Partner Global Account (PGA) ID | Fly.io secrets `MICROSOFT_OAUTH_CLIENT_ID` and `MICROSOFT_OAUTH_CLIENT_SECRET` on `handsfreeos-worker`. The PGA ID goes only into the Entra app's **Branding & properties** page, under **Add Partner ID to verify publisher**. |
-| Google Gmail client                                                        | The Gmail OAuth client's **Client ID** and **Client secret**                                                            | Fly.io secrets `GOOGLE_OAUTH_CLIENT_ID` and `GOOGLE_OAUTH_CLIENT_SECRET` on `handsfreeos-worker`                                                                                                                                |
-| Google sign-in client                                                      | The separate OAuth client for Sign in with Google                                                                       | Supabase's Google provider only                                                                                                                                                                                                 |
-| Google local sign-in client                                                | The OAuth client for Sign in with Google on the local stack (see "Local development")                                   | The repository-root `.env` on your Mac only, as `SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID` and `SUPABASE_AUTH_EXTERNAL_GOOGLE_SECRET`. Git ignores that file.                                                                    |
-| Dev tunnel token, Postmark dev server token, Postmark dev webhook password | Laptop testing only (see "Local development")                                                                           | On your Mac only: the tunnel token in `~/.cloudflared/handsfreeos-dev.token`, the two Postmark dev values in `apps/worker/.env`. The dev webhook password also goes inside the dev server's webhook address in Postmark.        |
+| Entry                                                                      | Holds                                                                                                                                                                | Where the value goes                                                                                                                                                                                                            |
+| -------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Supabase postgres password                                                 | The hosted database password for the `postgres` user                                                                                                                 | Only the Supabase CLI, typed in when it asks. No app.                                                                                                                                                                           |
+| hfos_api database password                                                 | The `hfos_api` password and the finished `DATABASE_URL` string                                                                                                       | Fly.io secret `DATABASE_URL` on `handsfreeos-api`                                                                                                                                                                               |
+| hfos_worker database password                                              | The `hfos_worker` password and the finished `DATABASE_URL_WORKER` string                                                                                             | Fly.io secret `DATABASE_URL_WORKER` on `handsfreeos-worker`                                                                                                                                                                     |
+| Supabase publishable key                                                   | The `sb_publishable_...` key. Not secret.                                                                                                                            | Vercel `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`                                                                                                                                                                                   |
+| Supabase secret key (worker)                                               | The `sb_secret_...` key named `hfos_worker`                                                                                                                          | Fly.io secret `SUPABASE_SECRET_KEY` on `handsfreeos-worker` only                                                                                                                                                                |
+| Worker encryption key (current)                                            | `WORKER_ENCRYPTION_KEY`. Old keys stay as separate entries labeled "previous, retired <date>" and are never deleted.                                                 | Fly.io secrets `WORKER_ENCRYPTION_KEY` and, after a rotation, `WORKER_ENCRYPTION_KEYS_PREVIOUS` on `handsfreeos-worker`                                                                                                         |
+| Twilio master account                                                      | The master **Account SID** and **Auth Token**                                                                                                                        | Fly.io secrets `TWILIO_ACCOUNT_SID` and `TWILIO_AUTH_TOKEN` on `handsfreeos-worker`                                                                                                                                             |
+| Twilio primary customer profile SID                                        | The approved Trust Hub profile (`BU...`)                                                                                                                             | Fly.io secret `TWILIO_PRIMARY_PROFILE_SID` on `handsfreeos-worker`                                                                                                                                                              |
+| Postmark login                                                             | Your Postmark password                                                                                                                                               | Nowhere else                                                                                                                                                                                                                    |
+| Postmark server API token                                                  | The production server's API token                                                                                                                                    | Fly.io secrets `POSTMARK_SERVER_TOKEN` and, inside it, `SMTP_URL` on `handsfreeos-worker`. Supabase's SMTP settings only if you do not use an SMTP token.                                                                       |
+| Postmark account API token                                                 | The account-level API token                                                                                                                                          | Fly.io secret `POSTMARK_ACCOUNT_TOKEN` on `handsfreeos-worker`                                                                                                                                                                  |
+| Postmark webhook password                                                  | A value you make with `openssl rand -hex 24`                                                                                                                         | Fly.io secret `POSTMARK_WEBHOOK_PASSWORD` on `handsfreeos-worker`, and inside both Postmark webhook addresses                                                                                                                   |
+| Postmark SMTP token                                                        | An Access Key and Secret Key                                                                                                                                         | Supabase's SMTP settings only                                                                                                                                                                                                   |
+| Worker SMTP_URL                                                            | The finished `smtp://...` string built from the server API token                                                                                                     | Fly.io secret `SMTP_URL` on `handsfreeos-worker`                                                                                                                                                                                |
+| Microsoft Entra app                                                        | The **Application (client) ID**, the client secret **Value**, its expiry date, and your Partner Global Account (PGA) ID                                              | Fly.io secrets `MICROSOFT_OAUTH_CLIENT_ID` and `MICROSOFT_OAUTH_CLIENT_SECRET` on `handsfreeos-worker`. The PGA ID goes only into the Entra app's **Branding & properties** page, under **Add Partner ID to verify publisher**. |
+| Google Gmail client                                                        | The Gmail OAuth client's **Client ID** and **Client secret**                                                                                                         | Fly.io secrets `GOOGLE_OAUTH_CLIENT_ID` and `GOOGLE_OAUTH_CLIENT_SECRET` on `handsfreeos-worker`                                                                                                                                |
+| Google sign-in client                                                      | The separate OAuth client for Sign in with Google                                                                                                                    | Supabase's Google provider only                                                                                                                                                                                                 |
+| Google local sign-in client                                                | The OAuth client for Sign in with Google on the local stack (see "Local development")                                                                                | The repository-root `.env` on your Mac only, as `SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID` and `SUPABASE_AUTH_EXTERNAL_GOOGLE_SECRET`. Git ignores that file.                                                                    |
+| Anthropic API key                                                          | The production key (starts with `sk-ant-api`), linked to the `handsfreeos-worker` service account. A key for your laptop is a separate entry, "Anthropic local key". | Fly.io secret `ANTHROPIC_API_KEY` on `handsfreeos-worker` only. The local key goes only in `apps/worker/.env` on your Mac.                                                                                                      |
+| Dev tunnel token, Postmark dev server token, Postmark dev webhook password | Laptop testing only (see "Local development")                                                                                                                        | On your Mac only: the tunnel token in `~/.cloudflared/handsfreeos-dev.token`, the two Postmark dev values in `apps/worker/.env`. The dev webhook password also goes inside the dev server's webhook address in Postmark.        |
 
 Two values do not follow the pattern. The Fly.io deploy token (`FLY_API_TOKEN`) lives only in GitHub, not in your password manager: if it is lost, you make a new one. The file `.env.hosted` at the repository root already holds the two database passwords, the two finished connection strings and the publishable key. It is gitignored and exists only on your Mac. Never commit, attach or paste it anywhere.
 
-The API refuses to start if it holds any variable whose name contains `SECRET`, `SERVICE_ROLE`, `SIGNING_KEY` or `ENCRYPTION_KEY`, or starts with `TWILIO_`, `POSTMARK_`, `MICROSOFT_OAUTH_` or `GOOGLE_OAUTH_`. So every provider secret goes on `handsfreeos-worker`, never on `handsfreeos-api`, and never in Vercel or GitHub.
+The API refuses to start if it holds any variable whose name contains `SECRET`, `SERVICE_ROLE`, `SIGNING_KEY` or `ENCRYPTION_KEY`, or starts with `TWILIO_`, `POSTMARK_`, `MICROSOFT_OAUTH_`, `GOOGLE_OAUTH_`, `ANTHROPIC_` or `OPENAI_`. So every provider secret goes on `handsfreeos-worker`, never on `handsfreeos-api`, and never in Vercel or GitHub.
 
 ## The database: Supabase (hosted)
 
@@ -1278,7 +1281,7 @@ Nothing on Fly reads a `.env` file. The images contain none, because `.dockerign
 | `SUPABASE_JWT_ISSUER` | Leave unset   | No                                      | `<SUPABASE_URL>/auth/v1`                                | Worked out from `SUPABASE_URL`                                                                       |
 | `SUPABASE_JWKS_URL`   | Leave unset   | No                                      | `<SUPABASE_URL>/auth/v1/.well-known/jwks.json`          | Worked out from `SUPABASE_URL`                                                                       |
 
-`DATABASE_URL` is the API's only secret. At startup the API checks the name of every variable. It refuses to start if a name contains `SECRET`, `SERVICE_ROLE`, `SIGNING_KEY` or `ENCRYPTION_KEY`, or starts with `TWILIO_`, `POSTMARK_`, `MICROSOFT_OAUTH_` or `GOOGLE_OAUTH_` (upper or lower case). Its log then says `The API process must never hold privileged keys. Remove: <names>`. Fly's own variables (`FLY_*`, `PRIMARY_REGION`) are fine. Never run a worker secrets command with `--app handsfreeos-api`.
+`DATABASE_URL` is the API's only secret. At startup the API checks the name of every variable. It refuses to start if a name contains `SECRET`, `SERVICE_ROLE`, `SIGNING_KEY` or `ENCRYPTION_KEY`, or starts with `TWILIO_`, `POSTMARK_`, `MICROSOFT_OAUTH_`, `GOOGLE_OAUTH_`, `ANTHROPIC_` or `OPENAI_` (upper or lower case). Its log then says `The API process must never hold privileged keys. Remove: <names>`. Fly's own variables (`FLY_*`, `PRIMARY_REGION`) are fine. Never run a worker secrets command with `--app handsfreeos-api`.
 
 Both apps check sign-ins against Supabase's published signing keys and cache them. So rotating Supabase's signing keys needs no deploy.
 
@@ -1324,27 +1327,31 @@ If the Twilio or Postmark screens have moved, search their consoles for "Account
 | `MICROSOFT_OAUTH_CLIENT_SECRET`   | Only for Connect Outlook                                      | Same as above.                                                                                                                                                                                                                                                           | The Entra app, **Certificates & secrets**: the client secret value. It expires.                                                                                                                                                         |
 | `GOOGLE_OAUTH_CLIENT_ID`          | Only for Connect Gmail                                        | Connect Gmail shows a page titled "Gmail isn’t set up yet".                                                                                                                                                                                                              | The Google Cloud OAuth client (type Web application).                                                                                                                                                                                   |
 | `GOOGLE_OAUTH_CLIENT_SECRET`      | Only for Connect Gmail                                        | Same as above.                                                                                                                                                                                                                                                           | The same Google Cloud OAuth client (starts with `GOCSPX-`).                                                                                                                                                                             |
+| `ANTHROPIC_API_KEY`               | Only for the Assistant                                        | The worker starts, and its `worker started` line shows `"assistant":"none"`. The Assistant panel says "The Assistant isn’t available yet". Everything else works.                                                                                                        | The Claude Console, **Settings** → **API keys**: the key linked to the `handsfreeos-worker` service account and tied to the `HandsFreeOS` workspace (starts with `sk-ant-api`). See "The Assistant: Anthropic". Worker only.            |
 | `WORKER_ENCRYPTION_KEYS_PREVIOUS` | Only after a key rotation. Leave it unset on the first setup. | Nothing, until a key is rotated.                                                                                                                                                                                                                                         | Old `WORKER_ENCRYPTION_KEY` values from your password manager, separated by commas. Each must be a valid key, or the worker will not start.                                                                                             |
 
 #### The worker: leave these unset
 
 The defaults are right in production. Setting some of these changes real behavior.
 
-| Name                                       | Default                                           | Why to leave it alone                                                                                                                                                         |
-| ------------------------------------------ | ------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `EMAIL_TRANSPORT`                          | `postmark` in production                          | `smtp` is the local stand-in: domains verify themselves and delivery reports are fake. Production does not refuse it, so never set it to get around a missing Postmark token. |
-| `MAILBOX_PROVIDER`                         | `real` in production                              | Production refuses `fake`.                                                                                                                                                    |
-| `POSTMARK_WEBHOOK_USER`                    | `postmark`                                        | The user name in Postmark's webhook addresses.                                                                                                                                |
-| `POSTMARK_MESSAGE_STREAM`                  | `outbound`                                        | Postmark's default stream for customer email.                                                                                                                                 |
-| `MAIL_DOMAIN`                              | `mail.handsfreeos.com`                            | Must match the shared mail domain the database uses.                                                                                                                          |
-| `SUPABASE_JWKS_URL`, `SUPABASE_JWT_ISSUER` | Worked out from `SUPABASE_URL`                    | Nothing to change.                                                                                                                                                            |
-| `WORKER_POLL_MS`                           | `1000` (one second between loop passes)           | Tuning only.                                                                                                                                                                  |
-| `WORKER_BATCH_SIZE`                        | `20`                                              | Tuning only.                                                                                                                                                                  |
-| `REGISTRATION_POLL_MS`                     | `900000` (15 minutes) with Twilio                 | How often carrier registrations are checked.                                                                                                                                  |
-| `MAILBOX_BACKFILL_DAYS`                    | `30` (kept between 1 and 90)                      | How far back a new mailbox's first sync looks.                                                                                                                                |
-| `MAILBOX_SYNC_MS`                          | Not set: Outlook every 5 minutes, Gmail every 2   | A test override. It changes how often every mailbox is checked.                                                                                                               |
-| `UNANSWERED_ALERT_MS`                      | Not set: each workspace's own setting, in minutes | A demo override. It changes every workspace's alert timing.                                                                                                                   |
-| `FAKE_APPROVAL_MS`                         | `3000`                                            | Used only by the fake carrier.                                                                                                                                                |
+| Name                                       | Default                                                       | Why to leave it alone                                                                                                                                                         |
+| ------------------------------------------ | ------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `EMAIL_TRANSPORT`                          | `postmark` in production                                      | `smtp` is the local stand-in: domains verify themselves and delivery reports are fake. Production does not refuse it, so never set it to get around a missing Postmark token. |
+| `MAILBOX_PROVIDER`                         | `real` in production                                          | Production refuses `fake`.                                                                                                                                                    |
+| `POSTMARK_WEBHOOK_USER`                    | `postmark`                                                    | The user name in Postmark's webhook addresses.                                                                                                                                |
+| `POSTMARK_MESSAGE_STREAM`                  | `outbound`                                                    | Postmark's default stream for customer email.                                                                                                                                 |
+| `MAIL_DOMAIN`                              | `mail.handsfreeos.com`                                        | Must match the shared mail domain the database uses.                                                                                                                          |
+| `SUPABASE_JWKS_URL`, `SUPABASE_JWT_ISSUER` | Worked out from `SUPABASE_URL`                                | Nothing to change.                                                                                                                                                            |
+| `WORKER_POLL_MS`                           | `1000` (one second between loop passes)                       | Tuning only.                                                                                                                                                                  |
+| `WORKER_BATCH_SIZE`                        | `20`                                                          | Tuning only.                                                                                                                                                                  |
+| `REGISTRATION_POLL_MS`                     | `900000` (15 minutes) with Twilio                             | How often carrier registrations are checked.                                                                                                                                  |
+| `MAILBOX_BACKFILL_DAYS`                    | `30` (kept between 1 and 90)                                  | How far back a new mailbox's first sync looks.                                                                                                                                |
+| `MAILBOX_SYNC_MS`                          | Not set: Outlook every 5 minutes, Gmail every 2               | A test override. It changes how often every mailbox is checked.                                                                                                               |
+| `UNANSWERED_ALERT_MS`                      | Not set: each workspace's own setting, in minutes             | A demo override. It changes every workspace's alert timing.                                                                                                                   |
+| `FAKE_APPROVAL_MS`                         | `3000`                                                        | Used only by the fake carrier.                                                                                                                                                |
+| `ASSISTANT_PROVIDER`                       | `anthropic` when `ANTHROPIC_API_KEY` is set, otherwise `none` | Production refuses `scripted`, the stand-in the tests use. `none` turns the Assistant off even with a key.                                                                    |
+| `ASSISTANT_MODEL`                          | `claude-sonnet-5`                                             | The Claude model the Assistant uses. Change it only as "Change the model" in "The Assistant: Anthropic" describes.                                                            |
+| `ASSISTANT_DAILY_TOKENS`                   | `2000000` tokens per workspace per day                        | Change it only as "Change the daily limit" in "The Assistant: Anthropic" describes.                                                                                           |
 
 #### Settings outside Fly that must match
 
@@ -1564,7 +1571,7 @@ The worker only checks that these three values are present, never that they are 
 
 8. Delete the "handsfreeos-worker first import" note from your password manager. Each value already has its own entry, and a leftover note would be one more copy of every secret that no rotation step updates.
 
-Add the feature secrets later, as their own sections describe: `TWILIO_PRIMARY_PROFILE_SID` (Twilio Step 4) and the Microsoft and Google values ("Connected mailboxes: Outlook and Gmail"). After the first deploy, each secrets change restarts the worker.
+Add the feature secrets later, as their own sections describe: `TWILIO_PRIMARY_PROFILE_SID` (Twilio Step 4), the Microsoft and Google values ("Connected mailboxes: Outlook and Gmail") and `ANTHROPIC_API_KEY` ("The Assistant: Anthropic"). After the first deploy, each secrets change restarts the worker.
 
 ### Fly Part 7: The first deploy, by hand
 
@@ -2011,23 +2018,24 @@ Both apps log one JSON object per line. The message is in the `msg` field. `"lev
 
 #### Messages worth knowing
 
-| Log message                                                                                                                                                                                                       | What it means                                                                                                                                                 | What to do                                                                                                                                                |
-| ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `worker started`                                                                                                                                                                                                  | The worker is up. The line shows `publicUrl`, its providers (`telephony`, `email`, `mailboxes`) and whether `storage` is set.                                 | Check that `publicUrl` is `https://hooks.handsfreeos.com`, `telephony` is `twilio`, `email` is `postmark`, `mailboxes` is `real` and `storage` is `true`. |
-| `worker stopping: closing the listener, then finishing the current pass`                                                                                                                                          | A normal stop during a deploy or restart.                                                                                                                     | Nothing.                                                                                                                                                  |
-| `worker pass crashed`                                                                                                                                                                                             | One loop pass failed. The health check stays green.                                                                                                           | Read the `err` field. It is often a database problem. If it repeats, save the lines for a developer.                                                      |
-| `worker http error`                                                                                                                                                                                               | The worker answered a provider or the browser with a 500 error, `Something went wrong on our side.`                                                           | Read `err`. If it says `No key <id> to open this value. Add the old key to WORKER_ENCRYPTION_KEYS_PREVIOUS.`, an old encryption key is missing.           |
-| `outbox handler failed`                                                                                                                                                                                           | A background job failed. The worker tries each job 5 times in all, waiting 5, 10, 20 and 40 seconds between tries, then gives up. `eventType` says which job. | Read `err`.                                                                                                                                               |
-| `webhook delivery failed`                                                                                                                                                                                         | A stored webhook failed to process. The worker tries it 5 times in all, with the same waits, then gives up. `kind` says which provider.                       | Read `err`.                                                                                                                                               |
-| An `err` field containing `Storage is not configured: set SUPABASE_URL and SUPABASE_SECRET_KEY for the worker`, on a `worker http error`, `webhook delivery failed`, `outbox handler failed` or `job failed` line | The worker has no Supabase secret key, so it cannot store or remove files. Inbound email with attachments is refused.                                         | Set `SUPABASE_SECRET_KEY` on the worker.                                                                                                                  |
-| `SUPABASE_SECRET_KEY is not set: file removals, imports and photos will fail until it is`                                                                                                                         | The worker has no Supabase secret key.                                                                                                                        | Set `SUPABASE_SECRET_KEY` on the worker.                                                                                                                  |
-| `rejected an unsigned or mis-signed webhook`                                                                                                                                                                      | A Twilio request failed its signature check and got `403 Invalid signature`. The line has the path and the `accountSid`.                                      | See "Twilio webhooks are rejected" in "Going live, and when something goes wrong".                                                                        |
-| `rejected an inbound mail webhook without the right credentials` or `rejected a mail event webhook without the right credentials`                                                                                 | Postmark's webhook password does not match `POSTMARK_WEBHOOK_PASSWORD`. A 403 tells Postmark to stop retrying, so that mail is lost.                          | See "Postmark webhooks are rejected" in "Going live, and when something goes wrong".                                                                      |
-| `refused a browser call that call.start did not record`                                                                                                                                                           | A browser call was refused.                                                                                                                                   | See "Calls do not ring, or cannot be placed" in "Going live, and when something goes wrong".                                                              |
-| `a mailbox did not connect`                                                                                                                                                                                       | An Outlook or Gmail sign-in failed at the last step.                                                                                                          | See "When a connection fails" in "Connected mailboxes: Outlook and Gmail".                                                                                |
-| `mailbox sync failed`                                                                                                                                                                                             | An Outlook or Gmail mailbox could not sync.                                                                                                                   | See "When a sign-in stops working" in "Connected mailboxes: Outlook and Gmail".                                                                           |
-| `no Outlook notifications for now`                                                                                                                                                                                | Microsoft refused the change notifications. Outlook still syncs every five minutes, and the worker tries again about 6 hours later.                           | Check that `hooks.handsfreeos.com` answers over HTTPS.                                                                                                    |
-| `Max client connections reached` or `MaxClientsInSessionMode`                                                                                                                                                     | Too many database connections through the session pooler.                                                                                                     | See "How many connections the apps use" in "The database: Supabase (hosted)".                                                                             |
+| Log message                                                                                                                                                                                                       | What it means                                                                                                                                                 | What to do                                                                                                                                                                                                           |
+| ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `worker started`                                                                                                                                                                                                  | The worker is up. The line shows `publicUrl`, its providers (`telephony`, `email`, `mailboxes`, `assistant`) and whether `storage` is set.                    | Check that `publicUrl` is `https://hooks.handsfreeos.com`, `telephony` is `twilio`, `email` is `postmark`, `mailboxes` is `real` and `storage` is `true`. Once the Anthropic key is set, `assistant` is `anthropic`. |
+| `worker stopping: closing the listener, then finishing the current pass`                                                                                                                                          | A normal stop during a deploy or restart.                                                                                                                     | Nothing.                                                                                                                                                                                                             |
+| `worker pass crashed`                                                                                                                                                                                             | One loop pass failed. The health check stays green.                                                                                                           | Read the `err` field. It is often a database problem. If it repeats, save the lines for a developer.                                                                                                                 |
+| `worker http error`                                                                                                                                                                                               | The worker answered a provider or the browser with a 500 error, `Something went wrong on our side.`                                                           | Read `err`. If it says `No key <id> to open this value. Add the old key to WORKER_ENCRYPTION_KEYS_PREVIOUS.`, an old encryption key is missing.                                                                      |
+| `outbox handler failed`                                                                                                                                                                                           | A background job failed. The worker tries each job 5 times in all, waiting 5, 10, 20 and 40 seconds between tries, then gives up. `eventType` says which job. | Read `err`.                                                                                                                                                                                                          |
+| `webhook delivery failed`                                                                                                                                                                                         | A stored webhook failed to process. The worker tries it 5 times in all, with the same waits, then gives up. `kind` says which provider.                       | Read `err`.                                                                                                                                                                                                          |
+| An `err` field containing `Storage is not configured: set SUPABASE_URL and SUPABASE_SECRET_KEY for the worker`, on a `worker http error`, `webhook delivery failed`, `outbox handler failed` or `job failed` line | The worker has no Supabase secret key, so it cannot store or remove files. Inbound email with attachments is refused.                                         | Set `SUPABASE_SECRET_KEY` on the worker.                                                                                                                                                                             |
+| `SUPABASE_SECRET_KEY is not set: file removals, imports and photos will fail until it is`                                                                                                                         | The worker has no Supabase secret key.                                                                                                                        | Set `SUPABASE_SECRET_KEY` on the worker.                                                                                                                                                                             |
+| `rejected an unsigned or mis-signed webhook`                                                                                                                                                                      | A Twilio request failed its signature check and got `403 Invalid signature`. The line has the path and the `accountSid`.                                      | See "Twilio webhooks are rejected" in "Going live, and when something goes wrong".                                                                                                                                   |
+| `rejected an inbound mail webhook without the right credentials` or `rejected a mail event webhook without the right credentials`                                                                                 | Postmark's webhook password does not match `POSTMARK_WEBHOOK_PASSWORD`. A 403 tells Postmark to stop retrying, so that mail is lost.                          | See "Postmark webhooks are rejected" in "Going live, and when something goes wrong".                                                                                                                                 |
+| `refused a browser call that call.start did not record`                                                                                                                                                           | A browser call was refused.                                                                                                                                   | See "Calls do not ring, or cannot be placed" in "Going live, and when something goes wrong".                                                                                                                         |
+| `a mailbox did not connect`                                                                                                                                                                                       | An Outlook or Gmail sign-in failed at the last step.                                                                                                          | See "When a connection fails" in "Connected mailboxes: Outlook and Gmail".                                                                                                                                           |
+| `mailbox sync failed`                                                                                                                                                                                             | An Outlook or Gmail mailbox could not sync.                                                                                                                   | See "When a sign-in stops working" in "Connected mailboxes: Outlook and Gmail".                                                                                                                                      |
+| `no Outlook notifications for now`                                                                                                                                                                                | Microsoft refused the change notifications. Outlook still syncs every five minutes, and the worker tries again about 6 hours later.                           | Check that `hooks.handsfreeos.com` answers over HTTPS.                                                                                                                                                               |
+| `assistant run failed`                                                                                                                                                                                            | An Assistant question failed partway. The person saw "Something went wrong" or, when Anthropic was busy, "The Assistant is busy right now".                   | Read `err`. See "When a question fails" in "The Assistant: Anthropic".                                                                                                                                               |
+| `Max client connections reached` or `MaxClientsInSessionMode`                                                                                                                                                     | Too many database connections through the session pooler.                                                                                                     | See "How many connections the apps use" in "The database: Supabase (hosted)".                                                                                                                                        |
 
 #### Errors that stop an app from starting
 
@@ -2199,6 +2207,7 @@ The console steps below describe the goal. If a console has moved or works diffe
 | `GOOGLE_OAUTH_CLIENT_SECRET`           | The Google Cloud OAuth client                      | See "Rotating the client secrets" in "Connected mailboxes: Outlook and Gmail".                                                                                                                                                                                                     |
 | `FLY_API_TOKEN`                        | `fly tokens create org` (Fly Part 9)               | Store the new token in GitHub, then find the old token's ID and revoke it (end of Fly Part 9).                                                                                                                                                                                     |
 | `WORKER_ENCRYPTION_KEY`                | `openssl rand -base64 32`                          | See "Rotating the worker encryption key" below.                                                                                                                                                                                                                                    |
+| `ANTHROPIC_API_KEY`                    | The Claude Console, **Settings** → **API keys**    | See "Rotate the key" in "The Assistant: Anthropic". Give the worker the new key before you disable the old one.                                                                                                                                                                    |
 
 #### Changing the Postmark webhook password
 
@@ -2351,7 +2360,7 @@ Total for Fly in `dfw`: about $8 a month with one worker machine, or about $12 w
 Other bills:
 
 - Supabase bills separately. The Go Biz Help organization is on the Pro plan, from $25 a month for the whole organization. This project's compute comes on top: when the project was created, Supabase quoted about $10 a month for its Micro size.
-- Twilio, Postmark and Vercel also bill separately (see "Before you start" at the top of this guide).
+- Twilio, Postmark, Vercel and Anthropic also bill separately (see "Before you start" at the top of this guide).
 - Fly's pricing page lists no charge for its builders as of September 2026. Check your first invoice for any line you do not expect.
 
 ## The web app on Vercel
@@ -2561,7 +2570,7 @@ Never add any of the following to Vercel. They live only in Fly.io secrets (the 
 
 - a Supabase key that starts with `sb_secret_`, or `SUPABASE_SECRET_KEY`
 - `DATABASE_URL`, `DATABASE_URL_WORKER` or any other database connection string
-- anything that starts with `TWILIO_`, `POSTMARK_`, `MICROSOFT_OAUTH_` or `GOOGLE_OAUTH_`
+- anything that starts with `TWILIO_`, `POSTMARK_`, `MICROSOFT_OAUTH_`, `GOOGLE_OAUTH_`, `ANTHROPIC_` or `OPENAI_`
 - `WORKER_ENCRYPTION_KEY` or `SMTP_URL`
 
 Do not paste or upload `.env.hosted` or any other `.env` file from your laptop into Vercel. `.env.hosted` also holds the database passwords. Copy only the publishable key. In Vercel its name must be exactly `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`.
@@ -4796,6 +4805,297 @@ Google, whenever you rotate (a client can hold two secrets at once):
 
   You should see `mailbox.test.ts` and `mailbox-providers.test.ts` pass.
 
+## The Assistant: Anthropic
+
+The Assistant is the **Ask HandsFreeOS** panel in every workspace. It answers questions about the business and does tasks, using Claude, a model made by Anthropic. The worker is the only part of HandsFreeOS that talks to Anthropic, so the Anthropic key goes on `handsfreeos-worker` and nowhere else. The API refuses to start if it holds any variable whose name starts with `ANTHROPIC_` or `OPENAI_`, and the key never goes in Vercel or GitHub.
+
+Everything else in HandsFreeOS works without the key. The Assistant's database tables (migration `20260914000100_assistant.sql`) are already applied to the hosted project, so there is nothing to do in Supabase.
+
+### Before you start
+
+You need:
+
+- Your password manager, with the `HandsFreeOS` folder.
+- A payment card for Anthropic's prepaid credits.
+- The Fly.io sign-in from "Tools on your Mac" in "Before you start".
+- For the checks: the worker deployed (Fly Part 7), and an account on `https://app.handsfreeos.com` ("Create your first account" in "The database: Supabase (hosted)").
+
+### What it costs
+
+Anthropic charges by the token. A token is a small piece of text, about four characters of English. The Assistant uses Claude Sonnet 5 (`claude-sonnet-5`). Anthropic's prices in September 2026:
+
+| Kind of token | What it is                                                                                                                | Price per million tokens |
+| ------------- | ------------------------------------------------------------------------------------------------------------------------- | ------------------------ |
+| Input         | What HandsFreeOS sends: the question, the chat so far and background about the workspace                                  | $2                       |
+| Output        | What Claude writes back                                                                                                   | $10                      |
+| Cache write   | The Assistant's fixed instructions and list of tools, kept at Anthropic for 5 minutes so the next question can reuse them | $2.50                    |
+| Cache read    | Those instructions and tools, reused within the 5 minutes                                                                 | $0.20                    |
+
+HandsFreeOS limits each workspace to 2,000,000 tokens a day, counting all four kinds (see "Change the daily limit" below). Even if every one of them were an output token, that is $20 a day per workspace. The monthly spend limit you set in Anthropic's console is the hard stop for the whole bill.
+
+### Make the account and set a spend limit
+
+Anthropic's console is called the Claude Console. If a screen has moved, look for the name in bold under **Settings**.
+
+1. Open `https://platform.claude.com` and sign up with your Go Biz Help email address. If it asks for an organization name, type `Go Biz Help`.
+
+   You should land in the Claude Console.
+
+2. Go to **Settings** → **Billing** and click **Buy credits**. Add your payment card if it asks for one, enter an amount such as $25, and confirm.
+
+   You should see the balance on the **Billing** page. Credits can be used at once. They expire a year after you buy them and are not refunded, so start small.
+
+3. On the same page, click **Edit** in the **Auto-reload** section. Turn it on, then set the balance that triggers a purchase and the amount to reload to.
+
+   You should see your two amounts in the **Auto-reload** section. Without auto-reload, the Assistant stops answering the moment the credits run out.
+
+4. Still on **Billing**, find the **Spend limits** section and click **Set limit** (or **Adjust limit** if there is one already). Enter the most HandsFreeOS may spend in a month, for example $100. It cannot be higher than the monthly cap of your organization's usage tier, shown on the same page.
+
+   You should see your limit in the **Spend limits** section. When usage reaches it, Anthropic refuses every request until the limit resets or you raise it.
+
+5. Go to **Settings** → **Workspaces** and click **Create workspace**. Name it `HandsFreeOS`, pick any color, and click **Create**. This keeps the HandsFreeOS key and its usage apart from anything else you do in the Console.
+
+   You should see `HandsFreeOS` in the list of workspaces.
+
+6. Open the `HandsFreeOS` workspace, then its **Spend limits** tab. Set a monthly cap for the workspace (the amount from step 4 is fine) and an alert for when spending reaches about half of it.
+
+   You should see the cap and the alert on the tab.
+
+### Make the production key
+
+Anthropic recommends a service account for a key that a server uses, rather than a key tied to a person, so the key keeps working whoever signs in to the Console. The key must also belong to the `HandsFreeOS` workspace alone: the worker does not say which workspace it is using, so Anthropic refuses a key that covers several.
+
+1. Go to **Settings** → **Service accounts** and create a service account named `handsfreeos-worker`.
+
+   You should see `handsfreeos-worker` in the list.
+
+2. Go to **Settings** → **Workspaces**, open `HandsFreeOS`, and add `handsfreeos-worker` on its **Service accounts** tab. If it asks for a role, pick **Workspace Developer**.
+
+   You should see `handsfreeos-worker` on the tab.
+
+3. Go to **Settings** → **API keys** and click **Create key**.
+4. Fill in the form:
+
+   - Name: `handsfreeos-worker production`.
+   - **Linked account**: the `handsfreeos-worker` service account.
+   - Workspace: `HandsFreeOS` only.
+   - Expiration: **Never**. You replace the key yourself (see "Rotate the key" below). If **Never** is not offered, pick the longest time allowed and put the date in your calendar. An expired key stops the Assistant at once.
+
+5. Create the key. It starts with `sk-ant-api`. Copy it before you close the window, and save it in your password manager in a new entry named "Anthropic API key", with today's date.
+
+   You should see the new key in the list on **API keys**, with the expiration you picked. Never commit the key, and never paste it anywhere except the steps below.
+
+6. Check the key before it goes to Fly. This loads it into a shell variable, which keeps it off the screen and out of your shell history. Run the command, paste the key and press Return. Nothing appears while you paste.
+
+   ```bash
+   read -s T
+   ```
+
+7. Ask Anthropic which models the key can use. This uses no tokens.
+
+   ```bash
+   curl -s -H "x-api-key: $T" -H "anthropic-version: 2023-06-01" https://api.anthropic.com/v1/models
+   ```
+
+   You should see `claude-sonnet-5` in the reply. If the reply says `authentication_error`, the key is wrong or was cut short: copy it again and repeat steps 6 and 7. If the reply mentions `anthropic-workspace-id`, the key covers more than one workspace: make a new key with `HandsFreeOS` as its workspace, and delete this one.
+
+8. Clear the variable.
+
+   ```bash
+   unset T
+   ```
+
+### Give the worker the key
+
+`fly secrets import` reads the value you paste, so the key never lands in your Terminal history. Never put the key in a `fly secrets set` command.
+
+1. Copy the key from the "Anthropic API key" entry.
+2. Start the import.
+
+   ```bash
+   fly secrets import --app handsfreeos-worker
+   ```
+
+   If the worker has never been deployed, add `--stage` to the command, and the key waits for the first deploy.
+
+3. Type `ANTHROPIC_API_KEY=`, then paste the key right after it, with no space and no quotes. The line looks like this, with the real key in it:
+
+   ```text
+   ANTHROPIC_API_KEY=sk-ant-api<rest of the key>
+   ```
+
+4. Press Return, then Control-D.
+
+   Fly restarts the worker with the key.
+
+5. Clear the clipboard.
+
+   ```bash
+   pbcopy < /dev/null
+   ```
+
+6. Check the secret.
+
+   ```bash
+   fly secrets list --app handsfreeos-worker
+   ```
+
+   You should see `ANTHROPIC_API_KEY` in the `NAME` column. Fly never shows the value, only a digest.
+
+Never run this import with `--app handsfreeos-api`. The API would refuse to start with `The API process must never hold privileged keys. Remove: ANTHROPIC_API_KEY`.
+
+### Check the worker and ask a question
+
+1. Watch the worker's log.
+
+   ```bash
+   fly logs --app handsfreeos-worker
+   ```
+
+   You should see a `worker started` line with `"assistant":"anthropic"`. If it shows `"assistant":"none"`, the worker has no key: go back to "Give the worker the key".
+
+2. Press Control-C to stop watching.
+3. Sign in at `https://app.handsfreeos.com` and open a workspace.
+4. Click **Ask HandsFreeOS** under the search field in the sidebar, or press Command-J.
+5. Type `What can you help me with here?` and send it.
+
+   You should see the answer appear as Claude writes it.
+
+If the panel says "Something went wrong" instead, see "When a question fails" below.
+
+### When a question fails
+
+Every failed question writes an `assistant run failed` line to the worker's log. Its `err` field says why. To read the recent log:
+
+```bash
+fly logs --app handsfreeos-worker --no-tail
+```
+
+| What `err` says                                                                                                    | What it means                                                                              | What to do                                                                                              |
+| ------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------- |
+| `authentication_error`                                                                                             | The key is wrong, expired, disabled or deleted.                                            | Make a new key and give it to the worker ("Rotate the key" below).                                      |
+| Something about `anthropic-workspace-id`                                                                           | The key covers more than one workspace.                                                    | Make a new key with `HandsFreeOS` as its only workspace, give it to the worker, and delete the old key. |
+| `You have reached your specified API usage limits` or `You have reached your specified workspace API usage limits` | The spend limit you set, for the organization or the workspace, is used up.                | Raise the limit (steps 4 and 6 of "Make the account and set a spend limit"), or wait until it resets.   |
+| Something about your credit balance                                                                                | The prepaid credits ran out.                                                               | Buy credits on **Settings** → **Billing**, and turn on auto-reload.                                     |
+| `not_found_error` and `model:`                                                                                     | `ASSISTANT_MODEL` names a model that does not exist, or that your organization cannot use. | Fix it or remove it (see "Change the model" below).                                                     |
+
+In all of these, the panel says "Something went wrong". When the cause is on Anthropic's side (overloaded, rate-limited or unreachable), it says "The Assistant is busy right now" instead. Try again after a minute. If it keeps happening and `err` says `rate_limit_error` with `enforced_spend_limit_reached`, your organization has used the whole monthly cap of its usage tier. Ask for more with **Request rate limit increase** on the Console's **Rate limits** page (`https://platform.claude.com/settings/limits`), or wait for the next month.
+
+### Change the daily limit
+
+Each workspace may use 2,000,000 tokens a day. That counts every kind of token its questions use: sent, written back, and written to or read from Anthropic's cache. The day runs from midnight to midnight in the workspace's own time zone. The worker checks the total before each question, so the last question of the day can go a little over. The same number applies to every workspace.
+
+When a workspace reaches it, the panel says "That’s today’s Assistant limit for {workspace}" and "It resets at midnight. Everything else in HandsFreeOS still works."
+
+1. Pick the new number. Use digits only, with no commas or spaces: `4000000`, not `4,000,000`. With anything else the worker refuses to start, and its log says `ASSISTANT_DAILY_TOKENS must be a whole number above zero`.
+2. Start an import. The number is not a secret, but a Fly secret changes it without a code change or a deploy.
+
+   ```bash
+   fly secrets import --app handsfreeos-worker
+   ```
+
+3. Paste the line with your number, then press Return and Control-D.
+
+   ```text
+   ASSISTANT_DAILY_TOKENS=4000000
+   ```
+
+   Fly restarts the worker.
+
+4. Watch the worker's log.
+
+   ```bash
+   fly logs --app handsfreeos-worker
+   ```
+
+   You should see a new `worker started` line. Press Control-C to stop watching.
+
+To go back to 2,000,000:
+
+```bash
+fly secrets unset --app handsfreeos-worker ASSISTANT_DAILY_TOKENS
+```
+
+Each extra million tokens a day can add up to $10 a day per workspace. Raise the spend limit in the Console to match if you need to.
+
+### Change the model
+
+The Assistant uses Claude Sonnet 5 (`claude-sonnet-5`) unless `ASSISTANT_MODEL` names another model. HandsFreeOS was built and tested with Claude Sonnet 5, so try any other model on your laptop first ("Trying the Assistant" in "Local development"). Anthropic lists the model IDs at `https://platform.claude.com/docs/en/models/overview`. For example, `claude-opus-5` costs $5 per million input tokens and $25 per million output tokens, and `claude-haiku-4-5` costs $1 and $5.
+
+The worker does not check the ID when it starts. With a mistyped ID it starts normally, then every question fails with `not_found_error` in the log (see "When a question fails").
+
+1. Start an import.
+
+   ```bash
+   fly secrets import --app handsfreeos-worker
+   ```
+
+2. Paste the line with the model ID, then press Return and Control-D.
+
+   ```text
+   ASSISTANT_MODEL=claude-opus-5
+   ```
+
+   Fly restarts the worker.
+
+3. Ask the Assistant a question, as in "Check the worker and ask a question".
+
+   You should see an answer.
+
+To go back to Claude Sonnet 5:
+
+```bash
+fly secrets unset --app handsfreeos-worker ASSISTANT_MODEL
+```
+
+The daily limit counts tokens, not dollars, so a more expensive model spends more for the same limit.
+
+### Rotate the key
+
+Replace the key on a schedule you choose, when someone who saw it leaves, and at once if it may have leaked.
+
+1. Make a new key with steps 3 to 8 of "Make the production key". Put the date in its name, for example `handsfreeos-worker 2027-09`.
+2. Save the new key in the "Anthropic API key" entry. Keep the old value there too until step 8.
+3. Start an import.
+
+   ```bash
+   fly secrets import --app handsfreeos-worker
+   ```
+
+4. Type `ANTHROPIC_API_KEY=`, paste the new key right after it, then press Return and Control-D.
+
+   Fly restarts the worker with the new key.
+
+5. Clear the clipboard.
+
+   ```bash
+   pbcopy < /dev/null
+   ```
+
+6. Ask the Assistant a question, as in "Check the worker and ask a question".
+
+   You should see an answer.
+
+7. In the Console, go to **Settings** → **API keys** and click **Disable** on the old key. **Re-enable** undoes it if something still needed the old key.
+8. A day later, if the Assistant still answers, click **Delete** on the old key. Delete cannot be undone. Then remove the old value from your password manager entry.
+
+If the key may have leaked, click **Disable** on it first, then do steps 1 to 6 right away. The Assistant fails every question in between.
+
+### Without a key
+
+- The worker starts as usual. Its `worker started` line shows `"assistant":"none"`.
+- On `https://app.handsfreeos.com`, the Assistant panel says "The Assistant isn’t available yet" and "It hasn’t been set up for HandsFreeOS yet. Everything else works as usual."
+- On your laptop, it says "The Assistant isn’t set up here yet" and asks for `ANTHROPIC_API_KEY` in `apps/worker/.env` (see "Trying the Assistant" in "Local development").
+- Nothing else in HandsFreeOS needs the key.
+
+To turn the Assistant off on purpose, for example while you look into a bill, remove the key from the worker. Fly restarts it. The key stays in your password manager, so "Give the worker the key" turns the Assistant back on.
+
+```bash
+fly secrets unset --app handsfreeos-worker ANTHROPIC_API_KEY
+```
+
+Leave `ASSISTANT_PROVIDER` unset. The worker uses `anthropic` when the key is set and `none` when it is not. It refuses to start with `scripted`, the stand-in the automated tests use.
+
 ## Local development
 
 This section runs all of HandsFreeOS on your Mac: the web app, the API, the worker, and a private copy of Supabase in Docker. It never touches the hosted Supabase project. By default nothing reaches Twilio, Postmark, Microsoft or Google either. The worker uses stand-ins for all of them, so nothing costs money and no phone is needed. The last part of this section explains how to swap one stand-in for the real provider when you need to.
@@ -4956,7 +5256,7 @@ Do these once, in order.
 
    Each file starts with a comment saying it was generated and must not be committed, and Git ignores all four. Their values only work against the local stack.
 
-   `pnpm env:local` rewrites all four files from scratch every time you run it. The one value it keeps is `WORKER_ENCRYPTION_KEY` in `apps/worker/.env`. The worker seals carrier and mailbox credentials with that key and needs the same key to open them later. Any line you added to these files by hand is gone after the next run, so add it back afterwards.
+   `pnpm env:local` rewrites all four files from scratch every time you run it. In `apps/worker/.env` it keeps `WORKER_ENCRYPTION_KEY`, which the worker seals carrier and mailbox credentials with and needs to open them later, and the Assistant's `ANTHROPIC_API_KEY`, `ASSISTANT_MODEL` and `ASSISTANT_DAILY_TOKENS` lines. Any other line you added to these files by hand is gone after the next run, so add it back afterwards.
 
 4. Fill the database with demo data.
 
@@ -5123,6 +5423,49 @@ How the stand-in behaves:
 
 - **Connect Gmail** stays disabled with the badge "Waiting on Google’s review", even locally. To try the Gmail stand-in, add `NEXT_PUBLIC_GMAIL_ENABLED=true` to `apps/web/.env.local` and restart `pnpm dev`. Its stand-in page fills in `owner@gmail.fake`.
 
+### Trying the Assistant
+
+Locally the worker has no Anthropic key, so its `worker started` line shows `assistant: "none"` and the Assistant panel says "The Assistant isn’t set up here yet". To try the real Assistant, give the local worker a key of its own. Its questions cost money from the same Anthropic credits, at the prices in "What it costs" in "The Assistant: Anthropic".
+
+1. In the Claude Console, go to **Settings** → **Workspaces**, click **Create workspace**, name it `HandsFreeOS local`, and click **Create**. On its **Spend limits** tab, set a small monthly cap, for example $20.
+
+   You should see `HandsFreeOS local` in the list of workspaces.
+
+2. Go to **Settings** → **API keys** and click **Create key**. Name it `handsfreeos-local <your name>`, set **Linked account** to yourself, pick `HandsFreeOS local` as its only workspace, and pick an expiration of 30 days. Never use the production key on a laptop.
+3. Create the key, copy it, and save it in your password manager as a new entry named "Anthropic local key".
+
+   You should see the new key in the list on **API keys**.
+
+4. Open `apps/worker/.env` in a plain-text editor.
+
+   ```bash
+   nano apps/worker/.env
+   ```
+
+5. Add this line at the end, with your local key in place of the placeholder and no quotes, then save with Control-O, Return and Control-X.
+
+   ```text
+   ANTHROPIC_API_KEY=<Anthropic local key>
+   ```
+
+   Git ignores `apps/worker/.env`. Never commit it, and never put the key in any other file in the repository.
+
+6. Stop `pnpm dev` with Control-C and start it again.
+
+   You should see `assistant: "anthropic"` in the `worker started` line.
+
+7. Sign in, open a workspace, click **Ask HandsFreeOS** in the sidebar (or press Command-J), and ask `What can you help me with here?`
+
+   You should see the answer appear as Claude writes it.
+
+Good to know:
+
+- `pnpm env:local` keeps the key, and any `ASSISTANT_MODEL` or `ASSISTANT_DAILY_TOKENS` line, when it rewrites `apps/worker/.env`.
+- Never `export ANTHROPIC_API_KEY` in your shell. The API refuses to start while it can see any name that starts with `ANTHROPIC_`, and the worker would use the shell's key instead of the one in `apps/worker/.env`.
+- The daily limit of 2,000,000 tokens per workspace applies here too. To try another model or limit, add an `ASSISTANT_MODEL=` or `ASSISTANT_DAILY_TOKENS=` line the same way and restart `pnpm dev`.
+- The browser tests never call Anthropic. Their worker uses a scripted stand-in and an empty key, and the empty key wins over the one in `apps/worker/.env`.
+- After 30 days the key expires. Questions then end with "Something went wrong", and the `pnpm dev` window shows `assistant run failed` with `authentication_error`. Make a new local key and replace the line.
+
 ### Running the tests
 
 Both kinds of tests need the local stack running and `pnpm env:local` done.
@@ -5226,8 +5569,8 @@ The stand-ins cover almost everything. Switch one to the real provider only to c
 #### Rules for real keys on a laptop
 
 - **Provider keys go only in `apps/worker/.env`.** Git ignores that file. Never commit it, and never put keys in any other file in the repository.
-- **Never `export` a provider key in your shell.** The API checks every variable it can see and refuses to start with `The API process must never hold privileged keys. Remove: <names>`. That covers any name containing `SECRET`, `SERVICE_ROLE`, `SIGNING_KEY` or `ENCRYPTION_KEY`, and any name starting with `TWILIO_`, `POSTMARK_`, `MICROSOFT_OAUTH_` or `GOOGLE_OAUTH_`.
-- **`pnpm env:local` erases your edits.** It rewrites `apps/worker/.env` and `apps/web/.env.local`. Keep the lines you add in a secure note in your password manager, and paste them back after each run.
+- **Never `export` a provider key in your shell.** The API checks every variable it can see and refuses to start with `The API process must never hold privileged keys. Remove: <names>`. That covers any name containing `SECRET`, `SERVICE_ROLE`, `SIGNING_KEY` or `ENCRYPTION_KEY`, and any name starting with `TWILIO_`, `POSTMARK_`, `MICROSOFT_OAUTH_`, `GOOGLE_OAUTH_`, `ANTHROPIC_` or `OPENAI_`.
+- **`pnpm env:local` erases your edits.** It rewrites `apps/worker/.env` and `apps/web/.env.local`, keeping only the worker's encryption key and the Assistant's lines. Keep any other lines you add in a secure note in your password manager, and paste them back after each run.
 - **Restart after every edit.** Stop `pnpm dev` with Control-C, start it again, and read the `worker started` line to confirm which providers are live.
 - **Only the worker's public address changes.** `NEXT_PUBLIC_WORKER_URL` in `apps/web/.env.local` stays `http://127.0.0.1:4100`, because your browser still reaches the worker directly.
 - **Real Twilio costs money.** Numbers bought from the laptop are real numbers on the master account's bill.
@@ -5831,7 +6174,7 @@ You need:
   cd ~/Projects/HandsFreeOS
   ```
 
-- The accounts listed in "Before you start" at the top of this guide: Fly.io (with a payment card), Vercel (connected to GitHub), Twilio, Postmark, Microsoft Entra and the Microsoft AI Cloud Partner Program, and Google Cloud.
+- The accounts listed in "Before you start" at the top of this guide: Fly.io (with a payment card), Vercel (connected to GitHub), Twilio, Postmark, Microsoft Entra and the Microsoft AI Cloud Partner Program, Google Cloud, and Anthropic (for the Assistant).
 - Admin rights on the HandsFreeOS GitHub repository, `gobizhelp/handsfreeos`.
 - Your password manager, with the `HandsFreeOS` folder. Every secret goes there first, then only into the place named in "Your password manager folder" at the top of this guide. None of these values ever goes into the repository, a commit, a chat or a support ticket.
 - Access to the DNS settings for `handsfreeos.com` at Cloudflare.
@@ -5938,6 +6281,8 @@ You should see, at the end:
    ```
 
 4. `FLY_API_TOKEN` in `gh secret list --repo gobizhelp/handsfreeos`, and a green Deploy run.
+
+Then give the worker the Anthropic key, so the Assistant can answer: do "Make the account and set a spend limit", "Make the production key" and "Give the worker the key" in "The Assistant: Anthropic". The worker runs without it, and until then the Assistant panel says "The Assistant isn’t available yet". Ask the Assistant its first question once you have an account (Stage 5).
 
 #### Stage 5: the web app on Vercel, and your first account
 
@@ -6125,13 +6470,13 @@ Each entry gives the symptom, the likely cause and the fix. Start with `fly logs
 
 **Symptom.** The deploy fails on the API step, `https://api.handsfreeos.com/healthz` does not answer, and `fly logs --app handsfreeos-api` shows one of the errors below. The machine keeps restarting and fails its health check.
 
-| Error in the log                                                   | What to do                                                                                                                                                                                                                                                                                                                                     |
-| ------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `The API process must never hold privileged keys. Remove: <names>` | The API app holds a secret whose name matches its guard: any name containing `SECRET`, `SERVICE_ROLE`, `SIGNING_KEY` or `ENCRYPTION_KEY`, or starting with `TWILIO_`, `POSTMARK_`, `MICROSOFT_OAUTH_` or `GOOGLE_OAUTH_` (upper or lower case). Usually a worker secret was set with `--app handsfreeos-api` by mistake. Follow the fix below. |
-| `Invalid PORT: <value>`                                            | A `PORT` secret overrides the `4000` set in `apps/api/fly.toml`, or the value there was changed. Remove the secret (command below), or restore `PORT = "4000"` under `[env]` in `apps/api/fly.toml`.                                                                                                                                           |
-| `DATABASE_URL must be a postgres:// URL for the hfos_api role`     | Set `DATABASE_URL` on the API.                                                                                                                                                                                                                                                                                                                 |
-| `DATABASE_URL must not connect as the postgres role`               | Use the user `hfos_api.ybupfghakoszfcxhyrby` in the string. The postgres check does not catch every form of the postgres user, so always use `hfos_api.ybupfghakoszfcxhyrby`.                                                                                                                                                                  |
-| `SUPABASE_URL must be set to the Supabase API URL`                 | Restore `SUPABASE_URL` under `[env]` in `apps/api/fly.toml`.                                                                                                                                                                                                                                                                                   |
+| Error in the log                                                   | What to do                                                                                                                                                                                                                                                                                                                                                              |
+| ------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `The API process must never hold privileged keys. Remove: <names>` | The API app holds a secret whose name matches its guard: any name containing `SECRET`, `SERVICE_ROLE`, `SIGNING_KEY` or `ENCRYPTION_KEY`, or starting with `TWILIO_`, `POSTMARK_`, `MICROSOFT_OAUTH_`, `GOOGLE_OAUTH_`, `ANTHROPIC_` or `OPENAI_` (upper or lower case). Usually a worker secret was set with `--app handsfreeos-api` by mistake. Follow the fix below. |
+| `Invalid PORT: <value>`                                            | A `PORT` secret overrides the `4000` set in `apps/api/fly.toml`, or the value there was changed. Remove the secret (command below), or restore `PORT = "4000"` under `[env]` in `apps/api/fly.toml`.                                                                                                                                                                    |
+| `DATABASE_URL must be a postgres:// URL for the hfos_api role`     | Set `DATABASE_URL` on the API.                                                                                                                                                                                                                                                                                                                                          |
+| `DATABASE_URL must not connect as the postgres role`               | Use the user `hfos_api.ybupfghakoszfcxhyrby` in the string. The postgres check does not catch every form of the postgres user, so always use `hfos_api.ybupfghakoszfcxhyrby`.                                                                                                                                                                                           |
+| `SUPABASE_URL must be set to the Supabase API URL`                 | Restore `SUPABASE_URL` under `[env]` in `apps/api/fly.toml`.                                                                                                                                                                                                                                                                                                            |
 
 **Fix for the privileged-keys error.**
 
@@ -6191,6 +6536,10 @@ A wrong password or user inside `DATABASE_URL` does not stop the API. It starts 
 | `POSTMARK_WEBHOOK_PASSWORD must be a long random value (24+ characters)`                      | Set a password of 24 or more characters. `openssl rand -hex 24` makes 48. The worker needs it on Fly.io even before Postmark's webhooks are set up.                                                                                                           |
 | `MAILBOX_PROVIDER must be real or fake`                                                       | Remove any `MAILBOX_PROVIDER` secret.                                                                                                                                                                                                                         |
 | `MAILBOX_PROVIDER=fake is for development and tests only`                                     | Same fix.                                                                                                                                                                                                                                                     |
+| `ASSISTANT_PROVIDER must be anthropic, scripted or none`                                      | A value is misspelled. Remove any `ASSISTANT_PROVIDER` secret: the worker picks `anthropic` itself when `ANTHROPIC_API_KEY` is set.                                                                                                                           |
+| `ASSISTANT_PROVIDER=scripted is for development and tests only`                               | Same fix.                                                                                                                                                                                                                                                     |
+| `ANTHROPIC_API_KEY is required with ASSISTANT_PROVIDER=anthropic`                             | Set `ANTHROPIC_API_KEY` ("Give the worker the key" in "The Assistant: Anthropic"), or remove the `ASSISTANT_PROVIDER` secret.                                                                                                                                 |
+| `ASSISTANT_DAILY_TOKENS must be a whole number above zero`                                    | Set digits only, with no commas or spaces (for example `2000000`), or remove the secret to use the default.                                                                                                                                                   |
 | `WORKER_ENCRYPTION_KEY must be 32 random bytes, base64 encoded (openssl rand -base64 32)`     | Checked after all the others. The key was cut or changed when pasted. Paste the saved key again exactly. The same check runs on every key in `WORKER_ENCRYPTION_KEYS_PREVIOUS`.                                                                               |
 
 Two more errors come from Supabase's connection pooler, not from the worker, and they only show after every check above passes. `password authentication failed for user` means the password in `DATABASE_URL_WORKER` is wrong: copy the `DATABASE_URL_WORKER` value from `.env.hosted` again (right after a password change, wait 30 seconds first). `Tenant or user not found` means the user is not `hfos_worker.ybupfghakoszfcxhyrby`, or the pooler host is wrong; a bare `hfos_worker` fails.
@@ -6231,7 +6580,7 @@ Two more errors come from Supabase's connection pooler, not from the worker, and
 
    You should see `worker started`.
 
-Some gaps do not stop the worker but break features later: a missing or wrong `SUPABASE_SECRET_KEY` (photos, voicemails, attachments, imports), missing Microsoft client values (Connect Outlook), and a missing `TWILIO_PRIMARY_PROFILE_SID` (local-number registrations). Each has its own entry below or in its section. The worker also starts with Postmark tokens that are set but wrong; customer email then fails, and so does adding a business's own domain. "Check the Postmark tokens and the Supabase key" in Fly Part 6 catches a wrong key or token before it goes live.
+Some gaps do not stop the worker but break features later: a missing or wrong `SUPABASE_SECRET_KEY` (photos, voicemails, attachments, imports), missing Microsoft client values (Connect Outlook), a missing `TWILIO_PRIMARY_PROFILE_SID` (local-number registrations), and a missing or wrong `ANTHROPIC_API_KEY` (the Assistant). Each has its own entry below or in its section. The worker also starts with Postmark tokens that are set but wrong; customer email then fails, and so does adding a business's own domain. "Check the Postmark tokens and the Supabase key" in Fly Part 6 catches a wrong key or token before it goes live.
 
 #### The Deploy workflow did nothing
 

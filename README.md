@@ -2,7 +2,7 @@
 
 # HandsFreeOS
 
-The operating system for running the customer side of a small business with as little manual work as possible. Milestone 1 is the foundation: multi-tenant accounts (organization → workspace → user), sign-in with password, Google and passkeys, invitations with fixed roles, and the command → event → audit pipeline every later feature rides on. Milestone 2 adds the CRM (customers, pipelines, leads, tasks, timeline, files, live updates, CSV import). Milestone 3 turns it into the place a business talks to its customers: a business number, carrier registration, texting and a shared inbox, with calls and email to follow.
+The operating system for running the customer side of a small business with as little manual work as possible. Milestone 1 is the foundation: multi-tenant accounts (organization → workspace → user), sign-in with password, Google and passkeys, invitations with fixed roles, and the command → event → audit pipeline every later feature rides on. Milestone 2 adds the CRM (customers, pipelines, leads, tasks, timeline, files, live updates, CSV import). Milestone 3 turns it into the place a business talks to its customers: a business number, carrier registration, texting and a shared inbox, with calls and email to follow. Milestone 4 adds the Assistant: an Ask HandsFreeOS panel in every workspace (⌘J) that answers questions about the business and gets work done through Claude, with some changes waiting for your OK.
 
 ## What is in the repo
 
@@ -14,9 +14,9 @@ The operating system for running the customer side of a small business with as l
 | `packages/core`       | Browser-safe domain: permissions, command kernel, commands, queries, zod schemas, typed errors.                                                                                                                                                                                                                                                               |
 | `packages/db`         | Drizzle schema mirror, the role-scoped database clients (`asUser`, `asWorker`) and shared test helpers.                                                                                                                                                                                                                                                       |
 | `packages/api-client` | Generated, typed client for the API (`openapi-typescript` + `openapi-fetch`).                                                                                                                                                                                                                                                                                 |
-| `packages/ai`         | Swappable AI provider seam. Interface only until Milestone 4.                                                                                                                                                                                                                                                                                                 |
+| `packages/ai`         | Swappable AI provider seam: the streaming contract, Anthropic's Claude and a scripted stand-in for tests.                                                                                                                                                                                                                                                     |
 | `supabase/`           | Local stack config, SQL migrations (roles, tables, RLS, functions, triggers) and email templates.                                                                                                                                                                                                                                                             |
-| `design/m1`–`m3`      | Design canvas sources for each milestone's screens.                                                                                                                                                                                                                                                                                                           |
+| `design/m1`–`m4`      | Design canvas sources for each milestone's screens.                                                                                                                                                                                                                                                                                                           |
 | `docs/operations.md`  | Step-by-step setup for everything outside the code: Supabase, Fly.io, Vercel, Twilio, Postmark, Outlook and Gmail, local development, going live and troubleshooting.                                                                                                                                                                                         |
 
 ## Run it locally
@@ -47,7 +47,7 @@ pnpm env:local        # writes .env.local and the per-app env files from `supaba
 
 ```bash
 pnpm db:seed          # demo data: the Go Biz Help agency, three client workspaces and their people;
-                      # Lone Star also gets a business number, conversations, calls and email
+                      # Lone Star also gets a business number, conversations, calls, email and two Assistant chats
 ```
 
 ```bash
@@ -75,6 +75,7 @@ Good to know:
 - `pnpm db:reset` wipes the database, re-applies every migration and seeds again.
 - Milestone 2 uses Realtime and Storage. A local stack started before those migrations existed must be restarted once (`pnpm supabase:stop && pnpm supabase:start`) so the Realtime service creates its tables; the migration that adds the live-updates policy warns instead of failing when they are missing.
 - Texting runs against a fake phone carrier locally: buying a number, carrier approval, sending, delivery receipts and inbound texts all happen in memory inside the worker, so nothing costs money. The reminder email for an unanswered customer waits the workspace's 10 minutes; set `UNANSWERED_ALERT_MS=8000` in `apps/worker/.env` to see it sooner.
+- The Assistant needs an Anthropic API key to answer: add `ANTHROPIC_API_KEY=<your key>` to `apps/worker/.env` and restart `pnpm dev`, or its panel says it isn't set up. "Trying the Assistant" in `docs/operations.md` explains how to make a separate local key. `pnpm env:local` keeps the line when it rewrites the file.
 - The browser tests start their own worker on port 4100 with an 8-second reminder; stop `pnpm dev` first so the tests get it.
 - Docker via Colima: the `pnpm supabase:*` scripts point the CLI at Colima's socket for you. If you call `supabase` directly, export `DOCKER_HOST="unix://$HOME/.colima/default/docker.sock"` first.
 - The local stack uses ports 54421–54429 (API 54421, Postgres 54422, Studio 54423, Mailpit 54424, SMTP 54425) so it does not collide with other projects' stacks on the default 543xx ports.

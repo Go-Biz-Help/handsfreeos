@@ -6,7 +6,8 @@
 # In production the worker refuses to start without DATABASE_URL_WORKER, SMTP_URL (smtp://…:587?requireTLS=true;
 # Postmark has no port 465), WORKER_ENCRYPTION_KEY, TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, POSTMARK_SERVER_TOKEN,
 # POSTMARK_ACCOUNT_TOKEN and POSTMARK_WEBHOOK_PASSWORD (24+ characters). SUPABASE_SECRET_KEY (files),
-# TWILIO_PRIMARY_PROFILE_SID (local numbers) and the Microsoft and Google OAuth client values turn features on.
+# TWILIO_PRIMARY_PROFILE_SID (local numbers), the Microsoft and Google OAuth client values and ANTHROPIC_API_KEY
+# (the Assistant) turn features on.
 # Save WORKER_ENCRYPTION_KEY in the password manager before setting it: without it sealed tokens can't be opened.
 
 app = "handsfreeos-worker"
