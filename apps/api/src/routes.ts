@@ -47,6 +47,8 @@ export function registerOperations(app: FastifyInstance, db: Db): void {
     });
   }
   for (const q of registry.queries) {
+    // Worker-only queries never become public routes either.
+    if (!(q.actors ?? ['human']).includes('human')) continue;
     typed.route({
       method: 'POST',
       url: `/v1/queries/${q.name}`,

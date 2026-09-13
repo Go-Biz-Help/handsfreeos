@@ -2,8 +2,9 @@ import { randomUUID } from 'node:crypto';
 import { rows, sql } from '@hfos/db/client';
 import { closeTestDbs, createTestUser, testDbs, type TestUser } from '@hfos/db/testing';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import type { z } from 'zod';
+import { z } from 'zod';
 import { HfosError } from '../src/errors';
+import { defineQuery } from '../src/kernel/define';
 import { executeCommand, executeQuery } from '../src/kernel/execute';
 import { decodeCursor, encodeCursor, page } from '../src/kernel/pagination';
 import type {
@@ -1006,6 +1007,80 @@ describe('the system actor', () => {
           meta(),
         ),
       'forbidden',
+    );
+  });
+
+  it('opens a lead for a booking made on the booking page', async () => {
+    const actor = system(wsId, orgId, owner.id);
+    const bookingMeta: RequestMeta = { correlationId: randomUUID(), channel: 'booking_page' };
+    const booker = await executeCommand(
+      testDbs().worker.db,
+      personCreate,
+      { workspaceId: wsId, firstName: 'Online', lastName: 'Booker', ignoreDuplicates: true },
+      actor,
+      bookingMeta,
+    );
+    const res = await executeCommand(
+      testDbs().worker.db,
+      leadCreate,
+      { workspaceId: wsId, personId: booker.output.personId, title: 'AC tune-up (booked online)' },
+      actor,
+      bookingMeta,
+    );
+    const [audit] = await rows<{ actor_type: string; channel: string; action: string }>(
+      testDbs().admin.db,
+      sql`select actor_type::text as actor_type, channel, action from app.audit_logs where event_id = ${res.eventIds[0]}`,
+    );
+    expect(audit).toEqual({ actor_type: 'system', channel: 'booking_page', action: 'lead.create' });
+    const { lead } = await ask(leadGet, { workspaceId: wsId, leadId: res.output.leadId }, member);
+    expect(lead.title).toBe('AC tune-up (booked online)');
+  });
+
+  it('runs queries that opt in, as the service actor inside its own workspace only', async () => {
+    const whoReads = defineQuery({
+      name: 'test.who_reads',
+      description: 'Test only: the database role a query runs as, and the people it can see.',
+      input: z.object({ workspaceId: z.string() }),
+      output: z.object({ role: z.string(), people: z.number() }),
+      permission: 'records.read',
+      actors: ['human', 'system'],
+      scope: (i) => ({ kind: 'workspace', workspaceId: i.workspaceId }),
+      async handler(ctx) {
+        const [r] = await rows<{ role: string; people: number }>(
+          ctx.tx,
+          sql`select current_user::text as role,
+                (select count(*)::int from app.people where workspace_id = ${ctx.scope.workspaceId}) as people`,
+        );
+        return r!;
+      },
+    });
+    const bySystem = await executeQuery(
+      testDbs().worker.db,
+      whoReads,
+      { workspaceId: wsId },
+      system(wsId, orgId, owner.id),
+      meta(),
+    );
+    expect(bySystem.role).toBe('service_actor');
+    expect(bySystem.people).toBeGreaterThan(0);
+    const byMember = await executeQuery(
+      db(),
+      whoReads,
+      { workspaceId: wsId },
+      human(member),
+      meta(),
+    );
+    expect(byMember.role).toBe('authenticated');
+    await expectHfos(
+      () =>
+        executeQuery(
+          testDbs().worker.db,
+          whoReads,
+          { workspaceId: otherWs },
+          system(wsId, orgId, owner.id),
+          meta(),
+        ),
+      'not_found',
     );
   });
 });

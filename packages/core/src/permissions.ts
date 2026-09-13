@@ -30,6 +30,8 @@ export const ROLE_PERMISSIONS = {
     'inbox.use',
     'channels.manage',
     'assistant.use',
+    'calendars.manage',
+    'appointments.write',
   ],
   admin: [
     'workspace.read',
@@ -51,6 +53,8 @@ export const ROLE_PERMISSIONS = {
     'inbox.use',
     'channels.manage',
     'assistant.use',
+    'calendars.manage',
+    'appointments.write',
   ],
   member: [
     'workspace.read',
@@ -59,6 +63,7 @@ export const ROLE_PERMISSIONS = {
     'records.write',
     'inbox.use',
     'assistant.use',
+    'appointments.write',
   ],
   org_owner: [
     'org.read',

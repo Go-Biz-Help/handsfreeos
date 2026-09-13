@@ -1047,7 +1047,556 @@ export const assistantToolCalls = app.table('assistant_tool_calls', {
   ...timestamps(),
 });
 
+// ---------- Milestone 5: the calendar (0015-0017) ----------
+export const scheduleOwnerKind = app.enum('schedule_owner_kind', [
+  'user',
+  'resource',
+  'service',
+  'calendar',
+]);
+export const scheduleExceptionKind = app.enum('schedule_exception_kind', [
+  'unavailable',
+  'available',
+]);
+export const resourceKind = app.enum('resource_kind', [
+  'room',
+  'equipment',
+  'vehicle',
+  'property',
+  'chair',
+  'other',
+]);
+export const calendarStatus = app.enum('calendar_status', [
+  'draft',
+  'active',
+  'paused',
+  'archived',
+]);
+export const appointmentKind = app.enum('appointment_kind', ['booking', 'session']);
+export const appointmentStatus = app.enum('appointment_status', [
+  'scheduled',
+  'completed',
+  'cancelled',
+  'no_show',
+]);
+export const appointmentSource = app.enum('appointment_source', [
+  'staff',
+  'assistant',
+  'booking_page',
+  'series',
+]);
+export const appointmentStaffRole = app.enum('appointment_staff_role', ['host', 'crew']);
+export const attendeeStatus = app.enum('attendee_status', [
+  'booked',
+  'cancelled',
+  'no_show',
+  'attended',
+]);
+export const waitlistStatus = app.enum('waitlist_status', [
+  'waiting',
+  'offered',
+  'booked',
+  'expired',
+  'removed',
+]);
+export const calendarProvider = app.enum('calendar_provider', ['google', 'microsoft']);
+export const calendarConnectionStatus = app.enum('calendar_connection_status', [
+  'pending',
+  'active',
+  'reauth_required',
+  'error',
+  'disconnected',
+]);
+export type ScheduleOwnerKind = (typeof scheduleOwnerKind.enumValues)[number];
+export type ResourceKind = (typeof resourceKind.enumValues)[number];
+export type CalendarStatus = (typeof calendarStatus.enumValues)[number];
+export type AppointmentStatus = (typeof appointmentStatus.enumValues)[number];
+export type AppointmentSource = (typeof appointmentSource.enumValues)[number];
+export type AttendeeStatus = (typeof attendeeStatus.enumValues)[number];
+export type WaitlistStatus = (typeof waitlistStatus.enumValues)[number];
+export type CalendarProvider = (typeof calendarProvider.enumValues)[number];
+export type CalendarConnectionStatus = (typeof calendarConnectionStatus.enumValues)[number];
+
+/** A Postgres tstzrange in its text form, e.g. ["2026-10-06 14:00:00+00","2026-10-06 15:00:00+00"). */
+export const tstzrange = customType<{ data: string }>({ dataType: () => 'tstzrange' });
+
+/** One weekly window: day 0 = Sunday … 6 = Saturday, wall-clock "HH:MM" in the schedule's zone (end up to "24:00"). */
+export interface WeeklyWindow {
+  readonly day: number;
+  readonly start: string;
+  readonly end: string;
+}
+
+const calendarLink = () =>
+  uuid('calendar_id')
+    .notNull()
+    .references(() => calendars.id, { onDelete: 'cascade' });
+/** Triggers fill these from the appointment; 'empty' lets callers leave them out. */
+const emptyRange = (name: string) =>
+  tstzrange(name)
+    .notNull()
+    .default(sql`'empty'::tstzrange`);
+
+export const resources = app.table('resources', {
+  id: id(),
+  workspaceId: workspaceRef(),
+  name: text('name').notNull(),
+  kind: resourceKind('kind').notNull().default('other'),
+  quantity: integer('quantity').notNull().default(1),
+  location: text('location'),
+  archivedAt: ts('archived_at'),
+  createdBy: userRef('created_by'),
+  ...timestamps(),
+});
+
+export const services = app.table('services', {
+  id: id(),
+  workspaceId: workspaceRef(),
+  name: text('name').notNull(),
+  description: text('description'),
+  durations: integer('durations')
+    .array()
+    .notNull()
+    .default(sql`'{60}'`),
+  defaultDuration: integer('default_duration').notNull().default(60),
+  bufferBefore: integer('buffer_before').notNull().default(0),
+  bufferAfter: integer('buffer_after').notNull().default(0),
+  color: text('color').notNull().default('#2d69d8'),
+  /** Shown on the booking page only; charging arrives with payments (Milestone 9). */
+  priceCents: integer('price_cents'),
+  /** customer_address, business, virtual, phone. */
+  locationKinds: text('location_kinds')
+    .array()
+    .notNull()
+    .default(sql`'{}'`),
+  archivedAt: ts('archived_at'),
+  createdBy: userRef('created_by'),
+  ...timestamps(),
+});
+
+/** Who does a service; none listed means everyone. */
+export const serviceStaff = app.table(
+  'service_staff',
+  {
+    workspaceId: workspaceRef(),
+    serviceId: uuid('service_id')
+      .notNull()
+      .references(() => services.id, { onDelete: 'cascade' }),
+    userId: ownerRef(),
+    createdAt: ts('created_at').notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.serviceId, t.userId] })],
+);
+
+export const serviceResources = app.table(
+  'service_resources',
+  {
+    workspaceId: workspaceRef(),
+    serviceId: uuid('service_id')
+      .notNull()
+      .references(() => services.id, { onDelete: 'cascade' }),
+    resourceId: uuid('resource_id')
+      .notNull()
+      .references(() => resources.id),
+    quantity: integer('quantity').notNull().default(1),
+    createdAt: ts('created_at').notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.serviceId, t.resourceId] })],
+);
+
+export const territories = app.table('territories', {
+  id: id(),
+  workspaceId: workspaceRef(),
+  name: text('name').notNull(),
+  /** Five-digit ZIP codes. */
+  postalCodes: text('postal_codes')
+    .array()
+    .notNull()
+    .default(sql`'{}'`),
+  createdBy: userRef('created_by'),
+  ...timestamps(),
+});
+
+export const territoryMembers = app.table(
+  'territory_members',
+  {
+    workspaceId: workspaceRef(),
+    territoryId: uuid('territory_id')
+      .notNull()
+      .references(() => territories.id, { onDelete: 'cascade' }),
+    userId: ownerRef(),
+    createdAt: ts('created_at').notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.territoryId, t.userId] })],
+);
+
+/** The public home /book/<slug>; the slug is unique across HandsFreeOS whatever the capitals. */
+export const bookingSites = app.table('booking_sites', {
+  id: id(),
+  workspaceId: uuid('workspace_id')
+    .notNull()
+    .unique()
+    .references(() => workspaces.id, { onDelete: 'cascade' }),
+  slug: citext('slug').notNull().unique(),
+  name: text('name').notNull(),
+  intro: text('intro'),
+  enabled: boolean('enabled').notNull().default(true),
+  createdBy: userRef('created_by'),
+  ...timestamps(),
+});
+
+/** The permanent identity of a calendar; how it behaves lives in `config` (core's CalendarConfig). */
+export const calendars = app.table('calendars', {
+  id: id(),
+  workspaceId: workspaceRef(),
+  name: text('name').notNull(),
+  description: text('description'),
+  color: text('color').notNull().default('#2d69d8'),
+  slug: text('slug').notNull(),
+  status: calendarStatus('status').notNull().default('draft'),
+  public: boolean('public').notNull().default(false),
+  config: jsonb('config').$type<Json>().notNull().default({}),
+  configVersion: integer('config_version').notNull().default(1),
+  revision: integer('revision').notNull().default(1),
+  /** Inferred from the config; descriptive only. */
+  labels: text('labels')
+    .array()
+    .notNull()
+    .default(sql`'{}'`),
+  ownerUserId: userRef('owner_user_id'),
+  /** null: the workspace's zone. */
+  timezone: text('timezone'),
+  createdBy: userRef('created_by'),
+  ...timestamps(),
+});
+
+export const calendarRevisions = app.table('calendar_revisions', {
+  id: id(),
+  workspaceId: workspaceRef(),
+  calendarId: calendarLink(),
+  revision: integer('revision').notNull(),
+  config: jsonb('config').$type<Json>().notNull(),
+  configVersion: integer('config_version').notNull(),
+  labels: text('labels')
+    .array()
+    .notNull()
+    .default(sql`'{}'`),
+  diffSummary: jsonb('diff_summary').$type<Json[]>().notNull().default([]),
+  changedBy: userRef('changed_by'),
+  createdAt: ts('created_at').notNull().defaultNow(),
+});
+
+/** Slugs a calendar used before (written by trigger when the slug changes). */
+export const calendarSlugs = app.table('calendar_slugs', {
+  id: id(),
+  workspaceId: workspaceRef(),
+  calendarId: calendarLink(),
+  slug: text('slug').notNull(),
+  retiredAt: ts('retired_at').notNull().defaultNow(),
+});
+
+export const calendarMembers = app.table(
+  'calendar_members',
+  {
+    workspaceId: workspaceRef(),
+    calendarId: calendarLink(),
+    userId: ownerRef(),
+    weight: integer('weight').notNull().default(1),
+    priority: integer('priority').notNull().default(0),
+    required: boolean('required').notNull().default(false),
+    createdAt: ts('created_at').notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.calendarId, t.userId] })],
+);
+
+export const calendarServices = app.table(
+  'calendar_services',
+  {
+    workspaceId: workspaceRef(),
+    calendarId: calendarLink(),
+    serviceId: uuid('service_id')
+      .notNull()
+      .references(() => services.id),
+    position: integer('position').notNull().default(0),
+    overrides: jsonb('overrides').$type<Json>().notNull().default({}),
+    createdAt: ts('created_at').notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.calendarId, t.serviceId] })],
+);
+
+export const calendarResources = app.table(
+  'calendar_resources',
+  {
+    workspaceId: workspaceRef(),
+    calendarId: calendarLink(),
+    resourceId: uuid('resource_id')
+      .notNull()
+      .references(() => resources.id),
+    quantity: integer('quantity').notNull().default(1),
+    createdAt: ts('created_at').notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.calendarId, t.resourceId] })],
+);
+
+export const calendarAssignmentState = app.table(
+  'calendar_assignment_state',
+  {
+    workspaceId: workspaceRef(),
+    calendarId: calendarLink(),
+    userId: ownerRef(),
+    assignedCount: integer('assigned_count').notNull().default(0),
+    lastAssignedAt: ts('last_assigned_at'),
+    wrrCredit: integer('wrr_credit').notNull().default(0),
+    updatedAt: ts('updated_at').notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.calendarId, t.userId] })],
+);
+
+/** Weekly hours for a person, resource, service or calendar (one per owner per workspace). */
+export const schedules = app.table('schedules', {
+  id: id(),
+  workspaceId: workspaceRef(),
+  ownerKind: scheduleOwnerKind('owner_kind').notNull(),
+  ownerId: uuid('owner_id').notNull(),
+  /** null: the workspace's zone. */
+  timezone: text('timezone'),
+  weekly: jsonb('weekly').$type<WeeklyWindow[]>().notNull().default([]),
+  createdBy: userRef('created_by'),
+  ...timestamps(),
+});
+
+export const scheduleExceptions = app.table('schedule_exceptions', {
+  id: id(),
+  workspaceId: workspaceRef(),
+  scheduleId: uuid('schedule_id')
+    .notNull()
+    .references(() => schedules.id, { onDelete: 'cascade' }),
+  kind: scheduleExceptionKind('kind').notNull().default('unavailable'),
+  startsAt: ts('starts_at').notNull(),
+  endsAt: ts('ends_at').notNull(),
+  allDay: boolean('all_day').notNull().default(false),
+  note: text('note'),
+  createdBy: userRef('created_by'),
+  ...timestamps(),
+});
+
+export const appointmentSeries = app.table('appointment_series', {
+  id: id(),
+  workspaceId: workspaceRef(),
+  calendarId: uuid('calendar_id')
+    .notNull()
+    .references(() => calendars.id),
+  rule: jsonb('rule').$type<Json>().notNull(),
+  createdBy: userRef('created_by'),
+  ...timestamps(),
+});
+
+/** Bookings, sessions, events and series occurrences alike. */
+export const appointments = app.table('appointments', {
+  id: id(),
+  workspaceId: workspaceRef(),
+  calendarId: uuid('calendar_id')
+    .notNull()
+    .references(() => calendars.id),
+  /** The calendar revision whose terms this appointment keeps. */
+  calendarRevision: integer('calendar_revision').notNull(),
+  serviceId: uuid('service_id').references(() => services.id),
+  kind: appointmentKind('kind').notNull().default('booking'),
+  title: text('title').notNull(),
+  startsAt: ts('starts_at').notNull(),
+  endsAt: ts('ends_at').notNull(),
+  /** Minutes, travel included. */
+  bufferBefore: integer('buffer_before').notNull().default(0),
+  bufferAfter: integer('buffer_after').notNull().default(0),
+  capacity: integer('capacity').notNull().default(1),
+  seatsTaken: integer('seats_taken').notNull().default(0),
+  status: appointmentStatus('status').notNull().default('scheduled'),
+  location: jsonb('location').$type<Json>().notNull().default({}),
+  seriesId: uuid('series_id').references(() => appointmentSeries.id, { onDelete: 'set null' }),
+  occurrence: integer('occurrence'),
+  ownerUserId: userRef('owner_user_id'),
+  leadId: uuid('lead_id').references(() => leads.id, { onDelete: 'set null' }),
+  /** 'booking_page' is the worker's alone. */
+  source: appointmentSource('source').notNull().default('staff'),
+  notes: text('notes'),
+  /** Idempotency key, unique per workspace. */
+  clientId: text('client_id'),
+  createdBy: userRef('created_by'),
+  ...timestamps(),
+});
+
+/** Staff on an appointment; `during`, `blocked` and `active` follow the appointment (trigger). */
+export const appointmentStaff = app.table(
+  'appointment_staff',
+  {
+    workspaceId: workspaceRef(),
+    appointmentId: uuid('appointment_id')
+      .notNull()
+      .references(() => appointments.id, { onDelete: 'cascade' }),
+    userId: ownerRef(),
+    role: appointmentStaffRole('role').notNull().default('host'),
+    during: emptyRange('during'),
+    blocked: emptyRange('blocked'),
+    active: boolean('active').notNull().default(true),
+    createdAt: ts('created_at').notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.appointmentId, t.userId] })],
+);
+
+export const appointmentResources = app.table(
+  'appointment_resources',
+  {
+    workspaceId: workspaceRef(),
+    appointmentId: uuid('appointment_id')
+      .notNull()
+      .references(() => appointments.id, { onDelete: 'cascade' }),
+    resourceId: uuid('resource_id')
+      .notNull()
+      .references(() => resources.id),
+    quantity: integer('quantity').notNull().default(1),
+    during: emptyRange('during'),
+    blocked: emptyRange('blocked'),
+    active: boolean('active').notNull().default(true),
+    createdAt: ts('created_at').notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.appointmentId, t.resourceId] })],
+);
+
+export const appointmentAttendees = app.table('appointment_attendees', {
+  id: id(),
+  workspaceId: workspaceRef(),
+  appointmentId: uuid('appointment_id')
+    .notNull()
+    .references(() => appointments.id, { onDelete: 'cascade' }),
+  personId: uuid('person_id')
+    .notNull()
+    .references(() => people.id),
+  status: attendeeStatus('status').notNull().default('booked'),
+  seats: integer('seats').notNull().default(1),
+  intake: jsonb('intake').$type<Json>().notNull().default({}),
+  contactPhoneE164: text('contact_phone_e164'),
+  contactEmail: text('contact_email'),
+  smsOk: boolean('sms_ok').notNull().default(false),
+  /** Part of the signed manage link; raising it retires links already sent. */
+  manageVersion: integer('manage_version').notNull().default(1),
+  source: appointmentSource('source').notNull().default('staff'),
+  /** The worker's: which confirmations and reminders went out. */
+  reminderState: jsonb('reminder_state').$type<Json>().notNull().default({}),
+  rescheduleCount: integer('reschedule_count').notNull().default(0),
+  cancelledAt: ts('cancelled_at'),
+  createdBy: userRef('created_by'),
+  ...timestamps(),
+});
+
+export const waitlistEntries = app.table('waitlist_entries', {
+  id: id(),
+  workspaceId: workspaceRef(),
+  calendarId: uuid('calendar_id')
+    .notNull()
+    .references(() => calendars.id),
+  /** A full session, or null with a wanted window for a 1:1 opening. */
+  appointmentId: uuid('appointment_id').references(() => appointments.id, { onDelete: 'cascade' }),
+  wantedFrom: ts('wanted_from'),
+  wantedTo: ts('wanted_to'),
+  personId: uuid('person_id')
+    .notNull()
+    .references(() => people.id),
+  seats: integer('seats').notNull().default(1),
+  status: waitlistStatus('status').notNull().default('waiting'),
+  offerExpiresAt: ts('offer_expires_at'),
+  position: integer('position').notNull().default(0),
+  contactPhoneE164: text('contact_phone_e164'),
+  contactEmail: text('contact_email'),
+  smsOk: boolean('sms_ok').notNull().default(false),
+  source: appointmentSource('source').notNull().default('staff'),
+  createdBy: userRef('created_by'),
+  ...timestamps(),
+});
+
+/** Write-through state for an appointment in one person's own calendar (the worker's). */
+export const appointmentCalendarEvents = app.table('appointment_calendar_events', {
+  id: id(),
+  workspaceId: workspaceRef(),
+  appointmentId: uuid('appointment_id')
+    .notNull()
+    .references(() => appointments.id, { onDelete: 'cascade' }),
+  userId: ownerRef(),
+  connectionId: uuid('connection_id').references(() => calendarConnections.id, {
+    onDelete: 'set null',
+  }),
+  providerEventId: text('provider_event_id'),
+  syncedAt: ts('synced_at'),
+  error: text('error'),
+  ...timestamps(),
+});
+
+/** A person's Google or Outlook calendar; tokens are sealed by the worker and never readable by people. */
+export const calendarConnections = app.table('calendar_connections', {
+  id: id(),
+  workspaceId: workspaceRef(),
+  userId: ownerRef(),
+  provider: calendarProvider('provider').notNull(),
+  status: calendarConnectionStatus('status').notNull().default('pending'),
+  accountEmail: text('account_email'),
+  scopes: text('scopes')
+    .array()
+    .notNull()
+    .default(sql`'{}'`),
+  oauthStateHash: text('oauth_state_hash').unique(),
+  oauthStateExpiresAt: ts('oauth_state_expires_at'),
+  pkceVerifierEnc: text('pkce_verifier_enc'),
+  tokenEnc: text('token_enc'),
+  tokenKeyId: text('token_key_id'),
+  tokenExpiresAt: ts('token_expires_at'),
+  busySyncedAt: ts('busy_synced_at'),
+  nextSyncAt: ts('next_sync_at'),
+  failures: integer('failures').notNull().default(0),
+  lastError: text('last_error'),
+  connectedAt: ts('connected_at'),
+  disconnectedAt: ts('disconnected_at'),
+  createdBy: userRef('created_by'),
+  ...timestamps(),
+});
+
+/** Busy times read from a person's calendar: times only, never titles. */
+export const calendarBusyBlocks = app.table('calendar_busy_blocks', {
+  id: id(),
+  workspaceId: workspaceRef(),
+  connectionId: uuid('connection_id')
+    .notNull()
+    .references(() => calendarConnections.id, { onDelete: 'cascade' }),
+  userId: ownerRef(),
+  startsAt: ts('starts_at').notNull(),
+  endsAt: ts('ends_at').notNull(),
+  createdAt: ts('created_at').notNull().defaultNow(),
+});
+
 export const tables = {
+  resources,
+  services,
+  serviceStaff,
+  serviceResources,
+  territories,
+  territoryMembers,
+  bookingSites,
+  calendars,
+  calendarRevisions,
+  calendarSlugs,
+  calendarMembers,
+  calendarServices,
+  calendarResources,
+  calendarAssignmentState,
+  schedules,
+  scheduleExceptions,
+  appointmentSeries,
+  appointments,
+  appointmentStaff,
+  appointmentResources,
+  appointmentAttendees,
+  waitlistEntries,
+  appointmentCalendarEvents,
+  calendarConnections,
+  calendarBusyBlocks,
   assistantThreads,
   assistantRuns,
   assistantMessages,

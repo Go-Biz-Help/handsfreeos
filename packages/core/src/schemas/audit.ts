@@ -1,8 +1,21 @@
 import { z } from 'zod';
 import { isoDateTime, uuid } from './common';
 
-/** Where a change was made from (the kernel's RequestMeta.channel): the web app, the Assistant… */
-export const requestChannel = z.enum(['web', 'api', 'worker', 'cli', 'sms', 'assistant', 'test']);
+/**
+ * Where a change was made from (the kernel's RequestMeta.channel): the web app, the Assistant, a
+ * customer on a public booking page…
+ */
+export const requestChannel = z.enum([
+  'web',
+  'api',
+  'worker',
+  'cli',
+  'sms',
+  'assistant',
+  'booking_page',
+  'test',
+]);
+export type RequestChannel = z.infer<typeof requestChannel>;
 
 export const AuditListInput = z.object({
   workspaceId: uuid,

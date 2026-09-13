@@ -5565,7 +5565,7 @@ export interface operations {
                     /** Format: date-time */
                     before?: string;
                     /** @enum {string} */
-                    channel?: "web" | "api" | "worker" | "cli" | "sms" | "assistant" | "test";
+                    channel?: "web" | "api" | "worker" | "cli" | "sms" | "assistant" | "booking_page" | "test";
                     /** @default 50 */
                     limit?: number;
                     /** Format: date-time */

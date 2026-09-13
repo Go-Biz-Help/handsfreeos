@@ -18,6 +18,8 @@ export const leadCreate = defineCommand({
   permission: 'records.write',
   scope: (i) => ({ kind: 'workspace', workspaceId: i.workspaceId }),
   emits: ['lead.created'],
+  // A booking can open a lead (a calendar's CRM settings): the worker runs this as the system actor.
+  actors: ['human', 'system'],
   async handler(ctx, input) {
     const workspaceId = ctx.scope.workspaceId!;
     if (input.personId) await requirePerson(ctx.tx, workspaceId, input.personId);

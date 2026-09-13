@@ -1,3 +1,4 @@
+import type { RequestChannel } from '@hfos/core';
 import type { AuditEntry } from './api/types';
 import { clock } from '@/lib/calls/format';
 
@@ -6,13 +7,27 @@ const s = (v: unknown): string => (typeof v === 'string' ? v : '');
 const who = (e: AuditEntry) =>
   e.entityName || s(e.after?.email) || s(e.before?.email) || 'a person';
 
+/** How a change arrived, when that isn't someone working in the app themselves. Every channel is listed. */
+const VIA: Record<RequestChannel, string | null> = {
+  web: null,
+  api: null,
+  worker: null,
+  cli: null,
+  sms: null,
+  test: null,
+  assistant: 'via Assistant',
+  booking_page: 'via booking page',
+};
+
 /**
  * One plain-English sentence per audit row, in the third person after the actor's name. What the Assistant
- * did for someone ends "via Assistant" (their name still leads the row).
+ * did for someone ends "via Assistant" (their name still leads the row); what a customer did on a public
+ * booking page ends "via booking page".
  */
 export function describeAudit(e: AuditEntry): string {
   const sentence = describeAction(e);
-  return e.channel === 'assistant' ? `${sentence} via Assistant` : sentence;
+  const via = VIA[e.channel as RequestChannel];
+  return via ? `${sentence} ${via}` : sentence;
 }
 
 function describeAction(e: AuditEntry): string {

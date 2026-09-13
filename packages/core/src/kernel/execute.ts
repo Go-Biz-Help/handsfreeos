@@ -227,16 +227,29 @@ export async function executeQuery<I extends z.ZodType, O extends z.ZodType>(
   actor: Actor,
   meta: RequestMeta,
 ): Promise<z.output<O>> {
-  if (actor.type !== 'human')
+  const allowed = query.actors ?? ['human'];
+  if (!allowed.includes(actor.type))
     throw HfosError.forbidden(`${query.name} cannot be run by a ${actor.type} actor.`);
   const input = parseInput(query.input, rawInput);
   const scopeRef = query.scope(input);
+  const run = async (tx: Tx, scope: ResolvedScope): Promise<z.output<O>> => {
+    const result = await query.handler({ tx, actor, scope, meta }, input);
+    return query.output.parse(result) as z.output<O>;
+  };
   try {
+    if (actor.type === 'system') {
+      // Root within its tenant (no permission check), bound by the service_actor policies.
+      const scope = resolveSystemScope(actor, scopeRef);
+      return await asWorker(
+        db,
+        { workspaceId: actor.workspaceId, organizationId: actor.organizationId },
+        (tx) => run(tx, scope),
+      );
+    }
     return await asUser(db, actor.claims, async (tx) => {
       const scope = await resolveScope(tx, scopeRef);
       if (query.permission) assertPermission(scope, query.permission);
-      const result = await query.handler({ tx, actor, scope, meta }, input);
-      return query.output.parse(result) as z.output<O>;
+      return run(tx, scope);
     });
   } catch (e) {
     throw translateDbError(e);

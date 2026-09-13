@@ -93,6 +93,17 @@ const RULES: Record<string, { status: number; message: string }> = {
   },
   email_domain_in_use: { status: 409, message: 'Make another address the default first.' },
   mailbox_status_transition: { status: 409, message: 'People can only disconnect a mailbox.' },
+  // Milestone 5: calendars, appointments and calendar connections (0015-0017).
+  booking_slug_reserved: { status: 400, message: 'That link name is reserved. Pick another.' },
+  timezone_invalid: { status: 400, message: 'Pick a time zone from the list.' },
+  waitlist_status_transition: {
+    status: 409,
+    message: 'Only HandsFreeOS offers a waitlist spot or lets one expire.',
+  },
+  calendar_connection_status_transition: {
+    status: 409,
+    message: 'People can only disconnect a calendar.',
+  },
   not_authenticated: { status: 401, message: 'Sign in to continue.' },
   profile_missing: {
     status: 500,
@@ -128,6 +139,10 @@ export function translateDbError(e: unknown): unknown {
       return HfosError.forbidden();
     case '23505':
       return HfosError.conflict('That already exists.', pg.constraint_name);
+    case '23P01':
+      // An exclusion constraint; the only one (appointment_staff_no_overlap) means that person was just
+      // booked at that time by someone else.
+      return HfosError.conflict('That time was just taken. Pick another time.', 'slot_taken');
     case '23514':
       return HfosError.validation(undefined, pg.message ?? 'That change is not allowed.');
     case '28000':

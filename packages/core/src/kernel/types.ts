@@ -5,7 +5,10 @@ import type { requestChannel } from '../schemas/audit';
 
 /** Blueprint action levels: 0 read, 1 safe, 2 external, 3 sensitive, 4 admin. Used by the assistant in M4. */
 export type RiskLevel = 0 | 1 | 2 | 3 | 4;
-/** 'web' | 'api' | 'worker' | 'cli' | 'sms' | 'assistant' | 'test' (one list, shared with the audit filter). */
+/**
+ * 'web' | 'api' | 'worker' | 'cli' | 'sms' | 'assistant' | 'booking_page' | 'test' (one list, shared with the
+ * audit filter).
+ */
 export type Channel = z.infer<typeof requestChannel>;
 
 export interface HumanActor {
@@ -102,6 +105,11 @@ export interface QueryDef<I extends z.ZodType = z.ZodType, O extends z.ZodType =
   readonly output: O;
   readonly permission: Permission | null;
   readonly scope: (input: z.output<I>) => ScopeRef;
+  /**
+   * Who may run this query. Defaults to humans only; the worker's signed-out booking routes opt in to the
+   * system actor (availability), which reads as root within its tenant, like a system command.
+   */
+  readonly actors?: readonly ActorKind[];
   readonly handler: (ctx: QueryContext, input: z.output<I>) => Promise<z.input<O>>;
 }
 
