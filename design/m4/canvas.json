@@ -1,0 +1,80 @@
+{
+  "artboards": [
+    {
+      "file": "Main.dc.html",
+      "title": "Ask HandsFreeOS beside a customer",
+      "x": 0,
+      "y": 0,
+      "w": 1440,
+      "h": 900,
+      "is_interactive": true
+    },
+    {
+      "file": "Phone.dc.html",
+      "title": "On a phone",
+      "x": 1520,
+      "y": 0,
+      "w": 390,
+      "h": 844,
+      "is_interactive": true
+    },
+    {
+      "file": "Cards.dc.html",
+      "title": "Answer cards",
+      "x": 0,
+      "y": 1040,
+      "w": 1280,
+      "h": 1120
+    },
+    {
+      "file": "Confirm.dc.html",
+      "title": "Asking before it acts",
+      "x": 1360,
+      "y": 1040,
+      "w": 1280,
+      "h": 1280,
+      "is_interactive": true
+    },
+    {
+      "file": "States.dc.html",
+      "title": "When it can’t help",
+      "x": 0,
+      "y": 2280,
+      "w": 1280,
+      "h": 1120
+    }
+  ],
+  "annotations": [
+    {
+      "id": "direction",
+      "x": 0,
+      "y": -200,
+      "w": 720,
+      "text": "HandsFreeOS Milestone 4: the Assistant. Same system as Milestones 1 to 3 (clean & airy, accent #2D69D8, Hanken Grotesk). Ask HandsFreeOS sits under the search box in the sidebar (⌘J) and opens a panel beside the page, so it knows who you are looking at. On phones it is the H button in the top bar and opens full screen.\nTry the Main screen: pick a suggestion or type “What needs attention?”, “Create a task for Priya to call Sarah tomorrow”, “Move Mike to Won”, “Text Mike…” or “How many leads this week?”. The answers are scripted samples; the real ones come from Claude Sonnet 5 and your data."
+    },
+    {
+      "id": "sample-data",
+      "x": 1520,
+      "y": -200,
+      "w": 640,
+      "text": "Sample data only: Lone Star HVAC & Roofing is a fictional client workspace of Go Biz Help. People, phone numbers and messages are placeholders."
+    },
+    {
+      "id": "phone-note",
+      "x": 1520,
+      "y": 880,
+      "w": 390,
+      "text": "Phone: the H button opens the Assistant full screen over the page, and X returns to it. It opens here on the empty state; switch Preview to “conversation” to see answers and a confirmation card. Buttons inside cards grow to 44 px so they are easy to tap."
+    },
+    {
+      "id": "rules",
+      "x": 1360,
+      "y": 2440,
+      "w": 640,
+      "text": "What runs on its own: looking things up, tasks and notes (both with Undo). What asks first: texts, emails, moving or changing leads, adding or changing customers. A card left unanswered expires when you ask something else.\nThe Assistant can only do what the signed-in person can do. Everything it changes shows in the audit log as done by that person, through the Assistant. Chats are private to each person."
+    }
+  ],
+  "launch": {
+    "view": "canvas"
+  }
+}
