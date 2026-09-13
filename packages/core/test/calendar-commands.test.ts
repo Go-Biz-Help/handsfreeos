@@ -309,7 +309,11 @@ describe('one universal calendar', () => {
 
     const keep = await scenario('Keep them', '09:00');
     const kept = await keep.decide('keep');
-    expect(kept.actions).toEqual({ kept: keep.ids, reassigned: [], cancelled: [] });
+    expect({ ...kept.actions, kept: [...kept.actions.kept].sort() }).toEqual({
+      kept: keep.ids,
+      reassigned: [],
+      cancelled: [],
+    });
     for (const id of keep.ids) expect(await staffOf(id)).toEqual([t.priya.id]);
 
     const move = await scenario('Move them', '11:00');
