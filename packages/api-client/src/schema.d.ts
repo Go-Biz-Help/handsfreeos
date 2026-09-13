@@ -5383,6 +5383,19 @@ export interface operations {
                                 type: "customer";
                                 waitingSince: string | null;
                             } | {
+                                assignee: string | null;
+                                customer: string;
+                                href: string;
+                                /** Format: uuid */
+                                leadId: string;
+                                needsNextAction: boolean;
+                                nextAction: string | null;
+                                stageName: string;
+                                title: string;
+                                /** @enum {string} */
+                                type: "lead";
+                                valueCents: number;
+                            } | {
                                 items: {
                                     detail: string;
                                     href: string;
