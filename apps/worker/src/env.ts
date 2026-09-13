@@ -59,6 +59,15 @@ export interface WorkerEnv {
   readonly mailboxSyncMs: number | null;
   /** How far back a new mailbox's first sync looks. */
   readonly mailboxBackfillDays: number;
+  /**
+   * People's own calendars: Google Calendar (its own Google Cloud project) and Outlook (the Microsoft app above,
+   * with Calendars.ReadWrite), or local calendars behind the same stand-in sign-in page as mailboxes.
+   */
+  readonly calendarProvider: 'real' | 'fake';
+  readonly googleCalendarClientId: string | null;
+  readonly googleCalendarClientSecret: string | null;
+  /** How often each connected calendar's busy times are read again (milliseconds; tests shorten it). */
+  readonly calendarRefreshMs: number;
   /** The Assistant: Claude, a scripted stand-in for tests, or none (the panel says it isn't set up). */
   readonly assistantProvider: 'anthropic' | 'scripted' | 'none';
   readonly anthropicApiKey: string | null;
@@ -136,6 +145,20 @@ export function readEnv(env: NodeJS.ProcessEnv = process.env): WorkerEnv {
     throw new Error('MAILBOX_PROVIDER=fake is for development and tests only');
   const mailboxSyncMs = env.MAILBOX_SYNC_MS ? Number(env.MAILBOX_SYNC_MS) : null;
 
+  const googleCalendarClientId = env.GOOGLE_CALENDAR_OAUTH_CLIENT_ID || null;
+  const googleCalendarClientSecret = env.GOOGLE_CALENDAR_OAUTH_CLIENT_SECRET || null;
+  // Local development gets calendars that live in memory unless a real OAuth app is configured (Outlook
+  // calendars use the mailbox's Microsoft app).
+  const calendarProvider = (env.CALENDAR_PROVIDER ??
+    (production || microsoftClientId || googleCalendarClientId ? 'real' : 'fake')) as string;
+  if (calendarProvider !== 'real' && calendarProvider !== 'fake')
+    throw new Error('CALENDAR_PROVIDER must be real or fake');
+  if (production && calendarProvider === 'fake')
+    throw new Error('CALENDAR_PROVIDER=fake is for development and tests only');
+  const calendarRefreshMs = Number(env.CALENDAR_REFRESH_MS || 600_000);
+  if (!Number.isInteger(calendarRefreshMs) || calendarRefreshMs < 1_000)
+    throw new Error('CALENDAR_REFRESH_MS must be a whole number of milliseconds, 1000 or more');
+
   const anthropicApiKey = env.ANTHROPIC_API_KEY || null;
   const assistantProvider = (env.ASSISTANT_PROVIDER ??
     (anthropicApiKey ? 'anthropic' : 'none')) as string;
@@ -195,6 +218,10 @@ export function readEnv(env: NodeJS.ProcessEnv = process.env): WorkerEnv {
     mailboxSyncMs:
       mailboxSyncMs && Number.isFinite(mailboxSyncMs) && mailboxSyncMs > 0 ? mailboxSyncMs : null,
     mailboxBackfillDays: Math.min(90, Math.max(1, Number(env.MAILBOX_BACKFILL_DAYS ?? 30) || 30)),
+    calendarProvider,
+    googleCalendarClientId,
+    googleCalendarClientSecret,
+    calendarRefreshMs,
     assistantProvider: assistantProvider as WorkerEnv['assistantProvider'],
     anthropicApiKey,
     assistantModel: env.ASSISTANT_MODEL || 'claude-sonnet-5',

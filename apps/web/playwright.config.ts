@@ -6,8 +6,9 @@ import { defineConfig, devices } from '@playwright/test';
 // The test helpers need the local stack's addresses from .env.local. Privileged keys stay out of
 // process.env on purpose: Playwright hands its environment to the servers it starts and the API
 // refuses to boot with one (the worker reads its own apps/worker/.env).
+// The same list as the API's env guard (apps/api/src/env.ts).
 const PRIVILEGED =
-  /SECRET|SERVICE_ROLE|SIGNING_KEY|ENCRYPTION_KEY|^TWILIO_|^POSTMARK_|^(MICROSOFT|GOOGLE)_OAUTH_|^(ANTHROPIC|OPENAI)_/i;
+  /SECRET|SERVICE_ROLE|SIGNING_KEY|ENCRYPTION_KEY|^TWILIO_|^POSTMARK_|^TURNSTILE_|^(?!CLAUDE_CODE_).*_OAUTH_|^(ANTHROPIC|OPENAI)_/i;
 for (const c of ['../../.env.local', '.env.local']) {
   const p = resolve(process.cwd(), c);
   if (!existsSync(p)) continue;

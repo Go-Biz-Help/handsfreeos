@@ -25,6 +25,7 @@ export const ISSUE_CODES = [
   'party_over_seats',
   'resource_archived',
   'resource_quantity',
+  'service_archived',
   'service_no_staff',
   'duration_no_fit',
   'window_inverted',
@@ -383,6 +384,25 @@ function liveServices(config: CalendarConfig, catalogs: CalendarCatalogs) {
 
 function serviceRules({ config, catalogs, memberIds, activeIds, push }: Ctx): void {
   const items = config.services.items;
+  if (config.services.mode !== 'none')
+    for (const item of items) {
+      const service = catalogs.services.find((s) => s.id === item.serviceId);
+      if (service && !service.archived) continue;
+      const rest = items.filter((i) => i !== item);
+      push({
+        code: 'service_archived',
+        severity: 'error',
+        message: service ? `${service.name} was archived` : 'A service was archived',
+        fields: ['services.items'],
+        fixes: [
+          {
+            id: 'remove_service',
+            label: `Remove ${service ? service.name : 'it'}`,
+            patch: { services: { items: rest, ...(rest.length ? {} : { mode: 'none' as const }) } },
+          },
+        ],
+      });
+    }
   for (const { item, service } of liveServices(config, catalogs)) {
     const terms = resolveTerms(config, service);
     if (eligibleMembers(config, terms).some((u) => activeIds.has(u))) continue;
@@ -538,7 +558,7 @@ function outsideRules({ config, catalogs, push }: Ctx): void {
     push({
       code: 'payment_unavailable',
       severity: 'error',
-      message: 'Payments arrive with Milestone 9',
+      message: 'Taking payment at booking isn’t available yet',
       fields: ['payments.mode'],
       fixes: [
         { id: 'payment_off', label: 'Turn off payment', patch: { payments: { mode: 'none' } } },

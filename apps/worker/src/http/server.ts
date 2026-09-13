@@ -15,7 +15,7 @@ import {
   type HttpDeps,
 } from './common';
 import { registerEmailRoutes } from './email';
-import { registerMailboxRoutes } from './oauth';
+import { registerOAuthRoutes } from './oauth';
 import { registerVoiceRoutes } from './voice';
 
 export type { HttpDeps } from './common';
@@ -127,7 +127,7 @@ export async function buildHttpServer(deps: HttpDeps): Promise<FastifyInstance> 
   });
   registerVoiceRoutes(app, deps);
   registerEmailRoutes(app, deps);
-  registerMailboxRoutes(app, deps);
+  registerOAuthRoutes(app, deps);
   registerAssistantRoutes(app, deps, deps.assistant ?? null);
 
   app.post('/v1/telephony/available-numbers', async (req) => {

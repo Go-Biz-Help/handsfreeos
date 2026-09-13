@@ -1,6 +1,8 @@
 import { randomBytes } from 'node:crypto';
 import { testDbs, testEnv } from '@hfos/db/testing';
 import pino from 'pino';
+import type { FakeCalendars } from '../src/calendar/fake';
+import { fakeCalendarServices, type CalendarServices } from '../src/calendar/index';
 import { createSealer } from '../src/crypto';
 import { createLocalEmail, LOCAL_WEBHOOK_PASSWORD } from '../src/email/local';
 import type { FakeMailboxes } from '../src/mailbox/fake';
@@ -16,6 +18,7 @@ export const TEST_PUBLIC_URL = 'https://hooks.worker.test';
 export type TestServices = WorkerServices & {
   readonly telephony: FakeTelephony;
   readonly mailboxes: MailboxServices & { readonly fake: FakeMailboxes };
+  readonly calendars: CalendarServices & { readonly fake: FakeCalendars };
 };
 
 /** Worker services for tests: the real database, Mailpit and Storage, the fake carrier without callbacks. */
@@ -50,5 +53,7 @@ export function testServices(opts: { reminderOverrideMs?: number | null } = {}):
     },
     // Syncs run when a test asks (the job's next run is a minute out).
     mailboxes: fakeMailboxServices(TEST_PUBLIC_URL, 60_000),
+    // Refreshes run when a test asks (the job's next run is a minute out).
+    calendars: fakeCalendarServices(TEST_PUBLIC_URL, 60_000),
   };
 }

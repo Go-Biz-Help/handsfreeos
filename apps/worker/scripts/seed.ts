@@ -24,6 +24,7 @@ import { rows, sql, type Db } from '@hfos/db/client';
 import { closeTestDbs, createTestUser, testDbs, testEnv, type TestUser } from '@hfos/db/testing';
 import pino from 'pino';
 import { createSealer } from '../src/crypto';
+import { fakeCalendarServices } from '../src/calendar/index';
 import { fakeMailboxServices } from '../src/mailbox/index';
 import { createLocalEmail, LOCAL_WEBHOOK_PASSWORD } from '../src/email/local';
 import { handlers } from '../src/handlers/index';
@@ -163,6 +164,10 @@ async function main(): Promise<void> {
       webhookPassword: LOCAL_WEBHOOK_PASSWORD,
     },
     mailboxes: fakeMailboxServices(
+      (process.env.WORKER_PUBLIC_URL ?? 'http://127.0.0.1:4100').replace(/\/+$/, ''),
+      60_000,
+    ),
+    calendars: fakeCalendarServices(
       (process.env.WORKER_PUBLIC_URL ?? 'http://127.0.0.1:4100').replace(/\/+$/, ''),
       60_000,
     ),

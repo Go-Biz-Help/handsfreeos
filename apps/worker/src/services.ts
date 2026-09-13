@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import type { RequestMeta, SystemActor } from '@hfos/core/server';
 import type { Db } from '@hfos/db/client';
 import type { Logger } from 'pino';
+import type { CalendarServices } from './calendar/index';
 import type { Sealer } from './crypto';
 import type { EmailServices } from './email/index';
 import type { MailboxServices } from './mailbox/index';
@@ -28,6 +29,8 @@ export interface WorkerServices {
   readonly email: EmailServices;
   /** Connected Outlook and Gmail mailboxes (in-memory ones locally and in tests). */
   readonly mailboxes: MailboxServices;
+  /** People's own Google and Outlook calendars (in-memory ones locally and in tests). */
+  readonly calendars: CalendarServices;
 }
 
 export interface TenantScope {

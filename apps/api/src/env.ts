@@ -19,10 +19,11 @@ export interface ApiEnv {
   readonly trustProxy: boolean;
 }
 
-// Secret-looking names anywhere; provider credentials by the prefixes our config uses (a shell may carry
-// unrelated names with OAUTH in them, like a CLI's own settings).
+// Secret-looking names anywhere; provider credentials by the prefixes our config uses; any OAuth client setting
+// (a name containing _OAUTH_, like GOOGLE_CALENDAR_OAUTH_CLIENT_ID); and Turnstile's keys. Claude Code's own
+// CLAUDE_CODE_*OAUTH* names in a developer's shell are left alone.
 const FORBIDDEN =
-  /SECRET|SERVICE_ROLE|SIGNING_KEY|ENCRYPTION_KEY|^TWILIO_|^POSTMARK_|^(MICROSOFT|GOOGLE)_OAUTH_|^(ANTHROPIC|OPENAI)_/i;
+  /SECRET|SERVICE_ROLE|SIGNING_KEY|ENCRYPTION_KEY|^TWILIO_|^POSTMARK_|^TURNSTILE_|^(?!CLAUDE_CODE_).*_OAUTH_|^(ANTHROPIC|OPENAI)_/i;
 
 /** Reads and validates the API process environment. Refuses to boot with privileged keys present. */
 export function readEnv(env: NodeJS.ProcessEnv = process.env): ApiEnv {

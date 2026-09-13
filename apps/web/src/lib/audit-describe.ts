@@ -286,6 +286,23 @@ function describeAction(e: AuditEntry): string {
       return e.after?.smsConsent === 'opted_out'
         ? `marked ${s(e.after?.name)} as not wanting texts`
         : `marked ${s(e.after?.name)} as agreeing to texts`;
+    // Milestone 5: people's own Google and Outlook calendars
+    case 'calendar_connection.connect':
+      return `started connecting ${s(e.after?.provider) === 'google' ? 'a Google Calendar' : 'an Outlook calendar'}`;
+    case 'calendar_connection.activate':
+      return s(e.after?.status) === 'disconnected'
+        ? `replaced the earlier calendar connection to ${s(e.after?.account)}`
+        : `connected the ${calendarName(e)} ${s(e.after?.account)}`;
+    case 'calendar_connection.disconnect':
+      return s(e.after?.person)
+        ? `disconnected ${s(e.after?.person)}'s ${calendarName(e)}`
+        : `disconnected the ${calendarName(e)} ${s(e.after?.account)}`;
+    case 'calendar_connection.sync_now':
+      return `asked the ${calendarName(e)} ${s(e.after?.account)} to sync again`;
+    case 'calendar_connection.fail':
+      return s(e.after?.status) === 'reauth_required'
+        ? `recorded that the ${calendarName(e)} ${s(e.after?.account)} needs reconnecting`
+        : `recorded that the ${calendarName(e)} ${s(e.after?.account)} stopped syncing${s(e.after?.error) ? `: ${s(e.after?.error)}` : ''}`;
     default:
       return e.action;
   }
@@ -357,6 +374,8 @@ function statusSentence(e: AuditEntry): string {
 }
 
 const mailboxName = (e: AuditEntry) => (s(e.after?.provider) === 'google' ? 'Gmail' : 'Outlook');
+const calendarName = (e: AuditEntry) =>
+  s(e.after?.provider) === 'google' ? 'Google Calendar' : 'Outlook calendar';
 
 function emailReceiveSentence(e: AuditEntry): string {
   if (e.entityType === 'email_unmatched')

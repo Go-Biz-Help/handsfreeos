@@ -9,6 +9,8 @@ export * from './queries/index';
 export * from './crm/matching';
 export * from './auth/token';
 export * from './messaging/store';
+export * from './calendar/load';
+export * from './calendar/booking';
 import { commands } from './commands/index';
 import { createRegistry } from './kernel/registry';
 import { queries } from './queries/index';

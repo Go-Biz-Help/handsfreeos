@@ -87,10 +87,21 @@ describe('readEnv', () => {
       'MICROSOFT_OAUTH_CLIENT_SECRET',
       'WORKER_ENCRYPTION_KEY',
       'ANTHROPIC_API_KEY',
+      // Any OAuth client setting, the calendar's own Google project included, and Turnstile's keys.
+      'GOOGLE_CALENDAR_OAUTH_CLIENT_ID',
+      'GOOGLE_CALENDAR_OAUTH_CLIENT_SECRET',
+      'ACME_OAUTH_CLIENT_ID',
+      'TURNSTILE_SECRET_KEY',
+      'TURNSTILE_SITE_KEY',
     ])
       expect(() => readEnv({ ...base, [name]: 'x' })).toThrow(/privileged/);
-    // Unrelated names that merely contain OAUTH (a developer's shell) are fine.
-    expect(() => readEnv({ ...base, CLAUDE_CODE_OAUTH_SCOPES: 'x' })).not.toThrow();
+    // Claude Code's own names in a developer's shell, and names that merely end in OAUTH, are fine.
+    for (const name of [
+      'CLAUDE_CODE_OAUTH_SCOPES',
+      'CLAUDE_CODE_SDK_HAS_OAUTH_REFRESH',
+      'USE_LOCAL_OAUTH',
+    ])
+      expect(() => readEnv({ ...base, [name]: 'x' })).not.toThrow();
   });
   it('refuses to connect as postgres and derives the JWKS url', () => {
     expect(() =>

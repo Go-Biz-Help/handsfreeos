@@ -20,6 +20,7 @@ import {
   OLD_VAN,
   presetContext,
   PRIYA,
+  RETIRED_SERVICE,
   SALES,
   SOUTH,
   STAGE_OLD,
@@ -116,6 +117,15 @@ const CASES: Case[] = [
     message: 'Truck 2: needs 3 but only 2 exist',
   },
   {
+    code: 'service_archived',
+    severity: 'error',
+    patch: {
+      team: { members: [me] },
+      services: { mode: 'one', items: [{ serviceId: RETIRED_SERVICE }] },
+    },
+    message: 'Old service was archived',
+  },
+  {
     code: 'service_no_staff',
     severity: 'error',
     patch: { team: { members: [me] }, services: { mode: 'one', items: [{ serviceId: DUCT }] } },
@@ -147,7 +157,7 @@ const CASES: Case[] = [
     code: 'payment_unavailable',
     severity: 'error',
     patch: { payments: { mode: 'deposit' } },
-    message: 'Payments arrive with Milestone 9',
+    message: 'Taking payment at booking isn’t available yet',
   },
   {
     code: 'member_gone',
@@ -175,6 +185,8 @@ const CASES: Case[] = [
     message: 'Text reminders wait until texting is set up',
   },
 ];
+
+const patchOf = (code: IssueCode) => CASES.find((c) => c.code === code)!.patch;
 
 const presets = PRESET_KEYS.map((key) => [key, configFromPreset(key, presetContext)] as const);
 
@@ -226,29 +238,32 @@ it('offers the plan’s second fixes too', () => {
     validateCalendar(applyPatch(defaultConfig(), patch), catalogs, NOW)
       .find((i) => i.code === code)!
       .fixes.map((f) => f.id);
-  expect(labels(CASES[0]!.patch, 'collective_needs_two')).toEqual([
+  expect(labels(patchOf('collective_needs_two'), 'collective_needs_two')).toEqual([
     'switch_to_fixed',
     'add_teammate',
   ]);
-  expect(labels(CASES[2]!.patch, 'weights_ignored')).toEqual([
+  expect(labels(patchOf('weights_ignored'), 'weights_ignored')).toEqual([
     'clear_weights',
     'switch_to_weighted',
   ]);
-  expect(labels(CASES[6]!.patch, 'travel_without_visits')).toEqual([
+  expect(labels(patchOf('travel_without_visits'), 'travel_without_visits')).toEqual([
     'travel_zero',
     'add_customer_address',
   ]);
-  expect(labels(CASES[7]!.patch, 'zip_without_visits')).toEqual([
+  expect(labels(patchOf('zip_without_visits'), 'zip_without_visits')).toEqual([
     'routing_off',
     'add_customer_address',
   ]);
-  expect(labels(CASES[12]!.patch, 'service_no_staff')).toEqual([
+  expect(labels(patchOf('service_no_staff'), 'service_no_staff')).toEqual([
     'add_eligible_staff',
     'remove_service',
   ]);
-  expect(labels(CASES[13]!.patch, 'duration_no_fit')).toEqual(['shorten', 'widen_hours']);
-  expect(labels(CASES[18]!.patch, 'public_without_team')).toEqual(['add_person', 'make_private']);
-  expect(labels(CASES[19]!.patch, 'lead_stage_gone')).toEqual(['pick_stage', 'lead_off']);
+  expect(labels(patchOf('duration_no_fit'), 'duration_no_fit')).toEqual(['shorten', 'widen_hours']);
+  expect(labels(patchOf('public_without_team'), 'public_without_team')).toEqual([
+    'add_person',
+    'make_private',
+  ]);
+  expect(labels(patchOf('lead_stage_gone'), 'lead_stage_gone')).toEqual(['pick_stage', 'lead_off']);
 });
 
 it('adds the eligible person to a narrowed service list', () => {
@@ -264,8 +279,16 @@ it('adds the eligible person to a narrowed service list', () => {
 });
 
 it('only warnings leave a calendar saveable', () => {
-  const warn = validateCalendar(applyPatch(defaultConfig(), CASES[6]!.patch), catalogs, NOW);
-  const err = validateCalendar(applyPatch(defaultConfig(), CASES[7]!.patch), catalogs, NOW);
+  const warn = validateCalendar(
+    applyPatch(defaultConfig(), patchOf('travel_without_visits')),
+    catalogs,
+    NOW,
+  );
+  const err = validateCalendar(
+    applyPatch(defaultConfig(), patchOf('zip_without_visits')),
+    catalogs,
+    NOW,
+  );
   expect(hasBlockingIssues(warn)).toBe(false);
   expect(hasBlockingIssues(err)).toBe(true);
 });

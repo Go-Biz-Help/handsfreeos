@@ -1,4 +1,9 @@
 import {
+  onAppointmentChanged,
+  onCalendarReauthRequired,
+  onCalendarRefreshWanted,
+} from './calendar';
+import {
   onEmailDomainAdded,
   onEmailDomainChecked,
   onEmailDomainRemoved,
@@ -41,4 +46,23 @@ export const handlers: HandlerMap = {
   'mailbox.connected': onMailboxSyncWanted,
   'mailbox.resync_requested': onMailboxSyncWanted,
   'mailbox.reauth_required': onMailboxReauthRequired,
+  'calendar_connection.connected': onCalendarRefreshWanted,
+  'calendar_connection.sync_requested': onCalendarRefreshWanted,
+  'calendar_connection.reauth_required': onCalendarReauthRequired,
+  // Appointments follow into people's own calendars (write-through). A later handler for one of these (the
+  // booking confirmation) should call queueCalendarSync too, or wrap onAppointmentChanged.
+  'appointment.booked': onAppointmentChanged,
+  'appointment.updated': onAppointmentChanged,
+  'appointment.rescheduled': onAppointmentChanged,
+  'appointment.reassigned': onAppointmentChanged,
+  'appointment.cancelled': onAppointmentChanged,
+  'appointment.completed': onAppointmentChanged,
+  'appointment.no_show': onAppointmentChanged,
+  'attendee.added': onAppointmentChanged,
+  'attendee.removed': onAppointmentChanged,
+  'attendee.rescheduled': onAppointmentChanged,
+  'attendee.cancelled': onAppointmentChanged,
+  'session.published': onAppointmentChanged,
+  'series.created': onAppointmentChanged,
+  'series.cancelled': onAppointmentChanged,
 };

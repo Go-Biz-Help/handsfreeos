@@ -186,3 +186,29 @@ export function mailboxReconnectEmail(input: {
   );
   return { subject, text, html };
 }
+
+/** A connected calendar lost access: one email to the person whose calendar it is. */
+export function calendarReconnectEmail(input: {
+  provider: 'microsoft' | 'google';
+  account: string;
+  lostAt: Date;
+  timeZone: string;
+  link: string;
+}): EmailContent {
+  const name = input.provider === 'google' ? 'Google Calendar' : 'Outlook calendar';
+  const when = input.lostAt.toLocaleDateString('en-US', {
+    month: 'long',
+    day: 'numeric',
+    timeZone: input.timeZone,
+  });
+  const subject = 'Reconnect your calendar';
+  const lost = (account: string) =>
+    `HandsFreeOS lost access to your ${name} (${account}) on ${when}. Until you reconnect it, the times you’re busy there don’t block bookings, and new appointments aren’t added to it. Reconnecting takes a minute.`;
+  const text = `${lost(input.account)}\n\nReconnect your calendar: ${input.link}\n\nNothing was lost. Your appointments are all still in HandsFreeOS.`;
+  const html = shell(
+    para(lost(`<strong>${escapeHtml(input.account)}</strong>`)) +
+      button(input.link, 'Reconnect your calendar') +
+      small('Nothing was lost. Your appointments are all still in HandsFreeOS.'),
+  );
+  return { subject, text, html };
+}

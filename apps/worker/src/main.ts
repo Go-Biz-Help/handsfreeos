@@ -10,6 +10,7 @@ import { createEmail } from './email/index';
 import { processDeliveries } from './deliveries';
 import { loadEnv, readEnv } from './env';
 import { handlers } from './handlers/index';
+import { createCalendars } from './calendar/index';
 import { createMailboxes } from './mailbox/index';
 import { buildHttpServer } from './http/server';
 import { processJobs } from './jobs';
@@ -48,6 +49,7 @@ const services: WorkerServices = {
   registrationPollMs: env.registrationPollMs,
   email: createEmail(env, log),
   mailboxes: createMailboxes(env),
+  calendars: createCalendars(env),
 };
 const workerId = `${hostname()}:${process.pid}`;
 const loopDeps = { ...services, workerId, batchSize: env.batchSize };
@@ -86,6 +88,7 @@ log.info(
     telephony: services.telephony.name,
     email: services.email.transport.name,
     mailboxes: env.mailboxProvider,
+    calendars: env.calendarProvider,
     assistant: env.assistantProvider,
     handlers: Object.keys(handlers),
     storage: !!env.supabaseSecretKey,

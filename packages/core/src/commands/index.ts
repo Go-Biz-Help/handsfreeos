@@ -1,6 +1,47 @@
 import type { CommandDef } from '../kernel/types';
 import { activityDelete, activityLog, activityUpdate } from './activity';
 import { assistantThreadArchive, assistantThreadRename } from './assistant';
+import {
+  appointmentAddAttendee,
+  appointmentCancel,
+  appointmentCreate,
+  appointmentReassign,
+  appointmentRemoveAttendee,
+  appointmentReschedule,
+  appointmentSetStatus,
+  appointmentUpdate,
+  seriesCancel,
+  seriesCreate,
+  sessionPublish,
+  waitlistAdd,
+  waitlistRemove,
+} from './appointment';
+import {
+  appointmentBookOnline,
+  attendeeCancelOnline,
+  attendeeRescheduleOnline,
+} from './appointment-online';
+import {
+  calendarCreate,
+  calendarRestoreRevision,
+  calendarSave,
+  calendarSetSlug,
+  calendarSetStatus,
+} from './calendar';
+import {
+  bookingSiteUpdate,
+  resourceArchive,
+  resourceCreate,
+  resourceUpdate,
+  serviceArchive,
+  serviceCreate,
+  serviceUpdate,
+  territoryCreate,
+  territoryDelete,
+  territoryUpdate,
+} from './calendar-catalog';
+import { scheduleSet, timeOffAdd, timeOffRemove } from './calendar-hours';
+import { calendarConnectionCommands } from './calendar-connection';
 import { companyArchive } from './company.archive';
 import {
   conversationAssign,
@@ -187,6 +228,40 @@ export {
   workspaceUpdate,
   assistantThreadArchive,
   assistantThreadRename,
+  calendarCreate,
+  calendarSave,
+  calendarRestoreRevision,
+  calendarSetStatus,
+  calendarSetSlug,
+  serviceCreate,
+  serviceUpdate,
+  serviceArchive,
+  resourceCreate,
+  resourceUpdate,
+  resourceArchive,
+  territoryCreate,
+  territoryUpdate,
+  territoryDelete,
+  bookingSiteUpdate,
+  scheduleSet,
+  timeOffAdd,
+  timeOffRemove,
+  appointmentCreate,
+  appointmentUpdate,
+  appointmentReschedule,
+  appointmentReassign,
+  appointmentCancel,
+  appointmentSetStatus,
+  appointmentAddAttendee,
+  appointmentRemoveAttendee,
+  sessionPublish,
+  seriesCreate,
+  seriesCancel,
+  waitlistAdd,
+  waitlistRemove,
+  appointmentBookOnline,
+  attendeeRescheduleOnline,
+  attendeeCancelOnline,
 };
 export { hashInvitationToken } from './invitation.accept';
 export { INVITATION_TTL_MS } from './membership.invite';
@@ -292,5 +367,43 @@ export const commands: readonly CommandDef[] = [
   emailSuppressionRecord,
   assistantThreadRename,
   assistantThreadArchive,
+  calendarCreate,
+  calendarSave,
+  calendarRestoreRevision,
+  calendarSetStatus,
+  calendarSetSlug,
+  serviceCreate,
+  serviceUpdate,
+  serviceArchive,
+  resourceCreate,
+  resourceUpdate,
+  resourceArchive,
+  territoryCreate,
+  territoryUpdate,
+  territoryDelete,
+  bookingSiteUpdate,
+  scheduleSet,
+  timeOffAdd,
+  timeOffRemove,
+  appointmentCreate,
+  appointmentUpdate,
+  appointmentReschedule,
+  appointmentReassign,
+  appointmentCancel,
+  appointmentSetStatus,
+  appointmentAddAttendee,
+  appointmentRemoveAttendee,
+  sessionPublish,
+  seriesCreate,
+  seriesCancel,
+  waitlistAdd,
+  waitlistRemove,
+  appointmentBookOnline,
+  attendeeRescheduleOnline,
+  attendeeCancelOnline,
+  ...calendarConnectionCommands,
 ] as unknown as readonly CommandDef[];
 export { callPreview } from './call';
+export { attendeeFromPerson } from './appointment';
+export { validateIntake } from './appointment-online';
+export * from './calendar-connection';

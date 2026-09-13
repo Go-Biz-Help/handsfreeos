@@ -97,6 +97,166 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/appointment.add_attendee": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add a customer to a session or group appointment, if seats are left.
+         * @description Risk level 2. Requires appointments.write. Emits attendee.added.
+         */
+        post: operations["command_appointment_add_attendee"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/appointment.cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Cancel an appointment for everyone on it, optionally telling the customers.
+         * @description Risk level 2. Requires appointments.write. Emits appointment.cancelled, waitlist.seat_freed.
+         */
+        post: operations["command_appointment_cancel"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/appointment.create": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Book an appointment on a calendar. Staff hear warnings (buffers, outside hours, busy, time off, in the past) and may book anyway; a real overlap is never allowed.
+         * @description Risk level 2. Requires appointments.write. Emits appointment.booked.
+         */
+        post: operations["command_appointment_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/appointment.reassign": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Change who works an appointment (the first person hosts).
+         * @description Risk level 2. Requires appointments.write. Emits appointment.reassigned.
+         */
+        post: operations["command_appointment_reassign"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/appointment.remove_attendee": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Take a customer off an appointment (their seats open up).
+         * @description Risk level 2. Requires appointments.write. Emits attendee.removed, waitlist.seat_freed.
+         */
+        post: operations["command_appointment_remove_attendee"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/appointment.reschedule": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Move an appointment to a new time (and length), keeping who works it. Warnings can be acknowledged; an overlap can’t.
+         * @description Risk level 2. Requires appointments.write. Emits appointment.rescheduled.
+         */
+        post: operations["command_appointment_reschedule"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/appointment.set_status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Mark an appointment done, or a no-show.
+         * @description Risk level 1. Requires appointments.write. Emits appointment.completed, appointment.no_show.
+         */
+        post: operations["command_appointment_set_status"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/appointment.update": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Change an appointment’s title, notes, location or lead.
+         * @description Risk level 1. Requires appointments.write. Emits appointment.updated.
+         */
+        post: operations["command_appointment_update"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/assistant_thread.archive": {
         parameters: {
             query?: never;
@@ -131,6 +291,186 @@ export interface paths {
          * @description Risk level 1. Requires assistant.use. Emits .
          */
         post: operations["command_assistant_thread_rename"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/booking_site.update": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Set up or change the public booking site (/book/<name>) that lists the public calendars.
+         * @description Risk level 1. Requires calendars.manage. Emits booking_site.updated.
+         */
+        post: operations["command_booking_site_update"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/calendar_connection.connect": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start connecting your own Google or Outlook calendar. Returns a one-time state; the browser signs in to Google or Microsoft through the worker.
+         * @description Risk level 2. Requires appointments.write. Emits calendar_connection.connect_started.
+         */
+        post: operations["command_calendar_connection_connect"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/calendar_connection.disconnect": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Disconnect a Google or Outlook calendar: your own, or anyone’s for owners and admins. HandsFreeOS forgets the sign-in and stops reading busy times; events it already added stay in that calendar.
+         * @description Risk level 2. Requires appointments.write. Emits calendar_connection.disconnected.
+         */
+        post: operations["command_calendar_connection_disconnect"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/calendar_connection.sync_now": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Read your connected calendar’s busy times now instead of waiting for the next check (every 10 minutes).
+         * @description Risk level 1. Requires appointments.write. Emits calendar_connection.sync_requested.
+         */
+        post: operations["command_calendar_connection_sync_now"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/calendar.create": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create a calendar from an answer to "How do you want this calendar to work?". It starts as a draft; the preset only fills in settings.
+         * @description Risk level 1. Requires calendars.manage. Emits calendar.created.
+         */
+        post: operations["command_calendar_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/calendar.restore_revision": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Restore an earlier revision of a calendar’s settings. It is saved again as a new revision, with the same checks as a save.
+         * @description Risk level 2. Requires calendars.manage. Emits calendar.updated, appointment.reassigned, appointment.cancelled.
+         */
+        post: operations["command_calendar_restore_revision"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/calendar.save": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Save a calendar’s settings as a new revision. Refuses a stale draft (revision_conflict), setting conflicts on an active calendar (422), and changes that touch upcoming appointments until each has a decision (impact_review_required).
+         * @description Risk level 2. Requires calendars.manage. Emits calendar.updated, appointment.reassigned, appointment.cancelled.
+         */
+        post: operations["command_calendar_save"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/calendar.set_slug": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Change a calendar’s link name. The old link keeps working; /book/c/<id> never changes.
+         * @description Risk level 1. Requires calendars.manage. Emits calendar.slug_changed.
+         */
+        post: operations["command_calendar_set_slug"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/calendar.set_status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Activate, pause, archive or return a calendar to draft. Activating needs its settings free of conflicts.
+         * @description Risk level 1. Requires calendars.manage. Emits calendar.status_changed.
+         */
+        post: operations["command_calendar_set_status"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1337,6 +1677,206 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/resource.archive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Archive a resource. Its appointments keep it; calendars that need it show a conflict to fix.
+         * @description Risk level 1. Requires calendars.manage. Emits resource.archived.
+         */
+        post: operations["command_resource_archive"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/resource.create": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add a room, truck or piece of equipment bookings can reserve, with a quantity and optional hours.
+         * @description Risk level 1. Requires calendars.manage. Emits resource.created.
+         */
+        post: operations["command_resource_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/resource.update": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Change a resource’s name, kind, quantity, location or hours.
+         * @description Risk level 1. Requires calendars.manage. Emits resource.updated.
+         */
+        post: operations["command_resource_update"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/schedule.set": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Set weekly hours for yourself, or (owners and admins) for a teammate, resource or service.
+         * @description Risk level 1. Requires appointments.write. Emits schedule.updated.
+         */
+        post: operations["command_schedule_set"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/series.cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Cancel one occurrence of a series, it and the ones after it, or every upcoming one.
+         * @description Risk level 2. Requires appointments.write. Emits series.cancelled.
+         */
+        post: operations["command_series_cancel"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/series.create": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Repeat an appointment (or, on a sessions calendar, a session) weekly or monthly. Books every date that fits and reports the ones that don’t.
+         * @description Risk level 2. Requires appointments.write. Emits series.created.
+         */
+        post: operations["command_series_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/service.archive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Archive a service. Its appointments keep it; calendars still offering it show a conflict to fix.
+         * @description Risk level 1. Requires calendars.manage. Emits service.archived.
+         */
+        post: operations["command_service_archive"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/service.create": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add a service customers can book: one to six lengths, buffers, who does it, what it needs and optional service hours.
+         * @description Risk level 1. Requires calendars.manage. Emits service.created.
+         */
+        post: operations["command_service_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/service.update": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Change a service: name, lengths, buffers, who does it, what it needs or its hours.
+         * @description Risk level 1. Requires calendars.manage. Emits service.updated.
+         */
+        post: operations["command_service_update"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/session.publish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Publish a date on a fixed-sessions calendar that customers take seats in.
+         * @description Risk level 1. Requires appointments.write. Emits session.published.
+         */
+        post: operations["command_session_publish"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/stage.create": {
         parameters: {
             query?: never;
@@ -1577,6 +2117,106 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/territory.create": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add a territory: a list of ZIP codes and the people who cover them.
+         * @description Risk level 1. Requires calendars.manage. Emits territory.created.
+         */
+        post: operations["command_territory_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/territory.delete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Delete a territory. Calendars routing by ZIP stop sending its codes to its people.
+         * @description Risk level 1. Requires calendars.manage. Emits territory.deleted.
+         */
+        post: operations["command_territory_delete"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/territory.update": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Rename a territory or change its ZIP codes or people.
+         * @description Risk level 1. Requires calendars.manage. Emits territory.updated.
+         */
+        post: operations["command_territory_update"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/time_off.add": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add time off (or extra open time) for yourself, or (owners and admins) a teammate, resource or service. All-day dates are read in the schedule’s zone.
+         * @description Risk level 1. Requires appointments.write. Emits time_off.added.
+         */
+        post: operations["command_time_off_add"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/time_off.remove": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Remove time off (or extra open time) from a schedule.
+         * @description Risk level 1. Requires appointments.write. Emits time_off.removed.
+         */
+        post: operations["command_time_off_remove"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/user.update_profile": {
         parameters: {
             query?: never;
@@ -1591,6 +2231,46 @@ export interface paths {
          * @description Risk level 1. Emits user.profile_updated.
          */
         post: operations["command_user_update_profile"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/waitlist.add": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Put a customer on a calendar’s waitlist: for a full session, or for a window they want.
+         * @description Risk level 1. Requires appointments.write. Emits waitlist.added.
+         */
+        post: operations["command_waitlist_add"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/waitlist.remove": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Take someone off a waitlist.
+         * @description Risk level 1. Requires appointments.write. Emits waitlist.removed.
+         */
+        post: operations["command_waitlist_remove"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1657,6 +2337,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/queries/appointment.get": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * One appointment with its people, resources, customers (contact, intake, reminders), series and waitlist.
+         * @description Requires workspace.read.
+         */
+        post: operations["query_appointment_get"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/appointment.list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Appointments overlapping a range (at most 62 days), by people, resources, calendars, status or customer. Cancelled ones only when asked.
+         * @description Requires workspace.read.
+         */
+        post: operations["query_appointment_list"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/queries/assistant_thread.get": {
         parameters: {
             query?: never;
@@ -1711,6 +2431,106 @@ export interface paths {
          * @description Requires audit.read.
          */
         post: operations["query_audit_list"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/booking_site.get": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The public booking site (/book/<name>), or null until it is set up.
+         * @description Requires workspace.read.
+         */
+        post: operations["query_booking_site_get"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/calendar_connection.list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Google or Outlook calendar connections: your own, or everyone’s for owners and admins.
+         * @description Requires workspace.read.
+         */
+        post: operations["query_calendar_connection_list"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/calendar.availability": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Open times on a calendar between two instants (at most 62 days), for a service, length, party size, ZIP or chosen person. The booking page asks as the system.
+         * @description Requires workspace.read.
+         */
+        post: operations["query_calendar_availability"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/calendar.get": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * One calendar: its settings, labels, the conflicts in them (computed now), recent revisions and links.
+         * @description Requires workspace.read.
+         */
+        post: operations["query_calendar_get"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/calendar.list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Every calendar with its labels, link, status and next-7-days count.
+         * @description Requires workspace.read.
+         */
+        post: operations["query_calendar_list"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2217,6 +3037,66 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/queries/resource.list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The workspace’s rooms, trucks and equipment with quantities and hours.
+         * @description Requires workspace.read.
+         */
+        post: operations["query_resource_list"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/schedule.team": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Each person’s open hours, time off and busy times between two instants (at most 62 days), with their calendar connection.
+         * @description Requires workspace.read.
+         */
+        post: operations["query_schedule_team"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/service.list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The workspace’s services with their lengths, buffers, staff, resources and hours.
+         * @description Requires workspace.read.
+         */
+        post: operations["query_service_list"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/queries/tag.list": {
         parameters: {
             query?: never;
@@ -2251,6 +3131,26 @@ export interface paths {
          * @description Requires records.read.
          */
         post: operations["query_task_list"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/territory.list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The workspace’s territories with their ZIP codes and people.
+         * @description Requires workspace.read.
+         */
+        post: operations["query_territory_list"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2455,6 +3355,366 @@ export interface operations {
             };
         };
     };
+    command_appointment_add_attendee: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    appointmentId: string;
+                    /** Format: uuid */
+                    personId: string;
+                    /** @default 1 */
+                    seats?: number;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        appointmentId: string;
+                        /** Format: uuid */
+                        attendeeId: string;
+                        capacity: number;
+                        seatsTaken: number;
+                    };
+                };
+            };
+        };
+    };
+    command_appointment_cancel: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    appointmentId: string;
+                    /** @default true */
+                    notify?: boolean;
+                    reason?: string | null;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        appointmentId: string;
+                        /** @enum {string} */
+                        status: "scheduled" | "completed" | "cancelled" | "no_show";
+                    };
+                };
+            };
+        };
+    };
+    command_appointment_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @default false */
+                    acknowledgeWarnings?: boolean;
+                    /** Format: uuid */
+                    calendarId: string;
+                    clientId?: string;
+                    durationMinutes?: number;
+                    leadId?: string | null;
+                    location?: {
+                        /** @default null */
+                        address?: string | null;
+                        /** @default null */
+                        kind?: ("customer_address" | "business" | "virtual" | "phone") | null;
+                        /** @default null */
+                        meetingUrl?: string | null;
+                        /** @default null */
+                        postalCode?: string | null;
+                    };
+                    notes?: string | null;
+                    /** @default 1 */
+                    partySize?: number;
+                    personId?: string | null;
+                    serviceId?: string | null;
+                    /** Format: date-time */
+                    startsAt: string;
+                    title?: string;
+                    userIds?: string[];
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        appointmentId: string;
+                        duplicate: boolean;
+                        /** Format: date-time */
+                        endsAt: string;
+                        /** Format: date-time */
+                        startsAt: string;
+                        userIds: string[];
+                        warnings: {
+                            /** @enum {string} */
+                            code: "in_past" | "buffer_clash" | "outside_hours" | "calendar_busy" | "time_off";
+                            message: string;
+                            resourceId: string | null;
+                            userId: string | null;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    command_appointment_reassign: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @default false */
+                    acknowledgeWarnings?: boolean;
+                    /** Format: uuid */
+                    appointmentId: string;
+                    /** @default true */
+                    notify?: boolean;
+                    userIds: string[];
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        appointmentId: string;
+                        userIds: string[];
+                        warnings: {
+                            /** @enum {string} */
+                            code: "in_past" | "buffer_clash" | "outside_hours" | "calendar_busy" | "time_off";
+                            message: string;
+                            resourceId: string | null;
+                            userId: string | null;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    command_appointment_remove_attendee: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    appointmentId: string;
+                    /** @default true */
+                    notify?: boolean;
+                    /** Format: uuid */
+                    personId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        appointmentId: string;
+                        seatsTaken: number;
+                    };
+                };
+            };
+        };
+    };
+    command_appointment_reschedule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @default false */
+                    acknowledgeWarnings?: boolean;
+                    /** Format: uuid */
+                    appointmentId: string;
+                    durationMinutes?: number;
+                    /** @default true */
+                    notify?: boolean;
+                    /** Format: date-time */
+                    startsAt: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        appointmentId: string;
+                        /** Format: date-time */
+                        endsAt: string;
+                        /** Format: date-time */
+                        startsAt: string;
+                        warnings: {
+                            /** @enum {string} */
+                            code: "in_past" | "buffer_clash" | "outside_hours" | "calendar_busy" | "time_off";
+                            message: string;
+                            resourceId: string | null;
+                            userId: string | null;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    command_appointment_set_status: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    appointmentId: string;
+                    /** @enum {string} */
+                    status: "completed" | "no_show";
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        appointmentId: string;
+                        /** @enum {string} */
+                        status: "scheduled" | "completed" | "cancelled" | "no_show";
+                    };
+                };
+            };
+        };
+    };
+    command_appointment_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    appointmentId: string;
+                    leadId?: string | null;
+                    location?: {
+                        /** @default null */
+                        address?: string | null;
+                        /** @default null */
+                        kind?: ("customer_address" | "business" | "virtual" | "phone") | null;
+                        /** @default null */
+                        meetingUrl?: string | null;
+                        /** @default null */
+                        postalCode?: string | null;
+                    };
+                    notes?: string | null;
+                    title?: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        appointmentId: string;
+                        updated: string[];
+                    };
+                };
+            };
+        };
+    };
     command_assistant_thread_archive: {
         parameters: {
             query?: never;
@@ -2515,6 +3775,688 @@ export interface operations {
                     "application/json": {
                         /** Format: uuid */
                         threadId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_booking_site_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @default true */
+                    enabled?: boolean;
+                    intro?: string | null;
+                    name: string;
+                    slug: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        siteId: string;
+                        slug: string;
+                    };
+                };
+            };
+        };
+    };
+    command_calendar_connection_connect: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {string} */
+                    provider: "google" | "microsoft";
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        connectionId: string;
+                        state: string;
+                    };
+                };
+            };
+        };
+    };
+    command_calendar_connection_disconnect: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    connectionId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        connectionId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_calendar_connection_sync_now: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    connectionId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        connectionId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_calendar_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    color?: string;
+                    description?: string | null;
+                    name: string;
+                    /**
+                     * @default scratch
+                     * @enum {string}
+                     */
+                    preset?: "personal" | "round_robin" | "service" | "group" | "event" | "resource" | "collective" | "dispatch" | "scratch";
+                    /** @default [] */
+                    resources?: string[];
+                    /** @default [] */
+                    services?: string[];
+                    /** @default [] */
+                    teammates?: string[];
+                    timezone?: string | null;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        calendarId: string;
+                        issues: {
+                            code: string;
+                            readonly fields: string[];
+                            readonly fixes: {
+                                id: string;
+                                label: string;
+                                patch: {
+                                    [key: string]: unknown;
+                                };
+                            }[];
+                            message: string;
+                            /** @enum {string} */
+                            severity: "error" | "warning";
+                        }[];
+                        labels: {
+                            primary: string;
+                            readonly tags: string[];
+                        };
+                        revision: number;
+                        slug: string;
+                    };
+                };
+            };
+        };
+    };
+    command_calendar_restore_revision: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    baseRevision: number;
+                    /** Format: uuid */
+                    calendarId: string;
+                    /** @default {} */
+                    impactDecisions?: {
+                        [key: string]: "keep" | "reassign" | "cancel_and_notify";
+                    };
+                    revision: number;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        actions: {
+                            cancelled: string[];
+                            kept: string[];
+                            reassigned: string[];
+                        };
+                        /** Format: uuid */
+                        calendarId: string;
+                        diff: string[];
+                        issues: {
+                            code: string;
+                            readonly fields: string[];
+                            readonly fixes: {
+                                id: string;
+                                label: string;
+                                patch: {
+                                    [key: string]: unknown;
+                                };
+                            }[];
+                            message: string;
+                            /** @enum {string} */
+                            severity: "error" | "warning";
+                        }[];
+                        labels: {
+                            primary: string;
+                            readonly tags: string[];
+                        };
+                        revision: number;
+                    };
+                };
+            };
+        };
+    };
+    command_calendar_save: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    baseRevision: number;
+                    /** Format: uuid */
+                    calendarId: string;
+                    color?: string;
+                    description?: string | null;
+                    draft: {
+                        /** @default {} */
+                        automations?: {
+                            /** @default [] */
+                            workflowIds?: string[];
+                        };
+                        /** @default {} */
+                        buffers?: {
+                            /** @default 0 */
+                            after?: number;
+                            /** @default 0 */
+                            before?: number;
+                            /** @default 0 */
+                            travelMinutes?: number;
+                        };
+                        /** @default {} */
+                        capacity?: {
+                            /** @default 1 */
+                            maxPartySize?: number;
+                            /** @default 1 */
+                            seats?: number;
+                            /** @default true */
+                            showSeatsLeft?: boolean;
+                        };
+                        /** @default {} */
+                        crm?: {
+                            /** @default false */
+                            assignContactOwner?: boolean;
+                            /** @default null */
+                            createLead?: {
+                                /** Format: uuid */
+                                pipelineId: string;
+                                /** Format: uuid */
+                                stageId: string;
+                            } | null;
+                            /**
+                             * @default assigned_staff
+                             * @enum {string}
+                             */
+                            ownership?: "assigned_staff" | "calendar_owner" | "none";
+                        };
+                        /** @default {} */
+                        durations?: {
+                            /** @default false */
+                            customerChooses?: boolean;
+                            /**
+                             * @default [
+                             *       60
+                             *     ]
+                             */
+                            minutes?: number[];
+                            /** @default 30 */
+                            step?: number;
+                        };
+                        /** @default {} */
+                        intake?: {
+                            /** @default [] */
+                            questions?: {
+                                id: string;
+                                /** @enum {string} */
+                                kind: "short_text" | "long_text" | "select" | "multi_select" | "checkbox" | "number" | "date";
+                                label: string;
+                                /** @default [] */
+                                options?: string[];
+                                /** @default false */
+                                required?: boolean;
+                            }[];
+                        };
+                        /** @default {} */
+                        integrations?: {
+                            /** @default true */
+                            checkStaffCalendars?: boolean;
+                            /** @default true */
+                            writeEvents?: boolean;
+                        };
+                        /** @default {} */
+                        locations?: {
+                            /** @default false */
+                            customerChooses?: boolean;
+                            /** @default [] */
+                            options?: {
+                                /** @default null */
+                                address?: string | null;
+                                /** @enum {string} */
+                                kind: "customer_address" | "business" | "virtual" | "phone";
+                                /** @default null */
+                                meetingUrl?: string | null;
+                            }[];
+                        };
+                        /** @default {} */
+                        notifications?: {
+                            /** @default {} */
+                            confirmation?: {
+                                /** @default true */
+                                email?: boolean;
+                                /** @default true */
+                                text?: boolean;
+                            };
+                            /** @default {} */
+                            reminderChannels?: {
+                                /** @default true */
+                                email?: boolean;
+                                /** @default true */
+                                text?: boolean;
+                            };
+                            /**
+                             * @default [
+                             *       {
+                             *         "kind": "day_before",
+                             *         "at": "16:00"
+                             *       },
+                             *       {
+                             *         "kind": "before",
+                             *         "minutes": 120
+                             *       }
+                             *     ]
+                             */
+                            reminders?: ({
+                                /** @default 16:00 */
+                                at?: string;
+                                /** @enum {string} */
+                                kind: "day_before";
+                            } | {
+                                /** @enum {string} */
+                                kind: "before";
+                                minutes: number;
+                            })[];
+                            /** @default true */
+                            staffEmail?: boolean;
+                        };
+                        /** @default {} */
+                        payments?: {
+                            /**
+                             * @default none
+                             * @enum {string}
+                             */
+                            mode?: "none" | "deposit" | "full";
+                        };
+                        /** @default {} */
+                        policies?: {
+                            /** @default {} */
+                            cancel?: {
+                                /** @default true */
+                                allowed?: boolean;
+                                /** @default 24 */
+                                cutoffHours?: number;
+                            };
+                            /** @default  */
+                            policyText?: string;
+                            /** @default {} */
+                            reschedule?: {
+                                /** @default true */
+                                allowed?: boolean;
+                                /** @default 24 */
+                                cutoffHours?: number;
+                                /** @default 2 */
+                                maxTimes?: number;
+                            };
+                        };
+                        /** @default false */
+                        public?: boolean;
+                        /** @default {} */
+                        recurring?: {
+                            /** @default false */
+                            customerSeries?: boolean;
+                            /** @default 12 */
+                            maxOccurrences?: number;
+                            /** @default true */
+                            staffSeries?: boolean;
+                        };
+                        /** @default {} */
+                        resources?: {
+                            /** @default [] */
+                            required?: {
+                                /** @default 1 */
+                                quantity?: number;
+                                /** Format: uuid */
+                                resourceId: string;
+                            }[];
+                        };
+                        /** @default {} */
+                        schedule?: {
+                            /** @default null */
+                            hours?: {
+                                day: number;
+                                end: string;
+                                start: string;
+                            }[] | null;
+                            /**
+                             * @default hours
+                             * @enum {string}
+                             */
+                            mode?: "hours" | "sessions";
+                        };
+                        /** @default {} */
+                        services?: {
+                            /** @default [] */
+                            items?: {
+                                /** @default {} */
+                                overrides?: {
+                                    bufferAfter?: number;
+                                    bufferBefore?: number;
+                                    maxPartySize?: number;
+                                    minutes?: number[];
+                                    seats?: number;
+                                    userIds?: string[];
+                                };
+                                /** Format: uuid */
+                                serviceId: string;
+                            }[];
+                            /**
+                             * @default none
+                             * @enum {string}
+                             */
+                            mode?: "none" | "one" | "choice";
+                        };
+                        /** @default {} */
+                        team?: {
+                            /**
+                             * @default fixed
+                             * @enum {string}
+                             */
+                            assignment?: "fixed" | "customer_choice" | "round_robin" | "weighted" | "first_available" | "collective";
+                            /** @default 1 */
+                            crewSize?: number;
+                            /** @default [] */
+                            members?: {
+                                /** @default 0 */
+                                priority?: number;
+                                /** @default false */
+                                required?: boolean;
+                                /** Format: uuid */
+                                userId: string;
+                                /** @default 1 */
+                                weight?: number;
+                            }[];
+                        };
+                        /** @default {} */
+                        territory?: {
+                            /**
+                             * @default off
+                             * @enum {string}
+                             */
+                            routing?: "off" | "zip";
+                            /** @default [] */
+                            territoryIds?: string[];
+                        };
+                        /** @enum {number} */
+                        version: 1;
+                        /** @default {} */
+                        waitlist?: {
+                            /** @default false */
+                            enabled?: boolean;
+                            /** @default 60 */
+                            offerMinutes?: number;
+                        };
+                        /** @default {} */
+                        window?: {
+                            /** @default null */
+                            dailyLimitPerPerson?: number | null;
+                            /** @default null */
+                            dateFrom?: string | null;
+                            /** @default null */
+                            dateTo?: string | null;
+                            /** @default 60 */
+                            maxDaysAhead?: number;
+                            /** @default 240 */
+                            minNoticeMinutes?: number;
+                        };
+                    };
+                    /** @default {} */
+                    impactDecisions?: {
+                        [key: string]: "keep" | "reassign" | "cancel_and_notify";
+                    };
+                    name?: string;
+                    timezone?: string | null;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        actions: {
+                            cancelled: string[];
+                            kept: string[];
+                            reassigned: string[];
+                        };
+                        /** Format: uuid */
+                        calendarId: string;
+                        diff: string[];
+                        issues: {
+                            code: string;
+                            readonly fields: string[];
+                            readonly fixes: {
+                                id: string;
+                                label: string;
+                                patch: {
+                                    [key: string]: unknown;
+                                };
+                            }[];
+                            message: string;
+                            /** @enum {string} */
+                            severity: "error" | "warning";
+                        }[];
+                        labels: {
+                            primary: string;
+                            readonly tags: string[];
+                        };
+                        revision: number;
+                    };
+                };
+            };
+        };
+    };
+    command_calendar_set_slug: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    calendarId: string;
+                    slug: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        calendarId: string;
+                        previousSlug: string;
+                        slug: string;
+                    };
+                };
+            };
+        };
+    };
+    command_calendar_set_status: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    calendarId: string;
+                    /** @enum {string} */
+                    status: "draft" | "active" | "paused" | "archived";
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        calendarId: string;
+                        issues: {
+                            code: string;
+                            readonly fields: string[];
+                            readonly fixes: {
+                                id: string;
+                                label: string;
+                                patch: {
+                                    [key: string]: unknown;
+                                };
+                            }[];
+                            message: string;
+                            /** @enum {string} */
+                            severity: "error" | "warning";
+                        }[];
+                        /** @enum {string} */
+                        status: "draft" | "active" | "paused" | "archived";
                     };
                 };
             };
@@ -4751,6 +6693,502 @@ export interface operations {
             };
         };
     };
+    command_resource_archive: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    resourceId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        calendars: {
+                            /** Format: uuid */
+                            id: string;
+                            name: string;
+                        }[];
+                        /** Format: uuid */
+                        resourceId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_resource_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @default null */
+                    hours?: {
+                        day: number;
+                        end: string;
+                        start: string;
+                    }[] | null;
+                    /**
+                     * @default other
+                     * @enum {string}
+                     */
+                    kind?: "room" | "equipment" | "vehicle" | "property" | "chair" | "other";
+                    location?: string | null;
+                    name: string;
+                    /** @default 1 */
+                    quantity?: number;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        resourceId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_resource_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    hours?: {
+                        day: number;
+                        end: string;
+                        start: string;
+                    }[] | null;
+                    /** @enum {string} */
+                    kind?: "room" | "equipment" | "vehicle" | "property" | "chair" | "other";
+                    location?: string | null;
+                    name?: string;
+                    quantity?: number;
+                    /** Format: uuid */
+                    resourceId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        resourceId: string;
+                        updated: string[];
+                    };
+                };
+            };
+        };
+    };
+    command_schedule_set: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    ownerId?: string;
+                    /**
+                     * @default user
+                     * @enum {string}
+                     */
+                    ownerKind?: "user" | "resource" | "service";
+                    timezone?: string | null;
+                    weekly: {
+                        day: number;
+                        end: string;
+                        start: string;
+                    }[];
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        scheduleId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_series_cancel: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    appointmentId: string;
+                    /** @default true */
+                    notify?: boolean;
+                    reason?: string | null;
+                    /** @enum {string} */
+                    scope: "this" | "following" | "all";
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        cancelled: string[];
+                        /** Format: uuid */
+                        seriesId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_series_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    calendarId: string;
+                    capacity?: number;
+                    durationMinutes?: number;
+                    firstDate: string;
+                    location?: {
+                        /** @default null */
+                        address?: string | null;
+                        /** @default null */
+                        kind?: ("customer_address" | "business" | "virtual" | "phone") | null;
+                        /** @default null */
+                        meetingUrl?: string | null;
+                        /** @default null */
+                        postalCode?: string | null;
+                    };
+                    notes?: string | null;
+                    /** @default 1 */
+                    partySize?: number;
+                    personId?: string | null;
+                    rule: {
+                        /** @default null */
+                        count?: number | null;
+                        /** @enum {string} */
+                        freq: "weekly" | "monthly_date" | "monthly_nth";
+                        /** @default 1 */
+                        interval?: number;
+                        localTime: string;
+                        /** @default null */
+                        until?: string | null;
+                        /** @default [] */
+                        weekdays?: number[];
+                    };
+                    serviceId?: string | null;
+                    title?: string;
+                    userIds?: string[];
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        appointmentIds: string[];
+                        /** Format: uuid */
+                        seriesId: string;
+                        skipped: {
+                            date: string;
+                            occurrence: number;
+                            reason: string;
+                            /** Format: date-time */
+                            startsAt: string;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    command_service_archive: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    serviceId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        calendars: {
+                            /** Format: uuid */
+                            id: string;
+                            name: string;
+                        }[];
+                        /** Format: uuid */
+                        serviceId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_service_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @default 0 */
+                    bufferAfter?: number;
+                    /** @default 0 */
+                    bufferBefore?: number;
+                    color?: string;
+                    defaultDuration?: number;
+                    description?: string | null;
+                    /**
+                     * @default [
+                     *       60
+                     *     ]
+                     */
+                    durations?: number[];
+                    /** @default null */
+                    hours?: {
+                        day: number;
+                        end: string;
+                        start: string;
+                    }[] | null;
+                    /** @default [] */
+                    locationKinds?: ("customer_address" | "business" | "virtual" | "phone")[];
+                    name: string;
+                    priceCents?: number | null;
+                    /** @default [] */
+                    resources?: {
+                        /** @default 1 */
+                        quantity?: number;
+                        /** Format: uuid */
+                        resourceId: string;
+                    }[];
+                    /** @default [] */
+                    staffUserIds?: string[];
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        serviceId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_service_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    bufferAfter?: number;
+                    bufferBefore?: number;
+                    color?: string;
+                    defaultDuration?: number;
+                    description?: string | null;
+                    durations?: number[];
+                    hours?: {
+                        day: number;
+                        end: string;
+                        start: string;
+                    }[] | null;
+                    locationKinds?: ("customer_address" | "business" | "virtual" | "phone")[];
+                    name?: string;
+                    priceCents?: number | null;
+                    resources?: {
+                        /** @default 1 */
+                        quantity?: number;
+                        /** Format: uuid */
+                        resourceId: string;
+                    }[];
+                    /** Format: uuid */
+                    serviceId: string;
+                    staffUserIds?: string[];
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        serviceId: string;
+                        updated: string[];
+                    };
+                };
+            };
+        };
+    };
+    command_session_publish: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @default false */
+                    acknowledgeWarnings?: boolean;
+                    /** Format: uuid */
+                    calendarId: string;
+                    capacity?: number;
+                    durationMinutes?: number;
+                    location?: {
+                        /** @default null */
+                        address?: string | null;
+                        /** @default null */
+                        kind?: ("customer_address" | "business" | "virtual" | "phone") | null;
+                        /** @default null */
+                        meetingUrl?: string | null;
+                        /** @default null */
+                        postalCode?: string | null;
+                    };
+                    notes?: string | null;
+                    serviceId?: string | null;
+                    /** Format: date-time */
+                    startsAt: string;
+                    title?: string;
+                    userIds: string[];
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        appointmentId: string;
+                        capacity: number;
+                        /** Format: date-time */
+                        endsAt: string;
+                        /** Format: date-time */
+                        startsAt: string;
+                        warnings: {
+                            /** @enum {string} */
+                            code: "in_past" | "buffer_clash" | "outside_hours" | "calendar_busy" | "time_off";
+                            message: string;
+                            resourceId: string | null;
+                            userId: string | null;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
     command_stage_create: {
         parameters: {
             query?: never;
@@ -5173,6 +7611,196 @@ export interface operations {
             };
         };
     };
+    command_territory_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    name: string;
+                    /** @default [] */
+                    postalCodes?: string[];
+                    /** @default [] */
+                    userIds?: string[];
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        territoryId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_territory_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    territoryId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        territoryId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_territory_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    name?: string;
+                    postalCodes?: string[];
+                    /** Format: uuid */
+                    territoryId: string;
+                    userIds?: string[];
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        territoryId: string;
+                        updated: string[];
+                    };
+                };
+            };
+        };
+    };
+    command_time_off_add: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    endDate?: string;
+                    /** Format: date-time */
+                    endsAt?: string;
+                    /**
+                     * @default unavailable
+                     * @enum {string}
+                     */
+                    kind?: "unavailable" | "available";
+                    note?: string | null;
+                    /** Format: uuid */
+                    ownerId?: string;
+                    /**
+                     * @default user
+                     * @enum {string}
+                     */
+                    ownerKind?: "user" | "resource" | "service";
+                    startDate?: string;
+                    /** Format: date-time */
+                    startsAt?: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: date-time */
+                        endsAt: string;
+                        /** Format: uuid */
+                        exceptionId: string;
+                        /** Format: uuid */
+                        scheduleId: string;
+                        /** Format: date-time */
+                        startsAt: string;
+                    };
+                };
+            };
+        };
+    };
+    command_time_off_remove: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    exceptionId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        exceptionId: string;
+                    };
+                };
+            };
+        };
+    };
     command_user_update_profile: {
         parameters: {
             query?: never;
@@ -5202,6 +7830,80 @@ export interface operations {
                         updated: string[];
                         /** Format: uuid */
                         userId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_waitlist_add: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    appointmentId?: string | null;
+                    /** Format: uuid */
+                    calendarId: string;
+                    /** Format: uuid */
+                    personId: string;
+                    /** @default 1 */
+                    seats?: number;
+                    /** Format: date-time */
+                    wantedFrom?: string;
+                    /** Format: date-time */
+                    wantedTo?: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        entryId: string;
+                        position: number;
+                    };
+                };
+            };
+        };
+    };
+    command_waitlist_remove: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    entryId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        entryId: string;
                     };
                 };
             };
@@ -5337,6 +8039,250 @@ export interface operations {
                             slug: string;
                             timezone: string;
                         }[];
+                    };
+                };
+            };
+        };
+    };
+    query_appointment_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    appointmentId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        appointment: {
+                            attendees: {
+                                cancelledAt: string | null;
+                                contactEmail: string | null;
+                                contactPhone: string | null;
+                                fullName: string;
+                                /** Format: uuid */
+                                id: string;
+                                intake: {
+                                    [key: string]: unknown;
+                                };
+                                /** Format: uuid */
+                                personId: string;
+                                rescheduleCount: number;
+                                seats: number;
+                                smsOk: boolean;
+                                /** @enum {string} */
+                                source: "staff" | "assistant" | "booking_page" | "series";
+                                /** @enum {string} */
+                                status: "booked" | "cancelled" | "no_show" | "attended";
+                            }[];
+                            bufferAfter: number;
+                            bufferBefore: number;
+                            calendar: {
+                                color: string;
+                                /** Format: uuid */
+                                id: string;
+                                name: string;
+                            };
+                            calendarRevision: number;
+                            capacity: number;
+                            /** Format: date-time */
+                            createdAt: string;
+                            createdBy: {
+                                fullName: string;
+                                /** Format: uuid */
+                                id: string;
+                            } | null;
+                            /** Format: date-time */
+                            endsAt: string;
+                            /** Format: uuid */
+                            id: string;
+                            /** @enum {string} */
+                            kind: "booking" | "session";
+                            leadId: string | null;
+                            location: {
+                                /** @default null */
+                                address: string | null;
+                                /** @default null */
+                                kind: ("customer_address" | "business" | "virtual" | "phone") | null;
+                                /** @default null */
+                                meetingUrl: string | null;
+                                /** @default null */
+                                postalCode: string | null;
+                            };
+                            notes: string | null;
+                            occurrence: number | null;
+                            resources: {
+                                name: string;
+                                quantity: number;
+                                /** Format: uuid */
+                                resourceId: string;
+                            }[];
+                            seatsTaken: number;
+                            series: {
+                                /** Format: uuid */
+                                id: string;
+                                rule: {
+                                    [key: string]: unknown;
+                                };
+                            } | null;
+                            seriesId: string | null;
+                            service: {
+                                /** Format: uuid */
+                                id: string;
+                                name: string;
+                            } | null;
+                            /** @enum {string} */
+                            source: "staff" | "assistant" | "booking_page" | "series";
+                            staff: {
+                                fullName: string;
+                                /** @enum {string} */
+                                role: "host" | "crew";
+                                /** Format: uuid */
+                                userId: string;
+                            }[];
+                            /** Format: date-time */
+                            startsAt: string;
+                            /** @enum {string} */
+                            status: "scheduled" | "completed" | "cancelled" | "no_show";
+                            title: string;
+                            /** Format: date-time */
+                            updatedAt: string;
+                            waitlist: {
+                                fullName: string;
+                                /** Format: uuid */
+                                id: string;
+                                /** Format: uuid */
+                                personId: string;
+                                position: number;
+                                seats: number;
+                                status: string;
+                            }[];
+                        };
+                    };
+                };
+            };
+        };
+    };
+    query_appointment_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    calendarIds?: string[];
+                    /** Format: date-time */
+                    from: string;
+                    /** Format: uuid */
+                    personId?: string;
+                    resourceIds?: string[];
+                    status?: ("scheduled" | "completed" | "cancelled" | "no_show")[];
+                    /** Format: date-time */
+                    to: string;
+                    userIds?: string[];
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: {
+                            attendees: {
+                                fullName: string;
+                                /** Format: uuid */
+                                id: string;
+                                /** Format: uuid */
+                                personId: string;
+                                seats: number;
+                                /** @enum {string} */
+                                status: "booked" | "cancelled" | "no_show" | "attended";
+                            }[];
+                            bufferAfter: number;
+                            bufferBefore: number;
+                            calendar: {
+                                color: string;
+                                /** Format: uuid */
+                                id: string;
+                                name: string;
+                            };
+                            capacity: number;
+                            /** Format: date-time */
+                            createdAt: string;
+                            /** Format: date-time */
+                            endsAt: string;
+                            /** Format: uuid */
+                            id: string;
+                            /** @enum {string} */
+                            kind: "booking" | "session";
+                            leadId: string | null;
+                            location: {
+                                /** @default null */
+                                address: string | null;
+                                /** @default null */
+                                kind: ("customer_address" | "business" | "virtual" | "phone") | null;
+                                /** @default null */
+                                meetingUrl: string | null;
+                                /** @default null */
+                                postalCode: string | null;
+                            };
+                            notes: string | null;
+                            occurrence: number | null;
+                            resources: {
+                                name: string;
+                                quantity: number;
+                                /** Format: uuid */
+                                resourceId: string;
+                            }[];
+                            seatsTaken: number;
+                            seriesId: string | null;
+                            service: {
+                                /** Format: uuid */
+                                id: string;
+                                name: string;
+                            } | null;
+                            /** @enum {string} */
+                            source: "staff" | "assistant" | "booking_page" | "series";
+                            staff: {
+                                fullName: string;
+                                /** @enum {string} */
+                                role: "host" | "crew";
+                                /** Format: uuid */
+                                userId: string;
+                            }[];
+                            /** Format: date-time */
+                            startsAt: string;
+                            /** @enum {string} */
+                            status: "scheduled" | "completed" | "cancelled" | "no_show";
+                            title: string;
+                            /** Format: date-time */
+                            updatedAt: string;
+                        }[];
+                        timezone: string;
                     };
                 };
             };
@@ -5613,6 +8559,538 @@ export interface operations {
                             reason: string | null;
                         }[];
                         nextCursor: string | null;
+                    };
+                };
+            };
+        };
+    };
+    query_booking_site_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        site: {
+                            enabled: boolean;
+                            /** Format: uuid */
+                            id: string;
+                            intro: string | null;
+                            name: string;
+                            path: string;
+                            slug: string;
+                        } | null;
+                    };
+                };
+            };
+        };
+    };
+    query_calendar_connection_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @default false */
+                    includeDisconnected?: boolean;
+                    /** Format: uuid */
+                    userId?: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: {
+                            accountEmail: string | null;
+                            busySyncedAt: string | null;
+                            connectedAt: string | null;
+                            /** Format: date-time */
+                            createdAt: string;
+                            disconnectedAt: string | null;
+                            failures: number;
+                            fullName: string;
+                            /** Format: uuid */
+                            id: string;
+                            lastError: string | null;
+                            nextSyncAt: string | null;
+                            /** @enum {string} */
+                            provider: "google" | "microsoft";
+                            scopes: string[];
+                            /** @enum {string} */
+                            status: "pending" | "active" | "reauth_required" | "error" | "disconnected";
+                            /** Format: uuid */
+                            userId: string;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    query_calendar_availability: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    calendarId: string;
+                    chosenUserId?: string | null;
+                    durationMinutes?: number;
+                    /** Format: date-time */
+                    from: string;
+                    locationKind?: ("customer_address" | "business" | "virtual" | "phone") | null;
+                    /** @default 1 */
+                    partySize?: number;
+                    postalCode?: string | null;
+                    serviceId?: string | null;
+                    /** Format: date-time */
+                    to: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        calendarId: string;
+                        durationMinutes: number;
+                        serviceId: string | null;
+                        slots: {
+                            /** Format: date-time */
+                            endsAt: string;
+                            seatsLeft: number;
+                            sessionId: string | null;
+                            /** Format: date-time */
+                            startsAt: string;
+                            userIds: string[];
+                        }[];
+                        timezone: string;
+                    };
+                };
+            };
+        };
+    };
+    query_calendar_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    calendarId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        calendar: {
+                            bookingPath: string | null;
+                            color: string;
+                            config: {
+                                automations: {
+                                    /** @default [] */
+                                    workflowIds: string[];
+                                };
+                                buffers: {
+                                    /** @default 0 */
+                                    after: number;
+                                    /** @default 0 */
+                                    before: number;
+                                    /** @default 0 */
+                                    travelMinutes: number;
+                                };
+                                capacity: {
+                                    /** @default 1 */
+                                    maxPartySize: number;
+                                    /** @default 1 */
+                                    seats: number;
+                                    /** @default true */
+                                    showSeatsLeft: boolean;
+                                };
+                                crm: {
+                                    /** @default false */
+                                    assignContactOwner: boolean;
+                                    /** @default null */
+                                    createLead: {
+                                        /** Format: uuid */
+                                        pipelineId: string;
+                                        /** Format: uuid */
+                                        stageId: string;
+                                    } | null;
+                                    /**
+                                     * @default assigned_staff
+                                     * @enum {string}
+                                     */
+                                    ownership: "assigned_staff" | "calendar_owner" | "none";
+                                };
+                                durations: {
+                                    /** @default false */
+                                    customerChooses: boolean;
+                                    /**
+                                     * @default [
+                                     *       60
+                                     *     ]
+                                     */
+                                    minutes: number[];
+                                    /** @default 30 */
+                                    step: number;
+                                };
+                                intake: {
+                                    /** @default [] */
+                                    questions: {
+                                        id: string;
+                                        /** @enum {string} */
+                                        kind: "short_text" | "long_text" | "select" | "multi_select" | "checkbox" | "number" | "date";
+                                        label: string;
+                                        /** @default [] */
+                                        options: string[];
+                                        /** @default false */
+                                        required: boolean;
+                                    }[];
+                                };
+                                integrations: {
+                                    /** @default true */
+                                    checkStaffCalendars: boolean;
+                                    /** @default true */
+                                    writeEvents: boolean;
+                                };
+                                locations: {
+                                    /** @default false */
+                                    customerChooses: boolean;
+                                    /** @default [] */
+                                    options: {
+                                        /** @default null */
+                                        address: string | null;
+                                        /** @enum {string} */
+                                        kind: "customer_address" | "business" | "virtual" | "phone";
+                                        /** @default null */
+                                        meetingUrl: string | null;
+                                    }[];
+                                };
+                                notifications: {
+                                    confirmation: {
+                                        /** @default true */
+                                        email: boolean;
+                                        /** @default true */
+                                        text: boolean;
+                                    };
+                                    reminderChannels: {
+                                        /** @default true */
+                                        email: boolean;
+                                        /** @default true */
+                                        text: boolean;
+                                    };
+                                    /**
+                                     * @default [
+                                     *       {
+                                     *         "kind": "day_before",
+                                     *         "at": "16:00"
+                                     *       },
+                                     *       {
+                                     *         "kind": "before",
+                                     *         "minutes": 120
+                                     *       }
+                                     *     ]
+                                     */
+                                    reminders: ({
+                                        /** @default 16:00 */
+                                        at: string;
+                                        /** @enum {string} */
+                                        kind: "day_before";
+                                    } | {
+                                        /** @enum {string} */
+                                        kind: "before";
+                                        minutes: number;
+                                    })[];
+                                    /** @default true */
+                                    staffEmail: boolean;
+                                };
+                                payments: {
+                                    /**
+                                     * @default none
+                                     * @enum {string}
+                                     */
+                                    mode: "none" | "deposit" | "full";
+                                };
+                                policies: {
+                                    cancel: {
+                                        /** @default true */
+                                        allowed: boolean;
+                                        /** @default 24 */
+                                        cutoffHours: number;
+                                    };
+                                    /** @default  */
+                                    policyText: string;
+                                    reschedule: {
+                                        /** @default true */
+                                        allowed: boolean;
+                                        /** @default 24 */
+                                        cutoffHours: number;
+                                        /** @default 2 */
+                                        maxTimes: number;
+                                    };
+                                };
+                                /** @default false */
+                                public: boolean;
+                                recurring: {
+                                    /** @default false */
+                                    customerSeries: boolean;
+                                    /** @default 12 */
+                                    maxOccurrences: number;
+                                    /** @default true */
+                                    staffSeries: boolean;
+                                };
+                                resources: {
+                                    /** @default [] */
+                                    required: {
+                                        /** @default 1 */
+                                        quantity: number;
+                                        /** Format: uuid */
+                                        resourceId: string;
+                                    }[];
+                                };
+                                schedule: {
+                                    /** @default null */
+                                    hours: {
+                                        day: number;
+                                        end: string;
+                                        start: string;
+                                    }[] | null;
+                                    /**
+                                     * @default hours
+                                     * @enum {string}
+                                     */
+                                    mode: "hours" | "sessions";
+                                };
+                                services: {
+                                    /** @default [] */
+                                    items: {
+                                        overrides: {
+                                            bufferAfter?: number;
+                                            bufferBefore?: number;
+                                            maxPartySize?: number;
+                                            minutes?: number[];
+                                            seats?: number;
+                                            userIds?: string[];
+                                        };
+                                        /** Format: uuid */
+                                        serviceId: string;
+                                    }[];
+                                    /**
+                                     * @default none
+                                     * @enum {string}
+                                     */
+                                    mode: "none" | "one" | "choice";
+                                };
+                                team: {
+                                    /**
+                                     * @default fixed
+                                     * @enum {string}
+                                     */
+                                    assignment: "fixed" | "customer_choice" | "round_robin" | "weighted" | "first_available" | "collective";
+                                    /** @default 1 */
+                                    crewSize: number;
+                                    /** @default [] */
+                                    members: {
+                                        /** @default 0 */
+                                        priority: number;
+                                        /** @default false */
+                                        required: boolean;
+                                        /** Format: uuid */
+                                        userId: string;
+                                        /** @default 1 */
+                                        weight: number;
+                                    }[];
+                                };
+                                territory: {
+                                    /**
+                                     * @default off
+                                     * @enum {string}
+                                     */
+                                    routing: "off" | "zip";
+                                    /** @default [] */
+                                    territoryIds: string[];
+                                };
+                                /** @enum {number} */
+                                version: 1;
+                                waitlist: {
+                                    /** @default false */
+                                    enabled: boolean;
+                                    /** @default 60 */
+                                    offerMinutes: number;
+                                };
+                                window: {
+                                    /** @default null */
+                                    dailyLimitPerPerson: number | null;
+                                    /** @default null */
+                                    dateFrom: string | null;
+                                    /** @default null */
+                                    dateTo: string | null;
+                                    /** @default 60 */
+                                    maxDaysAhead: number;
+                                    /** @default 240 */
+                                    minNoticeMinutes: number;
+                                };
+                            };
+                            description: string | null;
+                            /** Format: uuid */
+                            id: string;
+                            issues: {
+                                code: string;
+                                readonly fields: string[];
+                                readonly fixes: {
+                                    id: string;
+                                    label: string;
+                                    patch: {
+                                        [key: string]: unknown;
+                                    };
+                                }[];
+                                message: string;
+                                /** @enum {string} */
+                                severity: "error" | "warning";
+                            }[];
+                            labels: {
+                                primary: string;
+                                readonly tags: string[];
+                            };
+                            memberIds: string[];
+                            name: string;
+                            ownerUserId: string | null;
+                            ownTimezone: string | null;
+                            permanentPath: string;
+                            public: boolean;
+                            revision: number;
+                            slug: string;
+                            /** @enum {string} */
+                            status: "draft" | "active" | "paused" | "archived";
+                            timezone: string;
+                            upcomingCount: number;
+                            /** Format: date-time */
+                            updatedAt: string;
+                        };
+                        revisions: {
+                            changedBy: {
+                                fullName: string;
+                                /** Format: uuid */
+                                id: string;
+                            } | null;
+                            /** Format: date-time */
+                            createdAt: string;
+                            diff: string[];
+                            labels: string[];
+                            revision: number;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    query_calendar_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @default false */
+                    includeArchived?: boolean;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: {
+                            bookingPath: string | null;
+                            color: string;
+                            description: string | null;
+                            /** Format: uuid */
+                            id: string;
+                            labels: {
+                                primary: string;
+                                readonly tags: string[];
+                            };
+                            memberIds: string[];
+                            name: string;
+                            ownerUserId: string | null;
+                            permanentPath: string;
+                            public: boolean;
+                            revision: number;
+                            slug: string;
+                            /** @enum {string} */
+                            status: "draft" | "active" | "paused" | "archived";
+                            timezone: string;
+                            upcomingCount: number;
+                            /** Format: date-time */
+                            updatedAt: string;
+                        }[];
+                        site: {
+                            enabled: boolean;
+                            /** Format: uuid */
+                            id: string;
+                            slug: string;
+                        } | null;
                     };
                 };
             };
@@ -7359,6 +10837,198 @@ export interface operations {
             };
         };
     };
+    query_resource_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @default false */
+                    includeArchived?: boolean;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: {
+                            archivedAt: string | null;
+                            hours: {
+                                day: number;
+                                end: string;
+                                start: string;
+                            }[] | null;
+                            /** Format: uuid */
+                            id: string;
+                            /** @enum {string} */
+                            kind: "room" | "equipment" | "vehicle" | "property" | "chair" | "other";
+                            location: string | null;
+                            name: string;
+                            quantity: number;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    query_schedule_team: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: date-time */
+                    from: string;
+                    /** Format: date-time */
+                    to: string;
+                    userIds?: string[];
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        people: {
+                            busy: {
+                                /** Format: date-time */
+                                endsAt: string;
+                                /** Format: date-time */
+                                startsAt: string;
+                            }[];
+                            connection: {
+                                accountEmail: string | null;
+                                busySyncedAt: string | null;
+                                connectedAt: string | null;
+                                /** Format: date-time */
+                                createdAt: string;
+                                disconnectedAt: string | null;
+                                failures: number;
+                                fullName: string;
+                                /** Format: uuid */
+                                id: string;
+                                lastError: string | null;
+                                nextSyncAt: string | null;
+                                /** @enum {string} */
+                                provider: "google" | "microsoft";
+                                scopes: string[];
+                                /** @enum {string} */
+                                status: "pending" | "active" | "reauth_required" | "error" | "disconnected";
+                                /** Format: uuid */
+                                userId: string;
+                            } | null;
+                            defaultHours: boolean;
+                            fullName: string;
+                            hours: {
+                                /** Format: date-time */
+                                endsAt: string;
+                                /** Format: date-time */
+                                startsAt: string;
+                            }[];
+                            scheduleId: string | null;
+                            timeOff: {
+                                allDay: boolean;
+                                /** Format: date-time */
+                                endsAt: string;
+                                /** Format: uuid */
+                                id: string;
+                                /** @enum {string} */
+                                kind: "unavailable" | "available";
+                                note: string | null;
+                                /** Format: date-time */
+                                startsAt: string;
+                            }[];
+                            timezone: string;
+                            /** Format: uuid */
+                            userId: string;
+                            weekly: {
+                                day: number;
+                                end: string;
+                                start: string;
+                            }[];
+                        }[];
+                        timezone: string;
+                    };
+                };
+            };
+        };
+    };
+    query_service_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @default false */
+                    includeArchived?: boolean;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: {
+                            archivedAt: string | null;
+                            bufferAfter: number;
+                            bufferBefore: number;
+                            color: string;
+                            defaultDuration: number;
+                            description: string | null;
+                            durations: number[];
+                            hours: {
+                                day: number;
+                                end: string;
+                                start: string;
+                            }[] | null;
+                            /** Format: uuid */
+                            id: string;
+                            locationKinds: string[];
+                            name: string;
+                            priceCents: number | null;
+                            resources: {
+                                quantity: number;
+                                /** Format: uuid */
+                                resourceId: string;
+                            }[];
+                            staffUserIds: string[];
+                        }[];
+                    };
+                };
+            };
+        };
+    };
     query_tag_list: {
         parameters: {
             query?: never;
@@ -7487,6 +11157,41 @@ export interface operations {
                         }[];
                         nextCursor: string | null;
                         timezone: string;
+                    };
+                };
+            };
+        };
+    };
+    query_territory_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: {
+                            /** Format: uuid */
+                            id: string;
+                            name: string;
+                            postalCodes: string[];
+                            userIds: string[];
+                        }[];
                     };
                 };
             };

@@ -1,6 +1,19 @@
 import type { QueryDef } from '../kernel/types';
 import { assistantThreadGet, assistantThreadList } from './assistant';
 import { auditList } from './audit.list';
+import {
+  appointmentGet,
+  appointmentList,
+  bookingSiteGet,
+  calendarAvailability,
+  calendarConnectionList,
+  calendarGet,
+  calendarList,
+  resourceList,
+  scheduleTeam,
+  serviceList,
+  territoryList,
+} from './calendar';
 import { companyGet, companyList } from './company';
 import {
   crmFindMatches,
@@ -61,6 +74,17 @@ export {
   workspaceGet,
   workspaceInvitations,
   workspaceMembers,
+  calendarList,
+  calendarGet,
+  calendarAvailability,
+  appointmentList,
+  appointmentGet,
+  scheduleTeam,
+  serviceList,
+  resourceList,
+  territoryList,
+  bookingSiteGet,
+  calendarConnectionList,
 };
 
 export { emailComposeOptions };
@@ -101,4 +125,15 @@ export const queries: readonly QueryDef[] = [
   emailComposeOptions,
   assistantThreadList,
   assistantThreadGet,
+  calendarList,
+  calendarGet,
+  calendarAvailability,
+  appointmentList,
+  appointmentGet,
+  scheduleTeam,
+  serviceList,
+  resourceList,
+  territoryList,
+  bookingSiteGet,
+  calendarConnectionList,
 ] as unknown as readonly QueryDef[];

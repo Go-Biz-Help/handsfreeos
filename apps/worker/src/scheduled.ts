@@ -18,6 +18,7 @@ import {
   telephonyRegistrations,
   users,
 } from '@hfos/db/schema';
+import { appointmentCalendarSync, calendarRefresh } from './calendar/sync';
 import { unansweredEmail } from './emails/templates';
 import { domainRecordInput, lapsedMessage, sharedAddress } from './handlers/email';
 import { advanceRegistrations, managers } from './handlers/telephony';
@@ -277,6 +278,8 @@ export const jobs: JobMap = {
   'webhook_deliveries.sweep': sweepDeliveries,
   'email_domains.check': checkEmailDomains,
   'mailbox.sync': mailboxSync,
+  'calendar.refresh': calendarRefresh,
+  'appointment.calendar_sync': appointmentCalendarSync,
 };
 
 /** Periodic jobs exist exactly once (their dedupe key keeps one pending row); the first run is an hour out. */
