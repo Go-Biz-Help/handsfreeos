@@ -1,4 +1,5 @@
 import type { TimelineEntry } from '@/lib/api/types';
+import { fmtAt } from '@/lib/calendar/time';
 import { clock } from '@/lib/calls/format';
 
 const str = (v: unknown): string => (typeof v === 'string' ? v : '');
@@ -18,6 +19,9 @@ const undelivered = (e: TimelineEntry) =>
  */
 export function timelineActor(e: TimelineEntry, subjectName?: string): string {
   if (inbound(e)) return subjectName || 'The customer';
+  // What the customer did on the booking page: they booked, moved or cancelled it themselves.
+  if (e.subtype === 'appointment_booked_online' || (isAppointment(e) && e.meta.by === 'customer'))
+    return subjectName || 'The customer';
   // A call a teammate placed: the worker settled it, but the teammate called.
   if (e.kind === 'call' && e.actor) return e.actor.fullName;
   if (e.actorType === 'system') return e.meta.onBehalfOf ? 'Import' : 'HandsFreeOS';
@@ -30,7 +34,10 @@ export function describeTimeline(
   recordType: 'person' | 'company' | 'lead',
   /** Who is reading, for "you answered in the browser". */
   viewerId?: string,
+  /** The workspace's zone, for appointment times. */
+  timeZone?: string,
 ): string {
+  if (isAppointment(e)) return describeAppointment(e, timeZone);
   if (e.kind === 'note') return 'added a note';
   if (e.kind === 'call') return describeCall(e, viewerId);
   if (e.kind === 'visit') return 'logged a visit';
@@ -87,6 +94,34 @@ export function describeTimeline(
   }
 }
 
+/** Appointment entries: booked (by staff, the Assistant or online), moved, cancelled, done or no-show. */
+const isAppointment = (e: TimelineEntry) =>
+  e.kind === 'system' && !!e.subtype?.startsWith('appointment_');
+
+function describeAppointment(e: TimelineEntry, timeZone?: string): string {
+  const what = e.body || 'an appointment';
+  const zone = timeZone ?? Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const at = (v: unknown) => (typeof v === 'string' ? fmtAt(v, zone) : 'a time');
+  switch (e.subtype) {
+    case 'appointment_booked':
+      return num(e.meta.occurrences)
+        ? `booked ${num(e.meta.occurrences)} visits of ${what}, starting ${at(e.meta.startsAt)}`
+        : `booked ${what} for ${at(e.meta.startsAt)}`;
+    case 'appointment_booked_online':
+      return `booked ${what} online for ${at(e.meta.startsAt)}`;
+    case 'appointment_rescheduled':
+      return `rescheduled ${what} from ${at(e.meta.from)} to ${at(e.meta.to)}`;
+    case 'appointment_cancelled':
+      return `cancelled ${what} on ${at(e.meta.startsAt)}`;
+    case 'appointment_completed':
+      return `marked ${what} on ${at(e.meta.startsAt)} done`;
+    case 'appointment_no_show':
+      return `marked ${what} on ${at(e.meta.startsAt)} a no-show`;
+    default:
+      return e.subtype!.replace(/_/g, ' ');
+  }
+}
+
 /** A call through the business number (it has a call id), or one logged by hand. */
 function describeCall(e: TimelineEntry, viewerId?: string): string {
   if (!e.meta.callId) return 'logged a call';
@@ -120,6 +155,8 @@ export function timelineBody(e: TimelineEntry): string | null {
       return e.body;
     case 'lost':
       return e.body?.replace(/^Lost:\s*/, '') || null;
+    case 'appointment_cancelled':
+      return str(e.meta.reason) || null;
     default:
       return null;
   }
@@ -133,6 +170,11 @@ export function timelineDotClass(e: TimelineEntry): string {
     return 'bg-warning';
   if (e.kind === 'call' || e.kind === 'visit') return 'bg-success';
   if (e.subtype === 'file_added') return 'bg-warning';
+  if (e.subtype === 'appointment_booked_online') return 'bg-warning';
+  if (e.subtype === 'appointment_booked' || e.subtype === 'appointment_rescheduled')
+    return 'bg-accent';
+  if (e.subtype === 'appointment_cancelled') return 'bg-danger';
+  if (e.subtype === 'appointment_completed') return 'bg-success';
   if (e.subtype === 'won') return 'bg-success';
   if (e.subtype === 'lost') return 'bg-danger';
   return 'bg-card-3';

@@ -1,4 +1,4 @@
-import type { RequestChannel } from '@hfos/core';
+import { LABEL_NAMES, type CalendarLabel, type RequestChannel } from '@hfos/core';
 import type { AuditEntry } from './api/types';
 import { clock } from '@/lib/calls/format';
 
@@ -303,8 +303,190 @@ function describeAction(e: AuditEntry): string {
       return s(e.after?.status) === 'reauth_required'
         ? `recorded that the ${calendarName(e)} ${s(e.after?.account)} needs reconnecting`
         : `recorded that the ${calendarName(e)} ${s(e.after?.account)} stopped syncing${s(e.after?.error) ? `: ${s(e.after?.error)}` : ''}`;
+    // Milestone 5: calendars, their catalogs, people's hours and appointments
+    case 'calendar.create':
+      return `created the calendar ${name(e)}${s(e.after?.preset) ? ` from the ${s(e.after?.preset)} preset` : ''}`;
+    case 'calendar.save':
+    case 'calendar.restore_revision':
+      return calendarSaveSentence(e);
+    case 'calendar.set_status':
+      return calendarStatusSentence(e);
+    case 'calendar.set_slug':
+      return `changed the link for ${name(e)} from ${s(e.before?.slug)} to ${s(e.after?.slug)}`;
+    case 'service.create':
+      return `added the service ${name(e)}`;
+    case 'service.update':
+      return `updated the service ${name(e)} (${catalogFields(e)})`;
+    case 'service.archive':
+      return `archived the service ${name(e)}`;
+    case 'resource.create':
+      return `added the resource ${name(e)}${Number(e.after?.quantity ?? 1) > 1 ? ` (${Number(e.after?.quantity)} of them)` : ''}`;
+    case 'resource.update':
+      return `updated the resource ${name(e)} (${catalogFields(e)})`;
+    case 'resource.archive':
+      return `archived the resource ${name(e)}`;
+    case 'territory.create':
+      return `added the territory ${name(e)} with ${count(e.after?.zipCodes, 'ZIP code', 'ZIP codes')}`;
+    case 'territory.update':
+      return `updated the territory ${name(e)}`;
+    case 'territory.delete':
+      return `deleted the territory ${s(e.before?.name)}`;
+    case 'booking_site.update':
+      return !e.before
+        ? `set up the booking site /book/${s(e.after?.slug)}`
+        : e.after?.enabled === false && e.before.enabled !== false
+          ? 'turned off online booking'
+          : e.after?.enabled === true && e.before.enabled === false
+            ? 'turned online booking back on'
+            : `updated the booking site /book/${s(e.after?.slug)}`;
+    case 'schedule.set':
+      return `set ${possessive(e)} hours to ${s(e.after?.hours) || 'closed'}`;
+    case 'time_off.add':
+      return `added ${s(e.after?.kind) === 'available' ? 'extra open time' : 'time off'} for ${owner(e)}: ${offSpan(e.after)}`;
+    case 'time_off.remove':
+      return `removed ${s(e.before?.kind) === 'available' ? 'extra open time' : 'time off'} for ${owner(e)} (${offSpan(e.before)})`;
+    case 'appointment.create':
+    case 'appointment.book_online':
+      return `booked ${apptTitle(e)}${forWhom(e)}${withStaff(e)} for ${when(e.after?.startsAt)}`;
+    case 'appointment.update':
+      return `updated ${apptTitle(e)} (${apptFields(e)})`;
+    case 'appointment.reschedule':
+    case 'attendee.reschedule_online':
+      return `moved ${apptTitle(e)}${forWhom(e)} from ${when(e.before?.startsAt)} to ${when(e.after?.startsAt)}`;
+    case 'appointment.reassign':
+      return `gave ${apptTitle(e)}${forWhom(e)} to ${names(e.after?.staff) || 'nobody'}${names(e.before?.staff) ? ` (was ${names(e.before?.staff)})` : ''}`;
+    case 'appointment.cancel':
+      return `cancelled ${apptTitle(e)}${forWhom(e)} on ${when(e.after?.startsAt)}${s(e.after?.reason) ? ` (${s(e.after?.reason)})` : ''}`;
+    case 'attendee.cancel_online':
+      return `cancelled a place on ${apptTitle(e)} on ${when(e.after?.startsAt)}`;
+    case 'appointment.set_status':
+      return s(e.after?.status) === 'no_show'
+        ? `marked ${apptTitle(e)}${forWhom(e)} a no-show`
+        : `marked ${apptTitle(e)}${forWhom(e)} done`;
+    case 'appointment.add_attendee':
+      return `added a customer to ${apptTitle(e)} on ${when(e.after?.startsAt)}${s(e.after?.seats) ? ` (${s(e.after?.seats)} seats taken)` : ''}`;
+    case 'appointment.remove_attendee':
+      return `took a customer off ${apptTitle(e)} on ${when(e.after?.startsAt)}`;
+    case 'session.publish':
+      return `published ${apptTitle(e)} for ${when(e.after?.startsAt)}`;
+    case 'series.create':
+      return `booked ${count(e.after?.occurrences, 'visit', 'visits')} of ${apptTitle(e)}${forWhom(e)}, starting ${when(e.after?.startsAt)}`;
+    case 'series.cancel':
+      return `cancelled ${count(e.after?.cancelled, 'visit', 'visits')} of ${apptTitle(e)}`;
+    case 'waitlist.add':
+      return `added ${s(e.after?.customer) || 'a customer'} to the waitlist for ${s(e.after?.calendar) || 'a calendar'}`;
+    case 'waitlist.remove':
+      return 'took someone off a waitlist';
+    case 'waitlist.offer':
+      return 'offered an opening to the next person on the waitlist';
+    case 'waitlist.expire':
+      return 'passed an unclaimed waitlist offer to the next person';
+    case 'appointment.record_reminder':
+      return `sent a reminder about ${apptTitle(e)}`;
     default:
       return e.action;
+  }
+}
+
+// ---- Milestone 5 helpers ----
+
+const count = (v: unknown, one: string, many: string) => {
+  const n = Number(v ?? 0);
+  return `${n} ${n === 1 ? one : many}`;
+};
+const strings = (v: unknown): string[] => (Array.isArray(v) ? v.map(String) : []);
+const andJoin = (list: string[]) =>
+  list.length <= 1
+    ? (list[0] ?? '')
+    : `${list.slice(0, -1).join(', ')} and ${list[list.length - 1]}`;
+const names = (v: unknown) => andJoin(strings(v));
+const apptTitle = (e: AuditEntry) =>
+  s(e.after?.title) || s(e.before?.title) || e.entityName || 'an appointment';
+const forWhom = (e: AuditEntry) => {
+  const who = strings(e.after?.customers);
+  return who.length ? ` for ${andJoin(who)}` : '';
+};
+const withStaff = (e: AuditEntry) => {
+  const who = strings(e.after?.staff);
+  return who.length ? ` with ${andJoin(who)}` : '';
+};
+const FIELD_WORDS: Record<string, string> = {
+  durations: 'lengths',
+  defaultDuration: 'default length',
+  bufferBefore: 'setup time',
+  bufferAfter: 'cleanup time',
+  priceCents: 'price',
+  locationKinds: 'places',
+  hours: 'hours',
+  quantity: 'how many',
+  kind: 'kind',
+  location: 'location',
+  description: 'description',
+  color: 'color',
+  notes: 'notes',
+  leadId: 'lead',
+  title: 'title',
+};
+const catalogFields = (e: AuditEntry) =>
+  Object.keys(e.after ?? {})
+    .filter((k) => k !== 'name')
+    .map((k) => FIELD_WORDS[k] ?? k)
+    .join(', ') || 'details';
+const apptFields = (e: AuditEntry) =>
+  Object.keys(e.after ?? {})
+    .filter((k) => k !== 'title' || s(e.before?.title) !== s(e.after?.title))
+    .map((k) => FIELD_WORDS[k] ?? k)
+    .join(', ') || 'details';
+const owner = (e: AuditEntry) => s(e.after?.owner) || s(e.before?.owner) || 'someone';
+const possessive = (e: AuditEntry) => {
+  const o = owner(e);
+  return o === e.actor.fullName ? 'their own' : `${o}’s`;
+};
+const shortDay = (v: unknown) => {
+  const d = typeof v === 'string' ? new Date(v) : v instanceof Date ? v : null;
+  return d && !Number.isNaN(d.getTime())
+    ? d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+    : '';
+};
+function offSpan(v: Record<string, unknown> | null | undefined): string {
+  if (!v) return '';
+  if (v.allDay) {
+    const a = shortDay(v.startsAt);
+    const b = shortDay(new Date(Date.parse(s(v.endsAt)) - 1));
+    return a === b ? `${a}, all day` : `${a} to ${b}, all day`;
+  }
+  return `${when(v.startsAt)} to ${when(v.endsAt)}`;
+}
+const labelText = (raw: string) =>
+  raw
+    .split(/,\s*|\s·\s/)
+    .filter(Boolean)
+    .map((k) => LABEL_NAMES[k as CalendarLabel] ?? k)
+    .join(' · ');
+
+function calendarSaveSentence(e: AuditEntry): string {
+  const changes = strings(e.after?.changes);
+  const revision = Number(e.after?.revision ?? 0);
+  const was = labelText(s(e.before?.labels));
+  const now = labelText(s(e.after?.labels));
+  const labels = was && now && was !== now ? ` (${was} → ${now})` : '';
+  const restored = changes.find((c) => c.startsWith('Restored revision'));
+  if (restored)
+    return `restored ${name(e)} to ${restored.slice('Restored '.length)}, saved as revision ${revision}${labels}`;
+  const [first, ...rest] = changes.filter((c) => !c.startsWith('Restored'));
+  return `saved ${name(e)} as revision ${revision}${labels}${first ? `: ${first}${rest.length ? ` and ${rest.length} more ${rest.length === 1 ? 'change' : 'changes'}` : ''}` : ''}`;
+}
+
+function calendarStatusSentence(e: AuditEntry): string {
+  switch (s(e.after?.status)) {
+    case 'active':
+      return s(e.before?.status) === 'paused' ? `resumed ${name(e)}` : `turned on ${name(e)}`;
+    case 'paused':
+      return `paused ${name(e)}`;
+    case 'archived':
+      return `archived the calendar ${name(e)}`;
+    default:
+      return `set ${name(e)} back to a draft`;
   }
 }
 
@@ -402,6 +584,7 @@ export type AuditCategory =
   | 'workspace'
   | 'customers'
   | 'inbox'
+  | 'calendar'
   | 'leads'
   | 'tasks'
   | 'files'
@@ -414,6 +597,7 @@ export const AUDIT_CATEGORY_LABEL: Record<AuditCategory, string> = {
   workspace: 'Workspace',
   customers: 'Customers',
   inbox: 'Texts, calls & email',
+  calendar: 'Calendar',
   leads: 'Leads',
   tasks: 'Tasks',
   files: 'Files',
@@ -421,7 +605,24 @@ export const AUDIT_CATEGORY_LABEL: Record<AuditCategory, string> = {
   other: 'Other',
 };
 
+const CALENDAR_PREFIXES = [
+  'calendar.',
+  'calendar_connection.',
+  'service.',
+  'resource.',
+  'territory.',
+  'booking_site.',
+  'schedule.',
+  'time_off.',
+  'appointment.',
+  'attendee.',
+  'session.',
+  'series.',
+  'waitlist.',
+];
+
 export function auditCategory(action: string): AuditCategory {
+  if (CALENDAR_PREFIXES.some((p) => action.startsWith(p))) return 'calendar';
   if (action.startsWith('membership.')) return 'members';
   if (action.startsWith('invitation.')) return 'invitations';
   if (action.startsWith('workspace.') || action.startsWith('organization.')) return 'workspace';

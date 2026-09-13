@@ -33,6 +33,7 @@ export function Timeline({
   myUserId,
   canModerate,
   subjectName,
+  timeZone,
 }: {
   workspaceId: string;
   recordType: RecordType;
@@ -42,6 +43,8 @@ export function Timeline({
   canModerate: boolean;
   /** The customer's name, for what they sent us (texts, emails, calls). */
   subjectName?: string;
+  /** The workspace's time zone, for appointment times. */
+  timeZone?: string;
 }) {
   const router = useRouter();
   const key = `${initial.items[0]?.id ?? ''}:${initial.items.length}`;
@@ -117,10 +120,12 @@ export function Timeline({
               <div className="flex items-start justify-between gap-3">
                 <span className="text-[13px] leading-5">
                   <strong className="font-semibold">{timelineActor(e, subjectName)}</strong>{' '}
-                  {describeTimeline(e, recordType, myUserId)}
+                  {describeTimeline(e, recordType, myUserId, timeZone)}
                 </span>
                 <span className="flex flex-none items-center gap-1">
+                  {/* Rendered in the server's zone, then the viewer's: the words can differ by design. */}
                   <time
+                    suppressHydrationWarning
                     dateTime={e.occurredAt}
                     title={at.toLocaleString()}
                     className="whitespace-nowrap text-xs text-text-3"

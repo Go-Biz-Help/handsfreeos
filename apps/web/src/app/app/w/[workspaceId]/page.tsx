@@ -1,3 +1,4 @@
+import { addDays, localInstant } from '@hfos/core';
 import Link from 'next/link';
 import { Plus, UserPlus } from 'lucide-react';
 import { HomeSummary } from '@/components/home/home-summary';
@@ -8,6 +9,7 @@ import { ButtonLink } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { assigneeOptions } from '@/lib/api/people';
 import { apiServer, fetchMe, unwrapPage } from '@/lib/api/server';
+import { todayIn } from '@/lib/calendar/time';
 
 const INDUSTRY: Record<string, string> = { home_services: 'Home services', other: 'Other' };
 
@@ -38,7 +40,10 @@ export default async function WorkspaceHomePage({
     timeZone: ws.timezone,
   });
 
-  const [tasks, leads, audit, members] = hasCustomers
+  // Today's card: today's and tomorrow's appointments, in the workspace's zone.
+  const todayDate = todayIn(ws.timezone);
+  const tomorrow = addDays(todayDate, 1);
+  const [tasks, leads, audit, members, appointments] = hasCustomers
     ? await Promise.all([
         unwrapPage(
           await api.POST('/v1/queries/task.list', {
@@ -56,8 +61,17 @@ export default async function WorkspaceHomePage({
             )
           : Promise.resolve({ entries: [] }),
         unwrapPage(await api.POST('/v1/queries/workspace.members', { body: { workspaceId } })),
+        unwrapPage(
+          await api.POST('/v1/queries/appointment.list', {
+            body: {
+              workspaceId,
+              from: new Date(localInstant(todayDate, '00:00', ws.timezone)).toISOString(),
+              to: new Date(localInstant(tomorrow, '24:00', ws.timezone)).toISOString(),
+            },
+          }),
+        ),
       ])
-    : [null, null, null, null];
+    : [null, null, null, null, null];
 
   return (
     <>
@@ -93,6 +107,16 @@ export default async function WorkspaceHomePage({
           members={assigneeOptions(members)}
           myUserId={userId}
           canModerate={canManage}
+          today={
+            appointments
+              ? {
+                  timeZone: ws.timezone,
+                  date: todayDate,
+                  tomorrow,
+                  items: appointments.items,
+                }
+              : null
+          }
         />
       ) : (
         <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">

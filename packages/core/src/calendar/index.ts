@@ -9,3 +9,4 @@ export * from './labels';
 export * from './diff';
 export * from './impact';
 export * from './engine/index';
+export * from './layout';

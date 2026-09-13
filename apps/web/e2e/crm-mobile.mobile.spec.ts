@@ -8,11 +8,15 @@ test('navigates with the drawer and bottom bar, opens a customer, and moves a le
   await signUpAndConfirm(page, 'mobile-owner');
   const workspaceId = await createBusiness(page, { name: 'Bayou Plumbing Co.' });
 
-  // Bottom bar → Customers; the sidebar is hidden on phones.
+  // Customers sits under More since the calendar joined the bottom bar; the sidebar is hidden on phones.
   await expect(page.getByRole('navigation', { name: 'Primary' })).toBeVisible();
   await expect(page.getByRole('navigation', { name: 'Workspace' })).toBeHidden();
   await page
     .getByRole('navigation', { name: 'Primary' })
+    .getByRole('button', { name: 'More' })
+    .click();
+  await page
+    .getByRole('navigation', { name: 'Workspace' })
     .getByRole('link', { name: 'Customers' })
     .click();
   await expect(page).toHaveURL(/\/customers$/);

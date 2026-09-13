@@ -5,11 +5,12 @@ import { TaskList } from '@/components/tasks/task-list';
 import { Avatar } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
-import type { AuditEntry, CrmSummary, LeadCard, Task } from '@/lib/api/types';
+import type { Appointment, AuditEntry, CrmSummary, LeadCard, Task } from '@/lib/api/types';
 import { describeAudit } from '@/lib/audit-describe';
 import { formatMoney } from '@/lib/format';
 import { useLiveRefresh } from '@/lib/realtime/live-provider';
 import { cn, relativeTime } from '@/lib/utils';
+import { TodayCard } from './today-card';
 
 /** The workspace home once there are customers: numbers that matter today, my tasks, leads going cold, recent activity. */
 export function HomeSummary({
@@ -21,6 +22,7 @@ export function HomeSummary({
   members,
   myUserId,
   canModerate,
+  today,
 }: {
   workspaceId: string;
   summary: CrmSummary;
@@ -30,6 +32,8 @@ export function HomeSummary({
   members: { id: string; fullName: string }[];
   myUserId: string;
   canModerate: boolean;
+  /** The Today card: today's and tomorrow's appointments, in the workspace's zone. */
+  today?: { timeZone: string; date: string; tomorrow: string; items: Appointment[] } | null;
 }) {
   useLiveRefresh();
   const base = `/app/w/${workspaceId}`;
@@ -72,6 +76,16 @@ export function HomeSummary({
         ))}
       </div>
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-[3fr_2fr]">
+        {today ? (
+          <TodayCard
+            workspaceId={workspaceId}
+            timeZone={today.timeZone}
+            today={today.date}
+            tomorrow={today.tomorrow}
+            items={today.items}
+            myUserId={myUserId}
+          />
+        ) : null}
         <Card>
           <div className="flex items-center justify-between px-5 pt-4 md:px-6">
             <h2 className="text-lg font-semibold tracking-tight">My tasks</h2>
@@ -93,7 +107,12 @@ export function HomeSummary({
             emptyHint="Tasks assigned to you show up here."
           />
         </Card>
-        <div className="flex flex-col gap-5">
+        <div
+          className={cn(
+            'flex flex-col gap-5',
+            today && 'lg:col-span-2 lg:grid lg:grid-cols-2 lg:items-start',
+          )}
+        >
           <Card className="p-5">
             <div className="mb-2.5 flex items-center justify-between">
               <h3 className="text-[15px] font-semibold">Needs a next action</h3>

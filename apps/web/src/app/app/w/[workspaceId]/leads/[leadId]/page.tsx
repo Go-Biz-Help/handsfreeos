@@ -34,6 +34,21 @@ export default async function LeadPage({
     unwrapPage(await api.POST('/v1/queries/tag.list', { body: { workspaceId } })),
     unwrapPage(await api.POST('/v1/queries/workspace.members', { body: { workspaceId } })),
   ]);
+  // Upcoming appointments for the lead's customer (the list reads 62 days at a time).
+  const personId = lead.lead.person?.id;
+  const now = Date.now();
+  const upcoming = personId
+    ? unwrapPage(
+        await api.POST('/v1/queries/appointment.list', {
+          body: {
+            workspaceId,
+            personId,
+            from: new Date(now).toISOString(),
+            to: new Date(now + 62 * 86_400_000).toISOString(),
+          },
+        }),
+      ).items.filter((a) => Date.parse(a.endsAt) > now)
+    : [];
   return (
     <>
       <div className="mb-3.5 flex items-center gap-1.5 text-[13px]">
@@ -61,6 +76,8 @@ export default async function LeadPage({
           myUserId={userId}
           role={got.workspace.role}
           tags={tags.tags}
+          timeZone={got.workspace.timezone}
+          upcoming={upcoming}
         />
       </div>
     </>

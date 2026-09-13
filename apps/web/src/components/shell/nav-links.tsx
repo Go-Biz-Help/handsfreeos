@@ -1,5 +1,6 @@
 'use client';
 import {
+  CalendarDays,
   ClipboardList,
   Home,
   Inbox,
@@ -30,12 +31,20 @@ export function navItems(workspaceId: string): NavItem[] {
   return [
     { key: 'home', href: base, label: 'Home', icon: Home, exact: true, primary: true },
     { key: 'inbox', href: `${base}/inbox`, label: 'Inbox', icon: Inbox, primary: true },
-    { key: 'customers', href: `${base}/customers`, label: 'Customers', icon: Users, primary: true },
+    // Customers moved to the drawer on phones when the calendar joined the bottom bar (search still finds them).
+    { key: 'customers', href: `${base}/customers`, label: 'Customers', icon: Users },
     {
       key: 'pipeline',
       href: `${base}/pipeline`,
       label: 'Pipeline',
       icon: KanbanSquare,
+      primary: true,
+    },
+    {
+      key: 'calendar',
+      href: `${base}/calendar`,
+      label: 'Calendar',
+      icon: CalendarDays,
       primary: true,
     },
     // Tasks moved to the drawer on phones when the inbox joined the bottom bar.

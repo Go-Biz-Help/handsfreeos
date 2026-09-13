@@ -1,5 +1,6 @@
 'use client';
-import { LogOut, MoreHorizontal, Trash2 } from 'lucide-react';
+import { Clock, LogOut, MoreHorizontal, Trash2 } from 'lucide-react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { toast } from 'sonner';
@@ -148,7 +149,7 @@ export function MembersTable({
                     })}
                   </td>
                   <td className="border-b border-border px-4 py-3">
-                    {isSelf || editable ? (
+                    {isSelf || editable || canManage ? (
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                           <Button
@@ -160,17 +161,28 @@ export function MembersTable({
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent>
+                          {isSelf || canManage ? (
+                            <DropdownMenuItem asChild>
+                              <Link
+                                href={`/app/w/${workspaceId}/settings/my-calendar${isSelf ? '' : `?user=${m.userId}`}`}
+                                data-testid={`edit-hours-${m.email}`}
+                              >
+                                <Clock className="h-[18px] w-[18px]" strokeWidth={1.5} />
+                                {isSelf ? 'Edit my hours' : 'Edit hours'}
+                              </Link>
+                            </DropdownMenuItem>
+                          ) : null}
                           {isSelf ? (
                             <DropdownMenuItem onSelect={() => setConfirm(m)}>
                               <LogOut className="h-[18px] w-[18px]" strokeWidth={1.5} />
                               Leave workspace
                             </DropdownMenuItem>
-                          ) : (
+                          ) : editable ? (
                             <DropdownMenuItem danger onSelect={() => setConfirm(m)}>
                               <Trash2 className="h-[18px] w-[18px]" strokeWidth={1.5} />
                               Remove from workspace
                             </DropdownMenuItem>
-                          )}
+                          ) : null}
                         </DropdownMenuContent>
                       </DropdownMenu>
                     ) : null}

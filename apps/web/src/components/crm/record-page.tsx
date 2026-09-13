@@ -3,6 +3,7 @@ import {
   Archive,
   ArchiveRestore,
   Building2,
+  CalendarPlus,
   ClipboardList,
   KanbanSquare,
   Mail,
@@ -18,6 +19,9 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { toast } from 'sonner';
+import { AppointmentDialog } from '@/components/calendar/appointment-dialog';
+import { AppointmentSheet } from '@/components/calendar/appointment-sheet';
+import { AppointmentRow, UpcomingAppointments } from '@/components/calendar/upcoming-card';
 import { FileGrid } from '@/components/files/file-grid';
 import { UploadZone } from '@/components/files/upload-zone';
 import { TaskList } from '@/components/tasks/task-list';
@@ -38,6 +42,7 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { apiBrowser, errorMessage, unwrap } from '@/lib/api/client';
 import type {
+  Appointment,
   CompanyDetail,
   CompanyGet,
   FileItem,
@@ -62,7 +67,7 @@ import { NextActionDialog } from './next-action-dialog';
 import { PersonDialog } from './person-dialog';
 import { TagPicker } from './tag-picker';
 
-type Tab = 'timeline' | 'leads' | 'tasks' | 'files' | 'details';
+type Tab = 'timeline' | 'appointments' | 'leads' | 'tasks' | 'files' | 'details';
 
 export interface RecordPageProps {
   workspaceId: string;
@@ -78,6 +83,11 @@ export interface RecordPageProps {
   tags: Tag[];
   members: { id: string; fullName: string }[];
   pipelines: Pipeline[];
+  /** The workspace's time zone: appointments and the timeline's appointment times read in it. */
+  timeZone?: string;
+  /** A person's appointments: coming up (the next 62 days) and recent (the last 62 days, newest first). */
+  upcoming?: Appointment[];
+  recent?: Appointment[];
 }
 
 /** The Customer 360 for a person or a company. */
@@ -108,6 +118,11 @@ export function RecordPage(props: RecordPageProps) {
   const [addPerson, setAddPerson] = useState(false);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [sheetChannel, setSheetChannel] = useState<'sms' | 'email'>('sms');
+  const [booking, setBooking] = useState(false);
+  const [openAppt, setOpenAppt] = useState<string | null>(null);
+  const upcoming = props.upcoming ?? [];
+  const recent = props.recent ?? [];
+  const people = members.map((m) => ({ userId: m.id, fullName: m.fullName }));
   const openSheet = (channel: 'sms' | 'email') => {
     setSheetChannel(channel);
     setSheetOpen(true);
@@ -123,6 +138,7 @@ export function RecordPage(props: RecordPageProps) {
     'message',
     'conversation',
     'call',
+    'appointment',
   ]);
 
   async function setTags(ids: string[]) {
@@ -335,6 +351,18 @@ export function RecordPage(props: RecordPageProps) {
                 <span aria-hidden className="mx-1 h-5 w-px bg-border" />
               </>
             ) : null}
+            {person && props.timeZone ? (
+              <Button
+                variant="secondary"
+                size="sm"
+                className="border-[color-mix(in_oklab,var(--accent)_45%,var(--border-strong))] text-accent-text"
+                onClick={() => setBooking(true)}
+                data-testid="action-book"
+              >
+                <CalendarPlus className="h-4 w-4" strokeWidth={1.5} />
+                Book
+              </Button>
+            ) : null}
             <Button
               variant="secondary"
               size="sm"
@@ -396,6 +424,11 @@ export function RecordPage(props: RecordPageProps) {
             <TabsTrigger value="timeline" data-testid="tab-timeline">
               Timeline
             </TabsTrigger>
+            {person && props.timeZone ? (
+              <TabsTrigger value="appointments" data-testid="tab-appointments">
+                Appointments · {upcoming.length}
+              </TabsTrigger>
+            ) : null}
             <TabsTrigger value="leads" data-testid="tab-leads">
               Leads · {props.leads.length}
             </TabsTrigger>
@@ -416,12 +449,55 @@ export function RecordPage(props: RecordPageProps) {
                 recordType={kind}
                 recordId={recordId}
                 initial={props.timeline}
+                timeZone={props.timeZone}
                 myUserId={myUserId}
                 canModerate={canModerate}
                 subjectName={person?.fullName}
               />
             </Card>
           </TabsContent>
+          {person && props.timeZone ? (
+            <TabsContent value="appointments">
+              <Card className="px-4 pb-2 pt-3.5 md:px-5" data-testid="record-appointments">
+                <div className="mb-1 flex items-center justify-between">
+                  <h3 className="text-[15px] font-semibold">Coming up</h3>
+                  {archived ? null : (
+                    <Button variant="ghost" size="sm" onClick={() => setBooking(true)}>
+                      <CalendarPlus className="h-4 w-4" strokeWidth={1.5} />
+                      Book
+                    </Button>
+                  )}
+                </div>
+                {upcoming.length ? (
+                  upcoming.map((a) => (
+                    <AppointmentRow
+                      key={a.id}
+                      appt={a}
+                      timeZone={props.timeZone!}
+                      onOpen={setOpenAppt}
+                    />
+                  ))
+                ) : (
+                  <p className="border-t border-border py-3 text-[13px] text-text-2">
+                    Nothing booked.
+                  </p>
+                )}
+                {recent.length ? (
+                  <>
+                    <h3 className="mb-1 mt-4 text-[15px] font-semibold">Earlier</h3>
+                    {recent.map((a) => (
+                      <AppointmentRow
+                        key={a.id}
+                        appt={a}
+                        timeZone={props.timeZone!}
+                        onOpen={setOpenAppt}
+                      />
+                    ))}
+                  </>
+                ) : null}
+              </Card>
+            </TabsContent>
+          ) : null}
           <TabsContent value="leads">
             <Card className="overflow-hidden">
               {props.leads.length === 0 ? (
@@ -542,6 +618,14 @@ export function RecordPage(props: RecordPageProps) {
         </Tabs>
 
         <div className="flex flex-col gap-4">
+          {person && props.timeZone ? (
+            <UpcomingAppointments
+              timeZone={props.timeZone}
+              items={upcoming.slice(0, 5)}
+              onBook={archived ? undefined : () => setBooking(true)}
+              onOpen={setOpenAppt}
+            />
+          ) : null}
           {person ? (
             <ConversationsCard workspaceId={workspaceId} person={person} onOpen={openSheet} />
           ) : null}
@@ -694,6 +778,32 @@ export function RecordPage(props: RecordPageProps) {
         </div>
       </div>
 
+      {person && props.timeZone && booking ? (
+        <AppointmentDialog
+          open
+          workspaceId={workspaceId}
+          timeZone={props.timeZone}
+          people={people}
+          myUserId={myUserId}
+          prefill={{ person: { id: person.id, fullName: person.fullName }, personId: person.id }}
+          lockCustomer
+          onOpenChange={(o) => !o && setBooking(false)}
+          onBooked={() => {
+            setBooking(false);
+            router.refresh();
+          }}
+        />
+      ) : null}
+      {props.timeZone && openAppt ? (
+        <AppointmentSheet
+          workspaceId={workspaceId}
+          appointmentId={openAppt}
+          timeZone={props.timeZone}
+          people={people}
+          onClose={() => setOpenAppt(null)}
+          onChanged={() => router.refresh()}
+        />
+      ) : null}
       <LogActivitySheet
         workspaceId={workspaceId}
         open={log !== null}

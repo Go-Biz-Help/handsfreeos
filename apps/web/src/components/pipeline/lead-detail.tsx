@@ -3,6 +3,7 @@ import {
   AlertTriangle,
   Archive,
   ArchiveRestore,
+  CalendarPlus,
   Clock,
   ExternalLink,
   MoreHorizontal,
@@ -14,6 +15,9 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
+import { AppointmentDialog } from '@/components/calendar/appointment-dialog';
+import { AppointmentSheet } from '@/components/calendar/appointment-sheet';
+import { UpcomingAppointments } from '@/components/calendar/upcoming-card';
 import { NextActionChip, StageBadge } from '@/components/crm/chips';
 import { NextActionDialog } from '@/components/crm/next-action-dialog';
 import { TagPicker } from '@/components/crm/tag-picker';
@@ -33,7 +37,16 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { apiBrowser, errorMessage, unwrap } from '@/lib/api/client';
-import type { FileItem, LeadCard, LeadGet, Role, Tag, Task, TimelineList } from '@/lib/api/types';
+import type {
+  Appointment,
+  FileItem,
+  LeadCard,
+  LeadGet,
+  Role,
+  Tag,
+  Task,
+  TimelineList,
+} from '@/lib/api/types';
 
 type LeadStage = LeadGet['stages'][number];
 import { daysLabel, formatDate, formatDateOnly, formatMoney } from '@/lib/format';
@@ -64,6 +77,8 @@ export function LeadDetail({
   tags,
   compact,
   onChanged,
+  timeZone,
+  upcoming,
 }: {
   workspaceId: string;
   leadId: string;
@@ -75,6 +90,9 @@ export function LeadDetail({
   compact?: boolean;
   /** Called after any change the board should reflect (moves, next action, archive). */
   onChanged?: () => void;
+  /** The workspace's time zone; with it the full page offers Book and lists upcoming appointments. */
+  timeZone?: string;
+  upcoming?: Appointment[];
 }) {
   const router = useRouter();
   const [data, setData] = useState<LeadDetailData | null>(initial ?? null);
@@ -85,8 +103,10 @@ export function LeadDetail({
   const [lost, setLost] = useState<LeadStage | null>(null);
   const [inlineNext, setInlineNext] = useState('');
   const [inlineAt, setInlineAt] = useState('');
+  const [booking, setBooking] = useState(false);
+  const [openAppt, setOpenAppt] = useState<string | null>(null);
   const version = useLiveVersion(['lead', 'activity', 'task']);
-  useLiveRefresh(initial ? ['lead', 'activity', 'task'] : []);
+  useLiveRefresh(initial ? ['lead', 'activity', 'task', 'appointment'] : []);
   const canModerate = role === 'owner' || role === 'admin';
 
   const fetchAll = useCallback(async () => {
@@ -461,6 +481,18 @@ export function LeadDetail({
             <Phone className="h-4 w-4" strokeWidth={1.5} />
             Log call
           </Button>
+          {timeZone ? (
+            <Button
+              variant="secondary"
+              size="sm"
+              className="border-[color-mix(in_oklab,var(--accent)_45%,var(--border-strong))] text-accent-text"
+              onClick={() => setBooking(true)}
+              data-testid="lead-book"
+            >
+              <CalendarPlus className="h-4 w-4" strokeWidth={1.5} />
+              Book
+            </Button>
+          ) : null}
           {compact ? null : (
             <Button
               variant="secondary"
@@ -523,6 +555,15 @@ export function LeadDetail({
         </div>
       )}
 
+      {timeZone && !compact ? (
+        <UpcomingAppointments
+          timeZone={timeZone}
+          items={upcoming ?? []}
+          onBook={lead.archivedAt ? undefined : () => setBooking(true)}
+          onOpen={setOpenAppt}
+        />
+      ) : null}
+
       <section>
         <h3 className="mb-2 text-[15px] font-semibold">Tasks</h3>
         <Card>
@@ -558,6 +599,7 @@ export function LeadDetail({
             recordType="lead"
             recordId={leadId}
             initial={data.timeline}
+            timeZone={timeZone}
             myUserId={myUserId}
             canModerate={canModerate}
             subjectName={lead.person?.fullName}
@@ -565,6 +607,36 @@ export function LeadDetail({
         </Card>
       </section>
 
+      {timeZone && booking ? (
+        <AppointmentDialog
+          open
+          workspaceId={workspaceId}
+          timeZone={timeZone}
+          people={members.map((m) => ({ userId: m.id, fullName: m.fullName }))}
+          myUserId={myUserId}
+          prefill={{
+            person: lead.person ? { id: lead.person.id, fullName: lead.person.fullName } : null,
+            personId: lead.person?.id ?? null,
+            leadId,
+          }}
+          lockCustomer={!!lead.person}
+          onOpenChange={(o) => !o && setBooking(false)}
+          onBooked={() => {
+            setBooking(false);
+            reload();
+          }}
+        />
+      ) : null}
+      {timeZone && openAppt ? (
+        <AppointmentSheet
+          workspaceId={workspaceId}
+          appointmentId={openAppt}
+          timeZone={timeZone}
+          people={members.map((m) => ({ userId: m.id, fullName: m.fullName }))}
+          onClose={() => setOpenAppt(null)}
+          onChanged={reload}
+        />
+      ) : null}
       <LogActivitySheet
         workspaceId={workspaceId}
         open={log !== null}

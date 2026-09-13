@@ -51,6 +51,7 @@ export default async function CompanyPage({
       tags={tags.tags}
       members={assigneeOptions(members)}
       pipelines={pipelines.pipelines}
+      timeZone={got.workspace.timezone}
     />
   );
 }

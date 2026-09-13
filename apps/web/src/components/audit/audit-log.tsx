@@ -178,6 +178,7 @@ export function AuditLog({ workspaceId, initial }: { workspaceId: string; initia
           <option value="workspace">Workspace</option>
           <option value="customers">Customers</option>
           <option value="inbox">Inbox &amp; texting</option>
+          <option value="calendar">Calendar</option>
           <option value="leads">Leads</option>
           <option value="tasks">Tasks</option>
           <option value="files">Files</option>

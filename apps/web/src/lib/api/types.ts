@@ -83,3 +83,41 @@ export type AssistantThreadGet = Ok<'/v1/queries/assistant_thread.get'>;
 export type AssistantSavedMessage = AssistantThreadGet['messages'][number];
 export type AssistantToolCall = AssistantThreadGet['toolCalls'][number];
 export type AssistantToolStatus = AssistantToolCall['status'];
+
+// Milestone 5: the calendar
+type Body<P extends keyof paths> = paths[P] extends {
+  post: { requestBody?: { content: { 'application/json': infer B } } };
+}
+  ? B
+  : never;
+
+export type CalendarList = Ok<'/v1/queries/calendar.list'>;
+export type CalendarSummary = CalendarList['items'][number];
+export type CalendarGet = Ok<'/v1/queries/calendar.get'>;
+export type CalendarDetail = CalendarGet['calendar'];
+export type CalendarRevision = CalendarGet['revisions'][number];
+export type CalendarIssueOut = CalendarDetail['issues'][number];
+export type CalendarSaveOut = Ok<'/v1/commands/calendar.save'>;
+export type CalendarSaveBody = Body<'/v1/commands/calendar.save'>;
+export type CalendarStatus = CalendarSummary['status'];
+export type AppointmentList = Ok<'/v1/queries/appointment.list'>;
+export type Appointment = AppointmentList['items'][number];
+export type AppointmentGet = Ok<'/v1/queries/appointment.get'>;
+export type AppointmentDetail = AppointmentGet['appointment'];
+export type AppointmentCreateBody = Body<'/v1/commands/appointment.create'>;
+export type AppointmentLocationIn = NonNullable<AppointmentCreateBody['location']>;
+export type AppointmentWarning = Ok<'/v1/commands/appointment.create'>['warnings'][number];
+export type ScheduleTeam = Ok<'/v1/queries/schedule.team'>;
+export type TeamSchedule = ScheduleTeam['people'][number];
+export type TimeOffSpan = TeamSchedule['timeOff'][number];
+export type CalendarConnection = Ok<'/v1/queries/calendar_connection.list'>['items'][number];
+export type WeeklyHoursIn = Body<'/v1/commands/schedule.set'>['weekly'];
+export type ServiceList = Ok<'/v1/queries/service.list'>;
+export type ServiceItem = ServiceList['items'][number];
+export type ResourceList = Ok<'/v1/queries/resource.list'>;
+export type ResourceItem = ResourceList['items'][number];
+export type ResourceKind = ResourceItem['kind'];
+export type TerritoryList = Ok<'/v1/queries/territory.list'>;
+export type TerritoryItem = TerritoryList['items'][number];
+export type BookingSite = NonNullable<Ok<'/v1/queries/booking_site.get'>['site']>;
+export type SlotOut = Ok<'/v1/queries/calendar.availability'>['slots'][number];

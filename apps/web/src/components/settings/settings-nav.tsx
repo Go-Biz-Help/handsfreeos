@@ -15,10 +15,12 @@ export function SettingsNav({
   const base = `/app/w/${workspaceId}/settings`;
   const items = [
     { href: base, label: 'Account', exact: true },
+    { href: `${base}/my-calendar`, label: 'My calendar' },
     ...(canManage
       ? [
           { href: `${base}/workspace`, label: 'Workspace' },
           { href: `${base}/pipelines`, label: 'Pipelines' },
+          { href: `${base}/calendars`, label: 'Calendars' },
           { href: `${base}/imports`, label: 'Imports' },
           { href: `${base}/texting`, label: 'Texting & calls' },
           { href: `${base}/email`, label: 'Email' },

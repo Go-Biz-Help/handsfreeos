@@ -1,0 +1,53 @@
+import { localInstant, weekOf } from '@hfos/core';
+import type { Metadata } from 'next';
+import { CalendarPage } from '@/components/calendar/calendar-page';
+import { apiServer, unwrapPage } from '@/lib/api/server';
+import { todayIn } from '@/lib/calendar/time';
+import { parseCalendarQuery } from '@/lib/calendar/url';
+
+export const metadata: Metadata = { title: 'Calendar' };
+
+/**
+ * /calendar: Team day (a column per person), Week, Day and Resources, and an agenda on phones. The whole
+ * week around the chosen date loads at once; filters, the open appointment and New appointment live in the
+ * URL (`?view=&date=&people=&calendars=&appt=&new=1`).
+ */
+export default async function CalendarRoute({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ workspaceId: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const { workspaceId } = await params;
+  const sp = await searchParams;
+  const { api, userId } = await apiServer();
+  const got = unwrapPage(await api.POST('/v1/queries/workspace.get', { body: { workspaceId } }));
+  const timeZone = got.workspace.timezone;
+  const today = todayIn(timeZone);
+  const query = parseCalendarQuery(sp, today);
+  const days = weekOf(query.date);
+  const from = new Date(localInstant(days[0]!, '00:00', timeZone)).toISOString();
+  const to = new Date(localInstant(days[6]!, '24:00', timeZone)).toISOString();
+  const [calendars, resources, team, appointments] = await Promise.all([
+    unwrapPage(await api.POST('/v1/queries/calendar.list', { body: { workspaceId } })),
+    unwrapPage(await api.POST('/v1/queries/resource.list', { body: { workspaceId } })),
+    unwrapPage(await api.POST('/v1/queries/schedule.team', { body: { workspaceId, from, to } })),
+    unwrapPage(await api.POST('/v1/queries/appointment.list', { body: { workspaceId, from, to } })),
+  ]);
+  return (
+    <CalendarPage
+      workspaceId={workspaceId}
+      myUserId={userId}
+      role={got.workspace.role}
+      timeZone={timeZone}
+      today={today}
+      query={query}
+      days={days}
+      calendars={calendars.items}
+      resources={resources.items}
+      people={team.people}
+      appointments={appointments.items}
+    />
+  );
+}
