@@ -20,7 +20,8 @@ export function expandWeeklyHours(
       if (h.day !== day) continue;
       const start = localInstant(date, h.start, timeZone);
       const end = localInstant(date, h.end, timeZone);
-      if (end > from && start < to) out.push({ start: Math.max(start, from), end: Math.min(end, to) });
+      if (end > from && start < to)
+        out.push({ start: Math.max(start, from), end: Math.min(end, to) });
     }
   }
   return normalize(out);

@@ -48,7 +48,11 @@ export interface CatalogPipeline {
   readonly id: string;
   readonly name: string;
   readonly archived: boolean;
-  readonly stages: readonly { readonly id: string; readonly name: string; readonly archived: boolean }[];
+  readonly stages: readonly {
+    readonly id: string;
+    readonly name: string;
+    readonly archived: boolean;
+  }[];
 }
 
 export interface CalendarCatalogs {
@@ -80,15 +84,24 @@ export function emptyCatalogs(timeZone = 'America/Chicago'): CalendarCatalogs {
 }
 
 /** Name lookups used by messages; unknown ids read as a generic word. */
-export function personName(catalogs: Pick<CalendarCatalogs, 'team'> | undefined, userId: string): string {
+export function personName(
+  catalogs: Pick<CalendarCatalogs, 'team'> | undefined,
+  userId: string,
+): string {
   return catalogs?.team.find((p) => p.userId === userId)?.name ?? 'Someone';
 }
 
-export function serviceName(catalogs: Pick<CalendarCatalogs, 'services'> | undefined, serviceId: string): string {
+export function serviceName(
+  catalogs: Pick<CalendarCatalogs, 'services'> | undefined,
+  serviceId: string,
+): string {
   return catalogs?.services.find((s) => s.id === serviceId)?.name ?? 'A service';
 }
 
-export function resourceName(catalogs: Pick<CalendarCatalogs, 'resources'> | undefined, resourceId: string): string {
+export function resourceName(
+  catalogs: Pick<CalendarCatalogs, 'resources'> | undefined,
+  resourceId: string,
+): string {
   return catalogs?.resources.find((r) => r.id === resourceId)?.name ?? 'A resource';
 }
 

@@ -61,7 +61,12 @@ function startsInside(windows: readonly Interval[] | null, d: number): Interval[
 }
 
 /** Starts whose blocked span [s - before, s + d + after) would overlap a `during` interval. */
-function blockedHits(durings: readonly Interval[], d: number, before: number, after: number): Interval[] {
+function blockedHits(
+  durings: readonly Interval[],
+  d: number,
+  before: number,
+  after: number,
+): Interval[] {
   return durings.map((c) => ({ start: c.start - d - after + 1, end: c.end + before }));
 }
 
@@ -71,7 +76,10 @@ function duringHits(blockeds: readonly Interval[], d: number): Interval[] {
 }
 
 /** Where the summed quantity of intervals goes above a threshold. */
-function levelAbove(items: readonly { span: Interval; quantity: number }[], threshold: number): Interval[] {
+function levelAbove(
+  items: readonly { span: Interval; quantity: number }[],
+  threshold: number,
+): Interval[] {
   const events: [number, number][] = [];
   for (const i of items) {
     if (i.span.end <= i.span.start) continue;
@@ -116,7 +124,8 @@ function staffStarts(
       counts.set(date, (counts.get(date) ?? 0) + 1);
     }
     for (const [date, count] of counts)
-      if (count >= limit.perDay) forbidden.push({ start: dayStart(date), end: dayStart(addDays(date, 1)) });
+      if (count >= limit.perDay)
+        forbidden.push({ start: dayStart(date), end: dayStart(addDays(date, 1)) });
   }
   return subtract(startsInside(staff.windows, d), forbidden);
 }
@@ -125,8 +134,14 @@ function resourceStarts(resource: ResourceInput, need: number, spans: Spans): In
   const { d, before, after } = spans;
   const room = resource.quantity - need;
   if (room < 0) return [];
-  const duringLoad = levelAbove(resource.bookings.map((b) => ({ span: b.during, quantity: b.quantity })), room);
-  const blockedLoad = levelAbove(resource.bookings.map((b) => ({ span: b.blocked, quantity: b.quantity })), room);
+  const duringLoad = levelAbove(
+    resource.bookings.map((b) => ({ span: b.during, quantity: b.quantity })),
+    room,
+  );
+  const blockedLoad = levelAbove(
+    resource.bookings.map((b) => ({ span: b.blocked, quantity: b.quantity })),
+    room,
+  );
   return subtract(startsInside(resource.windows, d), [
     ...blockedHits(duringLoad, d, before, after),
     ...duringHits(blockedLoad, d),
@@ -139,20 +154,30 @@ function seatsLeft(s: SessionInput): number {
 
 function sessionFits(s: SessionInput, terms: Terms, party: number, bounds: Interval): boolean {
   if (s.start < bounds.start || s.start >= bounds.end) return false;
-  if (terms.serviceId !== null && s.serviceId != null && s.serviceId !== terms.serviceId) return false;
+  if (terms.serviceId !== null && s.serviceId != null && s.serviceId !== terms.serviceId)
+    return false;
   return seatsLeft(s) >= party;
 }
 
 function joinSlot(s: SessionInput): Slot {
-  return { start: s.start, end: s.end, userIds: [...s.userIds], seatsLeft: seatsLeft(s), sessionId: s.id };
+  return {
+    start: s.start,
+    end: s.end,
+    userIds: [...s.userIds],
+    seatsLeft: seatsLeft(s),
+    sessionId: s.id,
+  };
 }
 
-const bySlot = (a: Slot, b: Slot) => a.start - b.start || (a.sessionId ?? '').localeCompare(b.sessionId ?? '');
+const bySlot = (a: Slot, b: Slot) =>
+  a.start - b.start || (a.sessionId ?? '').localeCompare(b.sessionId ?? '');
 
 export function computeSlots(input: SlotInput): Slot[] {
   const { config } = input;
-  if (input.to - input.from > MAX_RANGE_DAYS * DAY) throw new RangeError('Ask for 62 days or fewer.');
-  if (config.team.members.length > MAX_MEMBERS) throw new RangeError('A calendar holds at most 50 people.');
+  if (input.to - input.from > MAX_RANGE_DAYS * DAY)
+    throw new RangeError('Ask for 62 days or fewer.');
+  if (config.team.members.length > MAX_MEMBERS)
+    throw new RangeError('A calendar holds at most 50 people.');
   const terms = resolveTerms(config, input.service);
   const party = input.partySize ?? 1;
   if (!Number.isInteger(party) || party < 1 || party > terms.maxPartySize) return [];
@@ -165,7 +190,8 @@ export function computeSlots(input: SlotInput): Slot[] {
 
   const d = (input.durationMinutes ?? bookableDurations(config, input.service)[0] ?? 60) * MIN;
   const step = config.durations.step * MIN;
-  const location = input.locationKind === undefined ? defaultLocationKind(config) : input.locationKind;
+  const location =
+    input.locationKind === undefined ? defaultLocationKind(config) : input.locationKind;
   const travel = location === 'customer_address' ? terms.travelMinutes : 0;
   const spans: Spans = {
     d,
@@ -198,7 +224,11 @@ export function computeSlots(input: SlotInput): Slot[] {
     return at;
   };
   const limit = config.window.dailyLimitPerPerson
-    ? { perDay: config.window.dailyLimitPerPerson, calendarId: input.calendarId, timeZone: input.timeZone }
+    ? {
+        perDay: config.window.dailyLimitPerPerson,
+        calendarId: input.calendarId,
+        timeZone: input.timeZone,
+      }
     : null;
   const feasible = new Map<string, Interval[]>();
   for (const u of pool) {
@@ -226,7 +256,8 @@ export function computeSlots(input: SlotInput): Slot[] {
       const others = free.filter((u) => u !== host);
       if (free.includes(host) && others.length >= k - 1) userIds = [host, ...others];
     } else if (free.length >= k) userIds = free;
-    if (userIds) slots.push({ start: s, end: s + d, userIds, seatsLeft: terms.seats, sessionId: null });
+    if (userIds)
+      slots.push({ start: s, end: s + d, userIds, seatsLeft: terms.seats, sessionId: null });
   }
   return slots.sort(bySlot);
 }
@@ -244,20 +275,33 @@ function candidateStarts(
   dayStart: (date: string) => number,
 ): number[] {
   const out: number[] = [];
-  const layers = [input.calendarWindows, input.serviceWindows].filter((l): l is readonly Interval[] => l != null);
+  const layers = [input.calendarWindows, input.serviceWindows].filter(
+    (l): l is readonly Interval[] => l != null,
+  );
   if (layers.length) {
-    const base = layers.slice(1).reduce<Interval[]>((acc, l) => intersect(acc, l), normalize(layers[0]!));
+    const base = layers
+      .slice(1)
+      .reduce<Interval[]>((acc, l) => intersect(acc, l), normalize(layers[0]!));
     for (const w of base) {
       const first = w.start + Math.max(0, Math.ceil((bounds.start - w.start) / step)) * step;
       for (let s = first; s + d <= w.end && s < bounds.end; s += step) out.push(s);
     }
     return out;
   }
-  for (let date = localDateOf(bounds.start, input.timeZone); dayStart(date) < bounds.end; date = addDays(date, 1)) {
+  for (
+    let date = localDateOf(bounds.start, input.timeZone);
+    dayStart(date) < bounds.end;
+    date = addDays(date, 1)
+  ) {
     const start = dayStart(date);
     const next = dayStart(addDays(date, 1));
     const from = Math.max(bounds.start, start);
-    for (let s = start + Math.ceil((from - start) / step) * step; s < next && s < bounds.end; s += step) out.push(s);
+    for (
+      let s = start + Math.ceil((from - start) / step) * step;
+      s < next && s < bounds.end;
+      s += step
+    )
+      out.push(s);
   }
   return out;
 }

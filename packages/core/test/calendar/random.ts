@@ -41,7 +41,11 @@ export function rng(seed: number): Rng {
 }
 
 /** Runs `body` for `runs` seeds; a failure rethrows with the seed in the message. */
-export function forSeeds(runs: number, body: (r: Rng) => void, base = Number(process.env.CALENDAR_SEED ?? 20260913)): void {
+export function forSeeds(
+  runs: number,
+  body: (r: Rng) => void,
+  base = Number(process.env.CALENDAR_SEED ?? 20260913),
+): void {
   const count = process.env.CALENDAR_SEED ? 1 : runs;
   for (let i = 0; i < count; i++) {
     const seed = base + i;
@@ -49,7 +53,9 @@ export function forSeeds(runs: number, body: (r: Rng) => void, base = Number(pro
       body(rng(seed));
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      throw new Error(`Failed with seed ${seed} (replay: CALENDAR_SEED=${seed}).\n${message}`, { cause: error });
+      throw new Error(`Failed with seed ${seed} (replay: CALENDAR_SEED=${seed}).\n${message}`, {
+        cause: error,
+      });
     }
   }
 }

@@ -64,12 +64,22 @@ const FULL_WEEK: Interval[] = [{ start: 0, end: WEEK }];
 function weekIntervals(hours: WeeklyHours | null | undefined): Interval[] {
   if (!hours) return FULL_WEEK;
   return normalize(
-    hours.map((h) => ({ start: h.day * 1440 + parseClock(h.start), end: h.day * 1440 + parseClock(h.end) })),
+    hours.map((h) => ({
+      start: h.day * 1440 + parseClock(h.start),
+      end: h.day * 1440 + parseClock(h.end),
+    })),
   );
 }
 
-const withMembers = (members: readonly TeamMember[]): ConfigPatch => ({ team: { members: [...members] } });
-const newMember = (userId: string, required = false): TeamMember => ({ userId, weight: 1, priority: 0, required });
+const withMembers = (members: readonly TeamMember[]): ConfigPatch => ({
+  team: { members: [...members] },
+});
+const newMember = (userId: string, required = false): TeamMember => ({
+  userId,
+  weight: 1,
+  priority: 0,
+  required,
+});
 
 interface Ctx {
   readonly config: CalendarConfig;
@@ -88,7 +98,10 @@ function customerAddressFix(config: CalendarConfig): IssueFix[] {
       label: 'Add customer address',
       patch: {
         locations: {
-          options: [...config.locations.options, { kind: 'customer_address', address: null, meetingUrl: null }],
+          options: [
+            ...config.locations.options,
+            { kind: 'customer_address', address: null, meetingUrl: null },
+          ],
         },
       },
     },
@@ -98,7 +111,11 @@ function customerAddressFix(config: CalendarConfig): IssueFix[] {
 function teamRules({ config, catalogs, memberIds, activeIds, push }: Ctx): void {
   const { members, assignment, crewSize } = config.team;
   const firstOutsider = catalogs.team.find((p) => p.active && !memberIds.has(p.userId));
-  const toFixed: IssueFix = { id: 'switch_to_fixed', label: 'Switch to fixed person', patch: { team: { assignment: 'fixed' } } };
+  const toFixed: IssueFix = {
+    id: 'switch_to_fixed',
+    label: 'Switch to fixed person',
+    patch: { team: { assignment: 'fixed' } },
+  };
 
   if (assignment === 'collective' && members.length < 2)
     push({
@@ -109,7 +126,13 @@ function teamRules({ config, catalogs, memberIds, activeIds, push }: Ctx): void 
       fixes: [
         toFixed,
         ...(firstOutsider
-          ? [{ id: 'add_teammate', label: `Add ${firstOutsider.name}`, patch: withMembers([...members, newMember(firstOutsider.userId, true)]) }]
+          ? [
+              {
+                id: 'add_teammate',
+                label: `Add ${firstOutsider.name}`,
+                patch: withMembers([...members, newMember(firstOutsider.userId, true)]),
+              },
+            ]
           : []),
       ],
     });
@@ -136,8 +159,16 @@ function teamRules({ config, catalogs, memberIds, activeIds, push }: Ctx): void 
       message: 'Weights only matter for weighted round robin',
       fields: ['team.members', 'team.assignment'],
       fixes: [
-        { id: 'clear_weights', label: 'Clear weights', patch: withMembers(members.map((m) => ({ ...m, weight: 1 }))) },
-        { id: 'switch_to_weighted', label: 'Switch to weighted', patch: { team: { assignment: 'weighted' } } },
+        {
+          id: 'clear_weights',
+          label: 'Clear weights',
+          patch: withMembers(members.map((m) => ({ ...m, weight: 1 }))),
+        },
+        {
+          id: 'switch_to_weighted',
+          label: 'Switch to weighted',
+          patch: { team: { assignment: 'weighted' } },
+        },
       ],
     });
 
@@ -158,7 +189,13 @@ function teamRules({ config, catalogs, memberIds, activeIds, push }: Ctx): void 
       severity: 'error',
       message: `${name} is no longer on the team`,
       fields: ['team.members'],
-      fixes: [{ id: 'remove_member', label: `Remove ${name}`, patch: withMembers(members.filter((x) => x.userId !== m.userId)) }],
+      fixes: [
+        {
+          id: 'remove_member',
+          label: `Remove ${name}`,
+          patch: withMembers(members.filter((x) => x.userId !== m.userId)),
+        },
+      ],
     });
   }
 
@@ -170,7 +207,13 @@ function teamRules({ config, catalogs, memberIds, activeIds, push }: Ctx): void 
       fields: ['public', 'team.members'],
       fixes: [
         ...(firstOutsider
-          ? [{ id: 'add_person', label: `Add ${firstOutsider.name}`, patch: withMembers([...members, newMember(firstOutsider.userId)]) }]
+          ? [
+              {
+                id: 'add_person',
+                label: `Add ${firstOutsider.name}`,
+                patch: withMembers([...members, newMember(firstOutsider.userId)]),
+              },
+            ]
           : []),
         { id: 'make_private', label: 'Make it private', patch: { public: false } },
       ],
@@ -200,7 +243,13 @@ function scheduleRules({ config, push }: Ctx): void {
       severity: 'error',
       message: 'Customers can’t repeat fixed sessions',
       fields: ['schedule.mode', 'recurring.customerSeries'],
-      fixes: [{ id: 'customer_series_off', label: 'Turn off customer repeats', patch: { recurring: { customerSeries: false } } }],
+      fixes: [
+        {
+          id: 'customer_series_off',
+          label: 'Turn off customer repeats',
+          patch: { recurring: { customerSeries: false } },
+        },
+      ],
     });
 }
 
@@ -224,22 +273,37 @@ function visitRules({ config, catalogs, push }: Ctx): void {
       severity: 'error',
       message: 'ZIP routing needs a customer-address location',
       fields: ['territory.routing', 'locations.options'],
-      fixes: [{ id: 'routing_off', label: 'Turn off routing', patch: { territory: { routing: 'off' } } }, ...customerAddressFix(config)],
+      fixes: [
+        { id: 'routing_off', label: 'Turn off routing', patch: { territory: { routing: 'off' } } },
+        ...customerAddressFix(config),
+      ],
     });
   const chosen = config.territory.territoryIds;
-  const selected = chosen.length ? catalogs.territories.filter((t) => chosen.includes(t.id)) : catalogs.territories;
+  const selected = chosen.length
+    ? catalogs.territories.filter((t) => chosen.includes(t.id))
+    : catalogs.territories;
   const covered = new Set(selected.flatMap((t) => t.userIds));
   for (const m of config.team.members) {
     if (covered.has(m.userId)) continue;
     const name = personName(catalogs, m.userId);
-    const theirs = chosen.length ? catalogs.territories.find((t) => t.userIds.includes(m.userId)) : undefined;
+    const theirs = chosen.length
+      ? catalogs.territories.find((t) => t.userIds.includes(m.userId))
+      : undefined;
     push({
       code: 'zip_uncovered',
       severity: 'warning',
       message: `${name} isn’t in any selected territory`,
       fields: ['territory.territoryIds', 'team.members'],
       fixes: [
-        ...(theirs ? [{ id: 'add_territory', label: `Add ${theirs.name}`, patch: { territory: { territoryIds: [...chosen, theirs.id] } } }] : []),
+        ...(theirs
+          ? [
+              {
+                id: 'add_territory',
+                label: `Add ${theirs.name}`,
+                patch: { territory: { territoryIds: [...chosen, theirs.id] } },
+              },
+            ]
+          : []),
         {
           id: 'remove_member',
           label: `Remove ${name}`,
@@ -258,7 +322,13 @@ function capacityRules({ config, catalogs, push }: Ctx): void {
       severity: 'error',
       message: 'Party size larger than seats',
       fields: ['capacity.maxPartySize', 'capacity.seats'],
-      fixes: [{ id: 'party_to_seats', label: `Set party size to ${seats}`, patch: { capacity: { maxPartySize: seats } } }],
+      fixes: [
+        {
+          id: 'party_to_seats',
+          label: `Set party size to ${seats}`,
+          patch: { capacity: { maxPartySize: seats } },
+        },
+      ],
     });
   const required = config.resources.required;
   for (const r of required) {
@@ -270,7 +340,13 @@ function capacityRules({ config, catalogs, push }: Ctx): void {
         severity: 'error',
         message: resource ? `${name} was archived` : 'A required resource was archived',
         fields: ['resources.required'],
-        fixes: [{ id: 'remove_resource', label: `Remove ${resource ? name : 'it'}`, patch: { resources: { required: required.filter((x) => x !== r) } } }],
+        fixes: [
+          {
+            id: 'remove_resource',
+            label: `Remove ${resource ? name : 'it'}`,
+            patch: { resources: { required: required.filter((x) => x !== r) } },
+          },
+        ],
       });
     } else if (r.quantity > resource.quantity) {
       push({
@@ -282,7 +358,13 @@ function capacityRules({ config, catalogs, push }: Ctx): void {
           {
             id: 'lower_quantity',
             label: `Set to ${resource.quantity}`,
-            patch: { resources: { required: required.map((x) => (x === r ? { ...x, quantity: resource.quantity } : x)) } },
+            patch: {
+              resources: {
+                required: required.map((x) =>
+                  x === r ? { ...x, quantity: resource.quantity } : x,
+                ),
+              },
+            },
           },
         ],
       });
@@ -306,7 +388,9 @@ function serviceRules({ config, catalogs, memberIds, activeIds, push }: Ctx): vo
     if (eligibleMembers(config, terms).some((u) => activeIds.has(u))) continue;
     const allowed = item.overrides.userIds;
     const candidate = catalogs.team.find(
-      (p) => p.active && (service.eligibleUserIds.length === 0 || service.eligibleUserIds.includes(p.userId)),
+      (p) =>
+        p.active &&
+        (service.eligibleUserIds.length === 0 || service.eligibleUserIds.includes(p.userId)),
     );
     const fixes: IssueFix[] = [];
     if (candidate) {
@@ -319,7 +403,12 @@ function serviceRules({ config, catalogs, memberIds, activeIds, push }: Ctx): vo
               team: { members },
               services: {
                 items: items.map((i) =>
-                  i === item ? { ...i, overrides: { ...i.overrides, userIds: [...allowed, candidate.userId] } } : i,
+                  i === item
+                    ? {
+                        ...i,
+                        overrides: { ...i.overrides, userIds: [...allowed, candidate.userId] },
+                      }
+                    : i,
                 ),
               },
             }
@@ -350,7 +439,9 @@ function openStretch(
   withCalendarHours: boolean,
 ): number | null {
   const terms = resolveTerms(config, service);
-  const people = eligibleMembers(config, terms).filter((u) => catalogs.team.some((p) => p.userId === u && p.active));
+  const people = eligibleMembers(config, terms).filter((u) =>
+    catalogs.team.some((p) => p.userId === u && p.active),
+  );
   if (!people.length) return null;
   const hoursOf = (u: string) => weekIntervals(catalogs.team.find((p) => p.userId === u)?.hours);
   let staff: Interval[];
@@ -365,8 +456,10 @@ function openStretch(
 
 function durationRules({ config, catalogs, push }: Ctx): void {
   if (config.schedule.mode !== 'hours') return;
-  const targets: { service: CatalogService | null; item?: CalendarConfig['services']['items'][number] }[] =
-    config.services.mode === 'none' ? [{ service: null }] : liveServices(config, catalogs);
+  const targets: {
+    service: CatalogService | null;
+    item?: CalendarConfig['services']['items'][number];
+  }[] = config.services.mode === 'none' ? [{ service: null }] : liveServices(config, catalogs);
   for (const { service, item } of targets) {
     const room = openStretch(config, catalogs, service, true);
     if (room === null) continue;
@@ -387,7 +480,11 @@ function durationRules({ config, catalogs, push }: Ctx): void {
             },
           }
         : { durations: { minutes: shorter } };
-      fixes.push({ id: 'shorten', label: `Shorten to ${formatDuration(Math.max(...shorter))}`, patch });
+      fixes.push({
+        id: 'shorten',
+        label: `Shorten to ${formatDuration(Math.max(...shorter))}`,
+        patch,
+      });
     }
     const wider = config.schedule.hours ? openStretch(config, catalogs, service, false) : null;
     if (wider !== null && wider >= worst)
@@ -411,7 +508,13 @@ function windowRules({ config, catalogs, now, push }: Ctx): void {
       severity: 'error',
       message: 'Maximum notice shorter than minimum notice',
       fields: ['window.maxDaysAhead', 'window.minNoticeMinutes'],
-      fixes: [{ id: 'raise_max_notice', label: `Raise to ${days} days`, patch: { window: { maxDaysAhead: days } } }],
+      fixes: [
+        {
+          id: 'raise_max_notice',
+          label: `Raise to ${days} days`,
+          patch: { window: { maxDaysAhead: days } },
+        },
+      ],
     });
   }
   if (w.dateTo && w.dateTo < localDateOf(now, catalogs.timeZone))
@@ -420,7 +523,13 @@ function windowRules({ config, catalogs, now, push }: Ctx): void {
       severity: 'warning',
       message: 'Date range already ended',
       fields: ['window.dateFrom', 'window.dateTo'],
-      fixes: [{ id: 'clear_dates', label: 'Clear the date range', patch: { window: { dateFrom: null, dateTo: null } } }],
+      fixes: [
+        {
+          id: 'clear_dates',
+          label: 'Clear the date range',
+          patch: { window: { dateFrom: null, dateTo: null } },
+        },
+      ],
     });
 }
 
@@ -431,7 +540,9 @@ function outsideRules({ config, catalogs, push }: Ctx): void {
       severity: 'error',
       message: 'Payments arrive with Milestone 9',
       fields: ['payments.mode'],
-      fixes: [{ id: 'payment_off', label: 'Turn off payment', patch: { payments: { mode: 'none' } } }],
+      fixes: [
+        { id: 'payment_off', label: 'Turn off payment', patch: { payments: { mode: 'none' } } },
+      ],
     });
 
   const lead = config.crm.createLead;
@@ -449,11 +560,20 @@ function outsideRules({ config, catalogs, push }: Ctx): void {
       push({
         code: 'lead_stage_gone',
         severity: 'error',
-        message: !pipeline || pipeline.archived ? 'The lead pipeline was archived' : 'The lead stage was archived',
+        message:
+          !pipeline || pipeline.archived
+            ? 'The lead pipeline was archived'
+            : 'The lead stage was archived',
         fields: ['crm.createLead'],
         fixes: [
           ...(pick && pick.s
-            ? [{ id: 'pick_stage', label: `Use ${pick.p.name} · ${pick.s.name}`, patch: { crm: { createLead: { pipelineId: pick.p.id, stageId: pick.s.id } } } }]
+            ? [
+                {
+                  id: 'pick_stage',
+                  label: `Use ${pick.p.name} · ${pick.s.name}`,
+                  patch: { crm: { createLead: { pipelineId: pick.p.id, stageId: pick.s.id } } },
+                },
+              ]
             : []),
           { id: 'lead_off', label: 'Turn off lead creation', patch: { crm: { createLead: null } } },
         ],
@@ -462,7 +582,10 @@ function outsideRules({ config, catalogs, push }: Ctx): void {
   }
 
   const n = config.notifications;
-  if (!catalogs.textingReady && (n.confirmation.text || (n.reminders.length > 0 && n.reminderChannels.text)))
+  if (
+    !catalogs.textingReady &&
+    (n.confirmation.text || (n.reminders.length > 0 && n.reminderChannels.text))
+  )
     push({
       code: 'text_not_ready',
       severity: 'warning',
@@ -472,7 +595,12 @@ function outsideRules({ config, catalogs, push }: Ctx): void {
         {
           id: 'email_only',
           label: 'Email only for now',
-          patch: { notifications: { confirmation: { text: false, email: true }, reminderChannels: { text: false, email: true } } },
+          patch: {
+            notifications: {
+              confirmation: { text: false, email: true },
+              reminderChannels: { text: false, email: true },
+            },
+          },
         },
       ],
     });

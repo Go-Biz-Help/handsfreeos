@@ -30,7 +30,13 @@ describe('defaults', () => {
     expect(c.resources).toEqual({ required: [] });
     expect(c.buffers).toEqual({ before: 0, after: 0, travelMinutes: 0 });
     expect(c.territory).toEqual({ routing: 'off', territoryIds: [] });
-    expect(c.window).toEqual({ minNoticeMinutes: 240, maxDaysAhead: 60, dateFrom: null, dateTo: null, dailyLimitPerPerson: null });
+    expect(c.window).toEqual({
+      minNoticeMinutes: 240,
+      maxDaysAhead: 60,
+      dateFrom: null,
+      dateTo: null,
+      dailyLimitPerPerson: null,
+    });
     expect(c.recurring).toEqual({ staffSeries: true, customerSeries: false, maxOccurrences: 12 });
     expect(c.waitlist).toEqual({ enabled: false, offerMinutes: 60 });
     expect(c.intake).toEqual({ questions: [] });
@@ -49,7 +55,11 @@ describe('defaults', () => {
       staffEmail: true,
     });
     expect(c.integrations).toEqual({ checkStaffCalendars: true, writeEvents: true });
-    expect(c.crm).toEqual({ ownership: 'assigned_staff', assignContactOwner: false, createLead: null });
+    expect(c.crm).toEqual({
+      ownership: 'assigned_staff',
+      assignContactOwner: false,
+      createLead: null,
+    });
     expect(c.payments).toEqual({ mode: 'none' });
     expect(c.automations).toEqual({ workflowIds: [] });
   });
@@ -84,7 +94,12 @@ describe('parse and upgrade', () => {
       1: (doc: Record<string, unknown>) => ({ ...doc, renamed: doc.old, old: undefined }),
       2: (doc: Record<string, unknown>) => ({ ...doc, third: true }),
     };
-    expect(upgradeConfig({ version: 1, old: 'x' }, steps, 3)).toEqual({ version: 3, renamed: 'x', old: undefined, third: true });
+    expect(upgradeConfig({ version: 1, old: 'x' }, steps, 3)).toEqual({
+      version: 3,
+      renamed: 'x',
+      old: undefined,
+      third: true,
+    });
     expect(() => upgradeConfig({ version: 1 }, {}, 2)).toThrow(/No upgrade from/);
   });
 
@@ -99,14 +114,20 @@ describe('parse and upgrade', () => {
       { intake: { questions: [{ id: 'q', label: 'Pick', kind: 'select' }] } },
       { resources: { required: [{ resourceId: TRUCK }, { resourceId: TRUCK }] } },
     ];
-    for (const patch of bad) expect(() => parseConfig({ version: 1, ...patch }), JSON.stringify(patch)).toThrow(ZodError);
+    for (const patch of bad)
+      expect(() => parseConfig({ version: 1, ...patch }), JSON.stringify(patch)).toThrow(ZodError);
   });
 });
 
 describe('applyPatch', () => {
   it('merges objects deeply and replaces arrays', () => {
-    const base = applyPatch(defaultConfig(), { team: { members: [{ userId: DALE }, { userId: PRIYA }] } });
-    const next = applyPatch(base, { team: { members: [{ userId: MARCO, weight: 2 }] }, capacity: { seats: 6 } });
+    const base = applyPatch(defaultConfig(), {
+      team: { members: [{ userId: DALE }, { userId: PRIYA }] },
+    });
+    const next = applyPatch(base, {
+      team: { members: [{ userId: MARCO, weight: 2 }] },
+      capacity: { seats: 6 },
+    });
     expect(next.team.members).toEqual([{ userId: MARCO, weight: 2, priority: 0, required: false }]);
     expect(next.team.assignment).toBe('fixed');
     expect(next.capacity).toEqual({ seats: 6, maxPartySize: 1, showSeatsLeft: true });
@@ -118,7 +139,10 @@ describe('applyPatch', () => {
       schedule: { hours: [{ day: 1, start: '09:00', end: '17:00' }] },
       crm: { createLead: { pipelineId: TUNE_UP, stageId: TRUCK } },
     });
-    const cleared = applyPatch(withHours, { schedule: { hours: null }, crm: { createLead: null, ownership: undefined } });
+    const cleared = applyPatch(withHours, {
+      schedule: { hours: null },
+      crm: { createLead: null, ownership: undefined },
+    });
     expect(cleared.schedule.hours).toBeNull();
     expect(cleared.crm.createLead).toBeNull();
     expect(cleared.crm.ownership).toBe('assigned_staff');
@@ -132,7 +156,15 @@ describe('applyPatch', () => {
     const c = applyPatch(defaultConfig(), {
       team: { members: [{ userId: DALE }, { userId: PRIYA }] },
       buffers: { before: 10, after: 5 },
-      services: { mode: 'choice', items: [{ serviceId: TUNE_UP, overrides: { minutes: [45], bufferAfter: 30, seats: 3, userIds: [PRIYA] } }] },
+      services: {
+        mode: 'choice',
+        items: [
+          {
+            serviceId: TUNE_UP,
+            overrides: { minutes: [45], bufferAfter: 30, seats: 3, userIds: [PRIYA] },
+          },
+        ],
+      },
       resources: { required: [{ resourceId: TRUCK, quantity: 1 }] },
     });
     const service = catalogs.services.find((s) => s.id === TUNE_UP)!;
@@ -146,28 +178,52 @@ describe('applyPatch', () => {
       eligibleUserIds: [PRIYA],
       requiredResources: [{ resourceId: TRUCK, quantity: 1 }],
     });
-    expect(resolveTerms(c, null)).toMatchObject({ durations: [60], bufferBefore: 10, bufferAfter: 5, eligibleUserIds: null });
+    expect(resolveTerms(c, null)).toMatchObject({
+      durations: [60],
+      bufferBefore: 10,
+      bufferAfter: 5,
+      eligibleUserIds: null,
+    });
   });
 });
 
 describe('labels never gate a setting', () => {
   const edits: Record<string, ConfigPatch> = {
     public: { public: false },
-    team: { team: { members: [{ userId: DALE }, { userId: PRIYA }], assignment: 'weighted', crewSize: 2 } },
+    team: {
+      team: { members: [{ userId: DALE }, { userId: PRIYA }], assignment: 'weighted', crewSize: 2 },
+    },
     services: { services: { mode: 'choice', items: [{ serviceId: TUNE_UP }] } },
     durations: { durations: { minutes: [30, 45], customerChooses: true, step: 15 } },
     capacity: { capacity: { seats: 8, maxPartySize: 2, showSeatsLeft: false } },
     schedule: { schedule: { mode: 'sessions', hours: [{ day: 2, start: '10:00', end: '14:00' }] } },
-    locations: { locations: { options: [{ kind: 'virtual', meetingUrl: 'https://meet.example.com/x' }], customerChooses: true } },
+    locations: {
+      locations: {
+        options: [{ kind: 'virtual', meetingUrl: 'https://meet.example.com/x' }],
+        customerChooses: true,
+      },
+    },
     resources: { resources: { required: [{ resourceId: TRUCK, quantity: 2 }] } },
     buffers: { buffers: { before: 15, after: 15, travelMinutes: 20 } },
     territory: { territory: { routing: 'zip', territoryIds: [] } },
-    window: { window: { minNoticeMinutes: 60, maxDaysAhead: 30, dateFrom: '2026-10-01', dateTo: '2026-12-31', dailyLimitPerPerson: 4 } },
+    window: {
+      window: {
+        minNoticeMinutes: 60,
+        maxDaysAhead: 30,
+        dateFrom: '2026-10-01',
+        dateTo: '2026-12-31',
+        dailyLimitPerPerson: 4,
+      },
+    },
     recurring: { recurring: { staffSeries: false, customerSeries: true, maxOccurrences: 8 } },
     waitlist: { waitlist: { enabled: true, offerMinutes: 30 } },
     intake: { intake: { questions: [{ id: 'gate', label: 'Gate code', kind: 'short_text' }] } },
-    policies: { policies: { cancel: { allowed: false }, reschedule: { maxTimes: 5 }, policyText: 'Be home.' } },
-    notifications: { notifications: { reminders: [{ kind: 'before', minutes: 60 }], staffEmail: false } },
+    policies: {
+      policies: { cancel: { allowed: false }, reschedule: { maxTimes: 5 }, policyText: 'Be home.' },
+    },
+    notifications: {
+      notifications: { reminders: [{ kind: 'before', minutes: 60 }], staffEmail: false },
+    },
     integrations: { integrations: { checkStaffCalendars: false, writeEvents: false } },
     crm: { crm: { ownership: 'calendar_owner', assignContactOwner: true } },
     payments: { payments: { mode: 'full' } },

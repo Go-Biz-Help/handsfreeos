@@ -143,7 +143,11 @@ export function isLocalDate(value: string): boolean {
   const m = DATE_RE.exec(value);
   if (!m) return false;
   const d = new Date(Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3])));
-  return d.getUTCFullYear() === Number(m[1]) && d.getUTCMonth() === Number(m[2]) - 1 && d.getUTCDate() === Number(m[3]);
+  return (
+    d.getUTCFullYear() === Number(m[1]) &&
+    d.getUTCMonth() === Number(m[2]) - 1 &&
+    d.getUTCDate() === Number(m[3])
+  );
 }
 
 export function isClock(value: string): boolean {
@@ -177,7 +181,9 @@ export function weekdayOf(date: string): number {
 export function daysBetween(from: string, to: string): number {
   const a = parseLocalDate(from);
   const b = parseLocalDate(to);
-  return Math.round((Date.UTC(b.year, b.month - 1, b.day) - Date.UTC(a.year, a.month - 1, a.day)) / DAY);
+  return Math.round(
+    (Date.UTC(b.year, b.month - 1, b.day) - Date.UTC(a.year, a.month - 1, a.day)) / DAY,
+  );
 }
 
 /** The local date in a zone at an instant. */
@@ -198,7 +204,14 @@ export function localInstant(date: string, clock: string, timeZone: string): num
   const minutes = parseClock(clock);
   const p = parseLocalDate(date);
   const d = new Date(Date.UTC(p.year, p.month - 1, p.day + Math.floor(minutes / 1440)));
-  return zonedEpoch(d.getUTCFullYear(), d.getUTCMonth() + 1, d.getUTCDate(), Math.floor((minutes % 1440) / 60), minutes % 60, timeZone);
+  return zonedEpoch(
+    d.getUTCFullYear(),
+    d.getUTCMonth() + 1,
+    d.getUTCDate(),
+    Math.floor((minutes % 1440) / 60),
+    minutes % 60,
+    timeZone,
+  );
 }
 
 /** When a local day starts. */

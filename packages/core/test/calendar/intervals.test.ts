@@ -45,5 +45,10 @@ it('matches point sets for normalize, union, intersect and subtract (300 seeds)'
 it('treats back-to-back as touching, not overlapping', () => {
   expect(intervals.overlaps({ start: 0, end: 10 }, { start: 10, end: 20 })).toBe(false);
   expect(intervals.overlaps({ start: 0, end: 11 }, { start: 10, end: 20 })).toBe(true);
-  expect(intervals.normalize([{ start: 10, end: 20 }, { start: 0, end: 10 }])).toEqual([{ start: 0, end: 20 }]);
+  expect(
+    intervals.normalize([
+      { start: 10, end: 20 },
+      { start: 0, end: 10 },
+    ]),
+  ).toEqual([{ start: 0, end: 20 }]);
 });

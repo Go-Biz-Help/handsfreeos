@@ -14,7 +14,13 @@
  * - series: the first occurrence's people are kept when free.
  */
 import type { CalendarConfig } from '../config';
-import type { Assignment, AssignmentOptions, AssignmentState, MemberAssignmentState, Slot } from './types';
+import type {
+  Assignment,
+  AssignmentOptions,
+  AssignmentState,
+  MemberAssignmentState,
+  Slot,
+} from './types';
 
 const EMPTY: MemberAssignmentState = { assignedCount: 0, lastAssignedAt: null, credit: 0 };
 
@@ -39,7 +45,8 @@ export function chooseAssignment(
   const get = (u: string) => next[u] ?? EMPTY;
 
   if (mode === 'collective') {
-    for (const u of slot.userIds) next[u] = { ...get(u), assignedCount: get(u).assignedCount + 1, lastAssignedAt: now };
+    for (const u of slot.userIds)
+      next[u] = { ...get(u), assignedCount: get(u).assignedCount + 1, lastAssignedAt: now };
     return { userIds: [...slot.userIds], nextState: next };
   }
 
@@ -72,7 +79,10 @@ export function chooseAssignment(
     const winner =
       forced ??
       remaining.reduce((best, u) =>
-        get(u).credit > get(best).credit || (get(u).credit === get(best).credit && rank(u) < rank(best)) ? u : best,
+        get(u).credit > get(best).credit ||
+        (get(u).credit === get(best).credit && rank(u) < rank(best))
+          ? u
+          : best,
       );
     next[winner] = { ...get(winner), credit: get(winner).credit - total };
     return winner;
@@ -85,10 +95,13 @@ export function chooseAssignment(
     if (mode === 'weighted') u = weightedPick(remaining, seed);
     else if (seed !== null) u = seed;
     else if (mode === 'first_available')
-      u = [...remaining].sort((a, b) => (priority.get(b) ?? 0) - (priority.get(a) ?? 0) || rank(a) - rank(b))[0]!;
+      u = [...remaining].sort(
+        (a, b) => (priority.get(b) ?? 0) - (priority.get(a) ?? 0) || rank(a) - rank(b),
+      )[0]!;
     else u = leastRecent(remaining);
     picked.push(u);
   }
-  for (const u of picked) next[u] = { ...get(u), assignedCount: get(u).assignedCount + 1, lastAssignedAt: now };
+  for (const u of picked)
+    next[u] = { ...get(u), assignedCount: get(u).assignedCount + 1, lastAssignedAt: now };
   return { userIds: picked, nextState: next };
 }

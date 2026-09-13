@@ -11,7 +11,17 @@ import {
   type ConfigPatch,
   type UpcomingSummary,
 } from '../../src/calendar/index';
-import { catalogs, DALE, MARCO, presetContext, PRIYA, SALES, STAGE_NEW, TRUCK, TUNE_UP } from './fixtures';
+import {
+  catalogs,
+  DALE,
+  MARCO,
+  presetContext,
+  PRIYA,
+  SALES,
+  STAGE_NEW,
+  TRUCK,
+  TUNE_UP,
+} from './fixtures';
 
 const labelsOf = (patch: ConfigPatch) => inferLabels(applyPatch(defaultConfig(), patch));
 const two = [{ userId: DALE }, { userId: PRIYA }];
@@ -42,30 +52,55 @@ describe('labels', () => {
     expect(formatLabels(acTuneUp)).toBe('Dispatch · Round Robin · Service');
     expect(acTuneUp.primary).toBe('dispatch');
 
-    const hvacClass = labelsOf({ team: { members: [{ userId: DALE }] }, schedule: { mode: 'sessions' }, capacity: { seats: 12 }, waitlist: { enabled: true } });
+    const hvacClass = labelsOf({
+      team: { members: [{ userId: DALE }] },
+      schedule: { mode: 'sessions' },
+      capacity: { seats: 12 },
+      waitlist: { enabled: true },
+    });
     expect(hvacClass.tags).toEqual(['event', 'group']);
 
-    const walkthrough = labelsOf({ team: { members: two.map((m) => ({ ...m, required: true })), assignment: 'collective' } });
+    const walkthrough = labelsOf({
+      team: { members: two.map((m) => ({ ...m, required: true })), assignment: 'collective' },
+    });
     expect(walkthrough.tags).toEqual(['collective']);
 
-    expect(labelsOf({ team: { members: two, assignment: 'round_robin', crewSize: 2 } }).tags).toEqual(['collective', 'round_robin']);
-    expect(labelsOf({ team: { members: [{ userId: DALE }] }, buffers: { travelMinutes: 15 } }).tags).toEqual(['dispatch', 'personal']);
-    expect(labelsOf({ team: { members: two, assignment: 'weighted' } }).primary).toBe('round_robin');
-    expect(labelsOf({ team: { members: [{ userId: DALE }], assignment: 'round_robin' } }).tags).toEqual(['custom']);
-    expect(labelsOf({ team: { members: two, assignment: 'first_available' } }).tags).toEqual(['custom']);
-    expect(labelsOf({ team: { members: two, assignment: 'customer_choice' } }).primary).toBe('custom');
-    expect(labelsOf({ team: { members: [{ userId: DALE }] }, resources: { required: [{ resourceId: TRUCK }] } }).tags).toEqual([
-      'resource',
-      'personal',
+    expect(
+      labelsOf({ team: { members: two, assignment: 'round_robin', crewSize: 2 } }).tags,
+    ).toEqual(['collective', 'round_robin']);
+    expect(
+      labelsOf({ team: { members: [{ userId: DALE }] }, buffers: { travelMinutes: 15 } }).tags,
+    ).toEqual(['dispatch', 'personal']);
+    expect(labelsOf({ team: { members: two, assignment: 'weighted' } }).primary).toBe(
+      'round_robin',
+    );
+    expect(
+      labelsOf({ team: { members: [{ userId: DALE }], assignment: 'round_robin' } }).tags,
+    ).toEqual(['custom']);
+    expect(labelsOf({ team: { members: two, assignment: 'first_available' } }).tags).toEqual([
+      'custom',
     ]);
+    expect(labelsOf({ team: { members: two, assignment: 'customer_choice' } }).primary).toBe(
+      'custom',
+    );
+    expect(
+      labelsOf({
+        team: { members: [{ userId: DALE }] },
+        resources: { required: [{ resourceId: TRUCK }] },
+      }).tags,
+    ).toEqual(['resource', 'personal']);
   });
 
   it('changes as a Personal calendar becomes Round Robin, then Service, then Group', () => {
     const personal = configFromPreset('personal', presetContext);
     expect(formatLabels(inferLabels(personal))).toBe('Personal');
-    const rr = applyPatch(personal, { team: { members: [{ userId: PRIYA }, { userId: MARCO }], assignment: 'round_robin' } });
+    const rr = applyPatch(personal, {
+      team: { members: [{ userId: PRIYA }, { userId: MARCO }], assignment: 'round_robin' },
+    });
     expect(formatLabels(inferLabels(rr))).toBe('Round Robin');
-    const service = applyPatch(rr, { services: { mode: 'choice', items: [{ serviceId: TUNE_UP }] } });
+    const service = applyPatch(rr, {
+      services: { mode: 'choice', items: [{ serviceId: TUNE_UP }] },
+    });
     expect(formatLabels(inferLabels(service))).toBe('Round Robin · Service');
     const group = applyPatch(service, { capacity: { seats: 6 } });
     expect(formatLabels(inferLabels(group))).toBe('Group/Class · Round Robin · Service');
@@ -80,15 +115,22 @@ describe('diff', () => {
   });
 
   it('describes team and assignment changes by name', () => {
-    const rr = applyPatch(personal, { team: { members: [{ userId: PRIYA }, { userId: MARCO }], assignment: 'round_robin' } });
+    const rr = applyPatch(personal, {
+      team: { members: [{ userId: PRIYA }, { userId: MARCO }], assignment: 'round_robin' },
+    });
     expect(diffConfigs(personal, rr, catalogs)).toEqual([
       'Added Priya',
       'Added Marco',
       'Removed Dale',
       'Assignment: fixed person → round robin',
     ]);
-    const weighted = applyPatch(rr, { team: { members: [{ userId: PRIYA, weight: 3 }, { userId: MARCO }], assignment: 'weighted' } });
-    expect(diffConfigs(rr, weighted, catalogs)).toEqual(['Priya’s weight: 1 → 3', 'Assignment: round robin → weighted round robin']);
+    const weighted = applyPatch(rr, {
+      team: { members: [{ userId: PRIYA, weight: 3 }, { userId: MARCO }], assignment: 'weighted' },
+    });
+    expect(diffConfigs(rr, weighted, catalogs)).toEqual([
+      'Priya’s weight: 1 → 3',
+      'Assignment: round robin → weighted round robin',
+    ]);
   });
 
   it('describes capacity, services, visits, notice, hours, reminders and CRM', () => {
@@ -128,7 +170,10 @@ describe('diff', () => {
 
 describe('impact', () => {
   const team = applyPatch(defaultConfig(), {
-    team: { members: [{ userId: DALE }, { userId: PRIYA }, { userId: MARCO }], assignment: 'round_robin' },
+    team: {
+      members: [{ userId: DALE }, { userId: PRIYA }, { userId: MARCO }],
+      assignment: 'round_robin',
+    },
     capacity: { seats: 10 },
     resources: { required: [{ resourceId: TRUCK }] },
   });
@@ -198,10 +243,18 @@ describe('impact', () => {
   });
 
   it('tracks which impacts still need a decision', () => {
-    const after = applyPatch(team, { team: { members: [{ userId: DALE }] }, capacity: { seats: 6 } });
+    const after = applyPatch(team, {
+      team: { members: [{ userId: DALE }] },
+      capacity: { seats: 6 },
+    });
     const analysis = analyzeImpact(team, after, upcoming, catalogs);
     expect(undecidedImpacts(analysis, {}).map((i) => i.key)).toEqual([`member:${MARCO}`, 'seats']);
-    expect(undecidedImpacts(analysis, { [`member:${MARCO}`]: 'reassign', seats: 'cancel_and_notify' }).map((i) => i.key)).toEqual(['seats']);
+    expect(
+      undecidedImpacts(analysis, {
+        [`member:${MARCO}`]: 'reassign',
+        seats: 'cancel_and_notify',
+      }).map((i) => i.key),
+    ).toEqual(['seats']);
     expect(undecidedImpacts(analysis, { [`member:${MARCO}`]: 'keep', seats: 'keep' })).toEqual([]);
   });
 });

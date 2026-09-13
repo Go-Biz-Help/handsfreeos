@@ -17,7 +17,9 @@ export function interval(start: number, end: number): Interval {
 
 /** Sort, drop empty intervals, and merge any that overlap or touch. */
 export function normalize(list: IntervalList): Interval[] {
-  const sorted = list.filter((i) => i.end > i.start).sort((a, b) => a.start - b.start || a.end - b.end);
+  const sorted = list
+    .filter((i) => i.end > i.start)
+    .sort((a, b) => a.start - b.start || a.end - b.end);
   const out: Interval[] = [];
   for (const i of sorted) {
     const last = out[out.length - 1];

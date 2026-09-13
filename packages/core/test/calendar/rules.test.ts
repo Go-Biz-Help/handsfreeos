@@ -90,7 +90,11 @@ const CASES: Case[] = [
   {
     code: 'zip_uncovered',
     severity: 'warning',
-    patch: { team: { members: [{ userId: PRIYA }] }, territory: { routing: 'zip', territoryIds: [SOUTH] }, locations: address },
+    patch: {
+      team: { members: [{ userId: PRIYA }] },
+      territory: { routing: 'zip', territoryIds: [SOUTH] },
+      locations: address,
+    },
     message: 'Priya isn’t in any selected territory',
   },
   {
@@ -120,7 +124,11 @@ const CASES: Case[] = [
   {
     code: 'duration_no_fit',
     severity: 'warning',
-    patch: { team: { members: [me] }, schedule: { hours: [{ day: 1, start: '09:00', end: '12:00' }] }, durations: { minutes: [240] } },
+    patch: {
+      team: { members: [me] },
+      schedule: { hours: [{ day: 1, start: '09:00', end: '12:00' }] },
+      durations: { minutes: [240] },
+    },
     message: '4 hours doesn’t fit in any open window',
   },
   {
@@ -176,7 +184,8 @@ it('has one case per rule', () => {
 
 it('defaults and every preset validate clean', () => {
   expect(validateCalendar(defaultConfig(), catalogs, NOW)).toEqual([]);
-  for (const [key, config] of presets) expect(validateCalendar(config, catalogs, NOW), key).toEqual([]);
+  for (const [key, config] of presets)
+    expect(validateCalendar(config, catalogs, NOW), key).toEqual([]);
 });
 
 describe.each(CASES)('$code', (c) => {
@@ -195,7 +204,10 @@ describe.each(CASES)('$code', (c) => {
 
   it('never fires on a preset', () => {
     for (const [key, preset] of presets)
-      expect(validateCalendar(preset, catalogs, NOW).map((i) => i.code), key).not.toContain(c.code);
+      expect(
+        validateCalendar(preset, catalogs, NOW).map((i) => i.code),
+        key,
+      ).not.toContain(c.code);
   });
 
   it('is cleared by its first fix', () => {
@@ -204,7 +216,8 @@ describe.each(CASES)('$code', (c) => {
   });
 
   it('every fix applies to a valid document', () => {
-    for (const fix of issue!.fixes) expect(() => applyPatch(config, fix.patch), fix.id).not.toThrow();
+    for (const fix of issue!.fixes)
+      expect(() => applyPatch(config, fix.patch), fix.id).not.toThrow();
   });
 });
 
@@ -213,11 +226,26 @@ it('offers the plan’s second fixes too', () => {
     validateCalendar(applyPatch(defaultConfig(), patch), catalogs, NOW)
       .find((i) => i.code === code)!
       .fixes.map((f) => f.id);
-  expect(labels(CASES[0]!.patch, 'collective_needs_two')).toEqual(['switch_to_fixed', 'add_teammate']);
-  expect(labels(CASES[2]!.patch, 'weights_ignored')).toEqual(['clear_weights', 'switch_to_weighted']);
-  expect(labels(CASES[6]!.patch, 'travel_without_visits')).toEqual(['travel_zero', 'add_customer_address']);
-  expect(labels(CASES[7]!.patch, 'zip_without_visits')).toEqual(['routing_off', 'add_customer_address']);
-  expect(labels(CASES[12]!.patch, 'service_no_staff')).toEqual(['add_eligible_staff', 'remove_service']);
+  expect(labels(CASES[0]!.patch, 'collective_needs_two')).toEqual([
+    'switch_to_fixed',
+    'add_teammate',
+  ]);
+  expect(labels(CASES[2]!.patch, 'weights_ignored')).toEqual([
+    'clear_weights',
+    'switch_to_weighted',
+  ]);
+  expect(labels(CASES[6]!.patch, 'travel_without_visits')).toEqual([
+    'travel_zero',
+    'add_customer_address',
+  ]);
+  expect(labels(CASES[7]!.patch, 'zip_without_visits')).toEqual([
+    'routing_off',
+    'add_customer_address',
+  ]);
+  expect(labels(CASES[12]!.patch, 'service_no_staff')).toEqual([
+    'add_eligible_staff',
+    'remove_service',
+  ]);
   expect(labels(CASES[13]!.patch, 'duration_no_fit')).toEqual(['shorten', 'widen_hours']);
   expect(labels(CASES[18]!.patch, 'public_without_team')).toEqual(['add_person', 'make_private']);
   expect(labels(CASES[19]!.patch, 'lead_stage_gone')).toEqual(['pick_stage', 'lead_off']);
@@ -230,7 +258,9 @@ it('adds the eligible person to a narrowed service list', () => {
   });
   const issue = validateCalendar(config, catalogs, NOW).find((i) => i.code === 'service_no_staff')!;
   const fixed = applyPatch(config, issue.fixes[0]!.patch);
-  expect(validateCalendar(fixed, catalogs, NOW).map((i) => i.code)).not.toContain('service_no_staff');
+  expect(validateCalendar(fixed, catalogs, NOW).map((i) => i.code)).not.toContain(
+    'service_no_staff',
+  );
 });
 
 it('only warnings leave a calendar saveable', () => {

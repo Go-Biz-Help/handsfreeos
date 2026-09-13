@@ -128,7 +128,10 @@ const Location = z.object({
 });
 
 const Locations = z.object({
-  options: z.array(Location).max(10).default(() => []),
+  options: z
+    .array(Location)
+    .max(10)
+    .default(() => []),
   customerChooses: z.boolean().default(false),
 });
 
@@ -153,12 +156,19 @@ const Buffers = z.object({
 const Territory = z.object({
   routing: z.enum(['off', 'zip']).default('off'),
   /** Empty means every territory in the workspace. */
-  territoryIds: z.array(id).max(100).default(() => []),
+  territoryIds: z
+    .array(id)
+    .max(100)
+    .default(() => []),
 });
 
 const Window = z
   .object({
-    minNoticeMinutes: z.int().min(0).max(90 * 1440).default(240),
+    minNoticeMinutes: z
+      .int()
+      .min(0)
+      .max(90 * 1440)
+      .default(240),
     /** Customers can book through the end of the day this many days from today. */
     maxDaysAhead: z.int().min(1).max(365).default(60),
     dateFrom: localDate.nullable().default(null),
@@ -187,7 +197,10 @@ export const IntakeQuestion = z
     label: z.string().trim().min(1, 'Write the question.').max(200),
     kind: IntakeKind,
     required: z.boolean().default(false),
-    options: z.array(z.string().trim().min(1).max(100)).max(30).default(() => []),
+    options: z
+      .array(z.string().trim().min(1).max(100))
+      .max(30)
+      .default(() => []),
   })
   .refine((q) => (q.kind !== 'select' && q.kind !== 'multi_select') || q.options.length > 0, {
     error: 'Add at least one choice.',
@@ -204,7 +217,10 @@ const Intake = z.object({
 
 const Policies = z.object({
   cancel: z
-    .object({ allowed: z.boolean().default(true), cutoffHours: z.int().min(0).max(720).default(24) })
+    .object({
+      allowed: z.boolean().default(true),
+      cutoffHours: z.int().min(0).max(720).default(24),
+    })
     .prefault({}),
   reschedule: z
     .object({
@@ -218,7 +234,13 @@ const Policies = z.object({
 
 export const Reminder = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('day_before'), at: clock.default('16:00') }),
-  z.object({ kind: z.literal('before'), minutes: z.int().min(15).max(7 * 1440) }),
+  z.object({
+    kind: z.literal('before'),
+    minutes: z
+      .int()
+      .min(15)
+      .max(7 * 1440),
+  }),
 ]);
 export type Reminder = z.infer<typeof Reminder>;
 
@@ -252,7 +274,12 @@ const Crm = z.object({
 
 const Payments = z.object({ mode: z.enum(['none', 'deposit', 'full']).default('none') });
 
-const Automations = z.object({ workflowIds: z.array(id).max(50).default(() => []) });
+const Automations = z.object({
+  workflowIds: z
+    .array(id)
+    .max(50)
+    .default(() => []),
+});
 
 export const CalendarConfig = z.object({
   version: z.literal(CALENDAR_CONFIG_VERSION),
@@ -282,7 +309,11 @@ export type CalendarConfig = z.infer<typeof CalendarConfig>;
 export type CalendarConfigInput = z.input<typeof CalendarConfig>;
 export type CalendarModule = Exclude<keyof CalendarConfig, 'version' | 'public'>;
 
-type Patch<T> = T extends readonly unknown[] ? T : T extends object ? { [K in keyof T]?: Patch<T[K]> } : T;
+type Patch<T> = T extends readonly unknown[]
+  ? T
+  : T extends object
+    ? { [K in keyof T]?: Patch<T[K]> }
+    : T;
 /** A partial settings document: objects merge, arrays and null replace. */
 export type ConfigPatch = Patch<Omit<CalendarConfigInput, 'version'>>;
 

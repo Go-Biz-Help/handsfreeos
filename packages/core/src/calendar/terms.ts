@@ -34,8 +34,11 @@ export function resolveTerms(config: CalendarConfig, service?: CatalogService | 
     : service?.durations.length
       ? service.durations
       : config.durations.minutes;
-  let eligible: string[] | null = service?.eligibleUserIds.length ? [...service.eligibleUserIds] : null;
-  if (o.userIds) eligible = eligible ? eligible.filter((u) => o.userIds!.includes(u)) : [...o.userIds];
+  let eligible: string[] | null = service?.eligibleUserIds.length
+    ? [...service.eligibleUserIds]
+    : null;
+  if (o.userIds)
+    eligible = eligible ? eligible.filter((u) => o.userIds!.includes(u)) : [...o.userIds];
   const resources = new Map<string, number>();
   for (const r of [...config.resources.required, ...(service?.requiredResources ?? [])])
     resources.set(r.resourceId, Math.max(resources.get(r.resourceId) ?? 0, r.quantity));
@@ -54,7 +57,10 @@ export function resolveTerms(config: CalendarConfig, service?: CatalogService | 
 }
 
 /** The lengths a customer can pick: all of them when they choose, else the default. */
-export function bookableDurations(config: CalendarConfig, service?: CatalogService | null): number[] {
+export function bookableDurations(
+  config: CalendarConfig,
+  service?: CatalogService | null,
+): number[] {
   const { durations } = resolveTerms(config, service);
   return config.durations.customerChooses ? [...durations] : durations.slice(0, 1);
 }

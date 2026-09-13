@@ -26,7 +26,11 @@ export const OLD_PIPELINE_STAGE = uid(405);
 
 export const WORKFLOW = uid(501);
 
-export const WEEKDAYS_8_TO_5: WeeklyHours = [1, 2, 3, 4, 5].map((day) => ({ day, start: '08:00', end: '17:00' }));
+export const WEEKDAYS_8_TO_5: WeeklyHours = [1, 2, 3, 4, 5].map((day) => ({
+  day,
+  start: '08:00',
+  end: '17:00',
+}));
 
 export const catalogs: CalendarCatalogs = {
   timeZone: 'America/Chicago',
@@ -74,7 +78,12 @@ export const catalogs: CalendarCatalogs = {
     { id: OLD_VAN, name: 'Old van', quantity: 1, archived: true },
   ],
   territories: [
-    { id: NORTH, name: 'North Dallas', postalCodes: ['75201', '75202'], userIds: [DALE, PRIYA, MARCO] },
+    {
+      id: NORTH,
+      name: 'North Dallas',
+      postalCodes: ['75201', '75202'],
+      userIds: [DALE, PRIYA, MARCO],
+    },
     { id: SOUTH, name: 'South Dallas', postalCodes: ['75215'], userIds: [MARCO] },
   ],
   pipelines: [

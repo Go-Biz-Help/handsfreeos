@@ -64,7 +64,9 @@ export function analyzeImpact(
       message: `${personName(catalogs, m.userId)} has ${countOf(count, 'upcoming appointment', 'upcoming appointments')}`,
       count,
       userId: m.userId,
-      decisions: canReassign ? ['keep', 'reassign', 'cancel_and_notify'] : ['keep', 'cancel_and_notify'],
+      decisions: canReassign
+        ? ['keep', 'reassign', 'cancel_and_notify']
+        : ['keep', 'cancel_and_notify'],
     });
   }
 

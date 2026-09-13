@@ -24,7 +24,10 @@ export const RecurrenceRule = z
     /** Every 1 to 12 weeks or months. */
     interval: z.int().min(1).max(12).default(1),
     /** Weekly only: 0 is Sunday. Empty means the first date's weekday. */
-    weekdays: z.array(z.int().min(0).max(6)).max(7).default(() => []),
+    weekdays: z
+      .array(z.int().min(0).max(6))
+      .max(7)
+      .default(() => []),
     count: z.int().min(1).max(MAX_OCCURRENCES).nullable().default(null),
     /** Last local date, inclusive; never more than 12 months after the first date. */
     until: z
@@ -93,7 +96,11 @@ export function recurrenceDates(rule: RecurrenceRule, firstDate: string): string
 }
 
 /** Occurrences of a series as instants in the zone. */
-export function expandRecurrence(rule: RecurrenceRule, firstDate: string, timeZone: string): Occurrence[] {
+export function expandRecurrence(
+  rule: RecurrenceRule,
+  firstDate: string,
+  timeZone: string,
+): Occurrence[] {
   return recurrenceDates(rule, firstDate).map((date, index) => ({
     index,
     date,

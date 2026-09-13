@@ -2,7 +2,13 @@
  * Answers to "How do you want this calendar to work?". A preset only prefills settings: the result is an
  * ordinary settings document that can be changed in any way afterwards.
  */
-import { applyPatch, defaultConfig, type CalendarConfig, type ConfigPatch, type TeamMember } from './config';
+import {
+  applyPatch,
+  defaultConfig,
+  type CalendarConfig,
+  type ConfigPatch,
+  type TeamMember,
+} from './config';
 
 export const PRESET_KEYS = [
   'personal',
@@ -104,7 +110,12 @@ export interface PresetContext {
   readonly resources?: readonly string[];
 }
 
-const member = (userId: string, required = false): TeamMember => ({ userId, weight: 1, priority: 0, required });
+const member = (userId: string, required = false): TeamMember => ({
+  userId,
+  weight: 1,
+  priority: 0,
+  required,
+});
 const unique = (ids: readonly string[]) => [...new Set(ids)];
 
 function people(key: PresetKey, ctx: PresetContext): TeamMember[] {
@@ -133,7 +144,9 @@ export function configFromPreset(preset: PresetKey, ctx: PresetContext): Calenda
   const members = people(preset, ctx);
   let config = applyPatch(applyPatch(defaultConfig(), found.config), { team: { members } });
   if (preset === 'service' && ctx.services?.length)
-    config = applyPatch(config, { services: { items: unique(ctx.services).map((serviceId) => ({ serviceId })) } });
+    config = applyPatch(config, {
+      services: { items: unique(ctx.services).map((serviceId) => ({ serviceId })) },
+    });
   if (preset === 'resource') {
     const [resourceId] = ctx.resources ?? [];
     config = applyPatch(config, {
