@@ -34,6 +34,7 @@ import { processOnce, type OutboxDeps } from '../src/outbox';
 import { createSupabaseStore, unconfiguredStore } from '../src/storage';
 import { createFakeTelephony } from '../src/telephony/fake';
 import { seedAssistant } from './seed-assistant';
+import { seedCalendar } from './seed-calendar';
 import { seedCrm } from './seed-crm';
 import { LONE_STAR_NUMBER, seedMessaging } from './seed-messaging';
 
@@ -298,6 +299,11 @@ async function main(): Promise<void> {
   );
   await drainOutbox(deps, admin.db, since);
 
+  const calendar = await seedCalendar(
+    { api: api.db, admin: admin.db, worker: deps, actor, meta, step, since },
+    { id: lonestar, organizationId: org.organizationId, dale, priya, marco },
+  );
+
   step('Northstar Electric: a separate organization that sees none of the above');
   await executeCommand(
     api.db,
@@ -322,6 +328,9 @@ Lone Star HVAC & Roofing has about thirty customers, two pipelines, twenty leads
 the business number ${LONE_STAR_NUMBER} with texting approved, ${messaging.conversations} conversations (texts, email, an unknown
 number, a STOP) and ${messaging.calls} calls including a voicemail with its transcript. Dale's Assistant
 panel (Cmd+J) holds two earlier chats; answering new questions needs ANTHROPIC_API_KEY in apps/worker/.env.
+Its calendar (${calendar.seconds.toFixed(1)}s of the seed) has ${calendar.appointments} appointments over about two weeks, three class sessions (one full,
+${calendar.waiting} waiting) and Dale's stand-in Google calendar with ${calendar.busyTimes} busy times. Customers book at ${deps.webUrl}/book/${calendar.site}:
+${calendar.calendars.map((c) => `  ${c.name.padEnd(22)} ${c.labels.padEnd(34)} ${deps.webUrl}/book/${calendar.site}/${c.slug}`).join('\n')}
 Emails the stack sent, including the pending invitation for ${PENDING_INVITEE}: ${env.mailpitUrl}
 `);
 }

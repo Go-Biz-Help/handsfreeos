@@ -47,7 +47,8 @@ pnpm env:local        # writes .env.local and the per-app env files from `supaba
 
 ```bash
 pnpm db:seed          # demo data: the Go Biz Help agency, three client workspaces and their people;
-                      # Lone Star also gets a business number, conversations, calls, email and two Assistant chats
+                      # Lone Star also gets a business number, conversations, calls, email, two Assistant chats,
+                      # four calendars with two weeks of appointments, and a booking site at /book/lone-star-hvac
 ```
 
 ```bash

@@ -62,7 +62,10 @@ const HOUR = 60;
 const DAY = 24 * HOUR;
 
 /** Runs the outbox and job loops over the seed's own work until `until` holds (or until idle). */
-async function settle(d: SeedMessagingDeps, until?: () => Promise<boolean>): Promise<void> {
+export async function settle(
+  d: Pick<SeedMessagingDeps, 'admin' | 'worker' | 'since'>,
+  until?: () => Promise<boolean>,
+): Promise<void> {
   const deadline = Date.now() + 30_000;
   for (;;) {
     for (const table of ['outbox', 'scheduled_jobs'])
@@ -75,10 +78,11 @@ async function settle(d: SeedMessagingDeps, until?: () => Promise<boolean>): Pro
     const due = await processJobs({ ...d.worker, jobs });
     if (outbox.retried + outbox.failed + due.retried + due.failed > 0)
       throw new Error(
-        'Seeding messages failed (see last_error in app.outbox and app.scheduled_jobs).',
+        'The seed’s worker jobs failed (see last_error in app.outbox and app.scheduled_jobs).',
       );
     if (until ? await until() : outbox.claimed + due.claimed === 0) return;
-    if (Date.now() > deadline) throw new Error('The messaging seed did not settle in 30 seconds.');
+    if (Date.now() > deadline)
+      throw new Error('The seed’s worker jobs did not settle in 30 seconds.');
     await new Promise((r) => setTimeout(r, 100));
   }
 }

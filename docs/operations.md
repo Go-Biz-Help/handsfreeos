@@ -5439,6 +5439,50 @@ Each visitor's internet address may load the pages 60 times a minute, make 5 boo
 
 Texts about appointments go out from the workspace's business number. When a client fills in **Business details for the carriers** ("What a client fills in" in "The phone carrier: Twilio"), check that **What you text about** is **Appointments, estimates and customer care**, and that **How customers agree to get texts** and the example texts cover appointment confirmations and reminders. The opt-in description should name the booking page's **Text me about this appointment** checkbox, which starts unticked.
 
+### Reminders and notices
+
+The worker texts or emails customers about their appointments, and emails the team about bookings made online. What goes out is set for each calendar in the **Notifications** section of its settings (**Settings** → **Calendars**, then the calendar). New calendars start with the defaults below.
+
+What customers get:
+
+| Message                                | When it goes                                     | Who gets it                                                                                                                                                                                                                              |
+| -------------------------------------- | ------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Confirmation                           | As soon as the appointment is booked             | Everyone who books online. For a booking the team makes, only when **Tell** and the customer's name is ticked. It has the change-or-cancel link, and the email also has a link that adds the appointment to the customer's own calendar. |
+| The day-before reminder                | 4 PM the day before, in the calendar's time zone | Everyone booked, unless the booking was made less than 18 hours before the start                                                                                                                                                         |
+| The reminder about 2 hours before      | 2 hours before the start                         | Everyone booked, unless the booking was made less than 3 hours before the start                                                                                                                                                          |
+| Moved, with someone else, or cancelled | When it happens                                  | Always when the customer made the change online. For the team's changes, only when **Tell** is ticked.                                                                                                                                   |
+
+Each reminder is worked out again when its time comes. A moved appointment's reminders follow it to the new time, a cancelled one sends nothing, and each reminder goes once for a given start time. In **Calendar**, an appointment's details show the confirmation and each reminder as scheduled, sent (by text or by email) or skipped, with the reason.
+
+Text or email:
+
+- A message goes by text when the customer can get texts (see "Consent and STOP" below), the workspace's business number is set up for texting, and the calendar's **Text** switch for it is on (under **Confirmation**, or **Send reminders by** for reminders).
+- Otherwise it goes by email, when the customer has an email address and the matching **Email** switch is on. When a reminder goes by email because the customer can't get texts or it is too early to text, the email says so, for example "Sent by email because Sarah didn’t ask for texts."
+- With neither, nothing is sent, and the appointment's details say why.
+
+Quiet hours are the workspace's own (**Settings** → **Texting & calls** → **Quiet hours**, 8 PM to 8 AM unless changed):
+
+- A reminder text that falls in quiet hours goes when they end, if that is still at least 45 minutes before the appointment. Otherwise the reminder goes by email at its usual time, or is skipped when there is no email address. With the default hours, the 2-hour reminder for a 9 AM visit waits until 8 AM, and the one for an 8 AM visit goes by email at 6 AM.
+- A confirmation or change notice that falls in quiet hours goes by email at once, when there is an address, and the text follows when quiet hours end.
+- The day-before reminder at 4 PM is outside the default quiet hours.
+
+Consent and STOP:
+
+- On the booking page, a customer gets texts only when they tick **Text me about this appointment**, which starts unticked.
+- For bookings the team makes, HandsFreeOS texts the customer's mobile number unless that number has replied STOP.
+- The first text to a number ends with "Reply STOP to opt out." A customer who replies STOP gets no more texts from the business, whatever a booking says, until they text START. Their reminders and notices go by email instead.
+
+The team's booking emails:
+
+- When a customer books or cancels online, each person on the appointment gets an email from the worker's `MAIL_FROM` address titled "New booking: <customer>, <service>, <day and time>" or "Cancelled: <customer>, <service>, <day and time>". Bookings and changes the team makes don't send it.
+- Two switches control it, and both start on: the calendar's **Email the team about new bookings** in its **Notifications** section, and each person's own **Booking emails** under **Notifications** in **Settings** → **Account**. A person's switch is saved to their account, so it applies in every workspace they belong to.
+
+Waitlist offers (the calendar's **Waitlist** section turns the waitlist on):
+
+- In a session or group time, a freed seat goes straight to the first people waiting whose party fits. They are booked, and their confirmation starts "A seat opened, so you're booked for".
+- For single appointments, the time a cancelled booking frees is offered to the first person waiting whose wanted times cover it: by text when they can get texts, otherwise by email, with a link that books it. The offer is held for the calendar's **Offers last** time, 60 minutes unless changed (from 15 minutes to a day), and the message says until when. If they don't book it by then, the time goes to the next person waiting.
+- An offer that would go out in quiet hours waits until they end.
+
 ### Protect the booking page with Turnstile (optional)
 
 Cloudflare Turnstile checks that a booking comes from a person, usually without asking the person to do anything. It is free. Without it, the booking page relies on the limits in "Online booking pages". It has two keys:
@@ -5579,6 +5623,73 @@ If connecting fails:
 | "That calendar didn’t connect. Try again in a minute."                                             | The worker couldn't finish the sign-in                             | Check `fly logs --app handsfreeos-worker` for `a calendar did not connect` and the reason after it                                                                                 |
 
 **Disconnect**, in the menu behind the three dots next to a calendar, forgets the sign-in and stops the busy times blocking bookings at once. Events HandsFreeOS already added stay in the calendar. Owners and admins can disconnect anyone's calendar. People can also remove HandsFreeOS from their account's app permissions (for Google, `https://myaccount.google.com/permissions`).
+
+### Try booking locally
+
+The seed sets up Lone Star's booking site, so you can book as a customer on your laptop. Texts go to the fake carrier and emails to Mailpit, so nothing reaches a real phone or inbox.
+
+1. Reset the database and seed it.
+
+   ```bash
+   pnpm db:reset
+   ```
+
+   You should see the seed's summary end with Lone Star's four calendars and `http://localhost:3000/book/lone-star-hvac`.
+
+2. Start the web app, the API and the worker.
+
+   ```bash
+   pnpm dev
+   ```
+
+3. In a private browser window, open `http://localhost:3000/book/lone-star-hvac`.
+
+   You should see Lone Star HVAC & Roofing's booking site with four calendars: Dale’s calendar, AC tune-up, Install walkthrough and Homeowner HVAC class.
+
+4. Click **AC tune-up** and enter the ZIP code `77401`. Bellaire is in the Bellaire & Southwest territory, which only Priya covers, so every time offered is hers.
+5. Choose **AC tune-up** and a length, then a day at least two days ahead and a time.
+6. Enter a name, a made-up mobile number such as `(713) 555-0199`, an email address and a street address. Tick **Text me about this appointment**, then click **Book AC tune-up**.
+
+   You should see **You’re booked**, with a **Change or cancel** link. Between 8 PM and 8 AM (quiet hours) the confirmation email goes at once and the text waits until 8 AM.
+
+7. Sign in at `http://localhost:3000/sign-in` as `priya@lonestarhvac.test` with the password `HandsFree-Demo-2026`. Open **Inbox** and set **Status** to **Closed**. A conversation that starts with a HandsFreeOS confirmation stays closed until the customer replies.
+
+   You should see a conversation with the name you entered, holding the confirmation text: "Lone Star HVAC & Roofing: You're booked for an AC tune-up on", then the day and time and the change-or-cancel link. It ends with "Reply STOP to opt out." because it is the first text to that number. The seed's own online booking, Linda Park's, got a confirmation the same way.
+
+8. Open Mailpit at `http://localhost:54424`.
+
+   You should see an email to `priya@lonestarhvac.test` titled "New booking:" followed by the name you entered, AC tune-up, and the day and time.
+
+9. To see a reminder now instead of waiting for it, find its job. Open Supabase Studio at `http://localhost:54423`, click **SQL Editor**, and run this query.
+
+   ```sql
+   select dedupe_key, run_at from app.scheduled_jobs
+   where kind = 'appointment.reminder' and status = 'pending'
+   order by created_at desc
+   limit 2;
+   ```
+
+   You should see your booking's two reminders, `appt-reminder:<booking id>:day_before` and `appt-reminder:<booking id>:before_120`, with the times they are due.
+
+10. Copy the workspace ID from the app's address bar (the part after `/app/w/`). Then run the day-before reminder, with the two placeholders filled in.
+
+    ```bash
+    curl -H 'content-type: application/json' \
+      -d '{"workspaceId":"<workspace id>","dedupeKeys":["appt-reminder:<booking id>:day_before"]}' \
+      http://127.0.0.1:4100/test/scheduled-jobs/run-due
+    ```
+
+    You should see `"moved"` list the reminder and `"ran"` count it as `"done"`. The worker runs it as of the moment it was due, so it behaves as it would have then. Within a few seconds the conversation shows "Reminder from Lone Star HVAC & Roofing: your AC tune-up is tomorrow", with the day, the time and who is coming. The 2-hour reminder works the same way with its `before_120` key.
+
+11. Open the **Change or cancel** link from the confirmation, and cancel the booking.
+
+    You should see the booking cancelled. The conversation gets the cancellation notice, Mailpit gets an email to Priya titled "Cancelled:" with the same details, and the 2-hour reminder sends nothing when its time comes.
+
+The `run-due` address exists only while the worker uses the fake carrier (`TELEPHONY_PROVIDER=fake`, which `pnpm env:local` sets), and never in production. It runs every job of that workspace that is already due, too.
+
+The other seeded calendars show the other shapes: **Dale’s calendar** books Dale alone, **Install walkthrough** needs Dale and Marco free at the same time, and **Homeowner HVAC class** lists three sessions, one of them full with three people waiting and a **Join the waitlist** button.
+
+The seed also connected Dale's stand-in Google calendar and read in three busy times, which show as **Busy** in **Calendar**. The stand-in lives in the memory of the process that made it, so the running worker's first check of Dale's calendar, within about five minutes, clears them. To see busy times again, add one as in "Trying the calendar locally" and click **Sync now** as Dale.
 
 ## Local development
 
@@ -5984,7 +6095,7 @@ How the stand-in behaves:
 
   You should see `{"events":[...]}`, one entry for each appointment that person is on, each with `"attendees":[]`.
 
-- The booking page works locally too. Owners and admins set up the booking site in **Settings** → **Calendars** → **Booking site**, and turn on **Customers can book it online** for a calendar. Then open `http://localhost:3000/book/<site>/<calendar>`, where `<site>` is the booking site's **Link name** and `<calendar>` is the calendar's link name. The seed makes neither. Locally each address may book ten times as often as in production, because every test comes from one address.
+- The booking page works locally too. Owners and admins set up the booking site in **Settings** → **Calendars** → **Booking site**, and turn on **Customers can book it online** for a calendar. Then open `http://localhost:3000/book/<site>/<calendar>`, where `<site>` is the booking site's **Link name** and `<calendar>` is the calendar's link name. The seed sets up Lone Star's site with four calendars at `http://localhost:3000/book/lone-star-hvac` ("Try booking locally" in "The calendar: Google, Outlook and online booking" walks through it). Locally each address may book ten times as often as in production, because every test comes from one address.
 - There is no Turnstile check locally. To see it, add Cloudflare's always-pass test secret, `TURNSTILE_SECRET_KEY=1x0000000000000000000000000000000AA`, to `apps/worker/.env` and restart `pnpm dev`. The worker hands the page the matching test site key, so the web app needs nothing.
 - Setting `MICROSOFT_OAUTH_CLIENT_ID` (as in "Outlook" under "Trying a real provider from your laptop") switches calendars to the real providers too. The **Google** button then opens "Google Calendar isn’t set up yet" unless the Google Calendar values are set as well. To keep the calendar stand-in while you try real Outlook mail, also add `CALENDAR_PROVIDER=fake` to `apps/worker/.env`. `pnpm env:local` removes that line, and the Turnstile one, when it rewrites the file.
 - A running tunnel exposes the two test addresses above, like `/test/mailboxes/deliver`.
