@@ -1,0 +1,200 @@
+{
+  "artboards": [
+    {
+      "file": "Main.dc.html",
+      "title": "AI teammate: how should it work?",
+      "x": 0,
+      "y": 0,
+      "w": 1440,
+      "h": 900,
+      "is_interactive": true
+    },
+    {
+      "file": "Builder.dc.html",
+      "title": "The builder: Identity and the rail",
+      "x": 1520,
+      "y": 0,
+      "w": 1440,
+      "h": 1380,
+      "is_interactive": true
+    },
+    {
+      "file": "Qualify.dc.html",
+      "title": "Qualify: questions and what happens next",
+      "x": 3040,
+      "y": 0,
+      "w": 1440,
+      "h": 1380
+    },
+    {
+      "file": "BookHours.dc.html",
+      "title": "Book and Hours",
+      "x": 4560,
+      "y": 0,
+      "w": 1280,
+      "h": 920
+    },
+    {
+      "file": "Autonomy.dc.html",
+      "title": "Autonomy, Limits and Hand-off",
+      "x": 0,
+      "y": 1500,
+      "w": 1760,
+      "h": 1000
+    },
+    {
+      "file": "Test.dc.html",
+      "title": "Test console",
+      "x": 1840,
+      "y": 1500,
+      "w": 1440,
+      "h": 1000
+    },
+    {
+      "file": "History.dc.html",
+      "title": "History, with Restore",
+      "x": 3360,
+      "y": 1500,
+      "w": 1440,
+      "h": 900
+    },
+    {
+      "file": "Activity.dc.html",
+      "title": "Activity and a run",
+      "x": 4880,
+      "y": 1500,
+      "w": 2040,
+      "h": 1000
+    },
+    {
+      "file": "InboxDraft.dc.html",
+      "title": "Inbox: a draft from Ava",
+      "x": 0,
+      "y": 2620,
+      "w": 1440,
+      "h": 900,
+      "is_interactive": true
+    },
+    {
+      "file": "InboxHandoff.dc.html",
+      "title": "Inbox: needs a person, take over, hand back",
+      "x": 1520,
+      "y": 2620,
+      "w": 1440,
+      "h": 1360
+    },
+    {
+      "file": "Approvals.dc.html",
+      "title": "Approvals: workflows and Ava together",
+      "x": 3040,
+      "y": 2620,
+      "w": 1440,
+      "h": 1000,
+      "is_interactive": true
+    },
+    {
+      "file": "Home.dc.html",
+      "title": "Home",
+      "x": 4560,
+      "y": 2620,
+      "w": 1440,
+      "h": 900
+    },
+    {
+      "file": "Lead.dc.html",
+      "title": "Lead page: Qualification and Ava’s timeline",
+      "x": 0,
+      "y": 4100,
+      "w": 1280,
+      "h": 1440
+    },
+    {
+      "file": "HandoffEmail.dc.html",
+      "title": "The hand-off email",
+      "x": 1360,
+      "y": 4100,
+      "w": 1280,
+      "h": 960
+    },
+    {
+      "file": "WebsiteChat.dc.html",
+      "title": "Settings: Website chat",
+      "x": 2720,
+      "y": 4100,
+      "w": 1440,
+      "h": 1500,
+      "is_interactive": true
+    },
+    {
+      "file": "WidgetDesktop.dc.html",
+      "title": "Website chat on a desktop",
+      "x": 4240,
+      "y": 4100,
+      "w": 1760,
+      "h": 1060
+    },
+    {
+      "file": "WidgetPhone.dc.html",
+      "title": "Website chat on a phone",
+      "x": 0,
+      "y": 5720,
+      "w": 1200,
+      "h": 1000
+    },
+    {
+      "file": "Phone.dc.html",
+      "title": "On a phone, and states",
+      "x": 1280,
+      "y": 5720,
+      "w": 1760,
+      "h": 1060
+    }
+  ],
+  "annotations": [
+    {
+      "id": "direction",
+      "x": 0,
+      "y": -340,
+      "w": 900,
+      "text": "HandsFreeOS Milestone 7: the AI teammate and website chat. Same look as Milestones 1 to 6. One AI teammate per business, named Ava at Lone Star. Presets only turn skills on. Ava starts with training wheels: every message to a customer waits for an OK until 20 are approved, and “Switch to automatic now” works any time. She never claims to be a person, hands conversations to a person with a note, and answers texts and a new website chat.\nTry: Main (pick a preset, type a name, pick “Only when asked”), Builder (status, Fix, Undo, Save), Inbox: a draft (Approve, Edit, Reject then I’ll reply or Try again, Take over, Hand back, send a text), Approvals (All, Workflows, Ava) and Website chat settings (the site builder tips, Copy)."
+    },
+    {
+      "id": "sample-data",
+      "x": 1520,
+      "y": -340,
+      "w": 720,
+      "text": "Sample data only: Lone Star HVAC & Roofing is a fictional client workspace of Go Biz Help, in Houston. Every screen is Tuesday, September 22, 10:40 AM Central Time, unless a board says otherwise. On every board Ava has 17 of 20 approvals (3 edited), 2 drafts waiting (Mike Johnson, Angela Brooks) and 1 conversation that needs a person (Tom Reyes). Linda Park booked through the website chat. lonestarhvac.com is a placeholder site, and people, numbers, prices and addresses are placeholders."
+    },
+    {
+      "id": "decisions",
+      "x": 7040,
+      "y": 0,
+      "w": 560,
+      "text": "For you to decide on this canvas:\n1. The preset names and one-line descriptions (Main).\n2. Ava’s first line and the hand-off line with its {expectation} wording (Builder; Autonomy, Limits and Hand-off).\n3. Whether to offer “Only when asked” at all, given the California rule. It stays in here, with a warning.\n4. The defaults: 20 approvals, drafts expire after 2 hours, 12 replies a day, 60% of the AI limit.\n5. The chat’s look: one colour, a round button and “Powered by HandsFreeOS” at the bottom.\n6. Whether the hand-off line waits for approval during training wheels. Here it goes out at once, because it’s your own fixed text."
+    },
+    {
+      "id": "assumptions",
+      "x": 7040,
+      "y": 760,
+      "w": 560,
+      "text": "Choices I made that the plan didn’t spell out:\n• Ava started from Appointment Coordinator, then Priya turned on Qualify, so her labels are Appointment Coordinator and Lead Qualifier. Respond is off because the Speed to lead workflow already texts new leads.\n• Progress is 17 of 20 approved (3 edited) everywhere, as in the seed plan.\n• The builder’s issues are ones Ava would really have: Install walkthrough can’t be booked online, and a thin knowledge base (2 roofing answers). “Booking needs a calendar” and “Texting isn’t set up” are shown for Bayou Plumbing’s new teammate, Riley.\n• Lone Star has no Qualified stage, so a qualified lead moves to Contacted in Sales.\n• Ava’s mark is a sparkle on violet, the colour Milestone 6 uses for AI, never initials or a face.\n• Approvals stays under Workflows until the Action Center (M8).\n• The chat’s colour is Lone Star’s red, #b42318.\n• On Activity, the run sheet is drawn beside the page so nothing is hidden. In the app it opens over the page."
+    },
+    {
+      "id": "chat-note",
+      "x": 6080,
+      "y": 4100,
+      "w": 420,
+      "text": "Website chat: the business pastes one script. The button and window come from app.handsfreeos.com and only open on the sites listed in Settings. Chats land in the inbox with the page they started on. Anyone can type a name into a chat, so Ava never reads a matched customer’s details back, and changes to existing visits go through a link sent to the contact on file."
+    },
+    {
+      "id": "phone-note",
+      "x": 3120,
+      "y": 5720,
+      "w": 380,
+      "text": "Phone: AI teammate is in the drawer (More). The builder’s modules become a list that opens full-screen forms, the rail folds into the card at the top, the test console opens full screen, and a draft’s actions sit in a sticky bar at the bottom."
+    }
+  ],
+  "launch": {
+    "view": "canvas"
+  }
+}
