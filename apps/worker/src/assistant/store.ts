@@ -1,6 +1,7 @@
 import { HfosError } from '@hfos/core/server';
 import { asWorker, rows, sql, type Db } from '@hfos/db/client';
 import type { AiUsage } from '@hfos/ai';
+import { aiBudget } from '../ai/budget';
 
 /** The worker's writes for the Assistant: threads, runs, messages and tool calls, inside one workspace. */
 export interface Scope {
@@ -226,18 +227,12 @@ export async function expireWaiting(db: Db, scope: Scope, threadId: string): Pro
   );
 }
 
-/** Every token the workspace's Assistant used today, in the workspace's own time zone. */
+/**
+ * Every AI token the workspace used today, in its own time zone: the Assistant's runs plus workflow AI
+ * steps, the AI builder and the knowledge base (app.ai_usage). One limit per workspace.
+ */
 export async function tokensToday(db: Db, scope: Scope, timezone: string): Promise<number> {
-  const [row] = await asWorker(db, scope, (tx) =>
-    rows<{ total: string | number | null }>(
-      tx,
-      sql`select coalesce(sum(input_tokens + output_tokens + cache_read_tokens + cache_write_tokens), 0) as total
-          from app.assistant_runs
-          where workspace_id = ${scope.workspaceId}
-            and started_at >= (date_trunc('day', now() at time zone ${timezone}) at time zone ${timezone})`,
-    ),
-  );
-  return Number(row?.total ?? 0);
+  return aiBudget.usedToday(db, scope, timezone);
 }
 
 export interface HistoryItem {

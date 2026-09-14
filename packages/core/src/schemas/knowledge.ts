@@ -171,6 +171,19 @@ export const KnowledgeDocumentAddInput = z.object({
 });
 export const KnowledgeDocumentAddOutput = z.object({ fileId: uuid, requested: z.literal(true) });
 
+/** Why a document's text is empty or cut short: a scanned PDF, a file too big or broken to read, or text over the limit. */
+export const KnowledgeDocumentNote = z.enum(['no_text', 'too_large', 'unreadable', 'truncated']);
+export type KnowledgeDocumentNote = z.infer<typeof KnowledgeDocumentNote>;
+export const KnowledgeDocumentSaveTextInput = z.object({
+  workspaceId: uuid,
+  fileId: uuid,
+  title: z.string().trim().min(1).max(200),
+  /** The text read from the file; empty when there was none to read. */
+  text: z.string().max(200_000),
+  note: KnowledgeDocumentNote.nullable().default(null),
+});
+export const KnowledgeDocumentSaveTextOutput = z.object({ itemId: uuid, created: z.boolean() });
+
 export const KnowledgeSourceSetInput = z.object({
   workspaceId: uuid,
   url: z.string().trim().min(1, 'Enter the website address.').max(2000),

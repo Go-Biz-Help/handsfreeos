@@ -180,6 +180,7 @@ async function main(): Promise<void> {
       key: process.env.WORKER_ENCRYPTION_KEY || randomBytes(32).toString('base64'),
     }),
     fetchUrl: createSafeFetch(),
+    ai: { provider: null, dailyTokens: 2_000_000 },
     workerId: `seed:${hostname()}:${process.pid}`,
     batchSize: 50,
     reservedOnly: true,

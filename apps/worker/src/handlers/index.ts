@@ -1,3 +1,6 @@
+import { onKnowledgeDocumentAdded } from '../knowledge/document';
+import { onKnowledgeScanRequested } from '../knowledge/scan';
+import { withWorkflows } from '../workflows/index';
 import {
   onAddedConfirm,
   onArmReminders,
@@ -38,9 +41,10 @@ import { onSeatFreed } from './waitlist';
 
 /**
  * Event type → handler, or several run in order in one transaction (a retry runs them all again). Events
- * without a handler are marked done untouched.
+ * without a handler are marked done untouched. withWorkflows appends the workflow dispatcher last to every
+ * event workflows start on, wait for or stop on (workflows/dispatch.ts).
  */
-export const handlers: HandlerMap = {
+export const handlers: HandlerMap = withWorkflows({
   'invitation.created': onInvitationCreated,
   'invitation.resend_requested': onInvitationResendRequested,
   'file.deleted': onFileDeleted,
@@ -80,4 +84,7 @@ export const handlers: HandlerMap = {
   'series.created': [onAppointmentChanged, onArmReminders],
   'series.cancelled': onAppointmentChanged,
   'waitlist.seat_freed': onSeatFreed,
-};
+  // The knowledge base: website scans and uploaded documents run as jobs (knowledge/scan.ts, document.ts).
+  'knowledge_scan.requested': onKnowledgeScanRequested,
+  'knowledge_document.added': onKnowledgeDocumentAdded,
+});

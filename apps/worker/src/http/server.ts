@@ -5,7 +5,9 @@ import { asWorker, rows, sql } from '@hfos/db/client';
 import Fastify, { type FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { registerAssistantRoutes } from '../assistant/routes';
+import { registerKnowledgeRoutes } from '../knowledge/routes';
 import { ProviderError } from '../telephony/provider';
+import { registerWorkflowRoutes } from '../workflows/index';
 import {
   authenticate,
   parseBody,
@@ -138,6 +140,8 @@ export async function buildHttpServer(deps: HttpDeps): Promise<FastifyInstance> 
   registerOAuthRoutes(app, deps);
   registerAssistantRoutes(app, deps, deps.assistant ?? null);
   await registerBookingRoutes(app, deps);
+  await registerKnowledgeRoutes(app, deps);
+  await registerWorkflowRoutes(app, deps);
   if (deps.testRoutes) registerTestRoutes(app, deps, deps.testRoutes);
 
   app.post('/v1/telephony/available-numbers', async (req) => {

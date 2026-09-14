@@ -1,0 +1,48 @@
+%PDF-1.4
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [4 0 R 6 0 R] /Count 2 >>
+endobj
+3 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>
+endobj
+4 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R >> >> /Contents 5 0 R >>
+endobj
+5 0 obj
+<< /Length 269 >>
+stream
+BT /F1 18 Tf 72 720 Td (Lone Star HVAC price list) Tj ET
+BT /F1 12 Tf 72 694 Td (AC tune-up: $89 per system.) Tj ET
+BT /F1 12 Tf 72 668 Td (Furnace safety check: $79.) Tj ET
+BT /F1 12 Tf 72 642 Td (Service call during business hours: $65, waived with any repair.) Tj ET
+endstream
+endobj
+6 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R >> >> /Contents 7 0 R >>
+endobj
+7 0 obj
+<< /Length 221 >>
+stream
+BT /F1 18 Tf 72 720 Td (Maintenance plans) Tj ET
+BT /F1 12 Tf 72 694 Td (Comfort Club: two tune-ups a year and priority scheduling for $15 a month.) Tj ET
+BT /F1 12 Tf 72 668 Td (Prices valid through December 2026.) Tj ET
+endstream
+endobj
+xref
+0 8
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000121 00000 n 
+0000000218 00000 n 
+0000000344 00000 n 
+0000000664 00000 n 
+0000000790 00000 n 
+trailer
+<< /Size 8 /Root 1 0 R >>
+startxref
+1062
+%%EOF

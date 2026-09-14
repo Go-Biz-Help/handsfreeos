@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { ScriptedProvider, type AiMessage } from '@hfos/ai';
+import { z } from 'zod';
+import { AiOutputError, parseStructured, ScriptedProvider, type AiMessage } from '@hfos/ai';
 
 const provider = new ScriptedProvider([
   {
@@ -61,5 +62,52 @@ describe('ScriptedProvider', () => {
     await expect(
       provider.stream({ system: 's', messages: ask('hello') }, { signal: stop.signal }),
     ).rejects.toMatchObject({ code: 'aborted', retryable: false });
+  });
+});
+
+describe('ScriptedProvider with structured requests', () => {
+  const Answer = z.object({
+    answer: z.string(),
+    usedItemIds: z.array(z.string()),
+    unanswered: z.boolean(),
+  });
+  const both = new ScriptedProvider([
+    { when: /hours/i, reply: () => 'We open at 7.' },
+    {
+      when: /hours/i,
+      json: (question, context) => ({
+        answer: `${question} (${context})`,
+        usedItemIds: [],
+        unanswered: false,
+      }),
+    },
+  ]);
+  const structured = { schema: { type: 'object' } };
+
+  it('answers a structured request from a rule with json, and a plain one from a rule with reply', async () => {
+    const turn = await both.stream({
+      system: 's',
+      context: 'profile',
+      messages: ask('What are your hours?'),
+      responseFormat: structured,
+    });
+    expect(turn.stopReason).toBe('end_turn');
+    expect(parseStructured(turn, Answer)).toEqual({
+      answer: 'What are your hours? (profile)',
+      usedItemIds: [],
+      unanswered: false,
+    });
+    expect((await both.stream({ system: 's', messages: ask('What are your hours?') })).text).toBe(
+      'We open at 7.',
+    );
+  });
+
+  it('falls back to prose when no rule answers in JSON, which parseStructured refuses', async () => {
+    const turn = await provider.stream({
+      system: 's',
+      messages: ask('hello'),
+      responseFormat: structured,
+    });
+    expect(() => parseStructured(turn, Answer)).toThrow(AiOutputError);
   });
 });

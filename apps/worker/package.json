@@ -9,7 +9,8 @@
     "lint": "eslint . --config ../../eslint.config.js",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "seed": "tsx scripts/seed.ts"
+    "seed": "tsx scripts/seed.ts",
+    "knowledge-site": "tsx scripts/knowledge-site.ts"
   },
   "dependencies": {
     "@fastify/cors": "^11.0.0",
@@ -25,6 +26,7 @@
     "papaparse": "^5.7.0",
     "pino": "^10.0.0",
     "sanitize-html": "^2.17.7",
+    "unpdf": "1.8.1",
     "zod": "^4.6.0"
   },
   "devDependencies": {

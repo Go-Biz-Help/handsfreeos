@@ -81,6 +81,12 @@ export interface WorkerEnv {
    * development and Playwright book from one address.
    */
   readonly bookingRateLimitFactor: number;
+  /**
+   * Local sites a website scan may read over plain http: exact loopback origins, such as the knowledge fixture
+   * site Playwright starts (scripts/knowledge-site.ts). Development and tests only: main.ts honours it only
+   * with the fake carrier, and production refuses it.
+   */
+  readonly fetchTestOrigins: readonly string[];
 }
 
 const list = (value: string | undefined): string[] =>
@@ -184,6 +190,22 @@ export function readEnv(env: NodeJS.ProcessEnv = process.env): WorkerEnv {
   if (production && turnstileSecretKey === '1x0000000000000000000000000000000AA')
     throw new Error('TURNSTILE_SECRET_KEY is Cloudflare’s test secret; use the real one');
 
+  const fetchTestOrigins = list(env.FETCH_TEST_ORIGINS);
+  if (production && fetchTestOrigins.length)
+    throw new Error('FETCH_TEST_ORIGINS is for development and tests only');
+  for (const origin of fetchTestOrigins) {
+    let u: URL | null = null;
+    try {
+      u = new URL(origin);
+    } catch {
+      // Reported below.
+    }
+    if (!u || u.origin !== origin || !['127.0.0.1', 'localhost', '[::1]'].includes(u.hostname))
+      throw new Error(
+        `FETCH_TEST_ORIGINS must list local origins like http://127.0.0.1:4190 (got ${origin})`,
+      );
+  }
+
   const reminder = env.UNANSWERED_ALERT_MS ? Number(env.UNANSWERED_ALERT_MS) : null;
   return {
     databaseUrl,
@@ -240,5 +262,6 @@ export function readEnv(env: NodeJS.ProcessEnv = process.env): WorkerEnv {
     assistantDailyTokens,
     turnstileSecretKey,
     bookingRateLimitFactor: production ? 1 : 10,
+    fetchTestOrigins,
   };
 }

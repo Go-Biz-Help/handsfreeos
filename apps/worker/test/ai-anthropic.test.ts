@@ -1,5 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import { AnthropicProvider, type AiRequest } from '@hfos/ai';
+import { z } from 'zod';
+import {
+  AiOutputError,
+  AnthropicProvider,
+  emptyUsage,
+  parseStructured,
+  structuredOutputSchema,
+  type AiRequest,
+  type AiTurn,
+} from '@hfos/ai';
 
 /** A streamed Messages API answer as the API sends it: server-sent events. */
 function sse(events: readonly (readonly [string, unknown])[]): Response {
@@ -198,5 +207,228 @@ describe('AnthropicProvider', () => {
       code: 'bad_request',
       retryable: false,
     });
+  });
+});
+
+/** A structured answer (output_config.format) as the API streams it: JSON text in pieces. */
+const JSON_TURN = [
+  [
+    'message_start',
+    {
+      type: 'message_start',
+      message: {
+        id: 'msg_test_2',
+        type: 'message',
+        role: 'assistant',
+        model: 'claude-sonnet-5',
+        content: [],
+        stop_reason: null,
+        stop_sequence: null,
+        usage: {
+          input_tokens: 410,
+          output_tokens: 1,
+          cache_read_input_tokens: 0,
+          cache_creation_input_tokens: 0,
+        },
+      },
+    },
+  ],
+  [
+    'content_block_start',
+    { type: 'content_block_start', index: 0, content_block: { type: 'text', text: '' } },
+  ],
+  [
+    'content_block_delta',
+    {
+      type: 'content_block_delta',
+      index: 0,
+      delta: { type: 'text_delta', text: '{"items":[{"kind":"fact","title":"Hours",' },
+    },
+  ],
+  [
+    'content_block_delta',
+    {
+      type: 'content_block_delta',
+      index: 0,
+      delta: {
+        type: 'text_delta',
+        text: '"body":"Monday to Friday, 7 AM to 6 PM.","tags":["hours"]}]}',
+      },
+    },
+  ],
+  ['content_block_stop', { type: 'content_block_stop', index: 0 }],
+  [
+    'message_delta',
+    {
+      type: 'message_delta',
+      delta: { stop_reason: 'end_turn', stop_sequence: null },
+      usage: { output_tokens: 38 },
+    },
+  ],
+  ['message_stop', { type: 'message_stop' }],
+] as const;
+
+const ITEMS_SCHEMA = {
+  type: 'object',
+  properties: {
+    items: {
+      type: 'array',
+      maxItems: 8,
+      items: {
+        type: 'object',
+        properties: {
+          kind: { type: 'string', enum: ['fact', 'faq', 'article'] },
+          title: { type: 'string', maxLength: 120, description: 'The fact’s name.' },
+          body: { type: 'string' },
+          tags: { type: 'array', items: { type: 'string' } },
+        },
+        required: ['kind', 'title', 'body', 'tags'],
+      },
+    },
+  },
+  required: ['items'],
+};
+
+const Items = z.object({
+  items: z
+    .array(
+      z.object({
+        kind: z.enum(['fact', 'faq', 'article']),
+        title: z.string().max(120),
+        body: z.string(),
+        tags: z.array(z.string()),
+      }),
+    )
+    .max(8),
+});
+
+describe('structured output', () => {
+  it('asks Claude for JSON in the schema (output_config.format) and parses the answer', async () => {
+    const { sent, fetch } = recording(() => sse(JSON_TURN));
+    const provider = new AnthropicProvider({
+      apiKey: 'test-key',
+      model: 'claude-sonnet-5',
+      fetch,
+      maxRetries: 0,
+    });
+    const turn = await provider.stream({
+      system: 'Suggest knowledge items.',
+      messages: [
+        { role: 'user', content: '<website_page url="https://x.example/">…</website_page>' },
+      ],
+      maxTokens: 4096,
+      responseFormat: { schema: ITEMS_SCHEMA },
+    });
+    expect(turn.stopReason).toBe('end_turn');
+    expect(turn.usage).toEqual({
+      inputTokens: 410,
+      outputTokens: 38,
+      cacheReadTokens: 0,
+      cacheWriteTokens: 0,
+    });
+    expect(parseStructured(turn, Items)).toEqual({
+      items: [
+        { kind: 'fact', title: 'Hours', body: 'Monday to Friday, 7 AM to 6 PM.', tags: ['hours'] },
+      ],
+    });
+
+    const body = sent[0]!.body;
+    expect(body).toMatchObject({ model: 'claude-sonnet-5', max_tokens: 4096, stream: true });
+    expect(body).not.toHaveProperty('tools');
+    // Every object closed, enums kept, and the limits the API doesn't enforce passed on as guidance.
+    expect(body['output_config']).toEqual({
+      format: {
+        type: 'json_schema',
+        schema: {
+          type: 'object',
+          properties: {
+            items: {
+              type: 'array',
+              description: '{maxItems: 8}',
+              items: {
+                type: 'object',
+                properties: {
+                  kind: { type: 'string', enum: ['fact', 'faq', 'article'] },
+                  title: { type: 'string', description: 'The fact’s name.\n\n{maxLength: 120}' },
+                  body: { type: 'string' },
+                  tags: { type: 'array', items: { type: 'string' } },
+                },
+                required: ['kind', 'title', 'body', 'tags'],
+                additionalProperties: false,
+              },
+            },
+          },
+          required: ['items'],
+          additionalProperties: false,
+        },
+      },
+    });
+  });
+
+  it('sends plain requests without output_config', async () => {
+    const { sent, fetch } = recording(() => sse(TOOL_TURN));
+    await new AnthropicProvider({
+      apiKey: 'k',
+      model: 'claude-sonnet-5',
+      fetch,
+      maxRetries: 0,
+    }).stream(REQUEST);
+    expect(sent[0]!.body).not.toHaveProperty('output_config');
+  });
+
+  it('keeps what structured outputs support and moves the rest into the description', () => {
+    expect(
+      structuredOutputSchema({
+        $schema: 'https://json-schema.org/draft/2020-12/schema',
+        type: 'object',
+        properties: {
+          when: { type: 'string', format: 'date-time' },
+          site: { type: 'string', format: 'idn-hostname' },
+          n: { type: 'integer', minimum: 1, maximum: 5 },
+          pick: { oneOf: [{ type: 'string', const: 'a' }, { type: 'null' }] },
+          list: { type: 'array', minItems: 1, items: { type: 'string' } },
+          many: {
+            type: 'array',
+            minItems: 2,
+            items: { type: 'object', additionalProperties: true },
+          },
+        },
+      }),
+    ).toEqual({
+      type: 'object',
+      properties: {
+        when: { type: 'string', format: 'date-time' },
+        site: { type: 'string', description: '{format: "idn-hostname"}' },
+        n: { type: 'integer', description: '{minimum: 1, maximum: 5}' },
+        pick: { anyOf: [{ type: 'string', const: 'a' }, { type: 'null' }] },
+        list: { type: 'array', minItems: 1, items: { type: 'string' } },
+        many: {
+          type: 'array',
+          description: '{minItems: 2}',
+          items: { type: 'object', properties: {}, additionalProperties: false },
+        },
+      },
+      additionalProperties: false,
+    });
+  });
+
+  it('refuses answers it can’t use: cut off, refused, not JSON, or the wrong shape', () => {
+    const turn = (text: string, stopReason: AiTurn['stopReason'] = 'end_turn'): AiTurn => ({
+      text,
+      toolCalls: [],
+      stopReason,
+      usage: emptyUsage,
+    });
+    expect(() => parseStructured(turn('{"items": ['), Items)).toThrow(AiOutputError);
+    expect(() => parseStructured(turn('{"items":[]}', 'max_tokens'), Items)).toThrow(/cut off/);
+    expect(() => parseStructured(turn('{"items":[]}', 'refusal'), Items)).toThrow(/declined/);
+    let issues: readonly string[] = [];
+    try {
+      parseStructured(turn('{"items":[{"kind":"poem","title":"x","body":"y","tags":[]}]}'), Items);
+    } catch (e) {
+      expect(e).toBeInstanceOf(AiOutputError);
+      issues = (e as AiOutputError).issues;
+    }
+    expect(issues[0]).toMatch(/^items\.0\.kind: /);
   });
 });

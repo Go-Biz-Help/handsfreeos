@@ -14,6 +14,7 @@ import {
   knowledgeScans,
   knowledgeSources,
   knowledgeSuggestions,
+  users,
 } from '@hfos/db/schema';
 import { HfosError } from '../errors';
 import { requireHuman } from '../kernel/actor';
@@ -25,6 +26,8 @@ import { emptyKnowledgeProfile, KnowledgeProfile, profileCompleteness } from '..
 import {
   KnowledgeDocumentAddInput,
   KnowledgeDocumentAddOutput,
+  KnowledgeDocumentSaveTextInput,
+  KnowledgeDocumentSaveTextOutput,
   KnowledgeImportFaqsInput,
   KnowledgeImportFaqsOutput,
   KnowledgeItemCreateInput,
@@ -462,6 +465,88 @@ export const knowledgeDocumentAdd = defineCommand({
       after: { file: f.name, title: title.slice(0, 200) },
     });
     return { fileId: f.id, requested: true as const };
+  },
+});
+
+/** What the audit log says when a document's text is empty or cut short. */
+const DOCUMENT_NOTES = {
+  no_text: 'No text found: it may be a scanned image',
+  too_large: 'Too big to read (over 5 MB)',
+  unreadable: 'The file couldn’t be read',
+  truncated: 'Only the first 100,000 characters were kept',
+} as const;
+
+export const knowledgeDocumentSaveText = defineCommand({
+  name: 'knowledge_document.save_text',
+  description:
+    'System: save the text read from an uploaded document as a draft document item, for a person to review and publish.',
+  risk: 1,
+  input: KnowledgeDocumentSaveTextInput,
+  output: KnowledgeDocumentSaveTextOutput,
+  permission: null,
+  scope: inWorkspace,
+  actors: ['system'],
+  emits: ['knowledge_item.created'],
+  async handler(ctx, input) {
+    const ws = ctx.scope.workspaceId!;
+    const [f] = await ctx.tx
+      .select({ id: files.id, deletedAt: files.deletedAt })
+      .from(files)
+      .where(and(eq(files.id, input.fileId), eq(files.workspaceId, ws)));
+    if (!f || f.deletedAt) throw HfosError.notFound('File not found.');
+    // A retry after the item was made finds it instead of adding a second one.
+    const [already] = await ctx.tx
+      .select({ id: knowledgeItems.id })
+      .from(knowledgeItems)
+      .where(
+        and(
+          eq(knowledgeItems.workspaceId, ws),
+          eq(knowledgeItems.fileId, f.id),
+          ne(knowledgeItems.status, 'archived'),
+        ),
+      );
+    if (already) return { itemId: already.id, created: false };
+    // The person who added the file, while they're still in the workspace.
+    const asked = ctx.actor.type === 'system' ? (ctx.actor.onBehalfOf ?? null) : null;
+    const [by] = asked
+      ? await ctx.tx.select({ id: users.id }).from(users).where(eq(users.id, asked))
+      : [];
+    const [row] = await ctx.tx
+      .insert(knowledgeItems)
+      .values({
+        workspaceId: ws,
+        kind: 'document',
+        title: input.title,
+        body: input.text,
+        status: 'draft',
+        source: 'manual',
+        fileId: f.id,
+        createdBy: by?.id ?? null,
+        updatedBy: by?.id ?? null,
+      })
+      .returning({ id: knowledgeItems.id });
+    if (!row) throw HfosError.forbidden();
+    await ctx.emit({
+      type: 'knowledge_item.created',
+      entityType: 'knowledge_item',
+      entityId: row.id,
+      payload: {
+        itemId: row.id,
+        kind: 'document',
+        status: 'draft',
+        source: 'manual',
+        fileId: f.id,
+        chars: input.text.length,
+        note: input.note,
+      },
+      after: {
+        title: input.title,
+        kind: 'document',
+        status: 'draft',
+        ...(input.note ? { note: DOCUMENT_NOTES[input.note] } : {}),
+      },
+    });
+    return { itemId: row.id, created: true };
   },
 });
 

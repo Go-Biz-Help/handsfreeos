@@ -3,6 +3,7 @@ import { AnthropicProvider } from '@hfos/ai';
 import { createTokenVerifier } from '@hfos/core/server';
 import { createDb } from '@hfos/db/client';
 import pino from 'pino';
+import { createAi } from './ai/provider';
 import { scriptedAssistant } from './assistant/scripted';
 import { createToolExecutor } from './assistant/tools-write';
 import { createBotCheck } from './booking/bot-check';
@@ -58,7 +59,12 @@ const services: WorkerServices = {
     key: env.encryptionKey,
     previousKeys: env.encryptionKeysPrevious,
   }),
-  fetchUrl: createSafeFetch(),
+  // Local test sites (FETCH_TEST_ORIGINS, for Playwright's website scan) only with the fake carrier, never in production.
+  fetchUrl: createSafeFetch({
+    testOrigins: !env.production && env.telephonyProvider === 'fake' ? env.fetchTestOrigins : [],
+  }),
+  // Workflow AI steps, the AI builder and the knowledge base: the Assistant's model and daily limit.
+  ai: createAi(env),
 };
 const workerId = `${hostname()}:${process.pid}`;
 const loopDeps = { ...services, workerId, batchSize: env.batchSize };

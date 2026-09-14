@@ -26,6 +26,8 @@ import { unansweredEmail } from './emails/templates';
 import { domainRecordInput, lapsedMessage, sharedAddress } from './handlers/email';
 import { advanceRegistrations, managers } from './handlers/telephony';
 import type { JobHandler, JobMap } from './jobs';
+import { knowledgeDocumentJob } from './knowledge/document';
+import { knowledgeScanJob } from './knowledge/scan';
 import { mailboxSync } from './mailbox/sync';
 import { errorMessage } from './outbox';
 import {
@@ -38,6 +40,7 @@ import {
 import { recordSystemEvent } from './system-event';
 import { loadAccount } from './telephony/accounts';
 import type { RegistrationKind } from './telephony/provider';
+import { workflowJobs } from './workflows/index';
 
 const localClock = (d: Date, timeZone: string) =>
   new Intl.DateTimeFormat('en-US', { timeZone, hour: 'numeric', minute: '2-digit' }).format(d);
@@ -287,6 +290,10 @@ export const jobs: JobMap = {
   'appointment.notice': appointmentNotice,
   'waitlist.offer': waitlistOfferJob,
   'waitlist.offer_expire': waitlistOfferExpire,
+  'knowledge.scan': knowledgeScanJob,
+  'knowledge.document': knowledgeDocumentJob,
+  // Workflows: each run's cursor, schedules, date triggers, releasing held runs, pruning old step logs.
+  ...workflowJobs,
 };
 
 /** Periodic jobs exist exactly once (their dedupe key keeps one pending row); the first run is an hour out. */

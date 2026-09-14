@@ -18,16 +18,19 @@ export interface ScriptRule {
     context: string,
   ) => readonly { name: string; arguments: Record<string, unknown> }[];
   /** The answer, given the question and each tool's result by tool name. */
-  readonly reply: (
+  readonly reply?: (
     question: string,
     results: Readonly<Record<string, string>>,
     context: string,
   ) => string;
+  /** For requests with a `responseFormat`: the object to answer with (sent back as JSON text). */
+  readonly json?: (question: string, context: string, request: AiRequest) => unknown;
 }
 
 /**
  * A stand-in model for tests and the browser suite: a question picks the first matching rule, which
- * calls its tools and then answers from their results. It streams its answer word by word.
+ * calls its tools and then answers from their results. It streams its answer word by word. A structured
+ * request (`responseFormat`) picks the first matching rule with `json`; others, the first with `reply`.
  */
 export class ScriptedProvider implements AiProvider {
   readonly id = 'scripted';
@@ -41,7 +44,10 @@ export class ScriptedProvider implements AiProvider {
   async stream(request: AiRequest, options: AiStreamOptions = {}): Promise<AiTurn> {
     if (options.signal?.aborted) throw new AiProviderError('Stopped', 'aborted', false);
     const question = latestQuestion(request.messages);
-    const rule = this.rules.find((r) => r.when.test(question));
+    const structured = !!request.responseFormat;
+    const rule = this.rules.find(
+      (r) => r.when.test(question) && (structured ? !!r.json : !!r.reply),
+    );
     const last = request.messages[request.messages.length - 1];
     const answering =
       !!last && Array.isArray(last.content) && last.content.some((c) => c.type === 'tool_result');
@@ -50,7 +56,7 @@ export class ScriptedProvider implements AiProvider {
     );
 
     const context = request.context ?? '';
-    const calls = rule?.calls && !answering ? rule.calls(question, context) : [];
+    const calls = rule?.calls && !answering && !structured ? rule.calls(question, context) : [];
     if (calls.length) {
       const toolCalls: AiToolCall[] = calls.map((c, i) => ({
         id: `scripted_${request.messages.length}_${i}`,
@@ -60,9 +66,11 @@ export class ScriptedProvider implements AiProvider {
       return { text: '', toolCalls, stopReason: 'tool_use', usage: usage(inputTokens, 20) };
     }
 
-    const text = rule
-      ? rule.reply(question, resultsByTool(request.messages), context)
-      : this.fallback;
+    const text = rule?.json
+      ? JSON.stringify(rule.json(question, context, request))
+      : rule?.reply
+        ? rule.reply(question, resultsByTool(request.messages), context)
+        : this.fallback;
     const words = text.split(/(?<= )/);
     for (const w of words) {
       if (options.signal?.aborted) throw new AiProviderError('Stopped', 'aborted', false);

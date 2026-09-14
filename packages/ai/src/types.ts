@@ -29,6 +29,14 @@ export interface AiToolDefinition {
   readonly inputSchema: Record<string, unknown>;
 }
 
+/**
+ * Answer with a JSON object matching this JSON Schema instead of prose (structured output). Keywords a
+ * provider can't enforce are passed on as guidance; `parseStructured` checks the answer against zod.
+ */
+export interface AiResponseFormat {
+  readonly schema: Record<string, unknown>;
+}
+
 export interface AiRequest {
   /** Instructions that stay the same between questions; providers cache them where they can. */
   readonly system: string;
@@ -37,6 +45,8 @@ export interface AiRequest {
   readonly messages: readonly AiMessage[];
   readonly tools?: readonly AiToolDefinition[];
   readonly maxTokens?: number;
+  /** The answer's text is JSON in this shape (see `parseStructured`). */
+  readonly responseFormat?: AiResponseFormat;
 }
 
 export interface AiToolCall {

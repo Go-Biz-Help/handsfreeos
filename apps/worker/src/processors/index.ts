@@ -1,4 +1,5 @@
 import type { ProcessorMap } from '../deliveries';
+import { workflowProcessors } from '../workflows/index';
 import { onEmailEvent, onInboundEmail } from './postmark';
 import { onInboundText, onTextStatus } from './twilio-messaging';
 import {
@@ -24,4 +25,6 @@ export const processors: ProcessorMap = {
   'twilio:voice.transcription': onTranscription,
   'postmark:email.inbound': onInboundEmail,
   'postmark:email.event': onEmailEvent,
+  // A workflow's inbound webhook: match or create the customer, start the run.
+  ...workflowProcessors,
 };

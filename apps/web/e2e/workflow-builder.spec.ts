@@ -190,7 +190,6 @@ test('workflow builder: recipe, steps, variables, move, fix, undo, reload, confl
  * engine carries out, so this runs once the engine is in (M6 step 4).
  */
 test('workflow builder: History restores a published version', async ({ page }) => {
-  test.skip(true, 'Publishing needs the workflow engine (M6 step 4).');
   test.setTimeout(180_000);
   const owner = await signUpAndConfirm(page, 'wf-history');
   const workspaceId = await createBusiness(page, { name: 'Lone Star HVAC & Roofing' });

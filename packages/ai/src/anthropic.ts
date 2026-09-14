@@ -1,4 +1,5 @@
 import Anthropic from '@anthropic-ai/sdk';
+import { structuredOutputSchema } from './json-schema';
 import {
   AiProviderError,
   type AiContent,
@@ -20,7 +21,11 @@ export interface AnthropicOptions {
   readonly fetch?: typeof fetch;
 }
 
-/** Claude through the Messages API, streamed. Temperature is left alone: Sonnet 5 refuses it. */
+/**
+ * Claude through the Messages API, streamed. Temperature is left alone: Sonnet 5 refuses it. A request with
+ * a `responseFormat` uses structured outputs (`output_config.format`, a JSON schema; generally available,
+ * supported by Sonnet 5), so the answer's text is JSON in that shape.
+ */
 export class AnthropicProvider implements AiProvider {
   readonly id = 'anthropic';
   readonly model: string;
@@ -55,6 +60,16 @@ export class AnthropicProvider implements AiProvider {
           system,
           messages: request.messages.map(toAnthropic),
           ...(tools.length ? { tools } : {}),
+          ...(request.responseFormat
+            ? {
+                output_config: {
+                  format: {
+                    type: 'json_schema' as const,
+                    schema: structuredOutputSchema(request.responseFormat.schema),
+                  },
+                },
+              }
+            : {}),
         },
         { signal: options.signal },
       );

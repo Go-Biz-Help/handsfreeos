@@ -1,4 +1,5 @@
 import { eq } from 'drizzle-orm';
+import type { PgUpdateSetSource } from 'drizzle-orm/pg-core';
 import { asWorker, rows, sql, type SystemScope } from '@hfos/db/client';
 import { scheduledJobs } from '@hfos/db/schema';
 import { backoffMs, errorMessage, MAX_ATTEMPTS } from './outbox';
@@ -38,6 +39,16 @@ export interface JobStats {
 }
 
 /**
+ * A wake asked for while the job ran: scheduleJob with pullEarlier can't move a running job (its run_at is
+ * already past), so it leaves `_wakeAt` in the payload instead (see scheduleJob in core). Finishing never
+ * leaves the job later than that wake, and a job that would be done runs again at it.
+ */
+const wakeAt = sql`(${scheduledJobs.payload} ->> '_wakeAt')::timestamptz`;
+const withoutWake = sql`${scheduledJobs.payload} - '_wakeAt'`;
+const notLaterThanWake = (at: Date) =>
+  sql`least(${at.toISOString()}::timestamptz, coalesce(${wakeAt}, ${at.toISOString()}::timestamptz))`;
+
+/**
  * The queue seam: delayed and periodic work lives in app.scheduled_jobs and is claimed like the outbox.
  * pgmq (or another queue) can replace the storage later behind the same two functions.
  */
@@ -66,7 +77,7 @@ export async function processJobs(deps: JobDeps): Promise<JobStats> {
     );
     if (!job) continue;
     const handler = deps.jobs[job.kind];
-    const finish = (set: Partial<typeof scheduledJobs.$inferInsert>) =>
+    const finish = (set: PgUpdateSetSource<typeof scheduledJobs>) =>
       asWorker(deps.db, {}, (tx) =>
         tx
           .update(scheduledJobs)
@@ -92,10 +103,20 @@ export async function processJobs(deps: JobDeps): Promise<JobStats> {
         log: deps.log.child({ jobId: id, kind: job.kind }),
       });
       if (result?.rescheduleAt) {
-        await finish({ runAt: result.rescheduleAt, lastError: null });
+        await finish({
+          runAt: notLaterThanWake(result.rescheduleAt),
+          payload: withoutWake,
+          lastError: null,
+        });
         stats.rescheduled++;
       } else {
-        await finish({ status: 'done', finishedAt: new Date(), lastError: null });
+        await finish({
+          status: sql`(case when ${wakeAt} is null then 'done' else 'pending' end)::app.job_status`,
+          runAt: sql`coalesce(${wakeAt}, ${scheduledJobs.runAt})`,
+          finishedAt: sql`case when ${wakeAt} is null then now() end`,
+          payload: withoutWake,
+          lastError: null,
+        });
         stats.done++;
       }
     } catch (e) {
@@ -106,7 +127,8 @@ export async function processJobs(deps: JobDeps): Promise<JobStats> {
       await finish({
         status: failed ? 'failed' : 'pending',
         attempts,
-        runAt: new Date(Date.now() + backoffMs(attempts)),
+        runAt: notLaterThanWake(new Date(Date.now() + backoffMs(attempts))),
+        payload: withoutWake,
         lastError: message.slice(0, 2000),
         ...(failed ? { finishedAt: new Date() } : {}),
       });

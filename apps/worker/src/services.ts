@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import type { AiProvider } from '@hfos/ai';
 import type { RequestMeta, SystemActor } from '@hfos/core/server';
 import type { Db } from '@hfos/db/client';
 import type { Logger } from 'pino';
@@ -40,6 +41,11 @@ export interface WorkerServices {
    * private address, every redirect checked again (http/safe-fetch.ts).
    */
   readonly fetchUrl: SafeFetch;
+  /**
+   * The model behind workflow AI steps, the AI builder and the knowledge base (none without a key), and the
+   * daily token limit per workspace they share with the Assistant (ai/ask.ts, ai/budget.ts).
+   */
+  readonly ai: { readonly provider: AiProvider | null; readonly dailyTokens: number };
 }
 
 export interface TenantScope {

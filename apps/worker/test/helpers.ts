@@ -28,7 +28,12 @@ export type TestServices = WorkerServices & {
  * `fetchOrigins` lets fetchUrl reach local fixture sites (`http://127.0.0.1:<port>`); everything else stays refused.
  */
 export function testServices(
-  opts: { reminderOverrideMs?: number | null; fetchOrigins?: readonly string[] } = {},
+  opts: {
+    reminderOverrideMs?: number | null;
+    fetchOrigins?: readonly string[];
+    /** The model for AI steps, the builder and the knowledge base (default: none). */
+    ai?: WorkerServices['ai'];
+  } = {},
 ): TestServices {
   const env = testEnv();
   const log = pino({ level: 'silent' });
@@ -67,5 +72,6 @@ export function testServices(
       key: randomBytes(32).toString('base64'),
     }),
     fetchUrl: createSafeFetch({ testOrigins: opts.fetchOrigins ?? [] }),
+    ai: opts.ai ?? { provider: null, dailyTokens: 2_000_000 },
   };
 }

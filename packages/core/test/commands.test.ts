@@ -274,6 +274,7 @@ describe('registry', () => {
       'knowledge_item.archive',
       'knowledge_item.import_faqs',
       'knowledge_document.add',
+      'knowledge_document.save_text',
       'knowledge_source.set',
       'knowledge_scan.start',
       'knowledge_suggestion.accept',

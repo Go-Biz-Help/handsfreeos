@@ -1,0 +1,6 @@
+# The stand-in website for the knowledge base's scan tests ({{origin}} is the test server).
+User-agent: *
+Disallow: /private/
+Allow: /private/open-house
+
+Sitemap: {{origin}}/sitemap.xml

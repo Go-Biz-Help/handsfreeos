@@ -239,6 +239,10 @@ export async function findOrCreateConversation(
  * Queues delayed work. A pending job with the same kind and key wins (the first reminder time stands), unless
  * `pullEarlier` is set: then the pending job keeps whichever time is sooner, so a reminder re-armed for an
  * earlier start moves up. Jobs re-read their state when they run, so running early only makes them wait again.
+ *
+ * A job that is running right now (locked, and already due) can't move earlier, and its runner would write the
+ * handler's own next time over it when it finishes. So a pull-earlier then is remembered as `_wakeAt` in the
+ * payload, and the runner (apps/worker/src/jobs.ts) never leaves the job later than that.
  */
 export async function scheduleJob(
   tx: Tx,
@@ -253,7 +257,11 @@ export async function scheduleJob(
   opts: { readonly pullEarlier?: boolean } = {},
 ): Promise<void> {
   const onConflict = opts.pullEarlier
-    ? sql`do update set run_at = least(app.scheduled_jobs.run_at, excluded.run_at)`
+    ? sql`do update set run_at = least(app.scheduled_jobs.run_at, excluded.run_at),
+          payload = case when app.scheduled_jobs.locked_at is not null and app.scheduled_jobs.run_at <= now()
+            then app.scheduled_jobs.payload || jsonb_build_object('_wakeAt', least(
+              coalesce((app.scheduled_jobs.payload ->> '_wakeAt')::timestamptz, excluded.run_at), excluded.run_at))
+            else app.scheduled_jobs.payload end`
     : sql`do nothing`;
   await tx.execute(
     sql`insert into app.scheduled_jobs (organization_id, workspace_id, kind, dedupe_key, run_at, payload)

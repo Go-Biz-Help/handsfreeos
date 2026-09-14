@@ -69,7 +69,8 @@ export type Resolver = (hostname: string) => Promise<readonly LookupAddress[]>;
 export interface SafeFetchPolicy {
   /**
    * Tests only: exact origins (`http://127.0.0.1:43210`) that may use plain http on a loopback address, for
-   * fixture sites. Never filled from the environment.
+   * fixture sites: the worker tests, and Playwright through FETCH_TEST_ORIGINS (loopback only, with the fake
+   * carrier, refused in production; see env.ts and main.ts).
    */
   readonly testOrigins?: readonly string[];
   /** Tests only: stands in for DNS. */
