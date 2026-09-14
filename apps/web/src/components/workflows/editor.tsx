@@ -18,8 +18,9 @@ import {
   Undo2,
   Upload,
 } from 'lucide-react';
+import dynamic from 'next/dynamic';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -51,6 +52,13 @@ import { Note } from './panels/fields';
 import { StepList } from './step-list';
 
 type RailTab = 'step' | 'checks' | 'test';
+type EditorMode = 'steps' | 'canvas';
+
+/** The canvas and its libraries load only when someone opens it, and only in the browser. */
+const WorkflowCanvas = dynamic(() => import('./canvas/canvas').then((m) => m.WorkflowCanvas), {
+  ssr: false,
+  loading: () => <CanvasLoading />,
+});
 
 export interface WorkflowEditorProps {
   readonly workspaceId: string;
@@ -86,6 +94,12 @@ export function WorkflowEditor(props: WorkflowEditorProps) {
   const def = draft.definition;
   const catalogs = props.catalogs as WorkflowCatalogs;
   const wide = useMatches('(min-width: 1024px)');
+  /** Under 768px the canvas only views; editing happens in Steps. */
+  const phone = !useMatches('(min-width: 768px)');
+  const searchParams = useSearchParams();
+  const [mode, setMode] = useState<EditorMode>(() =>
+    searchParams.get('mode') === 'canvas' ? 'canvas' : 'steps',
+  );
 
   const [now] = useState(() => Date.now());
   const issues = useMemo(() => validateWorkflow(def, catalogs, now), [def, catalogs, now]);
@@ -111,12 +125,12 @@ export function WorkflowEditor(props: WorkflowEditorProps) {
       setTab('step');
       if (!wide) setSheet(id ? 'step' : null);
       const params = new URLSearchParams(window.location.search);
-      params.set('mode', 'steps');
+      params.set('mode', mode);
       if (id) params.set('step', id);
       else params.delete('step');
       window.history.replaceState(null, '', `?${params.toString()}`);
     },
-    [wide],
+    [wide, mode],
   );
 
   // Undo and Redo from the keyboard, except while typing (fields keep their own undo).
@@ -143,9 +157,26 @@ export function WorkflowEditor(props: WorkflowEditorProps) {
   }, [draft]);
 
   /** "Move to…" opens over the page, so a phone's step sheet closes first. */
-  const openMove = (stepId: string) => {
+  const openMove = useCallback((stepId: string) => {
     setSheet(null);
     setMoveId(stepId);
+  }, []);
+  /** The canvas edits the way the step list does; one object, so a save doesn't redraw it. */
+  const canvasEditing = useMemo(
+    () =>
+      canManage
+        ? { apply: draft.apply, catalogs, workflowId: workflow.id, onMoveTo: openMove }
+        : undefined,
+    [canManage, draft.apply, catalogs, workflow.id, openMove],
+  );
+
+  /** Steps or Canvas: both edit this one draft, so switching never saves anything, and the selection stays. */
+  const switchMode = (next: EditorMode) => {
+    if (next === mode) return;
+    setMode(next);
+    const params = new URLSearchParams(window.location.search);
+    params.set('mode', next);
+    window.history.replaceState(null, '', `?${params.toString()}`);
   };
 
   const values = useMemo(
@@ -305,20 +336,17 @@ export function WorkflowEditor(props: WorkflowEditorProps) {
 
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
           <div className="flex min-w-0 items-center gap-3 max-sm:w-full">
-            <Segmented
+            <Segmented<EditorMode | 'describe'>
               ariaLabel="Editor"
-              value="steps"
-              onChange={() => {}}
+              value={mode}
+              onChange={(next) => {
+                if (next !== 'describe') switchMode(next);
+              }}
               className="max-sm:w-full"
               fill={!wide}
               options={[
                 { value: 'steps', label: 'Steps', testId: 'mode-steps' },
-                {
-                  value: 'canvas',
-                  label: 'Canvas',
-                  disabled: true,
-                  title: 'The canvas is coming soon',
-                },
+                { value: 'canvas', label: 'Canvas', testId: 'mode-canvas' },
                 {
                   value: 'describe',
                   label: 'Describe',
@@ -329,7 +357,9 @@ export function WorkflowEditor(props: WorkflowEditorProps) {
             />
             {canManage ? (
               <span className="hidden text-xs text-text-3 2xl:inline">
-                Drag a step by its handle, or select it and press Alt + ↑ or ↓
+                {mode === 'canvas'
+                  ? 'Same draft as Steps. Drag a step onto a + to move it.'
+                  : 'Drag a step by its handle, or select it and press Alt + ↑ or ↓'}
               </span>
             ) : (
               <span className="text-xs text-text-3">
@@ -427,26 +457,43 @@ export function WorkflowEditor(props: WorkflowEditorProps) {
         ) : null}
 
         <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-[minmax(0,1fr)_336px]">
-          <div className="min-w-0 overflow-x-auto rounded-card border border-border bg-card-2 px-3 pb-3 pt-3 md:px-4">
-            <StepList
-              definition={def}
-              names={catalogs}
-              issues={issues}
-              selectedId={selected}
-              onSelect={select}
-              phone={!wide}
-              editing={
-                canManage
-                  ? {
-                      apply: draft.apply,
-                      catalogs,
-                      workflowId: workflow.id,
-                      onMoveTo: setMoveId,
-                    }
-                  : undefined
-              }
-            />
-          </div>
+          {mode === 'canvas' ? (
+            <div
+              className="relative h-[calc(100dvh-280px)] min-h-[380px] min-w-0 overflow-hidden rounded-card border border-border md:h-[calc(100dvh-196px)] md:min-h-[520px]"
+              data-testid="canvas-frame"
+            >
+              <WorkflowCanvas
+                definition={def}
+                names={catalogs}
+                issues={issues}
+                selectedId={selected}
+                onSelect={select}
+                phone={phone}
+                editing={canvasEditing}
+              />
+            </div>
+          ) : (
+            <div className="min-w-0 overflow-x-auto rounded-card border border-border bg-card-2 px-3 pb-3 pt-3 md:px-4">
+              <StepList
+                definition={def}
+                names={catalogs}
+                issues={issues}
+                selectedId={selected}
+                onSelect={select}
+                phone={!wide}
+                editing={
+                  canManage
+                    ? {
+                        apply: draft.apply,
+                        catalogs,
+                        workflowId: workflow.id,
+                        onMoveTo: setMoveId,
+                      }
+                    : undefined
+                }
+              />
+            </div>
+          )}
 
           {wide ? (
             <Card className="overflow-hidden lg:sticky lg:top-4" data-testid="workflow-rail">
@@ -483,10 +530,26 @@ export function WorkflowEditor(props: WorkflowEditorProps) {
               className="pb-6"
             >
               <div data-testid="step-sheet">
-                {sheet === 'checks' ? checks : panel}
+                {sheet === 'checks' ? (
+                  checks
+                ) : mode === 'canvas' && phone ? (
+                  // The phone canvas only views, so a tapped step's settings open read-only.
+                  <EditorProvider
+                    value={{
+                      ...context,
+                      readOnly: true,
+                      apply: () => ({ ok: false, message: 'Edit this in Steps.', error: null }),
+                    }}
+                  >
+                    {panel}
+                  </EditorProvider>
+                ) : (
+                  panel
+                )}
                 {sheet === 'step' ? (
                   <div className="mt-4 flex gap-2">
                     {canManage &&
+                    !(mode === 'canvas' && phone) &&
                     selected &&
                     selected !== TRIGGER_ID &&
                     selected !== SETTINGS_ID ? (
@@ -665,6 +728,15 @@ function TestPlaceholder() {
         <Play className="h-4 w-4" strokeWidth={1.75} />
         Run test
       </Button>
+    </div>
+  );
+}
+
+/** While the canvas's code loads, the first time it opens. */
+function CanvasLoading() {
+  return (
+    <div className="flex h-full items-center justify-center bg-bg text-[13px] text-text-3">
+      Loading the canvas…
     </div>
   );
 }

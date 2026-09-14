@@ -69,3 +69,48 @@ test('on a phone: the workflow list, and a step edited in the bottom sheet', asy
   await page.reload();
   await expect(page.getByTestId('step-s_stlwait2')).toContainText('Wait 3 days');
 });
+
+/**
+ * On a phone the canvas only views: no "+", menus or dragging, a note that editing happens in Steps, and a
+ * tapped step opens read-only in the bottom sheet. Pan and zoom still work, and nothing is saved.
+ */
+test('on a phone: the canvas is view only', async ({ page }) => {
+  await signUpAndConfirm(page, 'wf-mobile-canvas');
+  const workspaceId = await createBusiness(page, { name: 'Bayou Plumbing Co.' });
+  await page.goto(`/app/w/${workspaceId}/workflows/new`);
+  await page.getByTestId('recipe-speed_to_lead').click();
+  await page.getByTestId('workflow-create').click();
+  await expect(page).toHaveURL(/\/workflows\/[0-9a-f-]{36}$/);
+  await expect(page.getByTestId('workflow-editor')).toBeVisible();
+
+  await page.getByTestId('mode-canvas').click();
+  const canvas = page.getByTestId('workflow-canvas');
+  await expect(canvas).toHaveAttribute('data-ready', 'true');
+  await expect(canvas).toHaveAttribute('data-view-only', 'true');
+  await expect(page.getByTestId('canvas-view-only')).toHaveText(
+    'View only on a phone. Edit in Steps, or open this on a computer.',
+  );
+  const box = (await canvas.boundingBox())!;
+  expect(box.x + box.width).toBeLessThanOrEqual(390);
+  await expect(canvas.locator('[data-testid^="add-"]')).toHaveCount(0);
+  await expect(canvas.locator('[data-testid^="node-menu-"]')).toHaveCount(0);
+  await expect(canvas.locator('[data-testid^="goto-handle-"]')).toHaveCount(0);
+  await expect(canvas.locator('.react-flow__node.draggable')).toHaveCount(0);
+
+  // A tapped step opens read-only in the bottom sheet, without Move to….
+  await page.getByTestId('canvas-node-s_stlwait1').tap();
+  const sheet = page.getByTestId('step-sheet');
+  await expect(sheet.getByTestId('panel-title')).toHaveText('Wait');
+  await expect(sheet.getByTestId('wait-amount')).not.toBeEditable();
+  await expect(sheet.getByTestId('sheet-move')).toHaveCount(0);
+  await expect(sheet.getByTestId('step-menu')).toHaveCount(0);
+  await sheet.getByTestId('sheet-done').click();
+  await expect(sheet).toBeHidden();
+
+  // Zoom still works, and looking saved nothing.
+  const level = page.getByTestId('canvas-zoom-level');
+  const was = (await level.textContent())!;
+  await page.getByTestId('canvas-zoom-in').click();
+  await expect(level).not.toHaveText(was);
+  await expect(page.getByTestId('save-state')).toHaveAttribute('data-state', 'saved');
+});
