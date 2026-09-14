@@ -108,12 +108,24 @@ function refusal(e: unknown): string {
   return errorMessage(e, 'That change isn’t allowed.');
 }
 
+/**
+ * Where a draft saves and reloads: a workflow's by default; an agency template's through
+ * workflow_template.save_draft (lib/agency/draft.ts), with the same revision rules.
+ */
+export interface DraftAdapter {
+  /** Saves ops made against `baseRevision`; a stale base rejects with the API's `revision_conflict`. */
+  save(baseRevision: number, ops: readonly WorkflowOp[]): Promise<{ revision: number }>;
+  /** The newest saved draft ("Load their version"). */
+  load(): Promise<{ revision: number; definition: unknown }>;
+}
+
 interface StoreOptions {
   readonly workspaceId: string;
   readonly workflowId: string;
   readonly revision: number;
   readonly definition: WorkflowDefinition;
   readonly readOnly: boolean;
+  readonly adapter?: DraftAdapter;
 }
 
 class DraftStore {
@@ -290,16 +302,18 @@ class DraftStore {
     if (this.state !== 'retrying') this.state = 'saving';
     this.emit();
     try {
-      const out = unwrap(
-        await apiBrowser().POST('/v1/commands/workflow.save_draft', {
-          body: {
-            workspaceId: this.opts.workspaceId,
-            workflowId: this.opts.workflowId,
-            baseRevision: this.revision,
-            ops: batch as unknown as WorkflowSaveDraftBody['ops'],
-          },
-        }),
-      );
+      const out = this.opts.adapter
+        ? await this.opts.adapter.save(this.revision, batch)
+        : unwrap(
+            await apiBrowser().POST('/v1/commands/workflow.save_draft', {
+              body: {
+                workspaceId: this.opts.workspaceId,
+                workflowId: this.opts.workflowId,
+                baseRevision: this.revision,
+                ops: batch as unknown as WorkflowSaveDraftBody['ops'],
+              },
+            }),
+          );
       try {
         this.confirmed = applyWorkflowOps(this.confirmed, batch).definition;
       } catch {
@@ -431,14 +445,16 @@ class DraftStore {
 
   loadTheirs = async (): Promise<void> => {
     try {
-      const out = unwrap(
-        await apiBrowser().POST('/v1/queries/workflow.get', {
-          body: { workspaceId: this.opts.workspaceId, workflowId: this.opts.workflowId },
-        }),
-      );
+      const out = this.opts.adapter
+        ? await this.opts.adapter.load()
+        : unwrap(
+            await apiBrowser().POST('/v1/queries/workflow.get', {
+              body: { workspaceId: this.opts.workspaceId, workflowId: this.opts.workflowId },
+            }),
+          ).workflow;
       if (this.inflight) return;
-      this.server = { revision: out.workflow.revision, raw: out.workflow.definition };
-      this.adopt(parseDefinition(out.workflow.definition), out.workflow.revision);
+      this.server = { revision: out.revision, raw: out.definition };
+      this.adopt(parseDefinition(out.definition), out.revision);
     } catch (e) {
       toast.error(errorMessage(e));
     }
@@ -465,8 +481,10 @@ export function useWorkflowDraft(opts: {
   definition: unknown;
   /** Members read workflows; only owners and admins change them. */
   readOnly?: boolean;
+  /** Where saves go, when not the workflow's own (an agency template's). */
+  adapter?: DraftAdapter;
 }): WorkflowDraft {
-  const { workspaceId, workflowId, revision, definition, readOnly = false } = opts;
+  const { workspaceId, workflowId, revision, definition, readOnly = false, adapter } = opts;
   const [store] = useState(
     () =>
       new DraftStore({
@@ -475,6 +493,7 @@ export function useWorkflowDraft(opts: {
         revision,
         definition: parseDefinition(definition),
         readOnly,
+        adapter,
       }),
   );
   const snap = useSyncExternalStore(store.subscribe, store.getSnapshot, store.getSnapshot);

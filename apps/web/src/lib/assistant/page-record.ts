@@ -2,7 +2,8 @@
 import { usePathname, useSearchParams } from 'next/navigation';
 import { useMemo } from 'react';
 
-export type PageRecordType = 'person' | 'company' | 'lead' | 'conversation' | 'appointment';
+export type PageRecordType =
+  'person' | 'company' | 'lead' | 'conversation' | 'appointment' | 'workflow' | 'workflow_run';
 
 /** The record on screen. Each question carries it, so "text him" means the customer whose page is open. */
 export interface PageRecord {
@@ -16,12 +17,15 @@ const ROUTES: readonly (readonly [PageRecordType, string])[] = [
   ['company', 'customers/companies'],
   ['lead', 'leads'],
   ['conversation', 'inbox'],
+  ['workflow_run', 'workflows/runs'],
+  ['workflow', 'workflows'],
 ];
 
 /**
  * /app/w/[ws]/customers/people/[id] is a person, customers/companies/[id] a company, leads/[id] a lead,
- * inbox/[id] a conversation, and /calendar?appt=[id] an appointment (the calendar keeps the open one in the
- * address bar). Every other page has no record.
+ * inbox/[id] a conversation, workflows/[id] a workflow, workflows/runs/[id] a run of one, and
+ * /calendar?appt=[id] an appointment (the calendar keeps the open one in the address bar). Every other page
+ * has no record.
  */
 export function pageRecord(
   pathname: string,

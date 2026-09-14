@@ -21,6 +21,15 @@ const humanize = (key: string) => {
   return words.charAt(0).toUpperCase() + words.slice(1);
 };
 
+/**
+ * A placeholder's label from its key. A saved template's keys lead with their kind (`stage_estimate_sent`,
+ * from extractPlaceholders), which the label leaves out: "Estimate sent", as the business knows it.
+ */
+function labelFor(key: string, kind: RefKind): string {
+  const bare = key.startsWith(`${kind}_`) ? key.slice(kind.length + 1) : key;
+  return humanize(bare || key);
+}
+
 /** The placeholders still in a definition, in order of first use. */
 export function placeholdersIn(def: WorkflowDefinition): WorkflowPlaceholder[] {
   const out = new Map<string, WorkflowPlaceholder>();
@@ -29,7 +38,7 @@ export function placeholdersIn(def: WorkflowDefinition): WorkflowPlaceholder[] {
       out.set(site.value.$ph, {
         key: site.value.$ph,
         kind: site.kind,
-        label: humanize(site.value.$ph),
+        label: labelFor(site.value.$ph, site.kind),
       });
   return [...out.values()];
 }

@@ -335,6 +335,8 @@ export const WorkflowTestOutput = z.object({
   revision: z.int(),
   mode: WorkflowTestModeValue,
   requested: z.literal(true),
+  /** The request's event: the test run the engine starts carries it (`workflow.run_list {triggerEventId}`). */
+  eventId: uuid,
 });
 
 export const WorkflowProposalApplyInput = z.object({
@@ -351,6 +353,37 @@ export const WorkflowProposalApplyOutput = z.object({
   created: z.boolean(),
   changes: z.array(z.string()),
   issues: z.array(WorkflowIssueOut),
+});
+
+/** System (the AI builder): a proposal's ops, made against a draft revision or for a new workflow. */
+export const WorkflowProposalCreateInput = z
+  .object({
+    workspaceId: uuid,
+    /** null: a new workflow. */
+    workflowId: uuid.nullable(),
+    /** The draft revision the ops were made against (null for a new workflow). */
+    baseRevision: baseRevision.nullable(),
+    /** What the person asked for. */
+    prompt: z.string().trim().min(1).max(4000),
+    ops: WorkflowOpList,
+    /** The AI's own summary of the change. */
+    summary: z.string().trim().max(4000).nullable().default(null),
+    /** What was asked for that workflows can't do. */
+    unsupported: z
+      .array(z.string().trim().min(1).max(500))
+      .max(20)
+      .default(() => []),
+    /** The person who asked. */
+    createdBy: uuid,
+  })
+  .refine((v) => (v.workflowId === null) === (v.baseRevision === null), {
+    error:
+      'A proposal for a workflow names the revision it was made against; a new one names none.',
+    path: ['baseRevision'],
+  });
+export const WorkflowProposalCreateOutput = z.object({
+  proposalId: uuid,
+  expiresAt: isoDateTime,
 });
 
 // ---- Workflow queries ----
@@ -422,6 +455,8 @@ export const WorkflowRunListInput = z.object({
   includeTests: z.boolean().default(false),
   /** Test runs only (the Runs page's "Tests"); wins over includeTests. */
   onlyTests: z.boolean().default(false),
+  /** The run an event started, such as a test request (`workflow.test` answers with its event id). */
+  triggerEventId: uuid.optional(),
   /** Runs that started in this window. */
   startedAfter: isoDateTime.optional(),
   startedBefore: isoDateTime.optional(),
@@ -637,4 +672,54 @@ export const WorkflowTemplateGetOutput = z.object({
       installedAt: isoDateTime.nullable(),
     }),
   ),
+});
+
+export const WorkflowTemplateSaveDraftInput = z.object({
+  organizationId: uuid,
+  templateId: uuid,
+  /** The revision the ops were made against; a newer save in between is a 409 revision_conflict. */
+  baseRevision,
+  ops: WorkflowOpList,
+});
+export const WorkflowTemplateSaveDraftOutput = z.object({
+  templateId: uuid,
+  revision: z.int(),
+  /** False when the ops changed nothing (no new revision). */
+  changed: z.boolean(),
+  changes: z.array(z.string()),
+  /** The template's own checks; its placeholders aren't problems (each business maps them). */
+  issues: z.array(WorkflowIssueOut),
+});
+
+/** System: one pushed install turned into a draft in its business. */
+export const WorkflowTemplateInstallInput = z.object({ workspaceId: uuid, installId: uuid });
+export const WorkflowTemplateInstallOutput = z.object({
+  installId: uuid,
+  status: TemplateInstallStatusValue,
+  workflowId: uuid.nullable(),
+  version: z.int().nullable(),
+  /** A new draft was made (false: the business already had its copy, which is left as it is). */
+  created: z.boolean(),
+  /** Placeholders left for the business to pick. */
+  unmapped: z.array(z.string()),
+  error: z.string().nullable(),
+});
+
+/** System, on a person's request: the newest template version applied to a business's copy, as a draft. */
+export const WorkflowTemplateApplyUpdateInput = z.object({
+  workspaceId: uuid,
+  workflowId: uuid,
+  baseRevision,
+});
+export const WorkflowTemplateApplyUpdateOutput = z.object({
+  workflowId: uuid,
+  revision: z.int(),
+  version: z.int(),
+  changed: z.boolean(),
+  changes: z.array(z.string()),
+  /** The business's own changes put back on top of the new version, and those that no longer fit. */
+  kept: z.array(z.string()),
+  dropped: z.array(z.string()),
+  unmapped: z.array(z.string()),
+  issues: z.array(WorkflowIssueOut),
 });

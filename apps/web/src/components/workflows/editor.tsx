@@ -1,6 +1,7 @@
 'use client';
 import {
   parseDefinition,
+  templateIssues,
   validateWorkflow,
   type WorkflowCatalogs,
   type WorkflowIssue,
@@ -20,26 +21,29 @@ import {
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { toast } from 'sonner';
+import { SaveAsTemplateButton } from '@/components/agency/save-as-template';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Segmented } from '@/components/ui/segmented';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useTemplateSimulation } from '@/lib/agency/simulate';
 import { ApiError, apiBrowser, errorMessage, unwrap } from '@/lib/api/client';
 import type { WorkflowCatalogsOut, WorkflowDetail, WorkflowVersion } from '@/lib/api/types';
 import { useLiveRefresh } from '@/lib/realtime/live-provider';
 import { useMatches } from '@/lib/use-media';
 import { runOverlays, isLive } from '@/lib/workflows/run-words';
 import { sampleValues, type SampleContact } from '@/lib/workflows/sample';
-import { useWorkflowDraft, type WorkflowDraft } from '@/lib/workflows/use-draft';
+import { useWorkflowDraft, type DraftAdapter, type WorkflowDraft } from '@/lib/workflows/use-draft';
 import { useWorkflowTest } from '@/lib/workflows/use-test';
 import { useWide } from '@/lib/workflows/use-wide';
 import { cn } from '@/lib/utils';
 import { ChecksCount, ChecksPanel, issueCounts } from './checks';
 import { SourceChips, WorkflowStatusBadge } from './chips';
+import { DescribePane } from './describe';
 import {
   EditorProvider,
   SETTINGS_ID,
@@ -55,7 +59,7 @@ import { StepList } from './step-list';
 import { TestPanel } from './test-panel';
 
 type RailTab = 'step' | 'checks' | 'test';
-type EditorMode = 'steps' | 'canvas';
+type EditorMode = 'steps' | 'canvas' | 'describe';
 
 /** The canvas and its libraries load only when someone opens it, and only in the browser. */
 const WorkflowCanvas = dynamic(() => import('./canvas/canvas').then((m) => m.WorkflowCanvas), {
@@ -76,6 +80,16 @@ export interface WorkflowEditorProps {
   readonly sample: SampleContact | null;
   /** From `?step=`. */
   readonly initialStep: string | null;
+  /**
+   * 'template': an agency template (components/agency/template-editor.tsx). It saves through `adapter`, has no
+   * rename, History or Publish of its own (the header shows `actions`), is checked for its structure only
+   * (placeholders are what it's made of), and tests with Simulate in the browser.
+   */
+  readonly kind?: 'workflow' | 'template';
+  readonly adapter?: DraftAdapter;
+  readonly actions?: (draft: WorkflowDraft) => ReactNode;
+  /** The breadcrumb's link (Workflows by default). */
+  readonly crumb?: { readonly href: string; readonly label: string };
 }
 
 /**
@@ -85,6 +99,7 @@ export interface WorkflowEditorProps {
  */
 export function WorkflowEditor(props: WorkflowEditorProps) {
   const { workspaceId, workflow, canManage } = props;
+  const template = props.kind === 'template';
   const router = useRouter();
   useLiveRefresh(['workflow']);
   const draft = useWorkflowDraft({
@@ -93,6 +108,7 @@ export function WorkflowEditor(props: WorkflowEditorProps) {
     revision: workflow.revision,
     definition: workflow.definition,
     readOnly: !canManage,
+    adapter: props.adapter,
   });
   const def = draft.definition;
   const catalogs = props.catalogs as WorkflowCatalogs;
@@ -101,21 +117,45 @@ export function WorkflowEditor(props: WorkflowEditorProps) {
   /** Under 768px the canvas only views; editing happens in Steps. */
   const phone = !useMatches('(min-width: 768px)');
   const searchParams = useSearchParams();
-  const [mode, setMode] = useState<EditorMode>(() =>
+  const [mode, setMode] = useState<EditorMode>(() => {
+    const asked = searchParams.get('mode');
+    return asked === 'canvas' || (asked === 'describe' && !template) ? asked : 'steps';
+  });
+  /** The mode Describe previews in: Steps or Canvas, whichever was used last. */
+  const [lastView, setLastView] = useState<'steps' | 'canvas'>(() =>
     searchParams.get('mode') === 'canvas' ? 'canvas' : 'steps',
   );
+  // A proposal opened while the editor is showing (the Assistant's card links here): Describe shows it.
+  const proposalParam = searchParams.get('proposal');
+  const [seenProposal, setSeenProposal] = useState(proposalParam);
+  if (proposalParam !== seenProposal) {
+    setSeenProposal(proposalParam);
+    if (proposalParam && !template && mode !== 'describe') setMode('describe');
+  }
 
   const [now] = useState(() => Date.now());
-  const issues = useMemo(() => validateWorkflow(def, catalogs, now), [def, catalogs, now]);
+  const issues = useMemo(
+    () => (template ? templateIssues(def, now) : validateWorkflow(def, catalogs, now)),
+    [template, def, catalogs, now],
+  );
   const { errors } = issueCounts(issues);
   /** This exact draft passed a test: its saved revision, with nothing unsaved. */
   const tested = workflow.tested && !draft.unsaved && draft.revision === workflow.testedRevision;
-  const test = useWorkflowTest({
+  const engineTest = useWorkflowTest({
     workspaceId,
     workflowId: workflow.id,
     flush: draft.flush,
     onEnded: () => router.refresh(),
   });
+  // A template has no business to run in: its test is a Simulate walked in the browser.
+  const simulation = useTemplateSimulation({
+    def,
+    revision: draft.revision,
+    timeZone: catalogs.timeZone,
+    businessName: props.businessName,
+    workflow: { id: workflow.id, name: workflow.name },
+  });
+  const test = template ? simulation : engineTest;
 
   const [selected, setSelected] = useState<string | null>(props.initialStep);
   const [tab, setTab] = useState<RailTab>('step');
@@ -199,6 +239,7 @@ export function WorkflowEditor(props: WorkflowEditorProps) {
   const switchMode = (next: EditorMode) => {
     if (next === mode) return;
     setMode(next);
+    if (next !== 'describe') setLastView(next);
     const params = new URLSearchParams(window.location.search);
     params.set('mode', next);
     window.history.replaceState(null, '', `?${params.toString()}`);
@@ -276,6 +317,7 @@ export function WorkflowEditor(props: WorkflowEditorProps) {
       unsaved={draft.unsaved}
       errors={errors}
       canManage={canManage}
+      simulateOnly={template}
     />
   );
   const checks = (
@@ -300,8 +342,8 @@ export function WorkflowEditor(props: WorkflowEditorProps) {
     <EditorProvider value={context}>
       <div data-testid="workflow-editor" data-workflow-id={workflow.id} className="pb-6">
         <div className="mb-1.5 flex items-center gap-1 text-xs text-text-3">
-          <Link href={base} className="text-accent-text hover:underline">
-            Workflows
+          <Link href={props.crumb?.href ?? base} className="text-accent-text hover:underline">
+            {props.crumb?.label ?? 'Workflows'}
           </Link>
           <ChevronRight className="h-3.5 w-3.5" strokeWidth={1.5} />
           <span className="truncate">{name}</span>
@@ -311,7 +353,7 @@ export function WorkflowEditor(props: WorkflowEditorProps) {
           <div className="flex min-w-0 flex-wrap items-center gap-2.5">
             <InlineName
               name={name}
-              canEdit={canManage}
+              canEdit={canManage && !template}
               onSave={async (next) => {
                 const prev = name;
                 setName(next);
@@ -327,36 +369,51 @@ export function WorkflowEditor(props: WorkflowEditorProps) {
                 }
               }}
             />
-            <WorkflowStatusBadge status={workflow.status} />
-            <SourceChips source={workflow.source} />
-            <span className="text-[13px] text-text-3" data-testid="version-note">
-              {workflow.activeVersion
-                ? `Version ${workflow.activeVersion.version} is live`
-                : 'Not published yet'}
-            </span>
+            {template ? null : (
+              <>
+                <WorkflowStatusBadge status={workflow.status} />
+                <SourceChips source={workflow.source} />
+                <span className="text-[13px] text-text-3" data-testid="version-note">
+                  {workflow.activeVersion
+                    ? `Version ${workflow.activeVersion.version} is live`
+                    : 'Not published yet'}
+                </span>
+              </>
+            )}
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => setHistoryOpen(true)}
-              data-testid="history-open"
-            >
-              <History className="h-4 w-4" strokeWidth={1.5} />
-              History
-            </Button>
-            {canManage ? (
-              <PublishControls
-                workspaceId={workspaceId}
-                workflow={workflow}
-                versions={props.versions}
-                def={def}
-                names={catalogs}
-                draft={draft}
-                errors={errors}
-                tested={tested}
-              />
-            ) : null}
+            {template ? (
+              props.actions?.(draft)
+            ) : (
+              <>
+                <SaveAsTemplateButton
+                  workspaceId={workspaceId}
+                  workflowId={workflow.id}
+                  workflowName={name}
+                />
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => setHistoryOpen(true)}
+                  data-testid="history-open"
+                >
+                  <History className="h-4 w-4" strokeWidth={1.5} />
+                  History
+                </Button>
+                {canManage ? (
+                  <PublishControls
+                    workspaceId={workspaceId}
+                    workflow={workflow}
+                    versions={props.versions}
+                    def={def}
+                    names={catalogs}
+                    draft={draft}
+                    errors={errors}
+                    tested={tested}
+                  />
+                ) : null}
+              </>
+            )}
           </div>
         </div>
 
@@ -365,9 +422,7 @@ export function WorkflowEditor(props: WorkflowEditorProps) {
             <Segmented<EditorMode | 'describe'>
               ariaLabel="Editor"
               value={mode}
-              onChange={(next) => {
-                if (next !== 'describe') switchMode(next);
-              }}
+              onChange={switchMode}
               className="max-sm:w-full"
               fill={!wide}
               options={[
@@ -376,16 +431,19 @@ export function WorkflowEditor(props: WorkflowEditorProps) {
                 {
                   value: 'describe',
                   label: 'Describe',
-                  disabled: true,
-                  title: 'Describe it and AI edits the steps: coming soon',
+                  testId: 'mode-describe',
+                  disabled: template,
+                  ...(template ? { title: 'Describe works on a business’s own workflows' } : {}),
                 },
               ]}
             />
             {canManage ? (
               <span className="hidden text-xs text-text-3 2xl:inline">
-                {mode === 'canvas'
-                  ? 'Same draft as Steps. Drag a step onto a + to move it.'
-                  : 'Drag a step by its handle, or select it and press Alt + ↑ or ↓'}
+                {mode === 'describe'
+                  ? 'Ask for a change in plain words. You see exactly what changes first.'
+                  : mode === 'canvas'
+                    ? 'Same draft as Steps. Drag a step onto a + to move it.'
+                    : 'Drag a step by its handle, or select it and press Alt + ↑ or ↓'}
               </span>
             ) : (
               <span className="text-xs text-text-3">
@@ -490,8 +548,30 @@ export function WorkflowEditor(props: WorkflowEditorProps) {
           </Button>
         </div>
 
-        <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-[minmax(0,1fr)_336px]">
-          {mode === 'canvas' ? (
+        <div
+          className={cn(
+            'grid grid-cols-1 items-start gap-5',
+            mode !== 'describe' && 'lg:grid-cols-[minmax(0,1fr)_336px]',
+          )}
+        >
+          {mode === 'describe' ? (
+            // Describe has its own two columns: the request and proposal, and the preview.
+            <DescribePane
+              workspaceId={workspaceId}
+              workflowId={workflow.id}
+              draft={draft}
+              catalogs={catalogs}
+              canManage={canManage}
+              selectedId={selected}
+              onSelect={setSelected}
+              previewMode={lastView}
+              onPreviewMode={setLastView}
+              wide={wide}
+              phone={phone}
+              liveVersion={workflow.activeVersion?.version ?? null}
+              initialProposalId={searchParams.get('proposal')}
+            />
+          ) : mode === 'canvas' ? (
             <div
               className="relative h-[calc(100dvh-280px)] min-h-[380px] min-w-0 overflow-hidden rounded-card border border-border md:h-[calc(100dvh-196px)] md:min-h-[520px]"
               data-testid="canvas-frame"
@@ -530,7 +610,7 @@ export function WorkflowEditor(props: WorkflowEditorProps) {
             </div>
           )}
 
-          {wide ? (
+          {wide && mode !== 'describe' ? (
             // Server-rendered on a desktop (no pop-in); CSS hides it below 1024px until a phone unmounts it.
             <Card
               className="hidden overflow-hidden lg:sticky lg:top-4 lg:block"

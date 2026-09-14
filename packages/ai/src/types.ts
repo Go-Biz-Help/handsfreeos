@@ -27,6 +27,8 @@ export interface AiToolDefinition {
   readonly name: string;
   readonly description: string;
   readonly inputSchema: Record<string, unknown>;
+  /** The provider holds the call's input to the schema exactly (strict tool use); the schema must allow it. */
+  readonly strict?: boolean;
 }
 
 /**

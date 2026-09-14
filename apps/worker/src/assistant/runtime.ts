@@ -114,6 +114,9 @@ const STEP_LABEL: Record<string, string> = {
   update_task: 'Changing the task',
   complete_task: 'Completing the task',
   add_note: 'Adding the note',
+  list_workflows: 'Looking at workflows',
+  draft_workflow: 'Drafting the workflow',
+  search_knowledge: 'Searching your knowledge base',
 };
 const stepLabel = (tool: string) => STEP_LABEL[tool] ?? 'Preparing it for your OK';
 

@@ -475,6 +475,7 @@ export const workflowRunList = defineQuery({
             ${input.status?.length ? sql`and r.status::text = any(${textArray(input.status)})` : sql``}
             ${input.personId ? sql`and r.person_id = ${input.personId}` : sql``}
             ${input.onlyTests ? sql`and r.is_test` : input.includeTests ? sql`` : sql`and not r.is_test`}
+            ${input.triggerEventId ? sql`and r.trigger_event_id = ${input.triggerEventId}` : sql``}
             ${input.startedAfter ? sql`and r.started_at >= ${input.startedAfter}::timestamptz` : sql``}
             ${input.startedBefore ? sql`and r.started_at < ${input.startedBefore}::timestamptz` : sql``}
             ${cursor ? sql`and (${SORT_KEY(sql`r.started_at`)}, r.id) < (${cursor.sort}, ${cursor.id}::uuid)` : sql``}

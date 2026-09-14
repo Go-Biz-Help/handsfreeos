@@ -18,6 +18,8 @@ import {
   WorkflowCreateOutput,
   WorkflowProposalApplyInput,
   WorkflowProposalApplyOutput,
+  WorkflowProposalCreateInput,
+  WorkflowProposalCreateOutput,
   WorkflowPublishInput,
   WorkflowPublishOutput,
   WorkflowRefInput,
@@ -632,7 +634,7 @@ export const workflowTest = defineCommand({
     const { issues } = await workflowIssues(ctx.tx, ws, definition);
     if (hasBlockingWorkflowIssues(issues))
       throw workflowIssuesError(issues, 'Fix the problems in this workflow before testing it.');
-    await ctx.emit({
+    const eventId = await ctx.emit({
       type: 'workflow.test_requested',
       entityType: 'workflow',
       entityId: row.id,
@@ -656,7 +658,70 @@ export const workflowTest = defineCommand({
       revision: row.revision,
       mode: input.mode,
       requested: true as const,
+      eventId,
     };
+  },
+});
+
+export const workflowProposalCreate = defineCommand({
+  name: 'workflow_proposal.create',
+  description:
+    'System (the AI builder): store a proposal until someone applies it or it expires. Its ops must apply to the draft revision it names, or to a blank workflow for a new one.',
+  risk: 1,
+  input: WorkflowProposalCreateInput,
+  output: WorkflowProposalCreateOutput,
+  permission: null,
+  scope: inWorkspace,
+  actors: ['system'],
+  emits: ['workflow_proposal.created'],
+  async handler(ctx, input) {
+    const ws = ctx.scope.workspaceId!;
+    let base = blankDefinition();
+    let name: string | null = null;
+    if (input.workflowId) {
+      const current = await loadWorkflow(ctx.tx, ws, input.workflowId);
+      assertNotArchived(current.row);
+      if (current.row.revision !== input.baseRevision)
+        throw HfosError.conflict(
+          'The workflow changed since this was drafted. Ask again.',
+          'proposal_stale',
+        );
+      base = current.definition;
+      name = current.row.name;
+    }
+    // Nothing is stored that can't be applied as it stands.
+    applyOps(base, input.ops);
+    const [row] = await ctx.tx
+      .insert(workflowProposals)
+      .values({
+        workspaceId: ws,
+        workflowId: input.workflowId,
+        baseRevision: input.baseRevision,
+        prompt: input.prompt,
+        ops: input.ops as unknown as (typeof workflowProposals.$inferInsert)['ops'],
+        summary: input.summary,
+        unsupported: input.unsupported,
+        createdBy: input.createdBy,
+      })
+      .returning({ id: workflowProposals.id, expiresAt: workflowProposals.expiresAt });
+    if (!row) throw HfosError.forbidden();
+    await ctx.emit({
+      type: 'workflow_proposal.created',
+      entityType: 'workflow_proposal',
+      entityId: row.id,
+      payload: {
+        proposalId: row.id,
+        workflowId: input.workflowId,
+        baseRevision: input.baseRevision,
+        opCount: input.ops.length,
+        unsupported: input.unsupported.length,
+      },
+      after: {
+        ...(name ? { name } : {}),
+        summary: input.summary ?? input.prompt.slice(0, 200),
+      },
+    });
+    return { proposalId: row.id, expiresAt: row.expiresAt.toISOString() };
   },
 });
 

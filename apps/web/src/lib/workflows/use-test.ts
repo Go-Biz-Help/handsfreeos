@@ -141,7 +141,6 @@ export function useWorkflowTest(opts: {
           toast.error('Your latest changes aren’t saved yet, so the test didn’t start.');
           return;
         }
-        const before = new Set((await newestTests()).map((r) => r.id));
         const body: WorkflowTestBody = {
           workspaceId,
           workflowId,
@@ -149,13 +148,23 @@ export function useWorkflowTest(opts: {
           personId,
           ...(Object.keys(assume).length ? { assume } : {}),
         };
-        unwrap(await apiBrowser().POST('/v1/commands/workflow.test', { body }));
+        const requested = unwrap(await apiBrowser().POST('/v1/commands/workflow.test', { body }));
         const since = Date.now();
         setStartingSince(since);
-        // The engine starts the run a moment later; find it by being new.
+        // The engine starts the run a moment later, carrying the request's event.
         while (alive.current && Date.now() - since < START_TIMEOUT_MS) {
           await sleep(POLL_MS);
-          const fresh = (await newestTests()).find((r) => !before.has(r.id));
+          const [fresh] = unwrap(
+            await apiBrowser().POST('/v1/queries/workflow.run_list', {
+              body: {
+                workspaceId,
+                workflowId,
+                onlyTests: true,
+                triggerEventId: requested.eventId,
+                limit: 1,
+              },
+            }),
+          ).items;
           if (fresh) {
             endedFor.current = null;
             await load(fresh.id);

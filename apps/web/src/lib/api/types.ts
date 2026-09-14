@@ -143,6 +143,7 @@ export type WorkflowRunStep = WorkflowRunGet['steps'][number];
 export type WorkflowApproval = WorkflowRunGet['approvals'][number];
 export type WorkflowStats = Ok<'/v1/queries/workflow.stats'>;
 export type WorkflowTestBody = Body<'/v1/commands/workflow.test'>;
+export type WorkflowProposal = Ok<'/v1/queries/workflow.proposal_get'>['proposal'];
 
 // Milestone 6: the knowledge base
 export type KnowledgeProfileGet = Ok<'/v1/queries/knowledge.profile'>;
@@ -159,3 +160,15 @@ export type KnowledgeScan = NonNullable<KnowledgeScanGet['scan']>;
 export type KnowledgeSuggestionList = Ok<'/v1/queries/knowledge_suggestion.list'>;
 export type KnowledgeSuggestion = KnowledgeSuggestionList['items'][number];
 export type KnowledgeItemListBody = Body<'/v1/queries/knowledge_item.list'>;
+
+// Milestone 6: the agency area (templates and knowledge packs)
+export type WorkflowTemplateList = Ok<'/v1/queries/workflow_template.list'>;
+export type WorkflowTemplateSummary = WorkflowTemplateList['items'][number];
+export type WorkflowTemplateGet = Ok<'/v1/queries/workflow_template.get'>;
+export type WorkflowTemplateDetail = WorkflowTemplateGet['template'];
+export type WorkflowTemplateInstall = WorkflowTemplateGet['installs'][number];
+export type WorkflowTemplateVersion = WorkflowTemplateGet['versions'][number];
+export type WorkflowTemplateSaveDraftBody = Body<'/v1/commands/workflow_template.save_draft'>;
+export type KnowledgePackList = Ok<'/v1/queries/knowledge_pack.list'>;
+export type KnowledgePack = KnowledgePackList['items'][number];
+export type KnowledgePackItem = KnowledgePack['items'][number];

@@ -13,6 +13,7 @@ export * from './calendar/load';
 export * from './calendar/booking';
 export * from './calendar/reminders';
 export * from './workflows/load';
+export * from './workflows/template-update';
 export * from './knowledge/search';
 import { commands } from './commands/index';
 import { createRegistry } from './kernel/registry';

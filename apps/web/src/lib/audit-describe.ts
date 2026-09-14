@@ -449,6 +449,25 @@ function describeAction(e: AuditEntry): string {
       return `updated the knowledge pack ${name(e)}${e.after?.version ? ` to version ${String(e.after.version)}` : ''}`;
     case 'knowledge_pack.push':
       return `sent the knowledge pack ${name(e)} to ${s(e.after?.businesses) || 'client businesses'}`;
+    // The agency's workflow templates (and the engine installing and updating them in a business)
+    case 'workflow_template.create_from_workflow':
+      return `saved ${s(e.after?.from) ? `the workflow “${s(e.after?.from)}”` : 'a workflow'} as the template ${name(e)}`;
+    case 'workflow_template.save_draft':
+      return `edited the template ${name(e)}`;
+    case 'workflow_template.publish':
+      return `published the template ${name(e)}${e.after?.version ? ` version ${String(e.after.version)}` : ''}`;
+    case 'workflow_template.push':
+      return `pushed the template ${name(e)}${e.after?.version ? ` version ${String(e.after.version)}` : ''} to ${s(e.after?.businesses) || 'client businesses'}`;
+    case 'workflow_template.install':
+      if (s(e.after?.error))
+        return `couldn’t install the template ${name(e)}: ${s(e.after?.error)}`;
+      return e.entityType === 'workflow'
+        ? `added ${wfName(e)} from an agency template`
+        : `installed the template ${name(e)}${e.after?.version ? ` version ${String(e.after.version)}` : ''}`;
+    case 'workflow_template.apply_update':
+      return e.after?.version
+        ? `updated ${wfName(e)} to its template’s version ${String(e.after.version)}`
+        : wfDraftSentence(e);
     // Milestone 6: workflows (a workflow's own steps read "Workflow: Speed to lead sent a text … via workflow")
     case 'workflow.create':
       return `created the workflow ${wfName(e)}${s(e.after?.source) ? ` (${s(e.after?.source)})` : ''}`;
@@ -456,6 +475,10 @@ function describeAction(e: AuditEntry): string {
     case 'workflow.restore_version':
     case 'workflow_proposal.apply':
       return wfDraftSentence(e);
+    case 'workflow_proposal.create':
+      return s(e.after?.name)
+        ? `asked the AI builder for a change to ${wfName(e)}`
+        : 'asked the AI builder to draft a new workflow';
     case 'workflow.rename':
       return `renamed the workflow “${s(e.before?.name)}” to “${s(e.after?.name)}”`;
     case 'workflow.publish':

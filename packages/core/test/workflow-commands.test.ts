@@ -37,6 +37,7 @@ import {
   workflowList,
   workflowPause,
   workflowProposalApply,
+  workflowProposalCreate,
   workflowProposalGet,
   workflowPublish,
   workflowRemoveContact,
@@ -54,7 +55,7 @@ import {
   workflowTest,
   workflowVersionGet,
 } from '../src/server';
-import { admin, ask, expectHfos, run } from './calendar-helpers';
+import { admin, ask, expectHfos, run, runSystem } from './calendar-helpers';
 
 let owner: TestUser, member: TestUser, outsider: TestUser;
 let wsId: string, orgId: string, otherWsId: string, otherOrgId: string;
@@ -780,15 +781,93 @@ describe('proposals and tests', () => {
     });
   });
 
+  it('stores an AI builder proposal (the system only) whose ops apply as they stand', async () => {
+    const w = await blank('Builder proposals');
+    const scope = { workspaceId: wsId, organizationId: orgId };
+    const input = {
+      workspaceId: wsId,
+      workflowId: w.id,
+      baseRevision: w.revision,
+      prompt: 'Add a follow-up task, and book them in',
+      ops: [addStep(task('s_prop0101', 'Follow up'))],
+      summary: 'Adds a follow-up task.',
+      unsupported: ['Workflows can’t book appointments for customers yet.'],
+      createdBy: owner.id,
+    };
+    const created = await runSystem(workflowProposalCreate, input, scope);
+    expect(created).toEqual({ proposalId: expect.any(String), expiresAt: expect.any(String) });
+    const { proposal } = await ask(
+      workflowProposalGet,
+      { workspaceId: wsId, proposalId: created.proposalId },
+      member,
+    );
+    expect(proposal).toMatchObject({
+      workflowId: w.id,
+      baseRevision: w.revision,
+      prompt: input.prompt,
+      summary: 'Adds a follow-up task.',
+      unsupported: input.unsupported,
+      stale: false,
+      appliedAt: null,
+      createdBy: { id: owner.id, fullName: 'Dale Owner' },
+    });
+    expect(proposal.changes).toEqual([
+      'Add a step to the main path: Create a task “Follow up” for no one',
+    ]);
+    const [ev] = await eventsOf(created.proposalId, 'workflow_proposal.created');
+    expect(ev!.payload).toMatchObject({ workflowId: w.id, opCount: 1, unsupported: 1 });
+
+    // People apply proposals; only the system stores them.
+    await expectHfos(() => run(workflowProposalCreate, input, owner), 'forbidden', 403);
+    // Made against an older revision, or with ops that don't apply, it isn't stored.
+    await expectHfos(
+      () => runSystem(workflowProposalCreate, { ...input, baseRevision: w.revision - 1 }, scope),
+      'proposal_stale',
+      409,
+    );
+    await expectHfos(
+      () =>
+        runSystem(
+          workflowProposalCreate,
+          { ...input, ops: [{ op: 'delete_step', stepId: 's_nothere1' }] },
+          scope,
+        ),
+      'workflow_op_invalid',
+      400,
+    );
+    // A new workflow names no revision.
+    const fresh = await runSystem(
+      workflowProposalCreate,
+      {
+        ...input,
+        workflowId: null,
+        baseRevision: null,
+        ops: [{ op: 'set_trigger', trigger: { kind: 'event', event: 'lead.created' } }],
+      },
+      scope,
+    );
+    expect(fresh.proposalId).not.toBe(created.proposalId);
+    await expectHfos(
+      () => runSystem(workflowProposalCreate, { ...input, workflowId: null }, scope),
+      'validation',
+      400,
+    );
+  });
+
   it('asks the engine for a test of the draft; a draft with problems is refused', async () => {
     const w = await blank('Tests');
-    expect(
-      await run(
-        workflowTest,
-        { workspaceId: wsId, workflowId: w.id, mode: 'simulate', personId: dale },
-        owner,
-      ),
-    ).toEqual({ workflowId: w.id, revision: w.revision, mode: 'simulate', requested: true });
+    const requested = await run(
+      workflowTest,
+      { workspaceId: wsId, workflowId: w.id, mode: 'simulate', personId: dale },
+      owner,
+    );
+    expect(requested).toEqual({
+      workflowId: w.id,
+      revision: w.revision,
+      mode: 'simulate',
+      requested: true,
+      eventId: expect.any(String),
+    });
     const [ev] = await eventsOf(w.id, 'workflow.test_requested');
     expect(ev!.payload).toMatchObject({
       revision: w.revision,
@@ -796,6 +875,31 @@ describe('proposals and tests', () => {
       personId: dale,
       requestedBy: owner.id,
     });
+    const [byId] = await admin()
+      .select({ type: events.eventType })
+      .from(events)
+      .where(eq(events.id, requested.eventId));
+    expect(byId).toEqual({ type: 'workflow.test_requested' });
+    // The run the engine starts for it carries the event, so the editor finds it by the id it got back.
+    const [testRun] = await rows<{ id: string }>(
+      admin(),
+      sql`insert into app.workflow_runs (workspace_id, workflow_id, is_test, test_mode, test_revision, test_definition,
+            trigger_event_id, dedupe_key)
+          values (${wsId}, ${w.id}, true, 'simulate', ${w.revision}, '{}'::jsonb, ${requested.eventId},
+            ${`test:${requested.eventId}`})
+          returning id`,
+    );
+    await rows(
+      admin(),
+      sql`insert into app.workflow_runs (workspace_id, workflow_id, is_test, test_mode, test_revision, test_definition, dedupe_key)
+          values (${wsId}, ${w.id}, true, 'simulate', ${w.revision}, '{}'::jsonb, ${randomUUID()})`,
+    );
+    const found = await ask(
+      workflowRunList,
+      { workspaceId: wsId, workflowId: w.id, onlyTests: true, triggerEventId: requested.eventId },
+      owner,
+    );
+    expect(found.items.map((r) => r.id)).toEqual([testRun!.id]);
     await expectHfos(
       () => run(workflowTest, { workspaceId: wsId, workflowId: brokenId }, owner),
       'workflow_issues',

@@ -24,9 +24,11 @@ import { Input, Select } from '@/components/ui/input';
 import { Segmented } from '@/components/ui/segmented';
 import { apiBrowser, errorMessage, unwrap } from '@/lib/api/client';
 import type { WorkflowCatalogsOut, WorkflowCreateBody, WorkflowSummary } from '@/lib/api/types';
+import type { WorkflowProposal } from '@/lib/api/types';
 import { refOptions } from '@/lib/workflows/fields';
 import { cn } from '@/lib/utils';
 import { KindTile, recipeIcon } from './chips';
+import { DescribeNew, shownFromRecord } from './describe-new';
 
 type Category = 'Leads' | 'Appointments' | 'Sales';
 
@@ -103,14 +105,17 @@ const BLANK: {
 ];
 
 type Pick =
-  { kind: 'recipe'; key: RecipeKey } | { kind: 'template'; id: string } | { kind: 'blank' };
+  | { kind: 'recipe'; key: RecipeKey }
+  | { kind: 'template'; id: string }
+  | { kind: 'describe' }
+  | { kind: 'blank' };
 
 const recipeTrigger = (r: WorkflowRecipe) => {
   const t = r.definition.trigger;
   return t.kind === 'event' ? TRIGGER_EVENTS[t.event].label : 'By hand';
 };
 
-/** "How do you want to start?": a recipe, a Go Biz Help template, Describe it (soon) or blank. */
+/** "How do you want to start?": a recipe, a Go Biz Help template, Describe it or blank. */
 export function NewWorkflow({
   workspaceId,
   businessName,
@@ -118,6 +123,8 @@ export function NewWorkflow({
   templates,
   initialRecipe,
   initialCalendarId = null,
+  initialProposal = null,
+  initialName = null,
 }: {
   workspaceId: string;
   businessName: string;
@@ -127,14 +134,20 @@ export function NewWorkflow({
   initialRecipe: RecipeKey | null;
   /** From a calendar's "Add automation": the recipes' calendar comes filled in with it. */
   initialCalendarId?: string | null;
+  /** From the Assistant's draft (`?proposal=`): opens on Describe it with the proposal. */
+  initialProposal?: WorkflowProposal | null;
+  /** The name the Assistant gave it (`?name=`). */
+  initialName?: string | null;
 }) {
   const router = useRouter();
   const catalogs = catalogsOut as WorkflowCatalogs;
   const [category, setCategory] = useState<'all' | Category>('all');
-  const [pick, setPick] = useState<Pick>({
-    kind: 'recipe',
-    key: initialRecipe ?? 'speed_to_lead',
-  });
+  const [pick, setPick] = useState<Pick>(
+    initialProposal
+      ? { kind: 'describe' }
+      : { kind: 'recipe', key: initialRecipe ?? 'speed_to_lead' },
+  );
+  const [described] = useState(() => (initialProposal ? shownFromRecord(initialProposal) : null));
   const [name, setName] = useState(
     WORKFLOW_RECIPES.find((r) => r.key === (initialRecipe ?? 'speed_to_lead'))!.name,
   );
@@ -306,16 +319,10 @@ export function NewWorkflow({
             <SectionLabel className="mt-1.5">Or</SectionLabel>
             <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
               <PickCard
-                selected={false}
-                disabled
+                selected={pick.kind === 'describe'}
+                onSelect={() => setPick({ kind: 'describe' })}
                 title="Describe it"
                 icon={<KindTile tone="ai" icon={WandSparkles} />}
-                badge={
-                  <Badge variant="gray" className="h-5 text-[11.5px]">
-                    Soon
-                  </Badge>
-                }
-                hint="Coming with the AI builder"
                 small
                 testId="start-describe"
               >
@@ -463,7 +470,17 @@ export function NewWorkflow({
               </>
             ) : null}
 
-            {pick.kind !== 'template' ? (
+            {pick.kind === 'describe' ? (
+              <DescribeNew
+                workspaceId={workspaceId}
+                catalogs={catalogs}
+                initialProposal={described}
+                initialName={initialName}
+                onCancel={() => router.push(base)}
+              />
+            ) : null}
+
+            {pick.kind !== 'template' && pick.kind !== 'describe' ? (
               <div>
                 <Label htmlFor="workflow-name">Name</Label>
                 <Input
@@ -480,8 +497,8 @@ export function NewWorkflow({
                 {recipe ? <Hint>{RECIPE_META[recipe.key].note}</Hint> : null}
               </div>
             ) : null}
-            <div className="flex-1" />
-            <div className="flex justify-end gap-2">
+            <div className={cn('flex-1', pick.kind === 'describe' && 'hidden')} />
+            <div className={cn('flex justify-end gap-2', pick.kind === 'describe' && 'hidden')}>
               <Button variant="ghost" onClick={() => router.push(base)}>
                 Cancel
               </Button>

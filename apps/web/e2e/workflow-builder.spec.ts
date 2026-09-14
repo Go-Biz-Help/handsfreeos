@@ -652,3 +652,140 @@ test('workflow builder: a 150-step workflow on the canvas', async ({ page }) => 
   await expect(canvas).toHaveAttribute('data-layout', layout!);
   expect(await nodePositions(page)).toEqual(positions);
 });
+
+// ---- Describe: the third editor on the same draft ----
+
+/** The tree items' ids in order in Describe's preview. */
+const previewOrder = (page: Page) =>
+  page
+    .getByTestId('describe-step-list')
+    .locator('[role="treeitem"]')
+    .evaluateAll((els) => els.map((e) => e.getAttribute('data-tree-id')));
+
+/**
+ * One workflow, three editors: switching between Steps, Canvas and Describe changes nothing; a branch added
+ * in Steps, a step moved on the Canvas and "wait two days instead" asked in Describe each show in the other
+ * two; Describe's Apply is one Undo; and after a reload all three agree with what was saved.
+ */
+test('workflow builder: the same workflow in Steps, Canvas and Describe', async ({ page }) => {
+  test.setTimeout(240_000);
+  const owner = await signUpAndConfirm(page, 'wf-describe');
+  const workspaceId = await createBusiness(page, { name: 'Lone Star HVAC & Roofing' });
+  const api = apiAs(await signInForApi(owner.email));
+  await page.goto(`/app/w/${workspaceId}/workflows/new`);
+  await page.getByTestId('recipe-speed_to_lead').click();
+  await page.getByTestId('workflow-create').click();
+  await expect(page).toHaveURL(/\/workflows\/[0-9a-f-]{36}$/);
+  const workflowId = /workflows\/([0-9a-f-]{36})$/.exec(page.url())![1]!;
+  const get = () => api<WorkflowGet>('queries/workflow.get', { workspaceId, workflowId });
+  await expect(page.getByTestId('workflow-rail')).toBeVisible();
+
+  // 1. Steps, Canvas, Describe and back to Steps with no edits: the same draft, byte for byte.
+  const before = await get();
+  await page.getByTestId('mode-canvas').click();
+  await canvasReady(page);
+  await page.getByTestId('mode-describe').click();
+  await expect(page).toHaveURL(/mode=describe/);
+  await expect(page.getByTestId('describe-pane')).toBeVisible();
+  await expect(page.getByTestId('describe-preview')).toContainText('Shown in Canvas');
+  await page.getByTestId('mode-steps').click();
+  await expect(page.getByTestId('step-list')).toBeVisible();
+  await page.waitForTimeout(1500);
+  await expect(page.getByTestId('save-state')).toHaveAttribute('data-state', 'saved');
+  const after = await get();
+  expect(after.workflow.revision).toBe(before.workflow.revision);
+  expect(JSON.stringify(after.workflow.definition)).toBe(
+    JSON.stringify(before.workflow.definition),
+  );
+
+  // 2. Steps: a branch after the task. The Canvas and Describe's preview both show it.
+  await page.getByTestId('add-after-s_stltask1').click();
+  await page.getByTestId('add-step-if_else').click();
+  await expect(page.getByTestId('panel-title')).toHaveText('If / else');
+  const branchId = selectedStep(page)!;
+  await saved(page);
+  await page.getByTestId('mode-canvas').click();
+  await canvasReady(page);
+  await page.getByTestId('canvas-fit').click();
+  await expect(page.getByTestId(`canvas-node-${branchId}`)).toContainText('If email is not empty');
+  await page.getByTestId('mode-describe').click();
+  await expect(page.getByTestId('describe-preview')).toContainText('Shown in Canvas');
+  await canvasReady(page);
+  await page.getByTestId('canvas-fit').click();
+  await expect(page.getByTestId(`canvas-node-${branchId}`)).toContainText('If email is not empty');
+  await page.getByTestId('describe-preview-mode').click();
+  await expect(page.getByTestId('describe-step-list')).toContainText('If email is not empty');
+
+  // 3. The Canvas: Move to… puts the last text right after the first. Steps and Describe show that order.
+  await page.getByTestId('mode-canvas').click();
+  await canvasReady(page);
+  await page.getByTestId('canvas-fit').click();
+  await page.getByTestId('canvas-node-s_stltext2').click();
+  await page.getByTestId('node-menu-s_stltext2').click();
+  await page.getByTestId('node-move').click();
+  const move = page.getByTestId('move-dialog');
+  await move.getByRole('button', { name: 'After “Send a text”', exact: true }).click();
+  await expect(move).toBeHidden();
+  await saved(page);
+  const order = [
+    'trigger',
+    's_stltext1',
+    's_stltext2',
+    's_stlwait1',
+    's_stltask1',
+    branchId,
+    's_stlwait2',
+  ];
+  await page.getByTestId('mode-steps').click();
+  expect(await treeOrder(page)).toEqual(order);
+  await page.getByTestId('mode-describe').click();
+  await expect(page.getByTestId('describe-preview')).toContainText('Shown in Steps');
+  expect(await previewOrder(page)).toEqual(order);
+
+  // 4. Describe: "Wait two days instead". The proposal marks the wait; the draft waits until Apply.
+  const pane = page.getByTestId('describe-pane');
+  await pane.getByTestId('describe-example').filter({ hasText: 'Wait two days instead' }).click();
+  await expect(pane.getByTestId('describe-input')).toHaveValue('Wait two days instead');
+  await pane.getByTestId('describe-send').click();
+  const proposal = pane.getByTestId('proposal-card');
+  await expect(proposal.getByTestId('proposal-change')).toHaveCount(1);
+  await expect(proposal.getByTestId('proposal-change')).toContainText(
+    'Change the wait from 1 day to 2 days',
+  );
+  await expect(proposal.getByTestId('proposal-checks')).toContainText('nothing to fix');
+  await expect(pane.getByTestId('step-s_stlwait2')).toContainText('Wait 2 days');
+  await expect(pane.getByTestId('step-s_stlwait2')).toContainText('Changed');
+  expect(stepIn((await get()).workflow.definition, 's_stlwait2')?.until).toMatchObject({
+    duration: { amount: 1, unit: 'days' },
+  });
+  await proposal.getByTestId('proposal-apply').click();
+  await expect(proposal.getByTestId('proposal-result')).toContainText(
+    'Applied the change to the draft.',
+  );
+  await saved(page);
+  expect(stepIn((await get()).workflow.definition, 's_stlwait2')?.until).toMatchObject({
+    duration: { amount: 2, unit: 'days' },
+  });
+  await page.getByTestId('mode-steps').click();
+  await expect(page.getByTestId('step-s_stlwait2')).toContainText('Wait 2 days');
+  await page.getByTestId('mode-canvas').click();
+  await canvasReady(page);
+  await page.getByTestId('canvas-fit').click();
+  await expect(page.getByTestId('canvas-node-s_stlwait2')).toContainText('Wait 2 days');
+  // One Undo takes Describe's change back, and Redo puts it back.
+  await page.getByTestId('undo').click();
+  await expect(page.getByTestId('canvas-node-s_stlwait2')).toContainText('Wait 1 day');
+  await page.getByTestId('redo').click();
+  await expect(page.getByTestId('canvas-node-s_stlwait2')).toContainText('Wait 2 days');
+  await saved(page);
+
+  // 5. After a reload, Steps and Canvas agree with what was saved.
+  await openEditor(page);
+  await canvasReady(page);
+  await page.getByTestId('canvas-fit').click();
+  await expect(page.getByTestId(`canvas-node-${branchId}`)).toBeVisible();
+  await expect(page.getByTestId('canvas-node-s_stlwait2')).toContainText('Wait 2 days');
+  await page.getByTestId('mode-steps').click();
+  expect(await treeOrder(page)).toEqual(order);
+  await expect(page.getByTestId('step-s_stlwait2')).toContainText('Wait 2 days');
+});

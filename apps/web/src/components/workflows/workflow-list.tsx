@@ -4,6 +4,7 @@ import { Info, Search, WandSparkles, Workflow } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useMemo, useState } from 'react';
+import { TemplateUpdateButton } from '@/components/agency/template-update';
 import { Badge } from '@/components/ui/badge';
 import { Button, ButtonLink } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -148,6 +149,13 @@ export function WorkflowList({
                   </Link>
                   <span className="flex flex-wrap items-center gap-1.5">
                     <SourceChips source={w.source} />
+                    {canManage && w.source.template?.updateAvailable ? (
+                      <TemplateUpdateButton
+                        workspaceId={workspaceId}
+                        workflowId={w.id}
+                        className="h-6 px-2 text-xs"
+                      />
+                    ) : null}
                     <span className="text-xs text-text-3 lg:hidden">{w.trigger.summary}</span>
                   </span>
                   {w.activeVersion ? (

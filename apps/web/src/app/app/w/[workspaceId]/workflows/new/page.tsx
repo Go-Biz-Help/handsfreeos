@@ -1,8 +1,11 @@
 import { hasWorkspacePermission, RECIPE_KEYS, type RecipeKey } from '@hfos/core';
 import type { Metadata } from 'next';
-import { notFound } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 import { NewWorkflow } from '@/components/workflows/new-workflow';
-import { apiServer, unwrapPage } from '@/lib/api/server';
+import { apiServer, unwrap, unwrapPage } from '@/lib/api/server';
+import type { WorkflowProposal } from '@/lib/api/types';
+
+const ID = /^[0-9a-f-]{36}$/i;
 
 export const metadata: Metadata = { title: 'New workflow' };
 
@@ -29,6 +32,26 @@ export default async function NewWorkflowPage({
     : null;
   // "Add automation" on a calendar passes the calendar to fill in (`?calendar=<id>`).
   const calendar = typeof query.calendar === 'string' ? query.calendar : null;
+  // The Assistant's draft of a new workflow (`?proposal=<id>&name=<words_joined_by_underscores>`).
+  let proposal: WorkflowProposal | null = null;
+  if (typeof query.proposal === 'string' && ID.test(query.proposal)) {
+    try {
+      proposal = unwrap(
+        await api.POST('/v1/queries/workflow.proposal_get', {
+          body: { workspaceId, proposalId: query.proposal },
+        }),
+      ).proposal;
+    } catch {
+      proposal = null;
+    }
+  }
+  // A change to a workflow that exists opens in that workflow's Describe mode instead.
+  if (proposal?.workflowId)
+    redirect(
+      `/app/w/${workspaceId}/workflows/${proposal.workflowId}?mode=describe&proposal=${proposal.id}`,
+    );
+  const name =
+    typeof query.name === 'string' ? query.name.replace(/_/g, ' ').trim().slice(0, 120) : '';
   return (
     <NewWorkflow
       workspaceId={workspaceId}
@@ -37,6 +60,8 @@ export default async function NewWorkflowPage({
       templates={list.items.filter((w) => w.source.kind === 'template' && w.status === 'draft')}
       initialRecipe={initialRecipe}
       initialCalendarId={calendar}
+      initialProposal={proposal}
+      initialName={name || null}
     />
   );
 }

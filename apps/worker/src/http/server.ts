@@ -8,6 +8,8 @@ import { registerAssistantRoutes } from '../assistant/routes';
 import { registerKnowledgeRoutes } from '../knowledge/routes';
 import { ProviderError } from '../telephony/provider';
 import { registerWorkflowRoutes } from '../workflows/index';
+import { registerBuilderRoutes } from '../workflows/builder-routes';
+import { registerTemplateRoutes } from '../workflows/templates-routes';
 import {
   authenticate,
   parseBody,
@@ -142,6 +144,8 @@ export async function buildHttpServer(deps: HttpDeps): Promise<FastifyInstance> 
   await registerBookingRoutes(app, deps);
   await registerKnowledgeRoutes(app, deps);
   await registerWorkflowRoutes(app, deps);
+  await registerBuilderRoutes(app, deps);
+  await registerTemplateRoutes(app, deps);
   if (deps.testRoutes) registerTestRoutes(app, deps, deps.testRoutes);
 
   app.post('/v1/telephony/available-numbers', async (req) => {

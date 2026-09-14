@@ -86,19 +86,41 @@ function cancelledText(card: ConfirmCardData): string {
     }
     case 'cancel_appointment':
       return 'Kept. The appointment is still on.';
+    case 'start_workflow':
+      return 'Not started. Nothing was sent.';
+    case 'pause_workflow':
+      return 'Not paused. It’s still on.';
+    case 'resume_workflow':
+      return 'Still paused.';
+    case 'remove_contact_from_workflow':
+      return 'Left in. Nothing stopped.';
+    case 'answer_workflow_approval':
+      return 'Not answered. It’s still waiting for a decision.';
+    case 'add_knowledge_item':
+      return 'Nothing added.';
     default:
       return 'Not changed.';
   }
 }
 
+const OPEN_LABELS: Record<string, string> = {
+  start_workflow: 'See runs',
+  remove_contact_from_workflow: 'See runs',
+  pause_workflow: 'Open workflow',
+  resume_workflow: 'Open workflow',
+  answer_workflow_approval: 'See the run',
+  add_knowledge_item: 'Open item',
+};
+
 const openLabel = (tool: string) =>
-  tool === 'send_text' || tool === 'send_email'
+  OPEN_LABELS[tool] ??
+  (tool === 'send_text' || tool === 'send_email'
     ? 'Open conversation'
     : tool === 'create_customer' || tool === 'update_customer'
       ? 'Open customer'
       : tool.endsWith('_lead')
         ? 'Open lead'
-        : 'Open';
+        : 'Open');
 
 /**
  * Anything that reaches a customer, or changes a lead, a customer or an appointment, waits here for the

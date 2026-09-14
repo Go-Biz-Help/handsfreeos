@@ -25,23 +25,57 @@ import {
   KnowledgePackWriteOutput,
 } from '../schemas/knowledge';
 import {
+  WorkflowTemplateApplyUpdateInput,
+  WorkflowTemplateApplyUpdateOutput,
   WorkflowTemplateCreateFromWorkflowInput,
   WorkflowTemplateCreateFromWorkflowOutput,
+  WorkflowTemplateInstallInput,
+  WorkflowTemplateInstallOutput,
   WorkflowTemplatePublishOutput,
   WorkflowTemplatePushInput,
   WorkflowTemplatePushOutput,
   WorkflowTemplateRefInput,
+  WorkflowTemplateSaveDraftInput,
+  WorkflowTemplateSaveDraftOutput,
 } from '../schemas/workflow';
-import { describeOps, diffWorkflows } from '../workflows/describe';
+import type { WorkflowDefinition } from '../workflows/definition';
+import { describeOps, describeTrigger, diffWorkflows } from '../workflows/describe';
 import { jsonEqual } from '../workflows/json';
-import { loadWorkflowCatalogs, parseStoredDefinition, refUserIds } from '../workflows/load';
-import { extractPlaceholders } from '../workflows/recipes';
+import {
+  loadWorkflowCatalogs,
+  parseStoredDefinition,
+  refUserIds,
+  triggerIndex,
+} from '../workflows/load';
+import { applyWorkflowOps, WorkflowOpError, type WorkflowOp } from '../workflows/ops';
+import { extractPlaceholders, placeholdersIn } from '../workflows/recipes';
+import { validateWorkflow } from '../workflows/rules';
+import { effectiveMapping, templateIssues, unmappedKeys } from '../workflows/template-merge';
+import {
+  planTemplateUpdate,
+  resolveTemplate,
+  templateVersionDefinition,
+} from '../workflows/template-update';
+import { workflowRevisionConflict } from './workflow';
 
 const inOrganization = (i: { organizationId: string }) => ({
   kind: 'organization' as const,
   organizationId: i.organizationId,
 });
+const inWorkspace = (i: { workspaceId: string }) => ({
+  kind: 'workspace' as const,
+  workspaceId: i.workspaceId,
+});
 const asJson = (v: unknown) => v as Record<string, unknown>;
+/** Audit entries keep the first lines of a long batch. */
+const MAX_CHANGE_LINES = 40;
+const capLines = (lines: readonly string[]) =>
+  lines.length <= MAX_CHANGE_LINES
+    ? [...lines]
+    : [...lines.slice(0, MAX_CHANGE_LINES - 1), `…and ${lines.length - MAX_CHANGE_LINES + 1} more`];
+/** Adds keys to a stored mapping (keys a version no longer uses stay, for a later one that does). */
+const mergeMapping = (mapping: Readonly<Record<string, string | null>>) =>
+  dsql`${workflowTemplateInstalls.mapping} || ${JSON.stringify(mapping)}::jsonb`;
 
 /** The organization's businesses among `ids`; any other id is a 400 at its position. */
 async function orgWorkspaces(
@@ -396,5 +430,334 @@ export const knowledgePackPush = defineCommand({
       },
     });
     return { packId: p.id, version: p.version, workspaceIds: targets.map((w) => w.id) };
+  },
+});
+
+// ---- A template's draft ----
+
+function templateRevisionConflict(revision: number): HfosError {
+  return new HfosError(
+    'conflict',
+    409,
+    'Someone saved this template in the meantime. Reload to see their changes.',
+    { revision },
+    'revision_conflict',
+  );
+}
+
+/** Applies ops all or nothing; a bad op is a 400 naming its index and what's wrong (as for workflows). */
+function applyTemplateOps(def: WorkflowDefinition, ops: readonly unknown[]): WorkflowDefinition {
+  try {
+    return applyWorkflowOps(def, ops as readonly WorkflowOp[]).definition;
+  } catch (e) {
+    if (!(e instanceof WorkflowOpError)) throw e;
+    throw new HfosError(
+      'validation',
+      400,
+      e.message,
+      { opIndex: e.opIndex, code: e.code, stepId: e.stepId, issues: e.issues },
+      'workflow_op_invalid',
+    );
+  }
+}
+
+export const workflowTemplateSaveDraft = defineCommand({
+  name: 'workflow_template.save_draft',
+  description:
+    'Save edits to an agency template’s draft as patch ops made against a base revision, as workflow drafts save. A stale base is a 409 revision_conflict; a bad op is a 400 naming its index. Publishing makes it the version businesses get.',
+  risk: 1,
+  input: WorkflowTemplateSaveDraftInput,
+  output: WorkflowTemplateSaveDraftOutput,
+  permission: 'org.templates.manage',
+  scope: inOrganization,
+  emits: ['workflow_template.draft_saved'],
+  async handler(ctx, input) {
+    requireHuman(ctx);
+    const t = await loadTemplate(ctx, input.templateId, true);
+    if (t.revision !== input.baseRevision) throw templateRevisionConflict(t.revision);
+    const current = parseStoredDefinition(t.definition);
+    const next = applyTemplateOps(current, input.ops);
+    const issues = templateIssues(next);
+    if (jsonEqual(next, current))
+      return { templateId: t.id, revision: t.revision, changed: false, changes: [], issues };
+    const changes = describeOps(input.ops as readonly WorkflowOp[], current);
+    const revision = t.revision + 1;
+    await ctx.tx
+      .update(workflowTemplates)
+      .set({ definition: asJson(next), definitionVersion: next.version, revision })
+      .where(eq(workflowTemplates.id, t.id));
+    await ctx.emit({
+      type: 'workflow_template.draft_saved',
+      entityType: 'workflow_template',
+      entityId: t.id,
+      payload: {
+        templateId: t.id,
+        revision,
+        changes: capLines(changes),
+        opCount: input.ops.length,
+      },
+      before: { name: t.name, revision: t.revision },
+      after: { name: t.name, revision, changes: capLines(changes) },
+    });
+    return { templateId: t.id, revision, changed: true, changes, issues };
+  },
+});
+
+// ---- The engine's side: installs and updates, bound to one business ----
+
+export const workflowTemplateInstall = defineCommand({
+  name: 'workflow_template.install',
+  description:
+    'System: turn one pushed install into a draft in its business: the template’s newest version, its placeholders resolved with the pushed mapping (a suggestion by name for any key never mapped; unmapped ones stay as issues with a Fix). A business that already has its copy keeps it, and sees the update as available. Publishing still needs that business’s own passing test.',
+  risk: 1,
+  input: WorkflowTemplateInstallInput,
+  output: WorkflowTemplateInstallOutput,
+  permission: null,
+  scope: inWorkspace,
+  actors: ['system'],
+  emits: ['workflow.created', 'workflow_template.installed', 'workflow_template.install_failed'],
+  async handler(ctx, input) {
+    const ws = ctx.scope.workspaceId!;
+    const [install] = await ctx.tx
+      .select()
+      .from(workflowTemplateInstalls)
+      .where(
+        and(
+          eq(workflowTemplateInstalls.id, input.installId),
+          eq(workflowTemplateInstalls.workspaceId, ws),
+        ),
+      )
+      .for('update');
+    if (!install) throw HfosError.notFound('Install not found.');
+    const [t] = await ctx.tx
+      .select()
+      .from(workflowTemplates)
+      .where(eq(workflowTemplates.id, install.templateId));
+    const fail = async (error: string) => {
+      await ctx.tx
+        .update(workflowTemplateInstalls)
+        .set({ status: 'failed', lastError: error })
+        .where(eq(workflowTemplateInstalls.id, install.id));
+      await ctx.emit({
+        type: 'workflow_template.install_failed',
+        entityType: 'workflow_template',
+        entityId: install.templateId,
+        payload: { installId: install.id, templateId: install.templateId, error },
+        after: { name: t?.name ?? 'A template', error },
+      });
+      return {
+        installId: install.id,
+        status: 'failed' as const,
+        workflowId: install.workflowId,
+        version: null,
+        created: false,
+        unmapped: [],
+        error,
+      };
+    };
+    if (!t) return fail('The template is no longer there.');
+    if (t.archivedAt) return fail('The template was archived before it could be installed.');
+    if (!t.latestVersion) return fail('The template has no published version yet.');
+    let def: WorkflowDefinition | null;
+    try {
+      def = await templateVersionDefinition(ctx.tx, t.id, t.latestVersion);
+    } catch {
+      def = null;
+    }
+    if (!def) return fail('The template’s newest version can’t be read.');
+
+    const catalogs = await loadWorkflowCatalogs(ctx.tx, ws);
+    const mapping = effectiveMapping(
+      placeholdersIn(def),
+      install.mapping as Record<string, unknown>,
+      catalogs,
+    );
+    const [copy] = install.workflowId
+      ? await ctx.tx
+          .select({
+            id: workflows.id,
+            status: workflows.status,
+            templateVersion: workflows.templateVersion,
+          })
+          .from(workflows)
+          .where(and(eq(workflows.id, install.workflowId), eq(workflows.workspaceId, ws)))
+      : [];
+    let workflowId: string;
+    let version: number;
+    let created = false;
+    let unmapped: string[] = [];
+    if (copy && copy.status !== 'archived') {
+      // The business has its copy: it stays as it is, and a newer version waits for them to apply it.
+      workflowId = copy.id;
+      version = copy.templateVersion ?? install.installedVersion ?? t.latestVersion;
+    } else {
+      const resolved = resolveTemplate(def, mapping);
+      unmapped = unmappedKeys(mapping);
+      const [row] = await ctx.tx
+        .insert(workflows)
+        .values({
+          workspaceId: ws,
+          name: t.name,
+          description: t.description,
+          status: 'draft',
+          definition: asJson(resolved),
+          definitionVersion: resolved.version,
+          revision: 1,
+          ...triggerIndex(resolved),
+          templateId: t.id,
+          templateVersion: t.latestVersion,
+          installedRevision: 1,
+          createdBy: install.pushedBy,
+        })
+        .returning({ id: workflows.id });
+      if (!row) throw HfosError.forbidden();
+      workflowId = row.id;
+      version = t.latestVersion;
+      created = true;
+      await ctx.emit({
+        type: 'workflow.created',
+        entityType: 'workflow',
+        entityId: row.id,
+        payload: {
+          name: t.name,
+          from: 'template',
+          templateId: t.id,
+          version,
+          triggerKind: resolved.trigger.kind,
+        },
+        after: {
+          name: t.name,
+          status: 'draft',
+          source: `${t.name} template, version ${version}`,
+          trigger: describeTrigger(resolved.trigger, catalogs),
+        },
+      });
+    }
+    await ctx.tx
+      .update(workflowTemplateInstalls)
+      .set({
+        status: 'installed',
+        workflowId,
+        installedVersion: version,
+        installedAt: dsql`now()`,
+        lastError: null,
+        mapping: mergeMapping(mapping),
+      })
+      .where(eq(workflowTemplateInstalls.id, install.id));
+    await ctx.emit({
+      type: 'workflow_template.installed',
+      entityType: 'workflow_template',
+      entityId: t.id,
+      payload: { installId: install.id, templateId: t.id, workflowId, version, created, unmapped },
+      after: { name: t.name, version, ...(unmapped.length ? { unmapped } : {}) },
+    });
+    return {
+      installId: install.id,
+      status: 'installed' as const,
+      workflowId,
+      version,
+      created,
+      unmapped,
+      error: null,
+    };
+  },
+});
+
+export const workflowTemplateApplyUpdate = defineCommand({
+  name: 'workflow_template.apply_update',
+  description:
+    'System, on a person’s request: bring a business’s copy of an agency template up to the newest version as a new draft revision, never straight to live. The template’s changes come in with the stored mapping; the business’s own changes since it installed stay on top, and any that no longer fit are listed. It needs a passing test before it can be published.',
+  risk: 1,
+  input: WorkflowTemplateApplyUpdateInput,
+  output: WorkflowTemplateApplyUpdateOutput,
+  permission: null,
+  scope: inWorkspace,
+  actors: ['system'],
+  emits: ['workflow.draft_saved', 'workflow_template.updated'],
+  async handler(ctx, input) {
+    const ws = ctx.scope.workspaceId!;
+    const plan = await planTemplateUpdate(ctx.tx, ws, input.workflowId, { forUpdate: true });
+    const row = plan.workflow;
+    if (row.status === 'archived')
+      throw HfosError.conflict('This workflow is archived.', 'workflow_archived');
+    if (row.revision !== input.baseRevision) throw workflowRevisionConflict(row.revision);
+    if (!plan.updateAvailable)
+      throw HfosError.conflict('This workflow already has the newest version.', 'template_current');
+    const changed = !jsonEqual(plan.merged, plan.draft);
+    const revision = changed ? row.revision + 1 : row.revision;
+    // Exactly the new version (nothing of theirs kept) counts as freshly installed; otherwise it stays changed.
+    const pristine = plan.kept.length === 0;
+    await ctx.tx
+      .update(workflows)
+      .set({
+        ...(changed
+          ? { definition: asJson(plan.merged), definitionVersion: plan.merged.version, revision }
+          : {}),
+        // Once a version is published, the dispatcher follows what runs, not the draft.
+        ...(changed && !row.activeVersionId ? triggerIndex(plan.merged) : {}),
+        templateVersion: plan.latestVersion,
+        installedRevision: pristine ? revision : row.installedRevision,
+      })
+      .where(eq(workflows.id, row.id));
+    if (plan.installId)
+      await ctx.tx
+        .update(workflowTemplateInstalls)
+        .set({
+          status: 'installed',
+          installedVersion: plan.latestVersion,
+          lastError: null,
+          mapping: mergeMapping(plan.mapping),
+        })
+        .where(eq(workflowTemplateInstalls.id, plan.installId));
+    const lines = [
+      `Updated to ${plan.templateName} version ${plan.latestVersion}`,
+      ...plan.changes,
+    ];
+    if (changed)
+      await ctx.emit({
+        type: 'workflow.draft_saved',
+        entityType: 'workflow',
+        entityId: row.id,
+        payload: {
+          revision,
+          changes: capLines(lines),
+          opCount: plan.ops.length,
+          templateVersion: plan.latestVersion,
+        },
+        before: { name: row.name, revision: row.revision },
+        after: { name: row.name, revision, changes: capLines(lines) },
+      });
+    await ctx.emit({
+      type: 'workflow_template.updated',
+      entityType: 'workflow',
+      entityId: row.id,
+      payload: {
+        workflowId: row.id,
+        templateId: plan.templateId,
+        from: plan.installedVersion,
+        to: plan.latestVersion,
+        revision,
+        kept: capLines(plan.kept),
+        dropped: capLines(plan.dropped),
+      },
+      before: { name: row.name, version: plan.installedVersion },
+      after: {
+        name: row.name,
+        version: plan.latestVersion,
+        ...(plan.kept.length ? { kept: capLines(plan.kept) } : {}),
+        ...(plan.dropped.length ? { dropped: capLines(plan.dropped) } : {}),
+      },
+    });
+    return {
+      workflowId: row.id,
+      revision,
+      version: plan.latestVersion,
+      changed,
+      changes: plan.changes,
+      kept: plan.kept,
+      dropped: plan.dropped,
+      unmapped: plan.unmapped.map((p) => p.key),
+      issues: validateWorkflow(plan.merged, plan.catalogs, Date.now()),
+    };
   },
 });

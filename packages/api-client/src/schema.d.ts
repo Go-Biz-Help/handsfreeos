@@ -2657,6 +2657,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/workflow_template.save_draft": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Save edits to an agency template’s draft as patch ops made against a base revision, as workflow drafts save. A stale base is a 409 revision_conflict; a bad op is a 400 naming its index. Publishing makes it the version businesses get.
+         * @description Risk level 1. Requires org.templates.manage. Emits workflow_template.draft_saved.
+         */
+        post: operations["command_workflow_template_save_draft"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/workflow.archive": {
         parameters: {
             query?: never;
@@ -9797,6 +9817,116 @@ export interface operations {
             };
         };
     };
+    command_workflow_template_save_draft: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    baseRevision: number;
+                    ops: ({
+                        branchId: string | null;
+                        index: number | null;
+                        /** @enum {string} */
+                        op: "add_step";
+                        parentId: string | null;
+                        step: {
+                            [key: string]: unknown;
+                        };
+                    } | {
+                        /** @enum {string} */
+                        op: "update_step";
+                        patch: {
+                            [key: string]: unknown;
+                        };
+                        stepId: string;
+                    } | {
+                        branchId: string | null;
+                        index: number;
+                        /** @enum {string} */
+                        op: "move_step";
+                        parentId: string | null;
+                        stepId: string;
+                    } | {
+                        /** @enum {string} */
+                        op: "delete_step";
+                        stepId: string;
+                    } | {
+                        branch: {
+                            [key: string]: unknown;
+                        };
+                        index: number | null;
+                        /** @enum {string} */
+                        op: "add_branch";
+                        stepId: string;
+                    } | {
+                        branchId: string;
+                        /** @enum {string} */
+                        op: "delete_branch";
+                        stepId: string;
+                    } | {
+                        maxVisits: number | null;
+                        /** @enum {string} */
+                        op: "set_goto";
+                        stepId: string;
+                        target: string;
+                    } | {
+                        /** @enum {string} */
+                        op: "set_trigger";
+                        trigger: {
+                            [key: string]: unknown;
+                        };
+                    } | {
+                        /** @enum {string} */
+                        op: "set_settings";
+                        patch: {
+                            [key: string]: unknown;
+                        };
+                    })[];
+                    /** Format: uuid */
+                    organizationId: string;
+                    /** Format: uuid */
+                    templateId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changed: boolean;
+                        changes: string[];
+                        issues: {
+                            code: string;
+                            readonly fields: string[];
+                            readonly fixes: {
+                                id: string;
+                                label: string;
+                                readonly ops: {
+                                    [key: string]: unknown;
+                                }[];
+                            }[];
+                            message: string;
+                            /** @enum {string} */
+                            severity: "error" | "warning";
+                            stepId: string | null;
+                        }[];
+                        revision: number;
+                        /** Format: uuid */
+                        templateId: string;
+                    };
+                };
+            };
+        };
+    };
     command_workflow_archive: {
         parameters: {
             query?: never;
@@ -10644,6 +10774,8 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        /** Format: uuid */
+                        eventId: string;
                         /** @enum {string} */
                         mode: "simulate" | "send_to_me";
                         /** @enum {boolean} */
@@ -11246,6 +11378,35 @@ export interface operations {
                                 phone: string;
                                 /** @enum {string} */
                                 type: "call";
+                            } | {
+                                changes: string[];
+                                href: string;
+                                issueNote: string | null;
+                                issues: number;
+                                more: number;
+                                name: string;
+                                proposalId: string | null;
+                                /** @enum {string} */
+                                status: "proposal" | "draft" | "active" | "paused" | "archived";
+                                steps: string[];
+                                trigger: string;
+                                /** @enum {string} */
+                                type: "workflow";
+                                unsupported: string[];
+                                workflowId: string | null;
+                            } | {
+                                href: string;
+                                items: {
+                                    href: string;
+                                    /** Format: uuid */
+                                    id: string;
+                                    /** @enum {string} */
+                                    kind: "faq" | "article" | "fact" | "document";
+                                    snippet: string;
+                                    title: string;
+                                }[];
+                                /** @enum {string} */
+                                type: "knowledge";
                             })[];
                             /** Format: date-time */
                             createdAt: string;
@@ -15279,6 +15440,8 @@ export interface operations {
                     /** Format: date-time */
                     startedBefore?: string;
                     status?: ("running" | "waiting" | "awaiting_approval" | "held" | "completed" | "stopped" | "failed")[];
+                    /** Format: uuid */
+                    triggerEventId?: string;
                     /** Format: uuid */
                     workflowId?: string;
                     /** Format: uuid */

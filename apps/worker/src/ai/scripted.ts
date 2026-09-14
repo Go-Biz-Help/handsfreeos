@@ -214,8 +214,230 @@ export const WORKFLOW_RULES: readonly ScriptRule[] = [
   },
 ];
 
-/** Every scripted rule, feature by feature. The builder (step 10) adds its own. */
-export const SCRIPTED_RULES: readonly ScriptRule[] = [...KNOWLEDGE_RULES, ...WORKFLOW_RULES];
+// ---- The AI builder ("Change the workflow the way the request above asks.", workflows/builder.ts) ----
+
+/** A step as the builder's context carries it (the definition's JSON inside <workflow>, quoted). */
+interface RawStep {
+  readonly id: string;
+  readonly type: string;
+  readonly until?: { readonly kind?: string };
+  readonly branches?: readonly { readonly id: string; readonly steps?: readonly RawStep[] }[];
+  readonly rejected?: { readonly steps?: readonly RawStep[] };
+}
+interface RawLane {
+  readonly parentId: string | null;
+  readonly branchId: string | null;
+  readonly steps: readonly RawStep[];
+}
+
+/** The workflow the builder was given. */
+function builderWorkflow(context: string): {
+  steps?: RawStep[];
+  settings?: { stopOn?: string[] };
+} {
+  try {
+    return JSON.parse(unquote(quotedBlock(context, 'workflow') ?? '{}')) as { steps?: RawStep[] };
+  } catch {
+    return {};
+  }
+}
+
+/** Every list of steps, the main path first, with where it sits. */
+function rawLanes(
+  steps: readonly RawStep[],
+  parentId: string | null = null,
+  branchId: string | null = null,
+): RawLane[] {
+  const out: RawLane[] = [{ parentId, branchId, steps }];
+  for (const s of steps) {
+    for (const b of s.branches ?? []) out.push(...rawLanes(b.steps ?? [], s.id, b.id));
+    if (s.rejected) out.push(...rawLanes(s.rejected.steps ?? [], s.id, 'rejected'));
+  }
+  return out;
+}
+
+const selectedStep = (context: string) =>
+  /^The person has this step selected: (s_[a-z0-9]{8})/m.exec(context)?.[1] ?? null;
+const builderRequest = (message: string) => unquote(quotedBlock(message, 'request') ?? '').trim();
+
+/** The builder's two ask lines (BUILDER_ASKS in workflows/builder.ts). */
+const BUILDER_ASK =
+  '(?:Change the workflow the way the request above asks|Build the workflow the request above describes)';
+/** A builder request whose words match `words`. */
+const builderAsks = (words: string) =>
+  new RegExp(
+    `^(?=[\\s\\S]*?<request>[\\s\\S]*?(?:${words})[\\s\\S]*?</request>)[\\s\\S]*${BUILDER_ASK}\\.$`,
+    'i',
+  );
+
+const addStepCall = (a: {
+  readonly ref?: string | null;
+  readonly parentId?: string | null;
+  readonly branchId?: string | null;
+  readonly index?: number | null;
+  readonly type: string;
+  readonly action?: string | null;
+  readonly json: unknown;
+}) => ({
+  name: 'add_step',
+  arguments: {
+    ref: a.ref ?? null,
+    parentId: a.parentId ?? null,
+    branchId: a.branchId ?? null,
+    index: a.index ?? null,
+    type: a.type,
+    action: a.action ?? null,
+    onError: null,
+    json: JSON.stringify(a.json),
+  },
+});
+const finishCall = (summary: string, unsupported: string[] = []) => ({
+  name: 'finish',
+  arguments: { summary, unsupported },
+});
+const text = (body: string) => ({ body, bookingCalendarId: null });
+const waitFor = (amount: number, unit: 'minutes' | 'days') => ({
+  until: { kind: 'duration', duration: { amount, unit } },
+});
+
+/** Ops for the phrases the specs use; anything else changes nothing and says so. */
+export const BUILDER_RULES: readonly ScriptRule[] = [
+  {
+    // "Wait two days instead": the selected wait, else the first wait counted in days, else any set wait.
+    when: builderAsks('wait (?:two|2) days'),
+    calls: (_q, context) => {
+      const all = rawLanes(builderWorkflow(context).steps ?? []).flatMap((l) => l.steps);
+      const timed = (s: RawStep) => s.type === 'wait' && s.until?.kind === 'duration';
+      const inDays = (s: RawStep) =>
+        timed(s) && (s.until as { duration?: { unit?: string } }).duration?.unit === 'days';
+      const selected = selectedStep(context);
+      const wait =
+        all.find((s) => s.id === selected && timed(s)) ?? all.find(inDays) ?? all.find(timed);
+      if (!wait)
+        return [finishCall('Nothing changed.', ['There’s no wait of a set length to change.'])];
+      return [
+        {
+          name: 'update_step',
+          arguments: { stepId: wait.id, json: JSON.stringify(waitFor(2, 'days')) },
+        },
+        finishCall('The wait is now 2 days.'),
+      ];
+    },
+    reply: () => 'Done.',
+  },
+  {
+    // "Add a text after the first wait".
+    when: builderAsks('add a text after the first wait'),
+    calls: (_q, context) => {
+      for (const lane of rawLanes(builderWorkflow(context).steps ?? [])) {
+        const at = lane.steps.findIndex((s) => s.type === 'wait');
+        if (at < 0) continue;
+        return [
+          addStepCall({
+            ref: 'checkin',
+            parentId: lane.parentId,
+            branchId: lane.branchId,
+            index: at + 1,
+            type: 'action',
+            action: 'send_text',
+            json: text(
+              'Hi {{person.first_name | default:"there"}}, just checking in. Reply here any time.',
+            ),
+          }),
+          finishCall('Adds a check-in text right after the first wait.'),
+        ];
+      }
+      return [finishCall('Nothing changed.', ['There’s no wait to add a text after.'])];
+    },
+    reply: () => 'Done.',
+  },
+  {
+    // "Stop if they book" (or reply).
+    when: builderAsks('stop (?:if|when) they (?:book|reply)'),
+    calls: (q, context) => {
+      const stop = /stop (?:if|when) they reply/i.test(builderRequest(q)) ? 'reply' : 'booking';
+      const current = builderWorkflow(context).settings?.stopOn ?? [];
+      return [
+        {
+          name: 'set_settings',
+          arguments: { json: JSON.stringify({ stopOn: [...new Set([...current, stop])] }) },
+        },
+        finishCall(`It now stops when they ${stop === 'reply' ? 'reply' : 'book'}.`),
+      ];
+    },
+    reply: () => 'Done.',
+  },
+  {
+    // A new workflow that texts new leads ("Build a workflow that texts new leads within a minute").
+    when: builderAsks('texts? new leads'),
+    calls: () => [
+      {
+        name: 'set_trigger',
+        arguments: { json: JSON.stringify({ kind: 'event', event: 'lead.created' }) },
+      },
+      addStepCall({
+        type: 'action',
+        action: 'send_text',
+        json: text(
+          'Hi {{person.first_name | default:"there"}}, thanks for reaching out to {{business.name}}! We’ll be in touch shortly.',
+        ),
+      }),
+      addStepCall({ type: 'wait', json: waitFor(5, 'minutes') }),
+      addStepCall({
+        type: 'action',
+        action: 'create_task',
+        json: {
+          title: 'Call {{person.first_name | default:"the new lead"}} about {{lead.title}}',
+          assignTo: { kind: 'lead_assignee' },
+          due: null,
+        },
+      }),
+      addStepCall({ type: 'wait', json: waitFor(1, 'days') }),
+      addStepCall({
+        type: 'action',
+        action: 'send_text',
+        json: text(
+          'Hi {{person.first_name | default:"there"}}, just checking in from {{business.name}}. Want to pick a time? {{links.booking}}',
+        ),
+      }),
+      {
+        name: 'set_settings',
+        arguments: { json: JSON.stringify({ stopOn: ['reply', 'booking'] }) },
+      },
+      finishCall(
+        'A new lead gets a text right away, a call task after 5 minutes and a second text the next day. It stops when they reply or book.',
+      ),
+    ],
+    reply: () => 'Done.',
+  },
+  {
+    // Workflows don't book for customers yet.
+    when: builderAsks('book (?:them|him|her|it|an appointment|appointments)'),
+    calls: () => [
+      finishCall('Nothing changed.', [
+        'Workflows can’t book appointments for customers yet. A text with your booking link can go instead.',
+      ]),
+    ],
+    reply: () => 'Done.',
+  },
+  {
+    // Anything else: nothing changes, and the request comes back as unsupported.
+    when: builderAsks('[\\s\\S]'),
+    calls: (q) => [
+      finishCall('I couldn’t work out a change from that.', [
+        builderRequest(q).slice(0, 300) || 'That request',
+      ]),
+    ],
+    reply: () => 'Done.',
+  },
+];
+
+/** Every scripted rule, feature by feature. */
+export const SCRIPTED_RULES: readonly ScriptRule[] = [
+  ...KNOWLEDGE_RULES,
+  ...WORKFLOW_RULES,
+  ...BUILDER_RULES,
+];
 
 /** The stand-in model; tests may put their own rules first. */
 export function scriptedAi(extra: readonly ScriptRule[] = []): ScriptedProvider {

@@ -1,6 +1,7 @@
 import { ScriptedProvider, type ScriptRule } from '@hfos/ai';
 import { addDays, localDateOf, localInstant, weekdayOf } from '@hfos/core/server';
 import { isoWithOffset } from './calendar-format';
+import { workflowRules } from './scripted-workflows';
 
 /**
  * The stand-in model the worker tests and the browser suite talk to (ASSISTANT_PROVIDER=scripted). It knows
@@ -101,6 +102,7 @@ const MOVE =
   /^move (?:it|his appointment|her appointment|their appointment) to tomorrow at (\d{1,2})(?::(\d{2}))? ?(am|pm)$/i;
 
 const rules: ScriptRule[] = [
+  ...workflowRules,
   {
     when: /what needs (my )?attention|what.s waiting/i,
     calls: () => [{ name: 'what_needs_attention', arguments: {} }],

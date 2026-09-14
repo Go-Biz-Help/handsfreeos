@@ -106,6 +106,7 @@ export function TestPanel({
   unsaved,
   errors,
   canManage,
+  simulateOnly = false,
 }: {
   test: WorkflowTest;
   def: WorkflowDefinition;
@@ -117,6 +118,8 @@ export function TestPanel({
   /** Checks that block testing and publishing. */
   errors: number;
   canManage: boolean;
+  /** Agency templates: Simulate only, walked in the browser (lib/agency/simulate.ts); no run to open. */
+  simulateOnly?: boolean;
 }) {
   const { sample, setSample, workspaceId } = useEditor();
   const [picking, setPicking] = useState(false);
@@ -153,26 +156,33 @@ export function TestPanel({
       <p className="mb-3 text-xs text-text-3">
         Tests never reach your customers or count in the stats.
       </p>
-      <Segmented
-        ariaLabel="Test mode"
-        fill
-        value={test.mode}
-        onChange={test.setMode}
-        options={[
-          { value: 'simulate', label: 'Simulate', testId: 'test-mode-simulate' },
-          { value: 'send_to_me', label: 'Send to me', testId: 'test-mode-send' },
-        ]}
-      />
-      <p className="mt-2 text-xs text-text-2" data-testid="test-mode-note">
-        {test.mode === 'simulate'
-          ? 'Sends nothing and skips the waits. AI steps run for real.'
-          : 'Sends only to you, with 5-second waits. Texts come to your email, because your profile has no mobile number.'}
+      {simulateOnly ? null : (
+        <Segmented
+          ariaLabel="Test mode"
+          fill
+          value={test.mode}
+          onChange={test.setMode}
+          options={[
+            { value: 'simulate', label: 'Simulate', testId: 'test-mode-simulate' },
+            { value: 'send_to_me', label: 'Send to me', testId: 'test-mode-send' },
+          ]}
+        />
+      )}
+      <p
+        className={cn('text-xs text-text-2', !simulateOnly && 'mt-2')}
+        data-testid="test-mode-note"
+      >
+        {simulateOnly
+          ? 'Simulate walks the steps here with sample details: nothing is sent, waits are skipped, and paths and AI steps follow what you take as given.'
+          : test.mode === 'simulate'
+            ? 'Sends nothing and skips the waits. AI steps run for real.'
+            : 'Sends only to you, with 5-second waits. Texts come to your email, because your profile has no mobile number.'}
       </p>
 
       <div className="mt-3.5">
         <div className="mb-1 flex items-center justify-between gap-2">
           <span className="text-[13px] font-medium">Test contact</span>
-          {canManage ? (
+          {canManage && !simulateOnly ? (
             <button
               type="button"
               onClick={() => setPicking((v) => !v)}
@@ -278,6 +288,7 @@ export function TestPanel({
         unsaved={unsaved}
         canManage={canManage}
         workspaceId={workspaceId}
+        simulateOnly={simulateOnly}
       />
     </div>
   );
@@ -312,6 +323,7 @@ function TestLog({
   unsaved,
   canManage,
   workspaceId,
+  simulateOnly,
 }: {
   test: WorkflowTest;
   def: WorkflowDefinition;
@@ -321,6 +333,7 @@ function TestLog({
   unsaved: boolean;
   canManage: boolean;
   workspaceId: string;
+  simulateOnly: boolean;
 }) {
   if (test.startingSince !== null) return <StartingNote since={test.startingSince} />;
   const r = test.result;
@@ -412,9 +425,13 @@ function TestLog({
 
       {outcome === 'passed' ? (
         <Result tone="ok" outcome="passed">
-          {current
-            ? 'Test passed, ready to publish.'
-            : 'This test passed, but the draft changed since. Run it again to publish.'}
+          {simulateOnly
+            ? current
+              ? 'It runs through to the end. Each business still tests its own copy.'
+              : 'The draft changed since. Run it again.'
+            : current
+              ? 'Test passed, ready to publish.'
+              : 'This test passed, but the draft changed since. Run it again to publish.'}
         </Result>
       ) : outcome === 'failed' ? (
         <Result tone="danger" outcome="failed">
@@ -436,7 +453,7 @@ function TestLog({
           The test was stopped before it finished.
         </Result>
       ) : null}
-      {!running ? (
+      {!running && !simulateOnly ? (
         <Link
           href={`/app/w/${workspaceId}/workflows/runs/${run.id}`}
           className="mt-2 inline-block text-xs font-medium text-accent-text hover:underline"

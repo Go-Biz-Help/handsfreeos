@@ -148,6 +148,49 @@ export const AssistantCard = z.discriminatedUnion('type', [
     fullName: z.string(),
     phone: z.string(),
   }),
+  /**
+   * A workflow, or a draft of one from the AI builder (a proposal nobody has applied yet): its name, what
+   * starts it, its first steps, what it would change, its checks, and where to open it.
+   */
+  z.object({
+    type: z.literal('workflow'),
+    workflowId: uuid.nullable(),
+    proposalId: uuid.nullable(),
+    name: z.string(),
+    /** 'proposal' until someone applies it. */
+    status: z.enum(['proposal', 'draft', 'active', 'paused', 'archived']),
+    /** "When a new lead comes in". */
+    trigger: z.string(),
+    /** The main path, a line a step ("Send a text: “Hi …”"). */
+    steps: z.array(z.string()).max(8),
+    /** Steps left off the list. */
+    more: z.int().min(0),
+    /** A proposal for a workflow that exists: what it changes, in plain words. */
+    changes: z.array(z.string()).max(8),
+    /** Checks that need a fix, and the first one's words. */
+    issues: z.int().min(0),
+    issueNote: z.string().nullable(),
+    /** Asked for, and workflows can't do it. */
+    unsupported: z.array(z.string()).max(5),
+    href: appPath,
+  }),
+  /** Knowledge base matches the answer drew on. */
+  z.object({
+    type: z.literal('knowledge'),
+    items: z
+      .array(
+        z.object({
+          id: uuid,
+          kind: z.enum(['faq', 'article', 'fact', 'document']),
+          title: z.string(),
+          /** The best passage, matched words wrapped in ** **. */
+          snippet: z.string(),
+          href: appPath,
+        }),
+      )
+      .max(5),
+    href: appPath,
+  }),
 ]);
 export type AssistantCard = z.infer<typeof AssistantCard>;
 
@@ -210,7 +253,15 @@ export const AssistantThreadOutput = z.object({ threadId: uuid });
 
 /** The page the person is looking at when they ask (from the address bar; /calendar?appt= is an appointment). */
 export const AssistantPageRecord = z.object({
-  type: z.enum(['person', 'company', 'lead', 'conversation', 'appointment']),
+  type: z.enum([
+    'person',
+    'company',
+    'lead',
+    'conversation',
+    'appointment',
+    'workflow',
+    'workflow_run',
+  ]),
   id: uuid,
 });
 

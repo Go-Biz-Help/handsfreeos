@@ -14214,13 +14214,19 @@
                       "enum": [
                         true
                       ]
+                    },
+                    "eventId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
                     }
                   },
                   "required": [
                     "workflowId",
                     "revision",
                     "mode",
-                    "requested"
+                    "requested",
+                    "eventId"
                   ],
                   "additionalProperties": false
                 }
@@ -15194,6 +15200,472 @@
                     "templateId",
                     "version",
                     "installIds"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/commands/workflow_template.save_draft": {
+      "post": {
+        "operationId": "command_workflow_template_save_draft",
+        "summary": "Save edits to an agency template’s draft as patch ops made against a base revision, as workflow drafts save. A stale base is a 409 revision_conflict; a bad op is a 400 naming its index. Publishing makes it the version businesses get.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 1. Requires org.templates.manage. Emits workflow_template.draft_saved.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "organizationId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "templateId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "baseRevision": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 9007199254740991
+                  },
+                  "ops": {
+                    "maxItems": 500,
+                    "type": "array",
+                    "items": {
+                      "oneOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "op": {
+                              "type": "string",
+                              "enum": [
+                                "add_step"
+                              ]
+                            },
+                            "parentId": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "pattern": "^s_[a-z0-9]{8}$"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "branchId": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "maxLength": 20
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "index": {
+                              "anyOf": [
+                                {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 9007199254740991
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "step": {
+                              "type": "object",
+                              "propertyNames": {
+                                "type": "string"
+                              },
+                              "additionalProperties": {}
+                            }
+                          },
+                          "required": [
+                            "op",
+                            "parentId",
+                            "branchId",
+                            "index",
+                            "step"
+                          ]
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "op": {
+                              "type": "string",
+                              "enum": [
+                                "update_step"
+                              ]
+                            },
+                            "stepId": {
+                              "type": "string",
+                              "pattern": "^s_[a-z0-9]{8}$"
+                            },
+                            "patch": {
+                              "type": "object",
+                              "propertyNames": {
+                                "type": "string"
+                              },
+                              "additionalProperties": {}
+                            }
+                          },
+                          "required": [
+                            "op",
+                            "stepId",
+                            "patch"
+                          ]
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "op": {
+                              "type": "string",
+                              "enum": [
+                                "move_step"
+                              ]
+                            },
+                            "stepId": {
+                              "type": "string",
+                              "pattern": "^s_[a-z0-9]{8}$"
+                            },
+                            "parentId": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "pattern": "^s_[a-z0-9]{8}$"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "branchId": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "maxLength": 20
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "index": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            }
+                          },
+                          "required": [
+                            "op",
+                            "stepId",
+                            "parentId",
+                            "branchId",
+                            "index"
+                          ]
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "op": {
+                              "type": "string",
+                              "enum": [
+                                "delete_step"
+                              ]
+                            },
+                            "stepId": {
+                              "type": "string",
+                              "pattern": "^s_[a-z0-9]{8}$"
+                            }
+                          },
+                          "required": [
+                            "op",
+                            "stepId"
+                          ]
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "op": {
+                              "type": "string",
+                              "enum": [
+                                "add_branch"
+                              ]
+                            },
+                            "stepId": {
+                              "type": "string",
+                              "pattern": "^s_[a-z0-9]{8}$"
+                            },
+                            "index": {
+                              "anyOf": [
+                                {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 9007199254740991
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "branch": {
+                              "type": "object",
+                              "propertyNames": {
+                                "type": "string"
+                              },
+                              "additionalProperties": {}
+                            }
+                          },
+                          "required": [
+                            "op",
+                            "stepId",
+                            "index",
+                            "branch"
+                          ]
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "op": {
+                              "type": "string",
+                              "enum": [
+                                "delete_branch"
+                              ]
+                            },
+                            "stepId": {
+                              "type": "string",
+                              "pattern": "^s_[a-z0-9]{8}$"
+                            },
+                            "branchId": {
+                              "type": "string",
+                              "pattern": "^b_[a-z0-9]{8}$"
+                            }
+                          },
+                          "required": [
+                            "op",
+                            "stepId",
+                            "branchId"
+                          ]
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "op": {
+                              "type": "string",
+                              "enum": [
+                                "set_goto"
+                              ]
+                            },
+                            "stepId": {
+                              "type": "string",
+                              "pattern": "^s_[a-z0-9]{8}$"
+                            },
+                            "target": {
+                              "type": "string",
+                              "pattern": "^s_[a-z0-9]{8}$"
+                            },
+                            "maxVisits": {
+                              "anyOf": [
+                                {
+                                  "type": "integer",
+                                  "minimum": 1,
+                                  "maximum": 10
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            }
+                          },
+                          "required": [
+                            "op",
+                            "stepId",
+                            "target",
+                            "maxVisits"
+                          ]
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "op": {
+                              "type": "string",
+                              "enum": [
+                                "set_trigger"
+                              ]
+                            },
+                            "trigger": {
+                              "type": "object",
+                              "propertyNames": {
+                                "type": "string"
+                              },
+                              "additionalProperties": {}
+                            }
+                          },
+                          "required": [
+                            "op",
+                            "trigger"
+                          ]
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "op": {
+                              "type": "string",
+                              "enum": [
+                                "set_settings"
+                              ]
+                            },
+                            "patch": {
+                              "type": "object",
+                              "propertyNames": {
+                                "type": "string"
+                              },
+                              "additionalProperties": {}
+                            }
+                          },
+                          "required": [
+                            "op",
+                            "patch"
+                          ]
+                        }
+                      ]
+                    }
+                  }
+                },
+                "required": [
+                  "organizationId",
+                  "templateId",
+                  "baseRevision",
+                  "ops"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "templateId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "revision": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "changed": {
+                      "type": "boolean"
+                    },
+                    "changes": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "issues": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "code": {
+                            "type": "string"
+                          },
+                          "severity": {
+                            "type": "string",
+                            "enum": [
+                              "error",
+                              "warning"
+                            ]
+                          },
+                          "message": {
+                            "type": "string"
+                          },
+                          "fields": {
+                            "readOnly": true,
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          },
+                          "stepId": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "fixes": {
+                            "readOnly": true,
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "id": {
+                                  "type": "string"
+                                },
+                                "label": {
+                                  "type": "string"
+                                },
+                                "ops": {
+                                  "readOnly": true,
+                                  "type": "array",
+                                  "items": {
+                                    "type": "object",
+                                    "propertyNames": {
+                                      "type": "string"
+                                    },
+                                    "additionalProperties": {}
+                                  }
+                                }
+                              },
+                              "required": [
+                                "id",
+                                "label",
+                                "ops"
+                              ],
+                              "additionalProperties": false
+                            }
+                          }
+                        },
+                        "required": [
+                          "code",
+                          "severity",
+                          "message",
+                          "fields",
+                          "stepId",
+                          "fixes"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "templateId",
+                    "revision",
+                    "changed",
+                    "changes",
+                    "issues"
                   ],
                   "additionalProperties": false
                 }
@@ -25998,6 +26470,176 @@
                                     "phone"
                                   ],
                                   "additionalProperties": false
+                                },
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "type": {
+                                      "type": "string",
+                                      "enum": [
+                                        "workflow"
+                                      ]
+                                    },
+                                    "workflowId": {
+                                      "anyOf": [
+                                        {
+                                          "type": "string",
+                                          "format": "uuid",
+                                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    },
+                                    "proposalId": {
+                                      "anyOf": [
+                                        {
+                                          "type": "string",
+                                          "format": "uuid",
+                                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    },
+                                    "name": {
+                                      "type": "string"
+                                    },
+                                    "status": {
+                                      "type": "string",
+                                      "enum": [
+                                        "proposal",
+                                        "draft",
+                                        "active",
+                                        "paused",
+                                        "archived"
+                                      ]
+                                    },
+                                    "trigger": {
+                                      "type": "string"
+                                    },
+                                    "steps": {
+                                      "maxItems": 8,
+                                      "type": "array",
+                                      "items": {
+                                        "type": "string"
+                                      }
+                                    },
+                                    "more": {
+                                      "type": "integer",
+                                      "minimum": 0,
+                                      "maximum": 9007199254740991
+                                    },
+                                    "changes": {
+                                      "maxItems": 8,
+                                      "type": "array",
+                                      "items": {
+                                        "type": "string"
+                                      }
+                                    },
+                                    "issues": {
+                                      "type": "integer",
+                                      "minimum": 0,
+                                      "maximum": 9007199254740991
+                                    },
+                                    "issueNote": {
+                                      "type": [
+                                        "string",
+                                        "null"
+                                      ]
+                                    },
+                                    "unsupported": {
+                                      "maxItems": 5,
+                                      "type": "array",
+                                      "items": {
+                                        "type": "string"
+                                      }
+                                    },
+                                    "href": {
+                                      "type": "string",
+                                      "pattern": "^\\/app\\/w\\/[0-9a-f-]{36}(\\/[A-Za-z0-9_\\-/?=&.]*)?$"
+                                    }
+                                  },
+                                  "required": [
+                                    "type",
+                                    "workflowId",
+                                    "proposalId",
+                                    "name",
+                                    "status",
+                                    "trigger",
+                                    "steps",
+                                    "more",
+                                    "changes",
+                                    "issues",
+                                    "issueNote",
+                                    "unsupported",
+                                    "href"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "type": {
+                                      "type": "string",
+                                      "enum": [
+                                        "knowledge"
+                                      ]
+                                    },
+                                    "items": {
+                                      "maxItems": 5,
+                                      "type": "array",
+                                      "items": {
+                                        "type": "object",
+                                        "properties": {
+                                          "id": {
+                                            "type": "string",
+                                            "format": "uuid",
+                                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                          },
+                                          "kind": {
+                                            "type": "string",
+                                            "enum": [
+                                              "faq",
+                                              "article",
+                                              "fact",
+                                              "document"
+                                            ]
+                                          },
+                                          "title": {
+                                            "type": "string"
+                                          },
+                                          "snippet": {
+                                            "type": "string"
+                                          },
+                                          "href": {
+                                            "type": "string",
+                                            "pattern": "^\\/app\\/w\\/[0-9a-f-]{36}(\\/[A-Za-z0-9_\\-/?=&.]*)?$"
+                                          }
+                                        },
+                                        "required": [
+                                          "id",
+                                          "kind",
+                                          "title",
+                                          "snippet",
+                                          "href"
+                                        ],
+                                        "additionalProperties": false
+                                      }
+                                    },
+                                    "href": {
+                                      "type": "string",
+                                      "pattern": "^\\/app\\/w\\/[0-9a-f-]{36}(\\/[A-Za-z0-9_\\-/?=&.]*)?$"
+                                    }
+                                  },
+                                  "required": [
+                                    "type",
+                                    "items",
+                                    "href"
+                                  ],
+                                  "additionalProperties": false
                                 }
                               ]
                             }
@@ -31582,6 +32224,11 @@
                   "onlyTests": {
                     "default": false,
                     "type": "boolean"
+                  },
+                  "triggerEventId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
                   },
                   "startedAfter": {
                     "type": "string",

@@ -251,6 +251,25 @@ function zodMessage(error: z.ZodError): string {
     .join('; ');
 }
 
+/**
+ * What a call that worked tells the model: the ids it made, so a later reply (where this reply's refs no
+ * longer work) can point at the new step and its paths.
+ */
+function doneMessage(ops: readonly WorkflowOp[]): string {
+  const op = ops[0];
+  if (op?.op === 'add_step') {
+    const branches: unknown = (op.step as { branches?: unknown }).branches;
+    const paths = Array.isArray(branches)
+      ? branches.flatMap((b: unknown) =>
+          isPlainObject(b) && typeof b.id === 'string' ? [`“${String(b.name)}” is ${b.id}`] : [],
+        )
+      : [];
+    return `Done. The new step’s id is ${op.step.id}${paths.length ? `; its paths: ${paths.join(', ')}` : ''}.`;
+  }
+  if (op?.op === 'add_branch') return `Done. The new path’s id is ${op.branch.id}.`;
+  return 'Done.';
+}
+
 function parseJsonObject(text: string, what: string): Record<string, unknown> {
   let value: unknown;
   try {
@@ -469,10 +488,7 @@ export function aiToolCallsToOps(
       work = applied;
       ops.push(...callOps);
       Object.assign(branchRefs, pending);
-      const added = callOps.find((o) => o.op === 'add_step');
-      const message =
-        added && added.op === 'add_step' ? `Done. The new step’s id is ${added.step.id}.` : 'Done.';
-      results.push({ callIndex, ok: true, message });
+      results.push({ callIndex, ok: true, message: doneMessage(callOps) });
     } catch (error) {
       if (error instanceof CallError || error instanceof WorkflowOpError) {
         const detail =

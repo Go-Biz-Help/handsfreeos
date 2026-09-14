@@ -9,6 +9,7 @@ import type {
 } from './runtime';
 import { calendarConfirmTools } from './tools-calendar';
 import { command, money, paths, query, readTools, when } from './tools-read';
+import { workflowAutoTools, workflowConfirmTools, type WorkflowToolDeps } from './tools-workflow';
 
 /** The same choices as the pipeline's lost-reason dialog (apps/web/src/components/pipeline/lost-reason-dialog.tsx). */
 export const LOST_REASONS = [
@@ -784,18 +785,25 @@ const confirmTools: Record<string, ConfirmTool> = {
   create_lead: createLead,
   update_lead: updateLead,
   ...calendarConfirmTools,
+  ...workflowConfirmTools,
 };
 
 /** Every tool the Assistant can call has one of these; worker tests check none is missing. */
 export const executorFor = (name: string) =>
-  readTools[name] ?? autoWrites[name] ?? confirmTools[name];
+  readTools[name] ?? autoWrites[name] ?? workflowAutoTools[name] ?? confirmTools[name];
 
-export function createToolExecutor(db: Db): ToolExecutor {
+/** `workflows`: the model drafting workflows talks to (without it, draft_workflow says the AI isn't set up). */
+export function createToolExecutor(
+  db: Db,
+  workflows: WorkflowToolDeps | null = null,
+): ToolExecutor {
   return {
     async run(tool: AssistantTool, args: Args, ctx: ToolContext) {
       const run = readTools[tool.name] ?? autoWrites[tool.name];
-      if (!run) throw new Error(`No executor for ${tool.name}`);
-      return run(db, ctx, args);
+      if (run) return run(db, ctx, args);
+      const flow = workflowAutoTools[tool.name];
+      if (!flow) throw new Error(`No executor for ${tool.name}`);
+      return flow(db, ctx, args, workflows);
     },
     async prepare(tool, args, ctx, toolCallId) {
       const t = confirmTools[tool.name];

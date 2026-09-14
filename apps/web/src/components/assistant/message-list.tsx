@@ -1,6 +1,7 @@
 'use client';
 import type { AssistantCard } from '@hfos/core';
 import {
+  Activity,
   ArrowRight,
   Building2,
   CalendarDays,
@@ -9,6 +10,7 @@ import {
   LoaderCircle,
   MessageCircle,
   UserRound,
+  Workflow,
   X,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
@@ -31,6 +33,7 @@ import { ConfirmCard, type ConfirmCardData } from './confirm-card';
 import { AssistantMark } from './mark';
 import { NoticeCard } from './notices';
 import { RichText } from './rich-text';
+import { KnowledgeCard, WorkflowCard } from './workflow-cards';
 
 /** The name of the record on screen ("Mike Johnson", "Texts with Mike Johnson"). */
 async function labelFor(workspaceId: string, page: PageRecord): Promise<string> {
@@ -69,6 +72,16 @@ async function labelFor(workspaceId: string, page: PageRecord): Promise<string> 
       const what = appointment.service?.name ?? appointment.title;
       return who.length ? `${what} with ${who.join(', ')}` : what;
     }
+    case 'workflow':
+      return unwrap(
+        await api.POST('/v1/queries/workflow.get', { body: { workspaceId, workflowId: page.id } }),
+      ).workflow.name;
+    case 'workflow_run': {
+      const { run } = unwrap(
+        await api.POST('/v1/queries/workflow.run_get', { body: { workspaceId, runId: page.id } }),
+      );
+      return run.person ? `${run.workflow.name} · ${run.person.fullName}` : run.workflow.name;
+    }
   }
 }
 
@@ -95,6 +108,8 @@ const PAGE_ICON: Record<PageRecordType, typeof UserRound> = {
   lead: KanbanSquare,
   conversation: MessageCircle,
   appointment: CalendarDays,
+  workflow: Workflow,
+  workflow_run: Activity,
 };
 
 interface Suggestion {
@@ -221,6 +236,10 @@ function AnswerCardView({
       return <SlotsCard card={card} />;
     case 'appointment':
       return <AppointmentCard card={card} />;
+    case 'workflow':
+      return <WorkflowCard card={card} />;
+    case 'knowledge':
+      return <KnowledgeCard card={card} />;
   }
 }
 

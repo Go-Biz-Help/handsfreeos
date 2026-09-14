@@ -1,6 +1,7 @@
 'use client';
 import * as Popover from '@radix-ui/react-popover';
 import { Check, ChevronsUpDown, Plus, Search } from 'lucide-react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useMemo, useState, type FormEvent } from 'react';
 import { toast } from 'sonner';
@@ -9,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Field } from '@/components/ui/field';
 import { Input, Select } from '@/components/ui/input';
+import { agencyHref } from '@/lib/agency/org';
 import { apiBrowser, errorMessage, unwrap } from '@/lib/api/client';
 import type { Me, WorkspaceSummary } from '@/lib/api/types';
 import { cn } from '@/lib/utils';
@@ -100,9 +102,22 @@ export function WorkspaceSwitcher({ me, current }: { me: Me; current: WorkspaceS
               ) : null}
               {groups.map(([orgId, g]) => (
                 <div key={orgId}>
-                  <div className="px-2.5 pb-1 pt-1.5 text-xs font-medium text-text-3">
-                    {g.name}
-                    {g.role ? ` · you are ${g.role === 'owner' ? 'Owner' : 'Admin'}` : ''}
+                  <div className="flex items-center gap-2 px-2.5 pb-1 pt-1.5 text-xs font-medium text-text-3">
+                    <span className="min-w-0 flex-1 truncate">
+                      {g.name}
+                      {g.role ? ` · you are ${g.role === 'owner' ? 'Owner' : 'Admin'}` : ''}
+                    </span>
+                    {/* Org owners and admins run the agency area (templates and knowledge packs). */}
+                    {g.role ? (
+                      <Link
+                        href={agencyHref(orgId)}
+                        onClick={() => setOpen(false)}
+                        className="flex-none rounded-[4px] font-semibold text-accent-text hover:underline focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring"
+                        data-testid={`agency-link-${orgId}`}
+                      >
+                        Agency area
+                      </Link>
+                    ) : null}
                   </div>
                   {g.items.map((w) => (
                     <button

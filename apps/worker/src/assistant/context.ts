@@ -1,19 +1,26 @@
 import {
   assistantTools,
+  briefFromProfile,
   executeQuery,
+  groundingRules,
   hasWorkspacePermission,
+  quoteData,
   registry,
   ROLE_LABELS,
   type AssistantTool,
   type HumanActor,
   type Permission,
 } from '@hfos/core/server';
-import type { Db } from '@hfos/db/client';
+import { asWorker, type Db } from '@hfos/db/client';
+import { loadGrounding } from '../knowledge/grounding';
+import type { TenantScope } from '../services';
+import { approvalPreview, approvalWhat } from './approval-words';
 import { atLabel, joinAnd, rangeLabel } from './calendar-format';
 import type { PromptContext } from './prompt';
 
 export interface PageRecord {
-  readonly type: 'person' | 'company' | 'lead' | 'conversation' | 'appointment';
+  readonly type:
+    'person' | 'company' | 'lead' | 'conversation' | 'appointment' | 'workflow' | 'workflow_run';
   readonly id: string;
 }
 
@@ -87,10 +94,30 @@ interface AppointmentLite {
 
 type Ask = <T>(name: string, input?: Record<string, unknown>) => Promise<T>;
 
+interface WorkflowList {
+  items: { id: string; name: string; status: string; trigger: { summary: string } }[];
+}
+interface ApprovalList {
+  items: {
+    id: string;
+    workflow: { name: string };
+    person: { fullName: string } | null;
+    preview: Record<string, unknown>;
+    canDecide: boolean;
+  }[];
+}
+
 /** The name of the record on screen, or null when it can't be read (gone, or not this person's to see). */
-async function pageLabel(ask: Ask, page: PageRecord, timezone: string): Promise<string | null> {
+async function pageLabel(
+  ask: Ask,
+  page: PageRecord & { readonly type: Exclude<PageRecord['type'], 'workflow_run'> },
+  timezone: string,
+): Promise<string | null> {
   try {
     switch (page.type) {
+      case 'workflow':
+        return (await ask<{ workflow: { name: string } }>('workflow.get', { workflowId: page.id }))
+          .workflow.name;
       case 'person':
         return (await ask<{ person: { fullName: string } }>('person.get', { personId: page.id }))
           .person.fullName;
@@ -128,6 +155,42 @@ async function pageLabel(ask: Ask, page: PageRecord, timezone: string): Promise<
   } catch {
     return null;
   }
+}
+
+/** The record on screen: its name, and for a run, the workflow and customer it belongs to. */
+async function pageDetails(
+  ask: Ask,
+  page: PageRecord,
+  timezone: string,
+): Promise<{ label: string; related: string | null } | null> {
+  if (page.type !== 'workflow_run') {
+    const label = await pageLabel(ask, { ...page, type: page.type }, timezone);
+    return label ? { label, related: null } : null;
+  }
+  try {
+    const { run } = await ask<{
+      run: {
+        workflow: { id: string; name: string };
+        person: { id: string; fullName: string } | null;
+      };
+    }>('workflow.run_get', { runId: page.id });
+    const who = run.person;
+    return {
+      label: `a run of ${run.workflow.name}${who ? ` for ${who.fullName}` : ''}`,
+      related: `It belongs to ${run.workflow.name} (workflow id ${run.workflow.id})${who ? ` and is for ${who.fullName} (person id ${who.id})` : ''}. "It" usually means this workflow, and "him", "her" or "them" its customer.`,
+    };
+  } catch {
+    return null;
+  }
+}
+
+/** The business profile's brief and the grounding rules: what the Assistant may say about the business. */
+async function knowledgeFor(db: Db, scope: TenantScope): Promise<PromptContext['knowledge']> {
+  const g = await asWorker(db, scope, (tx) => loadGrounding(tx, scope.workspaceId));
+  return {
+    brief: quoteData(briefFromProfile(g.profile, g.business)),
+    rules: groundingRules(g.profile, g.business),
+  };
 }
 
 /** A customer's next appointment, so "move his appointment" has one to mean. */
@@ -216,12 +279,18 @@ export async function questionContext(
       })),
   ];
   const live = services.items.filter((s) => !s.archivedAt);
-  const [calendars, label, next] = await Promise.all([
+  const scope = { workspaceId, organizationId: workspace.organizationId };
+  const [calendars, shown, next, flows, approvals, knowledge] = await Promise.all([
     calendarsFor(ask, new Map(people.map((p) => [p.userId, p.fullName])), live),
-    page ? pageLabel(ask, page, workspace.timezone) : Promise.resolve(null),
+    page ? pageDetails(ask, page, workspace.timezone) : Promise.resolve(null),
     page?.type === 'person'
       ? nextAppointment(ask, page.id, workspace.timezone)
       : Promise.resolve(null),
+    ask<WorkflowList>('workflow.list').catch((): WorkflowList => ({ items: [] })),
+    ask<ApprovalList>('workflow.approval_list', { status: 'pending', limit: 10 }).catch(
+      (): ApprovalList => ({ items: [] }),
+    ),
+    knowledgeFor(db, scope).catch(() => null),
   ]);
   return {
     organizationId: workspace.organizationId,
@@ -242,7 +311,23 @@ export async function questionContext(
       team: people,
       calendars,
       services: live.map((s) => ({ id: s.id, name: s.name, minutes: s.durations })),
-      page: page && label ? { type: page.type, id: page.id, label, next } : null,
+      page:
+        page && shown
+          ? { type: page.type, id: page.id, label: shown.label, next, related: shown.related }
+          : null,
+      workflows: flows.items
+        .filter((w) => w.status !== 'archived')
+        .slice(0, 25)
+        .map((w) => ({ id: w.id, name: w.name, status: w.status, trigger: w.trigger.summary })),
+      approvals: approvals.items
+        .filter((a) => a.canDecide)
+        .map((a) => ({
+          id: a.id,
+          workflow: a.workflow.name,
+          customer: a.person?.fullName ?? approvalPreview(a.preview).customer,
+          what: approvalWhat(a.preview),
+        })),
+      knowledge,
     },
   };
 }

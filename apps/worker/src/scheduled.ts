@@ -41,6 +41,7 @@ import { recordSystemEvent } from './system-event';
 import { loadAccount } from './telephony/accounts';
 import type { RegistrationKind } from './telephony/provider';
 import { workflowJobs } from './workflows/index';
+import { templateJobs } from './workflows/templates';
 
 const localClock = (d: Date, timeZone: string) =>
   new Intl.DateTimeFormat('en-US', { timeZone, hour: 'numeric', minute: '2-digit' }).format(d);
@@ -294,6 +295,8 @@ export const jobs: JobMap = {
   'knowledge.document': knowledgeDocumentJob,
   // Workflows: each run's cursor, schedules, date triggers, releasing held runs, pruning old step logs.
   ...workflowJobs,
+  // The agency's pushes: a template or knowledge pack into one business each.
+  ...templateJobs,
 };
 
 /** Periodic jobs exist exactly once (their dedupe key keeps one pending row); the first run is an hour out. */

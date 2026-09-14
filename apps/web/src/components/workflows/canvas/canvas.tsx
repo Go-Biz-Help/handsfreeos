@@ -626,7 +626,7 @@ function Canvas({
             className="m-3 mb-0 flex-none bg-accent-soft text-accent-text [&>svg]:text-accent-text"
             testId="canvas-view-only"
           >
-            View only on a phone. Edit in Steps, or open this on a computer.
+            View only on a phone. Edit in Steps or Describe.
           </Note>
         ) : null}
         <div ref={pane} className="relative min-h-0 flex-1">

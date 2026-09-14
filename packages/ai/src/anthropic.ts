@@ -51,6 +51,7 @@ export class AnthropicProvider implements AiProvider {
       name: t.name,
       description: t.description,
       input_schema: t.inputSchema as Anthropic.Tool.InputSchema,
+      ...(t.strict ? { strict: true } : {}),
     }));
     try {
       const stream = this.client.messages.stream(

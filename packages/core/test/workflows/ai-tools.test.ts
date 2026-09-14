@@ -141,6 +141,11 @@ describe('aiToolCallsToOps', () => {
       false,
       true,
     ]);
+    // A later reply can't use this reply's refs, so a result names the ids it made.
+    expect(out.results[1]!.message).toBe(`Done. The new step’s id is ${out.refs.hello}.`);
+    expect(out.results[3]!.message).toBe(
+      `Done. The new step’s id is ${out.refs.split}; its paths: “Replied” is ${out.refs.replied}, “No reply” is ${out.refs.none}.`,
+    );
     expect(out.results[6]!.message).toMatch(/config\.body/);
     expect(out.results[8]!.message).toMatch(/no step “nope”/);
     expect(out.results[10]!.message).toMatch(/go-to/i);

@@ -14,5 +14,6 @@ export * from './refs';
 export * from './rules';
 export * from './describe';
 export * from './recipes';
+export * from './template-merge';
 export * from './schedule';
 export * from './ai-tools';

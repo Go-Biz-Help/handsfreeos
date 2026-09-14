@@ -96,7 +96,7 @@ test('on a phone: the canvas is view only', async ({ page }) => {
   await expect(canvas).toHaveAttribute('data-ready', 'true');
   await expect(canvas).toHaveAttribute('data-view-only', 'true');
   await expect(page.getByTestId('canvas-view-only')).toHaveText(
-    'View only on a phone. Edit in Steps, or open this on a computer.',
+    'View only on a phone. Edit in Steps or Describe.',
   );
   const box = (await canvas.boundingBox())!;
   expect(box.x + box.width).toBeLessThanOrEqual(390);

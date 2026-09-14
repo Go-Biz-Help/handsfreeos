@@ -1,6 +1,7 @@
 import { onKnowledgeDocumentAdded } from '../knowledge/document';
 import { onKnowledgeScanRequested } from '../knowledge/scan';
 import { withWorkflows } from '../workflows/index';
+import { onPackPushed, onTemplatePushed } from '../workflows/templates';
 import {
   onAddedConfirm,
   onArmReminders,
@@ -87,4 +88,7 @@ export const handlers: HandlerMap = withWorkflows({
   // The knowledge base: website scans and uploaded documents run as jobs (knowledge/scan.ts, document.ts).
   'knowledge_scan.requested': onKnowledgeScanRequested,
   'knowledge_document.added': onKnowledgeDocumentAdded,
+  // The agency's pushes (organization-level events): one install job per business (workflows/templates.ts).
+  'workflow_template.pushed': onTemplatePushed,
+  'knowledge_pack.pushed': onPackPushed,
 });

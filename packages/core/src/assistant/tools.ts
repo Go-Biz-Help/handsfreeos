@@ -171,6 +171,44 @@ export const assistantTools = [
     permission: 'inbox.use',
   }),
 
+  // ---------- workflows and the knowledge base (auto) ----------
+  define({
+    name: 'list_workflows',
+    description:
+      'The business’s workflows with ids: whether each is on (active), paused or a draft, what starts it, and its runs in the last 30 days.',
+    input: z.object({ status: z.enum(['draft', 'active', 'paused']).optional() }),
+    autonomy: 'auto',
+    permission: 'workspace.read',
+  }),
+  define({
+    name: 'draft_workflow',
+    description:
+      'Draft a new workflow, or a change to one (pass its workflowId; "this" on a workflow page means that one), from the person’s words. It only makes a proposal they open, check and apply: nothing is saved or turned on. Put everything they asked for in the description.',
+    input: z.object({
+      description: text(2000).describe(
+        'What it should do, or what to change, in the person’s words',
+      ),
+      workflowId: uuid.optional().describe('The workflow to change; leave it out for a new one'),
+      name: z
+        .string()
+        .trim()
+        .min(1)
+        .max(120)
+        .optional()
+        .describe('A short name for a new workflow'),
+    }),
+    autonomy: 'auto',
+    permission: 'workflows.manage',
+  }),
+  define({
+    name: 'search_knowledge',
+    description:
+      'Search the business’s knowledge base (published FAQs, facts, articles and documents) for what to say about the business: services, prices, policies, hours. Answer only from what it returns.',
+    input: z.object({ query: text(500) }),
+    autonomy: 'auto',
+    permission: 'workspace.read',
+  }),
+
   // ---------- tasks and notes (auto, with Undo) ----------
   define({
     name: 'create_task',
@@ -352,6 +390,70 @@ export const assistantTools = [
     }),
     autonomy: 'confirm',
     permission: 'appointments.write',
+  }),
+  define({
+    name: 'start_workflow',
+    description:
+      'Start a workflow that is on for one customer; it keeps to the workflow’s re-entry setting. The card shows what it does first.',
+    input: z.object({ workflowId: uuid, personId: uuid }),
+    autonomy: 'confirm',
+    permission: 'records.write',
+  }),
+  define({
+    name: 'pause_workflow',
+    description:
+      'Pause a workflow that is on: nothing new starts (what would start it while paused is ignored, not saved for later) and its runs hold at their next step.',
+    input: z.object({ workflowId: uuid }),
+    autonomy: 'confirm',
+    permission: 'workflows.manage',
+  }),
+  define({
+    name: 'resume_workflow',
+    description:
+      'Turn a paused workflow back on: new triggers start it again and held runs carry on, a batch at a time.',
+    input: z.object({ workflowId: uuid }),
+    autonomy: 'confirm',
+    permission: 'workflows.manage',
+  }),
+  define({
+    name: 'remove_contact_from_workflow',
+    description: 'Take a customer out of a workflow: their runs still going stop.',
+    input: z.object({ workflowId: uuid, personId: uuid }),
+    autonomy: 'confirm',
+    permission: 'records.write',
+  }),
+  define({
+    name: 'answer_workflow_approval',
+    description:
+      'Approve or reject a workflow’s approval step (the ids of approvals waiting on the person are in the context). To approve different words, pass the edited text as message.',
+    input: z.object({
+      approvalId: uuid,
+      decision: z.enum(['approve', 'reject']),
+      message: z
+        .string()
+        .trim()
+        .min(1)
+        .max(5000)
+        .optional()
+        .describe('Approving only: the text to send instead of what the AI wrote'),
+      reason: z.string().trim().max(1000).optional().describe('Rejecting only: why'),
+    }),
+    autonomy: 'confirm',
+    // Approvers can be members: who may decide is checked on the approval itself.
+    permission: 'workspace.read',
+  }),
+  define({
+    name: 'add_knowledge_item',
+    description:
+      'Add an FAQ, fact or article to the knowledge base. It is saved as a draft unless the person asks to publish it; AI steps and you answer only from published items.',
+    input: z.object({
+      kind: z.enum(['faq', 'fact', 'article']),
+      title: text(300).describe('An FAQ’s question, or the fact’s or article’s title'),
+      body: text(5000).describe('An FAQ’s answer, or the fact’s or article’s text'),
+      publish: z.boolean().default(false),
+    }),
+    autonomy: 'confirm',
+    permission: 'knowledge.manage',
   }),
 ] as const;
 
