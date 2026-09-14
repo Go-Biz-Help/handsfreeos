@@ -22,16 +22,16 @@ import {
   executeCommandIn,
   groundingContext,
   knowledgeItemRecordUse,
-  knowledgeRetriever,
   quoteCustomerText,
   quoteData,
   smsSegments,
   type KnowledgeMatch,
   type RequestMeta,
 } from '@hfos/core/server';
-import { asWorker, rows, sql, type Tx } from '@hfos/db/client';
+import { asWorker, rows, sql } from '@hfos/db/client';
 import { z } from 'zod';
 import { AiAskError, askStructured } from '../ai/ask';
+import { anyOfWords, findKnowledge } from '../knowledge/find';
 import { proposeGap } from '../knowledge/gaps';
 import { loadGrounding } from '../knowledge/grounding';
 import type { TenantScope, WorkerServices } from '../services';
@@ -274,48 +274,15 @@ function shapeOf(input: AiStepInput): Shape {
 // ---- Knowledge ----
 
 /**
- * A customer's words as an any-of search ("maintenance or plan or rooftop"), so one matching word is enough
- * and items matching more of them rank higher. Short words are left out, and so is punctuation (web search
- * syntax).
+ * What a step searches the knowledge for, best first: the customer's latest message, then the step's
+ * instructions, then the lead's or appointment's title (findKnowledge drops repeats).
  */
-export function anyOfWords(text: string, max = 12): string {
-  const words = new Set<string>();
-  for (const w of text.toLowerCase().match(/[\p{L}\p{N}]+/gu) ?? []) {
-    if (w.length < 3) continue;
-    words.add(w);
-    if (words.size >= max) break;
-  }
-  return [...words].join(' or ');
-}
-
-/**
- * The published items for this step, best first: matches for the customer's latest message, then for the
- * step's instructions, then for the lead's or appointment's title, without repeats.
- */
-async function findKnowledge(
-  tx: Tx,
-  workspaceId: string,
-  input: AiStepInput,
-  limit: number,
-): Promise<KnowledgeMatch[]> {
-  const retriever = knowledgeRetriever();
-  const queries = [
-    input.customerMessage ? anyOfWords(input.customerMessage) : '',
-    input.prompt,
-    input.facts['lead.title'] ?? '',
-    input.facts['appointment.title'] ?? '',
-  ];
-  const found = new Map<string, KnowledgeMatch>();
-  for (const q of queries) {
-    if (found.size >= limit) break;
-    if (!q.trim()) continue;
-    for (const m of await retriever.search(tx, workspaceId, q, { limit })) {
-      if (found.size >= limit) break;
-      if (!found.has(m.id)) found.set(m.id, m);
-    }
-  }
-  return [...found.values()];
-}
+const knowledgeQueries = (input: AiStepInput): string[] => [
+  input.customerMessage ? anyOfWords(input.customerMessage) : '',
+  input.prompt,
+  input.facts['lead.title'] ?? '',
+  input.facts['appointment.title'] ?? '',
+];
 
 const promptItem = (m: KnowledgeMatch) => ({
   id: m.id,
@@ -396,12 +363,11 @@ export async function runAiStep(
       grounding: await loadGrounding(tx, scope.workspaceId),
       timeZone: ws?.timezone || 'UTC',
       matches: input.useKnowledge
-        ? await findKnowledge(
-            tx,
-            scope.workspaceId,
-            input,
-            input.task === 'write' ? WRITE_MATCHES : OTHER_MATCHES,
-          )
+        ? await findKnowledge(tx, {
+            workspaceId: scope.workspaceId,
+            queries: knowledgeQueries(input),
+            limit: input.task === 'write' ? WRITE_MATCHES : OTHER_MATCHES,
+          })
         : [],
     };
   });

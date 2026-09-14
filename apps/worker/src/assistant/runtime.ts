@@ -1,15 +1,13 @@
 import { randomUUID } from 'node:crypto';
 import {
-  addUsage,
   AiProviderError,
   emptyUsage,
-  type AiContent,
   type AiMessage,
   type AiProvider,
+  type AiToolCall,
   type AiUsage,
 } from '@hfos/ai';
 import {
-  HfosError,
   toolInputSchema,
   type AssistantCard,
   type AssistantEvent,
@@ -18,6 +16,7 @@ import {
 } from '@hfos/core/server';
 import type { Db } from '@hfos/db/client';
 import type { Logger } from 'pino';
+import { runToolLoop, toolErrorContent, type ToolLoopAnswer } from '../ai/tool-loop';
 import { contextText, SYSTEM, type PromptContext } from './prompt';
 import * as store from './store';
 
@@ -120,12 +119,6 @@ const STEP_LABEL: Record<string, string> = {
 };
 const stepLabel = (tool: string) => STEP_LABEL[tool] ?? 'Preparing it for your OK';
 
-/** An error a tool hit, in words the model can pass on (never a stack or SQL). */
-function toolError(e: unknown): { error: string; rule?: string } {
-  if (e instanceof HfosError) return { error: e.message, ...(e.rule ? { rule: e.rule } : {}) };
-  return { error: 'That didn’t work. Nothing was changed.' };
-}
-
 /** The thread so far as model messages: what was said, and what each answer did, as short notes. */
 function modelMessages(history: readonly store.HistoryItem[]): AiMessage[] {
   const out: AiMessage[] = [];
@@ -147,8 +140,9 @@ function modelMessages(history: readonly store.HistoryItem[]): AiMessage[] {
 }
 
 /**
- * Answers one question: streams text and cards through `emit`, runs "auto" tools as the person,
- * leaves "confirm" tools waiting as cards, and saves the answer and the run's token use.
+ * Answers one question on the shared tool loop (ai/tool-loop.ts): streams text and cards through `emit`,
+ * runs "auto" tools as the person, leaves "confirm" tools waiting as cards, and saves the answer and the
+ * run's token use.
  */
 export async function ask(
   deps: RuntimeDeps,
@@ -192,122 +186,101 @@ export async function ask(
   }));
   const messages = modelMessages(await store.history(deps.db, scope, run.threadId));
   const cards: AssistantCard[] = [];
+
+  /** One call: "auto" tools run as the person, "confirm" tools wait as cards, errors go back to the model. */
+  const execute = async (call: AiToolCall): Promise<ToolLoopAnswer> => {
+    const tool = offered.get(call.name);
+    if (!tool)
+      return { content: { error: 'That is not something you can do here.' }, isError: true };
+    const parsed = tool.input.safeParse(call.arguments);
+    if (!parsed.success) {
+      const issues = parsed.error.issues.map(
+        (i: { path: PropertyKey[]; message: string }) =>
+          `${i.path.map(String).join('.')}: ${i.message}`,
+      );
+      return { content: { error: 'Invalid input', issues }, isError: true };
+    }
+    const args = parsed.data as Record<string, unknown>;
+    emit({ type: 'step', id: call.id, label: stepLabel(tool.name), status: 'running' });
+    const base = {
+      userId: input.actor.userId,
+      threadId: run.threadId,
+      runId: run.runId,
+      providerCallId: call.id,
+      tool: tool.name,
+      arguments: args,
+      autonomy: tool.autonomy,
+      correlationId,
+    };
+    try {
+      let answer: ToolLoopAnswer;
+      if (tool.autonomy === 'confirm') {
+        const id = await store.recordToolCall(deps.db, scope, {
+          ...base,
+          status: 'awaiting_confirmation',
+        });
+        const prepared = await deps.tools.prepare(tool, args, ctx, id);
+        cards.push(prepared.card);
+        emit({ type: 'card', card: prepared.card });
+        answer = {
+          content: { status: 'waiting_for_the_person_to_confirm', ...(prepared.result as object) },
+        };
+      } else {
+        const out = await deps.tools.run(tool, args, ctx);
+        const id = await store.recordToolCall(deps.db, scope, {
+          ...base,
+          status: out.isError ? 'failed' : 'done',
+          result: out.record ?? null,
+          command: out.command ?? null,
+        });
+        for (const shown of [out.card, ...(out.cards ?? [])]) {
+          if (!shown) continue;
+          const card = shown.type === 'done' ? { ...shown, toolCallId: id } : shown;
+          cards.push(card);
+          emit({ type: 'card', card });
+        }
+        answer = { content: out.result, isError: !!out.isError };
+      }
+      emit({ type: 'step', id: call.id, label: stepLabel(tool.name), status: 'done' });
+      return answer;
+    } catch (e) {
+      // A provider error ends the whole run (the loop stops on it).
+      if (e instanceof AiProviderError) throw e;
+      deps.log.warn({ err: e, tool: tool.name, runId: run.runId }, 'assistant tool failed');
+      await store.recordToolCall(deps.db, scope, {
+        ...base,
+        status: 'failed',
+        error: toolErrorContent(e).error,
+      });
+      emit({ type: 'step', id: call.id, label: stepLabel(tool.name), status: 'failed' });
+      return { content: toolErrorContent(e), isError: true };
+    }
+  };
+
   let text = '';
   let usage: AiUsage = emptyUsage;
   let rounds = 0;
-
   try {
-    for (;;) {
-      const turn = await deps.provider.stream(
-        {
-          system: SYSTEM,
-          context: contextText(input.prompt),
-          messages,
-          tools: toolDefs,
-          maxTokens: 2048,
-        },
-        {
-          signal,
-          onText: (delta) => {
-            text += delta;
-            emit({ type: 'text', delta });
-          },
-        },
-      );
-      usage = addUsage(usage, turn.usage);
-      if (turn.stopReason !== 'tool_use' || turn.toolCalls.length === 0) break;
-      if (++rounds > MAX_ROUNDS) {
-        const note =
-          '\n\nThat took more steps than I can take in one go. Ask again with a smaller piece of it.';
-        text += note;
-        emit({ type: 'text', delta: note });
-        break;
-      }
-      const callBlocks: AiContent[] = turn.toolCalls.map((c) => ({
-        type: 'tool_call',
-        id: c.id,
-        name: c.name,
-        arguments: c.arguments,
-      }));
-      messages.push({
-        role: 'assistant',
-        content: turn.text ? [{ type: 'text', text: turn.text }, ...callBlocks] : callBlocks,
-      });
-      const results: AiContent[] = [];
-      for (const call of turn.toolCalls) {
-        const answer = (content: unknown, isError = false) =>
-          results.push({
-            type: 'tool_result',
-            callId: call.id,
-            content: JSON.stringify(content),
-            isError,
-          });
-        const tool = offered.get(call.name);
-        if (!tool) {
-          answer({ error: 'That is not something you can do here.' }, true);
-          continue;
-        }
-        const parsed = tool.input.safeParse(call.arguments);
-        if (!parsed.success) {
-          const issues = parsed.error.issues.map(
-            (i: { path: PropertyKey[]; message: string }) =>
-              `${i.path.map(String).join('.')}: ${i.message}`,
-          );
-          answer({ error: 'Invalid input', issues }, true);
-          continue;
-        }
-        const args = parsed.data as Record<string, unknown>;
-        emit({ type: 'step', id: call.id, label: stepLabel(tool.name), status: 'running' });
-        const base = {
-          userId: input.actor.userId,
-          threadId: run.threadId,
-          runId: run.runId,
-          providerCallId: call.id,
-          tool: tool.name,
-          arguments: args,
-          autonomy: tool.autonomy,
-          correlationId,
-        };
-        try {
-          if (tool.autonomy === 'confirm') {
-            const id = await store.recordToolCall(deps.db, scope, {
-              ...base,
-              status: 'awaiting_confirmation',
-            });
-            const prepared = await deps.tools.prepare(tool, args, ctx, id);
-            cards.push(prepared.card);
-            emit({ type: 'card', card: prepared.card });
-            answer({ status: 'waiting_for_the_person_to_confirm', ...(prepared.result as object) });
-          } else {
-            const out = await deps.tools.run(tool, args, ctx);
-            const id = await store.recordToolCall(deps.db, scope, {
-              ...base,
-              status: out.isError ? 'failed' : 'done',
-              result: out.record ?? null,
-              command: out.command ?? null,
-            });
-            for (const shown of [out.card, ...(out.cards ?? [])]) {
-              if (!shown) continue;
-              const card = shown.type === 'done' ? { ...shown, toolCallId: id } : shown;
-              cards.push(card);
-              emit({ type: 'card', card });
-            }
-            answer(out.result, !!out.isError);
-          }
-          emit({ type: 'step', id: call.id, label: stepLabel(tool.name), status: 'done' });
-        } catch (e) {
-          if (e instanceof AiProviderError) throw e;
-          deps.log.warn({ err: e, tool: tool.name, runId: run.runId }, 'assistant tool failed');
-          await store.recordToolCall(deps.db, scope, {
-            ...base,
-            status: 'failed',
-            error: toolError(e).error,
-          });
-          emit({ type: 'step', id: call.id, label: stepLabel(tool.name), status: 'failed' });
-          answer(toolError(e), true);
-        }
-      }
-      messages.push({ role: 'user', content: results });
+    const loop = await runToolLoop({
+      provider: deps.provider,
+      system: SYSTEM,
+      context: contextText(input.prompt),
+      messages,
+      tools: toolDefs,
+      maxRounds: MAX_ROUNDS,
+      maxTokens: 2048,
+      execute,
+      onText: (delta) => emit({ type: 'text', delta }),
+      signal,
+    });
+    ({ text, usage, rounds } = loop);
+    // Stop and provider errors end the run the way any failure below does, keeping what already streamed.
+    if (loop.stoppedBy === 'aborted' || loop.stoppedBy === 'error') throw loop.error;
+    if (loop.stoppedBy === 'max_rounds') {
+      const note =
+        '\n\nThat took more steps than I can take in one go. Ask again with a smaller piece of it.';
+      text += note;
+      emit({ type: 'text', delta: note });
     }
     const messageId = await store.saveAnswer(deps.db, scope, {
       userId: input.actor.userId,

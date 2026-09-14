@@ -7,8 +7,9 @@ import {
   type AssistantEvent,
   type HumanActor,
 } from '@hfos/core/server';
-import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
+import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { authenticate, parseBody, requirePermission, type HttpDeps } from '../http/common';
+import { openStream } from '../http/sse';
 import { personQuery, questionContext } from './context';
 import { ask, type ToolContext, type ToolExecutor } from './runtime';
 import * as store from './store';
@@ -23,36 +24,6 @@ export interface AssistantServices {
 
 /** Runs in progress on this machine, so Stop can reach them. */
 const running = new Map<string, { readonly userId: string; readonly stop: AbortController }>();
-
-/** A server-sent event stream on a hijacked reply, keeping the CORS headers the plugin already set. */
-function openStream(reply: FastifyReply) {
-  const headers = {
-    ...reply.getHeaders(),
-    'content-type': 'text/event-stream; charset=utf-8',
-    'cache-control': 'no-cache, no-transform',
-    'x-accel-buffering': 'no',
-    connection: 'keep-alive',
-  };
-  reply.hijack();
-  reply.raw.writeHead(200, headers as Record<string, string>);
-  let open = true;
-  reply.raw.on('close', () => {
-    open = false;
-  });
-  // Proxies close quiet connections; a comment line every 15 seconds keeps this one up.
-  const beat = setInterval(() => {
-    if (open) reply.raw.write(': ping\n\n');
-  }, 15_000);
-  return {
-    send(event: AssistantEvent) {
-      if (open) reply.raw.write(`data: ${JSON.stringify(event)}\n\n`);
-    },
-    end() {
-      clearInterval(beat);
-      if (open) reply.raw.end();
-    },
-  };
-}
 
 export function registerAssistantRoutes(
   app: FastifyInstance,
@@ -74,7 +45,7 @@ export function registerAssistantRoutes(
       input.page,
       randomUUID(),
     );
-    const stream = openStream(reply);
+    const stream = openStream<AssistantEvent>(reply);
     const stop = new AbortController();
     let runId: string | null = null;
     try {
