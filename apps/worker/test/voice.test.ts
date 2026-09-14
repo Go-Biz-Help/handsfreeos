@@ -1,4 +1,4 @@
-import { createHmac, randomUUID } from 'node:crypto';
+import { createHmac, randomBytes, randomUUID } from 'node:crypto';
 import { and, eq } from 'drizzle-orm';
 import {
   callStart,
@@ -28,6 +28,7 @@ import {
 } from '@hfos/db/testing';
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { createSealer } from '../src/crypto';
 import { processDeliveries } from '../src/deliveries';
 import { handlers } from '../src/handlers/index';
 import { buildHttpServer } from '../src/http/server';
@@ -302,6 +303,33 @@ describe('browser calling', () => {
     expect(signature).toBe(
       createHmac('sha256', FAKE_VOICE_KEY_SECRET).update(`${head}.${payload}`).digest('base64url'),
     );
+  });
+
+  it('says calls are unavailable, not a server error, when the calling key was sealed with another key', async () => {
+    const [account] = await admin()
+      .select()
+      .from(telephonyAccounts)
+      .where(eq(telephonyAccounts.workspaceId, workspaceId));
+    const foreign = createSealer(randomBytes(32).toString('base64')).seal('SKsecret');
+    await admin()
+      .update(telephonyAccounts)
+      .set({ apiKeySecretEnc: foreign })
+      .where(eq(telephonyAccounts.id, account!.id));
+    try {
+      const res = await app.inject({
+        method: 'POST',
+        url: '/v1/telephony/voice-token',
+        payload: { workspaceId },
+        headers: { authorization: `Bearer ${await signInTestUser(member)}` },
+      });
+      expect(res.statusCode).toBe(503);
+      expect(res.json()).toMatchObject({ error: { rule: 'calls_unavailable' } });
+    } finally {
+      await admin()
+        .update(telephonyAccounts)
+        .set({ apiKeySecretEnc: account!.apiKeySecretEnc })
+        .where(eq(telephonyAccounts.id, account!.id));
+    }
   });
 });
 

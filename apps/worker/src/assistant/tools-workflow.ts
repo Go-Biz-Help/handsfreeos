@@ -156,6 +156,8 @@ export const workflowAutoTools: Record<string, WorkflowAutoTool> = {
           name: w.name,
           status: w.status,
           startsWhen: w.trigger.summary,
+          // start_workflow takes only these.
+          canStartForSomeone: w.trigger.kind === 'manual',
           liveVersion: w.activeVersion?.version ?? null,
           runsLast30Days: w.runs30d,
           runsGoingNow: w.activeRuns,
@@ -304,6 +306,16 @@ function notLive(wf: WorkflowItem, want: 'active' | 'paused'): string | null {
   return `“${wf.name}” is already on.`;
 }
 
+/**
+ * Only a workflow that starts by hand can be started for someone, as "Add to workflow…" on a customer's page
+ * offers (one that starts on its own event would run without the lead or appointment it expects).
+ */
+function notByHand(wf: WorkflowItem): string | null {
+  return wf.trigger.kind === 'manual'
+    ? null
+    : `“${wf.name}” starts on its own (${lowerFirst(wf.trigger.summary)}), so it can’t be started for someone by hand.`;
+}
+
 const LIVE_STATUSES = ['running', 'waiting', 'awaiting_approval', 'held'];
 
 async function runsOf(
@@ -327,7 +339,7 @@ const startWorkflow: WorkflowConfirmTool = {
       }),
     ]);
     const { def, names } = await liveDefinition(db, ctx, wf);
-    const blocked = notLive(wf, 'active');
+    const blocked = notLive(wf, 'active') ?? notByHand(wf);
     const [first, second] = def.steps;
     return {
       card: confirmCard(toolCallId, 'start_workflow', {
@@ -363,6 +375,8 @@ const startWorkflow: WorkflowConfirmTool = {
         personId: args['personId'],
       }),
     ]);
+    const byHand = notByHand(wf);
+    if (byHand) throw HfosError.conflict(byHand, 'workflow_not_manual');
     await command(db, ctx, 'workflow.enrol', {
       workflowId: args['workflowId'],
       personId: args['personId'],

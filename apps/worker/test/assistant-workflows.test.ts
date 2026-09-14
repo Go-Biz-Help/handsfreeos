@@ -8,6 +8,7 @@ import {
   knowledgeProfileUpdate,
   organizationCreate,
   personCreate,
+  workflowArchive,
   workflowCreate,
   workflowPublish,
   workflowSaveDraft,
@@ -420,6 +421,68 @@ describe('workflows and knowledge in the Assistant', () => {
         sql`select channel from app.audit_logs where action = 'workflow.enrol' and entity_id = ${followUp}`,
       ),
     ).toEqual([{ channel: 'assistant' }]);
+  });
+
+  it('won’t start a workflow that starts on its own, and says why', async () => {
+    const run = <T>(cmd: Parameters<typeof executeCommand>[1], input: unknown) =>
+      executeCommand(api(), cmd, input, actor(owner), meta()).then((r) => r.output as T);
+    const { workflowId } = await run<{ workflowId: string }>(workflowCreate, {
+      workspaceId: ws,
+      name: 'New lead text',
+      from: 'blank',
+      trigger: { kind: 'event', event: 'lead.created' },
+    });
+    const saved = await run<{ revision: number }>(workflowSaveDraft, {
+      workspaceId: ws,
+      workflowId,
+      baseRevision: 1,
+      ops: [
+        {
+          op: 'add_step',
+          parentId: null,
+          branchId: null,
+          index: null,
+          step: {
+            id: 's_nltask01',
+            type: 'action',
+            action: 'create_task',
+            config: { title: 'Call the new lead' },
+          },
+        },
+      ],
+    });
+    await rows(
+      admin(),
+      sql`update app.workflows set tested_revision = revision where id = ${workflowId}`,
+    );
+    await run(workflowPublish, { workspaceId: ws, workflowId, baseRevision: saved.revision });
+    try {
+      const events = await ask(ownerToken, 'Put him in New lead text', {
+        type: 'person',
+        id: mike,
+      });
+      const card = cardOf(events, 'confirm')!;
+      const why =
+        '“New lead text” starts on its own (when a new lead comes in), so it can’t be started for someone by hand.';
+      expect(card).toMatchObject({
+        tool: 'start_workflow',
+        confirmLabel: '',
+        warnings: [{ kind: 'blocked', text: why }],
+      });
+      // Confirming anyway (an old card, a crafted request) is refused, and no run is asked for.
+      expect((await confirm(ownerToken, card.toolCallId)).json()).toMatchObject({
+        status: 'failed',
+        error: why,
+      });
+      expect(
+        await rows(
+          admin(),
+          sql`select 1 from app.events where event_type = 'workflow.enrol_requested' and entity_id = ${workflowId}`,
+        ),
+      ).toEqual([]);
+    } finally {
+      await run(workflowArchive, { workspaceId: ws, workflowId });
+    }
   });
 
   it('pauses and resumes after Confirm, saying what happens to runs', async () => {

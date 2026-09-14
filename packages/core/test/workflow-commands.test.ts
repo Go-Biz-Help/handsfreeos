@@ -39,6 +39,7 @@ import {
   workflowProposalApply,
   workflowProposalCreate,
   workflowProposalGet,
+  workflowProposalMarkApplied,
   workflowPublish,
   workflowRemoveContact,
   workflowRestoreVersion,
@@ -779,6 +780,43 @@ describe('proposals and tests', () => {
       status: 'draft',
       trigger: { kind: 'event', event: 'lead.created' },
     });
+  });
+
+  it('marks a proposal the editor applied once its save lands, and only then', async () => {
+    const w = await blank('Marked proposals');
+    const ops = [addStep(task('s_prop0201', 'Follow up'))];
+    const proposalId = await insertProposal(w.id, w.revision, ops, 'Adds a follow-up task.');
+    const mark = (id: string, u: TestUser = owner) =>
+      run(workflowProposalMarkApplied, { workspaceId: wsId, proposalId: id }, u);
+    // The editor's own save of the same ops hasn't landed yet.
+    await expectHfos(() => mark(proposalId), 'proposal_not_saved', 409);
+    await run(
+      workflowSaveDraft,
+      { workspaceId: wsId, workflowId: w.id, baseRevision: w.revision, ops },
+      owner,
+    );
+    await expectHfos(() => mark(proposalId, member), 'forbidden', 403);
+    const marked = await mark(proposalId);
+    expect(marked).toMatchObject({ proposalId, changed: true });
+    const { proposal } = await ask(workflowProposalGet, { workspaceId: wsId, proposalId }, member);
+    expect(proposal.appliedAt).toBe(marked.appliedAt);
+    // Once is enough: again changes nothing, and applying it through the proposal is refused.
+    expect(await mark(proposalId)).toEqual({ ...marked, changed: false });
+    await expectHfos(
+      () =>
+        run(
+          workflowProposalApply,
+          { workspaceId: wsId, proposalId, baseRevision: w.revision + 1 },
+          owner,
+        ),
+      'proposal_applied',
+      409,
+    );
+    const [ev] = await eventsOf(proposalId, 'workflow_proposal.applied');
+    expect(ev!.payload).toMatchObject({ workflowId: w.id, opCount: 1, revision: w.revision + 1 });
+    // A proposal for a new workflow becomes one through workflow_proposal.apply instead.
+    const fresh = await insertProposal(null, null, [addStep(task('s_prop0202'))], 'New one');
+    await expectHfos(() => mark(fresh), 'proposal_for_new', 409);
   });
 
   it('stores an AI builder proposal (the system only) whose ops apply as they stand', async () => {

@@ -14908,6 +14908,75 @@
         }
       }
     },
+    "/v1/commands/workflow_proposal.mark_applied": {
+      "post": {
+        "operationId": "command_workflow_proposal_mark_applied",
+        "summary": "Record that the editor applied an AI builder proposal to a workflow’s draft and saved it (the editor applies the ops itself, as one Undo), so the Assistant no longer offers it. Refused until the draft is saved past the revision it was drafted against.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 1. Requires workflows.manage. Emits workflow_proposal.applied.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "proposalId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "proposalId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "proposalId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "appliedAt": {
+                      "type": "string",
+                      "format": "date-time",
+                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                    },
+                    "changed": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "proposalId",
+                    "appliedAt",
+                    "changed"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/commands/workflow_template.create_from_workflow": {
       "post": {
         "operationId": "command_workflow_template_create_from_workflow",
@@ -15666,6 +15735,993 @@
                     "changed",
                     "changes",
                     "issues"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/commands/workflow_template.create": {
+      "post": {
+        "operationId": "command_workflow_template_create",
+        "summary": "Start an agency template from scratch: a blank draft with its trigger (by hand when none is given) and no steps, to build, publish and push to client businesses.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 1. Requires org.templates.manage. Emits workflow_template.created.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "organizationId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 120
+                  },
+                  "description": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 2000
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "trigger": {
+                    "oneOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "type": "string",
+                            "enum": [
+                              "event"
+                            ]
+                          },
+                          "event": {
+                            "type": "string",
+                            "enum": [
+                              "person.created",
+                              "person.updated",
+                              "record.tags_changed",
+                              "lead.created",
+                              "lead.stage_changed",
+                              "lead.assigned",
+                              "appointment.booked",
+                              "appointment.rescheduled",
+                              "appointment.cancelled",
+                              "appointment.completed",
+                              "appointment.no_show",
+                              "message.received",
+                              "call.missed",
+                              "call.voicemail_left",
+                              "call.completed",
+                              "task.completed"
+                            ]
+                          },
+                          "filters": {
+                            "default": {},
+                            "type": "object",
+                            "properties": {
+                              "match": {
+                                "default": "all",
+                                "type": "string",
+                                "enum": [
+                                  "all",
+                                  "any"
+                                ]
+                              },
+                              "conditions": {
+                                "default": [],
+                                "maxItems": 20,
+                                "type": "array",
+                                "items": {
+                                  "anyOf": [
+                                    {
+                                      "type": "object",
+                                      "properties": {
+                                        "field": {
+                                          "type": "string",
+                                          "minLength": 1,
+                                          "maxLength": 80
+                                        },
+                                        "op": {
+                                          "type": "string",
+                                          "enum": [
+                                            "eq",
+                                            "neq",
+                                            "contains",
+                                            "not_contains",
+                                            "starts_with",
+                                            "gt",
+                                            "gte",
+                                            "lt",
+                                            "lte",
+                                            "in",
+                                            "not_in",
+                                            "includes",
+                                            "excludes",
+                                            "is_true",
+                                            "is_false",
+                                            "before",
+                                            "after",
+                                            "within_last",
+                                            "within_next",
+                                            "more_than_ago",
+                                            "is_empty",
+                                            "is_not_empty"
+                                          ]
+                                        },
+                                        "value": {
+                                          "default": null
+                                        }
+                                      },
+                                      "required": [
+                                        "field",
+                                        "op"
+                                      ]
+                                    },
+                                    {
+                                      "type": "object",
+                                      "properties": {
+                                        "match": {
+                                          "default": "all",
+                                          "type": "string",
+                                          "enum": [
+                                            "all",
+                                            "any"
+                                          ]
+                                        },
+                                        "conditions": {
+                                          "maxItems": 20,
+                                          "type": "array",
+                                          "items": {
+                                            "anyOf": [
+                                              {
+                                                "type": "object",
+                                                "properties": {
+                                                  "field": {
+                                                    "type": "string",
+                                                    "minLength": 1,
+                                                    "maxLength": 80
+                                                  },
+                                                  "op": {
+                                                    "type": "string",
+                                                    "enum": [
+                                                      "eq",
+                                                      "neq",
+                                                      "contains",
+                                                      "not_contains",
+                                                      "starts_with",
+                                                      "gt",
+                                                      "gte",
+                                                      "lt",
+                                                      "lte",
+                                                      "in",
+                                                      "not_in",
+                                                      "includes",
+                                                      "excludes",
+                                                      "is_true",
+                                                      "is_false",
+                                                      "before",
+                                                      "after",
+                                                      "within_last",
+                                                      "within_next",
+                                                      "more_than_ago",
+                                                      "is_empty",
+                                                      "is_not_empty"
+                                                    ]
+                                                  },
+                                                  "value": {
+                                                    "default": null
+                                                  }
+                                                },
+                                                "required": [
+                                                  "field",
+                                                  "op"
+                                                ]
+                                              },
+                                              {
+                                                "type": "object",
+                                                "properties": {
+                                                  "match": {
+                                                    "default": "all",
+                                                    "type": "string",
+                                                    "enum": [
+                                                      "all",
+                                                      "any"
+                                                    ]
+                                                  },
+                                                  "conditions": {
+                                                    "maxItems": 20,
+                                                    "type": "array",
+                                                    "items": {
+                                                      "type": "object",
+                                                      "properties": {
+                                                        "field": {
+                                                          "type": "string",
+                                                          "minLength": 1,
+                                                          "maxLength": 80
+                                                        },
+                                                        "op": {
+                                                          "type": "string",
+                                                          "enum": [
+                                                            "eq",
+                                                            "neq",
+                                                            "contains",
+                                                            "not_contains",
+                                                            "starts_with",
+                                                            "gt",
+                                                            "gte",
+                                                            "lt",
+                                                            "lte",
+                                                            "in",
+                                                            "not_in",
+                                                            "includes",
+                                                            "excludes",
+                                                            "is_true",
+                                                            "is_false",
+                                                            "before",
+                                                            "after",
+                                                            "within_last",
+                                                            "within_next",
+                                                            "more_than_ago",
+                                                            "is_empty",
+                                                            "is_not_empty"
+                                                          ]
+                                                        },
+                                                        "value": {
+                                                          "default": null
+                                                        }
+                                                      },
+                                                      "required": [
+                                                        "field",
+                                                        "op"
+                                                      ]
+                                                    }
+                                                  }
+                                                },
+                                                "required": [
+                                                  "conditions"
+                                                ]
+                                              }
+                                            ]
+                                          }
+                                        }
+                                      },
+                                      "required": [
+                                        "conditions"
+                                      ]
+                                    }
+                                  ]
+                                }
+                              }
+                            }
+                          }
+                        },
+                        "required": [
+                          "kind",
+                          "event"
+                        ]
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "type": "string",
+                            "enum": [
+                              "schedule"
+                            ]
+                          },
+                          "cadence": {
+                            "oneOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "every": {
+                                    "type": "string",
+                                    "enum": [
+                                      "weekly"
+                                    ]
+                                  },
+                                  "days": {
+                                    "minItems": 1,
+                                    "maxItems": 7,
+                                    "type": "array",
+                                    "items": {
+                                      "type": "integer",
+                                      "minimum": 0,
+                                      "maximum": 6
+                                    }
+                                  },
+                                  "at": {
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "every",
+                                  "days",
+                                  "at"
+                                ]
+                              },
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "every": {
+                                    "type": "string",
+                                    "enum": [
+                                      "monthly"
+                                    ]
+                                  },
+                                  "day": {
+                                    "anyOf": [
+                                      {
+                                        "type": "integer",
+                                        "minimum": 1,
+                                        "maximum": 28
+                                      },
+                                      {
+                                        "type": "string",
+                                        "enum": [
+                                          "last"
+                                        ]
+                                      }
+                                    ]
+                                  },
+                                  "at": {
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "every",
+                                  "day",
+                                  "at"
+                                ]
+                              }
+                            ]
+                          },
+                          "audience": {
+                            "default": {},
+                            "type": "object",
+                            "properties": {
+                              "match": {
+                                "default": "all",
+                                "type": "string",
+                                "enum": [
+                                  "all",
+                                  "any"
+                                ]
+                              },
+                              "conditions": {
+                                "default": [],
+                                "maxItems": 20,
+                                "type": "array",
+                                "items": {
+                                  "anyOf": [
+                                    {
+                                      "type": "object",
+                                      "properties": {
+                                        "field": {
+                                          "type": "string",
+                                          "minLength": 1,
+                                          "maxLength": 80
+                                        },
+                                        "op": {
+                                          "type": "string",
+                                          "enum": [
+                                            "eq",
+                                            "neq",
+                                            "contains",
+                                            "not_contains",
+                                            "starts_with",
+                                            "gt",
+                                            "gte",
+                                            "lt",
+                                            "lte",
+                                            "in",
+                                            "not_in",
+                                            "includes",
+                                            "excludes",
+                                            "is_true",
+                                            "is_false",
+                                            "before",
+                                            "after",
+                                            "within_last",
+                                            "within_next",
+                                            "more_than_ago",
+                                            "is_empty",
+                                            "is_not_empty"
+                                          ]
+                                        },
+                                        "value": {
+                                          "default": null
+                                        }
+                                      },
+                                      "required": [
+                                        "field",
+                                        "op"
+                                      ]
+                                    },
+                                    {
+                                      "type": "object",
+                                      "properties": {
+                                        "match": {
+                                          "default": "all",
+                                          "type": "string",
+                                          "enum": [
+                                            "all",
+                                            "any"
+                                          ]
+                                        },
+                                        "conditions": {
+                                          "maxItems": 20,
+                                          "type": "array",
+                                          "items": {
+                                            "anyOf": [
+                                              {
+                                                "type": "object",
+                                                "properties": {
+                                                  "field": {
+                                                    "type": "string",
+                                                    "minLength": 1,
+                                                    "maxLength": 80
+                                                  },
+                                                  "op": {
+                                                    "type": "string",
+                                                    "enum": [
+                                                      "eq",
+                                                      "neq",
+                                                      "contains",
+                                                      "not_contains",
+                                                      "starts_with",
+                                                      "gt",
+                                                      "gte",
+                                                      "lt",
+                                                      "lte",
+                                                      "in",
+                                                      "not_in",
+                                                      "includes",
+                                                      "excludes",
+                                                      "is_true",
+                                                      "is_false",
+                                                      "before",
+                                                      "after",
+                                                      "within_last",
+                                                      "within_next",
+                                                      "more_than_ago",
+                                                      "is_empty",
+                                                      "is_not_empty"
+                                                    ]
+                                                  },
+                                                  "value": {
+                                                    "default": null
+                                                  }
+                                                },
+                                                "required": [
+                                                  "field",
+                                                  "op"
+                                                ]
+                                              },
+                                              {
+                                                "type": "object",
+                                                "properties": {
+                                                  "match": {
+                                                    "default": "all",
+                                                    "type": "string",
+                                                    "enum": [
+                                                      "all",
+                                                      "any"
+                                                    ]
+                                                  },
+                                                  "conditions": {
+                                                    "maxItems": 20,
+                                                    "type": "array",
+                                                    "items": {
+                                                      "type": "object",
+                                                      "properties": {
+                                                        "field": {
+                                                          "type": "string",
+                                                          "minLength": 1,
+                                                          "maxLength": 80
+                                                        },
+                                                        "op": {
+                                                          "type": "string",
+                                                          "enum": [
+                                                            "eq",
+                                                            "neq",
+                                                            "contains",
+                                                            "not_contains",
+                                                            "starts_with",
+                                                            "gt",
+                                                            "gte",
+                                                            "lt",
+                                                            "lte",
+                                                            "in",
+                                                            "not_in",
+                                                            "includes",
+                                                            "excludes",
+                                                            "is_true",
+                                                            "is_false",
+                                                            "before",
+                                                            "after",
+                                                            "within_last",
+                                                            "within_next",
+                                                            "more_than_ago",
+                                                            "is_empty",
+                                                            "is_not_empty"
+                                                          ]
+                                                        },
+                                                        "value": {
+                                                          "default": null
+                                                        }
+                                                      },
+                                                      "required": [
+                                                        "field",
+                                                        "op"
+                                                      ]
+                                                    }
+                                                  }
+                                                },
+                                                "required": [
+                                                  "conditions"
+                                                ]
+                                              }
+                                            ]
+                                          }
+                                        }
+                                      },
+                                      "required": [
+                                        "conditions"
+                                      ]
+                                    }
+                                  ]
+                                }
+                              }
+                            }
+                          }
+                        },
+                        "required": [
+                          "kind",
+                          "cadence"
+                        ]
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "type": "string",
+                            "enum": [
+                              "date"
+                            ]
+                          },
+                          "anchor": {
+                            "type": "string",
+                            "enum": [
+                              "appointment.starts_at",
+                              "appointment.ends_at",
+                              "lead.created_at",
+                              "lead.stage_entered_at",
+                              "lead.next_action_at",
+                              "person.created_at"
+                            ]
+                          },
+                          "offset": {
+                            "type": "object",
+                            "properties": {
+                              "amount": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 1000
+                              },
+                              "unit": {
+                                "type": "string",
+                                "enum": [
+                                  "minutes",
+                                  "hours",
+                                  "days",
+                                  "weeks"
+                                ]
+                              },
+                              "direction": {
+                                "default": "after",
+                                "type": "string",
+                                "enum": [
+                                  "before",
+                                  "after"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "amount",
+                              "unit"
+                            ]
+                          },
+                          "at": {
+                            "default": null,
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "filters": {
+                            "default": {},
+                            "type": "object",
+                            "properties": {
+                              "match": {
+                                "default": "all",
+                                "type": "string",
+                                "enum": [
+                                  "all",
+                                  "any"
+                                ]
+                              },
+                              "conditions": {
+                                "default": [],
+                                "maxItems": 20,
+                                "type": "array",
+                                "items": {
+                                  "anyOf": [
+                                    {
+                                      "type": "object",
+                                      "properties": {
+                                        "field": {
+                                          "type": "string",
+                                          "minLength": 1,
+                                          "maxLength": 80
+                                        },
+                                        "op": {
+                                          "type": "string",
+                                          "enum": [
+                                            "eq",
+                                            "neq",
+                                            "contains",
+                                            "not_contains",
+                                            "starts_with",
+                                            "gt",
+                                            "gte",
+                                            "lt",
+                                            "lte",
+                                            "in",
+                                            "not_in",
+                                            "includes",
+                                            "excludes",
+                                            "is_true",
+                                            "is_false",
+                                            "before",
+                                            "after",
+                                            "within_last",
+                                            "within_next",
+                                            "more_than_ago",
+                                            "is_empty",
+                                            "is_not_empty"
+                                          ]
+                                        },
+                                        "value": {
+                                          "default": null
+                                        }
+                                      },
+                                      "required": [
+                                        "field",
+                                        "op"
+                                      ]
+                                    },
+                                    {
+                                      "type": "object",
+                                      "properties": {
+                                        "match": {
+                                          "default": "all",
+                                          "type": "string",
+                                          "enum": [
+                                            "all",
+                                            "any"
+                                          ]
+                                        },
+                                        "conditions": {
+                                          "maxItems": 20,
+                                          "type": "array",
+                                          "items": {
+                                            "anyOf": [
+                                              {
+                                                "type": "object",
+                                                "properties": {
+                                                  "field": {
+                                                    "type": "string",
+                                                    "minLength": 1,
+                                                    "maxLength": 80
+                                                  },
+                                                  "op": {
+                                                    "type": "string",
+                                                    "enum": [
+                                                      "eq",
+                                                      "neq",
+                                                      "contains",
+                                                      "not_contains",
+                                                      "starts_with",
+                                                      "gt",
+                                                      "gte",
+                                                      "lt",
+                                                      "lte",
+                                                      "in",
+                                                      "not_in",
+                                                      "includes",
+                                                      "excludes",
+                                                      "is_true",
+                                                      "is_false",
+                                                      "before",
+                                                      "after",
+                                                      "within_last",
+                                                      "within_next",
+                                                      "more_than_ago",
+                                                      "is_empty",
+                                                      "is_not_empty"
+                                                    ]
+                                                  },
+                                                  "value": {
+                                                    "default": null
+                                                  }
+                                                },
+                                                "required": [
+                                                  "field",
+                                                  "op"
+                                                ]
+                                              },
+                                              {
+                                                "type": "object",
+                                                "properties": {
+                                                  "match": {
+                                                    "default": "all",
+                                                    "type": "string",
+                                                    "enum": [
+                                                      "all",
+                                                      "any"
+                                                    ]
+                                                  },
+                                                  "conditions": {
+                                                    "maxItems": 20,
+                                                    "type": "array",
+                                                    "items": {
+                                                      "type": "object",
+                                                      "properties": {
+                                                        "field": {
+                                                          "type": "string",
+                                                          "minLength": 1,
+                                                          "maxLength": 80
+                                                        },
+                                                        "op": {
+                                                          "type": "string",
+                                                          "enum": [
+                                                            "eq",
+                                                            "neq",
+                                                            "contains",
+                                                            "not_contains",
+                                                            "starts_with",
+                                                            "gt",
+                                                            "gte",
+                                                            "lt",
+                                                            "lte",
+                                                            "in",
+                                                            "not_in",
+                                                            "includes",
+                                                            "excludes",
+                                                            "is_true",
+                                                            "is_false",
+                                                            "before",
+                                                            "after",
+                                                            "within_last",
+                                                            "within_next",
+                                                            "more_than_ago",
+                                                            "is_empty",
+                                                            "is_not_empty"
+                                                          ]
+                                                        },
+                                                        "value": {
+                                                          "default": null
+                                                        }
+                                                      },
+                                                      "required": [
+                                                        "field",
+                                                        "op"
+                                                      ]
+                                                    }
+                                                  }
+                                                },
+                                                "required": [
+                                                  "conditions"
+                                                ]
+                                              }
+                                            ]
+                                          }
+                                        }
+                                      },
+                                      "required": [
+                                        "conditions"
+                                      ]
+                                    }
+                                  ]
+                                }
+                              }
+                            }
+                          }
+                        },
+                        "required": [
+                          "kind",
+                          "anchor",
+                          "offset"
+                        ]
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "type": "string",
+                            "enum": [
+                              "webhook"
+                            ]
+                          },
+                          "personBy": {
+                            "default": "phone_or_email",
+                            "type": "string",
+                            "enum": [
+                              "phone",
+                              "email",
+                              "phone_or_email"
+                            ]
+                          },
+                          "createPerson": {
+                            "default": true,
+                            "type": "boolean"
+                          }
+                        },
+                        "required": [
+                          "kind"
+                        ]
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "type": "string",
+                            "enum": [
+                              "manual"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "kind"
+                        ]
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "organizationId",
+                  "name"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "templateId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "revision": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    }
+                  },
+                  "required": [
+                    "templateId",
+                    "revision"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/commands/workflow_template.rename": {
+      "post": {
+        "operationId": "command_workflow_template_rename",
+        "summary": "Rename an agency template or change its description. Businesses’ installed copies keep their own names.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 1. Requires org.templates.manage. Emits workflow_template.renamed.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "organizationId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "templateId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 120
+                  },
+                  "description": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 2000
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "organizationId",
+                  "templateId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "templateId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "description": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "templateId",
+                    "name",
+                    "description"
                   ],
                   "additionalProperties": false
                 }
@@ -35778,7 +36834,7 @@
     "/v1/queries/knowledge_pack.list": {
       "post": {
         "operationId": "query_knowledge_pack_list",
-        "summary": "The agency’s knowledge starter packs, with their items and versions.",
+        "summary": "The agency’s knowledge starter packs, with their items and versions, and how each business is getting on with them: its suggestions from the pack accepted, rejected and still waiting.",
         "tags": [
           "queries"
         ],
@@ -35923,6 +36979,45 @@
                             "type": "string",
                             "format": "date-time",
                             "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                          },
+                          "businesses": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "workspaceId": {
+                                  "type": "string",
+                                  "format": "uuid",
+                                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                },
+                                "name": {
+                                  "type": "string"
+                                },
+                                "pending": {
+                                  "type": "integer",
+                                  "minimum": -9007199254740991,
+                                  "maximum": 9007199254740991
+                                },
+                                "accepted": {
+                                  "type": "integer",
+                                  "minimum": -9007199254740991,
+                                  "maximum": 9007199254740991
+                                },
+                                "rejected": {
+                                  "type": "integer",
+                                  "minimum": -9007199254740991,
+                                  "maximum": 9007199254740991
+                                }
+                              },
+                              "required": [
+                                "workspaceId",
+                                "name",
+                                "pending",
+                                "accepted",
+                                "rejected"
+                              ],
+                              "additionalProperties": false
+                            }
                           }
                         },
                         "required": [
@@ -35933,7 +37028,8 @@
                           "version",
                           "archivedAt",
                           "createdBy",
-                          "updatedAt"
+                          "updatedAt",
+                          "businesses"
                         ],
                         "additionalProperties": false
                       }

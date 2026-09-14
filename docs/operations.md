@@ -1,6 +1,6 @@
 # Running HandsFreeOS
 
-This guide covers everything about HandsFreeOS that lives outside the code: the database, hosting, the web app, the phone carrier, email, connected mailboxes, the Assistant, the calendar and online booking, your laptop setup, and going live. Each section gives the steps in order, with what you should see after each one. Secrets never go in this repository: they live in Fly.io secrets, GitHub repository secrets, Vercel environment variables and your password manager, and nowhere else.
+This guide covers everything about HandsFreeOS that lives outside the code: the database, hosting, the web app, the phone carrier, email, connected mailboxes, the Assistant, the calendar and online booking, workflows and the knowledge base, your laptop setup, and going live. Each section gives the steps in order, with what you should see after each one. Secrets never go in this repository: they live in Fly.io secrets, GitHub repository secrets, Vercel environment variables and your password manager, and nowhere else.
 
 If you are setting up HandsFreeOS for the first time, start with the checklist in "Going live, and when something goes wrong". It tells you which parts of the other sections to do, and in what order.
 
@@ -24,6 +24,7 @@ A plain "step 5" means step 5 of the list you are reading, or of the part named 
 - [Connected mailboxes: Outlook and Gmail](#connected-mailboxes-outlook-and-gmail)
 - [The Assistant: Anthropic](#the-assistant-anthropic)
 - [The calendar: Google, Outlook and online booking](#the-calendar-google-outlook-and-online-booking)
+- [Workflows, the knowledge base and agency templates](#workflows-the-knowledge-base-and-agency-templates)
 - [Local development](#local-development)
 - [Going live, and when something goes wrong](#going-live-and-when-something-goes-wrong)
 
@@ -4997,7 +4998,7 @@ In all of these, the panel says "Something went wrong". When the cause is on Ant
 
 ### Change the daily limit
 
-Each workspace may use 2,000,000 tokens a day. That counts every kind of token its questions use: sent, written back, and written to or read from Anthropic's cache. The day runs from midnight to midnight in the workspace's own time zone. The worker checks the total before each question, so the last question of the day can go a little over. The same number applies to every workspace.
+Each workspace may use 2,000,000 tokens a day. That counts every kind of token its questions use: sent, written back, and written to or read from Anthropic's cache. The day runs from midnight to midnight in the workspace's own time zone. The worker checks the total before each question, so the last question of the day can go a little over. The same number applies to every workspace. Workflow AI steps, **Describe**, website scans and **Try it** count toward the same limit (see "AI steps and the daily AI limit" in "Workflows, the knowledge base and agency templates").
 
 When a workspace reaches it, the panel says "That’s today’s Assistant limit for {workspace}" and "It resets at midnight. Everything else in HandsFreeOS still works."
 
@@ -5752,6 +5753,386 @@ The other seeded calendars show the other shapes: **Dale’s calendar** books Da
 
 The seed also connected Dale's stand-in Google calendar and read in three busy times, which show as **Busy** in **Calendar**. The stand-in lives in the memory of the process that made it, so the running worker's first check of Dale's calendar, within about five minutes, clears them. To see busy times again, add one as in "Trying the calendar locally" and click **Sync now** as Dale.
 
+## Workflows, the knowledge base and agency templates
+
+Workflows let a business follow up with customers on its own. Each one has a trigger, such as a new lead or a missed call, then steps that text, email, wait, create tasks, sort replies with AI, and ask a person for approval. The knowledge base is what the AI writes from: the business profile, FAQs, articles, facts, documents, and what a scan of the business's website found. Agency templates and knowledge packs let Go Biz Help build a workflow, or a set of FAQs, once and push it to client businesses.
+
+Where to find them:
+
+- **Workflows** is in the sidebar after **Calendar** (in the menu drawer on phones). Its tabs are **Workflows**, **Runs** and **Approvals**.
+- **Knowledge** is in the sidebar after **Workflows**. Its tabs are **Overview**, **Items**, **Documents**, **Website** and **Suggestions**.
+- The agency area is at `https://app.handsfreeos.com/app/org/<organization id>`. Open the workspace switcher and click **Agency area** next to the organization's name. Only the organization's owners and admins see the link. The area has **Client businesses**, **Templates** and **Knowledge packs**.
+
+Owners and admins of a business build, test, publish and pause its workflows, and edit its knowledge base. Everyone in the business can look at both, add a customer to a workflow or take them out, and decide an approval that names them.
+
+There is nothing new to set up on Fly.io or Vercel. The worker runs the workflows and the website scans. The AI parts use the Assistant's Anthropic key, model and daily limit ("The Assistant: Anthropic"). Without the key, everything else works, and the AI parts fall back as described below. The tables come from the migrations `20260916000100_workflows.sql` to `20260916000710_knowledge_files.sql`. If the hosted project doesn't have them yet, push them with "Apply new migrations" in "The database: Supabase (hosted)".
+
+### How workflows run
+
+#### Triggers
+
+Each workflow has one trigger. The trigger's panel in the editor offers five kinds:
+
+| Kind         | When a run starts                                                                                                                                                                                        |
+| ------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Event**    | Something happens in HandsFreeOS, such as "A new lead comes in", "A call is missed", "An appointment is completed" or "A customer doesn’t show up". Filters narrow it down, for example to one calendar. |
+| **Schedule** | Weekly or monthly, at a time in the business's time zone, for a group of customers.                                                                                                                      |
+| **Date**     | A set time before or after a date on a record, for example 2 hours after an appointment ends.                                                                                                            |
+| **Webhook**  | Another system posts to the workflow's own web address, signed with the workflow's secret.                                                                                                               |
+| **By hand**  | Someone adds a customer with **Add to workflow…** on the customer's page, through the Assistant, or in bulk.                                                                                             |
+
+#### The engine
+
+- The worker watches the events HandsFreeOS records. After an event's own work is done, it finds the workflows that are on and start from that event, checks their filters against fresh records, and starts a run for each customer the event is about.
+- Each run has one job in the worker's queue. The job does the run's next steps, up to 20 steps or 10 seconds at a time, then comes back for the rest. A wait sets the time the job comes back.
+- Every step is written to the run's step log, with what it did, what it checked and why. Open a run from **Workflows** → **Runs** to read it. The step logs of runs that ended more than 180 days ago are deleted.
+- A step's actions (a text, a task, a tag, a stage) go through the same commands as a person's. The customer's timeline says "Workflow: <name>", and the audit log ends "via workflow".
+- Publishing makes a new version, and a published version never changes. Each run finishes on the version it started on, even after a newer one is published.
+
+#### Testing and publishing
+
+The editor has three modes: **Steps**, **Canvas** and **Describe**. All three change the same workflow, so an edit in one shows in the others. The draft saves itself as you edit, and a draft never runs. Only a published version does.
+
+A draft can be published only after a test of that exact draft passes. The **Test** tab offers two kinds:
+
+- **Simulate** sends nothing and skips the waits. AI steps run for real. Approval steps approve themselves, with a note.
+- **Send to me** sends only to you, and each wait lasts 5 seconds. Texts come to your email, because your profile has no mobile number.
+
+Until a test passes, the editor's header says "Run a test first". **Publish** also stays greyed out while the **Checks** tab shows a problem that blocks publishing. Any edit after a test needs a new test. Test runs never count as someone having been through the workflow (see "Going through a workflow again" below).
+
+**History** lists the published versions. **Restore** copies one into the draft, which then needs a test like any other change.
+
+#### Quiet hours
+
+A workflow never sends a text in the business's quiet hours, set in **Settings** → **Texting & calls** → **Quiet hours** (8 PM to 8 AM unless changed, in the business's time zone). A person texting by hand can choose to send anyway. A workflow can't.
+
+The workflow's settings in the editor decide what happens to a text that falls due in quiet hours (**Texts due in quiet hours**):
+
+- Wait until quiet hours end, plus a few minutes (the default). The text goes up to 5 minutes after they end, so texts due at the same time don't all go at once.
+- **Send an email instead**, when the customer has an email address. Otherwise the text is skipped.
+- **Skip the text.**
+
+#### Who a workflow may text
+
+Before every text, the worker checks three things and writes each answer in the step log:
+
+- The customer agreed to texts, or texted or called the business themselves in the last 24 hours. That second rule lets missed-call text back answer someone who just called.
+- They haven't replied STOP. STOP always wins.
+- The business's texting is set up and approved.
+
+When a text can't go, the workflow's **If they haven’t agreed to texts** setting decides: **Send an email instead** (the default) or **Skip the text**. The step log says why, for example "Skipped: they opted out of texts". The first text to a number ends with "Reply STOP to opt out."
+
+#### Pause and resume
+
+Once a workflow is published, the editor's header has **Pause**. While a workflow is paused:
+
+- New triggers are ignored. They aren't saved for later.
+- Runs already going stop at their next step and show as **Held**.
+
+**Resume** releases the held runs 200 at a time, their starts spread over a minute. Waits that ran out during the pause go right away.
+
+#### Going through a workflow again
+
+The workflow's settings ask **Can the same person go through it again?**:
+
+- **Only once, ever.**
+- **Again after their last run finishes** (the default). A customer is in at most one run of the workflow at a time.
+- **Any time, with a gap.** A customer starts a new run at most once per gap.
+
+HandsFreeOS holds to this even when two events arrive at the same moment. Two more settings end runs early. **Stop the run when they** stops a run when the customer replies by text or email, books an appointment, or their lead is won or lost. **End a run after** stops any run still going after that many days, 90 unless changed.
+
+#### When a step fails
+
+- **A refusal** is HandsFreeOS saying no for a reason a person has to fix, such as a stage that was archived. It isn't tried again on its own. The step's **If this step fails** setting decides what happens: **Stop the run** (the default) or **Carry on with the next step**.
+- **Any other error**, such as a network problem, is tried again after about 5 seconds, then 10, 20 and 40. After 5 tries the step is marked failed for good, and the run fails. The business's owners and admins, and the agency's owners and admins, get an email titled "A workflow stopped: <workflow> for <customer>". It names the step and the error, and its **Open the run** button opens the run.
+
+On the run's page, a failed step shows **Retry** and **Skip**. Only owners and admins see them.
+
+- **Retry** tries the step again, with 5 more tries.
+- **Skip** leaves the step undone and carries on with the next one.
+
+Retry and Skip do nothing if the customer is already in a newer run of the same workflow that is still going.
+
+#### Approvals
+
+An approval step holds the run until someone says yes or no. It fits right after an AI step that writes to a customer, and the AI step's panel offers **Add an approval step** when nothing checks such a message.
+
+- **Who approves:** **Owners and admins** (the default), or people named on the step, members included.
+- **Where it shows:** **Workflows** → **Approvals**, with a count on the tab; the **Waiting on you** card on Home; an email titled "Approval needed: <workflow> for <customer>" with a **Review it** button; and the Assistant, which answers an approval after you confirm.
+- **Deciding:** the approver sees the AI-written text beside the customer's message and the knowledge it used, and can edit the text. Then **Approve** (**Approve and send** when a message goes out next) or **Reject**, with a reason if they like. An approval is decided once.
+- **Expiry:** after **If nobody answers in** (2 days unless changed), the step does what **Then** says: **Treat it as rejected** (the default), **Approve it and carry on**, or **End the run**. After a rejection, the steps under "If it’s rejected" run, then the run ends.
+
+The email goes to the people named on the step, or else to the business's owners and admins and the agency's owners and admins.
+
+#### AI steps and the daily AI limit
+
+An AI step writes a message, sorts a customer's reply into categories, picks a path, or writes a summary for the team. It uses Claude with the Assistant's key and model.
+
+- It writes from the knowledge base (see "How the AI uses the knowledge base" below).
+- AI steps, **Describe**, website scans and **Try it** share the Assistant's daily limit: 2,000,000 tokens a day per business, unless `ASSISTANT_DAILY_TOKENS` says otherwise ("Change the daily limit" in "The Assistant: Anthropic"). Their tokens go in the `ai_usage` table, the Assistant's stay with its chats, and the limit adds the two.
+- With no model on the worker, over the day's limit, or with an answer it can't use, the step takes its fallback. A written message uses the step's fallback text, a sort uses its fallback category, and an AI-picked path takes the last path. The step log says so, for example "(today’s AI limit was reached, so the fallback)".
+- When Anthropic is busy, the step is tried again like any other error. On its last try it takes the fallback instead, so a busy Anthropic never fails a run.
+- A written message with no fallback text leaves nothing to send. The text or email that uses it is then skipped, and the step log says "Skipped: no value for" and the missing detail.
+
+#### Limits that stop runaway workflows
+
+| Limit                                | What it does                                                                                                              |
+| ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------- |
+| A workflow never starts itself       | Nothing a workflow's run does can start a new run of the same workflow.                                                   |
+| 3 levels deep                        | A run started by another workflow's run is one level deeper. Past 3 levels, nothing more starts.                          |
+| Going back to an earlier step        | A "go to" step sends the run back at most 3 times unless changed, and never more than 10.                                 |
+| 200 steps per run                    | A run that reaches 200 steps stops, with "It reached the limit of 200 steps".                                             |
+| 5,000 runs going per workflow        | Past that, the workflow starts no new runs, and the worker logs `workflow has too many runs going; not starting another`. |
+| 100 steps per workflow, paths 5 deep | The **Checks** tab flags a workflow bigger than this.                                                                     |
+
+### The knowledge base
+
+Each business has one knowledge base. AI steps, the Assistant and **Try it** write from it, and only from what is published in it. Owners and admins edit it. Everyone in the business can read it.
+
+#### The business profile
+
+**Knowledge** → **Overview** shows the business profile, with how much of it is filled in, and its tone of voice. Click **Edit** to fill it in: what the business does, its services, where and when it works, its policies, how messages should sound, words to use and avoid, and how messages are signed.
+
+The profile's **Prices** section has the switch **AI may quote prices**. It is off for every business until someone turns it on. While it is off, the AI never quotes prices, estimates or discounts, even when the knowledge base has them, and says the team will follow up with pricing. When it is on, the AI quotes a price only exactly as it is written in the profile or an item.
+
+#### FAQs, articles, facts and documents
+
+- **Items** lists FAQs, articles and facts, with search, kinds, tags and status. Each item is a draft, published or archived, and only published items are used. **Add an FAQ** adds one. FAQs can also be imported from a spreadsheet (a CSV file), with a preview before anything is added.
+- **Documents** takes PDF and text files up to 5 MB. The worker reads each file's text (up to 100,000 characters) into a draft document for someone to check and publish. A PDF that is only a scanned picture has no text to read, so its draft is empty.
+
+#### Scanning the website
+
+**Knowledge** → **Website** reads the business's own website and suggests FAQs and facts from it.
+
+1. Type the website's address and click **Save**. Only `https://` addresses are accepted, and each business has one website.
+2. Click **Scan website** (**Scan again** after the first scan).
+
+   You should see the pages being read, then the suggestions page by page.
+
+3. Open **Suggestions** and accept, edit or reject each one. Nothing from the website is used until someone accepts it.
+
+What the scan reads:
+
+- Only the business's own site. The address with and without `www.` counts as one site. Links and redirects to other sites are not followed.
+- It starts from the site's sitemap, when there is one, then follows links.
+- It follows the site's `robots.txt`: the rules for `HandsFreeOS`, or else the rules for every robot. Its requests name it `HandsFreeOS/1.0 (+https://handsfreeos.com)`.
+- At most 40 pages, and the first 2 MB of each page. Each request gets 10 seconds.
+- Never a private address. An address that leads into a private network, at the start or after a redirect, is refused.
+- Only the readable text. Headings and lists stay. Menus, headers, footers, forms and scripts are dropped.
+- The website's text is only ever data to the AI. Instructions written on a page are never followed.
+
+Without a model, each page becomes one suggested article instead. A rescan compares each page with the last scan and suggests only what is new or changed. **What changed** shows the new, changed, unchanged and removed pages.
+
+#### Suggestions and gaps
+
+**Suggestions** holds everything waiting for a person, from three places: **Website scan**, **Gaps** and **Go Biz Help** (knowledge packs). Each suggestion can be accepted, edited first, or rejected. **Accept all** accepts every suggestion from the website scan at once.
+
+A gap is a question a customer asked that the knowledge base couldn't answer, found by an AI step, the Assistant or **Try it**. It shows as "Customers asked: <question>". Similar questions are grouped into one, with a count such as "3 similar", so you write the answer once. The answer becomes an FAQ.
+
+#### Try it
+
+**Try it** is on **Knowledge** → **Overview**. Ask what a customer might, and it shows the answer the AI would give and **Items it used**. It uses the same profile, rules and published items as AI steps. A question it can't answer becomes a gap suggestion. Only owners and admins can use it, at most 20 questions a minute, and its tokens count toward the daily AI limit.
+
+#### How the AI uses the knowledge base
+
+Every AI step (unless someone turns the knowledge base off on that step), the Assistant and **Try it** get:
+
+- the business profile, shortened to a brief,
+- rules: state only facts from the profile and published items, never guess, quote prices only as **AI may quote prices** allows, and say someone from the business will follow up when unsure,
+- the published items that best match the customer's latest message, the step's instructions and the records the run is about.
+
+The customer's words, website text and documents are passed as quoted data, never as instructions. An AI step's log lists **Knowledge used**, and so does the approval it leads to. A real run counts the items it used, and a question it couldn't answer becomes a gap. The Assistant says which item it used, and offers to add what the knowledge base doesn't say.
+
+### Agency templates and knowledge packs
+
+Go Biz Help builds a workflow once, as a template, and pushes it to client businesses. Only the organization's owners and admins can, in the agency area (**Agency area** in the workspace switcher).
+
+#### Make and publish a template
+
+1. Build and test the workflow in one of your client businesses.
+2. In its editor, click **Save as template**. Or, in the agency area, open **Templates** and click **Save a workflow as a template**.
+
+   You should see the template in **Templates**. Everything that belongs to that one business, such as its stages, tags, calendars and people, is now a named placeholder that each business fills in.
+
+3. Open the template to change it. It uses the same editors, with the placeholders shown as details each business matches. Its **Test** tab only simulates, in the browser.
+4. Click **Publish**. Each publish makes the next version. There is no test gate here, because each business tests its own copy.
+
+To start from scratch instead, click **New template** in **Templates**. A template can be renamed in its editor.
+
+#### Push a template to businesses
+
+1. In **Templates**, click **Push…** next to the template. It stays greyed out until the template is published.
+2. **Pick businesses**.
+3. **Match details**: for each business, pick what each placeholder means there, such as which calendar. HandsFreeOS matches by name where it can. You can leave one for the business to pick.
+4. **Review and push**.
+
+   You should see each business's copy install as the worker makes its draft.
+
+Each business gets a draft of the workflow, marked **Go Biz Help** in its list. A placeholder left unmatched shows in the draft's **Checks**, with a fix. The business still tests and publishes its copy like any workflow, and may change it.
+
+#### When a template changes
+
+**Templates** shows each business's version and who is behind, for example "Summit Roofing is 1 behind". **Client businesses** shows the same for each business.
+
+When you publish a newer version, each business on an older one sees **Update available** on its workflow list, with **Review update**:
+
+- It shows what the new version changes and, under **Your changes stay**, what the business changed in its own copy.
+- **Apply the update** makes a new draft: the new version, with the business's own changes put back on top. A change that no longer fits, such as one to a step the template removed, is dropped. Both lists show before anything is applied.
+- The draft then needs a test and a publish, like any change. Only the business's owners and admins can apply it.
+
+#### Knowledge packs
+
+A knowledge pack is a set of FAQs, articles and facts for many businesses, such as "HVAC FAQs".
+
+1. In the agency area, open **Knowledge packs** and click **New pack**.
+2. Name it and add items. You can copy published items from one of your businesses.
+3. Save it. Every saved change makes a new version.
+4. Click **Push** and pick the businesses.
+
+Each business gets the items as suggestions under **Suggestions** → **Go Biz Help**, to accept, edit or reject. Nothing is added until someone there accepts it, and an item the business already has isn't suggested.
+
+### Try workflows and the knowledge base locally
+
+The seed gives the demo businesses workflows and a knowledge base to look at. Everything in it went through the same commands and the same engine as the app.
+
+- **Lone Star HVAC & Roofing's knowledge base:** a filled-in business profile (tone of voice, services, service area, hours and policies, with **AI may quote prices** off), 13 published FAQs and facts about heating, cooling and roofs, one draft, and the maintenance plan terms as a document. **Suggestions** holds five suggestions from a scan of its website (`https://www.lonestarhvac.test`, a stand-in the seed serves on your Mac while it scans), and one question, "Do you offer financing?", asked twice: once by Dale in **Try it** and once by a customer.
+- **Lone Star's workflows:** "Speed to lead" (the recipe, with one step Dale added: after five minutes the lead moves to Contacted) and "Missed-call text back" (Go Biz Help's template, renamed) are on. "Appointment follow-up + review" is a draft for the AC tune-up calendar. The website and Google review link are set in **Settings** → **Workspace**.
+- **Four runs, from real missed calls, texts and leads:**
+  - Linda Okafor asked for a visit and got the booking link (finished).
+  - Tina Morales asked about financing; the AI-written answer waits for an OK on **Approvals** and **Home**.
+  - Sam Patel's new lead got a text and waits five minutes for a reply.
+  - Denise Walker's lead was archived by mistake, so her run stopped at "Move the lead to Contacted". Restore the lead and press **Retry** on the run.
+- **Go Biz Help (`chris@gobizhelp.test`):** the agency area has the template "Missed-call text back (home services)". Version 1 went to Bayou Plumbing and version 2 (which answers questions from the knowledge base, with an OK first) to Lone Star, so Bayou shows **Update available**. The knowledge pack "HVAC FAQs" waits in Bayou's **Suggestions**.
+
+If you reset during Lone Star's quiet hours, the seed turns texting hours off for a moment so its texts can go, and turns them back on. The audit log shows both changes.
+
+#### How the AI works locally
+
+The `worker started` line in the `pnpm dev` window says which model the worker uses. The same model serves the Assistant, AI steps, **Describe**, website scans and **Try it**:
+
+| `assistant`   | What you get                                                                                                                                                      | How to get it                                                                                                                                             |
+| ------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `"none"`      | No model. AI steps take their fallback, a website scan turns each page into one suggested article, and **Describe** and **Try it** say "The AI isn’t set up yet." | The default: no `ANTHROPIC_API_KEY` and no `ASSISTANT_PROVIDER` in `apps/worker/.env`.                                                                    |
+| `"scripted"`  | The scripted stand-in the browser tests use. It answers from the prompt in the right shape, the same way every time, and costs nothing.                           | Add `ASSISTANT_PROVIDER=scripted` to `apps/worker/.env` and restart `pnpm dev`. It wins over a key in the same file. The worker refuses it in production. |
+| `"anthropic"` | Claude, as in production (`claude-sonnet-5` unless `ASSISTANT_MODEL` names another). It costs money from your Anthropic credits.                                  | Add a local key as in "Trying the Assistant" in "Local development".                                                                                      |
+
+The daily limit of 2,000,000 tokens per business applies to all three. `pnpm env:local` keeps the `ANTHROPIC_API_KEY`, `ASSISTANT_MODEL` and `ASSISTANT_DAILY_TOKENS` lines, but removes `ASSISTANT_PROVIDER`, so add it back after each run.
+
+#### See a wait without waiting
+
+A run's waits, quiet hours and approval expiries are jobs in the worker's queue, each due at a set time. Locally, the worker has a test-only address that runs a job now, as of the moment it was due. Each run's job has the key `wf-run:<run id>`.
+
+1. Open the run from **Workflows** → **Runs**. From the address bar, copy the run ID (the part after `/runs/`) and the workspace ID (the part after `/app/w/`).
+2. Run its job, with the two placeholders filled in.
+
+   ```bash
+   curl -H 'content-type: application/json' \
+     -d '{"workspaceId":"<workspace id>","dedupeKeys":["wf-run:<run id>"]}' \
+     http://127.0.0.1:4100/test/scheduled-jobs/run-due
+   ```
+
+   You should see `"moved"` list the job and `"ran"` count it as `"done"`. The run's page shows the wait over and the next steps done. Texts and emails it queued go out with the worker's next pass.
+
+A scheduled workflow's job has the key `wf-sched:<workflow id>`. Without `dedupeKeys`, the address runs every job of that workspace that is already due.
+
+#### Scan the stand-in website
+
+The repository has a stand-in website for scans. It has a `robots.txt` that keeps scanners out of `/private/` (except one page), a sitemap, a link to another site, a redirect to a private address, a page over 3 MB, a page with planted instructions, and 45 pages in all, so the 40-page limit shows.
+
+1. In a second Terminal window, in the repository folder, start the stand-in website.
+
+   ```bash
+   pnpm --filter @hfos/worker knowledge-site
+   ```
+
+   You should see `Knowledge fixture site at` followed by its address. It uses port 4190. To use another port, add the number at the end of the command. Leave the window open.
+
+2. Stop `pnpm dev` with Control-C, and open `apps/worker/.env` in a plain-text editor.
+
+   ```bash
+   nano apps/worker/.env
+   ```
+
+3. Add this line at the end, then save with Control-O, Return and Control-X.
+
+   ```text
+   FETCH_TEST_ORIGINS=http://127.0.0.1:4190
+   ```
+
+   Only exact local addresses like this one are accepted. The worker uses the list only with the fake carrier, and refuses to start with it in production. The next `pnpm env:local` removes the line.
+
+4. Start `pnpm dev` again.
+5. Sign in as `dale@lonestarhvac.test` and open **Knowledge** → **Website**. If no address is saved, type any `https://` address, such as `https://lonestarhvac.example`, and click **Save**. Don't click **Scan website**: it would try to read that address on the internet.
+6. Start a scan of the stand-in website instead, with Lone Star's workspace ID (the part of the address after `/app/w/`).
+
+   ```bash
+   curl -H 'content-type: application/json' \
+     -d '{"workspaceId":"<workspace id>","url":"http://127.0.0.1:4190/"}' \
+     http://127.0.0.1:4100/test/knowledge/scan-at
+   ```
+
+   You should see a `scanId`. The **Website** page shows the scan's progress, then its suggestions. Without a model, each page becomes one article (see "How the AI works locally").
+
+The worker refuses an address that isn't in `FETCH_TEST_ORIGINS` ("Scan only a local test site listed in FETCH_TEST_ORIGINS."), a scan while another is running ("A scan is already running."), and a scan before a website address is saved ("Add the website address first.").
+
+The three test addresses, `/test/scheduled-jobs/run-due`, `/test/knowledge/scan-at` and `/test/outbox/skip-stale`, exist only while the worker uses the fake carrier, and never in production. A running tunnel exposes them too. The browser tests use the third to skip events the other test suites left in the local database. They also start the stand-in website and give their own worker `FETCH_TEST_ORIGINS=http://127.0.0.1:4190` and the scripted model, so you don't need to set anything for them.
+
+### Before turning workflows on for a client
+
+Do these for each client business before any of its workflows is turned on.
+
+1. **Set its links.** In the business, open **Settings** → **Workspace**. Fill in **Website** and **Review link (Google Business Profile)**, then click **Save changes**. Workflows put them in texts as `{{business.website}}` and `{{links.review}}`, and the review recipe needs the review link.
+2. **Check that its texting registration covers automated follow-ups.** Speed to lead texts a new lead within minutes, and missed-call text back texts someone who just called. When a client picks **Appointments, estimates and customer care** under **What you text about**, HandsFreeOS tells the carriers the business texts "appointment confirmations, technician arrival notices, estimates and replies to customer questions". Read what the client wrote under **How customers agree to get texts** and in the example texts ("What a client fills in" in "The phone carrier: Twilio"), and make sure these texts fit. After approval the page no longer shows the details, so look in the client's subaccount in the Twilio console ("Carrier review and how long it takes").
+3. **Start its knowledge base.** Get the client's website address. In **Knowledge** → **Website**, type it, click **Save**, then **Scan website**. Accept, edit or reject the results in **Suggestions**. Fill in the rest of the profile with **Edit** on **Knowledge** → **Overview**.
+4. **Decide whether the AI may quote prices.** It's the **AI may quote prices** switch in the profile's **Prices** section, off until someone turns it on.
+5. **Test and publish each workflow.** In the workflow's **Test** tab, run **Simulate** or **Send to me** until it passes, then click **Publish**. For an AI step that writes to customers, decide whether an approval step checks each message first.
+
+### When something goes wrong
+
+#### A run failed
+
+1. Read the email "A workflow stopped: <workflow> for <customer>". It goes to the business's owners and admins, and to the agency's owners and admins. It names the step and the error.
+2. Click **Open the run**, or find the run in **Workflows** → **Runs**.
+
+   You should see the failed step, with "Failed after 5 tries:" and the reason.
+
+3. Fix the cause if you can, for example a missing detail or a texting problem.
+4. Click **Retry** to try the step again, or **Skip** to carry on without it.
+
+A run that ends with "A step was refused because" and a reason had a refusal, not an error, so it wasn't tried again. Fix what the reason says. To have such a step carry on instead of stopping the run, set its **If this step fails** to **Carry on with the next step**. Each error that is tried again writes `workflow step failed` to the worker's log, with the run and the error.
+
+#### Texts wait for quiet hours
+
+The step log says "Waits until" a time, followed by "(quiet hours)", and the run shows **Waiting**. That is quiet hours working: the text goes when they end, plus up to 5 minutes. To change it, change the hours in **Settings** → **Texting & calls** → **Quiet hours**, or the workflow's **Texts due in quiet hours** setting.
+
+#### Texts are skipped or go by email
+
+The step log says why, for example "Skipped: they haven’t agreed to texts", "Skipped: they opted out of texts" or "Skipped: texting isn’t set up yet". A workflow texts only customers who agreed to texts, or who texted or called in the last 24 hours, and never anyone who replied STOP. The workflow's **If they haven’t agreed to texts** setting decides between an email and nothing.
+
+#### AI steps take their fallback
+
+The step log ends "(today’s AI limit was reached, so the fallback)" or "(the fallback)".
+
+- **No model.** The worker's `worker started` line shows `"assistant":"none"`. Give it the key ("Give the worker the key" in "The Assistant: Anthropic").
+- **The daily limit.** The business used its tokens for the day, counting the Assistant, AI steps, **Describe**, scans and **Try it**. It resets at midnight in the business's time zone. **Try it** says "That’s today’s AI limit for this business. It resets at midnight." To raise it, see "Change the daily limit" in "The Assistant: Anthropic".
+- **Anthropic is busy or refuses.** The worker's log shows `AI call failed`. "When a question fails" in "The Assistant: Anthropic" explains the errors.
+
+#### A website scan found nothing
+
+**Knowledge** → **Website** says what went wrong:
+
+| What it says                                                                                                                        | What to do                                                                                                                                 |
+| ----------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| "The website’s robots.txt asks scanners not to read it, so nothing was read."                                                       | The site's `robots.txt` keeps scanners out. Ask the client to allow `HandsFreeOS`, or add FAQs by hand.                                    |
+| "The website’s robots.txt answered with an error", and the code                                                                     | The site had a problem. Scan again later.                                                                                                  |
+| "Use the https:// address of the website." when you save the address                                                                | Only `https://` addresses can be scanned. Use the site's https address.                                                                    |
+| The site's name, then "points to a private address, so it can’t be scanned."                                                        | The address leads into a private network. Check the address.                                                                               |
+| The site's name, then "took too long to answer", or "We couldn’t reach" and the site's name                                         | The site is down or slow, or the address is wrong. Check it and scan again.                                                                |
+| Pages marked "The page answered with an error (403)."                                                                               | The site, or a firewall in front of it, turns HandsFreeOS away. Ask the client to let `HandsFreeOS/1.0` through, or add the facts by hand. |
+| "Today’s AI limit for this business was reached, so the scan stopped early. Run it again tomorrow to read the rest of the website." | Scan again the next day.                                                                                                                   |
+
+A rescan of a site that hasn't changed suggests nothing new. **What changed** then shows every page as "Same as last time".
+
 ## Local development
 
 This section runs all of HandsFreeOS on your Mac: the web app, the API, the worker, and a private copy of Supabase in Docker. It never touches the hosted Supabase project. By default nothing reaches Twilio, Postmark, Microsoft or Google either. The worker uses stand-ins for all of them, so nothing costs money and no phone is needed. The last part of this section explains how to swap one stand-in for the real provider when you need to.
@@ -5917,10 +6298,10 @@ Do these once, in order.
 4. Fill the database with demo data.
 
    ```bash
-   WORKER_ENCRYPTION_KEY="$(sed -n 's/^WORKER_ENCRYPTION_KEY=//p' apps/worker/.env)" pnpm db:seed
+   pnpm db:seed
    ```
 
-   The seed does not read `apps/worker/.env`, so the first part of the command hands it the worker's local encryption key, for this one command only. Without it, the seed seals Lone Star's stand-in carrier credentials with a throwaway key, and texting or calling from Lone Star's number then fails under `pnpm dev`. Plain `pnpm db:seed` works for everything else. Never `export` this variable in your shell: the API refuses to start while it is set.
+   The seed reads the worker's local encryption key from `apps/worker/.env` (that one line only), so Lone Star's stand-in carrier credentials and booking links open under `pnpm dev`. Never `export` `WORKER_ENCRYPTION_KEY` in your shell: the API refuses to start while it is set.
 
    The seed creates the accounts through Supabase Auth and makes every change through the same command pipeline the app uses. Invitation emails go through Mailpit, and the seed accepts them from the emailed links, so the stack from step 2 must be running.
 
@@ -6698,10 +7079,10 @@ pnpm dev
 **Reset the database.** This wipes the local database, re-applies every migration in `supabase/migrations`, and seeds again. Everything you created locally is gone.
 
 1. Stop `pnpm dev` with Control-C. Otherwise its worker can pick up jobs the seed creates, and it only sets up its recurring jobs when it starts.
-2. Reset. The first part passes the worker's key to the seed, as in first-time setup.
+2. Reset. The seed reads the worker's key from `apps/worker/.env`, as in first-time setup.
 
    ```bash
-   WORKER_ENCRYPTION_KEY="$(sed -n 's/^WORKER_ENCRYPTION_KEY=//p' apps/worker/.env)" pnpm db:reset
+   pnpm db:reset
    ```
 
    You should see the seed's `Seeded in <n>s` message at the end.

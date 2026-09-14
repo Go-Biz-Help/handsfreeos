@@ -40,6 +40,12 @@
   fill: var(--wf-br-line);
   opacity: 1;
 }
+/* The go-tos' own layer (GotoEdges): above the steps, like xyflow's raised edges, and never in the way. */
+.wf-canvas .wf-goto-edges {
+  position: absolute;
+  overflow: visible;
+  pointer-events: none;
+}
 .wf-canvas .react-flow__connection-path {
   stroke: var(--wf-br-line);
   stroke-width: 1.75;

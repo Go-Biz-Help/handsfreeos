@@ -37,7 +37,9 @@ export function KnowledgeSubnav({
   return (
     <nav
       aria-label="Knowledge"
-      className="mb-4 flex gap-0.5 overflow-x-auto border-b border-border [scrollbar-width:none]"
+      // relative: the count's screen-reader words (absolutely placed) scroll with the tabs instead of widening
+      // the page past a phone's edge.
+      className="relative mb-4 flex gap-0.5 overflow-x-auto border-b border-border [scrollbar-width:none]"
     >
       {items.map((i) => {
         const active = i.active ?? pathname.startsWith(i.href);

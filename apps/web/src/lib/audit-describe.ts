@@ -468,6 +468,12 @@ function describeAction(e: AuditEntry): string {
       return e.after?.version
         ? `updated ${wfName(e)} to its template’s version ${String(e.after.version)}`
         : wfDraftSentence(e);
+    case 'workflow_template.create':
+      return `created the template ${name(e)} from scratch`;
+    case 'workflow_template.rename':
+      return s(e.before?.name) && s(e.before?.name) !== s(e.after?.name)
+        ? `renamed the template “${s(e.before?.name)}” to “${s(e.after?.name)}”`
+        : `changed the description of the template ${name(e)}`;
     // Milestone 6: workflows (a workflow's own steps read "Workflow: Speed to lead sent a text … via workflow")
     case 'workflow.create':
       return `created the workflow ${wfName(e)}${s(e.after?.source) ? ` (${s(e.after?.source)})` : ''}`;
@@ -479,6 +485,8 @@ function describeAction(e: AuditEntry): string {
       return s(e.after?.name)
         ? `asked the AI builder for a change to ${wfName(e)}`
         : 'asked the AI builder to draft a new workflow';
+    case 'workflow_proposal.mark_applied':
+      return `applied an AI change to ${wfName(e)}${s(e.after?.summary) ? `: ${s(e.after?.summary)}` : ''}`;
     case 'workflow.rename':
       return `renamed the workflow “${s(e.before?.name)}” to “${s(e.after?.name)}”`;
     case 'workflow.publish':

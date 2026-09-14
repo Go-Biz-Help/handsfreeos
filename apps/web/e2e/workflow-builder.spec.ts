@@ -382,6 +382,10 @@ test('canvas: the tree as a graph, and a layout that text edits never move', asy
   const x = (id: string) => layout.positions.get(id)!.x;
   expect(x('s_aaaaaaa3')).toBeLessThan(x('empty:s_aaaaaaa2:b_aaaaaaa2'));
   expect(x('s_aaaaaaa7')).toBeLessThan(x('s_aaaaaaa6'));
+  // The main path runs straight down, through the branch block and the approval: the step after the approval
+  // sits right under it, in the same column as the first step (all three are steps, the same width).
+  expect(x('s_aaaaaaa7')).toBe(x('s_aaaaaaa5'));
+  expect(x('s_aaaaaaa5')).toBe(x('s_aaaaaaa1'));
   // Text and go-to targets don't change the structure, so nothing moves; moving a step does.
   const edited = core.applyWorkflowOps(def, [
     {
@@ -758,6 +762,7 @@ test('workflow builder: the same workflow in Steps, Canvas and Describe', async 
   expect(stepIn((await get()).workflow.definition, 's_stlwait2')?.until).toMatchObject({
     duration: { amount: 1, unit: 'days' },
   });
+  const proposalId = new URL(page.url()).searchParams.get('proposal')!;
   await proposal.getByTestId('proposal-apply').click();
   await expect(proposal.getByTestId('proposal-result')).toContainText(
     'Applied the change to the draft.',
@@ -766,6 +771,19 @@ test('workflow builder: the same workflow in Steps, Canvas and Describe', async 
   expect(stepIn((await get()).workflow.definition, 's_stlwait2')?.until).toMatchObject({
     duration: { amount: 2, unit: 'days' },
   });
+  // Once the change is saved the proposal counts as applied, so the Assistant's card stops offering it.
+  await expect
+    .poll(
+      async () =>
+        (
+          await api<{ proposal: { appliedAt: string | null } }>('queries/workflow.proposal_get', {
+            workspaceId,
+            proposalId,
+          })
+        ).proposal.appliedAt,
+      { message: 'the applied proposal is marked applied' },
+    )
+    .not.toBeNull();
   await page.getByTestId('mode-steps').click();
   await expect(page.getByTestId('step-s_stlwait2')).toContainText('Wait 2 days');
   await page.getByTestId('mode-canvas').click();

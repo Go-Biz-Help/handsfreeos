@@ -421,6 +421,16 @@ export const KnowledgePackListOutput = z.object({
       archivedAt: isoDateTime.nullable(),
       createdBy: UserOut.nullable(),
       updatedAt: isoDateTime,
+      /** The businesses holding suggestions from this pack (any version), by name, counted by status. */
+      businesses: z.array(
+        z.object({
+          workspaceId: uuid,
+          name: z.string(),
+          pending: z.int(),
+          accepted: z.int(),
+          rejected: z.int(),
+        }),
+      ),
     }),
   ),
 });

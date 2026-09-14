@@ -2597,6 +2597,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/workflow_proposal.mark_applied": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Record that the editor applied an AI builder proposal to a workflow’s draft and saved it (the editor applies the ops itself, as one Undo), so the Assistant no longer offers it. Refused until the draft is saved past the revision it was drafted against.
+         * @description Risk level 1. Requires workflows.manage. Emits workflow_proposal.applied.
+         */
+        post: operations["command_workflow_proposal_mark_applied"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/workflow_template.create": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start an agency template from scratch: a blank draft with its trigger (by hand when none is given) and no steps, to build, publish and push to client businesses.
+         * @description Risk level 1. Requires org.templates.manage. Emits workflow_template.created.
+         */
+        post: operations["command_workflow_template_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/workflow_template.create_from_workflow": {
         parameters: {
             query?: never;
@@ -2651,6 +2691,26 @@ export interface paths {
          * @description Risk level 2. Requires org.templates.manage. Emits workflow_template.pushed.
          */
         post: operations["command_workflow_template_push"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/workflow_template.rename": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Rename an agency template or change its description. Businesses’ installed copies keep their own names.
+         * @description Risk level 1. Requires org.templates.manage. Emits workflow_template.renamed.
+         */
+        post: operations["command_workflow_template_rename"];
         delete?: never;
         options?: never;
         head?: never;
@@ -3627,7 +3687,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * The agency’s knowledge starter packs, with their items and versions.
+         * The agency’s knowledge starter packs, with their items and versions, and how each business is getting on with them: its suggestions from the pack accepted, rejected and still waiting.
          * @description Requires org.templates.manage.
          */
         post: operations["query_knowledge_pack_list"];
@@ -9700,6 +9760,250 @@ export interface operations {
             };
         };
     };
+    command_workflow_proposal_mark_applied: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    proposalId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: date-time */
+                        appliedAt: string;
+                        changed: boolean;
+                        /** Format: uuid */
+                        proposalId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_workflow_template_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    description?: string | null;
+                    name: string;
+                    /** Format: uuid */
+                    organizationId: string;
+                    trigger?: {
+                        /** @enum {string} */
+                        event: "person.created" | "person.updated" | "record.tags_changed" | "lead.created" | "lead.stage_changed" | "lead.assigned" | "appointment.booked" | "appointment.rescheduled" | "appointment.cancelled" | "appointment.completed" | "appointment.no_show" | "message.received" | "call.missed" | "call.voicemail_left" | "call.completed" | "task.completed";
+                        /** @default {} */
+                        filters?: {
+                            /** @default [] */
+                            conditions?: ({
+                                field: string;
+                                /** @enum {string} */
+                                op: "eq" | "neq" | "contains" | "not_contains" | "starts_with" | "gt" | "gte" | "lt" | "lte" | "in" | "not_in" | "includes" | "excludes" | "is_true" | "is_false" | "before" | "after" | "within_last" | "within_next" | "more_than_ago" | "is_empty" | "is_not_empty";
+                                /** @default null */
+                                value?: unknown;
+                            } | {
+                                conditions: ({
+                                    field: string;
+                                    /** @enum {string} */
+                                    op: "eq" | "neq" | "contains" | "not_contains" | "starts_with" | "gt" | "gte" | "lt" | "lte" | "in" | "not_in" | "includes" | "excludes" | "is_true" | "is_false" | "before" | "after" | "within_last" | "within_next" | "more_than_ago" | "is_empty" | "is_not_empty";
+                                    /** @default null */
+                                    value?: unknown;
+                                } | {
+                                    conditions: {
+                                        field: string;
+                                        /** @enum {string} */
+                                        op: "eq" | "neq" | "contains" | "not_contains" | "starts_with" | "gt" | "gte" | "lt" | "lte" | "in" | "not_in" | "includes" | "excludes" | "is_true" | "is_false" | "before" | "after" | "within_last" | "within_next" | "more_than_ago" | "is_empty" | "is_not_empty";
+                                        /** @default null */
+                                        value?: unknown;
+                                    }[];
+                                    /**
+                                     * @default all
+                                     * @enum {string}
+                                     */
+                                    match?: "all" | "any";
+                                })[];
+                                /**
+                                 * @default all
+                                 * @enum {string}
+                                 */
+                                match?: "all" | "any";
+                            })[];
+                            /**
+                             * @default all
+                             * @enum {string}
+                             */
+                            match?: "all" | "any";
+                        };
+                        /** @enum {string} */
+                        kind: "event";
+                    } | {
+                        /** @default {} */
+                        audience?: {
+                            /** @default [] */
+                            conditions?: ({
+                                field: string;
+                                /** @enum {string} */
+                                op: "eq" | "neq" | "contains" | "not_contains" | "starts_with" | "gt" | "gte" | "lt" | "lte" | "in" | "not_in" | "includes" | "excludes" | "is_true" | "is_false" | "before" | "after" | "within_last" | "within_next" | "more_than_ago" | "is_empty" | "is_not_empty";
+                                /** @default null */
+                                value?: unknown;
+                            } | {
+                                conditions: ({
+                                    field: string;
+                                    /** @enum {string} */
+                                    op: "eq" | "neq" | "contains" | "not_contains" | "starts_with" | "gt" | "gte" | "lt" | "lte" | "in" | "not_in" | "includes" | "excludes" | "is_true" | "is_false" | "before" | "after" | "within_last" | "within_next" | "more_than_ago" | "is_empty" | "is_not_empty";
+                                    /** @default null */
+                                    value?: unknown;
+                                } | {
+                                    conditions: {
+                                        field: string;
+                                        /** @enum {string} */
+                                        op: "eq" | "neq" | "contains" | "not_contains" | "starts_with" | "gt" | "gte" | "lt" | "lte" | "in" | "not_in" | "includes" | "excludes" | "is_true" | "is_false" | "before" | "after" | "within_last" | "within_next" | "more_than_ago" | "is_empty" | "is_not_empty";
+                                        /** @default null */
+                                        value?: unknown;
+                                    }[];
+                                    /**
+                                     * @default all
+                                     * @enum {string}
+                                     */
+                                    match?: "all" | "any";
+                                })[];
+                                /**
+                                 * @default all
+                                 * @enum {string}
+                                 */
+                                match?: "all" | "any";
+                            })[];
+                            /**
+                             * @default all
+                             * @enum {string}
+                             */
+                            match?: "all" | "any";
+                        };
+                        cadence: {
+                            at: string;
+                            days: number[];
+                            /** @enum {string} */
+                            every: "weekly";
+                        } | {
+                            at: string;
+                            day: number | "last";
+                            /** @enum {string} */
+                            every: "monthly";
+                        };
+                        /** @enum {string} */
+                        kind: "schedule";
+                    } | {
+                        /** @enum {string} */
+                        anchor: "appointment.starts_at" | "appointment.ends_at" | "lead.created_at" | "lead.stage_entered_at" | "lead.next_action_at" | "person.created_at";
+                        /** @default null */
+                        at?: string | null;
+                        /** @default {} */
+                        filters?: {
+                            /** @default [] */
+                            conditions?: ({
+                                field: string;
+                                /** @enum {string} */
+                                op: "eq" | "neq" | "contains" | "not_contains" | "starts_with" | "gt" | "gte" | "lt" | "lte" | "in" | "not_in" | "includes" | "excludes" | "is_true" | "is_false" | "before" | "after" | "within_last" | "within_next" | "more_than_ago" | "is_empty" | "is_not_empty";
+                                /** @default null */
+                                value?: unknown;
+                            } | {
+                                conditions: ({
+                                    field: string;
+                                    /** @enum {string} */
+                                    op: "eq" | "neq" | "contains" | "not_contains" | "starts_with" | "gt" | "gte" | "lt" | "lte" | "in" | "not_in" | "includes" | "excludes" | "is_true" | "is_false" | "before" | "after" | "within_last" | "within_next" | "more_than_ago" | "is_empty" | "is_not_empty";
+                                    /** @default null */
+                                    value?: unknown;
+                                } | {
+                                    conditions: {
+                                        field: string;
+                                        /** @enum {string} */
+                                        op: "eq" | "neq" | "contains" | "not_contains" | "starts_with" | "gt" | "gte" | "lt" | "lte" | "in" | "not_in" | "includes" | "excludes" | "is_true" | "is_false" | "before" | "after" | "within_last" | "within_next" | "more_than_ago" | "is_empty" | "is_not_empty";
+                                        /** @default null */
+                                        value?: unknown;
+                                    }[];
+                                    /**
+                                     * @default all
+                                     * @enum {string}
+                                     */
+                                    match?: "all" | "any";
+                                })[];
+                                /**
+                                 * @default all
+                                 * @enum {string}
+                                 */
+                                match?: "all" | "any";
+                            })[];
+                            /**
+                             * @default all
+                             * @enum {string}
+                             */
+                            match?: "all" | "any";
+                        };
+                        /** @enum {string} */
+                        kind: "date";
+                        offset: {
+                            amount: number;
+                            /**
+                             * @default after
+                             * @enum {string}
+                             */
+                            direction?: "before" | "after";
+                            /** @enum {string} */
+                            unit: "minutes" | "hours" | "days" | "weeks";
+                        };
+                    } | {
+                        /** @default true */
+                        createPerson?: boolean;
+                        /** @enum {string} */
+                        kind: "webhook";
+                        /**
+                         * @default phone_or_email
+                         * @enum {string}
+                         */
+                        personBy?: "phone" | "email" | "phone_or_email";
+                    } | {
+                        /** @enum {string} */
+                        kind: "manual";
+                    };
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        revision: number;
+                        /** Format: uuid */
+                        templateId: string;
+                    };
+                };
+            };
+        };
+    };
     command_workflow_template_create_from_workflow: {
         parameters: {
             query?: never;
@@ -9812,6 +10116,42 @@ export interface operations {
                         /** Format: uuid */
                         templateId: string;
                         version: number;
+                    };
+                };
+            };
+        };
+    };
+    command_workflow_template_rename: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    description?: string | null;
+                    name?: string;
+                    /** Format: uuid */
+                    organizationId: string;
+                    /** Format: uuid */
+                    templateId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        description: string | null;
+                        name: string;
+                        /** Format: uuid */
+                        templateId: string;
                     };
                 };
             };
@@ -13312,6 +13652,14 @@ export interface operations {
                     "application/json": {
                         items: {
                             archivedAt: string | null;
+                            businesses: {
+                                accepted: number;
+                                name: string;
+                                pending: number;
+                                rejected: number;
+                                /** Format: uuid */
+                                workspaceId: string;
+                            }[];
                             createdBy: {
                                 fullName: string;
                                 /** Format: uuid */

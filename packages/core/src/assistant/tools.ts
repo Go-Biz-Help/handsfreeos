@@ -394,7 +394,7 @@ export const assistantTools = [
   define({
     name: 'start_workflow',
     description:
-      'Start a workflow that is on for one customer; it keeps to the workflow’s re-entry setting. The card shows what it does first.',
+      'Start a workflow that is on and starts by hand (“When someone starts it”) for one customer; it keeps to the workflow’s re-entry setting. Workflows that start on their own event (a new lead, a missed call) can’t be started this way. The card shows what it does first.',
     input: z.object({ workflowId: uuid, personId: uuid }),
     autonomy: 'confirm',
     permission: 'records.write',

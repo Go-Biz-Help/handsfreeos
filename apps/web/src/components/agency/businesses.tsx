@@ -3,9 +3,10 @@ import Link from 'next/link';
 import { Avatar } from '@/components/ui/avatar';
 import { Card } from '@/components/ui/card';
 import { EmptyState } from '@/components/ui/empty-state';
+import { behindBy } from '@/lib/agency/installs';
 import { agencyHref } from '@/lib/agency/org';
 import type { WorkflowTemplateGet } from '@/lib/api/types';
-import { behindBy, InstallChip, type Business } from './template-list';
+import { InstallChip, type Business } from './template-list';
 
 /**
  * The agency's client businesses: each one's templates, the version it has, and whether it's behind, with a

@@ -323,9 +323,23 @@ export function DescribePane(props: DescribePaneProps) {
       shown.changes.length === 1 ? shown.changes[0]! : `Apply ${shown.changes.length} AI changes`;
     const out = draft.apply(shown.ops, label);
     if (!out.ok) return;
+    const proposalId = shown.id;
     setPhase('applied');
     replaceParam('proposal', null);
     toast.success('Applied. Steps and Canvas show the changes too.');
+    void markApplied(proposalId);
+  }
+
+  /** Once the change is saved, the proposal counts as applied: the Assistant's card stops offering it. */
+  async function markApplied(proposalId: string) {
+    if (!(await latest.current.flush())) return;
+    try {
+      await apiBrowser().POST('/v1/commands/workflow_proposal.mark_applied', {
+        body: { workspaceId, proposalId },
+      });
+    } catch {
+      // Bookkeeping only: the change itself is saved.
+    }
   }
 
   const count = shown?.changes.length ?? 0;

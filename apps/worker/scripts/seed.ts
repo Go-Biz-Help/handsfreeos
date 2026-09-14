@@ -9,7 +9,10 @@
  * Local only: reads the repo-root .env.local written by `pnpm env:local`.
  */
 import { randomBytes, randomUUID } from 'node:crypto';
+import { existsSync, readFileSync } from 'node:fs';
 import { hostname } from 'node:os';
+import { resolve } from 'node:path';
+import { parseEnv } from 'node:util';
 import {
   executeCommand,
   invitationAccept,
@@ -34,11 +37,14 @@ import { createSmtpMailer } from '../src/mailer';
 import { processOnce, type OutboxDeps } from '../src/outbox';
 import { createSupabaseStore, unconfiguredStore } from '../src/storage';
 import { createFakeTelephony } from '../src/telephony/fake';
+import { createWorkflowAi } from '../src/workflows/ai-runner';
 import { seedAssistant } from './seed-assistant';
 import { seedCalendar } from './seed-calendar';
 import { seedCrm } from './seed-crm';
 import { seedGlow } from './seed-glow';
+import { seedAi, seedKnowledge } from './seed-knowledge';
 import { LONE_STAR_NUMBER, seedMessaging } from './seed-messaging';
+import { seedWorkflows } from './seed-workflows';
 
 export const SEED_PASSWORD = 'HandsFree-Demo-2026';
 
@@ -66,6 +72,25 @@ const meta = (): RequestMeta => ({
   reason: 'Development seed',
 });
 const step = (msg: string): void => console.log(`• ${msg}`);
+
+/**
+ * The dev worker's own encryption key (apps/worker/.env, written by `pnpm env:local`; only that line is read),
+ * so the telephony secrets and booking links the seed seals open in `pnpm dev`. Without it the voice-token
+ * route couldn't open the business's calling key after `pnpm db:reset`.
+ */
+function workerKey(): string {
+  const set = process.env.WORKER_ENCRYPTION_KEY?.trim();
+  if (set) return set;
+  const path = resolve(import.meta.dirname, '../.env');
+  const key = existsSync(path)
+    ? parseEnv(readFileSync(path, 'utf8'))['WORKER_ENCRYPTION_KEY']?.trim()
+    : undefined;
+  if (key) return key;
+  console.warn(
+    'No WORKER_ENCRYPTION_KEY in apps/worker/.env (run `pnpm env:local`): calls and booking links from the seed won’t open in the dev worker.',
+  );
+  return randomBytes(32).toString('base64');
+}
 
 /**
  * Runs the worker's outbox loop until nothing is pending, so emails go out and system events land. Only work
@@ -136,6 +161,7 @@ async function main(): Promise<void> {
   const started = Date.now();
   const since = (await rows<{ now: string }>(admin.db, sql`select now()::text as now`))[0]!.now;
   const log = pino({ level: 'warn' });
+  const key = workerKey();
   const deps: OutboxDeps = {
     db: worker.db,
     mailer: createSmtpMailer(
@@ -152,7 +178,7 @@ async function main(): Promise<void> {
     publicUrl: (process.env.WORKER_PUBLIC_URL ?? 'http://127.0.0.1:4100').replace(/\/+$/, ''),
     // The seed never reaches a carrier: the fake stands in, and sealed tokens use the dev worker's key.
     telephony: createFakeTelephony({ approvalMs: 0, callbacks: false, log }),
-    sealer: createSealer(process.env.WORKER_ENCRYPTION_KEY || randomBytes(32).toString('base64')),
+    sealer: createSealer(key),
     reminderOverrideMs: null,
     registrationPollMs: 50,
     email: {
@@ -177,7 +203,7 @@ async function main(): Promise<void> {
     ),
     bookingLinks: createBookingLinks({
       webUrl: (process.env.WEB_URL ?? 'http://localhost:3000').replace(/\/+$/, ''),
-      key: process.env.WORKER_ENCRYPTION_KEY || randomBytes(32).toString('base64'),
+      key,
     }),
     fetchUrl: createSafeFetch(),
     ai: { provider: null, dailyTokens: 2_000_000 },
@@ -313,6 +339,23 @@ async function main(): Promise<void> {
     { organizationId: org.organizationId, chris },
   );
 
+  // Milestone 6: the stand-in model (with the seed's own rules) answers AI steps, Try it and the website scan.
+  const ai = { provider: seedAi(), dailyTokens: 2_000_000 };
+  const flow = { ...deps, ai, workflowAi: createWorkflowAi({ db: worker.db, ai, log }) };
+  const knowledge = await seedKnowledge(
+    { api: api.db, admin: admin.db, worker: flow, actor, meta, step, since },
+    { id: lonestar, organizationId: org.organizationId, dale },
+  );
+  const flows = await seedWorkflows(
+    { api: api.db, admin: admin.db, worker: flow, actor, meta, step, since },
+    {
+      organizationId: org.organizationId,
+      chris,
+      lonestar: { id: lonestar, dale, priya, marco },
+      bayou: { id: bayou, owner: renee },
+    },
+  );
+
   step('Northstar Electric: a separate organization that sees none of the above');
   await executeCommand(
     api.db,
@@ -343,6 +386,12 @@ ${calendar.calendars.map((c) => `  ${c.name.padEnd(22)} ${c.labels.padEnd(34)} $
 Glow Red Light Studio (${glow.seconds.toFixed(1)}s of the seed) books its four red light beds with no staff: ${glow.bookings} bookings over
 the next three weekdays, every bed taken at 5 PM once. Customers book at ${deps.webUrl}/book/${glow.site}:
   ${glow.calendar.name.padEnd(22)} ${glow.calendar.labels.padEnd(34)} ${deps.webUrl}/book/${glow.site}/${glow.calendar.slug}
+Lone Star's knowledge base (${knowledge.seconds.toFixed(1)}s of the seed) has a filled-in profile, ${knowledge.published} published items and ${knowledge.drafts} draft, and
+${knowledge.suggestions} suggestions waiting: from a scan of its stand-in website, and customers' question "Do you offer financing?".
+Its workflows (${flows.seconds.toFixed(1)}s): "Speed to lead" and "Missed-call text back" are live, with a finished run, a waiting one, one
+waiting for an OK of an AI-written text and one failed with Retry; "Appointment follow-up + review" is a draft.
+Go Biz Help's template "${flows.template}" is on version ${flows.templateVersion}; Bayou has version ${flows.bayouVersion},
+so it shows Update available, and the "HVAC FAQs" pack's ${flows.packItems} items wait there as suggestions.
 Emails the stack sent, including the pending invitation for ${PENDING_INVITEE}: ${env.mailpitUrl}
 `);
 }

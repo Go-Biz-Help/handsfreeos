@@ -85,7 +85,10 @@ export type GraphEdge = GraphFlowEdge | GraphGotoEdge;
 export interface WorkflowGraph {
   readonly nodes: readonly GraphNode[];
   readonly edges: readonly GraphEdge[];
-  /** Layout-only links: a path that finishes with a go-to or End still sits above its join. Never drawn. */
+  /**
+   * Layout-only links, never drawn: a path that finishes with a go-to or End still sits above its join, and so
+   * does the rejected path of an approval inside a branch.
+   */
   readonly ties: readonly { readonly source: string; readonly target: string }[];
 }
 
@@ -110,9 +113,9 @@ export function treeToGraph(def: WorkflowDefinition, names: WorkflowNames = {}):
   const edges: GraphEdge[] = [];
   const ties: { source: string; target: string }[] = [];
   const gotos: GotoStep[] = [];
-  // Rejected paths are walked last, so an approval's own next step is laid out first (straight down) and
-  // its rejected path goes beside it.
-  const rejected: { step: ApprovalStep; depth: number }[] = [];
+  // Rejected paths are walked last, after the path their approval is on (the layout puts them beside it, to
+  // the right). `join` is where that path runs into (null on the main path): a rejected path stays above it.
+  const rejected: { step: ApprovalStep; depth: number; join: string | null }[] = [];
 
   const node = (n: Omit<GraphNode, 'stepId' | 'stepType' | 'label'> & Partial<GraphNode>) =>
     nodes.push({ stepId: null, stepType: null, label: null, ...n });
@@ -126,8 +129,9 @@ export function treeToGraph(def: WorkflowDefinition, names: WorkflowNames = {}):
     edges.push({ kind: 'flow', id: `e:${source}>${target}`, source, target, shape, label, point });
 
   /**
-   * Lays out one path from `from`. `tail` is the node the run carries on from after the path, or null when
-   * the path finishes itself (a go-to or End); `last` is its last node either way.
+   * Lays out one path from `from`, inside the branch whose `join` it runs into (null on the main path).
+   * `tail` is the node the run carries on from after the path, or null when the path finishes itself (a
+   * go-to or End); `last` is its last node either way.
    */
   const walk = (
     steps: readonly Step[],
@@ -135,6 +139,7 @@ export function treeToGraph(def: WorkflowDefinition, names: WorkflowNames = {}):
     depth: number,
     from: string,
     label: GraphEdgeLabel | null,
+    join: string | null,
   ): { tail: string | null; last: string } => {
     let prev = from;
     let open = true;
@@ -152,7 +157,7 @@ export function treeToGraph(def: WorkflowDefinition, names: WorkflowNames = {}):
       flow(prev, step.id, first ? 'split' : 'straight', pointAt(lane, index), first ? label : null);
       prev = step.id;
       if (step.type === 'branch') prev = branchBlock(step, depth);
-      else if (step.type === 'approval') rejected.push({ step, depth });
+      else if (step.type === 'approval') rejected.push({ step, depth, join });
       else if (step.type === 'goto') {
         gotos.push(step);
         open = false;
@@ -180,7 +185,7 @@ export function treeToGraph(def: WorkflowDefinition, names: WorkflowNames = {}):
         flow(id, join, 'join', null);
         return;
       }
-      const { tail, last } = walk(b.steps, lane, depth + 1, step.id, label);
+      const { tail, last } = walk(b.steps, lane, depth + 1, step.id, label, join);
       if (tail) flow(tail, join, 'join', pointAt(lane, b.steps.length));
       else ties.push({ source: last, target: join });
     });
@@ -190,14 +195,14 @@ export function treeToGraph(def: WorkflowDefinition, names: WorkflowNames = {}):
 
   node({ id: TRIGGER_NODE, kind: 'trigger', lane: null, index: null, depth: 0 });
   const root: LaneRef = { parentId: null, branchId: null };
-  const { tail } = walk(def.steps, root, 0, TRIGGER_NODE, null);
+  const { tail } = walk(def.steps, root, 0, TRIGGER_NODE, null, null);
   if (tail) {
     node({ id: END_NODE, kind: 'terminal', lane: null, index: null, depth: 0, label: 'End' });
     flow(tail, END_NODE, 'straight', pointAt(root, def.steps.length));
   }
 
   for (let i = 0; i < rejected.length; i++) {
-    const { step, depth } = rejected[i]!;
+    const { step, depth, join } = rejected[i]!;
     const lane: LaneRef = { parentId: step.id, branchId: REJECTED_LANE };
     const label: GraphEdgeLabel = {
       text: 'If it’s rejected',
@@ -213,13 +218,15 @@ export function treeToGraph(def: WorkflowDefinition, names: WorkflowNames = {}):
     if (!steps.length) {
       endNode();
       flow(step.id, end, 'split', pointAt(lane, 0), label);
+      if (join) ties.push({ source: end, target: join });
       continue;
     }
-    const out = walk(steps, lane, depth + 1, step.id, label);
+    const out = walk(steps, lane, depth + 1, step.id, label, join);
     if (out.tail) {
       endNode();
       flow(out.tail, end, 'straight', pointAt(lane, steps.length));
     }
+    if (join) ties.push({ source: out.tail ? end : out.last, target: join });
   }
 
   const stepIds = new Set(nodes.map((n) => n.stepId).filter((id): id is string => id !== null));

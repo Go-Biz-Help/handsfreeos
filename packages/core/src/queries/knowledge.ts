@@ -340,7 +340,8 @@ export const knowledgeSuggestionList = defineQuery({
 
 export const knowledgePackList = defineQuery({
   name: 'knowledge_pack.list',
-  description: 'The agency’s knowledge starter packs, with their items and versions.',
+  description:
+    'The agency’s knowledge starter packs, with their items and versions, and how each business is getting on with them: its suggestions from the pack accepted, rejected and still waiting.',
   input: KnowledgePackListInput,
   output: KnowledgePackListOutput,
   permission: 'org.templates.manage',
@@ -360,6 +361,29 @@ export const knowledgePackList = defineQuery({
       ctx.tx,
       list.map((p) => p.createdBy).filter((u): u is string => !!u),
     );
+    // Each business's pack suggestions, any version. The organization's owners and admins can read every
+    // one of its businesses' suggestions (RLS: accessible_workspace_ids covers the organization's).
+    const progress = list.length
+      ? await rows<{
+          pack_id: string;
+          workspace_id: string;
+          name: string;
+          pending: number;
+          accepted: number;
+          rejected: number;
+        }>(
+          ctx.tx,
+          sql`select s.source ->> 'packId' as pack_id, s.workspace_id, w.name,
+                count(*) filter (where s.status = 'pending')::int as pending,
+                count(*) filter (where s.status = 'accepted')::int as accepted,
+                count(*) filter (where s.status = 'rejected')::int as rejected
+              from app.knowledge_suggestions s join app.workspaces w on w.id = s.workspace_id
+              where w.organization_id = ${input.organizationId} and s.reason = 'pack'
+                and s.source ->> 'packId' = any(${textArray(list.map((p) => p.id))})
+              group by s.source ->> 'packId', s.workspace_id, w.name
+              order by lower(w.name), s.workspace_id`,
+        )
+      : [];
     return {
       items: list.map((p) => ({
         id: p.id,
@@ -373,6 +397,15 @@ export const knowledgePackList = defineQuery({
         archivedAt: iso(p.archivedAt),
         createdBy: userRef(p.createdBy, names),
         updatedAt: iso(p.updatedAt)!,
+        businesses: progress
+          .filter((r) => r.pack_id === p.id)
+          .map((r) => ({
+            workspaceId: r.workspace_id,
+            name: r.name,
+            pending: r.pending,
+            accepted: r.accepted,
+            rejected: r.rejected,
+          })),
       })),
     };
   },

@@ -45,7 +45,7 @@ import { cn } from '@/lib/utils';
 import { Note } from '../panels/fields';
 import type { StepListEditing, StepOverlay } from '../step-list';
 import { CanvasProvider, type CanvasContextValue } from './context';
-import { EDGE_TYPES, type CanvasEdge } from './edges';
+import { EDGE_TYPES, GotoEdges, type CanvasEdge, type GotoLine } from './edges';
 import { clientPoint, distance, distanceToPolyline, type Pt } from './geometry';
 import { shortHash, structureKey, treeToGraph, TRIGGER_NODE, type GraphNodeKind } from './graph';
 import {
@@ -294,33 +294,32 @@ function Canvas({
 
   const baseEdges = useMemo(
     () =>
-      graph.edges.map((e): CanvasEdge =>
+      graph.edges.flatMap((e): CanvasEdge[] =>
         e.kind === 'flow'
-          ? {
-              id: e.id,
-              type: 'flow',
-              source: e.source,
-              target: e.target,
-              sourceHandle: 'out',
-              targetHandle: 'in',
-              selectable: false,
-              focusable: false,
-              data: { edge: e, arrow: kinds.get(e.target) !== 'join', drop: null },
-            }
-          : {
-              id: e.id,
-              type: 'goto',
-              source: e.source,
-              target: e.target,
-              sourceHandle: 'goto',
-              targetHandle: 'goto-in',
-              selectable: false,
-              focusable: false,
-              zIndex: 1,
-              data: { edge: e, trackX: layout.trackX + e.track * GOTO_TRACK_GAP },
-            },
+          ? [
+              {
+                id: e.id,
+                type: 'flow',
+                source: e.source,
+                target: e.target,
+                sourceHandle: 'out',
+                targetHandle: 'in',
+                selectable: false,
+                focusable: false,
+                data: { edge: e, arrow: kinds.get(e.target) !== 'join', drop: null },
+              },
+            ]
+          : [],
       ),
-    [graph, layout, kinds],
+    [graph, kinds],
+  );
+  // Go-tos have their own layer, drawn wherever the canvas is scrolled (see GotoEdges).
+  const gotoLines = useMemo(
+    () =>
+      graph.edges.flatMap((e): GotoLine[] =>
+        e.kind === 'goto' ? [{ edge: e, trackX: layout.trackX + e.track * GOTO_TRACK_GAP }] : [],
+      ),
+    [graph, layout],
   );
   const edges = useMemo(
     () =>
@@ -668,6 +667,7 @@ function Canvas({
               color="var(--border-strong)"
               bgColor="var(--bg)"
             />
+            <GotoEdges lines={gotoLines} />
             {minimap ? (
               <MiniMap<CanvasNode>
                 pannable

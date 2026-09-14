@@ -32,3 +32,16 @@ export function templateDraftAdapter(organizationId: string, templateId: string)
     },
   };
 }
+
+/** Renames a template (workflow_template.rename). The businesses' installed copies keep their own names. */
+export async function renameTemplate(
+  organizationId: string,
+  templateId: string,
+  name: string,
+): Promise<void> {
+  unwrap(
+    await apiBrowser().POST('/v1/commands/workflow_template.rename', {
+      body: { organizationId, templateId, name },
+    }),
+  );
+}

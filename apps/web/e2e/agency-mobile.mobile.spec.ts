@@ -78,6 +78,15 @@ test('agency area at 390 px, dark', async ({ page }) => {
   await expect(page.getByTestId(`template-row-${templateId}`)).toBeVisible();
   await fits(page);
 
+  // New template: a small dialog that fits the phone.
+  await page.getByTestId('template-new').click();
+  const create = page.getByTestId('template-new-dialog');
+  await expect(create.getByTestId('template-new-name')).toBeVisible();
+  await expect(create.getByTestId('template-new-create')).toBeInViewport();
+  await fits(page);
+  await page.keyboard.press('Escape');
+  await expect(create).toBeHidden();
+
   // The drawer holds the agency's sections and its businesses.
   await page.getByTestId('agency-menu').click();
   const drawer = page.getByRole('dialog', { name: 'Menu' });

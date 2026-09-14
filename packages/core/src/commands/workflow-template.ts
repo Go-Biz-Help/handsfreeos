@@ -29,16 +29,20 @@ import {
   WorkflowTemplateApplyUpdateOutput,
   WorkflowTemplateCreateFromWorkflowInput,
   WorkflowTemplateCreateFromWorkflowOutput,
+  WorkflowTemplateCreateInput,
+  WorkflowTemplateCreateOutput,
   WorkflowTemplateInstallInput,
   WorkflowTemplateInstallOutput,
   WorkflowTemplatePublishOutput,
   WorkflowTemplatePushInput,
   WorkflowTemplatePushOutput,
   WorkflowTemplateRefInput,
+  WorkflowTemplateRenameInput,
+  WorkflowTemplateRenameOutput,
   WorkflowTemplateSaveDraftInput,
   WorkflowTemplateSaveDraftOutput,
 } from '../schemas/workflow';
-import type { WorkflowDefinition } from '../workflows/definition';
+import { blankDefinition, type WorkflowDefinition } from '../workflows/definition';
 import { describeOps, describeTrigger, diffWorkflows } from '../workflows/describe';
 import { jsonEqual } from '../workflows/json';
 import {
@@ -172,6 +176,79 @@ export const workflowTemplateCreateFromWorkflow = defineCommand({
       after: { name: input.name, from: wf.name, placeholders: placeholders.length },
     });
     return { templateId: row.id, revision: 1, placeholders };
+  },
+});
+
+export const workflowTemplateCreate = defineCommand({
+  name: 'workflow_template.create',
+  description:
+    'Start an agency template from scratch: a blank draft with its trigger (by hand when none is given) and no steps, to build, publish and push to client businesses.',
+  risk: 1,
+  input: WorkflowTemplateCreateInput,
+  output: WorkflowTemplateCreateOutput,
+  permission: 'org.templates.manage',
+  scope: inOrganization,
+  emits: ['workflow_template.created'],
+  async handler(ctx, input) {
+    const me = requireHuman(ctx).userId;
+    const definition = blankDefinition(input.trigger ?? { kind: 'manual' });
+    const [row] = await ctx.tx
+      .insert(workflowTemplates)
+      .values({
+        organizationId: ctx.scope.organizationId!,
+        name: input.name,
+        description: input.description ?? null,
+        definition: asJson(definition),
+        definitionVersion: definition.version,
+        revision: 1,
+        createdBy: me,
+      })
+      .returning({ id: workflowTemplates.id });
+    if (!row) throw HfosError.forbidden();
+    await ctx.emit({
+      type: 'workflow_template.created',
+      entityType: 'workflow_template',
+      entityId: row.id,
+      payload: { templateId: row.id, from: 'blank', triggerKind: definition.trigger.kind },
+      after: { name: input.name, source: 'Blank' },
+    });
+    return { templateId: row.id, revision: 1 };
+  },
+});
+
+export const workflowTemplateRename = defineCommand({
+  name: 'workflow_template.rename',
+  description:
+    'Rename an agency template or change its description. Businesses’ installed copies keep their own names.',
+  risk: 1,
+  input: WorkflowTemplateRenameInput,
+  output: WorkflowTemplateRenameOutput,
+  permission: 'org.templates.manage',
+  scope: inOrganization,
+  emits: ['workflow_template.renamed'],
+  async handler(ctx, input) {
+    requireHuman(ctx);
+    const t = await loadTemplate(ctx, input.templateId, true);
+    const patch: { name?: string; description?: string | null } = {};
+    if (input.name !== undefined && input.name !== t.name) patch.name = input.name;
+    if (input.description !== undefined && (input.description ?? null) !== t.description)
+      patch.description = input.description ?? null;
+    const name = patch.name ?? t.name;
+    const description = patch.description !== undefined ? patch.description : t.description;
+    if (!Object.keys(patch).length) return { templateId: t.id, name, description };
+    await ctx.tx.update(workflowTemplates).set(patch).where(eq(workflowTemplates.id, t.id));
+    await ctx.emit({
+      type: 'workflow_template.renamed',
+      entityType: 'workflow_template',
+      entityId: t.id,
+      payload: { templateId: t.id, fields: Object.keys(patch) },
+      before: {
+        name: t.name,
+        ...(patch.description !== undefined ? { description: t.description } : {}),
+      },
+      after: { name, ...(patch.description !== undefined ? { description } : {}) },
+    });
+    return { templateId: t.id, name, description };
   },
 });
 

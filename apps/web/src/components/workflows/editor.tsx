@@ -81,13 +81,15 @@ export interface WorkflowEditorProps {
   /** From `?step=`. */
   readonly initialStep: string | null;
   /**
-   * 'template': an agency template (components/agency/template-editor.tsx). It saves through `adapter`, has no
-   * rename, History or Publish of its own (the header shows `actions`), is checked for its structure only
-   * (placeholders are what it's made of), and tests with Simulate in the browser.
+   * 'template': an agency template (components/agency/template-editor.tsx). It saves through `adapter` and
+   * renames through `onRename`, has no History or Publish of its own (the header shows `actions`), is checked
+   * for its structure only (placeholders are what it's made of), and tests with Simulate in the browser.
    */
   readonly kind?: 'workflow' | 'template';
   readonly adapter?: DraftAdapter;
   readonly actions?: (draft: WorkflowDraft) => ReactNode;
+  /** A template's rename (a workflow's is workflow.rename). Throwing puts the old name back. */
+  readonly onRename?: (name: string) => Promise<void>;
   /** The breadcrumb's link (Workflows by default). */
   readonly crumb?: { readonly href: string; readonly label: string };
 }
@@ -353,16 +355,18 @@ export function WorkflowEditor(props: WorkflowEditorProps) {
           <div className="flex min-w-0 flex-wrap items-center gap-2.5">
             <InlineName
               name={name}
-              canEdit={canManage && !template}
+              canEdit={canManage && (!template || !!props.onRename)}
               onSave={async (next) => {
                 const prev = name;
                 setName(next);
                 try {
-                  unwrap(
-                    await apiBrowser().POST('/v1/commands/workflow.rename', {
-                      body: { workspaceId, workflowId: workflow.id, name: next },
-                    }),
-                  );
+                  if (props.onRename) await props.onRename(next);
+                  else
+                    unwrap(
+                      await apiBrowser().POST('/v1/commands/workflow.rename', {
+                        body: { workspaceId, workflowId: workflow.id, name: next },
+                      }),
+                    );
                 } catch (e) {
                   setName(prev);
                   toast.error(errorMessage(e));

@@ -50,9 +50,11 @@ async function eventually(page: Page, locator: Locator, timeout = 45_000) {
  * 2. The drafts arrive; Bayou's unmatched stage shows as an issue in Checks.
  * 3. The template changes and version 2 is published: Lone Star sees "Update available".
  * 4. Lone Star applies it (a draft revision), tests it and publishes it.
- * 5. A knowledge pack pushed to the businesses arrives as suggestions from Go Biz Help.
+ * 5. A knowledge pack pushed to the businesses arrives as suggestions from Go Biz Help; Lone Star accepts
+ *    one, and the packs page shows how each business is getting on.
+ * 6. A template made from scratch opens in the editor; renamed there, the list shows its new name.
  */
-test('agency templates: save, push with mapping, update available, apply, test, publish; a knowledge pack', async ({
+test('agency templates: save, push with mapping, update available, apply, test, publish; a knowledge pack; a blank template, renamed', async ({
   page,
 }) => {
   test.setTimeout(300_000);
@@ -227,4 +229,54 @@ test('agency templates: save, push with mapping, update available, apply, test, 
   const board = page.getByTestId('suggestions-board');
   await eventually(page, board.getByText('Do you service heat pumps?'));
   await expect(board).toContainText('Go Biz Help');
+
+  // Lone Star accepts it; the packs page shows how each business is getting on.
+  const suggestion = board
+    .getByTestId('suggestion')
+    .filter({ hasText: 'Do you service heat pumps?' });
+  await suggestion.getByRole('button', { name: 'Accept', exact: true }).click();
+  await expect(suggestion).toBeHidden();
+  await page.goto(`/app/org/${orgId}/packs`);
+  await expect(packRow.getByTestId(`pack-business-${lonestar}`)).toContainText(
+    'Lone Star HVAC & Roofing: 1 accepted',
+  );
+  await eventually(page, packRow.getByTestId(`pack-business-${bayou}`));
+  await expect(packRow.getByTestId(`pack-business-${bayou}`)).toContainText(
+    'Bayou Plumbing Co.: 1 waiting',
+  );
+
+  // 6. A template from scratch opens in the editor; renamed there, the list shows its new name.
+  await page.goto(`/app/org/${orgId}/templates`);
+  await page.getByTestId('template-new').click();
+  const create = page.getByTestId('template-new-dialog');
+  await create.getByTestId('template-new-name').fill('Seasonal tune-up reminder');
+  await create.getByTestId('template-new-description').fill('A reminder text each spring and fall');
+  await create.getByTestId('template-new-create').click();
+  await expect(page).toHaveURL(new RegExp(`/app/org/${orgId}/templates/[0-9a-f-]{36}$`));
+  const blankId = /templates\/([0-9a-f-]{36})$/.exec(page.url())![1]!;
+  expect(blankId).not.toBe(templateId);
+  const editor = page.getByTestId('template-editor');
+  await expect(editor).toHaveAttribute('data-template-id', blankId);
+  await expect(page.getByTestId('workflow-rail')).toBeVisible();
+  await expect(page.getByTestId('template-banner')).toContainText('not published yet');
+  await expect(editor.getByTestId('workflow-name')).toHaveText('Seasonal tune-up reminder');
+
+  const renamed = page.waitForResponse(
+    (r) =>
+      r.url().endsWith('/v1/commands/workflow_template.rename') &&
+      r.request().method() === 'POST' &&
+      r.ok(),
+  );
+  await editor.getByTestId('workflow-name').click();
+  await editor.getByTestId('workflow-name-input').fill('Seasonal tune-up (HVAC)');
+  await editor.getByTestId('workflow-name-input').press('Enter');
+  await renamed;
+  await expect(editor.getByTestId('workflow-name')).toHaveText('Seasonal tune-up (HVAC)');
+  // Back through the breadcrumb: the list has the new name.
+  await editor.getByRole('link', { name: 'Templates', exact: true }).click();
+  await expect(page).toHaveURL(new RegExp(`/app/org/${orgId}/templates$`));
+  const blankRow = page.getByTestId(`template-row-${blankId}`);
+  await expect(blankRow).toContainText('Seasonal tune-up (HVAC)');
+  await expect(blankRow).toContainText('Not published');
+  await expect(page.getByTestId('templates-list')).not.toContainText('Seasonal tune-up reminder');
 });

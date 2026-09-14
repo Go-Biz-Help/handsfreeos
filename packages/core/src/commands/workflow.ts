@@ -20,6 +20,8 @@ import {
   WorkflowProposalApplyOutput,
   WorkflowProposalCreateInput,
   WorkflowProposalCreateOutput,
+  WorkflowProposalMarkAppliedInput,
+  WorkflowProposalMarkAppliedOutput,
   WorkflowPublishInput,
   WorkflowPublishOutput,
   WorkflowRefInput,
@@ -770,5 +772,58 @@ export const workflowProposalApply = defineCommand({
       changes: out.changes,
       issues: out.issues,
     };
+  },
+});
+
+export const workflowProposalMarkApplied = defineCommand({
+  name: 'workflow_proposal.mark_applied',
+  description:
+    'Record that the editor applied an AI builder proposal to a workflow’s draft and saved it (the editor applies the ops itself, as one Undo), so the Assistant no longer offers it. Refused until the draft is saved past the revision it was drafted against.',
+  risk: 1,
+  input: WorkflowProposalMarkAppliedInput,
+  output: WorkflowProposalMarkAppliedOutput,
+  permission: 'workflows.manage',
+  scope: inWorkspace,
+  emits: ['workflow_proposal.applied'],
+  async handler(ctx, input) {
+    requireHuman(ctx);
+    const ws = ctx.scope.workspaceId!;
+    const [proposal] = await ctx.tx
+      .select()
+      .from(workflowProposals)
+      .where(and(eq(workflowProposals.id, input.proposalId), eq(workflowProposals.workspaceId, ws)))
+      .for('update');
+    if (!proposal) throw HfosError.notFound('Proposal not found.');
+    if (proposal.appliedAt)
+      return {
+        proposalId: proposal.id,
+        appliedAt: proposal.appliedAt.toISOString(),
+        changed: false,
+      };
+    if (!proposal.workflowId || proposal.baseRevision === null)
+      throw HfosError.conflict(
+        'This proposal is for a new workflow. Apply it to create the workflow.',
+        'proposal_for_new',
+      );
+    const { row } = await loadWorkflow(ctx.tx, ws, proposal.workflowId);
+    if (row.revision <= proposal.baseRevision)
+      throw HfosError.conflict('Save the change to the draft first.', 'proposal_not_saved');
+    const [marked] = await ctx.tx
+      .update(workflowProposals)
+      .set({ appliedAt: dsql`now()` })
+      .where(eq(workflowProposals.id, proposal.id))
+      .returning({ appliedAt: workflowProposals.appliedAt });
+    await ctx.emit({
+      type: 'workflow_proposal.applied',
+      entityType: 'workflow_proposal',
+      entityId: proposal.id,
+      payload: {
+        workflowId: proposal.workflowId,
+        opCount: proposal.ops.length,
+        revision: row.revision,
+      },
+      after: { name: row.name, summary: proposal.summary ?? proposal.prompt.slice(0, 200) },
+    });
+    return { proposalId: proposal.id, appliedAt: marked!.appliedAt!.toISOString(), changed: true };
   },
 });

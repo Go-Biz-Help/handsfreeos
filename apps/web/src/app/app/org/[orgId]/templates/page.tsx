@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
-import { NewTemplateButton, TemplateList } from '@/components/agency/template-list';
+import { NewTemplateButton } from '@/components/agency/new-template';
+import { SaveWorkflowAsTemplateButton, TemplateList } from '@/components/agency/template-list';
 import { PageHeader } from '@/components/shell/page-header';
 import { loadTemplates } from '@/lib/agency/load';
 import { agencyOrganizations, orgBusinesses } from '@/lib/agency/org';
@@ -28,11 +29,14 @@ export default async function AgencyTemplatesPage({
         description="Build a workflow once and push it to client businesses. Each gets a draft, which it tests and publishes itself."
         actions={
           rows.length ? (
-            <NewTemplateButton
-              organizationId={orgId}
-              agencyName={org.name}
-              businesses={businesses}
-            />
+            <>
+              <SaveWorkflowAsTemplateButton
+                organizationId={orgId}
+                agencyName={org.name}
+                businesses={businesses}
+              />
+              <NewTemplateButton organizationId={orgId} agencyName={org.name} />
+            </>
           ) : null
         }
       />

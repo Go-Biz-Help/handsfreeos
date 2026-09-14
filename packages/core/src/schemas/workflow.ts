@@ -355,6 +355,15 @@ export const WorkflowProposalApplyOutput = z.object({
   issues: z.array(WorkflowIssueOut),
 });
 
+/** The editor applied a proposal itself (one Undo) and saved it: record that it's applied. */
+export const WorkflowProposalMarkAppliedInput = z.object({ workspaceId: uuid, proposalId: uuid });
+export const WorkflowProposalMarkAppliedOutput = z.object({
+  proposalId: uuid,
+  appliedAt: isoDateTime,
+  /** False when it was already marked. */
+  changed: z.boolean(),
+});
+
 /** System (the AI builder): a proposal's ops, made against a draft revision or for a new workflow. */
 export const WorkflowProposalCreateInput = z
   .object({
@@ -594,6 +603,27 @@ export const WorkflowTemplateCreateFromWorkflowOutput = z.object({
   revision: z.int(),
   /** The workspace ids swapped for placeholders, with what they were. */
   placeholders: z.array(ExtractedPlaceholderOut),
+});
+
+/** A blank template: its trigger (by hand when missing) and no steps; revision 1, nothing published yet. */
+export const WorkflowTemplateCreateInput = z.object({
+  organizationId: uuid,
+  name: displayName,
+  description,
+  trigger: Trigger.optional(),
+});
+export const WorkflowTemplateCreateOutput = z.object({ templateId: uuid, revision: z.int() });
+
+/** A template's name or description. Businesses' installed copies keep their own. */
+export const WorkflowTemplateRenameInput = z
+  .object({ organizationId: uuid, templateId: uuid, name: displayName.optional(), description })
+  .refine((v) => v.name !== undefined || v.description !== undefined, {
+    error: 'Change the name or the description.',
+  });
+export const WorkflowTemplateRenameOutput = z.object({
+  templateId: uuid,
+  name: z.string(),
+  description: z.string().nullable(),
 });
 
 export const WorkflowTemplateRefInput = z.object({ organizationId: uuid, templateId: uuid });

@@ -13,12 +13,13 @@ import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { WorkflowEditor } from '@/components/workflows/editor';
-import { templateDraftAdapter } from '@/lib/agency/draft';
+import { renameTemplate, templateDraftAdapter } from '@/lib/agency/draft';
 import { agencyHref } from '@/lib/agency/org';
 import { apiBrowser, errorMessage, unwrap } from '@/lib/api/client';
 import type { WorkflowCatalogsOut, WorkflowDetail, WorkflowTemplateGet } from '@/lib/api/types';
 import type { WorkflowDraft } from '@/lib/workflows/use-draft';
-import { InstallChip, behindBy, type Business } from './template-list';
+import { behindBy } from '@/lib/agency/installs';
+import { InstallChip, type Business } from './template-list';
 import { PushStepper } from './push-stepper';
 
 const KIND_WORD: Record<string, string> = {
@@ -102,8 +103,9 @@ function PublishTemplateButton({
 
 /**
  * An agency template in the workflow editor (kind 'template'): the same steps, canvas, panels and checks,
- * with its placeholders shown as the details each business matches, Simulate-only tests, Publish (the next
- * version) and Push. Below: the businesses it's in, and its versions.
+ * with its placeholders shown as the details each business matches, Simulate-only tests, rename (its name in
+ * the header, as a workflow's), Publish (the next version) and Push. Below: the businesses it's in, and its
+ * versions.
  */
 export function TemplateEditor({
   organizationId,
@@ -123,6 +125,13 @@ export function TemplateEditor({
 }) {
   const t = data.template;
   const [pushing, setPushing] = useState(false);
+  /** Its name as last renamed here (the push dialog's title follows it). */
+  const [name, setName] = useState(t.name);
+  const [seenName, setSeenName] = useState(t.name);
+  if (t.name !== seenName) {
+    setSeenName(t.name);
+    setName(t.name);
+  }
   const [liveDef, setLiveDef] = useState<WorkflowDefinition>(() => parseDefinition(t.definition));
   const adapter = useMemo(() => templateDraftAdapter(organizationId, t.id), [organizationId, t.id]);
   const placeholders = useMemo(() => placeholdersIn(liveDef), [liveDef]);
@@ -215,6 +224,10 @@ export function TemplateEditor({
         sample={null}
         initialStep={null}
         adapter={adapter}
+        onRename={async (next) => {
+          await renameTemplate(organizationId, t.id, next);
+          setName(next);
+        }}
         crumb={{ href: agencyHref(organizationId), label: 'Templates' }}
         actions={(draft) => (
           <>
@@ -327,7 +340,7 @@ export function TemplateEditor({
       {pushing ? (
         <PushStepper
           organizationId={organizationId}
-          template={t}
+          template={{ ...t, name }}
           installs={data.installs}
           businesses={businesses}
           onClose={() => setPushing(false)}

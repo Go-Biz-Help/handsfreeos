@@ -1,5 +1,5 @@
 'use client';
-import { AlertTriangle, Check, Clock, Info, LayoutTemplate, Plus, RefreshCw } from 'lucide-react';
+import { AlertTriangle, Check, Clock, Info, LayoutTemplate, RefreshCw } from 'lucide-react';
 import Link from 'next/link';
 import { useState } from 'react';
 import { Avatar } from '@/components/ui/avatar';
@@ -7,9 +7,11 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { EmptyState } from '@/components/ui/empty-state';
+import { behindBy } from '@/lib/agency/installs';
 import { agencyHref } from '@/lib/agency/org';
 import type { WorkflowTemplateGet, WorkflowTemplateInstall } from '@/lib/api/types';
 import { cn } from '@/lib/utils';
+import { NewTemplateButton } from './new-template';
 import { PushStepper } from './push-stepper';
 import { SaveAsTemplateDialog } from './save-as-template';
 
@@ -17,11 +19,6 @@ export type Business = { readonly id: string; readonly name: string };
 
 const COLUMNS =
   'lg:grid lg:grid-cols-[minmax(0,1.5fr)_88px_minmax(0,1.35fr)_minmax(0,1fr)_104px] lg:items-center lg:gap-4';
-
-/** Versions an install is behind the newest (0 when current, not installed, or never published). */
-export function behindBy(i: WorkflowTemplateInstall, latest: number | null): number {
-  return i.status === 'installed' && latest ? Math.max(0, latest - (i.installedVersion ?? 0)) : 0;
-}
 
 /** One business's copy: its version, and whether it's current, behind, installing or failed. */
 export function InstallChip({
@@ -109,7 +106,7 @@ const TONE = {
 } as const;
 
 /** "Save a workflow as a template": pick a business and one of its workflows. */
-export function NewTemplateButton({
+export function SaveWorkflowAsTemplateButton({
   organizationId,
   agencyName,
   businesses,
@@ -121,8 +118,12 @@ export function NewTemplateButton({
   const [open, setOpen] = useState(false);
   return (
     <>
-      <Button onClick={() => setOpen(true)} data-testid="template-new">
-        <Plus className="h-4 w-4" strokeWidth={1.75} />
+      <Button
+        variant="secondary"
+        onClick={() => setOpen(true)}
+        data-testid="template-from-workflow"
+      >
+        <LayoutTemplate className="h-4 w-4" strokeWidth={1.75} />
         Save a workflow as a template
       </Button>
       {open ? (
@@ -161,15 +162,18 @@ export function TemplateList({
         <EmptyState
           title="No templates yet"
           actions={
-            <NewTemplateButton
-              organizationId={organizationId}
-              agencyName={agencyName}
-              businesses={businesses}
-            />
+            <div className="flex flex-wrap justify-center gap-2">
+              <SaveWorkflowAsTemplateButton
+                organizationId={organizationId}
+                agencyName={agencyName}
+                businesses={businesses}
+              />
+              <NewTemplateButton organizationId={organizationId} agencyName={agencyName} />
+            </div>
           }
         >
-          Save one of your businesses’ workflows as a template, publish it, then push it to the
-          others.
+          Start one from scratch, or save one of your businesses’ workflows as a template. Publish
+          it, then push it to the others.
         </EmptyState>
       </Card>
     );

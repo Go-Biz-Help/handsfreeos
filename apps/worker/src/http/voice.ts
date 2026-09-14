@@ -292,11 +292,27 @@ export function registerVoiceRoutes(app: FastifyInstance, deps: HttpDeps): void 
         409,
         'Calls are still being set up. Try again in a minute.',
       );
+    let apiKeySecret: string;
+    try {
+      apiKeySecret = deps.sealer.open(account.apiKeySecretEnc);
+    } catch (e) {
+      // Sealed with a key this worker doesn't hold (a database copied from elsewhere, or a key rotated
+      // without keeping the old one): the browser shows "Calls unavailable" rather than a server error.
+      deps.log.error(
+        { workspaceId, err: e instanceof Error ? e.message : String(e) },
+        'the calling key could not be opened',
+      );
+      throw HfosError.rule(
+        'calls_unavailable',
+        503,
+        'Calls can’t be set up right now: this business’s calling key can’t be read. Ask whoever runs HandsFreeOS to check the worker’s encryption key.',
+      );
+    }
     const identity = identityOf(actor.userId);
     const { token, expiresAt } = voiceAccessToken({
       accountSid: account.accountSid,
       apiKeySid: account.apiKeySid,
-      apiKeySecret: deps.sealer.open(account.apiKeySecretEnc),
+      apiKeySecret,
       twimlAppSid: account.twimlAppSid,
       identity,
       ttlSeconds: TOKEN_TTL_SECONDS,

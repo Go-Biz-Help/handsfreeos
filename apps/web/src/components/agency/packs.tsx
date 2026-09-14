@@ -112,6 +112,9 @@ export function PackBoard({
                   </Button>
                 )}
               </span>
+              {p.businesses.length ? (
+                <PackProgress packId={p.id} businesses={p.businesses} />
+              ) : null}
             </div>
           ))}
         </Card>
@@ -160,6 +163,49 @@ export function PackBoard({
         />
       ) : null}
     </>
+  );
+}
+
+type Progress = KnowledgePack['businesses'][number];
+
+/** "3 accepted, 9 waiting", and any rejected. */
+function progressLine(b: Progress): string {
+  const parts = [
+    b.accepted ? `${b.accepted} accepted` : '',
+    b.pending ? `${b.pending} waiting` : '',
+    b.rejected ? `${b.rejected} rejected` : '',
+  ].filter(Boolean);
+  return parts.join(', ') || 'nothing yet';
+}
+
+/** How each business is getting on with the pack: "Bayou Plumbing Co.: 3 accepted, 9 waiting". */
+function PackProgress({ packId, businesses }: { packId: string; businesses: readonly Progress[] }) {
+  return (
+    <ul
+      className="flex min-w-0 basis-full flex-wrap gap-x-4 gap-y-1.5 pl-[42px] text-xs text-text-2"
+      aria-label="In your businesses"
+      data-testid={`pack-progress-${packId}`}
+    >
+      {businesses.map((b) => (
+        <li
+          key={b.workspaceId}
+          className="flex min-w-0 max-w-full items-center gap-1.5"
+          title={`${b.name}: ${progressLine(b)}`}
+          data-testid={`pack-business-${b.workspaceId}`}
+        >
+          <Avatar
+            name={b.name}
+            seed={b.workspaceId}
+            size="sm"
+            square
+            className="h-[18px] w-[18px] flex-none rounded-[6px] text-[9px]"
+          />
+          <span className="min-w-0 truncate">
+            <span className="font-medium text-text">{b.name}</span>: {progressLine(b)}
+          </span>
+        </li>
+      ))}
+    </ul>
   );
 }
 

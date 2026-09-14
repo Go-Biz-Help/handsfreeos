@@ -2,16 +2,29 @@
  * Agency templates on the local database: a template's draft saves like a workflow's (a base revision, a bad
  * op's index, org owners and admins only); the engine's install turns a push into a draft with its template
  * origin (a business that already has its copy keeps it); and applying an update keeps the business's own
- * changes on top of the new version, as a draft revision.
+ * changes on top of the new version, as a draft revision. Also: a blank template, renaming one (the businesses'
+ * copies keep their names), and how each business is getting on with a knowledge pack.
  */
-import { and, eq } from 'drizzle-orm';
+import { and, asc, eq } from 'drizzle-orm';
 import { asWorker, rows, sql } from '@hfos/db/client';
-import { events, workflows, workflowTemplateInstalls } from '@hfos/db/schema';
+import {
+  auditLogs,
+  events,
+  workflows,
+  workflowTemplateInstalls,
+  workflowTemplates,
+} from '@hfos/db/schema';
 import { closeTestDbs, createTestUser, testDbs, type TestUser } from '@hfos/db/testing';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { z } from 'zod';
 import {
   executeCommand,
+  knowledgePackCreate,
+  knowledgePackList,
+  knowledgePackUpdate,
+  knowledgeSuggestionAccept,
+  knowledgeSuggestionPropose,
+  knowledgeSuggestionReject,
   organizationCreate,
   pipelineList,
   planTemplateUpdate,
@@ -20,11 +33,15 @@ import {
   workflowList,
   workflowSaveDraft,
   workflowTemplateApplyUpdate,
+  workflowTemplateCreate,
   workflowTemplateCreateFromWorkflow,
+  workflowTemplateGet,
   workflowTemplateInstall,
   workflowTemplatePublish,
   workflowTemplatePush,
+  workflowTemplateRename,
   workflowTemplateSaveDraft,
+  workspaceCreate,
   type CommandDef,
 } from '../src/server';
 import { admin, ask, expectHfos, meta, run, system, type Scope } from './calendar-helpers';
@@ -309,5 +326,320 @@ describe('installs and updates (the engine’s side)', () => {
       'not_from_template',
       409,
     );
+  });
+});
+
+/** A command as the engine in one of the organization's businesses. */
+const asSystemIn = <I extends z.ZodType, O extends z.ZodType>(
+  workspaceId: string,
+  cmd: CommandDef<I, O>,
+  input: unknown,
+) =>
+  executeCommand(
+    testDbs().worker.db,
+    cmd,
+    input,
+    system({ workspaceId, organizationId: orgId }),
+    meta('worker'),
+  ).then((r) => r.output);
+
+describe('templates from scratch, renames, and a pack in each business', () => {
+  let bizOwner: TestUser, orgAdmin: TestUser;
+  const templatesNamed = (name: string) =>
+    admin()
+      .select({ id: workflowTemplates.id })
+      .from(workflowTemplates)
+      .where(and(eq(workflowTemplates.organizationId, orgId), eq(workflowTemplates.name, name)));
+  /** Each rename's event with its audit entry, oldest first. */
+  const renames = (id: string) =>
+    admin()
+      .select({
+        payload: events.payload,
+        actorId: events.actorId,
+        before: auditLogs.before,
+        after: auditLogs.after,
+      })
+      .from(events)
+      .innerJoin(auditLogs, eq(auditLogs.eventId, events.id))
+      .where(and(eq(events.entityId, id), eq(events.eventType, 'workflow_template.renamed')))
+      .orderBy(asc(events.createdAt), asc(events.id));
+
+  beforeAll(async () => {
+    [bizOwner, orgAdmin] = await Promise.all([
+      createTestUser('wft-bizowner', { fullName: 'Bea Business' }),
+      createTestUser('wft-orgadmin', { fullName: 'Ada Admin' }),
+    ]);
+    // An owner of the business who isn't in the agency; an admin of the agency in no business.
+    await rows(
+      admin(),
+      sql`insert into app.workspace_memberships (workspace_id, user_id, role) values (${wsId}, ${bizOwner.id}, 'owner')`,
+    );
+    await rows(
+      admin(),
+      sql`insert into app.organization_memberships (organization_id, user_id, role) values (${orgId}, ${orgAdmin.id}, 'admin')`,
+    );
+  });
+
+  describe('a blank template', () => {
+    it('starts with its trigger (by hand) and no steps, at revision 1 with nothing published', async () => {
+      const out = await run(
+        workflowTemplateCreate,
+        {
+          organizationId: orgId,
+          name: 'Seasonal tune-up',
+          description: 'Spring and fall reminders',
+        },
+        owner,
+      );
+      expect(out).toEqual({ templateId: expect.any(String), revision: 1 });
+      const got = await ask(
+        workflowTemplateGet,
+        { organizationId: orgId, templateId: out.templateId },
+        owner,
+      );
+      expect(got.template).toMatchObject({
+        name: 'Seasonal tune-up',
+        description: 'Spring and fall reminders',
+        revision: 1,
+        latestVersion: null,
+        placeholders: [],
+        createdBy: { id: owner.id },
+      });
+      expect(got.template.definition).toMatchObject({ trigger: { kind: 'manual' }, steps: [] });
+      expect(got.versions).toEqual([]);
+      expect(got.installs).toEqual([]);
+      const [ev] = await admin()
+        .select({ payload: events.payload, actorId: events.actorId })
+        .from(events)
+        .where(
+          and(
+            eq(events.entityId, out.templateId),
+            eq(events.eventType, 'workflow_template.created'),
+          ),
+        );
+      expect(ev).toMatchObject({
+        actorId: owner.id,
+        payload: { templateId: out.templateId, from: 'blank', triggerKind: 'manual' },
+      });
+    });
+
+    it('takes the trigger it starts with; an admin of the agency can make one', async () => {
+      const out = await run(
+        workflowTemplateCreate,
+        {
+          organizationId: orgId,
+          name: 'New lead welcome',
+          trigger: { kind: 'event', event: 'lead.created' },
+        },
+        orgAdmin,
+      );
+      const got = await ask(
+        workflowTemplateGet,
+        { organizationId: orgId, templateId: out.templateId },
+        orgAdmin,
+      );
+      expect(got.template.definition).toMatchObject({
+        trigger: { kind: 'event', event: 'lead.created' },
+        steps: [],
+      });
+      expect(got.template.createdBy).toMatchObject({ id: orgAdmin.id });
+    });
+
+    it('is the agency’s: a member, a business owner outside it, or the engine can’t make one', async () => {
+      const input = { organizationId: orgId, name: 'Not theirs' };
+      await expectHfos(() => run(workflowTemplateCreate, input, member), 'not_found', 404);
+      await expectHfos(() => run(workflowTemplateCreate, input, bizOwner), 'not_found', 404);
+      await expectHfos(() => asSystem(workflowTemplateCreate, input), 'forbidden', 403);
+      expect(await templatesNamed('Not theirs')).toEqual([]);
+    });
+  });
+
+  describe('renaming a template', () => {
+    it('renames it and says so; the businesses’ copies keep their own names', async () => {
+      const out = await run(
+        workflowTemplateRename,
+        { organizationId: orgId, templateId, name: 'Estimate follow-up (HVAC)' },
+        owner,
+      );
+      expect(out).toEqual({ templateId, name: 'Estimate follow-up (HVAC)', description: null });
+      const got = await ask(workflowTemplateGet, { organizationId: orgId, templateId }, owner);
+      expect(got.template.name).toBe('Estimate follow-up (HVAC)');
+      const [first, ...more] = await renames(templateId);
+      expect(more).toEqual([]);
+      expect(first).toMatchObject({
+        actorId: owner.id,
+        payload: { templateId, fields: ['name'] },
+        before: { name: 'Estimate follow-up (home services)' },
+        after: { name: 'Estimate follow-up (HVAC)' },
+      });
+      // The copy installed in the business (see above) keeps the name it came with.
+      const copies = await admin()
+        .select({ name: workflows.name })
+        .from(workflows)
+        .where(eq(workflows.templateId, templateId));
+      expect(copies.map((c) => c.name)).toEqual(['Estimate follow-up (home services)']);
+
+      // The description on its own.
+      expect(
+        await run(
+          workflowTemplateRename,
+          { organizationId: orgId, templateId, description: 'A text, an email, then a task' },
+          owner,
+        ),
+      ).toEqual({
+        templateId,
+        name: 'Estimate follow-up (HVAC)',
+        description: 'A text, an email, then a task',
+      });
+      expect((await renames(templateId))[1]).toMatchObject({
+        payload: { fields: ['description'] },
+        before: { name: 'Estimate follow-up (HVAC)', description: null },
+        after: { name: 'Estimate follow-up (HVAC)', description: 'A text, an email, then a task' },
+      });
+    });
+
+    it('changes nothing when nothing changed, and needs something to change', async () => {
+      const before = (await renames(templateId)).length;
+      expect(
+        await run(
+          workflowTemplateRename,
+          {
+            organizationId: orgId,
+            templateId,
+            name: 'Estimate follow-up (HVAC)',
+            description: 'A text, an email, then a task',
+          },
+          owner,
+        ),
+      ).toEqual({
+        templateId,
+        name: 'Estimate follow-up (HVAC)',
+        description: 'A text, an email, then a task',
+      });
+      expect(await renames(templateId)).toHaveLength(before);
+      await expectHfos(
+        () => run(workflowTemplateRename, { organizationId: orgId, templateId }, owner),
+        'validation',
+        400,
+      );
+    });
+
+    it('is refused outside the organization', async () => {
+      const other = await createTestUser('wft-other', { fullName: 'Olive Other' });
+      const otherOrg = (
+        await run(organizationCreate, { businessName: 'Other Agency Roofing' }, other)
+      ).organizationId;
+      const rename = { templateId, name: 'Mine now' };
+      // Another agency's owner, through their own organization or this one; this business's people.
+      await expectHfos(
+        () => run(workflowTemplateRename, { organizationId: otherOrg, ...rename }, other),
+        'not_found',
+        404,
+      );
+      await expectHfos(
+        () => run(workflowTemplateRename, { organizationId: orgId, ...rename }, other),
+        'not_found',
+        404,
+      );
+      await expectHfos(
+        () => run(workflowTemplateRename, { organizationId: orgId, ...rename }, member),
+        'not_found',
+        404,
+      );
+      await expectHfos(
+        () => run(workflowTemplateRename, { organizationId: orgId, ...rename }, bizOwner),
+        'not_found',
+        404,
+      );
+      const got = await ask(workflowTemplateGet, { organizationId: orgId, templateId }, owner);
+      expect(got.template.name).toBe('Estimate follow-up (HVAC)');
+    });
+  });
+
+  describe('a pack in each business', () => {
+    const item = (title: string) => ({ kind: 'faq' as const, title, body: 'Yes, all year.' });
+    const faq = (question: string) => ({
+      kind: 'faq' as const,
+      question,
+      answer: 'Yes, all year.',
+      tags: [],
+    });
+
+    it('counts each business’s suggestions from the pack by status, any version', async () => {
+      const pack = await run(
+        knowledgePackCreate,
+        {
+          organizationId: orgId,
+          name: 'HVAC FAQs',
+          items: [
+            item('Do you service heat pumps?'),
+            item('Do you offer financing?'),
+            item('Are you licensed?'),
+          ],
+        },
+        owner,
+      );
+      const other = await run(
+        knowledgePackCreate,
+        { organizationId: orgId, name: 'Roofing FAQs', items: [item('Do you fix hail damage?')] },
+        owner,
+      );
+      const progressOf = async (packId: string, u: TestUser = owner) =>
+        (await ask(knowledgePackList, { organizationId: orgId }, u)).items.find(
+          (p) => p.id === packId,
+        )!.businesses;
+      expect(await progressOf(pack.packId)).toEqual([]);
+
+      const bayou = (
+        await run(workspaceCreate, { organizationId: orgId, name: 'Bayou Plumbing Co.' }, owner)
+      ).workspaceId;
+      const deliver = (ws: string, packId: string, version: number, questions: string[]) =>
+        asSystemIn(ws, knowledgeSuggestionPropose, {
+          workspaceId: ws,
+          suggestions: questions.map((q) => ({ reason: 'pack', content: faq(q), packId, version })),
+        });
+      // Version 1 here and in Bayou, then version 2's new item here; the other pack's item isn't counted.
+      const v1 = await deliver(wsId, pack.packId, 1, [
+        'Do you service heat pumps?',
+        'Do you offer financing?',
+        'Are you licensed?',
+      ]);
+      await deliver(bayou, pack.packId, 1, ['Do you service heat pumps?']);
+      await run(
+        knowledgePackUpdate,
+        {
+          organizationId: orgId,
+          packId: pack.packId,
+          items: [
+            item('Do you service heat pumps?'),
+            item('Do you offer financing?'),
+            item('Are you licensed?'),
+            item('Do you work weekends?'),
+          ],
+        },
+        owner,
+      );
+      await deliver(wsId, pack.packId, 2, ['Do you work weekends?']);
+      await deliver(wsId, other.packId, 1, ['Do you fix hail damage?']);
+      await run(
+        knowledgeSuggestionAccept,
+        { workspaceId: wsId, suggestionId: v1.suggestionIds[0]! },
+        owner,
+      );
+      await run(
+        knowledgeSuggestionReject,
+        { workspaceId: wsId, suggestionId: v1.suggestionIds[1]! },
+        owner,
+      );
+
+      // An admin of the agency, in no business themselves, sees every business's progress, by name.
+      expect(await progressOf(pack.packId, orgAdmin)).toEqual([
+        { workspaceId: bayou, name: 'Bayou Plumbing Co.', pending: 1, accepted: 0, rejected: 0 },
+        { workspaceId: wsId, name: 'Template Co HVAC', pending: 2, accepted: 1, rejected: 1 },
+      ]);
+      expect(await progressOf(other.packId, orgAdmin)).toEqual([
+        { workspaceId: wsId, name: 'Template Co HVAC', pending: 1, accepted: 0, rejected: 0 },
+      ]);
+    });
   });
 });

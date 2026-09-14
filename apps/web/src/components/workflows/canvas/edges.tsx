@@ -1,12 +1,20 @@
 'use client';
-import { EdgeLabelRenderer, type Edge, type EdgeProps, type EdgeTypes } from '@xyflow/react';
+import {
+  EdgeLabelRenderer,
+  useInternalNode,
+  ViewportPortal,
+  type Edge,
+  type EdgeProps,
+  type EdgeTypes,
+  type InternalNode,
+} from '@xyflow/react';
 import { CornerUpLeft } from 'lucide-react';
 import { memo } from 'react';
 import { cn } from '@/lib/utils';
 import { AddStepMenu } from '../add-step-menu';
 import { laneColor } from '../chips';
 import { useCanvas } from './context';
-import { flowGeometry, gotoGeometry } from './geometry';
+import { flowGeometry, gotoGeometry, type Pt } from './geometry';
 import type { GraphFlowEdge, GraphGotoEdge } from './graph';
 
 export interface FlowEdgeData extends Record<string, unknown> {
@@ -17,15 +25,15 @@ export interface FlowEdgeData extends Record<string, unknown> {
   readonly drop: 'ok' | 'bad' | null;
 }
 
-export interface GotoEdgeData extends Record<string, unknown> {
+export type CanvasFlowEdge = Edge<FlowEdgeData, 'flow'>;
+/** The edges xyflow draws. Go-tos have their own layer: see `GotoEdges`. */
+export type CanvasEdge = CanvasFlowEdge;
+
+/** A go-to's dashed edge, and where its track runs down the right-hand side. */
+export interface GotoLine {
   readonly edge: GraphGotoEdge;
-  /** Where this go-to's track runs down the right-hand side. */
   readonly trackX: number;
 }
-
-export type CanvasFlowEdge = Edge<FlowEdgeData, 'flow'>;
-export type CanvasGotoEdge = Edge<GotoEdgeData, 'goto'>;
-export type CanvasEdge = CanvasFlowEdge | CanvasGotoEdge;
 
 const at = (x: number, y: number) => ({
   transform: `translate(-50%, -50%) translate(${x}px, ${y}px)`,
@@ -93,17 +101,29 @@ const FlowEdgeView = memo(function FlowEdgeView({
   );
 });
 
+/**
+ * Where a node's handle on its right-hand side meets an edge: from the handle as measured on screen, or as
+ * given before the node is drawn (the same as xyflow works it out for its own edges).
+ */
+function rightHandle(node: InternalNode | undefined, id: string): Pt | null {
+  if (!node) return null;
+  const bounds = node.internals.handleBounds;
+  const handle =
+    [...(bounds?.source ?? []), ...(bounds?.target ?? [])].find((h) => h.id === id) ??
+    node.handles?.find((h) => h.id === id);
+  if (!handle) return null;
+  const { x, y } = node.internals.positionAbsolute;
+  return { x: x + handle.x + (handle.width ?? 0), y: y + handle.y + (handle.height ?? 0) / 2 };
+}
+
 /** A go-to's dashed edge back to its target, with how many times it goes back. */
-const GotoEdgeView = memo(function GotoEdgeView({
-  sourceX,
-  sourceY,
-  targetX,
-  targetY,
-  data,
-}: EdgeProps<CanvasGotoEdge>) {
-  if (!data) return null;
-  const { edge, trackX } = data;
-  const geo = gotoGeometry({ x: sourceX, y: sourceY }, { x: targetX, y: targetY }, trackX);
+const GotoEdgeView = memo(function GotoEdgeView({ edge, trackX }: GotoLine) {
+  const source = useInternalNode(edge.source);
+  const target = useInternalNode(edge.target);
+  const s = rightHandle(source, 'goto');
+  const t = rightHandle(target, 'goto-in');
+  if (!s || !t) return null;
+  const geo = gotoGeometry(s, t, trackX);
   const times = edge.maxVisits === 1 ? '1 time' : `${edge.maxVisits} times`;
   return (
     <>
@@ -124,5 +144,24 @@ const GotoEdgeView = memo(function GotoEdgeView({
   );
 });
 
+/**
+ * The go-tos' dashed edges, on a layer of their own above the steps. The canvas draws only what's on screen,
+ * and xyflow drops an edge when neither end's node is in view; a go-to runs out along its track, well clear of
+ * both, so it vanished while its line still crossed the screen. There are only ever a few, so they're always
+ * drawn, from the nodes' live positions (so they follow a drag).
+ */
+export const GotoEdges = memo(function GotoEdges({ lines }: { lines: readonly GotoLine[] }) {
+  if (!lines.length) return null;
+  return (
+    <ViewportPortal>
+      <svg className="wf-goto-edges" aria-hidden="true">
+        {lines.map((l) => (
+          <GotoEdgeView key={l.edge.id} edge={l.edge} trackX={l.trackX} />
+        ))}
+      </svg>
+    </ViewportPortal>
+  );
+});
+
 /** One set for the canvas's lifetime, so xyflow never remounts the edges. */
-export const EDGE_TYPES = { flow: FlowEdgeView, goto: GotoEdgeView } satisfies EdgeTypes;
+export const EDGE_TYPES = { flow: FlowEdgeView } satisfies EdgeTypes;

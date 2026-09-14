@@ -251,7 +251,8 @@ export const WORKFLOW_RECIPES: readonly WorkflowRecipe[] = [
       steps: [
         text(
           's_mcttext1',
-          'Sorry we missed your call! This is {{business.name}}. How can we help? Reply here and we’ll get right back to you.',
+          // Straight apostrophes in texts: a curly one forces the slower encoding, and the text counts as two.
+          "Sorry we missed your call! This is {{business.name}}. How can we help? Reply here and we'll get right back to you.",
         ),
         {
           id: 's_mctwait1',
