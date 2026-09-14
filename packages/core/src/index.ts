@@ -14,3 +14,5 @@ export * from './messaging/quiet-hours';
 export * from './schemas/assistant';
 export * from './assistant/tools';
 export * from './calendar/index';
+export * from './workflows/index';
+export * from './knowledge/index';
