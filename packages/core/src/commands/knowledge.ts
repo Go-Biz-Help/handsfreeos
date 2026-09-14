@@ -5,6 +5,7 @@
  * it used. Website, document and customer text is data, never instructions: nothing enters the knowledge
  * base until a person accepts it.
  */
+import { randomUUID } from 'node:crypto';
 import { and, eq, inArray, ne, sql as dsql } from 'drizzle-orm';
 import { rows, sql } from '@hfos/db/client';
 import {
@@ -16,6 +17,7 @@ import {
   knowledgeSuggestions,
   users,
 } from '@hfos/db/schema';
+import { safeFileName } from '../crm/records';
 import { HfosError } from '../errors';
 import { requireHuman } from '../kernel/actor';
 import { defineCommand } from '../kernel/define';
@@ -26,6 +28,8 @@ import { emptyKnowledgeProfile, KnowledgeProfile, profileCompleteness } from '..
 import {
   KnowledgeDocumentAddInput,
   KnowledgeDocumentAddOutput,
+  KnowledgeDocumentBeginUploadInput,
+  KnowledgeDocumentBeginUploadOutput,
   KnowledgeDocumentSaveTextInput,
   KnowledgeDocumentSaveTextOutput,
   KnowledgeImportFaqsInput,
@@ -406,6 +410,42 @@ export const knowledgeItemImportFaqs = defineCommand({
 // ---- Documents, the website, scans ----
 
 const TEXT_FILE = /\.(txt|md|markdown|csv)$/i;
+
+export const knowledgeDocumentBeginUpload = defineCommand({
+  name: 'knowledge_document.begin_upload',
+  description:
+    'Reserve a place for a PDF or text file (5 MB at most) in the knowledge base. Upload it to the returned path, confirm it with file.confirm, then add it with knowledge_document.add.',
+  risk: 1,
+  input: KnowledgeDocumentBeginUploadInput,
+  output: KnowledgeDocumentBeginUploadOutput,
+  permission: 'knowledge.manage',
+  scope: inWorkspace,
+  emits: [],
+  async handler(ctx, input) {
+    const me = requireHuman(ctx).userId;
+    const ws = ctx.scope.workspaceId!;
+    const fileId = randomUUID();
+    // A knowledge file belongs to the business itself: its record is the workspace.
+    const objectPath = `${ws}/knowledge/${fileId}/${safeFileName(input.name)}`;
+    const [row] = await ctx.tx
+      .insert(files)
+      .values({
+        id: fileId,
+        workspaceId: ws,
+        recordType: 'knowledge',
+        recordId: ws,
+        bucket: 'attachments',
+        objectPath,
+        name: input.name,
+        mimeType: input.mimeType,
+        sizeBytes: input.sizeBytes,
+        createdBy: me,
+      })
+      .returning({ id: files.id });
+    if (!row) throw HfosError.forbidden();
+    return { fileId, bucket: 'attachments', objectPath };
+  },
+});
 
 export const knowledgeDocumentAdd = defineCommand({
   name: 'knowledge_document.add',

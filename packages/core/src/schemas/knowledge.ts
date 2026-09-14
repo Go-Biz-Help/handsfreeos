@@ -171,6 +171,21 @@ export const KnowledgeDocumentAddInput = z.object({
 });
 export const KnowledgeDocumentAddOutput = z.object({ fileId: uuid, requested: z.literal(true) });
 
+/** What a knowledge document can be: a PDF or a text file (Markdown goes up as text/plain), 5 MB at most. */
+export const KNOWLEDGE_DOCUMENT_TYPES = ['application/pdf', 'text/plain', 'text/csv'] as const;
+export const KNOWLEDGE_DOCUMENT_MAX_BYTES = 5 * 1024 * 1024;
+export const KnowledgeDocumentBeginUploadInput = z.object({
+  workspaceId: uuid,
+  name: z.string().trim().min(1).max(200),
+  mimeType: z.enum(KNOWLEDGE_DOCUMENT_TYPES, { error: 'Upload a PDF or a text file.' }),
+  sizeBytes: z.int().min(1).max(KNOWLEDGE_DOCUMENT_MAX_BYTES, 'Files can be up to 5 MB.'),
+});
+export const KnowledgeDocumentBeginUploadOutput = z.object({
+  fileId: uuid,
+  bucket: z.string(),
+  objectPath: z.string(),
+});
+
 /** Why a document's text is empty or cut short: a scanned PDF, a file too big or broken to read, or text over the limit. */
 export const KnowledgeDocumentNote = z.enum(['no_text', 'too_large', 'unreadable', 'truncated']);
 export type KnowledgeDocumentNote = z.infer<typeof KnowledgeDocumentNote>;

@@ -273,6 +273,7 @@ describe('registry', () => {
       'knowledge_item.publish',
       'knowledge_item.archive',
       'knowledge_item.import_faqs',
+      'knowledge_document.begin_upload',
       'knowledge_document.add',
       'knowledge_document.save_text',
       'knowledge_source.set',

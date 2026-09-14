@@ -11,6 +11,7 @@ const WORKER_URL = (process.env.WORKER_URL ?? 'http://127.0.0.1:4100').replace(/
  * scripted model below, so the reminder and Assistant specs expect this one).
  */
 export default async function globalSetup(): Promise<() => Promise<void>> {
+  const startedAt = new Date().toISOString();
   const root = resolve(process.cwd(), '../..');
   const worker: ChildProcess = spawn(
     'pnpm',
@@ -43,6 +44,20 @@ export default async function globalSetup(): Promise<() => Promise<void>> {
     if (Date.now() > deadline)
       throw new Error(`the worker did not answer at ${WORKER_URL}/healthz`);
     await new Promise((r) => setTimeout(r, 250));
+  }
+
+  // The core, DB and worker suites leave thousands of pending events in the shared local database, and the
+  // worker would spend minutes on them before reaching the specs' own. Skip the ones written before this run
+  // started (never the run's own). A reused dev worker without the test routes just keeps its backlog.
+  try {
+    const res = await fetch(`${WORKER_URL}/test/outbox/skip-stale`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ before: startedAt }),
+    });
+    if (!res.ok) console.warn(`Old outbox events weren't skipped (${res.status}).`);
+  } catch {
+    console.warn('Old outbox events weren’t skipped: the worker didn’t answer.');
   }
 
   return async () => {

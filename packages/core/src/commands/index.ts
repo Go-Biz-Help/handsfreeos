@@ -170,6 +170,7 @@ import {
 } from './workflow-template';
 import {
   knowledgeDocumentAdd,
+  knowledgeDocumentBeginUpload,
   knowledgeDocumentSaveText,
   knowledgeItemArchive,
   knowledgeItemCreate,
@@ -489,6 +490,7 @@ export const commands: readonly CommandDef[] = [
   knowledgeItemPublish,
   knowledgeItemArchive,
   knowledgeItemImportFaqs,
+  knowledgeDocumentBeginUpload,
   knowledgeDocumentAdd,
   knowledgeDocumentSaveText,
   knowledgeSourceSet,

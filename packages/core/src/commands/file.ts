@@ -8,6 +8,7 @@ import { HfosError } from '../errors';
 import { requireHuman } from '../kernel/actor';
 import { defineCommand } from '../kernel/define';
 import type { CommandContext } from '../kernel/types';
+import { hasWorkspacePermission } from '../permissions';
 import {
   FileBeginUploadInput,
   FileBeginUploadOutput,
@@ -28,6 +29,15 @@ async function requireRecord(
     .from(table)
     .where(and(eq(table.id, recordId), eq(table.workspaceId, ctx.scope.workspaceId!)));
   if (!row) throw HfosError.notFound('Record not found.');
+}
+
+/**
+ * Knowledge base files (knowledge_document.begin_upload) belong to the business, not a customer: only
+ * knowledge managers (owners, admins) confirm or remove them, and no customer timeline hears of them.
+ */
+function requireKnowledgeManager(ctx: CommandContext): void {
+  if (!hasWorkspacePermission(ctx.scope.workspaceRole, 'knowledge.manage'))
+    throw HfosError.forbidden('Only owners and admins can change knowledge base files.');
 }
 
 export const fileBeginUpload = defineCommand({
@@ -79,6 +89,8 @@ export const fileConfirm = defineCommand({
       .from(files)
       .where(and(eq(files.id, input.fileId), eq(files.workspaceId, ctx.scope.workspaceId!)));
     if (!current || current.deletedAt) throw HfosError.notFound('File not found.');
+    const knowledge = current.recordType === 'knowledge';
+    if (knowledge) requireKnowledgeManager(ctx);
     if (current.status === 'ready')
       return {
         fileId: current.id,
@@ -101,11 +113,12 @@ export const fileConfirm = defineCommand({
       .where(eq(files.id, current.id));
     const eventId = await ctx.emit({
       type: 'file.attached',
-      entityType: current.recordType,
-      entityId: current.recordId,
+      entityType: knowledge ? 'file' : current.recordType,
+      entityId: knowledge ? current.id : current.recordId,
       payload: { fileId: current.id, name: current.name, mimeType, sizeBytes },
       after: { name: current.name, mimeType, sizeBytes },
     });
+    if (knowledge) return { fileId: current.id, sizeBytes, mimeType };
     await logSystemActivity(ctx, {
       subtype: 'file_added',
       personId: current.recordType === 'person' ? current.recordId : null,
@@ -134,11 +147,13 @@ export const fileDelete = defineCommand({
       .from(files)
       .where(and(eq(files.id, input.fileId), eq(files.workspaceId, ctx.scope.workspaceId!)));
     if (!current || current.deletedAt) throw HfosError.notFound('File not found.');
+    const knowledge = current.recordType === 'knowledge';
+    if (knowledge) requireKnowledgeManager(ctx);
     await ctx.tx.update(files).set({ deletedAt: new Date() }).where(eq(files.id, current.id));
     await ctx.emit({
       type: 'file.deleted',
-      entityType: current.recordType,
-      entityId: current.recordId,
+      entityType: knowledge ? 'file' : current.recordType,
+      entityId: knowledge ? current.id : current.recordId,
       payload: {
         fileId: current.id,
         name: current.name,

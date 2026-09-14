@@ -218,7 +218,8 @@ export const auditLogs = app.table('audit_logs', {
 // ---------- Milestone 2: CRM core ----------
 export const stageKind = app.enum('stage_kind', ['open', 'won', 'lost']);
 export const leadStatus = app.enum('lead_status', ['open', 'won', 'lost']);
-export const recordType = app.enum('record_type', ['person', 'company', 'lead']);
+/** 'knowledge': a file in the knowledge base (its record is the workspace itself); tags never use it. */
+export const recordType = app.enum('record_type', ['person', 'company', 'lead', 'knowledge']);
 export const activityKind = app.enum('activity_kind', [
   'note',
   'call',

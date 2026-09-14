@@ -5,8 +5,19 @@
  * POST /test/scheduled-jobs/run-due { workspaceId, dedupeKeys? } runs the workspace's due jobs now. Jobs named
  * by dedupe key are moved up to now first and run as of the moment they were due, so a reminder for three
  * days out goes out the way it would have then. The messages they queue go out with the next outbox pass.
+ *
+ * POST /test/knowledge/scan-at { workspaceId, url } scans a local fixture site (one of FETCH_TEST_ORIGINS) in
+ * place of the business's website. The website address itself must stay https (knowledge_source.set and the
+ * table's check refuse anything else), so this starts a scan of the saved website the way
+ * knowledge_scan.requested does, except that its job reads `url`. The worker's loop (or run-due) then reads it.
+ *
+ * POST /test/outbox/skip-stale { before } marks the outbox's pending rows written before `before` as done, with a
+ * note saying why. The core, DB and worker suites leave thousands of events behind in the shared local database,
+ * and a browser run's worker would otherwise spend minutes on them before reaching the specs' own. Playwright's
+ * global setup calls it with the run's start time, so the run's own events are never touched.
  */
 import { randomUUID } from 'node:crypto';
+import { HfosError, scheduleJob } from '@hfos/core/server';
 import { asWorker, rows, sql } from '@hfos/db/client';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
@@ -15,12 +26,24 @@ import { parseBody, type HttpDeps } from './common';
 
 export interface TestRoutes {
   readonly jobs: JobMap;
+  /** The local sites a website scan may read (FETCH_TEST_ORIGINS); scan-at refuses any other address. */
+  readonly fetchTestOrigins?: readonly string[];
 }
+
+const ScanAt = z.object({
+  workspaceId: z.uuid(),
+  url: z.string().trim().min(1).max(2000),
+});
 
 const RunDue = z.object({
   workspaceId: z.uuid(),
   dedupeKeys: z.array(z.string().trim().min(1).max(300)).max(50).default([]),
 });
+
+const SkipStale = z.object({ before: z.iso.datetime({ offset: true }) });
+
+/** What an outbox row skipped by /test/outbox/skip-stale says. */
+export const STALE_SKIP_NOTE = 'skipped: left by another suite before this browser run';
 
 export function registerTestRoutes(app: FastifyInstance, deps: HttpDeps, test: TestRoutes): void {
   if (process.env.NODE_ENV === 'production') return;
@@ -86,5 +109,82 @@ export function registerTestRoutes(app: FastifyInstance, deps: HttpDeps, test: T
       if (stats.claimed === 0) break;
     }
     return { moved, ran: total };
+  });
+
+  app.post('/test/outbox/skip-stale', async (req) => {
+    const body = parseBody(SkipStale, req.body ?? {});
+    const [row] = await asWorker(deps.db, {}, (tx) =>
+      rows<{ skipped: number }>(
+        tx,
+        sql`with skipped as (
+              update app.outbox
+              set status = 'done', locked_at = null, locked_by = null, last_error = ${STALE_SKIP_NOTE}
+              where status = 'pending' and created_at < ${body.before}::timestamptz
+              returning 1)
+            select count(*)::int as skipped from skipped`,
+      ),
+    );
+    return { skipped: row?.skipped ?? 0 };
+  });
+
+  app.post('/test/knowledge/scan-at', async (req) => {
+    const body = parseBody(ScanAt, req.body ?? {});
+    let target: URL | null = null;
+    try {
+      target = new URL(body.url);
+    } catch {
+      // Refused below.
+    }
+    if (!target || !(test.fetchTestOrigins ?? []).includes(target.origin))
+      throw new HfosError(
+        'validation',
+        400,
+        'Scan only a local test site listed in FETCH_TEST_ORIGINS.',
+        [{ path: 'url', message: 'Not one of FETCH_TEST_ORIGINS.' }],
+        'not_a_test_origin',
+      );
+    const url = `${target.origin}${target.pathname}`;
+    const [ws] = await asWorker(deps.db, { workspaceId: body.workspaceId }, (tx) =>
+      rows<{ organization_id: string }>(
+        tx,
+        sql`select organization_id from app.workspaces where id = ${body.workspaceId}`,
+      ),
+    );
+    if (!ws) throw HfosError.notFound('Workspace not found.');
+    const scope = { workspaceId: body.workspaceId, organizationId: ws.organization_id };
+    return asWorker(deps.db, scope, async (tx) => {
+      const [source] = await rows<{ id: string }>(
+        tx,
+        sql`select id from app.knowledge_sources where workspace_id = ${scope.workspaceId}`,
+      );
+      if (!source) throw HfosError.conflict('Add the website address first.', 'no_website');
+      const [live] = await rows<{ id: string }>(
+        tx,
+        sql`select id from app.knowledge_scans
+            where source_id = ${source.id} and status in ('queued', 'running')`,
+      );
+      if (live) throw HfosError.conflict('A scan is already running.', 'scan_running');
+      const [scan] = await rows<{ id: string }>(
+        tx,
+        sql`insert into app.knowledge_scans (workspace_id, source_id)
+            values (${scope.workspaceId}, ${source.id}) returning id`,
+      );
+      await scheduleJob(tx, {
+        kind: 'knowledge.scan',
+        dedupeKey: `knowledge.scan:${scan!.id}`,
+        runAt: new Date(),
+        payload: {
+          scanId: scan!.id,
+          sourceId: source.id,
+          url,
+          requestedBy: null,
+          correlationId: randomUUID(),
+          causationId: null,
+        },
+        workspaceId: scope.workspaceId,
+        organizationId: scope.organizationId,
+      });
+      return { scanId: scan!.id, url };
+    });
   });
 }

@@ -393,9 +393,122 @@ function describeAction(e: AuditEntry): string {
       return reminderSentence(e);
     case 'appointment.team_email':
       return `emailed ${names(e.after?.emailed) || 'the team'} that ${s(e.after?.customer) || 'a customer'} ${s(e.after?.about) === 'cancelled' ? 'cancelled' : 'booked'} ${apptTitle(e)}`;
+    // Milestone 6: the knowledge base
+    case 'knowledge.profile_update':
+      return profileSentence(e);
+    case 'knowledge_item.create':
+      return `added the ${kbKind(e.after?.kind)} ${kbTitle(e)}${s(e.after?.status) === 'published' ? ' and published it' : ' as a draft'}`;
+    case 'knowledge_item.update':
+      return kbUpdateSentence(e);
+    case 'knowledge_item.publish':
+      return `published ${kbTitle(e)} for the AI to use`;
+    case 'knowledge_item.archive':
+      return `archived ${kbTitle(e)}, so the AI no longer uses it`;
+    case 'knowledge_item.import_faqs': {
+      const skipped = Number(e.after?.skipped ?? 0);
+      return `imported ${count(e.after?.imported, 'FAQ', 'FAQs')}${s(e.after?.status) === 'published' ? ' and published them' : ' as drafts'}${skipped ? `, skipping ${skipped} already in the knowledge base` : ''}`;
+    }
+    case 'knowledge_item.record_use':
+      return `used ${count(e.after?.items, 'knowledge item', 'knowledge items')}${s(e.after?.titles) ? `: ${s(e.after?.titles)}` : ''}`;
+    case 'knowledge_document.add':
+      return `added the file ${s(e.after?.file) || 'a file'} to the knowledge base`;
+    case 'knowledge_document.save_text':
+      return s(e.after?.note)
+        ? `saved ${kbTitle(e)} as a draft document without its text. ${s(e.after?.note)}`
+        : `read the text of ${kbTitle(e)} into a draft document`;
+    case 'knowledge_source.set':
+      return s(e.before?.url)
+        ? `changed the website from ${kbSite(e.before?.url)} to ${kbSite(e.after?.url)}`
+        : `set the website to ${kbSite(e.after?.url)}`;
+    case 'knowledge_scan.start':
+      return `started a scan of ${kbSite(e.after?.url)}`;
+    case 'knowledge_scan.progress':
+      return `read ${count(e.after?.pages, 'page', 'pages')} of ${kbSite(e.after?.url)} so far`;
+    case 'knowledge_scan.finish':
+      return s(e.after?.status) === 'failed'
+        ? `stopped scanning ${kbSite(e.after?.url)}${s(e.after?.note) ? `: ${s(e.after?.note)}` : ''}`
+        : `finished scanning ${kbSite(e.after?.url)}: ${count(e.after?.pages, 'page', 'pages')} read, ${count(e.after?.suggestions, 'suggestion', 'suggestions')}`;
+    case 'knowledge_suggestion.propose': {
+      const made = Number(e.after?.suggestions ?? 0);
+      const grouped = Number(e.after?.grouped ?? 0);
+      if (!made && grouped)
+        return `added ${count(grouped, 'question', 'questions')} to similar ones waiting in Suggestions`;
+      return `suggested ${count(made, 'item', 'items')} for the knowledge base${grouped ? ` (${grouped} joined similar questions)` : ''}`;
+    }
+    case 'knowledge_suggestion.accept':
+      if (e.entityType === 'knowledge_suggestion')
+        return `accepted the ${KB_FROM[s(e.after?.from)] ?? ''}suggestion ${kbTitle(e)}`;
+      return s(e.before?.title)
+        ? `updated ${kbTitle(e)} from a suggestion`
+        : `added ${kbTitle(e)} from a suggestion`;
+    case 'knowledge_suggestion.reject':
+      return `rejected the ${KB_FROM[s(e.after?.from)] ?? ''}suggestion ${kbTitle(e)}${s(e.after?.note) ? ` (${s(e.after?.note)})` : ''}`;
+    case 'knowledge_pack.create':
+      return `created the knowledge pack ${name(e)} with ${count(e.after?.items, 'item', 'items')}`;
+    case 'knowledge_pack.update':
+      return `updated the knowledge pack ${name(e)}${e.after?.version ? ` to version ${String(e.after.version)}` : ''}`;
+    case 'knowledge_pack.push':
+      return `sent the knowledge pack ${name(e)} to ${s(e.after?.businesses) || 'client businesses'}`;
     default:
       return e.action;
   }
+}
+
+// ---- Milestone 6: knowledge base helpers ----
+
+const KB_KIND: Record<string, string> = {
+  faq: 'FAQ',
+  article: 'article',
+  fact: 'fact',
+  document: 'document',
+};
+const KB_KIND_A: Record<string, string> = { faq: 'an FAQ', article: 'an article', fact: 'a fact' };
+const KB_FROM: Record<string, string> = { scan: 'website ', gap: '', pack: 'Go Biz Help ' };
+const KB_PROFILE_FIELD: Record<string, string> = {
+  description: 'what you do',
+  services: 'services',
+  serviceArea: 'service area',
+  hours: 'hours',
+  policies: 'policies',
+  tone: 'tone of voice',
+  wordsToUse: 'words to use',
+  wordsToAvoid: 'words to avoid',
+  signature: 'signature',
+  allowPrices: '“AI may quote prices”',
+};
+const kbKind = (v: unknown) => KB_KIND[s(v)] ?? 'item';
+const kbTitle = (e: AuditEntry) => {
+  const t = s(e.after?.title) || s(e.before?.title) || e.entityName;
+  return t ? `“${t}”` : 'an item';
+};
+const kbSite = (v: unknown) =>
+  s(v)
+    .replace(/^https?:\/\//i, '')
+    .replace(/\/$/, '') || 'the website';
+
+function profileSentence(e: AuditEntry): string {
+  const changed = s(e.after?.changed)
+    .split(', ')
+    .filter((f) => f && f !== 'created');
+  const prices = e.after?.allowPrices;
+  if (typeof prices === 'boolean' && typeof e.before?.allowPrices === 'boolean') {
+    const others = changed.filter((f) => f !== 'allowPrices');
+    return `turned ${prices ? 'on' : 'off'} “AI may quote prices”${others.length ? ` and updated ${andJoin(others.map((f) => KB_PROFILE_FIELD[f] ?? f))}` : ''}`;
+  }
+  if (!changed.length) return 'created the business profile';
+  return `updated the business profile: ${andJoin(changed.map((f) => KB_PROFILE_FIELD[f] ?? f))}`;
+}
+
+function kbUpdateSentence(e: AuditEntry): string {
+  const was = s(e.before?.title);
+  const now = s(e.after?.title);
+  const parts: string[] = [];
+  if (was && now && was !== now) parts.push(`renamed it to “${now}”`);
+  if (s(e.after?.kind)) parts.push(`made it ${KB_KIND_A[s(e.after?.kind)] ?? 'another kind'}`);
+  if (e.after?.tags !== undefined) parts.push('changed its tags');
+  if (s(e.after?.text)) parts.push('changed its text');
+  const subject = was ? `“${was}”` : kbTitle(e);
+  return parts.length ? `edited ${subject}: ${andJoin(parts)}` : `edited ${subject}`;
 }
 
 // ---- Milestone 5 helpers ----

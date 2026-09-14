@@ -67,7 +67,8 @@ export const fileList = defineQuery({
     return {
       files: list.map(({ f, uploaderName, uploaderEmail }) => ({
         id: f.id,
-        recordType: f.recordType,
+        // The record asked for (knowledge files never match a person, company or lead).
+        recordType: input.recordType,
         recordId: f.recordId,
         bucket: f.bucket,
         objectPath: f.objectPath,

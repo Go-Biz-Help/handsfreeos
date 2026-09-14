@@ -6,7 +6,6 @@ import {
   knowledgeDocumentAdd,
   knowledgeDocumentSaveText,
   organizationCreate,
-  personCreate,
   type HumanActor,
 } from '@hfos/core/server';
 import { rows, sql } from '@hfos/db/client';
@@ -43,7 +42,6 @@ const fixture = (name: string) =>
 let owner: TestUser;
 let ws: string;
 let org: string;
-let personId: string;
 const s = testServices();
 
 beforeAll(async () => {
@@ -57,33 +55,27 @@ beforeAll(async () => {
   );
   ws = output.workspaceId;
   org = output.organizationId;
-  personId = (
-    await executeCommand(
-      api(),
-      personCreate,
-      { workspaceId: ws, firstName: 'Paula', lastName: 'Customer', ignoreDuplicates: true },
-      actor(owner),
-      meta(),
-    )
-  ).output.personId;
 });
 afterAll(closeTestDbs);
 
-/** Uploads a file (with the worker's key), records it, and adds it to the knowledge base as its owner would. */
+/**
+ * Uploads a file (with the worker's key), records it as a knowledge file (as knowledge_document.begin_upload
+ * and file.confirm would), and adds it to the knowledge base as its owner would.
+ */
 async function addDocument(
   name: string,
   mime: string,
   data: Buffer,
   sizeBytes = data.length,
 ): Promise<string> {
-  const objectPath = `${ws}/person/${personId}/${randomUUID()}/${name.replace(/\s+/g, '-')}`;
+  const objectPath = `${ws}/knowledge/${randomUUID()}/${name.replace(/\s+/g, '-')}`;
   const { error } = await bucket().upload(objectPath, data, { contentType: mime });
   if (error) throw error;
   const [file] = await rows<{ id: string }>(
     admin(),
     sql`insert into app.files (workspace_id, record_type, record_id, bucket, object_path, name, mime_type,
           size_bytes, status, created_by)
-        values (${ws}, 'person', ${personId}, 'attachments', ${objectPath}, ${name}, ${mime}, ${sizeBytes},
+        values (${ws}, 'knowledge', ${ws}, 'attachments', ${objectPath}, ${name}, ${mime}, ${sizeBytes},
           'ready', ${owner.id})
         returning id`,
   );

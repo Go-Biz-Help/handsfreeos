@@ -16514,6 +16514,88 @@
         }
       }
     },
+    "/v1/commands/knowledge_document.begin_upload": {
+      "post": {
+        "operationId": "command_knowledge_document_begin_upload",
+        "summary": "Reserve a place for a PDF or text file (5 MB at most) in the knowledge base. Upload it to the returned path, confirm it with file.confirm, then add it with knowledge_document.add.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 1. Requires knowledge.manage. Emits .",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200
+                  },
+                  "mimeType": {
+                    "type": "string",
+                    "enum": [
+                      "application/pdf",
+                      "text/plain",
+                      "text/csv"
+                    ]
+                  },
+                  "sizeBytes": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 5242880
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "name",
+                  "mimeType",
+                  "sizeBytes"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "fileId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "bucket": {
+                      "type": "string"
+                    },
+                    "objectPath": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "fileId",
+                    "bucket",
+                    "objectPath"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/commands/knowledge_document.add": {
       "post": {
         "operationId": "command_knowledge_document_add",

@@ -21,6 +21,11 @@ for (const c of ['../../.env.local', '.env.local']) {
 // so privileged names this shell carries, like ANTHROPIC_BASE_URL, are removed here or the API refuses to boot.
 for (const k of Object.keys(process.env)) if (PRIVILEGED.test(k)) delete process.env[k];
 
+// The knowledge base's stand-in website (apps/worker/fixtures/knowledge-site), served below. The worker the global
+// setup starts may scan only these local origins (outside production, with the fake carrier). Not a secret.
+const KNOWLEDGE_SITE = 'http://127.0.0.1:4190';
+process.env.FETCH_TEST_ORIGINS ??= KNOWLEDGE_SITE;
+
 const CI = !!process.env.CI;
 
 export default defineConfig({
@@ -71,6 +76,14 @@ export default defineConfig({
       cwd: resolve(process.cwd(), '../..'),
       reuseExistingServer: !CI,
       timeout: 120_000,
+    },
+    {
+      // The stand-in website the knowledge spec scans (through the worker's /test/knowledge/scan-at).
+      command: `pnpm --filter @hfos/worker knowledge-site ${new URL(KNOWLEDGE_SITE).port}`,
+      url: `${KNOWLEDGE_SITE}/robots.txt`,
+      cwd: resolve(process.cwd(), '../..'),
+      reuseExistingServer: !CI,
+      timeout: 60_000,
     },
   ],
 });

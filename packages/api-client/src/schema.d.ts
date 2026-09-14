@@ -1117,6 +1117,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/knowledge_document.begin_upload": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reserve a place for a PDF or text file (5 MB at most) in the knowledge base. Upload it to the returned path, confirm it with file.confirm, then add it with knowledge_document.add.
+         * @description Risk level 1. Requires knowledge.manage. Emits .
+         */
+        post: operations["command_knowledge_document_begin_upload"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/knowledge_item.archive": {
         parameters: {
             query?: never;
@@ -6595,6 +6615,42 @@ export interface operations {
                         fileId: string;
                         /** @enum {boolean} */
                         requested: true;
+                    };
+                };
+            };
+        };
+    };
+    command_knowledge_document_begin_upload: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {string} */
+                    mimeType: "application/pdf" | "text/plain" | "text/csv";
+                    name: string;
+                    sizeBytes: number;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        bucket: string;
+                        /** Format: uuid */
+                        fileId: string;
+                        objectPath: string;
                     };
                 };
             };
