@@ -38,6 +38,27 @@ import { timelineList } from './timeline.list';
 import { workspaceGet } from './workspace.get';
 import { workspaceInvitations } from './workspace.invitations';
 import { workspaceMembers } from './workspace.members';
+import {
+  workflowApprovalList,
+  workflowCatalogs,
+  workflowGet,
+  workflowList,
+  workflowProposalGet,
+  workflowRunGet,
+  workflowRunList,
+  workflowTemplateGet,
+  workflowTemplateList,
+  workflowVersionGet,
+} from './workflow';
+import {
+  knowledgeItemGet,
+  knowledgeItemList,
+  knowledgePackList,
+  knowledgeProfileGet,
+  knowledgeScanGet,
+  knowledgeSearch,
+  knowledgeSuggestionList,
+} from './knowledge';
 
 export {
   conversationGet,
@@ -136,4 +157,41 @@ export const queries: readonly QueryDef[] = [
   territoryList,
   bookingSiteGet,
   calendarConnectionList,
+  workflowList,
+  workflowGet,
+  workflowVersionGet,
+  workflowCatalogs,
+  workflowRunList,
+  workflowRunGet,
+  workflowApprovalList,
+  workflowProposalGet,
+  workflowTemplateList,
+  workflowTemplateGet,
+  knowledgeProfileGet,
+  knowledgeItemList,
+  knowledgeItemGet,
+  knowledgeSearch,
+  knowledgeScanGet,
+  knowledgeSuggestionList,
+  knowledgePackList,
 ] as unknown as readonly QueryDef[];
+
+export {
+  workflowList,
+  workflowGet,
+  workflowVersionGet,
+  workflowCatalogs,
+  workflowRunList,
+  workflowRunGet,
+  workflowApprovalList,
+  workflowProposalGet,
+  workflowTemplateList,
+  workflowTemplateGet,
+  knowledgeProfileGet,
+  knowledgeItemList,
+  knowledgeItemGet,
+  knowledgeSearch,
+  knowledgeScanGet,
+  knowledgeSuggestionList,
+  knowledgePackList,
+};

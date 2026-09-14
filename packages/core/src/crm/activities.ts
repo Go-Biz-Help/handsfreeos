@@ -1,5 +1,5 @@
 import { activities } from '@hfos/db/schema';
-import type { CommandContext } from '../kernel/types';
+import type { Actor, CommandContext } from '../kernel/types';
 import { userIdOf } from '../kernel/actor';
 
 export interface SystemActivityInput {
@@ -28,8 +28,24 @@ export interface ChannelActivityInput {
 }
 
 /**
- * The timeline entry for a text, email or call. Written by whoever acted: a person (their own entry) or
- * the worker (a system entry on the customer's behalf). Conversations without a customer yet get none;
+ * What a timeline entry records about who wrote it, when that isn't a person: whose request the system
+ * fulfilled (`onBehalfOf`, shown as "Import"), or which workflow run did it (`workflow`, shown as
+ * "Workflow: <name>" and linking to the run). People's own entries carry nothing extra.
+ */
+export function actorMeta(actor: Actor): Record<string, unknown> {
+  switch (actor.type) {
+    case 'system':
+      return { onBehalfOf: userIdOf(actor) };
+    case 'workflow':
+      return { workflow: { id: actor.workflowId, name: actor.workflowName, runId: actor.runId } };
+    default:
+      return {};
+  }
+}
+
+/**
+ * The timeline entry for a text, email or call. Written by whoever acted: a person (their own entry), or the
+ * worker or a workflow (an entry on the customer's behalf). Conversations without a customer yet get none;
  * linking the conversation later backfills them.
  */
 export async function logChannelActivity(
@@ -54,10 +70,7 @@ export async function logChannelActivity(
             : null,
       actorType: ctx.actor.type,
       eventId: input.eventId ?? null,
-      meta: {
-        ...(input.meta ?? {}),
-        ...(ctx.actor.type === 'system' ? { onBehalfOf: userIdOf(ctx.actor) } : {}),
-      },
+      meta: { ...(input.meta ?? {}), ...actorMeta(ctx.actor) },
     })
     .returning({ id: activities.id });
   return row?.id ?? null;
@@ -82,10 +95,7 @@ export async function logSystemActivity(
       authorUserId: ctx.actor.type === 'human' ? ctx.actor.userId : null,
       actorType: ctx.actor.type,
       eventId: input.eventId ?? null,
-      meta: {
-        ...(input.meta ?? {}),
-        ...(ctx.actor.type === 'system' ? { onBehalfOf: userIdOf(ctx.actor) } : {}),
-      },
+      meta: { ...(input.meta ?? {}), ...actorMeta(ctx.actor) },
     })
     .returning({ id: activities.id });
   return row!.id;

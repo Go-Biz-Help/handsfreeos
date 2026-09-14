@@ -18,12 +18,13 @@ const VIA: Record<RequestChannel, string | null> = {
   test: null,
   assistant: 'via Assistant',
   booking_page: 'via booking page',
+  workflow: 'via workflow',
 };
 
 /**
  * One plain-English sentence per audit row, in the third person after the actor's name. What the Assistant
  * did for someone ends "via Assistant" (their name still leads the row); what a customer did on a public
- * booking page ends "via booking page".
+ * booking page ends "via booking page"; what a workflow step did ends "via workflow".
  */
 export function describeAudit(e: AuditEntry): string {
   const sentence = describeAction(e);

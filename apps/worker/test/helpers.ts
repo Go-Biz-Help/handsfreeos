@@ -6,6 +6,7 @@ import type { FakeCalendars } from '../src/calendar/fake';
 import { fakeCalendarServices, type CalendarServices } from '../src/calendar/index';
 import { createSealer } from '../src/crypto';
 import { createLocalEmail, LOCAL_WEBHOOK_PASSWORD } from '../src/email/local';
+import { createSafeFetch } from '../src/http/safe-fetch';
 import type { FakeMailboxes } from '../src/mailbox/fake';
 import { fakeMailboxServices, type MailboxServices } from '../src/mailbox/index';
 import { createSmtpMailer } from '../src/mailer';
@@ -22,8 +23,13 @@ export type TestServices = WorkerServices & {
   readonly calendars: CalendarServices & { readonly fake: FakeCalendars };
 };
 
-/** Worker services for tests: the real database, Mailpit and Storage, the fake carrier without callbacks. */
-export function testServices(opts: { reminderOverrideMs?: number | null } = {}): TestServices {
+/**
+ * Worker services for tests: the real database, Mailpit and Storage, the fake carrier without callbacks.
+ * `fetchOrigins` lets fetchUrl reach local fixture sites (`http://127.0.0.1:<port>`); everything else stays refused.
+ */
+export function testServices(
+  opts: { reminderOverrideMs?: number | null; fetchOrigins?: readonly string[] } = {},
+): TestServices {
   const env = testEnv();
   const log = pino({ level: 'silent' });
   return {
@@ -60,5 +66,6 @@ export function testServices(opts: { reminderOverrideMs?: number | null } = {}):
       webUrl: 'http://localhost:3000',
       key: randomBytes(32).toString('base64'),
     }),
+    fetchUrl: createSafeFetch({ testOrigins: opts.fetchOrigins ?? [] }),
   };
 }

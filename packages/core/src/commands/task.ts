@@ -3,7 +3,7 @@ import { leads, tasks } from '@hfos/db/schema';
 import { logSystemActivity } from '../crm/activities';
 import { requireCompany, requirePerson } from '../crm/records';
 import { HfosError } from '../errors';
-import { requireHuman, userIdOf } from '../kernel/actor';
+import { userIdOf } from '../kernel/actor';
 import { defineCommand } from '../kernel/define';
 import type { CommandContext } from '../kernel/types';
 import {
@@ -53,6 +53,7 @@ export const taskCreate = defineCommand({
   permission: 'records.write',
   scope: (i) => ({ kind: 'workspace', workspaceId: i.workspaceId }),
   emits: ['task.created'],
+  actors: ['human', 'workflow'],
   async handler(ctx, input) {
     await checkRelated(ctx, input);
     const [row] = await ctx.tx
@@ -146,13 +147,14 @@ export const taskComplete = defineCommand({
   permission: 'records.write',
   scope: (i) => ({ kind: 'workspace', workspaceId: i.workspaceId }),
   emits: ['task.completed'],
+  actors: ['human', 'workflow'],
   async handler(ctx, input) {
     const current = await loadTask(ctx, input.taskId);
     if (current.doneAt) return { taskId: current.id, doneAt: current.doneAt.toISOString() };
     const doneAt = new Date();
     await ctx.tx
       .update(tasks)
-      .set({ doneAt, doneBy: requireHuman(ctx).userId })
+      .set({ doneAt, doneBy: userIdOf(ctx.actor) })
       .where(eq(tasks.id, current.id));
     const eventId = await ctx.emit({
       type: 'task.completed',

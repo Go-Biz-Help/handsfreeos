@@ -4,6 +4,8 @@ import { clock } from '@/lib/calls/format';
 
 const str = (v: unknown): string => (typeof v === 'string' ? v : '');
 const num = (v: unknown): number | null => (typeof v === 'number' ? v : null);
+const obj = (v: unknown): Record<string, unknown> =>
+  v && typeof v === 'object' ? (v as Record<string, unknown>) : {};
 
 /** Texts and emails mirror a conversation: what the customer sent, or what the business sent them. */
 export function isChannelEntry(e: TimelineEntry): boolean {
@@ -14,8 +16,8 @@ const undelivered = (e: TimelineEntry) =>
   e.meta.status === 'failed' || e.meta.status === 'undelivered' || e.meta.status === 'bounced';
 
 /**
- * Who did it, for the timeline row: the customer for what they sent us, a teammate, "Import" for system
- * work on someone's behalf, or the app.
+ * Who did it, for the timeline row: the customer for what they sent us, a teammate, "Workflow: <name>" for
+ * a workflow's step, "Import" for system work on someone's behalf, or the app.
  */
 export function timelineActor(e: TimelineEntry, subjectName?: string): string {
   if (inbound(e)) return subjectName || 'The customer';
@@ -24,6 +26,10 @@ export function timelineActor(e: TimelineEntry, subjectName?: string): string {
     return subjectName || 'The customer';
   // A call a teammate placed: the worker settled it, but the teammate called.
   if (e.kind === 'call' && e.actor) return e.actor.fullName;
+  if (e.actorType === 'workflow') {
+    const name = str(obj(e.meta.workflow).name);
+    return name ? `Workflow: ${name}` : 'Workflow';
+  }
   if (e.actorType === 'system') return e.meta.onBehalfOf ? 'Import' : 'HandsFreeOS';
   return e.actor?.fullName ?? 'Former member';
 }

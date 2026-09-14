@@ -42,11 +42,12 @@ export const MessageSendInput = z
     attachmentFileIds: z.array(uuid).max(10).default([]),
     /** Set by the composer so a double-clicked send lands once. */
     clientId: z.string().trim().min(1).max(64).optional(),
-    /** People confirm a text during quiet hours; automations never can. */
+    /** People confirm a text during quiet hours; the system and workflows never can. */
     acknowledgeQuietHours: z.boolean().default(false),
     /**
-     * HandsFreeOS's own messages (booking confirmations, reminders): the conversation keeps its status, unread
-     * count and waiting-for-reply time, and one this message starts begins closed. The system actor only.
+     * HandsFreeOS's own messages (booking confirmations, reminders, workflow follow-ups): the conversation keeps
+     * its status, unread count and waiting-for-reply time, and one this message starts begins closed. The
+     * system and workflows only.
      */
     keepConversationStatus: z.boolean().default(false),
   })

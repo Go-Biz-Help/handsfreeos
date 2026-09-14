@@ -29,6 +29,7 @@ import { fakeCalendarServices } from '../src/calendar/index';
 import { fakeMailboxServices } from '../src/mailbox/index';
 import { createLocalEmail, LOCAL_WEBHOOK_PASSWORD } from '../src/email/local';
 import { handlers } from '../src/handlers/index';
+import { createSafeFetch } from '../src/http/safe-fetch';
 import { createSmtpMailer } from '../src/mailer';
 import { processOnce, type OutboxDeps } from '../src/outbox';
 import { createSupabaseStore, unconfiguredStore } from '../src/storage';
@@ -178,6 +179,7 @@ async function main(): Promise<void> {
       webUrl: (process.env.WEB_URL ?? 'http://localhost:3000').replace(/\/+$/, ''),
       key: process.env.WORKER_ENCRYPTION_KEY || randomBytes(32).toString('base64'),
     }),
+    fetchUrl: createSafeFetch(),
     workerId: `seed:${hostname()}:${process.pid}`,
     batchSize: 50,
     reservedOnly: true,

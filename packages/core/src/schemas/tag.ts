@@ -20,11 +20,18 @@ export const TagUpdateInput = z.object({
 export const TagUpdateOutput = z.object({ tagId: uuid, updated: z.array(z.string()) });
 export const TagDeleteInput = z.object({ workspaceId: uuid, tagId: uuid });
 export const TagDeleteOutput = z.object({ tagId: uuid, removedFrom: z.number().int() });
+/**
+ * How record.set_tags changes the tags: `replace` (the default) leaves exactly `tagIds` on the record; `add`
+ * and `remove` change only those tags, so a workflow tagging someone never undoes a teammate's change made at
+ * the same moment.
+ */
+const tagsMode = z.enum(['replace', 'add', 'remove']);
 export const RecordSetTagsInput = z.object({
   workspaceId: uuid,
   recordType,
   recordId: uuid,
   tagIds,
+  mode: tagsMode.default('replace'),
 });
 export const RecordSetTagsOutput = z.object({ tags: z.array(TagRef) });
 export const TagListInput = z.object({ workspaceId: uuid });

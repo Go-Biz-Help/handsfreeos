@@ -15,7 +15,7 @@ export const personUpdate = defineCommand({
   permission: 'records.write',
   scope: (i) => ({ kind: 'workspace', workspaceId: i.workspaceId }),
   emits: ['person.updated'],
-  actors: ['human', 'system'],
+  actors: ['human', 'system', 'workflow'],
   async handler(ctx, input) {
     const workspaceId = ctx.scope.workspaceId!;
     const current = await requirePerson(ctx.tx, workspaceId, input.personId);
@@ -73,7 +73,8 @@ export const personUpdate = defineCommand({
       payload: { name, fields: updated },
       before: { name: fullName(current.firstName, current.lastName), ...before },
       after: { name, ...after },
-      broadcast: ctx.actor.type === 'human',
+      // Imports announce one progress event instead; people's and workflows' changes refresh open screens.
+      broadcast: ctx.actor.type !== 'system',
     });
     return { personId: current.id, updated };
   },

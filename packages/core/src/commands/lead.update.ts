@@ -15,6 +15,7 @@ export const leadUpdate = defineCommand({
   permission: 'records.write',
   scope: (i) => ({ kind: 'workspace', workspaceId: i.workspaceId }),
   emits: ['lead.updated', 'lead.assigned'],
+  actors: ['human', 'workflow'],
   async handler(ctx, input) {
     const workspaceId = ctx.scope.workspaceId!;
     const [current] = await ctx.tx

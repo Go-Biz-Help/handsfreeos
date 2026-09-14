@@ -1,8 +1,9 @@
 import { and, eq } from 'drizzle-orm';
 import { activities, leads } from '@hfos/db/schema';
+import { actorMeta } from '../crm/activities';
 import { requireCompany, requirePerson } from '../crm/records';
 import { HfosError } from '../errors';
-import { requireHuman } from '../kernel/actor';
+import { userIdOf } from '../kernel/actor';
 import { defineCommand } from '../kernel/define';
 import {
   ActivityDeleteInput,
@@ -22,6 +23,7 @@ export const activityLog = defineCommand({
   permission: 'records.write',
   scope: (i) => ({ kind: 'workspace', workspaceId: i.workspaceId }),
   emits: ['activity.logged'],
+  actors: ['human', 'workflow'],
   async handler(ctx, input) {
     const workspaceId = ctx.scope.workspaceId!;
     if (input.personId) await requirePerson(ctx.tx, workspaceId, input.personId);
@@ -43,8 +45,9 @@ export const activityLog = defineCommand({
         personId: input.personId ?? null,
         companyId: input.companyId ?? null,
         leadId: input.leadId ?? null,
-        authorUserId: requireHuman(ctx).userId,
-        actorType: 'human',
+        authorUserId: userIdOf(ctx.actor),
+        actorType: ctx.actor.type,
+        meta: actorMeta(ctx.actor),
       })
       .returning({ id: activities.id });
     if (!row) throw HfosError.forbidden();

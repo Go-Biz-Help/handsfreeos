@@ -6,6 +6,7 @@ import type { BookingLinks } from './booking/links';
 import type { CalendarServices } from './calendar/index';
 import type { Sealer } from './crypto';
 import type { EmailServices } from './email/index';
+import type { SafeFetch } from './http/safe-fetch';
 import type { MailboxServices } from './mailbox/index';
 import type { Mailer } from './mailer';
 import type { ObjectStore } from './storage';
@@ -34,6 +35,11 @@ export interface WorkerServices {
   readonly calendars: CalendarServices;
   /** Signs and checks customers' change-or-cancel and waitlist-offer links (booking/links.ts). */
   readonly bookingLinks: BookingLinks;
+  /**
+   * Fetches addresses businesses typed in (website scans, outgoing workflow webhooks): https only, never a
+   * private address, every redirect checked again (http/safe-fetch.ts).
+   */
+  readonly fetchUrl: SafeFetch;
 }
 
 export interface TenantScope {

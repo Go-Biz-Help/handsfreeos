@@ -19,7 +19,7 @@ const RATE_LIMITED: Record<string, { max: number; timeWindow: string }> = {
 export function registerOperations(app: FastifyInstance, db: Db): void {
   const typed = app.withTypeProvider<ZodTypeProvider>();
   for (const cmd of registry.commands) {
-    // Worker-only commands (the carrier's answers, inbound texts) never become public routes.
+    // Commands only the worker or a workflow runs (the carrier's answers, inbound texts) never become routes.
     if (!(cmd.actors ?? ['human']).includes('human')) continue;
     typed.route({
       method: 'POST',
@@ -47,7 +47,7 @@ export function registerOperations(app: FastifyInstance, db: Db): void {
     });
   }
   for (const q of registry.queries) {
-    // Worker-only queries never become public routes either.
+    // Nor do queries only the worker or a workflow runs.
     if (!(q.actors ?? ['human']).includes('human')) continue;
     typed.route({
       method: 'POST',

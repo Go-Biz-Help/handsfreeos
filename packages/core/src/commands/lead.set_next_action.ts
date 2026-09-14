@@ -14,6 +14,7 @@ export const leadSetNextAction = defineCommand({
   permission: 'records.write',
   scope: (i) => ({ kind: 'workspace', workspaceId: i.workspaceId }),
   emits: ['lead.next_action_set', 'lead.next_action_cleared'],
+  actors: ['human', 'workflow'],
   async handler(ctx, input) {
     const [current] = await ctx.tx
       .select()

@@ -140,6 +140,49 @@ import { taskComplete, taskCreate, taskDelete, taskReopen, taskUpdate } from './
 import { userUpdateProfile } from './user.update_profile';
 import { workspaceCreate } from './workspace.create';
 import { workspaceUpdate } from './workspace.update';
+import {
+  workflowArchive,
+  workflowCreate,
+  workflowPause,
+  workflowProposalApply,
+  workflowPublish,
+  workflowRename,
+  workflowRestoreVersion,
+  workflowResume,
+  workflowSaveDraft,
+  workflowTest,
+} from './workflow';
+import {
+  workflowDecideApproval,
+  workflowEnrol,
+  workflowRemoveContact,
+  workflowRetryStep,
+  workflowSkipStep,
+  workflowStopRun,
+} from './workflow-run';
+import {
+  knowledgePackCreate,
+  knowledgePackPush,
+  knowledgePackUpdate,
+  workflowTemplateCreateFromWorkflow,
+  workflowTemplatePublish,
+  workflowTemplatePush,
+} from './workflow-template';
+import {
+  knowledgeDocumentAdd,
+  knowledgeItemArchive,
+  knowledgeItemCreate,
+  knowledgeItemImportFaqs,
+  knowledgeItemPublish,
+  knowledgeItemRecordUse,
+  knowledgeItemUpdate,
+  knowledgeProfileUpdate,
+  knowledgeScanStart,
+  knowledgeSourceSet,
+  knowledgeSuggestionAccept,
+  knowledgeSuggestionPropose,
+  knowledgeSuggestionReject,
+} from './knowledge';
 
 export {
   conversationAssign,
@@ -417,6 +460,41 @@ export const commands: readonly CommandDef[] = [
   waitlistOffer,
   waitlistExpire,
   waitlistClaimOnline,
+  workflowCreate,
+  workflowSaveDraft,
+  workflowRename,
+  workflowPublish,
+  workflowPause,
+  workflowResume,
+  workflowArchive,
+  workflowRestoreVersion,
+  workflowTest,
+  workflowEnrol,
+  workflowRemoveContact,
+  workflowStopRun,
+  workflowDecideApproval,
+  workflowRetryStep,
+  workflowSkipStep,
+  workflowProposalApply,
+  workflowTemplateCreateFromWorkflow,
+  workflowTemplatePublish,
+  workflowTemplatePush,
+  knowledgePackCreate,
+  knowledgePackUpdate,
+  knowledgePackPush,
+  knowledgeProfileUpdate,
+  knowledgeItemCreate,
+  knowledgeItemUpdate,
+  knowledgeItemPublish,
+  knowledgeItemArchive,
+  knowledgeItemImportFaqs,
+  knowledgeDocumentAdd,
+  knowledgeSourceSet,
+  knowledgeScanStart,
+  knowledgeSuggestionAccept,
+  knowledgeSuggestionReject,
+  knowledgeSuggestionPropose,
+  knowledgeItemRecordUse,
 ] as unknown as readonly CommandDef[];
 export { callPreview } from './call';
 export { attendeeFromPerson } from './appointment';
@@ -424,3 +502,7 @@ export { validateIntake } from './appointment-online';
 export * from './calendar-connection';
 export * from './reminder';
 export * from './waitlist-offer';
+export * from './workflow';
+export * from './workflow-run';
+export * from './workflow-template';
+export * from './knowledge';

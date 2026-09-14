@@ -6,8 +6,8 @@ import type { requestChannel } from '../schemas/audit';
 /** Blueprint action levels: 0 read, 1 safe, 2 external, 3 sensitive, 4 admin. Used by the assistant in M4. */
 export type RiskLevel = 0 | 1 | 2 | 3 | 4;
 /**
- * 'web' | 'api' | 'worker' | 'cli' | 'sms' | 'assistant' | 'booking_page' | 'test' (one list, shared with the
- * audit filter).
+ * 'web' | 'api' | 'worker' | 'cli' | 'sms' | 'assistant' | 'booking_page' | 'workflow' | 'test' (one list,
+ * shared with the audit filter).
  */
 export type Channel = z.infer<typeof requestChannel>;
 
@@ -28,7 +28,33 @@ export interface SystemActor {
   /** The person whose request this work fulfils (for example the importer). Recorded, never impersonated. */
   readonly onBehalfOf?: string | null;
 }
-export type Actor = HumanActor | SystemActor;
+/**
+ * A workflow step (M6). Runs exactly like the system (no permission check, `service_actor` bound to its
+ * workspace) but is recorded as itself: actor_type 'workflow' with actor_id the workflow, channel 'workflow',
+ * the run on every event (`payload._workflow`) and on timeline entries (`meta.workflow`). That keeps a
+ * workflow's work apart from other system work, for the loop guards and for "Workflow: Speed to lead".
+ */
+export interface WorkflowActor {
+  readonly type: 'workflow';
+  readonly workspaceId: string;
+  readonly organizationId: string;
+  readonly workflowId: string;
+  /** The published version the run is on; null for a test run of the draft. */
+  readonly versionId: string | null;
+  readonly runId: string;
+  /** The step being run (`stepId#visit`). */
+  readonly stepKey: string;
+  /** How deep in a chain of workflows this run is (a run started by another run's event is one deeper). */
+  readonly depth: number;
+  /** The first run of that chain; null when this run is the first. */
+  readonly originRunId: string | null;
+  readonly workflowName: string;
+  /** A test run (Simulate or Send to me). */
+  readonly test: boolean;
+}
+/** Work nobody signed in for: root within one workspace and never a permission check (see `isMachine`). */
+export type MachineActor = SystemActor | WorkflowActor;
+export type Actor = HumanActor | MachineActor;
 export type ActorKind = Actor['type'];
 
 export interface RequestMeta {
@@ -92,7 +118,10 @@ export interface CommandDef<I extends z.ZodType = z.ZodType, O extends z.ZodType
   readonly permission: Permission | null;
   readonly scope: (input: z.output<I>) => ScopeRef;
   readonly emits: readonly string[];
-  /** Who may run this command. Defaults to humans only; bulk paths (import) opt in to the system actor. */
+  /**
+   * Who may run this command. Defaults to humans only; the worker's paths (imports, bookings) opt in to the
+   * system actor, and the actions workflow steps take opt in to 'workflow'.
+   */
   readonly actors?: readonly ActorKind[];
   readonly handler: (ctx: CommandContext, input: z.output<I>) => Promise<z.input<O>>;
 }

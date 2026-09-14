@@ -3,7 +3,7 @@ import { isoDateTime, uuid } from './common';
 
 /**
  * Where a change was made from (the kernel's RequestMeta.channel): the web app, the Assistant, a
- * customer on a public booking page…
+ * customer on a public booking page, a workflow step…
  */
 export const requestChannel = z.enum([
   'web',
@@ -13,6 +13,7 @@ export const requestChannel = z.enum([
   'sms',
   'assistant',
   'booking_page',
+  'workflow',
   'test',
 ]);
 export type RequestChannel = z.infer<typeof requestChannel>;

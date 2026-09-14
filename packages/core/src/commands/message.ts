@@ -147,7 +147,8 @@ async function assertCanText(
   if (!opts.skipQuietHours) {
     const m = await workspaceMessaging(ctx.tx, workspaceId);
     const q = quietHoursState(m.settings.quietHours, m.timezone);
-    if (q.quiet && (ctx.actor.type === 'system' || !opts.acknowledgeQuietHours))
+    // Only a person can confirm a text in quiet hours. No machine actor, the system or a workflow, ever can.
+    if (q.quiet && (ctx.actor.type !== 'human' || !opts.acknowledgeQuietHours))
       throw new HfosError(
         'rule_violation',
         409,
@@ -311,7 +312,8 @@ async function sendEmail(ctx: CommandContext, input: z.infer<typeof MessageSendI
         409,
         'Reconnect this mailbox in Settings → Email to send from it.',
       );
-    if (!mailbox.shared && me && mailbox.userId !== me)
+    // A workflow works for the business, so it sends from shared mailboxes only, never from someone's own.
+    if (!mailbox.shared && (me ? mailbox.userId !== me : ctx.actor.type === 'workflow'))
       throw HfosError.rule(
         'mailbox_not_shared',
         403,
@@ -450,9 +452,10 @@ export const messageSend = defineCommand({
   permission: 'inbox.use',
   scope: inWorkspace,
   emits: ['message.queued', 'conversation.created'],
-  actors: ['human', 'system'],
+  actors: ['human', 'system', 'workflow'],
   async handler(ctx, input) {
-    if (input.keepConversationStatus && ctx.actor.type !== 'system')
+    // Only HandsFreeOS's own messages (the system's, a workflow's) may leave the conversation as it was.
+    if (input.keepConversationStatus && ctx.actor.type === 'human')
       throw HfosError.validation([
         {
           path: 'keepConversationStatus',

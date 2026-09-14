@@ -3,7 +3,7 @@ import { conversations, people } from '@hfos/db/schema';
 import { formatPhone } from '../crm/phone';
 import { fullName, requirePerson, userRef } from '../crm/records';
 import { HfosError } from '../errors';
-import { requireHuman } from '../kernel/actor';
+import { userIdOf } from '../kernel/actor';
 import { defineCommand } from '../kernel/define';
 import type { CommandContext } from '../kernel/types';
 import {
@@ -159,6 +159,7 @@ export const conversationAssign = defineCommand({
   permission: 'inbox.use',
   scope: inWorkspace,
   emits: ['conversation.assigned'],
+  actors: ['human', 'workflow'],
   async handler(ctx, input) {
     const workspaceId = ctx.scope.workspaceId!;
     const c = await loadConversation(ctx, input.conversationId);
@@ -230,8 +231,8 @@ export const conversationClose = defineCommand({
   permission: 'inbox.use',
   scope: inWorkspace,
   emits: ['conversation.closed'],
+  actors: ['human', 'workflow'],
   async handler(ctx, input) {
-    const me = requireHuman(ctx);
     const c = await loadConversation(ctx, input.conversationId);
     if (c.status === 'closed') return { conversationId: c.id };
     await ctx.tx
@@ -239,7 +240,7 @@ export const conversationClose = defineCommand({
       .set({
         status: 'closed',
         closedAt: new Date(),
-        closedBy: me.userId,
+        closedBy: userIdOf(ctx.actor),
         snoozedUntil: null,
         awaitingReplySince: null,
       })

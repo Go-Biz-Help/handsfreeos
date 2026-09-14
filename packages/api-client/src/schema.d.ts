@@ -1097,6 +1097,286 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/knowledge_document.add": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add an uploaded PDF or text file to the knowledge base. Its text becomes a draft document item to review and publish.
+         * @description Risk level 1. Requires knowledge.manage. Emits knowledge_document.added.
+         */
+        post: operations["command_knowledge_document_add"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/knowledge_item.archive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Archive an item: the AI stops using it. Run logs keep pointing at it; publish it again to bring it back.
+         * @description Risk level 1. Requires knowledge.manage. Emits knowledge_item.archived.
+         */
+        post: operations["command_knowledge_item_archive"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/knowledge_item.create": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add an FAQ, article or fact to the knowledge base, as a draft or published.
+         * @description Risk level 1. Requires knowledge.manage. Emits knowledge_item.created.
+         */
+        post: operations["command_knowledge_item_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/knowledge_item.import_faqs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Import FAQs from a spreadsheet (question, answer, optional tags; up to 500 rows). Questions the knowledge base already has are skipped.
+         * @description Risk level 1. Requires knowledge.manage. Emits knowledge_item.imported.
+         */
+        post: operations["command_knowledge_item_import_faqs"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/knowledge_item.publish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Publish an item so AI steps and the Assistant can use it.
+         * @description Risk level 1. Requires knowledge.manage. Emits knowledge_item.published.
+         */
+        post: operations["command_knowledge_item_publish"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/knowledge_item.update": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Change an item’s text, title or question, tags, or kind (an FAQ, article or fact; a document stays a document).
+         * @description Risk level 1. Requires knowledge.manage. Emits knowledge_item.updated.
+         */
+        post: operations["command_knowledge_item_update"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/knowledge_pack.create": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Build an agency starter pack of FAQs, articles and facts (for example “HVAC FAQs”) to push to client businesses as suggestions.
+         * @description Risk level 1. Requires org.templates.manage. Emits knowledge_pack.created.
+         */
+        post: operations["command_knowledge_pack_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/knowledge_pack.push": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Push a starter pack to client businesses. Each gets its items as suggestions to accept, edit or reject.
+         * @description Risk level 2. Requires org.templates.manage. Emits knowledge_pack.pushed.
+         */
+        post: operations["command_knowledge_pack_push"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/knowledge_pack.update": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Change a starter pack’s name, description or items, or archive it. Every change raises its version.
+         * @description Risk level 1. Requires org.templates.manage. Emits knowledge_pack.updated.
+         */
+        post: operations["command_knowledge_pack_update"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/knowledge_scan.start": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Scan the business’s website: the engine reads its pages and proposes facts, FAQs and articles to accept. One scan at a time.
+         * @description Risk level 1. Requires knowledge.manage. Emits knowledge_scan.requested.
+         */
+        post: operations["command_knowledge_scan_start"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/knowledge_source.set": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Set the business’s website address for “Scan our website” (https only; one website per business).
+         * @description Risk level 1. Requires knowledge.manage. Emits knowledge_source.set.
+         */
+        post: operations["command_knowledge_source_set"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/knowledge_suggestion.accept": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Accept a suggestion (from a website scan, a question the AI couldn’t answer, or an agency pack), with any edits. It becomes an item, or updates the item a rescan changed.
+         * @description Risk level 1. Requires knowledge.manage. Emits knowledge_suggestion.accepted, knowledge_item.created, knowledge_item.updated.
+         */
+        post: operations["command_knowledge_suggestion_accept"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/knowledge_suggestion.reject": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reject a suggestion. Nothing is added to the knowledge base.
+         * @description Risk level 1. Requires knowledge.manage. Emits knowledge_suggestion.rejected.
+         */
+        post: operations["command_knowledge_suggestion_reject"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/knowledge.profile_update": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Save the business profile the AI writes from: what you do, services, area, hours, policies, tone of voice, words to use and avoid, signature, and whether AI may quote prices.
+         * @description Risk level 1. Requires knowledge.manage. Emits knowledge.profile_updated.
+         */
+        post: operations["command_knowledge_profile_update"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/lead.archive": {
         parameters: {
             query?: never;
@@ -1647,7 +1927,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Replace the tags on a person, company or lead.
+         * Set the tags on a person, company or lead, or add or remove some and leave the rest (mode).
          * @description Risk level 1. Requires records.write. Emits record.tags_changed.
          */
         post: operations["command_record_set_tags"];
@@ -2277,6 +2557,386 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/workflow_proposal.apply": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Apply an AI builder proposal: its ops go into the workflow’s draft as one edit (refused when the draft moved on since), or a new workflow is created when the proposal is for one.
+         * @description Risk level 1. Requires workflows.manage. Emits workflow.created, workflow.draft_saved, workflow_proposal.applied.
+         */
+        post: operations["command_workflow_proposal_apply"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/workflow_template.create_from_workflow": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Save one of your businesses’ workflows as an agency template. Its stages, tags, calendars and people become named placeholders each business maps.
+         * @description Risk level 1. Requires org.templates.manage. Emits workflow_template.created.
+         */
+        post: operations["command_workflow_template_create_from_workflow"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/workflow_template.publish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Publish a template’s current draft as its next version. Businesses on an older version see “Update available”.
+         * @description Risk level 1. Requires org.templates.manage. Emits workflow_template.published.
+         */
+        post: operations["command_workflow_template_publish"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/workflow_template.push": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Push a template’s newest version to client businesses with each one’s placeholder mapping. The engine installs a draft in each; each business still tests before publishing.
+         * @description Risk level 2. Requires org.templates.manage. Emits workflow_template.pushed.
+         */
+        post: operations["command_workflow_template_push"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/workflow.archive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Archive a workflow. It stops its runs still going; its versions, runs and history stay.
+         * @description Risk level 2. Requires workflows.manage. Emits workflow.archived.
+         */
+        post: operations["command_workflow_archive"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/workflow.create": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create a workflow as an untested draft: blank (with a trigger), from a built-in recipe (with placeholders mapped to this business), or from an AI builder proposal.
+         * @description Risk level 1. Requires workflows.manage. Emits workflow.created, workflow_proposal.applied.
+         */
+        post: operations["command_workflow_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/workflow.decide_approval": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Approve (optionally editing what goes out) or reject a workflow’s approval step. The people it names, or owners and admins, decide; it can be decided once.
+         * @description Risk level 2. Requires workspace.read. Emits workflow.approval_decided.
+         */
+        post: operations["command_workflow_decide_approval"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/workflow.enrol": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add a customer to a live workflow ("Add to workflow…"). The engine starts the run, keeping to the workflow’s re-entry setting.
+         * @description Risk level 2. Requires records.write. Emits workflow.enrol_requested.
+         */
+        post: operations["command_workflow_enrol"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/workflow.pause": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Pause a live workflow: nothing new starts (triggers are ignored, not queued) and runs hold at their next step.
+         * @description Risk level 1. Requires workflows.manage. Emits workflow.paused.
+         */
+        post: operations["command_workflow_pause"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/workflow.publish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Publish the draft as a new, unchangeable version that new runs start on. Needs no blocking issues (422) and a passing test of this exact draft revision (409 not_tested).
+         * @description Risk level 2. Requires workflows.manage. Emits workflow.published.
+         */
+        post: operations["command_workflow_publish"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/workflow.remove_contact": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Take a customer out of a workflow: their runs still going stop. Owners and admins stop them at once; for anyone else the engine does.
+         * @description Risk level 1. Requires records.write. Emits workflow.contact_removed.
+         */
+        post: operations["command_workflow_remove_contact"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/workflow.rename": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Rename a workflow or change its description.
+         * @description Risk level 1. Requires workflows.manage. Emits workflow.renamed.
+         */
+        post: operations["command_workflow_rename"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/workflow.restore_version": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Copy a published version back into the draft as a new revision. It needs a new test before it can be published.
+         * @description Risk level 1. Requires workflows.manage. Emits workflow.draft_saved.
+         */
+        post: operations["command_workflow_restore_version"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/workflow.resume": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Resume a paused workflow. New triggers start runs again and held runs are released in batches.
+         * @description Risk level 2. Requires workflows.manage. Emits workflow.resumed.
+         */
+        post: operations["command_workflow_resume"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/workflow.retry_step": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Ask the engine to run a failed step of a run again.
+         * @description Risk level 2. Requires workflows.manage. Emits workflow.step_retry_requested.
+         */
+        post: operations["command_workflow_retry_step"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/workflow.save_draft": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Save edits to a workflow’s draft as patch ops made against a base revision. A stale base is a 409 revision_conflict; a bad op is a 400 naming its index. Drafts never run.
+         * @description Risk level 1. Requires workflows.manage. Emits workflow.draft_saved.
+         */
+        post: operations["command_workflow_save_draft"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/workflow.skip_step": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Ask the engine to skip a failed step of a run and carry on with the next one.
+         * @description Risk level 1. Requires workflows.manage. Emits workflow.step_skip_requested.
+         */
+        post: operations["command_workflow_skip_step"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/workflow.stop_run": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Stop one run that is still going. A run that already ended is left as it is.
+         * @description Risk level 1. Requires workflows.manage. Emits workflow_run.stopped.
+         */
+        post: operations["command_workflow_stop_run"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/workflow.test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Ask for a test run of the draft as it is now: Simulate (sends nothing, fast-forwards waits) or Send to me (sends only to you). A pass lets that revision be published.
+         * @description Risk level 1. Requires workflows.manage. Emits workflow.test_requested.
+         */
+        post: operations["command_workflow_test"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/workspace.create": {
         parameters: {
             query?: never;
@@ -2877,6 +3537,146 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/queries/knowledge_item.get": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * One knowledge item with its text, where it came from, and when it was last used.
+         * @description Requires workspace.read.
+         */
+        post: operations["query_knowledge_item_get"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/knowledge_item.list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Knowledge items, newest change first: filter by words (typos forgiven in titles), kind, tags and status (draft and published unless asked). Pages with a cursor.
+         * @description Requires workspace.read.
+         */
+        post: operations["query_knowledge_item_list"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/knowledge_pack.list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The agency’s knowledge starter packs, with their items and versions.
+         * @description Requires org.templates.manage.
+         */
+        post: operations["query_knowledge_pack_list"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/knowledge_scan.get": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The website and a scan of it (the newest unless one is named): progress, pages read, errors and suggestions waiting.
+         * @description Requires workspace.read.
+         */
+        post: operations["query_knowledge_scan_get"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/knowledge_suggestion.list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Suggestions to accept, edit or reject (pending unless asked): from website scans, questions the AI couldn’t answer, and agency packs.
+         * @description Requires workspace.read.
+         */
+        post: operations["query_knowledge_suggestion_list"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/knowledge.profile": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The business profile the AI writes from, how complete it is, and who changed it last.
+         * @description Requires workspace.read.
+         */
+        post: operations["query_knowledge_profile"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/knowledge.search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Search the knowledge base the way AI steps do: ranked matches with snippets, published items only unless drafts are asked for.
+         * @description Requires workspace.read.
+         */
+        post: operations["query_knowledge_search"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/queries/lead.board": {
         parameters: {
             query?: never;
@@ -3171,6 +3971,206 @@ export interface paths {
          * @description Requires records.read.
          */
         post: operations["query_timeline_list"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/workflow_template.get": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * One agency template: its definition and placeholders, versions, and each business it was pushed to (with its mapping and whether it is behind).
+         * @description Requires org.templates.manage.
+         */
+        post: operations["query_workflow_template_get"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/workflow_template.list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The agency’s workflow templates with their newest version and installs (installed, pending, failed, behind).
+         * @description Requires org.templates.manage.
+         */
+        post: operations["query_workflow_template_list"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/workflow.approval_list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Workflow approvals (pending unless asked), newest first, with what will happen and whether you can decide each. Pages with a cursor.
+         * @description Requires workspace.read.
+         */
+        post: operations["query_workflow_approval_list"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/workflow.catalogs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * What a workflow can refer to here (team, pipelines and stages, tags, calendars, services, other workflows) and whether texting is ready, for the editors’ checks.
+         * @description Requires workspace.read.
+         */
+        post: operations["query_workflow_catalogs"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/workflow.get": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * One workflow: its draft and revision, whether that revision passed a test, its checks computed now, the live version, every version, and where it came from.
+         * @description Requires workspace.read.
+         */
+        post: operations["query_workflow_get"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/workflow.list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Every workflow with its trigger, status, runs in the last 30 days and going now, the last error, and where it came from (a recipe, or an agency template with “Update available”).
+         * @description Requires workspace.read.
+         */
+        post: operations["query_workflow_list"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/workflow.proposal_get": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * An AI builder proposal: what was asked, its ops in plain words against the draft it was written for, and whether it can still be applied.
+         * @description Requires workspace.read.
+         */
+        post: operations["query_workflow_proposal_get"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/workflow.run_get": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * One run: whom it is for, where it stands, its variables, the definition it follows, every step it logged, and its approvals.
+         * @description Requires workspace.read.
+         */
+        post: operations["query_workflow_run_get"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/workflow.run_list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Runs, newest first: one workflow’s or all, by status or customer. Test runs only when asked. Pages with a cursor.
+         * @description Requires workspace.read.
+         */
+        post: operations["query_workflow_run_list"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/workflow.version_get": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * One published version of a workflow, with the definition it froze.
+         * @description Requires workspace.read.
+         */
+        post: operations["query_workflow_version_get"];
         delete?: never;
         options?: never;
         head?: never;
@@ -5565,6 +6565,638 @@ export interface operations {
             };
         };
     };
+    command_knowledge_document_add: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    fileId: string;
+                    title?: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        fileId: string;
+                        /** @enum {boolean} */
+                        requested: true;
+                    };
+                };
+            };
+        };
+    };
+    command_knowledge_item_archive: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    itemId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        itemId: string;
+                        /** @enum {string} */
+                        status: "draft" | "published" | "archived";
+                        updated: string[];
+                    };
+                };
+            };
+        };
+    };
+    command_knowledge_item_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    content: {
+                        answer: string;
+                        /** @enum {string} */
+                        kind: "faq";
+                        question: string;
+                        /** @default [] */
+                        tags?: string[];
+                    } | {
+                        body: string;
+                        /** @enum {string} */
+                        kind: "article";
+                        /** @default [] */
+                        tags?: string[];
+                        title: string;
+                    } | {
+                        body: string;
+                        /** @enum {string} */
+                        kind: "fact";
+                        /** @default [] */
+                        tags?: string[];
+                        title: string;
+                    };
+                    /**
+                     * @default draft
+                     * @enum {string}
+                     */
+                    status?: "draft" | "published";
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        itemId: string;
+                        /** @enum {string} */
+                        status: "draft" | "published" | "archived";
+                        updated: string[];
+                    };
+                };
+            };
+        };
+    };
+    command_knowledge_item_import_faqs: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    rows: {
+                        answer: string;
+                        question: string;
+                        tags?: string[];
+                    }[];
+                    /**
+                     * @default draft
+                     * @enum {string}
+                     */
+                    status?: "draft" | "published";
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        created: number;
+                        itemIds: string[];
+                        skipped: {
+                            question: string;
+                            row: number;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    command_knowledge_item_publish: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    itemId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        itemId: string;
+                        /** @enum {string} */
+                        status: "draft" | "published" | "archived";
+                        updated: string[];
+                    };
+                };
+            };
+        };
+    };
+    command_knowledge_item_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    content: {
+                        answer: string;
+                        /** @enum {string} */
+                        kind: "faq";
+                        question: string;
+                        /** @default [] */
+                        tags?: string[];
+                    } | {
+                        body: string;
+                        /** @enum {string} */
+                        kind: "article";
+                        /** @default [] */
+                        tags?: string[];
+                        title: string;
+                    } | {
+                        body: string;
+                        /** @enum {string} */
+                        kind: "fact";
+                        /** @default [] */
+                        tags?: string[];
+                        title: string;
+                    } | {
+                        body: string;
+                        /** @enum {string} */
+                        kind: "document";
+                        /** @default [] */
+                        tags?: string[];
+                        title: string;
+                    };
+                    /** Format: uuid */
+                    itemId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        itemId: string;
+                        /** @enum {string} */
+                        status: "draft" | "published" | "archived";
+                        updated: string[];
+                    };
+                };
+            };
+        };
+    };
+    command_knowledge_pack_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    description?: string | null;
+                    /** @default [] */
+                    items?: {
+                        body: string;
+                        /** @enum {string} */
+                        kind: "faq" | "article" | "fact";
+                        /** @default [] */
+                        tags?: string[];
+                        title: string;
+                    }[];
+                    name: string;
+                    /** Format: uuid */
+                    organizationId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        packId: string;
+                        updated: string[];
+                        version: number;
+                    };
+                };
+            };
+        };
+    };
+    command_knowledge_pack_push: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    organizationId: string;
+                    /** Format: uuid */
+                    packId: string;
+                    workspaceIds: string[];
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        packId: string;
+                        version: number;
+                        workspaceIds: string[];
+                    };
+                };
+            };
+        };
+    };
+    command_knowledge_pack_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    archived?: boolean;
+                    description?: string | null;
+                    items?: {
+                        body: string;
+                        /** @enum {string} */
+                        kind: "faq" | "article" | "fact";
+                        /** @default [] */
+                        tags?: string[];
+                        title: string;
+                    }[];
+                    name?: string;
+                    /** Format: uuid */
+                    organizationId: string;
+                    /** Format: uuid */
+                    packId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        packId: string;
+                        updated: string[];
+                        version: number;
+                    };
+                };
+            };
+        };
+    };
+    command_knowledge_scan_start: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        scanId: string;
+                        /** Format: uuid */
+                        sourceId: string;
+                        url: string;
+                    };
+                };
+            };
+        };
+    };
+    command_knowledge_source_set: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    url: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        sourceId: string;
+                        url: string;
+                    };
+                };
+            };
+        };
+    };
+    command_knowledge_suggestion_accept: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    edits?: {
+                        body?: string;
+                        /** @enum {string} */
+                        kind?: "faq" | "article" | "fact";
+                        tags?: string[];
+                        title?: string;
+                    };
+                    /**
+                     * @default published
+                     * @enum {string}
+                     */
+                    status?: "draft" | "published";
+                    /** Format: uuid */
+                    suggestionId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        created: boolean;
+                        /** Format: uuid */
+                        itemId: string;
+                        /** Format: uuid */
+                        suggestionId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_knowledge_suggestion_reject: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    reason?: string | null;
+                    /** Format: uuid */
+                    suggestionId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {string} */
+                        status: "pending" | "accepted" | "rejected";
+                        /** Format: uuid */
+                        suggestionId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_knowledge_profile_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    profile: {
+                        /** @default false */
+                        allowPrices?: boolean;
+                        /** @default  */
+                        description?: string;
+                        /** @default  */
+                        hours?: string;
+                        /** @default  */
+                        policies?: string;
+                        /** @default  */
+                        serviceArea?: string;
+                        /** @default [] */
+                        services?: {
+                            /** @default  */
+                            description?: string;
+                            name: string;
+                            /** @default null */
+                            price?: string | null;
+                        }[];
+                        /** @default  */
+                        signature?: string;
+                        /** @default  */
+                        tone?: string;
+                        /** @default [] */
+                        wordsToAvoid?: string[];
+                        /** @default [] */
+                        wordsToUse?: string[];
+                    };
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        completeness: {
+                            filled: number;
+                            total: number;
+                        };
+                        profile: {
+                            /** @default false */
+                            allowPrices: boolean;
+                            /** @default  */
+                            description: string;
+                            /** @default  */
+                            hours: string;
+                            /** @default  */
+                            policies: string;
+                            /** @default  */
+                            serviceArea: string;
+                            /** @default [] */
+                            services: {
+                                /** @default  */
+                                description: string;
+                                name: string;
+                                /** @default null */
+                                price: string | null;
+                            }[];
+                            /** @default  */
+                            signature: string;
+                            /** @default  */
+                            tone: string;
+                            /** @default [] */
+                            wordsToAvoid: string[];
+                            /** @default [] */
+                            wordsToUse: string[];
+                        };
+                        updated: string[];
+                    };
+                };
+            };
+        };
+    };
     command_lead_archive: {
         parameters: {
             query?: never;
@@ -6607,6 +8239,11 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": {
+                    /**
+                     * @default replace
+                     * @enum {string}
+                     */
+                    mode?: "replace" | "add" | "remove";
                     /** Format: uuid */
                     recordId: string;
                     /** @enum {string} */
@@ -7915,6 +9552,1034 @@ export interface operations {
             };
         };
     };
+    command_workflow_proposal_apply: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    baseRevision?: number;
+                    name?: string;
+                    /** Format: uuid */
+                    proposalId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changes: string[];
+                        created: boolean;
+                        issues: {
+                            code: string;
+                            readonly fields: string[];
+                            readonly fixes: {
+                                id: string;
+                                label: string;
+                                readonly ops: {
+                                    [key: string]: unknown;
+                                }[];
+                            }[];
+                            message: string;
+                            /** @enum {string} */
+                            severity: "error" | "warning";
+                            stepId: string | null;
+                        }[];
+                        revision: number;
+                        /** Format: uuid */
+                        workflowId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_workflow_template_create_from_workflow: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    description?: string | null;
+                    name: string;
+                    /** Format: uuid */
+                    organizationId: string;
+                    /** Format: uuid */
+                    workflowId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        placeholders: {
+                            id: string;
+                            key: string;
+                            /** @enum {string} */
+                            kind: "pipeline" | "stage" | "tag" | "calendar" | "service" | "user" | "workflow";
+                            label: string;
+                        }[];
+                        revision: number;
+                        /** Format: uuid */
+                        templateId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_workflow_template_publish: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    organizationId: string;
+                    /** Format: uuid */
+                    templateId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        published: boolean;
+                        /** Format: uuid */
+                        templateId: string;
+                        version: number;
+                    };
+                };
+            };
+        };
+    };
+    command_workflow_template_push: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @default {} */
+                    mappings?: {
+                        [key: string]: {
+                            [key: string]: string | null;
+                        };
+                    };
+                    /** Format: uuid */
+                    organizationId: string;
+                    /** Format: uuid */
+                    templateId: string;
+                    workspaceIds: string[];
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        installIds: string[];
+                        /** Format: uuid */
+                        templateId: string;
+                        version: number;
+                    };
+                };
+            };
+        };
+    };
+    command_workflow_archive: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    workflowId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changed: boolean;
+                        /** @enum {string} */
+                        status: "draft" | "active" | "paused" | "archived";
+                        stoppedRunIds: string[];
+                        /** Format: uuid */
+                        workflowId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_workflow_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    description?: string | null;
+                    /**
+                     * @default blank
+                     * @enum {string}
+                     */
+                    from?: "blank" | "recipe" | "proposal";
+                    mapping?: {
+                        [key: string]: string | null;
+                    };
+                    name: string;
+                    /** Format: uuid */
+                    proposalId?: string;
+                    /** @enum {string} */
+                    recipeKey?: "speed_to_lead" | "missed_call_text_back" | "appointment_follow_up_review" | "estimate_follow_up" | "no_show_rebook";
+                    trigger?: {
+                        /** @enum {string} */
+                        event: "person.created" | "person.updated" | "record.tags_changed" | "lead.created" | "lead.stage_changed" | "lead.assigned" | "appointment.booked" | "appointment.rescheduled" | "appointment.cancelled" | "appointment.completed" | "appointment.no_show" | "message.received" | "call.missed" | "call.voicemail_left" | "call.completed" | "task.completed";
+                        /** @default {} */
+                        filters?: {
+                            /** @default [] */
+                            conditions?: ({
+                                field: string;
+                                /** @enum {string} */
+                                op: "eq" | "neq" | "contains" | "not_contains" | "starts_with" | "gt" | "gte" | "lt" | "lte" | "in" | "not_in" | "includes" | "excludes" | "is_true" | "is_false" | "before" | "after" | "within_last" | "within_next" | "more_than_ago" | "is_empty" | "is_not_empty";
+                                /** @default null */
+                                value?: unknown;
+                            } | {
+                                conditions: ({
+                                    field: string;
+                                    /** @enum {string} */
+                                    op: "eq" | "neq" | "contains" | "not_contains" | "starts_with" | "gt" | "gte" | "lt" | "lte" | "in" | "not_in" | "includes" | "excludes" | "is_true" | "is_false" | "before" | "after" | "within_last" | "within_next" | "more_than_ago" | "is_empty" | "is_not_empty";
+                                    /** @default null */
+                                    value?: unknown;
+                                } | {
+                                    conditions: {
+                                        field: string;
+                                        /** @enum {string} */
+                                        op: "eq" | "neq" | "contains" | "not_contains" | "starts_with" | "gt" | "gte" | "lt" | "lte" | "in" | "not_in" | "includes" | "excludes" | "is_true" | "is_false" | "before" | "after" | "within_last" | "within_next" | "more_than_ago" | "is_empty" | "is_not_empty";
+                                        /** @default null */
+                                        value?: unknown;
+                                    }[];
+                                    /**
+                                     * @default all
+                                     * @enum {string}
+                                     */
+                                    match?: "all" | "any";
+                                })[];
+                                /**
+                                 * @default all
+                                 * @enum {string}
+                                 */
+                                match?: "all" | "any";
+                            })[];
+                            /**
+                             * @default all
+                             * @enum {string}
+                             */
+                            match?: "all" | "any";
+                        };
+                        /** @enum {string} */
+                        kind: "event";
+                    } | {
+                        /** @default {} */
+                        audience?: {
+                            /** @default [] */
+                            conditions?: ({
+                                field: string;
+                                /** @enum {string} */
+                                op: "eq" | "neq" | "contains" | "not_contains" | "starts_with" | "gt" | "gte" | "lt" | "lte" | "in" | "not_in" | "includes" | "excludes" | "is_true" | "is_false" | "before" | "after" | "within_last" | "within_next" | "more_than_ago" | "is_empty" | "is_not_empty";
+                                /** @default null */
+                                value?: unknown;
+                            } | {
+                                conditions: ({
+                                    field: string;
+                                    /** @enum {string} */
+                                    op: "eq" | "neq" | "contains" | "not_contains" | "starts_with" | "gt" | "gte" | "lt" | "lte" | "in" | "not_in" | "includes" | "excludes" | "is_true" | "is_false" | "before" | "after" | "within_last" | "within_next" | "more_than_ago" | "is_empty" | "is_not_empty";
+                                    /** @default null */
+                                    value?: unknown;
+                                } | {
+                                    conditions: {
+                                        field: string;
+                                        /** @enum {string} */
+                                        op: "eq" | "neq" | "contains" | "not_contains" | "starts_with" | "gt" | "gte" | "lt" | "lte" | "in" | "not_in" | "includes" | "excludes" | "is_true" | "is_false" | "before" | "after" | "within_last" | "within_next" | "more_than_ago" | "is_empty" | "is_not_empty";
+                                        /** @default null */
+                                        value?: unknown;
+                                    }[];
+                                    /**
+                                     * @default all
+                                     * @enum {string}
+                                     */
+                                    match?: "all" | "any";
+                                })[];
+                                /**
+                                 * @default all
+                                 * @enum {string}
+                                 */
+                                match?: "all" | "any";
+                            })[];
+                            /**
+                             * @default all
+                             * @enum {string}
+                             */
+                            match?: "all" | "any";
+                        };
+                        cadence: {
+                            at: string;
+                            days: number[];
+                            /** @enum {string} */
+                            every: "weekly";
+                        } | {
+                            at: string;
+                            day: number | "last";
+                            /** @enum {string} */
+                            every: "monthly";
+                        };
+                        /** @enum {string} */
+                        kind: "schedule";
+                    } | {
+                        /** @enum {string} */
+                        anchor: "appointment.starts_at" | "appointment.ends_at" | "lead.created_at" | "lead.stage_entered_at" | "lead.next_action_at" | "person.created_at";
+                        /** @default null */
+                        at?: string | null;
+                        /** @default {} */
+                        filters?: {
+                            /** @default [] */
+                            conditions?: ({
+                                field: string;
+                                /** @enum {string} */
+                                op: "eq" | "neq" | "contains" | "not_contains" | "starts_with" | "gt" | "gte" | "lt" | "lte" | "in" | "not_in" | "includes" | "excludes" | "is_true" | "is_false" | "before" | "after" | "within_last" | "within_next" | "more_than_ago" | "is_empty" | "is_not_empty";
+                                /** @default null */
+                                value?: unknown;
+                            } | {
+                                conditions: ({
+                                    field: string;
+                                    /** @enum {string} */
+                                    op: "eq" | "neq" | "contains" | "not_contains" | "starts_with" | "gt" | "gte" | "lt" | "lte" | "in" | "not_in" | "includes" | "excludes" | "is_true" | "is_false" | "before" | "after" | "within_last" | "within_next" | "more_than_ago" | "is_empty" | "is_not_empty";
+                                    /** @default null */
+                                    value?: unknown;
+                                } | {
+                                    conditions: {
+                                        field: string;
+                                        /** @enum {string} */
+                                        op: "eq" | "neq" | "contains" | "not_contains" | "starts_with" | "gt" | "gte" | "lt" | "lte" | "in" | "not_in" | "includes" | "excludes" | "is_true" | "is_false" | "before" | "after" | "within_last" | "within_next" | "more_than_ago" | "is_empty" | "is_not_empty";
+                                        /** @default null */
+                                        value?: unknown;
+                                    }[];
+                                    /**
+                                     * @default all
+                                     * @enum {string}
+                                     */
+                                    match?: "all" | "any";
+                                })[];
+                                /**
+                                 * @default all
+                                 * @enum {string}
+                                 */
+                                match?: "all" | "any";
+                            })[];
+                            /**
+                             * @default all
+                             * @enum {string}
+                             */
+                            match?: "all" | "any";
+                        };
+                        /** @enum {string} */
+                        kind: "date";
+                        offset: {
+                            amount: number;
+                            /**
+                             * @default after
+                             * @enum {string}
+                             */
+                            direction?: "before" | "after";
+                            /** @enum {string} */
+                            unit: "minutes" | "hours" | "days" | "weeks";
+                        };
+                    } | {
+                        /** @default true */
+                        createPerson?: boolean;
+                        /** @enum {string} */
+                        kind: "webhook";
+                        /**
+                         * @default phone_or_email
+                         * @enum {string}
+                         */
+                        personBy?: "phone" | "email" | "phone_or_email";
+                    } | {
+                        /** @enum {string} */
+                        kind: "manual";
+                    };
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        issues: {
+                            code: string;
+                            readonly fields: string[];
+                            readonly fixes: {
+                                id: string;
+                                label: string;
+                                readonly ops: {
+                                    [key: string]: unknown;
+                                }[];
+                            }[];
+                            message: string;
+                            /** @enum {string} */
+                            severity: "error" | "warning";
+                            stepId: string | null;
+                        }[];
+                        placeholders: {
+                            key: string;
+                            /** @enum {string} */
+                            kind: "pipeline" | "stage" | "tag" | "calendar" | "service" | "user" | "workflow";
+                            label: string;
+                        }[];
+                        revision: number;
+                        /** Format: uuid */
+                        workflowId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_workflow_decide_approval: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    approvalId: string;
+                    /** @enum {string} */
+                    decision: "approve" | "reject";
+                    edits?: {
+                        [key: string]: string;
+                    };
+                    reason?: string | null;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        approvalId: string;
+                        /** Format: uuid */
+                        runId: string;
+                        /** @enum {string} */
+                        status: "pending" | "approved" | "rejected" | "expired" | "cancelled";
+                    };
+                };
+            };
+        };
+    };
+    command_workflow_enrol: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    personId: string;
+                    /** Format: uuid */
+                    workflowId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        personId: string;
+                        /** @enum {boolean} */
+                        requested: true;
+                        /** Format: uuid */
+                        workflowId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_workflow_pause: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    workflowId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changed: boolean;
+                        /** @enum {string} */
+                        status: "draft" | "active" | "paused" | "archived";
+                        stoppedRunIds: string[];
+                        /** Format: uuid */
+                        workflowId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_workflow_publish: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    baseRevision: number;
+                    /** Format: uuid */
+                    workflowId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changes: string[];
+                        /** @enum {string} */
+                        status: "draft" | "active" | "paused" | "archived";
+                        version: number;
+                        /** Format: uuid */
+                        versionId: string;
+                        /** Format: uuid */
+                        workflowId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_workflow_remove_contact: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    personId: string;
+                    /** Format: uuid */
+                    workflowId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        pending: boolean;
+                        /** Format: uuid */
+                        personId: string;
+                        stoppedRunIds: string[];
+                        /** Format: uuid */
+                        workflowId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_workflow_rename: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    description?: string | null;
+                    name?: string;
+                    /** Format: uuid */
+                    workflowId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        description: string | null;
+                        name: string;
+                        /** Format: uuid */
+                        workflowId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_workflow_restore_version: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    baseRevision: number;
+                    version: number;
+                    /** Format: uuid */
+                    workflowId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changed: boolean;
+                        changes: string[];
+                        issues: {
+                            code: string;
+                            readonly fields: string[];
+                            readonly fixes: {
+                                id: string;
+                                label: string;
+                                readonly ops: {
+                                    [key: string]: unknown;
+                                }[];
+                            }[];
+                            message: string;
+                            /** @enum {string} */
+                            severity: "error" | "warning";
+                            stepId: string | null;
+                        }[];
+                        revision: number;
+                        /** Format: uuid */
+                        workflowId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_workflow_resume: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    workflowId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changed: boolean;
+                        /** @enum {string} */
+                        status: "draft" | "active" | "paused" | "archived";
+                        stoppedRunIds: string[];
+                        /** Format: uuid */
+                        workflowId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_workflow_retry_step: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    runId: string;
+                    stepKey: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {boolean} */
+                        requested: true;
+                        /** Format: uuid */
+                        runId: string;
+                        stepKey: string;
+                    };
+                };
+            };
+        };
+    };
+    command_workflow_save_draft: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    baseRevision: number;
+                    ops: ({
+                        branchId: string | null;
+                        index: number | null;
+                        /** @enum {string} */
+                        op: "add_step";
+                        parentId: string | null;
+                        step: {
+                            [key: string]: unknown;
+                        };
+                    } | {
+                        /** @enum {string} */
+                        op: "update_step";
+                        patch: {
+                            [key: string]: unknown;
+                        };
+                        stepId: string;
+                    } | {
+                        branchId: string | null;
+                        index: number;
+                        /** @enum {string} */
+                        op: "move_step";
+                        parentId: string | null;
+                        stepId: string;
+                    } | {
+                        /** @enum {string} */
+                        op: "delete_step";
+                        stepId: string;
+                    } | {
+                        branch: {
+                            [key: string]: unknown;
+                        };
+                        index: number | null;
+                        /** @enum {string} */
+                        op: "add_branch";
+                        stepId: string;
+                    } | {
+                        branchId: string;
+                        /** @enum {string} */
+                        op: "delete_branch";
+                        stepId: string;
+                    } | {
+                        maxVisits: number | null;
+                        /** @enum {string} */
+                        op: "set_goto";
+                        stepId: string;
+                        target: string;
+                    } | {
+                        /** @enum {string} */
+                        op: "set_trigger";
+                        trigger: {
+                            [key: string]: unknown;
+                        };
+                    } | {
+                        /** @enum {string} */
+                        op: "set_settings";
+                        patch: {
+                            [key: string]: unknown;
+                        };
+                    })[];
+                    /** Format: uuid */
+                    workflowId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changed: boolean;
+                        changes: string[];
+                        issues: {
+                            code: string;
+                            readonly fields: string[];
+                            readonly fixes: {
+                                id: string;
+                                label: string;
+                                readonly ops: {
+                                    [key: string]: unknown;
+                                }[];
+                            }[];
+                            message: string;
+                            /** @enum {string} */
+                            severity: "error" | "warning";
+                            stepId: string | null;
+                        }[];
+                        revision: number;
+                        /** Format: uuid */
+                        workflowId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_workflow_skip_step: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    runId: string;
+                    stepKey: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {boolean} */
+                        requested: true;
+                        /** Format: uuid */
+                        runId: string;
+                        stepKey: string;
+                    };
+                };
+            };
+        };
+    };
+    command_workflow_stop_run: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    reason?: string | null;
+                    /** Format: uuid */
+                    runId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        runId: string;
+                        /** @enum {string} */
+                        status: "running" | "waiting" | "awaiting_approval" | "held" | "completed" | "stopped" | "failed";
+                        stopped: boolean;
+                    };
+                };
+            };
+        };
+    };
+    command_workflow_test: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    assume?: {
+                        [key: string]: unknown;
+                    };
+                    /**
+                     * @default simulate
+                     * @enum {string}
+                     */
+                    mode?: "simulate" | "send_to_me";
+                    personId?: string | null;
+                    /** Format: uuid */
+                    workflowId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {string} */
+                        mode: "simulate" | "send_to_me";
+                        /** @enum {boolean} */
+                        requested: true;
+                        revision: number;
+                        /** Format: uuid */
+                        workflowId: string;
+                    };
+                };
+            };
+        };
+    };
     command_workspace_create: {
         parameters: {
             query?: never;
@@ -8590,7 +11255,7 @@ export interface operations {
                     /** Format: date-time */
                     before?: string;
                     /** @enum {string} */
-                    channel?: "web" | "api" | "worker" | "cli" | "sms" | "assistant" | "booking_page" | "test";
+                    channel?: "web" | "api" | "worker" | "cli" | "sms" | "assistant" | "booking_page" | "workflow" | "test";
                     /** @default 50 */
                     limit?: number;
                     /** Format: date-time */
@@ -10240,6 +12905,441 @@ export interface operations {
             };
         };
     };
+    query_knowledge_item_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    itemId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        item: {
+                            body: string;
+                            /** Format: date-time */
+                            createdAt: string;
+                            createdBy: {
+                                fullName: string;
+                                /** Format: uuid */
+                                id: string;
+                            } | null;
+                            file: {
+                                /** Format: uuid */
+                                id: string;
+                                name: string;
+                            } | null;
+                            fileId: string | null;
+                            /** Format: uuid */
+                            id: string;
+                            /** @enum {string} */
+                            kind: "faq" | "article" | "fact" | "document";
+                            lastUsedAt: string | null;
+                            /** @enum {string} */
+                            source: "manual" | "website_scan" | "ai_suggestion" | "agency_pack";
+                            sourceUrl: string | null;
+                            /** @enum {string} */
+                            status: "draft" | "published" | "archived";
+                            tags: string[];
+                            title: string;
+                            /** Format: date-time */
+                            updatedAt: string;
+                            updatedBy: {
+                                fullName: string;
+                                /** Format: uuid */
+                                id: string;
+                            } | null;
+                            useCount: number;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    query_knowledge_item_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    cursor?: string;
+                    kind?: ("faq" | "article" | "fact" | "document")[];
+                    /** @default 50 */
+                    limit?: number;
+                    search?: string;
+                    status?: ("draft" | "published" | "archived")[];
+                    tags?: string[];
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        counts: {
+                            archived: number;
+                            draft: number;
+                            published: number;
+                        };
+                        items: {
+                            body: string;
+                            /** Format: date-time */
+                            createdAt: string;
+                            createdBy: {
+                                fullName: string;
+                                /** Format: uuid */
+                                id: string;
+                            } | null;
+                            fileId: string | null;
+                            /** Format: uuid */
+                            id: string;
+                            /** @enum {string} */
+                            kind: "faq" | "article" | "fact" | "document";
+                            lastUsedAt: string | null;
+                            /** @enum {string} */
+                            source: "manual" | "website_scan" | "ai_suggestion" | "agency_pack";
+                            sourceUrl: string | null;
+                            /** @enum {string} */
+                            status: "draft" | "published" | "archived";
+                            tags: string[];
+                            title: string;
+                            /** Format: date-time */
+                            updatedAt: string;
+                            updatedBy: {
+                                fullName: string;
+                                /** Format: uuid */
+                                id: string;
+                            } | null;
+                            useCount: number;
+                        }[];
+                        nextCursor: string | null;
+                    };
+                };
+            };
+        };
+    };
+    query_knowledge_pack_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @default false */
+                    includeArchived?: boolean;
+                    /** Format: uuid */
+                    organizationId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: {
+                            archivedAt: string | null;
+                            createdBy: {
+                                fullName: string;
+                                /** Format: uuid */
+                                id: string;
+                            } | null;
+                            description: string | null;
+                            /** Format: uuid */
+                            id: string;
+                            items: {
+                                body: string;
+                                /** @enum {string} */
+                                kind: "faq" | "article" | "fact";
+                                /** @default [] */
+                                tags: string[];
+                                title: string;
+                            }[];
+                            name: string;
+                            /** Format: date-time */
+                            updatedAt: string;
+                            version: number;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    query_knowledge_scan_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    scanId?: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        scan: {
+                            /** Format: date-time */
+                            createdAt: string;
+                            errors: unknown[];
+                            finishedAt: string | null;
+                            /** Format: uuid */
+                            id: string;
+                            pages: {
+                                [key: string]: unknown;
+                            }[];
+                            pendingSuggestions: number;
+                            startedAt: string | null;
+                            startedBy: {
+                                fullName: string;
+                                /** Format: uuid */
+                                id: string;
+                            } | null;
+                            /** @enum {string} */
+                            status: "queued" | "running" | "done" | "failed" | "cancelled";
+                            suggestionCount: number;
+                        } | null;
+                        source: {
+                            /** Format: uuid */
+                            id: string;
+                            /** Format: date-time */
+                            updatedAt: string;
+                            url: string;
+                        } | null;
+                    };
+                };
+            };
+        };
+    };
+    query_knowledge_suggestion_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    cursor?: string;
+                    /** @default 50 */
+                    limit?: number;
+                    /** @enum {string} */
+                    reason?: "scan" | "gap" | "pack";
+                    /** Format: uuid */
+                    scanId?: string;
+                    /**
+                     * @default pending
+                     * @enum {string}
+                     */
+                    status?: "pending" | "accepted" | "rejected";
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: {
+                            /** Format: date-time */
+                            createdAt: string;
+                            decidedAt: string | null;
+                            decidedBy: {
+                                fullName: string;
+                                /** Format: uuid */
+                                id: string;
+                            } | null;
+                            /** Format: uuid */
+                            id: string;
+                            itemId: string | null;
+                            /** @enum {string} */
+                            kind: "faq" | "article" | "fact" | "document";
+                            proposed: {
+                                body: string;
+                                tags: string[];
+                                title: string;
+                            };
+                            /** @enum {string} */
+                            reason: "scan" | "gap" | "pack";
+                            scanId: string | null;
+                            similarCount: number;
+                            source: {
+                                [key: string]: unknown;
+                            };
+                            /** @enum {string} */
+                            status: "pending" | "accepted" | "rejected";
+                        }[];
+                        nextCursor: string | null;
+                    };
+                };
+            };
+        };
+    };
+    query_knowledge_profile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        completeness: {
+                            filled: number;
+                            total: number;
+                        };
+                        profile: {
+                            /** @default false */
+                            allowPrices: boolean;
+                            /** @default  */
+                            description: string;
+                            /** @default  */
+                            hours: string;
+                            /** @default  */
+                            policies: string;
+                            /** @default  */
+                            serviceArea: string;
+                            /** @default [] */
+                            services: {
+                                /** @default  */
+                                description: string;
+                                name: string;
+                                /** @default null */
+                                price: string | null;
+                            }[];
+                            /** @default  */
+                            signature: string;
+                            /** @default  */
+                            tone: string;
+                            /** @default [] */
+                            wordsToAvoid: string[];
+                            /** @default [] */
+                            wordsToUse: string[];
+                        };
+                        updatedAt: string | null;
+                        updatedBy: {
+                            fullName: string;
+                            /** Format: uuid */
+                            id: string;
+                        } | null;
+                    };
+                };
+            };
+        };
+    };
+    query_knowledge_search: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @default false */
+                    includeDrafts?: boolean;
+                    kinds?: ("faq" | "article" | "fact" | "document")[];
+                    /** @default 5 */
+                    limit?: number;
+                    query: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        matches: {
+                            body: string;
+                            /** Format: uuid */
+                            id: string;
+                            /** @enum {string} */
+                            kind: "faq" | "article" | "fact" | "document";
+                            score: number;
+                            snippet: string;
+                            sourceUrl: string | null;
+                            /** @enum {string} */
+                            status: "draft" | "published" | "archived";
+                            tags: string[];
+                            title: string;
+                            /** Format: date-time */
+                            updatedAt: string;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
     query_lead_board: {
         parameters: {
             query?: never;
@@ -11330,6 +14430,838 @@ export interface operations {
                             subtype: string | null;
                         }[];
                         nextCursor: string | null;
+                    };
+                };
+            };
+        };
+    };
+    query_workflow_template_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    organizationId: string;
+                    /** Format: uuid */
+                    templateId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        installs: {
+                            behind: boolean;
+                            /** Format: uuid */
+                            id: string;
+                            installedAt: string | null;
+                            installedVersion: number | null;
+                            lastError: string | null;
+                            mapping: {
+                                [key: string]: unknown;
+                            };
+                            pushedAt: string | null;
+                            pushedBy: {
+                                fullName: string;
+                                /** Format: uuid */
+                                id: string;
+                            } | null;
+                            /** @enum {string} */
+                            status: "pending" | "installed" | "failed";
+                            workflowId: string | null;
+                            /** Format: uuid */
+                            workspaceId: string;
+                            workspaceName: string;
+                        }[];
+                        template: {
+                            archivedAt: string | null;
+                            createdBy: {
+                                fullName: string;
+                                /** Format: uuid */
+                                id: string;
+                            } | null;
+                            definition: {
+                                [key: string]: unknown;
+                            };
+                            description: string | null;
+                            /** Format: uuid */
+                            id: string;
+                            installs: {
+                                behind: number;
+                                failed: number;
+                                installed: number;
+                                pending: number;
+                                total: number;
+                            };
+                            latestVersion: number | null;
+                            name: string;
+                            placeholders: {
+                                key: string;
+                                /** @enum {string} */
+                                kind: "pipeline" | "stage" | "tag" | "calendar" | "service" | "user" | "workflow";
+                                label: string;
+                            }[];
+                            revision: number;
+                            /** Format: date-time */
+                            updatedAt: string;
+                        };
+                        versions: {
+                            /** Format: date-time */
+                            createdAt: string;
+                            diff: string[];
+                            /** Format: uuid */
+                            id: string;
+                            publishedBy: {
+                                fullName: string;
+                                /** Format: uuid */
+                                id: string;
+                            } | null;
+                            version: number;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    query_workflow_template_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @default false */
+                    includeArchived?: boolean;
+                    /** Format: uuid */
+                    organizationId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: {
+                            archivedAt: string | null;
+                            createdBy: {
+                                fullName: string;
+                                /** Format: uuid */
+                                id: string;
+                            } | null;
+                            description: string | null;
+                            /** Format: uuid */
+                            id: string;
+                            installs: {
+                                behind: number;
+                                failed: number;
+                                installed: number;
+                                pending: number;
+                                total: number;
+                            };
+                            latestVersion: number | null;
+                            name: string;
+                            revision: number;
+                            /** Format: date-time */
+                            updatedAt: string;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    query_workflow_approval_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    cursor?: string;
+                    /** @default 50 */
+                    limit?: number;
+                    /**
+                     * @default pending
+                     * @enum {string}
+                     */
+                    status?: "pending" | "approved" | "rejected" | "expired" | "cancelled";
+                    /** Format: uuid */
+                    workflowId?: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: {
+                            approvers: {
+                                fullName: string;
+                                /** Format: uuid */
+                                id: string;
+                            }[];
+                            canDecide: boolean;
+                            /** Format: date-time */
+                            createdAt: string;
+                            decidedAt: string | null;
+                            decidedBy: {
+                                fullName: string;
+                                /** Format: uuid */
+                                id: string;
+                            } | null;
+                            edits: {
+                                [key: string]: unknown;
+                            } | null;
+                            expiresAt: string | null;
+                            /** Format: uuid */
+                            id: string;
+                            person: {
+                                fullName: string;
+                                /** Format: uuid */
+                                id: string;
+                            } | null;
+                            preview: {
+                                [key: string]: unknown;
+                            };
+                            reason: string | null;
+                            /** Format: uuid */
+                            runId: string;
+                            /** @enum {string} */
+                            status: "pending" | "approved" | "rejected" | "expired" | "cancelled";
+                            stepKey: string;
+                            via: string | null;
+                            workflow: {
+                                /** Format: uuid */
+                                id: string;
+                                name: string;
+                            };
+                        }[];
+                        nextCursor: string | null;
+                    };
+                };
+            };
+        };
+    };
+    query_workflow_catalogs: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        catalogs: {
+                            readonly calendars: {
+                                archived: boolean;
+                                /** Format: uuid */
+                                id: string;
+                                name: string;
+                            }[];
+                            readonly pipelines: {
+                                archived: boolean;
+                                /** Format: uuid */
+                                id: string;
+                                name: string;
+                                readonly stages: {
+                                    archived: boolean;
+                                    /** Format: uuid */
+                                    id: string;
+                                    name: string;
+                                }[];
+                            }[];
+                            readonly services: {
+                                archived: boolean;
+                                /** Format: uuid */
+                                id: string;
+                                name: string;
+                            }[];
+                            readonly tags: {
+                                /** Format: uuid */
+                                id: string;
+                                name: string;
+                            }[];
+                            readonly team: {
+                                active: boolean;
+                                name: string;
+                                /** Format: uuid */
+                                userId: string;
+                            }[];
+                            textingReady: boolean;
+                            timeZone: string;
+                            readonly workflows: {
+                                /** Format: uuid */
+                                id: string;
+                                name: string;
+                            }[];
+                        };
+                    };
+                };
+            };
+        };
+    };
+    query_workflow_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    workflowId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        versions: {
+                            /** Format: date-time */
+                            createdAt: string;
+                            diff: string[];
+                            /** Format: uuid */
+                            id: string;
+                            publishedBy: {
+                                fullName: string;
+                                /** Format: uuid */
+                                id: string;
+                            } | null;
+                            revision: number;
+                            source: string;
+                            testRunId: string | null;
+                            version: number;
+                        }[];
+                        workflow: {
+                            activeRuns: number;
+                            activeVersion: {
+                                /** Format: uuid */
+                                id: string;
+                                version: number;
+                            } | null;
+                            allCalendars: boolean;
+                            calendarIds: string[];
+                            changedSinceInstall: boolean;
+                            createdBy: {
+                                fullName: string;
+                                /** Format: uuid */
+                                id: string;
+                            } | null;
+                            definition: {
+                                [key: string]: unknown;
+                            };
+                            definitionVersion: number;
+                            description: string | null;
+                            /** Format: uuid */
+                            id: string;
+                            installedRevision: number | null;
+                            issues: {
+                                code: string;
+                                readonly fields: string[];
+                                readonly fixes: {
+                                    id: string;
+                                    label: string;
+                                    readonly ops: {
+                                        [key: string]: unknown;
+                                    }[];
+                                }[];
+                                message: string;
+                                /** @enum {string} */
+                                severity: "error" | "warning";
+                                stepId: string | null;
+                            }[];
+                            lastError: {
+                                /** Format: date-time */
+                                at: string;
+                                message: string;
+                                /** Format: uuid */
+                                runId: string;
+                                stepKey: string;
+                            } | null;
+                            name: string;
+                            reentry: string;
+                            revision: number;
+                            runs30d: number;
+                            source: {
+                                /** @enum {string} */
+                                kind: "blank" | "recipe" | "template";
+                                recipeKey: string | null;
+                                recipeName: string | null;
+                                template: {
+                                    /** Format: uuid */
+                                    id: string;
+                                    installedVersion: number | null;
+                                    latestVersion: number | null;
+                                    name: string;
+                                    updateAvailable: boolean;
+                                } | null;
+                            };
+                            /** @enum {string} */
+                            status: "draft" | "active" | "paused" | "archived";
+                            tested: boolean;
+                            testedRevision: number | null;
+                            trigger: {
+                                event: string | null;
+                                kind: string;
+                                summary: string;
+                            };
+                            /** Format: date-time */
+                            updatedAt: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    query_workflow_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    calendarId?: string;
+                    /** @default false */
+                    includeArchived?: boolean;
+                    status?: ("draft" | "active" | "paused" | "archived")[];
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: {
+                            activeRuns: number;
+                            activeVersion: {
+                                /** Format: uuid */
+                                id: string;
+                                version: number;
+                            } | null;
+                            allCalendars: boolean;
+                            calendarIds: string[];
+                            createdBy: {
+                                fullName: string;
+                                /** Format: uuid */
+                                id: string;
+                            } | null;
+                            description: string | null;
+                            /** Format: uuid */
+                            id: string;
+                            lastError: {
+                                /** Format: date-time */
+                                at: string;
+                                message: string;
+                                /** Format: uuid */
+                                runId: string;
+                                stepKey: string;
+                            } | null;
+                            name: string;
+                            reentry: string;
+                            revision: number;
+                            runs30d: number;
+                            source: {
+                                /** @enum {string} */
+                                kind: "blank" | "recipe" | "template";
+                                recipeKey: string | null;
+                                recipeName: string | null;
+                                template: {
+                                    /** Format: uuid */
+                                    id: string;
+                                    installedVersion: number | null;
+                                    latestVersion: number | null;
+                                    name: string;
+                                    updateAvailable: boolean;
+                                } | null;
+                            };
+                            /** @enum {string} */
+                            status: "draft" | "active" | "paused" | "archived";
+                            tested: boolean;
+                            testedRevision: number | null;
+                            trigger: {
+                                event: string | null;
+                                kind: string;
+                                summary: string;
+                            };
+                            /** Format: date-time */
+                            updatedAt: string;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    query_workflow_proposal_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    proposalId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        proposal: {
+                            appliedAt: string | null;
+                            baseRevision: number | null;
+                            changes: string[];
+                            /** Format: date-time */
+                            createdAt: string;
+                            createdBy: {
+                                fullName: string;
+                                /** Format: uuid */
+                                id: string;
+                            } | null;
+                            expired: boolean;
+                            /** Format: date-time */
+                            expiresAt: string;
+                            /** Format: uuid */
+                            id: string;
+                            ops: {
+                                [key: string]: unknown;
+                            }[];
+                            prompt: string;
+                            stale: boolean;
+                            summary: string | null;
+                            unsupported: string[];
+                            workflowId: string | null;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    query_workflow_run_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    runId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        approvals: {
+                            approvers: {
+                                fullName: string;
+                                /** Format: uuid */
+                                id: string;
+                            }[];
+                            canDecide: boolean;
+                            /** Format: date-time */
+                            createdAt: string;
+                            decidedAt: string | null;
+                            decidedBy: {
+                                fullName: string;
+                                /** Format: uuid */
+                                id: string;
+                            } | null;
+                            edits: {
+                                [key: string]: unknown;
+                            } | null;
+                            expiresAt: string | null;
+                            /** Format: uuid */
+                            id: string;
+                            person: {
+                                fullName: string;
+                                /** Format: uuid */
+                                id: string;
+                            } | null;
+                            preview: {
+                                [key: string]: unknown;
+                            };
+                            reason: string | null;
+                            /** Format: uuid */
+                            runId: string;
+                            /** @enum {string} */
+                            status: "pending" | "approved" | "rejected" | "expired" | "cancelled";
+                            stepKey: string;
+                            via: string | null;
+                            workflow: {
+                                /** Format: uuid */
+                                id: string;
+                                name: string;
+                            };
+                        }[];
+                        definition: {
+                            [key: string]: unknown;
+                        } | null;
+                        run: {
+                            appointmentId: string | null;
+                            context: {
+                                [key: string]: unknown;
+                            };
+                            conversationId: string | null;
+                            cursor: string | null;
+                            depth: number;
+                            endedAt: string | null;
+                            endReason: string | null;
+                            /** Format: uuid */
+                            id: string;
+                            isTest: boolean;
+                            leadId: string | null;
+                            originRunId: string | null;
+                            person: {
+                                fullName: string;
+                                /** Format: uuid */
+                                id: string;
+                            } | null;
+                            /** Format: date-time */
+                            startedAt: string;
+                            startedBy: string | null;
+                            /** @enum {string} */
+                            status: "running" | "waiting" | "awaiting_approval" | "held" | "completed" | "stopped" | "failed";
+                            stepCount: number;
+                            stopOn: string[];
+                            testMode: ("simulate" | "send_to_me") | null;
+                            testRevision: number | null;
+                            triggerEventId: string | null;
+                            version: number | null;
+                            versionId: string | null;
+                            visits: {
+                                [key: string]: number;
+                            };
+                            waitingFor: string[];
+                            workflow: {
+                                /** Format: uuid */
+                                id: string;
+                                name: string;
+                            };
+                        };
+                        steps: {
+                            attempt: number;
+                            error: {
+                                [key: string]: unknown;
+                            } | null;
+                            eventIds: string[];
+                            finishedAt: string | null;
+                            /** Format: uuid */
+                            id: string;
+                            input: {
+                                [key: string]: unknown;
+                            } | null;
+                            nextStepKey: string | null;
+                            output: {
+                                [key: string]: unknown;
+                            } | null;
+                            /** Format: date-time */
+                            startedAt: string;
+                            /** @enum {string} */
+                            status: "running" | "done" | "skipped" | "waiting" | "failed" | "dead";
+                            stepKey: string;
+                            tokens: number;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    query_workflow_run_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    cursor?: string;
+                    /** @default false */
+                    includeTests?: boolean;
+                    /** @default 50 */
+                    limit?: number;
+                    /** Format: uuid */
+                    personId?: string;
+                    status?: ("running" | "waiting" | "awaiting_approval" | "held" | "completed" | "stopped" | "failed")[];
+                    /** Format: uuid */
+                    workflowId?: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: {
+                            appointmentId: string | null;
+                            conversationId: string | null;
+                            cursor: string | null;
+                            depth: number;
+                            endedAt: string | null;
+                            endReason: string | null;
+                            /** Format: uuid */
+                            id: string;
+                            isTest: boolean;
+                            leadId: string | null;
+                            person: {
+                                fullName: string;
+                                /** Format: uuid */
+                                id: string;
+                            } | null;
+                            /** Format: date-time */
+                            startedAt: string;
+                            startedBy: string | null;
+                            /** @enum {string} */
+                            status: "running" | "waiting" | "awaiting_approval" | "held" | "completed" | "stopped" | "failed";
+                            stepCount: number;
+                            testMode: ("simulate" | "send_to_me") | null;
+                            testRevision: number | null;
+                            version: number | null;
+                            versionId: string | null;
+                            workflow: {
+                                /** Format: uuid */
+                                id: string;
+                                name: string;
+                            };
+                        }[];
+                        nextCursor: string | null;
+                    };
+                };
+            };
+        };
+    };
+    query_workflow_version_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    version: number;
+                    /** Format: uuid */
+                    workflowId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        version: {
+                            /** Format: date-time */
+                            createdAt: string;
+                            definition: {
+                                [key: string]: unknown;
+                            };
+                            diff: string[];
+                            /** Format: uuid */
+                            id: string;
+                            publishedBy: {
+                                fullName: string;
+                                /** Format: uuid */
+                                id: string;
+                            } | null;
+                            revision: number;
+                            source: string;
+                            testRunId: string | null;
+                            version: number;
+                            /** Format: uuid */
+                            workflowId: string;
+                        };
                     };
                 };
             };
