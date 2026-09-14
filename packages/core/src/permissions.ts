@@ -34,6 +34,7 @@ export const ROLE_PERMISSIONS = {
     'appointments.write',
     'workflows.manage',
     'knowledge.manage',
+    'ai_team.manage',
   ],
   admin: [
     'workspace.read',
@@ -59,6 +60,7 @@ export const ROLE_PERMISSIONS = {
     'appointments.write',
     'workflows.manage',
     'knowledge.manage',
+    'ai_team.manage',
   ],
   member: [
     'workspace.read',

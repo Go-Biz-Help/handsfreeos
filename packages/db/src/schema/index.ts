@@ -227,6 +227,7 @@ export const activityKind = app.enum('activity_kind', [
   'email',
   'sms',
   'system',
+  'chat',
 ]);
 export const fileStatus = app.enum('file_status', ['pending', 'ready']);
 export const importKind = app.enum('import_kind', ['people', 'companies']);
@@ -423,6 +424,8 @@ export const leads = app.table('leads', {
   createdBy: userRef('created_by'),
   ...timestamps(),
   searchText: text('search_text').generatedAlwaysAs(sql`lower(coalesce(title, ''))`),
+  // Milestone 7: answers to the qualifying questions, each question's text copied in (core's shape).
+  qualification: jsonb('qualification').$type<Json>().notNull().default({}),
 });
 
 export const tasks = app.table('tasks', {
@@ -509,7 +512,7 @@ export const registrationStatus = app.enum('registration_status', [
   'rejected',
   'failed',
 ]);
-export const channel = app.enum('channel', ['sms', 'email']);
+export const channel = app.enum('channel', ['sms', 'email', 'chat']);
 export const conversationStatus = app.enum('conversation_status', ['open', 'snoozed', 'closed']);
 export const direction = app.enum('direction', ['inbound', 'outbound']);
 export const messageStatus = app.enum('message_status', [
@@ -675,6 +678,10 @@ export const telephonyRegistrations = app.table('telephony_registrations', {
   ...timestamps(),
 });
 
+/** Milestone 7: who answers a conversation (declared here because `conversations` uses it). */
+export const conversationHandler = app.enum('conversation_handler', ['none', 'ai', 'person']);
+export type ConversationHandler = (typeof conversationHandler.enumValues)[number];
+
 export const conversations = app.table('conversations', {
   id: id(),
   workspaceId: workspaceRef(),
@@ -703,6 +710,22 @@ export const conversations = app.table('conversations', {
   }),
   /** Reply-To carries it as the mailbox hash, so a reply finds its conversation. */
   emailReplyToken: text('email_reply_token').unique(),
+  // Milestone 7: who answers it, and when it needs a person.
+  handledBy: conversationHandler('handled_by').notNull().default('none'),
+  aiTeammateId: uuid('ai_teammate_id').references((): AnyPgColumn => aiTeammates.id),
+  /** Raised whenever it changes hands; a run started under an older epoch is superseded. */
+  aiEpoch: integer('ai_epoch').notNull().default(0),
+  needsPersonSince: ts('needs_person_since'),
+  /**
+   * asked_for_person, frustrated, cant_answer, sensitive, emergency, legal, complaint, refund,
+   * cancellation, limit, budget, error, draft_expired, loop, other.
+   */
+  handoffReason: text('handoff_reason'),
+  handoffNote: text('handoff_note'),
+  takenOverBy: userRef('taken_over_by'),
+  /** The newest customer message the teammate has answered. */
+  aiAnsweredThrough: ts('ai_answered_through'),
+  aiDisclosedAt: ts('ai_disclosed_at'),
 });
 
 export const messages = app.table('messages', {
@@ -753,6 +776,16 @@ export const messages = app.table('messages', {
   mailboxConnectionId: uuid('mailbox_connection_id').references(() => mailboxConnections.id, {
     onDelete: 'set null',
   }),
+  // Milestone 7: the teammate that wrote it (never changes; sent_by is then null), its run and draft,
+  // and the person whose OK sent it.
+  sentByTeammateId: uuid('sent_by_teammate_id').references((): AnyPgColumn => aiTeammates.id),
+  aiRunId: uuid('ai_run_id').references((): AnyPgColumn => aiTeammateRuns.id, {
+    onDelete: 'set null',
+  }),
+  aiDraftId: uuid('ai_draft_id').references((): AnyPgColumn => aiTeammateDrafts.id, {
+    onDelete: 'set null',
+  }),
+  approvedBy: userRef('approved_by'),
 });
 
 export const calls = app.table('calls', {
@@ -1629,7 +1662,12 @@ export const templateInstallStatus = app.enum('template_install_status', [
   'installed',
   'failed',
 ]);
-export const aiUsageSource = app.enum('ai_usage_source', ['workflow', 'builder', 'knowledge']);
+export const aiUsageSource = app.enum('ai_usage_source', [
+  'workflow',
+  'builder',
+  'knowledge',
+  'teammate',
+]);
 export const knowledgeItemKind = app.enum('knowledge_item_kind', [
   'faq',
   'article',
@@ -1952,6 +1990,13 @@ export const aiUsage = app.table('ai_usage', {
   cacheReadTokens: integer('cache_read_tokens').notNull().default(0),
   cacheWriteTokens: integer('cache_write_tokens').notNull().default(0),
   createdAt: ts('created_at').notNull().defaultNow(),
+  // Milestone 7: the teammate (for its share of the daily limit) and the run it paid for.
+  teammateId: uuid('teammate_id').references((): AnyPgColumn => aiTeammates.id, {
+    onDelete: 'set null',
+  }),
+  teammateRunId: uuid('teammate_run_id').references((): AnyPgColumn => aiTeammateRuns.id, {
+    onDelete: 'set null',
+  }),
 });
 
 /** A business's profile for the AI (core's KnowledgeProfile), one per workspace. */
@@ -2053,7 +2098,231 @@ export const knowledgePacks = app.table('knowledge_packs', {
   ...timestamps(),
 });
 
+// ---------- Milestone 7: the AI teammate and website chat (0030-0034) ----------
+export const aiTeammateStatus = app.enum('ai_teammate_status', ['off', 'training', 'automatic']);
+export type AiTeammateStatus = (typeof aiTeammateStatus.enumValues)[number];
+
+/**
+ * A business's AI teammate: a row, never a user account. `config` is core's TeammateConfig. The counts,
+ * training_started_at, automatic_since and automatic_via follow from status changes (a guard trigger) and
+ * private.record_teammate_decision; people never write them.
+ */
+export const aiTeammates = app.table('ai_teammates', {
+  id: id(),
+  workspaceId: workspaceRef(),
+  name: text('name').notNull(),
+  status: aiTeammateStatus('status').notNull().default('off'),
+  config: jsonb('config').$type<Json>().notNull().default({}),
+  configVersion: integer('config_version').notNull().default(1),
+  revision: integer('revision').notNull().default(1),
+  /** Inferred from the config; descriptive only. */
+  labels: text('labels')
+    .array()
+    .notNull()
+    .default(sql`'{}'`),
+  approvedCount: integer('approved_count').notNull().default(0),
+  editedCount: integer('edited_count').notNull().default(0),
+  rejectedCount: integer('rejected_count').notNull().default(0),
+  trainingStartedAt: ts('training_started_at'),
+  automaticSince: ts('automatic_since'),
+  /** threshold, override. */
+  automaticVia: text('automatic_via'),
+  /** Reserved; one live teammate per workspace. */
+  archivedAt: ts('archived_at'),
+  createdBy: userRef('created_by'),
+  ...timestamps(),
+});
+
+/** Every save of a teammate's settings. Append-only. */
+export const aiTeammateRevisions = app.table('ai_teammate_revisions', {
+  id: id(),
+  workspaceId: workspaceRef(),
+  teammateId: uuid('teammate_id')
+    .notNull()
+    .references(() => aiTeammates.id, { onDelete: 'cascade' }),
+  revision: integer('revision').notNull(),
+  config: jsonb('config').$type<Json>().notNull(),
+  configVersion: integer('config_version').notNull(),
+  labels: text('labels')
+    .array()
+    .notNull()
+    .default(sql`'{}'`),
+  diffSummary: jsonb('diff_summary').$type<Json[]>().notNull().default([]),
+  changedBy: userRef('changed_by'),
+  createdAt: ts('created_at').notNull().defaultNow(),
+});
+
+/** One answer (or one try) in one conversation: the blueprint's "AI Run". One running per conversation. */
+export const aiTeammateRuns = app.table('ai_teammate_runs', {
+  id: id(),
+  workspaceId: workspaceRef(),
+  teammateId: uuid('teammate_id')
+    .notNull()
+    .references(() => aiTeammates.id, { onDelete: 'cascade' }),
+  conversationId: uuid('conversation_id').references(() => conversations.id, {
+    onDelete: 'set null',
+  }),
+  personId: uuid('person_id').references(() => people.id, { onDelete: 'set null' }),
+  leadId: uuid('lead_id').references(() => leads.id, { onDelete: 'set null' }),
+  /** The event or job that started it: message.received, lead.created, follow_up, test … */
+  triggeredBy: text('triggered_by').notNull(),
+  /** running, done, superseded, failed. */
+  status: text('status').notNull().default('running'),
+  /** replied, drafted, handed_off, no_reply. */
+  outcome: text('outcome'),
+  isTest: boolean('is_test').notNull().default(false),
+  aiEpoch: integer('ai_epoch'),
+  /** The customer messages it answered. */
+  messageIds: uuidArray('message_ids'),
+  replyText: text('reply_text'),
+  summary: text('summary'),
+  knowledge: jsonb('knowledge').$type<Json[]>().notNull().default([]),
+  checks: jsonb('checks').$type<Json[]>().notNull().default([]),
+  model: text('model'),
+  inputTokens: integer('input_tokens').notNull().default(0),
+  outputTokens: integer('output_tokens').notNull().default(0),
+  cacheReadTokens: integer('cache_read_tokens').notNull().default(0),
+  cacheWriteTokens: integer('cache_write_tokens').notNull().default(0),
+  toolSteps: integer('tool_steps').notNull().default(0),
+  error: text('error'),
+  startedAt: ts('started_at').notNull().defaultNow(),
+  endedAt: ts('ended_at'),
+  ...timestamps(),
+});
+
+/** Each tool a run used, once per (run_id, provider_call_id). */
+export const aiTeammateToolCalls = app.table('ai_teammate_tool_calls', {
+  id: id(),
+  workspaceId: workspaceRef(),
+  runId: uuid('run_id')
+    .notNull()
+    .references(() => aiTeammateRuns.id, { onDelete: 'cascade' }),
+  providerCallId: text('provider_call_id').notNull(),
+  tool: text('tool').notNull(),
+  arguments: jsonb('arguments').$type<Json>().notNull().default({}),
+  /** running, done, held, simulated, refused, failed. */
+  status: text('status').notNull().default('running'),
+  result: jsonb('result').$type<Json | Json[]>(),
+  error: text('error'),
+  command: text('command'),
+  ...timestamps(),
+});
+
+/** What waits for a person's OK: a reply (training wheels) or an approval (a discount). Decided once. */
+export const aiTeammateDrafts = app.table('ai_teammate_drafts', {
+  id: id(),
+  workspaceId: workspaceRef(),
+  teammateId: uuid('teammate_id')
+    .notNull()
+    .references(() => aiTeammates.id, { onDelete: 'cascade' }),
+  runId: uuid('run_id').references(() => aiTeammateRuns.id, { onDelete: 'set null' }),
+  /** null: a first message to a new lead, which starts the conversation once approved. */
+  conversationId: uuid('conversation_id').references(() => conversations.id, {
+    onDelete: 'cascade',
+  }),
+  personId: uuid('person_id').references(() => people.id, { onDelete: 'set null' }),
+  leadId: uuid('lead_id').references(() => leads.id, { onDelete: 'set null' }),
+  /** reply, approval. */
+  kind: text('kind').notNull(),
+  status: workflowApprovalStatus('status').notNull().default('pending'),
+  preview: jsonb('preview').$type<Json>().notNull().default({}),
+  edits: jsonb('edits').$type<Json>(),
+  reason: text('reason'),
+  decidedBy: userRef('decided_by'),
+  decidedAt: ts('decided_at'),
+  /** web, email, assistant, system. */
+  via: text('via'),
+  expiresAt: ts('expires_at'),
+  /** Fixed when the draft is made: the approved message's clientId. */
+  clientId: text('client_id').notNull(),
+  ...timestamps(),
+});
+
+/** A website chat widget: the snippet's public key and the sites it may show on. */
+export const chatWidgets = app.table('chat_widgets', {
+  id: id(),
+  workspaceId: workspaceRef(),
+  /** wk_ + 20 base62 characters, made by private.new_chat_widget_key(). */
+  publicKey: text('public_key')
+    .notNull()
+    .unique()
+    .default(sql`private.new_chat_widget_key()`),
+  /** 1-10 exact https origins (or loopback http origins for local testing). */
+  allowedOrigins: text('allowed_origins').array().notNull(),
+  teammateId: uuid('teammate_id').references(() => aiTeammates.id, { onDelete: 'set null' }),
+  greeting: text('greeting'),
+  launcherLabel: text('launcher_label').notNull().default('Chat with us'),
+  accentColor: text('accent_color').notNull().default('#2d69d8'),
+  /** right, left. */
+  position: text('position').notNull().default('right'),
+  awayMessage: text('away_message'),
+  askFor: jsonb('ask_for').$type<Json>().notNull().default({}),
+  smsConsent: boolean('sms_consent').notNull().default(true),
+  dailyCap: integer('daily_cap').notNull().default(200),
+  pausedAt: ts('paused_at'),
+  /** The install check; the worker's. */
+  lastSeenOrigin: text('last_seen_origin'),
+  lastSeenAt: ts('last_seen_at'),
+  createdBy: userRef('created_by'),
+  ...timestamps(),
+});
+
+/** One browser on one widget. People never read the token hashes or ip_hmac. */
+export const chatVisitors = app.table('chat_visitors', {
+  id: id(),
+  workspaceId: workspaceRef(),
+  widgetId: uuid('widget_id')
+    .notNull()
+    .references(() => chatWidgets.id, { onDelete: 'cascade' }),
+  tokenHash: bytea('token_hash').notNull().unique(),
+  tokenIssuedAt: ts('token_issued_at').notNull().defaultNow(),
+  prevTokenHash: bytea('prev_token_hash'),
+  prevTokenExpiresAt: ts('prev_token_expires_at'),
+  /** Its one conversation: counterpart chat:<visitor id>. */
+  conversationId: uuid('conversation_id')
+    .unique()
+    .references(() => conversations.id, { onDelete: 'set null' }),
+  name: text('name'),
+  phoneE164: text('phone_e164'),
+  email: text('email'),
+  /** A matching customer, linked and never edited. */
+  personId: uuid('person_id').references(() => people.id, { onDelete: 'set null' }),
+  ipHmac: bytea('ip_hmac'),
+  lastPagePath: text('last_page_path'),
+  lastSeenAt: ts('last_seen_at'),
+  turnstilePassedAt: ts('turnstile_passed_at'),
+  blockedAt: ts('blocked_at'),
+  networkBlockedUntil: ts('network_blocked_until'),
+  ...timestamps(),
+});
+
+/** "Typing", for a few seconds; the worker's alone. */
+export const chatSignals = app.table(
+  'chat_signals',
+  {
+    workspaceId: workspaceRef(),
+    conversationId: uuid('conversation_id')
+      .notNull()
+      .references(() => conversations.id, { onDelete: 'cascade' }),
+    /** typing. */
+    kind: text('kind').notNull().default('typing'),
+    signaledAt: ts('signaled_at').notNull().defaultNow(),
+    expiresAt: ts('expires_at')
+      .notNull()
+      .default(sql`now() + interval '8 seconds'`),
+  },
+  (t) => [primaryKey({ columns: [t.conversationId, t.kind] })],
+);
+
 export const tables = {
+  aiTeammates,
+  aiTeammateRevisions,
+  aiTeammateRuns,
+  aiTeammateToolCalls,
+  aiTeammateDrafts,
+  chatWidgets,
+  chatVisitors,
+  chatSignals,
   workflows,
   workflowVersions,
   workflowRuns,
