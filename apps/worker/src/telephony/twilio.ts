@@ -565,6 +565,9 @@ export function createTwilioTelephony(master: {
         InboundMethod: 'POST',
         StatusCallback: opts.statusCallbackUrl,
         UseInboundWebhookOnNumber: 'false',
+        // Curly quotes and dashes go out as their plain twins, so a text stays in the cheaper encoding
+        // (160 characters a segment instead of 70).
+        SmartEncoding: 'true',
       });
       return res.sid;
     },

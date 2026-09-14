@@ -184,6 +184,29 @@ describe('numbers and texts', () => {
     });
   });
 
+  it('creates the messaging service with smart encoding, so curly quotes don’t cost extra', async () => {
+    const seen = mockTwilio([
+      [
+        /^POST messaging\.twilio\.com\/v1\/Services$/,
+        () => ({ status: 201, json: { sid: 'MGnewtest' } }),
+      ],
+    ]);
+    const sid = await createTwilioTelephony(MASTER).createMessagingService(account, {
+      friendlyName: 'Lone Star HVAC',
+      inboundUrl: urls.smsUrl,
+      statusCallbackUrl: urls.smsStatusUrl,
+    });
+    expect(sid).toBe('MGnewtest');
+    expect(seen[0]!.auth).toBe('ACsubtest:sub-token');
+    expect(Object.fromEntries(seen[0]!.body)).toMatchObject({
+      FriendlyName: 'Lone Star HVAC',
+      InboundRequestUrl: urls.smsUrl,
+      StatusCallback: urls.smsStatusUrl,
+      UseInboundWebhookOnNumber: 'false',
+      SmartEncoding: 'true',
+    });
+  });
+
   it('sends through the messaging service with one MediaUrl per photo', async () => {
     const seen = mockTwilio([
       [

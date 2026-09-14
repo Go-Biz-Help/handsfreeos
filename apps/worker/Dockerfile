@@ -5,6 +5,7 @@
 # holds provider secrets), WORKER_ENCRYPTION_KEY (seals subaccount tokens), WORKER_PUBLIC_URL (the https
 # address providers call), WEB_ORIGINS, TWILIO_ACCOUNT_SID and TWILIO_AUTH_TOKEN, optional
 # TWILIO_PRIMARY_PROFILE_SID (local-number registration), WORKER_ENCRYPTION_KEYS_PREVIOUS, WORKER_HTTP_PORT (4100), WORKER_POLL_MS, WORKER_BATCH_SIZE, LOG_LEVEL.
+# The Assistant, workflow AI steps and the knowledge base: ANTHROPIC_API_KEY, ASSISTANT_MODEL, ASSISTANT_DAILY_TOKENS.
 
 FROM node:22-alpine AS base
 RUN npm install -g pnpm@12.3.4
@@ -14,11 +15,13 @@ COPY pnpm-lock.yaml pnpm-workspace.yaml package.json tsconfig.base.json ./
 # from the app's own node_modules, and `pnpm deploy` works across Docker layers.
 RUN printf '\nnodeLinker: hoisted\npackageImportMethod: copy\n' >> pnpm-workspace.yaml
 COPY apps/worker/package.json apps/worker/
+COPY packages/ai/package.json packages/ai/
 COPY packages/core/package.json packages/core/
 COPY packages/db/package.json packages/db/
 
 FROM base AS build
 RUN pnpm install --frozen-lockfile --filter @hfos/worker...
+COPY packages/ai packages/ai
 COPY packages/core packages/core
 COPY packages/db packages/db
 COPY apps/worker apps/worker
