@@ -240,6 +240,49 @@ test('the day-before and 2-hour reminders go out; STOP means email only; a cance
   expect(subjects.some((s) => s.startsWith('Reminder:'))).toBe(false);
 });
 
+/**
+ * A freed time is offered at once in the daytime. In quiet hours (8 PM to 8 AM where the business is) the offer
+ * waits until they end, so nobody's held time runs out while they sleep: then the waiting job runs now, as of
+ * 8 AM. Either way the customer gets the email, whatever time of day the suite runs.
+ */
+async function offerEmail(owner: Owner, calendarId: string, startsAt: string, to: string) {
+  const subject = 'A time opened: Leak check';
+  const at = Date.parse(startsAt);
+  const { items } = await api<{ items: { id: string }[] }>(
+    owner.token,
+    'queries',
+    'appointment.list',
+    {
+      workspaceId: owner.workspaceId,
+      from: new Date(at - 60_000).toISOString(),
+      to: new Date(at + 60_000).toISOString(),
+      calendarIds: [calendarId],
+      status: ['scheduled', 'cancelled'],
+    },
+  );
+  const waiting = `waitlist-offer-next:${items[0]!.id}`;
+  await expect
+    .poll(
+      async () => {
+        const run = await fetch(`${WORKER}/test/scheduled-jobs/run-due`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ workspaceId: owner.workspaceId, dedupeKeys: [waiting] }),
+        });
+        const { moved } = (await run.json()) as { moved: unknown[] };
+        if (moved.length > 0) return 'sent when quiet hours ended';
+        const search = await fetch(
+          `${MAILPIT}/api/v1/search?query=${encodeURIComponent(`to:"${to}"`)}`,
+        );
+        const { messages } = (await search.json()) as { messages: { Subject: string }[] };
+        return messages.some((m) => m.Subject.includes(subject)) ? 'sent at once' : 'not yet';
+      },
+      { timeout: 30_000 },
+    )
+    .not.toBe('not yet');
+  return waitForMail(to, subject);
+}
+
 test('a waitlist offer’s link shows the held time and books it', async ({ page, browser }) => {
   test.setTimeout(180_000);
   const owner = await ownerWithSite(page, 'offer-owner', 'Bayou Offer Plumbing');
@@ -271,7 +314,7 @@ test('a waitlist offer’s link shows the held time and books it', async ({ page
     body: '{}',
   });
   expect(cancelled.status).toBe(200);
-  const offer = await waitForMail(ivyEmail, 'A time opened: Leak check');
+  const offer = await offerEmail(owner, cal.id, at, ivyEmail);
   const link = /http:\/\/localhost:3000(\/w\/[0-9A-Za-z]{18})/.exec(offer.text)![1]!;
 
   const customer = await browser.newContext({ viewport: { width: 390, height: 844 } });
