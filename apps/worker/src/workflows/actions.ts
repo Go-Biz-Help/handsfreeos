@@ -31,7 +31,7 @@ import {
 } from '@hfos/core/server';
 import { rows, sql } from '@hfos/db/client';
 import type { z } from 'zod';
-import { managers } from '../handlers/telephony';
+import { workspaceManagers } from '../handlers/telephony';
 import { LIVE_STATUSES, MAX_DEPTH } from './constants';
 import { RunData } from './data';
 import { versionDefinition } from './defs';
@@ -144,7 +144,7 @@ async function usersById(ec: ExecCtx, ids: readonly string[]) {
 async function recipients(ec: ExecCtx, who: NotifyWho) {
   switch (who.kind) {
     case 'admins':
-      return (await managers(ec.tx, ec.scope.workspaceId)).map((u) => ({
+      return (await workspaceManagers(ec.tx, ec.scope.workspaceId)).map((u) => ({
         id: u.id,
         email: u.email,
         name: u.full_name || u.email,

@@ -22,12 +22,13 @@ export default async function SettingsPage({
   const { api } = await apiServer();
   const me = await fetchMe(api);
   const role = me.workspaces.find((w) => w.id === workspaceId)?.role;
-  // Both on unless turned off.
+  // All on unless turned off. The daily agency digest is for organization owners and admins only.
   const notifications = (
     me.user.settings as {
-      notifications?: { unansweredEmail?: boolean; bookingEmail?: boolean };
+      notifications?: { unansweredEmail?: boolean; bookingEmail?: boolean; agencyDigest?: boolean };
     }
   ).notifications;
+  const agency = me.organizations.some((o) => o.role === 'owner' || o.role === 'admin');
   return (
     <>
       <PageHeader title="Settings" description="Your account, and how this workspace is set up." />
@@ -44,9 +45,11 @@ export default async function SettingsPage({
           </Card>
           <Card className="p-6" id="notifications">
             <NotificationsSection
+              agency={agency}
               initial={{
                 unansweredEmail: notifications?.unansweredEmail !== false,
                 bookingEmail: notifications?.bookingEmail !== false,
+                agencyDigest: notifications?.agencyDigest !== false,
               }}
             />
           </Card>

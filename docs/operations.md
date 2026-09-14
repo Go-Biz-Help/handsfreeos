@@ -3208,7 +3208,7 @@ Under **Business details for the carriers**, the client fills in:
 | **Business address**                                           | Street, city, two-letter state, 5-digit ZIP or ZIP+4; US only                                                              |                                                                                                                                                                                                                                                                                                                          |
 | **Contact person**                                             | First and last name                                                                                                        | For a local number, this person is sent as the authorized representative, with the title Owner.                                                                                                                                                                                                                          |
 | **Contact phone and email**                                    | Both required                                                                                                              | Twilio's own emails about the registration go to this address, not to you. The phone is the default number for **Text me a test**. Use the client's own email and address. Twilio accepts each email address and each street address in at most ten brand registrations, so don't enter your own email for every client. |
-| **How customers agree to get texts**                           | 40 to 1,000 characters                                                                                                     | Say where customers give their number and that they agree to texts.                                                                                                                                                                                                                                                      |
+| **How customers agree to get texts**                           | 40 to 1,000 characters                                                                                                     | Say where customers give their number, that they agree to texts, and that some texts are automated: replies to new inquiries, a text back after a missed call, reminders, estimate follow-ups and review requests. The placeholder shows one.                                                                            |
 | **Two example texts** (local) or **Example texts** (toll-free) | 20 to 320 characters each; local needs both                                                                                | Follow the placeholders: name the business and end with "Reply STOP to opt out." If a local number has only one, the form shows "Local numbers need at least two example texts." under the example texts.                                                                                                                |
 | **What you text about**                                        | **Appointments, estimates and customer care**, **Customer care and occasional promotions** or **Marketing and promotions** |                                                                                                                                                                                                                                                                                                                          |
 | **Texts a month**                                              | **Under 1,000**, **1,000 to 10,000**, **10,000 to 100,000** or **Over 100,000**                                            | For a local number, **Under 1,000** registers a low-volume brand that skips the paid secondary vetting.                                                                                                                                                                                                                  |
@@ -5765,7 +5765,7 @@ Where to find them:
 
 Owners and admins of a business build, test, publish and pause its workflows, and edit its knowledge base. Everyone in the business can look at both, add a customer to a workflow or take them out, and decide an approval that names them.
 
-There is nothing new to set up on Fly.io or Vercel. The worker runs the workflows and the website scans. The AI parts use the Assistant's Anthropic key, model and daily limit ("The Assistant: Anthropic"). Without the key, everything else works, and the AI parts fall back as described below. The tables come from the migrations `20260916000100_workflows.sql` to `20260916000710_knowledge_files.sql`. If the hosted project doesn't have them yet, push them with "Apply new migrations" in "The database: Supabase (hosted)".
+There is nothing new to set up on Fly.io or Vercel. The worker runs the workflows and the website scans. The AI parts use the Assistant's Anthropic key, model and daily limit ("The Assistant: Anthropic"). Without the key, everything else works, and the AI parts fall back as described below. The tables come from the migrations `20260916000100_workflows.sql` to `20260916000710_knowledge_files.sql`, and the daily agency digest needs `20260917000100_agency_digest.sql`. If the hosted project doesn't have them yet, push them with "Apply new migrations" in "The database: Supabase (hosted)".
 
 ### How workflows run
 
@@ -5844,7 +5844,7 @@ HandsFreeOS holds to this even when two events arrive at the same moment. Two mo
 #### When a step fails
 
 - **A refusal** is HandsFreeOS saying no for a reason a person has to fix, such as a stage that was archived. It isn't tried again on its own. The step's **If this step fails** setting decides what happens: **Stop the run** (the default) or **Carry on with the next step**.
-- **Any other error**, such as a network problem, is tried again after about 5 seconds, then 10, 20 and 40. After 5 tries the step is marked failed for good, and the run fails. The business's owners and admins, and the agency's owners and admins, get an email titled "A workflow stopped: <workflow> for <customer>". It names the step and the error, and its **Open the run** button opens the run.
+- **Any other error**, such as a network problem, is tried again after about 5 seconds, then 10, 20 and 40. After 5 tries the step is marked failed for good, and the run fails. The business's own owners and admins get an email titled "A workflow stopped: <workflow> for <customer>". It names the step and the error, and its **Open the run** button opens the run. A business with no owner or admin of its own sends it to the organization's owners and admins instead. Otherwise the agency sees the failed run in its next daily agency digest.
 
 On the run's page, a failed step shows **Retry** and **Skip**. Only owners and admins see them.
 
@@ -5862,7 +5862,7 @@ An approval step holds the run until someone says yes or no. It fits right after
 - **Deciding:** the approver sees the AI-written text beside the customer's message and the knowledge it used, and can edit the text. Then **Approve** (**Approve and send** when a message goes out next) or **Reject**, with a reason if they like. An approval is decided once.
 - **Expiry:** after **If nobody answers in** (2 days unless changed), the step does what **Then** says: **Treat it as rejected** (the default), **Approve it and carry on**, or **End the run**. After a rejection, the steps under "If it’s rejected" run, then the run ends.
 
-The email goes to the people named on the step, or else to the business's owners and admins and the agency's owners and admins.
+The email goes to the people named on the step, or else to the business's own owners and admins. A business with no owner or admin of its own sends it to the organization's owners and admins. A workflow's **Notify the team** step, set to owners and admins, reaches the same people.
 
 #### AI steps and the daily AI limit
 
@@ -5991,6 +5991,22 @@ A knowledge pack is a set of FAQs, articles and facts for many businesses, such 
 
 Each business gets the items as suggestions under **Suggestions** → **Go Biz Help**, to accept, edit or reject. Nothing is added until someone there accepts it, and an item the business already has isn't suggested.
 
+#### The daily agency digest
+
+Around 8 AM each day, the organization's owners and admins get one email about the client businesses that need a look. It goes out only when something does. For each business it lists, with links:
+
+- workflow runs that failed in the last 24 hours;
+- approvals waiting, and how long the oldest has waited;
+- paused workflows;
+- templates with **Update available**;
+- knowledge suggestions waiting, for a business that is already on the list.
+
+Each person's email leaves out the businesses where they are an owner or admin themselves, because they get those emails as they happen. Someone with nothing left to list gets no email, so the owner of a single business never gets one.
+
+- The time is 8 AM in the time zone most of the organization's businesses use, or Central Time if it has none.
+- It goes out at most once a day.
+- Each person can turn it off with **Daily agency digest** under **Notifications** in **Settings** → **Account**. Only organization owners and admins see that switch.
+
 ### Try workflows and the knowledge base locally
 
 The seed gives the demo businesses workflows and a knowledge base to look at. Everything in it went through the same commands and the same engine as the app.
@@ -6082,7 +6098,7 @@ The three test addresses, `/test/scheduled-jobs/run-due`, `/test/knowledge/scan-
 Do these for each client business before any of its workflows is turned on.
 
 1. **Set its links.** In the business, open **Settings** → **Workspace**. Fill in **Website** and **Review link (Google Business Profile)**, then click **Save changes**. Workflows put them in texts as `{{business.website}}` and `{{links.review}}`, and the review recipe needs the review link.
-2. **Check that its texting registration covers automated follow-ups.** Speed to lead texts a new lead within minutes, and missed-call text back texts someone who just called. When a client picks **Appointments, estimates and customer care** under **What you text about**, HandsFreeOS tells the carriers the business texts "appointment confirmations, technician arrival notices, estimates and replies to customer questions". Read what the client wrote under **How customers agree to get texts** and in the example texts ("What a client fills in" in "The phone carrier: Twilio"), and make sure these texts fit. After approval the page no longer shows the details, so look in the client's subaccount in the Twilio console ("Carrier review and how long it takes").
+2. **Check that its texting registration covers automated follow-ups.** Speed to lead texts a new lead within minutes, and missed-call text back texts someone who just called. When a client picks **Appointments, estimates and customer care** under **What you text about**, HandsFreeOS tells the carriers the business sends "automated and one-to-one texts to people who contacted it or booked with it: replies to new inquiries, a text back after a missed call, appointment confirmations and reminders, technician arrival notices, follow-ups on estimates, review requests and answers to customer questions", and that every message includes opt-out instructions and replying STOP stops them. **Customer care and occasional promotions** says the same and adds occasional seasonal offers. A local number sends this as its campaign description, a toll-free number as its use-case summary. Registrations sent before September 2026 used a shorter description that doesn't mention automated texts. Read what the client wrote under **How customers agree to get texts** and in the example texts ("What a client fills in" in "The phone carrier: Twilio"), and make sure these texts fit. After approval the page no longer shows the details, so look in the client's subaccount in the Twilio console ("Carrier review and how long it takes").
 3. **Start its knowledge base.** Get the client's website address. In **Knowledge** → **Website**, type it, click **Save**, then **Scan website**. Accept, edit or reject the results in **Suggestions**. Fill in the rest of the profile with **Edit** on **Knowledge** → **Overview**.
 4. **Decide whether the AI may quote prices.** It's the **AI may quote prices** switch in the profile's **Prices** section, off until someone turns it on.
 5. **Test and publish each workflow.** In the workflow's **Test** tab, run **Simulate** or **Send to me** until it passes, then click **Publish**. For an AI step that writes to customers, decide whether an approval step checks each message first.
@@ -6091,7 +6107,7 @@ Do these for each client business before any of its workflows is turned on.
 
 #### A run failed
 
-1. Read the email "A workflow stopped: <workflow> for <customer>". It goes to the business's owners and admins, and to the agency's owners and admins. It names the step and the error.
+1. Read the email "A workflow stopped: <workflow> for <customer>". It goes to the business's own owners and admins, or to the organization's owners and admins when the business has none of its own. It names the step and the error. Otherwise the agency sees the failed run in the next daily agency digest.
 2. Click **Open the run**, or find the run in **Workflows** → **Runs**.
 
    You should see the failed step, with "Failed after 5 tries:" and the reason.

@@ -262,3 +262,127 @@ export function calendarReconnectEmail(input: {
   );
   return { subject, text, html };
 }
+
+/** One business in the daily agency digest: what needs a look there, each with where to look. */
+export interface DigestBusiness {
+  readonly name: string;
+  /** The business in HandsFreeOS. */
+  readonly link: string;
+  /** Runs that failed in the last 24 hours. */
+  readonly failedRuns: { readonly count: number; readonly link: string } | null;
+  readonly approvals: {
+    readonly count: number;
+    /** How long the oldest has waited. */
+    readonly oldestMinutes: number;
+    readonly link: string;
+  } | null;
+  readonly paused: { readonly names: readonly string[]; readonly link: string } | null;
+  /** Agency templates with a newer version than the business has. */
+  readonly updates: { readonly names: readonly string[]; readonly link: string } | null;
+  readonly suggestions: { readonly count: number; readonly link: string } | null;
+}
+
+const count = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
+
+/** "25 minutes", "5 hours", "3 days". */
+const waitedFor = (minutes: number) => {
+  if (minutes < 60) return count(Math.max(1, minutes), 'minute');
+  const hours = Math.floor(minutes / 60);
+  return hours < 48 ? count(hours, 'hour') : count(Math.floor(hours / 24), 'day');
+};
+
+/** "Estimate follow-up", "A and B", "A, B, C and 2 more". */
+const names = (list: readonly string[]) => {
+  const shown = list.slice(0, 3);
+  const more = list.length - shown.length;
+  if (more > 0) return `${shown.join(', ')} and ${more} more`;
+  return shown.length <= 1
+    ? shown.join('')
+    : `${shown.slice(0, -1).join(', ')} and ${shown[shown.length - 1]}`;
+};
+
+function digestLines(b: DigestBusiness): { text: string; link: string }[] {
+  const lines: { text: string; link: string }[] = [];
+  if (b.failedRuns)
+    lines.push({
+      text: `${count(b.failedRuns.count, 'workflow run')} failed in the last 24 hours`,
+      link: b.failedRuns.link,
+    });
+  if (b.approvals)
+    lines.push({
+      text:
+        b.approvals.count === 1
+          ? `1 approval waiting, for ${waitedFor(b.approvals.oldestMinutes)}`
+          : `${b.approvals.count} approvals waiting, the oldest for ${waitedFor(b.approvals.oldestMinutes)}`,
+      link: b.approvals.link,
+    });
+  if (b.paused) lines.push({ text: `Paused: ${names(b.paused.names)}`, link: b.paused.link });
+  if (b.updates)
+    lines.push({ text: `Update available: ${names(b.updates.names)}`, link: b.updates.link });
+  if (b.suggestions)
+    lines.push({
+      text: `${count(b.suggestions.count, 'knowledge suggestion')} waiting`,
+      link: b.suggestions.link,
+    });
+  return lines;
+}
+
+/** Once a day: an organization's businesses that need a look, for one of its owners or admins. */
+export function agencyDigestEmail(input: {
+  organization: string;
+  businesses: readonly DigestBusiness[];
+  /** The organization's agency area. */
+  agencyLink: string;
+}): EmailContent {
+  const n = input.businesses.length;
+  const subject = `${input.organization}: ${count(n, 'business', 'businesses')} need${n === 1 ? 's' : ''} a look today`;
+  const sum = (pick: (b: DigestBusiness) => number) =>
+    input.businesses.reduce((total, b) => total + pick(b), 0);
+  const summary = [
+    [sum((b) => b.failedRuns?.count ?? 0), 'failed run'],
+    [sum((b) => b.approvals?.count ?? 0), 'approval waiting', 'approvals waiting'],
+    [sum((b) => b.paused?.names.length ?? 0), 'paused workflow'],
+    [sum((b) => b.updates?.names.length ?? 0), 'update available', 'updates available'],
+  ] as const;
+  const preview = summary
+    .filter(([total]) => total > 0)
+    .map(([total, one, many]) => count(total, one, many))
+    .join(', ');
+  const intro = `Here’s what needs a look today across ${input.organization}.`;
+  const why = `You get this because you’re an owner or admin of ${input.organization}. Businesses where you’re an owner or admin yourself are left out, since you hear about those as it happens.`;
+  const stop = 'To stop these emails, open HandsFreeOS and go to Settings, then Account.';
+  const text = [
+    intro,
+    '',
+    ...input.businesses.flatMap((b) => [
+      b.name,
+      ...digestLines(b).map((l) => `- ${l.text}: ${l.link}`),
+      `Open ${b.name}: ${b.link}`,
+      '',
+    ]),
+    `Open the agency area: ${input.agencyLink}`,
+    '',
+    why,
+    stop,
+  ].join('\n');
+  const link = (href: string, label: string, color = '#2d69d8') =>
+    `<a href="${escapeHtml(href)}" style="color: ${color}; text-decoration: none;">${escapeHtml(label)}</a>`;
+  const block = (b: DigestBusiness) =>
+    `<div style="border-top: 1px solid #e4e8ee; padding: 14px 0 6px;">` +
+    `<p style="font-size: 15px; font-weight: 600; line-height: 1.4; margin: 0 0 6px;">${link(b.link, b.name, '#191d25')}</p>` +
+    `<ul style="margin: 0 0 8px; padding-left: 18px; font-size: 14px; line-height: 1.6;">${digestLines(
+      b,
+    )
+      .map((l) => `<li>${link(l.link, l.text)}</li>`)
+      .join('')}</ul></div>`;
+  const html = shell(
+    preheader(preview) +
+      wordmark +
+      para(escapeHtml(intro)) +
+      input.businesses.map(block).join('') +
+      button(input.agencyLink, 'Open the agency area') +
+      small(escapeHtml(why)) +
+      small(stop),
+  );
+  return { subject, text, html };
+}

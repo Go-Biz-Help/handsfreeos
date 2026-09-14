@@ -18,6 +18,7 @@ import {
   telephonyRegistrations,
   users,
 } from '@hfos/db/schema';
+import { DIGEST_JOBS, DIGEST_PLAN_KEY, digestJobs } from './agency-digest';
 import { appointmentNotice } from './booking/notices';
 import { appointmentReminder } from './booking/reminders';
 import { waitlistOfferExpire, waitlistOfferJob } from './booking/waitlist';
@@ -297,6 +298,8 @@ export const jobs: JobMap = {
   ...workflowJobs,
   // The agency's pushes: a template or knowledge pack into one business each.
   ...templateJobs,
+  // The daily agency digest: planning, and each organization's email.
+  ...digestJobs,
 };
 
 /** Periodic jobs exist exactly once (their dedupe key keeps one pending row); the first run is an hour out. */
@@ -314,6 +317,14 @@ export async function ensureRecurringJobs(services: WorkerServices): Promise<voi
     await scheduleJob(tx, {
       kind: 'email_domains.check',
       dedupeKey: 'check:email_domains',
+      runAt,
+      payload: {},
+      workspaceId: null,
+      organizationId: null,
+    });
+    await scheduleJob(tx, {
+      kind: DIGEST_JOBS.plan,
+      dedupeKey: DIGEST_PLAN_KEY,
       runAt,
       payload: {},
       workspaceId: null,

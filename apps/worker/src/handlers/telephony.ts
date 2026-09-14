@@ -317,6 +317,31 @@ export async function managers(
   );
 }
 
+/**
+ * Who hears about a workflow straight away (a dead step, an approval nobody is named for, "Notify the team →
+ * owners and admins"): the business's own owners and admins, members of the workspace itself. Its
+ * organization's owners and admins only when it has none, so someone always hears; otherwise the agency
+ * sees its clients in the daily digest (agency-digest.ts) instead of every email.
+ */
+export async function workspaceManagers(
+  tx: Tx,
+  workspaceId: string,
+): Promise<{ id: string; email: string; full_name: string; settings: Record<string, unknown> }[]> {
+  return rows(
+    tx,
+    sql`with own as (
+          select wm.user_id from app.workspace_memberships wm
+          where wm.workspace_id = ${workspaceId} and wm.role in ('owner', 'admin'))
+        select u.id, u.email::text as email, u.full_name, u.settings from app.users u
+        where u.id in (select user_id from own)
+           or (not exists (select 1 from own) and u.id in (
+                select om.user_id from app.organization_memberships om
+                join app.workspaces w on w.organization_id = om.organization_id
+                where w.id = ${workspaceId} and om.role in ('owner', 'admin')))
+        order by u.email`,
+  );
+}
+
 /** Hands a queued text to the carrier; the status callbacks take it from there. */
 export const onMessageQueued: EventHandler = async (ctx) => {
   const scope = tenantOf(ctx.scope);

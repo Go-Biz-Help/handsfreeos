@@ -14,7 +14,8 @@
  * Errors: a refusal (a rule, or anything a person must fix) isn't retried: the step's onError stops the run
  * (failed) or carries on (the step skipped, the error kept). Anything else is retried with the outbox's
  * backoff times jitter, by rescheduling this same job, so the cursor never dies; after MAX_STEP_ATTEMPTS the
- * step is dead, the run failed, and the owners and admins get an email. Retry and Skip revive it.
+ * step is dead, the run failed, and the business's own owners and admins get an email (workspaceManagers).
+ * Retry and Skip revive it.
  */
 import {
   ACTION_LABELS,
@@ -37,7 +38,7 @@ import { asWorker, rows, sql, type Tx } from '@hfos/db/client';
 import { workflowRuns, workflowRunSteps, workflows } from '@hfos/db/schema';
 import { eq } from 'drizzle-orm';
 import type { Logger } from 'pino';
-import { managers } from '../handlers/telephony';
+import { workspaceManagers } from '../handlers/telephony';
 import type { JobHandler } from '../jobs';
 import { backoffMs, errorMessage } from '../outbox';
 import { tenantOf, type TenantScope } from '../services';
@@ -1006,7 +1007,7 @@ async function failed(
     await endRun(tx, scope, endedOf(run), 'failed', 'step_failed');
     if (!run.isTest) {
       const def = await runDefinition(tx, run).catch(() => null);
-      const people = await managers(tx, scope.workspaceId);
+      const people = await workspaceManagers(tx, scope.workspaceId);
       const [w] = await rows<{ name: string }>(
         tx,
         sql`select name from app.workflows where id = ${run.workflowId}`,

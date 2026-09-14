@@ -19,7 +19,7 @@ import {
   type ApprovalStep,
 } from '@hfos/core/server';
 import { rows, sql } from '@hfos/db/client';
-import { managers } from '../handlers/telephony';
+import { workspaceManagers } from '../handlers/telephony';
 import { EARLY_MS } from './constants';
 import { approvalRequestEmail } from './emails';
 import { recordEngineEvent } from './events';
@@ -156,7 +156,7 @@ export async function openApproval(ec: ExecCtx): Promise<Outcome> {
             sql`, `,
           )})`,
         )
-      : await managers(ec.tx, ws);
+      : await workspaceManagers(ec.tx, ws);
     const mail = approvalRequestEmail({
       workflow: ec.workflow.name,
       customer,

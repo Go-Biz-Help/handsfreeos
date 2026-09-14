@@ -748,11 +748,11 @@ function BusinessStep({
       >
         <Textarea
           id="biz-optIn"
-          className="min-h-16"
+          className="min-h-32"
           value={form.optIn}
           onChange={(e) => set('optIn')(e.target.value)}
           invalid={!!errors.optIn}
-          placeholder="Customers give us their cell number when they call, book on our website or sign an estimate, and we ask if we can text them about their appointment."
+          placeholder="Customers give us their cell number when they call or text, fill in our website form, book online or sign an estimate, and agree to get texts from us. We only send automated texts to people who contacted us or booked with us: replies to new inquiries, a text back after a missed call, appointment confirmations and reminders, follow-ups on estimates and review requests. Every text says how to opt out, and replying STOP stops them."
         />
       </Field>
       <div className="mb-3.5">
@@ -763,14 +763,14 @@ function BusinessStep({
             value={form.sample1}
             onChange={(e) => set('sample1')(e.target.value)}
             invalid={!!errors.sample1}
-            placeholder={`Hi Mike, this is ${businessName}. Marco is on the way and should arrive around 2:30. Reply STOP to opt out.`}
+            placeholder={`Hi Mike, this is ${businessName}. Sorry we missed your call! How can we help? Reply STOP to opt out.`}
           />
           <Input
             aria-label="Second example text"
             value={form.sample2}
             onChange={(e) => set('sample2')(e.target.value)}
             invalid={!!errors.sample2}
-            placeholder="Your estimate for the roof replacement is ready. Reply with any questions. Reply STOP to opt out."
+            placeholder={`Hi Mike, it’s ${businessName}. Just checking in on your AC estimate. Any questions? Reply STOP to opt out.`}
           />
         </div>
         <FieldError>{errors.sample1 ?? errors.sample2}</FieldError>
@@ -1024,7 +1024,8 @@ function Rejected({
           <div className="text-xs text-text-3">A line you can copy onto your website form</div>
           <p className="mt-1 text-[13px]">
             “By giving us your cell number you agree to receive texts from {businessName} about your
-            service. Message rates may apply. Reply STOP to opt out.”
+            service, including automated texts about your inquiry, appointments, estimates and
+            reviews. Message rates may apply. Reply STOP to opt out.”
           </p>
         </div>
       ) : null}

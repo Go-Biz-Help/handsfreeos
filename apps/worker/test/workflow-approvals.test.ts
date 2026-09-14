@@ -11,7 +11,7 @@ import {
   type WorkflowDefinitionInput,
 } from '@hfos/core/server';
 import { rows, sql } from '@hfos/db/client';
-import { closeTestDbs } from '@hfos/db/testing';
+import { closeTestDbs, createTestUser, type TestUser } from '@hfos/db/testing';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
   addWorkflow,
@@ -20,6 +20,7 @@ import {
   drain,
   eventsOf,
   flowWorld,
+  mailTo,
   run,
   runJob,
   runOf,
@@ -31,8 +32,16 @@ import {
 } from './workflow-world';
 
 let w: World;
+/** An admin of the organization (the agency) who isn't a member of the business. */
+let agencyAdmin: TestUser;
 beforeAll(async () => {
   w = await flowWorld('wfappr');
+  agencyAdmin = await createTestUser('wfappr-agency', { fullName: 'Ann Agency' });
+  await rows(
+    admin(),
+    sql`insert into app.organization_memberships (organization_id, user_id, role)
+        values (${w.organizationId}, ${agencyAdmin.id}, 'admin')`,
+  );
 });
 afterAll(async () => {
   await w.app.close();
@@ -138,6 +147,11 @@ describe('approval steps', () => {
     const mail = await waitForMail(w.owner.email, 'Approval needed: Check the apology');
     expect(mail.text).toContain(FALLBACK);
     expect(mail.text).toContain(`/app/w/${w.workspaceId}/workflows/approvals`);
+    // The business has an owner of its own: the agency's admin reads about it in the daily digest instead.
+    await new Promise((r) => setTimeout(r, 300));
+    expect(
+      (await mailTo(agencyAdmin.email)).filter((m) => m.Subject.startsWith('Approval needed')),
+    ).toEqual([]);
 
     await decide(a.id, 'approve', {
       edits: { message: 'We’re so sorry, Amy. Dale will call you by noon.' },

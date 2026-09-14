@@ -1,20 +1,31 @@
 /**
  * When steps fail. A passing failure (an outgoing webhook's address answering 503) is retried by rescheduling
- * the run's own job; after five tries the step is dead, the run failed, and the owners are emailed a link to
- * the run. Retry and Skip revive it. A rule refusal (moving a lead that was archived meanwhile) isn't retried:
- * the step's onError stops the run or carries on.
+ * the run's own job; after five tries the step is dead, the run failed, and the business's own owners and admins
+ * are emailed a link to the run (the organization's only when the business has none of its own; otherwise the
+ * agency reads it in the daily digest). Retry and Skip revive it. A rule refusal (moving a lead that was
+ * archived meanwhile) isn't retried: the step's onError stops the run or carries on.
  */
-import { leadArchive, leadCreate, workflowRetryStep, workflowSkipStep } from '@hfos/core/server';
-import { rows, sql } from '@hfos/db/client';
-import { closeTestDbs } from '@hfos/db/testing';
+import {
+  leadArchive,
+  leadCreate,
+  workflowEnrol,
+  workflowRetryStep,
+  workflowSkipStep,
+  workspaceCreate,
+} from '@hfos/core/server';
+import { asWorker, rows, sql } from '@hfos/db/client';
+import { closeTestDbs, createTestUser, type TestUser } from '@hfos/db/testing';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { workspaceManagers } from '../src/handlers/telephony';
 import {
   addWorkflow,
   admin,
+  CHI,
   customerNamed,
   drain,
   fixtureSite,
   flowWorld,
+  mailTo,
   run,
   runJob,
   runJobAt,
@@ -28,10 +39,24 @@ import {
 
 let w: World;
 let site: Awaited<ReturnType<typeof fixtureSite>>;
+/** An admin of the organization (the agency) who isn't a member of the business. */
+let agencyAdmin: TestUser;
 beforeAll(async () => {
   site = await fixtureSite();
   w = await flowWorld('wffail', { fetchUrl: site.fetchUrl });
+  agencyAdmin = await createTestUser('wffail-agency', { fullName: 'Ann Agency' });
+  await rows(
+    admin(),
+    sql`insert into app.organization_memberships (organization_id, user_id, role)
+        values (${w.organizationId}, ${agencyAdmin.id}, 'admin')`,
+  );
 });
+
+/** No email to `to` whose subject starts with `subject` (after a moment for Mailpit to take one in). */
+async function noMail(to: string, subject: string): Promise<void> {
+  await new Promise((r) => setTimeout(r, 300));
+  expect((await mailTo(to)).filter((m) => m.Subject.startsWith(subject))).toEqual([]);
+}
 afterAll(async () => {
   await w.app.close();
   await site.close();
@@ -76,7 +101,6 @@ describe('a step that keeps failing', () => {
 
   async function start(first: string) {
     const p = await customerNamed(w, first);
-    const { workflowEnrol } = await import('@hfos/core/server');
     await run(w, workflowEnrol, { workspaceId: w.workspaceId, workflowId: wfId, personId: p.id });
     await drain(w);
     return { p, runId: (await runsOf(wfId)).find((r) => r.person_id === p.id)!.id };
@@ -102,6 +126,8 @@ describe('a step that keeps failing', () => {
     const mail = await waitForMail(w.owner.email, 'A workflow stopped: Flaky hook');
     expect(mail.text).toContain(`/app/w/${w.workspaceId}/workflows/runs/${runId}`);
     expect(mail.text).toContain('Send a webhook');
+    // The business has an owner of its own: the agency's admin reads about it in the daily digest instead.
+    await noMail(agencyAdmin.email, 'A workflow stopped');
 
     // The address is fixed; Retry revives the run and the step goes through.
     site.status = 200;
@@ -184,5 +210,52 @@ describe('a rule refusal', () => {
     expect(skipped).toMatchObject({ status: 'skipped' });
     expect(skipped.output).toMatchObject({ skipped: 'refused', rule: 'lead_archived' });
     expect(await notesOf(p.id)).toEqual(['Moved Heat pump']);
+  });
+});
+
+describe('a business with no owner or admin of its own', () => {
+  it('emails the organization’s owners and admins instead, so someone hears straight away', async () => {
+    // The agency adds a business for a client; nobody is a member of it yet.
+    const { workspaceId } = await run(w, workspaceCreate, {
+      organizationId: w.organizationId,
+      name: 'Fallback Plumbing Test',
+      timezone: CHI,
+    });
+    const bare: World = { ...w, workspaceId };
+    const managersOf = async (ws: string) =>
+      (
+        await asWorker(w.s.db, { workspaceId: ws, organizationId: w.organizationId }, (tx) =>
+          workspaceManagers(tx, ws),
+        )
+      )
+        .map((u) => u.id)
+        .sort();
+    expect(await managersOf(w.workspaceId)).toEqual([w.owner.id]);
+    expect(await managersOf(workspaceId)).toEqual([w.owner.id, agencyAdmin.id].sort());
+
+    const hookId = sid('bhook');
+    const wf = await addWorkflow(bare, 'Bare hook', {
+      version: 1,
+      trigger: { kind: 'manual' },
+      steps: [
+        {
+          id: hookId,
+          type: 'action',
+          action: 'webhook_out',
+          config: { url: 'https://hooks.fixture.test/bare', include: ['person'] },
+        },
+      ],
+    });
+    site.status = 503;
+    const p = await customerNamed(bare, 'Bo');
+    await run(bare, workflowEnrol, { workspaceId, workflowId: wf.id, personId: p.id });
+    await drain(bare);
+    const runId = (await runsOf(wf.id)).find((r) => r.person_id === p.id)!.id;
+    for (let i = 2; i <= 5; i++) await runJob(bare, runId);
+    site.status = 200;
+    expect((await stepOf(runId, hookId))!).toMatchObject({ status: 'dead', attempt: 5 });
+    const mail = await waitForMail(agencyAdmin.email, 'A workflow stopped: Bare hook');
+    expect(mail.text).toContain(`/app/w/${workspaceId}/workflows/runs/${runId}`);
+    await waitForMail(w.owner.email, 'A workflow stopped: Bare hook');
   });
 });

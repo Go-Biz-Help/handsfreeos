@@ -497,7 +497,7 @@ describe('the daily domain check', () => {
     expect(audit.every((a) => a.actor_type === 'system')).toBe(true);
   });
 
-  it('is registered once, like the webhook sweep', async () => {
+  it('is registered once, like the webhook sweep and the agency digest’s planning', async () => {
     await ensureRecurringJobs(s);
     await ensureRecurringJobs(s);
     const [pending] = await rows<{ n: number }>(
@@ -505,6 +505,11 @@ describe('the daily domain check', () => {
       sql`select count(*)::int as n from app.scheduled_jobs where kind = 'email_domains.check' and status = 'pending'`,
     );
     expect(pending?.n).toBe(1);
+    const [plan] = await rows<{ n: number }>(
+      admin(),
+      sql`select count(*)::int as n from app.scheduled_jobs where kind = 'agency_digest.plan' and status = 'pending'`,
+    );
+    expect(plan?.n).toBe(1);
   });
 });
 

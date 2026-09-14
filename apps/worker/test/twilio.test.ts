@@ -92,6 +92,9 @@ const business = {
     'Customers give us their cell number when they book a visit and agree to texts about it.',
   monthlyVolume: 'under_1000',
 };
+/** What the carriers are told a customer-care business texts: the 10DLC Description and toll-free UseCaseSummary. */
+const CARE_USE_CASE =
+  'Lone Star HVAC LLC sends automated and one-to-one texts to people who contacted it or booked with it: replies to new inquiries, a text back after a missed call, appointment confirmations and reminders, technician arrival notices, follow-ups on estimates, review requests and answers to customer questions. Every message includes opt-out instructions, and replying STOP stops them.';
 const request = (
   kind: RegistrationKind,
   previous: RegistrationRequest['previous'] = {},
@@ -321,6 +324,9 @@ describe('toll-free verification', () => {
       OptInType: 'VERBAL',
     });
     expect(body.getAll('UseCaseCategories')).toEqual(['CUSTOMER_CARE', 'ACCOUNT_NOTIFICATIONS']);
+    // The use case names the automated texts and STOP; how customers agree goes alongside it.
+    expect(body.get('UseCaseSummary')).toBe(CARE_USE_CASE);
+    expect(body.get('AdditionalInformation')).toBe(business.optInDescription);
     expect(
       await t.fetchRegistration(account, {
         kind: 'toll_free_verification',
@@ -332,6 +338,27 @@ describe('toll-free verification', () => {
       status: 'rejected',
       rejectionReason: 'Opt-in is unclear.',
     });
+  });
+
+  it('tells the carriers a business with occasional promotions sends the same, plus offers', async () => {
+    const seen = mockTwilio([
+      [
+        /^POST messaging\.twilio\.com\/v1\/Tollfree\/Verifications$/,
+        () => ({ status: 201, json: { sid: 'HHmixedtest', status: 'PENDING_REVIEW' } }),
+      ],
+    ]);
+    const t = createTwilioTelephony(MASTER);
+    await t.submitRegistration(
+      account,
+      request('toll_free_verification', {}, { ...business, useCase: 'mixed' }),
+    );
+    expect(seen[0]!.body.get('UseCaseSummary')).toBe(
+      CARE_USE_CASE.replace(
+        'answers to customer questions.',
+        'answers to customer questions, and occasional seasonal offers.',
+      ),
+    );
+    expect(seen[0]!.body.getAll('UseCaseCategories')).toContain('MARKETING');
   });
 });
 
@@ -522,7 +549,7 @@ describe('local numbers (10DLC)', () => {
       HasEmbeddedPhone: 'false',
       MessageFlow: business.optInDescription,
     });
-    expect(body.get('Description')!.length).toBeGreaterThanOrEqual(40);
+    expect(body.get('Description')).toBe(CARE_USE_CASE);
 
     await expect(
       t.submitRegistration(

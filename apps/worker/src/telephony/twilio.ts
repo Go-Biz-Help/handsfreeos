@@ -164,13 +164,25 @@ const A2P_USE_CASE: Record<string, string> = {
   mixed: 'MIXED',
   marketing: 'MARKETING',
 };
-const CAMPAIGN_DESCRIPTION: Record<string, string> = {
-  customer_care:
-    'appointment confirmations, technician arrival notices, estimates and replies to customer questions',
-  mixed:
-    'appointment confirmations, arrival notices, replies to customer questions and occasional seasonal offers',
-  marketing: 'seasonal offers and maintenance reminders',
+/**
+ * What the business texts, as the carriers read it after "<legal name> sends". Workflows text on their own
+ * (speed to lead, missed-call text back, reminders, estimate follow-ups, review requests), and the carriers
+ * approve what's described, so the customer-care wording says so plainly.
+ */
+const AUTOMATED_CARE =
+  'automated and one-to-one texts to people who contacted it or booked with it: replies to new inquiries, a text back after a missed call, appointment confirmations and reminders, technician arrival notices, follow-ups on estimates, review requests and answers to customer questions';
+const USE_CASE_TEXTS: Record<string, string> = {
+  customer_care: AUTOMATED_CARE,
+  mixed: `${AUTOMATED_CARE}, and occasional seasonal offers`,
+  marketing: 'texts to its customers about seasonal offers and maintenance reminders',
 };
+const OPT_OUT_SENTENCE =
+  'Every message includes opt-out instructions, and replying STOP stops them.';
+
+/** The use case the carriers approve: a 10DLC campaign's Description and a toll-free UseCaseSummary. */
+function useCaseDescription(b: Business): string {
+  return `${b.legalName} sends ${USE_CASE_TEXTS[b.useCase] ?? AUTOMATED_CARE}. ${OPT_OUT_SENTENCE}`;
+}
 
 /** The carrier's reason in one line, from whichever field this resource uses. */
 function reasonOf(res: TwilioStatus): string | null {
@@ -332,7 +344,7 @@ function tollFreeDetails(request: RegistrationRequest, b: Business): Params {
     BusinessWebsite: b.website,
     NotificationEmail: request.notifyEmail || b.contact.email,
     UseCaseCategories: USE_CASES[b.useCase] ?? USE_CASES['customer_care'],
-    UseCaseSummary: b.optInDescription,
+    UseCaseSummary: useCaseDescription(b),
     ProductionMessageSample: b.messageSamples.join('\n\n'),
     OptInImageUrls: [b.website],
     OptInType: 'VERBAL',
@@ -523,7 +535,7 @@ async function submitCampaign(
     `${MESSAGING}/Services/${serviceSid}/Compliance/Usa2p`,
     {
       BrandRegistrationSid: brandSid,
-      Description: `${b.legalName} texts its customers: ${CAMPAIGN_DESCRIPTION[b.useCase] ?? CAMPAIGN_DESCRIPTION['customer_care']}.`,
+      Description: useCaseDescription(b),
       MessageFlow: b.optInDescription.slice(0, 2048),
       MessageSamples: samples,
       UsAppToPersonUsecase: A2P_USE_CASE[b.useCase] ?? 'CUSTOMER_CARE',
