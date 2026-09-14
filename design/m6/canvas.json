@@ -1,0 +1,203 @@
+{
+  "artboards": [
+    {
+      "file": "Main.dc.html",
+      "title": "Workflows: the list",
+      "x": 0,
+      "y": 0,
+      "w": 1440,
+      "h": 900,
+      "is_interactive": true
+    },
+    {
+      "file": "New.dc.html",
+      "title": "New workflow: how do you want to start?",
+      "x": 1520,
+      "y": 0,
+      "w": 1280,
+      "h": 900,
+      "is_interactive": true
+    },
+    {
+      "file": "Phone.dc.html",
+      "title": "On a phone",
+      "x": 2880,
+      "y": 0,
+      "w": 390,
+      "h": 844,
+      "is_interactive": true
+    },
+    {
+      "file": "Steps.dc.html",
+      "title": "Editor: Steps",
+      "x": 0,
+      "y": 1020,
+      "w": 1440,
+      "h": 1100,
+      "is_interactive": true
+    },
+    {
+      "file": "Canvas.dc.html",
+      "title": "Editor: Canvas",
+      "x": 1520,
+      "y": 1020,
+      "w": 1440,
+      "h": 1100,
+      "is_interactive": true
+    },
+    {
+      "file": "Describe.dc.html",
+      "title": "Editor: Describe, and AI drafts the change",
+      "x": 3040,
+      "y": 1020,
+      "w": 1440,
+      "h": 1100,
+      "is_interactive": true
+    },
+    {
+      "file": "Panels.dc.html",
+      "title": "Step settings",
+      "x": 0,
+      "y": 2240,
+      "w": 1760,
+      "h": 1400
+    },
+    {
+      "file": "Test.dc.html",
+      "title": "Checks, test runs and history",
+      "x": 1840,
+      "y": 2240,
+      "w": 1280,
+      "h": 1200
+    },
+    {
+      "file": "Runs.dc.html",
+      "title": "Runs, with Retry and Skip",
+      "x": 3200,
+      "y": 2240,
+      "w": 1440,
+      "h": 900
+    },
+    {
+      "file": "Approvals.dc.html",
+      "title": "Approvals",
+      "x": 0,
+      "y": 3760,
+      "w": 1280,
+      "h": 900
+    },
+    {
+      "file": "Records.dc.html",
+      "title": "Customer page, audit log and calendar Automations",
+      "x": 1360,
+      "y": 3760,
+      "w": 1280,
+      "h": 1120
+    },
+    {
+      "file": "Assistant.dc.html",
+      "title": "Ask HandsFreeOS about workflows",
+      "x": 2720,
+      "y": 3760,
+      "w": 1280,
+      "h": 1120
+    },
+    {
+      "file": "Agency.dc.html",
+      "title": "The Go Biz Help agency area",
+      "x": 0,
+      "y": 5000,
+      "w": 1760,
+      "h": 1400
+    },
+    {
+      "file": "States.dc.html",
+      "title": "Empty and problem states",
+      "x": 1840,
+      "y": 5000,
+      "w": 1280,
+      "h": 1120
+    },
+    {
+      "file": "Knowledge.dc.html",
+      "title": "Knowledge: overview and Try it",
+      "x": 0,
+      "y": 6520,
+      "w": 1440,
+      "h": 900,
+      "is_interactive": true
+    },
+    {
+      "file": "KnowledgeItems.dc.html",
+      "title": "FAQs, articles, facts and documents",
+      "x": 1520,
+      "y": 6520,
+      "w": 1440,
+      "h": 1100
+    },
+    {
+      "file": "WebsiteScan.dc.html",
+      "title": "Scan your website",
+      "x": 3040,
+      "y": 6520,
+      "w": 1280,
+      "h": 1120,
+      "is_interactive": true
+    },
+    {
+      "file": "Suggestions.dc.html",
+      "title": "Suggestions: scans, gaps and packs",
+      "x": 4400,
+      "y": 6520,
+      "w": 1280,
+      "h": 1000
+    }
+  ],
+  "annotations": [
+    {
+      "id": "direction",
+      "x": 0,
+      "y": -320,
+      "w": 900,
+      "text": "HandsFreeOS Milestone 6: Workflows and the Knowledge base. Same look as Milestones 1 to 5. One workflow, three editors: Steps (the default), Canvas and Describe all change the same draft, so an edit in one shows in the others. Workflows text and email on their own once published, after a passing test, with quiet hours, opt-outs, a pause button and approval steps. AI steps write from the Knowledge base.\nTry: Main (filters, on and off), New (pick a card), Steps (select steps, the first +, Checks then Fix, Test then Publish, the Other path), Canvas (nodes, zoom, minimap), Describe (Apply, Discard, Undo, Add the booking link), Phone (Preview menu), Knowledge (Try it, the prices switch) and Scan your website (pages, Accept, Edit and accept, Reject, Scan again)."
+    },
+    {
+      "id": "sample-data",
+      "x": 1520,
+      "y": -320,
+      "w": 640,
+      "text": "Sample data only: Lone Star HVAC & Roofing is a fictional client workspace of Go Biz Help, in Houston. Every screen is Thursday, September 17, 10:40 AM Central Time. Bayou Plumbing and Summit Roofing are fictional client businesses. People, numbers, prices and addresses are placeholders."
+    },
+    {
+      "id": "phone-note",
+      "x": 3350,
+      "y": 0,
+      "w": 380,
+      "text": "Phone: Workflows and Knowledge live in the drawer (More), so the bottom bar stays at five. A step opens in a bottom sheet. The canvas is view only on a phone; Steps and Describe edit. Use the Preview menu to see each screen."
+    },
+    {
+      "id": "decisions",
+      "x": 4560,
+      "y": 1020,
+      "w": 560,
+      "text": "For you to decide on this canvas:\n1. The recipe names and one-line descriptions (New workflow).\n2. The first-text wording for Missed-call text back and Speed to lead.\n3. Whether AI-written texts always need an approval step (the recipes include one).\n4. The AI sort categories: Emergency, Book, Question and Other.\n5. Whether Lone Star lets AI quote prices. It’s off in these screens."
+    },
+    {
+      "id": "assumptions",
+      "x": 4560,
+      "y": 1460,
+      "w": 560,
+      "text": "Choices I made that the plan didn’t spell out:\n• Lone Star runs Go Biz Help’s missed-call template (v3) rather than the built-in recipe, and has a second template, “Tune-up season reminder”, on v1 so the Update available chip shows.\n• Summit Roofing is the client one version behind on the missed-call template.\n• Variables show as chips (First name, Booking link); typing two braces opens the list.\n• “Estimate follow-up (home services)” is the template being pushed, so the unmatched “Estimate sent stage” shows for Bayou Plumbing.\n• Knowledge has six tabs: Overview, FAQs & articles, Facts, Documents, Website and Suggestions.\n• The website-scan block by robots.txt is shown on Bayou Plumbing’s site."
+    },
+    {
+      "id": "knowledge-note",
+      "x": 5760,
+      "y": 6520,
+      "w": 420,
+      "text": "Knowledge base: added on Sep 13 while reviewing the plan. One per business: a profile with tone of voice, FAQs, articles, facts and documents, plus a website scan. Nothing from a scan, a gap or a Go Biz Help pack is used until someone accepts it. Try it shows the answer and the items used."
+    }
+  ],
+  "launch": {
+    "view": "canvas"
+  }
+}
