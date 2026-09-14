@@ -168,6 +168,8 @@ export const RECIPE_KEYS = [
   'appointment_follow_up_review',
   'estimate_follow_up',
   'no_show_rebook',
+  'speed_to_lead_ai',
+  'missed_call_text_back_ai',
 ] as const;
 export type RecipeKey = (typeof RECIPE_KEYS)[number];
 
@@ -206,6 +208,35 @@ const calendarFilter = {
   match: 'all' as const,
   conditions: [{ field: 'appointment.calendar_id', op: 'eq' as const, value: { $ph: 'calendar' } }],
 };
+const handToTeammate = (id: string, config: Record<string, unknown>) => ({
+  id,
+  type: 'action' as const,
+  action: 'hand_to_ai_teammate' as const,
+  config: config as never,
+});
+/** "If nothing happened before the wait ran out, …; otherwise nothing." */
+const ifTimedOut = (
+  id: string,
+  names: [string, string],
+  ids: [string, string],
+  steps: unknown[],
+) => ({
+  id,
+  type: 'branch' as const,
+  mode: 'if_else' as const,
+  branches: [
+    {
+      id: ids[0],
+      name: names[0],
+      condition: {
+        match: 'all' as const,
+        conditions: [{ field: 'wait.timed_out', op: 'is_true' as const }],
+      },
+      steps: steps as never,
+    },
+    { id: ids[1], name: names[1], condition: null, steps: [] },
+  ],
+});
 
 export const WORKFLOW_RECIPES: readonly WorkflowRecipe[] = [
   {
@@ -474,6 +505,80 @@ export const WORKFLOW_RECIPES: readonly WorkflowRecipe[] = [
         ),
         wait('s_nsrwait2', 2, 'days'),
         task('s_nsrtask1', `Call ${first('the customer')} to rebook`, { kind: 'person_owner' }),
+      ],
+      settings: { stopOn: ['booking'] },
+    },
+  },
+  {
+    key: 'speed_to_lead_ai',
+    name: 'Speed to lead with your AI teammate',
+    description:
+      'Your AI teammate messages every new lead right away and asks your qualifying questions. If the lead isn’t qualified within a day, their assignee gets a task.',
+    placeholders: [],
+    definition: {
+      version: 1,
+      trigger: { kind: 'event', event: 'lead.created' },
+      steps: [
+        handToTeammate('s_stlaihnd', {
+          goal: 'qualify',
+          firstMessage: 'ai_writes',
+          channel: 'latest',
+          note: 'A new lead just came in: {{lead.title}}.',
+        }),
+        {
+          id: 's_stlaiwt1',
+          type: 'wait',
+          until: {
+            kind: 'event',
+            events: ['lead.qualified'],
+            timeout: { amount: 1, unit: 'days' },
+          },
+        },
+        ifTimedOut(
+          's_stlaibr1',
+          ['Not qualified yet', 'Qualified'],
+          ['b_stlainot', 'b_stlaiqul'],
+          [
+            task('s_stlaitsk', `Follow up with ${first('the new lead')} about {{lead.title}}`, {
+              kind: 'lead_assignee',
+            }),
+          ],
+        ),
+      ],
+      settings: { stopOn: ['booking'] },
+    },
+  },
+  {
+    key: 'missed_call_text_back_ai',
+    name: 'Missed-call text back with your AI teammate',
+    description:
+      'Your AI teammate texts back a missed call, helps with what they need and offers to book. If they don’t reply within a day, their owner gets a task to call.',
+    placeholders: [],
+    definition: {
+      version: 1,
+      trigger: { kind: 'event', event: 'call.missed' },
+      steps: [
+        handToTeammate('s_mctaihnd', {
+          goal: 'book',
+          firstMessage: 'ai_writes',
+          channel: 'sms',
+          note: 'We missed their call. Text them back, help with what they need and offer to book.',
+        }),
+        {
+          id: 's_mctaiwt1',
+          type: 'wait',
+          until: {
+            kind: 'event',
+            events: ['message.received'],
+            timeout: { amount: 1, unit: 'days' },
+          },
+        },
+        ifTimedOut(
+          's_mctaibr1',
+          ['No reply', 'Replied'],
+          ['b_mctainor', 'b_mctairep'],
+          [task('s_mctaitsk', `Call ${first('the caller')} back`, { kind: 'person_owner' })],
+        ),
       ],
       settings: { stopOn: ['booking'] },
     },

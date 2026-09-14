@@ -46,6 +46,8 @@ export interface WorkflowNames {
   readonly calendars?: readonly { readonly id: string; readonly name: string }[];
   readonly services?: readonly { readonly id: string; readonly name: string }[];
   readonly workflows?: readonly { readonly id: string; readonly name: string }[];
+  /** The AI teammate's name ("Ava"), for its hand-over steps. */
+  readonly teammateName?: string | null;
 }
 
 const GENERIC: Readonly<Record<RefKind, string>> = {
@@ -195,7 +197,9 @@ const WAIT_WORDS: Partial<Record<TriggerEventKey, string>> = {
   'appointment.completed': 'a completed appointment',
   'call.missed': 'a missed call',
   'lead.stage_changed': 'the lead to move',
+  'lead.qualified': 'the lead to qualify',
   'task.completed': 'a task to be done',
+  'ai_teammate.handed_off': 'the AI teammate to hand it to a person',
 };
 
 export function describeWait(until: WaitUntil): string {
@@ -295,6 +299,18 @@ function describeAction(step: Extract<Step, { type: 'action' }>, names: Workflow
       return `Start ${refName('workflow', step.config.workflowId, names)}`;
     case 'remove_from_workflow':
       return `Remove them from ${refName('workflow', step.config.workflowId, names)}`;
+    case 'hand_to_ai_teammate': {
+      const c = step.config;
+      const who = names.teammateName ? `${names.teammateName} (AI)` : 'the AI teammate';
+      const goal = {
+        respond: 'reply and help',
+        qualify: 'ask the qualifying questions',
+        book: 'get them booked',
+      }[c.goal];
+      const by = c.channel === 'sms' ? ' by text' : c.channel === 'email' ? ' by email' : '';
+      const first = c.firstMessage === 'ai_writes' ? `it writes first${by}` : 'it waits for them';
+      return `Hand to ${who}: ${goal}; ${first}`;
+    }
   }
 }
 

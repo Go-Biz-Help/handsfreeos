@@ -20,7 +20,8 @@ const clock = z.string().refine(isClock, { error: 'Use a time like 09:00.' });
 /**
  * How the engine finds the customer a run is for:
  * - `person`: the event's entity is the person.
- * - `payload_person`: `payload.personId` (messages and calls; an unknown number starts no run).
+ * - `payload_person`: `payload.personId` (messages, calls and AI teammate hand-offs, with
+ *   `payload.conversationId`; an unknown number starts no run).
  * - `lead_person`: `leads.person_id` of the event's lead.
  * - `appointment_people`: one run per person on the appointment (`payload.personIds` on booking; the
  *   attendees are re-read for the others).
@@ -58,6 +59,8 @@ export const TRIGGER_EVENTS = {
   'lead.created': { label: 'A new lead comes in', subject: 'lead_person', provides: ['lead'] },
   'lead.stage_changed': { label: 'A lead moves stage', subject: 'lead_person', provides: ['lead'] },
   'lead.assigned': { label: 'A lead is assigned', subject: 'lead_person', provides: ['lead'] },
+  /** The event's entity is the lead; the AI teammate's recorded answers qualified it. */
+  'lead.qualified': { label: 'A lead is qualified', subject: 'lead_person', provides: ['lead'] },
   'appointment.booked': {
     label: 'An appointment is booked',
     subject: 'appointment_people',
@@ -106,6 +109,12 @@ export const TRIGGER_EVENTS = {
     broad: true,
   },
   'task.completed': { label: 'A task is done', subject: 'task_person', provides: [] },
+  /** The event's entity is the conversation; its payload carries personId and conversationId. */
+  'ai_teammate.handed_off': {
+    label: 'The AI teammate hands a conversation to a person',
+    subject: 'payload_person',
+    provides: ['conversation'],
+  },
 } as const satisfies Record<string, TriggerEventDef>;
 export type TriggerEventKey = keyof typeof TRIGGER_EVENTS;
 export const TRIGGER_EVENT_KEYS = Object.keys(TRIGGER_EVENTS) as [
@@ -237,6 +246,7 @@ export const ActionStep = z.discriminatedUnion('action', [
   actionStep('webhook_out'),
   actionStep('enrol_workflow'),
   actionStep('remove_from_workflow'),
+  actionStep('hand_to_ai_teammate'),
 ]);
 export type ActionStep = z.infer<typeof ActionStep>;
 

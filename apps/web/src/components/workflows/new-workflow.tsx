@@ -59,6 +59,16 @@ const RECIPE_META: Record<RecipeKey, { category: Category; short: string; note: 
     short: 'A text, an email, then a task.',
     note: 'Stops when the lead is won or lost, or they reply.',
   },
+  speed_to_lead_ai: {
+    category: 'Leads',
+    short: 'Your AI teammate messages new leads right away.',
+    note: 'It asks your qualifying questions; a task goes out if the lead isn’t qualified in a day.',
+  },
+  missed_call_text_back_ai: {
+    category: 'Leads',
+    short: 'Your AI teammate texts back and offers to book.',
+    note: 'If they don’t reply within a day, their owner gets a task to call.',
+  },
 };
 
 type BlankKind = 'event' | 'schedule' | 'date' | 'webhook' | 'manual';

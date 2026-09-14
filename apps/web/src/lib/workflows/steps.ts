@@ -199,6 +199,8 @@ function actionConfig(
       return {
         workflowId: (c.workflows ?? []).find((w) => w.id !== selfId)?.id ?? ph('workflow'),
       };
+    case 'hand_to_ai_teammate':
+      return { goal: 'respond', firstMessage: 'ai_writes', channel: 'latest', note: '' };
   }
 }
 

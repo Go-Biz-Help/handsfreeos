@@ -1,10 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import {
+  allSteps,
   applyWorkflowOps,
   extractPlaceholders,
   isPlaceholder,
   listRefs,
   placeholdersIn,
+  recipeByKey,
   recipeDefinition,
   resolvePlaceholders,
   structureProblems,
@@ -46,6 +48,29 @@ describe('recipes', () => {
       won_stage: null,
       calendar: SERVICE_CAL,
       priya: PRIYA,
+    });
+  });
+
+  it('has AI teammate variants of speed to lead and missed-call text back', () => {
+    const actions = (key: 'speed_to_lead_ai' | 'missed_call_text_back_ai') =>
+      allSteps(recipeDefinition(key)).flatMap(({ step }) =>
+        step.type === 'action' ? [step.action] : [],
+      );
+    expect(recipeByKey('speed_to_lead_ai')?.name).toBe('Speed to lead with your AI teammate');
+    expect(recipeByKey('missed_call_text_back_ai')?.name).toBe(
+      'Missed-call text back with your AI teammate',
+    );
+    expect(actions('speed_to_lead_ai')).toEqual(['hand_to_ai_teammate', 'create_task']);
+    expect(actions('missed_call_text_back_ai')).toEqual(['hand_to_ai_teammate', 'create_task']);
+    expect(recipeDefinition('speed_to_lead_ai').trigger).toMatchObject({ event: 'lead.created' });
+    expect(recipeDefinition('speed_to_lead_ai').steps[0]).toMatchObject({
+      config: { goal: 'qualify', firstMessage: 'ai_writes' },
+    });
+    expect(recipeDefinition('missed_call_text_back_ai').trigger).toMatchObject({
+      event: 'call.missed',
+    });
+    expect(recipeDefinition('missed_call_text_back_ai').steps[0]).toMatchObject({
+      config: { goal: 'book', channel: 'sms' },
     });
   });
 

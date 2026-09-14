@@ -59,6 +59,40 @@ describe('describeTrigger and describeStep', () => {
   });
 });
 
+describe('the AI teammate', () => {
+  it('describes the hand-over step, its new triggers and waits', () => {
+    const hand = (config: Record<string, unknown>) =>
+      Step.parse({ id: sid('ai'), type: 'action', action: 'hand_to_ai_teammate', config });
+    expect(describeStep(hand({ goal: 'qualify' }), catalogs)).toBe(
+      'Hand to the AI teammate: ask the qualifying questions; it writes first',
+    );
+    expect(
+      describeStep(hand({ goal: 'book', channel: 'sms' }), { ...catalogs, teammateName: 'Ava' }),
+    ).toBe('Hand to Ava (AI): get them booked; it writes first by text');
+    expect(describeStep(hand({ firstMessage: 'none' }), catalogs)).toBe(
+      'Hand to the AI teammate: reply and help; it waits for them',
+    );
+    const t = (event: string) => describeTrigger(Trigger.parse({ kind: 'event', event }));
+    expect(t('lead.qualified')).toBe('When a lead is qualified');
+    expect(t('ai_teammate.handed_off')).toBe(
+      'When the AI teammate hands a conversation to a person',
+    );
+    expect(
+      describeStep(
+        Step.parse({
+          id: sid('w'),
+          type: 'wait',
+          until: {
+            kind: 'event',
+            events: ['lead.qualified', 'ai_teammate.handed_off'],
+            timeout: { amount: 1, unit: 'days' },
+          },
+        }),
+      ),
+    ).toBe('Wait up to 1 day for the lead to qualify or the AI teammate to hand it to a person');
+  });
+});
+
 describe('describeOps', () => {
   it('says what each op does', () => {
     const d = def({

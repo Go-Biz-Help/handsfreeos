@@ -169,6 +169,30 @@ describe('aiToolCallsToOps', () => {
     expect(split.branches[1]!.steps[1]).toMatchObject({ target: out.refs.wait, maxVisits: 2 });
   });
 
+  it('offers the AI teammate hand-over like any other action', () => {
+    expect(aiBuilderReference()).toContain('- hand_to_ai_teammate (Hand to the AI teammate): ');
+    const out = aiToolCallsToOps(
+      [
+        add({
+          type: 'action',
+          action: 'hand_to_ai_teammate',
+          json: '{"goal":"qualify","channel":"sms"}',
+        }),
+        add({ type: 'action', action: 'hand_to_ai_teammate', json: '{"goal":"sell"}' }),
+      ],
+      blankDefinition({ kind: 'event', event: 'lead.qualified' }),
+      rng(9).float,
+    );
+    expect(out.results.map((r) => r.ok)).toEqual([true, false]);
+    expect(out.definition.steps).toMatchObject([
+      {
+        type: 'action',
+        action: 'hand_to_ai_teammate',
+        config: { goal: 'qualify', firstMessage: 'ai_writes', channel: 'sms', note: '' },
+      },
+    ]);
+  });
+
   it('moves to the end when the index is null, and refuses a reused ref', () => {
     const start = blankDefinition();
     const out = aiToolCallsToOps(

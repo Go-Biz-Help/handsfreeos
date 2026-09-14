@@ -1,5 +1,5 @@
 /**
- * The 18 actions a step can take.
+ * The 19 actions a step can take.
  *
  * Internal ones run their command as the workflow inside the step's own transaction (executeCommandIn, in a
  * savepoint), so the step's row, the command's writes and its events commit together, and a refusal leaves
@@ -522,5 +522,13 @@ export async function runAction(ec: ExecCtx): Promise<Outcome> {
       );
       return { kind: 'done', input, output: { stopped } };
     }
+
+    case 'hand_to_ai_teammate':
+      // A placeholder until the teammate's runtime lands (M7 step 7): the step is skipped, never failed.
+      return skipped('ai_teammate_not_ready', {
+        goal: step.config.goal,
+        firstMessage: step.config.firstMessage,
+        channel: step.config.channel,
+      });
   }
 }

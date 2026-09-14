@@ -463,8 +463,8 @@ export const assistantToolByName: ReadonlyMap<string, AssistantTool> = new Map(
   assistantTools.map((t) => [t.name, t as AssistantTool]),
 );
 
-/** The JSON Schema a model sees for one tool's input. */
-export function toolInputSchema(tool: AssistantTool): Record<string, unknown> {
+/** The JSON Schema a model sees for one tool's input (the Assistant's, the AI teammate's, any `{input}`). */
+export function toolInputSchema(tool: { readonly input: z.ZodType }): Record<string, unknown> {
   const schema = z.toJSONSchema(tool.input, { io: 'input' }) as Record<string, unknown>;
   delete schema.$schema;
   return schema;

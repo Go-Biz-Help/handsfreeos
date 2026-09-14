@@ -116,6 +116,19 @@ export const WebhookOutConfig = z.object({
 });
 export const WorkflowRefConfig = z.object({ workflowId: Ref });
 
+export const AI_TEAMMATE_GOALS = ['respond', 'qualify', 'book'] as const;
+export type AiTeammateGoal = (typeof AI_TEAMMATE_GOALS)[number];
+/** The AI teammate takes the conversation (it's marked as handled by AI) and works toward the goal. */
+export const HandToAiTeammateConfig = z.object({
+  /** Reply and help, ask the qualifying questions, or get them booked. */
+  goal: z.enum(AI_TEAMMATE_GOALS).default('respond'),
+  /** ai_writes: it messages them first (its consent and quiet-hours rules apply); none: it waits for them. */
+  firstMessage: z.enum(['ai_writes', 'none']).default('ai_writes'),
+  channel: Channel,
+  /** What the teammate should know going in (a template). */
+  note: z.string().trim().max(500, 'Keep it under 500 characters.').default(''),
+});
+
 export const ACTION_CONFIGS = {
   send_text: SendTextConfig,
   send_email: SendEmailConfig,
@@ -135,6 +148,7 @@ export const ACTION_CONFIGS = {
   webhook_out: WebhookOutConfig,
   enrol_workflow: WorkflowRefConfig,
   remove_from_workflow: WorkflowRefConfig,
+  hand_to_ai_teammate: HandToAiTeammateConfig,
 } as const;
 export type ActionKey = keyof typeof ACTION_CONFIGS;
 export const ACTION_KEYS = Object.keys(ACTION_CONFIGS) as [ActionKey, ...ActionKey[]];
@@ -159,6 +173,7 @@ export const ACTION_LABELS: Readonly<Record<ActionKey, string>> = {
   webhook_out: 'Send a webhook',
   enrol_workflow: 'Start another workflow',
   remove_from_workflow: 'Remove from a workflow',
+  hand_to_ai_teammate: 'Hand to the AI teammate',
 };
 
 /** Actions that reach the customer (consent and quiet hours apply to texts). */

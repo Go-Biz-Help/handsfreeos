@@ -12064,7 +12064,9 @@
                       "missed_call_text_back",
                       "appointment_follow_up_review",
                       "estimate_follow_up",
-                      "no_show_rebook"
+                      "no_show_rebook",
+                      "speed_to_lead_ai",
+                      "missed_call_text_back_ai"
                     ]
                   },
                   "mapping": {
@@ -12106,6 +12108,7 @@
                               "lead.created",
                               "lead.stage_changed",
                               "lead.assigned",
+                              "lead.qualified",
                               "appointment.booked",
                               "appointment.rescheduled",
                               "appointment.cancelled",
@@ -12115,7 +12118,8 @@
                               "call.missed",
                               "call.voicemail_left",
                               "call.completed",
-                              "task.completed"
+                              "task.completed",
+                              "ai_teammate.handed_off"
                             ]
                           },
                           "filters": {
@@ -15800,6 +15804,7 @@
                               "lead.created",
                               "lead.stage_changed",
                               "lead.assigned",
+                              "lead.qualified",
                               "appointment.booked",
                               "appointment.rescheduled",
                               "appointment.cancelled",
@@ -15809,7 +15814,8 @@
                               "call.missed",
                               "call.voicemail_left",
                               "call.completed",
-                              "task.completed"
+                              "task.completed",
+                              "ai_teammate.handed_off"
                             ]
                           },
                           "filters": {

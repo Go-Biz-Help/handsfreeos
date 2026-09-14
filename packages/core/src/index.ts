@@ -16,3 +16,4 @@ export * from './assistant/tools';
 export * from './calendar/index';
 export * from './workflows/index';
 export * from './knowledge/index';
+export * from './ai-team/index';
