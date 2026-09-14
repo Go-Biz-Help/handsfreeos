@@ -9,6 +9,7 @@ import {
   Settings2,
   UserCircle,
   Users,
+  Workflow,
 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -47,6 +48,8 @@ export function navItems(workspaceId: string): NavItem[] {
       icon: CalendarDays,
       primary: true,
     },
+    // Workflows is a drawer item on phones, so the bottom bar stays at five.
+    { key: 'workflows', href: `${base}/workflows`, label: 'Workflows', icon: Workflow },
     // Tasks moved to the drawer on phones when the inbox joined the bottom bar.
     { key: 'tasks', href: `${base}/tasks`, label: 'Tasks', icon: ClipboardList },
     { key: 'members', href: `${base}/members`, label: 'Members', icon: UserCircle },

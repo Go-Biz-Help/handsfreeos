@@ -121,3 +121,15 @@ export type TerritoryList = Ok<'/v1/queries/territory.list'>;
 export type TerritoryItem = TerritoryList['items'][number];
 export type BookingSite = NonNullable<Ok<'/v1/queries/booking_site.get'>['site']>;
 export type SlotOut = Ok<'/v1/queries/calendar.availability'>['slots'][number];
+
+// Milestone 6: workflows
+export type WorkflowList = Ok<'/v1/queries/workflow.list'>;
+export type WorkflowSummary = WorkflowList['items'][number];
+export type WorkflowStatus = WorkflowSummary['status'];
+export type WorkflowGet = Ok<'/v1/queries/workflow.get'>;
+export type WorkflowDetail = WorkflowGet['workflow'];
+export type WorkflowVersion = WorkflowGet['versions'][number];
+export type WorkflowVersionGet = Ok<'/v1/queries/workflow.version_get'>;
+export type WorkflowCatalogsOut = Ok<'/v1/queries/workflow.catalogs'>['catalogs'];
+export type WorkflowSaveDraftBody = Body<'/v1/commands/workflow.save_draft'>;
+export type WorkflowCreateBody = Body<'/v1/commands/workflow.create'>;
