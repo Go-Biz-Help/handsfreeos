@@ -27,6 +27,8 @@ export default async function NewWorkflowPage({
   const initialRecipe = (RECIPE_KEYS as readonly string[]).includes(recipe ?? '')
     ? (recipe as RecipeKey)
     : null;
+  // "Add automation" on a calendar passes the calendar to fill in (`?calendar=<id>`).
+  const calendar = typeof query.calendar === 'string' ? query.calendar : null;
   return (
     <NewWorkflow
       workspaceId={workspaceId}
@@ -34,6 +36,7 @@ export default async function NewWorkflowPage({
       catalogs={catalogs.catalogs}
       templates={list.items.filter((w) => w.source.kind === 'template' && w.status === 'draft')}
       initialRecipe={initialRecipe}
+      initialCalendarId={calendar}
     />
   );
 }

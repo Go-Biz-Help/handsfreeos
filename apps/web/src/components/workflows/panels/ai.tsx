@@ -1,22 +1,25 @@
 'use client';
 import {
   aiOutputKey,
+  allSteps,
   findStep,
   MAX_BRANCHES,
   newBranchId,
   newStepId,
   OUTPUT_KEY_RE,
+  templateVars,
   variablesAt,
   type AiStep,
 } from '@hfos/core';
-import { BookOpen, Plus, Split, X } from 'lucide-react';
+import { BookOpen, Plus, ShieldCheck, Split, X } from 'lucide-react';
 import Link from 'next/link';
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input, Select } from '@/components/ui/input';
 import { Segmented } from '@/components/ui/segmented';
 import { Textarea } from '@/components/ui/textarea';
+import { apiBrowser } from '@/lib/api/client';
 import { cn } from '@/lib/utils';
 import { AI_SOFT, AI_TEXT, laneColor } from '../chips';
 import { useEditor } from '../editor-context';
@@ -29,9 +32,66 @@ const TASKS = [
   { value: 'summarize', label: 'Summarize' },
 ] as const;
 
-/** "Uses your knowledge base." with the link to Knowledge. */
+/** The knowledge base at a glance, for the AI panel: how complete the profile is, what's published, prices. */
+interface KnowledgeSummary {
+  readonly filled: number;
+  readonly total: number;
+  readonly published: number;
+  readonly allowPrices: boolean;
+}
+
+const summaries = new Map<string, Promise<KnowledgeSummary | null>>();
+
+/** Loaded once per workspace while panels switch, and again a minute later (an edit in Knowledge shows). */
+function loadKnowledgeSummary(workspaceId: string): Promise<KnowledgeSummary | null> {
+  const cached = summaries.get(workspaceId);
+  if (cached) return cached;
+  const api = apiBrowser();
+  const loading = Promise.all([
+    api.POST('/v1/queries/knowledge.profile', { body: { workspaceId } }),
+    api.POST('/v1/queries/knowledge_item.list', { body: { workspaceId, limit: 1 } }),
+  ])
+    .then(([profile, items]) =>
+      profile.data && items.data
+        ? {
+            filled: profile.data.completeness.filled,
+            total: profile.data.completeness.total,
+            published: items.data.counts.published,
+            allowPrices: profile.data.profile.allowPrices,
+          }
+        : null,
+    )
+    .catch(() => null);
+  summaries.set(workspaceId, loading);
+  setTimeout(() => summaries.delete(workspaceId), 60_000);
+  return loading;
+}
+
+function useKnowledgeSummary(workspaceId: string): KnowledgeSummary | null {
+  const [summary, setSummary] = useState<KnowledgeSummary | null>(null);
+  useEffect(() => {
+    let live = true;
+    void loadKnowledgeSummary(workspaceId).then((s) => {
+      if (live) setSummary(s);
+    });
+    return () => {
+      live = false;
+    };
+  }, [workspaceId]);
+  return summary;
+}
+
+/**
+ * "Uses your knowledge base.": how many published items it draws on, whether it may quote prices, a hint when
+ * the profile is thin or nothing is published yet, and the link to Knowledge.
+ */
 export function KnowledgeLine() {
   const { workspaceId } = useEditor();
+  const k = useKnowledgeSummary(workspaceId);
+  const thin = k !== null && k.filled <= Math.floor(k.total / 2);
+  const items = k
+    ? `The profile and ${k.published === 1 ? '1 published item' : `${k.published} published items`}.`
+    : 'The profile and published items.';
   return (
     <div
       className={cn(
@@ -40,17 +100,102 @@ export function KnowledgeLine() {
         AI_TEXT,
       )}
       data-testid="knowledge-line"
+      data-ready={k ? 'true' : 'false'}
     >
       <BookOpen className="mt-px h-3.5 w-3.5 flex-none" strokeWidth={1.75} />
-      <span>
-        <strong className="font-semibold">Uses your knowledge base.</strong> The profile and
-        published items. Each run lists the items it used.{' '}
-        <Link
-          href={`/app/w/${workspaceId}/knowledge`}
-          className="font-semibold text-inherit underline"
-        >
-          Open Knowledge
-        </Link>
+      <span className="flex min-w-0 flex-col gap-1.5">
+        <span>
+          <strong className="font-semibold">Uses your knowledge base.</strong> {items} Each run
+          lists the items it used.{' '}
+          {k ? (
+            <span data-testid="knowledge-prices">
+              {k.allowPrices
+                ? 'It may quote prices exactly as your knowledge states them.'
+                : 'Prices stay out, because quoting prices is off.'}{' '}
+            </span>
+          ) : null}
+          <Link
+            href={`/app/w/${workspaceId}/knowledge`}
+            className="font-semibold text-inherit underline"
+          >
+            Open Knowledge
+          </Link>
+        </span>
+        {thin ? (
+          <span data-testid="knowledge-thin">
+            Your business profile is thin ({k.filled} of {k.total} parts filled in). Fill it in so
+            the AI writes accurately.
+          </span>
+        ) : null}
+        {k && k.published === 0 ? (
+          <span data-testid="knowledge-empty">
+            Nothing is published yet. Add FAQs and facts so it can answer questions.
+          </span>
+        ) : null}
+      </span>
+    </div>
+  );
+}
+
+/**
+ * A written text that goes to customers (a later text or email uses it) with no approval step checking it:
+ * offers one, added right after this step. It's a suggestion; the owner may leave it out.
+ */
+function ApprovalHint({ step }: { step: AiStep }) {
+  const { def, apply, readOnly, select } = useEditor();
+  const key = aiOutputKey(step);
+  const unchecked = useMemo(() => {
+    const uses = (t: unknown) =>
+      typeof t === 'string' && templateVars(t).some((v) => v.path === `ai.${key}`);
+    const steps = allSteps(def).map((l) => l.step);
+    const sent = steps.some((s) => {
+      if (s.type !== 'action' || (s.action !== 'send_text' && s.action !== 'send_email'))
+        return false;
+      const config = s.config as Record<string, unknown>;
+      return uses(config['body']) || uses(config['subject']);
+    });
+    return sent && !steps.some((s) => s.type === 'approval' && s.previewStepId === step.id);
+  }, [def, key, step.id]);
+  if (!unchecked || readOnly) return null;
+  const addApproval = () => {
+    const loc = findStep(def, step.id);
+    if (!loc) return;
+    const id = newStepId();
+    const out = apply(
+      [
+        {
+          op: 'add_step',
+          parentId: loc.lane.parentId,
+          branchId: loc.lane.branchId,
+          index: loc.index + 1,
+          step: {
+            id,
+            type: 'approval',
+            approvers: { kind: 'admins' },
+            message: 'Check the AI’s text before it goes to the customer.',
+            previewStepId: step.id,
+          },
+        },
+      ],
+      'Add an approval step',
+    );
+    if (out.ok) select(id);
+  };
+  return (
+    <div
+      className="mt-3.5 flex items-start gap-2 rounded-[9px] bg-warning-soft px-[11px] py-[9px] text-[12.5px] leading-[1.45] text-warning-text"
+      data-testid="ai-approval-hint"
+    >
+      <ShieldCheck className="mt-px h-3.5 w-3.5 flex-none" strokeWidth={1.75} />
+      <span className="flex min-w-0 flex-col items-start gap-2">
+        <span>
+          This text goes to customers without anyone checking it. An approval step lets an owner or
+          admin read it, and edit it, before it goes.
+        </span>
+        <Button variant="secondary" size="sm" onClick={addApproval} data-testid="ai-add-approval">
+          <ShieldCheck className="h-3.5 w-3.5" strokeWidth={1.5} />
+          Add an approval step
+        </Button>
       </span>
     </div>
   );
@@ -301,6 +446,7 @@ export function AiPanel({ step }: { step: AiStep }) {
         />
       </PanelField>
       {step.useKnowledge ? <KnowledgeLine /> : null}
+      {step.task === 'write' ? <ApprovalHint step={step} /> : null}
     </div>
   );
 }

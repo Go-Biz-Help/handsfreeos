@@ -117,6 +117,7 @@ export function NewWorkflow({
   catalogs: catalogsOut,
   templates,
   initialRecipe,
+  initialCalendarId = null,
 }: {
   workspaceId: string;
   businessName: string;
@@ -124,6 +125,8 @@ export function NewWorkflow({
   /** Go Biz Help templates installed here as drafts. */
   templates: WorkflowSummary[];
   initialRecipe: RecipeKey | null;
+  /** From a calendar's "Add automation": the recipes' calendar comes filled in with it. */
+  initialCalendarId?: string | null;
 }) {
   const router = useRouter();
   const catalogs = catalogsOut as WorkflowCatalogs;
@@ -136,7 +139,22 @@ export function NewWorkflow({
     WORKFLOW_RECIPES.find((r) => r.key === (initialRecipe ?? 'speed_to_lead'))!.name,
   );
   const [named, setNamed] = useState(false);
-  const [mappings, setMappings] = useState<Record<string, Record<string, string | null>>>({});
+  const [mappings, setMappings] = useState<Record<string, Record<string, string | null>>>(() => {
+    // A calendar's "Add automation": each recipe's calendar placeholders start as that calendar.
+    const cal = catalogs.calendars.find((c) => c.id === initialCalendarId && !c.archived)?.id;
+    if (!cal) return {};
+    return Object.fromEntries(
+      WORKFLOW_RECIPES.filter((r) => r.placeholders.some((p) => p.kind === 'calendar')).map((r) => [
+        r.key,
+        {
+          ...suggestMapping(r.placeholders, catalogs),
+          ...Object.fromEntries(
+            r.placeholders.filter((p) => p.kind === 'calendar').map((p) => [p.key, cal]),
+          ),
+        },
+      ]),
+    );
+  });
   const [blank, setBlank] = useState<BlankKind>('event');
   const [busy, setBusy] = useState(false);
 

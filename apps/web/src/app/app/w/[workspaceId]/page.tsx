@@ -7,6 +7,7 @@ import { PageHeader } from '@/components/shell/page-header';
 import { Badge, RoleBadge } from '@/components/ui/badge';
 import { ButtonLink } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { HomeApprovals } from '@/components/workflows/approvals/approvals-waiting';
 import { assigneeOptions } from '@/lib/api/people';
 import { apiServer, fetchMe, unwrapPage } from '@/lib/api/server';
 import { todayIn } from '@/lib/calendar/time';
@@ -97,6 +98,7 @@ export default async function WorkspaceHomePage({
           </>
         }
       />
+      <HomeApprovals workspaceId={ws.id} />
       {hasCustomers && tasks && leads && audit && members ? (
         <HomeSummary
           workspaceId={ws.id}

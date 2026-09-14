@@ -2,12 +2,18 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
+import { useWaitingApprovals } from './approvals/use-waiting-approvals';
 
-/** Workflows · Runs · Approvals. Runs and Approvals arrive with the runs and approvals screens. */
+/** Workflows · Runs · Approvals (with how many wait for the viewer). */
 export function WorkflowsSubnav({ workspaceId }: { workspaceId: string }) {
   const pathname = usePathname();
   const base = `/app/w/${workspaceId}/workflows`;
-  const items = [{ href: base, label: 'Workflows' }];
+  const waiting = useWaitingApprovals(workspaceId);
+  const items: { href: string; label: string; count?: number | null }[] = [
+    { href: base, label: 'Workflows' },
+    { href: `${base}/runs`, label: 'Runs' },
+    { href: `${base}/approvals`, label: 'Approvals', count: waiting },
+  ];
   return (
     <nav
       aria-label="Workflows"
@@ -28,6 +34,14 @@ export function WorkflowsSubnav({ workspaceId }: { workspaceId: string }) {
             )}
           >
             {i.label}
+            {i.count ? (
+              <span
+                data-testid="approvals-count"
+                className="inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-warning-soft px-1.5 text-[11px] font-semibold tabular-nums text-warning-text"
+              >
+                {i.count > 99 ? '99+' : i.count}
+              </span>
+            ) : null}
           </Link>
         );
       })}

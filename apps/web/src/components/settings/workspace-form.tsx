@@ -21,6 +21,20 @@ export function WorkspaceForm({ workspace }: { workspace: WorkspaceGet['workspac
   const [name, setName] = useState(workspace.name);
   const [timezone, setTimezone] = useState(workspace.timezone);
   const [industry, setIndustry] = useState<Industry>(workspace.industry as Industry);
+  // Workflows put these in customers' texts as {{business.website}} and {{links.review}}.
+  const settings = (workspace.settings ?? {}) as Record<string, unknown>;
+  const links = (
+    settings.links && typeof settings.links === 'object' ? settings.links : {}
+  ) as Record<string, unknown>;
+  const savedWebsite = typeof settings.website === 'string' ? settings.website : '';
+  const savedReview =
+    typeof links.review === 'string'
+      ? links.review
+      : typeof settings.reviewUrl === 'string'
+        ? settings.reviewUrl
+        : '';
+  const [website, setWebsite] = useState(savedWebsite);
+  const [review, setReview] = useState(savedReview);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
 
@@ -30,10 +44,20 @@ export function WorkspaceForm({ workspace }: { workspace: WorkspaceGet['workspac
     setBusy(true);
     setErrors({});
     try {
-      const patch: { name?: string; timezone?: string; industry?: Industry } = {};
+      const patch: {
+        name?: string;
+        timezone?: string;
+        industry?: Industry;
+        settings?: Record<string, unknown>;
+      } = {};
       if (name.trim() !== workspace.name) patch.name = name.trim();
       if (timezone !== workspace.timezone) patch.timezone = timezone;
       if (industry !== workspace.industry) patch.industry = industry;
+      if (website.trim() !== savedWebsite || review.trim() !== savedReview)
+        patch.settings = {
+          website: website.trim() || null,
+          links: { ...links, review: review.trim() || null },
+        };
       if (Object.keys(patch).length === 0) return toast.success('Nothing changed.');
       unwrap(
         await apiBrowser().POST('/v1/commands/workspace.update', {
@@ -90,6 +114,40 @@ export function WorkspaceForm({ workspace }: { workspace: WorkspaceGet['workspac
             </option>
           ))}
         </Select>
+      </Field>
+      <Field
+        label="Website"
+        htmlFor="ws-website"
+        hint="Workflows can put it in texts as {{business.website}}."
+        error={errors.website}
+      >
+        <Input
+          id="ws-website"
+          type="url"
+          inputMode="url"
+          placeholder="https://yourbusiness.com"
+          value={website}
+          onChange={(e) => setWebsite(e.target.value)}
+          invalid={!!errors.website}
+          data-testid="ws-website"
+        />
+      </Field>
+      <Field
+        label="Review link (Google Business Profile)"
+        htmlFor="ws-review"
+        hint="Where happy customers leave a review. The review recipe texts it as {{links.review}}."
+        error={errors.review}
+      >
+        <Input
+          id="ws-review"
+          type="url"
+          inputMode="url"
+          placeholder="https://g.page/r/your-business/review"
+          value={review}
+          onChange={(e) => setReview(e.target.value)}
+          invalid={!!errors.review}
+          data-testid="ws-review"
+        />
       </Field>
       <div className="flex justify-end">
         <Button type="submit" loading={busy} data-testid="workspace-save">

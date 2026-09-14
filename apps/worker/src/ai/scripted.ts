@@ -103,8 +103,119 @@ export const KNOWLEDGE_RULES: readonly ScriptRule[] = [
   },
 ];
 
-/** Every scripted rule, feature by feature. Workflow AI steps (step 9) and the builder (step 10) add theirs. */
-export const SCRIPTED_RULES: readonly ScriptRule[] = [...KNOWLEDGE_RULES];
+// ---- Workflow AI steps: write, sort, pick a path, summarize (workflows/ai-runner.ts) ----
+
+/** A line of the prompt's <run_details> ("Customer’s first name: Mike"), unquoted, or null. */
+function runDetail(message: string, label: string): string | null {
+  for (const line of (quotedBlock(message, 'run_details') ?? '').split('\n'))
+    if (line.startsWith(`${label}: `)) return unquote(line.slice(label.length + 2)).trim() || null;
+  return null;
+}
+
+/** The customer's latest message, unquoted ('' when there is none). */
+const customerWords = (message: string): string =>
+  unquote(quotedBlock(message, 'customer_message') ?? '').trim();
+
+/** Whether `text` mentions `name`: a short word whole ("no"), a longer one by its stem ("Bookings", "book…"). */
+function mentions(text: string, name: string): boolean {
+  const key = name.trim().toLowerCase();
+  if (!key) return false;
+  const escape = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return key.length > 4
+    ? new RegExp(`\\b${escape(key.replace(/(es|s)$/, ''))}`, 'i').test(text)
+    : new RegExp(`\\b${escape(key)}\\b`, 'i').test(text);
+}
+
+/** Written from the details: a greeting with their first name, and the first knowledge item's title. */
+export function scriptedWrite(
+  message: string,
+  context: string,
+): { message: string; usedItemIds: string[]; unanswered: boolean } {
+  const first = runDetail(message, 'Customer’s first name') ?? 'there';
+  const item = /<item id="([^"]+)"[^>]*>\n(?:Q: )?([^\n]*)/.exec(context);
+  const title = item ? unquote(item[2]!).trim() : '';
+  return {
+    message: `Hi ${first}, thanks for reaching out!${title ? ` Re: ${title}` : ''}`,
+    usedItemIds: item ? [unquote(item[1]!)] : [],
+    // A question with nothing in the knowledge to answer it.
+    unanswered: !item && customerWords(message).includes('?'),
+  };
+}
+
+/** The first category the customer's words mention (a question mark counts for "Question"), else Other. */
+export function scriptedSort(message: string): {
+  category: string;
+  reason: string;
+  usedItemIds: string[];
+} {
+  const categories = (quotedBlock(message, 'categories') ?? '')
+    .split('\n')
+    .map((l) => unquote(l.replace(/^- /, '')).trim())
+    .filter(Boolean);
+  const text = customerWords(message);
+  const hit =
+    categories.find((c) => mentions(text, c)) ??
+    (text.includes('?') ? categories.find((c) => /^questions?$/i.test(c)) : undefined);
+  const category =
+    hit ?? categories.find((c) => c.toLowerCase() === 'other') ?? categories.at(-1) ?? 'Other';
+  return {
+    category,
+    reason: hit ? `The message is about ${hit.toLowerCase()}.` : 'No category fits the message.',
+    usedItemIds: [],
+  };
+}
+
+const PATH_FILLER = new Set(['about', 'asks', 'anything', 'else', 'from', 'that', 'their', 'they']);
+
+/** The first path whose name or description shares a word with the customer's message, else the last. */
+export function scriptedPath(message: string): {
+  branchId: string;
+  reason: string;
+  usedItemIds: string[];
+} {
+  const text = customerWords(message);
+  const paths = [
+    ...(quotedBlock(message, 'paths') ?? '').matchAll(/<path id="([^"]+)">([^\n]*)<\/path>/g),
+  ].map((m) => ({ id: unquote(m[1]!), words: unquote(m[2]!) }));
+  const hit = paths.find((p) =>
+    (p.words.match(/\p{L}{4,}/gu) ?? []).some(
+      (w) => !PATH_FILLER.has(w.toLowerCase()) && mentions(text, w),
+    ),
+  );
+  return {
+    branchId: (hit ?? paths.at(-1))?.id ?? '',
+    reason: hit ? 'The message matches this path.' : 'Nothing matched, so the last path.',
+    usedItemIds: [],
+  };
+}
+
+/** The first sentence of the customer's message. */
+export function scriptedSummary(message: string): { summary: string; usedItemIds: string[] } {
+  const text = customerWords(message);
+  return {
+    summary: text ? firstSentence(text) : 'The customer hasn’t said anything yet.',
+    usedItemIds: [],
+  };
+}
+
+export const WORKFLOW_RULES: readonly ScriptRule[] = [
+  {
+    when: /Write the (text message|email) the instructions above describe\.$/,
+    json: (message, context) => scriptedWrite(message, context),
+  },
+  {
+    when: /Sort the customer’s message into one of the categories above\.$/,
+    json: (message) => scriptedSort(message),
+  },
+  { when: /Pick the path above that fits best\.$/, json: (message) => scriptedPath(message) },
+  {
+    when: /Write the summary the instructions above describe\.$/,
+    json: (message) => scriptedSummary(message),
+  },
+];
+
+/** Every scripted rule, feature by feature. The builder (step 10) adds its own. */
+export const SCRIPTED_RULES: readonly ScriptRule[] = [...KNOWLEDGE_RULES, ...WORKFLOW_RULES];
 
 /** The stand-in model; tests may put their own rules first. */
 export function scriptedAi(extra: readonly ScriptRule[] = []): ScriptedProvider {

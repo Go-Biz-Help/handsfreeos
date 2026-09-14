@@ -449,9 +449,93 @@ function describeAction(e: AuditEntry): string {
       return `updated the knowledge pack ${name(e)}${e.after?.version ? ` to version ${String(e.after.version)}` : ''}`;
     case 'knowledge_pack.push':
       return `sent the knowledge pack ${name(e)} to ${s(e.after?.businesses) || 'client businesses'}`;
+    // Milestone 6: workflows (a workflow's own steps read "Workflow: Speed to lead sent a text … via workflow")
+    case 'workflow.create':
+      return `created the workflow ${wfName(e)}${s(e.after?.source) ? ` (${s(e.after?.source)})` : ''}`;
+    case 'workflow.save_draft':
+    case 'workflow.restore_version':
+    case 'workflow_proposal.apply':
+      return wfDraftSentence(e);
+    case 'workflow.rename':
+      return `renamed the workflow “${s(e.before?.name)}” to “${s(e.after?.name)}”`;
+    case 'workflow.publish':
+      return `published ${wfName(e)}${e.after?.version ? ` version ${String(e.after.version)}` : ''}`;
+    case 'workflow.pause':
+      return `paused ${wfName(e)}`;
+    case 'workflow.resume':
+      return `resumed ${wfName(e)}`;
+    case 'workflow.archive':
+      return `archived ${wfName(e)}${Number(e.after?.stoppedRuns ?? 0) ? ` and stopped ${count(e.after?.stoppedRuns, 'run', 'runs')}` : ''}`;
+    case 'workflow.test':
+      return `ran a ${s(e.after?.mode) || 'Simulate'} test of ${wfName(e)}${s(e.after?.customer) ? ` with ${s(e.after?.customer)}` : ''}`;
+    case 'workflow.enrol':
+      return `added ${s(e.after?.customer) || 'a customer'} to ${wfName(e)}`;
+    case 'workflow.remove_contact':
+      return `took ${s(e.after?.customer) || 'a customer'} out of ${wfName(e)}`;
+    case 'workflow.stop_run':
+      return `stopped a run of ${wfName(e)}${s(e.after?.customer) ? ` for ${s(e.after?.customer)}` : ''}`;
+    case 'workflow.decide_approval':
+      return `${s(e.after?.decision) === 'Rejected' ? 'rejected' : 'approved'} a step of ${wfName(e)}${s(e.after?.customer) ? ` for ${s(e.after?.customer)}` : ''}${e.after?.edited ? ', with an edit' : ''}`;
+    case 'workflow.retry_step':
+      return `retried a failed step of ${wfName(e)}`;
+    case 'workflow.skip_step':
+      return `skipped a failed step of ${wfName(e)}`;
+    case 'workflow.request_approval':
+      return 'asked for an approval';
+    case 'workflow.expire_approval':
+      return 'let an approval expire';
+    case 'workflow_run.start':
+      return 'started a run';
+    case 'workflow_run.end':
+      return wfRunEndSentence(e);
     default:
       return e.action;
   }
+}
+
+// ---- Milestone 6: workflow helpers ----
+
+function wfName(e: AuditEntry): string {
+  const n = s(e.after?.name) || s(e.after?.workflow) || s(e.before?.name);
+  return n ? `“${n}”` : 'a workflow';
+}
+
+function wfDraftSentence(e: AuditEntry): string {
+  const changes = Array.isArray(e.after?.changes) ? e.after.changes.map(String) : [];
+  const first = changes[0];
+  if (e.action === 'workflow.restore_version')
+    return `${first ? first[0]!.toLowerCase() + first.slice(1) : 'restored an old version'} into the draft of ${wfName(e)}`;
+  const more = changes.length > 1 ? ` and ${changes.length - 1} more` : '';
+  const how = e.action === 'workflow_proposal.apply' ? 'applied an AI change to' : 'edited';
+  return `${how} the draft of ${wfName(e)}${first ? `: ${first}${more}` : ''}`;
+}
+
+const WF_RUN_END: Record<string, string> = {
+  end_step: 'it reached an End step',
+  rejected: 'the approval was rejected',
+  approval_expired: 'the approval expired',
+  approval_cancelled: 'the approval was cancelled',
+  'stop_on:reply': 'they replied',
+  'stop_on:booking': 'they booked',
+  'stop_on:lead_won': 'the lead was won',
+  'stop_on:lead_lost': 'the lead was lost',
+  max_days: 'it ran for the most days a run can last',
+  step_limit: 'it reached the step limit',
+  workflow_archived: 'the workflow was archived',
+  removed_from_workflow: 'they were taken out',
+  removed_by_workflow: 'another workflow took them out',
+  stopped_by_person: 'someone stopped it',
+  outdated: 'the draft changed during the test',
+};
+
+function wfRunEndSentence(e: AuditEntry): string {
+  const reason = s(e.after?.reason);
+  const status = s(e.after?.status);
+  const why =
+    reason && reason !== 'finished' ? (WF_RUN_END[reason] ?? reason.replace(/_/g, ' ')) : '';
+  if (status === 'completed') return why ? `finished a run (${why})` : 'finished a run';
+  if (status === 'failed') return `stopped a run when a step failed${why ? ` (${why})` : ''}`;
+  return `stopped a run${why ? `: ${why}` : ''}`;
 }
 
 // ---- Milestone 6: knowledge base helpers ----
@@ -744,6 +828,7 @@ export type AuditCategory =
   | 'tasks'
   | 'files'
   | 'imports'
+  | 'workflows'
   | 'other';
 
 export const AUDIT_CATEGORY_LABEL: Record<AuditCategory, string> = {
@@ -757,6 +842,7 @@ export const AUDIT_CATEGORY_LABEL: Record<AuditCategory, string> = {
   tasks: 'Tasks',
   files: 'Files',
   imports: 'Imports',
+  workflows: 'Workflows',
   other: 'Other',
 };
 
@@ -776,7 +862,27 @@ const CALENDAR_PREFIXES = [
   'waitlist.',
 ];
 
+/**
+ * Who did it, for a log row: a person, "Workflow: Speed to lead" (audit.list names the workflow, which is
+ * recorded as itself), or HandsFreeOS for system work.
+ */
+export function auditActor(e: AuditEntry): {
+  readonly name: string;
+  readonly kind: 'person' | 'workflow' | 'system';
+  readonly workflowId: string | null;
+} {
+  if (e.actor.type === 'workflow')
+    return {
+      name: e.actor.workflow ? `Workflow: ${e.actor.workflow.name}` : 'A workflow',
+      kind: 'workflow',
+      workflowId: e.actor.workflow?.id ?? e.actor.userId,
+    };
+  if (e.actor.type === 'system') return { name: 'HandsFreeOS', kind: 'system', workflowId: null };
+  return { name: e.actor.fullName ?? 'Someone', kind: 'person', workflowId: null };
+}
+
 export function auditCategory(action: string): AuditCategory {
+  if (action.startsWith('workflow')) return 'workflows';
   if (CALENDAR_PREFIXES.some((p) => action.startsWith(p))) return 'calendar';
   if (action.startsWith('membership.')) return 'members';
   if (action.startsWith('invitation.')) return 'invitations';

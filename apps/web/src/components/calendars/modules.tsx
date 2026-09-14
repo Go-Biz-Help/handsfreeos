@@ -31,6 +31,7 @@ import { Segmented } from '@/components/ui/segmented';
 import { Stepper } from '@/components/ui/stepper';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
+import { CalendarAutomations } from '@/components/workflows/calendar-automations';
 import type { Pipeline, ResourceItem, ServiceItem, TerritoryItem } from '@/lib/api/types';
 import { teamSentence, type ModuleKey } from '@/lib/calendar/describe';
 import { fmtLength, TIME_OPTIONS } from '@/lib/calendar/time';
@@ -55,6 +56,9 @@ export interface ModuleProps {
   readonly resources: readonly ResourceItem[];
   readonly territories: readonly TerritoryItem[];
   readonly pipelines: readonly Pipeline[];
+  /** The calendar itself, for Automations (its workflows and "Add automation"). */
+  readonly calendarId?: string;
+  readonly calendarName?: string;
 }
 
 const WEEKDAYS_9_TO_5: WeeklyHours = [1, 2, 3, 4, 5].map((day) => ({
@@ -1748,6 +1752,16 @@ export function ModuleForm(props: ModuleProps & { module: ModuleKey }) {
         <SoonModule title="Payments" what="Take a deposit or the full price when customers book." />
       );
     case 'automations':
-      return <SoonModule title="Automations" what="Workflows that run when bookings happen." />;
+      return props.calendarId ? (
+        <CalendarAutomations
+          workspaceId={props.workspaceId}
+          calendarId={props.calendarId}
+          calendarName={props.calendarName ?? 'this calendar'}
+          notifications={props.draft.notifications}
+          legacyIds={props.draft.automations.workflowIds}
+        />
+      ) : (
+        <SoonModule title="Automations" what="Workflows that run when bookings happen." />
+      );
   }
 }

@@ -2,15 +2,18 @@
 import { WORKFLOW_RECIPES } from '@hfos/core';
 import { Info, Search, WandSparkles, Workflow } from 'lucide-react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useMemo, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button, ButtonLink } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Segmented } from '@/components/ui/segmented';
-import type { WorkflowStatus, WorkflowSummary } from '@/lib/api/types';
+import { Switch } from '@/components/ui/switch';
+import type { WorkflowStats, WorkflowStatus, WorkflowSummary } from '@/lib/api/types';
 import { useLiveRefresh } from '@/lib/realtime/live-provider';
-import { cn, relativeTime } from '@/lib/utils';
+import { endReasonText, isLive, RUN_STATUS, whenText } from '@/lib/workflows/run-words';
+import { cn } from '@/lib/utils';
 import {
   KindTile,
   recipeIcon,
@@ -19,25 +22,47 @@ import {
   workflowIcon,
   WorkflowStatusBadge,
 } from './chips';
+import { StatusChangeDialog, type StatusChange } from './publish';
+import { WorkflowStatTiles } from './workflow-stats';
 
 type Filter = 'all' | WorkflowStatus;
 
 const COLUMNS =
-  'lg:grid lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1.3fr)_136px_132px_88px] lg:items-center lg:gap-4';
+  'lg:grid lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1.2fr)_128px_minmax(0,1.3fr)_112px] lg:items-center lg:gap-4';
 
-/** Every workflow: its status, what starts it, where it came from, its live version and when it was edited. */
+/** Whom the last run was for and how it stands: "Mike Johnson · They replied". */
+function lastRunLine(r: NonNullable<WorkflowSummary['lastRun']>): string {
+  const who = r.person?.fullName ?? 'No customer';
+  const how = isLive(r.status)
+    ? RUN_STATUS[r.status].label
+    : (endReasonText(r.endReason) ?? RUN_STATUS[r.status].label);
+  return `${who} · ${how}`;
+}
+
+/**
+ * Every workflow: what starts it, where it came from, its runs in the last 30 days and the last one, and a
+ * switch to pause or resume it (with a confirm that says what happens), under today's tiles.
+ */
 export function WorkflowList({
   workspaceId,
   items,
   canManage,
+  stats = null,
+  timeZone = 'America/Chicago',
 }: {
   workspaceId: string;
   items: WorkflowSummary[];
   canManage: boolean;
+  /** Today at a glance, for the tiles. */
+  stats?: WorkflowStats | null;
+  timeZone?: string;
 }) {
-  useLiveRefresh(['workflow', 'workflow_template']);
+  useLiveRefresh(['workflow', 'workflow_template', 'workflow_run']);
+  const router = useRouter();
   const [filter, setFilter] = useState<Filter>('all');
   const [q, setQ] = useState('');
+  const [target, setTarget] = useState<WorkflowSummary | null>(null);
+  const [change, setChange] = useState<StatusChange | null>(null);
   const base = `/app/w/${workspaceId}/workflows`;
 
   const counts = useMemo(() => {
@@ -54,6 +79,7 @@ export function WorkflowList({
 
   return (
     <div>
+      {stats ? <WorkflowStatTiles workspaceId={workspaceId} stats={stats} /> : null}
       <div className="mb-3 flex flex-wrap items-center gap-2.5">
         <div className="relative w-full sm:w-[280px]">
           <Search
@@ -92,32 +118,44 @@ export function WorkflowList({
         >
           <span>Workflow</span>
           <span>Starts when</span>
-          <span>Live version</span>
-          <span>Last edited</span>
-          <span>Status</span>
+          <span>Runs, last 30 days</span>
+          <span>Last run</span>
+          <span>On or off</span>
         </div>
         {shown.map((w) => {
           const Trig = triggerIcon(w.trigger.kind, w.trigger.event);
+          const switchable = canManage && (w.status === 'active' || w.status === 'paused');
+          const failed = w.lastRun?.status === 'failed' ? w.lastError : null;
           return (
-            <Link
+            // The name is the row's link, stretched over the row, so the switch can sit on top of it.
+            <div
               key={w.id}
-              href={`${base}/${w.id}`}
               data-testid={`workflow-row-${w.id}`}
+              data-status={w.status}
               className={cn(
-                'flex items-start gap-3 border-b border-border px-4 py-3 transition-colors last:border-b-0 hover:bg-card-2 lg:px-[18px] lg:py-[13px]',
+                'relative flex items-start gap-3 border-b border-border px-4 py-3 transition-colors last:border-b-0 hover:bg-card-2 lg:px-[18px] lg:py-[13px]',
                 COLUMNS,
               )}
             >
               <span className="flex min-w-0 flex-1 items-start gap-2.5">
                 <KindTile tone="act" icon={workflowIcon(w)} />
                 <span className="flex min-w-0 flex-col gap-[5px]">
-                  <span className="truncate text-[15px] font-semibold leading-tight lg:text-sm lg:font-medium">
+                  <Link
+                    href={`${base}/${w.id}`}
+                    className="truncate rounded-[4px] text-[15px] font-semibold leading-tight after:absolute after:inset-0 after:content-[''] focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring lg:text-sm lg:font-medium"
+                  >
                     {w.name}
-                  </span>
+                  </Link>
                   <span className="flex flex-wrap items-center gap-1.5">
                     <SourceChips source={w.source} />
                     <span className="text-xs text-text-3 lg:hidden">{w.trigger.summary}</span>
                   </span>
+                  {w.activeVersion ? (
+                    <span className="text-xs text-text-3 lg:hidden">
+                      {w.runs30d} {w.runs30d === 1 ? 'run' : 'runs'} in 30 days
+                      {w.lastRun ? ` · last ${whenText(w.lastRun.startedAt, timeZone)}` : ''}
+                    </span>
+                  ) : null}
                 </span>
               </span>
               <span className="hidden items-start gap-2 text-[13px] text-text-2 lg:flex">
@@ -127,11 +165,11 @@ export function WorkflowList({
               <span className="hidden flex-col lg:flex">
                 {w.activeVersion ? (
                   <>
-                    <span className="text-[13px] font-semibold">
-                      Version {w.activeVersion.version}
-                    </span>
+                    <span className="text-[13px] font-semibold tabular-nums">{w.runs30d}</span>
                     <span className="text-xs text-text-3">
-                      {w.tested ? 'Draft tested' : 'Draft has changes'}
+                      {w.activeRuns
+                        ? `${w.activeRuns} going now`
+                        : `Version ${w.activeVersion.version} live`}
                     </span>
                   </>
                 ) : (
@@ -141,16 +179,52 @@ export function WorkflowList({
                   </>
                 )}
               </span>
-              <span className="hidden text-[13px] text-text-2 lg:block">
-                {relativeTime(w.updatedAt)}
+              <span className="hidden min-w-0 flex-col lg:flex">
+                {w.lastRun ? (
+                  <>
+                    <span className="text-[13px]">{whenText(w.lastRun.startedAt, timeZone)}</span>
+                    {failed ? (
+                      <span className="text-xs text-danger-text">
+                        <span className="line-clamp-2">{failed.message}</span>
+                        <Link
+                          href={`${base}/runs/${failed.runId}`}
+                          className="relative z-10 font-medium hover:underline"
+                        >
+                          See the run
+                        </Link>
+                      </span>
+                    ) : (
+                      <span className="truncate text-xs text-text-3">{lastRunLine(w.lastRun)}</span>
+                    )}
+                  </>
+                ) : (
+                  <span className="text-xs text-text-3">No runs yet</span>
+                )}
               </span>
-              <span className="flex flex-none flex-col items-end gap-1 lg:items-start">
-                <WorkflowStatusBadge status={w.status} />
+              <span className="relative z-10 flex flex-none flex-col items-end gap-1 lg:items-start">
+                {switchable ? (
+                  <span className="flex items-center gap-2">
+                    <Switch
+                      checked={w.status === 'active'}
+                      onChange={(on) => {
+                        setTarget(w);
+                        setChange(on ? 'resume' : 'pause');
+                      }}
+                      label={w.status === 'active' ? `Pause ${w.name}` : `Resume ${w.name}`}
+                      testId={`workflow-switch-${w.id}`}
+                    />
+                    <span className="text-xs font-medium text-text-2">
+                      {w.status === 'active' ? 'On' : 'Paused'}
+                    </span>
+                  </span>
+                ) : (
+                  <WorkflowStatusBadge status={w.status} />
+                )}
                 <span className="text-xs text-text-3 lg:hidden">
                   {w.activeVersion ? `v${w.activeVersion.version}` : 'Not published'}
                 </span>
               </span>
-            </Link>
+            </div>
           );
         })}
         {!shown.length ? (
@@ -166,6 +240,17 @@ export function WorkflowList({
           ? 'Recipes and Go Biz Help templates change only when you apply an update. Paused workflows ignore new triggers and hold their runs.'
           : 'Only owners and admins can change workflows. You can open any of them to see how it works.'}
       </p>
+      <StatusChangeDialog
+        change={change}
+        onClose={() => setChange(null)}
+        workspaceId={workspaceId}
+        workflow={
+          target
+            ? { id: target.id, name: target.name, activeRuns: target.activeRuns }
+            : { id: '', name: 'this workflow' }
+        }
+        onDone={() => router.refresh()}
+      />
     </div>
   );
 }

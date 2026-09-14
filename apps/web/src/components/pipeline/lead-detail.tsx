@@ -36,6 +36,10 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
+import {
+  AddToWorkflowButton,
+  ContactWorkflowsCard,
+} from '@/components/workflows/contact-workflows';
 import { apiBrowser, errorMessage, unwrap } from '@/lib/api/client';
 import type {
   Appointment,
@@ -505,6 +509,14 @@ export function LeadDetail({
               File
             </Button>
           )}
+          {lead.person && !compact ? (
+            <AddToWorkflowButton
+              workspaceId={workspaceId}
+              person={{ id: lead.person.id, fullName: lead.person.fullName }}
+              timeZone={timeZone ?? 'America/Chicago'}
+              canManageWorkflows={canModerate}
+            />
+          ) : null}
           <span className="flex-1" />
           {lead.status === 'open' ? (
             <>
@@ -561,6 +573,14 @@ export function LeadDetail({
           items={upcoming ?? []}
           onBook={lead.archivedAt ? undefined : () => setBooking(true)}
           onOpen={setOpenAppt}
+        />
+      ) : null}
+
+      {lead.person && !compact ? (
+        <ContactWorkflowsCard
+          workspaceId={workspaceId}
+          person={{ id: lead.person.id, fullName: lead.person.fullName }}
+          timeZone={timeZone ?? 'America/Chicago'}
         />
       ) : null}
 

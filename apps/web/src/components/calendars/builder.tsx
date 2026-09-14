@@ -592,6 +592,8 @@ export function CalendarBuilder(props: BuilderProps) {
             resources={props.resources}
             territories={props.territories}
             pipelines={props.pipelines}
+            calendarId={calendar.id}
+            calendarName={calendar.name}
           />
         </Card>
 

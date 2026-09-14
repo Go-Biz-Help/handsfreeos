@@ -1,5 +1,6 @@
 'use client';
 import { ChevronDown, Copy, Search } from 'lucide-react';
+import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { Avatar } from '@/components/ui/avatar';
@@ -10,7 +11,12 @@ import { Input, Select } from '@/components/ui/input';
 import { Segmented } from '@/components/ui/segmented';
 import { apiBrowser, errorMessage, unwrap } from '@/lib/api/client';
 import type { AuditEntry, AuditList } from '@/lib/api/types';
-import { AUDIT_CATEGORY_LABEL, auditCategory, describeAudit } from '@/lib/audit-describe';
+import {
+  AUDIT_CATEGORY_LABEL,
+  auditActor,
+  auditCategory,
+  describeAudit,
+} from '@/lib/audit-describe';
 import { cn } from '@/lib/utils';
 
 type Range = 'today' | '7d' | '30d';
@@ -37,7 +43,9 @@ function sinceFor(range: Range): string {
 function filters(range: Range, actor: string, category: string) {
   return {
     since: sinceFor(range),
-    ...(actor !== 'all' && actor !== 'system' ? { actorId: actor } : {}),
+    ...(actor !== 'all' && actor !== 'system' && actor !== 'workflows' ? { actorId: actor } : {}),
+    // What workflows did comes through the workflow channel.
+    ...(actor === 'workflows' ? { channel: 'workflow' as const } : {}),
     ...(ACTION_PREFIX[category] ? { action: ACTION_PREFIX[category] } : {}),
     ...(category === 'assistant' ? { channel: 'assistant' as const } : {}),
   };
@@ -90,21 +98,28 @@ export function AuditLog({ workspaceId, initial }: { workspaceId: string; initia
   const actors = useMemo(() => {
     const map = new Map<string, string>();
     for (const e of [...initial.entries, ...data.entries])
-      if (e.actor.userId) map.set(e.actor.userId, e.actor.fullName ?? 'Someone');
-    return [...map.entries()];
+      if (e.actor.userId) map.set(e.actor.userId, auditActor(e).name);
+    // People first, then each workflow ("Workflow: Speed to lead"): a workflow is recorded as itself.
+    return [...map.entries()].sort(
+      ([, a], [, b]) =>
+        Number(a.startsWith('Workflow: ')) - Number(b.startsWith('Workflow: ')) ||
+        a.localeCompare(b),
+    );
   }, [initial, data]);
 
   const visible = useMemo(() => {
     const needle = q.trim().toLowerCase();
     return data.entries.filter((e) => {
       if (actor === 'system' && e.actor.type !== 'system') return false;
+      if (actor === 'workflows' && e.actor.type !== 'workflow') return false;
       if (category === 'assistant') {
         if (e.channel !== 'assistant') return false;
+      } else if (category === 'workflows') {
+        // Changes to workflows, and everything a workflow did.
+        if (auditCategory(e.action) !== 'workflows' && e.actor.type !== 'workflow') return false;
       } else if (category !== 'all' && auditCategory(e.action) !== category) return false;
       if (!needle) return true;
-      return `${e.actor.fullName ?? 'HandsFreeOS'} ${describeAudit(e)} ${e.action}`
-        .toLowerCase()
-        .includes(needle);
+      return `${auditActor(e).name} ${describeAudit(e)} ${e.action}`.toLowerCase().includes(needle);
     });
   }, [data, q, actor, category]);
 
@@ -163,6 +178,7 @@ export function AuditLog({ workspaceId, initial }: { workspaceId: string; initia
               {name}
             </option>
           ))}
+          <option value="workflows">All workflows</option>
           <option value="system">HandsFreeOS (system)</option>
         </Select>
         <Select
@@ -183,6 +199,7 @@ export function AuditLog({ workspaceId, initial }: { workspaceId: string; initia
           <option value="tasks">Tasks</option>
           <option value="files">Files</option>
           <option value="imports">Imports</option>
+          <option value="workflows">Workflows</option>
           <option value="assistant">Assistant</option>
         </Select>
         <div className="relative max-w-[320px] flex-1">
@@ -216,8 +233,8 @@ export function AuditLog({ workspaceId, initial }: { workspaceId: string; initia
             </div>
             {g.entries.map((e) => {
               const expanded = open === e.id;
-              const actorName =
-                e.actor.type === 'system' ? 'HandsFreeOS' : (e.actor.fullName ?? 'Someone');
+              const who = auditActor(e);
+              const actorName = who.name;
               return (
                 <div key={e.id}>
                   <button
@@ -273,6 +290,26 @@ export function AuditLog({ workspaceId, initial }: { workspaceId: string; initia
                           </dd>
                           <dt className="text-text-3">Channel</dt>
                           <dd>{e.channel}</dd>
+                          {who.kind === 'workflow' && who.workflowId ? (
+                            <>
+                              <dt className="text-text-3">Workflow</dt>
+                              <dd className="flex flex-wrap gap-x-2.5">
+                                <Link
+                                  href={`/app/w/${workspaceId}/workflows/${who.workflowId}`}
+                                  className="text-accent-text hover:underline"
+                                  data-testid="audit-workflow-link"
+                                >
+                                  {e.actor.workflow?.name ?? 'Open the workflow'}
+                                </Link>
+                                <Link
+                                  href={`/app/w/${workspaceId}/workflows/runs/${e.correlationId}`}
+                                  className="text-accent-text hover:underline"
+                                >
+                                  See the run
+                                </Link>
+                              </dd>
+                            </>
+                          ) : null}
                           <dt className="text-text-3">Correlation</dt>
                           <dd className="flex items-center gap-1.5">
                             <span className="truncate font-mono text-[12.5px] text-text-2">

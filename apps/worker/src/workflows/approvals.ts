@@ -61,6 +61,18 @@ async function loadApproval(ec: ExecCtx): Promise<ApprovalRow | null> {
   return a ?? null;
 }
 
+/** The knowledge items the previewed AI step used (its log's `items`), for the approver to see. */
+async function usedItems(ec: ExecCtx, stepId: string): Promise<unknown[]> {
+  const [row] = await rows<{ output: Json | null }>(
+    ec.tx,
+    sql`select output from app.workflow_run_steps
+        where run_id = ${ec.run.id} and split_part(step_key, '#', 1) = ${stepId} and status = 'done'
+        order by finished_at desc nulls last limit 1`,
+  );
+  const items = row?.output?.['items'];
+  return Array.isArray(items) ? items.slice(0, 10) : [];
+}
+
 /** Reaching an approval step. */
 export async function openApproval(ec: ExecCtx): Promise<Outcome> {
   const step = ec.step as ApprovalStep;
@@ -88,6 +100,8 @@ export async function openApproval(ec: ExecCtx): Promise<Outcome> {
   }
   const person = await ec.data.person();
   const customer = person ? `${person.first_name} ${person.last_name}`.trim() || null : null;
+  // What the approver weighs the text against: the customer's latest message and the knowledge it used.
+  const asked = (await ec.data.conversation())?.last_message?.trim() || null;
   const preview: Json = {
     workflow: ec.workflow.name,
     stepId: step.id,
@@ -97,6 +111,8 @@ export async function openApproval(ec: ExecCtx): Promise<Outcome> {
     channel,
     customer,
     personId: ec.run.personId,
+    asked: asked ? asked.slice(0, 1000) : null,
+    items: target?.type === 'ai' ? await usedItems(ec, target.id) : [],
   };
   const expiresAt = addDuration(ec.now, step.expiresAfter, ec.timeZone);
   const [created] = await rows<{ id: string }>(

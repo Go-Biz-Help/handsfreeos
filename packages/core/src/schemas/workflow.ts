@@ -120,6 +120,17 @@ export const WorkflowSummaryOut = z.object({
   lastError: z
     .object({ runId: uuid, stepKey: z.string(), message: z.string(), at: isoDateTime })
     .nullable(),
+  /** The newest real run (tests aside): when it started, where it stands, and whom it's for. */
+  lastRun: z
+    .object({
+      id: uuid,
+      status: WorkflowRunStatusValue,
+      startedAt: isoDateTime,
+      endedAt: isoDateTime.nullable(),
+      endReason: z.string().nullable(),
+      person: PersonRef.nullable(),
+    })
+    .nullable(),
   createdBy: UserOut.nullable(),
   updatedAt: isoDateTime,
 });
@@ -409,12 +420,42 @@ export const WorkflowRunListInput = z.object({
   status: z.array(WorkflowRunStatusValue).max(7).optional(),
   personId: uuid.optional(),
   includeTests: z.boolean().default(false),
+  /** Test runs only (the Runs page's "Tests"); wins over includeTests. */
+  onlyTests: z.boolean().default(false),
+  /** Runs that started in this window. */
+  startedAfter: isoDateTime.optional(),
+  startedBefore: isoDateTime.optional(),
   limit,
   cursor,
 });
 export const WorkflowRunListOutput = z.object({
   items: z.array(WorkflowRunOut),
   nextCursor: z.string().nullable(),
+});
+
+export const WorkflowStatsInput = z.object({ workspaceId: uuid });
+export const WorkflowStatsOutput = z.object({
+  /** Real runs (tests aside) that started today, where the business is. */
+  runsToday: z.int(),
+  /** Real runs going now: running, waiting, needing an approval or held. */
+  liveRuns: z.int(),
+  /** Texts and emails workflows sent today. */
+  messagesToday: z.int(),
+  /** Texts holding for quiet hours to end, now. */
+  quietHoursHeld: z.int(),
+  /** Approvals still to decide, and the customers the newest few are about. */
+  approvalsPending: z.int(),
+  approvalCustomers: z.array(z.string()),
+  /** Real runs that failed in the last 30 days, and the newest one's workflow. */
+  failedRuns: z.int(),
+  failedWorkflow: NamedRef.nullable(),
+  /** Real runs that started in the last 30 days, by where they stand. */
+  runs30d: z.object({
+    all: z.int(),
+    waiting: z.int(),
+    awaitingApproval: z.int(),
+    failed: z.int(),
+  }),
 });
 
 export const WorkflowRunStepOut = z.object({

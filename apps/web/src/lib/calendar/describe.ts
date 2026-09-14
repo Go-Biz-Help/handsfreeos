@@ -31,7 +31,7 @@ export const MODULES = [
   { key: 'connections', name: 'Calendar connections' },
   { key: 'crm', name: 'CRM' },
   { key: 'payments', name: 'Payments', soon: 'Coming with Payments' },
-  { key: 'automations', name: 'Automations', soon: 'Coming with Workflows' },
+  { key: 'automations', name: 'Automations' },
 ] as const;
 export type ModuleKey = (typeof MODULES)[number]['key'];
 
@@ -332,6 +332,6 @@ export function moduleSummary(
     case 'payments':
       return 'Coming with Payments';
     case 'automations':
-      return 'Coming with Workflows';
+      return 'Workflows for its appointments';
   }
 }

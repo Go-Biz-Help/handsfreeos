@@ -6,7 +6,7 @@ import { Avatar } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import type { Appointment, AuditEntry, CrmSummary, LeadCard, Task } from '@/lib/api/types';
-import { describeAudit } from '@/lib/audit-describe';
+import { auditActor, describeAudit } from '@/lib/audit-describe';
 import { formatMoney } from '@/lib/format';
 import { useLiveRefresh } from '@/lib/realtime/live-provider';
 import { cn, relativeTime } from '@/lib/utils';
@@ -151,8 +151,7 @@ export function HomeSummary({
             ) : (
               <ul className="flex flex-col gap-2.5">
                 {recent.map((e) => {
-                  const name =
-                    e.actor.type === 'system' ? 'HandsFreeOS' : (e.actor.fullName ?? 'Someone');
+                  const name = auditActor(e).name;
                   return (
                     <li key={e.id} className="flex items-start gap-2.5 text-[13px]">
                       <Avatar

@@ -22,9 +22,10 @@ import { createSmtpMailer } from './mailer';
 import { processOnce } from './outbox';
 import { processors } from './processors/index';
 import { ensureRecurringJobs, jobs } from './scheduled';
-import type { WorkerServices } from './services';
 import { createSupabaseStore, unconfiguredStore } from './storage';
 import { createTelephony } from './telephony/index';
+import { createWorkflowAi } from './workflows/ai-runner';
+import type { EngineServices } from './workflows/types';
 
 loadEnv();
 const env = readEnv();
@@ -37,7 +38,9 @@ const log = pino(
 const handle = createDb(env.databaseUrl, { max: 4, applicationName: 'hfos-worker' });
 // Webhooks, sign-ins and the Assistant's questions; each question holds a connection only per step.
 const httpHandle = createDb(env.databaseUrl, { max: 6, applicationName: 'hfos-worker-http' });
-const services: WorkerServices = {
+// Workflow AI steps, the AI builder and the knowledge base: the Assistant's model and daily limit.
+const ai = createAi(env);
+const services: EngineServices = {
   db: handle.db,
   mailer: createSmtpMailer(env.smtpUrl, env.mailFrom),
   store:
@@ -63,8 +66,9 @@ const services: WorkerServices = {
   fetchUrl: createSafeFetch({
     testOrigins: !env.production && env.telephonyProvider === 'fake' ? env.fetchTestOrigins : [],
   }),
-  // Workflow AI steps, the AI builder and the knowledge base: the Assistant's model and daily limit.
-  ai: createAi(env),
+  ai,
+  // Workflow AI steps and AI-sorted branches answer from that model, grounded in the knowledge base.
+  workflowAi: createWorkflowAi({ db: handle.db, ai, log }),
 };
 const workerId = `${hostname()}:${process.pid}`;
 const loopDeps = { ...services, workerId, batchSize: env.batchSize };

@@ -35,6 +35,8 @@ import {
   WorkflowRunGetOutput,
   WorkflowRunListInput,
   WorkflowRunListOutput,
+  WorkflowStatsInput,
+  WorkflowStatsOutput,
   WorkflowTemplateGetOutput,
   WorkflowTemplateListInput,
   WorkflowTemplateListOutput,
@@ -82,9 +84,12 @@ const LIVE_SQL = sql`('running', 'waiting', 'awaiting_approval', 'held')`;
 
 // ---- Summaries ----
 
+type LastRun = NonNullable<WorkflowSummaryOut['lastRun']>;
+
 interface SummaryData {
   readonly stats: Map<string, { runs30d: number; activeRuns: number }>;
   readonly errors: Map<string, { runId: string; stepKey: string; message: string; at: string }>;
+  readonly lastRuns: Map<string, LastRun>;
   readonly versions: Map<string, { version: number; definition: WorkflowDefinition }>;
   readonly templates: Map<string, { name: string; latestVersion: number | null }>;
   readonly names: Map<string, string>;
@@ -116,6 +121,24 @@ async function summaryData(tx: Tx, ws: string, list: readonly WorkflowRow[]): Pr
           and r.workflow_id = any(${uuidArray(ids)})
         order by r.workflow_id, s.updated_at desc`,
   );
+  const last = await rows<{
+    workflow_id: string;
+    id: string;
+    status: LastRun['status'];
+    started_at: Date;
+    ended_at: Date | null;
+    end_reason: string | null;
+    person_id: string | null;
+    person_name: string | null;
+  }>(
+    tx,
+    sql`select distinct on (r.workflow_id) r.workflow_id, r.id, r.status::text as status, r.started_at,
+          r.ended_at, r.end_reason, r.person_id,
+          coalesce(nullif(btrim(p.first_name || ' ' || p.last_name), ''), 'Customer') as person_name
+        from app.workflow_runs r left join app.people p on p.id = r.person_id
+        where r.workspace_id = ${ws} and not r.is_test and r.workflow_id = any(${uuidArray(ids)})
+        order by r.workflow_id, r.started_at desc, r.id desc`,
+  );
   const versionIds = list.map((w) => w.activeVersionId).filter((v): v is string => !!v);
   const versions = versionIds.length
     ? await tx
@@ -143,6 +166,19 @@ async function summaryData(tx: Tx, ws: string, list: readonly WorkflowRow[]): Pr
           stepKey: e.step_key,
           message: typeof e.error?.message === 'string' ? e.error.message : 'A step failed.',
           at: iso(e.updated_at)!,
+        },
+      ]),
+    ),
+    lastRuns: new Map(
+      last.map((r) => [
+        r.workflow_id,
+        {
+          id: r.id,
+          status: r.status,
+          startedAt: iso(r.started_at)!,
+          endedAt: iso(r.ended_at),
+          endReason: r.end_reason,
+          person: r.person_id ? { id: r.person_id, fullName: r.person_name ?? 'Customer' } : null,
         },
       ]),
     ),
@@ -215,6 +251,7 @@ function summaryOf(
     runs30d: data.stats.get(row.id)?.runs30d ?? 0,
     activeRuns: data.stats.get(row.id)?.activeRuns ?? 0,
     lastError: data.errors.get(row.id) ?? null,
+    lastRun: data.lastRuns.get(row.id) ?? null,
     createdBy: userRef(row.createdBy, data.names),
     updatedAt: row.updatedAt.toISOString(),
   };
@@ -437,13 +474,96 @@ export const workflowRunList = defineQuery({
             ${input.workflowId ? sql`and r.workflow_id = ${input.workflowId}` : sql``}
             ${input.status?.length ? sql`and r.status::text = any(${textArray(input.status)})` : sql``}
             ${input.personId ? sql`and r.person_id = ${input.personId}` : sql``}
-            ${input.includeTests ? sql`` : sql`and not r.is_test`}
+            ${input.onlyTests ? sql`and r.is_test` : input.includeTests ? sql`` : sql`and not r.is_test`}
+            ${input.startedAfter ? sql`and r.started_at >= ${input.startedAfter}::timestamptz` : sql``}
+            ${input.startedBefore ? sql`and r.started_at < ${input.startedBefore}::timestamptz` : sql``}
             ${cursor ? sql`and (${SORT_KEY(sql`r.started_at`)}, r.id) < (${cursor.sort}, ${cursor.id}::uuid)` : sql``}
           order by r.started_at desc, r.id desc
           limit ${input.limit + 1}`,
     );
     const result = page(list, input.limit, (r) => ({ sort: r.sort_key, id: r.id }));
     return { items: result.items.map(runOut), nextCursor: result.nextCursor };
+  },
+});
+
+export const workflowStats = defineQuery({
+  name: 'workflow.stats',
+  description:
+    'Workflows today, for the list’s tiles: runs started today and going now, texts and emails sent today, texts holding for quiet hours, approvals to decide, and failed runs. Tests aside.',
+  input: WorkflowStatsInput,
+  output: WorkflowStatsOutput,
+  permission: 'workspace.read',
+  scope: inWorkspace,
+  async handler(ctx, input) {
+    const ws = input.workspaceId;
+    // "Today" starts at midnight where the business is.
+    const today = sql`(date_trunc('day', now() at time zone w.timezone) at time zone w.timezone)`;
+    const [runs] = await rows<{
+      today: number;
+      live: number;
+      all30: number;
+      waiting30: number;
+      approval30: number;
+      failed30: number;
+    }>(
+      ctx.tx,
+      sql`select
+            count(*) filter (where r.started_at >= ${today})::int as today,
+            count(*) filter (where r.status in ${LIVE_SQL})::int as live,
+            count(*) filter (where r.started_at > now() - interval '30 days')::int as all30,
+            count(*) filter (where r.started_at > now() - interval '30 days' and r.status = 'waiting')::int as waiting30,
+            count(*) filter (where r.started_at > now() - interval '30 days' and r.status = 'awaiting_approval')::int as approval30,
+            count(*) filter (where r.started_at > now() - interval '30 days' and r.status = 'failed')::int as failed30
+          from app.workflow_runs r join app.workspaces w on w.id = r.workspace_id
+          where r.workspace_id = ${ws} and not r.is_test`,
+    );
+    const [steps] = await rows<{ sent: number; held: number }>(
+      ctx.tx,
+      sql`select
+            count(*) filter (where s.status = 'done' and s.finished_at >= ${today} and s.output ? 'messageId')::int as sent,
+            count(*) filter (where s.status = 'waiting' and s.output->>'held' = 'quiet_hours')::int as held
+          from app.workflow_run_steps s
+          join app.workflow_runs r on r.id = s.run_id
+          join app.workspaces w on w.id = s.workspace_id
+          where s.workspace_id = ${ws} and not r.is_test
+            and (s.status = 'waiting' or s.finished_at >= now() - interval '2 days')`,
+    );
+    const approvals = await rows<{ total: number; name: string }>(
+      ctx.tx,
+      sql`select count(*) over ()::int as total,
+            coalesce(nullif(btrim(p.first_name || ' ' || p.last_name), ''), 'Customer') as name
+          from app.workflow_approvals a
+          join app.workflow_runs r on r.id = a.run_id
+          left join app.people p on p.id = r.person_id
+          where a.workspace_id = ${ws} and a.status = 'pending' and not r.is_test
+            and (a.expires_at is null or a.expires_at > now())
+          order by a.created_at desc
+          limit 3`,
+    );
+    const [failed] = await rows<{ id: string; name: string }>(
+      ctx.tx,
+      sql`select w.id, w.name from app.workflow_runs r join app.workflows w on w.id = r.workflow_id
+          where r.workspace_id = ${ws} and not r.is_test and r.status = 'failed'
+            and r.started_at > now() - interval '30 days'
+          order by coalesce(r.ended_at, r.started_at) desc, r.id desc
+          limit 1`,
+    );
+    return {
+      runsToday: runs?.today ?? 0,
+      liveRuns: runs?.live ?? 0,
+      messagesToday: steps?.sent ?? 0,
+      quietHoursHeld: steps?.held ?? 0,
+      approvalsPending: approvals[0]?.total ?? 0,
+      approvalCustomers: [...new Set(approvals.map((a) => a.name))].slice(0, 2),
+      failedRuns: runs?.failed30 ?? 0,
+      failedWorkflow: failed ? { id: failed.id, name: failed.name } : null,
+      runs30d: {
+        all: runs?.all30 ?? 0,
+        waiting: runs?.waiting30 ?? 0,
+        awaitingApproval: runs?.approval30 ?? 0,
+        failed: runs?.failed30 ?? 0,
+      },
+    };
   },
 });
 

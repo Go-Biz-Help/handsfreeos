@@ -37,9 +37,12 @@ export const AuditEntry = z.object({
   action: z.string(),
   actor: z.object({
     type: z.string(),
+    /** The person who did it. A workflow's id is here too (its actor_id); `workflow` names it. */
     userId: uuid.nullable(),
     fullName: z.string().nullable(),
     role: z.string().nullable(),
+    /** When a workflow did it: which one, so the log can say "Workflow: Speed to lead". */
+    workflow: z.object({ id: uuid, name: z.string() }).nullable(),
   }),
   entityType: z.string(),
   entityId: uuid.nullable(),

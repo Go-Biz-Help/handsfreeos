@@ -19,7 +19,11 @@ export default async function WorkflowsPage({
   const { api } = await apiServer();
   const got = unwrapPage(await api.POST('/v1/queries/workspace.get', { body: { workspaceId } }));
   const canManage = hasWorkspacePermission(got.workspace.role, 'workflows.manage');
-  const list = unwrapPage(await api.POST('/v1/queries/workflow.list', { body: { workspaceId } }));
+  const [listRes, statsRes] = await Promise.all([
+    api.POST('/v1/queries/workflow.list', { body: { workspaceId } }),
+    api.POST('/v1/queries/workflow.stats', { body: { workspaceId } }),
+  ]);
+  const list = unwrapPage(listRes);
   return (
     <>
       <PageHeader
@@ -39,7 +43,13 @@ export default async function WorkflowsPage({
         }
       />
       <WorkflowsSubnav workspaceId={workspaceId} />
-      <WorkflowList workspaceId={workspaceId} items={list.items} canManage={canManage} />
+      <WorkflowList
+        workspaceId={workspaceId}
+        items={list.items}
+        canManage={canManage}
+        stats={statsRes.data ?? null}
+        timeZone={got.workspace.timezone}
+      />
     </>
   );
 }

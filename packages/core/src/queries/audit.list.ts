@@ -1,6 +1,6 @@
 import { and, desc, eq, gte, like, lt } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
-import { auditLogs, users } from '@hfos/db/schema';
+import { auditLogs, users, workflows } from '@hfos/db/schema';
 import { defineQuery } from '../kernel/define';
 import { AuditListInput, AuditListOutput } from '../schemas/audit';
 
@@ -19,22 +19,46 @@ export const auditList = defineQuery({
     if (input.action) conditions.push(like(auditLogs.action, `${input.action}%`));
     if (input.channel) conditions.push(eq(auditLogs.channel, input.channel));
     const target = alias(users, 'target');
+    // A workflow is recorded as itself (actor_id is the workflow), so its name comes from workflows.
+    const flow = alias(workflows, 'flow');
     const list = await ctx.tx
-      .select({ a: auditLogs, actorName: users.fullName, entityName: target.fullName })
+      .select({
+        a: auditLogs,
+        actorName: users.fullName,
+        entityName: target.fullName,
+        workflowName: flow.name,
+      })
       .from(auditLogs)
       .leftJoin(users, eq(users.id, auditLogs.actorId))
       .leftJoin(target, eq(target.id, auditLogs.entityId))
+      .leftJoin(
+        flow,
+        and(
+          eq(auditLogs.actorType, 'workflow'),
+          eq(flow.id, auditLogs.actorId),
+          eq(flow.workspaceId, auditLogs.workspaceId),
+        ),
+      )
       .where(and(...conditions))
       .orderBy(desc(auditLogs.createdAt))
       .limit(input.limit + 1);
     const page = list.slice(0, input.limit);
     const last = page[page.length - 1];
     return {
-      entries: page.map(({ a, actorName, entityName }) => ({
+      entries: page.map(({ a, actorName, entityName, workflowName }) => ({
         id: a.id,
         eventId: a.eventId,
         action: a.action,
-        actor: { type: a.actorType, userId: a.actorId, fullName: actorName, role: a.actorRole },
+        actor: {
+          type: a.actorType,
+          userId: a.actorId,
+          fullName: actorName,
+          role: a.actorRole,
+          workflow:
+            a.actorType === 'workflow' && a.actorId && workflowName !== null
+              ? { id: a.actorId, name: workflowName }
+              : null,
+        },
         entityType: a.entityType,
         entityId: a.entityId,
         entityName:

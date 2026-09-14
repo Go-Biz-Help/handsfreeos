@@ -336,6 +336,7 @@ describe('registry', () => {
       'workflow.catalogs',
       'workflow.run_list',
       'workflow.run_get',
+      'workflow.stats',
       'workflow.approval_list',
       'workflow.proposal_get',
       'workflow_template.list',

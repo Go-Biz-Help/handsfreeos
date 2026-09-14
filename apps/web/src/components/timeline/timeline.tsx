@@ -1,5 +1,6 @@
 'use client';
 import { MoreHorizontal, Trash2 } from 'lucide-react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { toast } from 'sonner';
@@ -24,6 +25,14 @@ import {
   timelineBody,
   timelineDotClass,
 } from './describe';
+
+/** The run a workflow's entry came from (`meta.workflow.runId`), for "See the run". */
+function workflowRunOf(e: TimelineEntry): string | null {
+  if (e.actorType !== 'workflow') return null;
+  const w = e.meta.workflow;
+  const runId = w && typeof w === 'object' ? (w as Record<string, unknown>).runId : null;
+  return typeof runId === 'string' && runId ? runId : null;
+}
 
 export function Timeline({
   workspaceId,
@@ -121,6 +130,18 @@ export function Timeline({
                 <span className="text-[13px] leading-5">
                   <strong className="font-semibold">{timelineActor(e, subjectName)}</strong>{' '}
                   {describeTimeline(e, recordType, myUserId, timeZone)}
+                  {workflowRunOf(e) ? (
+                    <>
+                      {' · '}
+                      <Link
+                        href={`/app/w/${workspaceId}/workflows/runs/${workflowRunOf(e)}`}
+                        className="text-accent-text hover:underline"
+                        data-testid="timeline-run-link"
+                      >
+                        See the run
+                      </Link>
+                    </>
+                  ) : null}
                 </span>
                 <span className="flex flex-none items-center gap-1">
                   {/* Rendered in the server's zone, then the viewer's: the words can differ by design. */}

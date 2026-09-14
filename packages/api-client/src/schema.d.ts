@@ -4177,6 +4177,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/queries/workflow.stats": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Workflows today, for the list’s tiles: runs started today and going now, texts and emails sent today, texts holding for quiet hours, approvals to decide, and failed runs. Tests aside.
+         * @description Requires workspace.read.
+         */
+        post: operations["query_workflow_stats"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/queries/workflow.version_get": {
         parameters: {
             query?: never;
@@ -11336,6 +11356,11 @@ export interface operations {
                                 role: string | null;
                                 type: string;
                                 userId: string | null;
+                                workflow: {
+                                    /** Format: uuid */
+                                    id: string;
+                                    name: string;
+                                } | null;
                             };
                             after: {
                                 [key: string]: unknown;
@@ -14882,6 +14907,21 @@ export interface operations {
                                 runId: string;
                                 stepKey: string;
                             } | null;
+                            lastRun: {
+                                endedAt: string | null;
+                                endReason: string | null;
+                                /** Format: uuid */
+                                id: string;
+                                person: {
+                                    fullName: string;
+                                    /** Format: uuid */
+                                    id: string;
+                                } | null;
+                                /** Format: date-time */
+                                startedAt: string;
+                                /** @enum {string} */
+                                status: "running" | "waiting" | "awaiting_approval" | "held" | "completed" | "stopped" | "failed";
+                            } | null;
                             name: string;
                             reentry: string;
                             revision: number;
@@ -14969,6 +15009,21 @@ export interface operations {
                                 /** Format: uuid */
                                 runId: string;
                                 stepKey: string;
+                            } | null;
+                            lastRun: {
+                                endedAt: string | null;
+                                endReason: string | null;
+                                /** Format: uuid */
+                                id: string;
+                                person: {
+                                    fullName: string;
+                                    /** Format: uuid */
+                                    id: string;
+                                } | null;
+                                /** Format: date-time */
+                                startedAt: string;
+                                /** @enum {string} */
+                                status: "running" | "waiting" | "awaiting_approval" | "held" | "completed" | "stopped" | "failed";
                             } | null;
                             name: string;
                             reentry: string;
@@ -15215,8 +15270,14 @@ export interface operations {
                     includeTests?: boolean;
                     /** @default 50 */
                     limit?: number;
+                    /** @default false */
+                    onlyTests?: boolean;
                     /** Format: uuid */
                     personId?: string;
+                    /** Format: date-time */
+                    startedAfter?: string;
+                    /** Format: date-time */
+                    startedBefore?: string;
                     status?: ("running" | "waiting" | "awaiting_approval" | "held" | "completed" | "stopped" | "failed")[];
                     /** Format: uuid */
                     workflowId?: string;
@@ -15266,6 +15327,52 @@ export interface operations {
                             };
                         }[];
                         nextCursor: string | null;
+                    };
+                };
+            };
+        };
+    };
+    query_workflow_stats: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        approvalCustomers: string[];
+                        approvalsPending: number;
+                        failedRuns: number;
+                        failedWorkflow: {
+                            /** Format: uuid */
+                            id: string;
+                            name: string;
+                        } | null;
+                        liveRuns: number;
+                        messagesToday: number;
+                        quietHoursHeld: number;
+                        runs30d: {
+                            all: number;
+                            awaitingApproval: number;
+                            failed: number;
+                            waiting: number;
+                        };
+                        runsToday: number;
                     };
                 };
             };

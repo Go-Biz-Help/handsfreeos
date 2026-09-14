@@ -743,6 +743,8 @@ async function aiInput(ec: ExecCtx, task: AiStepTask): Promise<AiStepInput> {
     customerMessage: conv?.last_message ?? null,
     facts,
     test: ec.run.isTest,
+    attempt: ec.attempt,
+    actor: ec.actor,
   };
 }
 
@@ -795,8 +797,16 @@ const WRITE_CAP = { sms: 1600, email: 10_000 } as const;
 /** What an AI answer (or the lack of one) means for the step: its value, or the fallback, and why. */
 function aiOutcome(ec: ExecCtx, r: AiStepResult): Outcome {
   const step = ec.step;
+  // The knowledge it used: ids, and each item's kind and title for the run's log ("Knowledge used").
   const extra = r.ok
-    ? { ...(r.itemIds ? { itemIds: [...r.itemIds] } : {}), ...(r.model ? { model: r.model } : {}) }
+    ? {
+        ...(r.itemIds ? { itemIds: [...r.itemIds] } : {}),
+        ...(r.items?.length
+          ? { items: r.items.map((i) => ({ id: i.id, kind: i.kind, title: i.title })) }
+          : {}),
+        ...(r.gapSuggestionId ? { gapSuggestionId: r.gapSuggestionId } : {}),
+        ...(r.model ? { model: r.model } : {}),
+      }
     : {};
   if (step.type === 'branch') {
     const pick = r.ok ? step.branches.find((b) => b.id === r.value) : undefined;

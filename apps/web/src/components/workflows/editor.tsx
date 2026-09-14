@@ -16,7 +16,6 @@ import {
   Redo2,
   SlidersHorizontal,
   Undo2,
-  Upload,
 } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
@@ -33,8 +32,11 @@ import { ApiError, apiBrowser, errorMessage, unwrap } from '@/lib/api/client';
 import type { WorkflowCatalogsOut, WorkflowDetail, WorkflowVersion } from '@/lib/api/types';
 import { useLiveRefresh } from '@/lib/realtime/live-provider';
 import { useMatches } from '@/lib/use-media';
+import { runOverlays, isLive } from '@/lib/workflows/run-words';
 import { sampleValues, type SampleContact } from '@/lib/workflows/sample';
 import { useWorkflowDraft, type WorkflowDraft } from '@/lib/workflows/use-draft';
+import { useWorkflowTest } from '@/lib/workflows/use-test';
+import { useWide } from '@/lib/workflows/use-wide';
 import { cn } from '@/lib/utils';
 import { ChecksCount, ChecksPanel, issueCounts } from './checks';
 import { SourceChips, WorkflowStatusBadge } from './chips';
@@ -48,8 +50,9 @@ import {
 import { HistorySheet } from './history';
 import { MoveDialog } from './move-dialog';
 import { StepPanel } from './panels';
-import { Note } from './panels/fields';
+import { PublishControls } from './publish';
 import { StepList } from './step-list';
+import { TestPanel } from './test-panel';
 
 type RailTab = 'step' | 'checks' | 'test';
 type EditorMode = 'steps' | 'canvas';
@@ -93,7 +96,8 @@ export function WorkflowEditor(props: WorkflowEditorProps) {
   });
   const def = draft.definition;
   const catalogs = props.catalogs as WorkflowCatalogs;
-  const wide = useMatches('(min-width: 1024px)');
+  /** Room for the rail (1024px). Yes on the server, so a desktop gets the rail from the first paint. */
+  const wide = useWide();
   /** Under 768px the canvas only views; editing happens in Steps. */
   const phone = !useMatches('(min-width: 768px)');
   const searchParams = useSearchParams();
@@ -104,10 +108,31 @@ export function WorkflowEditor(props: WorkflowEditorProps) {
   const [now] = useState(() => Date.now());
   const issues = useMemo(() => validateWorkflow(def, catalogs, now), [def, catalogs, now]);
   const { errors } = issueCounts(issues);
+  /** This exact draft passed a test: its saved revision, with nothing unsaved. */
+  const tested = workflow.tested && !draft.unsaved && draft.revision === workflow.testedRevision;
+  const test = useWorkflowTest({
+    workspaceId,
+    workflowId: workflow.id,
+    flush: draft.flush,
+    onEnded: () => router.refresh(),
+  });
 
   const [selected, setSelected] = useState<string | null>(props.initialStep);
   const [tab, setTab] = useState<RailTab>('step');
-  const [sheet, setSheet] = useState<'step' | 'checks' | null>(null);
+  const [sheet, setSheet] = useState<'step' | 'checks' | 'test' | null>(null);
+  /** The newest test's marks on the steps, while Test is open (or it runs) and the draft is what it tested. */
+  const testRun = test.result;
+  const showMarks = tab === 'test' || sheet === 'test' || (!!testRun && isLive(testRun.run.status));
+  const marks = useMemo(
+    () =>
+      showMarks && testRun && testRun.run.testRevision === draft.revision && !draft.unsaved
+        ? runOverlays(def, testRun.run, testRun.steps, {
+            timeZone: catalogs.timeZone,
+            names: catalogs,
+          })
+        : undefined,
+    [showMarks, testRun, draft.revision, draft.unsaved, def, catalogs],
+  );
   const [moveId, setMoveId] = useState<string | null>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [lastFix, setLastFix] = useState<{ label: string; def: typeof def } | null>(null);
@@ -239,18 +264,27 @@ export function WorkflowEditor(props: WorkflowEditorProps) {
     }
   }
 
-  const gate = errors
-    ? `Fix ${errors} red ${errors === 1 ? 'item' : 'items'} first`
-    : 'Run a test first';
   const base = `/app/w/${workspaceId}/workflows`;
   const panel = <StepPanel selection={selected} />;
+  const testPanel = (
+    <TestPanel
+      test={test}
+      def={def}
+      names={catalogs}
+      timeZone={catalogs.timeZone}
+      revision={draft.revision}
+      unsaved={draft.unsaved}
+      errors={errors}
+      canManage={canManage}
+    />
+  );
   const checks = (
     <ChecksPanel
       issues={issues}
       def={def}
       names={catalogs}
       readOnly={draft.readOnly}
-      tested={workflow.tested && !draft.unsaved && draft.revision === workflow.testedRevision}
+      tested={tested}
       liveVersion={workflow.activeVersion?.version ?? null}
       lastFix={lastFix && lastFix.def === def ? lastFix.label : null}
       onFix={applyFix}
@@ -312,24 +346,16 @@ export function WorkflowEditor(props: WorkflowEditorProps) {
               History
             </Button>
             {canManage ? (
-              <>
-                <span aria-hidden className="mx-1 hidden h-[22px] w-px bg-border sm:block" />
-                <span
-                  className={cn(
-                    'whitespace-nowrap text-xs font-semibold',
-                    errors ? 'text-danger-text' : 'text-text-3',
-                  )}
-                  data-testid="publish-gate"
-                >
-                  {gate}
-                </span>
-                <span title="Run a test first">
-                  <Button size="sm" disabled data-testid="workflow-publish">
-                    <Upload className="h-4 w-4" strokeWidth={1.5} />
-                    Publish
-                  </Button>
-                </span>
-              </>
+              <PublishControls
+                workspaceId={workspaceId}
+                workflow={workflow}
+                versions={props.versions}
+                def={def}
+                names={catalogs}
+                draft={draft}
+                errors={errors}
+                tested={tested}
+              />
             ) : null}
           </div>
         </div>
@@ -441,20 +467,28 @@ export function WorkflowEditor(props: WorkflowEditorProps) {
           </div>
         ) : null}
 
-        {!wide ? (
-          <div className="mb-3 flex gap-2">
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => setSheet('checks')}
-              data-testid="checks-open"
-            >
-              <ListChecks className="h-4 w-4" strokeWidth={1.5} />
-              Checks
-              <ChecksCount issues={issues} />
-            </Button>
-          </div>
-        ) : null}
+        {/* Checks and Test open as sheets below 1024px; CSS hides them on wider screens from the first paint. */}
+        <div className="mb-3 flex gap-2 lg:hidden">
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => setSheet('checks')}
+            data-testid="checks-open"
+          >
+            <ListChecks className="h-4 w-4" strokeWidth={1.5} />
+            Checks
+            <ChecksCount issues={issues} />
+          </Button>
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => setSheet('test')}
+            data-testid="test-open"
+          >
+            <Play className="h-4 w-4" strokeWidth={1.5} />
+            Test
+          </Button>
+        </div>
 
         <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-[minmax(0,1fr)_336px]">
           {mode === 'canvas' ? (
@@ -481,6 +515,7 @@ export function WorkflowEditor(props: WorkflowEditorProps) {
                 selectedId={selected}
                 onSelect={select}
                 phone={!wide}
+                overlays={marks}
                 editing={
                   canManage
                     ? {
@@ -496,7 +531,11 @@ export function WorkflowEditor(props: WorkflowEditorProps) {
           )}
 
           {wide ? (
-            <Card className="overflow-hidden lg:sticky lg:top-4" data-testid="workflow-rail">
+            // Server-rendered on a desktop (no pop-in); CSS hides it below 1024px until a phone unmounts it.
+            <Card
+              className="hidden overflow-hidden lg:sticky lg:top-4 lg:block"
+              data-testid="workflow-rail"
+            >
               <Tabs value={tab} onValueChange={(v) => setTab(v as RailTab)}>
                 <TabsList className="px-2.5">
                   <TabsTrigger value="step" className="h-11" data-testid="rail-step">
@@ -513,9 +552,7 @@ export function WorkflowEditor(props: WorkflowEditorProps) {
                 <div className="max-h-[calc(100vh-150px)] overflow-y-auto px-[18px] py-4">
                   <TabsContent value="step">{panel}</TabsContent>
                   <TabsContent value="checks">{checks}</TabsContent>
-                  <TabsContent value="test">
-                    <TestPlaceholder />
-                  </TabsContent>
+                  <TabsContent value="test">{testPanel}</TabsContent>
                 </div>
               </Tabs>
             </Card>
@@ -525,13 +562,25 @@ export function WorkflowEditor(props: WorkflowEditorProps) {
         {!wide ? (
           <Sheet open={sheet !== null} onOpenChange={(o) => !o && setSheet(null)}>
             <SheetContent
-              title={sheet === 'checks' ? 'Checks' : 'Step settings'}
+              title={sheet === 'checks' ? 'Checks' : sheet === 'test' ? 'Test' : 'Step settings'}
               hideHeader
               className="pb-6"
             >
               <div data-testid="step-sheet">
                 {sheet === 'checks' ? (
                   checks
+                ) : sheet === 'test' ? (
+                  <>
+                    {testPanel}
+                    <Button
+                      size="lg"
+                      className="mt-4 w-full"
+                      onClick={() => setSheet(null)}
+                      data-testid="test-sheet-done"
+                    >
+                      Done
+                    </Button>
+                  </>
                 ) : mode === 'canvas' && phone ? (
                   // The phone canvas only views, so a tapped step's settings open read-only.
                   <EditorProvider
@@ -700,35 +749,6 @@ function InlineName({
         <span data-testid="workflow-name">{name}</span>
       )}
     </h1>
-  );
-}
-
-function TestPlaceholder() {
-  return (
-    <div data-testid="workflow-test">
-      <h3 className="text-[15px] font-semibold">Test this draft</h3>
-      <p className="mb-3 text-xs text-text-3">
-        Tests never touch real customers or count in the stats.
-      </p>
-      <Segmented
-        ariaLabel="Test mode"
-        fill
-        value="simulate"
-        onChange={() => {}}
-        options={[
-          { value: 'simulate', label: 'Simulate' },
-          { value: 'send_to_me', label: 'Send to me', disabled: true, title: 'Coming soon' },
-        ]}
-      />
-      <Note className="mt-3">
-        Test runs arrive in the next update. Publishing needs a passing test of this exact draft, so
-        it stays a draft until then.
-      </Note>
-      <Button className="mt-3 w-full" disabled>
-        <Play className="h-4 w-4" strokeWidth={1.75} />
-        Run test
-      </Button>
-    </div>
   );
 }
 

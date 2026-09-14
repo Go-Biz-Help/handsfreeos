@@ -59,6 +59,10 @@ import { useCalls } from '@/lib/calls/call-provider';
 import { useLiveRefresh } from '@/lib/realtime/live-provider';
 import { ConversationsCard } from '@/components/inbox/conversations-card';
 import { MessageSheet } from '@/components/inbox/message-sheet';
+import {
+  AddToWorkflowButton,
+  ContactWorkflowsCard,
+} from '@/components/workflows/contact-workflows';
 import { ArchiveDialog } from './archive-dialog';
 import { NextActionChip, StageBadge } from './chips';
 import { CompanyDialog } from './company-dialog';
@@ -408,6 +412,14 @@ export function RecordPage(props: RecordPageProps) {
               <Upload className="h-4 w-4" strokeWidth={1.5} />
               File
             </Button>
+            {person ? (
+              <AddToWorkflowButton
+                workspaceId={workspaceId}
+                person={{ id: person.id, fullName: person.fullName }}
+                timeZone={props.timeZone ?? 'America/Chicago'}
+                canManageWorkflows={canModerate}
+              />
+            ) : null}
           </div>
         )}
       </Card>
@@ -628,6 +640,13 @@ export function RecordPage(props: RecordPageProps) {
           ) : null}
           {person ? (
             <ConversationsCard workspaceId={workspaceId} person={person} onOpen={openSheet} />
+          ) : null}
+          {person ? (
+            <ContactWorkflowsCard
+              workspaceId={workspaceId}
+              person={{ id: person.id, fullName: person.fullName }}
+              timeZone={props.timeZone ?? 'America/Chicago'}
+            />
           ) : null}
           <Card className="p-4 md:p-5" data-testid="open-lead-card">
             <div className="mb-2.5 flex items-center justify-between">

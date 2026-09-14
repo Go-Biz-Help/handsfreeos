@@ -133,6 +133,17 @@ export type WorkflowVersionGet = Ok<'/v1/queries/workflow.version_get'>;
 export type WorkflowCatalogsOut = Ok<'/v1/queries/workflow.catalogs'>['catalogs'];
 export type WorkflowSaveDraftBody = Body<'/v1/commands/workflow.save_draft'>;
 export type WorkflowCreateBody = Body<'/v1/commands/workflow.create'>;
+export type WorkflowRunList = Ok<'/v1/queries/workflow.run_list'>;
+export type WorkflowRunSummary = WorkflowRunList['items'][number];
+export type WorkflowRunStatus = WorkflowRunSummary['status'];
+export type WorkflowRunListBody = Body<'/v1/queries/workflow.run_list'>;
+export type WorkflowRunGet = Ok<'/v1/queries/workflow.run_get'>;
+export type WorkflowRunDetail = WorkflowRunGet['run'];
+export type WorkflowRunStep = WorkflowRunGet['steps'][number];
+export type WorkflowApproval = WorkflowRunGet['approvals'][number];
+export type WorkflowStats = Ok<'/v1/queries/workflow.stats'>;
+export type WorkflowTestBody = Body<'/v1/commands/workflow.test'>;
+
 // Milestone 6: the knowledge base
 export type KnowledgeProfileGet = Ok<'/v1/queries/knowledge.profile'>;
 export type KnowledgeProfileValue = KnowledgeProfileGet['profile'];

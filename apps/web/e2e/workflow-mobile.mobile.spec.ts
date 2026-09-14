@@ -1,5 +1,13 @@
 import { expect, test } from '@playwright/test';
 import { createBusiness, signUpAndConfirm } from './helpers';
+import {
+  apiAs,
+  createWorkflow,
+  runFor,
+  runState,
+  signInForApi,
+  testAndPublish,
+} from './workflow-approval-api';
 
 /**
  * On a phone: Workflows is in the drawer (the bar stays at five), the list fits the screen, and a step
@@ -113,4 +121,149 @@ test('on a phone: the canvas is view only', async ({ page }) => {
   await page.getByTestId('canvas-zoom-in').click();
   await expect(level).not.toHaveText(was);
   await expect(page.getByTestId('save-state')).toHaveAttribute('data-state', 'saved');
+});
+
+/**
+ * On a phone, in the dark: an AI-written text waiting for an OK shows on Home, and on the Approvals page its
+ * card fits the screen; the text is edited and approved there, and the run carries on with the edited text.
+ */
+test('on a phone: an AI-written text approved with an edit', async ({ page }) => {
+  test.setTimeout(180_000);
+  const owner = await signUpAndConfirm(page, 'wf-mobile-appr');
+  const workspaceId = await createBusiness(page, { name: 'Bayou Plumbing Co.' });
+  const api = apiAs(await signInForApi(owner.email));
+  const ai = 's_mbwrite1';
+  const { workflowId } = await createWorkflow(api, workspaceId, 'Reply for approval', [
+    {
+      id: ai,
+      type: 'ai',
+      task: 'write',
+      prompt: 'Thank them for getting in touch.',
+      fallback: 'Thanks for getting in touch!',
+    },
+    {
+      id: 's_mbappr01',
+      type: 'approval',
+      message: 'Check this before it goes.',
+      previewStepId: ai,
+    },
+    {
+      id: 's_mbnote01',
+      type: 'action',
+      action: 'add_note',
+      config: { body: 'Sent: {{ai.message}}' },
+    },
+  ]);
+  await testAndPublish(api, workspaceId, workflowId);
+  const { personId } = await api<{ personId: string }>('commands/person.create', {
+    workspaceId,
+    firstName: 'Pat',
+    lastName: 'Nguyen',
+  });
+  await api('commands/workflow.enrol', { workspaceId, workflowId, personId });
+  await expect
+    .poll(() => runState(api, workspaceId, workflowId, personId), { timeout: 30_000 })
+    .toBe('awaiting_approval');
+
+  await page.emulateMedia({ colorScheme: 'dark' });
+  await page.goto(`/app/w/${workspaceId}`);
+  const home = page.getByTestId('home-approvals');
+  await expect(home).toContainText('1 approval waiting');
+  const homeBox = (await home.boundingBox())!;
+  expect(homeBox.x + homeBox.width).toBeLessThanOrEqual(390);
+  await home.getByTestId('home-approvals-open').click();
+  await expect(page).toHaveURL(/\/workflows\/approvals$/);
+
+  const card = page.getByTestId('approval-card');
+  const field = card.getByTestId('approval-field-message');
+  await expect(field).toHaveValue('Hi Pat, thanks for reaching out!');
+  const box = (await card.boundingBox())!;
+  expect(box.x + box.width).toBeLessThanOrEqual(390);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
+  const edited = 'Hi Pat, thanks for getting in touch! We will call you today.';
+  await field.fill(edited);
+  await card.getByTestId('approval-approve').tap();
+  await expect(page.getByTestId('approvals-empty')).toBeVisible();
+  await expect
+    .poll(() => runState(api, workspaceId, workflowId, personId), { timeout: 30_000 })
+    .toBe('completed:finished');
+  const runId = (await runFor(api, workspaceId, workflowId, personId))!.id;
+  const got = await api<{ run: { context: { ai?: { message?: string } } } }>(
+    'queries/workflow.run_get',
+    { workspaceId, runId },
+  );
+  expect(got.run.context.ai?.message).toBe(edited);
+});
+
+/**
+ * On a phone: Test from the editor's Test sheet and Publish from the header, then a run in the Runs list and
+ * in detail (in the dark), each within 390 px; a tapped step opens what it did in a bottom sheet.
+ */
+test('on a phone: test and publish from the sheets, and a run at 390 px', async ({ page }) => {
+  test.setTimeout(180_000);
+  const owner = await signUpAndConfirm(page, 'wf-mobile-run');
+  const workspaceId = await createBusiness(page, { name: 'Bayou Plumbing Co.' });
+  const api = apiAs(await signInForApi(owner.email));
+  const note = 's_mbnote02';
+  const { workflowId } = await createWorkflow(api, workspaceId, 'Welcome note', [
+    {
+      id: note,
+      type: 'action',
+      action: 'add_note',
+      config: { body: 'Welcome aboard, {{person.first_name}}!' },
+    },
+  ]);
+  const { personId } = await api<{ personId: string }>('commands/person.create', {
+    workspaceId,
+    firstName: 'Pat',
+    lastName: 'Nguyen',
+  });
+  const fits = async () =>
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(
+      390,
+    );
+
+  // Test in the Test sheet, then Publish from the header.
+  await page.goto(`/app/w/${workspaceId}/workflows/${workflowId}`);
+  await expect(page.getByTestId('workflow-editor')).toBeVisible();
+  await expect(page.getByTestId('workflow-rail')).toHaveCount(0);
+  await expect(page.getByTestId('workflow-publish')).toBeDisabled();
+  await page.getByTestId('test-open').click();
+  const sheet = page.getByTestId('step-sheet');
+  await expect(sheet.getByTestId('workflow-test')).toBeVisible();
+  await sheet.getByTestId('test-run').click();
+  await expect(sheet.getByTestId('test-result')).toHaveAttribute('data-outcome', 'passed', {
+    timeout: 60_000,
+  });
+  const sheetBox = (await sheet.boundingBox())!;
+  expect(sheetBox.x + sheetBox.width).toBeLessThanOrEqual(390);
+  await sheet.getByTestId('test-sheet-done').click();
+  await expect(sheet).toBeHidden();
+  await expect(page.getByTestId('publish-gate')).toHaveText('Tested, ready to publish');
+  await page.getByTestId('workflow-publish').click();
+  const publish = page.getByRole('dialog', { name: 'Publish version 1?' });
+  const dialogBox = (await publish.boundingBox())!;
+  expect(dialogBox.x + dialogBox.width).toBeLessThanOrEqual(390);
+  await publish.getByTestId('publish-confirm').click();
+  await expect(page.getByTestId('version-note')).toHaveText('Version 1 is live');
+  await fits();
+
+  // A run in the Runs list and in detail, in the dark.
+  await api('commands/workflow.enrol', { workspaceId, workflowId, personId });
+  await expect
+    .poll(() => runState(api, workspaceId, workflowId, personId), { timeout: 30_000 })
+    .toBe('completed:finished');
+  const runId = (await runFor(api, workspaceId, workflowId, personId))!.id;
+  await page.emulateMedia({ colorScheme: 'dark' });
+  await page.goto(`/app/w/${workspaceId}/workflows/runs`);
+  const row = page.getByTestId(`run-row-${runId}`);
+  await expect(row).toContainText('Pat Nguyen');
+  expect((await row.boundingBox())!.width).toBeLessThanOrEqual(390);
+  await fits();
+  await row.click();
+  await expect(page.getByTestId('run-detail')).toHaveAttribute('data-status', 'completed');
+  await fits();
+  await page.getByTestId(`step-${note}`).click();
+  const stepSheet = page.getByTestId('run-step-sheet');
+  await expect(stepSheet.getByTestId('run-step-note')).toHaveText('Added the note');
 });
