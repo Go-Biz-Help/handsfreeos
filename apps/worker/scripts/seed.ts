@@ -38,6 +38,7 @@ import { processOnce, type OutboxDeps } from '../src/outbox';
 import { createSupabaseStore, unconfiguredStore } from '../src/storage';
 import { createFakeTelephony } from '../src/telephony/fake';
 import { createWorkflowAi } from '../src/workflows/ai-runner';
+import { seedAiTeam } from './seed-ai-team';
 import { seedAssistant } from './seed-assistant';
 import { seedCalendar } from './seed-calendar';
 import { seedCrm } from './seed-crm';
@@ -356,6 +357,12 @@ async function main(): Promise<void> {
     },
   );
 
+  // Milestone 7: Lone Star's AI teammate, run by the worker's own runtime with the seed's stand-in model.
+  const ava = await seedAiTeam(
+    { api: api.db, admin: admin.db, worker: flow, actor, meta, step, since },
+    { id: lonestar, organizationId: org.organizationId, dale, priya },
+  );
+
   step('Northstar Electric: a separate organization that sees none of the above');
   await executeCommand(
     api.db,
@@ -392,6 +399,10 @@ Its workflows (${flows.seconds.toFixed(1)}s): "Speed to lead" and "Missed-call t
 waiting for an OK of an AI-written text and one failed with Retry; "Appointment follow-up + review" is a draft.
 Go Biz Help's template "${flows.template}" is on version ${flows.templateVersion}; Bayou has version ${flows.bayouVersion},
 so it shows Update available, and the "HVAC FAQs" pack's ${flows.packItems} items wait there as suggestions.
+Its AI teammate ${ava.name} (${ava.seconds.toFixed(1)}s) answers texts and the website chat in training wheels, at ${ava.approved} of ${ava.approvalsNeeded} approved · ${ava.edited} edited:
+${ava.answered} conversations she answered, Tom Reyes waiting in Needs a person with her note, Kendra Lee's reply waiting for an OK
+(it expires two hours after the seed ran), and Angela Brooks's website chat, where her Attic insulation lead qualified. The
+chat widget shows on ${ava.site}; try it at ${deps.webUrl}/chat-preview/${ava.widgetKey}?w=${lonestar}
 Emails the stack sent, including the pending invitation for ${PENDING_INVITEE}: ${env.mailpitUrl}
 `);
 }

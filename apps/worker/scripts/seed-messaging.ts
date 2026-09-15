@@ -80,10 +80,12 @@ export async function settle(
       throw new Error(
         'The seed’s worker jobs failed (see last_error in app.outbox and app.scheduled_jobs).',
       );
-    if (until ? await until() : outbox.claimed + due.claimed === 0) return;
+    const claimed = outbox.claimed + due.claimed;
+    if (until ? await until() : claimed === 0) return;
     if (Date.now() > deadline)
       throw new Error('The seed’s worker jobs did not settle in 30 seconds.');
-    await new Promise((r) => setTimeout(r, 100));
+    // Work that queued more goes round again at once; only waiting on `until` pauses between passes.
+    if (claimed === 0) await new Promise((r) => setTimeout(r, 100));
   }
 }
 
