@@ -7,7 +7,8 @@ test.use({ colorScheme: 'dark' });
 /**
  * The AI teammate on a 390 px phone, in the dark theme: it's in the drawer (the bar stays at five), the
  * picker fits, the builder's rail folds into a card at the top, each module opens full screen and saves
- * from there, the status and checks open in a sheet, and the test console fills the screen.
+ * from there, the status and checks open in a sheet, and the test console fills the screen and answers a
+ * price question from the knowledge base without sending anything.
  *
  * Quiet hours are set explicitly (8 PM to 8 AM) so nothing depends on the default.
  */
@@ -21,6 +22,17 @@ test('AI teammate at 390 px, dark: drawer, picker, modules full screen, checks a
   await api(token, 'commands', 'phone.update_settings', {
     workspaceId,
     quietHours: { enabled: true, start: '20:00', end: '08:00' },
+  });
+  // One published answer for the test console to find. No amount in it, so prices can stay off.
+  const faq = 'How much does drain cleaning cost?';
+  await api(token, 'commands', 'knowledge_item.create', {
+    workspaceId,
+    content: {
+      kind: 'faq',
+      question: faq,
+      answer: 'Drain cleaning is priced by the job, and we confirm the price before we start.',
+    },
+    status: 'published',
   });
   const width = () => page.evaluate(() => document.documentElement.scrollWidth);
 
@@ -82,16 +94,27 @@ test('AI teammate at 390 px, dark: drawer, picker, modules full screen, checks a
   await page.keyboard.press('Escape');
   await expect(sheet).toBeHidden();
 
-  // The test console fills the screen, and says when it isn't there yet.
+  // The test console fills the screen. Riley answers the price question from the knowledge base, and
+  // what it looked up is a tab of its own on a phone. Nothing is sent.
   await summary.getByRole('button', { name: 'Test console' }).click();
   const testConsole = page.getByTestId('test-console');
   await expect(testConsole).toBeVisible();
   const full = (await testConsole.boundingBox())!;
   expect(full.width).toBeLessThanOrEqual(390);
   expect(full.height).toBeGreaterThan(800);
-  await testConsole.getByTestId('test-console-input').fill('Can I book for Thursday morning?');
+  await testConsole.getByTestId('test-console-input').fill(faq);
   await testConsole.getByTestId('test-console-send').click();
-  await expect(testConsole.getByTestId('test-console-missing')).toBeVisible();
+  await expect(testConsole.getByTestId('test-console-reply')).toContainText(
+    'Drain cleaning is priced by the job',
+  );
+  await testConsole.getByRole('tab', { name: 'What Riley did' }).click();
+  const log = testConsole.getByTestId('test-console-log');
+  await expect(log).toBeVisible();
+  await expect(log).toContainText(`Searched Knowledge for “${faq}”`);
+  await expect(log).toContainText('Knowledge used:');
+  expect(await width()).toBeLessThanOrEqual(390);
+  const inbox = await api<{ items: unknown[] }>(token, 'queries', 'inbox.list', { workspaceId });
+  expect(inbox.items).toHaveLength(0);
   await testConsole.getByRole('button', { name: 'Close' }).click();
   await expect(testConsole).toBeHidden();
 

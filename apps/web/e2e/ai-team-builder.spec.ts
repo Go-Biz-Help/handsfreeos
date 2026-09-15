@@ -6,8 +6,8 @@ import { createBusiness, signUpAndConfirm } from './helpers';
  * The AI teammate area: "AI teammate" in the drawer after Knowledge, a preset (labels follow the pick), the
  * builder's modules with their one-line summaries, a red item fixed with Fix (and undone), Undo, Save,
  * turning it on, "Switch to automatic now" and "Back to training" (each confirmed), History with Restore
- * (training progress stays), the test console (its empty state until the teammate's runtime answers) and
- * the Activity tab.
+ * (training progress stays), the test console (a price question answered from the knowledge base, held as
+ * a draft while in training wheels, and nothing sent) and the Activity tab.
  *
  * Quiet hours are set explicitly (8 PM to 8 AM) so the Hours module's note never depends on the default.
  */
@@ -21,6 +21,18 @@ test('AI teammate: a preset, the modules, Fix, the status override, history and 
   await api(token, 'commands', 'phone.update_settings', {
     workspaceId,
     quietHours: { enabled: true, start: '20:00', end: '08:00' },
+  });
+  // One published answer for the test console to find. No amount in it, so prices can stay off.
+  const faq = 'How much does a tune-up cost?';
+  await api(token, 'commands', 'knowledge_item.create', {
+    workspaceId,
+    content: {
+      kind: 'faq',
+      question: faq,
+      answer:
+        'Tune-ups are priced by the size of your system, and we confirm the price before any work starts.',
+    },
+    status: 'published',
   });
 
   // In the drawer after Knowledge. With no teammate yet: "How should your AI teammate work?"
@@ -167,19 +179,28 @@ test('AI teammate: a preset, the modules, Fix, the status override, history and 
   await expect(page.getByTestId('module-summary-autonomy')).toHaveText('20 approvals · 2 h drafts');
   await expect(page.getByTestId('teammate-status')).toHaveText('Training wheels');
 
-  // The test console: until the teammate's runtime answers, it says so.
+  // The test console: Ava answers the price question from the knowledge base, streamed in, and shows
+  // what she looked up and the check the reply passed. In training wheels a real reply would wait for an
+  // OK; here nothing is sent at all.
   await page.getByTestId('open-test-console').click();
   const testConsole = page.getByTestId('test-console');
   await expect(testConsole).toBeVisible();
-  await testConsole.getByTestId('test-console-input').fill('Are you a real person?');
+  await testConsole.getByTestId('test-console-input').fill(faq);
   await testConsole.getByTestId('test-console-send').click();
-  await expect(testConsole.getByTestId('test-console-missing')).toContainText(
-    'The test console arrives with the teammate’s runtime.',
+  await expect(testConsole.getByTestId('test-console-reply')).toContainText(
+    'Tune-ups are priced by the size of your system',
   );
+  const log = testConsole.getByTestId('test-console-log');
+  await expect(log).toContainText(`Searched Knowledge for “${faq}”`);
+  await expect(log).toContainText('Knowledge used:');
+  await expect(log).toContainText('Safety check passed');
+  await expect(testConsole.getByText('Draft (training wheels)').first()).toBeVisible();
+  const inbox = await api<{ items: unknown[] }>(token, 'queries', 'inbox.list', { workspaceId });
+  expect(inbox.items).toHaveLength(0);
   await testConsole.getByRole('button', { name: 'Close' }).click();
   await expect(testConsole).toBeHidden();
 
-  // Activity: nothing has run yet.
+  // Activity: nothing has run yet (test console chats aren't counted).
   await page.getByTestId('subnav-activity').click();
   await expect(page).toHaveURL(/\/ai-team\/activity$/);
   await expect(page.getByTestId('teammate-activity')).toBeVisible();
