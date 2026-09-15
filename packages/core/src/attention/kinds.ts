@@ -25,10 +25,10 @@ export const isAttentionKind = (value: unknown): value is AttentionKind =>
 export const ATTENTION_KIND_LABELS: Readonly<Record<AttentionKind, string>> = {
   hot_lead: 'Hot lead',
   unanswered_lead: 'Unanswered lead',
-  stale_opportunity: 'Stale opportunity',
-  missing_next_action: 'Needs a next action',
-  unconfirmed_appointment: 'Unconfirmed appointment',
-  ai_approval: 'Waiting for approval',
+  stale_opportunity: 'Gone quiet',
+  missing_next_action: 'No next action',
+  unconfirmed_appointment: 'Not confirmed',
+  ai_approval: 'Approval',
   customer_waiting: 'Customer waiting',
   overdue_task: 'Overdue task',
 };
@@ -37,10 +37,10 @@ export const ATTENTION_KIND_LABELS: Readonly<Record<AttentionKind, string>> = {
 export const ATTENTION_KIND_PLURALS: Readonly<Record<AttentionKind, string>> = {
   hot_lead: 'Hot leads',
   unanswered_lead: 'Unanswered leads',
-  stale_opportunity: 'Stale opportunities',
-  missing_next_action: 'Need a next action',
+  stale_opportunity: 'Gone quiet',
+  missing_next_action: 'No next action',
   unconfirmed_appointment: 'Unconfirmed appointments',
-  ai_approval: 'Waiting for approval',
+  ai_approval: 'Approvals',
   customer_waiting: 'Customers waiting',
   overdue_task: 'Overdue tasks',
 };

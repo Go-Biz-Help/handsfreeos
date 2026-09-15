@@ -49,6 +49,14 @@ export async function chatOwner(
     workspaceId,
     quietHours: { enabled: true, start: '20:00', end: '08:00' },
   });
+  // Open all week, all day: by default a business is open weekdays 8 to 5, and outside that a chat with nobody
+  // answering shows the away form instead of the composer, so the specs would fail at night and on weekends.
+  await api(token, 'commands', 'workspace.update', {
+    workspaceId,
+    settings: {
+      openHours: [0, 1, 2, 3, 4, 5, 6].map((day) => ({ day, start: '00:00', end: '24:00' })),
+    },
+  });
   return { token, workspaceId };
 }
 
