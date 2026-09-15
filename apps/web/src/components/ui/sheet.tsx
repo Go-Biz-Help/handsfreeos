@@ -40,6 +40,12 @@ export function SheetContent({
           sides[side],
           className,
         )}
+        onInteractOutside={(e) => {
+          // A toast belongs to what you just did in the sheet ("Marked confirmed · Undo"), so pressing one must
+          // neither be swallowed nor close the sheet.
+          const target = (e.detail.originalEvent.target as Element | null) ?? null;
+          if (target?.closest('[data-sonner-toaster]')) e.preventDefault();
+        }}
       >
         {side === 'right' ? (
           <div

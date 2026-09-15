@@ -25,6 +25,7 @@ export function SettingsNav({
           { href: `${base}/texting`, label: 'Texting & calls' },
           { href: `${base}/email`, label: 'Email' },
           { href: `${base}/website-chat`, label: 'Website chat' },
+          { href: `${base}/action-center`, label: 'Action Center' },
         ]
       : []),
   ];

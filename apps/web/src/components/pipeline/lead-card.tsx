@@ -20,6 +20,8 @@ export function LeadCardView({
   onOpen?: () => void;
 }) {
   const who = lead.person?.fullName ?? lead.company?.name ?? '';
+  // The next action's time has passed: the overdue dot.
+  const overdue = lead.nextActionOverdue;
   const sub = lead.person && lead.company ? `${lead.company.name} · ${who}` : who;
   return (
     <div
@@ -58,11 +60,20 @@ export function LeadCardView({
         </span>
       </div>
       {lead.status === 'open' ? (
-        <div className="mt-2">
+        <div className="mt-2 flex min-w-0 items-center gap-1.5">
+          {overdue ? (
+            <span
+              role="img"
+              aria-label="Next action is overdue"
+              title="Next action is overdue"
+              className="h-2 w-2 flex-none rounded-full bg-danger"
+              data-testid="lead-overdue-dot"
+            />
+          ) : null}
           <NextActionChip
             text={lead.nextAction}
             compact={!!lead.nextAction}
-            className="max-w-full"
+            className="min-w-0 max-w-full"
           />
         </div>
       ) : null}

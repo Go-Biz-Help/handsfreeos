@@ -53,13 +53,21 @@ import type {
 } from '@/lib/api/types';
 
 type LeadStage = LeadGet['stages'][number];
-import { daysLabel, formatDate, formatDateOnly, formatMoney } from '@/lib/format';
+import { daysLabel, daysSince, formatDate, formatDateOnly, formatMoney } from '@/lib/format';
 import { useLiveRefresh, useLiveVersion } from '@/lib/realtime/live-provider';
 import { cn } from '@/lib/utils';
 import { leadQualificationOf } from '@/lib/ai-team/inbox-types';
+import { AttentionBanner } from './attention-banner';
 import { LeadEditDialog } from './lead-edit-dialog';
 import { LostReasonDialog } from './lost-reason-dialog';
 import { QualificationCard } from './qualification-card';
+
+/** The latest real contact either way: "Today", "Yesterday", "2 days ago", or "No contact yet". */
+function lastContactWords(iso: string | null | undefined): string {
+  if (!iso) return 'No contact yet';
+  const days = daysSince(iso);
+  return days === 0 ? 'Today' : days === 1 ? 'Yesterday' : `${days} days ago`;
+}
 
 export interface LeadDetailData {
   lead: LeadCard;
@@ -346,6 +354,17 @@ export function LeadDetail({
         </p>
       </div>
 
+      {lead.archivedAt ? null : (
+        <AttentionBanner
+          workspaceId={workspaceId}
+          leadId={leadId}
+          person={lead.person}
+          timeZone={timeZone}
+          onSetNextAction={() => setNextOpen(true)}
+          onOpenAppointment={timeZone ? setOpenAppt : undefined}
+        />
+      )}
+
       <div
         className="flex gap-1 overflow-x-auto pb-0.5 [scrollbar-width:none]"
         role="group"
@@ -460,6 +479,10 @@ export function LeadDetail({
         <dd className="font-medium">{formatMoney(lead.valueCents)}</dd>
         <dt className="text-text-2">Assigned to</dt>
         <dd className="font-medium">{lead.assignee?.fullName ?? 'Unassigned'}</dd>
+        <dt className="text-text-2">Last contact</dt>
+        <dd className="font-medium" data-testid="lead-last-contact">
+          {lastContactWords(lead.lastContactAt)}
+        </dd>
         <dt className="text-text-2">Expected close</dt>
         <dd className="font-medium">
           {lead.expectedCloseOn ? formatDateOnly(lead.expectedCloseOn) : '—'}
@@ -600,7 +623,7 @@ export function LeadDetail({
         />
       ) : null}
 
-      <section>
+      <section id="lead-tasks" className="scroll-mt-20">
         <h3 className="mb-2 text-[15px] font-semibold">Tasks</h3>
         <Card>
           <TaskList
@@ -667,6 +690,7 @@ export function LeadDetail({
       {timeZone && openAppt ? (
         <AppointmentSheet
           workspaceId={workspaceId}
+          myUserId={myUserId}
           appointmentId={openAppt}
           timeZone={timeZone}
           people={members.map((m) => ({ userId: m.id, fullName: m.fullName }))}

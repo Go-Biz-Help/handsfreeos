@@ -183,3 +183,24 @@ export type AiTeammateSaveBody = Body<'/v1/commands/ai_teammate.save_config'>;
 export type ChatWidgetList = Ok<'/v1/queries/chat_widget.list'>;
 export type ChatWidget = ChatWidgetList['items'][number];
 export type ChatWidgetUpdateBody = Body<'/v1/commands/chat_widget.update'>;
+
+// Milestone 8: the Action Center outside Home (Settings, the lead and inbox banners) and confirming bookings
+export type AttentionForRecord = Ok<'/v1/queries/attention.for_record'>;
+export type AttentionRecordItem = AttentionForRecord['items'][number];
+export type AttentionSettingsSaveBody = Body<'/v1/commands/attention.save_settings'>;
+export type AttentionSettingsSaved = Ok<'/v1/commands/attention.save_settings'>;
+export type AttendeeConfirmOut = Ok<'/v1/commands/attendee.confirm'>;
+
+// Milestone 8: Home as the Action Center
+export type AttentionList = Ok<'/v1/queries/attention.list'>;
+export type AttentionItem = AttentionList['items'][number];
+export type AttentionChipOut = AttentionItem['reasons'][number];
+export type AttentionScheduled = AttentionList['scheduled'][number];
+export type AttentionScope = AttentionList['scope'];
+export type AttentionSummary = Ok<'/v1/queries/attention.summary'>;
+export type AttentionPreview = Ok<'/v1/queries/attention.preview_handle'>;
+export type AttentionAutoPlan = NonNullable<AttentionPreview['auto']>;
+export type AttentionAskOption = AttentionPreview['options'][number];
+export type AttentionLetHandleBody = Body<'/v1/commands/attention.let_handle'>;
+export type AttentionLetHandleOut = Ok<'/v1/commands/attention.let_handle'>;
+export type AttentionAssignOut = Ok<'/v1/commands/attention.assign'>;

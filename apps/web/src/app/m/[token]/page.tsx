@@ -10,9 +10,13 @@ export const metadata: Metadata = {
 
 export default async function ManageBookingPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ token: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const { token } = await params;
-  return <ManageBooking token={token} />;
+  const [{ token }, query] = await Promise.all([params, searchParams]);
+  // The reminder email's Confirm button adds ?confirm=1. It only points at the button: a mail scanner opening the
+  // link must never confirm, so confirming stays a press.
+  return <ManageBooking token={token} highlightConfirm={query.confirm === '1'} />;
 }

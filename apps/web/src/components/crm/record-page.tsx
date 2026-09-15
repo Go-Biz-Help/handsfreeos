@@ -820,6 +820,7 @@ export function RecordPage(props: RecordPageProps) {
           appointmentId={openAppt}
           timeZone={props.timeZone}
           people={people}
+          myUserId={myUserId}
           onClose={() => setOpenAppt(null)}
           onChanged={() => router.refresh()}
         />

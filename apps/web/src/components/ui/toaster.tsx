@@ -18,8 +18,10 @@ export function Toaster() {
       duration={2600}
       toastOptions={{
         classNames: {
+          // pointer-events-auto: an open dialog or sheet turns pointer events off for everything outside it, and a
+          // toast's Undo has to stay pressable (Mark confirmed, snooze and dismiss all offer one from inside a sheet).
           toast:
-            'rounded-menu border border-border bg-card text-text shadow-2 text-[13.5px] font-sans',
+            'pointer-events-auto rounded-menu border border-border bg-card text-text shadow-2 text-[13.5px] font-sans',
           error: 'bg-danger text-white border-transparent',
         },
       }}

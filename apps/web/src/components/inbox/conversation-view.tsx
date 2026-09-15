@@ -25,6 +25,7 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { toast } from 'sonner';
 import { useAssistant } from '@/components/assistant/assistant-provider';
+import { AttentionWaitingChip, useRecordAttention } from '@/components/attention/bits';
 import { Callout, StageBadge } from '@/components/crm/chips';
 import { PersonDialog } from '@/components/crm/person-dialog';
 import { Avatar } from '@/components/ui/avatar';
@@ -171,6 +172,8 @@ export function ConversationView({
     router.refresh();
   };
   const actions = useConversationActions(workspaceId, c.id, after);
+  // On Home: this conversation has an open Action Center item (a customer waiting, or a hot or unanswered lead).
+  const onHome = useRecordAttention(workspaceId, 'conversation', c.id).items[0] ?? null;
 
   // The AI teammate here: who handles the conversation, its draft, and what became of the last one.
   const handling = handlingOf(c);
@@ -521,6 +524,9 @@ export function ConversationView({
               </span>
             </div>
           </div>
+          {onHome ? (
+            <AttentionWaitingChip item={onHome} now={now} href={`/app/w/${workspaceId}`} />
+          ) : null}
           {chat && data.chat?.onSiteNow ? <SiteTag /> : null}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -694,6 +700,14 @@ export function ConversationView({
                     : 'Texts'}
             </div>
           </div>
+          {onHome ? (
+            <AttentionWaitingChip
+              item={onHome}
+              now={now}
+              href={`/app/w/${workspaceId}`}
+              className="mx-1"
+            />
+          ) : null}
           {canCall ? (
             <button
               type="button"

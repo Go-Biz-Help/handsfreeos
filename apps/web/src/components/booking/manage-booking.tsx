@@ -4,18 +4,19 @@
  * worker's per-address limits count per customer. Shows the canvas's states: booked (Reschedule, Cancel
  * it, and the rules in plain words), cancelled, past, a link that is out of date, and one that doesn't work.
  */
-import { addDays, localDateOf } from '@hfos/core';
+import { addDays, localDateOf, shortBusinessName } from '@hfos/core';
 import {
   CalendarCheck,
   CalendarClock,
   CalendarX,
   Check,
   CircleAlert,
+  CircleCheck,
   Info,
   Link2Off,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Button, ButtonLink } from '@/components/ui/button';
 import { Label } from '@/components/ui/field';
 import { Textarea } from '@/components/ui/textarea';
@@ -23,6 +24,7 @@ import { ApiError } from '@/lib/api/errors';
 import {
   calendarFileUrl,
   cancelBooking,
+  confirmBooking,
   getManage,
   getManageTimes,
   rescheduleBooking,
@@ -81,9 +83,32 @@ function rulesText(view: ManageView): string {
   return parts.join(' ');
 }
 
-export function ManageBooking({ token: initialToken }: { token: string }) {
+/** "tomorrow at 10:00 AM", "today at 2:00 PM", else "Wednesday at 2:00 PM", in the business's zone. */
+function seeYouAt(startsAt: string, tz: string): string {
+  const day = localDateOf(Date.parse(startsAt), tz);
+  const today = localDateOf(Date.now(), tz);
+  const when =
+    day === today
+      ? 'today'
+      : day === addDays(today, 1)
+        ? 'tomorrow'
+        : new Intl.DateTimeFormat('en-US', { weekday: 'long', timeZone: tz }).format(
+            new Date(startsAt),
+          );
+  return `${when} at ${timeOf(startsAt, tz)}`;
+}
+
+export function ManageBooking({
+  token: initialToken,
+  highlightConfirm = false,
+}: {
+  token: string;
+  /** ?confirm=1, from the reminder email's Confirm button: points at the button, never presses it. */
+  highlightConfirm?: boolean;
+}) {
   const router = useRouter();
   const [token, setToken] = useState(initialToken);
+  const confirmBox = useRef<HTMLDivElement>(null);
   const [view, setView] = useState<ManageView | null>(null);
   const [failure, setFailure] = useState<Failure | null>(null);
   const [mode, setMode] = useState<'view' | 'reschedule' | 'cancel'>('view');
@@ -117,6 +142,13 @@ export function ManageBooking({ token: initialToken }: { token: string }) {
   }, [initialToken]);
 
   const load = useCallback((from: string, to: string) => getManageTimes(token, from, to), [token]);
+
+  // From the email's Confirm button: bring the button into view (pressing it is still the customer's to do).
+  const bookedNow = view?.state === 'booked';
+  useEffect(() => {
+    if (highlightConfirm && bookedNow)
+      confirmBox.current?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  }, [highlightConfirm, bookedNow]);
 
   /** After a change: the page shows the new state; a moved seat's new link replaces the address. */
   const applied = (next: ManageView, message: string) => {
@@ -181,6 +213,24 @@ export function ManageBooking({ token: initialToken }: { token: string }) {
     setBusy(true);
     try {
       applied(await cancelBooking(token, reason.trim() || null), 'Your appointment is cancelled.');
+    } catch (e) {
+      await failedChange(e);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function confirm() {
+    if (busy || !view) return;
+    setBusy(true);
+    setError(null);
+    try {
+      // The answer is the booking as this page shows it, with its confirmation filled in.
+      const next = await confirmBooking(token);
+      const a = next.appointment;
+      setView(next);
+      setNotice(`You’re confirmed. See you ${seeYouAt(a.startsAt, a.timezone)}.`);
+      window.scrollTo({ top: 0 });
     } catch (e) {
       await failedChange(e);
     } finally {
@@ -264,6 +314,10 @@ export function ManageBooking({ token: initialToken }: { token: string }) {
 
   const { reschedule: r, cancel: c } = view.policies;
   const today = localDateOf(Date.now(), tz);
+  // Only a booking that can confirm has one: a group time or a session seat has none.
+  const confirmedAt = view.confirmation?.confirmedAt ?? null;
+  const canConfirm = !!view.confirmation;
+  const asked = !!view.confirmation?.askedAt || highlightConfirm;
   const details = [
     a.timezoneLabel,
     a.where,
@@ -296,9 +350,47 @@ export function ManageBooking({ token: initialToken }: { token: string }) {
 
         {mode === 'view' ? (
           <>
+            {confirmedAt ? (
+              <div
+                className="flex items-center gap-2.5 rounded-[10px] bg-success-soft px-3 py-2.5 text-[13.5px] leading-[1.4] text-success-text"
+                data-testid="manage-confirmed"
+              >
+                <CircleCheck size={17} className="flex-none" aria-hidden />
+                <span className="flex-1">
+                  <strong className="font-semibold">Confirmed</strong> · {dayShort(confirmedAt, tz)}{' '}
+                  at {timeOf(confirmedAt, tz)}
+                </span>
+              </div>
+            ) : canConfirm ? (
+              <div
+                ref={confirmBox}
+                className={`flex flex-col gap-2 rounded-xl bg-accent-soft p-3.5 ${highlightConfirm ? 'border border-accent ring-[3px] ring-ring' : ''}`}
+                data-testid="manage-confirm-box"
+                data-highlight={highlightConfirm || undefined}
+              >
+                <span className="text-[13px] text-accent-text">
+                  <strong className="font-semibold">Will this time work?</strong>{' '}
+                  {asked
+                    ? `${shortBusinessName(view.business.name)} asked you to confirm.`
+                    : `Let ${shortBusinessName(view.business.name)} know you’re coming.`}
+                </span>
+                <Button
+                  size="lg"
+                  className="w-full"
+                  loading={busy}
+                  onClick={() => void confirm()}
+                  data-testid="manage-confirm"
+                >
+                  <Check size={17} aria-hidden />
+                  Confirm
+                </Button>
+              </div>
+            ) : null}
             <div className="flex gap-2">
+              {/* Beside Confirm (one-on-one bookings) Reschedule steps back to secondary, as the canvas has it. */}
               <Button
-                className="flex-1"
+                variant={canConfirm ? 'secondary' : 'primary'}
+                className="flex-1 max-md:h-11"
                 disabled={!r.allowed}
                 onClick={() => {
                   setError(null);
@@ -311,7 +403,7 @@ export function ManageBooking({ token: initialToken }: { token: string }) {
               </Button>
               <Button
                 variant="secondary"
-                className="flex-1 text-danger-text"
+                className="flex-1 text-danger-text max-md:h-11"
                 disabled={!c.allowed}
                 onClick={() => {
                   setError(null);

@@ -8,6 +8,7 @@ import { Avatar } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Input, Select } from '@/components/ui/input';
 import { Segmented } from '@/components/ui/segmented';
 import { apiBrowser, errorMessage, unwrap } from '@/lib/api/client';
@@ -17,6 +18,7 @@ import {
   auditActor,
   auditCategory,
   describeAudit,
+  isAuditDetection,
 } from '@/lib/audit-describe';
 import { cn } from '@/lib/utils';
 
@@ -29,6 +31,8 @@ const ACTION_PREFIX: Record<string, string | undefined> = {
   invitations: 'invitation.',
   files: 'file.',
   imports: 'import.',
+  // attention.* and attention_item.* (the action filter is a prefix).
+  action_center: 'attention',
 };
 
 function sinceFor(range: Range): string {
@@ -80,6 +84,8 @@ export function AuditLog({
   const [actor, setActor] = useState('all');
   const [category, setCategory] = useState('all');
   const [q, setQ] = useState('');
+  /** What the Action Center noticed on its own (an item opened, came back, cleared): hidden until asked for. */
+  const [noticed, setNoticed] = useState(false);
   const [data, setData] = useState<AuditList>(initial);
   const [open, setOpen] = useState<string | null>(initial.entries[0]?.id ?? null);
   const [busy, setBusy] = useState(false);
@@ -127,6 +133,7 @@ export function AuditLog({
   const visible = useMemo(() => {
     const needle = q.trim().toLowerCase();
     return data.entries.filter((e) => {
+      if (!noticed && isAuditDetection(e)) return false;
       if (actor === 'system' && e.actor.type !== 'system') return false;
       if (actor === 'workflows' && e.actor.type !== 'workflow') return false;
       if (
@@ -146,7 +153,7 @@ export function AuditLog({
         .toLowerCase()
         .includes(needle);
     });
-  }, [data, q, actor, category, teammateName]);
+  }, [data, q, actor, category, teammateName, noticed]);
 
   async function loadMore() {
     if (!data.nextCursor) return;
@@ -228,8 +235,18 @@ export function AuditLog({
           <option value="files">Files</option>
           <option value="imports">Imports</option>
           <option value="workflows">Workflows</option>
+          <option value="action_center">Action Center</option>
           <option value="assistant">Assistant</option>
         </Select>
+        {category === 'all' || category === 'action_center' ? (
+          <Checkbox
+            label="Show what HandsFreeOS noticed"
+            checked={noticed}
+            onChange={(e) => setNoticed(e.target.checked)}
+            className="text-[13px] text-text-2"
+            data-testid="audit-show-noticed"
+          />
+        ) : null}
         <div className="relative max-w-[320px] flex-1">
           <Search
             className="pointer-events-none absolute left-2.5 top-2 h-[18px] w-[18px] text-text-3"

@@ -49,6 +49,9 @@ export function timelineActor(e: TimelineEntry, subjectName?: string): string {
   // What the customer did on the booking page: they booked, moved or cancelled it themselves.
   if (e.subtype === 'appointment_booked_online' || (isAppointment(e) && e.meta.by === 'customer'))
     return subjectName || 'The customer';
+  // A customer who confirmed by text (C, or YES while asked) or with the Confirm button on their appointment page.
+  if (e.subtype === 'appointment_confirmed' && (e.meta.via === 'sms' || e.meta.via === 'link'))
+    return subjectName || 'The customer';
   // A call a teammate placed: the worker settled it, but the teammate called.
   if (e.kind === 'call' && e.actor) return e.actor.fullName;
   if (e.actorType === 'workflow') {
@@ -77,11 +80,16 @@ export function describeTimeline(
     if (keyword === 'stop') return 'opted out of texts (STOP)';
     if (keyword === 'start') return 'opted back in to texts';
     if (inbound(e)) return 'texted';
+    const auto = actionCenterNoun(e);
+    if (auto) return undelivered(e) ? `sent ${auto} · not delivered` : `sent ${auto}`;
     return undelivered(e) ? 'sent a text · not delivered' : 'sent a text';
   }
   if (e.kind === 'email') {
     const subject = str(e.meta.subject) ? ` · ${str(e.meta.subject)}` : '';
     if (inbound(e)) return `emailed${subject}`;
+    const auto = actionCenterNoun(e);
+    if (auto)
+      return undelivered(e) ? `sent ${auto} by email that bounced` : `sent ${auto} by email`;
     return undelivered(e) ? `sent an email that bounced${subject}` : `sent an email${subject}`;
   }
   if (e.kind === 'chat') return inbound(e) ? 'chatted on your website' : 'replied in chat';
@@ -128,7 +136,18 @@ export function describeTimeline(
   }
 }
 
-/** Appointment entries: booked (by staff, the Assistant or online), moved, cancelled, done or no-show. */
+/**
+ * What HandsFreeOS sent on its own for the Action Center (the system actor's `meta.actionCenter`): "a confirmation
+ * request" for an unconfirmed visit, else "a follow-up". Null for any other message.
+ */
+function actionCenterNoun(e: TimelineEntry): string | null {
+  if (e.actorType !== 'system') return null;
+  const ac = obj(e.meta.actionCenter);
+  if (!str(ac.itemId) && !str(ac.itemKind)) return null;
+  return str(ac.itemKind) === 'unconfirmed_appointment' ? 'a confirmation request' : 'a follow-up';
+}
+
+/** Appointment entries: booked (by staff, the Assistant or online), moved, cancelled, done, no-show or confirmed. */
 const isAppointment = (e: TimelineEntry) =>
   e.kind === 'system' && !!e.subtype?.startsWith('appointment_');
 
@@ -153,6 +172,17 @@ function describeAppointment(e: TimelineEntry, timeZone?: string): string {
       return `marked ${what} on ${at(e.meta.startsAt)} done`;
     case 'appointment_no_show':
       return `marked ${what} on ${at(e.meta.startsAt)} a no-show`;
+    // M8: "Kendra confirmed AC tune-up by text", "Priya marked AC tune-up confirmed".
+    case 'appointment_confirmed':
+      return e.meta.via === 'sms'
+        ? `confirmed ${what} by text`
+        : e.meta.via === 'link'
+          ? `confirmed ${what} online`
+          : e.meta.via === 'ai'
+            ? `marked ${what} confirmed for the customer`
+            : `marked ${what} confirmed`;
+    case 'appointment_confirmation_removed':
+      return `took back the confirmation on ${what}`;
     default:
       return e.subtype!.replace(/_/g, ' ');
   }
@@ -218,7 +248,8 @@ export function timelineDotClass(e: TimelineEntry): string {
   )
     return 'bg-accent';
   if (e.subtype === 'appointment_cancelled') return 'bg-danger';
-  if (e.subtype === 'appointment_completed') return 'bg-success';
+  if (e.subtype === 'appointment_completed' || e.subtype === 'appointment_confirmed')
+    return 'bg-success';
   if (e.subtype === 'won') return 'bg-success';
   if (e.subtype === 'lost') return 'bg-danger';
   return 'bg-card-3';

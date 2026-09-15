@@ -176,6 +176,17 @@ export interface Booked {
   readonly duplicate: boolean;
 }
 
+/** How a booking was confirmed: a text (C, or YES while asked), the Confirm button, staff, or the AI teammate. */
+export type ConfirmedVia = 'sms' | 'link' | 'staff' | 'ai';
+
+/** Whether the customer confirmed a one-on-one booking, and whether the business asked them to (M8). */
+export interface ManageConfirmation {
+  readonly confirmedAt: string | null;
+  readonly confirmedVia: ConfirmedVia | null;
+  /** When the business asked (the day-before reminder or HandsFreeOS's request), or null. */
+  readonly askedAt: string | null;
+}
+
 export interface ManageView {
   readonly state: 'booked' | 'cancelled' | 'past';
   readonly business: PublicBusiness;
@@ -186,6 +197,8 @@ export interface ManageView {
   readonly manageUrl: string;
   /** After a reschedule: a seat moved to another session has a new link. */
   readonly newLink?: boolean;
+  /** Confirmed yet, and asked to (M8). Null for a group time or a session seat, which don't confirm. */
+  readonly confirmation: ManageConfirmation | null;
 }
 
 interface CustomerFields {
@@ -327,6 +340,13 @@ export const rescheduleBooking = (
 
 export const cancelBooking = (token: string, reason: string | null) =>
   post<ManageView>(`${managePath(token)}/cancel`, { reason }, PRIVATE);
+
+/**
+ * The Confirm button. Always a POST: email scanners open links, so opening one never confirms. It answers with the
+ * booking as the page shows it, plus `changed` (false when it was already confirmed).
+ */
+export const confirmBooking = (token: string) =>
+  post<ManageView & { readonly changed: boolean }>(`${managePath(token)}/confirm`, {}, PRIVATE);
 
 /** The booking as an .ics file (Apple Calendar and anything else that opens one). */
 export const calendarFileUrl = (token: string) => `${publicEnv.workerUrl}${managePath(token)}/ics`;

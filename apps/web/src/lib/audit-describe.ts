@@ -1,4 +1,9 @@
-import { LABEL_NAMES, type CalendarLabel, type RequestChannel } from '@hfos/core';
+import {
+  ATTENTION_KIND_LABELS,
+  LABEL_NAMES,
+  type CalendarLabel,
+  type RequestChannel,
+} from '@hfos/core';
 import type { AuditEntry } from './api/types';
 import { reminderNoun, reminderWhy } from '@/lib/calendar/reminders';
 import { clock } from '@/lib/calls/format';
@@ -589,8 +594,176 @@ function describeAction(e: AuditEntry): string {
       return 'cancelled a visit for the customer';
     case 'message.record_opt_out':
       return `recorded that ${s(e.after?.number) || 'a customer'} asked to stop getting texts${s(e.after?.words) ? ` (“${s(e.after?.words)}”)` : ''}`;
+    // Milestone 8: confirming a booking (by text in message.receive, above)
+    case 'attendee.confirm':
+      return s(e.after?.confirmedVia) === 'staff'
+        ? `marked ${apptTitle(e)}${forWhom(e)} on ${when(e.after?.startsAt)} confirmed`
+        : `took back the confirmation on ${apptTitle(e)}${forWhom(e)}`;
+    case 'attendee.confirm_online':
+      return `recorded that ${customerOf(e)} confirmed ${apptTitle(e)} on ${when(e.after?.startsAt)}`;
+    // Milestone 8: the Action Center (what the worker noticed is in the default branch, hidden by default)
+    case 'attention.snooze':
+      return `snoozed ${itemOf(e)} until ${when(e.after?.snoozedUntil)}`;
+    case 'attention.unsnooze':
+      return e.actor.type === 'system'
+        ? `brought back ${itemOf(e)}: its snooze ended`
+        : `brought back ${itemOf(e)} early`;
+    case 'attention.dismiss':
+      return `dismissed ${itemOf(e)}${s(e.after?.reason) ? ` (“${s(e.after?.reason)}”)` : ''}`;
+    case 'attention.restore':
+      return s(e.before?.state) === 'dismissed'
+        ? `undid dismissing ${itemOf(e)}`
+        : `undid snoozing ${itemOf(e)}`;
+    case 'attention.assign':
+      return s(e.after?.assignee)
+        ? `gave ${itemOf(e)} to ${s(e.after?.assignee)}`
+        : `left ${itemOf(e)} for anyone`;
+    case 'attention.let_handle':
+      return letHandleSentence(e);
+    case 'attention.cancel_auto':
+      return `cancelled the ${autoNoun(e)} waiting to go out for ${itemOf(e)}`;
+    case 'attention.save_settings':
+      return attentionSettingsSentence(e);
+    case 'attention.record_auto':
+      return recordAutoSentence(e);
     default:
-      return e.action;
+      return detectionSentence(e) ?? e.action;
+  }
+}
+
+// ---- Milestone 8: the Action Center helpers ----
+
+/** “Maria Lopez · New AC install”: the item's title, copied into each of its entries. */
+const itemOf = (e: AuditEntry) => {
+  const t = s(e.after?.item) || s(e.before?.item) || e.entityName;
+  return t ? `“${t}”` : 'an Action Center item';
+};
+const customerOf = (e: AuditEntry) => strings(e.after?.customers)[0] || 'the customer';
+/** An automatic action's noun, from the item's kind (copied in as its label). */
+const autoNoun = (e: AuditEntry) =>
+  s(e.after?.kind) === ATTENTION_KIND_LABELS.unconfirmed_appointment
+    ? 'confirmation request'
+    : 'follow-up';
+
+function letHandleSentence(e: AuditEntry): string {
+  switch (s(e.after?.action)) {
+    case 'hand_to_ai':
+      return `handed ${itemOf(e)} to the AI teammate from the Action Center`;
+    case 'reply':
+      return `replied to ${itemOf(e)} from the Action Center`;
+    case 'set_next_action':
+      return `set a next action for ${itemOf(e)} from the Action Center`;
+    default:
+      return `asked HandsFreeOS to send the ${autoNoun(e)} for ${itemOf(e)}`;
+  }
+}
+
+/** Why an automatic message didn't go, in plain words (the worker's reason codes). */
+const AUTO_SKIP: Record<string, string> = {
+  opted_out: 'they opted out',
+  no_consent: 'they haven’t agreed to texts and have no email',
+  no_contact: 'there’s no way to reach them',
+  quiet_hours: 'it was quiet hours',
+  cooldown: 'they got an automatic message recently',
+  someone_talking: 'someone is talking with them',
+  ai_handling: 'the AI teammate is handling them',
+  draft_pending: 'a draft is waiting',
+  in_workflow: 'they’re in a workflow',
+  recent_person: 'a person messaged them recently',
+  lead_closed: 'the lead is closed',
+  switched_off: 'it’s switched off',
+  nudges_off: 'follow-ups are off',
+  facts_changed: 'things changed before it went',
+};
+
+function recordAutoSentence(e: AuditEntry): string {
+  const noun = autoNoun(e);
+  if (s(e.after?.autoState) === 'scheduled')
+    return `scheduled a ${noun} for ${itemOf(e)}, to go ${when(e.after?.scheduledFor)}`;
+  if (s(e.after?.autoState) === 'skipped') {
+    const why = AUTO_SKIP[s(e.after?.reason)] ?? s(e.after?.reason).replace(/_/g, ' ');
+    return `didn’t send the ${noun} for ${itemOf(e)}${why ? `: ${why}` : ''}`;
+  }
+  if (s(e.after?.state) === 'handled')
+    return `sent a ${noun} for ${itemOf(e)} by ${s(e.after?.channel) === 'email' ? 'email' : 'text'}`;
+  return `recorded the ${noun} for ${itemOf(e)}`;
+}
+
+const SETTING_WORDS: Record<string, string> = {
+  kinds: 'what to look for',
+  hot: 'hot leads',
+  unanswered: 'unanswered leads',
+  stale: 'gone-quiet days',
+  appointments: 'the confirmation window',
+  typicalJobValueCents: 'the typical job value',
+  auto: 'what it does on its own',
+  nudge: 'the follow-up wording',
+  replyToConfirm: '“Reply C to confirm”',
+};
+
+function attentionSettingsSentence(e: AuditEntry): string {
+  const obj = (v: unknown): Record<string, unknown> =>
+    v && typeof v === 'object' ? (v as Record<string, unknown>) : {};
+  const before = obj(e.before?.attention);
+  const after = obj(e.after?.attention);
+  const was = obj(before.auto);
+  const now = obj(after.auto);
+  if (!was.nudgeReviewedAt && now.nudgeReviewedAt)
+    return 'read the follow-up wording and turned automatic follow-ups on';
+  if (typeof now.nudges === 'boolean' && now.nudges !== was.nudges)
+    return `turned automatic follow-ups ${now.nudges ? 'on' : 'off'}`;
+  if (typeof now.confirmRequests === 'boolean' && now.confirmRequests !== was.confirmRequests)
+    return `turned confirmation requests ${now.confirmRequests ? 'on' : 'off'}`;
+  const changed = Object.keys(SETTING_WORDS).filter(
+    (k) => JSON.stringify(before[k]) !== JSON.stringify(after[k]),
+  );
+  return changed.length
+    ? `changed the Action Center settings: ${andJoin(changed.map((k) => SETTING_WORDS[k]!))}`
+    : 'saved the Action Center settings';
+}
+
+/** What the worker notices as facts change: an item opened, came back, became urgent or cleared. */
+const NOTICED = new Set([
+  'opened',
+  'detected',
+  'reopened',
+  'resolved',
+  'urgent',
+  'became_urgent',
+  'snooze_ended',
+  'updated',
+]);
+const noticedTail = (e: AuditEntry): string | null => {
+  const [head, tail = ''] = e.action.split('.', 2);
+  return head === 'attention_item' || (head === 'attention' && NOTICED.has(tail)) ? tail : null;
+};
+
+/**
+ * The worker's notes on what it noticed, which the audit log hides until asked ("Show what HandsFreeOS noticed"):
+ * the transitions only, never a sweep that found nothing new.
+ */
+export function isAuditDetection(e: AuditEntry): boolean {
+  return e.actor.type === 'system' && noticedTail(e) !== null;
+}
+
+function detectionSentence(e: AuditEntry): string | null {
+  const tail = noticedTail(e);
+  if (tail === null) return null;
+  switch (tail) {
+    case 'opened':
+    case 'detected':
+      return `noticed ${itemOf(e)}`;
+    case 'reopened':
+      return `brought back ${itemOf(e)}: something changed`;
+    case 'resolved':
+      return `cleared ${itemOf(e)}: it doesn’t need anyone now`;
+    case 'urgent':
+    case 'became_urgent':
+      return `marked ${itemOf(e)} urgent`;
+    case 'snooze_ended':
+      return `brought back ${itemOf(e)}: its snooze ended`;
+    default:
+      return `updated ${itemOf(e)}`;
   }
 }
 
@@ -974,6 +1147,9 @@ function registrationSentence(e: AuditEntry): string {
 
 function receiveSentence(e: AuditEntry): string {
   if (e.entityType === 'message') return `received a text from ${s(e.after?.from)}`;
+  // A reply of C (or YES while asked) confirmed a booking (M8).
+  if (e.entityType === 'appointment' && s(e.after?.confirmedVia) === 'sms')
+    return `recorded that ${customerOf(e)} confirmed ${apptTitle(e)} on ${when(e.after?.startsAt)} by text`;
   if (s(e.after?.smsConsent) === 'opted_out')
     return `recorded that ${s(e.after?.number)} opted out of texts`;
   if (s(e.after?.smsConsent) === 'opted_in')
@@ -1039,9 +1215,11 @@ export type AuditCategory =
   | 'imports'
   | 'workflows'
   | 'ai_team'
+  | 'action_center'
   | 'other';
 
 export const AUDIT_CATEGORY_LABEL: Record<AuditCategory, string> = {
+  action_center: 'Action Center',
   ai_team: 'AI teammate',
   members: 'Members',
   invitations: 'Invitations',
@@ -1101,6 +1279,8 @@ export function auditActor(
 }
 
 export function auditCategory(action: string): AuditCategory {
+  // attention.* (people's and the worker's actions on items, and the settings) and attention_item.* (what it noticed).
+  if (action.startsWith('attention')) return 'action_center';
   if (action.startsWith('workflow')) return 'workflows';
   if (
     action.startsWith('ai_teammate.') ||

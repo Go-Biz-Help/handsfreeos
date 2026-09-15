@@ -68,6 +68,15 @@ const Section = ({
 type Attendee = AppointmentDetail['attendees'][number];
 type Entry = NonNullable<Attendee['reminders']['confirmation']>;
 
+/** How a booking was confirmed: a text (C, or YES while asked), the Confirm button, staff, or the AI teammate. */
+type Via = NonNullable<Attendee['confirmedVia']>;
+interface Confirmation {
+  readonly at: string;
+  readonly via: Via | null;
+  /** The teammate who marked it (their name), or 'you'. */
+  readonly by: string | null;
+}
+
 interface ReminderRow {
   readonly key: string;
   readonly label: string;
@@ -202,6 +211,7 @@ export function AppointmentSheet({
   appointmentId,
   timeZone,
   people,
+  myUserId,
   onClose,
   onChanged,
 }: {
@@ -209,6 +219,8 @@ export function AppointmentSheet({
   appointmentId: string;
   timeZone: string;
   people: readonly { userId: string; fullName: string }[];
+  /** Who is reading: their own confirmation mark says "Confirmed by you". */
+  myUserId?: string;
   onClose: () => void;
   onChanged?: () => void;
 }) {
@@ -274,9 +286,74 @@ export function AppointmentSheet({
     }
   }
 
+  /** Mark confirmed for the customer (they said so on the phone), or take back a mark someone on the team made. */
+  async function markConfirmed(seat: Attendee, confirmed: boolean) {
+    setBusy(confirmed ? 'confirm' : 'unconfirm');
+    try {
+      unwrap(
+        await apiBrowser().POST('/v1/commands/attendee.confirm', {
+          body: { workspaceId, attendeeId: seat.id, confirmed },
+        }),
+      );
+      if (confirmed)
+        toast.success(`Marked ${firstName(seat.fullName)}’s visit confirmed.`, {
+          action: { label: 'Undo', onClick: () => void markConfirmed(seat, false) },
+        });
+      else toast.success('Confirmation taken back.');
+      changed();
+    } catch (e) {
+      toast.error(errorMessage(e));
+    } finally {
+      setBusy(null);
+    }
+  }
+
   const status = appt ? statusOf(appt, now) : null;
   const booked = appt?.attendees.filter((x) => x.status !== 'cancelled') ?? [];
   const single = appt && appt.capacity === 1 && booked.length === 1 ? booked[0]! : null;
+  // Confirming is for one-on-one bookings.
+  const seat = single;
+  const confirmation: Confirmation | null = seat?.confirmedAt
+    ? {
+        at: seat.confirmedAt,
+        via: seat.confirmedVia,
+        by: seat.confirmedBy
+          ? seat.confirmedBy.id === myUserId
+            ? 'you'
+            : seat.confirmedBy.fullName
+          : null,
+      }
+    : null;
+  const upcoming =
+    !!appt && appt.status === 'scheduled' && Date.parse(appt.startsAt) > (now ?? Date.now());
+  const seatFirst = seat ? firstName(seat.fullName) : '';
+  /** "Confirmed by text 4:12 PM", "Confirmed online Wed 9:05 AM", "Confirmed by Priya 4:12 PM". */
+  const confirmedWords = (c: Confirmation): string => {
+    const who = c.by === 'you' ? 'you' : firstName(c.by ?? '') || 'the team';
+    const how =
+      c.via === 'sms'
+        ? 'by text'
+        : c.via === 'link'
+          ? 'online'
+          : c.via === 'ai'
+            ? 'by the AI teammate'
+            : `by ${who}`;
+    const at =
+      dateOf(c.at, timeZone) === todayIn(timeZone)
+        ? fmtTime(c.at, timeZone)
+        : dayTime(c.at, timeZone);
+    return `Confirmed ${how} ${at}`;
+  };
+  const callSeat = () =>
+    seat?.contactPhone
+      ? calls.available
+        ? calls.openDialer({
+            name: seat.fullName,
+            phone: seat.contactPhone,
+            personId: seat.personId,
+          })
+        : window.open(telHref(seat.contactPhone) ?? '#', '_self')
+      : undefined;
   const seatsLeft = appt ? Math.max(0, appt.capacity - appt.seatsTaken) : 0;
   const travel =
     config && appt?.location.kind === 'customer_address' ? config.buffers.travelMinutes : 0;
@@ -427,6 +504,110 @@ export function AppointmentSheet({
                       </Button>
                     ) : null}
                   </div>
+                  {seat && confirmation ? (
+                    <div
+                      className="mt-2.5 flex flex-wrap items-center gap-2"
+                      data-testid="sheet-confirmed"
+                      data-via={confirmation.via ?? ''}
+                    >
+                      <Badge variant="ok">
+                        <Check className="h-3 w-3" strokeWidth={2} aria-hidden />
+                        {confirmedWords(confirmation)}
+                      </Badge>
+                      {confirmation.via === 'staff' ? (
+                        upcoming ? (
+                          <button
+                            type="button"
+                            className="text-xs font-medium text-accent-text hover:underline disabled:opacity-50"
+                            disabled={busy === 'unconfirm'}
+                            onClick={() => void markConfirmed(seat, false)}
+                            data-testid="sheet-unconfirm"
+                          >
+                            Take back
+                          </button>
+                        ) : null
+                      ) : (
+                        <span className="text-xs text-text-3">
+                          {confirmation.via === 'sms'
+                            ? `${seatFirst} replied to the reminder.`
+                            : confirmation.via === 'link'
+                              ? `${seatFirst} pressed Confirm on their appointment page.`
+                              : `${seatFirst} confirmed with the AI teammate.`}
+                        </span>
+                      )}
+                    </div>
+                  ) : seat && upcoming ? (
+                    seat.smsOk || seat.contactEmail ? (
+                      <div
+                        className="mt-2.5 flex flex-wrap items-center gap-2"
+                        data-testid="sheet-unconfirmed"
+                      >
+                        <Badge variant="pending">Not confirmed</Badge>
+                        <span className="min-w-0 flex-1 text-xs text-text-3">
+                          {seat.confirmAskedAt
+                            ? `Asked ${dayTime(seat.confirmAskedAt, timeZone)}, no answer yet.`
+                            : 'Not asked yet.'}
+                        </span>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7"
+                          loading={busy === 'confirm'}
+                          onClick={() => void markConfirmed(seat, true)}
+                          data-testid="sheet-mark-confirmed"
+                        >
+                          <Check className="h-3.5 w-3.5" strokeWidth={1.5} />
+                          Mark confirmed
+                        </Button>
+                      </div>
+                    ) : (
+                      <>
+                        <div
+                          className="mt-2.5 flex flex-col gap-2 rounded-[10px] bg-warning-soft px-3 py-2.5 text-warning-text"
+                          data-testid="sheet-unconfirmed"
+                          data-reachable="false"
+                        >
+                          <span>
+                            <Badge variant="pending" className="bg-card">
+                              Not confirmed
+                            </Badge>
+                          </span>
+                          <span className="text-[13px]">
+                            {seat.contactPhone
+                              ? `${seatFirst} can’t get texts and has no email on file, so HandsFreeOS can’t ask. Call, then mark it.`
+                              : `${seatFirst} has no mobile number or email on file, so HandsFreeOS can’t ask. Mark it once they tell you.`}
+                          </span>
+                          <div className="flex flex-wrap gap-2">
+                            {seat.contactPhone ? (
+                              <Button
+                                variant="secondary"
+                                size="sm"
+                                className="max-sm:h-11"
+                                onClick={callSeat}
+                              >
+                                <Phone className="h-3.5 w-3.5" strokeWidth={1.5} />
+                                Call {seatFirst}
+                              </Button>
+                            ) : null}
+                            <Button
+                              variant="secondary"
+                              size="sm"
+                              className="max-sm:h-11"
+                              loading={busy === 'confirm'}
+                              onClick={() => void markConfirmed(seat, true)}
+                              data-testid="sheet-mark-confirmed"
+                            >
+                              <Check className="h-3.5 w-3.5" strokeWidth={1.5} />
+                              Mark confirmed
+                            </Button>
+                          </div>
+                        </div>
+                        <p className="mt-1.5 text-[12.5px] text-text-3">
+                          Marking it shows “Confirmed by you” here, and takes it off Home.
+                        </p>
+                      </>
+                    )
+                  ) : null}
                 </Section>
               ) : null}
 
