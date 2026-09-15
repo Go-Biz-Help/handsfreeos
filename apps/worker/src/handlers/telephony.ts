@@ -421,7 +421,7 @@ export const onConversationLinked: EventHandler = async (ctx) => {
       .insert(activities)
       .values({
         workspaceId: scope.workspaceId,
-        kind: m.channel === 'email' ? 'email' : 'sms',
+        kind: m.channel === 'email' ? 'email' : m.channel === 'chat' ? 'chat' : 'sms',
         subtype: m.direction,
         personId,
         body: m.bodyText || messagePreview(null, m.media.length) || null,

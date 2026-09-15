@@ -2,6 +2,9 @@ import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { LOCAL_WEBHOOK_PASSWORD } from './email/local';
 
+/** The website chat's IP-hashing key on your own computer (scripts/supabase-env.mjs); production refuses it. */
+export const LOCAL_CHAT_IP_KEY = 'local-chat-ip-key-for-development-only';
+
 export function loadEnv(): void {
   const path = resolve(process.cwd(), '.env');
   if (existsSync(path)) process.loadEnvFile(path);
@@ -77,10 +80,15 @@ export interface WorkerEnv {
   /** Cloudflare Turnstile on the public booking page (its site key lives on the web); unset: no bot check. */
   readonly turnstileSecretKey: string | null;
   /**
-   * Multiplies the booking page's per-address limits: 1 in production, 10 elsewhere, because local
-   * development and Playwright book from one address.
+   * Multiplies the booking page's and the website chat's per-address limits: 1 in production, 10 elsewhere,
+   * because local development and Playwright book and chat from one address.
    */
   readonly bookingRateLimitFactor: number;
+  /**
+   * The key the website chat hashes visitors' IP addresses with (HMAC-SHA256), for its limits and network
+   * blocks; the address itself is never stored. Required in production.
+   */
+  readonly chatIpKey: string;
   /**
    * Local sites a website scan may read over plain http: exact loopback origins, such as the knowledge fixture
    * site Playwright starts (scripts/knowledge-site.ts). Development and tests only: main.ts honours it only
@@ -190,6 +198,13 @@ export function readEnv(env: NodeJS.ProcessEnv = process.env): WorkerEnv {
   if (production && turnstileSecretKey === '1x0000000000000000000000000000000AA')
     throw new Error('TURNSTILE_SECRET_KEY is Cloudflare’s test secret; use the real one');
 
+  // Outside production a fixed key does (scripts/supabase-env.mjs writes it); production needs its own.
+  const chatIpKey = env.CHAT_IP_KEY || (production ? '' : LOCAL_CHAT_IP_KEY);
+  if (production && (chatIpKey.length < 32 || chatIpKey === LOCAL_CHAT_IP_KEY))
+    throw new Error(
+      'CHAT_IP_KEY must be a long random value (32+ characters): openssl rand -base64 32',
+    );
+
   const fetchTestOrigins = list(env.FETCH_TEST_ORIGINS);
   if (production && fetchTestOrigins.length)
     throw new Error('FETCH_TEST_ORIGINS is for development and tests only');
@@ -262,6 +277,7 @@ export function readEnv(env: NodeJS.ProcessEnv = process.env): WorkerEnv {
     assistantDailyTokens,
     turnstileSecretKey,
     bookingRateLimitFactor: production ? 1 : 10,
+    chatIpKey,
     fetchTestOrigins,
   };
 }

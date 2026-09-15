@@ -418,6 +418,54 @@ describe('the live feed', () => {
   });
 });
 
+describe('finding a widget by its key', () => {
+  it('tells the worker, and only the worker, whose widget a key is and whether it’s paused', async () => {
+    const widget = await newWidget(admin, wsA, ['https://lookup-test.com']);
+    const lookup = (key: string) =>
+      asService({})((tx) =>
+        rows<{ widget_id: string; workspace_id: string; organization_id: string; paused: boolean }>(
+          tx,
+          sql`select * from private.chat_widget_lookup(${key})`,
+        ),
+      );
+    expect(await lookup(widget.public_key)).toEqual([
+      { widget_id: widget.id, workspace_id: wsA, organization_id: orgA, paused: false },
+    ]);
+    await as(admin)((tx) =>
+      tx.execute(sql`update app.chat_widgets set paused_at = now() where id = ${widget.id}`),
+    );
+    expect(await lookup(widget.public_key)).toMatchObject([{ widget_id: widget.id, paused: true }]);
+    // Anything that isn't a key, or a key nobody has, finds nothing.
+    for (const key of [
+      'wk_AAAAAAAAAAAAAAAAAAAA',
+      widget.public_key.replace(/^wk_/, 'WK_'),
+      `${widget.public_key}x`,
+      "wk_' or true --",
+      '',
+    ])
+      expect(await lookup(key)).toEqual([]);
+    // A new key retires the old one.
+    const [rotated] = await as(admin)((tx) =>
+      rows<{ public_key: string }>(
+        tx,
+        sql`update app.chat_widgets set public_key = private.new_chat_widget_key()
+            where id = ${widget.id} returning public_key`,
+      ),
+    );
+    expect(await lookup(widget.public_key)).toEqual([]);
+    expect(await lookup(rotated!.public_key)).toMatchObject([{ widget_id: widget.id }]);
+    // People can't ask, even about their own business's widget.
+    for (const user of [owner, admin, member, outsider])
+      expect(
+        await code(() =>
+          as(user)((tx) =>
+            tx.execute(sql`select * from private.chat_widget_lookup(${rotated!.public_key})`),
+          ),
+        ),
+      ).toBe('42501');
+  });
+});
+
 describe('references stay inside the workspace', () => {
   it('keeps widgets, visitors and signals inside their business', async () => {
     // A widget answers with its own business's teammate.

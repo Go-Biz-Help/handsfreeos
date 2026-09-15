@@ -47,6 +47,10 @@ import {
   ChatBlockVisitorOutput,
   ChatIdentifyInput,
   ChatIdentifyOutput,
+  ChatMarkReadInput,
+  ChatMarkReadOutput,
+  ChatMarkSentInput,
+  ChatMarkSentOutput,
   ChatReceiveInput,
   ChatReceiveOutput,
   ChatUnblockVisitorOutput,
@@ -300,6 +304,8 @@ export const chatReceive = defineCommand({
         visitorId: visitor.id,
         widgetId: visitor.widgetId,
         newChat: created,
+        // False: the human check couldn't run, so the AI teammate leaves this message to people.
+        aiReply: input.aiReply,
       },
       after: { from: visitor.name ?? CHAT_VISITOR_NAME, preview: preview.slice(0, 80) },
     });
@@ -360,6 +366,64 @@ export const chatReceive = defineCommand({
         organizationId: m.organizationId,
       });
     return { messageId, conversationId: conv.id, duplicate: false, newChat: created };
+  },
+});
+
+export const chatMarkSent = defineCommand({
+  name: 'chat.mark_sent',
+  description:
+    'Worker: a person’s website chat reply is out. The chat window shows it from the live feed as soon as it’s saved, so the worker marks it sent right after.',
+  risk: 0,
+  input: ChatMarkSentInput,
+  output: ChatMarkSentOutput,
+  permission: 'inbox.use',
+  scope: inWorkspace,
+  emits: [],
+  actors: ['system'],
+  async handler(ctx, input) {
+    const [m] = await rows<{ id: string }>(
+      ctx.tx,
+      sql`update app.messages set status = 'sent', sent_at = coalesce(sent_at, now())
+          where id = ${input.messageId} and workspace_id = ${ctx.scope.workspaceId!}
+            and channel = 'chat' and direction = 'outbound' and status = 'queued'
+          returning id`,
+    );
+    return { messageId: input.messageId, marked: !!m };
+  },
+});
+
+export const chatMarkRead = defineCommand({
+  name: 'chat.mark_read',
+  description:
+    'Worker: a website visitor’s chat window showed the replies up to this one. They count as seen (status delivered), so no follow-up goes out for them.',
+  risk: 0,
+  input: ChatMarkReadInput,
+  output: ChatMarkReadOutput,
+  permission: 'inbox.use',
+  scope: inWorkspace,
+  emits: [],
+  actors: ['system'],
+  async handler(ctx, input) {
+    const ws = ctx.scope.workspaceId!;
+    const visitor = await loadVisitor(ctx.tx, ws, input.visitorId);
+    if (!visitor.conversationId) throw HfosError.notFound('Message not found.');
+    // Only their own chat: a message anywhere else is as good as missing.
+    const [through] = await rows<{ id: string }>(
+      ctx.tx,
+      sql`select id from app.messages
+          where id = ${input.throughMessageId} and conversation_id = ${visitor.conversationId}`,
+    );
+    if (!through) throw HfosError.notFound('Message not found.');
+    const marked = await rows<{ id: string }>(
+      ctx.tx,
+      sql`update app.messages set status = 'delivered', sent_at = coalesce(sent_at, now()),
+            delivered_at = coalesce(delivered_at, now())
+          where conversation_id = ${visitor.conversationId} and channel = 'chat' and direction = 'outbound'
+            and status in ('queued', 'sent')
+            and created_at <= (select t.created_at from app.messages t where t.id = ${through.id})
+          returning id`,
+    );
+    return { marked: marked.length };
   },
 });
 

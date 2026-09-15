@@ -222,6 +222,8 @@ import {
 import {
   chatBlockVisitor,
   chatIdentify,
+  chatMarkRead,
+  chatMarkSent,
   chatReceive,
   chatUnblockVisitor,
   chatVisitorRecordSeen,
@@ -575,6 +577,8 @@ export const commands: readonly CommandDef[] = [
   chatVisitorRecordSeen,
   chatReceive,
   chatIdentify,
+  chatMarkSent,
+  chatMarkRead,
   chatBlockVisitor,
   chatUnblockVisitor,
 ] as unknown as readonly CommandDef[];

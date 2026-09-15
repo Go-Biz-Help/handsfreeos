@@ -19,6 +19,7 @@ import {
   type HttpDeps,
 } from './common';
 import { registerBookingRoutes } from './booking';
+import { registerChatRoutes } from './chat';
 import { registerEmailRoutes } from './email';
 import { registerOAuthRoutes } from './oauth';
 import { registerTestRoutes } from './test-routes';
@@ -97,7 +98,8 @@ export async function buildHttpServer(deps: HttpDeps): Promise<FastifyInstance> 
   await app.register(cors, {
     origin: [...deps.webOrigins],
     methods: ['GET', 'POST'],
-    allowedHeaders: ['authorization', 'content-type', 'x-correlation-id'],
+    // last-event-id: the website chat's stream picks up where it left off.
+    allowedHeaders: ['authorization', 'content-type', 'x-correlation-id', 'last-event-id'],
     maxAge: 600,
   });
 
@@ -142,6 +144,7 @@ export async function buildHttpServer(deps: HttpDeps): Promise<FastifyInstance> 
   registerOAuthRoutes(app, deps);
   registerAssistantRoutes(app, deps, deps.assistant ?? null);
   await registerBookingRoutes(app, deps);
+  await registerChatRoutes(app, deps);
   await registerKnowledgeRoutes(app, deps);
   await registerWorkflowRoutes(app, deps);
   await registerBuilderRoutes(app, deps);

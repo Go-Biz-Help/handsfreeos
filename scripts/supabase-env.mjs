@@ -93,6 +93,9 @@ write('apps/worker/.env', [
   'TELEPHONY_PROVIDER=fake',
   'FAKE_APPROVAL_MS=3000',
   `WORKER_ENCRYPTION_KEY=${encryptionKey}`,
+  // The website chat hashes visitors' IP addresses with this. A fixed value is fine on your own computer;
+  // production refuses it.
+  'CHAT_IP_KEY=local-chat-ip-key-for-development-only',
   ...assistantLines,
 ]);
 write('apps/web/.env.local', [

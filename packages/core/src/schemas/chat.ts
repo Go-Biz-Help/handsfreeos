@@ -229,6 +229,11 @@ export const ChatReceiveInput = z.object({
   pagePath: chatPagePath.optional(),
   /** Tests and demos shorten the reply reminder; otherwise the workspace setting decides. */
   reminderAfterMs: z.number().int().min(1000).max(86_400_000).optional(),
+  /**
+   * False when the invisible human check couldn't run (Cloudflare didn't answer): the message still lands in
+   * the inbox, but the AI teammate doesn't answer it. The `message.received` event carries it as `aiReply`.
+   */
+  aiReply: z.boolean().default(true),
 });
 export const ChatReceiveOutput = z.object({
   messageId: uuid,
@@ -236,6 +241,24 @@ export const ChatReceiveOutput = z.object({
   duplicate: z.boolean(),
   /** This message started the visitor's chat (it counts toward the daily cap). */
   newChat: z.boolean(),
+});
+
+/** Worker: a person's chat reply is out (the live feed shows it at once). */
+export const ChatMarkSentInput = z.object({ workspaceId: uuid, messageId: uuid });
+export const ChatMarkSentOutput = z.object({
+  messageId: uuid,
+  /** False when it wasn't a queued chat reply (already marked, or not a chat reply at all). */
+  marked: z.boolean(),
+});
+/** Worker: the visitor's chat window showed the replies up to this one. */
+export const ChatMarkReadInput = z.object({
+  workspaceId: uuid,
+  visitorId: uuid,
+  throughMessageId: uuid,
+});
+export const ChatMarkReadOutput = z.object({
+  /** Replies newly marked seen. */
+  marked: z.number().int(),
 });
 
 export const ChatIdentifyInput = z.object({

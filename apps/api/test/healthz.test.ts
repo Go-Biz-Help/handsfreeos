@@ -93,6 +93,8 @@ describe('readEnv', () => {
       'ACME_OAUTH_CLIENT_ID',
       'TURNSTILE_SECRET_KEY',
       'TURNSTILE_SITE_KEY',
+      // The website chat's key for hashing visitors' IP addresses.
+      'CHAT_IP_KEY',
     ])
       expect(() => readEnv({ ...base, [name]: 'x' })).toThrow(/privileged/);
     // Claude Code's own names in a developer's shell, and names that merely end in OAUTH, are fine.

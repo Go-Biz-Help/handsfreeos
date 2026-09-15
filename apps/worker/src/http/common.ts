@@ -6,6 +6,7 @@ import type { AssistantServices } from '../assistant/routes';
 import type { WorkerServices } from '../services';
 import { verifyTwilioSignature, type WebhookParams } from '../telephony/signature';
 import type { BookingHttpOptions } from './booking';
+import type { ChatHttpOptions } from './chat';
 import type { TestRoutes } from './test-routes';
 
 export interface HttpDeps extends WorkerServices {
@@ -17,6 +18,8 @@ export interface HttpDeps extends WorkerServices {
   readonly assistant?: AssistantServices | null;
   /** The public booking page's bot check and per-address limits (default: no bot check, production limits). */
   readonly booking?: BookingHttpOptions;
+  /** The website chat's IP-hashing key, bot check and limits (default: a per-process key, no bot check). */
+  readonly chat?: ChatHttpOptions;
   /** Playwright's routes (http/test-routes.ts): only with the fake providers, never in production. */
   readonly testRoutes?: TestRoutes | null;
 }

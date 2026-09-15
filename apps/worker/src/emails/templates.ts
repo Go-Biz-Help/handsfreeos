@@ -47,15 +47,23 @@ export function unansweredEmail(input: {
   assignedToYou: boolean;
   /** Photos in the customer's latest message. */
   photos?: number;
+  /** How they wrote: a text (the default), an email, or the website chat. */
+  channel?: string;
 }): EmailContent {
   const subject = `${input.customer} is waiting for a reply`;
+  const wrote =
+    input.channel === 'chat'
+      ? { text: 'wrote to', after: ' in the website chat' }
+      : input.channel === 'email'
+        ? { text: 'emailed', after: '' }
+        : { text: 'texted', after: '' };
   const why = input.assignedToYou
     ? 'You’re getting this because the conversation is assigned to you. We send one reminder per message.'
     : 'You’re getting this because you’re an owner or admin and nobody is assigned to the conversation. We send one reminder per message.';
   const photos = input.photos ?? 0;
   const meta = `${input.receivedAt} · ${input.contact}${photos > 0 ? ` · with ${photos === 1 ? '1 photo' : `${photos} photos`}` : ''}`;
   const text = [
-    `${input.customer} texted ${input.business} ${waited(input.minutesWaiting)} ago, and nobody has replied yet.`,
+    `${input.customer} ${wrote.text} ${input.business}${wrote.after} ${waited(input.minutesWaiting)} ago, and nobody has replied yet.`,
     '',
     input.preview ? `“${input.preview}”` : '',
     meta,
@@ -70,7 +78,7 @@ export function unansweredEmail(input: {
   const html = shell(
     preheader(input.preview) +
       wordmark +
-      `<p style="font-size: 15px; line-height: 1.5; margin: 0 0 16px;"><strong>${escapeHtml(input.customer)}</strong> texted <strong>${escapeHtml(input.business)}</strong> ${escapeHtml(waited(input.minutesWaiting))} ago, and nobody has replied yet.</p>` +
+      `<p style="font-size: 15px; line-height: 1.5; margin: 0 0 16px;"><strong>${escapeHtml(input.customer)}</strong> ${wrote.text} <strong>${escapeHtml(input.business)}</strong>${escapeHtml(wrote.after)} ${escapeHtml(waited(input.minutesWaiting))} ago, and nobody has replied yet.</p>` +
       (input.preview
         ? `<div style="background: #f2f4f8; border-radius: 10px; padding: 14px 16px; font-size: 14px; line-height: 1.5; margin-bottom: 8px;">${escapeHtml(input.preview)}</div>`
         : '') +

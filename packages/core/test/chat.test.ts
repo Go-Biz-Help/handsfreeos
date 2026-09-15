@@ -33,6 +33,8 @@ import {
   aiTeammateCreate,
   chatBlockVisitor,
   chatIdentify,
+  chatMarkRead,
+  chatMarkSent,
   chatReceive,
   chatUnblockVisitor,
   chatVisitorRecordSeen,
@@ -563,6 +565,104 @@ describe('chat.receive', () => {
     expect((await say(v1.visitorId, 'First chat today')).newChat).toBe(true);
     await expectHfos(() => say(v2.visitorId, 'Second chat today'), 'rule_violation', 'daily_cap');
     expect((await say(v1.visitorId, 'Still chatting')).newChat).toBe(false);
+  });
+});
+
+describe('the chat worker’s marks', () => {
+  it('flags a message the human check couldn’t verify, so the AI teammate leaves it to people', async () => {
+    const { visitorId } = await visit();
+    const unverified = await sysFull(chatReceive, {
+      workspaceId: wsId,
+      visitorId,
+      body: 'Is anyone there?',
+      clientId: randomUUID(),
+      reminderAfterMs: 86_400_000,
+      aiReply: false,
+    });
+    const checked = await sysFull(chatReceive, {
+      workspaceId: wsId,
+      visitorId,
+      body: 'Our AC is leaking.',
+      clientId: randomUUID(),
+      reminderAfterMs: 86_400_000,
+    });
+    const received = await eventsOf([...unverified.eventIds, ...checked.eventIds]);
+    const aiReplyOf = (messageId: string) =>
+      (received.find((e) => e.entityId === messageId)?.payload as { aiReply?: unknown }).aiReply;
+    expect(aiReplyOf(unverified.output.messageId)).toBe(false);
+    expect(aiReplyOf(checked.output.messageId)).toBe(true);
+  });
+
+  it('marks a person’s reply sent, and the replies the visitor’s window showed as seen, in their own chat only', async () => {
+    const { visitorId } = await visit();
+    const { conversationId, messageId: inbound } = await say(visitorId, 'Can someone call me?');
+    const reply = (body: string) =>
+      run(messageSend, { workspaceId: wsId, conversationId, channel: 'chat', body }, member);
+    const first = await reply('Sure, what number works?');
+    expect(first.status).toBe('queued');
+    expect(await sys(chatMarkSent, { workspaceId: wsId, messageId: first.messageId })).toEqual({
+      messageId: first.messageId,
+      marked: true,
+    });
+    // Once, and only a queued chat reply: never the visitor's own message.
+    expect(
+      await sys(chatMarkSent, { workspaceId: wsId, messageId: first.messageId }),
+    ).toMatchObject({ marked: false });
+    expect(await sys(chatMarkSent, { workspaceId: wsId, messageId: inbound })).toMatchObject({
+      marked: false,
+    });
+    const second = await reply('Or an email is fine too.');
+    const statusOf = async (id: string) => {
+      const [m] = await admin()
+        .select({
+          status: messages.status,
+          sentAt: messages.sentAt,
+          deliveredAt: messages.deliveredAt,
+        })
+        .from(messages)
+        .where(eq(messages.id, id));
+      return m!;
+    };
+    expect(await statusOf(first.messageId)).toMatchObject({ status: 'sent', deliveredAt: null });
+
+    // Another visitor can't mark this chat's replies as seen.
+    const other = await visit();
+    await say(other.visitorId, 'Hello');
+    await expectHfos(
+      () =>
+        sys(chatMarkRead, {
+          workspaceId: wsId,
+          visitorId: other.visitorId,
+          throughMessageId: first.messageId,
+        }),
+      'not_found',
+    );
+    expect(
+      await sys(chatMarkRead, { workspaceId: wsId, visitorId, throughMessageId: first.messageId }),
+    ).toEqual({ marked: 1 });
+    expect(await statusOf(first.messageId)).toMatchObject({ status: 'delivered' });
+    expect((await statusOf(first.messageId)).deliveredAt).not.toBeNull();
+    expect(await statusOf(second.messageId)).toMatchObject({ status: 'queued', deliveredAt: null });
+    expect(
+      await sys(chatMarkRead, { workspaceId: wsId, visitorId, throughMessageId: second.messageId }),
+    ).toEqual({ marked: 1 });
+    const seen = await statusOf(second.messageId);
+    expect(seen.status).toBe('delivered');
+    expect(seen.sentAt).not.toBeNull();
+    // The worker's alone.
+    await expectHfos(
+      () =>
+        run(
+          chatMarkRead,
+          { workspaceId: wsId, visitorId, throughMessageId: second.messageId },
+          owner,
+        ),
+      'forbidden',
+    );
+    await expectHfos(
+      () => run(chatMarkSent, { workspaceId: wsId, messageId: second.messageId }, owner),
+      'forbidden',
+    );
   });
 });
 
