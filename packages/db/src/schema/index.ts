@@ -12,6 +12,7 @@ import {
   integer,
   pgSchema,
   primaryKey,
+  real,
   text,
   timestamp,
   uuid,
@@ -426,6 +427,11 @@ export const leads = app.table('leads', {
   searchText: text('search_text').generatedAlwaysAs(sql`lower(coalesce(title, ''))`),
   // Milestone 7: answers to the qualifying questions, each question's text copied in (core's shape).
   qualification: jsonb('qualification').$type<Json>().notNull().default({}),
+  // Milestone 8: kept by a trigger on activities (0040); nobody writes them directly.
+  /** The latest real contact, either way: a text, email, chat, connected call, voicemail or visit. */
+  lastContactAt: ts('last_contact_at'),
+  /** The business's first reach-out once the lead existed; set once. */
+  firstResponseAt: ts('first_response_at'),
 });
 
 export const tasks = app.table('tasks', {
@@ -1526,6 +1532,14 @@ export const appointmentAttendees = app.table('appointment_attendees', {
   publicRef: text('public_ref')
     .notNull()
     .default(sql`private.new_public_ref()`),
+  // Milestone 8 (0041): cleared when the start changes or a cancelled seat is taken again.
+  confirmedAt: ts('confirmed_at'),
+  /** sms, link, staff, ai. People may write only a staff mark in their own name (a guard trigger). */
+  confirmedVia: text('confirmed_via'),
+  /** The person, for a staff mark. */
+  confirmedBy: userRef('confirmed_by'),
+  /** When HandsFreeOS last asked; the worker's. */
+  confirmAskedAt: ts('confirm_asked_at'),
 });
 
 export const waitlistEntries = app.table('waitlist_entries', {
@@ -2317,7 +2331,81 @@ export const chatSignals = app.table(
   (t) => [primaryKey({ columns: [t.conversationId, t.kind] })],
 );
 
+// ---------- Milestone 8: the Action Center (0039-0043) ----------
+export const attentionState = app.enum('attention_state', [
+  'open',
+  'snoozed',
+  'dismissed',
+  'handled',
+  'resolved',
+]);
+export type AttentionState = (typeof attentionState.enumValues)[number];
+
+/**
+ * One thing that needs attention: one row per (workspace, kind, subject type, subject id), kept by the worker.
+ * `kind` is check-constrained to core's ATTENTION_KINDS (a parity test). People change only the state, snooze,
+ * dismissal, assignee and handling, and cancel a scheduled automatic action (a guard trigger, 0039).
+ */
+export const attentionItems = app.table('attention_items', {
+  id: id(),
+  workspaceId: workspaceRef(),
+  kind: text('kind').notNull(),
+  /** lead, attendee, approval, conversation, task (core's ATTENTION_SUBJECT_OF). No foreign key. */
+  subjectType: text('subject_type').notNull(),
+  subjectId: uuid('subject_id').notNull(),
+  personId: uuid('person_id').references(() => people.id, { onDelete: 'set null' }),
+  leadId: uuid('lead_id').references(() => leads.id, { onDelete: 'set null' }),
+  conversationId: uuid('conversation_id').references(() => conversations.id, {
+    onDelete: 'set null',
+  }),
+  state: attentionState('state').notNull().default('open'),
+  openedAt: ts('opened_at').notNull().defaultNow(),
+  /** When the wait behind it began; urgency is worked out from it when the list is read. */
+  sinceAt: ts('since_at'),
+  urgentFrom: ts('urgent_from'),
+  dueAt: ts('due_at'),
+  valueCents: bigint('value_cents', { mode: 'number' }),
+  /** The typical job value stood in: left out of "$ affected". */
+  valueIsEstimate: boolean('value_is_estimate').notNull().default(false),
+  /** Counts one lead's value once across items. */
+  moneyKey: text('money_key'),
+  probability: real('probability').notNull().default(1),
+  confidence: real('confidence').notNull().default(1),
+  /** The chips that explain the rank. */
+  reasons: jsonb('reasons').$type<Json[]>().notNull().default([]),
+  title: text('title').notNull(),
+  detail: text('detail'),
+  /** A digest of the facts behind it: a change brings a dismissed or snoozed item back. */
+  fingerprint: text('fingerprint').notNull(),
+  assigneeUserId: userRef('assignee_user_id'),
+  snoozedUntil: ts('snoozed_until'),
+  snoozedAt: ts('snoozed_at'),
+  snoozedBy: userRef('snoozed_by'),
+  dismissedAt: ts('dismissed_at'),
+  dismissedBy: userRef('dismissed_by'),
+  dismissReason: text('dismiss_reason'),
+  handledAt: ts('handled_at'),
+  handledBy: userRef('handled_by'),
+  /** person, let_handle (people), auto (HandsFreeOS alone). */
+  handledVia: text('handled_via'),
+  /** The worker's: a handled item comes back then if its facts still hold. */
+  handledUntil: ts('handled_until'),
+  /** scheduled, sent, skipped, cancelled. People may only cancel a scheduled one. */
+  autoState: text('auto_state'),
+  autoScheduledFor: ts('auto_scheduled_for'),
+  autoDoneAt: ts('auto_done_at'),
+  autoSkipReason: text('auto_skip_reason'),
+  autoCancelledBy: userRef('auto_cancelled_by'),
+  /** The facts the last urgent email went out for. */
+  alertFingerprint: text('alert_fingerprint'),
+  alertedAt: ts('alerted_at'),
+  resolvedAt: ts('resolved_at'),
+  resolution: text('resolution'),
+  ...timestamps(),
+});
+
 export const tables = {
+  attentionItems,
   aiTeammates,
   aiTeammateRevisions,
   aiTeammateRuns,

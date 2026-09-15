@@ -1,3 +1,5 @@
+import { existsSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { getTableColumns, getTableName } from 'drizzle-orm';
 import { isPgEnum } from 'drizzle-orm/pg-core';
 import { afterAll, describe, expect, it } from 'vitest';
@@ -24,6 +26,35 @@ describe('Drizzle enums mirror the live app enums', () => {
       Object.fromEntries(live.map((e) => [e.name, e.labels])),
     );
   });
+});
+
+/**
+ * Core's attention kinds. @hfos/db can't depend on @hfos/core (core depends on db), so the file is loaded by
+ * path. It is browser-safe, with no runtime imports.
+ */
+const attentionKindsFile = fileURLToPath(
+  new URL('../../core/src/attention/kinds.ts', import.meta.url),
+);
+
+describe('check constraints mirror core', () => {
+  // Skipped (not failed) only while core's kinds file doesn't exist yet.
+  it.skipIf(!existsSync(attentionKindsFile))(
+    'attention_items.kind allows exactly core’s ATTENTION_KINDS',
+    async () => {
+      const { ATTENTION_KINDS } = (await import(/* @vite-ignore */ attentionKindsFile)) as {
+        ATTENTION_KINDS: readonly string[];
+      };
+      const [check] = await rows<{ def: string }>(
+        dbs.admin.db,
+        sql`select pg_get_constraintdef(oid) as def from pg_constraint
+            where conrelid = 'app.attention_items'::regclass and conname = 'attention_items_kind_check'`,
+      );
+      const live = [...(check?.def ?? '').matchAll(/'([a-z_]+)'::text/g)].map((m) => m[1]!);
+      expect(live.length).toBeGreaterThan(0);
+      expect(new Set(live).size).toBe(live.length);
+      expect([...live].sort()).toEqual([...ATTENTION_KINDS].sort());
+    },
+  );
 });
 
 describe('Drizzle schema mirrors the live app schema', () => {

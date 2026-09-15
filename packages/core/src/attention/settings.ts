@@ -1,0 +1,170 @@
+/**
+ * The Action Center's settings, `workspaces.settings.attention`: which kinds are on, the thresholds, the typical
+ * job value, the automatic switches, the follow-up nudge and the reply-C switch. Browser-safe: Settings validates
+ * with the schema the server saves with, and every reader falls back field by field, so old or partial settings
+ * (or none) still work.
+ */
+import { z } from 'zod';
+import { isoDateTime } from '../schemas/common';
+import type { AttentionKind } from './kinds';
+import { DEFAULT_NUDGE_TEMPLATE, nudgePlaceholderProblem } from './nudge';
+
+const MAX_CENTS = 100_000_000_00;
+const on = () => z.boolean().default(true);
+
+const kindSwitches = {
+  hot_lead: on(),
+  unanswered_lead: on(),
+  stale_opportunity: on(),
+  missing_next_action: on(),
+  unconfirmed_appointment: on(),
+  ai_approval: on(),
+  customer_waiting: on(),
+  overdue_task: on(),
+} satisfies Record<AttentionKind, z.ZodType>;
+
+const Hot = z.object({
+  /** A lead worth at least this (its own value, never an estimate) is one weak signal. */
+  minValueCents: z.int().min(0).max(MAX_CENTS).default(500_000),
+  /** A hot lead waiting this long (plain minutes) is urgent. */
+  urgentAfterMinutes: z.int().min(1, 'At least 1 minute.').max(240, 'At most 4 hours.').default(10),
+});
+
+const Unanswered = z.object({
+  /** A new lead nobody has contacted opens after this many minutes of open hours. */
+  afterOpenMinutes: z.int().min(1, 'At least 1 minute.').max(480, 'At most 8 hours.').default(15),
+});
+
+const staleDays = z.int().min(1, 'At least 1 day.').max(365, 'At most a year.');
+
+const Stale = z.object({
+  /** An open lead with no contact for this many days is stale. */
+  days: staleDays.default(7),
+  /** Stage id → days, for stages that move faster or slower. */
+  stageDays: z.record(z.uuid(), staleDays).default(() => ({})),
+});
+
+const Appointments = z.object({
+  /** An unconfirmed one-on-one appointment opens this many hours before it starts. */
+  windowHours: z.int().min(1, 'At least 1 hour.').max(168, 'At most a week.').default(48),
+});
+
+const Auto = z
+  .object({
+    /** Send one confirmation request for an unconfirmed appointment on its own. */
+    confirmRequests: z.boolean().default(true),
+    /** Send one follow-up nudge for a stale lead or an overdue follow-up on its own. */
+    nudges: z.boolean().default(false),
+    /** When an owner read the nudge and chose "Looks good, turn on". Nudges stay off until then. */
+    nudgeReviewedAt: isoDateTime.nullable().default(null),
+  })
+  .refine((a) => !a.nudges || a.nudgeReviewedAt !== null, {
+    error: 'Read the follow-up message and choose “Looks good, turn on” first.',
+    path: ['nudges'],
+  });
+
+const Nudge = z.object({
+  template: z
+    .string()
+    .trim()
+    .min(1, 'Write the follow-up message.')
+    .max(480, 'Keep it under 480 characters.')
+    .superRefine((template, ctx) => {
+      const problem = nudgePlaceholderProblem(template);
+      if (problem) ctx.addIssue({ code: 'custom', message: problem });
+    })
+    .default(DEFAULT_NUDGE_TEMPLATE),
+  /** No automatic message to the same lead again for this many days. */
+  cooldownDays: z.int().min(1, 'At least 1 day.').max(90, 'At most 90 days.').default(14),
+});
+
+export const AttentionSettings = z.object({
+  kinds: z.object(kindSwitches).prefault({}),
+  hot: Hot.prefault({}),
+  unanswered: Unanswered.prefault({}),
+  stale: Stale.prefault({}),
+  appointments: Appointments.prefault({}),
+  /** The value of a lead with none; null works it out (the median won lead over 365 days, else $500). */
+  typicalJobValueCents: z.int().min(0).max(MAX_CENTS).nullable().default(null),
+  auto: Auto.prefault({}),
+  nudge: Nudge.prefault({}),
+  /** A customer may reply C (or CONFIRM) to confirm an appointment. */
+  replyToConfirm: z.boolean().default(true),
+});
+export type AttentionSettings = z.infer<typeof AttentionSettings>;
+export type AttentionSettingsInput = z.input<typeof AttentionSettings>;
+
+/** Every setting at its default. */
+export function defaultAttentionSettings(): AttentionSettings {
+  return AttentionSettings.parse({});
+}
+
+/** Validates settings being saved, filling defaults. Throws a ZodError with Settings' messages when invalid. */
+export function parseAttentionSettings(raw: unknown): AttentionSettings {
+  return AttentionSettings.parse(raw ?? {});
+}
+
+const isPlainObject = (v: unknown): v is Record<string, unknown> =>
+  typeof v === 'object' && v !== null && !Array.isArray(v);
+
+/** Removes the value at a path (or, when that isn't there, its nearest parent that is). */
+function dropNearest(doc: Record<string, unknown>, path: readonly PropertyKey[]): boolean {
+  for (let len = path.length; len > 0; len--) {
+    let at: unknown = doc;
+    for (const key of path.slice(0, len - 1)) {
+      at = isPlainObject(at) ? at[key as string] : undefined;
+    }
+    const last = path[len - 1] as string;
+    if (isPlainObject(at) && last in at) {
+      delete at[last];
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * Reads stored settings forgivingly: every field that doesn't pass falls back to its default, and the rest is
+ * kept. Never throws. Nudges read as off until the template has been reviewed.
+ */
+export function readAttentionSettings(raw: unknown): AttentionSettings {
+  const doc: Record<string, unknown> = isPlainObject(raw) ? JSON.parse(JSON.stringify(raw)) : {};
+  for (let round = 0; round < 25; round++) {
+    const result = AttentionSettings.safeParse(doc);
+    if (result.success) return result.data;
+    let dropped = false;
+    for (const issue of result.error.issues) dropped = dropNearest(doc, issue.path) || dropped;
+    if (!dropped) break;
+  }
+  return defaultAttentionSettings();
+}
+
+/** A business's Action Center settings, from its workspace settings (like `openHoursOf`). */
+export function attentionSettingsOf(
+  settings: Readonly<Record<string, unknown>> | null | undefined,
+): AttentionSettings {
+  return readAttentionSettings(settings?.['attention']);
+}
+
+/** $500: the typical job value when the business hasn't set one and has won nothing in a year. */
+export const DEFAULT_TYPICAL_JOB_VALUE_CENTS = 50_000;
+
+/** The value of a lead with none: the business's own figure, else the median won lead, else $500. */
+export function typicalJobValueCents(
+  settings: AttentionSettings,
+  medianWonCents: number | null,
+): number {
+  if (settings.typicalJobValueCents !== null) return settings.typicalJobValueCents;
+  if (medianWonCents !== null && medianWonCents > 0) return Math.round(medianWonCents);
+  return DEFAULT_TYPICAL_JOB_VALUE_CENTS;
+}
+
+/** How many days without contact make a lead in this stage stale. */
+export function staleDaysFor(settings: AttentionSettings, stageId: string | null): number {
+  return (stageId ? settings.stale.stageDays[stageId] : undefined) ?? settings.stale.days;
+}
+
+/** Whether nudges go out on their own: switched on, after an owner reviewed the template. */
+export function nudgesOn(settings: AttentionSettings): boolean {
+  return settings.auto.nudges && settings.auto.nudgeReviewedAt !== null;
+}

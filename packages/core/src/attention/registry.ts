@@ -1,0 +1,59 @@
+/**
+ * Every kind's detector, keyed by kind. Milestone 9's money kinds are one line each here (plus their kind in
+ * kinds.ts and their detector file).
+ */
+import * as aiApproval from './detectors/ai-approval';
+import * as customerWaiting from './detectors/customer-waiting';
+import * as hotLead from './detectors/hot-lead';
+import * as missingNextAction from './detectors/missing-next-action';
+import * as overdueTask from './detectors/overdue-task';
+import * as staleOpportunity from './detectors/stale-opportunity';
+import * as unansweredLead from './detectors/unanswered-lead';
+import * as unconfirmedAppointment from './detectors/unconfirmed-appointment';
+import type { AttentionKind } from './kinds';
+import type { AttentionSettings } from './settings';
+import type { Detection } from './types';
+
+interface DetectorModule<F> {
+  readonly detect: (facts: F, settings: AttentionSettings, now: Date) => Detection | null;
+  readonly wakeAt: (facts: F, settings: AttentionSettings, now: Date) => string | null;
+}
+
+export const DETECTORS = {
+  hot_lead: hotLead,
+  unanswered_lead: unansweredLead,
+  stale_opportunity: staleOpportunity,
+  missing_next_action: missingNextAction,
+  unconfirmed_appointment: unconfirmedAppointment,
+  ai_approval: aiApproval,
+  customer_waiting: customerWaiting,
+  overdue_task: overdueTask,
+} as const satisfies { readonly [K in AttentionKind]: DetectorModule<never> };
+
+/** The facts one kind's detector reads. */
+export type AttentionFacts<K extends AttentionKind> = Parameters<
+  (typeof DETECTORS)[K]['detect']
+>[0];
+
+const moduleOf = <K extends AttentionKind>(kind: K) =>
+  DETECTORS[kind] as unknown as DetectorModule<AttentionFacts<K>>;
+
+/** What holds for one kind now, or null. */
+export function detectAttention<K extends AttentionKind>(
+  kind: K,
+  facts: AttentionFacts<K>,
+  settings: AttentionSettings,
+  now: Date,
+): Detection | null {
+  return moduleOf(kind).detect(facts, settings, now);
+}
+
+/** While nothing holds for one kind: when it will by time alone, or null. */
+export function attentionWakeAt<K extends AttentionKind>(
+  kind: K,
+  facts: AttentionFacts<K>,
+  settings: AttentionSettings,
+  now: Date,
+): string | null {
+  return moduleOf(kind).wakeAt(facts, settings, now);
+}
