@@ -126,9 +126,9 @@ export function aiDailyTokens(
 }
 
 /**
- * Tokens used since midnight in `timeZone`, cache reads and writes included, the way the worker's budget adds
- * them up: the Assistant's runs plus app.ai_usage, and the teammate's part of it. Run as a person, the
- * Assistant's runs are only their own (each person's chats are private), so others' chats aren't counted.
+ * Today's AI use: the whole business's, exactly as the worker's budget counts it (private.ai_tokens_today:
+ * the Assistant's runs, everyone's, plus app.ai_usage since midnight in the business's zone, cache reads
+ * and writes included), and the teammate's part of it since midnight in `timeZone` (the business's zone).
  */
 export async function teammateAiUsage(
   tx: Tx,
@@ -140,11 +140,7 @@ export async function teammateAiUsage(
     tx,
     sql`with since as (select date_trunc('day', now() at time zone ${timeZone}) at time zone ${timeZone} as t)
         select
-          coalesce((select sum(u.input_tokens + u.output_tokens + u.cache_read_tokens + u.cache_write_tokens)
-            from app.ai_usage u, since where u.workspace_id = ${workspaceId} and u.created_at >= since.t), 0)
-          + coalesce((select sum(r.input_tokens + r.output_tokens + r.cache_read_tokens + r.cache_write_tokens)
-            from app.assistant_runs r, since where r.workspace_id = ${workspaceId} and r.started_at >= since.t), 0)
-            as used,
+          private.ai_tokens_today(${workspaceId}::uuid) as used,
           coalesce((select sum(u.input_tokens + u.output_tokens + u.cache_read_tokens + u.cache_write_tokens)
             from app.ai_usage u, since
             where u.workspace_id = ${workspaceId} and u.source = 'teammate' and u.created_at >= since.t

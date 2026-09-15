@@ -1491,6 +1491,17 @@ describe('the teammate’s settings and status', () => {
       );
     await spend('teammate', [1000, 200, 30, 4]);
     await spend('workflow', [400, 100, 0, 0]);
+    // The owner's Assistant chat counts too, though the member can't see it (private.ai_tokens_today).
+    const [thread] = await rows<{ id: string }>(
+      admin(),
+      sql`insert into app.assistant_threads (workspace_id, user_id) values (${a.wsId}, ${a.owner.id})
+          returning id`,
+    );
+    await rows(
+      admin(),
+      sql`insert into app.assistant_runs (workspace_id, user_id, thread_id, model, correlation_id, status, input_tokens)
+          values (${a.wsId}, ${a.owner.id}, ${thread!.id}, 'test-model', gen_random_uuid(), 'done', 2000)`,
+    );
     await rows(
       admin(),
       sql`insert into app.knowledge_profiles (workspace_id, allow_prices) values (${a.wsId}, true)
@@ -1501,7 +1512,7 @@ describe('the teammate’s settings and status', () => {
     expect(after.catalogs.aiUsage.teammateTokens - before.catalogs.aiUsage.teammateTokens).toBe(
       1234,
     );
-    expect(after.catalogs.aiUsage.usedTokens - before.catalogs.aiUsage.usedTokens).toBe(1734);
+    expect(after.catalogs.aiUsage.usedTokens - before.catalogs.aiUsage.usedTokens).toBe(3734);
     await rows(
       admin(),
       sql`update app.knowledge_profiles set allow_prices = false where workspace_id = ${a.wsId}`,
