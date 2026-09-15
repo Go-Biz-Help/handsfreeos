@@ -13465,6 +13465,14 @@ export interface operations {
                         appointment: {
                             attendees: {
                                 cancelledAt: string | null;
+                                confirmAskedAt: string | null;
+                                confirmedAt: string | null;
+                                confirmedBy: {
+                                    fullName: string;
+                                    /** Format: uuid */
+                                    id: string;
+                                } | null;
+                                confirmedVia: ("sms" | "link" | "staff" | "ai") | null;
                                 contactEmail: string | null;
                                 contactPhone: string | null;
                                 fullName: string;
@@ -13634,6 +13642,14 @@ export interface operations {
                     "application/json": {
                         items: {
                             attendees: {
+                                confirmAskedAt: string | null;
+                                confirmedAt: string | null;
+                                confirmedBy: {
+                                    fullName: string;
+                                    /** Format: uuid */
+                                    id: string;
+                                } | null;
+                                confirmedVia: ("sms" | "link" | "staff" | "ai") | null;
                                 fullName: string;
                                 /** Format: uuid */
                                 id: string;

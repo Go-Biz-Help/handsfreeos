@@ -194,6 +194,8 @@ export interface RecordInput {
   readonly startsAt: Date | number;
   readonly dueAt?: number | null;
   readonly messageId?: string | null;
+  /** A sent one asked them to confirm ("Reply C to confirm.", or the email's Confirm link): it opens the ask. */
+  readonly askedToConfirm?: boolean;
 }
 
 /** Writes an outcome into the attendee's reminder_state (attendee.record_reminder). */
@@ -217,6 +219,7 @@ export async function record(
       startsAt: new Date(r.startsAt).toISOString(),
       dueAt: r.dueAt ? new Date(r.dueAt).toISOString() : null,
       messageId: r.messageId ?? null,
+      askedToConfirm: r.askedToConfirm ?? false,
     },
     systemActor(scope),
     meta,

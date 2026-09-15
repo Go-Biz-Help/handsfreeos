@@ -53,6 +53,13 @@ export interface EmailText {
 }
 
 export const STOP_WORDING = 'Reply STOP to opt out.';
+/**
+ * How the day-before text asks for a confirmation (M8). Never "reply YES" or "reply CANCEL": those are the
+ * carriers' START and STOP.
+ */
+export const CONFIRM_WORDING = 'Reply C to confirm.';
+/** The manage page with its Confirm button pointed at, never pressed (email scanners open links). */
+export const confirmLink = (manageUrl: string): string => `${manageUrl}?confirm=1`;
 
 /** Plain characters for a text: straight quotes, plain dashes and spaces. */
 export function plainSms(text: string): string {
@@ -375,6 +382,11 @@ export interface ReminderInput {
   readonly first: boolean;
   /** Why an email came instead of a text ("Sent by email because Sarah didn’t ask for texts."). */
   readonly why: string | null;
+  /**
+   * The day-before reminder asks them to confirm (a one-on-one booking not yet confirmed, with the business's
+   * "Reply C to confirm" on): the text ends "Reply C to confirm.", the email carries a Confirm link.
+   */
+  readonly askToConfirm?: boolean;
 }
 
 /** "today at 10:00 AM", "tomorrow, Fri, Sep 18 at 10:00 AM" ("tomorrow at 10:00 AM" in a subject), or "on Fri, Sep 18 at 10:00 AM". */
@@ -408,7 +420,10 @@ export function reminderText(i: ReminderInput): string {
         : v.locationKind === 'phone' && who
           ? `${who} will call you.`
           : joinLink;
-    return text([`Reminder from ${b.name}: your ${t} is ${when}.`, place], i.first);
+    return text(
+      [`Reminder from ${b.name}: your ${t} is ${when}.`, place, i.askToConfirm && CONFIRM_WORDING],
+      i.first,
+    );
   }
   const lead =
     visit && who
@@ -447,11 +462,40 @@ export function reminderEmail(i: ReminderInput): EmailText {
     subject: `Reminder: ${v.title} ${whenFrom(v.startsAt, i.now, tz, 'subject')}`,
     body: paragraphs([
       `${hello(i.firstName)} your ${t} is ${rel ? `${rel}, ` : 'on '}${whenLine(v)}${place}.${whoSentence}`,
+      i.askToConfirm &&
+        i.reminder.kind === 'day_before' &&
+        i.manageUrl &&
+        `Will this time work? Confirm here: ${confirmLink(i.manageUrl)}`,
       i.manageUrl && `Change or cancel: ${i.manageUrl}`,
       i.why,
       footer(i.business),
     ]),
   };
+}
+
+// ---- After a customer confirms by text ----
+
+export interface ConfirmedThanksInput {
+  /** The bookings the reply confirmed, soonest first (one C answers every open ask for the number). */
+  readonly startsAt: readonly number[];
+  readonly timeZone: string;
+  readonly firstName: string;
+  /** When it goes out (for "today" and "tomorrow"). */
+  readonly now: number;
+  readonly first: boolean;
+}
+
+/** "Thanks, Denise. You're confirmed for tomorrow at 10:00 AM." (design/m8 Confirm). */
+export function confirmedThanksText(i: ConfirmedThanksInput): string {
+  const tz = i.timeZone;
+  const when = (at: number) =>
+    `${relativeDay(at, i.now, tz) ?? dayShort(at, tz)} at ${clock(at, tz)}`;
+  return text(
+    [
+      `Thanks${i.firstName ? `, ${i.firstName}` : ''}. You're confirmed for ${joinNames(i.startsAt.map(when))}.`,
+    ],
+    i.first,
+  );
 }
 
 /** The line a reminder email ends with when it came instead of a text, or null. */

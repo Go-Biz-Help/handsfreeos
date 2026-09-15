@@ -790,12 +790,22 @@ export const ReminderState = z.object({
 });
 export type ReminderState = z.infer<typeof ReminderState>;
 
+/** How a booking was confirmed: a text (C, or YES while asked), the Confirm button, staff, or the AI teammate. */
+export const confirmedVia = z.enum(['sms', 'link', 'staff', 'ai']);
+
 export const AppointmentAttendeeOut = z.object({
   id: uuid,
   personId: uuid,
   fullName: z.string(),
   status: AttendeeStatusValue,
   seats: z.int(),
+  /** M8: when the customer's booking was confirmed, or null. A new time clears it. */
+  confirmedAt: isoDateTime.nullable(),
+  confirmedVia: confirmedVia.nullable(),
+  /** Who marked it confirmed for the customer (staff marks only); null otherwise. */
+  confirmedBy: UserRef,
+  /** When HandsFreeOS asked them to confirm (the day-before reminder, or a confirmation request), or null. */
+  confirmAskedAt: isoDateTime.nullable(),
 });
 export const AppointmentOut = z.object({
   id: uuid,
@@ -949,8 +959,6 @@ export const AttendeeCancelOnlineOutput = z.object({
   appointmentCancelled: z.boolean(),
 });
 
-/** How a booking was confirmed: a text (C, or YES while asked), the Confirm button, staff, or the AI teammate. */
-export const confirmedVia = z.enum(['sms', 'link', 'staff', 'ai']);
 /** attendee.confirm: staff mark a booking confirmed for the customer, or (Undo) take back their own mark. */
 export const AttendeeConfirmInput = z.object({
   workspaceId: uuid,

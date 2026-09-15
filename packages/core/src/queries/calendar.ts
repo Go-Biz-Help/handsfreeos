@@ -317,6 +317,10 @@ async function appointmentCards(
       personId: appointmentAttendees.personId,
       status: appointmentAttendees.status,
       seats: appointmentAttendees.seats,
+      confirmedAt: appointmentAttendees.confirmedAt,
+      confirmedVia: appointmentAttendees.confirmedVia,
+      confirmedBy: appointmentAttendees.confirmedBy,
+      confirmAskedAt: appointmentAttendees.confirmAskedAt,
       firstName: people.firstName,
       lastName: people.lastName,
     })
@@ -324,6 +328,11 @@ async function appointmentCards(
     .innerJoin(people, eq(people.id, appointmentAttendees.personId))
     .where(inArray(appointmentAttendees.appointmentId, ids))
     .orderBy(asc(appointmentAttendees.createdAt), asc(appointmentAttendees.id));
+  // Who marked a booking confirmed for the customer (staff marks only).
+  const confirmers = await userNames(
+    tx,
+    attendees.flatMap((p) => (p.confirmedBy ? [p.confirmedBy] : [])),
+  );
   return list.map(({ a, calendarName, calendarColor, serviceName }) => ({
     id: a.id,
     calendar: { id: a.calendarId, name: calendarName, color: calendarColor },
@@ -360,6 +369,12 @@ async function appointmentCards(
         fullName: `${p.firstName} ${p.lastName}`.trim() || 'Customer',
         status: p.status,
         seats: p.seats,
+        confirmedAt: p.confirmedAt?.toISOString() ?? null,
+        confirmedVia: (p.confirmedVia as 'sms' | 'link' | 'staff' | 'ai' | null) ?? null,
+        confirmedBy: p.confirmedBy
+          ? { id: p.confirmedBy, fullName: confirmers.get(p.confirmedBy) ?? 'Someone' }
+          : null,
+        confirmAskedAt: p.confirmAskedAt?.toISOString() ?? null,
       })),
     createdAt: a.createdAt.toISOString(),
     updatedAt: a.updatedAt.toISOString(),
@@ -466,6 +481,11 @@ export const appointmentGet = defineQuery({
           fullName: (await userNames(ctx.tx, [row.createdBy])).get(row.createdBy)!,
         }
       : null;
+    // Who marked a booking confirmed for the customer (staff marks only).
+    const confirmers = await userNames(
+      ctx.tx,
+      attendees.flatMap(({ a }) => (a.confirmedBy ? [a.confirmedBy] : [])),
+    );
     return {
       appointment: {
         ...card,
@@ -484,6 +504,12 @@ export const appointmentGet = defineQuery({
           rescheduleCount: a.rescheduleCount,
           cancelledAt: a.cancelledAt?.toISOString() ?? null,
           reminders: parseReminderState(a.reminderState),
+          confirmedAt: a.confirmedAt?.toISOString() ?? null,
+          confirmedVia: (a.confirmedVia as 'sms' | 'link' | 'staff' | 'ai' | null) ?? null,
+          confirmedBy: a.confirmedBy
+            ? { id: a.confirmedBy, fullName: confirmers.get(a.confirmedBy) ?? 'Someone' }
+            : null,
+          confirmAskedAt: a.confirmAskedAt?.toISOString() ?? null,
         })),
         series: series ? { id: series.id, rule: series.rule } : null,
         waitlist: waitlist.map((w) => ({

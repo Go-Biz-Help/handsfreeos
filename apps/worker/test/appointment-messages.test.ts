@@ -124,7 +124,7 @@ describe('several handlers per event', () => {
     // A booked appointment still reaches people's own calendars first, then the reminders and messages.
     const booked = handlers['appointment.booked'];
     expect(Array.isArray(booked) && booked[0]).toBe(onAppointmentChanged);
-    expect(handlers['appointment.updated']).toBe(onAppointmentChanged);
+    expect([handlers['appointment.updated']].flat()[0]).toBe(onAppointmentChanged);
   });
 });
 

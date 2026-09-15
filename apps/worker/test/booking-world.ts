@@ -328,14 +328,21 @@ async function reserve(w: World): Promise<void> {
     );
 }
 
-/** Runs the outbox, webhook and job loops over this workspace's due work until it is idle. */
-export async function drain(w: World, timeoutMs = 20_000): Promise<void> {
+/**
+ * Runs the outbox, webhook and job loops over this workspace's due work until it is idle; events go through
+ * `map` (the worker's own handlers unless a test adds one).
+ */
+export async function drain(
+  w: World,
+  timeoutMs = 20_000,
+  map: typeof handlers = handlers,
+): Promise<void> {
   const deadline = Date.now() + timeoutMs;
   for (;;) {
     await reserve(w);
     const d = { ...w.s, workerId: w.workerId, batchSize: 200, reservedOnly: true };
     const passes = [
-      await processOnce({ ...d, handlers }),
+      await processOnce({ ...d, handlers: map }),
       await processDeliveries({ ...d, processors }),
       await processJobs({ ...d, jobs }),
     ];

@@ -12,6 +12,8 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { reconcile } from '../src/attention/load';
 import { addDays, localDateOf, weekdayOf } from '../src/calendar/index';
 import {
+  appointmentGet,
+  appointmentList,
   appointmentReschedule,
   attendeeConfirm,
   attendeeConfirmOnline,
@@ -22,6 +24,7 @@ import {
 } from '../src/server';
 import {
   admin,
+  ask,
   bookOnline,
   CHI,
   expectHfos,
@@ -309,6 +312,74 @@ describe('confirming for the customer, and on the manage link', () => {
       confirmed_via: null,
       confirmed_by: null,
       confirm_asked_at: null,
+    });
+  });
+});
+
+describe('the calendar sheet reads it', () => {
+  it('appointment.get gives each booking’s confirmation: when, how, who marked it, and when it was asked', async () => {
+    const seat = await booked('12:00');
+    const attendee = async () =>
+      (
+        await ask(
+          appointmentGet,
+          { workspaceId: t.wsId, appointmentId: seat.appointmentId },
+          t.owner,
+        )
+      ).appointment.attendees.find((a) => a.id === seat.attendeeId)!;
+    expect(await attendee()).toMatchObject({
+      confirmedAt: null,
+      confirmedVia: null,
+      confirmedBy: null,
+      confirmAskedAt: null,
+    });
+
+    await asked(seat);
+    const askedAt = new Date((await seatOf(seat.attendeeId)).confirm_asked_at!).toISOString();
+    expect((await attendee()).confirmAskedAt).toBe(askedAt);
+
+    await run(attendeeConfirm, { workspaceId: t.wsId, attendeeId: seat.attendeeId }, t.member);
+    const marked = await attendee();
+    expect(marked).toMatchObject({
+      confirmedVia: 'staff',
+      confirmedBy: { id: t.member.id, fullName: 'Mike Member' },
+      confirmAskedAt: askedAt,
+    });
+    expect(marked.confirmedAt).toBe(
+      new Date((await seatOf(seat.attendeeId)).confirmed_at!).toISOString(),
+    );
+    // appointment.list gives the same fields under the same names (Home's Today card reads it).
+    const { items } = await ask(
+      appointmentList,
+      {
+        workspaceId: t.wsId,
+        from: new Date(Date.parse(seat.startsAt) - 60_000).toISOString(),
+        to: new Date(Date.parse(seat.startsAt) + 60_000).toISOString(),
+        calendarIds: [calendarId],
+      },
+      t.owner,
+    );
+    const listed = items
+      .find((i) => i.id === seat.appointmentId)!
+      .attendees.find((a) => a.id === seat.attendeeId)!;
+    expect(listed).toMatchObject({
+      confirmedAt: marked.confirmedAt,
+      confirmedVia: 'staff',
+      confirmedBy: marked.confirmedBy,
+      confirmAskedAt: askedAt,
+    });
+
+    // Taken back, then the customer replies C: confirmed by text, with nobody's name on it.
+    await run(
+      attendeeConfirm,
+      { workspaceId: t.wsId, attendeeId: seat.attendeeId, confirmed: false },
+      t.member,
+    );
+    await text(seat.phone, 'C');
+    expect(await attendee()).toMatchObject({
+      confirmedVia: 'sms',
+      confirmedBy: null,
+      confirmAskedAt: askedAt,
     });
   });
 });

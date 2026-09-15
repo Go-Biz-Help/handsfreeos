@@ -89,7 +89,7 @@ describe('appointment reminders', () => {
     expect(texts).toHaveLength(3);
     expect(texts.slice(1)).toEqual(
       expect.arrayContaining([
-        `Reminder from ${BUSINESS}: your AC tune-up is tomorrow, ${dayShort(start, CHI)} at 10:00 AM. Dale is coming to 123 Main St.`,
+        `Reminder from ${BUSINESS}: your AC tune-up is tomorrow, ${dayShort(start, CHI)} at 10:00 AM. Dale is coming to 123 Main St. Reply C to confirm.`,
         `${BUSINESS}: Dale is coming today at 10:00 AM for your AC tune-up. Questions? Call ${phoneDisplay}.`,
       ]),
     );
@@ -166,7 +166,7 @@ describe('appointment reminders', () => {
     // At the new time it goes, about the new start.
     await runDue(w, [k.day]);
     expect(textsTo(w, c.phone).at(-1)!.body).toBe(
-      `Reminder from ${BUSINESS}: your AC tune-up is tomorrow, ${dayShort(later, CHI)} at 1:00 PM. Dale is coming to 123 Main St.`,
+      `Reminder from ${BUSINESS}: your AC tune-up is tomorrow, ${dayShort(later, CHI)} at 1:00 PM. Dale is coming to 123 Main St. Reply C to confirm.`,
     );
 
     // Moved sooner: the 2-hour job moves up with it.

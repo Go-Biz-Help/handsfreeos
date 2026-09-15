@@ -31,6 +31,10 @@ export type AttendeeRow = typeof appointmentAttendees.$inferSelect;
 export type AppointmentRow = typeof appointments.$inferSelect;
 export type SmsConsent = 'unknown' | 'opted_in' | 'opted_out';
 
+/** A one-on-one booking (not a group time or a session seat): the only kind a customer confirms (M8). */
+export const oneOnOne = (appt: Pick<AppointmentRow, 'kind' | 'capacity'>): boolean =>
+  appt.kind === 'booking' && appt.capacity === 1;
+
 export interface LoadedBooking {
   readonly attendee: AttendeeRow;
   readonly appt: AppointmentRow;

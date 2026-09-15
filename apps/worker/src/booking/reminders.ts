@@ -10,9 +10,15 @@
  * - it is done once per start (reminder_state), and its clientId carries the start, so a retry sends once;
  * - a text that would land in quiet hours goes when they end if that is still 45 minutes before the start,
  *   otherwise by email at its time; with no email it is skipped. Every outcome is recorded.
+ *
+ * The day-before reminder also asks a one-on-one booking that isn't confirmed yet to confirm, when the business
+ * lets customers (Settings, Action Center: "Reply C to confirm"): the text ends "Reply C to confirm.", the email
+ * carries a Confirm link to the manage page's button. A sent one records the ask (attendee.record_reminder's
+ * askedToConfirm), which a reply of C, or YES, then answers.
  */
 import { eq } from 'drizzle-orm';
 import {
+  attentionSettingsOf,
   bookedTooLate,
   parseReminderState,
   reminderDueAt,
@@ -36,7 +42,7 @@ import {
   type RecordInput,
 } from './deliver';
 import { emailInsteadWhy, reminderEmail, reminderText } from './messages';
-import { loadBooking } from './visit';
+import { loadBooking, oneOnOne } from './visit';
 
 const MIN = 60_000;
 /** A text moved past quiet hours still has to arrive this long before the start. */
@@ -162,6 +168,13 @@ export const appointmentReminder: JobHandler = async (ctx) => {
 
   const clientId = clientIdFor('remind', attendeeId, key, startIso);
   const firstName = b.person.firstName.trim();
+  const askToConfirm =
+    reminder.kind === 'day_before' &&
+    oneOnOne(b.appt) &&
+    !b.attendee.confirmedAt &&
+    attentionSettingsOf(m.rawSettings).replyToConfirm;
+  // An ask that's already open (an earlier request, or this one before a lost record) keeps its time.
+  const opensAsk = askToConfirm && !b.attendee.confirmAskedAt;
   const base = {
     reminder,
     visit: b.visit,
@@ -169,6 +182,7 @@ export const appointmentReminder: JobHandler = async (ctx) => {
     firstName,
     now,
     manageUrl: b.manageUrl,
+    askToConfirm,
   };
   let textWhy = reach.text;
   if (reach.text === null) {
@@ -183,7 +197,12 @@ export const appointmentReminder: JobHandler = async (ctx) => {
         meta,
       );
       if (wasSent(sent)) {
-        await note({ status: 'sent', channel: 'sms', messageId: sent.messageId });
+        await note({
+          status: 'sent',
+          channel: 'sms',
+          messageId: sent.messageId,
+          askedToConfirm: opensAsk,
+        });
         return again(ctx, scope, b.appt.id, start);
       }
       textWhy = sent.refused;
@@ -203,7 +222,13 @@ export const appointmentReminder: JobHandler = async (ctx) => {
       meta,
     );
     if (!wasSent(sent)) return note({ status: 'skipped', reason: sent.refused });
-    await note({ status: 'sent', channel: 'email', reason: textWhy, messageId: sent.messageId });
+    await note({
+      status: 'sent',
+      channel: 'email',
+      reason: textWhy,
+      messageId: sent.messageId,
+      askedToConfirm: opensAsk && !!b.manageUrl,
+    });
     return again(ctx, scope, b.appt.id, start);
   }
   return note({

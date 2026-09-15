@@ -14,6 +14,7 @@ import rateLimit from '@fastify/rate-limit';
 import {
   appointmentBookOnline,
   attendeeCancelOnline,
+  attendeeConfirmOnline,
   attendeeRescheduleOnline,
   bookableDurations,
   calendarAvailability,
@@ -61,6 +62,7 @@ import { z } from 'zod';
 import { passThroughBotCheck, type BotCheck } from '../booking/bot-check';
 import { icsCalendar, icsSequence } from '../booking/ics';
 import { manageToken, resolveManageToken, resolveWaitlistToken } from '../booking/links';
+import { oneOnOne } from '../booking/visit';
 import { systemActor, type TenantScope } from '../services';
 import { parseBody, type HttpDeps } from './common';
 
@@ -707,6 +709,17 @@ export async function registerBookingRoutes(app: FastifyInstance, deps: HttpDeps
             cutoffHours: c.cutoffHours,
           },
         },
+        /**
+         * One-on-one bookings (null for a group time or a session seat): when it was confirmed and how, and when
+         * HandsFreeOS asked them to, for the page's Confirm button and its "Confirmed".
+         */
+        confirmation: oneOnOne(b.p)
+          ? {
+              confirmedAt: b.a.confirmedAt?.toISOString() ?? null,
+              confirmedVia: b.a.confirmedVia ?? null,
+              askedAt: b.a.confirmAskedAt?.toISOString() ?? null,
+            }
+          : null,
         manageToken: token,
         manageUrl: `${links.webUrl}/m/${token}`,
         /** For the calendar file. */
@@ -1161,6 +1174,46 @@ export async function registerBookingRoutes(app: FastifyInstance, deps: HttpDeps
           ...view
         } = await manageView(m.scope, m.attendeeId);
         return view;
+      },
+    );
+
+    /**
+     * The Confirm button: confirms a one-on-one booking (attendee.confirm_online; a second press changes nothing)
+     * and answers with the page as it is now, plus `changed`. POST only, and nothing else confirms: email
+     * scanners open links, so opening one never does. A group time or a session seat is 409
+     * confirmation_not_needed; bad, old, cancelled and past bookings are refused as reschedule and cancel do.
+     */
+    pub.post<{ Params: { token: string } }>(
+      '/public/manage/:token/confirm',
+      { config: { rateLimit: limits.manageWrite } },
+      async (req, reply) => {
+        const m = await managed(req.params.token);
+        void reply.header('cache-control', 'no-store').header('referrer-policy', 'no-referrer');
+        const booked = await worker(m.scope, (tx) => loadBooked(tx, m.attendeeId));
+        if (!booked) throw linkNotFound();
+        if (!oneOnOne(booked.p))
+          throw HfosError.rule(
+            'confirmation_not_needed',
+            409,
+            'This booking doesn’t need confirming.',
+          );
+        const { output } = await executeCommand(
+          deps.httpDb,
+          attendeeConfirmOnline,
+          {
+            workspaceId: m.scope.workspaceId,
+            attendeeId: m.attendeeId,
+            manageVersion: m.manageVersion,
+          },
+          systemActor(m.scope),
+          meta(),
+        );
+        const {
+          sequence: _sequence,
+          attendeeId: _attendeeId,
+          ...view
+        } = await manageView(m.scope, m.attendeeId);
+        return { ...view, changed: output.changed };
       },
     );
 

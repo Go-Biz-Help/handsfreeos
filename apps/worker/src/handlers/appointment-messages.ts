@@ -12,10 +12,12 @@
  * - appointment.reassigned: a notice when asked.
  * - appointment.cancelled, attendee.cancelled, attendee.removed: a notice; the team hears about online ones.
  * - series.created: the reminders for every occurrence's customers.
+ * - attendee.confirmed: a short thank-you when the customer confirmed by text (onConfirmedThanks).
  */
 import { and, asc, eq, inArray } from 'drizzle-orm';
 import type { Tx } from '@hfos/db/client';
 import { appointmentAttendees } from '@hfos/db/schema';
+import { sendConfirmedThanks } from '../booking/confirm';
 import { sendNotice, type NoticeKind, type NoticeOptions } from '../booking/notices';
 import { armReminders } from '../booking/reminders';
 import { emailTeam } from '../booking/team-email';
@@ -213,4 +215,19 @@ export const onCancelledTeamEmail: EventHandler = async (ctx) => {
         ? [one]
         : [];
   for (const id of ids) await emailTeam(ctx, 'cancelled', id, { reason: str(p['reason']) });
+};
+
+/**
+ * attendee.confirmed: a short thank-you when the customer confirmed by text (a C, or YES while asked); never for
+ * the Confirm button or a staff mark, and never in quiet hours (booking/confirm.ts).
+ */
+export const onConfirmedThanks: EventHandler = async (ctx) => {
+  const p = payloadOf(ctx);
+  const id = str(p['attendeeId']);
+  if (!id || p['via'] !== 'sms') return;
+  await sendConfirmedThanks(ctx, tenantOf(ctx.scope), id, {
+    messageId: str(p['messageId']),
+    now: Date.now(),
+    meta: metaOf(ctx),
+  });
 };
