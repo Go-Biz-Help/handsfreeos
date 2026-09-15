@@ -19,6 +19,7 @@ import {
   users,
 } from '@hfos/db/schema';
 import { DIGEST_JOBS, DIGEST_PLAN_KEY, digestJobs } from './agency-digest';
+import { teammateJobs } from './ai-team/index';
 import { appointmentNotice } from './booking/notices';
 import { appointmentReminder } from './booking/reminders';
 import { waitlistOfferExpire, waitlistOfferJob } from './booking/waitlist';
@@ -300,6 +301,8 @@ export const jobs: JobMap = {
   ...templateJobs,
   // The daily agency digest: planning, and each organization's email.
   ...digestJobs,
+  // The AI teammate: its debounced replies, and approved drafts quiet hours held back.
+  ...teammateJobs,
 };
 
 /** Periodic jobs exist exactly once (their dedupe key keeps one pending row); the first run is an hour out. */

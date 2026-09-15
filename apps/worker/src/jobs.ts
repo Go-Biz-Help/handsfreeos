@@ -1,6 +1,6 @@
 import { eq } from 'drizzle-orm';
 import type { PgUpdateSetSource } from 'drizzle-orm/pg-core';
-import { asWorker, rows, sql, type SystemScope } from '@hfos/db/client';
+import { asWorker, rows, sql, type SystemScope, type Tx } from '@hfos/db/client';
 import { scheduledJobs } from '@hfos/db/schema';
 import { backoffMs, errorMessage, MAX_ATTEMPTS } from './outbox';
 import type { WorkerServices } from './services';
@@ -47,6 +47,39 @@ const wakeAt = sql`(${scheduledJobs.payload} ->> '_wakeAt')::timestamptz`;
 const withoutWake = sql`${scheduledJobs.payload} - '_wakeAt'`;
 const notLaterThanWake = (at: Date) =>
   sql`least(${at.toISOString()}::timestamptz, coalesce(${wakeAt}, ${at.toISOString()}::timestamptz))`;
+
+/**
+ * Queues work that waits for things to settle: scheduleJob (core) with a debounce. There's one pending job per
+ * kind and key, and each call moves it to `runAt`, later or earlier, so every new message pushes the AI
+ * teammate's reply back (its caller caps `runAt`: never more than 90 s after the first unanswered message). A job
+ * that is running right now can't move (its runner writes the job's next state when it finishes), so the time
+ * is left in its payload as `_wakeAt`, exactly as scheduleJob's pullEarlier does, and processJobs runs it again
+ * then.
+ */
+export async function scheduleDebouncedJob(
+  tx: Tx,
+  job: {
+    readonly kind: string;
+    readonly dedupeKey: string;
+    readonly runAt: Date;
+    readonly payload: Record<string, unknown>;
+    readonly workspaceId: string | null;
+    readonly organizationId: string | null;
+  },
+): Promise<void> {
+  const running = sql`(app.scheduled_jobs.locked_at is not null and app.scheduled_jobs.run_at <= now())`;
+  await tx.execute(
+    sql`insert into app.scheduled_jobs (organization_id, workspace_id, kind, dedupe_key, run_at, payload)
+        values (${job.organizationId}, ${job.workspaceId}, ${job.kind}, ${job.dedupeKey},
+          ${job.runAt.toISOString()}::timestamptz, ${JSON.stringify(job.payload)}::jsonb)
+        on conflict (kind, dedupe_key) where status = 'pending' and dedupe_key is not null do update set
+          run_at = case when ${running} then app.scheduled_jobs.run_at else excluded.run_at end,
+          payload = case when ${running}
+            then app.scheduled_jobs.payload || jsonb_build_object('_wakeAt', least(
+              coalesce((app.scheduled_jobs.payload ->> '_wakeAt')::timestamptz, excluded.run_at), excluded.run_at))
+            else app.scheduled_jobs.payload end`,
+  );
+}
 
 /**
  * The queue seam: delayed and periodic work lives in app.scheduled_jobs and is claimed like the outbox.
