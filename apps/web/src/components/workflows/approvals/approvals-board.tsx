@@ -14,6 +14,7 @@ import { Textarea } from '@/components/ui/textarea';
 import type { TeammateDraft, TeammateGetOut } from '@/lib/ai-team/inbox-types';
 import { progressShort } from '@/lib/ai-team/inbox-words';
 import { apiBrowser, errorMessage, unwrap } from '@/lib/api/client';
+import { minutesSince, waitingFor } from '@/lib/format';
 import { useLiveRefresh } from '@/lib/realtime/live-provider';
 import { cn, relativeTime } from '@/lib/utils';
 import { KindTile } from '../chips';
@@ -28,7 +29,6 @@ import {
   nameList,
   previewOf,
   segmentLabel,
-  waitedFor,
   type ApprovalPreview,
 } from './words';
 
@@ -261,7 +261,7 @@ function ApprovalCard({
   const blank = p.fields.some(([k, v]) => !textOf(k, v).trim());
   const sends = p.fields.length > 0 && p.channel !== null;
   const asked = a.approvers.length ? `asked ${nameList(a.approvers)}` : 'for owners and admins';
-  const byline = `${a.workflow.name} · ${asked} · waiting ${waitedFor(a.createdAt, now)}`;
+  const byline = `${a.workflow.name} · ${asked} · ${waitingFor(minutesSince(a.createdAt, now))}`;
   const hasContext = !!(p.note || p.asked || p.items.length || (sends && allowPrices !== null));
 
   async function decide(decision: 'approve' | 'reject') {

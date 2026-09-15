@@ -3,7 +3,7 @@ import { smsSegments } from '@hfos/core';
 import { Clock, Globe, Image as ImageIcon, Moon, Phone } from 'lucide-react';
 import { useEffect, useState, type ComponentType, type ReactNode } from 'react';
 import { Avatar } from '@/components/ui/avatar';
-import { waitingLabel } from '@/lib/inbox';
+import { waitingFor } from '@/lib/format';
 import { supabaseBrowser } from '@/lib/supabase/client';
 import { cn } from '@/lib/utils';
 
@@ -33,7 +33,7 @@ export function WaitChip({ minutes }: { minutes: number }) {
       className="inline-flex h-5 items-center gap-1 whitespace-nowrap rounded-[6px] bg-warning-soft px-1.5 text-[11.5px] font-medium text-warning-text"
     >
       <Clock className="h-3.5 w-3.5" strokeWidth={1.75} />
-      {waitingLabel(minutes)}
+      {waitingFor(minutes, { capital: true })}
     </span>
   );
 }

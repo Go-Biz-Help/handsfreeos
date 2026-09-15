@@ -86,14 +86,6 @@ export function nameList(users: readonly { fullName: string }[]): string {
   return `${first.slice(0, -1).join(', ')} and ${first.at(-1)}`;
 }
 
-/** How long it has waited: "12 min", "3 h", "2 d". */
-export function waitedFor(iso: string, now: number): string {
-  const m = Math.max(0, Math.round((now - Date.parse(iso)) / 60_000));
-  if (m < 60) return `${m} min`;
-  const h = Math.round(m / 60);
-  return h < 24 ? `${h} h` : `${Math.round(h / 24)} d`;
-}
-
 /** "Expires in 1 h 58 min", or "Expired" once the time has passed. */
 export function expiresIn(iso: string | null, now: number): string | null {
   if (!iso) return null;

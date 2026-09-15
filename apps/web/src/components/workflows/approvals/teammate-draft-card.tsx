@@ -26,11 +26,12 @@ import {
 import { teammateCommands } from '@/lib/ai-team/use-inbox';
 import { apiBrowser, ApiError, errorMessage, unwrap } from '@/lib/api/client';
 import type { ThreadItem } from '@/lib/api/types';
+import { minutesSince, waitingFor } from '@/lib/format';
 import { clockTime } from '@/lib/inbox';
 import { cn, relativeTime } from '@/lib/utils';
 import { KindTile } from '../chips';
 import { approvalsChanged } from './use-waiting-approvals';
-import { segmentLabel, waitedFor } from './words';
+import { segmentLabel } from './words';
 
 const SECTION = 'text-xs font-semibold uppercase tracking-[0.06em] text-text-3';
 
@@ -103,7 +104,7 @@ export function TeammateDraftCard({
   const expires = expiresLine(d.expiresAt, timezone, now);
   const expired = expires === 'Expired';
   const channel = d.channel ? (CHANNEL_WORD[d.channel] ?? d.channel) : 'message';
-  const byline = `${aiName(name)} · ${channel} · waiting ${waitedFor(d.createdAt, now)}${d.kind === 'reply' ? ' · in the inbox too' : ''}`;
+  const byline = `${aiName(name)} · ${channel} · ${waitingFor(minutesSince(d.createdAt, now))}${d.kind === 'reply' ? ' · in the inbox too' : ''}`;
   const convHref = d.conversationId ? `/app/w/${workspaceId}/inbox/${d.conversationId}` : null;
   const cmd = teammateCommands(workspaceId);
 

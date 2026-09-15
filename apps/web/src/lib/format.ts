@@ -57,6 +57,26 @@ export function daysLabel(iso: string): string {
   return `${d} days`;
 }
 
+/** Whole minutes since a moment, never negative. */
+export function minutesSince(iso: string, now = Date.now()): number {
+  return Math.max(0, Math.floor((now - new Date(iso).getTime()) / 60_000));
+}
+
+/**
+ * How long something has waited: "just now" under a minute, then "waiting 1 min", "waiting 3 h", "waiting 2 d".
+ * `short` leaves out "waiting" for a narrow column ("12 min"); `capital` starts a chip with a capital letter.
+ */
+export function waitingFor(
+  minutes: number,
+  opts: { short?: boolean; capital?: boolean } = {},
+): string {
+  const hours = Math.floor(minutes / 60);
+  const span =
+    minutes < 60 ? `${minutes} min` : hours < 24 ? `${hours} h` : `${Math.floor(hours / 24)} d`;
+  const label = minutes < 1 ? 'just now' : opts.short ? span : `waiting ${span}`;
+  return opts.capital ? label.charAt(0).toUpperCase() + label.slice(1) : label;
+}
+
 export function formatBytes(bytes: number | null | undefined): string {
   if (!bytes) return '';
   if (bytes < 1024) return `${bytes} B`;

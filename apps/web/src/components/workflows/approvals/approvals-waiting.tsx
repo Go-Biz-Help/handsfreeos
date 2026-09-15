@@ -7,9 +7,10 @@ import { AI_SOFT, AI_TEXT } from '@/components/workflows/chips';
 import type { TeammateDraft, TeammateGetOut } from '@/lib/ai-team/inbox-types';
 import { draftShort, progressShort } from '@/lib/ai-team/inbox-words';
 import { apiServer } from '@/lib/api/server';
+import { minutesSince, waitingFor } from '@/lib/format';
 import { cn } from '@/lib/utils';
 import type { Approval } from './types';
-import { approvalKind, customerOf, previewOf, waitedFor } from './words';
+import { approvalKind, customerOf, previewOf } from './words';
 
 /**
  * Home's approvals card, loading its own lists (a server component): workflow approvals and the AI teammate's
@@ -124,7 +125,7 @@ export function ApprovalsWaiting({
                     {d.teammate.name}
                   </span>
                   <span className="flex-none text-xs text-text-3">
-                    {waitedFor(d.createdAt, now)}
+                    {waitingFor(minutesSince(d.createdAt, now), { short: true })}
                   </span>
                 </Link>
               </li>
@@ -152,7 +153,9 @@ export function ApprovalsWaiting({
                     Workflow
                   </span>
                 ) : null}
-                <span className="flex-none text-xs text-text-3">{waitedFor(a.createdAt, now)}</span>
+                <span className="flex-none text-xs text-text-3">
+                  {waitingFor(minutesSince(a.createdAt, now), { short: true })}
+                </span>
               </Link>
             </li>
           );

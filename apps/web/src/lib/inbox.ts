@@ -1,17 +1,10 @@
 /** Inbox display helpers: waiting chips, list times, and snooze times in the business's time zone. */
 import { zonedParts, zonedTime } from '@hfos/core';
+import { minutesSince } from '@/lib/format';
 
+/** Whole minutes someone has waited, or null when nobody is waiting. The chip's words are format's waitingFor. */
 export function minutesWaiting(since: string | null | undefined, now = Date.now()): number | null {
-  if (!since) return null;
-  return Math.max(0, Math.floor((now - new Date(since).getTime()) / 60_000));
-}
-
-/** "Waiting 12 min", "Waiting 2 h", "Waiting 3 d". */
-export function waitingLabel(minutes: number): string {
-  if (minutes < 60) return `Waiting ${Math.max(1, minutes)} min`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `Waiting ${hours} h`;
-  return `Waiting ${Math.floor(hours / 24)} d`;
+  return since ? minutesSince(since, now) : null;
 }
 
 /** The time on a conversation row: "10:24 AM" today, "Yesterday", "Tue" this week, "Sep 3" before that. */
