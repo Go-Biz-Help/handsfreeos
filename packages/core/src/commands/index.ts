@@ -66,6 +66,7 @@ import {
   messageReceive,
   messageRetry,
   messageSend,
+  messageRecordOptOut,
   messageUpdateStatus,
   personSetSmsConsent,
 } from './message';
@@ -208,6 +209,7 @@ import {
 import {
   conversationHandOff,
   conversationHandToAi,
+  conversationPickUp,
   conversationTakeOver,
 } from './conversation-handling';
 import { leadRecordAnswers } from './lead.record_answers';
@@ -245,6 +247,7 @@ export {
   messageReceive,
   messageRetry,
   messageSend,
+  messageRecordOptOut,
   messageUpdateStatus,
   personSetSmsConsent,
   phoneNumberActivate,
@@ -443,6 +446,7 @@ export const commands: readonly CommandDef[] = [
   messageUpdateStatus,
   messageAttachMedia,
   personSetSmsConsent,
+  messageRecordOptOut,
   callStart,
   callRecord,
   callUpdateStatus,
@@ -556,6 +560,7 @@ export const commands: readonly CommandDef[] = [
   conversationHandOff,
   conversationTakeOver,
   conversationHandToAi,
+  conversationPickUp,
   aiTeammateCreate,
   aiTeammateSaveConfig,
   aiTeammateRestore,

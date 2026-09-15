@@ -7,6 +7,7 @@ import {
   inferTeammateLabels,
   notifyText,
   teammateConfigFromPreset,
+  withArticle,
   type TeammatePatch,
   type TeammatePresetKey,
 } from '../src/ai-team/index';
@@ -27,17 +28,33 @@ const labelOf = (key: TeammatePresetKey, patch: TeammatePatch = {}) =>
   );
 
 describe('labels', () => {
-  it('name each preset', () => {
+  it('name each preset (Blank has nothing on, so it’s Custom)', () => {
     expect(labelOf('lead_responder')).toBe('Lead Responder · Follows up');
     expect(labelOf('lead_qualifier')).toBe('Lead Qualifier · Follows up');
     expect(labelOf('appointment_coordinator')).toBe('Appointment Coordinator');
-    expect(labelOf('blank')).toBe('Lead Responder');
+    expect(labelOf('blank')).toBe('Custom');
   });
 
   it('read like the plan: “Lead Responder · Books appointments”', () => {
+    expect(
+      labelOf('lead_responder', {
+        followUp: { enabled: false },
+        book: { enabled: true, calendarIds: [SERVICE_CAL] },
+      }),
+    ).toBe('Lead Responder · Books appointments');
     expect(labelOf('blank', { book: { enabled: true, calendarIds: [SERVICE_CAL] } })).toBe(
-      'Lead Responder · Books appointments',
+      'Appointment Coordinator',
     );
+  });
+
+  it('take “an” before a vowel sound', () => {
+    expect(withArticle('Appointment Coordinator')).toBe('an Appointment Coordinator');
+    expect(withArticle('Lead Qualifier')).toBe('a Lead Qualifier');
+    expect(withArticle(' Answers questions ')).toBe('an Answers questions');
+    expect(withArticle('hour')).toBe('an hour');
+    expect(withArticle('Unit')).toBe('a Unit');
+    expect(withArticle('one-person team')).toBe('a one-person team');
+    expect(withArticle('Office manager')).toBe('an Office manager');
   });
 
   it('follow the skills as they switch', () => {
@@ -107,7 +124,9 @@ describe('diff', () => {
         whenQualified: {
           stageId: STAGE_QUALIFIED,
           notify: { kind: 'users', userIds: [DALE, PRIYA] },
+          offerTimes: false,
         },
+        whenNotAFit: { tellTeam: false },
       },
       hours: { mode: 'custom', custom: [{ day: 1, start: '08:00', end: '18:00' }] },
       autonomy: { approvalsNeeded: 10 },
@@ -127,6 +146,8 @@ describe('diff', () => {
       'Question order changed',
       'Qualified leads move to: stay where they are → Qualified',
       'Who hears about qualified leads: no one → Dale and Priya',
+      'Offers qualified leads times to book: on → off',
+      'Tells the team when a lead isn’t a fit: on → off',
       'Works: all the time → set hours',
       'Hours: Mon–Fri 9:00 AM–5:00 PM → Mon 8:00 AM–6:00 PM',
       'Approvals before automatic: 20 → 10',

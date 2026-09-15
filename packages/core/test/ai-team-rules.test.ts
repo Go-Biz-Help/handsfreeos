@@ -94,7 +94,7 @@ const CASES: Case[] = [
   {
     code: 'thin_knowledge',
     severity: 'warning',
-    patch: {},
+    patch: { answer: { enabled: true } },
     catalogs: { knowledge: { published: 2 } },
     message: 'The knowledge base has only 2 answers',
     clearedBy: { knowledge: { published: 12 } },
@@ -117,7 +117,7 @@ const CASES: Case[] = [
   {
     code: 'double_texting',
     severity: 'warning',
-    patch: {},
+    patch: { respond: { enabled: true, newLeads: { enabled: true } } },
     catalogs: { newLeadTextWorkflows: [{ id: SPEED_WF, name: 'Speed to lead' }] },
     message: '“Speed to lead” also texts new leads',
   },
@@ -286,10 +286,11 @@ describe('who hears about things', () => {
 
 describe('knowledge', () => {
   it('says when the knowledge base is empty or the profile is thin, only while it answers questions', () => {
+    const answers: TeammatePatch = { answer: { enabled: true } };
     expect(
-      issueOf({}, 'thin_knowledge', { ...catalogs, knowledge: { published: 0 } }).message,
+      issueOf(answers, 'thin_knowledge', { ...catalogs, knowledge: { published: 0 } }).message,
     ).toBe('The knowledge base is empty, so it can’t answer questions');
-    const profile = issueOf({}, 'thin_knowledge', {
+    const profile = issueOf(answers, 'thin_knowledge', {
       ...catalogs,
       profile: { filled: 2, total: 7 },
     });
@@ -361,10 +362,17 @@ describe('double texting', () => {
         { id: SPEED_WF_2, name: 'Web form follow-up' },
       ],
     };
-    expect(issueOf({}, 'double_texting', two).message).toBe('2 workflows also text new leads');
-    expect(codes({ respond: { newLeads: { channel: 'email' } } }, two)).toEqual([]);
-    expect(codes({ respond: { newLeads: { enabled: false } } }, two)).toEqual([]);
-    expect(codes({ respond: { enabled: false } }, two)).toEqual([]);
+    const on = { enabled: true, newLeads: { enabled: true } };
+    expect(issueOf({ respond: on }, 'double_texting', two).message).toBe(
+      '2 workflows also text new leads',
+    );
+    expect(
+      codes({ respond: { ...on, newLeads: { enabled: true, channel: 'email' } } }, two),
+    ).toEqual([]);
+    expect(codes({ respond: { ...on, newLeads: { enabled: false } } }, two)).toEqual([]);
+    expect(codes({ respond: { ...on, enabled: false } }, two)).toEqual([]);
+    // Blank sends no first messages, so it never doubles up.
+    expect(codes({}, two)).toEqual([]);
   });
 
   it('knows which workflows text new leads', () => {

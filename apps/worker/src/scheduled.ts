@@ -5,7 +5,7 @@ import {
   conversationReopen,
   emailDomainRecord,
   executeCommand,
-  formatPhone,
+  openHoursOf,
   registrationUpdateStatus,
   scheduleJob,
   workspaceMessaging,
@@ -19,11 +19,14 @@ import {
   users,
 } from '@hfos/db/schema';
 import { DIGEST_JOBS, DIGEST_PLAN_KEY, digestJobs } from './agency-digest';
+import { handoffAlertDue } from './ai-team/escalation';
 import { teammateJobs } from './ai-team/index';
 import { appointmentNotice } from './booking/notices';
 import { appointmentReminder } from './booking/reminders';
 import { waitlistOfferExpire, waitlistOfferJob } from './booking/waitlist';
 import { appointmentCalendarSync, calendarRefresh } from './calendar/sync';
+import { CHAT_JOBS, chatUnreadFollowUp } from './chat/followup';
+import { conversationContact } from './chat/store';
 import { unansweredEmail } from './emails/templates';
 import { domainRecordInput, lapsedMessage, sharedAddress } from './handlers/email';
 import { advanceRegistrations, managers } from './handlers/telephony';
@@ -48,19 +51,36 @@ import { templateJobs } from './workflows/templates';
 const localClock = (d: Date, timeZone: string) =>
   new Intl.DateTimeFormat('en-US', { timeZone, hour: 'numeric', minute: '2-digit' }).format(d);
 
-/** One email when a customer's message waits too long: to the assignee, or every owner and admin. */
+/**
+ * One email when a customer's message waits too long: to the assignee, or every owner and admin. A conversation
+ * the AI teammate handed to a person waits 15 minutes of open hours from the hand-off instead (ai-team/escalation.ts
+ * keeps this job pending for it), once per hand-off; its customer's own waiting time doesn't count.
+ */
 export const unansweredCheck: JobHandler = async (ctx) => {
   const scope = tenantOf(ctx.scope);
   const conversationId = String(ctx.job.payload['conversationId'] ?? '');
   return asWorker(ctx.db, scope, async (tx) => {
     const [c] = await tx.select().from(conversations).where(eq(conversations.id, conversationId));
-    if (!c || c.status !== 'open' || !c.awaitingReplySince) return;
+    if (!c || c.status !== 'open') return;
+    const handedOff = c.handledBy === 'person' && c.needsPersonSince !== null && !c.takenOverBy;
+    const waitingSince = c.awaitingReplySince ?? (handedOff ? c.needsPersonSince : null);
+    if (!waitingSince) return;
     const m = await workspaceMessaging(tx, scope.workspaceId);
     const delayMs = ctx.reminderOverrideMs ?? m.settings.unansweredReminderMinutes * 60_000;
     if (delayMs <= 0) return;
-    const dueAt = new Date(c.awaitingReplySince.getTime() + delayMs);
+    const dueAt = handedOff
+      ? new Date(
+          handoffAlertDue(
+            c.needsPersonSince!,
+            openHoursOf(m.rawSettings),
+            m.timezone || 'UTC',
+            ctx.reminderOverrideMs,
+          ),
+        )
+      : new Date(waitingSince.getTime() + delayMs);
     if (dueAt.getTime() > Date.now() + 250) return { rescheduleAt: dueAt };
-    const since = c.awaitingReplySince.toISOString();
+    // One alert per message waiting, or per hand-off.
+    const since = (handedOff ? c.needsPersonSince! : waitingSince).toISOString();
     const already = await rows(
       tx,
       sql`select 1 from app.events
@@ -91,7 +111,7 @@ export const unansweredCheck: JobHandler = async (ctx) => {
           .from(people)
           .where(eq(people.id, c.personId))
       : [];
-    const contact = c.channel === 'sms' ? formatPhone(c.counterpart) : c.counterpart;
+    const contact = await conversationContact(tx, c);
     const customer = person ? `${person.firstName} ${person.lastName}`.trim() : contact;
     const firstName = person?.firstName || customer;
     const [latest] = await rows<{ photos: number }>(
@@ -104,16 +124,14 @@ export const unansweredCheck: JobHandler = async (ctx) => {
       customer,
       firstName,
       business: m.name,
-      minutesWaiting: Math.max(
-        1,
-        Math.round((Date.now() - c.awaitingReplySince.getTime()) / 60_000),
-      ),
+      minutesWaiting: Math.max(1, Math.round((Date.now() - waitingSince.getTime()) / 60_000)),
       preview: c.lastPreview ?? '',
-      receivedAt: localClock(c.awaitingReplySince, m.timezone),
+      receivedAt: localClock(waitingSince, m.timezone),
       contact,
       link: `${ctx.webUrl}/app/w/${scope.workspaceId}/inbox/${c.id}`,
       assignedToYou: !!c.assigneeUserId,
       photos: latest?.photos ?? 0,
+      channel: c.channel,
     });
     for (const r of recipients) await ctx.mailer.send({ to: r.email, ...mail });
     await recordSystemEvent(tx, {
@@ -301,8 +319,11 @@ export const jobs: JobMap = {
   ...templateJobs,
   // The daily agency digest: planning, and each organization's email.
   ...digestJobs,
-  // The AI teammate: its debounced replies, and approved drafts quiet hours held back.
+  // The AI teammate: replies, first messages, nudges, drafts quiet hours held back or nobody decided, and
+  // hand-off lines quiet hours held back.
   ...teammateJobs,
+  // The website chat: a reply still unread after 10 minutes goes by email or text.
+  [CHAT_JOBS.unreadFollowUp]: chatUnreadFollowUp,
 };
 
 /** Periodic jobs exist exactly once (their dedupe key keeps one pending row); the first run is an hour out. */

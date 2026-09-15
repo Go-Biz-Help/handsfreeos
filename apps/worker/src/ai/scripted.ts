@@ -9,6 +9,7 @@ import {
 } from '@hfos/ai';
 import { addDays, weekdayOf } from '@hfos/core/server';
 import { DISCLOSE_NOW, REWRITE_MARKER, TEAMMATE_SYSTEM } from '../ai-team/prompt';
+import { FIRST_MESSAGE_ASK, NUDGE_ASK } from '../ai-team/turns';
 
 /**
  * The stand-in model for AI work outside the Assistant: workflow AI steps, the AI builder, the knowledge base
@@ -638,6 +639,28 @@ const TEAMMATE_FALLBACK: TeammateRule = {
   },
 };
 
+/** The first qualifying question the context lists (its Qualify skill line), unquoted. */
+function firstQuestion(context: string): string | null {
+  const m = /^ {2}- (.+?) \(question id [^)]+\)/m.exec(context);
+  return m ? unquote(m[1]!).trim() : null;
+}
+
+/**
+ * A first message (to a new lead, or someone a workflow handed over): who it is, thanks, and one question toward
+ * the goal a workflow gave it (the first qualifying question, or an offer to book), else "How can we help?".
+ */
+function firstMessageStep(t: TeammateTurn): TeammateStep {
+  const ask =
+    (/Your goal: ask the qualifying questions/.test(t.context) ? firstQuestion(t.context) : null) ??
+    (/Your goal: get them booked/.test(t.context)
+      ? 'Would you like to book a visit? I can find you a time.'
+      : 'How can we help?');
+  return say(`${hello(t)}Thanks for getting in touch with ${businessName(t.context)}! ${ask}`);
+}
+
+/** A nudge: short, and it asks again. */
+const nudgeStep = (): TeammateStep => say('Just checking in: did you still want help with that?');
+
 /** The one rewrite, told what the safety check found: an honest answer, unless they made it swear. */
 function rewriteStep(t: TeammateTurn): TeammateStep {
   if (/\bswear\b/i.test(t.words)) return say('I swear I’m a real person, not a bot.');
@@ -689,9 +712,15 @@ export function scriptedTeammateTurn(
     feedback,
     tools: new Set((request.tools ?? []).map((t) => t.name)),
   };
+  // A first message and a nudge have no new words to answer: their turns end with their own line.
+  const asked = textsOf(request.messages[0]).join('\n');
   const step = feedback
     ? rewriteStep(turn)
-    : (rules.find((r) => r.when.test(words)) ?? TEAMMATE_FALLBACK).step(turn);
+    : asked.includes(FIRST_MESSAGE_ASK)
+      ? firstMessageStep(turn)
+      : asked.includes(NUDGE_ASK)
+        ? nudgeStep()
+        : (rules.find((r) => r.when.test(words)) ?? TEAMMATE_FALLBACK).step(turn);
   const usage = {
     inputTokens: Math.ceil(
       (request.system.length + turn.context.length + JSON.stringify(request.messages).length) / 4,

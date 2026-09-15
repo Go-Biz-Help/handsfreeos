@@ -295,18 +295,20 @@ export function isEmergency(text: string): boolean {
   return emergencyKind(text) !== null;
 }
 
+/** How every safety text ends: the customer knows a person is on it. */
+export const EMERGENCY_ALERTED = "We've alerted our team.";
+
 /**
- * The fixed safety text sent for each emergency, whatever the teammate's settings (no AI writes it).
- * Straight apostrophes, so it goes as one plain text.
+ * The fixed safety text sent for each emergency, whatever the teammate's settings (no AI writes it), in place
+ * of the usual hand-off line. Straight apostrophes, so it goes as one plain text, and each ends the same way
+ * (EMERGENCY_ALERTED).
  */
 export const EMERGENCY_SAFETY_TEXT: Readonly<Record<EmergencyKind, string>> = {
-  gas: "If you smell gas, leave the building now. Don't use light switches, phones or anything that could spark inside. Once you're outside, call 911 or your gas company. We've alerted our team.",
-  carbon_monoxide:
-    'If a carbon monoxide alarm is going off, get everyone outside into fresh air now and call 911. We have alerted our team.',
-  fire: 'If there is fire or smoke, get everyone out now and call 911. We have alerted our team.',
-  flooding:
-    "Stay away from water near outlets or electrical panels. If it's safe, shut off the main water valve. We've alerted our team.",
-  injury: 'If someone is hurt, call 911 now. We have alerted our team.',
+  gas: `If you smell gas, leave the building now. Don't use light switches, phones or anything that could spark inside. Once you're outside, call 911 or your gas company. ${EMERGENCY_ALERTED}`,
+  carbon_monoxide: `If a carbon monoxide alarm is going off, get everyone outside into fresh air now and call 911. ${EMERGENCY_ALERTED}`,
+  fire: `If there is fire or smoke, get everyone out now and call 911. ${EMERGENCY_ALERTED}`,
+  flooding: `Stay away from water near outlets or electrical panels. If it's safe, shut off the main water valve. ${EMERGENCY_ALERTED}`,
+  injury: `If someone is hurt, call 911 now. ${EMERGENCY_ALERTED}`,
 };
 
 export const SENSITIVE_KINDS = [

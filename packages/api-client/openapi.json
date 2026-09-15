@@ -38685,7 +38685,7 @@
     "/v1/queries/ai_teammate.get": {
       "post": {
         "operationId": "query_ai_teammate_get",
-        "summary": "The business’s AI teammate: its settings, what conflicts in them (with fixes), its training progress, its revisions, and the catalogs its settings refer to.",
+        "summary": "The business’s AI teammate: its settings, what conflicts in them (with fixes), its training progress, its revisions, and the catalogs its settings refer to (with today’s AI use).",
         "tags": [
           "queries"
         ],
@@ -39118,13 +39118,26 @@
                               },
                               "bookableOnline": {
                                 "type": "boolean"
+                              },
+                              "color": {
+                                "type": "string"
+                              },
+                              "lengths": {
+                                "type": "array",
+                                "items": {
+                                  "type": "integer",
+                                  "minimum": -9007199254740991,
+                                  "maximum": 9007199254740991
+                                }
                               }
                             },
                             "required": [
                               "id",
                               "name",
                               "archived",
-                              "bookableOnline"
+                              "bookableOnline",
+                              "color",
+                              "lengths"
                             ],
                             "additionalProperties": false
                           }
@@ -39160,6 +39173,35 @@
                           "required": [
                             "filled",
                             "total"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "pricesAllowed": {
+                          "type": "boolean"
+                        },
+                        "aiUsage": {
+                          "type": "object",
+                          "properties": {
+                            "dailyTokens": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            "usedTokens": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            "teammateTokens": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            }
+                          },
+                          "required": [
+                            "dailyTokens",
+                            "usedTokens",
+                            "teammateTokens"
                           ],
                           "additionalProperties": false
                         },
@@ -39337,6 +39379,8 @@
                         "calendars",
                         "knowledge",
                         "profile",
+                        "pricesAllowed",
+                        "aiUsage",
                         "businessHours",
                         "members",
                         "newLeadTextWorkflows",
@@ -39973,7 +40017,7 @@
     "/v1/queries/ai_teammate.activity": {
       "post": {
         "operationId": "query_ai_teammate_activity",
-        "summary": "What the AI teammate has been doing: today’s counters and what’s waiting, and its runs newest first with the tools, knowledge and checks each used.",
+        "summary": "What the AI teammate has been doing: today’s counters and what’s waiting, and its runs newest first (optionally only today’s or the last 7 or 30 days’), each with its channel, the message that started it, and every tool call with a short summary.",
         "tags": [
           "queries"
         ],
@@ -39999,6 +40043,14 @@
                     "type": "string",
                     "format": "uuid",
                     "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "since": {
+                    "type": "string",
+                    "enum": [
+                      "today",
+                      "7d",
+                      "30d"
+                    ]
                   }
                 },
                 "required": [
@@ -40044,6 +40096,11 @@
                           "minimum": -9007199254740991,
                           "maximum": 9007199254740991
                         },
+                        "bookedToday": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
                         "pendingDrafts": {
                           "type": "integer",
                           "minimum": -9007199254740991,
@@ -40066,6 +40123,7 @@
                         "draftedToday",
                         "handedOffToday",
                         "failedToday",
+                        "bookedToday",
                         "pendingDrafts",
                         "needsPerson",
                         "handledByAi"
@@ -40125,6 +40183,21 @@
                               }
                             ]
                           },
+                          "channel": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "enum": [
+                                  "sms",
+                                  "email",
+                                  "chat"
+                                ]
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
                           "person": {
                             "anyOf": [
                               {
@@ -40162,6 +40235,36 @@
                               }
                             ]
                           },
+                          "firstMessage": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "excerpt": {
+                                    "type": "string"
+                                  },
+                                  "at": {
+                                    "type": "string",
+                                    "format": "date-time",
+                                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                                  }
+                                },
+                                "required": [
+                                  "excerpt",
+                                  "at"
+                                ],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "messageCount": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
                           "summary": {
                             "type": [
                               "string",
@@ -40186,6 +40289,46 @@
                             "type": "array",
                             "items": {
                               "type": "string"
+                            }
+                          },
+                          "toolCalls": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "tool": {
+                                  "type": "string"
+                                },
+                                "status": {
+                                  "type": "string",
+                                  "enum": [
+                                    "running",
+                                    "done",
+                                    "held",
+                                    "simulated",
+                                    "refused",
+                                    "failed"
+                                  ]
+                                },
+                                "summary": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "at": {
+                                  "type": "string",
+                                  "format": "date-time",
+                                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                                }
+                              },
+                              "required": [
+                                "tool",
+                                "status",
+                                "summary",
+                                "at"
+                              ],
+                              "additionalProperties": false
                             }
                           },
                           "model": {
@@ -40240,13 +40383,17 @@
                           "outcome",
                           "isTest",
                           "conversationId",
+                          "channel",
                           "person",
                           "leadId",
+                          "firstMessage",
+                          "messageCount",
                           "summary",
                           "replyText",
                           "knowledge",
                           "checks",
                           "tools",
+                          "toolCalls",
                           "model",
                           "inputTokens",
                           "outputTokens",

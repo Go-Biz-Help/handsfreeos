@@ -53,7 +53,8 @@ describe('defaults', () => {
     expect(c.qualify).toEqual({
       enabled: false,
       questions: [],
-      whenQualified: { stageId: null, notify: null },
+      whenQualified: { stageId: null, notify: null, offerTimes: true },
+      whenNotAFit: { tellTeam: true },
     });
     expect(c.book).toEqual({ enabled: false, calendarIds: [], reschedule: true, cancel: true });
     expect(c.followUp).toEqual({ enabled: false, maxNudges: 2 });
@@ -129,6 +130,27 @@ describe('parse and upgrade', () => {
       toneNote: '',
     });
     expect('legacy' in c).toBe(false);
+  });
+
+  it('reads a version 1 document saved before “Then offer times” and “Tell the team”, with both on', () => {
+    const c = parseTeammateConfig({
+      version: 1,
+      qualify: { enabled: true, whenQualified: { stageId: STAGE_QUALIFIED, notify: null } },
+    });
+    expect(c.qualify.whenQualified).toEqual({
+      stageId: STAGE_QUALIFIED,
+      notify: null,
+      offerTimes: true,
+    });
+    expect(c.qualify.whenNotAFit).toEqual({ tellTeam: true });
+    const off = applyTeammatePatch(c, {
+      qualify: { whenQualified: { offerTimes: false }, whenNotAFit: { tellTeam: false } },
+    });
+    expect([off.qualify.whenQualified.offerTimes, off.qualify.whenNotAFit.tellTeam]).toEqual([
+      false,
+      false,
+    ]);
+    expect(off.qualify.whenQualified.stageId).toBe(STAGE_QUALIFIED);
   });
 
   it('treats a document without a version as version 1', () => {
@@ -256,7 +278,7 @@ describe('applyTeammatePatch', () => {
       qualify: { whenQualified: { stageId: null, notify: null } },
     });
     expect(back.handOff.notify).toEqual({ kind: 'admins' });
-    expect(back.qualify.whenQualified).toEqual({ stageId: null, notify: null });
+    expect(back.qualify.whenQualified).toEqual({ stageId: null, notify: null, offerTimes: true });
   });
 
   it('throws when the result is invalid', () => {
@@ -303,6 +325,29 @@ describe('presets', () => {
     expect(a.respond.newLeads.enabled).toBe(false);
     expect(teammateConfigFromPreset('appointment_coordinator').book.calendarIds).toEqual([]);
     expect(teammateConfigFromPreset('lead_responder', presetContext).followUp.enabled).toBe(true);
+  });
+
+  it('Blank turns every skill off, first messages to new leads too', () => {
+    const c = teammateConfigFromPreset('blank', presetContext);
+    expect({
+      respond: c.respond.enabled,
+      newLeads: c.respond.newLeads.enabled,
+      answer: c.answer.enabled,
+      qualify: c.qualify.enabled,
+      book: c.book.enabled,
+      followUp: c.followUp.enabled,
+    }).toEqual({
+      respond: false,
+      newLeads: false,
+      answer: false,
+      qualify: false,
+      book: false,
+      followUp: false,
+    });
+    expect(inferTeammateLabels(c)).toEqual({ primary: 'custom', tags: ['custom'] });
+    expect(TEAMMATE_PRESETS.find((p) => p.key === 'blank')!.description).toMatch(
+      /^Nothing turned on\./,
+    );
   });
 
   it('take the name and disclosure picked, and leave email and chat off without an address or widget', () => {

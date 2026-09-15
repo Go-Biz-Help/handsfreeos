@@ -13,7 +13,8 @@ import {
   phoneNumbers,
   type MediaRef,
 } from '@hfos/db/schema';
-import { notHandledByAi, outsideItsConversation } from '../ai-team/reach';
+import { optOutPhrase } from '../ai-team/guardrails';
+import { chatIdentityUnverified, notHandledByAi, outsideItsConversation } from '../ai-team/reach';
 import { logChannelActivity } from '../crm/activities';
 import { formatPhone } from '../crm/phone';
 import { fullName, requirePerson } from '../crm/records';
@@ -63,6 +64,8 @@ import {
   MessageAttachMediaOutput,
   MessageReceiveInput,
   MessageReceiveOutput,
+  MessageRecordOptOutInput,
+  MessageRecordOptOutOutput,
   MessageRetryInput,
   MessageRetryOutput,
   MessageSendInput,
@@ -1214,5 +1217,75 @@ export const personSetSmsConsent = defineCommand({
       after: { name: fullName(person.firstName, person.lastName), smsConsent: input.consent },
     });
     return { personId: person.id, consent: input.consent };
+  },
+});
+
+/**
+ * A customer asked in their own words not to be contacted ("stop texting me", "unsubscribe"): any reasonable
+ * request to stop counts. Recorded exactly as a STOP text is: their number can't be texted (opt_outs, which
+ * works for someone with no customer record), and their customer record says opted out when the conversation
+ * has one. It only ever opts out, and the message itself must say so, so it can't be pointed at anyone else. An
+ * email's opt-out stops texts to the customer on file too. A website chat's visitor isn't verified (anyone can
+ * type someone's number), so a chat's opt-out goes to a person instead.
+ */
+export const messageRecordOptOut = defineCommand({
+  name: 'message.record_opt_out',
+  description:
+    'Worker: a customer asked in their own words to stop getting texts (“stop texting me”). Records it the way a STOP text is recorded. It only ever opts out.',
+  risk: 1,
+  input: MessageRecordOptOutInput,
+  output: MessageRecordOptOutOutput,
+  permission: 'inbox.use',
+  scope: inWorkspace,
+  emits: ['person.opted_out'],
+  actors: ['system'],
+  async handler(ctx, input) {
+    const workspaceId = ctx.scope.workspaceId!;
+    const [m] = await ctx.tx
+      .select()
+      .from(messages)
+      .where(and(eq(messages.id, input.messageId), eq(messages.workspaceId, workspaceId)));
+    if (!m) throw HfosError.notFound('Message not found.');
+    const words = m.direction === 'inbound' ? optOutPhrase(m.bodyText ?? '') : null;
+    if (!words)
+      throw HfosError.rule(
+        'not_an_opt_out',
+        409,
+        'Only a customer’s own message asking to stop can opt them out.',
+      );
+    const conv = await loadConversation(ctx, m.conversationId);
+    if (conv.channel === 'chat') throw chatIdentityUnverified();
+    const [person] = conv.personId
+      ? await ctx.tx
+          .select({ phone: people.phoneE164, consent: people.smsConsent })
+          .from(people)
+          .where(eq(people.id, conv.personId))
+      : [];
+    const number = conv.channel === 'sms' ? conv.counterpart : (person?.phone ?? null);
+    const unchanged = { conversationId: conv.id, personId: conv.personId, number, changed: false };
+    if (!number && !person) return unchanged;
+    const numberOut = number ? await isOptedOut(ctx.tx, workspaceId, number) : true;
+    if (numberOut && (!person || person.consent === 'opted_out')) return unchanged;
+    await setConsent(ctx, {
+      counterpart: number,
+      personId: person ? conv.personId : null,
+      optedOut: true,
+      source: 'keyword',
+      keyword: words.slice(0, 40),
+      phoneNumberId: conv.phoneNumberId,
+      at: new Date(),
+    });
+    await ctx.emit({
+      type: 'person.opted_out',
+      entityType: person ? 'person' : 'conversation',
+      entityId: person ? conv.personId : conv.id,
+      payload: { conversationId: conv.id, messageId: m.id, source: 'keyword', keyword: null },
+      after: {
+        number: number ? formatPhone(number) : null,
+        smsConsent: 'opted_out',
+        words: words.slice(0, 120),
+      },
+    });
+    return { conversationId: conv.id, personId: conv.personId, number, changed: true };
   },
 });

@@ -394,3 +394,148 @@ export function agencyDigestEmail(input: {
   );
   return { subject, text, html };
 }
+
+const CONVERSATION_NOUN: Readonly<Record<string, string>> = {
+  sms: 'a text conversation',
+  email: 'an email conversation',
+  chat: 'a website chat',
+};
+
+/** A labelled box: the teammate's note, the customer's last message, what was sent. */
+const quoted = (label: string, body: string) =>
+  `<p style="font-size: 12.5px; font-weight: 600; color: #5b616a; margin: 18px 0 6px;">${escapeHtml(label)}</p>` +
+  `<div style="background: #f2f4f8; border-radius: 10px; padding: 14px 16px; font-size: 14px; line-height: 1.5; white-space: pre-wrap;">${escapeHtml(body)}</div>`;
+
+const STOP_THESE = 'To stop these emails, open HandsFreeOS and go to Settings, then Account.';
+
+/**
+ * The AI teammate (or a workflow) handed a conversation to a person: to its assignee, or to the teammate's
+ * hand-off list when nobody is assigned (users.settings.notifications.aiHandoff, on unless turned off).
+ */
+export function handoffEmail(input: {
+  /** "Ava"; null when a workflow or HandsFreeOS itself handed it over. */
+  teammate: string | null;
+  channel: string;
+  customer: string;
+  firstName: string;
+  /** When it was handed over: "10:25 AM". */
+  at: string;
+  note: string | null;
+  lastMessage: { text: string; at: string } | null;
+  link: string;
+  assignedToYou: boolean;
+}): EmailContent {
+  const subject = `${input.customer} needs a person`;
+  const noun = CONVERSATION_NOUN[input.channel] ?? 'a conversation';
+  const to = input.assignedToYou ? 'you' : 'your team';
+  const opening = input.teammate
+    ? `${input.teammate} handed ${noun} to ${to} at ${input.at}.`
+    : `${noun.charAt(0).toUpperCase()}${noun.slice(1)} was handed to ${to} at ${input.at}.`;
+  const waiting = `${input.customer} is waiting for a reply.`;
+  const noteLabel = input.teammate ? `${input.teammate}’s note` : 'The note';
+  const lastLabel = input.lastMessage
+    ? `${input.firstName}’s last message · ${input.lastMessage.at}`
+    : '';
+  const why =
+    (input.assignedToYou
+      ? 'You’re getting this because the conversation is assigned to you.'
+      : 'You’re getting this because nobody is assigned to the conversation and you’re on the list for hand-offs.') +
+    (input.teammate ? ` Replying takes it over from ${input.teammate}.` : '');
+  const text = [
+    `${opening} ${waiting}`,
+    '',
+    ...(input.note ? [`${noteLabel}:`, input.note, ''] : []),
+    ...(input.lastMessage ? [`${lastLabel}:`, `“${input.lastMessage.text}”`, ''] : []),
+    `Open the conversation: ${input.link}`,
+    '',
+    why,
+    STOP_THESE,
+  ].join('\n');
+  const html = shell(
+    preheader(input.note ?? input.lastMessage?.text ?? '') +
+      wordmark +
+      `<p style="font-size: 15px; line-height: 1.5; margin: 0;">${escapeHtml(opening)} <strong>${escapeHtml(input.customer)}</strong> is waiting for a reply.</p>` +
+      (input.note ? quoted(noteLabel, input.note) : '') +
+      (input.lastMessage ? quoted(lastLabel, input.lastMessage.text) : '') +
+      button(input.link, 'Open the conversation') +
+      small(escapeHtml(why)) +
+      small(STOP_THESE),
+  );
+  return { subject, text, html };
+}
+
+/**
+ * An emergency: sent marked urgent to the assignee and every owner and admin, whatever their settings. It says
+ * what the customer wrote and the safety text they got, word for word.
+ */
+export function urgentHandoffEmail(input: {
+  teammate: string | null;
+  customer: string;
+  firstName: string;
+  /** "Kendra Lee texted at 9:52 PM on Sunday about a possible gas smell." */
+  opening: string;
+  /** "may smell gas" */
+  subjectAbout: string;
+  wrote: string | null;
+  sent: string | null;
+  link: string;
+}): EmailContent {
+  const subject = `Urgent: ${input.customer} ${input.subjectAbout}`;
+  const who = input.teammate ?? 'The AI teammate';
+  const after = input.sent
+    ? `${who} sent the safety steps right away and stopped answering.`
+    : `${who} stopped answering and handed it to your team.`;
+  const sentLabel = `${who} sent, word for word`;
+  const note = 'Emergencies go to every owner and admin, and this email can’t be turned off.';
+  const text = [
+    `${input.opening} ${after}`,
+    '',
+    ...(input.wrote ? [`${input.firstName} wrote:`, `“${input.wrote}”`, ''] : []),
+    ...(input.sent ? [`${sentLabel}:`, `“${input.sent}”`, ''] : []),
+    `Open the conversation: ${input.link}`,
+    '',
+    note,
+  ].join('\n');
+  const html = shell(
+    preheader(input.wrote ?? '') +
+      wordmark +
+      `<p style="display: inline-block; margin: 0 0 12px; padding: 2px 8px; border-radius: 6px; background: #fde8e8; color: #b42318; font-size: 12px; font-weight: 700;">Urgent</p>` +
+      `<p style="font-size: 15px; line-height: 1.5; margin: 0;">${escapeHtml(input.opening)} ${escapeHtml(after)}</p>` +
+      (input.wrote ? quoted(`${input.firstName} wrote`, input.wrote) : '') +
+      (input.sent ? quoted(sentLabel, input.sent) : '') +
+      button(input.link, 'Open the conversation') +
+      small(escapeHtml(note)),
+  );
+  return { subject, text, html };
+}
+
+/** Once a day, to the owners: the AI teammate used its share of the daily AI limit, so it stopped answering. */
+export function teammateLimitEmail(input: {
+  teammate: string;
+  business: string;
+  sharePercent: number;
+  link: string;
+}): EmailContent {
+  const subject = `${input.teammate} reached its share of today’s AI limit`;
+  const used = `${input.teammate} used its share of ${input.business}’s AI for today (${input.sharePercent}% of the daily limit), so it stopped answering.`;
+  const meanwhile =
+    'Until the limit resets at midnight, customers who write get your hand-off message once, and their conversations go to Needs a person.';
+  const foot = `You can change its share in Limits. Sent once a day to the owners of ${input.business}.`;
+  const text = [
+    used,
+    '',
+    meanwhile,
+    '',
+    `Open ${input.teammate}’s settings: ${input.link}`,
+    '',
+    foot,
+  ].join('\n');
+  const html = shell(
+    wordmark +
+      para(escapeHtml(used)) +
+      para(escapeHtml(meanwhile)) +
+      button(input.link, `Open ${input.teammate}’s settings`) +
+      small(escapeHtml(foot)),
+  );
+  return { subject, text, html };
+}

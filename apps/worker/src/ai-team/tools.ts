@@ -18,7 +18,6 @@ import {
   activityLog,
   addDays,
   calendarAvailability,
-  conversationHandOff,
   conversationHandoffReasonOf,
   executeCommandIn,
   executeQuery,
@@ -49,6 +48,7 @@ import { anyOfWords, findKnowledge } from '../knowledge/find';
 import type { TenantScope } from '../services';
 import { HELD_MAX, SEARCH_MATCHES, TIMES_MAX_DAYS, TIMES_SHOWN } from './constants';
 import { upcomingAppointments, type RunContext } from './context';
+import { emergencyIn, handOffInConversation } from './handoff';
 
 // ---- What a run has done so far ----
 
@@ -666,18 +666,11 @@ const RUNNERS: Readonly<Record<TeammateToolName, Runner>> = {
   async hand_off(d, tx, args) {
     const reason = conversationHandoffReasonOf(args['reason'] as HandOffReason);
     const note = String(args['note']).slice(0, 500);
-    await executeCommandIn(
-      tx,
-      conversationHandOff,
-      {
-        workspaceId: d.scope.workspaceId,
-        conversationId: d.rc.conversation.id,
-        reason,
-        note,
-      },
-      d.ai,
-      d.meta,
-    );
+    // The customer hears the hand-off line first (the safety text, for an emergency they described).
+    const emergency = reason === 'emergency' ? emergencyIn(d.rc.batch.map((b) => b.text)) : null;
+    await handOffInConversation(tx, d.ai, d.meta, reason, note, {
+      line: emergency ? { emergency } : 'usual',
+    });
     return {
       status: 'done',
       command: 'conversation.hand_off',

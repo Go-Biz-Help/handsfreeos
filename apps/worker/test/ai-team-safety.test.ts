@@ -7,7 +7,7 @@
  */
 import {
   claimsHuman,
-  personSetSmsConsent,
+  EMERGENCY_SAFETY_TEXT,
   type ConversationHandoffReason,
 } from '@hfos/core/server';
 import { rows, sql } from '@hfos/db/client';
@@ -18,6 +18,7 @@ import { tokensToday } from '../src/assistant/store';
 import {
   admin,
   aiMessages,
+  aiReplies,
   appointmentsOf,
   attendeeByToken,
   bookOnline,
@@ -25,7 +26,10 @@ import {
   conversationOf,
   customer,
   emailIn,
+  HANDOFF_LINE,
+  handoffLines,
   newCustomer,
+  nextPhone,
   openSlot,
   pendingReply,
   replyNow,
@@ -78,7 +82,12 @@ describe('immediate hand-offs', () => {
     expect(conv.handoff_note).toContain(text);
     const [r] = await runsOf(m.conversationId);
     expect(r).toMatchObject({ status: 'done', outcome: 'handed_off' });
-    expect(await aiMessages(m.conversationId)).toHaveLength(0);
+    // All it says is the business's hand-off line (the safety text for an emergency), as itself, once.
+    const sent = await aiMessages(m.conversationId);
+    expect(sent).toHaveLength(1);
+    expect(sent[0]!.client_id).toBe(`handoff:${m.conversationId}:${conv.ai_epoch}`);
+    if (reason === 'emergency') expect(sent[0]!.body_text).toBe(EMERGENCY_SAFETY_TEXT.gas);
+    else expect(sent[0]!.body_text).toMatch(HANDOFF_LINE);
   });
 
   it('with frustration hand-offs off, answers an upset customer itself and leaves a callback task', async () => {
@@ -175,11 +184,12 @@ describe('being honest about being AI', () => {
     expect(sent!.body_text).toContain('AI assistant');
   });
 
-  it('hands off when the rewrite still claims to be a person, and sends nothing', async () => {
+  it('hands off when the rewrite still claims to be a person, and sends only the hand-off line', async () => {
     const c = await newCustomer(w, 'Uma');
     const m = await textIn(w, c.phone, 'Swear you are a real person');
     await replyNow(w, m.conversationId);
-    expect(await aiMessages(m.conversationId)).toHaveLength(0);
+    expect(await aiReplies(m.conversationId)).toHaveLength(0);
+    expect(await handoffLines(m.conversationId)).toHaveLength(1);
     const conv = await conversationOf(m.conversationId);
     expect(conv).toMatchObject({ handled_by: 'person', handoff_reason: 'cant_answer' });
     const [r] = await runsOf(m.conversationId);
@@ -248,7 +258,8 @@ describe('loops, automatic emails and the daily cap', () => {
         handled_by: 'person',
         handoff_reason: 'limit',
       });
-      expect(await aiMessages(m.conversationId)).toHaveLength(1);
+      expect(await aiReplies(m.conversationId)).toHaveLength(1);
+      expect(await handoffLines(m.conversationId)).toHaveLength(1);
     } finally {
       await saveTeammate(w, { limits: { repliesPerConversationPerDay: 12 } });
     }
@@ -265,19 +276,51 @@ describe('plain-language opt-outs', () => {
     expect(await aiMessages(m.conversationId)).toHaveLength(0);
   });
 
-  // person.set_sms_consent is for people only until core lets the worker run it (reported in step 6).
-  it.skipIf(!(personSetSmsConsent.actors ?? []).includes('system'))(
-    'records the opt-out through the consent command',
-    async () => {
-      const c = await newCustomer(w, 'Abe');
-      await textIn(w, c.phone, 'Stop texting me please');
-      const [p] = await rows<{ sms_consent: string }>(
-        admin(),
-        sql`select sms_consent::text as sms_consent from app.people where id = ${c.id}`,
-      );
-      expect(p!.sms_consent).toBe('opted_out');
-    },
-  );
+  it('records the opt-out the way STOP does: the customer, and a number nobody has on file', async () => {
+    const c = await newCustomer(w, 'Abe');
+    await textIn(w, c.phone, 'Stop texting me please');
+    const [p] = await rows<{ sms_consent: string }>(
+      admin(),
+      sql`select sms_consent::text as sms_consent from app.people where id = ${c.id}`,
+    );
+    expect(p!.sms_consent).toBe('opted_out');
+    const stranger = nextPhone();
+    const m = await textIn(w, stranger, "Don't text me again");
+    const [o] = await rows<{ opted_out: boolean; source: string }>(
+      admin(),
+      sql`select opted_out, source::text as source from app.opt_outs
+          where workspace_id = ${w.workspaceId} and counterpart_e164 = ${stranger}`,
+    );
+    expect(o).toEqual({ opted_out: true, source: 'keyword' });
+    expect(await runsOf(m.conversationId)).toHaveLength(0);
+  });
+
+  it('stops texts to the customer on file when they ask by email', async () => {
+    await saveTeammate(w, { channels: { email: true } });
+    const c = await newCustomer(w, 'Bo');
+    await emailIn(w, c.email!, 'Your texts', 'Please unsubscribe me from your texts.');
+    const [p] = await rows<{ sms_consent: string }>(
+      admin(),
+      sql`select sms_consent::text as sms_consent from app.people where id = ${c.id}`,
+    );
+    expect(p!.sms_consent).toBe('opted_out');
+  });
+
+  it('hands its own conversation to a person, with no hand-off line, when they ask to stop', async () => {
+    const c = await newCustomer(w, 'Cy');
+    const m = await textIn(w, c.phone, 'Hi, what are your hours?');
+    await replyNow(w, m.conversationId);
+    await saveTeammate(w, { channels: { email: true } });
+    const mail = await emailIn(w, c.email!, 'Hours', 'What time do you open?');
+    await replyNow(w, mail.conversationId!);
+    expect(await aiReplies(mail.conversationId!)).toHaveLength(1);
+    await emailIn(w, c.email!, 'Re: Hours', 'Please stop emailing me.');
+    expect(await conversationOf(mail.conversationId!)).toMatchObject({
+      handled_by: 'person',
+      handoff_reason: 'other',
+    });
+    expect(await handoffLines(mail.conversationId!)).toHaveLength(0);
+  });
 });
 
 describe('the teammate’s share of the daily AI limit', () => {
@@ -305,7 +348,10 @@ describe('the teammate’s share of the daily AI limit', () => {
       handled_by: 'person',
       handoff_reason: 'budget',
     });
-    expect(await aiMessages(m.conversationId)).toHaveLength(0);
+    // The business's fixed wording still reaches them, once: no model wrote it.
+    expect(await aiReplies(m.conversationId)).toHaveLength(0);
+    const [line] = await handoffLines(m.conversationId);
+    expect(line!.body_text).toMatch(HANDOFF_LINE);
     const scope = scopeOf(b);
     // The Assistant, workflow AI steps and the builder check the whole limit, which has room.
     expect(await tokensToday(b.s.db, scope, CHI)).toBeLessThan(10_000);

@@ -12,6 +12,7 @@ import {
   type WeeklyHours,
 } from '@hfos/core/server';
 import { rows, sql, type Tx } from '@hfos/db/client';
+import { answeringTeammate, loadWidget } from '../chat/store';
 import { LOOP_FLOOD, LOOP_REPEATS, LOOP_WINDOW_MS } from './constants';
 
 // ---- Hours ----
@@ -151,4 +152,28 @@ export async function repliesToday(
           and started_at >= (date_trunc('day', now() at time zone ${timeZone}) at time zone ${timeZone})`,
   );
   return r?.n ?? 0;
+}
+
+// ---- Website chat ----
+
+/**
+ * A website chat's widget decides who answers it: the teammate only when the widget names it and it answers chat
+ * on that widget (chat/store's answeringTeammate). A widget left to people ("only people answer") gets no AI
+ * replies, whatever the teammate's own chat setting says. Every other channel passes.
+ */
+export async function widgetAnswers(
+  tx: Tx,
+  conv: { readonly channel: string; readonly counterpart: string },
+  teammateId: string,
+): Promise<boolean> {
+  if (conv.channel !== 'chat') return true;
+  const visitorId = conv.counterpart.startsWith('chat:') ? conv.counterpart.slice(5) : '';
+  const [v] = await rows<{ widget_id: string }>(
+    tx,
+    sql`select widget_id from app.chat_visitors where id::text = ${visitorId}`,
+  );
+  const widget = v ? await loadWidget(tx, v.widget_id) : null;
+  return (
+    !!widget && widget.teammateId === teammateId && (await answeringTeammate(tx, widget)) !== null
+  );
 }

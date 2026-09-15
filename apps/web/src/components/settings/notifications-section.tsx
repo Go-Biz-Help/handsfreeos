@@ -8,6 +8,8 @@ import { SetRow } from './set-row';
 export interface NotificationPrefs {
   /** A customer waited on a conversation (the worker's unanswered check). */
   readonly unansweredEmail: boolean;
+  /** The AI teammate handed a conversation to you, or to its list when nobody is assigned. */
+  readonly aiHandoff: boolean;
   /** Online bookings and cancellations on your appointments (the calendar's team email). */
   readonly bookingEmail: boolean;
   /** The worker's daily email to an organization's owners and admins about its businesses. */
@@ -32,6 +34,15 @@ const ROWS: readonly {
     testId: 'notify-unanswered',
     on: 'You’ll get an email when a customer waits',
     off: 'You won’t get these emails',
+  },
+  {
+    key: 'aiHandoff',
+    title: 'Email me when the AI teammate hands me a conversation',
+    description:
+      'When it hands one to you, or to everyone on its hand-off list when nobody is assigned. Emergencies always email every owner and admin.',
+    testId: 'notify-ai-handoff',
+    on: 'You’ll get an email when the AI teammate hands you a conversation',
+    off: 'You won’t get hand-off emails',
   },
   {
     key: 'bookingEmail',

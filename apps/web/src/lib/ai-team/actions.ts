@@ -9,6 +9,7 @@ import { apiBrowser, unwrap } from '@/lib/api/client';
 import type { AiTeammateSaveBody, AiTeammateSaveOut } from '@/lib/api/types';
 import {
   teammateGetOf,
+  type ActivityPeriod,
   type TeammateActivity,
   type TeammateGet,
   type TeammateProgress,
@@ -38,7 +39,8 @@ export interface TeammateActions {
     status: TeammateStatus;
   }): Promise<{ progress: TeammateProgress }>;
   load(): Promise<TeammateGet>;
-  activity(input: { cursor: string | null }): Promise<TeammateActivity>;
+  /** One period's runs, from the cursor on. */
+  activity(input: { cursor: string | null; since: ActivityPeriod }): Promise<TeammateActivity>;
 }
 
 export function teammateActions(workspaceId: string): TeammateActions {
@@ -74,10 +76,10 @@ export function teammateActions(workspaceId: string): TeammateActions {
       teammateGetOf(
         unwrap(await api().POST('/v1/queries/ai_teammate.get', { body: { workspaceId } })),
       ),
-    activity: async ({ cursor }) =>
+    activity: async ({ cursor, since }) =>
       unwrap(
         await api().POST('/v1/queries/ai_teammate.activity', {
-          body: { workspaceId, ...(cursor ? { cursor } : {}) },
+          body: { workspaceId, since, ...(cursor ? { cursor } : {}) },
         }),
       ),
   };

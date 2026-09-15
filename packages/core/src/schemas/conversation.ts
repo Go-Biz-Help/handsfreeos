@@ -152,6 +152,12 @@ export const ConversationOpenInput = z.object({
 export const ConversationOpenOutput = z.object({ conversationId: uuid, created: z.boolean() });
 export const ConversationRefInput = z.object(conversationRef);
 export const ConversationRefOutput = z.object({ conversationId: uuid });
+/** conversation.pick_up: the teammate that answers it now, and the conversation's new ai_epoch. */
+export const ConversationPickUpOutput = z.object({
+  conversationId: uuid,
+  teammateId: uuid,
+  aiEpoch: z.int(),
+});
 export const ConversationAssignInput = z.object({
   ...conversationRef,
   assigneeUserId: uuid.nullable(),

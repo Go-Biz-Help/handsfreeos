@@ -55,3 +55,14 @@ export function inferTeammateLabels(config: TeammateConfig): TeammateLabels {
 export function formatTeammateLabels(labels: TeammateLabels): string {
   return labels.tags.map((t) => TEAMMATE_LABEL_NAMES[t]).join(' · ');
 }
+
+// Vowel letters that sound like a consonant ("a unit", "a one-off"), and a silent h ("an hour").
+const SAYS_YOU_OR_WON = /^(?:uni|use|usu|uti|ure|eu|ewe|one\b|once\b)/i;
+const SILENT_H = /^(?:hour|honest|honou?r|heir)/i;
+
+/** "a Lead Responder", "an Appointment Coordinator": the article goes by the sound of the first word. */
+export function withArticle(phrase: string): string {
+  const p = phrase.trim();
+  const an = SILENT_H.test(p) || (/^[aeiou]/i.test(p) && !SAYS_YOU_OR_WON.test(p));
+  return `${an ? 'an' : 'a'} ${p}`;
+}

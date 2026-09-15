@@ -3407,7 +3407,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * What the AI teammate has been doing: today’s counters and what’s waiting, and its runs newest first with the tools, knowledge and checks each used.
+         * What the AI teammate has been doing: today’s counters and what’s waiting, and its runs newest first (optionally only today’s or the last 7 or 30 days’), each with its channel, the message that started it, and every tool call with a short summary.
          * @description Requires workspace.read.
          */
         post: operations["query_ai_teammate_activity"];
@@ -3447,7 +3447,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * The business’s AI teammate: its settings, what conflicts in them (with fixes), its training progress, its revisions, and the catalogs its settings refer to.
+         * The business’s AI teammate: its settings, what conflicts in them (with fixes), its training progress, its revisions, and the catalogs its settings refer to (with today’s AI use).
          * @description Requires workspace.read.
          */
         post: operations["query_ai_teammate_get"];
@@ -12278,6 +12278,8 @@ export interface operations {
                     cursor?: string;
                     /** @default 50 */
                     limit?: number;
+                    /** @enum {string} */
+                    since?: "today" | "7d" | "30d";
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -12292,6 +12294,7 @@ export interface operations {
                 content: {
                     "application/json": {
                         counters: {
+                            bookedToday: number;
                             draftedToday: number;
                             failedToday: number;
                             handedOffToday: number;
@@ -12303,16 +12306,23 @@ export interface operations {
                         };
                         nextCursor: string | null;
                         runs: {
+                            channel: ("sms" | "email" | "chat") | null;
                             checks: unknown[];
                             conversationId: string | null;
                             endedAt: string | null;
                             error: string | null;
+                            firstMessage: {
+                                /** Format: date-time */
+                                at: string;
+                                excerpt: string;
+                            } | null;
                             /** Format: uuid */
                             id: string;
                             inputTokens: number;
                             isTest: boolean;
                             knowledge: unknown[];
                             leadId: string | null;
+                            messageCount: number;
                             model: string | null;
                             outcome: ("replied" | "drafted" | "handed_off" | "no_reply") | null;
                             outputTokens: number;
@@ -12327,6 +12337,14 @@ export interface operations {
                             /** @enum {string} */
                             status: "running" | "done" | "superseded" | "failed";
                             summary: string | null;
+                            toolCalls: {
+                                /** Format: date-time */
+                                at: string;
+                                /** @enum {string} */
+                                status: "running" | "done" | "held" | "simulated" | "refused" | "failed";
+                                summary: string | null;
+                                tool: string;
+                            }[];
                             tools: string[];
                             toolSteps: number;
                             triggeredBy: string;
@@ -12500,6 +12518,11 @@ export interface operations {
                     "application/json": {
                         canManage: boolean;
                         catalogs: {
+                            aiUsage: {
+                                dailyTokens: number;
+                                teammateTokens: number;
+                                usedTokens: number;
+                            };
                             businessHours: {
                                 day: number;
                                 end: string;
@@ -12508,8 +12531,10 @@ export interface operations {
                             calendars: {
                                 archived: boolean;
                                 bookableOnline: boolean;
+                                color: string;
                                 /** Format: uuid */
                                 id: string;
+                                lengths: number[];
                                 name: string;
                             }[];
                             chatWidgets: {
@@ -12551,6 +12576,7 @@ export interface operations {
                                     name: string;
                                 }[];
                             }[];
+                            pricesAllowed: boolean;
                             profile: {
                                 filled: number;
                                 total: number;

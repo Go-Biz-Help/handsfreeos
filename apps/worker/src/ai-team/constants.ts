@@ -6,10 +6,28 @@ export const TEAMMATE_JOBS = {
   reply: 'ai_teammate.reply',
   /** Sends an approved draft that quiet hours held back, once they end. */
   sendDraft: 'ai_teammate.send_draft',
+  /** A first message to someone with no conversation yet: a new lead, or a person a workflow handed over. */
+  outreach: 'ai_teammate.outreach',
+  /** A nudge when the customer went quiet after the teammate asked them something. */
+  followUp: 'ai_teammate.follow_up',
+  /** The hand-off line quiet hours held back, sent once they end. */
+  handoffLine: 'ai_teammate.handoff_line',
+  /** One business's drafts nobody decided in time: expired, and their conversations go to a person. */
+  expireDrafts: 'ai_teammate.expire_drafts',
 } as const;
 
 export const replyJobKey = (conversationId: string): string => `ai-reply:${conversationId}`;
 export const sendDraftJobKey = (draftId: string): string => `ai-send-draft:${draftId}`;
+/** One first message per lead (`<leadId>`), or per workflow step (`wf:<runId>:<stepKey>`). */
+export const outreachJobKey = (key: string): string => `ai-outreach:${key}`;
+export const followUpJobKey = (conversationId: string): string => `ai-follow-up:${conversationId}`;
+export const handoffLineJobKey = (conversationId: string): string =>
+  `ai-handoff-line:${conversationId}`;
+export const expireDraftsJobKey = (workspaceId: string): string =>
+  `ai-expire-drafts:${workspaceId}`;
+/** The hand-off line's clientId: one per hand-off (the epoch the hand-off moves the conversation to). */
+export const handoffClientId = (conversationId: string, epoch: number): string =>
+  `handoff:${conversationId}:${epoch}`;
 
 /** How long a reply waits for the customer to finish (people often send three texts in a row). */
 export const REPLY_DELAY_MS: Readonly<Record<TeammateChannel, number>> = {
@@ -44,3 +62,14 @@ export const LOOP_WINDOW_MS = 10 * 60_000;
 export const LOOP_REPEATS = 3;
 /** ...or this many in all. */
 export const LOOP_FLOOD = 10;
+
+/** A handed-off conversation nobody answers for this much open time sets off M3's unanswered alert. */
+export const HANDOFF_UNANSWERED_MS = 15 * 60_000;
+/** A text or call from them this recently lets the teammate text first (the M6 consent rule). */
+export const RECENT_CONTACT_MS = 24 * 3_600_000;
+/**
+ * Nudges: the first goes this long after the question they didn't answer, and each later one this long after
+ * the last. Either moves to the teammate's next working time when it falls outside it.
+ */
+export const FIRST_NUDGE_MS = 4 * 3_600_000;
+export const LATER_NUDGE_MS = 24 * 3_600_000;

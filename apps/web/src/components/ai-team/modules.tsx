@@ -45,7 +45,9 @@ import {
   BUILT_IN_TOPICS,
   EXPECTATION_EXAMPLES,
   firstTextPreview,
+  lengthsWords,
   notifyWords,
+  percentOfLimit,
   plural,
   progressView,
   type ModuleKey,
@@ -85,6 +87,9 @@ const withCurrent = (list: readonly number[], v: number) =>
 const capital = (s: string) => (s ? s[0]!.toUpperCase() + s.slice(1) : s);
 const onOff = (on: boolean, what: string) => `${on ? 'Turn on' : 'Turn off'} ${what}`;
 const LINK = 'text-[13px] font-medium text-accent-text hover:underline';
+
+/** A calendar's colour as stored, or the accent when it isn't a plain hex colour. */
+const calendarColor = (c: string) => (/^#[0-9a-f]{3,8}$/i.test(c) ? c : 'var(--accent)');
 
 const DELAYS = [0, 1, 2, 5, 10, 15, 30, 60, 120];
 const EXPIRY = [15, 30, 60, 120, 240, 480, 720, 1440];
@@ -531,7 +536,7 @@ function BookModule({ draft, patch, catalogs, workspaceId }: ModuleProps) {
           return (
             <div
               key={cal.id}
-              className="flex items-center gap-3 border-t border-border py-[11px]"
+              className="flex items-start gap-3 border-t border-border py-[11px]"
               data-testid={`book-calendar-${cal.id}`}
             >
               <input
@@ -539,13 +544,18 @@ function BookModule({ draft, patch, catalogs, workspaceId }: ModuleProps) {
                 type="checkbox"
                 checked={on}
                 onChange={(e) => toggle(cal.id, e.target.checked)}
-                className="h-[18px] w-[18px] flex-none cursor-pointer rounded-[5px] border border-border-strong accent-accent"
+                className="mt-px h-[18px] w-[18px] flex-none cursor-pointer rounded-[5px] border border-border-strong accent-accent"
               />
-              <label
-                htmlFor={id}
-                className="min-w-0 flex-1 cursor-pointer truncate text-[13px] font-semibold"
-              >
-                {cal.name}
+              <span
+                aria-hidden
+                className="mt-[5px] h-2.5 w-2.5 flex-none rounded-full"
+                style={{ background: calendarColor(cal.color) }}
+              />
+              <label htmlFor={id} className="flex min-w-0 flex-1 cursor-pointer flex-col gap-0.5">
+                <span className="truncate text-[13px] font-semibold">{cal.name}</span>
+                {cal.lengths.length ? (
+                  <span className="truncate text-xs text-text-3">{lengthsWords(cal.lengths)}</span>
+                ) : null}
               </label>
               {cal.archived ? (
                 <Badge variant="danger" className="h-5 text-[11.5px]">
@@ -822,10 +832,15 @@ function AutonomyModule({ draft, patch, progress }: ModuleProps) {
 
 // ---------- Limits (and money, as on the canvas) ----------
 
-function LimitsModule({ draft, patch, workspaceId }: ModuleProps) {
+function LimitsModule({ draft, patch, workspaceId, catalogs }: ModuleProps) {
   const l = draft.limits;
   const m = draft.money;
   const name = draft.identity.name;
+  const usage = catalogs.aiUsage;
+  const usedWidth = usage.dailyTokens
+    ? Math.min(100, (usage.teammateTokens / usage.dailyTokens) * 100)
+    : 0;
+  const prices = catalogs.pricesAllowed;
   return (
     <>
       <ModuleHeading
@@ -892,9 +907,16 @@ function LimitsModule({ draft, patch, workspaceId }: ModuleProps) {
             className={cn('absolute inset-y-0 left-0 rounded-full opacity-35', AI_FILL)}
             style={{ width: `${l.dailySharePercent}%` }}
           />
+          <span
+            className={cn('absolute inset-y-0 left-0 rounded-full', AI_FILL)}
+            style={{ width: `${usedWidth}%` }}
+          />
         </div>
-        <div className="flex justify-between gap-2 text-xs text-text-3">
-          <span>The business’s daily AI limit</span>
+        <div className="flex flex-wrap justify-between gap-x-2 text-xs text-text-3">
+          <span data-testid="limits-usage">
+            Today so far: {name} {percentOfLimit(usage.teammateTokens, usage.dailyTokens)} of the
+            limit
+          </span>
           <span>Its share ends at {l.dailySharePercent}%</span>
         </div>
       </div>
@@ -942,10 +964,29 @@ function LimitsModule({ draft, patch, workspaceId }: ModuleProps) {
           </Select>
         </SetRow>
       ) : null}
-      <SetRow center title="Quoting prices" description="Set for all AI in Knowledge.">
-        <Link href={`/app/w/${workspaceId}/${TEAMMATE_LINKS.profile}`} className={LINK}>
-          Open
-        </Link>
+      <SetRow
+        center
+        title="Quoting prices"
+        description={
+          <>
+            {prices ? 'On' : 'Off'} for all AI. Change it in{' '}
+            <Link
+              href={`/app/w/${workspaceId}/${TEAMMATE_LINKS.profile}`}
+              className="font-medium text-accent-text hover:underline"
+            >
+              Knowledge
+            </Link>
+            .
+          </>
+        }
+      >
+        <Badge
+          variant={prices ? 'ok' : 'gray'}
+          className="h-5 text-[11.5px]"
+          data-testid="limits-prices"
+        >
+          {prices ? 'On' : 'Off'}
+        </Badge>
       </SetRow>
       <SetRow center title="Refunds" description="Always go straight to a person.">
         <Locked />

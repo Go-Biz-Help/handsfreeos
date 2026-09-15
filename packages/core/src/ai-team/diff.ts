@@ -134,6 +134,18 @@ export function diffTeammateConfigs(
     b.qualify.whenQualified.notify,
     (v) => notifyText(v, names),
   );
+  change(
+    'Offers qualified leads times to book',
+    a.qualify.whenQualified.offerTimes,
+    b.qualify.whenQualified.offerTimes,
+    onOff,
+  );
+  change(
+    'Tells the team when a lead isn’t a fit',
+    a.qualify.whenNotAFit.tellTeam,
+    b.qualify.whenNotAFit.tellTeam,
+    onOff,
+  );
 
   // Book
   change('Books appointments', a.book.enabled, b.book.enabled, onOff);

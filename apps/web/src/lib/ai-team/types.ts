@@ -22,24 +22,16 @@ export function teammateGetOf(raw: AiTeammateGet): TeammateGet {
   return { ...raw, issues: raw.issues as unknown as TeammateIssue[] };
 }
 
-type RunOut = AiTeammateActivity['runs'][number];
-export type RunStatus = RunOut['status'];
-export type RunOutcome = NonNullable<RunOut['outcome']>;
-
+/** Today's counters and the runs of one period, newest first. */
+export type TeammateActivity = AiTeammateActivity;
 /** One reply job ("AI run"): what started it, what it used, and how it came out. */
-export interface TeammateRun extends RunOut {
-  /** The conversation's channel. Not in the API yet; the list shows it when it arrives. */
-  readonly channel?: TeammateChannelKey | null;
-}
+export type TeammateRun = AiTeammateActivity['runs'][number];
+export type TeammateToolCall = TeammateRun['toolCalls'][number];
+export type RunStatus = TeammateRun['status'];
+export type RunOutcome = NonNullable<TeammateRun['outcome']>;
 
-export interface TeammateActivityCounters extends Readonly<AiTeammateActivity['counters']> {
-  /** Appointments it booked today. Not in the API yet; counted from today's runs until it is. */
-  readonly bookedToday?: number;
-}
+/** Activity's periods: today, or the last 7 or 30 days (the page's `?period=`). */
+export type ActivityPeriod = 'today' | '7d' | '30d';
 
-export interface TeammateActivity {
-  readonly counters: TeammateActivityCounters;
-  /** Newest first. */
-  readonly runs: readonly TeammateRun[];
-  readonly nextCursor: string | null;
-}
+export const activityPeriodOf = (v: unknown): ActivityPeriod =>
+  v === '7d' || v === '30d' ? v : 'today';

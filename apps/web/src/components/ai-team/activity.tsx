@@ -1,9 +1,11 @@
 'use client';
+import type { TeammateAiUsage } from '@hfos/core';
 import {
   AlertCircle,
   BookOpen,
   CalendarCheck,
   CheckCircle2,
+  Gauge,
   Globe,
   Hand,
   Hourglass,
@@ -15,7 +17,8 @@ import {
   Wrench,
   type LucideIcon,
 } from 'lucide-react';
-import { useState, type ReactNode } from 'react';
+import { usePathname, useRouter } from 'next/navigation';
+import { useState, useTransition, type ReactNode } from 'react';
 import { toast } from 'sonner';
 import { Avatar } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
@@ -28,17 +31,24 @@ import { teammateActions } from '@/lib/ai-team/actions';
 import {
   CHANNEL_NAMES,
   checksOf,
+  clockWithSeconds,
   joinWords,
   knowledgeOf,
-  periodFrom,
+  percentOfLimit,
   plural,
   runResult,
+  toolCallState,
   toolName,
   triggerWords,
-  type Period,
+  wroteWords,
   type Tone,
 } from '@/lib/ai-team/describe';
-import type { TeammateActivity, TeammateChannelKey, TeammateRun } from '@/lib/ai-team/types';
+import type {
+  ActivityPeriod,
+  TeammateActivity,
+  TeammateChannelKey,
+  TeammateRun,
+} from '@/lib/ai-team/types';
 import { errorMessage } from '@/lib/api/client';
 import { dateOf, fmtMonthDay, fmtTime, todayIn } from '@/lib/calendar/time';
 import { cn } from '@/lib/utils';
@@ -47,6 +57,11 @@ import { LogRow } from './log';
 
 type Filter = 'all' | 'handed_off' | 'drafted';
 
+const PERIOD_WORDS: Readonly<Record<ActivityPeriod, string>> = {
+  today: 'today',
+  '7d': 'in the last 7 days',
+  '30d': 'in the last 30 days',
+};
 const CHANNEL_ICONS: Readonly<Record<TeammateChannelKey, LucideIcon>> = {
   sms: MessageSquare,
   email: Mail,
@@ -105,7 +120,7 @@ function Result({ run }: { run: TeammateRun }) {
   );
 }
 
-function Channel({ channel }: { channel: TeammateChannelKey | null | undefined }) {
+function Channel({ channel }: { channel: TeammateChannelKey | null }) {
   if (!channel) return <span className="text-xs text-text-3">—</span>;
   const Icon = CHANNEL_ICONS[channel];
   return (
@@ -149,51 +164,67 @@ function Tile({
 }
 
 /**
- * The Activity tab: today's counts, every run (newest first) with who it was for, what the teammate did
- * and how it came out, and a sheet per run with the tools, the knowledge it used and the checks.
+ * The Activity tab: today's counts and AI use, the runs of the chosen period (newest first) with who each
+ * was for, what the teammate did and how it came out, and a sheet per run with the message that started
+ * it, each tool call, the knowledge it used and the checks. The period is in the address, so the server
+ * picks the runs and a live refresh keeps it.
  */
 export function TeammateActivityView({
   workspaceId,
   name,
   timeZone,
+  period,
+  usage,
   initial,
 }: {
   workspaceId: string;
   name: string;
   timeZone: string;
+  period: ActivityPeriod;
+  /** Today's AI use against the daily limit (from the teammate's catalogs). */
+  usage: TeammateAiUsage;
   initial: TeammateActivity;
 }) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const [switching, startSwitch] = useTransition();
   const [data, setData] = useState(initial);
   const [seen, setSeen] = useState(initial);
-  // A fresh page load (a live refresh) replaces what's shown.
+  // A fresh page load (a live refresh, or another period) replaces what's shown.
   if (seen !== initial) {
     setSeen(initial);
     setData(initial);
   }
-  const [period, setPeriod] = useState<Period>('today');
   const [filter, setFilter] = useState<Filter>('all');
   const [open, setOpen] = useState<TeammateRun | null>(null);
   const [loading, setLoading] = useState(false);
 
   const today = todayIn(timeZone);
-  const from = periodFrom(period, today);
   const real = data.runs.filter((r) => !r.isTest);
   const todays = real.filter((r) => dateOf(r.startedAt, timeZone) === today);
-  const inPeriod = real.filter((r) => dateOf(r.startedAt, timeZone) >= from);
-  const handoffs = inPeriod.filter((r) => r.outcome === 'handed_off');
-  const drafts = inPeriod.filter((r) => r.outcome === 'drafted');
-  const shown = filter === 'handed_off' ? handoffs : filter === 'drafted' ? drafts : inPeriod;
+  const handoffs = real.filter((r) => r.outcome === 'handed_off');
+  const drafts = real.filter((r) => r.outcome === 'drafted');
+  const shown = filter === 'handed_off' ? handoffs : filter === 'drafted' ? drafts : real;
   const c = data.counters;
-  const booked =
-    c.bookedToday ??
-    todays.filter((r) => r.outcome === 'replied' && r.tools.includes('book')).length;
   const conversations = new Set(todays.map((r) => r.conversationId ?? r.id)).size;
+
+  function choosePeriod(next: ActivityPeriod) {
+    if (next === period) return;
+    startSwitch(() =>
+      router.replace(next === 'today' ? pathname : `${pathname}?period=${next}`, {
+        scroll: false,
+      }),
+    );
+  }
 
   async function more() {
     if (!data.nextCursor) return;
     setLoading(true);
     try {
-      const next = await teammateActions(workspaceId).activity({ cursor: data.nextCursor });
+      const next = await teammateActions(workspaceId).activity({
+        cursor: data.nextCursor,
+        since: period,
+      });
       setData({ ...data, runs: [...data.runs, ...next.runs], nextCursor: next.nextCursor });
     } catch (e) {
       toast.error(errorMessage(e));
@@ -204,6 +235,20 @@ export function TeammateActivityView({
 
   const when = (iso: string) =>
     dateOf(iso, timeZone) === today ? fmtTime(iso, timeZone) : fmtMonthDay(dateOf(iso, timeZone));
+  const emptyTitle =
+    filter === 'handed_off'
+      ? `No hand-offs ${PERIOD_WORDS[period]}`
+      : filter === 'drafted'
+        ? `No drafts ${PERIOD_WORDS[period]}`
+        : period === 'today'
+          ? 'No runs yet today'
+          : `No runs ${PERIOD_WORDS[period]}`;
+  const emptyBody =
+    filter !== 'all'
+      ? 'Try Everything, or a longer period.'
+      : period === '7d'
+        ? 'Try 30 days.'
+        : `When ${name} answers someone, each reply shows here with what it looked up and the checks it passed.`;
 
   return (
     <div data-testid="teammate-activity">
@@ -220,7 +265,7 @@ export function TeammateActivityView({
           sub={c.draftedToday ? `${c.draftedToday} more held as drafts` : 'Today'}
           testId="activity-replies"
         />
-        <Tile label="Booked" value={booked} sub="Today" testId="activity-booked" />
+        <Tile label="Booked" value={c.bookedToday} sub="Today" testId="activity-booked" />
         <Tile
           label="Handed to a person"
           value={c.handedOffToday}
@@ -240,11 +285,11 @@ export function TeammateActivityView({
         <Segmented
           value={period}
           ariaLabel="Period"
-          onChange={setPeriod}
+          onChange={choosePeriod}
           options={[
-            { value: 'today', label: 'Today' },
-            { value: '7d', label: '7 days' },
-            { value: '30d', label: '30 days' },
+            { value: 'today', label: 'Today', testId: 'activity-period-today' },
+            { value: '7d', label: '7 days', testId: 'activity-period-7d' },
+            { value: '30d', label: '30 days', testId: 'activity-period-30d' },
           ]}
         />
         <span className="flex flex-wrap gap-1.5">
@@ -272,9 +317,24 @@ export function TeammateActivityView({
             </button>
           ))}
         </span>
+        <span
+          className="inline-flex min-w-0 items-center gap-1.5 text-xs text-text-3 sm:ml-auto"
+          data-testid="activity-ai-usage"
+          title={`${usage.usedTokens.toLocaleString('en-US')} of ${usage.dailyTokens.toLocaleString('en-US')} tokens`}
+        >
+          <Gauge className="h-3.5 w-3.5 flex-none" strokeWidth={1.5} />
+          <span>
+            AI used today: {percentOfLimit(usage.usedTokens, usage.dailyTokens)} of the daily limit
+            · {name} {percentOfLimit(usage.teammateTokens, usage.dailyTokens)}
+          </span>
+        </span>
       </div>
 
-      <Card className="overflow-hidden" data-testid="teammate-runs">
+      <Card
+        className={cn('overflow-hidden transition-opacity', switching && 'opacity-60')}
+        aria-busy={switching}
+        data-testid="teammate-runs"
+      >
         <div className="hidden grid-cols-[84px_minmax(0,1.05fr)_108px_minmax(0,1.6fr)_168px] items-center gap-3 bg-card-2 px-4 py-[9px] text-xs font-medium text-text-3 md:grid">
           <span>When</span>
           <span>Customer</span>
@@ -318,13 +378,8 @@ export function TeammateActivityView({
           );
         })}
         {!shown.length ? (
-          <EmptyState
-            title={real.length ? 'Nothing here for this period' : 'No runs yet'}
-            className="py-9"
-          >
-            {real.length
-              ? 'Try a longer period, or Everything.'
-              : `When ${name} answers someone, each reply shows here with what it looked up and the checks it passed.`}
+          <EmptyState title={emptyTitle} className="py-9">
+            {emptyBody}
           </EmptyState>
         ) : null}
       </Card>
@@ -363,7 +418,7 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
   );
 }
 
-/** One run: what started it, the tools it used, the knowledge, the safety check, and how it came out. */
+/** One run: what started it, each tool call, the knowledge, the safety check, and how it came out. */
 function RunSheet({
   run,
   onClose,
@@ -414,23 +469,50 @@ function RunSheet({
             </Badge>
           </div>
           <Section title="What started it">
-            <p className="text-[13px]">{triggerWords(run.triggeredBy)}</p>
+            {run.firstMessage ? (
+              <>
+                <p
+                  className="whitespace-pre-wrap rounded-control bg-card-2 px-2.5 py-[7px] text-[12.5px] leading-[1.45] [overflow-wrap:anywhere]"
+                  data-testid="run-first-message"
+                >
+                  {run.firstMessage.excerpt}
+                </p>
+                <span className="mt-[5px] block text-xs text-text-3">
+                  {wroteWords(
+                    run.person?.fullName ?? null,
+                    run.channel,
+                    run.firstMessage.at,
+                    timeZone,
+                  )}
+                  .
+                  {run.messageCount > 1
+                    ? ` ${name} answered ${run.messageCount} messages together.`
+                    : ''}
+                </span>
+              </>
+            ) : (
+              <p className="text-[13px]">{triggerWords(run.triggeredBy)}</p>
+            )}
           </Section>
           <Section title="Tools">
-            {run.tools.length ? (
-              run.tools.map((t, i) => (
-                <LogRow
-                  key={`${t}-${i}`}
-                  first={i === 0}
-                  line={{
-                    id: `${t}-${i}`,
-                    time: null,
-                    tone: 'run',
-                    icon: TOOL_ICONS[t] ?? Wrench,
-                    title: toolName(t),
-                  }}
-                />
-              ))
+            {run.toolCalls.length ? (
+              run.toolCalls.map((tc, i) => {
+                const state = toolCallState(tc.status, run.outcome);
+                return (
+                  <LogRow
+                    key={`${tc.tool}-${i}`}
+                    first={i === 0}
+                    line={{
+                      id: `${tc.tool}-${i}`,
+                      time: clockWithSeconds(tc.at, timeZone),
+                      tone: state.tone,
+                      icon: TOOL_ICONS[tc.tool] ?? Wrench,
+                      title: toolName(tc.tool),
+                      detail: [state.word, tc.summary].filter(Boolean).join(' · ') || null,
+                    }}
+                  />
+                );
+              })
             ) : (
               <p className="text-[13px] text-text-2">No look-ups needed.</p>
             )}

@@ -4,6 +4,7 @@ import { formatPhone, HfosError } from '@hfos/core/server';
 import { asWorker, rows, sql } from '@hfos/db/client';
 import Fastify, { type FastifyInstance } from 'fastify';
 import { z } from 'zod';
+import { registerTeammateRoutes } from '../ai-team/routes';
 import { registerAssistantRoutes } from '../assistant/routes';
 import { registerKnowledgeRoutes } from '../knowledge/routes';
 import { ProviderError } from '../telephony/provider';
@@ -143,6 +144,7 @@ export async function buildHttpServer(deps: HttpDeps): Promise<FastifyInstance> 
   registerEmailRoutes(app, deps);
   registerOAuthRoutes(app, deps);
   registerAssistantRoutes(app, deps, deps.assistant ?? null);
+  registerTeammateRoutes(app, deps);
   await registerBookingRoutes(app, deps);
   await registerChatRoutes(app, deps);
   await registerKnowledgeRoutes(app, deps);

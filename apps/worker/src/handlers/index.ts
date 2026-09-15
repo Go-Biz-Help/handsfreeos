@@ -1,4 +1,5 @@
 import { withTeammate } from '../ai-team/index';
+import { onChatReplySent } from '../chat/followup';
 import { onKnowledgeDocumentAdded } from '../knowledge/document';
 import { onKnowledgeScanRequested } from '../knowledge/scan';
 import { withWorkflows } from '../workflows/index';
@@ -58,6 +59,8 @@ export const handlers: HandlerMap = withWorkflows(
     'registration.submitted': onRegistrationSubmitted,
     'registration.status_changed': onRegistrationStatusChanged,
     'message.queued': onMessageQueued,
+    // A reply in a website chat is out: people's are marked sent, and the unread follow-up is armed (chat/).
+    'message.sent': onChatReplySent,
     'conversation.linked': onConversationLinked,
     'conversation.snoozed': onConversationSnoozed,
     'email_domain.added': onEmailDomainAdded,

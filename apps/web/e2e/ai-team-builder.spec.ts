@@ -33,6 +33,13 @@ test('AI teammate: a preset, the modules, Fix, the status override, history and 
     page.getByRole('heading', { name: 'How should your AI teammate work?' }),
   ).toBeVisible();
 
+  // Blank means blank: nothing turned on, so no labels yet.
+  const blank = page.getByTestId('teammate-preset-blank');
+  await blank.click();
+  await expect(blank).toContainText('Nothing turned on.');
+  await expect(blank).toContainText('Turns on: nothing yet');
+  await expect(page.getByText('No labels until a skill is on')).toBeVisible();
+
   // Presets only turn skills on: the labels follow the pick.
   const presetLabels = page.getByTestId('teammate-preset-labels').locator('span');
   await page.getByTestId('teammate-preset-appointment_coordinator').click();
@@ -100,7 +107,16 @@ test('AI teammate: a preset, the modules, Fix, the status override, history and 
   await page.keyboard.press('Escape');
   await expect(page.getByTestId(`question-${n}`)).toContainText('When an answer rules them out');
   await page.getByTestId('qualify-notify').selectOption('admins');
-  await expect(page.getByTestId('teammate-how')).toContainText('tells owners and admins');
+  const how = page.getByTestId('teammate-how');
+  await expect(how).toContainText('tells owners and admins');
+  // Then it offers times (once Book is on), and tells the team about a lead that isn't a fit.
+  await expect(page.getByTestId('qualify-offer-times')).toBeChecked();
+  await expect(page.getByTestId('qualify-when-qualified')).toContainText('Only while Book is on.');
+  await expect(how).toContainText('Tells the team when a lead isn’t a fit');
+  await page.getByTestId('qualify-tell-team').click();
+  await expect(how).not.toContainText('Tells the team when a lead isn’t a fit');
+  await page.getByTestId('qualify-tell-team').click();
+  await expect(page.getByTestId('qualify-tell-team')).toBeChecked();
   await page.getByTestId('teammate-save').click();
   await expect(page.getByText(/^Saved as revision 2\./)).toBeVisible();
   await expect(page.getByTestId('teammate-save-note')).toHaveText('All changes saved · revision 2');
@@ -119,6 +135,11 @@ test('AI teammate: a preset, the modules, Fix, the status override, history and 
   await expect(page.getByTestId('module-summary-autonomy')).toHaveText('19 approvals · 2 h drafts');
   await page.getByTestId('teammate-save').click();
   await expect(page.getByTestId('teammate-save-note')).toHaveText('All changes saved · revision 3');
+
+  // Limits: its part of today's AI use under its share, and prices as Knowledge sets them.
+  await page.getByTestId('module-limits').click();
+  await expect(page.getByTestId('limits-usage')).toContainText('Today so far: Ava');
+  await expect(page.getByTestId('limits-prices')).toHaveText('Off');
 
   // On, with training wheels; then automatic now, and back to training (both confirmed).
   await page.getByTestId('status-training').click();
@@ -163,7 +184,13 @@ test('AI teammate: a preset, the modules, Fix, the status override, history and 
   await expect(page).toHaveURL(/\/ai-team\/activity$/);
   await expect(page.getByTestId('teammate-activity')).toBeVisible();
   await expect(page.getByTestId('activity-replies')).toContainText('0');
+  await expect(page.getByTestId('activity-booked')).toContainText('0');
   await expect(page.getByTestId('teammate-runs')).toContainText('No runs yet');
+  await expect(page.getByTestId('activity-ai-usage')).toContainText('of the daily limit · Ava');
+  // The server picks the period's runs; it stays in the address.
+  await page.getByTestId('activity-period-7d').click();
+  await expect(page).toHaveURL(/\/ai-team\/activity\?period=7d$/);
+  await expect(page.getByTestId('teammate-runs')).toContainText('No runs in the last 7 days');
   await page.getByTestId('subnav-teammate').click();
   await expect(page.getByTestId('teammate-builder')).toBeVisible();
 });

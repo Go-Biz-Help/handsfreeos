@@ -98,5 +98,6 @@ test('AI teammate at 390 px, dark: drawer, picker, modules full screen, checks a
   // Activity fits the phone too.
   await page.getByTestId('subnav-activity').click();
   await expect(page.getByTestId('teammate-activity')).toBeVisible();
+  await expect(page.getByTestId('activity-ai-usage')).toContainText('AI used today');
   expect(await width()).toBeLessThanOrEqual(390);
 });

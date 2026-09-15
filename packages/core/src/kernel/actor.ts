@@ -51,6 +51,7 @@ export const AI_EMPLOYEE_COMMANDS = [
   'knowledge_item.record_use',
   'knowledge_suggestion.propose',
   'conversation.hand_off',
+  'conversation.pick_up',
   'appointment.book_for_customer',
   'attendee.reschedule_for_customer',
   'attendee.cancel_for_customer',

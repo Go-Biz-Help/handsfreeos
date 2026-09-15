@@ -25,7 +25,12 @@ export default async function SettingsPage({
   // All on unless turned off. The daily agency digest is for organization owners and admins only.
   const notifications = (
     me.user.settings as {
-      notifications?: { unansweredEmail?: boolean; bookingEmail?: boolean; agencyDigest?: boolean };
+      notifications?: {
+        unansweredEmail?: boolean;
+        aiHandoff?: boolean;
+        bookingEmail?: boolean;
+        agencyDigest?: boolean;
+      };
     }
   ).notifications;
   const agency = me.organizations.some((o) => o.role === 'owner' || o.role === 'admin');
@@ -48,6 +53,7 @@ export default async function SettingsPage({
               agency={agency}
               initial={{
                 unansweredEmail: notifications?.unansweredEmail !== false,
+                aiHandoff: notifications?.aiHandoff !== false,
                 bookingEmail: notifications?.bookingEmail !== false,
                 agencyDigest: notifications?.agencyDigest !== false,
               }}

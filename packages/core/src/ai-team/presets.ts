@@ -64,8 +64,15 @@ export const TEAMMATE_PRESETS: readonly TeammatePreset[] = [
   {
     key: 'blank',
     name: 'Start from scratch',
-    description: 'Every setting at its default.',
-    config: {},
+    description: 'Nothing turned on. Pick the skills yourself in the builder.',
+    // Every skill off, first messages to new leads too, so turning Respond on later only answers.
+    config: {
+      respond: { enabled: false, newLeads: { enabled: false } },
+      answer: { enabled: false },
+      qualify: { enabled: false },
+      book: { enabled: false },
+      followUp: { enabled: false },
+    },
   },
 ];
 

@@ -17,6 +17,19 @@ export interface TeammateMember {
   readonly active: boolean;
 }
 
+/** The business's daily AI limit in tokens, unless the deployment sets ASSISTANT_DAILY_TOKENS. */
+export const DEFAULT_AI_DAILY_TOKENS = 2_000_000;
+
+/** Today's AI tokens (since midnight in the business's zone) against the business's daily limit. */
+export interface TeammateAiUsage {
+  /** The daily limit every AI feature shares. */
+  readonly dailyTokens: number;
+  /** Used today, cache reads and writes included. */
+  readonly usedTokens: number;
+  /** The teammate's part of `usedTokens`; its settings cap it at `limits.dailySharePercent` of the limit. */
+  readonly teammateTokens: number;
+}
+
 export interface TeammateCatalogs {
   /** The workspace's time zone. */
   readonly timeZone: string;
@@ -31,11 +44,19 @@ export interface TeammateCatalogs {
     readonly archived: boolean;
     /** Public on the booking site: the teammate books only where customers could book themselves. */
     readonly bookableOnline: boolean;
+    /** Its colour, for the Book rows. */
+    readonly color: string;
+    /** How long a visit can be, in minutes (the calendar's own lengths; a service may set others). */
+    readonly lengths: readonly number[];
   }[];
   /** Published knowledge items. */
   readonly knowledge: { readonly published: number };
   /** `profileCompleteness` of the business profile. */
   readonly profile: { readonly filled: number; readonly total: number };
+  /** The business profile lets the AI quote prices (Knowledge). */
+  readonly pricesAllowed: boolean;
+  /** Today's AI use against the daily limit. */
+  readonly aiUsage: TeammateAiUsage;
   /** When the business is open; null when it hasn't said. */
   readonly businessHours: WeeklyHours | null;
   /** Current members, plus anyone the settings still name (active false). */
@@ -58,6 +79,8 @@ export function emptyTeammateCatalogs(timeZone = 'America/Chicago'): TeammateCat
     calendars: [],
     knowledge: { published: 0 },
     profile: { filled: 0, total: 7 },
+    pricesAllowed: false,
+    aiUsage: { dailyTokens: DEFAULT_AI_DAILY_TOKENS, usedTokens: 0, teammateTokens: 0 },
     businessHours: null,
     members: [],
     newLeadTextWorkflows: [],

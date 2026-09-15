@@ -22,6 +22,7 @@ import type {
   TeammateProgress,
   TeammateRevision,
   TeammateStatus,
+  TeammateToolCall,
 } from './types';
 
 export const MODULES = [
@@ -134,6 +135,10 @@ export function stageOf(
 const calendarName = (id: string, catalogs: TeammateCatalogs) =>
   catalogs.calendars.find((c) => c.id === id)?.name ?? 'a calendar';
 
+/** A qualifying question with an answer that rules a lead out. */
+export const rulesOut = (q: TeammateConfig['qualify']['questions'][number]): boolean =>
+  q.notAFitIf.answers.length > 0 || q.notAFitIf.below !== null || q.notAFitIf.above !== null;
+
 /** The line under each module's name in the builder's list. */
 export function moduleSummary(
   key: ModuleKey,
@@ -218,15 +223,22 @@ export function describeTeammate(config: TeammateConfig, catalogs: TeammateCatal
     const tell = q.whenQualified.notify
       ? notifyWords(q.whenQualified.notify, catalogs.members)
       : null;
+    const then = [
+      ...(stage ? [`moves qualified leads to ${stage.stage}`] : []),
+      ...(tell ? [`tells ${tell}`] : []),
+      ...(q.whenQualified.offerTimes && config.book.enabled ? ['offers times to book'] : []),
+    ];
     out.push(
       !q.questions.length
         ? 'Qualifies leads once you add questions.'
-        : stage
-          ? `Asks ${n}, moves qualified leads to ${stage.stage}${tell ? ` and tells ${tell}` : ''}.`
-          : tell
-            ? `Asks ${n} and tells ${tell} when a lead qualifies.`
-            : `Asks ${n} and keeps the answers on the lead.`,
+        : !then.length
+          ? `Asks ${n} and keeps the answers on the lead.`
+          : stage
+            ? `Asks ${n}, ${joinWords(then)}.`
+            : `Asks ${n}. When a lead qualifies, it ${joinWords(then)}.`,
     );
+    if (q.whenNotAFit.tellTeam && q.questions.some(rulesOut))
+      out.push('Tells the team when a lead isn’t a fit, so someone can mark it lost.');
   }
 
   const b = config.book;
@@ -530,14 +542,81 @@ export function afterHoursWords(businessHours: TeammateCatalogs['businessHours']
     : 'Only while you’re closed, once your open hours are set (Settings, Workspace).';
 }
 
-// ---- Activity ----
+// ---- Activity, and today's AI use ----
 
-export type Period = 'today' | '7d' | '30d';
+/** Tokens as a share of the daily limit: "0%", "<1%", "34%". */
+export function percentOfLimit(tokens: number, limit: number): string {
+  if (!tokens || !limit) return '0%';
+  const p = (tokens / limit) * 100;
+  return p < 1 ? '<1%' : `${Math.round(p)}%`;
+}
 
-/** The first local date a period covers: today, or 6 or 29 days before it. */
-export function periodFrom(period: Period, today: string): string {
-  const days = period === 'today' ? 0 : period === '7d' ? 6 : 29;
-  const d = new Date(`${today}T12:00:00Z`);
-  d.setUTCDate(d.getUTCDate() - days);
-  return d.toISOString().slice(0, 10);
+/** A calendar's visit lengths: "1 h 30 min", "30 min or 1 h". */
+export const lengthsWords = (lengths: readonly number[]): string =>
+  joinWords(lengths.map(shortDuration), 'or');
+
+/** "10:36:05": when a tool ran. The run sheet's heading already says the hour and half of the day. */
+export function clockWithSeconds(at: string, timeZone: string): string {
+  return new Intl.DateTimeFormat('en-US', {
+    timeZone,
+    hour: 'numeric',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: true,
+  })
+    .format(new Date(at))
+    .replace(/\s?[AP]M$/i, '');
+}
+
+/** "Mike texted at 10:36 AM": who wrote the message that started a run, and when. */
+export function wroteWords(
+  name: string | null,
+  channel: TeammateChannelKey | null,
+  at: string,
+  timeZone: string,
+): string {
+  const who = name ? firstName(name) : 'They';
+  const verb =
+    channel === 'sms'
+      ? 'texted'
+      : channel === 'email'
+        ? 'emailed'
+        : channel === 'chat'
+          ? 'wrote in the chat'
+          : 'wrote';
+  const day = dateOf(at, timeZone);
+  const when =
+    day === todayIn(timeZone)
+      ? fmtTime(at, timeZone)
+      : `${fmtMonthDay(day)} at ${fmtTime(at, timeZone)}`;
+  return `${who} ${verb} at ${when}`;
+}
+
+/** A tool call's colour in the run sheet, and a word when it didn't simply run. */
+export function toolCallState(
+  status: TeammateToolCall['status'],
+  outcome: RunOutcome | null,
+): { readonly tone: 'run' | 'held' | 'bad' | 'wait' | 'ai'; readonly word: string | null } {
+  switch (status) {
+    case 'done':
+      return { tone: 'run', word: null };
+    case 'held':
+      return {
+        tone: 'held',
+        word:
+          outcome === 'drafted'
+            ? 'Held in the draft'
+            : outcome === 'replied'
+              ? 'Done with the reply'
+              : 'Not carried out',
+      };
+    case 'refused':
+      return { tone: 'bad', word: 'Refused' };
+    case 'failed':
+      return { tone: 'bad', word: 'Failed' };
+    case 'simulated':
+      return { tone: 'ai', word: 'Simulated' };
+    case 'running':
+      return { tone: 'wait', word: 'Didn’t finish' };
+  }
 }

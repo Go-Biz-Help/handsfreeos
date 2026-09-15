@@ -1,24 +1,31 @@
 /**
- * The reply job, `ai_teammate.reply` (plan M7, "Worker runtime"): one run answers everything the customer wrote
- * since the teammate last answered.
+ * The AI teammate's runs (plan M7, "Worker runtime"): answering everything the customer wrote since it last
+ * answered (`ai_teammate.reply`), a first message (outreach.ts, and a workflow's hand-over), or a nudge when they
+ * went quiet (follow-up.ts).
  *
  * 1. Start: one run per conversation (the database's unique index; a second job finds it and leaves). The batch
  *    is every unanswered customer message; the run keeps the conversation's ai_epoch. An unhandled conversation
- *    nobody is assigned is picked up for the teammate here. A job retried after a busy provider resumes its run.
+ *    nobody is assigned is picked up for the teammate here (conversation.pick_up). A job retried after a busy
+ *    provider resumes its run. A first message to someone with no conversation has none yet: its send starts one,
+ *    and the run records it.
  * 2. Immediate hand-offs, before any model call: emergencies, sensitive topics, asking for a person, and
  *    frustration (when its settings say so).
  * 3. Budget: the workspace's daily limit and the teammate's share of it.
- * 4. Context (context.ts, prompt.ts), then 5. the tool loop (tools.ts).
+ * 4. Context (context.ts, prompt.ts, turns.ts), then 5. the tool loop (tools.ts).
  * 6. Finish, with the conversation locked: superseded when it changed hands, a person replied, or the customer
  *    wrote again (the debounce already queued the next run). Otherwise the reply passes checkTeammateReply (one
  *    rewrite allowed, then a person), and goes out (automatic: held changes, then message.send) or becomes one
- *    draft (training). Then the knowledge used and any gap are recorded.
- * 7. A model that ends with plain words: those are the reply. 8. A busy provider retries the job; running out
- *    of retries, or any other error, hands the conversation to a person.
+ *    draft (training). Then the knowledge used and any gap are recorded, and a question that went out arms a
+ *    follow-up nudge (nudges.ts).
+ * 7. A model that ends with plain words: those are the reply. 8. A busy provider retries the job; running out of
+ *    retries, or any other error, hands the conversation to a person.
+ * A workflow that handed the customer over puts its loop guard on the run (`origin`, carried in the job's
+ * payload), so everything the teammate does in it carries the guard; its goal and note go into the context.
  */
 import { eq } from 'drizzle-orm';
 import type { AiContent, AiMessage, AiUsage } from '@hfos/ai';
 import {
+  AI_TEAMMATE_GOALS,
   appointmentBookForCustomer,
   asksForPerson,
   asksIfHuman,
@@ -26,6 +33,7 @@ import {
   attendeeRescheduleForCustomer,
   briefFromProfile,
   checkTeammateReply,
+  conversationPickUp,
   disclosesAi,
   emergencyKind,
   executeCommandIn,
@@ -43,14 +51,17 @@ import {
   uuidArray,
   workspaceMessaging,
   type AiEmployeeActor,
+  type AiEmployeeOrigin,
   type ConversationHandoffReason,
   type DraftAction,
   type EmergencyKind,
   type ReplyCheck,
   type RequestMeta,
   type SensitiveKind,
+  type TeammateChannel,
   type TeammateConfig,
   type TeammateRow,
+  type TeammateTool,
   type TeammateToolName,
 } from '@hfos/core/server';
 import { asWorker, rows, sql, type Tx } from '@hfos/db/client';
@@ -59,6 +70,7 @@ import { aiBudget, recordAiUsage } from '../ai/budget';
 import { runToolLoop, type ToolLoopResult } from '../ai/tool-loop';
 import { clockLabel } from '../assistant/calendar-format';
 import { quietEndAt } from '../booking/deliver';
+import { STOP_WORDING } from '../booking/messages';
 import type { JobContext, JobHandler, JobResult } from '../jobs';
 import { proposeGap } from '../knowledge/gaps';
 import { errorMessage, MAX_ATTEMPTS } from '../outbox';
@@ -74,8 +86,10 @@ import {
   type BatchMessage,
   type RunContext,
 } from './context';
-import { loopReason } from './gates';
+import { scheduleExpirySweep } from './expiry';
+import { loopReason, widgetAnswers } from './gates';
 import { handOffAsAi, handOffAsSystem } from './handoff';
+import { scheduleFollowUp } from './nudges';
 import { contextText, conversationTurn, rewriteFeedback, TEAMMATE_SYSTEM } from './prompt';
 import {
   createExecutor,
@@ -85,8 +99,11 @@ import {
   type RunEnd,
   type RunState,
 } from './tools';
+import { firstMessageTurn, handoverLines, nudgeTurn, type Handover } from './turns';
 
 const str = (v: unknown): string | null => (typeof v === 'string' && v ? v : null);
+const isRecord = (v: unknown): v is Record<string, unknown> =>
+  typeof v === 'object' && v !== null && !Array.isArray(v);
 
 /** Thrown when the provider was busy and the job has tries left: the job runs again with backoff and resumes. */
 class ProviderBusy extends Error {
@@ -96,12 +113,39 @@ class ProviderBusy extends Error {
   }
 }
 
-interface StartedRun {
+/** What a run is for: answering what they wrote, a first message (answering anything waiting too), or a nudge. */
+export type RunKind = 'reply' | 'first' | 'nudge';
+
+/** Whom a first message with no conversation goes to, and how (outreach.ts chose the channel by consent). */
+export interface FirstTarget {
+  readonly personId: string;
+  readonly leadId: string | null;
+  readonly channel: TeammateChannel;
+  /** The first text to this number: it ends with the STOP wording, as every first text does. */
+  readonly stopWording: boolean;
+}
+
+/** How a job starts its run. */
+export interface RunSpec {
+  readonly kind: RunKind;
+  /** What started it (the run's triggered_by): an event type, 'workflow', or the follow-up job. */
+  readonly trigger: string;
+  /** The workflow run that handed the customer over: its loop guard. */
+  readonly origin: AiEmployeeOrigin | null;
+  /** The workflow's goal and note. */
+  readonly handover: Handover | null;
+  /** A nudge: which one, and when the message it follows went out. */
+  readonly nudge?: { readonly n: number; readonly lastAt: number } | null;
+}
+
+interface StartedRun extends RunSpec {
   readonly id: string;
   readonly scope: TenantScope;
   readonly teammate: TeammateRow;
   readonly config: TeammateConfig;
-  readonly conversationId: string;
+  /** Null for a first message to someone with no conversation yet (`target`): its send starts one. */
+  readonly conversationId: string | null;
+  readonly target: FirstTarget | null;
   /** The conversation's ai_epoch when it started: another one at the finish means it changed hands. */
   readonly epoch: number;
   readonly batch: readonly BatchMessage[];
@@ -111,6 +155,8 @@ interface StartedRun {
 interface HandOff {
   readonly reason: ConversationHandoffReason;
   readonly note: string;
+  /** An emergency: the customer gets its safety text instead of the usual hand-off line. */
+  readonly emergency?: EmergencyKind;
 }
 
 const REASON_WORDS: Readonly<Record<ConversationHandoffReason, string>> = {
@@ -150,39 +196,139 @@ const EMERGENCY_WORDS: Readonly<Record<EmergencyKind, string>> = {
 const TAKEN_OVER = 'The conversation changed hands while it worked.';
 const OPTED_OUT = 'They’ve opted out of texts, so it didn’t reply.';
 
-// ---- The job ----
-
-export const teammateReplyJob: JobHandler = async (ctx) => {
-  const scope = tenantOf(ctx.scope);
-  const conversationId = str(ctx.job.payload['conversationId']);
-  if (!conversationId) return;
-  const run = await startRun(ctx, scope, conversationId);
-  if (!run) return;
-  try {
-    return await answer(ctx, run);
-  } catch (e) {
-    if (e instanceof ProviderBusy) throw e;
-    ctx.log.error({ err: e, runId: run.id }, 'the AI teammate couldn’t finish a reply');
-    await failRun(ctx, run, e);
-  }
-};
+// ---- What a job carries ----
 
 const triggerOf = (v: unknown): string => {
   const t = str(v);
   return t && t.length <= 80 && /^[a-z_]+(\.[a-z_]+)*$/.test(t) ? t : 'message.received';
 };
 
+/** A workflow's loop guard, as a job carries it; null when there's none (or it's unreadable). */
+export function originOf(v: unknown): AiEmployeeOrigin | null {
+  if (!isRecord(v)) return null;
+  const runId = str(v['runId']);
+  const workflowId = str(v['workflowId']);
+  if (!runId || !workflowId) return null;
+  return {
+    runId,
+    workflowId,
+    depth: typeof v['depth'] === 'number' ? v['depth'] : 0,
+    originRunId: str(v['originRunId']),
+  };
+}
+
+/** A workflow's goal and note, as a job carries them. */
+export function handoverOf(p: Readonly<Record<string, unknown>>): Handover | null {
+  const goal = AI_TEAMMATE_GOALS.find((g) => g === p['goal']);
+  return goal ? { goal, note: typeof p['note'] === 'string' ? p['note'].slice(0, 500) : '' } : null;
+}
+
+// ---- The jobs ----
+
+/** `ai_teammate.reply`: answers a conversation (a workflow's hand-over may ask it to write first). */
+export const teammateReplyJob: JobHandler = async (ctx) => {
+  const scope = tenantOf(ctx.scope);
+  const p = ctx.job.payload;
+  const conversationId = str(p['conversationId']);
+  if (!conversationId) return;
+  const run = await startRun(ctx, scope, conversationId, {
+    kind: p['first'] === true ? 'first' : 'reply',
+    trigger: triggerOf(p['trigger']),
+    origin: originOf(p['origin']),
+    handover: handoverOf(p),
+  });
+  if (!run) return;
+  return runIt(ctx, run);
+};
+
+/** A nudge in the conversation (follow-up.ts decided it should go). */
+export async function runNudge(
+  ctx: JobContext,
+  scope: TenantScope,
+  conversationId: string,
+  nudge: { readonly n: number; readonly lastAt: number },
+  trigger: string,
+): Promise<JobResult> {
+  const run = await startRun(ctx, scope, conversationId, {
+    kind: 'nudge',
+    trigger,
+    origin: null,
+    handover: null,
+    nudge,
+  });
+  if (!run) return;
+  return runIt(ctx, run);
+}
+
+/**
+ * A first message to someone with no conversation yet (outreach.ts chose the channel and checked the hours).
+ * Another first message to them still running: this one tries again in a minute (and then finds them taken).
+ */
+export async function runFirstMessage(
+  ctx: JobContext,
+  scope: TenantScope,
+  target: FirstTarget,
+  spec: RunSpec,
+): Promise<JobResult> {
+  const run = await startFirstRun(ctx, scope, target, spec);
+  if (run === 'busy') return { rescheduleAt: new Date(Date.now() + 60_000) };
+  if (!run) return;
+  return runIt(ctx, run);
+}
+
+async function runIt(ctx: JobContext, run: StartedRun): Promise<JobResult> {
+  try {
+    return await answer(ctx, run);
+  } catch (e) {
+    if (e instanceof ProviderBusy) throw e;
+    ctx.log.error({ err: e, runId: run.id }, 'the AI teammate couldn’t finish a run');
+    await failRun(ctx, run, e);
+  }
+}
+
+/** A retry of this job (a busy provider) resumes this run instead of leaving it behind. */
+async function rememberRun(tx: Tx, jobId: string, runId: string): Promise<void> {
+  await tx.execute(
+    sql`update app.scheduled_jobs set payload = payload || ${JSON.stringify({ _runId: runId })}::jsonb
+        where id = ${jobId}`,
+  );
+}
+
+function aiActorOf(run: {
+  readonly id: string;
+  readonly scope: TenantScope;
+  readonly teammate: TeammateRow;
+  readonly conversationId: string | null;
+  readonly origin: AiEmployeeOrigin | null;
+}): AiEmployeeActor {
+  return {
+    type: 'ai_employee',
+    workspaceId: run.scope.workspaceId,
+    organizationId: run.scope.organizationId,
+    teammateId: run.teammate.id,
+    teammateName: run.teammate.name,
+    runId: run.id,
+    conversationId: run.conversationId,
+    approvedBy: null,
+    origin: run.origin,
+    // Never true here: commands don't simulate, so only the test console may, without calling them.
+    test: false,
+  };
+}
+
 /** Starts the conversation's run (or resumes this job's), or null when there's nothing for it to do. */
 async function startRun(
   ctx: JobContext,
   scope: TenantScope,
   conversationId: string,
+  spec: RunSpec,
 ): Promise<StartedRun | null> {
   const resumeId = str(ctx.job.payload['_runId']);
   return asWorker(ctx.db, scope, async (tx) => {
     const teammate = await loadTeammate(tx, scope.workspaceId);
     if (!teammate || teammate.status === 'off') return null;
     const config = runtimeConfigOf(teammate.config);
+    const base = { ...spec, scope, teammate, config, conversationId, target: null };
     if (resumeId) {
       const [r] = await rows<{
         id: string;
@@ -197,11 +343,8 @@ async function startRun(
       );
       if (r)
         return {
+          ...base,
           id: r.id,
-          scope,
-          teammate,
-          config,
-          conversationId,
           epoch: r.ai_epoch ?? 0,
           batch: await messagesById(tx, conversationId, r.message_ids),
           startedAt: new Date(r.started_at),
@@ -213,11 +356,13 @@ async function startRun(
       .where(eq(conversations.id, conversationId))
       .for('update');
     if (!conv || !answersChannel(config, conv.channel)) return null;
+    if (!(await widgetAnswers(tx, conv, teammate.id))) return null;
     const mine = conv.handledBy === 'ai' && conv.aiTeammateId === teammate.id;
     const free = conv.handledBy === 'none' && !conv.assigneeUserId;
-    if (!mine && !free) return null;
+    // A nudge or a workflow's first message is only ever for a conversation that's already the teammate's.
+    if (!mine && (!free || spec.kind !== 'reply')) return null;
     const batch = await unansweredMessages(tx, conv.id, conv.aiAnsweredThrough);
-    if (!batch.length) return null;
+    if (!batch.length && spec.kind === 'reply') return null;
     const loop = await loopReason(tx, conv.id);
     if (loop) {
       if (mine)
@@ -230,7 +375,7 @@ async function startRun(
       sql`insert into app.ai_teammate_runs
             (workspace_id, teammate_id, conversation_id, person_id, triggered_by, ai_epoch, message_ids, model)
           values (${scope.workspaceId}, ${teammate.id}, ${conv.id}, ${conv.personId},
-            ${triggerOf(ctx.job.payload['trigger'])}, ${epoch}, ${uuidArray(batch.map((b) => b.id))},
+            ${spec.trigger}, ${epoch}, ${uuidArray(batch.map((b) => b.id))},
             ${ctx.ai.provider?.model.slice(0, 100) ?? null})
           on conflict (conversation_id) where status = 'running' do nothing
           returning id, started_at`,
@@ -238,61 +383,105 @@ async function startRun(
     if (!made) return null;
     if (free) {
       // Nobody answers it and nobody has it: the teammate picks it up (and a person's reply takes it back).
-      await tx
-        .update(conversations)
-        .set({ handledBy: 'ai', aiTeammateId: teammate.id, aiEpoch: epoch })
-        .where(eq(conversations.id, conv.id));
-      await recordSystemEvent(tx, {
-        type: 'ai_teammate.picked_up',
-        action: 'ai_teammate.reply',
-        organizationId: scope.organizationId,
-        workspaceId: scope.workspaceId,
-        entityType: 'conversation',
-        entityId: conv.id,
-        payload: {
-          conversationId: conv.id,
-          personId: conv.personId,
-          teammateId: teammate.id,
-          runId: made.id,
-        },
-        before: { handledBy: 'none' },
-        after: { handledBy: 'ai', teammate: teammate.name },
-        correlationId: made.id,
-        causationId: ctx.job.id,
-      });
+      const picked = await executeCommandIn(
+        tx,
+        conversationPickUp,
+        { workspaceId: scope.workspaceId, conversationId: conv.id },
+        aiActorOf({ id: made.id, scope, teammate, conversationId: conv.id, origin: spec.origin }),
+        { correlationId: made.id, causationId: ctx.job.id, channel: 'ai_employee' },
+      );
+      if (picked.output.aiEpoch !== epoch)
+        await tx.execute(
+          sql`update app.ai_teammate_runs set ai_epoch = ${picked.output.aiEpoch} where id = ${made.id}`,
+        );
     }
-    // A retry of this job (a busy provider) resumes this run instead of leaving it behind.
-    await tx.execute(
-      sql`update app.scheduled_jobs set payload = payload || ${JSON.stringify({ _runId: made.id })}::jsonb
-          where id = ${ctx.job.id}`,
-    );
-    return {
-      id: made.id,
-      scope,
-      teammate,
-      config,
-      conversationId: conv.id,
-      epoch,
-      batch,
-      startedAt: new Date(made.started_at),
-    };
+    await rememberRun(tx, ctx.job.id, made.id);
+    return { ...base, id: made.id, epoch, batch, startedAt: new Date(made.started_at) };
   });
 }
 
-function aiActorOf(run: StartedRun): AiEmployeeActor {
-  return {
-    type: 'ai_employee',
-    workspaceId: run.scope.workspaceId,
-    organizationId: run.scope.organizationId,
-    teammateId: run.teammate.id,
-    teammateName: run.teammate.name,
-    runId: run.id,
-    conversationId: run.conversationId,
-    approvedBy: null,
-    origin: null,
-    // Never true here: commands don't simulate, so only the test console (step 7) may, without calling them.
-    test: false,
-  };
+/** Starts a first message's run, with no conversation yet (or resumes this job's). */
+async function startFirstRun(
+  ctx: JobContext,
+  scope: TenantScope,
+  target: FirstTarget,
+  spec: RunSpec,
+): Promise<StartedRun | 'busy' | null> {
+  const resumeId = str(ctx.job.payload['_runId']);
+  return asWorker(ctx.db, scope, async (tx) => {
+    const teammate = await loadTeammate(tx, scope.workspaceId);
+    if (!teammate || teammate.status === 'off') return null;
+    const config = runtimeConfigOf(teammate.config);
+    const base = {
+      ...spec,
+      scope,
+      teammate,
+      config,
+      conversationId: null,
+      target,
+      epoch: 0,
+      batch: [],
+    };
+    if (resumeId) {
+      const [r] = await rows<{ id: string; started_at: Date | string }>(
+        tx,
+        sql`select id, started_at from app.ai_teammate_runs
+            where id = ${resumeId} and teammate_id = ${teammate.id} and conversation_id is null
+              and status = 'running'`,
+      );
+      if (r) return { ...base, id: r.id, startedAt: new Date(r.started_at) };
+    }
+    // One first message per customer at a time: another job for them waits for this one, then finds them taken.
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${`ai-first:${target.personId}`}))`);
+    const [busy] = await rows(
+      tx,
+      sql`select 1 from app.ai_teammate_runs
+          where teammate_id = ${teammate.id} and person_id = ${target.personId} and conversation_id is null
+            and status = 'running' and not is_test
+          limit 1`,
+    );
+    if (busy) return 'busy';
+    const [made] = await rows<{ id: string; started_at: Date | string }>(
+      tx,
+      sql`insert into app.ai_teammate_runs
+            (workspace_id, teammate_id, person_id, lead_id, triggered_by, message_ids, model)
+          values (${scope.workspaceId}, ${teammate.id}, ${target.personId}, ${target.leadId},
+            ${spec.trigger}, ${uuidArray([])}, ${ctx.ai.provider?.model.slice(0, 100) ?? null})
+          returning id, started_at`,
+    );
+    await rememberRun(tx, ctx.job.id, made!.id);
+    return { ...base, id: made!.id, startedAt: new Date(made!.started_at) };
+  });
+}
+
+// ---- One run ----
+
+/** Tools a first message (no conversation yet) and a nudge may use: look things up, then write. */
+const FIRST_TOOLS: ReadonlySet<TeammateToolName> = new Set<TeammateToolName>([
+  'search_knowledge',
+  'reply',
+  'no_reply',
+]);
+const NUDGE_TOOLS: ReadonlySet<TeammateToolName> = new Set<TeammateToolName>([
+  'search_knowledge',
+  'find_times',
+  'reply',
+  'no_reply',
+  'hand_off',
+]);
+
+function toolsFor(run: StartedRun, rc: RunContext): TeammateTool[] {
+  const all = teammateTools(rc.config, { unverifiedChat: rc.unverifiedChat });
+  const only = !run.conversationId ? FIRST_TOOLS : run.kind === 'nudge' ? NUDGE_TOOLS : null;
+  return only ? all.filter((t) => only.has(t.name as TeammateToolName)) : all;
+}
+
+/** The message the model answers: the conversation and their new messages, a first message, or a nudge. */
+function turnOf(run: StartedRun, rc: RunContext): string {
+  if (run.kind === 'nudge' && run.nudge)
+    return nudgeTurn(rc, run.nudge.n, rc.config.followUp.maxNudges, run.nudge.lastAt);
+  if (rc.batch.length) return conversationTurn(rc);
+  return firstMessageTurn(rc, run.trigger === 'lead.created' ? 'new_lead' : 'workflow');
 }
 
 async function answer(ctx: JobContext, run: StartedRun): Promise<JobResult> {
@@ -303,6 +492,7 @@ async function answer(ctx: JobContext, run: StartedRun): Promise<JobResult> {
       teammate: run.teammate,
       config: run.config,
       conversationId: run.conversationId,
+      target: run.target,
       batch: run.batch,
       webUrl: ctx.webUrl,
       now: Date.now(),
@@ -314,7 +504,7 @@ async function answer(ctx: JobContext, run: StartedRun): Promise<JobResult> {
     causationId: ctx.job.id,
     channel: 'ai_employee',
   };
-  const leadId = rc.lead?.id ?? null;
+  const leadId = rc.lead?.id ?? run.target?.leadId ?? null;
   const end = (h: HandOff, extra: Partial<Closing> = {}) =>
     endHandedOff(ctx, run, ai, meta, h, { leadId, ...extra });
 
@@ -344,7 +534,7 @@ async function answer(ctx: JobContext, run: StartedRun): Promise<JobResult> {
   if (!(await hasRoom())) return end(budget);
 
   const state = newRunState();
-  const tools = teammateTools(rc.config, { unverifiedChat: rc.unverifiedChat });
+  const tools = toolsFor(run, rc);
   const enders = tools.filter((t) => TEAMMATE_TURN_ENDERS.has(t.name as TeammateToolName));
   const execute = createExecutor({
     db: ctx.db,
@@ -371,7 +561,9 @@ async function answer(ctx: JobContext, run: StartedRun): Promise<JobResult> {
   const base = {
     provider,
     system: TEAMMATE_SYSTEM,
-    context: contextText(rc),
+    context: run.handover
+      ? [contextText(rc), ...handoverLines(run.handover)].join('\n')
+      : contextText(rc),
     maxTokens: MAX_TOKENS,
     execute,
     onTurnUsage,
@@ -432,7 +624,7 @@ async function answer(ctx: JobContext, run: StartedRun): Promise<JobResult> {
 
   const loop = await runToolLoop({
     ...base,
-    messages: [{ role: 'user', content: conversationTurn(rc) }],
+    messages: [{ role: 'user', content: turnOf(run, rc) }],
     tools: tools.map(toolDefinition),
     maxRounds: rc.config.limits.toolRounds,
   });
@@ -492,7 +684,11 @@ export function immediateHandOff(rc: RunContext): HandOff | null {
   for (const t of texts) {
     const kind = emergencyKind(t);
     if (kind)
-      return { reason: 'emergency', note: `An emergency (${EMERGENCY_WORDS[kind]}): ${quote(t)}` };
+      return {
+        reason: 'emergency',
+        note: `An emergency (${EMERGENCY_WORDS[kind]}): ${quote(t)}`,
+        emergency: kind,
+      };
   }
   for (const t of texts) {
     const topic = sensitiveTopic(t, rc.config.handOff.sensitiveTopics);
@@ -514,7 +710,8 @@ export function immediateHandOff(rc: RunContext): HandOff | null {
 
 // ---- The safety check ----
 
-function checkReply(rc: RunContext, state: RunState, text: string): ReplyCheck {
+/** checkTeammateReply with this run's context: its links, numbers, knowledge and what it did. */
+export function checkReply(rc: RunContext, state: RunState, text: string): ReplyCheck {
   const { profile, business } = rc.grounding;
   return checkTeammateReply(text, {
     channel: rc.conversation.channel,
@@ -590,7 +787,7 @@ interface Closing {
 }
 
 /** Closes a run once, with its tokens summed from ai_usage (a resumed run's earlier tries included). */
-async function closeRun(tx: Tx, runId: string, c: Closing): Promise<void> {
+export async function closeRun(tx: Tx, runId: string, c: Closing): Promise<void> {
   await tx.execute(
     sql`update app.ai_teammate_runs r
         set status = ${c.status}, outcome = ${c.outcome ?? null},
@@ -617,15 +814,31 @@ const snippet = (rc: RunContext) => {
   const t = (rc.batch[rc.batch.length - 1]?.text ?? '').replace(/\s+/g, ' ').trim();
   return t.length > 80 ? `${t.slice(0, 79)}…` : t;
 };
+const whom = (rc: RunContext) =>
+  rc.customer ? `${rc.customer.firstName} ${rc.customer.lastName}`.trim() || 'them' : 'them';
 const handedOffSummary = (reason: ConversationHandoffReason, note: string) =>
   `Handed to a person (${REASON_WORDS[reason]}): ${note}`;
-const repliedSummary = (rc: RunContext) => `Replied to “${snippet(rc)}”`;
-const draftedSummary = (rc: RunContext, state: RunState) =>
-  `Drafted a reply to “${snippet(rc)}”${state.held.length ? `, holding: ${state.held.map((a) => a.summary || a.kind).join('; ')}` : ''}`;
+function repliedSummary(run: StartedRun, rc: RunContext): string {
+  if (run.kind === 'nudge')
+    return `Followed up (${run.nudge?.n ?? 1} of ${rc.config.followUp.maxNudges})`;
+  return rc.batch.length ? `Replied to “${snippet(rc)}”` : `Wrote first to ${whom(rc)}`;
+}
+function draftedSummary(run: StartedRun, rc: RunContext, state: RunState): string {
+  const what =
+    run.kind === 'nudge'
+      ? 'Drafted a follow-up'
+      : rc.batch.length
+        ? `Drafted a reply to “${snippet(rc)}”`
+        : `Drafted a first message to ${whom(rc)}`;
+  return `${what}${state.held.length ? `, holding: ${state.held.map((a) => a.summary || a.kind).join('; ')}` : ''}`;
+}
 const noReplySummary = (state: RunState) =>
   `No reply needed${state.end?.kind === 'no_reply' ? `: ${state.end.reason}` : ''}`;
 
-/** Hands the conversation to a person as the teammate and closes the run (superseded if a person took it). */
+/**
+ * Hands the conversation to a person as the teammate (the customer hears the line first) and closes the run,
+ * superseded if a person took it. A first message has no conversation to hand over: the run just says why.
+ */
 async function endHandedOff(
   ctx: JobContext,
   run: StartedRun,
@@ -635,7 +848,18 @@ async function endHandedOff(
   extra: Partial<Closing>,
 ): Promise<JobResult> {
   await asWorker(ctx.db, run.scope, async (tx) => {
-    const handed = await handOffAsAi(tx, ai, meta, h.reason, h.note);
+    if (!run.conversationId) {
+      await closeRun(tx, run.id, {
+        ...extra,
+        status: extra.status ?? 'done',
+        outcome: extra.status === 'failed' ? null : 'no_reply',
+        summary: `It didn’t write to them: ${h.note}`,
+      });
+      return;
+    }
+    const handed = await handOffAsAi(tx, ai, meta, h.reason, h.note, {
+      line: h.emergency ? { emergency: h.emergency } : 'usual',
+    });
     await closeRun(
       tx,
       run.id,
@@ -661,7 +885,7 @@ async function closeAborted(
 ): Promise<void> {
   await asWorker(ctx.db, run.scope, async (tx) => {
     if (state.abort === 'opted_out') {
-      await markAnswered(tx, run.conversationId, throughOf(rc), false);
+      if (run.conversationId) await markAnswered(tx, run.conversationId, throughOf(rc), false);
       await closeRun(tx, run.id, {
         ...extra,
         status: 'done',
@@ -687,7 +911,9 @@ async function failRun(ctx: JobContext, run: StartedRun, e: unknown): Promise<vo
     channel: 'ai_employee',
   };
   await asWorker(ctx.db, run.scope, async (tx) => {
-    const handed = await handOffAsAi(tx, aiActorOf(run), meta, 'error', note);
+    const handed = run.conversationId
+      ? await handOffAsAi(tx, aiActorOf(run), meta, 'error', note)
+      : false;
     await closeRun(tx, run.id, {
       status: 'failed',
       outcome: handed ? 'handed_off' : null,
@@ -697,20 +923,25 @@ async function failRun(ctx: JobContext, run: StartedRun, e: unknown): Promise<vo
   });
 }
 
-const throughOf = (rc: RunContext) => new Date(Math.max(...rc.batch.map((b) => b.at)));
+/** The newest message it answered; null when it answered none (a first message, a nudge). */
+const throughOf = (rc: RunContext): Date | null =>
+  rc.batch.length ? new Date(Math.max(...rc.batch.map((b) => b.at))) : null;
 
-/** The newest message it answered; and, when this reply said it's an AI, that it has. */
+/** The newest message it answered (when it answered some), and, when this message said it's an AI, that it has. */
 async function markAnswered(
   tx: Tx,
   conversationId: string,
-  through: Date,
+  through: Date | null,
   disclosed: boolean,
 ): Promise<void> {
+  if (!through && !disclosed) return;
+  const answered = through
+    ? sql`ai_answered_through = greatest(coalesce(ai_answered_through, '-infinity'::timestamptz),
+          ${through.toISOString()}::timestamptz)`
+    : sql`ai_answered_through = ai_answered_through`;
   await tx.execute(
     sql`update app.conversations
-        set ai_answered_through = greatest(coalesce(ai_answered_through, '-infinity'::timestamptz),
-          ${through.toISOString()}::timestamptz)
-          ${disclosed ? sql`, ai_disclosed_at = coalesce(ai_disclosed_at, now())` : sql``}
+        set ${answered} ${disclosed ? sql`, ai_disclosed_at = coalesce(ai_disclosed_at, now())` : sql``}
         where id = ${conversationId}`,
   );
 }
@@ -731,7 +962,9 @@ async function supersededWhy(
   )
     return TAKEN_OVER;
   const started = run.startedAt.toISOString();
-  const earliest = new Date(Math.min(...run.batch.map((b) => b.at))).toISOString();
+  const earliest = new Date(
+    run.batch.length ? Math.min(...run.batch.map((b) => b.at)) : run.startedAt.getTime(),
+  ).toISOString();
   const [x] = await rows<{ person: boolean; customer: boolean }>(
     tx,
     sql`select
@@ -797,23 +1030,29 @@ async function makeDraft(
   run: StartedRun,
   rc: RunContext,
   state: RunState,
-  body: string | null,
-  latest: BatchMessage,
+  message: { readonly body: string; readonly subject: string | null } | null,
+  latest: BatchMessage | null,
 ): Promise<void> {
-  await tx.execute(
-    sql`update app.ai_teammate_drafts
-        set status = 'cancelled', decided_at = now(), via = 'system', reason = 'A newer reply from the teammate replaced it.'
-        where conversation_id = ${rc.conversation.id} and status = 'pending' and kind = 'reply'`,
-  );
+  if (rc.conversation.id)
+    await tx.execute(
+      sql`update app.ai_teammate_drafts
+          set status = 'cancelled', decided_at = now(), via = 'system', reason = 'A newer reply from the teammate replaced it.'
+          where conversation_id = ${rc.conversation.id} and status = 'pending' and kind = 'reply'`,
+    );
   const preview = TeammateDraftPreview.parse({
     message:
-      body === null
+      message === null
         ? null
-        : { channel: rc.conversation.channel, body, subject: null, inReplyToMessageId: latest.id },
+        : {
+            channel: rc.conversation.channel,
+            body: message.body,
+            subject: message.subject,
+            inReplyToMessageId: latest?.id ?? null,
+          },
     actions: state.held,
     discount: null,
   });
-  await insertDraft(tx, ctx, run, rc, 'reply', preview, `ai:${run.id}`, body);
+  await insertDraft(tx, ctx, run, rc, 'reply', preview, `ai:${run.id}`, message?.body ?? null);
 }
 
 /** A discount waits for a manager in any mode: its own approval draft. */
@@ -844,15 +1083,18 @@ async function insertDraft(
   clientId: string,
   body: string | null,
 ): Promise<void> {
+  const expiresAt = new Date(Date.now() + rc.config.autonomy.draftExpiresMinutes * 60_000);
   const [d] = await rows<{ id: string }>(
     tx,
     sql`insert into app.ai_teammate_drafts
           (workspace_id, teammate_id, run_id, conversation_id, person_id, lead_id, kind, preview, expires_at, client_id)
         values (${rc.workspace.id}, ${run.teammate.id}, ${run.id}, ${rc.conversation.id}, ${rc.conversation.personId},
-          ${rc.lead?.id ?? null}, ${kind}, ${JSON.stringify(preview)}::jsonb,
-          now() + make_interval(mins => ${rc.config.autonomy.draftExpiresMinutes}), ${clientId})
+          ${rc.lead?.id ?? run.target?.leadId ?? null}, ${kind}, ${JSON.stringify(preview)}::jsonb,
+          ${expiresAt.toISOString()}::timestamptz, ${clientId})
         returning id`,
   );
+  // Nobody deciding it in time hands the conversation to a person: the business's sweep comes round then.
+  await scheduleExpirySweep(tx, run.scope, expiresAt);
   await recordSystemEvent(tx, {
     type: 'ai_teammate.drafted',
     action: 'ai_teammate.reply',
@@ -879,18 +1121,24 @@ async function insertDraft(
   });
 }
 
-function sendInput(rc: RunContext, runId: string, body: string, latest: BatchMessage) {
+function sendInput(
+  rc: RunContext,
+  conversationId: string,
+  runId: string,
+  body: string,
+  latest: BatchMessage | null,
+) {
   const channel = rc.conversation.channel;
   return {
     workspaceId: rc.workspace.id,
-    conversationId: rc.conversation.id,
+    conversationId,
     channel,
     body,
     ...(channel === 'email' && rc.config.channels.emailAddressId
       ? { emailAddressId: rc.config.channels.emailAddressId }
       : {}),
     // Quiet hours let it answer only the customer's latest text, soon after it came in.
-    ...(channel === 'sms' ? { inReplyToMessageId: latest.id } : {}),
+    ...(channel === 'sms' && latest ? { inReplyToMessageId: latest.id } : {}),
     clientId: `ai:${runId}`,
   };
 }
@@ -899,6 +1147,13 @@ type Finished = {
   readonly outcome: 'replied' | 'drafted' | 'no_reply' | 'other';
   readonly waitUntil: Date | null;
 };
+
+/** When quiet hours end (and a little after), for whatever they held back. */
+async function afterQuietHours(tx: Tx, workspaceId: string): Promise<{ end: number; tz: string }> {
+  const m = await workspaceMessaging(tx, workspaceId);
+  const end = quietEndAt(m.settings.quietHours, m.timezone, Date.now()) ?? Date.now() + 5 * 60_000;
+  return { end, tz: m.timezone };
+}
 
 /** The finish, with the conversation locked: supersede, or send (automatic) or draft (training). */
 async function finish(
@@ -912,9 +1167,11 @@ async function finish(
   checks: readonly unknown[],
   steps: number,
 ): Promise<JobResult> {
+  if (!run.conversationId) return finishFirst(ctx, run, rc, ai, meta, state, text, checks, steps);
+  const conversationId = run.conversationId;
   const channel = rc.conversation.channel;
   const body = text === null ? null : channel === 'sms' ? plainSmsText(text) : text.trim();
-  const latest = rc.batch[rc.batch.length - 1]!;
+  const latest = rc.batch[rc.batch.length - 1] ?? null;
   const through = throughOf(rc);
   const common = {
     replyText: body,
@@ -928,7 +1185,7 @@ async function finish(
     const [conv] = await tx
       .select()
       .from(conversations)
-      .where(eq(conversations.id, run.conversationId))
+      .where(eq(conversations.id, conversationId))
       .for('update');
     const teammate = await loadTeammate(tx, run.scope.workspaceId, { teammateId: run.teammate.id });
     const why = await supersededWhy(tx, run, conv, teammate);
@@ -938,15 +1195,24 @@ async function finish(
     }
     if (teammate!.status === 'training') {
       const drafted = body !== null || state.held.length > 0;
-      if (drafted) await makeDraft(tx, ctx, run, rc, state, body, latest);
+      if (drafted)
+        await makeDraft(
+          tx,
+          ctx,
+          run,
+          rc,
+          state,
+          body === null ? null : { body, subject: null },
+          latest,
+        );
       if (state.discount) await makeApproval(tx, ctx, run, rc, state.discount);
-      await markAnswered(tx, run.conversationId, through, false);
+      await markAnswered(tx, conversationId, through, false);
       const outcome = drafted ? 'drafted' : 'no_reply';
       await closeRun(tx, run.id, {
         ...common,
         status: 'done',
         outcome,
-        summary: drafted ? draftedSummary(rc, state) : noReplySummary(state),
+        summary: drafted ? draftedSummary(run, rc, state) : noReplySummary(state),
       });
       return { outcome, waitUntil: null };
     }
@@ -956,29 +1222,33 @@ async function finish(
         for (const [i, a] of state.held.entries())
           await runHeld(sp, ai, meta, a, `ai:${run.id}:${i + 1}`);
         if (body !== null)
-          await executeCommandIn(sp, messageSend, sendInput(rc, run.id, body, latest), ai, meta);
+          await executeCommandIn(
+            sp,
+            messageSend,
+            sendInput(rc, conversationId, run.id, body, latest),
+            ai,
+            meta,
+          );
       });
     } catch (e) {
       if (!(e instanceof HfosError)) throw e;
       if (e.rule === 'quiet_hours') {
-        // Past the reply window (or a first text): it answers again once quiet hours end.
-        const m = await workspaceMessaging(tx, run.scope.workspaceId);
-        const end =
-          quietEndAt(m.settings.quietHours, m.timezone, Date.now()) ?? Date.now() + 5 * 60_000;
+        // Past the reply window (or nothing to reply to): it writes again once quiet hours end.
+        const q = await afterQuietHours(tx, run.scope.workspaceId);
         await closeRun(tx, run.id, {
           ...common,
           status: 'done',
           outcome: 'no_reply',
-          summary: `Quiet hours: it answers once they end, at ${clockLabel(end, m.timezone)}.`,
+          summary: `Quiet hours: it answers once they end, at ${clockLabel(q.end, q.tz)}.`,
         });
-        return { outcome: 'other', waitUntil: new Date(end + QUIET_GRACE_MS) };
+        return { outcome: 'other', waitUntil: new Date(q.end + QUIET_GRACE_MS) };
       }
       if (e.rule === 'not_handled_by_ai') {
         await closeRun(tx, run.id, { ...common, status: 'superseded', summary: TAKEN_OVER });
         return none;
       }
       if (e.rule === 'opted_out') {
-        await markAnswered(tx, run.conversationId, through, false);
+        await markAnswered(tx, conversationId, through, false);
         await closeRun(tx, run.id, {
           ...common,
           status: 'done',
@@ -1005,16 +1275,156 @@ async function finish(
       );
       return none;
     }
-    await markAnswered(tx, run.conversationId, through, body !== null && disclosesAi(body));
+    await markAnswered(tx, conversationId, through, body !== null && disclosesAi(body));
     if (state.discount) await makeApproval(tx, ctx, run, rc, state.discount);
     const outcome = body !== null ? 'replied' : 'no_reply';
     await closeRun(tx, run.id, {
       ...common,
       status: 'done',
       outcome,
-      summary: outcome === 'replied' ? repliedSummary(rc) : noReplySummary(state),
+      summary: outcome === 'replied' ? repliedSummary(run, rc) : noReplySummary(state),
     });
+    // It asked them something: a nudge waits in case they go quiet.
+    if (body !== null) await scheduleFollowUp(tx, run.scope, conversationId, rc.config, body);
     return { outcome, waitUntil: null };
+  });
+  if (result.outcome !== 'other') await bookkeeping(ctx, run, rc, state, false);
+  return result.waitUntil ? { rescheduleAt: result.waitUntil } : undefined;
+}
+
+/**
+ * A first message's finish: no conversation yet, so its send (automatic) starts one, which the teammate then
+ * handles, and the run records it; in training it's a draft that starts the conversation once approved. A first
+ * text carries the STOP wording. Quiet hours hold a text back until they end.
+ */
+async function finishFirst(
+  ctx: JobContext,
+  run: StartedRun,
+  rc: RunContext,
+  ai: AiEmployeeActor,
+  meta: RequestMeta,
+  state: RunState,
+  text: string | null,
+  checks: readonly unknown[],
+  steps: number,
+): Promise<JobResult> {
+  const t = run.target!;
+  const channel = t.channel;
+  const clean = text === null ? null : channel === 'sms' ? plainSmsText(text) : text.trim();
+  const body =
+    clean !== null && channel === 'sms' && t.stopWording
+      ? plainSmsText(`${clean} ${STOP_WORDING}`)
+      : clean;
+  const subject =
+    channel === 'email'
+      ? `A message from ${rc.grounding.business.name || rc.workspace.name}`
+      : null;
+  const common = {
+    replyText: body,
+    checks,
+    toolSteps: steps,
+    knowledge: knowledgeOf(state),
+    leadId: t.leadId ?? rc.lead?.id ?? null,
+  };
+  const result = await asWorker(ctx.db, run.scope, async (tx): Promise<Finished> => {
+    const none: Finished = { outcome: 'other', waitUntil: null };
+    const teammate = await loadTeammate(tx, run.scope.workspaceId, { teammateId: run.teammate.id });
+    if (!teammate || teammate.status === 'off') {
+      await closeRun(tx, run.id, {
+        ...common,
+        status: 'superseded',
+        summary: 'Its teammate was turned off while it worked.',
+      });
+      return none;
+    }
+    if (body === null) {
+      await closeRun(tx, run.id, {
+        ...common,
+        status: 'done',
+        outcome: 'no_reply',
+        summary: noReplySummary(state),
+      });
+      return { outcome: 'no_reply', waitUntil: null };
+    }
+    if (teammate.status === 'training') {
+      await makeDraft(tx, ctx, run, rc, state, { body, subject }, null);
+      await closeRun(tx, run.id, {
+        ...common,
+        status: 'done',
+        outcome: 'drafted',
+        summary: draftedSummary(run, rc, state),
+      });
+      return { outcome: 'drafted', waitUntil: null };
+    }
+    try {
+      const sent = await executeCommandIn(
+        tx,
+        messageSend,
+        {
+          workspaceId: run.scope.workspaceId,
+          personId: t.personId,
+          channel,
+          body,
+          ...(subject ? { subject } : {}),
+          ...(channel === 'email' && rc.config.channels.emailAddressId
+            ? { emailAddressId: rc.config.channels.emailAddressId }
+            : {}),
+          clientId: `ai:${run.id}`,
+        },
+        ai,
+        meta,
+      );
+      const conversationId = sent.output.conversationId;
+      await tx.execute(
+        sql`update app.ai_teammate_runs set conversation_id = ${conversationId} where id = ${run.id}`,
+      );
+      // Nothing older in that conversation waits for the teammate now.
+      await markAnswered(tx, conversationId, new Date(), disclosesAi(body));
+      await closeRun(tx, run.id, {
+        ...common,
+        status: 'done',
+        outcome: 'replied',
+        summary: repliedSummary(run, rc),
+      });
+      await scheduleFollowUp(tx, run.scope, conversationId, rc.config, body);
+      return { outcome: 'replied', waitUntil: null };
+    } catch (e) {
+      if (!(e instanceof HfosError)) throw e;
+      if (e.rule === 'quiet_hours') {
+        const q = await afterQuietHours(tx, run.scope.workspaceId);
+        await closeRun(tx, run.id, {
+          ...common,
+          status: 'done',
+          outcome: 'no_reply',
+          summary: `Quiet hours: it writes once they end, at ${clockLabel(q.end, q.tz)}.`,
+        });
+        return { outcome: 'other', waitUntil: new Date(q.end + QUIET_GRACE_MS) };
+      }
+      if (e.rule === 'opted_out') {
+        await closeRun(tx, run.id, {
+          ...common,
+          status: 'done',
+          outcome: 'no_reply',
+          summary: OPTED_OUT,
+        });
+        return none;
+      }
+      if (e.rule === 'not_handled_by_ai' || e.rule === 'outside_its_conversation') {
+        await closeRun(tx, run.id, {
+          ...common,
+          status: 'superseded',
+          summary: 'Someone on the team is talking to them already, so it didn’t write.',
+        });
+        return none;
+      }
+      await closeRun(tx, run.id, {
+        ...common,
+        status: 'failed',
+        summary: `Its first message couldn’t go out: ${e.message}`,
+        error: e.message,
+      });
+      return none;
+    }
   });
   if (result.outcome !== 'other') await bookkeeping(ctx, run, rc, state, false);
   return result.waitUntil ? { rescheduleAt: result.waitUntil } : undefined;

@@ -157,6 +157,18 @@ const Qualify = z.object({
       stageId: id.nullable().default(null),
       /** Who hears about it; null tells no one. */
       notify: NotifyWho.nullable().default(null),
+      /** Then offer times to book from the calendars in Book. Only matters while Book is on. */
+      offerTimes: z.boolean().default(true),
+    })
+    .prefault({}),
+  /**
+   * When an answer rules the lead out. It never marks the lead lost itself (the teammate may only move leads
+   * between open stages), so a person decides.
+   */
+  whenNotAFit: z
+    .object({
+      /** Tell the team: a task for the lead's assignee (else the customer's owner), "Not a fit: … Mark the lead lost?". */
+      tellTeam: z.boolean().default(true),
     })
     .prefault({}),
 });

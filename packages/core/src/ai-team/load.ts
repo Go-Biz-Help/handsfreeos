@@ -14,6 +14,7 @@ import {
   pipelines,
   workspaces,
 } from '@hfos/db/schema';
+import { parseConfig as parseCalendarConfig } from '../calendar/config';
 import { uuidArray } from '../calendar/load';
 import { HfosError } from '../errors';
 import { emptyKnowledgeProfile, KnowledgeProfile, profileCompleteness } from '../knowledge/profile';
@@ -22,7 +23,12 @@ import { liveNumber, loadRegistrations, readiness, workspaceMessaging } from '..
 import type { WorkspaceRole } from '../permissions';
 import { openHoursOf } from '../schemas/workspace';
 import { parseStoredDefinition } from '../workflows/load';
-import { workflowTextsNewLeads, type TeammateCatalogs } from './catalogs';
+import {
+  DEFAULT_AI_DAILY_TOKENS,
+  workflowTextsNewLeads,
+  type TeammateAiUsage,
+  type TeammateCatalogs,
+} from './catalogs';
 import { emptyTeammateConfig, parseTeammateConfig, type TeammateConfig } from './config';
 
 export type TeammateRow = typeof aiTeammates.$inferSelect;
@@ -108,6 +114,58 @@ export function teammateUserIds(config: TeammateConfig): string[] {
   return [...ids];
 }
 
+/**
+ * The daily AI limit the worker enforces: ASSISTANT_DAILY_TOKENS when it's a whole number above zero, else the
+ * default. The worker reads the same variable, so a deployment that changes it sets it for the API too.
+ */
+export function aiDailyTokens(
+  env: Readonly<Record<string, string | undefined>> = process.env,
+): number {
+  const n = Number(env['ASSISTANT_DAILY_TOKENS'] || DEFAULT_AI_DAILY_TOKENS);
+  return Number.isInteger(n) && n >= 1 ? n : DEFAULT_AI_DAILY_TOKENS;
+}
+
+/**
+ * Tokens used since midnight in `timeZone`, cache reads and writes included, the way the worker's budget adds
+ * them up: the Assistant's runs plus app.ai_usage, and the teammate's part of it. Run as a person, the
+ * Assistant's runs are only their own (each person's chats are private), so others' chats aren't counted.
+ */
+export async function teammateAiUsage(
+  tx: Tx,
+  workspaceId: string,
+  timeZone: string,
+  teammateId: string | null,
+): Promise<TeammateAiUsage> {
+  const [u] = await rows<{ used: string | number | null; teammate: string | number | null }>(
+    tx,
+    sql`with since as (select date_trunc('day', now() at time zone ${timeZone}) at time zone ${timeZone} as t)
+        select
+          coalesce((select sum(u.input_tokens + u.output_tokens + u.cache_read_tokens + u.cache_write_tokens)
+            from app.ai_usage u, since where u.workspace_id = ${workspaceId} and u.created_at >= since.t), 0)
+          + coalesce((select sum(r.input_tokens + r.output_tokens + r.cache_read_tokens + r.cache_write_tokens)
+            from app.assistant_runs r, since where r.workspace_id = ${workspaceId} and r.started_at >= since.t), 0)
+            as used,
+          coalesce((select sum(u.input_tokens + u.output_tokens + u.cache_read_tokens + u.cache_write_tokens)
+            from app.ai_usage u, since
+            where u.workspace_id = ${workspaceId} and u.source = 'teammate' and u.created_at >= since.t
+              ${teammateId ? sql`and u.teammate_id = ${teammateId}::uuid` : sql``}), 0) as teammate`,
+  );
+  return {
+    dailyTokens: aiDailyTokens(),
+    usedTokens: Number(u?.used ?? 0),
+    teammateTokens: Number(u?.teammate ?? 0),
+  };
+}
+
+/** A calendar's own visit lengths, in minutes (none when its settings can't be read). */
+function lengthsOf(config: unknown): number[] {
+  try {
+    return [...parseCalendarConfig(config).durations.minutes];
+  } catch {
+    return [];
+  }
+}
+
 /** A widget's name in lists: the first site it shows on. */
 function widgetName(origins: readonly string[]): string {
   const first = origins[0];
@@ -121,15 +179,19 @@ function widgetName(origins: readonly string[]): string {
 
 /**
  * Everything a teammate's settings refer to in one workspace: whether texting is ready, the addresses it can
- * email from, the chat widgets, calendars (bookable online: public and not archived), how much knowledge is
- * published and how complete the profile is, the business's open hours, the team (plus anyone the settings
- * still name, marked inactive once they leave), active workflows that text new leads, quiet hours, the
- * industry, and pipelines with their stages.
+ * email from, the chat widgets, calendars (bookable online: public and not archived; with their colour and
+ * lengths), how much knowledge is published, how complete the profile is and whether it allows prices, today's
+ * AI use, the business's open hours, the team (plus anyone the settings still name, marked inactive once they
+ * leave), active workflows that text new leads, quiet hours, the industry, and pipelines with their stages.
  */
 export async function loadTeammateCatalogs(
   tx: Tx,
   workspaceId: string,
-  opts: { readonly extraUserIds?: readonly string[] } = {},
+  opts: {
+    readonly extraUserIds?: readonly string[];
+    /** The teammate whose share of today's AI use to count. */
+    readonly teammateId?: string | null;
+  } = {},
 ): Promise<TeammateCatalogs> {
   const [ws] = await tx
     .select({
@@ -155,6 +217,8 @@ export async function loadTeammateCatalogs(
       name: calendars.name,
       status: calendars.status,
       public: calendars.public,
+      color: calendars.color,
+      config: calendars.config,
     })
     .from(calendars)
     .where(eq(calendars.workspaceId, workspaceId))
@@ -165,10 +229,16 @@ export async function loadTeammateCatalogs(
         where workspace_id = ${workspaceId} and status = 'published'`,
   );
   const [profileRow] = await tx
-    .select({ profile: knowledgeProfiles.profile })
+    .select({ profile: knowledgeProfiles.profile, allowPrices: knowledgeProfiles.allowPrices })
     .from(knowledgeProfiles)
     .where(eq(knowledgeProfiles.workspaceId, workspaceId));
   const profile = profileRow ? KnowledgeProfile.safeParse(profileRow.profile) : null;
+  const aiUsage = await teammateAiUsage(
+    tx,
+    workspaceId,
+    ws.timezone || 'UTC',
+    opts.teammateId ?? null,
+  );
   const team = await rows<{
     id: string;
     role: WorkspaceRole;
@@ -231,9 +301,14 @@ export async function loadTeammateCatalogs(
       name: c.name,
       archived: c.status === 'archived',
       bookableOnline: c.public && c.status !== 'archived',
+      color: c.color,
+      lengths: lengthsOf(c.config),
     })),
     knowledge: { published: knowledge?.published ?? 0 },
     profile: profileCompleteness(profile?.success ? profile.data : emptyKnowledgeProfile()),
+    // The column is what grounding reads (commands/knowledge.ts keeps the document in step).
+    pricesAllowed: profileRow?.allowPrices ?? false,
+    aiUsage,
     businessHours: openHoursOf(ws.settings as Record<string, unknown> | null),
     members: team
       .map((m) => ({ userId: m.id, name: m.name ?? 'Someone', role: m.role, active: m.active }))

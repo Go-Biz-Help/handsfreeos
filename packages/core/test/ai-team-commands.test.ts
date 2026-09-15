@@ -44,6 +44,7 @@ import { localMinutes } from '../src/messaging/quiet-hours';
 import { DEFAULT_OPEN_HOURS, openHoursOf } from '../src/schemas/workspace';
 import {
   activityLog,
+  aiDailyTokens,
   aiTeammateActivity,
   aiTeammateCreate,
   aiTeammateDecideDraft,
@@ -63,6 +64,7 @@ import {
   chatWidgetCreate,
   conversationHandOff,
   conversationHandToAi,
+  conversationPickUp,
   conversationTakeOver,
   inboxList,
   inboxSummary,
@@ -72,6 +74,7 @@ import {
   leadRecordAnswers,
   leadUpdate,
   messageReceive,
+  messageRecordOptOut,
   messageSend,
   organizationCreate,
   personCreate,
@@ -1462,6 +1465,51 @@ describe('the teammate’s settings and status', () => {
     });
     expect(seen.issues.map((i) => i.code)).toContain('thin_knowledge');
     expect(seen.catalogs.calendars.map((c) => c.name).sort()).toEqual(['Office', 'Visits']);
+    // The first revision says how it began ("an" before a vowel sound).
+    expect(seen.revisions.at(-1)).toMatchObject({
+      revision: 1,
+      diffSummary: ['Created as a Lead Responder'],
+    });
+  });
+
+  it('carries calendar colours and lengths, whether prices are allowed, and today’s AI use', async () => {
+    const get = () => ask(aiTeammateGet, { workspaceId: a.wsId }, a.member);
+    const before = await get();
+    const visits = before.catalogs.calendars.find((c) => c.name === 'Visits')!;
+    expect(visits.color).toMatch(/^#[0-9a-f]{6}$/i);
+    expect(visits.lengths.length).toBeGreaterThan(0);
+    expect(visits.lengths.every((n) => Number.isInteger(n) && n > 0)).toBe(true);
+    expect(before.catalogs.pricesAllowed).toBe(false);
+    expect(before.catalogs.aiUsage.dailyTokens).toBe(aiDailyTokens());
+    const spend = (source: 'teammate' | 'workflow', [i, o, r, w]: readonly number[]) =>
+      rows(
+        admin(),
+        sql`insert into app.ai_usage (workspace_id, source, teammate_id, model, input_tokens, output_tokens,
+              cache_read_tokens, cache_write_tokens)
+            values (${a.wsId}, ${source}::app.ai_usage_source, ${source === 'teammate' ? a.teammateId : null},
+              'test-model', ${i}, ${o}, ${r}, ${w})`,
+      );
+    await spend('teammate', [1000, 200, 30, 4]);
+    await spend('workflow', [400, 100, 0, 0]);
+    await rows(
+      admin(),
+      sql`insert into app.knowledge_profiles (workspace_id, allow_prices) values (${a.wsId}, true)
+          on conflict (workspace_id) do update set allow_prices = true`,
+    );
+    const after = await get();
+    expect(after.catalogs.pricesAllowed).toBe(true);
+    expect(after.catalogs.aiUsage.teammateTokens - before.catalogs.aiUsage.teammateTokens).toBe(
+      1234,
+    );
+    expect(after.catalogs.aiUsage.usedTokens - before.catalogs.aiUsage.usedTokens).toBe(1734);
+    await rows(
+      admin(),
+      sql`update app.knowledge_profiles set allow_prices = false where workspace_id = ${a.wsId}`,
+    );
+    // The limit is the worker's: ASSISTANT_DAILY_TOKENS when it's a whole number, else 2,000,000.
+    expect(aiDailyTokens({ ASSISTANT_DAILY_TOKENS: '4000000' })).toBe(4_000_000);
+    expect(aiDailyTokens({ ASSISTANT_DAILY_TOKENS: '4,000,000' })).toBe(2_000_000);
+    expect(aiDailyTokens({})).toBe(2_000_000);
   });
 
   it('won’t turn on with conflicting settings, and moves between training and automatic', async () => {
@@ -1557,6 +1605,204 @@ describe('the inbox boxes and Activity', () => {
     expect(activity.runs.length).toBe(n!.n);
     const started = activity.runs.map((r) => r.startedAt);
     expect(started).toEqual([...started].sort().reverse());
+  });
+
+  it('says each run’s channel, the message that started it, what each tool came back with, and what it booked', async () => {
+    const before = await ask(aiTeammateActivity, { workspaceId: a.wsId, since: 'today' }, a.member);
+    const nina = await aiChat(a, 'Nina');
+    const [visits] = await rows<{ id: string }>(
+      admin(),
+      sql`select id from app.calendars where workspace_id = ${a.wsId} and name = 'Visits'`,
+    );
+    const stageId = await stageOf(a, 'open', 1);
+    const [stage] = await rows<{ name: string }>(
+      admin(),
+      sql`select name from app.pipeline_stages where id = ${stageId}`,
+    );
+    const newRun = async (opts: {
+      conversationId?: string;
+      outcome: 'replied' | 'drafted';
+      messageIds?: string[];
+    }) => {
+      const [r] = await rows<{ id: string }>(
+        admin(),
+        sql`insert into app.ai_teammate_runs
+              (workspace_id, teammate_id, conversation_id, person_id, triggered_by, status, outcome, message_ids, ended_at)
+            values (${a.wsId}, ${a.teammateId}, ${opts.conversationId ?? null}, ${nina.personId},
+              ${opts.conversationId ? 'message.received' : 'lead.created'}, 'done', ${opts.outcome},
+              ${`{${(opts.messageIds ?? []).join(',')}}`}::uuid[], now())
+            returning id`,
+      );
+      return r!.id;
+    };
+    const call = (
+      runId: string,
+      n: number,
+      tool: string,
+      status: string,
+      args: object,
+      result: object,
+      error: string | null = null,
+    ) =>
+      rows(
+        admin(),
+        sql`insert into app.ai_teammate_tool_calls
+              (workspace_id, run_id, provider_call_id, tool, arguments, status, result, error, created_at)
+            values (${a.wsId}, ${runId}, ${`call_${n}`}, ${tool}, ${JSON.stringify(args)}::jsonb, ${status},
+              ${JSON.stringify(result)}::jsonb, ${error}, now() + make_interval(secs => ${n}))`,
+      );
+    const when = 'Tue, Sep 22, 10:00 AM';
+    const held = {
+      held: {
+        kind: 'book',
+        calendarId: visits!.id,
+        startsAt: '2026-09-22T15:00:00.000Z',
+        summary: `Book ${when} on Visits`,
+      },
+    };
+    const replied = await newRun({
+      conversationId: nina.conversationId,
+      outcome: 'replied',
+      messageIds: [nina.messageId],
+    });
+    await call(
+      replied,
+      1,
+      'search_knowledge',
+      'done',
+      { query: 'tune-up price' },
+      { content: { items: [{ id: 'k1' }, { id: 'k2' }] } },
+    );
+    await call(
+      replied,
+      2,
+      'find_times',
+      'done',
+      { calendarId: visits!.id, from: '2026-09-22' },
+      {
+        content: {
+          calendar: 'Visits',
+          times: [
+            { label: when },
+            { label: 'Tue, Sep 22, 1:00 PM' },
+            { label: 'Wed, Sep 23, 9:00 AM' },
+          ],
+        },
+      },
+    );
+    await call(
+      replied,
+      3,
+      'book',
+      'held',
+      { calendarId: visits!.id, startsAt: '2026-09-22T10:00:00-05:00' },
+      { content: { status: 'ready', when }, effect: held },
+    );
+    await call(
+      replied,
+      4,
+      'record_answers',
+      'done',
+      {
+        answers: [
+          { questionId: 'need', answer: 'Repair' },
+          { questionId: 'owner', answer: 'No, renting' },
+        ],
+      },
+      { content: { status: 'not_a_fit', missing: [], qualified: false } },
+    );
+    await call(replied, 5, 'move_stage', 'done', { stageId }, { content: { moved: true } });
+    const refusal = 'That isn’t one of your tools here.';
+    await call(
+      replied,
+      6,
+      'create_task',
+      'refused',
+      { title: 'Call Nina back' },
+      { content: { error: refusal } },
+      refusal,
+    );
+    // First messages to a new lead: no conversation until the draft goes out. A booking counts once sent.
+    const firstMessage = async (sent: boolean) => {
+      const id = await newRun({ outcome: 'drafted' });
+      await call(id, 1, 'book', 'held', { calendarId: visits!.id }, { effect: held });
+      await rows(
+        admin(),
+        sql`insert into app.ai_teammate_drafts
+              (workspace_id, teammate_id, run_id, person_id, kind, status, preview, client_id, decided_at, sent_at)
+            values (${a.wsId}, ${a.teammateId}, ${id}, ${nina.personId}, 'reply', ${sent ? 'approved' : 'rejected'},
+              ${JSON.stringify({ message: { channel: 'email', body: 'Hi Nina, this is Ava.' }, actions: [] })}::jsonb,
+              ${`ai:${id}`}, now(), ${sent ? new Date().toISOString() : null})`,
+      );
+      return id;
+    };
+    const sent = await firstMessage(true);
+    await firstMessage(false);
+
+    const after = await ask(aiTeammateActivity, { workspaceId: a.wsId, since: 'today' }, a.member);
+    expect(after.counters.bookedToday - before.counters.bookedToday).toBe(2);
+    const byId = new Map(after.runs.map((r) => [r.id, r]));
+    const r = byId.get(replied)!;
+    expect(r).toMatchObject({
+      channel: 'sms',
+      messageCount: 1,
+      firstMessage: { excerpt: 'Hi, do you do AC tune-ups?' },
+      tools: [
+        'search_knowledge',
+        'find_times',
+        'book',
+        'record_answers',
+        'move_stage',
+        'create_task',
+      ],
+    });
+    expect(r.toolCalls.map((c) => [c.tool, c.status, c.summary])).toEqual([
+      ['search_knowledge', 'done', '2 answers found for “tune-up price”'],
+      ['find_times', 'done', `3 open times on Visits, from ${when}`],
+      ['book', 'held', `Book ${when} on Visits`],
+      ['record_answers', 'done', '2 answers recorded · not a fit'],
+      ['move_stage', 'done', `To ${stage!.name}`],
+      ['create_task', 'refused', refusal],
+    ]);
+    expect(Date.parse(r.toolCalls[1]!.at)).toBeGreaterThan(Date.parse(r.toolCalls[0]!.at));
+    expect(byId.get(sent)).toMatchObject({
+      channel: 'email',
+      conversationId: null,
+      firstMessage: null,
+      messageCount: 0,
+    });
+  });
+
+  it('lists only the runs of the period asked for, in the business’s time zone', async () => {
+    const past = async (days: number) => {
+      const [r] = await rows<{ id: string }>(
+        admin(),
+        sql`insert into app.ai_teammate_runs (workspace_id, teammate_id, triggered_by, status, outcome, started_at, ended_at)
+            values (${a.wsId}, ${a.teammateId}, 'message.received', 'done', 'no_reply',
+              now() - make_interval(days => ${days}), now() - make_interval(days => ${days}))
+            returning id`,
+      );
+      return r!.id;
+    };
+    const three = await past(3);
+    const ten = await past(10);
+    const ids = async (since?: 'today' | '7d' | '30d') =>
+      (
+        await ask(
+          aiTeammateActivity,
+          { workspaceId: a.wsId, limit: 100, ...(since ? { since } : {}) },
+          a.owner,
+        )
+      ).runs.map((r) => r.id);
+    const has = (list: string[]) => [list.includes(three), list.includes(ten)];
+    expect(has(await ids('today'))).toEqual([false, false]);
+    expect(has(await ids('7d'))).toEqual([true, false]);
+    expect(has(await ids('30d'))).toEqual([true, true]);
+    expect(has(await ids())).toEqual([true, true]);
+    await expectHfos(
+      () => ask(aiTeammateActivity, { workspaceId: a.wsId, since: 'year' }, a.owner),
+      'validation',
+    );
   });
 });
 
@@ -1728,5 +1974,224 @@ describe('fixes from the step 3 security review', () => {
           where id = ${pat.conversationId}`,
     );
     expect((await asAva(a, me, activityLog, note)).output.activityId).toBeTruthy();
+  });
+});
+
+describe('step 7: picking up, workflows handing over, and plain-language opt-outs', () => {
+  it('picks up a conversation nobody has, once, and never one someone has or is assigned', async () => {
+    const kim = await customer(a, 'Kim');
+    const said = await textIn(a, kim.phone, 'Hi, what are your hours?');
+    const before = await conv(said.conversationId);
+    expect(before).toMatchObject({ handledBy: 'none', assigneeUserId: null });
+    const runId = await runRow(a, { conversationId: said.conversationId, personId: kim.personId });
+    const ref = { workspaceId: a.wsId, conversationId: said.conversationId };
+    const me = { conversationId: said.conversationId, runId };
+    const picked = await asAva(a, me, conversationPickUp, ref);
+    expect(picked.output).toEqual({
+      conversationId: said.conversationId,
+      teammateId: a.teammateId,
+      aiEpoch: before.aiEpoch + 1,
+    });
+    expect(await conv(said.conversationId)).toMatchObject({
+      handledBy: 'ai',
+      aiTeammateId: a.teammateId,
+      aiEpoch: before.aiEpoch + 1,
+    });
+    const [picks] = await eventsOf(picked.eventIds);
+    expect(picks).toMatchObject({
+      type: 'ai_teammate.picked_up',
+      entityType: 'conversation',
+      entityId: said.conversationId,
+      payload: expect.objectContaining({
+        conversationId: said.conversationId,
+        personId: kim.personId,
+        teammateId: a.teammateId,
+        runId,
+      }),
+    });
+    const [audit] = await admin()
+      .select({ action: auditLogs.action, actorType: auditLogs.actorType })
+      .from(auditLogs)
+      .where(eq(auditLogs.eventId, picked.eventIds[0]!));
+    expect(audit).toEqual({ action: 'conversation.pick_up', actorType: 'ai_employee' });
+    // Picking it up again changes nothing.
+    const again = await asAva(a, me, conversationPickUp, ref);
+    expect(again.output.aiEpoch).toBe(before.aiEpoch + 1);
+    expect(again.eventIds).toEqual([]);
+
+    // Only the conversation its run is answering.
+    const lou = await customer(a, 'Lou');
+    const other = await textIn(a, lou.phone, 'Hello?');
+    const otherRef = { workspaceId: a.wsId, conversationId: other.conversationId };
+    await expectHfos(
+      () => asAva(a, me, conversationPickUp, otherRef),
+      'forbidden',
+      'outside_its_conversation',
+    );
+    // Assigned to someone, or taken over by a person: it's theirs.
+    await rows(
+      admin(),
+      sql`update app.conversations set assignee_user_id = ${a.member.id} where id = ${other.conversationId}`,
+    );
+    await expectHfos(
+      () => asAva(a, { conversationId: other.conversationId }, conversationPickUp, otherRef),
+      'rule_violation',
+      'conversation_taken',
+    );
+    const max = await customer(a, 'Max');
+    const taken = await textIn(a, max.phone, 'Is anyone there?');
+    const takenRef = { workspaceId: a.wsId, conversationId: taken.conversationId };
+    await run(conversationTakeOver, takenRef, a.member);
+    await expectHfos(
+      () => sys(a, conversationPickUp, takenRef),
+      'rule_violation',
+      'conversation_taken',
+    );
+
+    // The worker may pick one up for the teammate too; people can't run it at all.
+    const ned = await customer(a, 'Nell');
+    const free = await textIn(a, ned.phone, 'Quick question');
+    const freeRef = { workspaceId: a.wsId, conversationId: free.conversationId };
+    await expectHfos(() => run(conversationPickUp, freeRef, a.owner), 'forbidden');
+    expect((await sys(a, conversationPickUp, freeRef)).output.teammateId).toBe(a.teammateId);
+  });
+
+  it('lets a workflow hand a conversation over, its loop guard on the event, but never take one from a person', async () => {
+    const mo = await customer(a, 'Mo');
+    const said = await textIn(a, mo.phone, 'Do you install heat pumps?');
+    const ref = { workspaceId: a.wsId, conversationId: said.conversationId };
+    const flow = workflowActor(a);
+    const handed = await executeCommand(
+      worker(),
+      conversationHandToAi,
+      ref,
+      flow,
+      meta('workflow'),
+    );
+    expect(await conv(said.conversationId)).toMatchObject({
+      handledBy: 'ai',
+      aiTeammateId: a.teammateId,
+    });
+    const [evt] = await eventsOf(handed.eventIds);
+    expect(evt!.type).toBe('conversation.handed_to_ai');
+    expect((evt!.payload as Record<string, unknown>)._workflow).toEqual({
+      runId: flow.runId,
+      workflowId: flow.workflowId,
+      versionId: null,
+      depth: 0,
+      originRunId: null,
+    });
+    // A person has it now: a workflow leaves it with them, and a person can still hand it back.
+    await run(conversationTakeOver, ref, a.member);
+    await expectHfos(
+      () => executeCommand(worker(), conversationHandToAi, ref, workflowActor(a), meta('workflow')),
+      'rule_violation',
+      'person_handling',
+    );
+    await run(conversationHandToAi, ref, a.member);
+    expect((await conv(said.conversationId)).handledBy).toBe('ai');
+    await expectHfos(() => sys(a, conversationHandToAi, ref), 'forbidden');
+  });
+
+  it('records “stop texting me” the way STOP is: the number, and the customer when there is one', async () => {
+    // Someone with no customer record.
+    const stranger = nextPhone();
+    const said = await textIn(a, stranger, 'Please stop texting me');
+    const out = await sys(a, messageRecordOptOut, {
+      workspaceId: a.wsId,
+      messageId: said.messageId,
+    });
+    expect(out.output).toEqual({
+      conversationId: said.conversationId,
+      personId: null,
+      number: stranger,
+      changed: true,
+    });
+    const [row] = await rows<{ opted_out: boolean; source: string; last_keyword: string }>(
+      admin(),
+      sql`select opted_out, source::text as source, last_keyword from app.opt_outs
+          where workspace_id = ${a.wsId} and counterpart_e164 = ${stranger}`,
+    );
+    expect(row).toMatchObject({ opted_out: true, source: 'keyword' });
+    expect(row!.last_keyword).toMatch(/stop texting me/);
+    const [evt] = await eventsOf(out.eventIds);
+    expect(evt).toMatchObject({
+      type: 'person.opted_out',
+      entityType: 'conversation',
+      entityId: said.conversationId,
+    });
+    // Texts to that number are refused from now on.
+    await expectHfos(
+      () =>
+        sys(a, messageSend, {
+          workspaceId: a.wsId,
+          conversationId: said.conversationId,
+          body: 'One more thing',
+        }),
+      'rule_violation',
+      'opted_out',
+    );
+    // Recording it again changes nothing.
+    const again = await sys(a, messageRecordOptOut, {
+      workspaceId: a.wsId,
+      messageId: said.messageId,
+    });
+    expect(again.output.changed).toBe(false);
+    expect(again.eventIds).toEqual([]);
+
+    // A customer on file: their record says so too.
+    const ned = await customer(a, 'Ned');
+    const asked = await textIn(a, ned.phone, "Don't text me anymore please");
+    const recorded = await sys(a, messageRecordOptOut, {
+      workspaceId: a.wsId,
+      messageId: asked.messageId,
+    });
+    expect(recorded.output).toMatchObject({
+      personId: ned.personId,
+      number: ned.phone,
+      changed: true,
+    });
+    const [p] = await admin()
+      .select({ consent: people.smsConsent, source: people.smsConsentSource })
+      .from(people)
+      .where(eq(people.id, ned.personId));
+    expect(p).toEqual({ consent: 'opted_out', source: 'keyword' });
+  });
+
+  it('opts out only on the customer’s own words, only for the worker, and never through a website chat', async () => {
+    const oz = await customer(a, 'Oz');
+    const hi = await textIn(a, oz.phone, 'Can you come Tuesday?');
+    await expectHfos(
+      () => sys(a, messageRecordOptOut, { workspaceId: a.wsId, messageId: hi.messageId }),
+      'rule_violation',
+      'not_an_opt_out',
+    );
+    const stop = await textIn(a, oz.phone, 'stop messaging me');
+    const input = { workspaceId: a.wsId, messageId: stop.messageId };
+    await expectHfos(() => run(messageRecordOptOut, input, a.owner), 'forbidden');
+    await expectHfos(() => asAva(a, {}, messageRecordOptOut, input), 'forbidden');
+    // A chat visitor may have typed someone else's number: a person deals with it.
+    const { widgetId } = await run(
+      chatWidgetCreate,
+      { workspaceId: a.wsId, allowedOrigins: [`optout-${randomUUID().slice(0, 8)}.example`] },
+      a.owner,
+    );
+    const { output: visitor } = await sys(a, chatVisitorStart, {
+      workspaceId: a.wsId,
+      widgetId,
+      tokenHash: randomBytes(32).toString('hex'),
+    });
+    const { output: chat } = await sys(a, chatReceive, {
+      workspaceId: a.wsId,
+      visitorId: visitor.visitorId,
+      body: 'Please stop messaging me',
+      clientId: randomUUID(),
+      reminderAfterMs: 86_400_000,
+    });
+    await expectHfos(
+      () => sys(a, messageRecordOptOut, { workspaceId: a.wsId, messageId: chat.messageId }),
+      'forbidden',
+      'chat_identity_unverified',
+    );
   });
 });

@@ -57,7 +57,7 @@ export const PRESET_COPY: Record<TeammatePresetKey, PresetCopy> = {
   },
   blank: {
     title: 'Blank',
-    description: 'Just the basics. Pick the skills yourself in the builder.',
+    description: 'Nothing turned on. Pick the skills yourself in the builder.',
     icon: Plus,
   },
 };

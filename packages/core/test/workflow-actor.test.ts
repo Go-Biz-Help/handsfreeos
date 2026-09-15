@@ -21,6 +21,7 @@ import {
   conversationAssign,
   conversationClose,
   conversationHandOff,
+  conversationHandToAi,
   conversationSnooze,
   knowledgeItemCreate,
   knowledgeItemRecordUse,
@@ -156,8 +157,11 @@ async function readyTexting() {
   );
 }
 
-/** Every action M6 opens to workflow steps (the run itself below), plus M7's hand-off to a person. */
-const HAND_OFF = [conversationHandOff];
+/**
+ * Every action M6 opens to workflow steps (the run itself below), plus M7's hand-offs: to a person, and to the
+ * AI teammate (the "Hand to the AI teammate" step).
+ */
+const HAND_OFF = [conversationHandOff, conversationHandToAi];
 /** Every action M6 opens to workflow steps. */
 const OPENED = [
   messageSend,
@@ -211,7 +215,7 @@ beforeAll(async () => {
 afterAll(closeTestDbs);
 
 describe('the workflow actor', () => {
-  it('is let into exactly the actions M6 opens to workflows, and M7’s hand-off', () => {
+  it('is let into exactly the actions M6 opens to workflows, and M7’s hand-offs both ways', () => {
     expect(
       registry.commands
         .filter((c) => c.actors?.includes('workflow'))

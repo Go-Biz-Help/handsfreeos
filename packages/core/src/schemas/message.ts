@@ -204,6 +204,18 @@ export const PersonSetSmsConsentInput = z.object({
 });
 export const PersonSetSmsConsentOutput = z.object({ personId: uuid, consent: smsConsent });
 
+/** The customer's own message that asks to stop ("stop texting me"). */
+export const MessageRecordOptOutInput = z.object({ workspaceId: uuid, messageId: uuid });
+export const MessageRecordOptOutOutput = z.object({
+  conversationId: uuid,
+  /** The customer record marked opted out, when the conversation has one. */
+  personId: uuid.nullable(),
+  /** The number that can't be texted from now on; null when there's none to record. */
+  number: z.string().nullable(),
+  /** False when they had opted out already, or there was nothing to record. */
+  changed: z.boolean(),
+});
+
 // ---------- email ----------
 export const EmailParty = z.object({
   address: requiredEmail,

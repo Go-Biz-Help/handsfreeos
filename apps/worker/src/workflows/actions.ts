@@ -31,6 +31,7 @@ import {
 } from '@hfos/core/server';
 import { rows, sql } from '@hfos/db/client';
 import type { z } from 'zod';
+import { handToTeammate } from '../ai-team/handover';
 import { workspaceManagers } from '../handlers/telephony';
 import { LIVE_STATUSES, MAX_DEPTH } from './constants';
 import { RunData } from './data';
@@ -523,12 +524,16 @@ export async function runAction(ec: ExecCtx): Promise<Outcome> {
       return { kind: 'done', input, output: { stopped } };
     }
 
-    case 'hand_to_ai_teammate':
-      // A placeholder until the teammate's runtime lands (M7 step 7): the step is skipped, never failed.
-      return skipped('ai_teammate_not_ready', {
+    case 'hand_to_ai_teammate': {
+      // The teammate takes the conversation and works toward the goal (ai-team/handover.ts).
+      const r = await renderAll(ec, { note: step.config.note });
+      if (r.missing.length) return missingVariable(r.missing, r.values);
+      return handToTeammate(ec, {
         goal: step.config.goal,
         firstMessage: step.config.firstMessage,
         channel: step.config.channel,
+        note: r.values['note'] ?? '',
       });
+    }
   }
 }

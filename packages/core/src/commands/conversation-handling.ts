@@ -1,12 +1,13 @@
 /**
  * Who answers a conversation (M7). The AI teammate hands one to a person (conversation.hand_off, which
- * workflows and the system may also do), a person takes one from it (conversation.take_over), and hands it
- * back (conversation.hand_to_ai). Each change of hands raises ai_epoch, so a teammate run that started before
- * it is superseded, and drops the teammate's pending reply.
+ * workflows and the system may also do), picks up one nobody has (conversation.pick_up), a person takes one
+ * from it (conversation.take_over), and a person or a workflow step hands one to it (conversation.hand_to_ai).
+ * Each change of hands raises ai_epoch, so a teammate run that started before it is superseded, and drops the
+ * teammate's pending reply.
  */
 import { and, desc, eq, isNull, sql as dsql } from 'drizzle-orm';
 import { conversations, leads, people } from '@hfos/db/schema';
-import { loadTeammate, teammateConfigOf } from '../ai-team/load';
+import { loadTeammate, teammateConfigOf, type TeammateRow } from '../ai-team/load';
 import { notHandledByAi, outsideItsConversation } from '../ai-team/reach';
 import { HfosError } from '../errors';
 import { aiEmployeeOf, requireHuman } from '../kernel/actor';
@@ -20,7 +21,7 @@ import {
   ConversationHandToAiOutput,
   ConversationTakeOverOutput,
 } from '../schemas/ai-team';
-import { ConversationRefInput } from '../schemas/conversation';
+import { ConversationPickUpOutput, ConversationRefInput } from '../schemas/conversation';
 
 const inWorkspace = (i: { workspaceId: string }) => ({
   kind: 'workspace' as const,
@@ -34,6 +35,32 @@ const CHANNEL_WORDS: Readonly<Record<string, string>> = {
   email: 'email',
   chat: 'website chat',
 };
+
+/** The teammate is on and answers the conversation's channel; otherwise the refusal says what to change. */
+function assertAnswers(teammate: TeammateRow, conv: Conversation): void {
+  if (teammate.status === 'off')
+    throw HfosError.rule('teammate_off', 409, `Turn ${teammate.name} on first.`);
+  const channels = teammateConfigOf(teammate).channels;
+  if (
+    !(conv.channel === 'sms' || conv.channel === 'email' || conv.channel === 'chat') ||
+    !channels[conv.channel]
+  )
+    throw HfosError.rule(
+      'channel_off',
+      409,
+      `${teammate.name} doesn’t answer ${CHANNEL_WORDS[conv.channel] ?? conv.channel}. Turn that on in its settings first.`,
+    );
+}
+
+async function requireTeammate(ctx: CommandContext, teammateId?: string): Promise<TeammateRow> {
+  const teammate = await loadTeammate(
+    ctx.tx,
+    ctx.scope.workspaceId!,
+    teammateId ? { teammateId } : {},
+  );
+  if (!teammate) throw HfosError.rule('no_teammate', 409, 'Set up your AI teammate first.');
+  return teammate;
+}
 
 /**
  * Who picks up a conversation handed to a person: whoever it's assigned to already, else the assignee of the
@@ -131,6 +158,66 @@ export const conversationHandOff = defineCommand({
   },
 });
 
+export const conversationPickUp = defineCommand({
+  name: 'conversation.pick_up',
+  description:
+    'Worker: the AI teammate takes on a conversation nobody is handling or assigned to, so it answers it. A person writing in it takes it back.',
+  risk: 1,
+  input: ConversationRefInput,
+  output: ConversationPickUpOutput,
+  permission: 'inbox.use',
+  scope: inWorkspace,
+  emits: ['ai_teammate.picked_up'],
+  actors: ['system', 'ai_employee'],
+  async handler(ctx, input) {
+    const conv = await loadConversation(ctx, input.conversationId);
+    const ai = aiEmployeeOf(ctx.actor);
+    // The teammate picks up only the conversation its run is answering.
+    if (ai && ai.conversationId !== conv.id) throw outsideItsConversation();
+    const teammate = await requireTeammate(ctx, ai?.teammateId);
+    assertAnswers(teammate, conv);
+    if (conv.handledBy === 'ai' && conv.aiTeammateId === teammate.id)
+      return { conversationId: conv.id, teammateId: teammate.id, aiEpoch: conv.aiEpoch };
+    const taken = () =>
+      HfosError.rule(
+        'conversation_taken',
+        409,
+        'Someone is handling this conversation, or it’s assigned to someone, so the AI teammate leaves it to them.',
+      );
+    if (conv.handledBy !== 'none' || conv.assigneeUserId) throw taken();
+    const [row] = await ctx.tx
+      .update(conversations)
+      .set({
+        handledBy: 'ai',
+        aiTeammateId: teammate.id,
+        aiEpoch: dsql`${conversations.aiEpoch} + 1`,
+      })
+      .where(
+        and(
+          eq(conversations.id, conv.id),
+          eq(conversations.handledBy, 'none'),
+          isNull(conversations.assigneeUserId),
+        ),
+      )
+      .returning({ aiEpoch: conversations.aiEpoch });
+    if (!row) throw taken();
+    await ctx.emit({
+      type: 'ai_teammate.picked_up',
+      entityType: 'conversation',
+      entityId: conv.id,
+      payload: {
+        conversationId: conv.id,
+        personId: conv.personId,
+        teammateId: teammate.id,
+        runId: ai?.runId ?? null,
+      },
+      before: { handledBy: 'none' },
+      after: { handledBy: 'ai', teammate: teammate.name },
+    });
+    return { conversationId: conv.id, teammateId: teammate.id, aiEpoch: row.aiEpoch };
+  },
+});
+
 export const conversationTakeOver = defineCommand({
   name: 'conversation.take_over',
   description:
@@ -161,26 +248,22 @@ export const conversationHandToAi = defineCommand({
   permission: 'inbox.use',
   scope: inWorkspace,
   emits: ['conversation.handed_to_ai'],
+  // A person hands a conversation back; a workflow step ("Hand to the AI teammate") hands one over, and the
+  // kernel puts its run's loop guard (_workflow) on the event, which the worker passes on to the teammate.
+  actors: ['human', 'workflow'],
   async handler(ctx, input) {
-    requireHuman(ctx);
-    const ws = ctx.scope.workspaceId!;
     const conv = await loadConversation(ctx, input.conversationId);
-    const teammate = await loadTeammate(ctx.tx, ws);
-    if (!teammate) throw HfosError.rule('no_teammate', 409, 'Set up your AI teammate first.');
-    if (teammate.status === 'off')
-      throw HfosError.rule('teammate_off', 409, `Turn ${teammate.name} on first.`);
-    const channels = teammateConfigOf(teammate).channels;
-    if (
-      !(conv.channel === 'sms' || conv.channel === 'email' || conv.channel === 'chat') ||
-      !channels[conv.channel]
-    )
-      throw HfosError.rule(
-        'channel_off',
-        409,
-        `${teammate.name} doesn’t answer ${CHANNEL_WORDS[conv.channel] ?? conv.channel}. Turn that on in its settings first.`,
-      );
+    const teammate = await requireTeammate(ctx);
+    assertAnswers(teammate, conv);
     if (conv.handledBy === 'ai' && conv.aiTeammateId === teammate.id)
       return { conversationId: conv.id, teammateId: teammate.id };
+    // Only someone on the team takes a conversation back from a person; a workflow leaves it with them.
+    if (ctx.actor.type !== 'human' && conv.handledBy === 'person')
+      throw HfosError.rule(
+        'person_handling',
+        409,
+        'A person is handling this conversation. Someone on the team can hand it back.',
+      );
     await ctx.tx
       .update(conversations)
       .set({

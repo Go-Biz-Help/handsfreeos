@@ -14,6 +14,7 @@ import {
   addFact,
   admin,
   aiMessages,
+  aiReplies,
   allowPrices,
   appointmentsOf,
   attendeeByToken,
@@ -25,6 +26,7 @@ import {
   decide,
   draftsOf,
   drain,
+  handoffLines,
   hh,
   hourNow,
   newCustomer,
@@ -224,7 +226,9 @@ describe('booking', () => {
     await decide(training, draft!.id, 'approve');
     await drain(training);
     expect(await appointmentsOf(g.id)).toHaveLength(0);
-    expect(await aiMessages(two.conversationId)).toHaveLength(0);
+    // No reply went out; the customer hears the hand-off line instead.
+    expect(await aiReplies(two.conversationId)).toHaveLength(0);
+    expect(await handoffLines(two.conversationId)).toHaveLength(1);
     const conv = await conversationOf(two.conversationId);
     expect(conv).toMatchObject({ handled_by: 'person', handoff_reason: 'error' });
     expect(conv.handoff_note).toMatch(/couldn’t go out/);
@@ -291,5 +295,15 @@ describe('website chat', () => {
     const sent = await aiMessages(chat.conversationId);
     expect(sent).toHaveLength(1);
     expect(sent[0]).toMatchObject({ channel: 'chat', status: 'sent' });
+  });
+
+  it('stays out of a chat whose widget is left to people, whatever its own chat setting says', async () => {
+    await saveTeammate(auto, { channels: { chat: true } });
+    const chat = await chatIn(auto, null, 'Hi, what are your hours?', { teammate: false });
+    expect(await pendingReply(chat.conversationId)).toBeNull();
+    await drain(auto);
+    expect(await runsOf(chat.conversationId)).toHaveLength(0);
+    expect(await aiMessages(chat.conversationId)).toHaveLength(0);
+    expect((await conversationOf(chat.conversationId)).handled_by).toBe('none');
   });
 });

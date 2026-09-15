@@ -330,10 +330,22 @@ export const TeammateCatalogsOut = z.object({
   emailAddresses: z.array(z.object({ id: uuid, address: z.string() })),
   chatWidgets: z.array(z.object({ id: uuid, name: z.string() })),
   calendars: z.array(
-    z.object({ id: uuid, name: z.string(), archived: z.boolean(), bookableOnline: z.boolean() }),
+    z.object({
+      id: uuid,
+      name: z.string(),
+      archived: z.boolean(),
+      bookableOnline: z.boolean(),
+      color: z.string(),
+      /** Visit lengths in minutes. */
+      lengths: z.array(z.int()),
+    }),
   ),
   knowledge: z.object({ published: z.int() }),
   profile: z.object({ filled: z.int(), total: z.int() }),
+  /** The business profile lets the AI quote prices. */
+  pricesAllowed: z.boolean(),
+  /** Today's AI tokens against the daily limit, and the teammate's part (see TeammateAiUsage). */
+  aiUsage: z.object({ dailyTokens: z.int(), usedTokens: z.int(), teammateTokens: z.int() }),
   businessHours: WeeklyHours.nullable(),
   members: z.array(
     z.object({ userId: uuid, name: z.string(), role: workspaceRole, active: z.boolean() }),
@@ -422,6 +434,16 @@ export const AiTeammateDraftListOutput = z.object({
   nextCursor: z.string().nullable(),
 });
 
+/** ai_teammate_tool_calls.status (the database checks the same list). */
+export const TOOL_CALL_STATUSES = [
+  'running',
+  'done',
+  'held',
+  'simulated',
+  'refused',
+  'failed',
+] as const;
+
 export const TeammateRunOut = z.object({
   id: uuid,
   triggeredBy: z.string(),
@@ -429,14 +451,30 @@ export const TeammateRunOut = z.object({
   outcome: z.enum(['replied', 'drafted', 'handed_off', 'no_reply']).nullable(),
   isTest: z.boolean(),
   conversationId: uuid.nullable(),
+  /** The conversation's channel, or its draft's for a first message (no conversation until it's sent). */
+  channel: z.enum(['sms', 'email', 'chat']).nullable(),
   person: z.object({ id: uuid, fullName: z.string() }).nullable(),
   leadId: uuid.nullable(),
+  /** The customer's message that started it (the first it answered), cut short; null when none did. */
+  firstMessage: z.object({ excerpt: z.string(), at: isoDateTime }).nullable(),
+  /** How many of the customer's messages it answered together. */
+  messageCount: z.int(),
   summary: z.string().nullable(),
   replyText: z.string().nullable(),
   knowledge: z.array(z.unknown()),
   checks: z.array(z.unknown()),
   /** The tools it used, in order. */
   tools: z.array(z.string()),
+  /** Each tool call, in order: how it went and a short summary of what came back. */
+  toolCalls: z.array(
+    z.object({
+      tool: z.string(),
+      /** held: a booking, move or cancellation waiting for the reply to go out (or its draft's approval). */
+      status: z.enum(TOOL_CALL_STATUSES),
+      summary: z.string().nullable(),
+      at: isoDateTime,
+    }),
+  ),
   model: z.string().nullable(),
   inputTokens: z.int(),
   outputTokens: z.int(),
@@ -445,7 +483,13 @@ export const TeammateRunOut = z.object({
   startedAt: isoDateTime,
   endedAt: isoDateTime.nullable(),
 });
-export const AiTeammateActivityInput = ListInput.extend({ workspaceId: uuid });
+/** Activity's periods: today, or the last 7 or 30 days (in the business's time zone). */
+export const ACTIVITY_PERIODS = ['today', '7d', '30d'] as const;
+export const AiTeammateActivityInput = ListInput.extend({
+  workspaceId: uuid,
+  /** Only runs that started in this period; every run when left out. */
+  since: z.enum(ACTIVITY_PERIODS).optional(),
+});
 export const AiTeammateActivityOutput = z.object({
   /** Today in the business's time zone, plus what's waiting now. */
   counters: z.object({
@@ -454,6 +498,8 @@ export const AiTeammateActivityOutput = z.object({
     draftedToday: z.int(),
     handedOffToday: z.int(),
     failedToday: z.int(),
+    /** Today's runs whose booking went out: a book call that held or ran, then sent (or its draft sent). */
+    bookedToday: z.int(),
     pendingDrafts: z.int(),
     needsPerson: z.int(),
     handledByAi: z.int(),

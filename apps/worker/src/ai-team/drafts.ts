@@ -12,6 +12,7 @@ import {
   disclosesAi,
   executeCommandIn,
   HfosError,
+  loadTeammate,
   scheduleJob,
   workspaceMessaging,
   type RequestMeta,
@@ -22,8 +23,10 @@ import { quietEndAt } from '../booking/deliver';
 import type { EventHandler } from '../handlers/types';
 import type { JobHandler } from '../jobs';
 import { systemActor, tenantOf, workerMeta, type TenantScope } from '../services';
+import { runtimeConfigOf } from './config';
 import { QUIET_GRACE_MS, sendDraftJobKey, TEAMMATE_JOBS } from './constants';
 import { handOffAsSystem } from './handoff';
+import { scheduleFollowUp } from './nudges';
 
 const str = (v: unknown): string | null => (typeof v === 'string' && v ? v : null);
 const isRecord = (v: unknown): v is Record<string, unknown> =>
@@ -57,6 +60,16 @@ export async function sendApprovedDraft(
         await tx.execute(
           sql`update app.conversations set ai_disclosed_at = coalesce(ai_disclosed_at, now())
               where id = ${output.conversationId}`,
+        );
+      // An approved question arms a follow-up nudge, as one the teammate sends on its own does.
+      const teammate = m?.body_text ? await loadTeammate(tx, scope.workspaceId) : null;
+      if (teammate && m?.body_text)
+        await scheduleFollowUp(
+          tx,
+          scope,
+          output.conversationId,
+          runtimeConfigOf(teammate.config),
+          m.body_text,
         );
     }
     return { waitUntil: null };

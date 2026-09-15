@@ -155,6 +155,7 @@ export function QualifyModule({ draft, patch, catalogs }: ModuleProps) {
         <p className="mt-2 text-xs text-text-3">That’s the most it asks: 10 questions.</p>
       )}
       <WhenQualified draft={draft} patch={patch} catalogs={catalogs} />
+      <WhenNotAFit draft={draft} patch={patch} />
     </>
   );
 }
@@ -539,9 +540,56 @@ function WhenQualified({
           ))}
         </Select>
       </SetRow>
+      <SetRow
+        center
+        title="Then offer times to book"
+        description={draft.book.enabled ? 'From the calendars in Book.' : 'Only while Book is on.'}
+      >
+        <Switch
+          checked={w.offerTimes}
+          label="Then offer times to book"
+          testId="qualify-offer-times"
+          onChange={(v) =>
+            patch(
+              { qualify: { whenQualified: { offerTimes: v } } },
+              v ? 'Offer qualified leads times' : 'Don’t offer qualified leads times',
+            )
+          }
+        />
+      </SetRow>
       <Note icon={Workflow} className="mt-2">
         Workflows can start from this too, with the new trigger “A lead qualifies”.
       </Note>
+    </div>
+  );
+}
+
+/** When an answer rules a lead out. The teammate never marks a lead lost itself, so it asks the team. */
+function WhenNotAFit({ draft, patch }: Pick<ModuleProps, 'draft' | 'patch'>) {
+  const tell = draft.qualify.whenNotAFit.tellTeam;
+  return (
+    <div className="mt-5 border-t border-border pt-4" data-testid="qualify-when-not-a-fit">
+      <h3 className="text-[15px] font-semibold">When an answer is marked not a fit</h3>
+      <p className="mt-0.5 text-[12.5px] text-text-3">
+        {draft.identity.name} thanks them, explains kindly, and doesn’t book.
+      </p>
+      <SetRow
+        center
+        title="Tell the team"
+        description="A task for the lead’s assignee, or the customer’s owner: “Not a fit: the reason. Mark the lead lost?” A person decides."
+      >
+        <Switch
+          checked={tell}
+          label="Tell the team when a lead isn’t a fit"
+          testId="qualify-tell-team"
+          onChange={(v) =>
+            patch(
+              { qualify: { whenNotAFit: { tellTeam: v } } },
+              v ? 'Tell the team about leads that aren’t a fit' : 'Don’t tell the team',
+            )
+          }
+        />
+      </SetRow>
     </div>
   );
 }

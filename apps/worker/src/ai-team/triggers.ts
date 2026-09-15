@@ -6,20 +6,25 @@
  *   working now; the conversation is its own, or nobody's and unassigned; the message isn't a carrier keyword
  *   or an automatic email; no loop with another bot shows; and today's reply cap isn't reached. A pending draft
  *   no longer fits (the customer wrote again), so it's dropped, and one debounced `ai_teammate.reply` job per
- *   conversation is queued. A plain-language opt-out ("stop texting me") opts them out instead.
- * - `conversation.handed_to_ai`: it answers what's waiting.
+ *   conversation is queued. A plain-language opt-out ("stop texting me") opts them out instead, in any
+ *   conversation, the way STOP does (message.record_opt_out).
+ * - `conversation.handed_to_ai`: it answers what's waiting (a workflow's hand-over carries its loop guard).
  * - `ai_teammate.draft_decided`: an approved draft goes out (drafts.ts).
- * New leads (`lead.created`) come in step 7.
+ * - `lead.created`: a first message to the new lead, after the Respond skill's delay (outreach.ts).
+ * - `conversation.handed_off`: the team's email, the urgent alert, M3's unanswered alert and the budget notice
+ *   (escalation.ts).
+ * A website chat gets replies only when its widget names the teammate (gates.ts widgetAnswers).
  */
 import { eq } from 'drizzle-orm';
 import {
   executeCommandIn,
   HfosError,
   loadTeammate,
+  messageRecordOptOut,
   openHoursOf,
   optOutPhrase,
-  personSetSmsConsent,
   smsKeyword,
+  type AiEmployeeOrigin,
   type RequestMeta,
   type TeammateChannel,
   type TeammateConfig,
@@ -40,8 +45,11 @@ import { answersChannel, runtimeConfigOf } from './config';
 import { REPLY_CEILING_MS, REPLY_DELAY_MS, replyJobKey, TEAMMATE_JOBS } from './constants';
 import { unansweredMessages } from './context';
 import { onDraftDecided } from './drafts';
-import { isAutomaticEmail, loopReason, repliesToday, workingNow } from './gates';
+import { onHandedOff } from './escalation';
+import { isAutomaticEmail, loopReason, repliesToday, widgetAnswers, workingNow } from './gates';
 import { handOffAsSystem } from './handoff';
+import { onLeadCreated } from './outreach';
+import { originOf } from './run';
 
 type Conversation = typeof conversations.$inferSelect;
 
@@ -68,6 +76,8 @@ export async function scheduleReply(
     /** When the first unanswered message was sent. */
     readonly firstAt: number;
     readonly trigger: string;
+    /** The workflow run that handed the conversation over: its loop guard, for the run. */
+    readonly origin?: AiEmployeeOrigin | null;
   },
 ): Promise<Date> {
   const runAt = new Date(
@@ -77,7 +87,11 @@ export async function scheduleReply(
     kind: TEAMMATE_JOBS.reply,
     dedupeKey: replyJobKey(input.conversationId),
     runAt,
-    payload: { conversationId: input.conversationId, trigger: input.trigger },
+    payload: {
+      conversationId: input.conversationId,
+      trigger: input.trigger,
+      ...(input.origin ? { origin: input.origin } : {}),
+    },
     workspaceId: input.scope.workspaceId,
     organizationId: input.scope.organizationId,
   });
@@ -155,35 +169,37 @@ async function textsStopped(tx: Tx, workspaceId: string, conv: Conversation): Pr
 }
 
 /**
- * "Stop texting me" opts them out through the consent command. When core can't record it (no customer on the
- * conversation, or the command refuses the worker), a person does, and the teammate lets go of the conversation.
+ * "Stop texting me" opts them out the way STOP does (message.record_opt_out: their number, and their customer
+ * record when there is one). A website chat's visitor isn't verified and an email may have nobody on file, so
+ * when nothing could be recorded, or it wasn't a text, a person takes over the teammate's conversation, with a
+ * note saying what to do. Either way the customer gets no hand-off line: they asked not to be contacted.
  */
 async function optOut(
   ctx: HandlerContext,
   scope: TenantScope,
   conv: Conversation,
+  messageId: string,
   phrase: string,
   mine: boolean,
   meta: RequestMeta,
 ): Promise<void> {
   let recorded = false;
-  if (conv.personId)
-    try {
-      await executeCommandIn(
-        ctx.tx,
-        personSetSmsConsent,
-        { workspaceId: scope.workspaceId, personId: conv.personId, consent: 'opted_out' },
-        systemActor(scope),
-        meta,
-      );
-      recorded = true;
-    } catch (e) {
-      if (!(e instanceof HfosError)) throw e;
-      ctx.log.warn(
-        { err: e.message, conversationId: conv.id },
-        'could not record a plain-language opt-out',
-      );
-    }
+  try {
+    const { output } = await executeCommandIn(
+      ctx.tx,
+      messageRecordOptOut,
+      { workspaceId: scope.workspaceId, messageId },
+      systemActor(scope),
+      meta,
+    );
+    recorded = output.number !== null || output.personId !== null;
+  } catch (e) {
+    if (!(e instanceof HfosError)) throw e;
+    ctx.log.warn(
+      { err: e.message, rule: e.rule, conversationId: conv.id },
+      'could not record a plain-language opt-out',
+    );
+  }
   // Texts are refused from now on; any other channel (or an opt-out nobody could record) goes to a person.
   if (mine && (!recorded || conv.channel !== 'sms'))
     await handOffAsSystem(
@@ -193,6 +209,7 @@ async function optOut(
       'other',
       `They asked not to be contacted (“${phrase.slice(0, 120)}”).${recorded ? '' : ' Record their opt-out.'}`,
       meta,
+      { line: 'none' },
     );
 }
 
@@ -213,7 +230,8 @@ export function neverAnswered(m: Received): string | null {
   if (str(m.payload['keyword']) || (m.channel === 'sms' && smsKeyword(m.body))) return 'keyword';
   if (m.channel === 'email' && isAutomaticEmail({ from: m.from, subject: m.subject, body: m.body }))
     return 'automatic_email';
-  // chat: step 8's marker for a message Cloudflare couldn't verify goes here (return 'unverified_chat').
+  // A chat message the human check couldn't vouch for (Cloudflare down) lands in the inbox; the teammate stays out.
+  if (m.channel === 'chat' && m.payload['aiReply'] === false) return 'unverified_chat';
   return null;
 }
 
@@ -227,16 +245,13 @@ export const onCustomerMessage: EventHandler = async (ctx) => {
   if (!scope || !conversationId || !e.entityId) return;
   if (channel !== 'sms' && channel !== 'email' && channel !== 'chat') return;
   const found = await teammateOn(ctx.tx, scope);
-  if (!found || !answersChannel(found.config, channel)) return;
+  if (!found) return;
   const { teammate, config } = found;
   const [conv] = await ctx.tx
     .select()
     .from(conversations)
     .where(eq(conversations.id, conversationId));
   if (!conv) return;
-  const mine = conv.handledBy === 'ai' && conv.aiTeammateId === teammate.id;
-  const free = conv.handledBy === 'none' && !conv.assigneeUserId;
-  if (!mine && !free) return;
   const [m] = await rows<{
     body_text: string | null;
     subject: string | null;
@@ -252,12 +267,18 @@ export const onCustomerMessage: EventHandler = async (ctx) => {
   const meta = workerMeta(e.correlationId, e.id);
   if (neverAnswered({ channel, payload: p, body, subject: m.subject, from: m.from_address }))
     return;
+  const mine = conv.handledBy === 'ai' && conv.aiTeammateId === teammate.id;
+  // Any reasonable request to stop counts, whoever has the conversation: it's recorded the way STOP is.
   const phrase = optOutPhrase(body);
   if (phrase) {
     await dropPendingDraft(ctx.tx, conv.id, 'They asked not to be contacted.');
-    await optOut(ctx, scope, conv, phrase, mine, meta);
+    await optOut(ctx, scope, conv, e.entityId, phrase, mine, meta);
     return;
   }
+  if (!answersChannel(config, channel)) return;
+  const free = conv.handledBy === 'none' && !conv.assigneeUserId;
+  if (!mine && !free) return;
+  if (!(await widgetAnswers(ctx.tx, conv, teammate.id))) return;
   if (channel === 'sms' && (await textsStopped(ctx.tx, scope.workspaceId, conv))) return;
   const clock = await workspaceClock(ctx.tx, scope.workspaceId);
   if (!workingNow(config, clock.openHours, clock.timeZone, Date.now())) return;
@@ -315,7 +336,8 @@ export const onHandedToAi: EventHandler = async (ctx) => {
     !conv ||
     conv.handledBy !== 'ai' ||
     conv.aiTeammateId !== found.teammate.id ||
-    !answersChannel(found.config, conv.channel)
+    !answersChannel(found.config, conv.channel) ||
+    !(await widgetAnswers(ctx.tx, conv, found.teammate.id))
   )
     return;
   const clock = await workspaceClock(ctx.tx, scope.workspaceId);
@@ -328,6 +350,8 @@ export const onHandedToAi: EventHandler = async (ctx) => {
     channel: conv.channel as TeammateChannel,
     firstAt: batch[0]!.at,
     trigger: e.eventType,
+    // A workflow step handed it over: its run's loop guard (the kernel put it on the event) goes with the run.
+    origin: originOf(p['_workflow']),
   });
 };
 
@@ -335,6 +359,8 @@ const TEAMMATE_HANDLERS: Readonly<Record<string, EventHandler>> = {
   'message.received': onCustomerMessage,
   'conversation.handed_to_ai': onHandedToAi,
   'ai_teammate.draft_decided': onDraftDecided,
+  'lead.created': onLeadCreated,
+  'conversation.handed_off': onHandedOff,
 };
 
 /** The handler map with the teammate's handlers after each event's own (and before withWorkflows adds its own). */

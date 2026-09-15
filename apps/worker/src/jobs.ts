@@ -65,9 +65,17 @@ export async function scheduleDebouncedJob(
     readonly payload: Record<string, unknown>;
     readonly workspaceId: string | null;
     readonly organizationId: string | null;
+    /**
+     * Merge this payload into a pending job's (its keys win), instead of keeping the pending job's as it was: a
+     * workflow's hand-over puts its goal and loop guard on a reply that was already waiting.
+     */
+    readonly mergePayload?: boolean;
   },
 ): Promise<void> {
   const running = sql`(app.scheduled_jobs.locked_at is not null and app.scheduled_jobs.run_at <= now())`;
+  const pendingPayload = job.mergePayload
+    ? sql`app.scheduled_jobs.payload || excluded.payload`
+    : sql`app.scheduled_jobs.payload`;
   await tx.execute(
     sql`insert into app.scheduled_jobs (organization_id, workspace_id, kind, dedupe_key, run_at, payload)
         values (${job.organizationId}, ${job.workspaceId}, ${job.kind}, ${job.dedupeKey},
@@ -77,7 +85,7 @@ export async function scheduleDebouncedJob(
           payload = case when ${running}
             then app.scheduled_jobs.payload || jsonb_build_object('_wakeAt', least(
               coalesce((app.scheduled_jobs.payload ->> '_wakeAt')::timestamptz, excluded.run_at), excluded.run_at))
-            else app.scheduled_jobs.payload end`,
+            else ${pendingPayload} end`,
   );
 }
 

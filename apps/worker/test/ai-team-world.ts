@@ -5,7 +5,7 @@
  * inside a daily limit. Customers text in through message.receive as the worker; a reply runs when a test says
  * (replyNow), not after its debounce.
  */
-import { randomUUID } from 'node:crypto';
+import { randomBytes, randomUUID } from 'node:crypto';
 import type { AiProvider, AiRequest } from '@hfos/ai';
 import {
   aiTeammateCreate,
@@ -15,6 +15,9 @@ import {
   aiTeammateSetStatus,
   applyTeammatePatch,
   calendarAvailability,
+  chatReceive,
+  chatVisitorStart,
+  chatWidgetCreate,
   emailReceive,
   executeCommand,
   executeQuery,
@@ -239,31 +242,50 @@ export async function emailIn(w: World, from: string, subject: string, body: str
 }
 
 /**
- * A website chat set up straight in the database (step 4's chat commands aren't in yet): its conversation,
- * linked to `personId` as chat.identify would, the visitor's message, and the reply job queued for now.
+ * A website chat through the chat commands: a widget the teammate answers (or, with `teammate: false`, one left
+ * to people), a visitor, and their message (chat.receive), linked to `personId` as chat.identify would. The
+ * outbox then runs, and the reply it queued is brought forward to now, so the next drain answers it.
  */
 export async function chatIn(
-  w: World,
+  w: TeammateWorld,
   personId: string | null,
   body: string,
+  opts: { readonly teammate?: boolean } = {},
 ): Promise<{ conversationId: string; messageId: string }> {
-  const [c] = await rows<{ id: string }>(
-    admin(),
-    sql`insert into app.conversations (workspace_id, channel, counterpart, person_id)
-        values (${w.workspaceId}, 'chat', ${`chat:${randomUUID()}`}, ${personId}) returning id`,
+  const { widgetId } = await run(w, chatWidgetCreate, {
+    workspaceId: w.workspaceId,
+    allowedOrigins: [`tm-${randomUUID().slice(0, 8)}.example`],
+    ...(opts.teammate === false ? {} : { teammateId: w.teammateId }),
+  });
+  const asWorkerMeta = () => ({ correlationId: randomUUID(), channel: 'worker' as const });
+  const { output: visitor } = await executeCommand(
+    testDbs().worker.db,
+    chatVisitorStart,
+    { workspaceId: w.workspaceId, widgetId, tokenHash: randomBytes(32).toString('hex') },
+    systemActor(scopeOf(w)),
+    asWorkerMeta(),
   );
-  const [m] = await rows<{ id: string }>(
-    admin(),
-    sql`insert into app.messages (workspace_id, conversation_id, channel, direction, status, body_text, occurred_at)
-        values (${w.workspaceId}, ${c!.id}, 'chat', 'inbound', 'received', ${body}, now()) returning id`,
+  const { output: said } = await executeCommand(
+    testDbs().worker.db,
+    chatReceive,
+    {
+      workspaceId: w.workspaceId,
+      visitorId: visitor.visitorId,
+      body,
+      clientId: randomUUID(),
+      reminderAfterMs: 86_400_000,
+    },
+    systemActor(scopeOf(w)),
+    asWorkerMeta(),
   );
-  await rows(
-    admin(),
-    sql`insert into app.scheduled_jobs (organization_id, workspace_id, kind, dedupe_key, run_at, payload)
-        values (${w.organizationId}, ${w.workspaceId}, 'ai_teammate.reply', ${replyJobKey(c!.id)}, now(),
-          ${JSON.stringify({ conversationId: c!.id, trigger: 'message.received' })}::jsonb)`,
-  );
-  return { conversationId: c!.id, messageId: m!.id };
+  if (personId)
+    await rows(
+      admin(),
+      sql`update app.conversations set person_id = ${personId} where id = ${said.conversationId}`,
+    );
+  await drain(w);
+  await forceDue(said.conversationId);
+  return { conversationId: said.conversationId, messageId: said.messageId };
 }
 
 /** Brings the conversation's pending reply forward to now. */
@@ -278,6 +300,20 @@ export async function forceDue(conversationId: string): Promise<void> {
 /** Runs the conversation's reply now instead of after its debounce, then everything it queued. */
 export async function replyNow(w: World, conversationId: string): Promise<void> {
   await forceDue(conversationId);
+  await drain(w);
+}
+
+/**
+ * Brings the named jobs forward to now and runs them with the world's own services (its model included: the
+ * world's HTTP app, and so the run-due route, was built before the model was swapped in), then what they queued.
+ */
+export async function runNow(w: World, dedupeKeys: readonly string[]): Promise<void> {
+  for (const key of dedupeKeys)
+    await rows(
+      admin(),
+      sql`update app.scheduled_jobs set run_at = now()
+          where dedupe_key = ${key} and workspace_id = ${w.workspaceId} and status = 'pending'`,
+    );
   await drain(w);
 }
 
@@ -346,7 +382,7 @@ export function toolCallsOf(runId: string) {
   );
 }
 
-/** What the teammate sent in a conversation, oldest first. */
+/** What the teammate sent in a conversation, oldest first: its replies and its hand-off lines. */
 export function aiMessages(conversationId: string) {
   return rows<{
     id: string;
@@ -356,14 +392,30 @@ export function aiMessages(conversationId: string) {
     approved_by: string | null;
     ai_run_id: string | null;
     ai_draft_id: string | null;
+    client_id: string | null;
   }>(
     admin(),
-    sql`select id, channel::text as channel, status::text as status, body_text, approved_by, ai_run_id, ai_draft_id
+    sql`select id, channel::text as channel, status::text as status, body_text, approved_by, ai_run_id, ai_draft_id,
+          client_id
         from app.messages
         where conversation_id = ${conversationId} and sent_by_teammate_id is not null
         order by created_at, id`,
   );
 }
+
+/** The teammate's hand-off lines in a conversation (clientId handoff:<conversation>:<epoch>). */
+export async function handoffLines(conversationId: string) {
+  return (await aiMessages(conversationId)).filter((m) => m.client_id?.startsWith('handoff:'));
+}
+
+/** The teammate's own replies in a conversation, without its hand-off lines. */
+export async function aiReplies(conversationId: string) {
+  return (await aiMessages(conversationId)).filter((m) => !m.client_id?.startsWith('handoff:'));
+}
+
+/** The business's default hand-off line, whatever the time of day makes of {expectation}. */
+export const HANDOFF_LINE =
+  /^Thanks for your patience\. I've passed this to our team, and someone from our team will reply (?:shortly|first thing|once we open|tomorrow once|on \w+ once)/;
 
 export function draftsOf(conversationId: string) {
   return rows<{

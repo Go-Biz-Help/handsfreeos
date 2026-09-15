@@ -102,6 +102,13 @@ function skillLines(rc: RunContext): string[] {
       out.push(
         `  When every required answer is in, move the lead to ${quoteData(stage.name)} with move_stage (stage id ${stage.id}).`,
       );
+    if (config.qualify.whenQualified.offerTimes && config.book.enabled && rc.calendars.length)
+      out.push('  Once the lead qualifies, offer them times to book (see Book visits below).');
+    out.push(
+      config.qualify.whenNotAFit.tellTeam
+        ? '  When an answer rules them out (record_answers says not_a_fit), thank them kindly, explain, and don’t book. Then leave the team a task with create_task titled “Not a fit:”, the reason, and “Mark the lead lost?” (for example “Not a fit: renting, not the owner. Mark the lead lost?”).'
+        : '  When an answer rules them out (record_answers says not_a_fit), thank them kindly, explain, and don’t book.',
+    );
   }
   if (config.book.enabled && rc.calendars.length) {
     out.push(

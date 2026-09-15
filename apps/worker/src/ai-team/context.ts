@@ -164,9 +164,11 @@ export interface RunContext {
   };
   readonly grounding: Grounding;
   readonly conversation: {
-    readonly id: string;
+    /** Null for a first message to someone with no conversation yet: sending it starts one. */
+    readonly id: string | null;
     readonly channel: TeammateChannel;
-    readonly counterpart: string;
+    /** Their number or address (the customer's on file for a first message); a chat's `chat:<visitor>`. */
+    readonly counterpart: string | null;
     readonly personId: string | null;
   };
   /** A website chat: whoever is typing hasn't proved they're the customer it matched. */
@@ -200,7 +202,13 @@ export interface LoadInput {
   readonly scope: TenantScope;
   readonly teammate: TeammateRow;
   readonly config: TeammateConfig;
-  readonly conversationId: string;
+  /** The conversation it answers; null for a first message to someone with no conversation yet (`target`). */
+  readonly conversationId: string | null;
+  /**
+   * Whom a first message with no conversation goes to, and how (the test console's visitor may have no
+   * customer record: personId null).
+   */
+  readonly target?: { readonly personId: string | null; readonly channel: TeammateChannel } | null;
   readonly batch: readonly BatchMessage[];
   /** The app's address (booking pages). */
   readonly webUrl: string;
@@ -213,16 +221,18 @@ export async function loadRunContext(tx: Tx, input: LoadInput): Promise<RunConte
     tx,
     sql`select name, timezone, settings from app.workspaces where id = ${ws}`,
   );
-  const [conv] = await tx
-    .select()
-    .from(conversations)
-    .where(eq(conversations.id, input.conversationId));
-  if (!w || !conv) throw new Error(`conversation ${input.conversationId} is not visible here`);
+  const [conv] = input.conversationId
+    ? await tx.select().from(conversations).where(eq(conversations.id, input.conversationId))
+    : [];
+  const target = conv ? null : (input.target ?? null);
+  if (!w || (!conv && !target))
+    throw new Error(`conversation ${input.conversationId ?? '(none)'} is not visible here`);
   const timeZone = w.timezone || 'UTC';
-  const channel = conv.channel as TeammateChannel;
+  const channel = (conv?.channel ?? target!.channel) as TeammateChannel;
+  const personId = conv ? conv.personId : target!.personId;
   const unverifiedChat = channel === 'chat';
   const grounding = await loadGrounding(tx, ws);
-  const customer = conv.personId ? await customerOf(tx, conv.personId) : null;
+  const customer = personId ? await customerOf(tx, personId) : null;
   const lead = customer ? await openLeadOf(tx, ws, customer.id) : null;
   const stages = lead ? await stagesOf(tx, lead.pipelineId) : [];
   const calendars = input.config.book.enabled
@@ -230,29 +240,38 @@ export async function loadRunContext(tx: Tx, input: LoadInput): Promise<RunConte
     : [];
   const appointments =
     customer && !unverifiedChat ? await upcomingAppointments(tx, ws, customer.id, timeZone) : [];
-  const history = await historyOf(
-    tx,
-    conv.id,
-    input.batch.map((b) => b.id),
+  const history = conv
+    ? await historyOf(
+        tx,
+        conv.id,
+        input.batch.map((b) => b.id),
+      )
+    : [];
+  // Nothing new to answer (a first message, a nudge): what the lead is about finds the knowledge instead.
+  const words = anyOfWords(
+    input.batch.length
+      ? input.batch.map((b) => `${b.subject ?? ''} ${b.text}`).join(' ')
+      : (lead?.title ?? ''),
   );
-  const words = anyOfWords(input.batch.map((b) => `${b.subject ?? ''} ${b.text}`).join(' '));
-  const matches = await findKnowledge(tx, {
-    workspaceId: ws,
-    queries: [words],
-    limit: KNOWLEDGE_MATCHES,
-  });
-  const [sent] = await rows<{ n: number }>(
-    tx,
-    sql`select count(*)::int as n from app.messages
-        where conversation_id = ${conv.id} and sent_by_teammate_id is not null`,
-  );
+  const matches = words.trim()
+    ? await findKnowledge(tx, { workspaceId: ws, queries: [words], limit: KNOWLEDGE_MATCHES })
+    : [];
+  const [sent] = conv
+    ? await rows<{ n: number }>(
+        tx,
+        sql`select count(*)::int as n from app.messages
+            where conversation_id = ${conv.id} and sent_by_teammate_id is not null`,
+      )
+    : [{ n: 0 }];
   const firstAiMessage = (sent?.n ?? 0) === 0;
-  const visitor = unverifiedChat ? await visitorOf(tx, conv.counterpart) : null;
+  const visitor = unverifiedChat && conv ? await visitorOf(tx, conv.counterpart) : null;
+  const counterpart =
+    conv?.counterpart ?? (channel === 'sms' ? customer?.phone : customer?.email) ?? null;
   const contacts = unverifiedChat
     ? { phones: [visitor?.phone], emails: [visitor?.email] }
     : {
-        phones: [customer?.phone, channel === 'sms' ? conv.counterpart : null],
-        emails: [customer?.email, channel === 'email' ? conv.counterpart : null],
+        phones: [customer?.phone, channel === 'sms' ? counterpart : null],
+        emails: [customer?.email, channel === 'email' ? counterpart : null],
       };
   return {
     now: input.now,
@@ -266,10 +285,10 @@ export async function loadRunContext(tx: Tx, input: LoadInput): Promise<RunConte
     },
     grounding,
     conversation: {
-      id: conv.id,
+      id: conv?.id ?? null,
       channel,
-      counterpart: conv.counterpart,
-      personId: conv.personId,
+      counterpart,
+      personId,
     },
     unverifiedChat,
     visitorName: visitor?.name ?? null,

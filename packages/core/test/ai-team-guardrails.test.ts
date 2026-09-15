@@ -331,6 +331,9 @@ describe('emergencies', () => {
     expect(EMERGENCY_SAFETY_TEXT.gas).toMatch(
       /leave the building now.*call 911 or your gas company/,
     );
+    // Every kind tells them the same thing about the team, in the same words.
+    for (const text of Object.values(EMERGENCY_SAFETY_TEXT))
+      expect(text.endsWith(" We've alerted our team.")).toBe(true);
   });
 });
 

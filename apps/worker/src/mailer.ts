@@ -5,6 +5,8 @@ export interface MailMessage {
   readonly subject: string;
   readonly text: string;
   readonly html: string;
+  /** 'high' marks it urgent in mail apps (X-Priority and Importance headers): emergencies only. */
+  readonly priority?: 'high';
 }
 
 export interface Mailer {

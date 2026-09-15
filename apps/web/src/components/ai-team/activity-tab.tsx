@@ -7,7 +7,7 @@ import { Card } from '@/components/ui/card';
 import { EmptyState } from '@/components/ui/empty-state';
 import { teammateActions } from '@/lib/ai-team/actions';
 import { progressView, savedLine } from '@/lib/ai-team/describe';
-import type { TeammateActivity, TeammateGet } from '@/lib/ai-team/types';
+import type { ActivityPeriod, TeammateActivity, TeammateGet } from '@/lib/ai-team/types';
 import { errorMessage } from '@/lib/api/client';
 import { TeammateActivityView } from './activity';
 import { TeammateHeader, TeammateSubnav } from './header';
@@ -22,6 +22,7 @@ const NO_ACTIVITY: TeammateActivity = {
     draftedToday: 0,
     handedOffToday: 0,
     failedToday: 0,
+    bookedToday: 0,
     pendingDrafts: 0,
     needsPerson: 0,
     handledByAi: 0,
@@ -34,10 +35,13 @@ const NO_ACTIVITY: TeammateActivity = {
 export function TeammateActivityTab({
   workspaceId,
   data,
+  period,
   activity,
 }: {
   workspaceId: string;
   data: TeammateGet;
+  /** The runs' period, from the page's address. */
+  period: ActivityPeriod;
   activity: TeammateActivity | null;
 }) {
   const router = useRouter();
@@ -101,6 +105,8 @@ export function TeammateActivityTab({
         workspaceId={workspaceId}
         name={t.name}
         timeZone={tz}
+        period={period}
+        usage={data.catalogs.aiUsage}
         initial={activity ?? NO_ACTIVITY}
       />
       <TeammateHistory

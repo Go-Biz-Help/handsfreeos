@@ -26,7 +26,7 @@ import {
   type TeammateConfig,
 } from '../ai-team/config';
 import { diffTeammateConfigs } from '../ai-team/diff';
-import { inferTeammateLabels } from '../ai-team/labels';
+import { inferTeammateLabels, withArticle } from '../ai-team/labels';
 import {
   loadTeammate,
   loadTeammateCatalogs,
@@ -252,7 +252,7 @@ export const aiTeammateCreate = defineCommand({
       configVersion: config.version,
       labels,
       diffSummary: [
-        preset.key === 'blank' ? 'Created from scratch' : `Created as a ${preset.name}`,
+        preset.key === 'blank' ? 'Created from scratch' : `Created as ${withArticle(preset.name)}`,
       ] as unknown as Record<string, unknown>[],
       changedBy: me,
     });
