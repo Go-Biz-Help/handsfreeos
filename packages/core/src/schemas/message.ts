@@ -23,6 +23,9 @@ export const requiredEmail = z
   .max(254)
   .pipe(z.email({ error: 'Enter a valid email address.' }));
 
+/** What message.send can send on: a text, an email, or a reply in a website chat. */
+export const sendChannel = z.enum(['sms', 'email', 'chat']);
+
 export const MessageSendInput = z
   .object({
     workspaceId: uuid,
@@ -30,7 +33,7 @@ export const MessageSendInput = z
     personId: uuid.optional(),
     toPhone: phoneRequired.optional(),
     toEmail: requiredEmail.optional(),
-    channel: messageChannel.default('sms'),
+    channel: sendChannel.default('sms'),
     body: z.string().trim().min(1, 'Write a message.').max(10000),
     subject: z.string().trim().max(200).optional(),
     /** Email: copies to other people. */
@@ -50,6 +53,11 @@ export const MessageSendInput = z
      * system and workflows only.
      */
     keepConversationStatus: z.boolean().default(false),
+    /**
+     * The customer's message this answers. In quiet hours the AI teammate may text only a direct reply to the
+     * latest text in the conversation, soon after it arrived.
+     */
+    inReplyToMessageId: uuid.optional(),
   })
   .refine(
     (v) => [v.conversationId, v.personId, v.toPhone, v.toEmail].filter(Boolean).length === 1,
@@ -58,6 +66,10 @@ export const MessageSendInput = z
       error: 'Pick one conversation, customer, number or email address.',
     },
   )
+  .refine((v) => v.channel !== 'chat' || !!v.conversationId, {
+    path: ['conversationId'],
+    error: 'A chat reply goes in the visitor’s chat.',
+  })
   .refine(
     (v) =>
       v.channel === 'email' ||

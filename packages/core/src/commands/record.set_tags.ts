@@ -1,5 +1,6 @@
 import { and, eq, inArray } from 'drizzle-orm';
 import { companies, leads, people, recordTags } from '@hfos/db/schema';
+import { assertAiReach } from '../ai-team/reach';
 import { setRecordTags, tagsOf } from '../crm/records';
 import { HfosError } from '../errors';
 import { userIdOf } from '../kernel/actor';
@@ -16,10 +17,23 @@ export const recordSetTags = defineCommand({
   permission: 'records.write',
   scope: (i) => ({ kind: 'workspace', workspaceId: i.workspaceId }),
   emits: ['record.tags_changed'],
-  actors: ['human', 'system', 'workflow'],
+  actors: ['human', 'system', 'workflow', 'ai_employee'],
   async handler(ctx, input) {
     const workspaceId = ctx.scope.workspaceId!;
     const { recordType, recordId, mode } = input;
+    // The AI teammate only adds tags, to its own customer or their lead.
+    if (ctx.actor.type === 'ai_employee') {
+      if (mode !== 'add')
+        throw HfosError.validation([{ path: 'mode', message: 'The AI teammate only adds tags.' }]);
+      await assertAiReach(
+        ctx,
+        recordType === 'person'
+          ? { personId: recordId }
+          : recordType === 'lead'
+            ? { leadId: recordId }
+            : { companyId: recordId },
+      );
+    }
     const table = recordType === 'person' ? people : recordType === 'company' ? companies : leads;
     const [record] = await ctx.tx
       .select({ id: table.id })

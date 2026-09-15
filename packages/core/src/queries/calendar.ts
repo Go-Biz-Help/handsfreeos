@@ -23,6 +23,8 @@ import {
   waitlistEntries,
   workspaceMemberships,
 } from '@hfos/db/schema';
+import { assertTeammateCalendar } from '../ai-team/reach';
+import { aiEmployeeOf } from '../kernel/actor';
 import { slotOut } from '../calendar/booking';
 import { parseConfig } from '../calendar/config';
 import { computeSlots } from '../calendar/engine/slots';
@@ -223,8 +225,11 @@ export const calendarAvailability = defineQuery({
   output: CalendarAvailabilityOutput,
   permission: 'workspace.read',
   scope: inWorkspace,
-  actors: ['human', 'system'],
+  // The AI teammate asks too, on its own calendars only.
+  actors: ['human', 'system', 'ai_employee'],
   async handler(ctx, input) {
+    const ai = aiEmployeeOf(ctx.actor);
+    if (ai) await assertTeammateCalendar(ctx.tx, ai, input.calendarId);
     const calendar = await loadCalendar(ctx.tx, input.workspaceId, input.calendarId);
     const { from, to } = rangeOf(input);
     const service = await resolveService(ctx.tx, calendar, input.serviceId);

@@ -97,6 +97,106 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/ai_teammate.create": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Set up the business’s AI teammate from a preset (or blank), with its name and how it says it’s AI. It starts off; turn it on when its settings are ready.
+         * @description Risk level 2. Requires ai_team.manage. Emits ai_teammate.created.
+         */
+        post: operations["command_ai_teammate_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/ai_teammate.decide_draft": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Approve (optionally editing the message) or reject one of the AI teammate’s drafts, once. A reply draft counts toward training; an approved draft then goes out as the teammate with your name on it.
+         * @description Risk level 2. Requires inbox.use. Emits ai_teammate.draft_decided, ai_teammate.status_changed.
+         */
+        post: operations["command_ai_teammate_decide_draft"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/ai_teammate.restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Bring back an earlier revision of the AI teammate’s settings. It’s saved again as a new revision; its training progress stays as it is.
+         * @description Risk level 2. Requires ai_team.manage. Emits ai_teammate.config_saved.
+         */
+        post: operations["command_ai_teammate_restore"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/ai_teammate.save_config": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Save the AI teammate’s settings as a new revision. Refuses a stale draft (revision_conflict); settings conflicts never block a save, only turning it on.
+         * @description Risk level 2. Requires ai_team.manage. Emits ai_teammate.config_saved.
+         */
+        post: operations["command_ai_teammate_save_config"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/ai_teammate.set_status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Turn the AI teammate off, put it in training (every message waits for a person’s OK), or make it automatic (“Switch to automatic now”). Turning it on is refused while its settings conflict; “Back to training” starts the count again.
+         * @description Risk level 2. Requires ai_team.manage. Emits ai_teammate.status_changed.
+         */
+        post: operations["command_ai_teammate_set_status"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/appointment.add_attendee": {
         parameters: {
             query?: never;
@@ -617,6 +717,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/conversation.hand_to_ai": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Hand a conversation back to the AI teammate. It answers what’s waiting and whatever the customer writes next.
+         * @description Risk level 1. Requires inbox.use. Emits conversation.handed_to_ai.
+         */
+        post: operations["command_conversation_hand_to_ai"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/conversation.link_person": {
         parameters: {
             query?: never;
@@ -731,6 +851,26 @@ export interface paths {
          * @description Risk level 0. Requires inbox.use. Emits conversation.snoozed.
          */
         post: operations["command_conversation_snooze"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/conversation.take_over": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Take a conversation from the AI teammate (or from “Needs a person”): the teammate stays quiet until someone hands it back, and its pending reply is dropped.
+         * @description Risk level 1. Requires inbox.use. Emits conversation.taken_over.
+         */
+        post: operations["command_conversation_take_over"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1457,6 +1597,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/lead.record_answers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Record a lead’s answers to the business’s qualifying questions, in the customer’s words. When they qualify the lead, lead.qualified goes out.
+         * @description Risk level 1. Requires records.write. Emits lead.answers_recorded, lead.qualified.
+         */
+        post: operations["command_lead_record_answers"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/lead.restore": {
         parameters: {
             query?: never;
@@ -1507,7 +1667,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Change a lead’s title, value, source, people, expected close date or assignee.
+         * Change a lead’s title, value, source, people, expected close date, assignee or next action.
          * @description Risk level 1. Requires records.write. Emits lead.updated, lead.assigned.
          */
         post: operations["command_lead_update"];
@@ -1667,8 +1827,8 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Text or email a customer: a text from the business number, an email from a workspace address or a connected mailbox. The message is queued here and the worker sends it.
-         * @description Risk level 2. Requires inbox.use. Emits message.queued, conversation.created.
+         * Text, email or chat with a customer: a text from the business number, an email from a workspace address or a connected mailbox, or a reply in a website chat. Texts and emails are queued here and the worker sends them. A person writing in a conversation the AI teammate is answering takes it over.
+         * @description Risk level 2. Requires inbox.use. Emits message.queued, message.sent, conversation.created, conversation.taken_over.
          */
         post: operations["command_message_send"];
         delete?: never;
@@ -3097,6 +3257,66 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/queries/ai_teammate.activity": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * What the AI teammate has been doing: today’s counters and what’s waiting, and its runs newest first with the tools, knowledge and checks each used.
+         * @description Requires workspace.read.
+         */
+        post: operations["query_ai_teammate_activity"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/ai_teammate.draft_list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The AI teammate’s drafts: those waiting for a person (oldest first), or decided ones (newest first), optionally one kind or one conversation’s.
+         * @description Requires inbox.use.
+         */
+        post: operations["query_ai_teammate_draft_list"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/ai_teammate.get": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The business’s AI teammate: its settings, what conflicts in them (with fixes), its training progress, its revisions, and the catalogs its settings refer to.
+         * @description Requires workspace.read.
+         */
+        post: operations["query_ai_teammate_get"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/queries/appointment.get": {
         parameters: {
             query?: never;
@@ -3587,7 +3807,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Conversations newest first: mine, unassigned or everyone’s; open, snoozed or closed; texts or email; with search.
+         * Conversations newest first: mine, unassigned or everyone’s, those waiting for a person (oldest first) or the AI teammate’s; open, snoozed or closed; texts or email; with search.
          * @description Requires inbox.use.
          */
         post: operations["query_inbox_list"];
@@ -4470,6 +4690,217 @@ export interface operations {
                         /** Format: uuid */
                         activityId: string;
                         updated: string[];
+                    };
+                };
+            };
+        };
+    };
+    command_ai_teammate_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /**
+                     * @default first_message
+                     * @enum {string}
+                     */
+                    disclosure?: "first_message" | "when_asked";
+                    name: string;
+                    /** @enum {string} */
+                    preset: "lead_responder" | "lead_qualifier" | "appointment_coordinator" | "blank";
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        revision: number;
+                        /** Format: uuid */
+                        teammateId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_ai_teammate_decide_draft: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {string} */
+                    decision: "approve" | "reject";
+                    /** Format: uuid */
+                    draftId: string;
+                    edits?: {
+                        body?: string;
+                        subject?: string;
+                    };
+                    reason?: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        draftId: string;
+                        progress: {
+                            approvalsNeeded: number;
+                            approvedCount: number;
+                            automaticVia: ("threshold" | "override") | null;
+                            becameAutomatic: boolean;
+                            editedCount: number;
+                            rejectedCount: number;
+                            remaining: number;
+                            /** @enum {string} */
+                            status: "off" | "training" | "automatic";
+                        };
+                        /** @enum {string} */
+                        status: "approved" | "rejected";
+                    };
+                };
+            };
+        };
+    };
+    command_ai_teammate_restore: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    baseRevision: number;
+                    revision: number;
+                    /** Format: uuid */
+                    teammateId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changes: string[];
+                        labels: string[];
+                        revision: number;
+                        /** Format: uuid */
+                        teammateId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_ai_teammate_save_config: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    baseRevision: number;
+                    config: {
+                        [key: string]: unknown;
+                    };
+                    /** Format: uuid */
+                    teammateId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changes: string[];
+                        labels: string[];
+                        revision: number;
+                        /** Format: uuid */
+                        teammateId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_ai_teammate_set_status: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {string} */
+                    status: "off" | "training" | "automatic";
+                    /** Format: uuid */
+                    teammateId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        progress: {
+                            approvalsNeeded: number;
+                            approvedCount: number;
+                            automaticVia: ("threshold" | "override") | null;
+                            editedCount: number;
+                            rejectedCount: number;
+                            remaining: number;
+                            /** @enum {string} */
+                            status: "off" | "training" | "automatic";
+                        };
+                        /** Format: uuid */
+                        teammateId: string;
                     };
                 };
             };
@@ -5858,6 +6289,40 @@ export interface operations {
             };
         };
     };
+    command_conversation_hand_to_ai: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    conversationId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        conversationId: string;
+                        /** Format: uuid */
+                        teammateId: string;
+                    };
+                };
+            };
+        };
+    };
     command_conversation_link_person: {
         parameters: {
             query?: never;
@@ -6058,6 +6523,39 @@ export interface operations {
                     "application/json": {
                         /** Format: uuid */
                         conversationId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_conversation_take_over: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    conversationId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        conversationId: string;
+                        draftCancelled: boolean;
                     };
                 };
             };
@@ -7473,6 +7971,47 @@ export interface operations {
             };
         };
     };
+    command_lead_record_answers: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    answers: {
+                        answer: string;
+                        questionId: string;
+                    }[];
+                    /** Format: uuid */
+                    leadId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        leadId: string;
+                        missing: string[];
+                        notAFit: string[];
+                        qualified: boolean;
+                        /** @enum {string} */
+                        status: "qualified" | "not_a_fit" | "incomplete";
+                    };
+                };
+            };
+        };
+    };
     command_lead_restore: {
         parameters: {
             query?: never;
@@ -7556,6 +8095,8 @@ export interface operations {
                     expectedCloseOn?: string | null;
                     /** Format: uuid */
                     leadId: string;
+                    nextAction?: string | null;
+                    nextActionAt?: string | null;
                     personId?: string | null;
                     source?: string | null;
                     title?: string;
@@ -7845,12 +8386,14 @@ export interface operations {
                      * @default sms
                      * @enum {string}
                      */
-                    channel?: "sms" | "email";
+                    channel?: "sms" | "email" | "chat";
                     clientId?: string;
                     /** Format: uuid */
                     conversationId?: string;
                     /** Format: uuid */
                     emailAddressId?: string;
+                    /** Format: uuid */
+                    inReplyToMessageId?: string;
                     /** @default false */
                     keepConversationStatus?: boolean;
                     /** Format: uuid */
@@ -11263,6 +11806,369 @@ export interface operations {
             };
         };
     };
+    query_ai_teammate_activity: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    cursor?: string;
+                    /** @default 50 */
+                    limit?: number;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        counters: {
+                            draftedToday: number;
+                            failedToday: number;
+                            handedOffToday: number;
+                            handledByAi: number;
+                            needsPerson: number;
+                            pendingDrafts: number;
+                            repliedToday: number;
+                            runsToday: number;
+                        };
+                        nextCursor: string | null;
+                        runs: {
+                            checks: unknown[];
+                            conversationId: string | null;
+                            endedAt: string | null;
+                            error: string | null;
+                            /** Format: uuid */
+                            id: string;
+                            inputTokens: number;
+                            isTest: boolean;
+                            knowledge: unknown[];
+                            leadId: string | null;
+                            model: string | null;
+                            outcome: ("replied" | "drafted" | "handed_off" | "no_reply") | null;
+                            outputTokens: number;
+                            person: {
+                                fullName: string;
+                                /** Format: uuid */
+                                id: string;
+                            } | null;
+                            replyText: string | null;
+                            /** Format: date-time */
+                            startedAt: string;
+                            /** @enum {string} */
+                            status: "running" | "done" | "superseded" | "failed";
+                            summary: string | null;
+                            tools: string[];
+                            toolSteps: number;
+                            triggeredBy: string;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    query_ai_teammate_draft_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    conversationId?: string;
+                    cursor?: string;
+                    /** @enum {string} */
+                    kind?: "reply" | "approval";
+                    /** @default 50 */
+                    limit?: number;
+                    /**
+                     * @default pending
+                     * @enum {string}
+                     */
+                    status?: "pending" | "decided" | "all";
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: {
+                            canDecide: boolean;
+                            channel: string | null;
+                            conversationId: string | null;
+                            /** Format: date-time */
+                            createdAt: string;
+                            decidedAt: string | null;
+                            decidedBy: {
+                                fullName: string;
+                                /** Format: uuid */
+                                id: string;
+                            } | null;
+                            edits: {
+                                body?: string;
+                                subject?: string;
+                            } | null;
+                            expiresAt: string | null;
+                            /** Format: uuid */
+                            id: string;
+                            /** @enum {string} */
+                            kind: "reply" | "approval";
+                            lead: {
+                                /** Format: uuid */
+                                id: string;
+                                title: string;
+                            } | null;
+                            person: {
+                                fullName: string;
+                                /** Format: uuid */
+                                id: string;
+                            } | null;
+                            preview: {
+                                /** @default [] */
+                                actions: ({
+                                    /** Format: uuid */
+                                    calendarId: string;
+                                    /** @default null */
+                                    durationMinutes: number | null;
+                                    /** @enum {string} */
+                                    kind: "book";
+                                    /** @default null */
+                                    notes: string | null;
+                                    /** @default null */
+                                    serviceId: string | null;
+                                    /** @default null */
+                                    sessionId: string | null;
+                                    /** Format: date-time */
+                                    startsAt: string;
+                                    /** @default  */
+                                    summary: string;
+                                } | {
+                                    /** Format: uuid */
+                                    appointmentId: string;
+                                    /** @enum {string} */
+                                    kind: "reschedule";
+                                    /** @default null */
+                                    sessionId: string | null;
+                                    /** Format: date-time */
+                                    startsAt: string;
+                                    /** @default  */
+                                    summary: string;
+                                } | {
+                                    /** Format: uuid */
+                                    appointmentId: string;
+                                    /** @enum {string} */
+                                    kind: "cancel";
+                                    /** @default null */
+                                    reason: string | null;
+                                    /** @default  */
+                                    summary: string;
+                                })[];
+                                /** @default null */
+                                discount: {
+                                    percent: number;
+                                    reason: string;
+                                } | null;
+                                /** @default null */
+                                message: {
+                                    body: string;
+                                    /** @enum {string} */
+                                    channel: "sms" | "email" | "chat";
+                                    /** @default null */
+                                    inReplyToMessageId: string | null;
+                                    /** @default null */
+                                    subject: string | null;
+                                } | null;
+                            };
+                            reason: string | null;
+                            runId: string | null;
+                            /** @enum {string} */
+                            status: "pending" | "approved" | "rejected" | "expired" | "cancelled";
+                            teammate: {
+                                /** Format: uuid */
+                                id: string;
+                                name: string;
+                            };
+                            via: string | null;
+                        }[];
+                        nextCursor: string | null;
+                    };
+                };
+            };
+        };
+    };
+    query_ai_teammate_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        canManage: boolean;
+                        catalogs: {
+                            businessHours: {
+                                day: number;
+                                end: string;
+                                start: string;
+                            }[] | null;
+                            calendars: {
+                                archived: boolean;
+                                bookableOnline: boolean;
+                                /** Format: uuid */
+                                id: string;
+                                name: string;
+                            }[];
+                            chatWidgets: {
+                                /** Format: uuid */
+                                id: string;
+                                name: string;
+                            }[];
+                            emailAddresses: {
+                                address: string;
+                                /** Format: uuid */
+                                id: string;
+                            }[];
+                            industry?: string | null;
+                            knowledge: {
+                                published: number;
+                            };
+                            members: {
+                                active: boolean;
+                                name: string;
+                                /** @enum {string} */
+                                role: "owner" | "admin" | "member";
+                                /** Format: uuid */
+                                userId: string;
+                            }[];
+                            newLeadTextWorkflows: {
+                                /** Format: uuid */
+                                id: string;
+                                name: string;
+                            }[];
+                            pipelines?: {
+                                archived: boolean;
+                                /** Format: uuid */
+                                id: string;
+                                name: string;
+                                stages: {
+                                    archived: boolean;
+                                    /** Format: uuid */
+                                    id: string;
+                                    name: string;
+                                }[];
+                            }[];
+                            profile: {
+                                filled: number;
+                                total: number;
+                            };
+                            quietHours: {
+                                enabled: boolean;
+                                end: string;
+                                start: string;
+                            };
+                            textingReady: boolean;
+                            timeZone: string;
+                        };
+                        issues: {
+                            /** @enum {string} */
+                            code: "no_channel" | "texting_not_ready" | "no_email_address" | "no_chat_widget" | "booking_needs_calendar" | "calendar_not_bookable" | "no_qualifying_questions" | "nobody_to_notify" | "thin_knowledge" | "after_hours_without_hours" | "quiet_hours_overlap" | "double_texting";
+                            fields: string[];
+                            fixes: ({
+                                id: string;
+                                label: string;
+                                patch: {
+                                    [key: string]: unknown;
+                                };
+                            } | {
+                                href: string;
+                                id: string;
+                                label: string;
+                            })[];
+                            message: string;
+                            /** @enum {string} */
+                            severity: "error" | "warning";
+                        }[];
+                        progress: {
+                            approvalsNeeded: number;
+                            approvedCount: number;
+                            automaticVia: ("threshold" | "override") | null;
+                            editedCount: number;
+                            rejectedCount: number;
+                            remaining: number;
+                            /** @enum {string} */
+                            status: "off" | "training" | "automatic";
+                        } | null;
+                        revisions: {
+                            changedBy: {
+                                fullName: string;
+                                /** Format: uuid */
+                                id: string;
+                            } | null;
+                            /** Format: date-time */
+                            createdAt: string;
+                            diffSummary: string[];
+                            labels: string[];
+                            revision: number;
+                        }[];
+                        teammate: {
+                            automaticSince: string | null;
+                            config: {
+                                [key: string]: unknown;
+                            };
+                            configVersion: number;
+                            /** Format: date-time */
+                            createdAt: string;
+                            /** Format: uuid */
+                            id: string;
+                            labels: string[];
+                            name: string;
+                            revision: number;
+                            /** @enum {string} */
+                            status: "off" | "training" | "automatic";
+                            trainingStartedAt: string | null;
+                            /** Format: date-time */
+                            updatedAt: string;
+                        } | null;
+                    };
+                };
+            };
+        };
+    };
     query_appointment_get: {
         parameters: {
             query?: never;
@@ -11832,7 +12738,7 @@ export interface operations {
                     /** Format: date-time */
                     before?: string;
                     /** @enum {string} */
-                    channel?: "web" | "api" | "worker" | "cli" | "sms" | "assistant" | "booking_page" | "workflow" | "test";
+                    channel?: "web" | "api" | "worker" | "cli" | "sms" | "assistant" | "booking_page" | "workflow" | "ai_employee" | "chat_widget" | "test";
                     /** @default 50 */
                     limit?: number;
                     /** Format: date-time */
@@ -13334,7 +14240,7 @@ export interface operations {
                      * @default all
                      * @enum {string}
                      */
-                    box?: "mine" | "unassigned" | "all";
+                    box?: "mine" | "unassigned" | "all" | "needs_person" | "ai";
                     /** @enum {string} */
                     channel?: "sms" | "email";
                     cursor?: string;
@@ -13432,6 +14338,8 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        ai: number;
+                        needsPerson: number;
                         open: {
                             all: number;
                             mine: number;

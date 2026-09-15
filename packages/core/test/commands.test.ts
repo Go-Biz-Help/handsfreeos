@@ -289,6 +289,19 @@ describe('registry', () => {
       'knowledge_suggestion.reject',
       'knowledge_suggestion.propose',
       'knowledge_item.record_use',
+      'lead.record_answers',
+      'conversation.hand_off',
+      'conversation.take_over',
+      'conversation.hand_to_ai',
+      'ai_teammate.create',
+      'ai_teammate.save_config',
+      'ai_teammate.restore',
+      'ai_teammate.set_status',
+      'ai_teammate.decide_draft',
+      'ai_teammate.send_draft',
+      'appointment.book_for_customer',
+      'attendee.reschedule_for_customer',
+      'attendee.cancel_for_customer',
     ]);
     expect(registry.queries.map((q) => q.name)).toEqual([
       'account.me',
@@ -355,6 +368,9 @@ describe('registry', () => {
       'knowledge_scan.get',
       'knowledge_suggestion.list',
       'knowledge_pack.list',
+      'ai_teammate.get',
+      'ai_teammate.draft_list',
+      'ai_teammate.activity',
     ]);
     expect(registry.command('membership.invite')?.risk).toBe(2);
   });

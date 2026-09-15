@@ -20,6 +20,7 @@ import {
   activityLog,
   conversationAssign,
   conversationClose,
+  conversationHandOff,
   conversationSnooze,
   knowledgeItemCreate,
   knowledgeItemRecordUse,
@@ -155,6 +156,8 @@ async function readyTexting() {
   );
 }
 
+/** Every action M6 opens to workflow steps (the run itself below), plus M7's hand-off to a person. */
+const HAND_OFF = [conversationHandOff];
 /** Every action M6 opens to workflow steps. */
 const OPENED = [
   messageSend,
@@ -208,13 +211,13 @@ beforeAll(async () => {
 afterAll(closeTestDbs);
 
 describe('the workflow actor', () => {
-  it('is let into exactly the actions M6 opens to workflows', () => {
+  it('is let into exactly the actions M6 opens to workflows, and M7’s hand-off', () => {
     expect(
       registry.commands
         .filter((c) => c.actors?.includes('workflow'))
         .map((c) => c.name)
         .sort(),
-    ).toEqual(OPENED.map((c) => c.name).sort());
+    ).toEqual([...OPENED, ...HAND_OFF].map((c) => c.name).sort());
   });
 
   it('runs every opened action, recorded as the workflow on each event and audit row', async () => {

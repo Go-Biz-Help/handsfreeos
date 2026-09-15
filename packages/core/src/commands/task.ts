@@ -1,5 +1,6 @@
 import { and, eq } from 'drizzle-orm';
 import { leads, tasks } from '@hfos/db/schema';
+import { assertAiReach } from '../ai-team/reach';
 import { logSystemActivity } from '../crm/activities';
 import { requireCompany, requirePerson } from '../crm/records';
 import { HfosError } from '../errors';
@@ -53,8 +54,9 @@ export const taskCreate = defineCommand({
   permission: 'records.write',
   scope: (i) => ({ kind: 'workspace', workspaceId: i.workspaceId }),
   emits: ['task.created'],
-  actors: ['human', 'workflow'],
+  actors: ['human', 'workflow', 'ai_employee'],
   async handler(ctx, input) {
+    await assertAiReach(ctx, input);
     await checkRelated(ctx, input);
     const [row] = await ctx.tx
       .insert(tasks)

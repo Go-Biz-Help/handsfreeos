@@ -1,5 +1,6 @@
 import { and, eq } from 'drizzle-orm';
 import { leads } from '@hfos/db/schema';
+import { assertAiReach } from '../ai-team/reach';
 import { logSystemActivity } from '../crm/activities';
 import { requireCompany, requirePerson, userRef } from '../crm/records';
 import { HfosError } from '../errors';
@@ -8,16 +9,39 @@ import { LeadUpdateInput, LeadUpdateOutput } from '../schemas/lead';
 
 export const leadUpdate = defineCommand({
   name: 'lead.update',
-  description: 'Change a lead’s title, value, source, people, expected close date or assignee.',
+  description:
+    'Change a lead’s title, value, source, people, expected close date, assignee or next action.',
   risk: 1,
   input: LeadUpdateInput,
   output: LeadUpdateOutput,
   permission: 'records.write',
   scope: (i) => ({ kind: 'workspace', workspaceId: i.workspaceId }),
   emits: ['lead.updated', 'lead.assigned'],
-  actors: ['human', 'workflow'],
+  actors: ['human', 'workflow', 'ai_employee'],
   async handler(ctx, input) {
     const workspaceId = ctx.scope.workspaceId!;
+    // The AI teammate changes only the next action on its own customer's lead.
+    if (ctx.actor.type === 'ai_employee') {
+      const other = (
+        [
+          'title',
+          'personId',
+          'companyId',
+          'valueCents',
+          'source',
+          'assigneeUserId',
+          'expectedCloseOn',
+        ] as const
+      ).filter((k) => input[k] !== undefined);
+      if (other.length)
+        throw HfosError.validation(
+          other.map((path) => ({
+            path,
+            message: 'The AI teammate only changes a lead’s next action.',
+          })),
+        );
+      await assertAiReach(ctx, { leadId: input.leadId });
+    }
     const [current] = await ctx.tx
       .select()
       .from(leads)
@@ -42,6 +66,12 @@ export const leadUpdate = defineCommand({
     set('source', input.source);
     set('assigneeUserId', input.assigneeUserId);
     set('expectedCloseOn', input.expectedCloseOn);
+    set('nextAction', input.nextAction);
+    if (input.nextActionAt !== undefined) {
+      const at = input.nextActionAt ? new Date(input.nextActionAt) : null;
+      if ((at?.getTime() ?? null) !== (current.nextActionAt?.getTime() ?? null))
+        patch.nextActionAt = at;
+    }
     const updated = Object.keys(patch);
     if (updated.length === 0) return { leadId: current.id, updated: [] };
     await ctx.tx.update(leads).set(patch).where(eq(leads.id, current.id));

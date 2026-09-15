@@ -1,5 +1,6 @@
 import { and, eq } from 'drizzle-orm';
 import { leads } from '@hfos/db/schema';
+import { assertAiReach } from '../ai-team/reach';
 import { logSystemActivity } from '../crm/activities';
 import { HfosError } from '../errors';
 import { defineCommand } from '../kernel/define';
@@ -14,8 +15,9 @@ export const leadSetNextAction = defineCommand({
   permission: 'records.write',
   scope: (i) => ({ kind: 'workspace', workspaceId: i.workspaceId }),
   emits: ['lead.next_action_set', 'lead.next_action_cleared'],
-  actors: ['human', 'workflow'],
+  actors: ['human', 'workflow', 'ai_employee'],
   async handler(ctx, input) {
+    await assertAiReach(ctx, { leadId: input.leadId });
     const [current] = await ctx.tx
       .select()
       .from(leads)

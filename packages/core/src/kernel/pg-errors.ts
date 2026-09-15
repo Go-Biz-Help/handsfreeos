@@ -104,6 +104,26 @@ const RULES: Record<string, { status: number; message: string }> = {
     status: 409,
     message: 'People can only disconnect a calendar.',
   },
+  // Milestone 7: the AI teammate and website chat (0031-0033).
+  teammate_counts_protected: {
+    status: 403,
+    message: 'Training progress is counted by HandsFreeOS.',
+  },
+  teammate_status_transition: {
+    status: 409,
+    message: 'The AI teammate can’t change to that status.',
+  },
+  teammate_decision_forbidden: {
+    status: 403,
+    message: 'Only the business’s own team decides its teammate’s drafts.',
+  },
+  teammate_decision_invalid: { status: 400, message: 'A draft is approved or rejected.' },
+  teammate_not_found: { status: 404, message: 'AI teammate not found.' },
+  revision_immutable: { status: 403, message: 'Earlier versions can’t be changed.' },
+  chat_conversation_mismatch: {
+    status: 400,
+    message: 'That chat belongs to a different visitor.',
+  },
   not_authenticated: { status: 401, message: 'Sign in to continue.' },
   profile_missing: {
     status: 500,

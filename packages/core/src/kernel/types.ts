@@ -6,8 +6,8 @@ import type { requestChannel } from '../schemas/audit';
 /** Blueprint action levels: 0 read, 1 safe, 2 external, 3 sensitive, 4 admin. Used by the assistant in M4. */
 export type RiskLevel = 0 | 1 | 2 | 3 | 4;
 /**
- * 'web' | 'api' | 'worker' | 'cli' | 'sms' | 'assistant' | 'booking_page' | 'workflow' | 'test' (one list,
- * shared with the audit filter).
+ * 'web' | 'api' | 'worker' | 'cli' | 'sms' | 'assistant' | 'booking_page' | 'workflow' | 'ai_employee' |
+ * 'chat_widget' | 'test' (one list, shared with the audit filter).
  */
 export type Channel = z.infer<typeof requestChannel>;
 
@@ -52,8 +52,39 @@ export interface WorkflowActor {
   /** A test run (Simulate or Send to me). */
   readonly test: boolean;
 }
+/** The workflow run that handed the conversation to the teammate: its loop guard, carried on the AI's events. */
+export interface AiEmployeeOrigin {
+  readonly runId: string;
+  readonly workflowId: string;
+  readonly depth: number;
+  readonly originRunId: string | null;
+}
+/**
+ * The business's AI teammate (M7), serving one customer. Runs like the system (no permission check,
+ * `service_actor` bound to its workspace) but is recorded as itself: actor_type 'ai_employee' with actor_id
+ * the teammate, `payload._ai` on every event, and `meta.aiTeammate` on timeline entries ("Ava (AI)"). It may
+ * run only the commands in AI_EMPLOYEE_COMMANDS, and those commands keep it to its own conversation.
+ */
+export interface AiEmployeeActor {
+  readonly type: 'ai_employee';
+  readonly workspaceId: string;
+  readonly organizationId: string;
+  readonly teammateId: string;
+  /** The name customers see ("Ava"). */
+  readonly teammateName: string;
+  /** The run doing the work; null only when it was pruned before an approved draft went out. */
+  readonly runId: string | null;
+  /** The conversation it's answering; null for a first message to a new lead (sending it starts one). */
+  readonly conversationId: string | null;
+  /** The person whose OK sends this (an approved draft); null when it acts on its own. */
+  readonly approvedBy: string | null;
+  /** Set when a workflow step handed it the conversation, so the workflow loop guards still apply. */
+  readonly origin: AiEmployeeOrigin | null;
+  /** The test console: look-ups are real, and it never calls a command that changes anything. */
+  readonly test: boolean;
+}
 /** Work nobody signed in for: root within one workspace and never a permission check (see `isMachine`). */
-export type MachineActor = SystemActor | WorkflowActor;
+export type MachineActor = SystemActor | WorkflowActor | AiEmployeeActor;
 export type Actor = HumanActor | MachineActor;
 export type ActorKind = Actor['type'];
 

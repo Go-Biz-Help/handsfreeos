@@ -49,6 +49,26 @@ export function quietHoursState(
   return { quiet, localTime, endsAt: quiet ? window.end : null };
 }
 
+/**
+ * During quiet hours the AI teammate may still text a direct reply to a customer's own text, for this long
+ * after it arrived, and at most QUIET_REPLY_LIMIT times in one conversation per quiet period. It never starts
+ * a conversation in quiet hours. Email and website chat have no quiet hours.
+ */
+export const QUIET_REPLY_WINDOW_MS = 15 * 60_000;
+export const QUIET_REPLY_LIMIT = 3;
+
+/** When the quiet period `now` falls in began, or null when it isn't quiet hours. */
+export function quietPeriodStart(
+  window: QuietHoursWindow,
+  timeZone: string,
+  now: Date = new Date(),
+): Date | null {
+  if (!quietHoursState(window, timeZone, now).quiet) return null;
+  const since = (localMinutes(now, timeZone) - minutesOf(window.start) + 1440) % 1440;
+  const minute = Math.floor(now.getTime() / 60_000) * 60_000;
+  return new Date(minute - since * 60_000);
+}
+
 /** 20:00 becomes 8:00 PM. */
 export function formatClock(value: string): string {
   const total = minutesOf(value);

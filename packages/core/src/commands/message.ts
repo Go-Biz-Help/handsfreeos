@@ -1,9 +1,10 @@
 import { randomUUID } from 'node:crypto';
-import { and, eq, inArray, isNull } from 'drizzle-orm';
+import { and, desc, eq, inArray, isNull } from 'drizzle-orm';
 import type { z } from 'zod';
-import { sql } from '@hfos/db/client';
+import { rows, sql } from '@hfos/db/client';
 import {
   activities,
+  aiTeammateRuns,
   conversations,
   files,
   messages,
@@ -12,12 +13,14 @@ import {
   phoneNumbers,
   type MediaRef,
 } from '@hfos/db/schema';
+import { notHandledByAi, outsideItsConversation } from '../ai-team/reach';
 import { logChannelActivity } from '../crm/activities';
 import { formatPhone } from '../crm/phone';
 import { fullName, requirePerson } from '../crm/records';
 import { HfosError } from '../errors';
+import { aiEmployeeOf } from '../kernel/actor';
 import { defineCommand } from '../kernel/define';
-import type { CommandContext } from '../kernel/types';
+import type { AiEmployeeActor, CommandContext } from '../kernel/types';
 import {
   activeSuppression,
   emailAttachments,
@@ -33,7 +36,15 @@ import {
   threadHeaders,
   workspaceAddresses,
 } from '../messaging/email';
-import { formatClock, quietHoursState } from '../messaging/quiet-hours';
+import { personTakesOver, takeOver } from '../messaging/handling';
+import {
+  formatClock,
+  QUIET_REPLY_LIMIT,
+  QUIET_REPLY_WINDOW_MS,
+  quietHoursState,
+  quietPeriodStart,
+  type QuietHoursState,
+} from '../messaging/quiet-hours';
 import { messagePreview, smsKeyword, smsSegments } from '../messaging/sms';
 import {
   findOrCreateConversation,
@@ -45,6 +56,7 @@ import {
   readiness,
   scheduleJob,
   workspaceMessaging,
+  type WorkspaceMessaging,
 } from '../messaging/store';
 import {
   MessageAttachMediaInput,
@@ -122,11 +134,21 @@ async function customerOptedOut(ctx: CommandContext, conv: Conversation): Promis
   return p?.consent === 'opted_out';
 }
 
-/** The number, carrier approval, opt-out and quiet-hours checks every outbound text passes. */
+/**
+ * The number, carrier approval, opt-out and quiet-hours checks every outbound text passes. STOP always wins.
+ * `quietHours` says when the AI teammate's reply window let a text through during quiet hours.
+ */
 async function assertCanText(
   ctx: CommandContext,
   conv: Conversation,
-  opts: { acknowledgeQuietHours: boolean; skipQuietHours?: boolean },
+  opts: {
+    acknowledgeQuietHours: boolean;
+    skipQuietHours?: boolean;
+    /** The AI teammate's reply window: the customer's text it answers. */
+    inReplyToMessageId?: string;
+    /** This send starts the conversation (never allowed in quiet hours for the AI teammate). */
+    created?: boolean;
+  },
 ) {
   const workspaceId = ctx.scope.workspaceId!;
   const number = await liveNumber(ctx.tx, workspaceId);
@@ -144,11 +166,16 @@ async function assertCanText(
       409,
       'This customer texted STOP. They can text START to get texts again.',
     );
+  let quietHours: 'reply_window' | null = null;
   if (!opts.skipQuietHours) {
     const m = await workspaceMessaging(ctx.tx, workspaceId);
     const q = quietHoursState(m.settings.quietHours, m.timezone);
-    // Only a person can confirm a text in quiet hours. No machine actor, the system or a workflow, ever can.
-    if (q.quiet && (ctx.actor.type !== 'human' || !opts.acknowledgeQuietHours))
+    if (q.quiet && ctx.actor.type === 'ai_employee') {
+      // The AI teammate may answer a customer's own text that just came in, a few times a night; never first.
+      await assertQuietReply(ctx, conv, q, m, opts);
+      quietHours = 'reply_window';
+    } else if (q.quiet && (ctx.actor.type !== 'human' || !opts.acknowledgeQuietHours))
+      // Only a person can confirm a text in quiet hours. The system and workflows never can.
       throw new HfosError(
         'rule_violation',
         409,
@@ -157,7 +184,111 @@ async function assertCanText(
         'quiet_hours',
       );
   }
-  return number;
+  return { number, quietHours };
+}
+
+/**
+ * The AI teammate's quiet-hours reply window: a direct reply to the latest text in this conversation, within
+ * QUIET_REPLY_WINDOW_MS of its arrival, and at most QUIET_REPLY_LIMIT of them in one quiet period. Every
+ * refusal is rule quiet_hours, with `details.reason`, so the worker waits for the morning.
+ */
+async function assertQuietReply(
+  ctx: CommandContext,
+  conv: Conversation,
+  q: QuietHoursState,
+  m: WorkspaceMessaging,
+  opts: { inReplyToMessageId?: string; created?: boolean },
+): Promise<void> {
+  const refuse = (reason: string, why: string) =>
+    new HfosError(
+      'rule_violation',
+      409,
+      `It’s ${formatClock(q.localTime)} where the business is, and quiet hours end at ${formatClock(q.endsAt!)}. ${why}`,
+      { localTime: q.localTime, endsAt: q.endsAt, reason },
+      'quiet_hours',
+    );
+  if (opts.created || !opts.inReplyToMessageId)
+    throw refuse('first_text', 'Until then the AI teammate only answers a text that just came in.');
+  const [latest] = await ctx.tx
+    .select({ id: messages.id, occurredAt: messages.occurredAt })
+    .from(messages)
+    .where(
+      and(
+        eq(messages.conversationId, conv.id),
+        eq(messages.direction, 'inbound'),
+        eq(messages.channel, 'sms'),
+      ),
+    )
+    .orderBy(desc(messages.occurredAt), desc(messages.createdAt))
+    .limit(1);
+  if (!latest || latest.id !== opts.inReplyToMessageId)
+    throw refuse('not_latest', 'The AI teammate only answers the customer’s latest text.');
+  if (Date.now() - latest.occurredAt.getTime() > QUIET_REPLY_WINDOW_MS)
+    throw refuse(
+      'reply_window_passed',
+      'That text came in more than 15 minutes ago, so the reply waits.',
+    );
+  const since = quietPeriodStart(m.settings.quietHours, m.timezone) ?? new Date();
+  const [sent] = await rows<{ n: number }>(
+    ctx.tx,
+    sql`select count(*)::int as n from app.messages
+        where conversation_id = ${conv.id} and direction = 'outbound' and channel = 'sms'
+          and sent_by_teammate_id is not null and occurred_at >= ${since.toISOString()}::timestamptz`,
+  );
+  if ((sent?.n ?? 0) >= QUIET_REPLY_LIMIT)
+    throw refuse(
+      'reply_limit',
+      `The AI teammate already answered ${QUIET_REPLY_LIMIT} texts here, so the next reply waits.`,
+    );
+}
+
+/**
+ * The AI teammate writes only in the conversation it's answering, while it handles it, or starts one with its
+ * run's own new lead (a first message). Returns whether this send makes it the one handling the conversation.
+ */
+async function assertAiMaySend(
+  ctx: CommandContext,
+  ai: AiEmployeeActor,
+  conv: Conversation,
+  created: boolean,
+): Promise<boolean> {
+  if (ai.conversationId) {
+    if (conv.id !== ai.conversationId) throw outsideItsConversation();
+    if (conv.handledBy !== 'ai' || conv.aiTeammateId !== ai.teammateId) throw notHandledByAi();
+    return false;
+  }
+  const [run] = ai.runId
+    ? await ctx.tx
+        .select({
+          personId: aiTeammateRuns.personId,
+          conversationId: aiTeammateRuns.conversationId,
+        })
+        .from(aiTeammateRuns)
+        .where(and(eq(aiTeammateRuns.id, ai.runId), eq(aiTeammateRuns.teammateId, ai.teammateId)))
+    : [];
+  if (!run?.personId || run.conversationId || conv.personId !== run.personId)
+    throw outsideItsConversation();
+  // A first message never cuts across a person: not a conversation someone has, nor one assigned to someone.
+  if (
+    conv.handledBy === 'person' ||
+    (conv.handledBy === 'ai' && conv.aiTeammateId !== ai.teammateId) ||
+    (!created && conv.handledBy === 'none' && conv.assigneeUserId !== null)
+  )
+    throw notHandledByAi();
+  return conv.handledBy !== 'ai';
+}
+
+/** Who sent it: a person, nobody (the system, a workflow), or the AI teammate with its run and whose OK sent it. */
+function senderColumns(ctx: CommandContext) {
+  const ai = aiEmployeeOf(ctx.actor);
+  if (ai)
+    return {
+      sentBy: null,
+      sentByTeammateId: ai.teammateId,
+      aiRunId: ai.runId,
+      approvedBy: ai.approvedBy,
+    };
+  return { sentBy: ctx.actor.type === 'human' ? ctx.actor.userId : null };
 }
 
 async function attachmentMedia(
@@ -285,6 +416,8 @@ async function sendEmail(ctx: CommandContext, input: z.infer<typeof MessageSendI
     if (dup)
       return { messageId: dup.id, conversationId: conv.id, status: dup.status, duplicate: true };
   }
+  const ai = aiEmployeeOf(ctx.actor);
+  const claim = ai ? await assertAiMaySend(ctx, ai, conv, created) : false;
   const stopped = await activeSuppression(ctx.tx, workspaceId, conv.counterpart);
   if (stopped)
     throw HfosError.rule('recipient_suppressed', 409, suppressionMessage(stopped.reason));
@@ -312,8 +445,9 @@ async function sendEmail(ctx: CommandContext, input: z.infer<typeof MessageSendI
         409,
         'Reconnect this mailbox in Settings → Email to send from it.',
       );
-    // A workflow works for the business, so it sends from shared mailboxes only, never from someone's own.
-    if (!mailbox.shared && (me ? mailbox.userId !== me : ctx.actor.type === 'workflow'))
+    // A workflow or the AI teammate works for the business, so it sends from shared mailboxes only, never
+    // from someone's own.
+    if (!mailbox.shared && (me ? mailbox.userId !== me : ctx.actor.type !== 'system'))
       throw HfosError.rule(
         'mailbox_not_shared',
         403,
@@ -421,7 +555,7 @@ async function sendEmail(ctx: CommandContext, input: z.infer<typeof MessageSendI
     referencesHeaders: thread.references,
     emailAddressId: from.emailAddressId,
     mailboxConnectionId: from.mailboxConnectionId,
-    sentBy: me,
+    ...senderColumns(ctx),
     clientId: input.clientId ?? null,
     occurredAt: now,
     activityId,
@@ -437,22 +571,98 @@ async function sendEmail(ctx: CommandContext, input: z.infer<typeof MessageSendI
       ...(!conv.emailAddressId && from.emailAddressId
         ? { emailAddressId: from.emailAddressId }
         : {}),
+      ...(claim && ai ? { handledBy: 'ai' as const, aiTeammateId: ai.teammateId } : {}),
     })
     .where(eq(conversations.id, conv.id));
+  if (personTakesOver(ctx, conv)) await takeOver(ctx, conv, 'reply');
   return { messageId, conversationId: conv.id, status: 'queued', duplicate: false };
+}
+
+/**
+ * A reply in a website chat: no number, carrier or quiet hours. The chat window shows it from the live feed
+ * (private.chat_feed) as soon as it's saved, so it goes out as `message.sent`, never `message.queued` (the
+ * worker texts or emails queued messages). People's rows start queued (the messages insert policy) until the
+ * chat worker marks them; the AI teammate's and the system's are sent at once. No attachments in chat yet.
+ */
+async function sendChat(ctx: CommandContext, input: z.infer<typeof MessageSendInput>) {
+  const workspaceId = ctx.scope.workspaceId!;
+  const conv = await loadConversation(ctx, input.conversationId!);
+  if (conv.channel !== 'chat')
+    throw HfosError.rule('channel_mismatch', 400, 'This conversation isn’t a website chat.');
+  if (input.clientId) {
+    const [dup] = await ctx.tx
+      .select({ id: messages.id, status: messages.status })
+      .from(messages)
+      .where(and(eq(messages.conversationId, conv.id), eq(messages.clientId, input.clientId)));
+    if (dup)
+      return { messageId: dup.id, conversationId: conv.id, status: dup.status, duplicate: true };
+  }
+  const ai = aiEmployeeOf(ctx.actor);
+  if (ai) await assertAiMaySend(ctx, ai, conv, false);
+  if (input.attachmentFileIds.length)
+    throw HfosError.validation([
+      { path: 'attachmentFileIds', message: 'Website chat doesn’t carry attachments yet.' },
+    ]);
+  const messageId = randomUUID();
+  const now = new Date();
+  const status = ctx.actor.type === 'human' ? ('queued' as const) : ('sent' as const);
+  const preview = messagePreview(input.body, 0);
+  const eventId = await ctx.emit({
+    type: 'message.sent',
+    entityType: 'message',
+    entityId: messageId,
+    payload: { conversationId: conv.id, personId: conv.personId, channel: 'chat', status },
+    after: { to: 'Website chat', preview: preview.slice(0, 80) },
+  });
+  const activityId = await logChannelActivity(ctx, {
+    kind: 'chat',
+    subtype: 'outbound',
+    personId: conv.personId,
+    body: input.body,
+    occurredAt: now,
+    eventId,
+    meta: { direction: 'outbound', messageId, conversationId: conv.id, status },
+  });
+  await ctx.tx.insert(messages).values({
+    id: messageId,
+    workspaceId,
+    conversationId: conv.id,
+    channel: 'chat',
+    direction: 'outbound',
+    status,
+    toAddresses: [conv.counterpart],
+    bodyText: input.body,
+    ...senderColumns(ctx),
+    clientId: input.clientId ?? null,
+    occurredAt: now,
+    sentAt: status === 'sent' ? now : null,
+    activityId,
+  });
+  await ctx.tx
+    .update(conversations)
+    .set({
+      lastMessageAt: now,
+      lastOutboundAt: now,
+      lastPreview: preview,
+      lastDirection: 'outbound',
+      ...afterOutbound(input.keepConversationStatus, false, now),
+    })
+    .where(eq(conversations.id, conv.id));
+  if (personTakesOver(ctx, conv)) await takeOver(ctx, conv, 'reply');
+  return { messageId, conversationId: conv.id, status, duplicate: false };
 }
 
 export const messageSend = defineCommand({
   name: 'message.send',
   description:
-    'Text or email a customer: a text from the business number, an email from a workspace address or a connected mailbox. The message is queued here and the worker sends it.',
+    'Text, email or chat with a customer: a text from the business number, an email from a workspace address or a connected mailbox, or a reply in a website chat. Texts and emails are queued here and the worker sends them. A person writing in a conversation the AI teammate is answering takes it over.',
   risk: 2,
   input: MessageSendInput,
   output: MessageSendOutput,
   permission: 'inbox.use',
   scope: inWorkspace,
-  emits: ['message.queued', 'conversation.created'],
-  actors: ['human', 'system', 'workflow'],
+  emits: ['message.queued', 'message.sent', 'conversation.created', 'conversation.taken_over'],
+  actors: ['human', 'system', 'workflow', 'ai_employee'],
   async handler(ctx, input) {
     // Only HandsFreeOS's own messages (the system's, a workflow's) may leave the conversation as it was.
     if (input.keepConversationStatus && ctx.actor.type === 'human')
@@ -462,7 +672,13 @@ export const messageSend = defineCommand({
           message: 'Only HandsFreeOS itself sends without reopening the conversation.',
         },
       ]);
+    // Every message the AI teammate sends has its own clientId, so a retried job never sends it twice.
+    if (ctx.actor.type === 'ai_employee' && !input.clientId)
+      throw HfosError.validation([
+        { path: 'clientId', message: 'The AI teammate sends every message with a clientId.' },
+      ]);
     if (input.channel === 'email') return sendEmail(ctx, input);
+    if (input.channel === 'chat') return sendChat(ctx, input);
     const workspaceId = ctx.scope.workspaceId!;
     const { conversation: conv, created } = await resolveSmsConversation(ctx, input);
     if (input.clientId) {
@@ -473,8 +689,12 @@ export const messageSend = defineCommand({
       if (dup)
         return { messageId: dup.id, conversationId: conv.id, status: dup.status, duplicate: true };
     }
-    const number = await assertCanText(ctx, conv, {
+    const ai = aiEmployeeOf(ctx.actor);
+    const claim = ai ? await assertAiMaySend(ctx, ai, conv, created) : false;
+    const { number, quietHours } = await assertCanText(ctx, conv, {
       acknowledgeQuietHours: input.acknowledgeQuietHours,
+      inReplyToMessageId: input.inReplyToMessageId,
+      created,
     });
     const media = await attachmentMedia(ctx, input.attachmentFileIds);
     const messageId = randomUUID();
@@ -499,6 +719,7 @@ export const messageSend = defineCommand({
         personId: conv.personId,
         channel: 'sms',
         mediaCount: media.length,
+        ...(quietHours ? { quietHours } : {}),
       },
       after: { to, preview: preview.slice(0, 80), segments, mediaCount: media.length },
     });
@@ -529,7 +750,7 @@ export const messageSend = defineCommand({
       bodyText: input.body,
       media,
       segments,
-      sentBy: ctx.actor.type === 'human' ? ctx.actor.userId : null,
+      ...senderColumns(ctx),
       clientId: input.clientId ?? null,
       occurredAt: now,
       activityId,
@@ -543,8 +764,10 @@ export const messageSend = defineCommand({
         lastDirection: 'outbound',
         ...afterOutbound(input.keepConversationStatus, created, now),
         phoneNumberId: conv.phoneNumberId ?? number.id,
+        ...(claim && ai ? { handledBy: 'ai' as const, aiTeammateId: ai.teammateId } : {}),
       })
       .where(eq(conversations.id, conv.id));
+    if (personTakesOver(ctx, conv)) await takeOver(ctx, conv, 'reply');
     return { messageId, conversationId: conv.id, status: 'queued', duplicate: false };
   },
 });

@@ -192,6 +192,25 @@ import {
   knowledgeSuggestionPropose,
   knowledgeSuggestionReject,
 } from './knowledge';
+import {
+  aiTeammateCreate,
+  aiTeammateDecideDraft,
+  aiTeammateRestore,
+  aiTeammateSaveConfig,
+  aiTeammateSendDraft,
+  aiTeammateSetStatus,
+} from './ai-team';
+import {
+  appointmentBookForCustomer,
+  attendeeCancelForCustomer,
+  attendeeRescheduleForCustomer,
+} from './appointment-ai';
+import {
+  conversationHandOff,
+  conversationHandToAi,
+  conversationTakeOver,
+} from './conversation-handling';
+import { leadRecordAnswers } from './lead.record_answers';
 
 export {
   conversationAssign,
@@ -513,6 +532,19 @@ export const commands: readonly CommandDef[] = [
   knowledgeSuggestionReject,
   knowledgeSuggestionPropose,
   knowledgeItemRecordUse,
+  leadRecordAnswers,
+  conversationHandOff,
+  conversationTakeOver,
+  conversationHandToAi,
+  aiTeammateCreate,
+  aiTeammateSaveConfig,
+  aiTeammateRestore,
+  aiTeammateSetStatus,
+  aiTeammateDecideDraft,
+  aiTeammateSendDraft,
+  appointmentBookForCustomer,
+  attendeeRescheduleForCustomer,
+  attendeeCancelForCustomer,
 ] as unknown as readonly CommandDef[];
 export { callPreview } from './call';
 export { attendeeFromPerson } from './appointment';
@@ -524,3 +556,7 @@ export * from './workflow';
 export * from './workflow-run';
 export * from './workflow-template';
 export * from './knowledge';
+export * from './ai-team';
+export * from './appointment-ai';
+export * from './conversation-handling';
+export { leadRecordAnswers } from './lead.record_answers';

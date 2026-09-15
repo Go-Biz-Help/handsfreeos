@@ -1,4 +1,6 @@
 import { z } from 'zod';
+import { WeeklyHours } from '../calendar/config';
+import { parseClock } from '../calendar/engine/zoned';
 import {
   displayName,
   industry,
@@ -8,6 +10,34 @@ import {
   uuid,
   workspaceRole,
 } from './common';
+
+/** When the business is open (`settings.openHours`) until someone says otherwise: weekdays, 8 to 5. */
+export const DEFAULT_OPEN_HOURS: WeeklyHours = [1, 2, 3, 4, 5].map((day) => ({
+  day,
+  start: '08:00',
+  end: '17:00',
+}));
+
+/** The business's open hours from its settings, or the default when it hasn't set them (or they're unreadable). */
+export function openHoursOf(
+  settings: Readonly<Record<string, unknown>> | null | undefined,
+): WeeklyHours {
+  const parsed = WeeklyHours.safeParse(settings?.['openHours']);
+  return parsed.success ? parsed.data : DEFAULT_OPEN_HOURS.map((h) => ({ ...h }));
+}
+
+/** Why open hours can't be saved (a day's stretches overlap), or null. */
+function overlapProblem(hours: WeeklyHours): string | null {
+  for (let day = 0; day < 7; day++) {
+    const list = hours
+      .filter((h) => h.day === day)
+      .map((h) => [parseClock(h.start), parseClock(h.end)] as const)
+      .sort((a, b) => a[0] - b[0]);
+    for (let i = 1; i < list.length; i++)
+      if (list[i]![0] < list[i - 1]![1]) return 'These hours overlap.';
+  }
+  return null;
+}
 
 export const WorkspaceCreateInput = z.object({
   organizationId: uuid,
@@ -56,6 +86,22 @@ export const WorkspaceUpdateInput = z
         const problem = linkProblem((links as Record<string, unknown>)['review']);
         if (problem)
           ctx.addIssue({ code: 'custom', message: problem, path: ['settings', 'links', 'review'] });
+      }
+    }
+    // Open hours: weekly hours in the workspace's time zone. null goes back to the default.
+    if ('openHours' in s && s['openHours'] !== null) {
+      const parsed = WeeklyHours.safeParse(s['openHours']);
+      if (!parsed.success)
+        for (const issue of parsed.error.issues)
+          ctx.addIssue({
+            code: 'custom',
+            message: issue.message,
+            path: ['settings', 'openHours', ...issue.path.map((p) => p as string | number)],
+          });
+      else {
+        const problem = overlapProblem(parsed.data);
+        if (problem)
+          ctx.addIssue({ code: 'custom', message: problem, path: ['settings', 'openHours'] });
       }
     }
   });

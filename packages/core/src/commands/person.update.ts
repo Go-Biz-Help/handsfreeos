@@ -1,5 +1,6 @@
 import { and, eq, isNull } from 'drizzle-orm';
 import { leads, people } from '@hfos/db/schema';
+import { assertAiReach } from '../ai-team/reach';
 import { formatPhone } from '../crm/phone';
 import { addressPatch, fullName, requireCompany, requirePerson } from '../crm/records';
 import { HfosError } from '../errors';
@@ -15,21 +16,40 @@ export const personUpdate = defineCommand({
   permission: 'records.write',
   scope: (i) => ({ kind: 'workspace', workspaceId: i.workspaceId }),
   emits: ['person.updated'],
-  actors: ['human', 'system', 'workflow'],
+  actors: ['human', 'system', 'workflow', 'ai_employee'],
   async handler(ctx, input) {
     const workspaceId = ctx.scope.workspaceId!;
     const current = await requirePerson(ctx.tx, workspaceId, input.personId);
+    // The AI teammate fills in its own customer's blank names and contact details; what's on file stays.
+    const blankOnly = ctx.actor.type === 'ai_employee';
+    if (blankOnly) {
+      const other = (['phoneAlt', 'companyId', 'notes', 'source', 'ownerUserId'] as const).filter(
+        (k) => input[k] !== undefined,
+      );
+      if (other.length)
+        throw HfosError.validation(
+          other.map((path) => ({
+            path,
+            message: 'The AI teammate only fills in names and contact details.',
+          })),
+        );
+      await assertAiReach(ctx, { personId: current.id });
+    }
     if (input.companyId) await requireCompany(ctx.tx, workspaceId, input.companyId);
     const patch: Record<string, unknown> = {};
-    const set = (key: keyof typeof current, value: unknown) => {
+    const isBlank = (v: unknown) => v === null || v === undefined || v === '';
+    const put = (key: keyof typeof current, value: unknown) => {
       if (value !== undefined && value !== current[key]) patch[key] = value;
+    };
+    const set = (key: keyof typeof current, value: unknown) => {
+      if (!blankOnly || isBlank(current[key])) put(key, value);
     };
     set('firstName', input.firstName);
     set('lastName', input.lastName);
     set('email', input.email);
-    if (input.phone !== undefined) {
-      set('phoneE164', input.phone);
-      set('phone', input.phone ? formatPhone(input.phone) : null);
+    if (input.phone !== undefined && (!blankOnly || isBlank(current.phoneE164))) {
+      put('phoneE164', input.phone);
+      put('phone', input.phone ? formatPhone(input.phone) : null);
     }
     if (input.phoneAlt !== undefined)
       set('phoneAlt', input.phoneAlt ? formatPhone(input.phoneAlt) : null);

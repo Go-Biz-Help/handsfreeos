@@ -70,7 +70,11 @@ type ConversationRow = {
   sort_key: string;
 };
 
-const conversationSelect = (workspaceId: string) => sql`
+/** `sortBy` needs_person: the "Needs a person" box, by how long it has waited. */
+const conversationSelect = (
+  workspaceId: string,
+  sortBy: 'recent' | 'needs_person' = 'recent',
+) => sql`
   select c.id, c.channel::text as channel, c.counterpart, c.status::text as status, c.person_id, p.first_name, p.last_name,
     c.assignee_user_id, coalesce(nullif(u.full_name, ''), u.email::text) as assignee_name, c.unread_count, c.last_message_at,
     c.last_preview, c.last_direction::text as last_direction, c.awaiting_reply_since, c.snoozed_until, c.created_at,
@@ -83,7 +87,7 @@ const conversationSelect = (workspaceId: string) => sql`
        from app.messages lm join app.users su on su.id = lm.sent_by
        where lm.conversation_id = c.id and lm.direction = 'outbound'
        order by lm.occurred_at desc limit 1) as last_sender,
-    ${SORT_KEY(sql`coalesce(c.last_message_at, c.created_at)`)} as sort_key
+    ${SORT_KEY(sortBy === 'needs_person' ? sql`c.needs_person_since` : sql`coalesce(c.last_message_at, c.created_at)`)} as sort_key
   from app.conversations c
   left join app.people p on p.id = c.person_id
   left join app.users u on u.id = c.assignee_user_id
@@ -126,7 +130,7 @@ function summary(r: ConversationRow): ConversationSummary {
 export const inboxList = defineQuery({
   name: 'inbox.list',
   description:
-    'Conversations newest first: mine, unassigned or everyone’s; open, snoozed or closed; texts or email; with search.',
+    'Conversations newest first: mine, unassigned or everyone’s, those waiting for a person (oldest first) or the AI teammate’s; open, snoozed or closed; texts or email; with search.',
   input: InboxListInput,
   output: InboxListOutput,
   permission: 'inbox.use',
@@ -136,11 +140,23 @@ export const inboxList = defineQuery({
     const cursor = decodeCursor(input.cursor);
     const q = input.q ? `%${input.q.toLowerCase()}%` : null;
     const digits = input.q?.replace(/[^0-9]/g, '') ?? '';
+    // "Needs a person" lists whoever has waited longest first.
+    const oldestFirst = input.box === 'needs_person';
+    const box =
+      input.box === 'mine'
+        ? sql`and c.assignee_user_id = ${me}`
+        : input.box === 'unassigned'
+          ? sql`and c.assignee_user_id is null`
+          : input.box === 'needs_person'
+            ? sql`and c.needs_person_since is not null`
+            : input.box === 'ai'
+              ? sql`and c.handled_by = 'ai'`
+              : sql``;
     const list = await rows<ConversationRow>(
       ctx.tx,
-      sql`select * from (${conversationSelect(input.workspaceId)}
+      sql`select * from (${conversationSelect(input.workspaceId, oldestFirst ? 'needs_person' : 'recent')}
             ${input.personId ? sql`and c.person_id = ${input.personId}` : sql`and c.status = ${input.status}::app.conversation_status and c.last_message_at is not null`}
-            ${input.box === 'mine' ? sql`and c.assignee_user_id = ${me}` : input.box === 'unassigned' ? sql`and c.assignee_user_id is null` : sql``}
+            ${box}
             ${input.channel ? sql`and c.channel = ${input.channel}::app.channel` : sql``}
             ${
               q
@@ -150,8 +166,8 @@ export const inboxList = defineQuery({
                 : sql``
             }
           ) x
-          ${cursor ? sql`where (x.sort_key, x.id) < (${cursor.sort}, ${cursor.id}::uuid)` : sql``}
-          order by x.sort_key desc, x.id desc
+          ${cursor ? (oldestFirst ? sql`where (x.sort_key, x.id) > (${cursor.sort}, ${cursor.id}::uuid)` : sql`where (x.sort_key, x.id) < (${cursor.sort}, ${cursor.id}::uuid)`) : sql``}
+          order by ${oldestFirst ? sql`x.sort_key asc, x.id asc` : sql`x.sort_key desc, x.id desc`}
           limit ${input.limit + 1}`,
     );
     const result = page(list, input.limit, (r) => ({ sort: r.sort_key, id: r.id }));
@@ -181,7 +197,9 @@ export const inboxSummary = defineQuery({
             count(*) filter (where c.status = 'open' and c.unread_count > 0 and c.assignee_user_id = ${me})::int as unread_mine,
             count(*) filter (where c.status = 'open' and c.unread_count > 0 and c.assignee_user_id is null)::int as unread_unassigned,
             count(*) filter (where c.status = 'open' and c.awaiting_reply_since is not null
-              and c.awaiting_reply_since <= now() - make_interval(mins => ${threshold}))::int as waiting
+              and c.awaiting_reply_since <= now() - make_interval(mins => ${threshold}))::int as waiting,
+            count(*) filter (where c.status = 'open' and c.needs_person_since is not null)::int as needs_person,
+            count(*) filter (where c.status = 'open' and c.handled_by = 'ai')::int as ai
           from app.conversations c where c.workspace_id = ${input.workspaceId} and c.last_message_at is not null`,
     );
     const n = (k: string) => Number(s?.[k] ?? 0);
@@ -190,6 +208,8 @@ export const inboxSummary = defineQuery({
       open: { mine: n('open_mine'), unassigned: n('open_unassigned'), all: n('open_all') },
       waiting: n('waiting'),
       waitingThresholdMinutes: threshold,
+      needsPerson: n('needs_person'),
+      ai: n('ai'),
     };
   },
 });

@@ -6,6 +6,9 @@
  *   existing customer record is never edited (the booking keeps the typed contact details itself).
  * - The SMS box starts unticked; texts are allowed only when it is ticked and the number never said STOP.
  * - Reschedule and cancel apply the policies of the revision the booking was made under.
+ *
+ * The AI teammate's booking commands (appointment-ai.ts) share these internals: the caps, the lead, the
+ * booking checks, and moving or cancelling a booking under its calendar's policies.
  */
 import { and, desc, eq, isNull, sql as dsql } from 'drizzle-orm';
 import { rows, sql, type Tx } from '@hfos/db/client';
@@ -129,8 +132,8 @@ export function validateIntake(
 
 // ---- Helpers ----
 
-/** Three online bookings an hour per phone (or email) and thirty per calendar. */
-async function enforceCaps(
+/** Three online bookings an hour per phone (or email) and thirty per calendar (the AI teammate's count too). */
+export async function enforceCaps(
   tx: Tx,
   workspaceId: string,
   calendarId: string,
@@ -205,12 +208,13 @@ async function findOrCreateCustomer(
 }
 
 /** The customer's open lead in the calendar's pipeline, or a new one through lead.create's internals. */
-async function leadFor(
+export async function leadFor(
   ctx: CommandContext,
   personId: string,
   target: { pipelineId: string; stageId: string },
   title: string,
   assigneeUserId: string | null,
+  source = 'Booking page',
 ): Promise<string | null> {
   const ws = ctx.scope.workspaceId!;
   const [open] = await ctx.tx
@@ -249,14 +253,14 @@ async function leadFor(
       personId,
       pipelineId: target.pipelineId,
       stageId: target.stageId,
-      source: 'Booking page',
+      source,
       assigneeUserId,
     }),
   );
   return out.leadId;
 }
 
-async function bookingOutput(tx: Tx, r: BookingResult, created: boolean) {
+export async function bookingOutput(tx: Tx, r: BookingResult, created: boolean) {
   const [att] = r.attendeeId
     ? await tx
         .select({ personId: appointmentAttendees.personId })
@@ -283,15 +287,18 @@ async function bookingOutput(tx: Tx, r: BookingResult, created: boolean) {
   };
 }
 
-/** The attendee a manage link names, if the link is current and the booking still stands. */
-async function loadManaged(ctx: CommandContext, attendeeId: string, manageVersion: number) {
+/**
+ * A customer's booking while it still stands, with the policies of the revision it was made under. A manage
+ * link names its version too, and a stale link is refused.
+ */
+export async function loadBooked(ctx: CommandContext, attendeeId: string, manageVersion?: number) {
   const ws = ctx.scope.workspaceId!;
   const [att] = await ctx.tx
     .select()
     .from(appointmentAttendees)
     .where(and(eq(appointmentAttendees.id, attendeeId), eq(appointmentAttendees.workspaceId, ws)));
   if (!att) throw HfosError.notFound('Booking not found.');
-  if (att.manageVersion !== manageVersion)
+  if (manageVersion !== undefined && att.manageVersion !== manageVersion)
     throw HfosError.rule(
       'manage_link_stale',
       410,
@@ -306,7 +313,9 @@ async function loadManaged(ctx: CommandContext, attendeeId: string, manageVersio
   return { att, appt, calendar, policies };
 }
 
-function assertBookable(calendar: LoadedCalendar): void {
+export type BookedAttendee = Awaited<ReturnType<typeof loadBooked>>;
+
+export function assertBookable(calendar: LoadedCalendar): void {
   if (!calendar.config.public) throw HfosError.notFound('Calendar not found.');
   if (calendar.status !== 'active')
     throw HfosError.rule(
@@ -458,6 +467,189 @@ export const appointmentBookOnline = defineCommand({
   },
 });
 
+/**
+ * Moves a customer's booking within its calendar's reschedule policy (from the manage link, or by the AI
+ * teammate for the customer it's talking to). Its own appointment moves when it's the only booking on it,
+ * keeping its people when they're free; a seat in a session or group time becomes a seat at the new time.
+ * Emits appointment.rescheduled or attendee.rescheduled, and waitlist.seat_freed.
+ */
+export async function rescheduleBooking(
+  ctx: CommandContext,
+  booked: BookedAttendee,
+  input: { readonly startsAt: string; readonly sessionId?: string | null },
+): Promise<{ appointmentId: string; attendeeId: string; startsAt: string; endsAt: string }> {
+  const ws = ctx.scope.workspaceId!;
+  const { att, appt, calendar, policies } = booked;
+  assertBookable(calendar);
+  const rules = policies.reschedule;
+  if (!rules.allowed)
+    throw HfosError.rule(
+      'reschedule_not_allowed',
+      409,
+      'This booking can’t be moved online. Give us a call to change it.',
+    );
+  const now = await dbNow(ctx.tx);
+  assertBefore(rules.cutoffHours, appt.startsAt, now, 'reschedule_cutoff', 'changes');
+  if (att.rescheduleCount >= rules.maxTimes)
+    throw HfosError.rule(
+      'reschedule_limit',
+      409,
+      'This booking was already moved as many times as allowed. Give us a call to change it.',
+    );
+  const start = Date.parse(input.startsAt);
+  const minutes = Math.round((appt.endsAt.getTime() - appt.startsAt.getTime()) / MIN);
+  const from = { startsAt: appt.startsAt.toISOString(), endsAt: appt.endsAt.toISOString() };
+  const location = (appt.location ?? {}) as { kind?: string | null; postalCode?: string | null };
+
+  if (appt.kind === 'booking' && appt.capacity === 1) {
+    // The customer's own appointment moves; its people stay when they are free at the new time.
+    const needs = await ctx.tx
+      .select({ resourceId: appointmentResources.resourceId })
+      .from(appointmentResources)
+      .where(eq(appointmentResources.appointmentId, appt.id));
+    await lockBooking(
+      ctx.tx,
+      calendar.id,
+      needs.map((n) => n.resourceId),
+    );
+    const service = appt.serviceId ? await loadCatalogService(ctx.tx, ws, appt.serviceId) : null;
+    const base = {
+      from: start,
+      to: start + 1,
+      durationMinutes: minutes,
+      partySize: att.seats,
+      locationKind: (location.kind ?? null) as never,
+      postalCode: location.postalCode ?? null,
+      excludeAppointmentIds: [appt.id],
+    };
+    const current = await staffIdsOf(ctx.tx, appt.id);
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const loaded = await loadSlotInput(ctx.tx, calendar, base, { service });
+      const slot = computeSlots(loaded.input).find(
+        (s) => s.start === start && s.sessionId === null,
+      );
+      if (!slot) break;
+      const state = await loadAssignmentState(ctx.tx, calendar.id);
+      const keep = current.every((u) => slot.userIds.includes(u));
+      const picked = keep
+        ? { userIds: current, nextState: state }
+        : chooseAssignment(slot, loaded.config, state, {
+            now: loaded.input.now,
+            preferUserIds: current,
+          });
+      const end = start + minutes * MIN;
+      try {
+        await ctx.tx.transaction(async (sp) => {
+          await sp
+            .update(appointments)
+            .set({ startsAt: new Date(start), endsAt: new Date(end) })
+            .where(eq(appointments.id, appt.id));
+          if (!keep) await replaceStaff(sp, ws, appt.id, picked.userIds);
+          await saveAssignmentState(sp, ws, calendar.id, state, picked.nextState);
+        });
+      } catch (e) {
+        if (isRetryable(e)) continue;
+        throw e;
+      }
+      await ctx.tx
+        .update(appointmentAttendees)
+        .set({ rescheduleCount: dsql`${appointmentAttendees.rescheduleCount} + 1` })
+        .where(eq(appointmentAttendees.id, att.id));
+      const moved = await requireAppointment(ctx.tx, ws, appt.id);
+      const to = { startsAt: iso(start), endsAt: iso(end) };
+      const eventId = await ctx.emit({
+        type: 'appointment.rescheduled',
+        entityType: 'appointment',
+        entityId: appt.id,
+        payload: {
+          calendarId: calendar.id,
+          from,
+          to,
+          notify: true,
+          by: 'customer',
+          attendeeId: att.id,
+          userIds: picked.userIds,
+        },
+        before: { title: appt.title, ...from },
+        after: await appointmentSnapshot(ctx.tx, moved),
+      });
+      await logAppointmentActivity(ctx, moved, 'appointment_rescheduled', eventId, {
+        personIds: [att.personId],
+        meta: { from: from.startsAt, to: to.startsAt, by: 'customer' },
+      });
+      return { appointmentId: appt.id, attendeeId: att.id, ...to };
+    }
+    throw await unavailableError(ctx.tx, calendar, base, start, service);
+  }
+
+  // A seat in a session or group time: take a seat at the new time, then give up the old one.
+  const onCalendar = calendar.config.services.items.some((i) => i.serviceId === appt.serviceId);
+  const moved = await bookAppointment(ctx, {
+    calendar,
+    startsAt: start,
+    sessionId: input.sessionId ?? null,
+    serviceId: onCalendar ? appt.serviceId : undefined,
+    durationMinutes: calendar.config.schedule.mode === 'sessions' ? undefined : minutes,
+    partySize: att.seats,
+    choice: { mode: 'customer' },
+    attendee: {
+      personId: att.personId,
+      seats: att.seats,
+      intake: att.intake as Record<string, unknown>,
+      contactPhoneE164: att.contactPhoneE164,
+      contactEmail: att.contactEmail,
+      smsOk: att.smsOk,
+      source: 'booking_page',
+    },
+    source: 'booking_page',
+  });
+  if (moved.appointmentId === appt.id)
+    return { appointmentId: appt.id, attendeeId: att.id, ...from };
+  await ctx.tx
+    .update(appointmentAttendees)
+    .set({ status: 'cancelled', cancelledAt: new Date() })
+    .where(eq(appointmentAttendees.id, att.id));
+  await ctx.tx
+    .update(appointments)
+    .set({ seatsTaken: dsql`greatest(${appointments.seatsTaken} - ${att.seats}, 0)` })
+    .where(eq(appointments.id, appt.id));
+  if (appt.kind === 'booking' && (await othersBooked(ctx.tx, appt.id, att.id)) === 0)
+    await markCancelled(ctx.tx, appt.id);
+  if (moved.attendeeId)
+    await ctx.tx
+      .update(appointmentAttendees)
+      .set({ rescheduleCount: att.rescheduleCount + 1 })
+      .where(eq(appointmentAttendees.id, moved.attendeeId));
+  const target = await requireAppointment(ctx.tx, ws, moved.appointmentId);
+  const to = { startsAt: iso(moved.startsAt), endsAt: iso(moved.endsAt) };
+  const eventId = await ctx.emit({
+    type: 'attendee.rescheduled',
+    entityType: 'appointment',
+    entityId: target.id,
+    payload: {
+      calendarId: calendar.id,
+      fromAppointmentId: appt.id,
+      toAppointmentId: target.id,
+      fromAttendeeId: att.id,
+      attendeeId: moved.attendeeId,
+      manageVersion: moved.manageVersion,
+      from,
+      to,
+      notify: true,
+      by: 'customer',
+    },
+    before: { title: appt.title, ...from },
+    after: await appointmentSnapshot(ctx.tx, target),
+  });
+  await logAppointmentActivity(ctx, target, 'appointment_rescheduled', eventId, {
+    personIds: [att.personId],
+    meta: { from: from.startsAt, to: to.startsAt, by: 'customer' },
+  });
+  const old = await requireAppointment(ctx.tx, ws, appt.id);
+  if (old.status === 'scheduled') await signalSeatFreed(ctx, calendar, old);
+  return { appointmentId: target.id, attendeeId: moved.attendeeId!, ...to };
+}
+
 export const attendeeRescheduleOnline = defineCommand({
   name: 'attendee.reschedule_online',
   description:
@@ -470,182 +662,79 @@ export const attendeeRescheduleOnline = defineCommand({
   emits: ['appointment.rescheduled', 'attendee.rescheduled', 'waitlist.seat_freed'],
   actors: ['system'],
   async handler(ctx, input) {
-    const ws = ctx.scope.workspaceId!;
-    const { att, appt, calendar, policies } = await loadManaged(
+    return rescheduleBooking(
       ctx,
-      input.attendeeId,
-      input.manageVersion,
+      await loadBooked(ctx, input.attendeeId, input.manageVersion),
+      input,
     );
-    assertBookable(calendar);
-    const rules = policies.reschedule;
-    if (!rules.allowed)
-      throw HfosError.rule(
-        'reschedule_not_allowed',
-        409,
-        'This booking can’t be moved online. Give us a call to change it.',
-      );
-    const now = await dbNow(ctx.tx);
-    assertBefore(rules.cutoffHours, appt.startsAt, now, 'reschedule_cutoff', 'changes');
-    if (att.rescheduleCount >= rules.maxTimes)
-      throw HfosError.rule(
-        'reschedule_limit',
-        409,
-        'This booking was already moved as many times as allowed. Give us a call to change it.',
-      );
-    const start = Date.parse(input.startsAt);
-    const minutes = Math.round((appt.endsAt.getTime() - appt.startsAt.getTime()) / MIN);
-    const from = { startsAt: appt.startsAt.toISOString(), endsAt: appt.endsAt.toISOString() };
-    const location = (appt.location ?? {}) as { kind?: string | null; postalCode?: string | null };
-
-    if (appt.kind === 'booking' && appt.capacity === 1) {
-      // The customer's own appointment moves; its people stay when they are free at the new time.
-      const needs = await ctx.tx
-        .select({ resourceId: appointmentResources.resourceId })
-        .from(appointmentResources)
-        .where(eq(appointmentResources.appointmentId, appt.id));
-      await lockBooking(
-        ctx.tx,
-        calendar.id,
-        needs.map((n) => n.resourceId),
-      );
-      const service = appt.serviceId ? await loadCatalogService(ctx.tx, ws, appt.serviceId) : null;
-      const base = {
-        from: start,
-        to: start + 1,
-        durationMinutes: minutes,
-        partySize: att.seats,
-        locationKind: (location.kind ?? null) as never,
-        postalCode: location.postalCode ?? null,
-        excludeAppointmentIds: [appt.id],
-      };
-      const current = await staffIdsOf(ctx.tx, appt.id);
-      for (let attempt = 0; attempt < 2; attempt++) {
-        const loaded = await loadSlotInput(ctx.tx, calendar, base, { service });
-        const slot = computeSlots(loaded.input).find(
-          (s) => s.start === start && s.sessionId === null,
-        );
-        if (!slot) break;
-        const state = await loadAssignmentState(ctx.tx, calendar.id);
-        const keep = current.every((u) => slot.userIds.includes(u));
-        const picked = keep
-          ? { userIds: current, nextState: state }
-          : chooseAssignment(slot, loaded.config, state, {
-              now: loaded.input.now,
-              preferUserIds: current,
-            });
-        const end = start + minutes * MIN;
-        try {
-          await ctx.tx.transaction(async (sp) => {
-            await sp
-              .update(appointments)
-              .set({ startsAt: new Date(start), endsAt: new Date(end) })
-              .where(eq(appointments.id, appt.id));
-            if (!keep) await replaceStaff(sp, ws, appt.id, picked.userIds);
-            await saveAssignmentState(sp, ws, calendar.id, state, picked.nextState);
-          });
-        } catch (e) {
-          if (isRetryable(e)) continue;
-          throw e;
-        }
-        await ctx.tx
-          .update(appointmentAttendees)
-          .set({ rescheduleCount: dsql`${appointmentAttendees.rescheduleCount} + 1` })
-          .where(eq(appointmentAttendees.id, att.id));
-        const moved = await requireAppointment(ctx.tx, ws, appt.id);
-        const to = { startsAt: iso(start), endsAt: iso(end) };
-        const eventId = await ctx.emit({
-          type: 'appointment.rescheduled',
-          entityType: 'appointment',
-          entityId: appt.id,
-          payload: {
-            calendarId: calendar.id,
-            from,
-            to,
-            notify: true,
-            by: 'customer',
-            attendeeId: att.id,
-            userIds: picked.userIds,
-          },
-          before: { title: appt.title, ...from },
-          after: await appointmentSnapshot(ctx.tx, moved),
-        });
-        await logAppointmentActivity(ctx, moved, 'appointment_rescheduled', eventId, {
-          personIds: [att.personId],
-          meta: { from: from.startsAt, to: to.startsAt, by: 'customer' },
-        });
-        return { appointmentId: appt.id, attendeeId: att.id, ...to };
-      }
-      throw await unavailableError(ctx.tx, calendar, base, start, service);
-    }
-
-    // A seat in a session or group time: take a seat at the new time, then give up the old one.
-    const onCalendar = calendar.config.services.items.some((i) => i.serviceId === appt.serviceId);
-    const moved = await bookAppointment(ctx, {
-      calendar,
-      startsAt: start,
-      sessionId: input.sessionId ?? null,
-      serviceId: onCalendar ? appt.serviceId : undefined,
-      durationMinutes: calendar.config.schedule.mode === 'sessions' ? undefined : minutes,
-      partySize: att.seats,
-      choice: { mode: 'customer' },
-      attendee: {
-        personId: att.personId,
-        seats: att.seats,
-        intake: att.intake as Record<string, unknown>,
-        contactPhoneE164: att.contactPhoneE164,
-        contactEmail: att.contactEmail,
-        smsOk: att.smsOk,
-        source: 'booking_page',
-      },
-      source: 'booking_page',
-    });
-    if (moved.appointmentId === appt.id)
-      return { appointmentId: appt.id, attendeeId: att.id, ...from };
-    await ctx.tx
-      .update(appointmentAttendees)
-      .set({ status: 'cancelled', cancelledAt: new Date() })
-      .where(eq(appointmentAttendees.id, att.id));
-    await ctx.tx
-      .update(appointments)
-      .set({ seatsTaken: dsql`greatest(${appointments.seatsTaken} - ${att.seats}, 0)` })
-      .where(eq(appointments.id, appt.id));
-    if (appt.kind === 'booking' && (await othersBooked(ctx.tx, appt.id, att.id)) === 0)
-      await markCancelled(ctx.tx, appt.id);
-    if (moved.attendeeId)
-      await ctx.tx
-        .update(appointmentAttendees)
-        .set({ rescheduleCount: att.rescheduleCount + 1 })
-        .where(eq(appointmentAttendees.id, moved.attendeeId));
-    const target = await requireAppointment(ctx.tx, ws, moved.appointmentId);
-    const to = { startsAt: iso(moved.startsAt), endsAt: iso(moved.endsAt) };
-    const eventId = await ctx.emit({
-      type: 'attendee.rescheduled',
-      entityType: 'appointment',
-      entityId: target.id,
-      payload: {
-        calendarId: calendar.id,
-        fromAppointmentId: appt.id,
-        toAppointmentId: target.id,
-        fromAttendeeId: att.id,
-        attendeeId: moved.attendeeId,
-        manageVersion: moved.manageVersion,
-        from,
-        to,
-        notify: true,
-        by: 'customer',
-      },
-      before: { title: appt.title, ...from },
-      after: await appointmentSnapshot(ctx.tx, target),
-    });
-    await logAppointmentActivity(ctx, target, 'appointment_rescheduled', eventId, {
-      personIds: [att.personId],
-      meta: { from: from.startsAt, to: to.startsAt, by: 'customer' },
-    });
-    const old = await requireAppointment(ctx.tx, ws, appt.id);
-    if (old.status === 'scheduled') await signalSeatFreed(ctx, calendar, old);
-    return { appointmentId: target.id, attendeeId: moved.attendeeId!, ...to };
   },
 });
+
+/**
+ * Cancels a customer's booking within its calendar's cancellation policy (from the manage link, or by the AI
+ * teammate). The whole appointment when it was theirs alone, otherwise their seats. Emits
+ * appointment.cancelled or attendee.cancelled, and waitlist.seat_freed.
+ */
+export async function cancelBooking(
+  ctx: CommandContext,
+  booked: BookedAttendee,
+  input: { readonly reason?: string | null },
+): Promise<{ appointmentId: string; attendeeId: string; appointmentCancelled: boolean }> {
+  const { att, appt, calendar, policies } = booked;
+  const rules = policies.cancel;
+  if (!rules.allowed)
+    throw HfosError.rule(
+      'cancel_not_allowed',
+      409,
+      'This booking can’t be cancelled online. Give us a call to cancel.',
+    );
+  assertBefore(
+    rules.cutoffHours,
+    appt.startsAt,
+    await dbNow(ctx.tx),
+    'cancel_cutoff',
+    'cancellations',
+  );
+  await lockBooking(ctx.tx, calendar.id);
+  if (appt.kind === 'booking' && (await othersBooked(ctx.tx, appt.id, att.id)) === 0) {
+    await cancelAppointment(ctx, appt, {
+      reason: input.reason ?? null,
+      notify: true,
+      by: 'customer',
+    });
+    if (appt.capacity === 1) await signalSeatFreed(ctx, calendar, appt);
+    return { appointmentId: appt.id, attendeeId: att.id, appointmentCancelled: true };
+  }
+  await ctx.tx
+    .update(appointmentAttendees)
+    .set({ status: 'cancelled', cancelledAt: new Date() })
+    .where(eq(appointmentAttendees.id, att.id));
+  const [fresh] = await ctx.tx
+    .update(appointments)
+    .set({ seatsTaken: dsql`greatest(${appointments.seatsTaken} - ${att.seats}, 0)` })
+    .where(eq(appointments.id, appt.id))
+    .returning();
+  const eventId = await ctx.emit({
+    type: 'attendee.cancelled',
+    entityType: 'appointment',
+    entityId: appt.id,
+    payload: {
+      calendarId: calendar.id,
+      attendeeId: att.id,
+      personId: att.personId,
+      seats: att.seats,
+      reason: input.reason ?? null,
+      by: 'customer',
+    },
+    after: await appointmentSnapshot(ctx.tx, fresh!),
+  });
+  await logAppointmentActivity(ctx, fresh!, 'appointment_cancelled', eventId, {
+    personIds: [att.personId],
+    meta: { reason: input.reason ?? null, by: 'customer' },
+  });
+  await signalSeatFreed(ctx, calendar, fresh!);
+  return { appointmentId: appt.id, attendeeId: att.id, appointmentCancelled: false };
+}
 
 export const attendeeCancelOnline = defineCommand({
   name: 'attendee.cancel_online',
@@ -659,63 +748,6 @@ export const attendeeCancelOnline = defineCommand({
   emits: ['appointment.cancelled', 'attendee.cancelled', 'waitlist.seat_freed'],
   actors: ['system'],
   async handler(ctx, input) {
-    const { att, appt, calendar, policies } = await loadManaged(
-      ctx,
-      input.attendeeId,
-      input.manageVersion,
-    );
-    const rules = policies.cancel;
-    if (!rules.allowed)
-      throw HfosError.rule(
-        'cancel_not_allowed',
-        409,
-        'This booking can’t be cancelled online. Give us a call to cancel.',
-      );
-    assertBefore(
-      rules.cutoffHours,
-      appt.startsAt,
-      await dbNow(ctx.tx),
-      'cancel_cutoff',
-      'cancellations',
-    );
-    await lockBooking(ctx.tx, calendar.id);
-    if (appt.kind === 'booking' && (await othersBooked(ctx.tx, appt.id, att.id)) === 0) {
-      await cancelAppointment(ctx, appt, {
-        reason: input.reason ?? null,
-        notify: true,
-        by: 'customer',
-      });
-      if (appt.capacity === 1) await signalSeatFreed(ctx, calendar, appt);
-      return { appointmentId: appt.id, attendeeId: att.id, appointmentCancelled: true };
-    }
-    await ctx.tx
-      .update(appointmentAttendees)
-      .set({ status: 'cancelled', cancelledAt: new Date() })
-      .where(eq(appointmentAttendees.id, att.id));
-    const [fresh] = await ctx.tx
-      .update(appointments)
-      .set({ seatsTaken: dsql`greatest(${appointments.seatsTaken} - ${att.seats}, 0)` })
-      .where(eq(appointments.id, appt.id))
-      .returning();
-    const eventId = await ctx.emit({
-      type: 'attendee.cancelled',
-      entityType: 'appointment',
-      entityId: appt.id,
-      payload: {
-        calendarId: calendar.id,
-        attendeeId: att.id,
-        personId: att.personId,
-        seats: att.seats,
-        reason: input.reason ?? null,
-        by: 'customer',
-      },
-      after: await appointmentSnapshot(ctx.tx, fresh!),
-    });
-    await logAppointmentActivity(ctx, fresh!, 'appointment_cancelled', eventId, {
-      personIds: [att.personId],
-      meta: { reason: input.reason ?? null, by: 'customer' },
-    });
-    await signalSeatFreed(ctx, calendar, fresh!);
-    return { appointmentId: appt.id, attendeeId: att.id, appointmentCancelled: false };
+    return cancelBooking(ctx, await loadBooked(ctx, input.attendeeId, input.manageVersion), input);
   },
 });

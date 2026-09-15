@@ -6,7 +6,8 @@ import { QuietState } from './telephony';
 export const messageChannel = z.enum(['sms', 'email']);
 export type MessageChannel = z.infer<typeof messageChannel>;
 export const conversationStatus = z.enum(['open', 'snoozed', 'closed']);
-export const inboxBox = z.enum(['mine', 'unassigned', 'all']);
+/** needs_person: handed to a person and not yet picked up (oldest first); ai: the AI teammate answers. */
+export const inboxBox = z.enum(['mine', 'unassigned', 'all', 'needs_person', 'ai']);
 export const messageDirection = z.enum(['inbound', 'outbound']);
 export const smsConsent = z.enum(['unknown', 'opted_in', 'opted_out']);
 
@@ -66,6 +67,10 @@ export const InboxSummaryOutput = z.object({
   /** Open conversations whose customer has waited past the reminder threshold. */
   waiting: z.number().int(),
   waitingThresholdMinutes: z.number().int(),
+  /** Open conversations handed to a person that nobody has picked up yet. */
+  needsPerson: z.number().int(),
+  /** Open conversations the AI teammate is answering. */
+  ai: z.number().int(),
 });
 
 export const canTextReason = z.enum([

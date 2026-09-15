@@ -15,7 +15,7 @@ export interface SystemActivityInput {
 }
 
 export interface ChannelActivityInput {
-  readonly kind: 'sms' | 'email' | 'call';
+  readonly kind: 'sms' | 'email' | 'call' | 'chat';
   /** inbound / outbound for texts and email; answered / missed / voicemail / outbound for calls. */
   readonly subtype: string;
   readonly personId: string | null;
@@ -29,8 +29,9 @@ export interface ChannelActivityInput {
 
 /**
  * What a timeline entry records about who wrote it, when that isn't a person: whose request the system
- * fulfilled (`onBehalfOf`, shown as "Import"), or which workflow run did it (`workflow`, shown as
- * "Workflow: <name>" and linking to the run). People's own entries carry nothing extra.
+ * fulfilled (`onBehalfOf`, shown as "Import"), which workflow run did it (`workflow`, shown as
+ * "Workflow: <name>" and linking to the run), or the AI teammate (`aiTeammate`, shown as "Ava (AI)", with
+ * "approved by Chris" when a person's OK sent it). People's own entries carry nothing extra.
  */
 export function actorMeta(actor: Actor): Record<string, unknown> {
   switch (actor.type) {
@@ -38,6 +39,15 @@ export function actorMeta(actor: Actor): Record<string, unknown> {
       return { onBehalfOf: userIdOf(actor) };
     case 'workflow':
       return { workflow: { id: actor.workflowId, name: actor.workflowName, runId: actor.runId } };
+    case 'ai_employee':
+      return {
+        aiTeammate: {
+          id: actor.teammateId,
+          name: actor.teammateName,
+          runId: actor.runId,
+          approvedBy: actor.approvedBy,
+        },
+      };
     default:
       return {};
   }

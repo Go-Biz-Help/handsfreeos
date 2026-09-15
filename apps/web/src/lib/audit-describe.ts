@@ -19,6 +19,8 @@ const VIA: Record<RequestChannel, string | null> = {
   assistant: 'via Assistant',
   booking_page: 'via booking page',
   workflow: 'via workflow',
+  ai_employee: 'via AI teammate',
+  chat_widget: 'via website chat',
 };
 
 /**

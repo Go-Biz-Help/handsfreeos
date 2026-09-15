@@ -3,7 +3,7 @@ import { isoDateTime, uuid } from './common';
 
 /**
  * Where a change was made from (the kernel's RequestMeta.channel): the web app, the Assistant, a
- * customer on a public booking page, a workflow step…
+ * customer on a public booking page, a workflow step, the AI teammate, a visitor in the website chat…
  */
 export const requestChannel = z.enum([
   'web',
@@ -14,6 +14,8 @@ export const requestChannel = z.enum([
   'assistant',
   'booking_page',
   'workflow',
+  'ai_employee',
+  'chat_widget',
   'test',
 ]);
 export type RequestChannel = z.infer<typeof requestChannel>;

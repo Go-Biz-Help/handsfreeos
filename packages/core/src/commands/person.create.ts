@@ -1,4 +1,5 @@
 import { people } from '@hfos/db/schema';
+import { AI_TEAMMATE_SOURCE, outsideItsConversation } from '../ai-team/reach';
 import { logSystemActivity } from '../crm/activities';
 import { findMatches } from '../crm/matching';
 import { formatPhone } from '../crm/phone';
@@ -17,13 +18,22 @@ export const personCreate = defineCommand({
   permission: 'records.write',
   scope: (i) => ({ kind: 'workspace', workspaceId: i.workspaceId }),
   emits: ['person.created'],
-  actors: ['human', 'system'],
+  actors: ['human', 'system', 'ai_employee'],
   async handler(ctx, input) {
     const workspaceId = ctx.scope.workspaceId!;
     if ((input.importId || input.importRow) && ctx.actor.type !== 'system')
       throw HfosError.validation([
         { path: 'importId', message: 'Only an import can set the import row.' },
       ]);
+    if (ctx.actor.type === 'ai_employee') {
+      // The AI teammate finds someone already here first (and never edits them), and adds no companies.
+      if (input.companyId) throw outsideItsConversation();
+      const [match] = await findMatches(ctx.tx, workspaceId, 'person', {
+        email: input.email,
+        phoneE164: input.phone,
+      });
+      if (match) return { personId: match.id };
+    }
     if (input.companyId) await requireCompany(ctx.tx, workspaceId, input.companyId);
     if (!input.ignoreDuplicates) {
       const matches = await findMatches(ctx.tx, workspaceId, 'person', {
@@ -52,7 +62,7 @@ export const personCreate = defineCommand({
         phoneAlt: input.phoneAlt ? formatPhone(input.phoneAlt) : null,
         ...addressPatch(input.address),
         notes: input.notes ?? null,
-        source: input.source ?? null,
+        source: input.source ?? (ctx.actor.type === 'ai_employee' ? AI_TEAMMATE_SOURCE : null),
         ownerUserId: input.ownerUserId ?? null,
         createdBy: userIdOf(ctx.actor),
         importId: input.importId ?? null,

@@ -1,4 +1,5 @@
 import type { QueryDef } from '../kernel/types';
+import { aiTeammateActivity, aiTeammateDraftList, aiTeammateGet } from './ai-team';
 import { assistantThreadGet, assistantThreadList } from './assistant';
 import { auditList } from './audit.list';
 import {
@@ -176,6 +177,9 @@ export const queries: readonly QueryDef[] = [
   knowledgeScanGet,
   knowledgeSuggestionList,
   knowledgePackList,
+  aiTeammateGet,
+  aiTeammateDraftList,
+  aiTeammateActivity,
 ] as unknown as readonly QueryDef[];
 
 export {
@@ -197,4 +201,7 @@ export {
   knowledgeScanGet,
   knowledgeSuggestionList,
   knowledgePackList,
+  aiTeammateGet,
+  aiTeammateDraftList,
+  aiTeammateActivity,
 };

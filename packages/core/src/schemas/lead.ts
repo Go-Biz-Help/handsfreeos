@@ -41,6 +41,9 @@ export const LeadUpdateInput = z.object({
   source,
   assigneeUserId: uuid.nullable().optional(),
   expectedCloseOn: z.iso.date().nullable().optional(),
+  /** The one thing to do next, and when (the AI teammate may change only these two). */
+  nextAction,
+  nextActionAt: isoDateTime.nullable().optional(),
 });
 export const LeadUpdateOutput = z.object({ leadId: uuid, updated: z.array(z.string()) });
 

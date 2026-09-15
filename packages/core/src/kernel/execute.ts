@@ -11,7 +11,7 @@ import {
   type Permission,
   type WorkspaceRole,
 } from '../permissions';
-import { isMachine } from './actor';
+import { aiEmployeeMayRun, isMachine } from './actor';
 import { translateDbError } from './pg-errors';
 import { redact } from './redact';
 import type {
@@ -110,12 +110,19 @@ function assertPermission(scope: ResolvedScope, permission: Permission): void {
   if (!ok) throw HfosError.forbidden();
 }
 
-/** Commands and queries are for people unless they opt in to the system or to workflows (`actors`). */
+/**
+ * Commands and queries are for people unless they opt in to the system, workflows or the AI teammate
+ * (`actors`). The AI teammate is also held to its own allowlist (AI_EMPLOYEE_COMMANDS), whatever a
+ * command's `actors` say.
+ */
 function assertActorAllowed(
   op: { readonly name: string; readonly actors?: readonly ActorKind[] },
   actor: Actor,
 ): void {
-  if (!(op.actors ?? ['human']).includes(actor.type))
+  if (
+    !(op.actors ?? ['human']).includes(actor.type) ||
+    (actor.type === 'ai_employee' && !aiEmployeeMayRun(op.name))
+  )
     throw HfosError.forbidden(`${op.name} cannot be run by a ${actor.type} actor.`);
 }
 
@@ -134,6 +141,8 @@ interface RecordedActor {
 /**
  * How an actor appears on its event and audit rows. A workflow is recorded as itself (actor_id is the
  * workflow), and its events name the run that caused them (`_workflow`), which the engine's loop guards read.
+ * The AI teammate is recorded as itself too (actor_id is the teammate), its events name its run and whose
+ * OK sent them (`_ai`), and, when a workflow handed it the conversation, that run's loop guard (`_workflow`).
  */
 function recordedActor(actor: Actor, scope: ResolvedScope): RecordedActor {
   switch (actor.type) {
@@ -164,6 +173,25 @@ function recordedActor(actor: Actor, scope: ResolvedScope): RecordedActor {
             depth: actor.depth,
             originRunId: actor.originRunId,
           },
+        },
+      };
+    case 'ai_employee':
+      return {
+        actorType: 'ai_employee',
+        actorId: actor.teammateId,
+        actorRole: 'ai_employee',
+        payload: {
+          _ai: { teammateId: actor.teammateId, runId: actor.runId, approvedBy: actor.approvedBy },
+          ...(actor.origin
+            ? {
+                _workflow: {
+                  runId: actor.origin.runId,
+                  workflowId: actor.origin.workflowId,
+                  depth: actor.origin.depth,
+                  originRunId: actor.origin.originRunId,
+                },
+              }
+            : {}),
         },
       };
   }
@@ -303,12 +331,13 @@ async function assertWorkerTx(tx: Tx, actor: MachineActor): Promise<void> {
 }
 
 /**
- * Runs a command for the system or a workflow inside a transaction the caller already opened with `asWorker`
- * for the actor's workspace, so the command's writes, events, outbox and audit rows commit with the caller's
- * own: a workflow step and the action it takes are one unit, and roll back together. The command runs in a
- * savepoint, so a refusal or a database error undoes only the command's writes and leaves the caller's
- * transaction usable (to record the failure). Otherwise the same rules as executeCommand: allowed actors,
- * validation, no permission check, declared events only. People always use executeCommand.
+ * Runs a command for the system, a workflow or the AI teammate inside a transaction the caller already opened
+ * with `asWorker` for the actor's workspace, so the command's writes, events, outbox and audit rows commit with
+ * the caller's own: a workflow step and the action it takes are one unit, and roll back together (as are an
+ * approved draft's bookings and its message). The command runs in a savepoint, so a refusal or a database
+ * error undoes only the command's writes and leaves the caller's transaction usable (to record the failure).
+ * Otherwise the same rules as executeCommand: allowed actors, validation, no permission check, declared events
+ * only. People always use executeCommand.
  */
 export async function executeCommandIn<I extends z.ZodType, O extends z.ZodType>(
   tx: Tx,
@@ -319,7 +348,7 @@ export async function executeCommandIn<I extends z.ZodType, O extends z.ZodType>
 ): Promise<ExecuteResult<z.output<O>>> {
   if ((actor as Actor).type === 'human')
     throw HfosError.forbidden(
-      'Only the system and workflows run commands in their own transaction.',
+      'Only the system, workflows and the AI teammate run commands in their own transaction.',
     );
   assertActorAllowed(cmd, actor);
   const input = parseInput(cmd.input, rawInput);

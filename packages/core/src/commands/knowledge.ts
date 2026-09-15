@@ -899,7 +899,7 @@ export const knowledgeSuggestionPropose = defineCommand({
   output: KnowledgeSuggestionProposeOutput,
   permission: null,
   scope: inWorkspace,
-  actors: ['system', 'workflow'],
+  actors: ['system', 'workflow', 'ai_employee'],
   emits: ['knowledge_suggestion.proposed'],
   async handler(ctx, input) {
     const ws = ctx.scope.workspaceId!;
@@ -1006,7 +1006,7 @@ export const knowledgeItemRecordUse = defineCommand({
   output: KnowledgeRecordUseOutput,
   permission: null,
   scope: inWorkspace,
-  actors: ['system', 'workflow'],
+  actors: ['system', 'workflow', 'ai_employee'],
   emits: ['knowledge_item.used'],
   async handler(ctx, input) {
     const used = await ctx.tx

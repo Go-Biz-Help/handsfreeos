@@ -1,7 +1,9 @@
 'use client';
+import { openHoursOf, type WeeklyHours } from '@hfos/core';
 import { useRouter } from 'next/navigation';
 import { useState, type FormEvent } from 'react';
 import { toast } from 'sonner';
+import { hoursProblem, WeeklyHoursEditor } from '@/components/calendars/weekly-hours';
 import { Button } from '@/components/ui/button';
 import { Field } from '@/components/ui/field';
 import { Input, Select } from '@/components/ui/input';
@@ -35,12 +37,17 @@ export function WorkspaceForm({ workspace }: { workspace: WorkspaceGet['workspac
         : '';
   const [website, setWebsite] = useState(savedWebsite);
   const [review, setReview] = useState(savedReview);
+  // When the business is open; the AI teammate's after-hours mode and hand-off message use it.
+  const savedHours = openHoursOf(settings);
+  const [hours, setHours] = useState<WeeklyHours>(savedHours);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
 
   async function submit(e: FormEvent) {
     e.preventDefault();
     if (!name.trim()) return setErrors({ name: 'Give the business a name.' });
+    const hoursIssue = hoursProblem(hours);
+    if (hoursIssue) return setErrors({ openHours: hoursIssue });
     setBusy(true);
     setErrors({});
     try {
@@ -53,10 +60,17 @@ export function WorkspaceForm({ workspace }: { workspace: WorkspaceGet['workspac
       if (name.trim() !== workspace.name) patch.name = name.trim();
       if (timezone !== workspace.timezone) patch.timezone = timezone;
       if (industry !== workspace.industry) patch.industry = industry;
-      if (website.trim() !== savedWebsite || review.trim() !== savedReview)
+      const linksChanged = website.trim() !== savedWebsite || review.trim() !== savedReview;
+      const hoursChanged = JSON.stringify(hours) !== JSON.stringify(savedHours);
+      if (linksChanged || hoursChanged)
         patch.settings = {
-          website: website.trim() || null,
-          links: { ...links, review: review.trim() || null },
+          ...(linksChanged
+            ? {
+                website: website.trim() || null,
+                links: { ...links, review: review.trim() || null },
+              }
+            : {}),
+          ...(hoursChanged ? { openHours: hours } : {}),
         };
       if (Object.keys(patch).length === 0) return toast.success('Nothing changed.');
       unwrap(
@@ -149,6 +163,21 @@ export function WorkspaceForm({ workspace }: { workspace: WorkspaceGet['workspac
           data-testid="ws-review"
         />
       </Field>
+      <fieldset className="flex min-w-0 flex-col gap-1.5" data-testid="ws-open-hours">
+        <legend className="text-[13px] font-medium">Business hours</legend>
+        <p className="text-xs text-text-2">
+          When you’re open, in the time zone above. Your AI teammate uses it to work after hours and
+          to tell customers when they’ll hear back.
+        </p>
+        <div className="rounded-control border border-border px-3 py-1">
+          <WeeklyHoursEditor value={hours} onChange={setHours} idPrefix="ws-hours" />
+        </div>
+        {errors.openHours ? (
+          <span role="alert" className="text-xs text-danger-text">
+            {errors.openHours}
+          </span>
+        ) : null}
+      </fieldset>
       <div className="flex justify-end">
         <Button type="submit" loading={busy} data-testid="workspace-save">
           Save changes

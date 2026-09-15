@@ -1,5 +1,6 @@
 import { and, eq } from 'drizzle-orm';
 import { activities, leads } from '@hfos/db/schema';
+import { assertAiReach } from '../ai-team/reach';
 import { actorMeta } from '../crm/activities';
 import { requireCompany, requirePerson } from '../crm/records';
 import { HfosError } from '../errors';
@@ -23,9 +24,15 @@ export const activityLog = defineCommand({
   permission: 'records.write',
   scope: (i) => ({ kind: 'workspace', workspaceId: i.workspaceId }),
   emits: ['activity.logged'],
-  actors: ['human', 'workflow'],
+  actors: ['human', 'workflow', 'ai_employee'],
   async handler(ctx, input) {
     const workspaceId = ctx.scope.workspaceId!;
+    // The AI teammate adds notes to its own customer's timeline, nothing else.
+    if (ctx.actor.type === 'ai_employee') {
+      if (input.kind !== 'note')
+        throw HfosError.validation([{ path: 'kind', message: 'The AI teammate only adds notes.' }]);
+      await assertAiReach(ctx, input);
+    }
     if (input.personId) await requirePerson(ctx.tx, workspaceId, input.personId);
     if (input.companyId) await requireCompany(ctx.tx, workspaceId, input.companyId);
     if (input.leadId) {

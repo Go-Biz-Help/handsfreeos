@@ -1,5 +1,6 @@
 import { and, asc, eq, isNull } from 'drizzle-orm';
 import { leads, pipelines, pipelineStages } from '@hfos/db/schema';
+import { AI_TEAMMATE_SOURCE, assertAiReach } from '../ai-team/reach';
 import { logSystemActivity } from '../crm/activities';
 import { placeInStage } from '../crm/positions';
 import { requireCompany, requirePerson, setRecordTags } from '../crm/records';
@@ -19,10 +20,11 @@ export const leadCreate = defineCommand({
   scope: (i) => ({ kind: 'workspace', workspaceId: i.workspaceId }),
   emits: ['lead.created'],
   // A booking can open a lead (a calendar's CRM settings): the worker runs this as the system actor. So can
-  // a workflow step.
-  actors: ['human', 'system', 'workflow'],
+  // a workflow step, and the AI teammate for the customer it's talking to.
+  actors: ['human', 'system', 'workflow', 'ai_employee'],
   async handler(ctx, input) {
     const workspaceId = ctx.scope.workspaceId!;
+    await assertAiReach(ctx, { personId: input.personId, companyId: input.companyId });
     if (input.personId) await requirePerson(ctx.tx, workspaceId, input.personId);
     if (input.companyId) await requireCompany(ctx.tx, workspaceId, input.companyId);
     const [pipeline] = input.pipelineId
@@ -68,7 +70,7 @@ export const leadCreate = defineCommand({
         companyId: input.companyId ?? null,
         title: input.title,
         valueCents: input.valueCents,
-        source: input.source ?? null,
+        source: input.source ?? (ctx.actor.type === 'ai_employee' ? AI_TEAMMATE_SOURCE : null),
         assigneeUserId: input.assigneeUserId ?? null,
         expectedCloseOn: input.expectedCloseOn ?? null,
         nextAction: input.nextAction ?? null,

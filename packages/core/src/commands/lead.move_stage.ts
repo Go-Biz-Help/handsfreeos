@@ -1,5 +1,6 @@
 import { and, eq } from 'drizzle-orm';
 import { leads, pipelineStages } from '@hfos/db/schema';
+import { assertAiReach } from '../ai-team/reach';
 import { logSystemActivity } from '../crm/activities';
 import { placeInStage } from '../crm/positions';
 import { HfosError } from '../errors';
@@ -16,7 +17,7 @@ export const leadMoveStage = defineCommand({
   permission: 'records.write',
   scope: (i) => ({ kind: 'workspace', workspaceId: i.workspaceId }),
   emits: ['lead.stage_changed', 'lead.won', 'lead.lost', 'lead.reopened'],
-  actors: ['human', 'workflow'],
+  actors: ['human', 'workflow', 'ai_employee'],
   async handler(ctx, input) {
     const workspaceId = ctx.scope.workspaceId!;
     const [current] = await ctx.tx
@@ -40,6 +41,16 @@ export const leadMoveStage = defineCommand({
         ),
       );
     if (!from || !to) throw HfosError.notFound('Stage not found.');
+    // The AI teammate moves its customer's open lead between open stages; winning or losing it is a person's call.
+    if (ctx.actor.type === 'ai_employee') {
+      if (to.kind !== 'open' || current.status !== 'open')
+        throw HfosError.rule(
+          'stage_not_open',
+          409,
+          'The AI teammate only moves an open lead between open stages.',
+        );
+      await assertAiReach(ctx, { leadId: current.id });
+    }
     if (to.kind === 'lost' && !input.lostReason)
       throw HfosError.validation([
         { path: 'lostReason', message: 'Add a reason to mark this lead lost.' },
