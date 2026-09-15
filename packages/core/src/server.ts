@@ -21,6 +21,7 @@ export * from './messaging/handling';
 export * from './attention/load';
 export * from './attention/items';
 export * from './attention/auto-plan';
+export * from './attention/hints';
 import { commands } from './commands/index';
 import { createRegistry } from './kernel/registry';
 import { queries } from './queries/index';

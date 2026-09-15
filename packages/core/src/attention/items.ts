@@ -116,12 +116,21 @@ export function scorableOf(row: AttentionItemRow): Scorable & { id: string } {
   };
 }
 
+/** What an item carries beside its row: a "Not confirmed" item's appointment, and the channel it would use. */
+export interface ItemHints {
+  readonly appointmentId: string | null;
+  readonly startsAt: string | null;
+  readonly reach: 'sms' | 'email' | 'chat' | null;
+}
+export const NO_HINTS: ItemHints = { appointmentId: null, startsAt: null, reach: null };
+
 /** One row as people see it at `now`: ticking chips recounted, its rank, and what this person may do. */
 export function itemOut(
   row: AttentionItemRow,
   v: AttentionViewer,
   names: ReadonlyMap<string, string>,
   now: number,
+  hints: ItemHints = NO_HINTS,
 ): AttentionItemOut {
   const kind = row.kind as AttentionKind;
   const reasons = chipsOf(row);
@@ -137,6 +146,9 @@ export function itemOut(
     personId: row.personId,
     leadId: row.leadId,
     conversationId: row.conversationId,
+    appointmentId: hints.appointmentId,
+    startsAt: hints.startsAt,
+    reach: hints.reach,
     title: row.title,
     detail: row.detail,
     valueCents: s.value,

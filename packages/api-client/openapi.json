@@ -43149,6 +43149,45 @@
                               }
                             ]
                           },
+                          "appointmentId": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "format": "uuid",
+                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "startsAt": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "format": "date-time",
+                                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "reach": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "enum": [
+                                  "sms",
+                                  "email",
+                                  "chat"
+                                ]
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
                           "title": {
                             "type": "string"
                           },
@@ -43503,6 +43542,9 @@
                           "personId",
                           "leadId",
                           "conversationId",
+                          "appointmentId",
+                          "startsAt",
+                          "reach",
                           "title",
                           "detail",
                           "valueCents",
@@ -43615,6 +43657,45 @@
                               }
                             ]
                           },
+                          "appointmentId": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "format": "uuid",
+                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "startsAt": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "format": "date-time",
+                                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "reach": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "enum": [
+                                  "sms",
+                                  "email",
+                                  "chat"
+                                ]
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
                           "title": {
                             "type": "string"
                           },
@@ -43969,6 +44050,9 @@
                           "personId",
                           "leadId",
                           "conversationId",
+                          "appointmentId",
+                          "startsAt",
+                          "reach",
                           "title",
                           "detail",
                           "valueCents",
@@ -44357,6 +44441,45 @@
                               }
                             ]
                           },
+                          "appointmentId": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "format": "uuid",
+                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "startsAt": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "format": "date-time",
+                                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "reach": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "enum": [
+                                  "sms",
+                                  "email",
+                                  "chat"
+                                ]
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
                           "title": {
                             "type": "string"
                           },
@@ -44711,6 +44834,9 @@
                           "personId",
                           "leadId",
                           "conversationId",
+                          "appointmentId",
+                          "startsAt",
+                          "reach",
                           "title",
                           "detail",
                           "valueCents",
@@ -44912,6 +45038,29 @@
                               "items": {
                                 "type": "string"
                               }
+                            },
+                            "checks": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "code": {
+                                    "type": "string"
+                                  },
+                                  "label": {
+                                    "type": "string"
+                                  },
+                                  "ok": {
+                                    "type": "boolean"
+                                  }
+                                },
+                                "required": [
+                                  "code",
+                                  "label",
+                                  "ok"
+                                ],
+                                "additionalProperties": false
+                              }
                             }
                           },
                           "required": [
@@ -44923,7 +45072,8 @@
                             "sendAt",
                             "scheduledFor",
                             "blocked",
-                            "notes"
+                            "notes",
+                            "checks"
                           ],
                           "additionalProperties": false
                         },
@@ -45043,6 +45193,286 @@
                     "auto",
                     "options",
                     "reason"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/queries/attention.settings": {
+      "post": {
+        "operationId": "query_attention_settings",
+        "summary": "The Action Center’s settings, every default filled in, and the typical job value HandsFreeOS works out for itself (the median won lead over the last year, else $500), which it uses when the business hasn’t set one.",
+        "tags": [
+          "queries"
+        ],
+        "description": "Requires records.read.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  }
+                },
+                "required": [
+                  "workspaceId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "settings": {
+                      "type": "object",
+                      "properties": {
+                        "kinds": {
+                          "type": "object",
+                          "properties": {
+                            "hot_lead": {
+                              "default": true,
+                              "type": "boolean"
+                            },
+                            "unanswered_lead": {
+                              "default": true,
+                              "type": "boolean"
+                            },
+                            "stale_opportunity": {
+                              "default": true,
+                              "type": "boolean"
+                            },
+                            "missing_next_action": {
+                              "default": true,
+                              "type": "boolean"
+                            },
+                            "unconfirmed_appointment": {
+                              "default": true,
+                              "type": "boolean"
+                            },
+                            "ai_approval": {
+                              "default": true,
+                              "type": "boolean"
+                            },
+                            "customer_waiting": {
+                              "default": true,
+                              "type": "boolean"
+                            },
+                            "overdue_task": {
+                              "default": true,
+                              "type": "boolean"
+                            }
+                          },
+                          "required": [
+                            "hot_lead",
+                            "unanswered_lead",
+                            "stale_opportunity",
+                            "missing_next_action",
+                            "unconfirmed_appointment",
+                            "ai_approval",
+                            "customer_waiting",
+                            "overdue_task"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "hot": {
+                          "type": "object",
+                          "properties": {
+                            "minValueCents": {
+                              "default": 500000,
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 10000000000
+                            },
+                            "urgentAfterMinutes": {
+                              "default": 10,
+                              "type": "integer",
+                              "minimum": 1,
+                              "maximum": 240
+                            }
+                          },
+                          "required": [
+                            "minValueCents",
+                            "urgentAfterMinutes"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "unanswered": {
+                          "type": "object",
+                          "properties": {
+                            "afterOpenMinutes": {
+                              "default": 15,
+                              "type": "integer",
+                              "minimum": 1,
+                              "maximum": 480
+                            }
+                          },
+                          "required": [
+                            "afterOpenMinutes"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "stale": {
+                          "type": "object",
+                          "properties": {
+                            "days": {
+                              "default": 7,
+                              "type": "integer",
+                              "minimum": 1,
+                              "maximum": 365
+                            },
+                            "stageDays": {
+                              "default": {},
+                              "type": "object",
+                              "propertyNames": {
+                                "type": "string",
+                                "format": "uuid",
+                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                              },
+                              "additionalProperties": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "maximum": 365
+                              }
+                            }
+                          },
+                          "required": [
+                            "days",
+                            "stageDays"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "appointments": {
+                          "type": "object",
+                          "properties": {
+                            "windowHours": {
+                              "default": 48,
+                              "type": "integer",
+                              "minimum": 1,
+                              "maximum": 168
+                            }
+                          },
+                          "required": [
+                            "windowHours"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "typicalJobValueCents": {
+                          "default": null,
+                          "anyOf": [
+                            {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 10000000000
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "auto": {
+                          "type": "object",
+                          "properties": {
+                            "confirmRequests": {
+                              "default": true,
+                              "type": "boolean"
+                            },
+                            "nudges": {
+                              "default": false,
+                              "type": "boolean"
+                            },
+                            "nudgeReviewedAt": {
+                              "default": null,
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "format": "date-time",
+                                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            }
+                          },
+                          "required": [
+                            "confirmRequests",
+                            "nudges",
+                            "nudgeReviewedAt"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "nudge": {
+                          "type": "object",
+                          "properties": {
+                            "template": {
+                              "default": "Hi {firstName}, it's {senderName} at {businessName}. Just checking in: are you still looking for help? Reply here and we'll take it from there.",
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 480
+                            },
+                            "cooldownDays": {
+                              "default": 14,
+                              "type": "integer",
+                              "minimum": 1,
+                              "maximum": 90
+                            }
+                          },
+                          "required": [
+                            "template",
+                            "cooldownDays"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "replyToConfirm": {
+                          "default": true,
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "kinds",
+                        "hot",
+                        "unanswered",
+                        "stale",
+                        "appointments",
+                        "typicalJobValueCents",
+                        "auto",
+                        "nudge",
+                        "replyToConfirm"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "typicalJobValueCents": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "typicalFrom": {
+                      "type": "string",
+                      "enum": [
+                        "won_median",
+                        "default"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "settings",
+                    "typicalJobValueCents",
+                    "typicalFrom"
                   ],
                   "additionalProperties": false
                 }

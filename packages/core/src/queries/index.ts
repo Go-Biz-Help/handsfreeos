@@ -4,6 +4,7 @@ import {
   attentionForRecord,
   attentionList,
   attentionPreviewHandle,
+  attentionSettingsGet,
   attentionSummary,
 } from './attention';
 import { assistantThreadGet, assistantThreadList } from './assistant';
@@ -193,6 +194,7 @@ export const queries: readonly QueryDef[] = [
   attentionSummary,
   attentionForRecord,
   attentionPreviewHandle,
+  attentionSettingsGet,
 ] as unknown as readonly QueryDef[];
 
 export {
@@ -200,6 +202,7 @@ export {
   attentionSummary,
   attentionForRecord,
   attentionPreviewHandle,
+  attentionSettingsGet,
   chatWidgetList,
   chatWidgetGet,
   workflowList,

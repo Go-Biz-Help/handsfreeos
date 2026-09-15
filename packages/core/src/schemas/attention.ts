@@ -15,6 +15,8 @@ export const attentionScope = z.enum(['mine', 'everyone']);
 export const autoAction = z.enum(AUTO_ACTIONS);
 export const autoState = z.enum(['scheduled', 'sent', 'skipped', 'cancelled']);
 export const handledVia = z.enum(['person', 'let_handle', 'auto']);
+/** The channel an item would use with the customer: a text, an email, or a reply in a website chat. */
+export const attentionReach = z.enum(['sms', 'email', 'chat']);
 
 /** What Let HandsFreeOS Handle does for an ask-first item, as the person who chose it. */
 export const ATTENTION_ASK_ACTIONS = ['hand_to_ai', 'reply', 'set_next_action'] as const;
@@ -54,6 +56,15 @@ export const AttentionItemOut = z.object({
   personId: uuid.nullable(),
   leadId: uuid.nullable(),
   conversationId: uuid.nullable(),
+  /** A "Not confirmed" item's appointment, and when it starts (as it stands now); null for other kinds. */
+  appointmentId: uuid.nullable(),
+  startsAt: isoDateTime.nullable(),
+  /**
+   * How the item reaches the customer: its automatic action (a confirmation request or a nudge, by the same rules
+   * as the preview), or a person's reply for a hot lead, an unanswered lead or a waiting customer. Null when it
+   * doesn't contact them, or nothing can reach them.
+   */
+  reach: attentionReach.nullable(),
   title: z.string(),
   detail: z.string().nullable(),
   valueCents: z.number(),
@@ -156,6 +167,14 @@ export const AttentionForRecordOutput = z.object({ items: z.array(AttentionItemO
 
 // ---------- attention.preview_handle ----------
 
+/** One check behind an automatic action, in the words the Let HandsFreeOS Handle sheet shows. */
+export const AttentionCheckOut = z.object({
+  /** texts, email, quiet_hours, talking, busy or cooldown. */
+  code: z.string(),
+  /** "Nathan said texts are OK", "Outside quiet hours (8 PM to 8 AM)". */
+  label: z.string(),
+  ok: z.boolean(),
+});
 export const AttentionAutoPlanOut = z.object({
   action: autoAction,
   channel: z.enum(['sms', 'email']).nullable(),
@@ -173,6 +192,8 @@ export const AttentionAutoPlanOut = z.object({
   blocked: z.object({ code: z.string(), message: z.string() }).nullable(),
   /** What else to know ("They haven't agreed to texts, so this goes by email."). */
   notes: z.array(z.string()),
+  /** The checks it ran, in order ("Checked just now"). A failed one also feeds `blocked` or `notes`. */
+  checks: z.array(AttentionCheckOut),
 });
 export type AttentionAutoPlanOut = z.infer<typeof AttentionAutoPlanOut>;
 export const AttentionAskOptionOut = z.object({
@@ -198,6 +219,20 @@ export const AttentionPreviewHandleOutput = z.object({
   options: z.array(AttentionAskOptionOut),
   /** Not offered: why. */
   reason: z.string().nullable(),
+});
+
+// ---------- attention.settings ----------
+
+export const AttentionSettingsGetInput = z.object({ workspaceId: uuid });
+export const AttentionSettingsGetOutput = z.object({
+  /** The saved settings, every default filled in. */
+  settings: AttentionSettings,
+  /**
+   * The typical job value HandsFreeOS works out for itself (what it uses when `settings.typicalJobValueCents` is
+   * null): the median won lead over the last 365 days, else $500.
+   */
+  typicalJobValueCents: z.int(),
+  typicalFrom: z.enum(['won_median', 'default']),
 });
 
 // ---------- item commands ----------

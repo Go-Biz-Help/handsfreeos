@@ -6,8 +6,9 @@
  */
 import { and, eq, gte, inArray, or, type SQL } from 'drizzle-orm';
 import { rows, sql } from '@hfos/db/client';
-import { attentionItems } from '@hfos/db/schema';
+import { attentionItems, workspaces } from '@hfos/db/schema';
 import { askOptions, planAutoAction } from '../attention/auto-plan';
+import { loadItemHints } from '../attention/hints';
 import {
   chipsOf,
   itemOut,
@@ -18,8 +19,14 @@ import {
   type AttentionViewer,
 } from '../attention/items';
 import { autoActionOf, letHandleModeOf, type AttentionKind } from '../attention/kinds';
-import { DONE_RESOLUTIONS, loadAttentionContext, type AttentionItemRow } from '../attention/load';
+import {
+  DONE_RESOLUTIONS,
+  loadAttentionContext,
+  medianWonCents,
+  type AttentionItemRow,
+} from '../attention/load';
 import { affectedCents, isUrgent, rankItems } from '../attention/score';
+import { attentionSettingsOf, typicalJobValueCents } from '../attention/settings';
 import { localDateOf, startOfLocalDay } from '../calendar/engine/zoned';
 import { userNames, uuidArray } from '../calendar/load';
 import { workspaceTimezone } from '../crm/records';
@@ -35,6 +42,8 @@ import {
   AttentionListOutput,
   AttentionPreviewHandleInput,
   AttentionPreviewHandleOutput,
+  AttentionSettingsGetInput,
+  AttentionSettingsGetOutput,
   AttentionSummaryInput,
   AttentionSummaryOutput,
 } from '../schemas/attention';
@@ -101,7 +110,11 @@ export const attentionList = defineQuery({
       .filter((r) => r.state === 'handled')
       .sort((a, b) => (b.handledAt?.getTime() ?? 0) - (a.handledAt?.getTime() ?? 0));
     const names = await userNames(ctx.tx, userIdsOf(inScope));
-    const out = (r: AttentionItemRow) => itemOut(r, viewer, names, at);
+    const hints = await loadItemHints(ctx.tx, ws, [
+      ...ranked,
+      ...(input.includeHandled ? handled : []),
+    ]);
+    const out = (r: AttentionItemRow) => itemOut(r, viewer, names, at, hints.get(r.id));
     const scheduled = open
       .flatMap((r) => {
         const action = autoActionOf(r.kind as AttentionKind, chipsOf(r));
@@ -218,11 +231,12 @@ export const attentionForRecord = defineQuery({
       and(where, inArray(attentionItems.state, ['open', 'snoozed']))!,
     );
     const names = await userNames(ctx.tx, userIdsOf(list));
+    const hints = await loadItemHints(ctx.tx, ctx.scope.workspaceId!, list);
     const ranked = rankItems(
       list.map((r) => ({ ...scorableOf(r), row: r })),
       at,
     ).map((x) => x.row);
-    return { items: ranked.map((r) => itemOut(r, viewer, names, at)) };
+    return { items: ranked.map((r) => itemOut(r, viewer, names, at, hints.get(r.id))) };
   },
 });
 
@@ -253,5 +267,34 @@ export const attentionPreviewHandle = defineQuery({
     const actx = await loadAttentionContext(ctx.tx, ctx.scope.workspaceId!, now);
     if (mode === 'auto') return { ...base, auto: await planAutoAction(ctx.tx, actx, row, now) };
     return { ...base, options: await askOptions(ctx.tx, actx, row, now) };
+  },
+});
+
+export const attentionSettingsGet = defineQuery({
+  name: 'attention.settings',
+  description:
+    'The Action Center’s settings, every default filled in, and the typical job value HandsFreeOS works out for itself (the median won lead over the last year, else $500), which it uses when the business hasn’t set one.',
+  input: AttentionSettingsGetInput,
+  output: AttentionSettingsGetOutput,
+  permission: 'records.read',
+  scope: inWorkspace,
+  async handler(ctx) {
+    const ws = ctx.scope.workspaceId!;
+    const [w] = await ctx.tx
+      .select({ settings: workspaces.settings })
+      .from(workspaces)
+      .where(eq(workspaces.id, ws));
+    if (!w) throw HfosError.notFound('Workspace not found.');
+    const settings = attentionSettingsOf(w.settings as Record<string, unknown> | null);
+    const median = await medianWonCents(ctx.tx, ws);
+    return {
+      settings,
+      // What it works out on its own, whatever the business set.
+      typicalJobValueCents: typicalJobValueCents(
+        { ...settings, typicalJobValueCents: null },
+        median,
+      ),
+      typicalFrom: median !== null && median > 0 ? ('won_median' as const) : ('default' as const),
+    };
   },
 });

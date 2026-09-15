@@ -1,7 +1,7 @@
 /**
- * An unconfirmed appointment: a one-on-one booking the customer hasn't confirmed, from the appointment window
- * (48 hours by default) before it starts until it starts. Group sessions are never asked to confirm. Its urgency
- * grows as the start nears; it may run on its own as one confirmation request.
+ * An unconfirmed appointment: a one-on-one booking (one seat) the customer hasn't confirmed, from the appointment
+ * window (48 hours by default) before it starts until it starts. Group times and sessions are never asked to
+ * confirm. Its urgency grows as the start nears; it may run on its own as one confirmation request.
  */
 import { chip, untilChip } from '../chips';
 import { leadValue, type BusinessFacts, type LinkedLeadFacts } from '../facts';
@@ -13,8 +13,13 @@ export interface UnconfirmedAppointmentFacts {
   readonly business: BusinessFacts;
   readonly appointment: {
     readonly id: string;
-    /** booking: one-on-one; session: a group session (never asked to confirm). */
+    /** booking: one customer's own; session: a group session (never asked to confirm). */
     readonly kind: 'booking' | 'session';
+    /**
+     * Seats on it. Only a one-on-one booking (1) is ever asked to confirm: a group time holds several
+     * customers, as a session does. Left out, it counts as one-on-one.
+     */
+    readonly capacity?: number;
     readonly status: 'scheduled' | 'completed' | 'cancelled' | 'no_show';
     readonly startsAt: string;
     readonly ownerUserId: string | null;
@@ -36,7 +41,7 @@ function assess(
   now: number,
 ): Assessment {
   const { appointment: a, attendee: t } = f;
-  if (a.kind !== 'booking' || a.status !== 'scheduled') return null;
+  if (a.kind !== 'booking' || (a.capacity ?? 1) !== 1 || a.status !== 'scheduled') return null;
   if (t.status !== 'booked' || t.confirmedAt) return null;
   const start = ms(a.startsAt);
   if (now >= start) return null;

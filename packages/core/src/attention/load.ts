@@ -114,12 +114,12 @@ const nameOf = (first: string | null, last: string | null): string | null =>
 
 // ---------- the business ----------
 
-export async function loadAttentionContext(
+/** The median value of the leads won in the 365 days before `now`, in cents; null when none was won. */
+export async function medianWonCents(
   tx: Tx,
   workspaceId: string,
   now: Date = new Date(),
-): Promise<AttentionContext> {
-  const m = await workspaceMessaging(tx, workspaceId);
+): Promise<number | null> {
   const [won] = await rows<{ cents: number | null }>(
     tx,
     sql`select percentile_cont(0.5) within group (order by value_cents)::float8 as cents
@@ -127,6 +127,16 @@ export async function loadAttentionContext(
         where workspace_id = ${workspaceId} and status = 'won' and value_cents > 0
           and won_at > ${tsParam(now)} - interval '365 days'`,
   );
+  return won?.cents === null || won?.cents === undefined ? null : Number(won.cents);
+}
+
+export async function loadAttentionContext(
+  tx: Tx,
+  workspaceId: string,
+  now: Date = new Date(),
+): Promise<AttentionContext> {
+  const m = await workspaceMessaging(tx, workspaceId);
+  const median = await medianWonCents(tx, workspaceId, now);
   const timeZone = m.timezone || 'UTC';
   return {
     workspaceId,
@@ -137,7 +147,7 @@ export async function loadAttentionContext(
     business: {
       timeZone,
       openHours: openHoursOf(m.rawSettings),
-      medianWonCents: won?.cents === null || won?.cents === undefined ? null : Number(won.cents),
+      medianWonCents: median,
     },
     replyThresholdMinutes: m.settings.unansweredReminderMinutes,
     quietHours: m.settings.quietHours,
@@ -522,6 +532,7 @@ async function loadAttendees(
     confirm_asked_at: Date | null;
     appointment_id: string;
     kind: 'booking' | 'session';
+    capacity: number;
     appointment_status: 'scheduled' | 'completed' | 'cancelled' | 'no_show';
     starts_at: Date;
     owner_user_id: string | null;
@@ -534,7 +545,8 @@ async function loadAttendees(
   }>(
     tx,
     sql`select t.id, t.person_id, t.status::text as status, t.confirmed_at, t.confirm_asked_at,
-          p.id as appointment_id, p.kind::text as kind, p.status::text as appointment_status, p.starts_at,
+          p.id as appointment_id, p.kind::text as kind, p.capacity, p.status::text as appointment_status,
+          p.starts_at,
           coalesce(p.owner_user_id, (select s.user_id from app.appointment_staff s
             where s.appointment_id = p.id and s.role = 'host' order by s.user_id limit 1)) as owner_user_id,
           p.title, p.lead_id, l.value_cents::float8 as lead_value, l.status::text as lead_status,
@@ -548,7 +560,7 @@ async function loadAttendees(
             ${
               all
                 ? sql`or (t.status = 'booked' and t.confirmed_at is null and p.status = 'scheduled'
-                    and p.kind = 'booking' and p.starts_at > ${tsParam(now)}
+                    and p.kind = 'booking' and p.capacity = 1 and p.starts_at > ${tsParam(now)}
                     and p.starts_at <= ${tsParam(now)} + ${`${windowHours + 24} hours`}::interval)`
                 : sql``
             })`,
@@ -560,6 +572,7 @@ async function loadAttendees(
         appointment: {
           id: r.appointment_id,
           kind: r.kind,
+          capacity: r.capacity,
           status: r.appointment_status,
           startsAt: iso(r.starts_at)!,
           ownerUserId: r.owner_user_id,
@@ -803,6 +816,9 @@ function resolutionOf(
     case 'unconfirmed_appointment': {
       const a = loaded.attendees.get(row.subjectId);
       if (!a) return 'subject_gone';
+      // Only a one-on-one booking is ever asked to confirm.
+      if (a.appointment.kind !== 'booking' || (a.appointment.capacity ?? 1) !== 1)
+        return 'group_booking';
       if (a.attendee.confirmedAt) return 'confirmed';
       if (a.attendee.status === 'cancelled' || a.appointment.status === 'cancelled')
         return 'cancelled';

@@ -407,6 +407,7 @@ describe('registry', () => {
       'attention.summary',
       'attention.for_record',
       'attention.preview_handle',
+      'attention.settings',
     ]);
     expect(registry.command('membership.invite')?.risk).toBe(2);
   });

@@ -2,10 +2,12 @@
  * What Let HandsFreeOS Handle would do for one item (M8), worked out on the server so the preview and the worker
  * agree:
  * - on its own (a confirmation request, a follow-up nudge): whom it reaches and how, the words exactly, when it
- *   goes (after the cancel window, and after quiet hours for a text), or why it can't go;
+ *   goes (after the cancel window, and after quiet hours for a text), the checks it ran ("Nathan said texts are
+ *   OK", "Outside quiet hours (8 PM to 8 AM)"…), or why it can't go;
  * - asks first: the choices (hand to the AI teammate, reply, set a next action), each with why it isn't
  *   available when it isn't.
- * The worker (step 6) runs planAutoAction again, under the item's lock, right before it sends. Server-only.
+ * The reach and reply rules here are pure and shared with the list's per-item hint (hints.ts). The worker (step 6)
+ * runs planAutoAction again, under the item's lock, right before it sends. Server-only.
  */
 import { rows, sql, type Tx } from '@hfos/db/client';
 import { loadTeammate, teammateConfigOf } from '../ai-team/load';
@@ -41,6 +43,13 @@ const MIN = 60_000;
 const HOUR = 60 * MIN;
 const DAY = 24 * HOUR;
 
+/** The kinds whose Handle is a person's reply to the customer (a text, an email or a chat). */
+export const REPLY_KINDS: ReadonlySet<AttentionKind> = new Set([
+  'hot_lead',
+  'unanswered_lead',
+  'customer_waiting',
+]);
+
 /** When quiet hours end after `t`, or null when it isn't quiet then. */
 export function quietEndAfter(
   window: QuietHoursWindow,
@@ -52,6 +61,13 @@ export function quietEndAfter(
   const today = localDateOf(t, timeZone);
   const end = localInstant(today, q.endsAt, timeZone);
   return end > t ? end : localInstant(addDays(today, 1), q.endsAt, timeZone);
+}
+
+/** "8 PM", "8:30 PM", "12 AM": a quiet-hours clock as the Let HandsFreeOS Handle sheet says it. */
+export function shortClock(value: string): string {
+  const [h = 0, m = 0] = value.split(':').map(Number);
+  const hour = h % 24;
+  return `${hour % 12 === 0 ? 12 : hour % 12}${m ? `:${String(m).padStart(2, '0')}` : ''} ${hour < 12 ? 'AM' : 'PM'}`;
 }
 
 export interface ReachContact {
@@ -71,29 +87,66 @@ export interface Reach {
   readonly firstText: boolean;
 }
 
+/** What the reach rule needs to know about the business, looked up once. */
+export interface ReachBusiness {
+  /** An active number the carriers approved. */
+  readonly textingReady: boolean;
+  /** An address to send email from. */
+  readonly canEmail: boolean;
+}
+
+export async function reachBusinessOf(tx: Tx, workspaceId: string): Promise<ReachBusiness> {
+  const number = await liveNumber(tx, workspaceId);
+  const textingReady =
+    !!number &&
+    number.status === 'active' &&
+    readiness(number, await loadRegistrations(tx, workspaceId)).messagingReady;
+  return {
+    textingReady,
+    canEmail: (await workspaceAddresses(tx, workspaceId)).some((a) => a.usable),
+  };
+}
+
 /**
- * How HandsFreeOS can reach a customer on its own (the booking reminders' rules): texts need their agreement and
- * texting set up, and never override a STOP; email needs an address that isn't stopped, and one to send from.
+ * How HandsFreeOS can reach a customer on its own (the booking reminders' rules), as a pure rule: texts need their
+ * agreement and texting set up, and never override a STOP; email needs an address that isn't stopped, and one to
+ * send from. `known` says whether their number said STOP and whether email to them is stopped.
  */
-export async function reachFor(tx: Tx, workspaceId: string, c: ReachContact): Promise<Reach> {
+export function reachRule(
+  c: ReachContact,
+  known: { readonly optedOut: boolean; readonly emailStopped: boolean },
+  b: ReachBusiness,
+): Pick<Reach, 'text' | 'email'> {
   let text: string | null = null;
   if (!c.phone) text = 'no_phone';
-  else if (c.personConsent === 'opted_out' || (await isOptedOut(tx, workspaceId, c.phone)))
-    text = 'opted_out';
+  else if (c.personConsent === 'opted_out' || known.optedOut) text = 'opted_out';
   else if (!c.smsOk && c.personConsent !== 'opted_in') text = 'no_consent';
-  else {
-    const number = await liveNumber(tx, workspaceId);
-    const ready =
-      !!number &&
-      number.status === 'active' &&
-      readiness(number, await loadRegistrations(tx, workspaceId)).messagingReady;
-    if (!ready) text = 'texting_not_ready';
-  }
-  let email: string | null = null;
-  if (!c.email) email = 'no_email';
-  else if (await activeSuppression(tx, workspaceId, c.email.toLowerCase())) email = 'email_stopped';
-  else if (!(await workspaceAddresses(tx, workspaceId)).some((a) => a.usable))
-    email = 'no_email_address';
+  else if (!b.textingReady) text = 'texting_not_ready';
+  const email = !c.email
+    ? 'no_email'
+    : known.emailStopped
+      ? 'email_stopped'
+      : !b.canEmail
+        ? 'no_email_address'
+        : null;
+  return { text, email };
+}
+
+/** A text when one can go, else an email, else nothing. */
+export const reachChannel = (r: Pick<Reach, 'text' | 'email'>): 'sms' | 'email' | null =>
+  r.text === null ? 'sms' : r.email === null ? 'email' : null;
+
+/** The reach rule for one customer, looked up on the spot. */
+export async function reachFor(tx: Tx, workspaceId: string, c: ReachContact): Promise<Reach> {
+  const optedOut = c.phone ? await isOptedOut(tx, workspaceId, c.phone) : false;
+  const emailStopped = c.email
+    ? !!(await activeSuppression(tx, workspaceId, c.email.toLowerCase()))
+    : false;
+  const { text, email } = reachRule(
+    c,
+    { optedOut, emailStopped },
+    await reachBusinessOf(tx, workspaceId),
+  );
   let firstText = false;
   if (text === null && c.phone) {
     const found = await rows(
@@ -106,6 +159,21 @@ export async function reachFor(tx: Tx, workspaceId: string, c: ReachContact): Pr
     firstText = found.length === 0;
   }
   return { text, email, firstText };
+}
+
+/**
+ * The channel a person's reply goes by, as a pure rule: the conversation's, else a text to their number, else an
+ * email; a text to a number that said STOP goes by email instead when there's an address, and can't go otherwise.
+ */
+export function replyChannelRule(c: {
+  readonly conversationChannel: 'sms' | 'email' | 'chat' | null;
+  readonly phone: string | null;
+  readonly email: string | null;
+  /** The number the text would go to said STOP (or the customer is marked opted out). */
+  readonly textStopped: boolean;
+}): 'sms' | 'email' | 'chat' | null {
+  const preferred = c.conversationChannel ?? (c.phone ? 'sms' : c.email ? 'email' : null);
+  return preferred === 'sms' && c.textStopped ? (c.email ? 'email' : null) : preferred;
 }
 
 const TEXT_WHY: Readonly<Record<string, string>> = {
@@ -125,6 +193,36 @@ const byEmail: Readonly<Record<string, string>> = {
   no_consent: 'They haven’t agreed to texts, so this goes by email.',
   texting_not_ready: 'Texting isn’t set up yet, so this goes by email.',
 };
+
+/** The texts check, in the sheet's words ("Nathan said texts are OK"). */
+function textsLabel(reason: string | null, who: string, whom: string): string {
+  switch (reason) {
+    case null:
+      return `${who} said texts are OK`;
+    case 'no_consent':
+      return `${who} hasn’t said texts are OK`;
+    case 'opted_out':
+      return `${who} texted STOP`;
+    case 'no_phone':
+      return `There’s no mobile number for ${whom}`;
+    default:
+      return 'Texting isn’t set up yet';
+  }
+}
+
+/** The email check, when a text can't go. */
+function emailLabel(reason: string | null, address: string | null, whom: string): string {
+  switch (reason) {
+    case null:
+      return `It can go by email to ${address?.toLowerCase() ?? whom}`;
+    case 'no_email':
+      return `There’s no email address for ${whom}`;
+    case 'email_stopped':
+      return `Email to ${whom} is stopped`;
+    default:
+      return 'The business has no address to send email from';
+  }
+}
 
 const capital = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 const agoLabel = (ms: number) =>
@@ -266,22 +364,30 @@ async function targetOf(
   return {
     personId: l.person_id,
     firstName: l.first_name?.trim() || null,
-    // A follow-up nudge texts only someone who agreed to texts; a web-form lead who didn't gets an email.
-    contact: {
-      phone: l.phone,
-      email: l.email,
-      smsOk: false,
-      personConsent: l.consent ?? 'unknown',
-    },
+    contact: nudgeContact({ phone: l.phone, email: l.email, consent: l.consent }),
     appointment: null,
     lead: { title: l.title, assigneeUserId: l.assignee_user_id },
   };
 }
 
+/** A follow-up nudge texts only someone who agreed to texts; a web-form lead who didn't gets an email. */
+export const nudgeContact = (p: {
+  readonly phone: string | null;
+  readonly email: string | null;
+  readonly consent: 'unknown' | 'opted_in' | 'opted_out' | null;
+}): ReachContact => ({
+  phone: p.phone,
+  email: p.email,
+  smsOk: false,
+  personConsent: p.consent ?? 'unknown',
+});
+
+type Check = AttentionAutoPlanOut['checks'][number];
+
 /**
- * The automatic action for an item, exactly as HandsFreeOS would carry it out now, or null when the item's kind
- * doesn't have one. A person asking (Let HandsFreeOS Handle) doesn't need the automatic switch on, but a nudge
- * never goes before an owner has read the message once.
+ * The automatic action for an item, exactly as HandsFreeOS would carry it out now, with the checks it ran, or null
+ * when the item's kind doesn't have one. A person asking (Let HandsFreeOS Handle) doesn't need the automatic switch
+ * on, but a nudge never goes before an owner has read the message once.
  */
 export async function planAutoAction(
   tx: Tx,
@@ -295,6 +401,8 @@ export async function planAutoAction(
   const at = now.getTime();
   const tz = ctx.timeZone;
   const notes: string[] = [];
+  const checks: Check[] = [];
+  const check = (code: string, ok: boolean, label: string) => checks.push({ code, label, ok });
   const plan = (over: Partial<AttentionAutoPlanOut>): AttentionAutoPlanOut => ({
     action,
     channel: null,
@@ -305,6 +413,7 @@ export async function planAutoAction(
     scheduledFor: null,
     blocked: null,
     notes,
+    checks,
     ...over,
   });
   const blocked = (code: string, message: string, over: Partial<AttentionAutoPlanOut> = {}) =>
@@ -324,57 +433,109 @@ export async function planAutoAction(
     );
   const target = await targetOf(tx, ctx, item, action);
   if (!target) return blocked('subject_gone', 'This was deleted.');
-
-  // Whether anyone else is on it.
-  if (target.personId) {
-    const b = await blockersFor(tx, ctx, item, target.personId, at);
-    const teammate = b.aiTalking || b.draft ? await loadTeammate(tx, ctx.workspaceId) : null;
-    const ai = teammate?.name ?? 'The AI teammate';
-    if (b.aiTalking) return blocked('someone_talking', `${ai} is talking with them.`);
-    if (b.personTalking)
-      return blocked('someone_talking', 'Someone on the team is talking with them.');
-    if (b.waiting)
-      return blocked('customer_waiting', 'They’re waiting on a reply. Answer them instead.');
-    if (b.draft) return blocked('draft_pending', `${ai} has a reply waiting for approval.`);
-    if (b.workflow)
-      return blocked('workflow_running', `The “${b.workflow}” workflow is working with them.`);
-    if (b.personMessageAt)
-      return blocked(
-        'recent_person_contact',
-        `Someone on the team messaged them ${agoLabel(at - b.personMessageAt.getTime())}, so HandsFreeOS leaves it to them.`,
-      );
-    if (action === 'nudge' && b.lastAutoAt) {
-      const next = b.lastAutoAt.getTime() + ctx.settings.nudge.cooldownDays * DAY;
-      return blocked(
-        'cooldown',
-        `HandsFreeOS followed up with them ${dayLabel(b.lastAutoAt.getTime(), tz)}. The next one can go ${dayLabel(next, tz)}.`,
-      );
-    }
-  }
+  const who = target.firstName ?? 'The customer';
+  const whom = target.firstName ?? 'them';
 
   // How it reaches them.
   const reach = await reachFor(tx, ctx.workspaceId, target.contact);
-  const channel: 'sms' | 'email' | null =
-    reach.text === null ? 'sms' : reach.email === null ? 'email' : null;
-  if (!channel)
-    return blocked(
-      'no_way_to_reach',
-      `HandsFreeOS can’t reach them: ${TEXT_WHY[reach.text ?? ''] ?? 'no text'}, and ${EMAIL_WHY[reach.email ?? ''] ?? 'no email'}.`,
-    );
+  const channel = reachChannel(reach);
+  check('texts', reach.text === null, textsLabel(reach.text, who, whom));
+  if (reach.text !== null)
+    check('email', reach.email === null, emailLabel(reach.email, target.contact.email, whom));
   if (channel === 'email' && reach.text && byEmail[reach.text]) notes.push(byEmail[reach.text]!);
-  const to =
-    channel === 'sms' ? formatPhone(target.contact.phone!) : target.contact.email!.toLowerCase();
+  const to = !channel
+    ? null
+    : channel === 'sms'
+      ? formatPhone(target.contact.phone!)
+      : target.contact.email!.toLowerCase();
 
   // When it goes: after the cancel window, and a text after quiet hours.
   const scheduledFor = item.autoState === 'scheduled' ? item.autoScheduledFor : null;
   let sendAt = scheduledFor ? scheduledFor.getTime() : at + AUTO_CANCEL_WINDOW_MINUTES * MIN;
-  if (channel === 'sms' && !scheduledFor) {
-    const end = quietEndAfter(ctx.quietHours, tz, sendAt);
-    if (end !== null) {
-      sendAt = end;
+  if (channel === 'sms') {
+    const q = ctx.quietHours;
+    const range = `${shortClock(q.start)} to ${shortClock(q.end)}`;
+    const end = q.enabled ? quietEndAfter(q, tz, sendAt) : null;
+    if (!q.enabled) check('quiet_hours', true, 'Quiet hours are off');
+    else if (end === null) check('quiet_hours', true, `Outside quiet hours (${range})`);
+    else {
+      if (!scheduledFor) sendAt = end;
+      check(
+        'quiet_hours',
+        false,
+        `Quiet hours (${range}): the text goes at ${clockLabel(end, tz)}`,
+      );
       notes.push(`It’s quiet hours then, so the text goes at ${clockLabel(end, tz)}.`);
     }
   }
+
+  // Whether anyone else is on it. Every check runs; the first failure (in the guard's order) blocks it.
+  let stop: { code: string; message: string } | null = null;
+  const block = (code: string, message: string) => {
+    stop ??= { code, message };
+  };
+  if (target.personId) {
+    const b = await blockersFor(tx, ctx, item, target.personId, at);
+    const teammate = await loadTeammate(tx, ctx.workspaceId);
+    const ai = teammate?.name ?? 'The AI teammate';
+    const talking = b.aiTalking
+      ? `${ai} is talking with ${whom}`
+      : b.personTalking
+        ? `Someone on your team is talking with ${whom}`
+        : b.waiting
+          ? `${who} is waiting on a reply`
+          : b.personMessageAt
+            ? `Someone on your team messaged ${whom} ${agoLabel(at - b.personMessageAt.getTime())}`
+            : null;
+    check(
+      'talking',
+      talking === null,
+      talking ??
+        (teammate
+          ? `Nobody on your team, and not ${teammate.name}, is talking with ${whom}`
+          : `Nobody on your team is talking with ${whom}`),
+    );
+    const busy = b.workflow
+      ? `The “${b.workflow}” workflow is working with ${whom}`
+      : b.draft
+        ? `${ai} has a reply for ${whom} waiting for approval`
+        : null;
+    check('busy', busy === null, busy ?? 'No workflow running and no draft waiting');
+    const days = ctx.settings.nudge.cooldownDays;
+    const nextAuto = b.lastAutoAt ? b.lastAutoAt.getTime() + days * DAY : null;
+    if (action === 'nudge')
+      check(
+        'cooldown',
+        !b.lastAutoAt,
+        b.lastAutoAt
+          ? `HandsFreeOS followed up ${dayLabel(b.lastAutoAt.getTime(), tz)}; the next one can go ${dayLabel(nextAuto!, tz)}`
+          : `No other automatic message in the last ${days} days`,
+      );
+
+    if (b.aiTalking) block('someone_talking', `${ai} is talking with them.`);
+    else if (b.personTalking) block('someone_talking', 'Someone on the team is talking with them.');
+    else if (b.waiting)
+      block('customer_waiting', 'They’re waiting on a reply. Answer them instead.');
+    else if (b.draft) block('draft_pending', `${ai} has a reply waiting for approval.`);
+    else if (b.workflow)
+      block('workflow_running', `The “${b.workflow}” workflow is working with them.`);
+    else if (b.personMessageAt)
+      block(
+        'recent_person_contact',
+        `Someone on the team messaged them ${agoLabel(at - b.personMessageAt.getTime())}, so HandsFreeOS leaves it to them.`,
+      );
+    else if (action === 'nudge' && b.lastAutoAt)
+      block(
+        'cooldown',
+        `HandsFreeOS followed up with them ${dayLabel(b.lastAutoAt.getTime(), tz)}. The next one can go ${dayLabel(nextAuto!, tz)}.`,
+      );
+  }
+  if (!channel)
+    block(
+      'no_way_to_reach',
+      `HandsFreeOS can’t reach them: ${TEXT_WHY[reach.text ?? ''] ?? 'no text'}, and ${EMAIL_WHY[reach.email ?? ''] ?? 'no email'}.`,
+    );
+  if (stop) return plan({ channel, to, blocked: stop });
 
   // The words.
   let text: string;
@@ -439,6 +600,8 @@ export type HandleConversation = {
   readonly id: string;
   readonly channel: 'sms' | 'email' | 'chat';
   readonly handledBy: 'none' | 'ai' | 'person';
+  /** The number, address or chat visitor it's with. */
+  readonly counterpart: string;
 };
 
 /** The conversation an item's reply or hand-off goes to: its own, else the customer's latest. */
@@ -450,7 +613,7 @@ export async function conversationForItem(
   if (!item.conversationId && !item.personId) return null;
   const [c] = await rows<HandleConversation>(
     tx,
-    sql`select id, channel::text as channel, handled_by::text as "handledBy" from app.conversations
+    sql`select id, channel::text as channel, handled_by::text as "handledBy", counterpart from app.conversations
         where workspace_id = ${workspaceId}
           and ${item.conversationId ? sql`id = ${item.conversationId}` : sql`person_id = ${item.personId}`}
         order by last_message_at desc nulls last limit 1`,
@@ -490,7 +653,7 @@ export async function askOptions(
       },
     ];
   }
-  if (kind !== 'hot_lead' && kind !== 'unanswered_lead' && kind !== 'customer_waiting') return [];
+  if (!REPLY_KINDS.has(kind)) return [];
   const conv = await conversationForItem(tx, ctx.workspaceId, item);
   const teammate = await loadTeammate(tx, ctx.workspaceId);
   const handTo = teammate ? `Hand to ${teammate.name}` : 'Hand to the AI teammate';
@@ -511,22 +674,31 @@ export async function askOptions(
             ? `${teammate.name} is already answering them.`
             : null;
   const [person] = item.personId
-    ? await rows<{ phone: string | null; email: string | null }>(
+    ? await rows<{
+        phone: string | null;
+        email: string | null;
+        consent: 'unknown' | 'opted_in' | 'opted_out';
+      }>(
         tx,
-        sql`select phone_e164 as phone, email::text as email from app.people where id = ${item.personId}`,
+        sql`select phone_e164 as phone, email::text as email, sms_consent::text as consent
+            from app.people where id = ${item.personId}`,
       )
     : [];
-  const channel: 'sms' | 'email' | 'chat' | null =
-    conv?.channel ?? (person?.phone ? 'sms' : person?.email ? 'email' : null);
-  const stopped =
-    channel === 'sms' && person?.phone
-      ? await isOptedOut(tx, ctx.workspaceId, person.phone)
-      : false;
-  const replyWhy = !channel
-    ? 'There’s no number or email for them.'
-    : stopped
+  const textNumber = conv?.channel === 'sms' ? conv.counterpart : (person?.phone ?? null);
+  const textStopped =
+    person?.consent === 'opted_out' ||
+    (textNumber ? await isOptedOut(tx, ctx.workspaceId, textNumber) : false);
+  const channel = replyChannelRule({
+    conversationChannel: conv?.channel ?? null,
+    phone: person?.phone ?? null,
+    email: person?.email ?? null,
+    textStopped,
+  });
+  const replyWhy = channel
+    ? null
+    : textStopped
       ? 'They texted STOP. They can text START to get texts again.'
-      : null;
+      : 'There’s no number or email for them.';
   return [
     {
       action: 'hand_to_ai',
@@ -544,7 +716,8 @@ export async function askOptions(
       available: replyWhy === null,
       reason: replyWhy === null ? null : capital(replyWhy),
       channel,
-      conversationId: conv?.id ?? null,
+      // A reply that falls back to email starts from the customer, not the text conversation.
+      conversationId: conv && conv.channel === channel ? conv.id : null,
       suggestion: null,
     },
   ];

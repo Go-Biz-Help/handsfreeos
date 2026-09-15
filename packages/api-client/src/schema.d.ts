@@ -3797,6 +3797,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/queries/attention.settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The Action Center’s settings, every default filled in, and the typical job value HandsFreeOS works out for itself (the median won lead over the last year, else $500), which it uses when the business hasn’t set one.
+         * @description Requires records.read.
+         */
+        post: operations["query_attention_settings"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/queries/attention.summary": {
         parameters: {
             query?: never;
@@ -14041,6 +14061,7 @@ export interface operations {
                                 letHandle: boolean;
                                 snooze: boolean;
                             };
+                            appointmentId: string | null;
                             assignee: {
                                 fullName: string;
                                 /** Format: uuid */
@@ -14080,6 +14101,7 @@ export interface operations {
                             /** Format: date-time */
                             openedAt: string;
                             personId: string | null;
+                            reach: ("sms" | "email" | "chat") | null;
                             reasons: {
                                 /** @enum {string} */
                                 code: "value" | "waiting" | "not_contacted" | "auto_replied" | "ready_to_book" | "qualified" | "repeat_customer" | "came_in_today" | "handed_off" | "last_contact" | "no_contact" | "follow_up_overdue" | "no_next_action" | "next_action" | "starts_in" | "asked_to_confirm" | "draft" | "approval" | "expires_in" | "overdue" | "stage" | "not_a_fit";
@@ -14093,6 +14115,7 @@ export interface operations {
                             score: number;
                             since: string | null;
                             snoozedUntil: string | null;
+                            startsAt: string | null;
                             /** @enum {string} */
                             state: "open" | "snoozed" | "dismissed" | "handled" | "resolved";
                             subject: {
@@ -14156,6 +14179,7 @@ export interface operations {
                                 letHandle: boolean;
                                 snooze: boolean;
                             };
+                            appointmentId: string | null;
                             assignee: {
                                 fullName: string;
                                 /** Format: uuid */
@@ -14195,6 +14219,7 @@ export interface operations {
                             /** Format: date-time */
                             openedAt: string;
                             personId: string | null;
+                            reach: ("sms" | "email" | "chat") | null;
                             reasons: {
                                 /** @enum {string} */
                                 code: "value" | "waiting" | "not_contacted" | "auto_replied" | "ready_to_book" | "qualified" | "repeat_customer" | "came_in_today" | "handed_off" | "last_contact" | "no_contact" | "follow_up_overdue" | "no_next_action" | "next_action" | "starts_in" | "asked_to_confirm" | "draft" | "approval" | "expires_in" | "overdue" | "stage" | "not_a_fit";
@@ -14208,6 +14233,7 @@ export interface operations {
                             score: number;
                             since: string | null;
                             snoozedUntil: string | null;
+                            startsAt: string | null;
                             /** @enum {string} */
                             state: "open" | "snoozed" | "dismissed" | "handled" | "resolved";
                             subject: {
@@ -14231,6 +14257,7 @@ export interface operations {
                                 letHandle: boolean;
                                 snooze: boolean;
                             };
+                            appointmentId: string | null;
                             assignee: {
                                 fullName: string;
                                 /** Format: uuid */
@@ -14270,6 +14297,7 @@ export interface operations {
                             /** Format: date-time */
                             openedAt: string;
                             personId: string | null;
+                            reach: ("sms" | "email" | "chat") | null;
                             reasons: {
                                 /** @enum {string} */
                                 code: "value" | "waiting" | "not_contacted" | "auto_replied" | "ready_to_book" | "qualified" | "repeat_customer" | "came_in_today" | "handed_off" | "last_contact" | "no_contact" | "follow_up_overdue" | "no_next_action" | "next_action" | "starts_in" | "asked_to_confirm" | "draft" | "approval" | "expires_in" | "overdue" | "stage" | "not_a_fit";
@@ -14283,6 +14311,7 @@ export interface operations {
                             score: number;
                             since: string | null;
                             snoozedUntil: string | null;
+                            startsAt: string | null;
                             /** @enum {string} */
                             state: "open" | "snoozed" | "dismissed" | "handled" | "resolved";
                             subject: {
@@ -14350,6 +14379,11 @@ export interface operations {
                                 message: string;
                             } | null;
                             channel: ("sms" | "email") | null;
+                            checks: {
+                                code: string;
+                                label: string;
+                                ok: boolean;
+                            }[];
                             notes: string[];
                             scheduledFor: string | null;
                             sendAt: string | null;
@@ -14377,6 +14411,97 @@ export interface operations {
                             } | null;
                         }[];
                         reason: string | null;
+                    };
+                };
+            };
+        };
+    };
+    query_attention_settings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        settings: {
+                            appointments: {
+                                /** @default 48 */
+                                windowHours: number;
+                            };
+                            auto: {
+                                /** @default true */
+                                confirmRequests: boolean;
+                                /** @default null */
+                                nudgeReviewedAt: string | null;
+                                /** @default false */
+                                nudges: boolean;
+                            };
+                            hot: {
+                                /** @default 500000 */
+                                minValueCents: number;
+                                /** @default 10 */
+                                urgentAfterMinutes: number;
+                            };
+                            kinds: {
+                                /** @default true */
+                                ai_approval: boolean;
+                                /** @default true */
+                                customer_waiting: boolean;
+                                /** @default true */
+                                hot_lead: boolean;
+                                /** @default true */
+                                missing_next_action: boolean;
+                                /** @default true */
+                                overdue_task: boolean;
+                                /** @default true */
+                                stale_opportunity: boolean;
+                                /** @default true */
+                                unanswered_lead: boolean;
+                                /** @default true */
+                                unconfirmed_appointment: boolean;
+                            };
+                            nudge: {
+                                /** @default 14 */
+                                cooldownDays: number;
+                                /** @default Hi {firstName}, it's {senderName} at {businessName}. Just checking in: are you still looking for help? Reply here and we'll take it from there. */
+                                template: string;
+                            };
+                            /** @default true */
+                            replyToConfirm: boolean;
+                            stale: {
+                                /** @default 7 */
+                                days: number;
+                                /** @default {} */
+                                stageDays: {
+                                    [key: string]: number;
+                                };
+                            };
+                            /** @default null */
+                            typicalJobValueCents: number | null;
+                            unanswered: {
+                                /** @default 15 */
+                                afterOpenMinutes: number;
+                            };
+                        };
+                        /** @enum {string} */
+                        typicalFrom: "won_median" | "default";
+                        typicalJobValueCents: number;
                     };
                 };
             };
