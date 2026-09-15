@@ -17,6 +17,7 @@ import { redact } from './redact';
 import type {
   Actor,
   ActorKind,
+  CommandContext,
   CommandDef,
   EmitInput,
   MachineActor,
@@ -170,7 +171,13 @@ function recordedActor(actor: Actor, scope: ResolvedScope): RecordedActor {
         actorType: 'system',
         actorId: null,
         actorRole: 'system',
-        payload: actor.onBehalfOf ? { onBehalfOf: actor.onBehalfOf } : {},
+        payload: {
+          ...(actor.onBehalfOf ? { onBehalfOf: actor.onBehalfOf } : {}),
+          // The Action Center acting on its own: which item the work was for.
+          ...(actor.via
+            ? { _attention: { itemId: actor.via.itemId, itemKind: actor.via.itemKind } }
+            : {}),
+        },
       };
     case 'workflow':
       return {
@@ -371,6 +378,37 @@ export async function executeCommandIn<I extends z.ZodType, O extends z.ZodType>
   try {
     return await tx.transaction((savepoint) =>
       runCommand(savepoint, cmd, input, actor, scope, meta),
+    );
+  } catch (e) {
+    throw translateDbError(e);
+  }
+}
+
+/**
+ * Runs another command from inside a command's handler, as the same actor and in the same transaction: the
+ * Action Center's Assign and Let HandsFreeOS Handle carry out lead.update, conversation.assign, task.update,
+ * message.send, conversation.hand_to_ai or lead.set_next_action as the person who asked. The inner command keeps
+ * all its own rules (who may run it, its input, its permission for people, its declared events) and records its
+ * own name on its events and audit rows. It runs in a savepoint, so a refusal undoes only its writes. A machine
+ * actor goes through executeCommandIn; a person's inner command must be for the workspace they're already in,
+ * and is checked against the role this transaction resolved.
+ */
+export async function executeCommandWithin<I extends z.ZodType, O extends z.ZodType>(
+  ctx: CommandContext,
+  cmd: CommandDef<I, O>,
+  rawInput: unknown,
+): Promise<ExecuteResult<z.output<O>>> {
+  if (isMachine(ctx.actor)) return executeCommandIn(ctx.tx, cmd, rawInput, ctx.actor, ctx.meta);
+  assertActorAllowed(cmd, ctx.actor);
+  const input = parseInput(cmd.input, rawInput);
+  const ref = cmd.scope(input);
+  if (ref.kind !== 'workspace' || ref.workspaceId !== ctx.scope.workspaceId)
+    throw HfosError.notFound('Workspace not found.');
+  if (cmd.permission) assertPermission(ctx.scope, cmd.permission);
+  const actor = ctx.actor;
+  try {
+    return await ctx.tx.transaction((savepoint) =>
+      runCommand(savepoint, cmd, input, actor, ctx.scope, ctx.meta),
     );
   } catch (e) {
     throw translateDbError(e);

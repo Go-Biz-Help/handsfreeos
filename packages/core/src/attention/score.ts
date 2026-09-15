@@ -8,6 +8,7 @@
  * A $40,000 lead showing buying intent outranks a $50 reminder however late the reminder is.
  */
 import type { AttentionKind } from './kinds';
+import type { ReasonCode } from './types';
 
 const MIN = 60_000;
 const HOUR = 60 * MIN;
@@ -33,6 +34,14 @@ export const URGENCY_RULES: Readonly<Record<AttentionKind, UrgencyRule>> = {
   overdue_task: { grows: 'since', start: 1, stepMs: 3 * DAY },
 };
 
+/**
+ * Chips that take the edge off an item's urgency, and by how much. A hot lead the AI teammate or a workflow has
+ * already answered ("auto-replied") still needs a person, at half the urgency.
+ */
+export const URGENCY_DAMPERS: Readonly<Partial<Record<ReasonCode, number>>> = {
+  auto_replied: 0.5,
+};
+
 /** What scoring reads from an item (a detection, or a stored row). */
 export interface Scorable {
   readonly kind: AttentionKind;
@@ -43,17 +52,26 @@ export interface Scorable {
   readonly since: string | null;
   readonly dueAt: string | null;
   readonly urgentFrom: string | null;
+  /** Its reason chips, for the dampers; none means none apply. */
+  readonly reasons?: readonly { readonly code: string }[];
 }
+
+const damping = (reasons: Scorable['reasons']): number =>
+  (reasons ?? []).reduce((f, r) => f * (URGENCY_DAMPERS[r.code as ReasonCode] ?? 1), 1);
 
 const msOf = (now: Date | number) => (typeof now === 'number' ? now : now.getTime());
 const clamp = (x: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, x));
 const parse = (iso: string | null) => (iso ? Date.parse(iso) : null);
 
-/** U, from 1 to 3. */
+/** U: from 1 to 3, less any dampers on its chips (an auto-replied hot lead's is halved). */
 export function urgencyOf(
-  item: Pick<Scorable, 'kind' | 'since' | 'dueAt'>,
+  item: Pick<Scorable, 'kind' | 'since' | 'dueAt' | 'reasons'>,
   now: Date | number,
 ): number {
+  return rawUrgency(item, now) * damping(item.reasons);
+}
+
+function rawUrgency(item: Pick<Scorable, 'kind' | 'since' | 'dueAt'>, now: Date | number): number {
   const rule = URGENCY_RULES[item.kind];
   const at = msOf(now);
   if (rule.grows === 'until_due') {

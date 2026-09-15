@@ -112,7 +112,10 @@ export const MessageReceiveOutput = z.object({
   messageId: uuid,
   conversationId: uuid,
   duplicate: z.boolean(),
-  keyword: z.enum(['stop', 'start', 'help']).nullable(),
+  /** A carrier keyword, or 'confirm': a C (CONFIRM, CONFIRMED) that answered HandsFreeOS's ask to confirm. */
+  keyword: z.enum(['stop', 'start', 'help', 'confirm']).nullable(),
+  /** The bookings this reply confirmed (a C, or a YES while an ask was open). */
+  confirmedAttendeeIds: z.array(uuid).default([]),
 });
 export const deliveryStatusUpdate = z.enum([
   'sending',

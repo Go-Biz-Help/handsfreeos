@@ -5,6 +5,7 @@ import { rows, sql } from '@hfos/db/client';
 import {
   activities,
   aiTeammateRuns,
+  appointmentAttendees,
   conversations,
   files,
   messages,
@@ -15,6 +16,8 @@ import {
 } from '@hfos/db/schema';
 import { optOutPhrase } from '../ai-team/guardrails';
 import { chatIdentityUnverified, notHandledByAi, outsideItsConversation } from '../ai-team/reach';
+import { attentionSettingsOf } from '../attention/settings';
+import { requireAppointment } from '../calendar/appointments';
 import { logChannelActivity } from '../crm/activities';
 import { formatPhone } from '../crm/phone';
 import { fullName, requirePerson } from '../crm/records';
@@ -46,7 +49,7 @@ import {
   quietPeriodStart,
   type QuietHoursState,
 } from '../messaging/quiet-hours';
-import { messagePreview, smsKeyword, smsSegments } from '../messaging/sms';
+import { confirmWord, messagePreview, smsKeyword, smsSegments, yesWord } from '../messaging/sms';
 import {
   findOrCreateConversation,
   isOptedOut,
@@ -75,6 +78,7 @@ import {
   PersonSetSmsConsentInput,
   PersonSetSmsConsentOutput,
 } from '../schemas/message';
+import { announceConfirmed } from './attendee-confirm';
 
 const inWorkspace = (i: { workspaceId: string }) => ({
   kind: 'workspace' as const,
@@ -850,16 +854,39 @@ export const messageRetry = defineCommand({
   },
 });
 
+/**
+ * The sender's bookings HandsFreeOS asked them to confirm that are still ahead (locked): a reply of C confirms
+ * the ones not yet confirmed. By the number the booking gave (the ask went there).
+ */
+async function askedSeats(ctx: CommandContext, phone: string, at: Date) {
+  return rows<{ id: string; appointment_id: string; confirmed: boolean }>(
+    ctx.tx,
+    sql`select a.id, a.appointment_id, a.confirmed_at is not null as confirmed
+        from app.appointment_attendees a join app.appointments p on p.id = a.appointment_id
+        where a.workspace_id = ${ctx.scope.workspaceId!} and a.contact_phone_e164 = ${phone}
+          and a.confirm_asked_at is not null and a.status = 'booked'
+          and p.status = 'scheduled' and p.starts_at > ${at.toISOString()}::timestamptz
+        order by p.starts_at, a.id
+        for update of a`,
+  );
+}
+
 export const messageReceive = defineCommand({
   name: 'message.receive',
   description:
-    'Worker: a customer texted the business number. Files it in the conversation, handles STOP and START, and starts the reply reminder.',
+    'Worker: a customer texted the business number. Files it in the conversation, handles STOP and START, confirms their appointments when they reply C (or YES while asked), and starts the reply reminder.',
   risk: 1,
   input: MessageReceiveInput,
   output: MessageReceiveOutput,
   permission: 'inbox.use',
   scope: inWorkspace,
-  emits: ['message.received', 'conversation.linked', 'person.opted_out', 'person.opted_in'],
+  emits: [
+    'message.received',
+    'conversation.linked',
+    'person.opted_out',
+    'person.opted_in',
+    'attendee.confirmed',
+  ],
   actors: ['system'],
   async handler(ctx, input) {
     const workspaceId = ctx.scope.workspaceId!;
@@ -875,6 +902,7 @@ export const messageReceive = defineCommand({
         conversationId: dup.conversationId,
         duplicate: true,
         keyword: null,
+        confirmedAttendeeIds: [],
       };
 
     const [ours] = await ctx.tx
@@ -893,19 +921,32 @@ export const messageReceive = defineCommand({
     const personId = conv.personId ?? matched;
     const at = input.occurredAt ? new Date(input.occurredAt) : new Date();
     const mediaCount = Math.max(input.media.length, input.mediaCount);
-    const keyword = mediaCount === 0 ? smsKeyword(input.body) : null;
+    const smsWord = mediaCount === 0 ? smsKeyword(input.body) : null;
     const wasOut = await customerOptedOut(ctx, { ...conv, personId });
     const consentChange =
-      keyword === 'stop' && !wasOut
+      smsWord === 'stop' && !wasOut
         ? 'opted_out'
-        : keyword === 'start' && wasOut
+        : smsWord === 'start' && wasOut
           ? 'opted_in'
           : null;
-    // A STOP is not a question for the team; everything else waits for a reply.
-    const needsReply = keyword !== 'stop';
+    const m = await workspaceMessaging(ctx.tx, workspaceId);
+    // Confirming by reply (M8): C, CONFIRM or CONFIRMED confirms the sender's bookings HandsFreeOS asked about,
+    // and so does YES while one is waiting (YES is still START: it opts them in as before). CANCEL is STOP.
+    const cWord = mediaCount === 0 && confirmWord(input.body);
+    const yes = smsWord === 'start' && yesWord(input.body);
+    const asked =
+      (cWord || yes) && attentionSettingsOf(m.rawSettings).replyToConfirm
+        ? await askedSeats(ctx, input.from, at)
+        : [];
+    const toConfirm = asked.filter((a) => !a.confirmed);
+    // A C is a confirmation while they have an ask (a second C changes nothing); a YES only while one is waiting.
+    const confirming = cWord ? asked.length > 0 : yes && toConfirm.length > 0;
+    const keyword = cWord && confirming ? ('confirm' as const) : smsWord;
+    // A STOP and a confirmation aren't questions for the team; everything else waits for a reply. A confirmation
+    // doesn't reopen the conversation either: it's recorded on the booking.
+    const needsReply = smsWord !== 'stop' && !confirming;
     const preview = messagePreview(input.body, mediaCount);
     const messageId = randomUUID();
-    const m = await workspaceMessaging(ctx.tx, workspaceId);
 
     const eventId = await ctx.emit({
       type: 'message.received',
@@ -917,7 +958,8 @@ export const messageReceive = defineCommand({
         channel: 'sms',
         mediaCount,
         keyword,
-        reopened: conv.status !== 'open',
+        reopened: !confirming && conv.status !== 'open',
+        ...(confirming ? { confirmedAttendeeIds: toConfirm.map((a) => a.id) } : {}),
       },
       after: { from: formatPhone(input.from), preview: preview.slice(0, 80) },
     });
@@ -961,11 +1003,15 @@ export const messageReceive = defineCommand({
         lastInboundAt: at,
         lastPreview: preview || null,
         lastDirection: 'inbound',
-        unreadCount: sql`${conversations.unreadCount} + 1`,
-        status: 'open',
-        snoozedUntil: null,
-        closedAt: null,
-        closedBy: null,
+        ...(confirming
+          ? {}
+          : {
+              unreadCount: sql`${conversations.unreadCount} + 1`,
+              status: 'open' as const,
+              snoozedUntil: null,
+              closedAt: null,
+              closedBy: null,
+            }),
         ...(needsReply
           ? {
               awaitingReplySince: sql`coalesce(${conversations.awaitingReplySince}, ${at.toISOString()}::timestamptz)`,
@@ -1008,10 +1054,23 @@ export const messageReceive = defineCommand({
         type: optedOut ? 'person.opted_out' : 'person.opted_in',
         entityType: personId ? 'person' : 'conversation',
         entityId: personId ?? conv.id,
-        payload: { conversationId: conv.id, source: 'keyword', keyword },
+        payload: { conversationId: conv.id, source: 'keyword', keyword: smsWord },
         after: { number: formatPhone(input.from), smsConsent: consentChange },
       });
     }
+    const confirmedAttendeeIds: string[] = [];
+    if (confirming)
+      for (const a of toConfirm) {
+        const [seat] = await ctx.tx
+          .update(appointmentAttendees)
+          .set({ confirmedAt: at, confirmedVia: 'sms', confirmedBy: null })
+          .where(eq(appointmentAttendees.id, a.id))
+          .returning({ id: appointmentAttendees.id, personId: appointmentAttendees.personId });
+        if (!seat) continue;
+        const appt = await requireAppointment(ctx.tx, workspaceId, a.appointment_id);
+        await announceConfirmed(ctx, appt, seat, 'sms', { messageId, conversationId: conv.id });
+        confirmedAttendeeIds.push(seat.id);
+      }
     const reminderMs = input.reminderAfterMs ?? m.settings.unansweredReminderMinutes * 60_000;
     if (needsReply && reminderMs > 0)
       await scheduleJob(ctx.tx, {
@@ -1022,7 +1081,13 @@ export const messageReceive = defineCommand({
         workspaceId,
         organizationId: m.organizationId,
       });
-    return { messageId, conversationId: conv.id, duplicate: false, keyword };
+    return {
+      messageId,
+      conversationId: conv.id,
+      duplicate: false,
+      keyword,
+      confirmedAttendeeIds,
+    };
   },
 });
 

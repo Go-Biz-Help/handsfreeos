@@ -948,3 +948,28 @@ export const AttendeeCancelOnlineOutput = z.object({
   attendeeId: uuid,
   appointmentCancelled: z.boolean(),
 });
+
+/** How a booking was confirmed: a text (C, or YES while asked), the Confirm button, staff, or the AI teammate. */
+export const confirmedVia = z.enum(['sms', 'link', 'staff', 'ai']);
+/** attendee.confirm: staff mark a booking confirmed for the customer, or (Undo) take back their own mark. */
+export const AttendeeConfirmInput = z.object({
+  workspaceId: uuid,
+  attendeeId: uuid,
+  /** false takes back a confirmation someone on the team marked (a customer's own stays). */
+  confirmed: z.boolean().default(true),
+});
+export const AttendeeConfirmOutput = z.object({
+  appointmentId: uuid,
+  attendeeId: uuid,
+  confirmedAt: isoDateTime.nullable(),
+  confirmedVia: confirmedVia.nullable(),
+  /** False when it was already that way. */
+  changed: z.boolean(),
+});
+/** attendee.confirm_online: the Confirm button on the customer's manage link. */
+export const AttendeeConfirmOnlineInput = z.object({
+  workspaceId: uuid,
+  attendeeId: uuid,
+  manageVersion: z.int().min(1),
+});
+export const AttendeeConfirmOnlineOutput = AttendeeConfirmOutput;

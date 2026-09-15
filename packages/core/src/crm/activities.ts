@@ -36,7 +36,13 @@ export interface ChannelActivityInput {
 export function actorMeta(actor: Actor): Record<string, unknown> {
   switch (actor.type) {
     case 'system':
-      return { onBehalfOf: userIdOf(actor) };
+      return {
+        onBehalfOf: userIdOf(actor),
+        // The Action Center acting on its own ("HandsFreeOS"), and the item it was for.
+        ...(actor.via
+          ? { actionCenter: { itemId: actor.via.itemId, itemKind: actor.via.itemKind } }
+          : {}),
+      };
     case 'workflow':
       return { workflow: { id: actor.workflowId, name: actor.workflowName, runId: actor.runId } };
     case 'ai_employee':

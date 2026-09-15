@@ -70,6 +70,11 @@ export async function leadCards(
     nextAction: r.lead.nextAction,
     nextActionAt: r.lead.nextActionAt?.toISOString() ?? null,
     needsNextAction: r.lead.status === 'open' && !r.lead.nextAction,
+    nextActionOverdue:
+      r.lead.status === 'open' &&
+      !!r.lead.nextActionAt &&
+      r.lead.nextActionAt.getTime() <= Date.now(),
+    lastContactAt: r.lead.lastContactAt?.toISOString() ?? null,
     wonAt: r.lead.wonAt?.toISOString() ?? null,
     lostAt: r.lead.lostAt?.toISOString() ?? null,
     lostReason: r.lead.lostReason,

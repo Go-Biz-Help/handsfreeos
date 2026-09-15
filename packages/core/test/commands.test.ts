@@ -321,6 +321,17 @@ describe('registry', () => {
       'chat.mark_read',
       'chat.block_visitor',
       'chat.unblock_visitor',
+      'attention.snooze',
+      'attention.unsnooze',
+      'attention.dismiss',
+      'attention.restore',
+      'attention.assign',
+      'attention.let_handle',
+      'attention.cancel_auto',
+      'attention.save_settings',
+      'attention.record_auto',
+      'attendee.confirm',
+      'attendee.confirm_online',
     ]);
     expect(registry.queries.map((q) => q.name)).toEqual([
       'account.me',
@@ -392,6 +403,10 @@ describe('registry', () => {
       'ai_teammate.activity',
       'chat_widget.list',
       'chat_widget.get',
+      'attention.list',
+      'attention.summary',
+      'attention.for_record',
+      'attention.preview_handle',
     ]);
     expect(registry.command('membership.invite')?.risk).toBe(2);
   });

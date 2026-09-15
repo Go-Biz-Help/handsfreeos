@@ -26,3 +26,4 @@ export * from './workflow';
 export * from './knowledge';
 export * from './ai-team';
 export * from './chat';
+export * from './attention';

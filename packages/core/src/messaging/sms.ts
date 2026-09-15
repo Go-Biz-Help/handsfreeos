@@ -66,6 +66,27 @@ export function smsKeyword(body: string): SmsKeyword | null {
   return null;
 }
 
+const wordOf = (body: string) =>
+  body
+    .trim()
+    .toUpperCase()
+    .replace(/[^A-Z]/g, '');
+
+/**
+ * A reply that confirms an appointment, when it is the whole text (case, spaces and punctuation ignored): C,
+ * CONFIRM or CONFIRMED. Not a carrier keyword: HandsFreeOS answers it by confirming the sender's outstanding
+ * asks. (CANCEL is never a way to cancel: it's STOP.)
+ */
+export function confirmWord(body: string): boolean {
+  const word = wordOf(body);
+  return word === 'C' || word === 'CONFIRM' || word === 'CONFIRMED';
+}
+
+/** YES as the whole text: START to the carriers, and also a confirmation while an ask is outstanding. */
+export function yesWord(body: string): boolean {
+  return wordOf(body) === 'YES';
+}
+
 /** One line for the inbox list: the text itself, or what was attached. */
 export function messagePreview(body: string | null | undefined, mediaCount = 0): string {
   const text = (body ?? '').replace(/\s+/g, ' ').trim();

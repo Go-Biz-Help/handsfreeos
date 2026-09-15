@@ -234,6 +234,18 @@ import {
   chatVisitorRotateToken,
   chatVisitorStart,
 } from './chat';
+import {
+  attentionAssign,
+  attentionCancelAuto,
+  attentionDismiss,
+  attentionLetHandle,
+  attentionRecordAuto,
+  attentionRestore,
+  attentionSaveSettings,
+  attentionSnooze,
+  attentionUnsnooze,
+} from './attention';
+import { attendeeConfirm, attendeeConfirmOnline } from './attendee-confirm';
 
 export {
   conversationAssign,
@@ -588,6 +600,17 @@ export const commands: readonly CommandDef[] = [
   chatMarkRead,
   chatBlockVisitor,
   chatUnblockVisitor,
+  attentionSnooze,
+  attentionUnsnooze,
+  attentionDismiss,
+  attentionRestore,
+  attentionAssign,
+  attentionLetHandle,
+  attentionCancelAuto,
+  attentionSaveSettings,
+  attentionRecordAuto,
+  attendeeConfirm,
+  attendeeConfirmOnline,
 ] as unknown as readonly CommandDef[];
 export { callPreview } from './call';
 export { attendeeFromPerson } from './appointment';
@@ -605,3 +628,5 @@ export * from './conversation-handling';
 export { leadRecordAnswers } from './lead.record_answers';
 export * from './chat-widget';
 export * from './chat';
+export * from './attention';
+export * from './attendee-confirm';

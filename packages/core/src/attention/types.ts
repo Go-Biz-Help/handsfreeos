@@ -10,6 +10,7 @@ export const REASON_CODES = [
   'value',
   'waiting',
   'not_contacted',
+  'auto_replied',
   'ready_to_book',
   'qualified',
   'repeat_customer',

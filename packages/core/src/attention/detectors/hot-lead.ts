@@ -42,12 +42,25 @@ export interface HotLeadFacts {
   /** The customer's own words: their messages still waiting for a reply, and the lead's form message. */
   readonly customerWords: readonly string[];
   readonly repeat: RepeatCustomerFacts;
+  /**
+   * When someone on the team first reached out once the lead existed (a text, email or chat they sent, a call
+   * they made or picked up, a visit); null when nobody has. Only a person's contact settles a hot lead: the AI
+   * teammate's or a workflow's reply (which is the lead's first response) takes the edge off instead
+   * ("auto-replied": half the urgency, and not urgent). Left out, the first response counts as a person's.
+   */
+  readonly personContactAt?: string | null;
 }
 
 function assess(f: HotLeadFacts, settings: AttentionSettings, now: number): Assessment {
   const { lead, business } = f;
   if (!leadIsOpen(lead) || lead.qualification === 'not_a_fit') return null;
-  const fresh = neverContacted(lead);
+  // Nobody on the team has reached them yet (an import or a lead a person typed in never counts).
+  const fresh =
+    f.personContactAt === undefined
+      ? neverContacted(lead)
+      : f.personContactAt === null && !lead.imported && !lead.createdByPerson;
+  // HandsFreeOS answered for the business (the AI teammate, a workflow), and they aren't waiting on a reply.
+  const autoReplied = fresh && lead.firstResponseAt !== null && !f.awaitingReplySince;
   const clocks = [
     fresh ? ms(lead.createdAt) : null,
     f.awaitingReplySince ? ms(f.awaitingReplySince) : null,
@@ -65,7 +78,9 @@ function assess(f: HotLeadFacts, settings: AttentionSettings, now: number): Asse
   const weak = Number(big) + Number(repeat) + Number(today);
   if (strong === 0 && weak < 2) return null;
 
-  const urgentFrom = since + settings.hot.urgentAfterMinutes * MINUTE;
+  const due = since + settings.hot.urgentAfterMinutes * MINUTE;
+  // Answered automatically, they aren't left waiting: no urgent section or urgent email, until they write again.
+  const urgentFrom = autoReplied ? null : due;
   // "Came in today" stops counting at midnight; look again then if it's one of only two signals.
   const midnight =
     today && strong === 0 && weak === 2 ? nextLocalMidnight(now, business.timeZone) : null;
@@ -73,7 +88,7 @@ function assess(f: HotLeadFacts, settings: AttentionSettings, now: number): Asse
     fingerprint: fingerprintOf('hot_lead', { lead: lead.id, since: stamp(since) }),
     since,
     urgentFrom,
-    dueAt: urgentFrom,
+    dueAt: due,
     value,
     probability: leadProbability({
       stage: lead.stage,
@@ -90,7 +105,11 @@ function assess(f: HotLeadFacts, settings: AttentionSettings, now: number): Asse
       ...(qualified ? [chip('qualified', 'qualified')] : []),
       ...(repeat ? [chip('repeat_customer', 'repeat customer')] : []),
       ...(today ? [chip('came_in_today', 'came in today')] : []),
-      ...(fresh ? [chip('not_contacted', 'not contacted yet')] : []),
+      ...(autoReplied
+        ? [chip('auto_replied', 'auto-replied')]
+        : fresh
+          ? [chip('not_contacted', 'not contacted yet')]
+          : []),
     ],
     assignee: lead.assigneeUserId,
     recheckAt: earliest(ahead(urgentFrom, now), midnight),

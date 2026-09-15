@@ -27,6 +27,8 @@ export const AttendeeRecordReminderInput = z.object({
   startsAt: isoDateTime,
   dueAt: isoDateTime.nullable().default(null),
   messageId: uuid.nullable().default(null),
+  /** It asked them to confirm (the day-before text's "Reply C to confirm"): a sent one records the ask. */
+  askedToConfirm: z.boolean().default(false),
 });
 export const AttendeeRecordReminderOutput = z.object({ attendeeId: uuid, changed: z.boolean() });
 
@@ -59,11 +61,12 @@ export const attendeeRecordReminder = defineCommand({
       id: string;
       appointment_id: string;
       reminder_state: unknown;
+      confirm_asked_at: Date | null;
       title: string;
       customer: string;
     }>(
       ctx.tx,
-      sql`select a.id, a.appointment_id, a.reminder_state, p.title,
+      sql`select a.id, a.appointment_id, a.reminder_state, a.confirm_asked_at, p.title,
             coalesce(nullif(btrim(c.first_name || ' ' || c.last_name), ''), 'Customer') as customer
           from app.appointment_attendees a
           join app.appointments p on p.id = a.appointment_id
@@ -84,15 +87,23 @@ export const attendeeRecordReminder = defineCommand({
     };
     const before =
       input.key === 'confirmation' ? state.confirmation : (state.reminders[input.key] ?? null);
-    if (sameEntry(before, entry)) return { attendeeId: row.id, changed: false };
+    // A sent ask to confirm opens it (a reply of C, or YES, then confirms); a replay leaves it as it was.
+    const asks = input.askedToConfirm && input.status === 'sent';
+    const same = sameEntry(before, entry);
+    if (same && !(asks && row.confirm_asked_at === null))
+      return { attendeeId: row.id, changed: false };
     const next =
       input.key === 'confirmation'
         ? { ...state, confirmation: entry }
         : { ...state, reminders: { ...state.reminders, [input.key]: entry } };
     await ctx.tx
       .update(appointmentAttendees)
-      .set({ reminderState: next })
+      .set({
+        ...(same ? {} : { reminderState: next }),
+        ...(asks ? { confirmAskedAt: new Date() } : {}),
+      })
       .where(eq(appointmentAttendees.id, row.id));
+    if (same) return { attendeeId: row.id, changed: true };
     if (entry.status !== 'scheduled')
       await ctx.emit({
         type: 'attendee.reminder_recorded',
@@ -104,6 +115,7 @@ export const attendeeRecordReminder = defineCommand({
           status: entry.status,
           channel: entry.channel,
           reason: entry.reason,
+          askedToConfirm: asks,
         },
         after: {
           title: row.title,

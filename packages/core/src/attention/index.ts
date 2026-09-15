@@ -21,6 +21,7 @@ export * from './nudge';
 export * from './score';
 export * from './folding';
 export * from './registry';
+export * from './wording';
 export type { AttentionDetector, Pending } from './detectors/define';
 export type { AiApprovalFacts } from './detectors/ai-approval';
 export { HANDOFF_OPEN_MINUTES, type CustomerWaitingFacts } from './detectors/customer-waiting';

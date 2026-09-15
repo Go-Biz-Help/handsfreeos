@@ -95,6 +95,10 @@ export const LeadCard = z.object({
   nextAction: z.string().nullable(),
   nextActionAt: isoDateTime.nullable(),
   needsNextAction: z.boolean(),
+  /** An open lead whose next action's time has passed (the pipeline card's overdue dot). */
+  nextActionOverdue: z.boolean(),
+  /** The latest real contact either way (a text, email, chat, connected call or visit). */
+  lastContactAt: isoDateTime.nullable(),
   wonAt: isoDateTime.nullable(),
   lostAt: isoDateTime.nullable(),
   lostReason: z.string().nullable(),

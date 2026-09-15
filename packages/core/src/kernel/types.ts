@@ -18,6 +18,17 @@ export interface HumanActor {
   readonly claims: UserClaims;
 }
 /**
+ * What part of HandsFreeOS is acting when the system works on its own (M8): the Action Center sending a
+ * confirmation request or a follow-up nudge for one attention item. Recorded as `payload._attention` on every
+ * event and `meta.actionCenter` on timeline entries, so the work reads as "HandsFreeOS" with the item it was for.
+ */
+export interface ActionCenterVia {
+  readonly kind: 'action_center';
+  readonly itemId: string;
+  /** The item's kind (core's AttentionKind). */
+  readonly itemKind: string;
+}
+/**
  * A non-human actor (the worker today; the assistant and AI employees later). Runs inside the worker's
  * tenant scope with the `service_actor` policies, so it is root within one workspace and nothing outside it.
  */
@@ -27,6 +38,8 @@ export interface SystemActor {
   readonly organizationId: string;
   /** The person whose request this work fulfils (for example the importer). Recorded, never impersonated. */
   readonly onBehalfOf?: string | null;
+  /** The part of HandsFreeOS doing it (the Action Center), when it acts on its own. */
+  readonly via?: ActionCenterVia | null;
 }
 /**
  * A workflow step (M6). Runs exactly like the system (no permission check, `service_actor` bound to its

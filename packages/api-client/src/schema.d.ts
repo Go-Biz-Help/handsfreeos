@@ -417,6 +417,186 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/attendee.confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Mark a booking confirmed for the customer (they said so on the phone, say), or take back a confirmation someone on the team marked. A customer’s own confirmation stays.
+         * @description Risk level 1. Requires appointments.write. Emits attendee.confirmed, attendee.confirmation_removed.
+         */
+        post: operations["command_attendee_confirm"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/attention.assign": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Give an attention item to a teammate, or leave it for anyone. For a lead, a conversation or a task it changes who owns that record; an appointment’s or an approval’s item is assigned on its own.
+         * @description Risk level 1. Requires records.write. Emits attention.assigned.
+         */
+        post: operations["command_attention_assign"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/attention.cancel_auto": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Stop an automatic message (a confirmation request or a follow-up nudge) that is waiting to go out.
+         * @description Risk level 0. Requires records.write. Emits attention.auto_cancelled.
+         */
+        post: operations["command_attention_cancel_auto"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/attention.dismiss": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Say an attention item doesn’t need doing, with an optional reason. It comes back only if its facts change.
+         * @description Risk level 0. Requires records.write. Emits attention.dismissed.
+         */
+        post: operations["command_attention_dismiss"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/attention.let_handle": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Let HandsFreeOS handle an attention item. A confirmation request or a follow-up nudge is queued (it goes after a short cancel window); for anything else, pick what to do (hand the conversation to the AI teammate, reply, or set the next action) and it’s done in your name.
+         * @description Risk level 2. Requires records.write. Emits attention.handle_requested, attention.handled.
+         */
+        post: operations["command_attention_let_handle"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/attention.restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Undo a snooze or a dismissal: the item is open again.
+         * @description Risk level 0. Requires records.write. Emits attention.restored.
+         */
+        post: operations["command_attention_restore"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/attention.save_settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Save the Action Center’s settings: which kinds are on, thresholds, the typical job value, stale days per stage, the automatic switches, the follow-up message and replying C to confirm. Turning nudges on (“Looks good, turn on”) records that the message was read.
+         * @description Risk level 2. Requires workspace.update. Emits attention.settings_saved.
+         */
+        post: operations["command_attention_save_settings"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/attention.snooze": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Put an attention item out of sight until a time (up to 30 days). It comes back then, or sooner if its facts change.
+         * @description Risk level 0. Requires records.write. Emits attention.snoozed.
+         */
+        post: operations["command_attention_snooze"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/attention.unsnooze": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Bring a snoozed attention item back now. The worker runs it when a snooze runs out (and leaves one that was snoozed again for later).
+         * @description Risk level 0. Requires records.write. Emits attention.unsnoozed.
+         */
+        post: operations["command_attention_unsnooze"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/booking_site.update": {
         parameters: {
             query?: never;
@@ -3557,6 +3737,86 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/queries/attention.for_record": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The attention items about one lead, customer, conversation, appointment or task (open or snoozed), for the banner on its page.
+         * @description Requires records.read.
+         */
+        post: operations["query_attention_for_record"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/attention.list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * What needs attention: open items ranked (urgent first, then value × urgency × probability × confidence), with each item’s reason chips and what you may do, “$ affected”, the counts, what HandsFreeOS will do next and today’s handled items. Mine is yours plus unassigned ones.
+         * @description Requires records.read.
+         */
+        post: operations["query_attention_list"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/attention.preview_handle": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Exactly what Let HandsFreeOS Handle would do for an item: the message, how it reaches them and when (or why it can’t), or the choices when it asks first.
+         * @description Requires records.read.
+         */
+        post: operations["query_attention_preview_handle"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/attention.summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The Action Center’s badge: how many items need attention and how many are urgent, for you (yours plus unassigned) and for everyone.
+         * @description Requires records.read.
+         */
+        post: operations["query_attention_summary"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/queries/audit.list": {
         parameters: {
             query?: never;
@@ -5564,6 +5824,474 @@ export interface operations {
                     "application/json": {
                         /** Format: uuid */
                         threadId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_attendee_confirm: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    attendeeId: string;
+                    /** @default true */
+                    confirmed?: boolean;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        appointmentId: string;
+                        /** Format: uuid */
+                        attendeeId: string;
+                        changed: boolean;
+                        confirmedAt: string | null;
+                        confirmedVia: ("sms" | "link" | "staff" | "ai") | null;
+                    };
+                };
+            };
+        };
+    };
+    command_attention_assign: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    assigneeUserId: string | null;
+                    /** Format: uuid */
+                    itemId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        assigneeUserId: string | null;
+                        changed: boolean;
+                        /** Format: uuid */
+                        itemId: string;
+                        passedTo: ("lead" | "conversation" | "task") | null;
+                        previousAssigneeUserId: string | null;
+                    };
+                };
+            };
+        };
+    };
+    command_attention_cancel_auto: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    itemId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        autoState: ("scheduled" | "sent" | "skipped" | "cancelled") | null;
+                        changed: boolean;
+                        /** Format: uuid */
+                        itemId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_attention_dismiss: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    itemId: string;
+                    reason?: string | null;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changed: boolean;
+                        /** Format: uuid */
+                        itemId: string;
+                        snoozedUntil: string | null;
+                        /** @enum {string} */
+                        state: "open" | "snoozed" | "dismissed" | "handled" | "resolved";
+                    };
+                };
+            };
+        };
+    };
+    command_attention_let_handle: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @default false */
+                    acknowledgeQuietHours?: boolean;
+                    /** @enum {string} */
+                    action?: "hand_to_ai" | "reply" | "set_next_action";
+                    body?: string;
+                    /** @enum {string} */
+                    channel?: "sms" | "email" | "chat";
+                    dueAt?: string | null;
+                    /** Format: uuid */
+                    itemId: string;
+                    subject?: string;
+                    text?: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {string} */
+                        action: "confirm_request" | "nudge" | "hand_to_ai" | "reply" | "set_next_action";
+                        conversationId: string | null;
+                        /** Format: uuid */
+                        itemId: string;
+                        messageId: string | null;
+                        /** @enum {string} */
+                        mode: "auto" | "ask";
+                        scheduledFor: string | null;
+                        /** @enum {string} */
+                        state: "open" | "snoozed" | "dismissed" | "handled" | "resolved";
+                        /** @enum {string} */
+                        status: "requested" | "already_scheduled" | "done";
+                    };
+                };
+            };
+        };
+    };
+    command_attention_restore: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    itemId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changed: boolean;
+                        /** Format: uuid */
+                        itemId: string;
+                        snoozedUntil: string | null;
+                        /** @enum {string} */
+                        state: "open" | "snoozed" | "dismissed" | "handled" | "resolved";
+                    };
+                };
+            };
+        };
+    };
+    command_attention_save_settings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    settings: {
+                        /** @default {} */
+                        appointments?: {
+                            /** @default 48 */
+                            windowHours?: number;
+                        };
+                        /** @default {} */
+                        auto?: {
+                            /** @default true */
+                            confirmRequests?: boolean;
+                            /** @default null */
+                            nudgeReviewedAt?: string | null;
+                            /** @default false */
+                            nudges?: boolean;
+                        };
+                        /** @default {} */
+                        hot?: {
+                            /** @default 500000 */
+                            minValueCents?: number;
+                            /** @default 10 */
+                            urgentAfterMinutes?: number;
+                        };
+                        /** @default {} */
+                        kinds?: {
+                            /** @default true */
+                            ai_approval?: boolean;
+                            /** @default true */
+                            customer_waiting?: boolean;
+                            /** @default true */
+                            hot_lead?: boolean;
+                            /** @default true */
+                            missing_next_action?: boolean;
+                            /** @default true */
+                            overdue_task?: boolean;
+                            /** @default true */
+                            stale_opportunity?: boolean;
+                            /** @default true */
+                            unanswered_lead?: boolean;
+                            /** @default true */
+                            unconfirmed_appointment?: boolean;
+                        };
+                        /** @default {} */
+                        nudge?: {
+                            /** @default 14 */
+                            cooldownDays?: number;
+                            /** @default Hi {firstName}, it's {senderName} at {businessName}. Just checking in: are you still looking for help? Reply here and we'll take it from there. */
+                            template?: string;
+                        };
+                        /** @default true */
+                        replyToConfirm?: boolean;
+                        /** @default {} */
+                        stale?: {
+                            /** @default 7 */
+                            days?: number;
+                            /** @default {} */
+                            stageDays?: {
+                                [key: string]: number;
+                            };
+                        };
+                        /** @default null */
+                        typicalJobValueCents?: number | null;
+                        /** @default {} */
+                        unanswered?: {
+                            /** @default 15 */
+                            afterOpenMinutes?: number;
+                        };
+                    };
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changed: boolean;
+                        settings: {
+                            appointments: {
+                                /** @default 48 */
+                                windowHours: number;
+                            };
+                            auto: {
+                                /** @default true */
+                                confirmRequests: boolean;
+                                /** @default null */
+                                nudgeReviewedAt: string | null;
+                                /** @default false */
+                                nudges: boolean;
+                            };
+                            hot: {
+                                /** @default 500000 */
+                                minValueCents: number;
+                                /** @default 10 */
+                                urgentAfterMinutes: number;
+                            };
+                            kinds: {
+                                /** @default true */
+                                ai_approval: boolean;
+                                /** @default true */
+                                customer_waiting: boolean;
+                                /** @default true */
+                                hot_lead: boolean;
+                                /** @default true */
+                                missing_next_action: boolean;
+                                /** @default true */
+                                overdue_task: boolean;
+                                /** @default true */
+                                stale_opportunity: boolean;
+                                /** @default true */
+                                unanswered_lead: boolean;
+                                /** @default true */
+                                unconfirmed_appointment: boolean;
+                            };
+                            nudge: {
+                                /** @default 14 */
+                                cooldownDays: number;
+                                /** @default Hi {firstName}, it's {senderName} at {businessName}. Just checking in: are you still looking for help? Reply here and we'll take it from there. */
+                                template: string;
+                            };
+                            /** @default true */
+                            replyToConfirm: boolean;
+                            stale: {
+                                /** @default 7 */
+                                days: number;
+                                /** @default {} */
+                                stageDays: {
+                                    [key: string]: number;
+                                };
+                            };
+                            /** @default null */
+                            typicalJobValueCents: number | null;
+                            unanswered: {
+                                /** @default 15 */
+                                afterOpenMinutes: number;
+                            };
+                        };
+                        /** Format: uuid */
+                        workspaceId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_attention_snooze: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    itemId: string;
+                    /** Format: date-time */
+                    until: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changed: boolean;
+                        /** Format: uuid */
+                        itemId: string;
+                        snoozedUntil: string | null;
+                        /** @enum {string} */
+                        state: "open" | "snoozed" | "dismissed" | "handled" | "resolved";
+                    };
+                };
+            };
+        };
+    };
+    command_attention_unsnooze: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    itemId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changed: boolean;
+                        /** Format: uuid */
+                        itemId: string;
+                        snoozedUntil: string | null;
+                        /** @enum {string} */
+                        state: "open" | "snoozed" | "dismissed" | "handled" | "resolved";
                     };
                 };
             };
@@ -13262,6 +13990,422 @@ export interface operations {
             };
         };
     };
+    query_attention_for_record: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    recordId: string;
+                    /** @enum {string} */
+                    recordType: "lead" | "person" | "conversation" | "appointment" | "task";
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: {
+                            actions: {
+                                assign: boolean;
+                                dismiss: boolean;
+                                handle: boolean;
+                                letHandle: boolean;
+                                snooze: boolean;
+                            };
+                            assignee: {
+                                fullName: string;
+                                /** Format: uuid */
+                                id: string;
+                            } | null;
+                            auto: {
+                                action: ("confirm_request" | "nudge") | null;
+                                doneAt: string | null;
+                                scheduledFor: string | null;
+                                skipReason: string | null;
+                                state: ("scheduled" | "sent" | "skipped" | "cancelled") | null;
+                            };
+                            conversationId: string | null;
+                            detail: string | null;
+                            dismissedAt: string | null;
+                            dismissReason: string | null;
+                            dueAt: string | null;
+                            handled: {
+                                /** Format: date-time */
+                                at: string;
+                                by: {
+                                    fullName: string;
+                                    /** Format: uuid */
+                                    id: string;
+                                } | null;
+                                /** @enum {string} */
+                                via: "person" | "let_handle" | "auto";
+                            } | null;
+                            handleLabel: string;
+                            /** Format: uuid */
+                            id: string;
+                            /** @enum {string} */
+                            kind: "hot_lead" | "unanswered_lead" | "stale_opportunity" | "missing_next_action" | "unconfirmed_appointment" | "ai_approval" | "customer_waiting" | "overdue_task";
+                            leadId: string | null;
+                            /** @enum {string} */
+                            letHandleMode: "auto" | "ask" | "none";
+                            /** Format: date-time */
+                            openedAt: string;
+                            personId: string | null;
+                            reasons: {
+                                /** @enum {string} */
+                                code: "value" | "waiting" | "not_contacted" | "auto_replied" | "ready_to_book" | "qualified" | "repeat_customer" | "came_in_today" | "handed_off" | "last_contact" | "no_contact" | "follow_up_overdue" | "no_next_action" | "next_action" | "starts_in" | "asked_to_confirm" | "draft" | "approval" | "expires_in" | "overdue" | "stage" | "not_a_fit";
+                                label: string;
+                                /** Format: date-time */
+                                since?: string;
+                                text: string;
+                                /** Format: date-time */
+                                until?: string;
+                            }[];
+                            score: number;
+                            since: string | null;
+                            snoozedUntil: string | null;
+                            /** @enum {string} */
+                            state: "open" | "snoozed" | "dismissed" | "handled" | "resolved";
+                            subject: {
+                                /** Format: uuid */
+                                id: string;
+                                type: string;
+                            };
+                            title: string;
+                            urgency: number;
+                            urgent: boolean;
+                            urgentFrom: string | null;
+                            valueCents: number;
+                            valueIsEstimate: boolean;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    query_attention_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @default false */
+                    includeHandled?: boolean;
+                    kinds?: ("hot_lead" | "unanswered_lead" | "stale_opportunity" | "missing_next_action" | "unconfirmed_appointment" | "ai_approval" | "customer_waiting" | "overdue_task")[];
+                    /** @enum {string} */
+                    scope?: "mine" | "everyone";
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        affectedCents: number;
+                        counts: {
+                            everyone: number;
+                            mine: number;
+                            snoozed: number;
+                            total: number;
+                            urgent: number;
+                        };
+                        handled: {
+                            actions: {
+                                assign: boolean;
+                                dismiss: boolean;
+                                handle: boolean;
+                                letHandle: boolean;
+                                snooze: boolean;
+                            };
+                            assignee: {
+                                fullName: string;
+                                /** Format: uuid */
+                                id: string;
+                            } | null;
+                            auto: {
+                                action: ("confirm_request" | "nudge") | null;
+                                doneAt: string | null;
+                                scheduledFor: string | null;
+                                skipReason: string | null;
+                                state: ("scheduled" | "sent" | "skipped" | "cancelled") | null;
+                            };
+                            conversationId: string | null;
+                            detail: string | null;
+                            dismissedAt: string | null;
+                            dismissReason: string | null;
+                            dueAt: string | null;
+                            handled: {
+                                /** Format: date-time */
+                                at: string;
+                                by: {
+                                    fullName: string;
+                                    /** Format: uuid */
+                                    id: string;
+                                } | null;
+                                /** @enum {string} */
+                                via: "person" | "let_handle" | "auto";
+                            } | null;
+                            handleLabel: string;
+                            /** Format: uuid */
+                            id: string;
+                            /** @enum {string} */
+                            kind: "hot_lead" | "unanswered_lead" | "stale_opportunity" | "missing_next_action" | "unconfirmed_appointment" | "ai_approval" | "customer_waiting" | "overdue_task";
+                            leadId: string | null;
+                            /** @enum {string} */
+                            letHandleMode: "auto" | "ask" | "none";
+                            /** Format: date-time */
+                            openedAt: string;
+                            personId: string | null;
+                            reasons: {
+                                /** @enum {string} */
+                                code: "value" | "waiting" | "not_contacted" | "auto_replied" | "ready_to_book" | "qualified" | "repeat_customer" | "came_in_today" | "handed_off" | "last_contact" | "no_contact" | "follow_up_overdue" | "no_next_action" | "next_action" | "starts_in" | "asked_to_confirm" | "draft" | "approval" | "expires_in" | "overdue" | "stage" | "not_a_fit";
+                                label: string;
+                                /** Format: date-time */
+                                since?: string;
+                                text: string;
+                                /** Format: date-time */
+                                until?: string;
+                            }[];
+                            score: number;
+                            since: string | null;
+                            snoozedUntil: string | null;
+                            /** @enum {string} */
+                            state: "open" | "snoozed" | "dismissed" | "handled" | "resolved";
+                            subject: {
+                                /** Format: uuid */
+                                id: string;
+                                type: string;
+                            };
+                            title: string;
+                            urgency: number;
+                            urgent: boolean;
+                            urgentFrom: string | null;
+                            valueCents: number;
+                            valueIsEstimate: boolean;
+                        }[];
+                        handledToday: number;
+                        items: {
+                            actions: {
+                                assign: boolean;
+                                dismiss: boolean;
+                                handle: boolean;
+                                letHandle: boolean;
+                                snooze: boolean;
+                            };
+                            assignee: {
+                                fullName: string;
+                                /** Format: uuid */
+                                id: string;
+                            } | null;
+                            auto: {
+                                action: ("confirm_request" | "nudge") | null;
+                                doneAt: string | null;
+                                scheduledFor: string | null;
+                                skipReason: string | null;
+                                state: ("scheduled" | "sent" | "skipped" | "cancelled") | null;
+                            };
+                            conversationId: string | null;
+                            detail: string | null;
+                            dismissedAt: string | null;
+                            dismissReason: string | null;
+                            dueAt: string | null;
+                            handled: {
+                                /** Format: date-time */
+                                at: string;
+                                by: {
+                                    fullName: string;
+                                    /** Format: uuid */
+                                    id: string;
+                                } | null;
+                                /** @enum {string} */
+                                via: "person" | "let_handle" | "auto";
+                            } | null;
+                            handleLabel: string;
+                            /** Format: uuid */
+                            id: string;
+                            /** @enum {string} */
+                            kind: "hot_lead" | "unanswered_lead" | "stale_opportunity" | "missing_next_action" | "unconfirmed_appointment" | "ai_approval" | "customer_waiting" | "overdue_task";
+                            leadId: string | null;
+                            /** @enum {string} */
+                            letHandleMode: "auto" | "ask" | "none";
+                            /** Format: date-time */
+                            openedAt: string;
+                            personId: string | null;
+                            reasons: {
+                                /** @enum {string} */
+                                code: "value" | "waiting" | "not_contacted" | "auto_replied" | "ready_to_book" | "qualified" | "repeat_customer" | "came_in_today" | "handed_off" | "last_contact" | "no_contact" | "follow_up_overdue" | "no_next_action" | "next_action" | "starts_in" | "asked_to_confirm" | "draft" | "approval" | "expires_in" | "overdue" | "stage" | "not_a_fit";
+                                label: string;
+                                /** Format: date-time */
+                                since?: string;
+                                text: string;
+                                /** Format: date-time */
+                                until?: string;
+                            }[];
+                            score: number;
+                            since: string | null;
+                            snoozedUntil: string | null;
+                            /** @enum {string} */
+                            state: "open" | "snoozed" | "dismissed" | "handled" | "resolved";
+                            subject: {
+                                /** Format: uuid */
+                                id: string;
+                                type: string;
+                            };
+                            title: string;
+                            urgency: number;
+                            urgent: boolean;
+                            urgentFrom: string | null;
+                            valueCents: number;
+                            valueIsEstimate: boolean;
+                        }[];
+                        /** Format: date-time */
+                        now: string;
+                        scheduled: {
+                            /** @enum {string} */
+                            action: "confirm_request" | "nudge";
+                            /** Format: uuid */
+                            itemId: string;
+                            /** @enum {string} */
+                            kind: "hot_lead" | "unanswered_lead" | "stale_opportunity" | "missing_next_action" | "unconfirmed_appointment" | "ai_approval" | "customer_waiting" | "overdue_task";
+                            /** Format: date-time */
+                            scheduledFor: string;
+                            title: string;
+                        }[];
+                        /** @enum {string} */
+                        scope: "mine" | "everyone";
+                    };
+                };
+            };
+        };
+    };
+    query_attention_preview_handle: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    itemId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        auto: {
+                            /** @enum {string} */
+                            action: "confirm_request" | "nudge";
+                            blocked: {
+                                code: string;
+                                message: string;
+                            } | null;
+                            channel: ("sms" | "email") | null;
+                            notes: string[];
+                            scheduledFor: string | null;
+                            sendAt: string | null;
+                            subject: string | null;
+                            text: string | null;
+                            to: string | null;
+                        } | null;
+                        /** Format: uuid */
+                        itemId: string;
+                        /** @enum {string} */
+                        kind: "hot_lead" | "unanswered_lead" | "stale_opportunity" | "missing_next_action" | "unconfirmed_appointment" | "ai_approval" | "customer_waiting" | "overdue_task";
+                        /** @enum {string} */
+                        mode: "auto" | "ask" | "none";
+                        options: {
+                            /** @enum {string} */
+                            action: "hand_to_ai" | "reply" | "set_next_action";
+                            available: boolean;
+                            channel: ("sms" | "email" | "chat") | null;
+                            conversationId: string | null;
+                            label: string;
+                            reason: string | null;
+                            suggestion: {
+                                dueAt: string | null;
+                                text: string;
+                            } | null;
+                        }[];
+                        reason: string | null;
+                    };
+                };
+            };
+        };
+    };
+    query_attention_summary: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        everyone: {
+                            total: number;
+                            urgent: number;
+                        };
+                        mine: {
+                            total: number;
+                            urgent: number;
+                        };
+                        /** @enum {string} */
+                        scope: "mine" | "everyone";
+                        total: number;
+                        urgent: number;
+                    };
+                };
+            };
+        };
+    };
     query_audit_list: {
         parameters: {
             query?: never;
@@ -15660,11 +16804,13 @@ export interface operations {
                                 expectedCloseOn: string | null;
                                 /** Format: uuid */
                                 id: string;
+                                lastContactAt: string | null;
                                 lostAt: string | null;
                                 lostReason: string | null;
                                 needsNextAction: boolean;
                                 nextAction: string | null;
                                 nextActionAt: string | null;
+                                nextActionOverdue: boolean;
                                 person: {
                                     archived: boolean;
                                     fullName: string;
@@ -15748,11 +16894,13 @@ export interface operations {
                             expectedCloseOn: string | null;
                             /** Format: uuid */
                             id: string;
+                            lastContactAt: string | null;
                             lostAt: string | null;
                             lostReason: string | null;
                             needsNextAction: boolean;
                             nextAction: string | null;
                             nextActionAt: string | null;
+                            nextActionOverdue: boolean;
                             person: {
                                 archived: boolean;
                                 fullName: string;
@@ -15883,11 +17031,13 @@ export interface operations {
                             expectedCloseOn: string | null;
                             /** Format: uuid */
                             id: string;
+                            lastContactAt: string | null;
                             lostAt: string | null;
                             lostReason: string | null;
                             needsNextAction: boolean;
                             nextAction: string | null;
                             nextActionAt: string | null;
+                            nextActionOverdue: boolean;
                             person: {
                                 archived: boolean;
                                 fullName: string;
