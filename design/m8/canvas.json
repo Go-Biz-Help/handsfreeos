@@ -1,0 +1,136 @@
+{
+  "artboards": [
+    {
+      "file": "Main.dc.html",
+      "title": "Home: what needs attention",
+      "x": 0,
+      "y": 0,
+      "w": 1440,
+      "h": 1000,
+      "is_interactive": true
+    },
+    {
+      "file": "HomeDark.dc.html",
+      "title": "Home in dark",
+      "x": 1520,
+      "y": 0,
+      "w": 1440,
+      "h": 1000,
+      "is_interactive": true
+    },
+    {
+      "file": "Phone.dc.html",
+      "title": "Home on a phone",
+      "x": 3040,
+      "y": 0,
+      "w": 1320,
+      "h": 1010
+    },
+    {
+      "file": "PhoneDark.dc.html",
+      "title": "Home on a phone, in dark",
+      "x": 4440,
+      "y": 0,
+      "w": 1320,
+      "h": 1010
+    },
+    {
+      "file": "Cards.dc.html",
+      "title": "The card for each kind",
+      "x": 0,
+      "y": 1130,
+      "w": 1600,
+      "h": 1200
+    },
+    {
+      "file": "LetHandle.dc.html",
+      "title": "Let HandsFreeOS Handle, three ways",
+      "x": 1680,
+      "y": 1130,
+      "w": 1560,
+      "h": 1000
+    },
+    {
+      "file": "Actions.dc.html",
+      "title": "Snooze, dismiss and assign",
+      "x": 3320,
+      "y": 1130,
+      "w": 1440,
+      "h": 980
+    },
+    {
+      "file": "Empty.dc.html",
+      "title": "Nothing needs you, and the first run",
+      "x": 4840,
+      "y": 1130,
+      "w": 1440,
+      "h": 1080
+    },
+    {
+      "file": "Settings.dc.html",
+      "title": "Settings: Action Center",
+      "x": 0,
+      "y": 2460,
+      "w": 1440,
+      "h": 1400,
+      "is_interactive": true
+    },
+    {
+      "file": "Confirm.dc.html",
+      "title": "Confirming an appointment",
+      "x": 1520,
+      "y": 2460,
+      "w": 1320,
+      "h": 1680
+    },
+    {
+      "file": "Emails.dc.html",
+      "title": "The morning summary and urgent emails",
+      "x": 2920,
+      "y": 2460,
+      "w": 1280,
+      "h": 1120
+    },
+    {
+      "file": "Assistant.dc.html",
+      "title": "Ask HandsFreeOS what needs attention",
+      "x": 4280,
+      "y": 2460,
+      "w": 1280,
+      "h": 1080
+    }
+  ],
+  "annotations": [
+    {
+      "id": "direction",
+      "x": 0,
+      "y": -380,
+      "w": 900,
+      "text": "HandsFreeOS Milestone 8, step 0: the Action Center. Home becomes one ranked list of what needs attention, with the dollars affected at the top. Same look as Milestones 1 to 7. There are eight kinds: hot lead, unanswered lead, gone quiet, no next action, not confirmed, approval, customer waiting and overdue task. Every card has Handle, Let HandsFreeOS Handle, and ⋯ for Assign, Snooze and Dismiss, with Undo. Only two things run on their own: asking customers to confirm, and one follow-up for a lead that went quiet. The follow-up stays off until an owner reads the wording.\nTry: Main and Home in dark (Mine and Everyone; ⋯ on a card, then Snooze or Dismiss, then Undo; Show all 4; Handled by HandsFreeOS; Cancel under Coming up; Approve on Angela) and Settings (the switches, and Looks good, turn on)."
+    },
+    {
+      "id": "sample-data",
+      "x": 1520,
+      "y": -380,
+      "w": 760,
+      "text": "Sample data only: Lone Star HVAC & Roofing, the same fictional Houston business as Milestones 5 to 7. Home and the urgent email are Tuesday, September 22, 8:05 AM Central Time. The morning email is 7:00 AM, Let HandsFreeOS Handle is 9:40 AM, Confirm is 4:30 PM and the empty Home is 4:45 PM. The team is Dale (owner), Priya (admin) and Marco (member). Ava is the AI teammate, with 17 of 20 approved.\n$47,300 affected = Maria Lopez $18,500 + Tom Reyes $12,400 + Linda Okafor $9,800 + Riverside Apartments $6,600. Leads without a value show “About $4,200” and aren’t counted. Dale’s Mine view is $40,700 and 5 items. People, numbers, prices and addresses are placeholders."
+    },
+    {
+      "id": "decisions",
+      "x": 6400,
+      "y": 0,
+      "w": 560,
+      "text": "For you to decide on this canvas:\n1. The kind names on the cards: Hot lead, Unanswered lead, Gone quiet, No next action, Not confirmed, Approval, Customer waiting, Overdue task.\n2. The follow-up wording and its preview (Settings), and the reminder’s “Reply C to confirm.”\n3. The defaults: a hot lead after 10 minutes or $5,000, unanswered after 15 open-hours minutes, gone quiet after 7 days (2 for New, 14 for Due), the 48-hour window, and a $4,200 typical job value.\n4. The dismiss reasons: Already taken care of, Not a real lead, They’re not interested, Something else.\n5. Whether “Email me when something is urgent” replaces “Email me when a customer is waiting” in Settings, Account, as drawn on Emails.\n6. What Let HandsFreeOS Handle does for a hot lead. The plan says it asks first and means a call. Here it gets the call ready, since HandsFreeOS can’t make the call for you."
+    },
+    {
+      "id": "assumptions",
+      "x": 6400,
+      "y": 940,
+      "w": 560,
+      "text": "Choices I made that the plan didn’t spell out:\n• The business is Lone Star HVAC & Roofing, as on the Milestone 5 to 7 boards and in the seed.\n• Home’s times follow 8:05 AM, so Coming up says “Will follow up at 9:05 · Cancel”. The 10:40 example is on Let HandsFreeOS Handle, at 9:40 AM.\n• The morning email is written at 7:00 AM, so it has Dale’s 3 items from then, not Home’s 9.\n• A group counts each of its items: 9 = 2 urgent + 3 cards + a group of 4.\n• Tom Reyes stays on the list because HandsFreeOS followed up on Sep 13, and it waits 14 days before another.\n• Approvals and overdue tasks show Let HandsFreeOS Handle turned off, since it can’t do them.\n• On a phone, the snooze choices sit right in the ⋯ sheet, and Today and Coming up fold into rows below the list.\n• The Settings tab is called Action Center and sits last. It shows follow-ups “Off until an owner reads the wording”, while Home shows them on.\n• A new business (Northstar Electric) keeps the setup checklist, plus a short word about what Home becomes."
+    }
+  ],
+  "launch": {
+    "view": "canvas"
+  }
+}
