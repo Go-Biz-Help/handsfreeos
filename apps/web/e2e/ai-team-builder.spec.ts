@@ -1,0 +1,169 @@
+import { expect, test } from '@playwright/test';
+import { api, signInOwner } from './booking-helpers';
+import { createBusiness, signUpAndConfirm } from './helpers';
+
+/**
+ * The AI teammate area: "AI teammate" in the drawer after Knowledge, a preset (labels follow the pick), the
+ * builder's modules with their one-line summaries, a red item fixed with Fix (and undone), Undo, Save,
+ * turning it on, "Switch to automatic now" and "Back to training" (each confirmed), History with Restore
+ * (training progress stays), the test console (its empty state until the teammate's runtime answers) and
+ * the Activity tab.
+ *
+ * Quiet hours are set explicitly (8 PM to 8 AM) so the Hours module's note never depends on the default.
+ */
+test('AI teammate: a preset, the modules, Fix, the status override, history and the test console', async ({
+  page,
+}) => {
+  test.setTimeout(180_000);
+  const { email } = await signUpAndConfirm(page, 'ai-team-owner');
+  const workspaceId = await createBusiness(page, { name: 'Lone Star HVAC & Roofing' });
+  const { token } = await signInOwner(email);
+  await api(token, 'commands', 'phone.update_settings', {
+    workspaceId,
+    quietHours: { enabled: true, start: '20:00', end: '08:00' },
+  });
+
+  // In the drawer after Knowledge. With no teammate yet: "How should your AI teammate work?"
+  const nav = page.getByRole('navigation', { name: 'Workspace' });
+  const links = await nav.getByRole('link').allTextContents();
+  expect(links.indexOf('AI teammate')).toBe(links.indexOf('Knowledge') + 1);
+  await nav.getByRole('link', { name: 'AI teammate' }).click();
+  await expect(page).toHaveURL(new RegExp(`/app/w/${workspaceId}/ai-team$`));
+  await expect(
+    page.getByRole('heading', { name: 'How should your AI teammate work?' }),
+  ).toBeVisible();
+
+  // Presets only turn skills on: the labels follow the pick.
+  const presetLabels = page.getByTestId('teammate-preset-labels').locator('span');
+  await page.getByTestId('teammate-preset-appointment_coordinator').click();
+  await expect(presetLabels).toHaveText(['Appointment Coordinator']);
+  await page.getByTestId('teammate-preset-lead_qualifier').click();
+  await expect(presetLabels).toHaveText(['Lead Qualifier', 'Follows up']);
+  // "Only when asked" explains the California rule; either way it never claims to be a person.
+  await page.getByTestId('teammate-disclosure-when_asked').click();
+  await expect(page.getByText('California law.')).toBeVisible();
+  await page.getByTestId('teammate-disclosure-first_message').click();
+  await page.getByTestId('teammate-name-input').fill('Ava');
+  await page.getByTestId('teammate-create').click();
+
+  // The builder: off until someone turns it on, labelled from its skills.
+  await expect(page.getByTestId('teammate-builder')).toBeVisible();
+  await expect(page.getByTestId('teammate-name')).toHaveText('Ava');
+  await expect(page.getByTestId('teammate-status')).toHaveText('Off');
+  await expect(page.getByTestId('teammate-revision')).toContainText('Revision 1');
+  const labels = page.getByTestId('teammate-labels').locator('span');
+  await expect(labels).toHaveText(['Lead Qualifier', 'Follows up']);
+  await expect(page.getByTestId('module-summary-qualify')).toContainText('questions');
+
+  // Identity: the name follows as it's typed, and Undo takes it back.
+  await page.getByTestId('identity-name').fill('Max');
+  await expect(page.getByTestId('teammate-name')).toHaveText('Max');
+  await expect(page.getByTestId('module-summary-identity')).toHaveText('Max · says it’s AI first');
+  await expect(page.getByTestId('teammate-save-note')).toHaveText('Unsaved changes');
+  await page.getByTestId('teammate-undo').click();
+  await expect(page.getByTestId('teammate-name')).toHaveText('Ava');
+
+  // Qualify: with no questions left it can't be turned on, and Fix brings suggested ones back.
+  await page.getByTestId('module-qualify').click();
+  const questions = page.getByTestId('qualify-questions').locator('li');
+  const count = await questions.count();
+  expect(count).toBeGreaterThan(0);
+  for (let i = 0; i < count; i++) await page.getByTestId('question-1-remove').click();
+  await expect(questions).toHaveCount(0);
+  const noQuestions = page.getByTestId('issue-no_qualifying_questions');
+  await expect(noQuestions).toContainText('Qualifying needs questions');
+  await expect(noQuestions).toContainText('Blocks turning it on');
+  await expect(page.getByTestId('status-training')).toBeDisabled();
+  await page.getByTestId('fix-no_qualifying_questions-add_suggested').click();
+  await expect(noQuestions).toHaveCount(0);
+  await expect(page.getByTestId('teammate-last-fix')).toContainText('Add suggested questions');
+  await expect(questions).toHaveCount(count);
+  await page.getByTestId('teammate-undo-fix').click();
+  await expect(noQuestions).toBeVisible();
+  await page.getByTestId('fix-no_qualifying_questions-add_suggested').click();
+  await expect(questions).toHaveCount(count);
+
+  // A choice added to a question, one that rules a lead out, and who hears about qualified leads.
+  const choice = page.locator('[data-testid^="question-"][data-testid$="-kind"]');
+  const choiceIndex = (await choice.evaluateAll((els) =>
+    els.findIndex((el) => (el as HTMLSelectElement).value === 'choice'),
+  )) as number;
+  expect(choiceIndex).toBeGreaterThanOrEqual(0);
+  const n = choiceIndex + 1;
+  await page.getByTestId(`question-${n}-add-choice`).click();
+  await page.getByTestId(`question-${n}-add-choice-input`).fill('Next spring');
+  await page.getByTestId(`question-${n}-add-choice-input`).press('Enter');
+  await page.getByTestId(`question-${n}-add-choice-input`).press('Escape');
+  await expect(page.getByTestId(`question-${n}`)).toContainText('Next spring');
+  await page.getByTestId(`question-${n}-not-a-fit`).click();
+  await page.getByRole('menuitem', { name: 'Next spring' }).click();
+  await page.keyboard.press('Escape');
+  await expect(page.getByTestId(`question-${n}`)).toContainText('When an answer rules them out');
+  await page.getByTestId('qualify-notify').selectOption('admins');
+  await expect(page.getByTestId('teammate-how')).toContainText('tells owners and admins');
+  await page.getByTestId('teammate-save').click();
+  await expect(page.getByText(/^Saved as revision 2\./)).toBeVisible();
+  await expect(page.getByTestId('teammate-save-note')).toHaveText('All changes saved · revision 2');
+  await expect(page.getByTestId('teammate-revision')).toContainText('Revision 2');
+
+  // Hours: its own hours sit beside quiet hours, which apply to texts.
+  await page.getByTestId('module-hours').click();
+  await page.getByTestId('hours-custom').click();
+  await expect(page.getByTestId('teammate-hours-editor')).toBeVisible();
+  await expect(page.getByText('Quiet hours, 8:00 PM to 8:00 AM.')).toBeVisible();
+  await page.getByTestId('hours-always').click();
+
+  // Autonomy: one approval fewer before it works on its own.
+  await page.getByTestId('module-autonomy').click();
+  await page.getByRole('button', { name: 'Less (Approvals needed)' }).click();
+  await expect(page.getByTestId('module-summary-autonomy')).toHaveText('19 approvals · 2 h drafts');
+  await page.getByTestId('teammate-save').click();
+  await expect(page.getByTestId('teammate-save-note')).toHaveText('All changes saved · revision 3');
+
+  // On, with training wheels; then automatic now, and back to training (both confirmed).
+  await page.getByTestId('status-training').click();
+  await expect(page.getByTestId('teammate-status')).toHaveText('Training wheels');
+  await expect(page.getByTestId('teammate-status-card')).toContainText(
+    '0 of 19 approved · 0 edited',
+  );
+  await page.getByTestId('switch-automatic').click();
+  await expect(page.getByRole('dialog')).toContainText('before it reaches 19 approvals');
+  await page.getByTestId('status-confirm').click();
+  await expect(page.getByTestId('teammate-status')).toHaveText('Automatic');
+  await page.getByTestId('back-to-training').click();
+  await expect(page.getByRole('dialog')).toContainText('starts again at 0 of 19');
+  await page.getByTestId('status-confirm').click();
+  await expect(page.getByTestId('teammate-status')).toHaveText('Training wheels');
+
+  // History: every save is kept; restoring revision 2 saves it again as revision 4, status untouched.
+  await page.getByTestId('open-history').click();
+  const history = page.getByTestId('teammate-history');
+  await expect(history.locator('li')).toHaveCount(3);
+  await expect(history.getByTestId('revision-3')).toContainText('Current');
+  await history.getByTestId('restore-2').click();
+  await expect(page.getByText(/^Restored revision 2 as revision 4\./)).toBeVisible();
+  await expect(page.getByTestId('teammate-revision')).toContainText('Revision 4');
+  await expect(page.getByTestId('module-summary-autonomy')).toHaveText('20 approvals · 2 h drafts');
+  await expect(page.getByTestId('teammate-status')).toHaveText('Training wheels');
+
+  // The test console: until the teammate's runtime answers, it says so.
+  await page.getByTestId('open-test-console').click();
+  const testConsole = page.getByTestId('test-console');
+  await expect(testConsole).toBeVisible();
+  await testConsole.getByTestId('test-console-input').fill('Are you a real person?');
+  await testConsole.getByTestId('test-console-send').click();
+  await expect(testConsole.getByTestId('test-console-missing')).toContainText(
+    'The test console arrives with the teammate’s runtime.',
+  );
+  await testConsole.getByRole('button', { name: 'Close' }).click();
+  await expect(testConsole).toBeHidden();
+
+  // Activity: nothing has run yet.
+  await page.getByTestId('subnav-activity').click();
+  await expect(page).toHaveURL(/\/ai-team\/activity$/);
+  await expect(page.getByTestId('teammate-activity')).toBeVisible();
+  await expect(page.getByTestId('activity-replies')).toContainText('0');
+  await expect(page.getByTestId('teammate-runs')).toContainText('No runs yet');
+  await page.getByTestId('subnav-teammate').click();
+  await expect(page.getByTestId('teammate-builder')).toBeVisible();
+});

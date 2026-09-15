@@ -8,6 +8,7 @@ import {
   KanbanSquare,
   ListOrdered,
   Settings2,
+  Sparkles,
   UserCircle,
   Users,
   Workflow,
@@ -53,6 +54,8 @@ export function navItems(workspaceId: string): NavItem[] {
     { key: 'workflows', href: `${base}/workflows`, label: 'Workflows', icon: Workflow },
     // Knowledge is a drawer item on phones too.
     { key: 'knowledge', href: `${base}/knowledge`, label: 'Knowledge', icon: BookOpen },
+    // The AI teammate is a drawer item on phones as well. Everyone sees it; ai_team.manage changes it.
+    { key: 'ai-team', href: `${base}/ai-team`, label: 'AI teammate', icon: Sparkles },
     // Tasks moved to the drawer on phones when the inbox joined the bottom bar.
     { key: 'tasks', href: `${base}/tasks`, label: 'Tasks', icon: ClipboardList },
     { key: 'members', href: `${base}/members`, label: 'Members', icon: UserCircle },

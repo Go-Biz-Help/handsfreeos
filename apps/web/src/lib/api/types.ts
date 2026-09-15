@@ -172,3 +172,9 @@ export type WorkflowTemplateSaveDraftBody = Body<'/v1/commands/workflow_template
 export type KnowledgePackList = Ok<'/v1/queries/knowledge_pack.list'>;
 export type KnowledgePack = KnowledgePackList['items'][number];
 export type KnowledgePackItem = KnowledgePack['items'][number];
+
+// Milestone 7: the AI teammate
+export type AiTeammateGet = Ok<'/v1/queries/ai_teammate.get'>;
+export type AiTeammateActivity = Ok<'/v1/queries/ai_teammate.activity'>;
+export type AiTeammateSaveOut = Ok<'/v1/commands/ai_teammate.save_config'>;
+export type AiTeammateSaveBody = Body<'/v1/commands/ai_teammate.save_config'>;
