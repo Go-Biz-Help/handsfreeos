@@ -5,7 +5,7 @@
  * changes on top of the new version, as a draft revision. Also: a blank template, renaming one (the businesses'
  * copies keep their names), and how each business is getting on with a knowledge pack.
  */
-import { and, asc, eq } from 'drizzle-orm';
+import { and, eq, inArray } from 'drizzle-orm';
 import { asWorker, rows, sql } from '@hfos/db/client';
 import {
   auditLogs,
@@ -44,7 +44,7 @@ import {
   workspaceCreate,
   type CommandDef,
 } from '../src/server';
-import { admin, ask, expectHfos, meta, run, system, type Scope } from './calendar-helpers';
+import { admin, ask, expectHfos, human, meta, run, system, type Scope } from './calendar-helpers';
 
 let owner: TestUser, member: TestUser;
 let scope: Scope;
@@ -350,9 +350,29 @@ describe('templates from scratch, renames, and a pack in each business', () => {
       .select({ id: workflowTemplates.id })
       .from(workflowTemplates)
       .where(and(eq(workflowTemplates.organizationId, orgId), eq(workflowTemplates.name, name)));
-  /** Each rename's event with its audit entry, oldest first. */
-  const renames = (id: string) =>
-    admin()
+  /** How many renames the template has recorded, each an event with its audit entry. */
+  const renameCount = async (id: string) =>
+    (
+      await admin()
+        .select({ id: events.id })
+        .from(events)
+        .innerJoin(auditLogs, eq(auditLogs.eventId, events.id))
+        .where(and(eq(events.entityId, id), eq(events.eventType, 'workflow_template.renamed')))
+    ).length;
+  /**
+   * Renames the template as its owner, and reads back what that rename recorded: its event (by the id the command
+   * hands back) with its audit entry. Two renames' timestamps are each transaction's reading of the database clock,
+   * with a random id to break ties, so they don't reliably say which came first; no check here needs their order.
+   */
+  const rename = async (input: { name?: string; description?: string | null }) => {
+    const { output, eventIds } = await executeCommand(
+      testDbs().api.db,
+      workflowTemplateRename,
+      { organizationId: orgId, templateId, ...input },
+      human(owner),
+      meta(),
+    );
+    const recorded = await admin()
       .select({
         payload: events.payload,
         actorId: events.actorId,
@@ -361,8 +381,9 @@ describe('templates from scratch, renames, and a pack in each business', () => {
       })
       .from(events)
       .innerJoin(auditLogs, eq(auditLogs.eventId, events.id))
-      .where(and(eq(events.entityId, id), eq(events.eventType, 'workflow_template.renamed')))
-      .orderBy(asc(events.createdAt), asc(events.id));
+      .where(inArray(events.id, [...eventIds]));
+    return { output, recorded };
+  };
 
   beforeAll(async () => {
     [bizOwner, orgAdmin] = await Promise.all([
@@ -456,22 +477,23 @@ describe('templates from scratch, renames, and a pack in each business', () => {
 
   describe('renaming a template', () => {
     it('renames it and says so; the businesses’ copies keep their own names', async () => {
-      const out = await run(
-        workflowTemplateRename,
-        { organizationId: orgId, templateId, name: 'Estimate follow-up (HVAC)' },
-        owner,
-      );
-      expect(out).toEqual({ templateId, name: 'Estimate follow-up (HVAC)', description: null });
+      const named = await rename({ name: 'Estimate follow-up (HVAC)' });
+      expect(named.output).toEqual({
+        templateId,
+        name: 'Estimate follow-up (HVAC)',
+        description: null,
+      });
       const got = await ask(workflowTemplateGet, { organizationId: orgId, templateId }, owner);
       expect(got.template.name).toBe('Estimate follow-up (HVAC)');
-      const [first, ...more] = await renames(templateId);
-      expect(more).toEqual([]);
-      expect(first).toMatchObject({
-        actorId: owner.id,
-        payload: { templateId, fields: ['name'] },
-        before: { name: 'Estimate follow-up (home services)' },
-        after: { name: 'Estimate follow-up (HVAC)' },
-      });
+      expect(named.recorded).toMatchObject([
+        {
+          actorId: owner.id,
+          payload: { templateId, fields: ['name'] },
+          before: { name: 'Estimate follow-up (home services)' },
+          after: { name: 'Estimate follow-up (HVAC)' },
+        },
+      ]);
+      expect(await renameCount(templateId)).toBe(1);
       // The copy installed in the business (see above) keeps the name it came with.
       const copies = await admin()
         .select({ name: workflows.name })
@@ -480,26 +502,27 @@ describe('templates from scratch, renames, and a pack in each business', () => {
       expect(copies.map((c) => c.name)).toEqual(['Estimate follow-up (home services)']);
 
       // The description on its own.
-      expect(
-        await run(
-          workflowTemplateRename,
-          { organizationId: orgId, templateId, description: 'A text, an email, then a task' },
-          owner,
-        ),
-      ).toEqual({
+      const described = await rename({ description: 'A text, an email, then a task' });
+      expect(described.output).toEqual({
         templateId,
         name: 'Estimate follow-up (HVAC)',
         description: 'A text, an email, then a task',
       });
-      expect((await renames(templateId))[1]).toMatchObject({
-        payload: { fields: ['description'] },
-        before: { name: 'Estimate follow-up (HVAC)', description: null },
-        after: { name: 'Estimate follow-up (HVAC)', description: 'A text, an email, then a task' },
-      });
+      expect(described.recorded).toMatchObject([
+        {
+          payload: { fields: ['description'] },
+          before: { name: 'Estimate follow-up (HVAC)', description: null },
+          after: {
+            name: 'Estimate follow-up (HVAC)',
+            description: 'A text, an email, then a task',
+          },
+        },
+      ]);
+      expect(await renameCount(templateId)).toBe(2);
     });
 
     it('changes nothing when nothing changed, and needs something to change', async () => {
-      const before = (await renames(templateId)).length;
+      const before = await renameCount(templateId);
       expect(
         await run(
           workflowTemplateRename,
@@ -516,7 +539,7 @@ describe('templates from scratch, renames, and a pack in each business', () => {
         name: 'Estimate follow-up (HVAC)',
         description: 'A text, an email, then a task',
       });
-      expect(await renames(templateId)).toHaveLength(before);
+      expect(await renameCount(templateId)).toBe(before);
       await expectHfos(
         () => run(workflowTemplateRename, { organizationId: orgId, templateId }, owner),
         'validation',

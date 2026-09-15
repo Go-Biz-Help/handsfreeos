@@ -6,7 +6,14 @@
  */
 import { randomUUID } from 'node:crypto';
 import { expect, test } from '@playwright/test';
-import { api, makeCalendar, ownerWithSite, WORKER, type Owner } from './booking-helpers';
+import {
+  api,
+  makeCalendar,
+  ownerWithSite,
+  TURNSTILE_TEST_TOKEN,
+  WORKER,
+  type Owner,
+} from './booking-helpers';
 import { MAILPIT, waitForMail } from './helpers';
 import { setUpTexting, textFromCustomer } from './telephony';
 
@@ -44,7 +51,13 @@ async function bookOnline(
   const res = await fetch(`${WORKER}/public/book/${owner.site}/${slug}/bookings`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ clientId: randomUUID(), startsAt, smsConsent, ...who }),
+    body: JSON.stringify({
+      clientId: randomUUID(),
+      startsAt,
+      smsConsent,
+      ...who,
+      turnstileToken: TURNSTILE_TEST_TOKEN,
+    }),
   });
   expect(res.status, await res.clone().text()).toBe(200);
   return (await res.json()) as { manageToken: string };
@@ -304,6 +317,7 @@ test('a waitlist offer’s link shows the held time and books it', async ({ page
       email: ivyEmail,
       wantedFrom: new Date(Date.parse(at) - HOUR).toISOString(),
       wantedTo: new Date(Date.parse(at) + 2 * HOUR).toISOString(),
+      turnstileToken: TURNSTILE_TEST_TOKEN,
     }),
   });
   expect(joined.status).toBe(200);

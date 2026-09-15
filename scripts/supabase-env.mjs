@@ -96,6 +96,9 @@ write('apps/worker/.env', [
   // The website chat hashes visitors' IP addresses with this. A fixed value is fine on your own computer;
   // production refuses it.
   'CHAT_IP_KEY=local-chat-ip-key-for-development-only',
+  // Cloudflare Turnstile's always-pass test secret: bookings and website chats run the human check the way they do
+  // in production, through Cloudflare (so it needs the internet). Any token passes it. Production refuses it.
+  'TURNSTILE_SECRET_KEY=1x0000000000000000000000000000000AA',
   ...assistantLines,
 ]);
 write('apps/web/.env.local', [
@@ -104,4 +107,6 @@ write('apps/web/.env.local', [
   `NEXT_PUBLIC_SUPABASE_URL=${vals.API_URL}`,
   `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=${vals.PUBLISHABLE_KEY}`,
   'NEXT_PUBLIC_PASSKEYS_ENABLED=true',
+  // The matching always-pass test site key (public). The worker names it too; this is the pages' fallback.
+  'NEXT_PUBLIC_TURNSTILE_SITE_KEY=1x00000000000000000000AA',
 ]);

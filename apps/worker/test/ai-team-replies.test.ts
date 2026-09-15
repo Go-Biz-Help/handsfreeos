@@ -306,4 +306,26 @@ describe('website chat', () => {
     expect(await aiMessages(chat.conversationId)).toHaveLength(0);
     expect((await conversationOf(chat.conversationId)).handled_by).toBe('none');
   });
+
+  it('leaves a message the human check couldn’t vouch for (Cloudflare down) to people, then answers it with the next', async () => {
+    await saveTeammate(auto, { channels: { chat: true } });
+    // The chat route files it this way when Cloudflare doesn't answer (chat-routes.test.ts): it lands in the inbox.
+    const unchecked = await chatIn(auto, null, 'Do you service heat pumps?', { aiReply: false });
+    expect(await pendingReply(unchecked.conversationId)).toBeNull();
+    await drain(auto);
+    expect(await runsOf(unchecked.conversationId)).toHaveLength(0);
+    expect(await aiMessages(unchecked.conversationId)).toHaveLength(0);
+    expect((await conversationOf(unchecked.conversationId)).handled_by).toBe('none');
+
+    // Cloudflare answers again: the visitor's next message passes the check, and one reply covers both.
+    const next = await chatIn(auto, null, 'And are you open on Saturdays?', {
+      visitorId: unchecked.visitorId,
+    });
+    expect(next.conversationId).toBe(unchecked.conversationId);
+    await drain(auto);
+    const runs = await runsOf(next.conversationId);
+    expect(runs).toHaveLength(1);
+    expect(runs[0]!.message_ids).toEqual([unchecked.messageId, next.messageId]);
+    expect(await aiReplies(next.conversationId)).toHaveLength(1);
+  });
 });

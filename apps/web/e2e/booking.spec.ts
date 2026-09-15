@@ -51,7 +51,12 @@ test('a signed-out customer books, reschedules and cancels', async ({ page, brow
     'aria-checked',
     'false',
   );
+  // The page runs Cloudflare's check first (locally and in CI, its always-pass test keys) and sends its token.
+  const booking = c.waitForRequest(
+    (r) => r.method() === 'POST' && /\/public\/book\/[^/]+\/[^/]+\/bookings$/.test(r.url()),
+  );
   await c.getByRole('button', { name: 'Book AC tune-up' }).click();
+  expect((await booking).postDataJSON()).toMatchObject({ turnstileToken: expect.any(String) });
   await expect(c.getByRole('heading', { name: 'You’re booked' })).toBeVisible();
   await expect(c.getByTestId('booked-when')).toContainText(picked.split(' ')[0]!);
   await expect(c.getByTestId('booked-who')).toContainText('Lone Star E2E HVAC');

@@ -9,6 +9,12 @@ import { createBusiness, PASSWORD, signUpAndConfirm } from './helpers';
 
 const API = 'http://127.0.0.1:4000';
 export const WORKER = (process.env.WORKER_URL ?? 'http://127.0.0.1:4100').replace(/\/+$/, '');
+/**
+ * The Turnstile token a spec sends when it books straight through the worker. Locally and in CI the worker has
+ * Cloudflare's always-pass test secret (`pnpm env:local`), which passes any token; this is the dummy one Cloudflare's
+ * test site key hands out. The pages get real test tokens from Cloudflare's widget.
+ */
+export const TURNSTILE_TEST_TOKEN = 'XXXX.DUMMY.TOKEN.XXXX';
 const DAY = 86_400_000;
 /** Open every day, all day, so the specs never depend on the weekday they run on. */
 const ALL_WEEK = [0, 1, 2, 3, 4, 5, 6].map((day) => ({ day, start: '00:00', end: '24:00' }));
@@ -160,6 +166,7 @@ export async function bookThroughWorker(
       name: 'Faster Customer',
       phone: randomPhone(),
       email: `faster-${randomUUID().slice(0, 8)}@hfos.test`,
+      turnstileToken: TURNSTILE_TEST_TOKEN,
     }),
   });
   return res.status;

@@ -12,8 +12,14 @@ const MIN = 60_000;
 const HOUR = 60 * MIN;
 
 export interface ChatLimits {
-  /** Per address: the widget's settings. */
+  /**
+   * Per address, across widgets: the widgets' settings. The web server asks for every business's from a few
+   * addresses (the loader when the CDN doesn't have it, and each chat window's frame rule), so this is ten times
+   * one widget's.
+   */
   readonly ipConfig: RateRule;
+  /** Per address and widget: one widget's settings, so one business's lookups never use up another's. */
+  readonly ipWidgetConfig: RateRule;
   /** Per address: chats started or picked up again. */
   readonly ipStart: RateRule;
   /** Per address: messages and details sent. */
@@ -40,7 +46,8 @@ export interface ChatLimits {
 
 /** Production's limits. Outside production each volume limit is multiplied by 10 (one address runs everything). */
 export const CHAT_LIMITS: ChatLimits = {
-  ipConfig: { max: 60, timeWindow: MIN },
+  ipConfig: { max: 600, timeWindow: MIN },
+  ipWidgetConfig: { max: 60, timeWindow: MIN },
   ipStart: { max: 20, timeWindow: MIN },
   ipSend: { max: 30, timeWindow: MIN },
   ipRead: { max: 240, timeWindow: MIN },

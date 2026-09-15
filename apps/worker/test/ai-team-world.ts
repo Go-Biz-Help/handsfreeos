@@ -243,37 +243,48 @@ export async function emailIn(w: World, from: string, subject: string, body: str
 
 /**
  * A website chat through the chat commands: a widget the teammate answers (or, with `teammate: false`, one left
- * to people), a visitor, and their message (chat.receive), linked to `personId` as chat.identify would. The
- * outbox then runs, and the reply it queued is brought forward to now, so the next drain answers it.
+ * to people), a visitor, and their message (chat.receive), linked to `personId` as chat.identify would. With
+ * `visitorId`, a visitor already here writes again. `aiReply: false` is how the chat route files a message the
+ * human check couldn't vouch for (Cloudflare didn't answer). The outbox then runs, and the reply it queued is
+ * brought forward to now, so the next drain answers it.
  */
 export async function chatIn(
   w: TeammateWorld,
   personId: string | null,
   body: string,
-  opts: { readonly teammate?: boolean } = {},
-): Promise<{ conversationId: string; messageId: string }> {
-  const { widgetId } = await run(w, chatWidgetCreate, {
-    workspaceId: w.workspaceId,
-    allowedOrigins: [`tm-${randomUUID().slice(0, 8)}.example`],
-    ...(opts.teammate === false ? {} : { teammateId: w.teammateId }),
-  });
+  opts: {
+    readonly teammate?: boolean;
+    readonly visitorId?: string;
+    readonly aiReply?: boolean;
+  } = {},
+): Promise<{ conversationId: string; messageId: string; visitorId: string }> {
   const asWorkerMeta = () => ({ correlationId: randomUUID(), channel: 'worker' as const });
-  const { output: visitor } = await executeCommand(
-    testDbs().worker.db,
-    chatVisitorStart,
-    { workspaceId: w.workspaceId, widgetId, tokenHash: randomBytes(32).toString('hex') },
-    systemActor(scopeOf(w)),
-    asWorkerMeta(),
-  );
+  let visitorId = opts.visitorId;
+  if (!visitorId) {
+    const { widgetId } = await run(w, chatWidgetCreate, {
+      workspaceId: w.workspaceId,
+      allowedOrigins: [`tm-${randomUUID().slice(0, 8)}.example`],
+      ...(opts.teammate === false ? {} : { teammateId: w.teammateId }),
+    });
+    const { output: visitor } = await executeCommand(
+      testDbs().worker.db,
+      chatVisitorStart,
+      { workspaceId: w.workspaceId, widgetId, tokenHash: randomBytes(32).toString('hex') },
+      systemActor(scopeOf(w)),
+      asWorkerMeta(),
+    );
+    visitorId = visitor.visitorId;
+  }
   const { output: said } = await executeCommand(
     testDbs().worker.db,
     chatReceive,
     {
       workspaceId: w.workspaceId,
-      visitorId: visitor.visitorId,
+      visitorId,
       body,
       clientId: randomUUID(),
       reminderAfterMs: 86_400_000,
+      ...(opts.aiReply === undefined ? {} : { aiReply: opts.aiReply }),
     },
     systemActor(scopeOf(w)),
     asWorkerMeta(),
@@ -285,7 +296,7 @@ export async function chatIn(
     );
   await drain(w);
   await forceDue(said.conversationId);
-  return { conversationId: said.conversationId, messageId: said.messageId };
+  return { conversationId: said.conversationId, messageId: said.messageId, visitorId };
 }
 
 /** Brings the conversation's pending reply forward to now. */

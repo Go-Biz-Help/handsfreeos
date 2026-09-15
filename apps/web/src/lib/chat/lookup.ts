@@ -3,9 +3,11 @@
  * the chat window's frame rule (proxy.ts). It asks the worker's GET /public/chat/<key>/config, which answers 404
  * for an unknown key and 403 when the site asking isn't one of the widget's.
  *
- * Every lookup comes from this server's address, and the worker limits config reads per address, so answers are
- * kept for a minute in production. Development never keeps them, so a pause or a new key shows at once, and neither
- * does a production build under Playwright (CHAT_LOOKUP_CACHE_MS=0).
+ * Every business's lookups come from this server's few addresses. The worker counts config reads per address and
+ * widget (60 a minute), under a ceiling per address (600), so one business's lookups never use up another's. Answers
+ * are also kept for a minute in production, and the CDN keeps the loader for 5 minutes. Development never keeps
+ * them, so a pause or a new key shows at once, and neither does a production build under Playwright
+ * (CHAT_LOOKUP_CACHE_MS=0).
  */
 import { chatAskForOf, readableTextOn, type ChatAskFor } from '@hfos/core';
 import { publicEnv } from '../env';

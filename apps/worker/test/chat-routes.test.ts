@@ -447,6 +447,41 @@ describe('limits', () => {
     expect(errorOfChat(refused).rule).toBe('daily_cap');
     expect((await p.send('Still chatting')).statusCode).toBe(200);
   });
+
+  it('counts the widgets’ settings per address and widget, under a ceiling for the address', async () => {
+    // The web server looks up every business's widget from a few addresses: one widget's lookups can't use up
+    // another's room, and the address still has a ceiling, keys that name no widget included.
+    const srv = await chatServer(w, {
+      limits: {
+        ipWidgetConfig: { max: 2, timeWindow: MIN },
+        ipConfig: { max: 4, timeWindow: MIN },
+      },
+    });
+    const other = await run(w, chatWidgetCreate, {
+      workspaceId: w.workspaceId,
+      allowedOrigins: ['bayou-plumbing.com'],
+    });
+    const config = (key: string, ip = '192.0.2.10') =>
+      srv.inject({
+        method: 'GET',
+        url: `/public/chat/${key}/config`,
+        headers: { 'x-forwarded-for': ip },
+      });
+    expect((await config(w.key)).statusCode).toBe(200);
+    expect((await config(w.key)).statusCode).toBe(200);
+    const third = await config(w.key);
+    expect(third.statusCode).toBe(429);
+    expect(errorOfChat(third).rule).toBe('rate_limited');
+    expect(Number(third.headers['retry-after'])).toBeGreaterThan(0);
+    // Another business's widget from the same address still loads, and so does this one from another address.
+    expect((await config(other.publicKey)).statusCode).toBe(200);
+    expect((await config(w.key, '192.0.2.11')).statusCode).toBe(200);
+    // A key that names no widget counts toward the address's ceiling (the fourth), then the address is full.
+    expect((await config(`wk_${'x'.repeat(20)}`)).statusCode).toBe(404);
+    const full = await config(other.publicKey);
+    expect(full.statusCode).toBe(429);
+    expect(errorOfChat(full).rule).toBe('rate_limited');
+  });
 });
 
 describe('refusals', () => {

@@ -340,10 +340,17 @@ export async function registerChatRoutes(app: FastifyInstance, deps: HttpDeps): 
     });
 
     // ---------- the widget's settings: what the chat window shows before anyone writes ----------
+    // Counted per address and widget, under a looser ceiling per address: the web server asks for every business's
+    // from a few addresses (the loader when the CDN doesn't have it, and each chat window's frame rule), so one
+    // business's lookups mustn't use up another's. Keys that name no widget count toward the ceiling too.
     pub.get<Params & { Querystring: { origin?: string } }>(
       '/public/chat/:key/config',
-      { config: { rateLimit: limits.ipConfig } },
-      async (req) => {
+      async (req, reply) => {
+        const ip = ipOf(req);
+        limit(reply, [
+          { key: `a:${ip}:config`, rule: limits.ipConfig },
+          { key: `a:${ip}:config:${req.params.key}`, rule: limits.ipWidgetConfig },
+        ]);
         const route = await findWidget(req.params.key);
         return worker(scopeOf(route), async (tx) => {
           const widget = await loadWidget(tx, route.widgetId);

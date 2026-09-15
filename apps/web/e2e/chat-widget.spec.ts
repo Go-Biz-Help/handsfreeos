@@ -49,9 +49,14 @@ test('the chat on an allowed site, by keyboard: the AI reply, a staff reply live
   await expect(chat.getByTestId('chat-empty')).toContainText('Ava (AI) answers right away');
   await expect(chat.locator('header [aria-hidden]').first()).toHaveText('LS');
 
-  // A first message: Ava says she's an AI assistant in her first reply.
+  // A first message: Ava says she's an AI assistant in her first reply. It goes through Cloudflare's invisible check
+  // first (locally and in CI, its always-pass test keys), so it carries a token.
+  const firstSent = site.waitForRequest(
+    (r) => r.method() === 'POST' && /\/public\/chat\/wk_[A-Za-z0-9]{20}\/messages$/.test(r.url()),
+  );
   await site.keyboard.type('Hi, do you service AC units?');
   await site.keyboard.press('Enter');
+  expect((await firstSent).postDataJSON()).toMatchObject({ turnstileToken: expect.any(String) });
   await expect(chat.getByTestId('chat-message-visitor')).toContainText(
     'Hi, do you service AC units?',
   );

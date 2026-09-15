@@ -77,11 +77,12 @@ test('Website chat settings: sites, the snippet, the install check and a new key
   await page.getByRole('radio', { name: 'GoHighLevel' }).click();
   await expect(page.getByTestId('chat-platform-steps')).toContainText('Footer tracking code');
 
-  // The loader: JavaScript, kept for 5 minutes, under 3 KB.
+  // The loader: JavaScript, kept for 5 minutes by browsers and the CDN (Vercel's CDN needs s-maxage, and strips it
+  // before the browser sees it), under 3 KB.
   const loader = await page.request.get(`/embed/v1/${key}.js`);
   expect(loader.status()).toBe(200);
   expect(loader.headers()['content-type']).toContain('application/javascript');
-  expect(loader.headers()['cache-control']).toBe('public, max-age=300');
+  expect(loader.headers()['cache-control']).toBe('public, max-age=300, s-maxage=300');
   expect((await loader.body()).byteLength).toBeLessThan(3 * 1024);
   expect(await loader.text()).not.toContain('hfos-chat:');
 

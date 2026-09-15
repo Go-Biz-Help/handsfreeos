@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { expect, test, type Page } from '@playwright/test';
-import { api, ownerWithSite, randomPhone, WORKER } from './booking-helpers';
+import { api, ownerWithSite, randomPhone, TURNSTILE_TEST_TOKEN, WORKER } from './booking-helpers';
 import { CHICAGO, chicagoDate, weekdayAhead } from './calendar';
 
 /**
@@ -70,6 +70,7 @@ async function bookDirect(
       name: 'Walk-in Customer',
       phone: randomPhone(),
       email: `walkin-${randomUUID().slice(0, 8)}@hfos.test`,
+      turnstileToken: TURNSTILE_TEST_TOKEN,
     }),
   });
   return res.status;

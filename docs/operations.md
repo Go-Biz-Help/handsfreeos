@@ -1,6 +1,6 @@
 # Running HandsFreeOS
 
-This guide covers everything about HandsFreeOS that lives outside the code: the database, hosting, the web app, the phone carrier, email, connected mailboxes, the Assistant, the calendar and online booking, workflows and the knowledge base, your laptop setup, and going live. Each section gives the steps in order, with what you should see after each one. Secrets never go in this repository: they live in Fly.io secrets, GitHub repository secrets, Vercel environment variables and your password manager, and nowhere else.
+This guide covers everything about HandsFreeOS that lives outside the code: the database, hosting, the web app, the phone carrier, email, connected mailboxes, the Assistant, the calendar and online booking, workflows and the knowledge base, the AI teammate and website chat, your laptop setup, and going live. Each section gives the steps in order, with what you should see after each one. Secrets never go in this repository: they live in Fly.io secrets, GitHub repository secrets, Vercel environment variables and your password manager, and nowhere else.
 
 If you are setting up HandsFreeOS for the first time, start with the checklist in "Going live, and when something goes wrong". It tells you which parts of the other sections to do, and in what order.
 
@@ -25,6 +25,7 @@ A plain "step 5" means step 5 of the list you are reading, or of the part named 
 - [The Assistant: Anthropic](#the-assistant-anthropic)
 - [The calendar: Google, Outlook and online booking](#the-calendar-google-outlook-and-online-booking)
 - [Workflows, the knowledge base and agency templates](#workflows-the-knowledge-base-and-agency-templates)
+- [The AI teammate and website chat](#the-ai-teammate-and-website-chat)
 - [Local development](#local-development)
 - [Going live, and when something goes wrong](#going-live-and-when-something-goes-wrong)
 
@@ -34,19 +35,19 @@ A plain "step 5" means step 5 of the list you are reading, or of the part named 
 
 Go Biz Help (or the company that owns HandsFreeOS, if it has its own) holds and pays for every account below. Client businesses never get accounts of their own: their phone lines live in Twilio subaccounts under your master account, and their email goes through your one Postmark server. Prices were checked in September 2026 and will change.
 
-| Account                                                             | What HandsFreeOS uses it for                                                                       | Rough cost                                                                                                                                                                                                                         | More in                                     |
-| ------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------- |
-| Supabase, organization `Go Biz Help` (already exists)               | The database, sign-in, file storage and live updates                                               | Pro plan from $25 a month for the whole organization, plus about $10 a month for this project's Micro compute. Point-in-time recovery is optional, about $105 a month more.                                                        | "The database: Supabase (hosted)"           |
-| Fly.io (a new organization, with a card)                            | Runs the API and the worker                                                                        | About $8 a month in `dfw` with one worker machine (about $6.40 in `iad`), or about $12 with two                                                                                                                                    | "Hosting: the API and the worker on Fly.io" |
-| Vercel (a Pro team)                                                 | Runs the web app at `https://app.handsfreeos.com`                                                  | $20 a month, including one seat that can deploy and $20 of usage credit. 14-day trial.                                                                                                                                             | "The web app on Vercel"                     |
-| Twilio (one master account, upgraded to paid)                       | Phone numbers, texts and calls for every client                                                    | A starting balance of about $50. Then $1.15 a month per local number, $2.15 per toll-free number, texts and minutes, and carrier registration fees for local numbers. All client subaccounts draw on the master account's balance. | "The phone carrier: Twilio"                 |
-| Postmark (Platform plan recommended)                                | Business email, customers' replies, platform mail and sign-in email                                | $18 a month for 10,000 emails on Platform ($16.50 on Pro, which allows only 10 domains)                                                                                                                                            | "Email: Postmark"                           |
-| Microsoft Entra tenant, plus the Microsoft AI Cloud Partner Program | The Outlook app registration and publisher verification                                            | Free (an Azure sign-up may ask for a card to confirm who you are)                                                                                                                                                                  | "Connected mailboxes: Outlook and Gmail"    |
-| Google Cloud                                                        | The Gmail client, the Google Calendar client (its own project) and the Google sign-in client       | Free from Google. The CASA security assessment is paid to an authorized lab: for example $675 to $855 one time for the lowest level, or $4,500 to $5,400 a year on a lab's yearly plan.                                            | "Connected mailboxes: Outlook and Gmail"    |
-| Anthropic (a Claude Console organization, with prepaid credits)     | Claude, the model behind the Assistant                                                             | Pay as you go from prepaid credits. With Claude Sonnet 5, $2 per million tokens sent and $10 per million tokens written back. HandsFreeOS caps each workspace at 2,000,000 tokens a day, so at most about $20 a day per workspace. | "The Assistant: Anthropic"                  |
-| GitHub, account `gobizhelp` (already exists)                        | The repository `gobizhelp/handsfreeos`, CI and the Deploy workflow                                 | No new cost                                                                                                                                                                                                                        | "Hosting: the API and the worker on Fly.io" |
-| Cloudflare (already holds the DNS for `handsfreeos.com`)            | DNS records, optionally a tunnel for laptop testing, and optionally Turnstile for the booking page | DNS: no new cost. Zero Trust Free plan for the tunnel. Turnstile is free.                                                                                                                                                          | Several sections                            |
-| A website host for `handsfreeos.com`                                | Public home page, `/privacy` and `/terms` pages. Google and Microsoft check them.                  | Depends on the host                                                                                                                                                                                                                | "Connected mailboxes: Outlook and Gmail"    |
+| Account                                                             | What HandsFreeOS uses it for                                                                                  | Rough cost                                                                                                                                                                                                                         | More in                                     |
+| ------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------- |
+| Supabase, organization `Go Biz Help` (already exists)               | The database, sign-in, file storage and live updates                                                          | Pro plan from $25 a month for the whole organization, plus about $10 a month for this project's Micro compute. Point-in-time recovery is optional, about $105 a month more.                                                        | "The database: Supabase (hosted)"           |
+| Fly.io (a new organization, with a card)                            | Runs the API and the worker                                                                                   | About $8 a month in `dfw` with one worker machine (about $6.40 in `iad`), or about $12 with two                                                                                                                                    | "Hosting: the API and the worker on Fly.io" |
+| Vercel (a Pro team)                                                 | Runs the web app at `https://app.handsfreeos.com`                                                             | $20 a month, including one seat that can deploy and $20 of usage credit. 14-day trial.                                                                                                                                             | "The web app on Vercel"                     |
+| Twilio (one master account, upgraded to paid)                       | Phone numbers, texts and calls for every client                                                               | A starting balance of about $50. Then $1.15 a month per local number, $2.15 per toll-free number, texts and minutes, and carrier registration fees for local numbers. All client subaccounts draw on the master account's balance. | "The phone carrier: Twilio"                 |
+| Postmark (Platform plan recommended)                                | Business email, customers' replies, platform mail and sign-in email                                           | $18 a month for 10,000 emails on Platform ($16.50 on Pro, which allows only 10 domains)                                                                                                                                            | "Email: Postmark"                           |
+| Microsoft Entra tenant, plus the Microsoft AI Cloud Partner Program | The Outlook app registration and publisher verification                                                       | Free (an Azure sign-up may ask for a card to confirm who you are)                                                                                                                                                                  | "Connected mailboxes: Outlook and Gmail"    |
+| Google Cloud                                                        | The Gmail client, the Google Calendar client (its own project) and the Google sign-in client                  | Free from Google. The CASA security assessment is paid to an authorized lab: for example $675 to $855 one time for the lowest level, or $4,500 to $5,400 a year on a lab's yearly plan.                                            | "Connected mailboxes: Outlook and Gmail"    |
+| Anthropic (a Claude Console organization, with prepaid credits)     | Claude, the model behind the Assistant                                                                        | Pay as you go from prepaid credits. With Claude Sonnet 5, $2 per million tokens sent and $10 per million tokens written back. HandsFreeOS caps each workspace at 2,000,000 tokens a day, so at most about $20 a day per workspace. | "The Assistant: Anthropic"                  |
+| GitHub, account `gobizhelp` (already exists)                        | The repository `gobizhelp/handsfreeos`, CI and the Deploy workflow                                            | No new cost                                                                                                                                                                                                                        | "Hosting: the API and the worker on Fly.io" |
+| Cloudflare (already holds the DNS for `handsfreeos.com`)            | DNS records, optionally a tunnel for laptop testing, and Turnstile for the booking pages and the website chat | DNS: no new cost. Zero Trust Free plan for the tunnel. Turnstile is free.                                                                                                                                                          | Several sections                            |
+| A website host for `handsfreeos.com`                                | Public home page, `/privacy` and `/terms` pages. Google and Microsoft check them.                             | Depends on the host                                                                                                                                                                                                                | "Connected mailboxes: Outlook and Gmail"    |
 
 ### Tools on your Mac
 
@@ -130,12 +131,13 @@ Make one folder in your password manager named `HandsFreeOS`. Every secret in th
 | Google sign-in client                                                      | The separate OAuth client for Sign in with Google                                                                                                                    | Supabase's Google provider only                                                                                                                                                                                                 |
 | Google local sign-in client                                                | The OAuth client for Sign in with Google on the local stack (see "Local development")                                                                                | The repository-root `.env` on your Mac only, as `SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID` and `SUPABASE_AUTH_EXTERNAL_GOOGLE_SECRET`. Git ignores that file.                                                                    |
 | Anthropic API key                                                          | The production key (starts with `sk-ant-api`), linked to the `handsfreeos-worker` service account. A key for your laptop is a separate entry, "Anthropic local key". | Fly.io secret `ANTHROPIC_API_KEY` on `handsfreeos-worker` only. The local key goes only in `apps/worker/.env` on your Mac.                                                                                                      |
-| Cloudflare Turnstile                                                       | The booking page widget's site key (not secret) and secret key                                                                                                       | Site key: Vercel `NEXT_PUBLIC_TURNSTILE_SITE_KEY`. Secret key: Fly.io secret `TURNSTILE_SECRET_KEY` on `handsfreeos-worker` only                                                                                                |
+| Cloudflare Turnstile                                                       | The Turnstile widget's site key (not secret) and secret key, for the booking pages and the website chat                                                              | Site key: Vercel `NEXT_PUBLIC_TURNSTILE_SITE_KEY`. Secret key: Fly.io secret `TURNSTILE_SECRET_KEY` on `handsfreeos-worker` only                                                                                                |
+| Chat IP key                                                                | `CHAT_IP_KEY`, a value you make with `openssl rand -base64 32`. The website chat keeps visitors' IP addresses only as a one-way hash made with it.                   | Fly.io secret `CHAT_IP_KEY` on `handsfreeos-worker` only                                                                                                                                                                        |
 | Dev tunnel token, Postmark dev server token, Postmark dev webhook password | Laptop testing only (see "Local development")                                                                                                                        | On your Mac only: the tunnel token in `~/.cloudflared/handsfreeos-dev.token`, the two Postmark dev values in `apps/worker/.env`. The dev webhook password also goes inside the dev server's webhook address in Postmark.        |
 
 Two values do not follow the pattern. The Fly.io deploy token (`FLY_API_TOKEN`) lives only in GitHub, not in your password manager: if it is lost, you make a new one. The file `.env.hosted` at the repository root already holds the two database passwords, the two finished connection strings and the publishable key. It is gitignored and exists only on your Mac. Never commit, attach or paste it anywhere.
 
-The API refuses to start if it holds any variable whose name contains `SECRET`, `SERVICE_ROLE`, `SIGNING_KEY`, `ENCRYPTION_KEY` or `_OAUTH_` (such as `MICROSOFT_OAUTH_`, `GOOGLE_OAUTH_` and `GOOGLE_CALENDAR_OAUTH_`), or starts with `TWILIO_`, `POSTMARK_`, `TURNSTILE_`, `ANTHROPIC_` or `OPENAI_`. So every provider secret goes on `handsfreeos-worker`, never on `handsfreeos-api`, and never in Vercel or GitHub.
+The API refuses to start if it holds any variable whose name contains `SECRET`, `SERVICE_ROLE`, `SIGNING_KEY`, `ENCRYPTION_KEY` or `_OAUTH_` (such as `MICROSOFT_OAUTH_`, `GOOGLE_OAUTH_` and `GOOGLE_CALENDAR_OAUTH_`), or starts with `TWILIO_`, `POSTMARK_`, `TURNSTILE_`, `ANTHROPIC_` or `OPENAI_`, or is `CHAT_IP_KEY`. So every provider secret goes on `handsfreeos-worker`, never on `handsfreeos-api`, and never in Vercel or GitHub.
 
 ## The database: Supabase (hosted)
 
@@ -1272,20 +1274,21 @@ Nothing on Fly reads a `.env` file. The images contain none, because `.dockerign
 
 #### The API (`handsfreeos-api`)
 
-| Name                  | How it is set | Required                                | Default if unset                                        | Where the value comes from                                                                           |
-| --------------------- | ------------- | --------------------------------------- | ------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
-| `NODE_ENV`            | `[env]`       | Yes                                     | Not set (the Dockerfile also sets `production`)         | Already `production`                                                                                 |
-| `HOST`                | `[env]`       | Yes, must be `0.0.0.0` on Fly           | `127.0.0.1` in the code. The Dockerfile sets `0.0.0.0`. | Already `0.0.0.0`                                                                                    |
-| `PORT`                | `[env]`       | Yes, must match `internal_port = 4000`  | `4000` (the Dockerfile also sets `4000`)                | Already `4000`                                                                                       |
-| `TRUST_PROXY`         | `[env]`       | Recommended                             | Off (on only when exactly `true`)                       | Already `true`. Fly's proxy passes on each visitor's address.                                        |
-| `WEB_ORIGINS`         | `[env]`       | Yes, or the browser cannot call the API | `http://localhost:3000`                                 | Already `https://app.handsfreeos.com`. Separate several with commas.                                 |
-| `SUPABASE_URL`        | `[env]`       | Yes, the API will not start without it  | None                                                    | Already `https://ybupfghakoszfcxhyrby.supabase.co`                                                   |
-| `LOG_LEVEL`           | `[env]`       | No                                      | `info`                                                  | Already `info`                                                                                       |
-| `DATABASE_URL`        | Fly secret    | Yes, the API will not start without it  | None                                                    | The session pooler string for the `hfos_api` role (Fly Part 6). It must not use the `postgres` role. |
-| `SUPABASE_JWT_ISSUER` | Leave unset   | No                                      | `<SUPABASE_URL>/auth/v1`                                | Worked out from `SUPABASE_URL`                                                                       |
-| `SUPABASE_JWKS_URL`   | Leave unset   | No                                      | `<SUPABASE_URL>/auth/v1/.well-known/jwks.json`          | Worked out from `SUPABASE_URL`                                                                       |
+| Name                     | How it is set | Required                                | Default if unset                                        | Where the value comes from                                                                                                                                                     |
+| ------------------------ | ------------- | --------------------------------------- | ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `NODE_ENV`               | `[env]`       | Yes                                     | Not set (the Dockerfile also sets `production`)         | Already `production`                                                                                                                                                           |
+| `HOST`                   | `[env]`       | Yes, must be `0.0.0.0` on Fly           | `127.0.0.1` in the code. The Dockerfile sets `0.0.0.0`. | Already `0.0.0.0`                                                                                                                                                              |
+| `PORT`                   | `[env]`       | Yes, must match `internal_port = 4000`  | `4000` (the Dockerfile also sets `4000`)                | Already `4000`                                                                                                                                                                 |
+| `TRUST_PROXY`            | `[env]`       | Recommended                             | Off (on only when exactly `true`)                       | Already `true`. Fly's proxy passes on each visitor's address.                                                                                                                  |
+| `WEB_ORIGINS`            | `[env]`       | Yes, or the browser cannot call the API | `http://localhost:3000`                                 | Already `https://app.handsfreeos.com`. Separate several with commas.                                                                                                           |
+| `SUPABASE_URL`           | `[env]`       | Yes, the API will not start without it  | None                                                    | Already `https://ybupfghakoszfcxhyrby.supabase.co`                                                                                                                             |
+| `LOG_LEVEL`              | `[env]`       | No                                      | `info`                                                  | Already `info`                                                                                                                                                                 |
+| `DATABASE_URL`           | Fly secret    | Yes, the API will not start without it  | None                                                    | The session pooler string for the `hfos_api` role (Fly Part 6). It must not use the `postgres` role.                                                                           |
+| `SUPABASE_JWT_ISSUER`    | Leave unset   | No                                      | `<SUPABASE_URL>/auth/v1`                                | Worked out from `SUPABASE_URL`                                                                                                                                                 |
+| `SUPABASE_JWKS_URL`      | Leave unset   | No                                      | `<SUPABASE_URL>/auth/v1/.well-known/jwks.json`          | Worked out from `SUPABASE_URL`                                                                                                                                                 |
+| `ASSISTANT_DAILY_TOKENS` | Fly secret    | Only when you change the daily AI limit | `2000000`                                               | The same number as the worker's. The API shows each business's AI use against it, in the AI teammate's **Limits**. See "Change the daily limit" in "The Assistant: Anthropic". |
 
-`DATABASE_URL` is the API's only secret. At startup the API checks the name of every variable. It refuses to start if a name contains `SECRET`, `SERVICE_ROLE`, `SIGNING_KEY`, `ENCRYPTION_KEY` or `_OAUTH_` (such as `MICROSOFT_OAUTH_`, `GOOGLE_OAUTH_` and `GOOGLE_CALENDAR_OAUTH_`), or starts with `TWILIO_`, `POSTMARK_`, `TURNSTILE_`, `ANTHROPIC_` or `OPENAI_` (upper or lower case). Its log then says `The API process must never hold privileged keys. Remove: <names>`. Fly's own variables (`FLY_*`, `PRIMARY_REGION`) are fine. Never run a worker secrets command with `--app handsfreeos-api`.
+`DATABASE_URL` is the API's only secret. `ASSISTANT_DAILY_TOKENS` is set the same way when you change the daily limit, but it isn't secret. At startup the API checks the name of every variable. It refuses to start if a name contains `SECRET`, `SERVICE_ROLE`, `SIGNING_KEY`, `ENCRYPTION_KEY` or `_OAUTH_` (such as `MICROSOFT_OAUTH_`, `GOOGLE_OAUTH_` and `GOOGLE_CALENDAR_OAUTH_`), starts with `TWILIO_`, `POSTMARK_`, `TURNSTILE_`, `ANTHROPIC_` or `OPENAI_` (upper or lower case), or is `CHAT_IP_KEY`. Its log then says `The API process must never hold privileged keys. Remove: <names>`. Fly's own variables (`FLY_*`, `PRIMARY_REGION`) are fine. Never run a worker secrets command with `--app handsfreeos-api`.
 
 Both apps check sign-ins against Supabase's published signing keys and cache them. So rotating Supabase's signing keys needs no deploy.
 
@@ -1308,34 +1311,35 @@ Both apps check sign-ins against Supabase's published signing keys and cache the
 
 The worker will not start if any of these is missing or malformed.
 
-| Name                        | Where to copy the value from                                                                                                                       |
-| --------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `DATABASE_URL_WORKER`       | The session pooler string for the `hfos_worker` role (Fly Part 6). It must not use the `postgres` role.                                            |
-| `SMTP_URL`                  | Built from the Postmark server API token: `smtp://<server API token>:<server API token>@smtp.postmarkapp.com:587?requireTLS=true` (Fly Part 6).    |
-| `WORKER_ENCRYPTION_KEY`     | You generate it once with `openssl rand -base64 32` and save it in your password manager (Fly Part 6). It must be 32 random bytes, base64 encoded. |
-| `TWILIO_ACCOUNT_SID`        | The Twilio console, signed in as the master account: the **Account SID** (starts with `AC`).                                                       |
-| `TWILIO_AUTH_TOKEN`         | The same place in the Twilio console: the **Auth Token**.                                                                                          |
-| `POSTMARK_SERVER_TOKEN`     | Postmark, the production server's **API Tokens** tab: the server API token.                                                                        |
-| `POSTMARK_ACCOUNT_TOKEN`    | Postmark, the account's **API Tokens**: the account API token. The worker uses it to add businesses' own domains.                                  |
-| `POSTMARK_WEBHOOK_PASSWORD` | You make it up with `openssl rand -hex 24` (Fly Part 6). It must be 24 characters or more. The same value goes into Postmark's webhook addresses.  |
+| Name                        | Where to copy the value from                                                                                                                                                                                                |
+| --------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `DATABASE_URL_WORKER`       | The session pooler string for the `hfos_worker` role (Fly Part 6). It must not use the `postgres` role.                                                                                                                     |
+| `SMTP_URL`                  | Built from the Postmark server API token: `smtp://<server API token>:<server API token>@smtp.postmarkapp.com:587?requireTLS=true` (Fly Part 6).                                                                             |
+| `WORKER_ENCRYPTION_KEY`     | You generate it once with `openssl rand -base64 32` and save it in your password manager (Fly Part 6). It must be 32 random bytes, base64 encoded.                                                                          |
+| `TWILIO_ACCOUNT_SID`        | The Twilio console, signed in as the master account: the **Account SID** (starts with `AC`).                                                                                                                                |
+| `TWILIO_AUTH_TOKEN`         | The same place in the Twilio console: the **Auth Token**.                                                                                                                                                                   |
+| `POSTMARK_SERVER_TOKEN`     | Postmark, the production server's **API Tokens** tab: the server API token.                                                                                                                                                 |
+| `POSTMARK_ACCOUNT_TOKEN`    | Postmark, the account's **API Tokens**: the account API token. The worker uses it to add businesses' own domains.                                                                                                           |
+| `POSTMARK_WEBHOOK_PASSWORD` | You make it up with `openssl rand -hex 24` (Fly Part 6). It must be 24 characters or more. The same value goes into Postmark's webhook addresses.                                                                           |
+| `CHAT_IP_KEY`               | You generate it once with `openssl rand -base64 32` and save it in your password manager (Fly Part 6). It must be 32 characters or more. The website chat keeps visitors' IP addresses only as a one-way hash made with it. |
 
 If the Twilio or Postmark screens have moved, search their consoles for "Account SID", "Auth Token" or "API Tokens".
 
 #### The worker: Fly secrets for features
 
-| Name                                  | Required                                                      | Without it                                                                                                                                                                                                                                                               | Where to copy the value from                                                                                                                                                                                                                       |
-| ------------------------------------- | ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `SUPABASE_SECRET_KEY`                 | Yes in practice                                               | The worker starts but logs `SUPABASE_SECRET_KEY is not set: file removals, imports and photos will fail until it is`. Picture texts, voicemails and any inbound email with attachments fail too. Such an email is refused whole, with a 500 error, until the key is set. | The Supabase dashboard for project `ybupfghakoszfcxhyrby`, **Project Settings** → **API Keys**: the secret key named `hfos_worker` (starts with `sb_secret_`). If the page has moved, search the dashboard for "API keys". Worker only.            |
-| `TWILIO_PRIMARY_PROFILE_SID`          | Only for local (10DLC) numbers                                | Local-number registrations are turned down. Toll-free numbers still work.                                                                                                                                                                                                | Twilio Trust Hub: HandsFreeOS's approved primary customer profile (starts with `BU`). See Twilio Step 4.                                                                                                                                           |
-| `MICROSOFT_OAUTH_CLIENT_ID`           | Only for Outlook mailboxes and calendars                      | Connect Outlook, in **Settings** → **Email** and in **Settings** → **My calendar**, shows a page titled "Outlook isn’t set up yet".                                                                                                                                      | The Microsoft Entra app registration: **Application (client) ID**. See "Connected mailboxes: Outlook and Gmail".                                                                                                                                   |
-| `MICROSOFT_OAUTH_CLIENT_SECRET`       | Only for Outlook mailboxes and calendars                      | Same as above.                                                                                                                                                                                                                                                           | The Entra app, **Certificates & secrets**: the client secret value. It expires.                                                                                                                                                                    |
-| `GOOGLE_OAUTH_CLIENT_ID`              | Only for Connect Gmail                                        | Connect Gmail shows a page titled "Gmail isn’t set up yet".                                                                                                                                                                                                              | The Google Cloud OAuth client (type Web application).                                                                                                                                                                                              |
-| `GOOGLE_OAUTH_CLIENT_SECRET`          | Only for Connect Gmail                                        | Same as above.                                                                                                                                                                                                                                                           | The same Google Cloud OAuth client (starts with `GOCSPX-`).                                                                                                                                                                                        |
-| `ANTHROPIC_API_KEY`                   | Only for the Assistant                                        | The worker starts, and its `worker started` line shows `"assistant":"none"`. The Assistant panel says "The Assistant isn’t available yet". Everything else works.                                                                                                        | The Claude Console, **Settings** → **API keys**: the key linked to the `handsfreeos-worker` service account and tied to the `HandsFreeOS` workspace (starts with `sk-ant-api`). See "The Assistant: Anthropic". Worker only.                       |
-| `GOOGLE_CALENDAR_OAUTH_CLIENT_ID`     | Only for Google Calendar in **Settings** → **My calendar**    | The **Google** button in **Settings** → **My calendar** shows a page titled "Google Calendar isn’t set up yet".                                                                                                                                                          | The Web application OAuth client in the separate `HandsFreeOS Calendar` Google Cloud project, not the Gmail client. See "The calendar: Google, Outlook and online booking". Worker only.                                                           |
-| `GOOGLE_CALENDAR_OAUTH_CLIENT_SECRET` | Only for Google Calendar                                      | Same as above.                                                                                                                                                                                                                                                           | The same Google Calendar client's secret (starts with `GOCSPX-`).                                                                                                                                                                                  |
-| `TURNSTILE_SECRET_KEY`                | Optional, for the booking page's bot check                    | Bookings rely on the per-address limits, a hidden field only bots fill in, and the database's caps.                                                                                                                                                                      | Cloudflare's **Turnstile** page: the widget's secret key. Set its site key on Vercel (`NEXT_PUBLIC_TURNSTILE_SITE_KEY`) first. Production refuses Cloudflare's test secret. See "Protect the booking page with Turnstile (optional)". Worker only. |
-| `WORKER_ENCRYPTION_KEYS_PREVIOUS`     | Only after a key rotation. Leave it unset on the first setup. | Nothing, until a key is rotated.                                                                                                                                                                                                                                         | Old `WORKER_ENCRYPTION_KEY` values from your password manager, separated by commas. Each must be a valid key, or the worker will not start.                                                                                                        |
+| Name                                  | Required                                                                    | Without it                                                                                                                                                                                                                                                               | Where to copy the value from                                                                                                                                                                                                                       |
+| ------------------------------------- | --------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `SUPABASE_SECRET_KEY`                 | Yes in practice                                                             | The worker starts but logs `SUPABASE_SECRET_KEY is not set: file removals, imports and photos will fail until it is`. Picture texts, voicemails and any inbound email with attachments fail too. Such an email is refused whole, with a 500 error, until the key is set. | The Supabase dashboard for project `ybupfghakoszfcxhyrby`, **Project Settings** → **API Keys**: the secret key named `hfos_worker` (starts with `sb_secret_`). If the page has moved, search the dashboard for "API keys". Worker only.            |
+| `TWILIO_PRIMARY_PROFILE_SID`          | Only for local (10DLC) numbers                                              | Local-number registrations are turned down. Toll-free numbers still work.                                                                                                                                                                                                | Twilio Trust Hub: HandsFreeOS's approved primary customer profile (starts with `BU`). See Twilio Step 4.                                                                                                                                           |
+| `MICROSOFT_OAUTH_CLIENT_ID`           | Only for Outlook mailboxes and calendars                                    | Connect Outlook, in **Settings** → **Email** and in **Settings** → **My calendar**, shows a page titled "Outlook isn’t set up yet".                                                                                                                                      | The Microsoft Entra app registration: **Application (client) ID**. See "Connected mailboxes: Outlook and Gmail".                                                                                                                                   |
+| `MICROSOFT_OAUTH_CLIENT_SECRET`       | Only for Outlook mailboxes and calendars                                    | Same as above.                                                                                                                                                                                                                                                           | The Entra app, **Certificates & secrets**: the client secret value. It expires.                                                                                                                                                                    |
+| `GOOGLE_OAUTH_CLIENT_ID`              | Only for Connect Gmail                                                      | Connect Gmail shows a page titled "Gmail isn’t set up yet".                                                                                                                                                                                                              | The Google Cloud OAuth client (type Web application).                                                                                                                                                                                              |
+| `GOOGLE_OAUTH_CLIENT_SECRET`          | Only for Connect Gmail                                                      | Same as above.                                                                                                                                                                                                                                                           | The same Google Cloud OAuth client (starts with `GOCSPX-`).                                                                                                                                                                                        |
+| `ANTHROPIC_API_KEY`                   | Only for the Assistant                                                      | The worker starts, and its `worker started` line shows `"assistant":"none"`. The Assistant panel says "The Assistant isn’t available yet". Everything else works.                                                                                                        | The Claude Console, **Settings** → **API keys**: the key linked to the `handsfreeos-worker` service account and tied to the `HandsFreeOS` workspace (starts with `sk-ant-api`). See "The Assistant: Anthropic". Worker only.                       |
+| `GOOGLE_CALENDAR_OAUTH_CLIENT_ID`     | Only for Google Calendar in **Settings** → **My calendar**                  | The **Google** button in **Settings** → **My calendar** shows a page titled "Google Calendar isn’t set up yet".                                                                                                                                                          | The Web application OAuth client in the separate `HandsFreeOS Calendar` Google Cloud project, not the Gmail client. See "The calendar: Google, Outlook and online booking". Worker only.                                                           |
+| `GOOGLE_CALENDAR_OAUTH_CLIENT_SECRET` | Only for Google Calendar                                                    | Same as above.                                                                                                                                                                                                                                                           | The same Google Calendar client's secret (starts with `GOCSPX-`).                                                                                                                                                                                  |
+| `TURNSTILE_SECRET_KEY`                | Recommended, for the check that bookings and website chats come from people | Bookings and website chats rely on their limits, a hidden field only bots fill in, and the database's caps.                                                                                                                                                              | Cloudflare's **Turnstile** page: the widget's secret key. Set its site key on Vercel (`NEXT_PUBLIC_TURNSTILE_SITE_KEY`) first. Production refuses Cloudflare's test secret. See "Protect the booking page with Turnstile (optional)". Worker only. |
+| `WORKER_ENCRYPTION_KEYS_PREVIOUS`     | Only after a key rotation. Leave it unset on the first setup.               | Nothing, until a key is rotated.                                                                                                                                                                                                                                         | Old `WORKER_ENCRYPTION_KEY` values from your password manager, separated by commas. Each must be a valid key, or the worker will not start.                                                                                                        |
 
 #### The worker: leave these unset
 
@@ -1360,11 +1364,13 @@ The defaults are right in production. Setting some of these changes real behavio
 | `FAKE_APPROVAL_MS`                         | `3000`                                                                     | Used only by the fake carrier.                                                                                                                                                |
 | `ASSISTANT_PROVIDER`                       | `anthropic` when `ANTHROPIC_API_KEY` is set, otherwise `none`              | Production refuses `scripted`, the stand-in the tests use. `none` turns the Assistant off even with a key.                                                                    |
 | `ASSISTANT_MODEL`                          | `claude-sonnet-5`                                                          | The Claude model the Assistant uses. Change it only as "Change the model" in "The Assistant: Anthropic" describes.                                                            |
-| `ASSISTANT_DAILY_TOKENS`                   | `2000000` tokens per workspace per day                                     | Change it only as "Change the daily limit" in "The Assistant: Anthropic" describes.                                                                                           |
+| `ASSISTANT_DAILY_TOKENS`                   | `2000000` tokens per workspace per day                                     | Change it only as "Change the daily limit" in "The Assistant: Anthropic" describes, with the same number on `handsfreeos-api`.                                                |
 
 #### Settings outside Fly that must match
 
 - **GitHub:** the repository secret `FLY_API_TOKEN` (Fly Part 9).
+- **The API:** when the worker has `ASSISTANT_DAILY_TOKENS`, `handsfreeos-api` needs the same number ("Change the daily limit" in "The Assistant: Anthropic").
+- **Turnstile:** the site key on Vercel (`NEXT_PUBLIC_TURNSTILE_SITE_KEY`) and the worker's `TURNSTILE_SECRET_KEY` come from the same Cloudflare widget.
 - **Vercel:** `NEXT_PUBLIC_API_URL` must be `https://api.handsfreeos.com`, and `NEXT_PUBLIC_WORKER_URL` must be `https://hooks.handsfreeos.com` (Fly Part 10). If the API address is missing, the web app tries `http://127.0.0.1:4000`. If the worker address is missing, number search, browser calls, mailbox and calendar sign-in and the booking pages try `http://127.0.0.1:4100`.
 - **Providers:** Twilio, Postmark, Microsoft and Google must call `https://hooks.handsfreeos.com`, never `handsfreeos-worker.fly.dev`. A Twilio request sent to any other address fails with `403 Invalid signature`.
 - **Never change `hooks.handsfreeos.com`.** The worker writes that address into every Twilio number it buys, and into each business's Messaging Service and browser-call (TwiML) app. Nothing re-points any of them afterwards (see "If the public address ever changes" in "The phone carrier: Twilio").
@@ -1427,6 +1433,20 @@ If a key was already set that way, copy it once from the running worker, after i
 
 2. Save it in your password manager as "Worker encryption key (current)". Never commit it or paste it anywhere else.
 3. Press Command-K to clear the Terminal window.
+
+#### Generate and save the chat IP key
+
+The website chat keeps visitors' IP addresses only as a one-way hash made with this key, for its limits and its network blocks. Nothing is sealed with it, so losing it loses only those counts, but the worker won't start without it.
+
+1. Generate the key.
+
+   ```bash
+   openssl rand -base64 32
+   ```
+
+   You should see one line of 44 characters ending in `=`.
+
+2. Save it in a new password manager entry named "Chat IP key".
 
 #### Make up the Postmark webhook password
 
@@ -1542,7 +1562,7 @@ The worker only checks that these three values are present, never that they are 
 #### Give the worker its secrets
 
 1. In your password manager, make a secure note named "handsfreeos-worker first import".
-2. Put these nine lines in the note, one per line, without quotes. Copy each real value from its own entry.
+2. Put these ten lines in the note, one per line, without quotes. Copy each real value from its own entry.
 
    ```text
    DATABASE_URL_WORKER=postgresql://hfos_worker.ybupfghakoszfcxhyrby:<hfos_worker password>@aws-0-us-east-1.pooler.supabase.com:5432/postgres?sslmode=require
@@ -1554,9 +1574,10 @@ The worker only checks that these three values are present, never that they are 
    POSTMARK_SERVER_TOKEN=<server API token>
    POSTMARK_ACCOUNT_TOKEN=<account API token>
    POSTMARK_WEBHOOK_PASSWORD=<webhook password>
+   CHAT_IP_KEY=<chat IP key>
    ```
 
-3. Copy the nine lines from the note.
+3. Copy the ten lines from the note.
 4. Start the import.
 
    ```bash
@@ -1576,11 +1597,11 @@ The worker only checks that these three values are present, never that they are 
    fly secrets list --app handsfreeos-worker
    ```
 
-   You should see all nine names, marked `Staged`.
+   You should see all ten names, marked `Staged`.
 
 8. Delete the "handsfreeos-worker first import" note from your password manager. Each value already has its own entry, and a leftover note would be one more copy of every secret that no rotation step updates.
 
-Add the feature secrets later, as their own sections describe: `TWILIO_PRIMARY_PROFILE_SID` (Twilio Step 4), the Microsoft and Google values ("Connected mailboxes: Outlook and Gmail"), `ANTHROPIC_API_KEY` ("The Assistant: Anthropic"), and the Google Calendar values and the optional `TURNSTILE_SECRET_KEY` ("The calendar: Google, Outlook and online booking"). After the first deploy, each secrets change restarts the worker.
+Add the feature secrets later, as their own sections describe: `TWILIO_PRIMARY_PROFILE_SID` (Twilio Step 4), the Microsoft and Google values ("Connected mailboxes: Outlook and Gmail"), `ANTHROPIC_API_KEY` ("The Assistant: Anthropic"), the Google Calendar values ("The calendar: Google, Outlook and online booking"), and `TURNSTILE_SECRET_KEY` ("Protect the booking page with Turnstile (optional)" in the same section), which the website chat uses too. After the first deploy, each secrets change restarts the worker.
 
 ### Fly Part 7: The first deploy, by hand
 
@@ -2207,21 +2228,22 @@ How changes reach the apps:
 
 The console steps below describe the goal. If a console has moved or works differently, search it for the name in the middle column.
 
-| Secret                                 | Where the new value comes from                           | How to switch without breaking things                                                                                                                                                                                                                                              |
-| -------------------------------------- | -------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `DATABASE_URL`, `DATABASE_URL_WORKER`  | A new password from `openssl rand -hex 32`               | See "Change an app role password" in "The database: Supabase (hosted)".                                                                                                                                                                                                            |
-| `SUPABASE_SECRET_KEY`                  | The Supabase dashboard's **API Keys** page               | Create a new secret key, check it with steps 5 to 7 of "Check the Postmark tokens and the Supabase key" in Fly Part 6, set it on the worker, then delete the old key in the dashboard (see "Copy the publishable key and the secret key" in "The database: Supabase (hosted)").    |
-| `POSTMARK_SERVER_TOKEN` and `SMTP_URL` | Postmark, the production server's **API Tokens**         | Check the new token with steps 1, 2 and 7 of "Check the Postmark tokens and the Supabase key" in Fly Part 6. Both contain the server token, so change them in one import. Then remove the old token in Postmark. See "Changing a token" under "Good to know" in "Email: Postmark". |
-| `POSTMARK_ACCOUNT_TOKEN`               | Postmark, the account's **API Tokens**                   | Check the new token with steps 3, 4 and 7 of "Check the Postmark tokens and the Supabase key" in Fly Part 6. Set it, then remove the old one in Postmark.                                                                                                                          |
-| `POSTMARK_WEBHOOK_PASSWORD`            | `openssl rand -hex 24`                                   | Follow "Changing the Postmark webhook password" below. A mismatch loses mail.                                                                                                                                                                                                      |
-| `TWILIO_AUTH_TOKEN`                    | The Twilio console, master account, **Auth Token**       | See "Rotate the master Auth Token later" in "The phone carrier: Twilio". Subaccount tokens are separate and do not change.                                                                                                                                                         |
-| `MICROSOFT_OAUTH_CLIENT_SECRET`        | The Entra app, **Certificates & secrets**                | See "Rotating the client secrets" in "Connected mailboxes: Outlook and Gmail". Put the new expiry date in your calendar. Outlook calendars use the same secret.                                                                                                                    |
-| `GOOGLE_OAUTH_CLIENT_SECRET`           | The Google Cloud OAuth client                            | See "Rotating the client secrets" in "Connected mailboxes: Outlook and Gmail".                                                                                                                                                                                                     |
-| `GOOGLE_CALENDAR_OAUTH_CLIENT_SECRET`  | The `HandsFreeOS Calendar` project's Google OAuth client | See "Rotating the Google Calendar client secret" in "The calendar: Google, Outlook and online booking".                                                                                                                                                                            |
-| `TURNSTILE_SECRET_KEY`                 | Cloudflare's **Turnstile** page, the widget's settings   | See the end of "Protect the booking page with Turnstile (optional)" in "The calendar: Google, Outlook and online booking". Give the worker the new secret at once.                                                                                                                 |
-| `FLY_API_TOKEN`                        | `fly tokens create org` (Fly Part 9)                     | Store the new token in GitHub, then find the old token's ID and revoke it (end of Fly Part 9).                                                                                                                                                                                     |
-| `WORKER_ENCRYPTION_KEY`                | `openssl rand -base64 32`                                | See "Rotating the worker encryption key" below.                                                                                                                                                                                                                                    |
-| `ANTHROPIC_API_KEY`                    | The Claude Console, **Settings** → **API keys**          | See "Rotate the key" in "The Assistant: Anthropic". Give the worker the new key before you disable the old one.                                                                                                                                                                    |
+| Secret                                 | Where the new value comes from                           | How to switch without breaking things                                                                                                                                                                                                                                                           |
+| -------------------------------------- | -------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `DATABASE_URL`, `DATABASE_URL_WORKER`  | A new password from `openssl rand -hex 32`               | See "Change an app role password" in "The database: Supabase (hosted)".                                                                                                                                                                                                                         |
+| `SUPABASE_SECRET_KEY`                  | The Supabase dashboard's **API Keys** page               | Create a new secret key, check it with steps 5 to 7 of "Check the Postmark tokens and the Supabase key" in Fly Part 6, set it on the worker, then delete the old key in the dashboard (see "Copy the publishable key and the secret key" in "The database: Supabase (hosted)").                 |
+| `POSTMARK_SERVER_TOKEN` and `SMTP_URL` | Postmark, the production server's **API Tokens**         | Check the new token with steps 1, 2 and 7 of "Check the Postmark tokens and the Supabase key" in Fly Part 6. Both contain the server token, so change them in one import. Then remove the old token in Postmark. See "Changing a token" under "Good to know" in "Email: Postmark".              |
+| `POSTMARK_ACCOUNT_TOKEN`               | Postmark, the account's **API Tokens**                   | Check the new token with steps 3, 4 and 7 of "Check the Postmark tokens and the Supabase key" in Fly Part 6. Set it, then remove the old one in Postmark.                                                                                                                                       |
+| `POSTMARK_WEBHOOK_PASSWORD`            | `openssl rand -hex 24`                                   | Follow "Changing the Postmark webhook password" below. A mismatch loses mail.                                                                                                                                                                                                                   |
+| `TWILIO_AUTH_TOKEN`                    | The Twilio console, master account, **Auth Token**       | See "Rotate the master Auth Token later" in "The phone carrier: Twilio". Subaccount tokens are separate and do not change.                                                                                                                                                                      |
+| `MICROSOFT_OAUTH_CLIENT_SECRET`        | The Entra app, **Certificates & secrets**                | See "Rotating the client secrets" in "Connected mailboxes: Outlook and Gmail". Put the new expiry date in your calendar. Outlook calendars use the same secret.                                                                                                                                 |
+| `GOOGLE_OAUTH_CLIENT_SECRET`           | The Google Cloud OAuth client                            | See "Rotating the client secrets" in "Connected mailboxes: Outlook and Gmail".                                                                                                                                                                                                                  |
+| `GOOGLE_CALENDAR_OAUTH_CLIENT_SECRET`  | The `HandsFreeOS Calendar` project's Google OAuth client | See "Rotating the Google Calendar client secret" in "The calendar: Google, Outlook and online booking".                                                                                                                                                                                         |
+| `TURNSTILE_SECRET_KEY`                 | Cloudflare's **Turnstile** page, the widget's settings   | See the end of "Protect the booking page with Turnstile (optional)" in "The calendar: Google, Outlook and online booking". Give the worker the new secret at once.                                                                                                                              |
+| `FLY_API_TOKEN`                        | `fly tokens create org` (Fly Part 9)                     | Store the new token in GitHub, then find the old token's ID and revoke it (end of Fly Part 9).                                                                                                                                                                                                  |
+| `WORKER_ENCRYPTION_KEY`                | `openssl rand -base64 32`                                | See "Rotating the worker encryption key" below.                                                                                                                                                                                                                                                 |
+| `ANTHROPIC_API_KEY`                    | The Claude Console, **Settings** → **API keys**          | See "Rotate the key" in "The Assistant: Anthropic". Give the worker the new key before you disable the old one.                                                                                                                                                                                 |
+| `CHAT_IP_KEY`                          | `openssl rand -base64 32`                                | Rarely worth it. The website chat keeps its network blocks and its count of new visitors from one network under this key, so a new key forgets both: blocked networks are unblocked, while blocked visitors stay blocked. Save the new key in your password manager, then set it on the worker. |
 
 #### Changing the Postmark webhook password
 
@@ -2552,7 +2574,7 @@ Never use the root `pnpm build` as the build command. It builds the API and the 
 
 ### Environment variables
 
-The web app reads six settings, plus an optional seventh for the booking page's bot check, and Vercel reads one more for the install. All of them are plain, public values. Next.js copies the `NEXT_PUBLIC_` ones into the pages, so anyone can read them in a browser. That is why none of them may ever be a secret.
+The web app reads six settings, plus a seventh for the check that bookings and website chats come from people, and Vercel reads one more for the install. All of them are plain, public values. Next.js copies the `NEXT_PUBLIC_` ones into the pages, so anyone can read them in a browser. That is why none of them may ever be a secret.
 
 | Name                                   | Value                                      | What it does                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
 | -------------------------------------- | ------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -2562,8 +2584,10 @@ The web app reads six settings, plus an optional seventh for the booking page's 
 | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | `<publishable key>`                        | Copied from Supabase **Project Settings** → **API Keys** and kept in your password manager. Starts with `sb_publishable_`. Required, like the URL, and fails the same way without it.                                                                                                                                                                                                                                                                                                                 |
 | `NEXT_PUBLIC_PASSKEYS_ENABLED`         | `true`                                     | Shows passkey sign-in and the passkey settings. Only the exact value `false` turns them off.                                                                                                                                                                                                                                                                                                                                                                                                          |
 | `NEXT_PUBLIC_GMAIL_ENABLED`            | `false`                                    | Keeps **Connect Gmail** off until Google approves the restricted scopes. Only the exact value `true`, in lower case, turns it on; `True`, `1` or `yes` leave Gmail off. Leaving it unset also keeps Gmail off.                                                                                                                                                                                                                                                                                        |
-| `NEXT_PUBLIC_TURNSTILE_SITE_KEY`       | `<Turnstile site key>` (optional)          | The public site key of the Cloudflare Turnstile widget that checks bookings come from people. The check shows only once the worker also has `TURNSTILE_SECRET_KEY`. Set this one and redeploy before the worker gets its secret: with the secret and no site key, every online booking fails. See "Protect the booking page with Turnstile (optional)" in "The calendar: Google, Outlook and online booking".                                                                                         |
+| `NEXT_PUBLIC_TURNSTILE_SITE_KEY`       | `<Turnstile site key>` (optional)          | The public site key of the Cloudflare Turnstile widget that checks bookings and website chats come from people. The check shows only once the worker also has `TURNSTILE_SECRET_KEY`. Set this one and redeploy before the worker gets its secret: with the secret and no site key, every online booking and every website chat message fails. See "Protect the booking page with Turnstile (optional)" in "The calendar: Google, Outlook and online booking".                                        |
 | `ENABLE_EXPERIMENTAL_COREPACK`         | `1`                                        | Read by Vercel, not by the app. Makes the install use pnpm 12.3.4, the version pinned in the root `package.json` (the `packageManager` field). If the build log names another pnpm version, use "If the build fails".                                                                                                                                                                                                                                                                                 |
+
+The web app's server reads one more setting, `CHAT_LOOKUP_CACHE_MS`, which is never copied into the pages: how long, in milliseconds, it keeps each website chat widget's settings before asking the worker again. Leave it unset. In production it keeps them for a minute (`60000`). `0` keeps nothing, which the browser tests use so a pause or a new key shows at once.
 
 To add or change a variable after the import:
 
@@ -2586,7 +2610,7 @@ Never add any of the following to Vercel. They live only in Fly.io secrets (the 
 - a Supabase key that starts with `sb_secret_`, or `SUPABASE_SECRET_KEY`
 - `DATABASE_URL`, `DATABASE_URL_WORKER` or any other database connection string
 - anything that starts with `TWILIO_`, `POSTMARK_`, `TURNSTILE_`, `ANTHROPIC_` or `OPENAI_`, or contains `_OAUTH_` (such as `MICROSOFT_OAUTH_CLIENT_SECRET`, `GOOGLE_OAUTH_CLIENT_SECRET` and `GOOGLE_CALENDAR_OAUTH_CLIENT_SECRET`)
-- `WORKER_ENCRYPTION_KEY` or `SMTP_URL`
+- `WORKER_ENCRYPTION_KEY`, `CHAT_IP_KEY` or `SMTP_URL`
 
 Do not paste or upload `.env.hosted` or any other `.env` file from your laptop into Vercel. `.env.hosted` also holds the database passwords. Copy only the publishable key. In Vercel its name must be exactly `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`.
 
@@ -4998,7 +5022,7 @@ In all of these, the panel says "Something went wrong". When the cause is on Ant
 
 ### Change the daily limit
 
-Each workspace may use 2,000,000 tokens a day. That counts every kind of token its questions use: sent, written back, and written to or read from Anthropic's cache. The day runs from midnight to midnight in the workspace's own time zone. The worker checks the total before each question, so the last question of the day can go a little over. The same number applies to every workspace. Workflow AI steps, **Describe**, website scans and **Try it** count toward the same limit (see "AI steps and the daily AI limit" in "Workflows, the knowledge base and agency templates").
+Each workspace may use 2,000,000 tokens a day. That counts every kind of token its questions use: sent, written back, and written to or read from Anthropic's cache. The day runs from midnight to midnight in the workspace's own time zone. The worker checks the total before each question, so the last question of the day can go a little over. The same number applies to every workspace. Workflow AI steps, **Describe**, website scans and **Try it** count toward the same limit (see "AI steps and the daily AI limit" in "Workflows, the knowledge base and agency templates"). So does the AI teammate, which may use at most its share of it: 60% unless its **Limits** say otherwise ("The AI teammate and website chat").
 
 When a workspace reaches it, the panel says "That’s today’s Assistant limit for {workspace}" and "It resets at midnight. Everything else in HandsFreeOS still works."
 
@@ -5025,10 +5049,22 @@ When a workspace reaches it, the panel says "That’s today’s Assistant limit 
 
    You should see a new `worker started` line. Press Control-C to stop watching.
 
-To go back to 2,000,000:
+5. Give the API the same number. The worker enforces the limit, and the API shows each business's use against it (the AI teammate's **Limits**), so the two must match. Start an import on the API.
+
+   ```bash
+   fly secrets import --app handsfreeos-api
+   ```
+
+6. Paste the same line, then press Return and Control-D. Fly restarts the API. The API doesn't check the number: with anything but digits it quietly uses 2,000,000, and the use it shows is off.
+
+To go back to 2,000,000, remove it from both apps:
 
 ```bash
 fly secrets unset --app handsfreeos-worker ASSISTANT_DAILY_TOKENS
+```
+
+```bash
+fly secrets unset --app handsfreeos-api ASSISTANT_DAILY_TOKENS
 ```
 
 Each extra million tokens a day can add up to $10 a day per workspace. Raise the spend limit in the Console to match if you need to.
@@ -5126,12 +5162,12 @@ Both Google clients send people back to the same address, `https://hooks.handsfr
 
 The new secrets go on the worker only (`handsfreeos-worker`) and in your password manager. The API refuses to start if it sees any name that contains `_OAUTH_` or starts with `TURNSTILE_` (it stops with "The API process must never hold privileged keys. Remove: ..."). Never commit any of these values, never put them in a `.env` file in this repository, and never add them to `handsfreeos-api` or GitHub. Only the Turnstile site key goes on Vercel.
 
-| Name                                  | Copy it from                                                                                                | Put it in                                                                         |
-| ------------------------------------- | ----------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
-| `GOOGLE_CALENDAR_OAUTH_CLIENT_ID`     | **Google Auth platform** → **Clients** → your client → **Client ID**, in the `HandsFreeOS Calendar` project | `handsfreeos-worker` and the password manager ("Google Calendar client")          |
-| `GOOGLE_CALENDAR_OAUTH_CLIENT_SECRET` | The same client's **Client secret** (shown in full once)                                                    | `handsfreeos-worker` and the password manager ("Google Calendar client")          |
-| `TURNSTILE_SECRET_KEY`                | Optional. Cloudflare's **Turnstile** page: the widget's secret key                                          | `handsfreeos-worker` and the password manager ("Cloudflare Turnstile")            |
-| `NEXT_PUBLIC_TURNSTILE_SITE_KEY`      | Optional. The same widget's site key. Not a secret.                                                         | Vercel, Production environment, and the password manager ("Cloudflare Turnstile") |
+| Name                                  | Copy it from                                                                                                                              | Put it in                                                                         |
+| ------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
+| `GOOGLE_CALENDAR_OAUTH_CLIENT_ID`     | **Google Auth platform** → **Clients** → your client → **Client ID**, in the `HandsFreeOS Calendar` project                               | `handsfreeos-worker` and the password manager ("Google Calendar client")          |
+| `GOOGLE_CALENDAR_OAUTH_CLIENT_SECRET` | The same client's **Client secret** (shown in full once)                                                                                  | `handsfreeos-worker` and the password manager ("Google Calendar client")          |
+| `TURNSTILE_SECRET_KEY`                | Optional for booking pages, recommended once any business uses the website chat. Cloudflare's **Turnstile** page: the widget's secret key | `handsfreeos-worker` and the password manager ("Cloudflare Turnstile")            |
+| `NEXT_PUBLIC_TURNSTILE_SITE_KEY`      | Optional. The same widget's site key. Not a secret.                                                                                       | Vercel, Production environment, and the password manager ("Cloudflare Turnstile") |
 
 Leave `CALENDAR_PROVIDER` and `CALENDAR_REFRESH_MS` unset on the worker. In production the worker always uses the real providers and refuses `CALENDAR_PROVIDER=fake`. `CALENDAR_REFRESH_MS` sets how often every connected calendar's busy times are read again, in milliseconds. It defaults to `600000`, every 10 minutes.
 
@@ -5552,14 +5588,16 @@ Cloudflare Turnstile checks that a booking comes from a person, usually without 
 - The site key is public. It goes on Vercel as `NEXT_PUBLIC_TURNSTILE_SITE_KEY`.
 - The secret key goes on the worker as `TURNSTILE_SECRET_KEY`, and nowhere else. The API refuses to start with any name that starts with `TURNSTILE_`.
 
-The worker decides whether the page shows the check, and the page needs the site key to show it. So set the site key on Vercel first. With the secret on the worker and no site key in the web build, every online booking fails with "Please confirm you’re a person, then try again."
+The worker decides whether the page shows the check, and the page needs the site key to show it. So set the site key on Vercel first. With the secret on the worker and no site key in the web build, every online booking fails with "Please confirm you’re a person, then try again.", and every website chat message with "Please confirm you’re a person, then send again."
+
+The same widget checks the website chat, whose chat window also runs on `app.handsfreeos.com`, inside the business's site. There it stays invisible unless Cloudflare needs the visitor to do something. Set Turnstile up before any business turns on its website chat ("The AI teammate and website chat").
 
 Cloudflare renames its dashboard menus from time to time. If a label below has moved, search the dashboard for "Turnstile".
 
 1. Sign in at `https://dash.cloudflare.com` and open the account that holds `handsfreeos.com`.
 2. Open **Turnstile** from the sidebar.
 3. Click **Add widget**. If the wording differs, look for the button that adds a new widget.
-4. Name it `HandsFreeOS booking`.
+4. Name it `HandsFreeOS`. The one widget covers the booking pages and the website chat.
 5. Add the hostname `app.handsfreeos.com`.
 6. For the widget mode, choose **Managed**, the mode Cloudflare recommends. If it asks about pre-clearance, choose no.
 7. Create the widget.
@@ -5593,7 +5631,7 @@ Cloudflare renames its dashboard menus from time to time. If a label below has m
 
     You should see the booking confirmed, then cancelled.
 
-In production the worker refuses to start with Cloudflare's always-pass test secret (`TURNSTILE_SECRET_KEY is Cloudflare’s test secret; use the real one`). If Cloudflare can't be reached, bookings are refused with "We couldn’t check this booking just now. Try again in a minute, or give us a call."
+In production the worker refuses to start with Cloudflare's always-pass test secret (`TURNSTILE_SECRET_KEY is Cloudflare’s test secret; use the real one`). If Cloudflare can't be reached, bookings are refused with "We couldn’t check this booking just now. Try again in a minute, or give us a call." Website chat messages still land in the inbox, but the AI teammate leaves them to people until a later message from the same visitor passes the check.
 
 To replace the secret key, make a new one in the widget's settings on Cloudflare's Turnstile page (look for the option that rotates the secret key). Save it in the "Cloudflare Turnstile" entry, then give it to the worker at once with steps 11 to 13. The site key stays the same.
 
@@ -6149,6 +6187,226 @@ The step log ends "(today’s AI limit was reached, so the fallback)" or "(the f
 
 A rescan of a site that hasn't changed suggests nothing new. **What changed** then shows every page as "Same as last time".
 
+## The AI teammate and website chat
+
+Each business can have one AI teammate: an assistant with a name, such as "Ava", that answers the business's customers by text, email and the website chat. It replies to new leads, answers questions from the knowledge base, asks the business's qualifying questions, books appointments on its calendars, and hands a conversation to a person when it should. The Assistant (⌘J) works for the business's own people; the teammate works for its customers. The website chat is a chat button the business pastes onto its own website. Chats land in the inbox with texts and email.
+
+Where to find them:
+
+- **AI teammate** is in the sidebar after **Knowledge** (in the menu drawer on phones). Its tabs are **Teammate**, where it's set up, and **Activity**, which lists what it did.
+- **Settings** → **Website chat** holds the chat button: the sites it shows on, the snippet to paste, how it looks and who answers.
+- The inbox's **Needs a person** box lists the conversations it handed over. Its drafts wait inside their conversations and on **Approvals**.
+
+Everyone in a business can see the teammate and its **Activity**, and approve or reject its reply drafts. Owners and admins set it up, change its status, approve the discounts it wants to offer, and set up the website chat.
+
+It uses the Assistant's Anthropic key, model and daily limit ("The Assistant: Anthropic"). Without the key, every conversation it would answer goes to **Needs a person** with the note "The AI isn’t set up for this business yet, so it couldn’t answer." The tables come from the migrations `20260918000100_ai_team_enums.sql` to `20260918000900_ai_usage_today.sql`. If the hosted project doesn't have them yet, push them with "Apply new migrations" in "The database: Supabase (hosted)".
+
+### Settings each app reads
+
+| Name                             | Where it goes                                               | Required                                                  | What it does                                                                                                                                                                                                      |
+| -------------------------------- | ----------------------------------------------------------- | --------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `CHAT_IP_KEY`                    | Fly secret on `handsfreeos-worker`                          | Yes. In production the worker won't start without it.     | The website chat keeps visitors' IP addresses only as a one-way hash made with this key, for its limits and network blocks. It must be 32 characters or more ("Generate and save the chat IP key" in Fly Part 6). |
+| `TURNSTILE_SECRET_KEY`           | Fly secret on `handsfreeos-worker`                          | Recommended before any business turns on its website chat | The Cloudflare Turnstile widget's secret key. The worker checks every booking with Cloudflare, and every chat's first message, every 50th, and the first after a visitor's weekly new token.                      |
+| `NEXT_PUBLIC_TURNSTILE_SITE_KEY` | Vercel, **Production** and **Preview**                      | With the secret                                           | The same widget's site key. Not a secret. Set it and redeploy before the worker gets the secret.                                                                                                                  |
+| `ASSISTANT_DAILY_TOKENS`         | Fly secret on `handsfreeos-worker` and on `handsfreeos-api` | No. The default is 2,000,000.                             | Tokens each business may use a day. The worker enforces it and the API shows each business's use against it, so both need the same number ("Change the daily limit" in "The Assistant: Anthropic").               |
+| `CHAT_LOOKUP_CACHE_MS`           | Vercel (read only by the web app's server)                  | No. Leave it unset.                                       | How long, in milliseconds, the web app keeps each widget's settings before asking the worker again. Production keeps them for a minute. `0` keeps nothing, which the browser tests use.                           |
+
+Turnstile's two keys are set up with "Protect the booking page with Turnstile (optional)" in "The calendar: Google, Outlook and online booking": one widget covers the booking pages and the website chat. Your laptop and CI get Cloudflare's always-pass test keys from `pnpm env:local` instead, and production refuses the test secret.
+
+The web app looks up each widget's settings from its own servers, for the snippet's script and for each chat window. So the worker counts those lookups per address and widget (60 a minute), under a ceiling of 600 a minute per address, and Vercel's CDN keeps the snippet's script for 5 minutes. One business's busy site can't use up another's room.
+
+### Give the worker its chat key
+
+On a first setup, the key goes in with the worker's other secrets (Fly Part 6). If the worker is already running, give it the key before you deploy the website chat. Without it the new worker refuses to start, and its log says `CHAT_IP_KEY must be a long random value (32+ characters): openssl rand -base64 32`.
+
+1. Generate the key and save it, with "Generate and save the chat IP key" in Fly Part 6.
+2. Start an import.
+
+   ```bash
+   fly secrets import --app handsfreeos-worker
+   ```
+
+3. Paste `CHAT_IP_KEY=<chat IP key>`, then press Return and Control-D. Fly restarts the worker.
+4. Clear the clipboard.
+
+   ```bash
+   pbcopy < /dev/null
+   ```
+
+5. Check that it's there.
+
+   ```bash
+   fly secrets list --app handsfreeos-worker
+   ```
+
+   You should see `CHAT_IP_KEY` in the `NAME` column.
+
+### How the teammate works
+
+- **One teammate, with skills.** A business picks a preset (**Lead Responder**, **Lead Qualifier** or **Appointment Coordinator**) or **Blank**, then a name and how it says it's AI. Presets only switch skills on. The builder has eleven parts: **Identity**, **Channels**, **Respond**, **Answer**, **Qualify**, **Book**, **Follow up**, **Hours**, **Autonomy**, **Limits** and **Hand-off**. A change counts only after **Save**, and saved settings reach customers at once. **History** lists each saved version, and **Restore** brings one back without touching its training progress.
+- **Honest about being AI.** In **Identity** a business chooses **Says it’s AI in its first message** or **Only when asked**. Either way it never says it's a person: a sincere "are you a real person?" always gets the answer that it's an AI assistant, and a check in the code blocks any reply that claims otherwise. The builder warns that **Only when asked** isn't for California customers.
+- **Training wheels, then automatic.** Its status is **Off**, **Training wheels** or **Automatic**. In training, anything that reaches a customer (a reply, a booking, a move or a cancellation) waits as one draft for someone's **Approve**, **Edit** or **Reject**, in the conversation and on **Approvals**. Its own notes, tasks, qualifying answers and stage moves happen at once. After the number of approvals set in **Autonomy** (20 unless changed, from 5 to 200) it switches to automatic by itself. The rail shows the progress, for example "12 of 20 approved · 3 edited". **Switch to automatic now** skips the rest, and **Back to training** starts the count again.
+- **Drafts don't wait forever.** A draft nobody decides in time (120 minutes unless **Autonomy** says otherwise) expires, and its conversation goes to **Needs a person**. If the customer writes again first, the draft is dropped and the next reply answers everything.
+- **What it writes from.** The knowledge base and the business profile, and the customer's record and messages from the last 7 days (up to 20). It quotes prices only when the profile's **AI may quote prices** switch is on. It never offers a discount on its own: one it wants to offer waits for an owner's or admin's OK. Refunds always go to a person.
+- **A check before anything goes out.** Every reply is checked for its length, links (the business's own only), phone numbers and email addresses (the business's or this customer's only), prices and discounts, leftover placeholders, "you're booked" when nothing was booked, and the disclosure rule. A reply that fails is rewritten once, then goes to a person.
+- **Website chat visitors are strangers.** Anyone can type a customer's phone number into a chat. So a visitor's details link the chat to that customer, but the teammate never reads that customer's history, visits or details back to the visitor, and never moves or cancels their bookings; those go through the links sent to the contact on file. New bookings from a chat work.
+- **When it answers.** Within its **Hours** (always, after hours only, or custom), in conversations it's handling or that nobody is handling or assigned to. It waits a moment first, so a few quick messages get one reply: 3 seconds on chat, 20 on texts, 60 on email. It never answers automatic emails, and it stays out of loops with other bots.
+- **People come first.** A person's reply in a conversation it's handling takes the conversation over, and so does **Take over**. The teammate stays quiet there until someone clicks **Hand back**.
+- **Texts in quiet hours.** It may text a reply to a customer's own text from the last 15 minutes, up to 3 times in one quiet period. It never starts a text conversation in quiet hours; its own texts wait until they end. STOP, and plain words like "stop texting me", opt the person out.
+- **New leads.** With **Message new leads first** on (in **Respond**), it writes once to each new lead: by text when they agreed to texts (with STOP wording), otherwise by email, otherwise not at all. Imported leads and booking-page leads are skipped.
+- **Limits.** At most 12 replies to one customer a day and 6 look-ups per reply unless **Limits** says otherwise, and at most its share of the business's daily AI limit: 60% unless changed, so the Assistant and workflows always have room.
+- **Records.** Its messages show "Ava (AI)", or "Ava (AI) · approved by Dale". The timeline and the audit log name it too. **Activity** lists every run with what started it, what it looked up, the checks, and what it sent or drafted.
+- **The test console** in the rail tries the settings on screen, saved or not. Its look-ups are real, but it changes nothing and sends nothing.
+
+### Hand-offs, and the emails they send
+
+The teammate hands a conversation to a person when:
+
+- the customer asks for a person, or sounds frustrated (when **Hand-off** says so);
+- a topic on its sensitive list comes up. Legal threats, complaints, refunds and cancelling a service are always on it;
+- it can't answer from the knowledge base, and **Answer** says to hand those over;
+- a limit is reached, its share of the AI limit is used up, a draft expires, or something goes wrong;
+- someone describes an emergency: a gas smell, a carbon monoxide alarm, fire or smoke, flooding, or someone hurt. The customer gets fixed safety steps at once, never an AI reply.
+
+The conversation then goes to the inbox's **Needs a person** box with the teammate's note. It's assigned to the conversation's assignee, or else the open lead's assignee, or else the customer's owner, or else nobody. The customer gets the business's hand-off message from **Hand-off** once, with `{expectation}` filled in from the business's open hours (for example "someone from our team will reply shortly"). An emergency gets the safety steps instead. A reply, or **Take over**, clears it.
+
+| Email                                                                                                                                           | Who gets it                                                                                                                              | When                                                                                                                                          | Turning it off                                                                                              |
+| ----------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| "<customer> needs a person"                                                                                                                     | The conversation's assignee. When nobody is assigned, the teammate's hand-off list: owners and admins, unless **Hand-off** names people. | Every hand-off. It has the teammate's note, the customer's last message and **Open the conversation**.                                        | Each person, in **Settings** → **Notifications**: **Email me when the AI teammate hands me a conversation** |
+| "Urgent: <customer> may smell gas" (or has a carbon monoxide alarm going off, reports fire or smoke, reports flooding, or says someone is hurt) | The assignee and every owner and admin                                                                                                   | An emergency. Marked urgent, with what the customer wrote and the safety steps they got, word for word.                                       | It can't be turned off.                                                                                     |
+| "<customer> is waiting for a reply"                                                                                                             | The assignee, or else the business's owners and admins                                                                                   | Nobody has replied after 15 minutes of the business's open hours (the unanswered-reply email from texting)                                    | Each person, in **Settings** → **Notifications**: **Email me when a customer is waiting**                   |
+| "Ava reached its share of today’s AI limit"                                                                                                     | The business's owners                                                                                                                    | Once a day, when the teammate used its share. Until midnight, customers who write get the hand-off message once and go to **Needs a person**. | It can't be turned off.                                                                                     |
+
+Two more emails go to customers, not to the team:
+
+- **The hand-off message by email,** as "A message from <business>". In quiet hours, more than 15 minutes after the customer's own text, the teammate can't text them. If they have an email address, the message goes by email; otherwise it waits for quiet hours to end, and is skipped if someone wrote in the meantime.
+- **"<business> replied to your chat".** A website chat reply the visitor hasn't seen after 10 minutes is emailed to them if they gave an address, or else texted if they gave a number and agreed to texts. Texts wait for quiet hours.
+
+### Set up the website chat for a client
+
+Do this with the client's web person, or send them the page: it has the steps for common site builders.
+
+1. Check that Turnstile is set up ("Protect the booking page with Turnstile (optional)" in "The calendar: Google, Outlook and online booking"). Without it, the chat relies on its limits and a hidden field only bots fill in.
+2. In the business, open **Settings** → **Website chat** and click **Turn on website chat**.
+3. Under **Your sites**, add each website the chat button may show on, such as `acmeroofing.com`, up to 10. Type the address people visit. `http://` becomes `https://`, and a bare domain gets its `www` version too. Wildcards like `*.acme.com` don't work, so add each subdomain on its own. Browsers refuse to show the chat window on any site that isn't listed, even with the snippet pasted.
+4. Choose **Who answers**: the AI teammate, or **Only your team**. The teammate also needs **Website chat** on in its **Channels**.
+5. Set the look (greeting, button label, colours and position), the **Away message** for when nobody is answering, **What to ask visitors for** (**Don’t ask**, **When needed** or **Before the chat starts**), whether to **Offer a box to get texts**, and the **Daily limit** of new chats, so a flood of strangers can't use up the business's AI time. Click **Save**.
+
+   You should see "Website chat saved."
+
+6. Click **Copy** next to the snippet. It looks like this, with the widget's own key:
+
+   ```html
+   <script async src="https://app.handsfreeos.com/embed/v1/wk_….js"></script>
+   ```
+
+7. Paste it once on the site, just before `</body>` on every page, usually in a footer code box. Pick the site builder on the page for its steps: WordPress, Wix, Squarespace, GoHighLevel, Webflow or something else.
+8. Open the site and click the chat button once.
+
+   You should see, within a minute, "Seen on acmeroofing.com" and how long ago in the install check, and an **Installed** badge next to the site. It says "Not seen yet" until someone opens the chat on one of the sites.
+
+9. Send a test message from the site.
+
+   You should see it in the inbox as a website chat, and the reply in the chat window.
+
+**Try it** opens a preview on HandsFreeOS itself, even while the chat is paused. Test chats there create nothing, send nothing and never count as the install check.
+
+Changes reach the sites within about 5 minutes: browsers and Vercel's CDN keep the snippet's script for 5 minutes, and the web app keeps each widget's settings for a minute. That goes for a pause, a new key, a new site and a new look.
+
+To pause the chat, turn off its switch at the top of **Settings** → **Website chat**. The page then says "Paused. Visitors don’t see the chat button until you turn it back on."
+
+#### Get a new key
+
+The `wk_…` part of the snippet is the widget's key. It isn't secret: anyone can read it on the business's site, and it only works on the listed sites anyway. A new key is for when the snippet turns up on a site that isn't the business's, as the page suggests, or when the business wants to start over.
+
+1. In **Settings** → **Website chat**, click **New key**.
+2. Read the warning: "The snippet you pasted before stops working within a few minutes, and the chat button disappears from your sites until you paste the new one." Click **Get a new key**.
+
+   You should see "New key ready. Paste the new snippet on your site."
+
+3. Copy the new snippet and replace the old one on every site.
+4. Open each site, click the chat button once, and check the install check.
+
+Chats already in the inbox stay there.
+
+### Before switching a client's teammate to automatic
+
+Automatic means nobody sees a message before the customer does. Go through this with the client, then click **Switch to automatic now**, or let the teammate get there by itself at its approval count. **Back to training** is always there.
+
+1. **No issues.** The rail lists what's wrong, each with a fix. Red ones stop it from being turned on at all. Read the yellow ones too, such as a thin knowledge base, hours that overlap quiet hours, or a workflow that also texts new leads.
+2. **Its training record.** In **Activity**, choose **30 days**, and read the runs that were edited, rejected, handed off or failed. If the same edit keeps coming up, fix the settings or the knowledge base first. The rail's count, such as "17 of 20 approved · 3 edited", shows how many needed edits.
+3. **The knowledge base.** The profile, services, service area and FAQs are filled in, and someone decided the **AI may quote prices** switch. Questions it can't answer go to a person, so gaps cost time, not mistakes.
+4. **The test console.** Try the client's common questions, a booking, "are you a real person?", an angry customer and an emergency, and read what it would send.
+5. **Booking.** Every calendar in **Book** can be booked online, with the right services and hours, and rescheduling and cancelling are set the way the client wants.
+6. **Qualifying.** The questions, what makes a lead not a fit, and who hears about qualified leads.
+7. **Hand-off.** Someone is on the hand-off list and gets the emails (**Settings** → **Notifications**), and the hand-off message reads right.
+8. **Open hours.** The business's hours in **Settings** → **Workspace** are right: the hand-off message and the 15-minute alert use them.
+9. **Texting.** The carrier registration covers automated replies (step 2 of "Before turning workflows on for a client" in "Workflows, the knowledge base and agency templates"), and the quiet hours are right.
+10. **Disclosure.** **Only when asked** only after counsel's answer (see "Going live with the AI teammate and website chat" below), and never for a business with California customers until then.
+11. **Limits.** Its share of the daily AI limit and its replies to one customer a day fit the business's volume.
+12. **Workflows.** No workflow texts the same new leads as its **Respond** skill does. A workflow can hand the conversation to the teammate instead, as the "Speed to lead with your AI teammate" and "Missed-call text back with your AI teammate" recipes do.
+
+### Going live with the AI teammate and website chat
+
+Do these once for HandsFreeOS, before any client uses the teammate or the website chat.
+
+1. **The migrations.** The hosted project has `20260918000100` to `20260918000900` ("Apply new migrations" in "The database: Supabase (hosted)").
+2. **The Turnstile widget.** Create the Cloudflare Turnstile widget for `app.handsfreeos.com`, or check the booking pages' one, with "Protect the booking page with Turnstile (optional)" in "The calendar: Google, Outlook and online booking". Its site key goes on Vercel as `NEXT_PUBLIC_TURNSTILE_SITE_KEY` (then redeploy), and after that its secret key on the worker.
+3. **The two new worker secrets.** `CHAT_IP_KEY` ("Give the worker its chat key" above), before the deploy that brings the website chat, and `TURNSTILE_SECRET_KEY` (step 2). Check both.
+
+   ```bash
+   fly secrets list --app handsfreeos-worker
+   ```
+
+   You should see `CHAT_IP_KEY` and `TURNSTILE_SECRET_KEY` in the `NAME` column.
+
+4. **The daily AI limit.** If the worker has `ASSISTANT_DAILY_TOKENS`, give the API the same number ("Change the daily limit" in "The Assistant: Anthropic").
+5. **A test run.** In your own business, set up a teammate in training, turn on the website chat for a site you control, and send a message from that site.
+
+   You should see the teammate's draft in the inbox, and after you approve it, the reply in the chat window.
+
+6. **Counsel's review.** Before any client relies on them, ask counsel about two rules, and keep the answer:
+   - **The quiet-hours reply window.** In the business's quiet hours, the teammate may text a reply to a customer's own text from the last 15 minutes, up to 3 times in one quiet period. It never starts a text conversation in quiet hours.
+   - **"Only when asked" in California.** California's bot disclosure law (Business and Professions Code sections 17940 to 17943) covers bots that talk with people in California to encourage a sale. The builder warns that a bot that helps sell to or book California customers has to say it's a bot up front. **Only when asked** says so only when someone asks. Until counsel says otherwise, keep every business with California customers on **Says it’s AI in its first message**.
+
+Then, for each client: the teammate's name and disclosure, its qualifying questions, and when to switch off training wheels ("Before switching a client's teammate to automatic" above).
+
+### When something goes wrong with the teammate or the chat
+
+#### The chat button doesn't show on a site
+
+- The site isn't in **Your sites**, exactly as visitors type it. A bare domain gets its `www` version, but other subdomains need their own entry. In the browser's developer console, an error that mentions `frame-ancestors` means the site isn't listed.
+- The chat is paused, or the site still has the snippet from before **New key**.
+- A change can take up to 5 minutes to reach the site.
+- The site builder shows the snippet as text instead of running it. Paste it into a footer or custom-code box, not a text block.
+
+#### "Please confirm you’re a person" keeps showing
+
+The Turnstile site key on Vercel and the secret on the worker come from different widgets, or the widget doesn't list `app.handsfreeos.com`. Fix it with "Protect the booking page with Turnstile (optional)" in "The calendar: Google, Outlook and online booking".
+
+#### Cloudflare can't be reached
+
+Website chat messages still land in the inbox, marked so the teammate leaves them to people. The visitor's next message that passes the check gets one reply that covers both. Bookings are refused until Cloudflare answers.
+
+#### The teammate didn't answer
+
+Its **Activity** shows each run and how it ended. If there's no run, check in this order:
+
+1. Its status isn't **Off**, and **Channels** has that channel on. For a chat, the widget's **Who answers** names the teammate.
+2. It's within its **Hours**.
+3. Nobody took the conversation over, it isn't waiting in **Needs a person**, and it isn't assigned to someone. The teammate picks up only conversations nobody is handling or assigned to.
+4. The customer didn't text STOP or ask not to be contacted.
+5. It hasn't sent 12 replies to this customer today, or used its share of the daily AI limit (the owners get an email).
+6. The worker has an Anthropic key: its `worker started` line shows `"assistant":"anthropic"`, not `"none"`.
+
+#### A draft disappeared
+
+The customer wrote again before anyone decided it, and the next reply answers everything. Or it expired, and the conversation is in **Needs a person**.
+
+#### A visitor sees "That’s a lot of messages from here"
+
+The chat's limits per address, visitor, site and business stopped a burst. It clears within a minute. Lots of new visitors from one network, or the widget's **Daily limit**, stop new chats until the hour or the business's day is over.
+
 ## Local development
 
 This section runs all of HandsFreeOS on your Mac: the web app, the API, the worker, and a private copy of Supabase in Docker. It never touches the hosted Supabase project. By default nothing reaches Twilio, Postmark, Microsoft or Google either. The worker uses stand-ins for all of them, so nothing costs money and no phone is needed. The last part of this section explains how to swap one stand-in for the real provider when you need to.
@@ -6298,7 +6556,7 @@ Do these once, in order.
    pnpm env:local
    ```
 
-   You should see four lines: `wrote .env.local (11 vars)`, `wrote apps/api/.env (6 vars)`, `wrote apps/worker/.env (14 vars)` and `wrote apps/web/.env.local (5 vars)`.
+   You should see four lines: `wrote .env.local (11 vars)`, `wrote apps/api/.env (6 vars)`, `wrote apps/worker/.env (16 vars)` (more with Assistant lines you added) and `wrote apps/web/.env.local (6 vars)`.
 
    | File                  | Read by                                   | What is in it                                                                               |
    | --------------------- | ----------------------------------------- | ------------------------------------------------------------------------------------------- |
@@ -6309,7 +6567,7 @@ Do these once, in order.
 
    Each file starts with a comment saying it was generated and must not be committed, and Git ignores all four. Their values only work against the local stack.
 
-   `pnpm env:local` rewrites all four files from scratch every time you run it. In `apps/worker/.env` it keeps `WORKER_ENCRYPTION_KEY`, which the worker seals carrier and mailbox credentials with and needs to open them later, and the Assistant's `ANTHROPIC_API_KEY`, `ASSISTANT_MODEL` and `ASSISTANT_DAILY_TOKENS` lines. Any other line you added to these files by hand is gone after the next run, so add it back afterwards.
+   `pnpm env:local` rewrites all four files from scratch every time you run it. In `apps/worker/.env` it keeps `WORKER_ENCRYPTION_KEY`, which the worker seals carrier and mailbox credentials with and needs to open them later, and the Assistant's `ANTHROPIC_API_KEY`, `ASSISTANT_MODEL` and `ASSISTANT_DAILY_TOKENS` lines. Any other line you added to these files by hand is gone after the next run, so add it back afterwards. It also writes Cloudflare's always-pass Turnstile test keys (`TURNSTILE_SECRET_KEY` for the worker, `NEXT_PUBLIC_TURNSTILE_SITE_KEY` for the web app), so bookings and website chats run the human check the way production does. The check goes through Cloudflare, so it needs the internet.
 
 4. Fill the database with demo data.
 
@@ -6554,8 +6812,8 @@ How the stand-in behaves:
   You should see `{"events":[...]}`, one entry for each appointment that person is on, each with `"attendees":[]`.
 
 - The booking page works locally too. Owners and admins set up the booking site in **Settings** → **Calendars** → **Booking site**, and turn on **Customers can book it online** for a calendar. Then open `http://localhost:3000/book/<site>/<calendar>`, where `<site>` is the booking site's **Link name** and `<calendar>` is the calendar's link name. The seed sets up Lone Star's site with four calendars at `http://localhost:3000/book/lone-star-hvac` ("Try booking locally" in "The calendar: Google, Outlook and online booking" walks through it). Locally each address may book ten times as often as in production, because every test comes from one address.
-- There is no Turnstile check locally. To see it, add Cloudflare's always-pass test secret, `TURNSTILE_SECRET_KEY=1x0000000000000000000000000000000AA`, to `apps/worker/.env` and restart `pnpm dev`. The worker hands the page the matching test site key, so the web app needs nothing.
-- Setting `MICROSOFT_OAUTH_CLIENT_ID` (as in "Outlook" under "Trying a real provider from your laptop") switches calendars to the real providers too. The **Google** button then opens "Google Calendar isn’t set up yet" unless the Google Calendar values are set as well. To keep the calendar stand-in while you try real Outlook mail, also add `CALENDAR_PROVIDER=fake` to `apps/worker/.env`. `pnpm env:local` removes that line, and the Turnstile one, when it rewrites the file.
+- The Turnstile check runs locally with Cloudflare's always-pass test keys, which `pnpm env:local` writes: the booking page shows Cloudflare's check above the **Book** button, and it passes by itself. It goes through Cloudflare, so it needs the internet. To book without it, delete the `TURNSTILE_SECRET_KEY` line from `apps/worker/.env` and restart `pnpm dev`; the next `pnpm env:local` puts it back.
+- Setting `MICROSOFT_OAUTH_CLIENT_ID` (as in "Outlook" under "Trying a real provider from your laptop") switches calendars to the real providers too. The **Google** button then opens "Google Calendar isn’t set up yet" unless the Google Calendar values are set as well. To keep the calendar stand-in while you try real Outlook mail, also add `CALENDAR_PROVIDER=fake` to `apps/worker/.env`. `pnpm env:local` removes that line when it rewrites the file.
 - A running tunnel exposes the two test addresses above, like `/test/mailboxes/deliver`.
 
 ### Running the tests
@@ -6653,6 +6911,8 @@ Both kinds of tests need the local stack running and `pnpm env:local` done.
    ```
 
 The browser tests create their own users (password `correct-horse-battery-staple`) and their own businesses. They never use the seeded accounts, but what they create stays in your local database until you reset it.
+
+The booking and website chat tests run Cloudflare's Turnstile check with its always-pass test keys, so the browser tests need the internet. Tests that book straight through the worker send a test token (`TURNSTILE_TEST_TOKEN` in `apps/web/e2e/booking-helpers.ts`).
 
 ### Trying a real provider from your laptop
 
@@ -7404,7 +7664,8 @@ Several checks from here on sign in to the web app, so your first account comes 
 6. Do the checks in "Before you start" in "Connected mailboxes: Outlook and Gmail". Before Postmark approves the account, its invitation check only reaches an address on `handsfreeos.com`. If you have no mailbox there, do that one check after approval.
 7. Give the worker the Microsoft client ID and secret ("Give the worker the Microsoft values") and the Google client ID and secret ("Give the worker the Google values"), both in "Connected mailboxes: Outlook and Gmail". The worker starts without them, but Connect Outlook needs the Microsoft pair. The Google pair does not turn on Connect Gmail; only the web build flag does that.
 8. Set up the calendar with "The calendar: Google, Outlook and online booking": the Google Calendar project, `Calendars.ReadWrite` on the Microsoft app, and the worker's Google Calendar values. Then connect your own calendar in **Settings** → **My calendar**, and record the demo video for Google's review as you do. Outlook calendars work at once; Google Calendar stays limited to your test users until Google approves it.
-9. Before any workspace turns on its booking site, decide whether you want Turnstile. If you do, set it up with "Protect the booking page with Turnstile (optional)" in the same section.
+9. Set up Turnstile with "Protect the booking page with Turnstile (optional)" in the same section. It's optional while only booking pages use it, but do it before any business turns on its website chat.
+10. Before any business uses the AI teammate or the website chat, work through "Going live with the AI teammate and website chat" in "The AI teammate and website chat".
 
 #### Stage 7: sign-in email and Sign in with Google
 
@@ -7638,6 +7899,7 @@ A wrong password or user inside `DATABASE_URL` does not stop the API. It starts 
 | `ANTHROPIC_API_KEY is required with ASSISTANT_PROVIDER=anthropic`                             | Set `ANTHROPIC_API_KEY` ("Give the worker the key" in "The Assistant: Anthropic"), or remove the `ASSISTANT_PROVIDER` secret.                                                                                                                                 |
 | `ASSISTANT_DAILY_TOKENS must be a whole number above zero`                                    | Set digits only, with no commas or spaces (for example `2000000`), or remove the secret to use the default.                                                                                                                                                   |
 | `TURNSTILE_SECRET_KEY is Cloudflare’s test secret; use the real one`                          | Replace it with the widget's real secret key ("Protect the booking page with Turnstile (optional)" in "The calendar: Google, Outlook and online booking"), or remove the secret.                                                                              |
+| `CHAT_IP_KEY must be a long random value (32+ characters): openssl rand -base64 32`           | Set `CHAT_IP_KEY` from your password manager ("Generate and save the chat IP key" in Fly Part 6), or make one there if you never did. Every deploy that includes the website chat needs it.                                                                   |
 | `WORKER_ENCRYPTION_KEY must be 32 random bytes, base64 encoded (openssl rand -base64 32)`     | Checked after all the others. The key was cut or changed when pasted. Paste the saved key again exactly. The same check runs on every key in `WORKER_ENCRYPTION_KEYS_PREVIOUS`.                                                                               |
 
 Two more errors come from Supabase's connection pooler, not from the worker, and they only show after every check above passes. `password authentication failed for user` means the password in `DATABASE_URL_WORKER` is wrong: copy the `DATABASE_URL_WORKER` value from `.env.hosted` again (right after a password change, wait 30 seconds first). `Tenant or user not found` means the user is not `hfos_worker.ybupfghakoszfcxhyrby`, or the pooler host is wrong; a bare `hfos_worker` fails.
@@ -7678,7 +7940,7 @@ Two more errors come from Supabase's connection pooler, not from the worker, and
 
    You should see `worker started`.
 
-Some gaps do not stop the worker but break features later: a missing or wrong `SUPABASE_SECRET_KEY` (photos, voicemails, attachments, imports), missing Microsoft client values (Connect Outlook, for mailboxes and calendars), missing Google Calendar values (the **Google** button in **Settings** → **My calendar**), a missing `TWILIO_PRIMARY_PROFILE_SID` (local-number registrations), and a missing or wrong `ANTHROPIC_API_KEY` (the Assistant). Each has its own entry below or in its section. The worker also starts with Postmark tokens that are set but wrong; customer email then fails, and so does adding a business's own domain. "Check the Postmark tokens and the Supabase key" in Fly Part 6 catches a wrong key or token before it goes live.
+Some gaps do not stop the worker but break features later: a missing or wrong `SUPABASE_SECRET_KEY` (photos, voicemails, attachments, imports), missing Microsoft client values (Connect Outlook, for mailboxes and calendars), missing Google Calendar values (the **Google** button in **Settings** → **My calendar**), a missing `TWILIO_PRIMARY_PROFILE_SID` (local-number registrations), a missing or wrong `ANTHROPIC_API_KEY` (the Assistant, and the AI teammate, whose conversations then all go to a person), and a missing `TURNSTILE_SECRET_KEY` (bookings and website chats then rely on their limits alone). Each has its own entry below or in its section. The worker also starts with Postmark tokens that are set but wrong; customer email then fails, and so does adding a business's own domain. "Check the Postmark tokens and the Supabase key" in Fly Part 6 catches a wrong key or token before it goes live.
 
 #### The Deploy workflow did nothing
 
