@@ -26,6 +26,12 @@ for (const k of Object.keys(process.env)) if (PRIVILEGED.test(k)) delete process
 const KNOWLEDGE_SITE = 'http://127.0.0.1:4190';
 process.env.FETCH_TEST_ORIGINS ??= KNOWLEDGE_SITE;
 
+// The stand-in business websites the website chat specs paste the snippet on (e2e/fixtures/chat-site.mjs): the
+// widget allows the first, and the browser refuses to show the chat window on the second.
+const CHAT_SITES = ['http://127.0.0.1:4191', 'http://127.0.0.1:4192'];
+// The web server's widget lookups aren't kept, so a pause or a new key shows at once (CI serves the production build).
+process.env.CHAT_LOOKUP_CACHE_MS ??= '0';
+
 const CI = !!process.env.CI;
 
 export default defineConfig({
@@ -85,5 +91,11 @@ export default defineConfig({
       reuseExistingServer: !CI,
       timeout: 60_000,
     },
+    ...CHAT_SITES.map((site) => ({
+      command: `node e2e/fixtures/chat-site.mjs ${new URL(site).port}`,
+      url: `${site}/healthz`,
+      reuseExistingServer: !CI,
+      timeout: 30_000,
+    })),
   ],
 });

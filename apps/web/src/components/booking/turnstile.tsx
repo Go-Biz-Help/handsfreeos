@@ -40,10 +40,13 @@ export function Turnstile({
   siteKey,
   onToken,
   resetKey = 0,
+  invisible = false,
 }: {
   siteKey: string;
   onToken: (token: string | null) => void;
   resetKey?: number;
+  /** Shows nothing unless Cloudflare needs the person to do something (the website chat). */
+  invisible?: boolean;
 }) {
   const box = useRef<HTMLDivElement>(null);
   const handler = useRef(onToken);
@@ -60,6 +63,7 @@ export function Turnstile({
           sitekey: siteKey,
           theme: 'auto',
           size: 'flexible',
+          ...(invisible ? { appearance: 'interaction-only' } : {}),
           callback: (token: string) => handler.current(token),
           'expired-callback': () => handler.current(null),
           'error-callback': () => handler.current(null),
@@ -70,6 +74,8 @@ export function Turnstile({
       gone = true;
       if (id && window.turnstile) window.turnstile.remove(id);
     };
-  }, [siteKey, resetKey]);
-  return <div ref={box} className="min-h-[65px]" data-testid="turnstile" />;
+  }, [siteKey, resetKey, invisible]);
+  return (
+    <div ref={box} className={invisible ? undefined : 'min-h-[65px]'} data-testid="turnstile" />
+  );
 }

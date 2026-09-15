@@ -178,3 +178,8 @@ export type AiTeammateGet = Ok<'/v1/queries/ai_teammate.get'>;
 export type AiTeammateActivity = Ok<'/v1/queries/ai_teammate.activity'>;
 export type AiTeammateSaveOut = Ok<'/v1/commands/ai_teammate.save_config'>;
 export type AiTeammateSaveBody = Body<'/v1/commands/ai_teammate.save_config'>;
+
+// Milestone 7: website chat
+export type ChatWidgetList = Ok<'/v1/queries/chat_widget.list'>;
+export type ChatWidget = ChatWidgetList['items'][number];
+export type ChatWidgetUpdateBody = Body<'/v1/commands/chat_widget.update'>;
