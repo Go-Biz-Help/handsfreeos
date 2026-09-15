@@ -128,6 +128,7 @@ export const FIELD_CATALOG: readonly FieldDef[] = [
       ['assistant', 'Assistant'],
       ['booking_page', 'Booking page'],
       ['series', 'Repeat series'],
+      ['ai_teammate', 'AI teammate'],
     ),
   }),
   f('appointment.starts_at', 'Appointment start', 'appointment', 'date', 'appointment'),

@@ -513,10 +513,12 @@ export const aiTeammateSendDraft = defineCommand({
   actors: ['system'],
   async handler(ctx, input) {
     const ws = ctx.scope.workspaceId!;
+    // Locked, so a second delivery of the approval waits here and then finds it sent.
     const [d] = await ctx.tx
       .select()
       .from(aiTeammateDrafts)
-      .where(and(eq(aiTeammateDrafts.id, input.draftId), eq(aiTeammateDrafts.workspaceId, ws)));
+      .where(and(eq(aiTeammateDrafts.id, input.draftId), eq(aiTeammateDrafts.workspaceId, ws)))
+      .for('update');
     if (!d) throw HfosError.notFound('Draft not found.');
     if (d.status !== 'approved')
       throw HfosError.rule('draft_not_approved', 409, 'Only an approved draft goes out.');
@@ -525,11 +527,13 @@ export const aiTeammateSendDraft = defineCommand({
       .from(messages)
       .where(and(eq(messages.workspaceId, ws), eq(messages.aiDraftId, d.id)))
       .limit(1);
-    if (sent)
+    // Once: sent_at is set with its actions and message, so a draft with only a reschedule or a
+    // cancellation (no message to find) goes out once too.
+    if (d.sentAt || sent)
       return {
         draftId: d.id,
-        conversationId: sent.conversationId,
-        messageId: sent.id,
+        conversationId: sent?.conversationId ?? d.conversationId,
+        messageId: sent?.id ?? null,
         actions: [],
         duplicate: true,
       };
@@ -627,6 +631,10 @@ export const aiTeammateSendDraft = defineCommand({
       conversationId = r.output.conversationId;
       await ctx.tx.update(messages).set({ aiDraftId: d.id }).where(eq(messages.id, messageId));
     }
+    await ctx.tx
+      .update(aiTeammateDrafts)
+      .set({ sentAt: dsql`now()` })
+      .where(eq(aiTeammateDrafts.id, d.id));
     await ctx.emit({
       type: 'ai_teammate.draft_sent',
       entityType: 'ai_teammate_draft',

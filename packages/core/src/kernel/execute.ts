@@ -126,6 +126,18 @@ function assertActorAllowed(
     throw HfosError.forbidden(`${op.name} cannot be run by a ${actor.type} actor.`);
 }
 
+/**
+ * The test console's AI teammate only looks things up: the kernel refuses it every command, whatever the
+ * caller does (defence in depth; the console simulates its actions instead).
+ */
+function assertNotTestRun(actor: Actor): void {
+  if (actor.type === 'ai_employee' && actor.test)
+    throw HfosError.forbidden(
+      'The AI teammate’s test console never changes anything.',
+      'test_run_read_only',
+    );
+}
+
 function actorRoleLabel(scope: ResolvedScope): string | null {
   return scope.workspaceRole ?? (scope.orgRole ? `org_${scope.orgRole}` : null);
 }
@@ -290,6 +302,7 @@ export async function executeCommand<I extends z.ZodType, O extends z.ZodType>(
   meta: RequestMeta,
 ): Promise<ExecuteResult<z.output<O>>> {
   assertActorAllowed(cmd, actor);
+  assertNotTestRun(actor);
   const input = parseInput(cmd.input, rawInput);
   const scopeRef = cmd.scope(input);
   try {
@@ -351,6 +364,7 @@ export async function executeCommandIn<I extends z.ZodType, O extends z.ZodType>
       'Only the system, workflows and the AI teammate run commands in their own transaction.',
     );
   assertActorAllowed(cmd, actor);
+  assertNotTestRun(actor);
   const input = parseInput(cmd.input, rawInput);
   const scope = resolveMachineScope(actor, cmd.scope(input));
   await assertWorkerTx(tx, actor);

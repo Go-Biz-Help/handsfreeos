@@ -10,6 +10,7 @@ import { appointmentAttendees, appointments } from '@hfos/db/schema';
 import {
   AI_TEAMMATE_SOURCE,
   assertTeammateCalendar,
+  chatIdentityUnverified,
   requireAiConversation,
 } from '../ai-team/reach';
 import { bookAppointment, findBookingByClientId, type AttendeeDraft } from '../calendar/booking';
@@ -65,7 +66,10 @@ async function customerOf(ctx: CommandContext, ai: AiEmployeeActor) {
 
 /** That customer's own booking on an appointment (the model names the appointment, never the person). */
 async function customerBooking(ctx: CommandContext, ai: AiEmployeeActor, appointmentId: string) {
-  const { person } = await customerOf(ctx, ai);
+  const { conv, person } = await customerOf(ctx, ai);
+  // Anyone can type someone else's number into a website chat, so a chat never changes existing bookings
+  // (the customer's manage link does).
+  if (conv.channel === 'chat') throw chatIdentityUnverified();
   const [att] = await ctx.tx
     .select({ id: appointmentAttendees.id })
     .from(appointmentAttendees)
@@ -137,9 +141,8 @@ export const appointmentBookForCustomer = defineCommand({
       contactPhoneE164: phone,
       contactEmail: email,
       smsOk,
-      // The customer's own booking, made through the business's customer-facing channel: it counts in the
-      // booking page's caps and follows its rules.
-      source: 'booking_page',
+      // Filed under its own source; it counts in the booking page's caps and gets its confirmations.
+      source: 'ai_teammate',
     };
     const result = await bookAppointment(ctx, {
       calendar,
@@ -153,7 +156,7 @@ export const appointmentBookForCustomer = defineCommand({
       attendee,
       notes: input.notes ?? null,
       clientId: input.clientId,
-      source: 'booking_page',
+      source: 'ai_teammate',
     });
     if (result.duplicate) return bookingOutput(ctx.tx, result, false);
     const host = result.userIds[0] ?? null;

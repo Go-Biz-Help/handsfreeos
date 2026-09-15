@@ -235,7 +235,8 @@ export function ConversationView({
     conversationId: c.id,
     personId: person?.id ?? null,
     firstName: first,
-    channel: c.channel,
+    // A website chat has no composer mode yet: it starts on texts, which canText (chat_channel) keeps shut.
+    channel: c.channel === 'chat' ? undefined : c.channel,
     phoneDisplay: email ? (person?.phone ?? '') : c.counterpartDisplay,
     email: email ? c.counterpart : (person?.email ?? null),
     canText: data.canText,

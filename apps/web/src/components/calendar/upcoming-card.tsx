@@ -47,9 +47,9 @@ export function AppointmentRow({
             aria-hidden
           />
           <span className="truncate text-[13px] font-medium">{a.title}</span>
-          {a.source === 'booking_page' ? (
+          {a.source === 'booking_page' || a.source === 'ai_teammate' ? (
             <Badge variant="gray" className="h-5 text-[11.5px]">
-              Booked online
+              {a.source === 'ai_teammate' ? 'Booked by AI' : 'Booked online'}
             </Badge>
           ) : null}
           {a.status === 'completed' ? (

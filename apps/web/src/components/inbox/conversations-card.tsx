@@ -31,7 +31,9 @@ export function ConversationsCard({
         body: { workspaceId, personId: person.id, box: 'all', limit: 5 },
       })
       .then((r) => {
-        if (!cancelled) setItems(unwrap(r).items.filter((c) => c.lastMessageAt));
+        // Website chats open in the inbox, not in this card's text and email sheet.
+        if (!cancelled)
+          setItems(unwrap(r).items.filter((c) => c.lastMessageAt && c.channel !== 'chat'));
       })
       .catch(() => {
         if (!cancelled) setItems([]);
@@ -83,7 +85,7 @@ export function ConversationsCard({
               <button
                 key={c.id}
                 type="button"
-                onClick={() => onOpen(c.channel)}
+                onClick={() => onOpen(c.channel === 'email' ? 'email' : 'sms')}
                 data-testid={`customer-conversation-${c.id}`}
                 className="flex items-start gap-2.5 rounded-[6px] p-2.5 text-left hover:bg-card-2"
               >

@@ -1,12 +1,15 @@
 import { eq } from 'drizzle-orm';
 import { rows, sql } from '@hfos/db/client';
 import { people } from '@hfos/db/schema';
+import { CHAT_ON_SITE_MS, CHAT_VISITOR_NAME } from '../chat/limits';
+import { chatWidgetName } from '../chat/origins';
 import { formatPhone } from '../crm/phone';
 import { addressOut, fullName, tagsOf } from '../crm/records';
 import { HfosError } from '../errors';
 import { requireHuman } from '../kernel/actor';
 import { defineQuery } from '../kernel/define';
 import { decodeCursor, page } from '../kernel/pagination';
+import type { QueryContext } from '../kernel/types';
 import { quietHoursState } from '../messaging/quiet-hours';
 import {
   isOptedOut,
@@ -22,6 +25,7 @@ import {
   InboxListOutput,
   InboxSummaryInput,
   InboxSummaryOutput,
+  type ConversationChat,
   type ConversationSummary,
 } from '../schemas/conversation';
 import {
@@ -43,7 +47,9 @@ const SORT_KEY = (column: ReturnType<typeof sql>) =>
 
 type ConversationRow = {
   id: string;
-  channel: 'sms' | 'email';
+  channel: 'sms' | 'email' | 'chat';
+  /** A website chat's visitor's name, as they typed it. */
+  visitor_name: string | null;
   counterpart: string;
   status: 'open' | 'snoozed' | 'closed';
   person_id: string | null;
@@ -78,6 +84,7 @@ const conversationSelect = (
   select c.id, c.channel::text as channel, c.counterpart, c.status::text as status, c.person_id, p.first_name, p.last_name,
     c.assignee_user_id, coalesce(nullif(u.full_name, ''), u.email::text) as assignee_name, c.unread_count, c.last_message_at,
     c.last_preview, c.last_direction::text as last_direction, c.awaiting_reply_since, c.snoozed_until, c.created_at,
+    cv.name as visitor_name,
     (select json_build_object('id', l.id, 'title', l.title, 'stageName', s.name, 'valueCents', l.value_cents,
               'nextAction', l.next_action, 'nextActionAt', l.next_action_at)
        from app.leads l join app.pipeline_stages s on s.id = l.stage_id
@@ -91,6 +98,7 @@ const conversationSelect = (
   from app.conversations c
   left join app.people p on p.id = c.person_id
   left join app.users u on u.id = c.assignee_user_id
+  left join app.chat_visitors cv on cv.conversation_id = c.id
   where c.workspace_id = ${workspaceId}`;
 
 function summary(r: ConversationRow): ConversationSummary {
@@ -98,7 +106,12 @@ function summary(r: ConversationRow): ConversationSummary {
     id: r.id,
     channel: r.channel,
     counterpart: r.counterpart,
-    counterpartDisplay: r.channel === 'sms' ? formatPhone(r.counterpart) : r.counterpart,
+    counterpartDisplay:
+      r.channel === 'sms'
+        ? formatPhone(r.counterpart)
+        : r.channel === 'chat'
+          ? (r.visitor_name ?? CHAT_VISITOR_NAME)
+          : r.counterpart,
     status: r.status,
     person: r.person_id
       ? { id: r.person_id, fullName: fullName(r.first_name ?? '', r.last_name ?? '') }
@@ -124,6 +137,62 @@ function summary(r: ConversationRow): ConversationSummary {
         }
       : null,
     createdAt: iso(r.created_at)!,
+  };
+}
+
+/**
+ * A website chat's visitor for the inbox: what they typed, where they are, and whether they're blocked. Only
+ * the columns people may read (never the token hashes or the hashed IP).
+ */
+async function chatOf(
+  ctx: QueryContext,
+  workspaceId: string,
+  conversationId: string,
+  person: { readonly phoneE164: string | null; readonly email: string | null } | null,
+): Promise<ConversationChat | null> {
+  const [v] = await rows<{
+    id: string;
+    widget_id: string;
+    name: string | null;
+    phone_e164: string | null;
+    email: string | null;
+    last_page_path: string | null;
+    last_seen_at: Date | null;
+    on_site_now: boolean;
+    blocked: boolean;
+    network_blocked_until: Date | null;
+    allowed_origins: string[];
+  }>(
+    ctx.tx,
+    sql`select v.id, v.widget_id, v.name, v.phone_e164, v.email, v.last_page_path, v.last_seen_at,
+          coalesce(v.last_seen_at > now() - ${CHAT_ON_SITE_MS}::float8 * interval '1 millisecond', false) as on_site_now,
+          v.blocked_at is not null as blocked,
+          case when v.network_blocked_until > now() then v.network_blocked_until end as network_blocked_until,
+          w.allowed_origins
+        from app.chat_visitors v join app.chat_widgets w on w.id = v.widget_id
+        where v.workspace_id = ${workspaceId} and v.conversation_id = ${conversationId}`,
+  );
+  if (!v) return null;
+  const matchedOn =
+    person && v.phone_e164 && person.phoneE164 === v.phone_e164
+      ? ('phone' as const)
+      : person && v.email && person.email?.toLowerCase() === v.email
+        ? ('email' as const)
+        : null;
+  return {
+    visitorId: v.id,
+    widgetId: v.widget_id,
+    site: chatWidgetName(v.allowed_origins ?? []),
+    name: v.name,
+    phone: v.phone_e164 ? formatPhone(v.phone_e164) : null,
+    phoneE164: v.phone_e164,
+    email: v.email,
+    matchedOn,
+    pagePath: v.last_page_path,
+    lastSeenAt: iso(v.last_seen_at),
+    onSiteNow: v.on_site_now,
+    blocked: v.blocked,
+    networkBlockedUntil: iso(v.network_blocked_until),
   };
 }
 
@@ -162,6 +231,7 @@ export const inboxList = defineQuery({
               q
                 ? sql`and (lower(coalesce(p.first_name, '') || ' ' || coalesce(p.last_name, '')) like ${q}
                       or lower(c.counterpart) like ${q} or lower(coalesce(c.last_preview, '')) like ${q}
+                      or lower(coalesce(cv.name, '')) like ${q}
                       ${digits.length >= 3 ? sql`or c.counterpart like ${`%${digits}%`}` : sql``})`
                 : sql``
             }
@@ -293,16 +363,19 @@ export const conversationGet = defineQuery({
     const canText =
       row.channel === 'email'
         ? { ok: false, reason: 'email_channel' as const }
-        : !number || number.status !== 'active'
-          ? { ok: false, reason: 'no_number' as const }
-          : !ready.messagingReady
-            ? { ok: false, reason: 'not_ready' as const }
-            : (await isOptedOut(ctx.tx, input.workspaceId, row.counterpart)) ||
-                person?.smsConsent === 'opted_out'
-              ? { ok: false, reason: 'opted_out' as const }
-              : { ok: true, reason: null };
+        : row.channel === 'chat'
+          ? { ok: false, reason: 'chat_channel' as const }
+          : !number || number.status !== 'active'
+            ? { ok: false, reason: 'no_number' as const }
+            : !ready.messagingReady
+              ? { ok: false, reason: 'not_ready' as const }
+              : (await isOptedOut(ctx.tx, input.workspaceId, row.counterpart)) ||
+                  person?.smsConsent === 'opted_out'
+                ? { ok: false, reason: 'opted_out' as const }
+                : { ok: true, reason: null };
     return {
       conversation: summary(row),
+      chat: row.channel === 'chat' ? await chatOf(ctx, input.workspaceId, row.id, person) : null,
       person,
       openTasks,
       canText,
@@ -319,7 +392,7 @@ type ThreadRow = {
   occurred_at: Date;
   direction: 'inbound' | 'outbound';
   status: string;
-  channel: 'sms' | 'email' | null;
+  channel: 'sms' | 'email' | 'chat' | null;
   body: string | null;
   subject: string | null;
   from_address: string | null;

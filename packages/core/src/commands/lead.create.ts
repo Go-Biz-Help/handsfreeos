@@ -25,6 +25,23 @@ export const leadCreate = defineCommand({
   async handler(ctx, input) {
     const workspaceId = ctx.scope.workspaceId!;
     await assertAiReach(ctx, { personId: input.personId, companyId: input.companyId });
+    // The AI teammate opens a plain lead in an open stage: no owner, value or tags. (A lead its booking opens
+    // follows the calendar's settings, which the business chose.)
+    const aiDirect = ctx.actor.type === 'ai_employee' && ctx.commandName === 'lead.create';
+    if (aiDirect) {
+      const refused = [
+        ...(input.assigneeUserId ? ['assigneeUserId'] : []),
+        ...(input.valueCents !== 0 ? ['valueCents'] : []),
+        ...(input.tagIds?.length ? ['tagIds'] : []),
+      ];
+      if (refused.length)
+        throw HfosError.validation(
+          refused.map((path) => ({
+            path,
+            message: 'The AI teammate doesn’t set this. Someone on the team can.',
+          })),
+        );
+    }
     if (input.personId) await requirePerson(ctx.tx, workspaceId, input.personId);
     if (input.companyId) await requireCompany(ctx.tx, workspaceId, input.companyId);
     const [pipeline] = input.pipelineId
@@ -59,6 +76,12 @@ export const leadCreate = defineCommand({
           .orderBy(asc(pipelineStages.position))
           .limit(1);
     if (!stage) throw HfosError.notFound('Stage not found.');
+    if (aiDirect && stage.kind !== 'open')
+      throw HfosError.rule(
+        'stage_not_open',
+        409,
+        'The AI teammate adds leads to open stages only. Someone on the team can win or lose a lead.',
+      );
     const position = await placeInStage(ctx.tx, stage.id, undefined, null);
     const [row] = await ctx.tx
       .insert(leads)

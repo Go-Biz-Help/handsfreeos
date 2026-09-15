@@ -210,9 +210,11 @@ function describeAction(e: AuditEntry): string {
     case 'message.send':
       return e.entityType === 'conversation'
         ? `started a conversation with ${withWho(e)}`
-        : s(e.after?.subject)
-          ? `sent an email to ${s(e.after?.to)} · ${s(e.after?.subject)}`
-          : `sent a text to ${s(e.after?.to)}`;
+        : s(e.after?.to) === 'Website chat'
+          ? 'replied in a website chat'
+          : s(e.after?.subject)
+            ? `sent an email to ${s(e.after?.to)} · ${s(e.after?.subject)}`
+            : `sent a text to ${s(e.after?.to)}`;
     case 'message.retry':
       return `tried the ${s(e.after?.to).includes('@') ? 'email' : 'text'} to ${s(e.after?.to)} again`;
     case 'message.receive':
@@ -521,9 +523,62 @@ function describeAction(e: AuditEntry): string {
       return 'started a run';
     case 'workflow_run.end':
       return wfRunEndSentence(e);
+    // Milestone 7: website chat
+    case 'chat_widget.create':
+      return `added a website chat for ${name(e)}`;
+    case 'chat_widget.update':
+      return `updated the website chat on ${name(e)} (${chatWidgetFields(e)})`;
+    case 'chat_widget.pause':
+      return `paused the website chat on ${name(e)}`;
+    case 'chat_widget.resume':
+      return `turned the website chat on ${name(e)} back on`;
+    case 'chat_widget.rotate_key':
+      return `gave the website chat on ${name(e)} a new key, so snippets pasted before stop working`;
+    case 'chat.receive':
+      return `received a website chat from ${s(e.after?.from) || 'a website visitor'}`;
+    case 'chat.identify':
+      return chatIdentifySentence(e);
+    case 'chat.block_visitor':
+      return e.after?.network
+        ? `blocked ${s(e.after?.name) || 'a website visitor'} and their network from the website chat for 7 days`
+        : `blocked ${s(e.after?.name) || 'a website visitor'} from the website chat`;
+    case 'chat.unblock_visitor':
+      return `let ${s(e.after?.name) || 'a website visitor'} use the website chat again`;
     default:
       return e.action;
   }
+}
+
+// ---- Milestone 7: website chat helpers ----
+
+const CHAT_WIDGET_FIELD: Record<string, string> = {
+  allowedOrigins: 'sites',
+  teammateId: 'who answers',
+  greeting: 'greeting',
+  launcherLabel: 'button label',
+  accentColor: 'colour',
+  position: 'position',
+  awayMessage: 'away message',
+  askFor: 'what it asks for',
+  smsConsent: 'texts consent box',
+  dailyCap: 'daily limit',
+};
+const chatWidgetFields = (e: AuditEntry) =>
+  andJoin(
+    Object.keys(e.after ?? {})
+      .filter((k) => k !== 'name')
+      .map((k) => CHAT_WIDGET_FIELD[k] ?? k),
+  ) || 'details';
+
+/** chat.identify writes the visitor's details, and can add a customer and link the chat to them. */
+function chatIdentifySentence(e: AuditEntry): string {
+  if (e.entityType === 'person') return `added ${name(e)} from the website chat`;
+  if (e.entityType === 'conversation')
+    return `linked a website chat to ${s(e.after?.person) || 'a customer'}`;
+  const said = s(e.after?.name);
+  return said
+    ? `noted that a website visitor said their name is ${said}`
+    : 'noted the details a website visitor gave';
 }
 
 // ---- Milestone 6: workflow helpers ----
@@ -815,7 +870,12 @@ function statusSentence(e: AuditEntry): string {
   if (s(e.after?.smsConsent) === 'opted_out')
     return `recorded that ${s(e.after?.number)} no longer takes texts (the carrier said so)`;
   const status = s(e.after?.status);
-  const what = s(e.after?.channel) === 'email' ? 'an email' : 'a text';
+  const what =
+    s(e.after?.channel) === 'email'
+      ? 'an email'
+      : s(e.after?.channel) === 'chat'
+        ? 'a chat message'
+        : 'a text';
   if (status === 'delivered') return `confirmed ${what} was delivered`;
   if (status === 'bounced')
     return `recorded that an email bounced${s(e.after?.errorMessage) ? `: ${s(e.after?.errorMessage)}` : ''}`;
@@ -934,6 +994,9 @@ export function auditCategory(action: string): AuditCategory {
       'email_address.',
       'email_suppression.',
       'mailbox.',
+      'chat.',
+      'chat_widget.',
+      'chat_visitor.',
     ].some((p) => action.startsWith(p))
   )
     return 'inbox';

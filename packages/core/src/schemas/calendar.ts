@@ -32,7 +32,13 @@ const partySize = z.int().min(1).max(100).default(1);
 
 export const CalendarStatusValue = z.enum(['draft', 'active', 'paused', 'archived']);
 export const AppointmentStatusValue = z.enum(['scheduled', 'completed', 'cancelled', 'no_show']);
-export const AppointmentSourceValue = z.enum(['staff', 'assistant', 'booking_page', 'series']);
+export const AppointmentSourceValue = z.enum([
+  'staff',
+  'assistant',
+  'booking_page',
+  'series',
+  'ai_teammate',
+]);
 export const AttendeeStatusValue = z.enum(['booked', 'cancelled', 'no_show', 'attended']);
 export const ResourceKindValue = z.enum([
   'room',

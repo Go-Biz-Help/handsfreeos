@@ -7,9 +7,9 @@ const num = (v: unknown): number | null => (typeof v === 'number' ? v : null);
 const obj = (v: unknown): Record<string, unknown> =>
   v && typeof v === 'object' ? (v as Record<string, unknown>) : {};
 
-/** Texts and emails mirror a conversation: what the customer sent, or what the business sent them. */
+/** Texts, emails and website chats mirror a conversation: what the customer sent, or what the business sent them. */
 export function isChannelEntry(e: TimelineEntry): boolean {
-  return e.kind === 'sms' || e.kind === 'email' || !!e.meta.direction;
+  return e.kind === 'sms' || e.kind === 'email' || e.kind === 'chat' || !!e.meta.direction;
 }
 const inbound = (e: TimelineEntry) => isChannelEntry(e) && e.meta.direction === 'inbound';
 const undelivered = (e: TimelineEntry) =>
@@ -59,6 +59,7 @@ export function describeTimeline(
     if (inbound(e)) return `emailed${subject}`;
     return undelivered(e) ? `sent an email that bounced${subject}` : `sent an email${subject}`;
   }
+  if (e.kind === 'chat') return inbound(e) ? 'chatted on your website' : 'replied in chat';
   const title = str(e.meta.title);
   const noun =
     recordType === 'person'
@@ -172,7 +173,8 @@ export function timelineBody(e: TimelineEntry): string | null {
 
 export function timelineDotClass(e: TimelineEntry): string {
   if (e.kind === 'sms' && str(e.meta.keyword) === 'stop') return 'bg-card-3';
-  if (e.kind === 'sms' || e.kind === 'email') return undelivered(e) ? 'bg-danger' : 'bg-accent';
+  if (e.kind === 'sms' || e.kind === 'email' || e.kind === 'chat')
+    return undelivered(e) ? 'bg-danger' : 'bg-accent';
   if (e.kind === 'note') return 'bg-accent';
   if (e.kind === 'call' && ['missed', 'outbound_missed', 'voicemail'].includes(e.subtype ?? ''))
     return 'bg-warning';

@@ -144,13 +144,13 @@ export async function enforceCaps(
     tx,
     sql`select
           (select count(*)::int from app.appointment_attendees a
-            where a.workspace_id = ${workspaceId} and a.source = 'booking_page'
+            where a.workspace_id = ${workspaceId} and a.source in ('booking_page', 'ai_teammate')
               and a.created_at > now() - interval '1 hour'
               and ((${phone}::text is not null and a.contact_phone_e164 = ${phone}::text)
                 or (${phone}::text is null and ${email}::text is not null and a.contact_email = ${email}::text))
           ) as by_contact,
           (select count(*)::int from app.appointment_attendees a join app.appointments p on p.id = a.appointment_id
-            where p.calendar_id = ${calendarId} and a.source = 'booking_page'
+            where p.calendar_id = ${calendarId} and a.source in ('booking_page', 'ai_teammate')
               and a.created_at > now() - interval '1 hour') as by_calendar`,
   );
   if ((r?.by_contact ?? 0) >= 3)
@@ -582,8 +582,11 @@ export async function rescheduleBooking(
     throw await unavailableError(ctx.tx, calendar, base, start, service);
   }
 
-  // A seat in a session or group time: take a seat at the new time, then give up the old one.
+  // A seat in a session or group time: take a seat at the new time, then give up the old one. The new seat
+  // is filed under whoever moved it: the AI teammate, or the customer from their manage link.
   const onCalendar = calendar.config.services.items.some((i) => i.serviceId === appt.serviceId);
+  const source =
+    ctx.actor.type === 'ai_employee' ? ('ai_teammate' as const) : ('booking_page' as const);
   const moved = await bookAppointment(ctx, {
     calendar,
     startsAt: start,
@@ -599,9 +602,9 @@ export async function rescheduleBooking(
       contactPhoneE164: att.contactPhoneE164,
       contactEmail: att.contactEmail,
       smsOk: att.smsOk,
-      source: 'booking_page',
+      source,
     },
-    source: 'booking_page',
+    source,
   });
   if (moved.appointmentId === appt.id)
     return { appointmentId: appt.id, attendeeId: att.id, ...from };

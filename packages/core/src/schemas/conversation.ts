@@ -3,8 +3,12 @@ import { isoDateTime, uuid } from './common';
 import { AddressOut, ListInput, TagRef, UserRef } from './crm';
 import { QuietState } from './telephony';
 
+/** What a person can open a conversation on (conversation.open): a text or an email. */
 export const messageChannel = z.enum(['sms', 'email']);
 export type MessageChannel = z.infer<typeof messageChannel>;
+/** What a conversation is on: a text, an email, or a website chat (M7). */
+export const conversationChannel = z.enum(['sms', 'email', 'chat']);
+export type ConversationChannel = z.infer<typeof conversationChannel>;
 export const conversationStatus = z.enum(['open', 'snoozed', 'closed']);
 /** needs_person: handed to a person and not yet picked up (oldest first); ai: the AI teammate answers. */
 export const inboxBox = z.enum(['mine', 'unassigned', 'all', 'needs_person', 'ai']);
@@ -21,7 +25,7 @@ export const OpenLeadRef = z.object({
 });
 export const ConversationSummary = z.object({
   id: uuid,
-  channel: messageChannel,
+  channel: conversationChannel,
   counterpart: z.string(),
   counterpartDisplay: z.string(),
   status: conversationStatus,
@@ -44,7 +48,7 @@ export const InboxListInput = ListInput.extend({
   workspaceId: uuid,
   box: inboxBox.default('all'),
   status: conversationStatus.default('open'),
-  channel: messageChannel.optional(),
+  channel: conversationChannel.optional(),
   q: z.string().trim().max(100).optional(),
   /** One customer's conversations in any status (the record page); `status` is ignored with it. */
   personId: uuid.optional(),
@@ -79,10 +83,37 @@ export const canTextReason = z.enum([
   'opted_out',
   'no_phone',
   'email_channel',
+  'chat_channel',
 ]);
+/**
+ * A website chat's visitor, for the inbox: what they typed ("Said their name is …", never verified), the
+ * page they're on, "On the site now", and whether they're blocked. Never a token hash or the hashed IP.
+ */
+export const ConversationChat = z.object({
+  visitorId: uuid,
+  widgetId: uuid,
+  /** The site the widget is on ("lonestarhvac.com"). */
+  site: z.string(),
+  name: z.string().nullable(),
+  phone: z.string().nullable(),
+  phoneE164: z.string().nullable(),
+  email: z.string().nullable(),
+  /** How the linked customer matched what they typed. */
+  matchedOn: z.enum(['phone', 'email']).nullable(),
+  /** The page their chat window last checked in from. */
+  pagePath: z.string().nullable(),
+  lastSeenAt: isoDateTime.nullable(),
+  /** Their chat window checked in within the last 2 minutes. */
+  onSiteNow: z.boolean(),
+  blocked: z.boolean(),
+  networkBlockedUntil: isoDateTime.nullable(),
+});
+export type ConversationChat = z.infer<typeof ConversationChat>;
 export const ConversationGetInput = z.object({ workspaceId: uuid, conversationId: uuid });
 export const ConversationGetOutput = z.object({
   conversation: ConversationSummary,
+  /** Website chats only. */
+  chat: ConversationChat.nullable(),
   person: z
     .object({
       id: uuid,

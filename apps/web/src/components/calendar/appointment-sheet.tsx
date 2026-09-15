@@ -341,10 +341,10 @@ export function AppointmentSheet({
                     />
                     {appt.calendar.name}
                   </span>
-                  {appt.source === 'booking_page' ? (
+                  {appt.source === 'booking_page' || appt.source === 'ai_teammate' ? (
                     <span className="inline-flex h-[22px] items-center gap-1.5 rounded-full bg-card-2 px-2 text-xs font-medium text-text-2">
                       <Globe className="h-3 w-3" strokeWidth={1.5} />
-                      Booked online
+                      {appt.source === 'ai_teammate' ? 'Booked by AI' : 'Booked online'}
                     </span>
                   ) : null}
                 </div>

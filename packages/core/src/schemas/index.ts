@@ -25,3 +25,4 @@ export * from './calendar';
 export * from './workflow';
 export * from './knowledge';
 export * from './ai-team';
+export * from './chat';

@@ -1,6 +1,6 @@
 import { and, eq, isNull } from 'drizzle-orm';
 import { leads, people } from '@hfos/db/schema';
-import { assertAiReach } from '../ai-team/reach';
+import { assertAiReach, refuseInChat } from '../ai-team/reach';
 import { formatPhone } from '../crm/phone';
 import { addressPatch, fullName, requireCompany, requirePerson } from '../crm/records';
 import { HfosError } from '../errors';
@@ -34,6 +34,8 @@ export const personUpdate = defineCommand({
           })),
         );
       await assertAiReach(ctx, { personId: current.id });
+      // Anyone can type someone else's number into a website chat, so a chat never changes the customer.
+      await refuseInChat(ctx);
     }
     if (input.companyId) await requireCompany(ctx.tx, workspaceId, input.companyId);
     const patch: Record<string, unknown> = {};

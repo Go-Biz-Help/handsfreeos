@@ -4,9 +4,9 @@
  * change; qualifying answers; booking for the customer in the conversation; handing conversations between it
  * and people; deciding and sending drafts; its settings and status; the inbox boxes; business open hours.
  */
-import { randomUUID } from 'node:crypto';
+import { randomBytes, randomUUID } from 'node:crypto';
 import { and, eq, inArray } from 'drizzle-orm';
-import { rows, sql } from '@hfos/db/client';
+import { asWorker, rows, sql } from '@hfos/db/client';
 import {
   activities,
   aiTeammateDrafts,
@@ -30,7 +30,7 @@ import {
 import { HfosError } from '../src/errors';
 import { AI_EMPLOYEE_COMMANDS, AI_EMPLOYEE_QUERIES, userIdOf } from '../src/kernel/actor';
 import { defineCommand } from '../src/kernel/define';
-import { executeCommand, executeQuery } from '../src/kernel/execute';
+import { executeCommand, executeCommandIn, executeQuery } from '../src/kernel/execute';
 import type {
   AiEmployeeActor,
   CommandDef,
@@ -57,6 +57,10 @@ import {
   attendeeCancelForCustomer,
   attendeeRescheduleForCustomer,
   calendarAvailability,
+  chatIdentify,
+  chatReceive,
+  chatVisitorStart,
+  chatWidgetCreate,
   conversationHandOff,
   conversationHandToAi,
   conversationTakeOver,
@@ -302,6 +306,37 @@ async function aiChat(
     biz.owner,
   );
   return { ...c, conversationId: received.conversationId, messageId: received.messageId };
+}
+
+/**
+ * A website chat whose visitor typed this number: linked to the customer with it (chat.identify) and
+ * answered by the AI teammate. Anyone can type anyone's number, so the customer isn't verified.
+ */
+async function chatAs(biz: Biz, phone: string): Promise<string> {
+  const { widgetId } = await run(
+    chatWidgetCreate,
+    { workspaceId: biz.wsId, allowedOrigins: [`chat-${randomUUID().slice(0, 8)}.example`] },
+    biz.owner,
+  );
+  const { output: visitor } = await sys(biz, chatVisitorStart, {
+    workspaceId: biz.wsId,
+    widgetId,
+    tokenHash: randomBytes(32).toString('hex'),
+  });
+  const { output: said } = await sys(biz, chatReceive, {
+    workspaceId: biz.wsId,
+    visitorId: visitor.visitorId,
+    body: 'Hi, can I move my visit?',
+    clientId: randomUUID(),
+    reminderAfterMs: 86_400_000,
+  });
+  await sys(biz, chatIdentify, { workspaceId: biz.wsId, visitorId: visitor.visitorId, phone });
+  await rows(
+    admin(),
+    sql`update app.conversations set handled_by = 'ai', ai_teammate_id = ${biz.teammateId}
+        where id = ${said.conversationId}`,
+  );
+  return said.conversationId;
 }
 
 async function conv(id: string) {
@@ -991,6 +1026,123 @@ describe('booking for the customer in the conversation', () => {
     });
     expect(cancelled.output.appointmentCancelled).toBe(true);
   });
+
+  it('files its bookings as the AI teammate’s, and in a website chat never moves, cancels or fills in the customer (F1)', async () => {
+    const vi = await aiChat(a, 'Vi');
+    const booked = (
+      await asAva(a, { conversationId: vi.conversationId }, appointmentBookForCustomer, {
+        workspaceId: a.wsId,
+        calendarId: visits.id,
+        startsAt: isoAt(day, '09:00'),
+        clientId: randomUUID(),
+      })
+    ).output;
+    const [source] = await rows<{ appointment: string; attendee: string }>(
+      admin(),
+      sql`select p.source::text as appointment, a.source::text as attendee
+          from app.appointment_attendees a join app.appointments p on p.id = a.appointment_id
+          where a.id = ${booked.attendeeId}`,
+    );
+    expect(source).toEqual({ appointment: 'ai_teammate', attendee: 'ai_teammate' });
+    // Someone types Vi's number into the website chat, so the chat is linked to her.
+    const inChat = { conversationId: await chatAs(a, vi.phone) };
+    await expectHfos(
+      () =>
+        asAva(a, inChat, attendeeRescheduleForCustomer, {
+          workspaceId: a.wsId,
+          appointmentId: booked.appointmentId,
+          startsAt: isoAt(day, '16:00'),
+        }),
+      'forbidden',
+      'chat_identity_unverified',
+    );
+    await expectHfos(
+      () =>
+        asAva(a, inChat, attendeeCancelForCustomer, {
+          workspaceId: a.wsId,
+          appointmentId: booked.appointmentId,
+        }),
+      'forbidden',
+      'chat_identity_unverified',
+    );
+    await expectHfos(
+      () =>
+        asAva(a, inChat, personUpdate, {
+          workspaceId: a.wsId,
+          personId: vi.personId,
+          email: 'someone@else.example',
+        }),
+      'forbidden',
+      'chat_identity_unverified',
+    );
+    const [p] = await admin()
+      .select({ email: people.email })
+      .from(people)
+      .where(eq(people.id, vi.personId));
+    expect(p!.email).toBeNull();
+    const [att] = await admin()
+      .select({ status: appointmentAttendees.status })
+      .from(appointmentAttendees)
+      .where(eq(appointmentAttendees.id, booked.attendeeId));
+    expect(att!.status).toBe('booked');
+    // A new booking from the chat is fine: its confirmation goes to the contact on file.
+    const fresh = await asAva(a, inChat, appointmentBookForCustomer, {
+      workspaceId: a.wsId,
+      calendarId: visits.id,
+      startsAt: isoAt(day, '11:00'),
+      clientId: randomUUID(),
+    });
+    expect(fresh.output).toMatchObject({ personId: vi.personId, duplicate: false });
+  });
+
+  it('carries out a draft that only cancels once, however often it’s delivered (F2)', async () => {
+    const jules = await aiChat(a, 'Jules');
+    const booked = (
+      await asAva(a, { conversationId: jules.conversationId }, appointmentBookForCustomer, {
+        workspaceId: a.wsId,
+        calendarId: visits.id,
+        startsAt: isoAt(day, '16:00'),
+        clientId: randomUUID(),
+      })
+    ).output;
+    const preview = {
+      message: null,
+      actions: [
+        {
+          kind: 'cancel',
+          appointmentId: booked.appointmentId,
+          reason: 'They asked to cancel',
+          summary: 'Cancel the 4 PM visit',
+        },
+      ],
+      discount: null,
+    };
+    const [d] = await rows<{ id: string }>(
+      admin(),
+      sql`insert into app.ai_teammate_drafts (workspace_id, teammate_id, conversation_id, person_id, kind, status,
+            preview, client_id, decided_by, decided_at, via)
+          values (${a.wsId}, ${a.teammateId}, ${jules.conversationId}, ${jules.personId}, 'reply', 'approved',
+            ${JSON.stringify(preview)}::jsonb, ${`ai:${randomUUID()}`}, ${a.owner.id}, now(), 'web')
+          returning id`,
+    );
+    const deliver = () => sys(a, aiTeammateSendDraft, { workspaceId: a.wsId, draftId: d!.id });
+    const first = await deliver();
+    expect(first.output).toMatchObject({
+      duplicate: false,
+      messageId: null,
+      actions: [{ kind: 'cancel', appointmentId: booked.appointmentId }],
+    });
+    const again = await deliver();
+    expect(again.output).toMatchObject({ duplicate: true, messageId: null, actions: [] });
+    expect(again.eventIds).toEqual([]);
+    expect((await draftRow(d!.id)).sentAt).not.toBeNull();
+    const [cancels] = await rows<{ n: number }>(
+      admin(),
+      sql`select count(*)::int as n from app.events
+          where entity_id = ${booked.appointmentId} and event_type in ('appointment.cancelled', 'attendee.cancelled')`,
+    );
+    expect(cancels!.n).toBe(1);
+  });
 });
 
 describe('handing conversations between the teammate and people', () => {
@@ -1445,5 +1597,136 @@ describe('business open hours', () => {
     expect(await businessHours()).toEqual(hours);
     await update(null);
     expect(await businessHours()).toEqual(DEFAULT_OPEN_HOURS);
+  });
+});
+
+describe('fixes from the step 3 security review', () => {
+  it('sends to its customer alone: nobody copied in, no attachments, never a mailbox (F3)', async () => {
+    const email = `flo-${randomUUID().slice(0, 6)}@example.com`;
+    const flo = await customer(a, 'Flo', { email });
+    const [c] = await rows<{ id: string }>(
+      admin(),
+      sql`insert into app.conversations (workspace_id, channel, counterpart, person_id, handled_by, ai_teammate_id)
+          values (${a.wsId}, 'email', ${email}, ${flo.personId}, 'ai', ${a.teammateId}) returning id`,
+    );
+    const mail = {
+      workspaceId: a.wsId,
+      conversationId: c!.id,
+      channel: 'email',
+      subject: 'Your visit',
+      body: 'See you Tuesday at 10.',
+      clientId: randomUUID(),
+    };
+    const extras: [Record<string, unknown>, string][] = [
+      [{ cc: ['boss@example.com'] }, 'cc'],
+      [{ attachmentFileIds: [randomUUID()] }, 'attachmentFileIds'],
+      [{ mailboxConnectionId: randomUUID() }, 'mailboxConnectionId'],
+    ];
+    for (const [extra, path] of extras) {
+      const err = await expectHfos(
+        () => asAva(a, { conversationId: c!.id }, messageSend, { ...mail, ...extra }),
+        'validation',
+      );
+      expect(err.details).toEqual([expect.objectContaining({ path })]);
+    }
+  });
+
+  it('opens only a plain lead, in an open stage (F4)', async () => {
+    const lou = await aiChat(a, 'Lou');
+    const me = { conversationId: lou.conversationId };
+    const lead = { workspaceId: a.wsId, title: 'New system', personId: lou.personId };
+    const won = await stageOf(a, 'won');
+    await expectHfos(
+      () => asAva(a, me, leadCreate, { ...lead, stageId: won }),
+      'rule_violation',
+      'stage_not_open',
+    );
+    const { tagId } = await run(
+      tagCreate,
+      { workspaceId: a.wsId, name: `Warm ${randomUUID().slice(0, 4)}` },
+      a.owner,
+    );
+    const extras: [Record<string, unknown>, string][] = [
+      [{ assigneeUserId: a.owner.id }, 'assigneeUserId'],
+      [{ valueCents: 500_000 }, 'valueCents'],
+      [{ tagIds: [tagId] }, 'tagIds'],
+    ];
+    for (const [extra, path] of extras) {
+      const err = await expectHfos(
+        () => asAva(a, me, leadCreate, { ...lead, ...extra }),
+        'validation',
+      );
+      expect(err.details).toEqual([expect.objectContaining({ path })]);
+    }
+    expect((await asAva(a, me, leadCreate, lead)).output.leadId).toBeTruthy();
+  });
+
+  it('refuses every command from the test console, however it’s called (F5)', async () => {
+    const tee = await aiChat(a, 'Tee');
+    const trial = { conversationId: tee.conversationId, test: true };
+    const note = { workspaceId: a.wsId, kind: 'note', body: 'Test only.', personId: tee.personId };
+    await expectHfos(() => asAva(a, trial, activityLog, note), 'forbidden', 'test_run_read_only');
+    await expectHfos(
+      () =>
+        asAva(a, trial, messageSend, {
+          workspaceId: a.wsId,
+          conversationId: tee.conversationId,
+          body: 'Hi Tee!',
+          clientId: randomUUID(),
+        }),
+      'forbidden',
+      'test_run_read_only',
+    );
+    await expectHfos(
+      () =>
+        asWorker(worker(), { workspaceId: a.wsId, organizationId: a.orgId }, (tx) =>
+          executeCommandIn(tx, activityLog, note, ava(a, trial), meta('ai_employee')),
+        ),
+      'forbidden',
+      'test_run_read_only',
+    );
+    // The same note outside the console goes through.
+    expect(
+      (await asAva(a, { conversationId: tee.conversationId }, activityLog, note)).output.activityId,
+    ).toBeTruthy();
+  });
+
+  it('stops a run already under way once a person takes over, and works while nobody has (F6)', async () => {
+    const pat = await aiChat(a, 'Pat');
+    const me = { conversationId: pat.conversationId };
+    const note = {
+      workspaceId: a.wsId,
+      kind: 'note',
+      body: 'Wants mornings.',
+      personId: pat.personId,
+    };
+    await run(
+      conversationTakeOver,
+      { workspaceId: a.wsId, conversationId: pat.conversationId },
+      a.owner,
+    );
+    await expectHfos(() => asAva(a, me, activityLog, note), 'rule_violation', 'not_handled_by_ai');
+    await expectHfos(
+      () => asAva(a, me, leadCreate, { workspaceId: a.wsId, title: 'AC', personId: pat.personId }),
+      'rule_violation',
+      'not_handled_by_ai',
+    );
+    await expectHfos(
+      () =>
+        asAva(a, me, personUpdate, {
+          workspaceId: a.wsId,
+          personId: pat.personId,
+          email: 'pat@example.com',
+        }),
+      'rule_violation',
+      'not_handled_by_ai',
+    );
+    // Nobody in particular handles it now: the AI may note things for its customer again.
+    await rows(
+      admin(),
+      sql`update app.conversations set handled_by = 'none', taken_over_by = null
+          where id = ${pat.conversationId}`,
+    );
+    expect((await asAva(a, me, activityLog, note)).output.activityId).toBeTruthy();
   });
 });

@@ -597,6 +597,146 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/chat_widget.create": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add a website chat widget: the sites it shows on (the www version is added for you), how it looks, who answers, and what it asks visitors for. Returns the public key for the snippet.
+         * @description Risk level 2. Requires channels.manage. Emits chat_widget.created.
+         */
+        post: operations["command_chat_widget_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/chat_widget.pause": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Pause a website chat widget: visitors can’t start or send chats until it’s resumed. The snippet can stay on the site.
+         * @description Risk level 1. Requires channels.manage. Emits chat_widget.paused.
+         */
+        post: operations["command_chat_widget_pause"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/chat_widget.resume": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Turn a paused website chat widget back on.
+         * @description Risk level 1. Requires channels.manage. Emits chat_widget.resumed.
+         */
+        post: operations["command_chat_widget_resume"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/chat_widget.rotate_key": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Give a website chat widget a new public key. Every snippet pasted before stops working, so paste the new one.
+         * @description Risk level 2. Requires channels.manage. Emits chat_widget.key_rotated.
+         */
+        post: operations["command_chat_widget_rotate_key"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/chat_widget.update": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Change a website chat widget: its sites, look, greeting and away message, who answers, what it asks visitors for, SMS consent and daily limit. Only the fields sent change.
+         * @description Risk level 2. Requires channels.manage. Emits chat_widget.updated.
+         */
+        post: operations["command_chat_widget_update"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/chat.block_visitor": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Block a website chat visitor so they can’t send more messages. With `network`, everyone on their network is blocked here for 7 days too.
+         * @description Risk level 2. Requires inbox.use. Emits chat.visitor_blocked.
+         */
+        post: operations["command_chat_block_visitor"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/chat.unblock_visitor": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Let a blocked website chat visitor chat again, lifting any block on their network that came with it.
+         * @description Risk level 1. Requires inbox.use. Emits chat.visitor_unblocked.
+         */
+        post: operations["command_chat_unblock_visitor"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/company.archive": {
         parameters: {
             query?: never;
@@ -3517,6 +3657,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/queries/chat_widget.get": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * One website chat widget: its sites, look and settings, the install check, and the public key for the snippet. Nothing secret.
+         * @description Requires workspace.read.
+         */
+        post: operations["query_chat_widget_get"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/chat_widget.list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The business’s website chat widgets: their sites, look and settings, whether each has been seen installed, and the public key for the snippet.
+         * @description Requires workspace.read.
+         */
+        post: operations["query_chat_widget_list"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/queries/company.get": {
         parameters: {
             query?: never;
@@ -6053,6 +6233,285 @@ export interface operations {
                             [key: string]: string;
                         };
                         to: string;
+                    };
+                };
+            };
+        };
+    };
+    command_chat_widget_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    accentColor?: string;
+                    allowedOrigins: string[];
+                    askFor?: {
+                        /**
+                         * @default when_needed
+                         * @enum {string}
+                         */
+                        email?: "never" | "when_needed" | "before_chat";
+                        /**
+                         * @default when_needed
+                         * @enum {string}
+                         */
+                        name?: "never" | "when_needed" | "before_chat";
+                        /**
+                         * @default when_needed
+                         * @enum {string}
+                         */
+                        phone?: "never" | "when_needed" | "before_chat";
+                    };
+                    awayMessage?: string | null;
+                    dailyCap?: number;
+                    greeting?: string | null;
+                    launcherLabel?: string;
+                    /** @enum {string} */
+                    position?: "right" | "left";
+                    smsConsent?: boolean;
+                    teammateId?: string | null;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        allowedOrigins: string[];
+                        publicKey: string;
+                        /** Format: uuid */
+                        widgetId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_chat_widget_pause: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    widgetId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        paused: boolean;
+                        /** Format: uuid */
+                        widgetId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_chat_widget_resume: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    widgetId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        paused: boolean;
+                        /** Format: uuid */
+                        widgetId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_chat_widget_rotate_key: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    widgetId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        publicKey: string;
+                        /** Format: uuid */
+                        widgetId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_chat_widget_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    accentColor?: string;
+                    allowedOrigins?: string[];
+                    askFor?: {
+                        /** @enum {string} */
+                        email?: "never" | "when_needed" | "before_chat";
+                        /** @enum {string} */
+                        name?: "never" | "when_needed" | "before_chat";
+                        /** @enum {string} */
+                        phone?: "never" | "when_needed" | "before_chat";
+                    };
+                    awayMessage?: string | null;
+                    dailyCap?: number;
+                    greeting?: string | null;
+                    launcherLabel?: string;
+                    /** @enum {string} */
+                    position?: "right" | "left";
+                    smsConsent?: boolean;
+                    teammateId?: string | null;
+                    /** Format: uuid */
+                    widgetId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        allowedOrigins: string[];
+                        updated: string[];
+                        /** Format: uuid */
+                        widgetId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_chat_block_visitor: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @default false */
+                    network?: boolean;
+                    /** Format: uuid */
+                    visitorId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: date-time */
+                        blockedAt: string;
+                        networkBlockedUntil: string | null;
+                        /** Format: uuid */
+                        visitorId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_chat_unblock_visitor: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    visitorId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        visitorId: string;
                     };
                 };
             };
@@ -12239,7 +12698,7 @@ export interface operations {
                                 seats: number;
                                 smsOk: boolean;
                                 /** @enum {string} */
-                                source: "staff" | "assistant" | "booking_page" | "series";
+                                source: "staff" | "assistant" | "booking_page" | "series" | "ai_teammate";
                                 /** @enum {string} */
                                 status: "booked" | "cancelled" | "no_show" | "attended";
                             }[];
@@ -12300,7 +12759,7 @@ export interface operations {
                                 name: string;
                             } | null;
                             /** @enum {string} */
-                            source: "staff" | "assistant" | "booking_page" | "series";
+                            source: "staff" | "assistant" | "booking_page" | "series" | "ai_teammate";
                             staff: {
                                 fullName: string;
                                 /** @enum {string} */
@@ -12419,7 +12878,7 @@ export interface operations {
                                 name: string;
                             } | null;
                             /** @enum {string} */
-                            source: "staff" | "assistant" | "booking_page" | "series";
+                            source: "staff" | "assistant" | "booking_page" | "series" | "ai_teammate";
                             staff: {
                                 fullName: string;
                                 /** @enum {string} */
@@ -13328,6 +13787,168 @@ export interface operations {
             };
         };
     };
+    query_chat_widget_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    widgetId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        canManage: boolean;
+                        widget: {
+                            accentColor: string;
+                            allowedOrigins: string[];
+                            askFor: {
+                                /**
+                                 * @default when_needed
+                                 * @enum {string}
+                                 */
+                                email: "never" | "when_needed" | "before_chat";
+                                /**
+                                 * @default when_needed
+                                 * @enum {string}
+                                 */
+                                name: "never" | "when_needed" | "before_chat";
+                                /**
+                                 * @default when_needed
+                                 * @enum {string}
+                                 */
+                                phone: "never" | "when_needed" | "before_chat";
+                            };
+                            awayMessage: string | null;
+                            /** Format: date-time */
+                            createdAt: string;
+                            dailyCap: number;
+                            greeting: string | null;
+                            /** Format: uuid */
+                            id: string;
+                            install: {
+                                lastSeenAt: string | null;
+                                lastSeenOrigin: string | null;
+                                seen: boolean;
+                            };
+                            launcherLabel: string;
+                            name: string;
+                            paused: boolean;
+                            pausedAt: string | null;
+                            /** @enum {string} */
+                            position: "right" | "left";
+                            publicKey: string;
+                            smsConsent: boolean;
+                            teammate: {
+                                /** Format: uuid */
+                                id: string;
+                                name: string;
+                                /** @enum {string} */
+                                status: "off" | "training" | "automatic";
+                            } | null;
+                            textColor: string;
+                            /** Format: date-time */
+                            updatedAt: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    query_chat_widget_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        canManage: boolean;
+                        items: {
+                            accentColor: string;
+                            allowedOrigins: string[];
+                            askFor: {
+                                /**
+                                 * @default when_needed
+                                 * @enum {string}
+                                 */
+                                email: "never" | "when_needed" | "before_chat";
+                                /**
+                                 * @default when_needed
+                                 * @enum {string}
+                                 */
+                                name: "never" | "when_needed" | "before_chat";
+                                /**
+                                 * @default when_needed
+                                 * @enum {string}
+                                 */
+                                phone: "never" | "when_needed" | "before_chat";
+                            };
+                            awayMessage: string | null;
+                            /** Format: date-time */
+                            createdAt: string;
+                            dailyCap: number;
+                            greeting: string | null;
+                            /** Format: uuid */
+                            id: string;
+                            install: {
+                                lastSeenAt: string | null;
+                                lastSeenOrigin: string | null;
+                                seen: boolean;
+                            };
+                            launcherLabel: string;
+                            name: string;
+                            paused: boolean;
+                            pausedAt: string | null;
+                            /** @enum {string} */
+                            position: "right" | "left";
+                            publicKey: string;
+                            smsConsent: boolean;
+                            teammate: {
+                                /** Format: uuid */
+                                id: string;
+                                name: string;
+                                /** @enum {string} */
+                                status: "off" | "training" | "automatic";
+                            } | null;
+                            textColor: string;
+                            /** Format: date-time */
+                            updatedAt: string;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
     query_company_get: {
         parameters: {
             query?: never;
@@ -13503,8 +14124,25 @@ export interface operations {
                     "application/json": {
                         canText: {
                             ok: boolean;
-                            reason: ("no_number" | "not_ready" | "opted_out" | "no_phone" | "email_channel") | null;
+                            reason: ("no_number" | "not_ready" | "opted_out" | "no_phone" | "email_channel" | "chat_channel") | null;
                         };
+                        chat: {
+                            blocked: boolean;
+                            email: string | null;
+                            lastSeenAt: string | null;
+                            matchedOn: ("phone" | "email") | null;
+                            name: string | null;
+                            networkBlockedUntil: string | null;
+                            onSiteNow: boolean;
+                            pagePath: string | null;
+                            phone: string | null;
+                            phoneE164: string | null;
+                            site: string;
+                            /** Format: uuid */
+                            visitorId: string;
+                            /** Format: uuid */
+                            widgetId: string;
+                        } | null;
                         conversation: {
                             assignee: {
                                 fullName: string;
@@ -13513,7 +14151,7 @@ export interface operations {
                             } | null;
                             awaitingReplySince: string | null;
                             /** @enum {string} */
-                            channel: "sms" | "email";
+                            channel: "sms" | "email" | "chat";
                             counterpart: string;
                             counterpartDisplay: string;
                             /** Format: date-time */
@@ -13634,7 +14272,7 @@ export interface operations {
                             body: string | null;
                             bodyHtml: string | null;
                             ccAddresses: string[];
-                            channel: ("sms" | "email") | null;
+                            channel: ("sms" | "email" | "chat") | null;
                             deliveredAt: string | null;
                             /** @enum {string} */
                             direction: "inbound" | "outbound";
@@ -14242,7 +14880,7 @@ export interface operations {
                      */
                     box?: "mine" | "unassigned" | "all" | "needs_person" | "ai";
                     /** @enum {string} */
-                    channel?: "sms" | "email";
+                    channel?: "sms" | "email" | "chat";
                     cursor?: string;
                     /** @default 50 */
                     limit?: number;
@@ -14275,7 +14913,7 @@ export interface operations {
                             } | null;
                             awaitingReplySince: string | null;
                             /** @enum {string} */
-                            channel: "sms" | "email";
+                            channel: "sms" | "email" | "chat";
                             counterpart: string;
                             counterpartDisplay: string;
                             /** Format: date-time */
@@ -15173,7 +15811,7 @@ export interface operations {
                             body: string | null;
                             bodyHtml: string | null;
                             ccAddresses: string[];
-                            channel: ("sms" | "email") | null;
+                            channel: ("sms" | "email" | "chat") | null;
                             deliveredAt: string | null;
                             /** @enum {string} */
                             direction: "inbound" | "outbound";

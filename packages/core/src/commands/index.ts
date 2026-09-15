@@ -211,6 +211,24 @@ import {
   conversationTakeOver,
 } from './conversation-handling';
 import { leadRecordAnswers } from './lead.record_answers';
+import {
+  chatWidgetCreate,
+  chatWidgetPause,
+  chatWidgetRecordSeen,
+  chatWidgetResume,
+  chatWidgetRotateKey,
+  chatWidgetUpdate,
+} from './chat-widget';
+import {
+  chatBlockVisitor,
+  chatIdentify,
+  chatReceive,
+  chatUnblockVisitor,
+  chatVisitorRecordSeen,
+  chatVisitorResume,
+  chatVisitorRotateToken,
+  chatVisitorStart,
+} from './chat';
 
 export {
   conversationAssign,
@@ -545,6 +563,20 @@ export const commands: readonly CommandDef[] = [
   appointmentBookForCustomer,
   attendeeRescheduleForCustomer,
   attendeeCancelForCustomer,
+  chatWidgetCreate,
+  chatWidgetUpdate,
+  chatWidgetPause,
+  chatWidgetResume,
+  chatWidgetRotateKey,
+  chatWidgetRecordSeen,
+  chatVisitorStart,
+  chatVisitorResume,
+  chatVisitorRotateToken,
+  chatVisitorRecordSeen,
+  chatReceive,
+  chatIdentify,
+  chatBlockVisitor,
+  chatUnblockVisitor,
 ] as unknown as readonly CommandDef[];
 export { callPreview } from './call';
 export { attendeeFromPerson } from './appointment';
@@ -560,3 +592,5 @@ export * from './ai-team';
 export * from './appointment-ai';
 export * from './conversation-handling';
 export { leadRecordAnswers } from './lead.record_answers';
+export * from './chat-widget';
+export * from './chat';

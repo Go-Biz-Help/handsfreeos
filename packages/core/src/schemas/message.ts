@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { isoDateTime, uuid } from './common';
 import { ListInput, UserRef } from './crm';
-import { messageChannel, messageDirection, smsConsent } from './conversation';
+import { conversationChannel, messageDirection, smsConsent } from './conversation';
 import { e164Phone, phoneRequired } from './telephony';
 
 /** A stored photo, recording or attachment (telephony bucket) or a customer file sent as an attachment. */
@@ -158,7 +158,7 @@ export const ThreadItem = z.object({
   occurredAt: isoDateTime,
   direction: messageDirection,
   status: z.string(),
-  channel: messageChannel.nullable(),
+  channel: conversationChannel.nullable(),
   body: z.string().nullable(),
   subject: z.string().nullable(),
   fromAddress: z.string().nullable(),

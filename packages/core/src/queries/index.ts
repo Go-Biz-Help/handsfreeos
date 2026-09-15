@@ -1,6 +1,7 @@
 import type { QueryDef } from '../kernel/types';
 import { aiTeammateActivity, aiTeammateDraftList, aiTeammateGet } from './ai-team';
 import { assistantThreadGet, assistantThreadList } from './assistant';
+import { chatWidgetGet, chatWidgetList } from './chat';
 import { auditList } from './audit.list';
 import {
   appointmentGet,
@@ -180,9 +181,13 @@ export const queries: readonly QueryDef[] = [
   aiTeammateGet,
   aiTeammateDraftList,
   aiTeammateActivity,
+  chatWidgetList,
+  chatWidgetGet,
 ] as unknown as readonly QueryDef[];
 
 export {
+  chatWidgetList,
+  chatWidgetGet,
   workflowList,
   workflowGet,
   workflowVersionGet,

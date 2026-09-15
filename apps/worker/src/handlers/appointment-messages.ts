@@ -47,14 +47,16 @@ async function bookedAttendees(tx: Tx, appointmentId: string): Promise<string[]>
   return list.map((a) => a.id);
 }
 
-/** Of these bookings, the ones customers made on the booking page. */
+/** Of these bookings, the ones customers made online: on the booking page, or with the AI teammate. */
 async function onlineOnes(tx: Tx, attendeeIds: readonly string[]): Promise<Set<string>> {
   if (attendeeIds.length === 0) return new Set();
   const list = await tx
     .select({ id: appointmentAttendees.id, source: appointmentAttendees.source })
     .from(appointmentAttendees)
     .where(inArray(appointmentAttendees.id, [...attendeeIds]));
-  return new Set(list.filter((a) => a.source === 'booking_page').map((a) => a.id));
+  return new Set(
+    list.filter((a) => a.source === 'booking_page' || a.source === 'ai_teammate').map((a) => a.id),
+  );
 }
 
 /** The bookings an appointment.cancelled took down (its payload names the people). */

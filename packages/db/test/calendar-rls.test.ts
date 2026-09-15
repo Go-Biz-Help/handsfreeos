@@ -239,6 +239,7 @@ describe('what people write on appointments', () => {
         ),
       );
     expect((await expectPgError(() => add('booking_page'))).code).toBe('42501');
+    expect((await expectPgError(() => add('ai_teammate'))).code).toBe('42501');
     const [a] = await add('staff');
     const attendee = (state: string) =>
       as(member)((tx) =>
@@ -249,6 +250,21 @@ describe('what people write on appointments', () => {
         ),
       );
     expect((await expectPgError(() => attendee('{"day_before": "sent"}'))).code).toBe('42501');
+    // The booking page's and the AI teammate's bookings are the worker's to write.
+    for (const source of ['booking_page', 'ai_teammate'])
+      expect(
+        (
+          await expectPgError(() =>
+            as(member)((tx) =>
+              rows(
+                tx,
+                sql`insert into app.appointment_attendees (workspace_id, appointment_id, person_id, source, created_by)
+                    values (${wsA}, ${a!.id}, ${person!.id}, ${source}::app.appointment_source, ${member.id})`,
+              ),
+            ),
+          )
+        ).code,
+      ).toBe('42501');
     const [at] = await attendee('{}');
     const marked = await expectPgError(() =>
       as(member)((tx) =>

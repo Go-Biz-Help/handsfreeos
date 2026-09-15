@@ -677,6 +677,27 @@ export const messageSend = defineCommand({
       throw HfosError.validation([
         { path: 'clientId', message: 'The AI teammate sends every message with a clientId.' },
       ]);
+    // The AI teammate writes to its customer alone, from the business: nobody copied in, no files, and never
+    // through someone's connected mailbox.
+    if (ctx.actor.type === 'ai_employee') {
+      const refused = [
+        ...(input.cc.length
+          ? [{ path: 'cc', message: 'The AI teammate doesn’t copy anyone in.' }]
+          : []),
+        ...(input.attachmentFileIds.length
+          ? [{ path: 'attachmentFileIds', message: 'The AI teammate doesn’t attach files.' }]
+          : []),
+        ...(input.mailboxConnectionId
+          ? [
+              {
+                path: 'mailboxConnectionId',
+                message: 'The AI teammate sends from the business’s addresses, never a mailbox.',
+              },
+            ]
+          : []),
+      ];
+      if (refused.length) throw HfosError.validation(refused);
+    }
     if (input.channel === 'email') return sendEmail(ctx, input);
     if (input.channel === 'chat') return sendChat(ctx, input);
     const workspaceId = ctx.scope.workspaceId!;

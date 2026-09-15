@@ -28,6 +28,30 @@ export const notHandledByAi = (): HfosError =>
     'A person is handling this conversation, so the AI teammate stays out of it.',
   );
 
+/**
+ * A website chat's identity is never verified (anyone can type someone else's number), so in a chat the AI
+ * teammate never changes an existing customer or their bookings. New bookings are fine: their confirmation
+ * goes to the contact on file.
+ */
+export const chatIdentityUnverified = (): HfosError =>
+  HfosError.forbidden(
+    'A website chat can’t change a customer’s details or bookings. Someone on the team can.',
+    'chat_identity_unverified',
+  );
+
+/** For the AI teammate only (anyone else passes): refuses when the conversation it's answering is a chat. */
+export async function refuseInChat(ctx: CommandContext): Promise<void> {
+  const ai = aiEmployeeOf(ctx.actor);
+  if (!ai?.conversationId) return;
+  const [c] = await ctx.tx
+    .select({ channel: conversations.channel })
+    .from(conversations)
+    .where(
+      and(eq(conversations.id, ai.conversationId), eq(conversations.workspaceId, ai.workspaceId)),
+    );
+  if (c?.channel === 'chat') throw chatIdentityUnverified();
+}
+
 /** The customer the AI teammate is serving: its conversation's, or for a first message its run's new lead. */
 export async function aiCustomerId(ctx: QueryContext, ai: AiEmployeeActor): Promise<string | null> {
   if (ai.conversationId) {
@@ -59,6 +83,16 @@ export async function assertAiReach(
   const ai = aiEmployeeOf(ctx.actor);
   if (!ai) return;
   if (ref.companyId) throw outsideItsConversation();
+  // Once a person takes the conversation over, a run already under way changes nothing more.
+  if (ai.conversationId) {
+    const [c] = await ctx.tx
+      .select({ handledBy: conversations.handledBy })
+      .from(conversations)
+      .where(
+        and(eq(conversations.id, ai.conversationId), eq(conversations.workspaceId, ai.workspaceId)),
+      );
+    if (c?.handledBy === 'person') throw notHandledByAi();
+  }
   const customer = await aiCustomerId(ctx, ai);
   if (!customer) throw outsideItsConversation();
   if (ref.personId && ref.personId !== customer) throw outsideItsConversation();

@@ -1119,6 +1119,7 @@ export const appointmentSource = app.enum('appointment_source', [
   'assistant',
   'booking_page',
   'series',
+  'ai_teammate',
 ]);
 export const appointmentStaffRole = app.enum('appointment_staff_role', ['host', 'crew']);
 export const attendeeStatus = app.enum('attendee_status', [
@@ -2235,6 +2236,8 @@ export const aiTeammateDrafts = app.table('ai_teammate_drafts', {
   expiresAt: ts('expires_at'),
   /** Fixed when the draft is made: the approved message's clientId. */
   clientId: text('client_id').notNull(),
+  /** When its held actions and message went out (the worker's), so it goes out once. */
+  sentAt: ts('sent_at'),
   ...timestamps(),
 });
 

@@ -302,6 +302,20 @@ describe('registry', () => {
       'appointment.book_for_customer',
       'attendee.reschedule_for_customer',
       'attendee.cancel_for_customer',
+      'chat_widget.create',
+      'chat_widget.update',
+      'chat_widget.pause',
+      'chat_widget.resume',
+      'chat_widget.rotate_key',
+      'chat_widget.record_seen',
+      'chat_visitor.start',
+      'chat_visitor.resume',
+      'chat_visitor.rotate_token',
+      'chat_visitor.record_seen',
+      'chat.receive',
+      'chat.identify',
+      'chat.block_visitor',
+      'chat.unblock_visitor',
     ]);
     expect(registry.queries.map((q) => q.name)).toEqual([
       'account.me',
@@ -371,6 +385,8 @@ describe('registry', () => {
       'ai_teammate.get',
       'ai_teammate.draft_list',
       'ai_teammate.activity',
+      'chat_widget.list',
+      'chat_widget.get',
     ]);
     expect(registry.command('membership.invite')?.risk).toBe(2);
   });

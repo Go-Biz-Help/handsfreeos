@@ -533,8 +533,11 @@ function EventBlock({
         onClick={onClick}
       >
         <span className="cal-t pr-3">{a.title}</span>
-        {a.source === 'booking_page' ? (
-          <span className="absolute right-1.5 top-[5px] text-text-2" title="Booked online">
+        {a.source === 'booking_page' || a.source === 'ai_teammate' ? (
+          <span
+            className="absolute right-1.5 top-[5px] text-text-2"
+            title={a.source === 'ai_teammate' ? 'Booked by AI' : 'Booked online'}
+          >
             <Globe className="h-3 w-3" strokeWidth={1.5} />
           </span>
         ) : null}

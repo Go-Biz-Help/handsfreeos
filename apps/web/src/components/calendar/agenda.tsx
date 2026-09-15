@@ -256,10 +256,10 @@ export function Agenda({
                         {a.seatsTaken}/{a.capacity} seats
                       </span>
                     ) : null}
-                    {a.source === 'booking_page' ? (
+                    {a.source === 'booking_page' || a.source === 'ai_teammate' ? (
                       <span className="cal-mini">
                         <Globe className="h-3 w-3" strokeWidth={1.5} />
-                        Booked online
+                        {a.source === 'ai_teammate' ? 'Booked by AI' : 'Booked online'}
                       </span>
                     ) : null}
                   </span>
