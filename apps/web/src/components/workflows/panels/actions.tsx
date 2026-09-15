@@ -7,7 +7,8 @@ import {
   WEBHOOK_PARTS,
   type ActionStep,
 } from '@hfos/core';
-import { Moon, Plus, X } from 'lucide-react';
+import { Moon, Plus, Sparkles, X } from 'lucide-react';
+import Link from 'next/link';
 import { useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -90,7 +91,148 @@ function ActionFields({ step }: { step: ActionStep }) {
     case 'enrol_workflow':
     case 'remove_from_workflow':
       return <WorkflowRef step={step} />;
+    case 'hand_to_ai_teammate':
+      return <HandToTeammate step={step} />;
   }
+}
+
+/** Where the business's AI teammate stands, and that nothing happens at this step while it's off. */
+function TeammateStatusNote() {
+  const { teammate, workspaceId } = useEditor();
+  const href = `/app/w/${workspaceId}/ai-team`;
+  const link = (label: string) => (
+    <Link href={href} className="font-medium text-accent-text hover:underline">
+      {label}
+    </Link>
+  );
+  // An agency template: each business's own teammate takes it from here.
+  if (teammate === undefined)
+    return (
+      <Note icon={Sparkles} className="mb-3.5" testId="hand-to-ai-status">
+        Each business’s own AI teammate takes the conversation. While a business’s teammate is off,
+        nothing happens at this step.
+      </Note>
+    );
+  if (teammate === null)
+    return (
+      <Note icon={Sparkles} className="mb-3.5" testId="hand-to-ai-status">
+        This business has no AI teammate yet, so nothing happens at this step. {link('Set one up')}
+      </Note>
+    );
+  const status =
+    teammate.status === 'off'
+      ? `${teammate.name} is off, so nothing happens at this step until someone turns it on.`
+      : teammate.status === 'training'
+        ? `${teammate.name} is on with training wheels: its messages wait for an OK in the inbox.`
+        : `${teammate.name} is on and replies on its own.`;
+  return (
+    <Note icon={Sparkles} className="mb-3.5" testId="hand-to-ai-status">
+      {status} {link(`Open ${teammate.name}`)}
+    </Note>
+  );
+}
+
+/**
+ * "Hand to the AI teammate": what it works toward (reply and help, the qualifying questions, or booking), whether
+ * it writes first or waits for them, which conversation it takes, and a note it reads before it writes.
+ */
+function HandToTeammate({ step }: { step: Of<'hand_to_ai_teammate'> }) {
+  const update = useStepUpdate(step.id);
+  const vars = useVars(step.id);
+  const { readOnly, teammate } = useEditor();
+  const name = teammate?.name ?? 'The AI teammate';
+  const c = step.config;
+  const note = useDraftText(c.note, (next) =>
+    update({ config: { note: next } }, 'Edit the note', { group: 'note', quiet: true }),
+  );
+  const goals: { key: typeof c.goal; title: string; detail: string }[] = [
+    {
+      key: 'respond',
+      title: 'Reply and help',
+      detail: 'It answers their questions from your Knowledge.',
+    },
+    {
+      key: 'qualify',
+      title: 'Ask the qualifying questions',
+      detail: 'The questions in its Qualify skill. The answers show on the lead.',
+    },
+    {
+      key: 'book',
+      title: 'Get them booked',
+      detail: 'It offers times from the calendars in its Book skill.',
+    },
+  ];
+  return (
+    <>
+      <TeammateStatusNote />
+      <PanelField label="What it works toward">
+        <div className="flex flex-col gap-1.5" role="radiogroup" aria-label="What it works toward">
+          {goals.map((g) => (
+            <RadioRow
+              key={g.key}
+              on={c.goal === g.key}
+              onSelect={() => update({ config: { goal: g.key } }, 'Change what it works toward')}
+              title={g.title}
+              detail={g.detail}
+              testId={`hand-to-ai-goal-${g.key}`}
+            />
+          ))}
+        </div>
+      </PanelField>
+      <PanelField label="First message">
+        <div className="flex flex-col gap-1.5" role="radiogroup" aria-label="First message">
+          <RadioRow
+            on={c.firstMessage === 'ai_writes'}
+            onSelect={() =>
+              update({ config: { firstMessage: 'ai_writes' } }, 'Change the first message')
+            }
+            title={`${name} writes first`}
+            detail="Consent and quiet hours apply: it never texts first without consent, and it emails instead when it can’t text."
+            testId="hand-to-ai-first-ai_writes"
+          />
+          <RadioRow
+            on={c.firstMessage === 'none'}
+            onSelect={() =>
+              update({ config: { firstMessage: 'none' } }, 'Change the first message')
+            }
+            title="Wait for them to write"
+            detail={`${name} answers their next message.`}
+            testId="hand-to-ai-first-none"
+          />
+        </div>
+      </PanelField>
+      <PanelField label="Which conversation" htmlFor={`hand-channel-${step.id}`}>
+        <Select
+          id={`hand-channel-${step.id}`}
+          selectSize="sm"
+          value={c.channel}
+          disabled={readOnly}
+          onChange={(e) =>
+            update({ config: { channel: e.target.value } }, 'Change the conversation')
+          }
+          data-testid="hand-to-ai-channel"
+        >
+          <option value="latest">Whichever they used last</option>
+          <option value="sms">Their texts</option>
+          <option value="email">Their email</option>
+        </Select>
+      </PanelField>
+      <div className="mb-3.5">
+        <VariableField
+          id={`hand-note-${step.id}`}
+          label={`What ${name} should know (optional)`}
+          multiline
+          value={note.value}
+          onChange={note.change}
+          error={note.error}
+          variables={vars}
+          maxLength={500}
+          preview="plain"
+          hint={`${name} reads this before it writes. Customers never see it.`}
+        />
+      </div>
+    </>
+  );
 }
 
 function useVars(stepId: string) {

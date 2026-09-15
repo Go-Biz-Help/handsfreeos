@@ -1,6 +1,8 @@
 'use client';
 import { CheckCheck, CircleAlert } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { teammateMessageOf } from '@/lib/ai-team/inbox-types';
+import { teammateLabel } from '@/lib/ai-team/inbox-words';
 import type { ThreadItem } from '@/lib/api/types';
 import { cn } from '@/lib/utils';
 import { AttachmentChip } from './attachment-chip';
@@ -39,8 +41,12 @@ export function MailCard({
   const stopped = out && STOPPED.has(item.status);
   const failed = out && FAILED.has(item.status);
   const bad = stopped || failed;
+  // The AI teammate's email reads "Ava (AI)", with "approved by Chris" when a person's OK sent it.
+  const ai = out ? teammateMessageOf(item) : null;
   const sender = out
-    ? (item.sentBy?.fullName ?? 'HandsFreeOS')
+    ? ai
+      ? teammateLabel(ai)
+      : (item.sentBy?.fullName ?? 'HandsFreeOS')
     : (customerName ?? item.fromAddress ?? 'Someone');
   const fromLine = [
     sender,

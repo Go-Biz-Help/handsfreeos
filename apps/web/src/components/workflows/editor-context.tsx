@@ -6,6 +6,7 @@ import type {
   WorkflowNames,
 } from '@hfos/core';
 import { createContext, useContext } from 'react';
+import type { TeammateBrief } from '@/lib/ai-team/inbox-words';
 import type { WorkflowDraft } from '@/lib/workflows/use-draft';
 import type { SampleContact } from '@/lib/workflows/sample';
 
@@ -39,6 +40,11 @@ export interface EditorContextValue {
   readonly timeZone: string;
   readonly select: (id: Selection | null) => void;
   readonly openMove: (stepId: string) => void;
+  /**
+   * The business's AI teammate, for "Hand to the AI teammate" and the double-texting warning: null when it has
+   * none; undefined in an agency template, which has no business of its own.
+   */
+  readonly teammate?: TeammateBrief | null;
 }
 
 const EditorContext = createContext<EditorContextValue | null>(null);

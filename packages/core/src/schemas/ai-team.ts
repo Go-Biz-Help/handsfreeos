@@ -222,6 +222,10 @@ export const AiTeammateDecideDraftOutput = z.object({
   progress: TeammateProgress.extend({ becameAutomatic: z.boolean() }),
 });
 
+/** "Try again": a new draft of a reply someone rejected, answering the same messages with their reason in mind. */
+export const AiTeammateRetryInput = z.object({ workspaceId: uuid, draftId: uuid });
+export const AiTeammateRetryOutput = z.object({ draftId: uuid, conversationId: uuid });
+
 export const AiTeammateSendDraftInput = z.object({ workspaceId: uuid, draftId: uuid });
 export const AiTeammateSendDraftOutput = z.object({
   draftId: uuid,
@@ -420,6 +424,8 @@ export const TeammateDraftOut = z.object({
   createdAt: isoDateTime,
   /** Reply drafts: anyone who works the inbox. Approval drafts: owners and admins. */
   canDecide: z.boolean(),
+  /** The knowledge its run used ({itemId, title} each), as the run recorded it. */
+  knowledge: z.array(z.unknown()),
 });
 export type TeammateDraftOut = z.infer<typeof TeammateDraftOut>;
 export const AiTeammateDraftListInput = ListInput.extend({

@@ -3,6 +3,7 @@ import {
   parseDefinition,
   templateIssues,
   validateWorkflow,
+  workflowTextsNewLeads,
   type WorkflowCatalogs,
   type WorkflowIssue,
   type WorkflowOp,
@@ -31,6 +32,7 @@ import { Segmented } from '@/components/ui/segmented';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useTemplateSimulation } from '@/lib/agency/simulate';
+import type { TeammateBrief } from '@/lib/ai-team/inbox-words';
 import { ApiError, apiBrowser, errorMessage, unwrap } from '@/lib/api/client';
 import type { WorkflowCatalogsOut, WorkflowDetail, WorkflowVersion } from '@/lib/api/types';
 import { useLiveRefresh } from '@/lib/realtime/live-provider';
@@ -41,7 +43,7 @@ import { useWorkflowDraft, type DraftAdapter, type WorkflowDraft } from '@/lib/w
 import { useWorkflowTest } from '@/lib/workflows/use-test';
 import { useWide } from '@/lib/workflows/use-wide';
 import { cn } from '@/lib/utils';
-import { ChecksCount, ChecksPanel, issueCounts } from './checks';
+import { ChecksCount, ChecksPanel, DoubleTextWarning, issueCounts } from './checks';
 import { SourceChips, WorkflowStatusBadge } from './chips';
 import { DescribePane } from './describe';
 import {
@@ -92,6 +94,8 @@ export interface WorkflowEditorProps {
   readonly onRename?: (name: string) => Promise<void>;
   /** The breadcrumb's link (Workflows by default). */
   readonly crumb?: { readonly href: string; readonly label: string };
+  /** The business's AI teammate (null when it has none; left out for an agency template). */
+  readonly teammate?: TeammateBrief | null;
 }
 
 /**
@@ -141,6 +145,15 @@ export function WorkflowEditor(props: WorkflowEditorProps) {
     [template, def, catalogs, now],
   );
   const { errors } = issueCounts(issues);
+  // Texting new leads while the AI teammate's Respond skill does too: customers could get two first texts.
+  // Like the teammate's own warning, it goes by its settings, whether or not it's on right now.
+  const doubleTexter =
+    !template && props.teammate && props.teammate.textsNewLeads && workflowTextsNewLeads(def)
+      ? props.teammate
+      : null;
+  const doubleText = doubleTexter ? (
+    <DoubleTextWarning name={doubleTexter.name} workspaceId={workspaceId} />
+  ) : null;
   /** This exact draft passed a test: its saved revision, with nothing unsaved. */
   const tested = workflow.tested && !draft.unsaved && draft.revision === workflow.testedRevision;
   const engineTest = useWorkflowTest({
@@ -268,6 +281,7 @@ export function WorkflowEditor(props: WorkflowEditorProps) {
     timeZone: catalogs.timeZone,
     select,
     openMove,
+    teammate: template ? undefined : (props.teammate ?? null),
   };
 
   function applyFix(issue: WorkflowIssue, fix: WorkflowIssue['fixes'][number]) {
@@ -325,6 +339,7 @@ export function WorkflowEditor(props: WorkflowEditorProps) {
   const checks = (
     <ChecksPanel
       issues={issues}
+      extra={doubleText}
       def={def}
       names={catalogs}
       readOnly={draft.readOnly}
@@ -539,7 +554,7 @@ export function WorkflowEditor(props: WorkflowEditorProps) {
           >
             <ListChecks className="h-4 w-4" strokeWidth={1.5} />
             Checks
-            <ChecksCount issues={issues} />
+            <ChecksCount issues={issues} extra={doubleText ? 1 : 0} />
           </Button>
           <Button
             variant="secondary"
@@ -627,7 +642,7 @@ export function WorkflowEditor(props: WorkflowEditorProps) {
                   </TabsTrigger>
                   <TabsTrigger value="checks" className="h-11" data-testid="rail-checks">
                     Checks
-                    <ChecksCount issues={issues} />
+                    <ChecksCount issues={issues} extra={doubleText ? 1 : 0} />
                   </TabsTrigger>
                   <TabsTrigger value="test" className="h-11" data-testid="rail-test">
                     Test

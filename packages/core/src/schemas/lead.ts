@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { LeadQualification } from './ai-team';
 import { isoDateTime, uuid } from './common';
 import { CompanyRef, ListInput, PersonRef, source, tagIds, TagRef, UserRef } from './crm';
 import { stageKind } from './pipeline';
@@ -144,7 +145,8 @@ export const LeadListOutput = z.object({
 
 export const LeadGetInput = z.object({ workspaceId: uuid, leadId: uuid });
 export const LeadGetOutput = z.object({
-  lead: LeadCard,
+  /** With its qualifying answers (M7), once any are recorded. */
+  lead: LeadCard.extend({ qualification: LeadQualification.nullable() }),
   stages: z.array(
     z.object({ id: uuid, name: z.string(), kind: stageKind, position: z.number().int() }),
   ),

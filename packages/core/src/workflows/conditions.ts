@@ -135,7 +135,7 @@ export const FIELD_CATALOG: readonly FieldDef[] = [
   f('appointment.ends_at', 'Appointment end', 'appointment', 'date', 'appointment'),
 
   f('conversation.channel', 'Channel', 'conversation', 'enum', 'conversation', {
-    options: opts(['sms', 'Text'], ['email', 'Email']),
+    options: opts(['sms', 'Text'], ['email', 'Email'], ['chat', 'Website chat']),
   }),
   f('conversation.status', 'Conversation status', 'conversation', 'enum', 'conversation', {
     options: opts(['open', 'Open'], ['snoozed', 'Snoozed'], ['closed', 'Closed']),
@@ -162,7 +162,7 @@ export const FIELD_CATALOG: readonly FieldDef[] = [
   f('lead.tags', 'Lead tags', 'tags', 'tags', 'lead', { refKind: 'tag' }),
 
   f('trigger.channel', 'Came in by', 'trigger', 'enum', null, {
-    options: opts(['sms', 'Text'], ['email', 'Email']),
+    options: opts(['sms', 'Text'], ['email', 'Email'], ['chat', 'Website chat']),
   }),
   f('trigger.from_stage_id', 'Moved from stage', 'trigger', 'ref', null, { refKind: 'stage' }),
   f('trigger.to_stage_id', 'Moved to stage', 'trigger', 'ref', null, { refKind: 'stage' }),

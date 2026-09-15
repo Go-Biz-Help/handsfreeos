@@ -6,6 +6,8 @@ import {
   type WorkflowNames,
 } from '@hfos/core';
 import { AlertCircle, AlertTriangle, CheckCircle2, Clock } from 'lucide-react';
+import Link from 'next/link';
+import type { ReactNode } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { stepLines } from '@/lib/workflows/steps';
@@ -19,23 +21,65 @@ export function issueCounts(issues: readonly WorkflowIssue[]): {
   return { errors, warnings: issues.length - errors };
 }
 
-/** The number on the Checks tab: red when something blocks publishing, amber for warnings only. */
-export function ChecksCount({ issues }: { issues: readonly WorkflowIssue[] }) {
+/**
+ * The number on the Checks tab: red when something blocks publishing, amber for warnings only. `extra` counts
+ * warnings the page adds itself (the AI teammate's double texting).
+ */
+export function ChecksCount({
+  issues,
+  extra = 0,
+}: {
+  issues: readonly WorkflowIssue[];
+  extra?: number;
+}) {
   const { errors } = issueCounts(issues);
+  const total = issues.length + extra;
   return (
     <span
       data-testid="checks-count"
       className={cn(
         'inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full px-1.5 text-[11px] font-semibold leading-none',
-        !issues.length
+        !total
           ? 'bg-card-3 text-text-2'
           : errors
             ? 'bg-danger text-on-solid'
             : 'bg-warning text-on-solid',
       )}
     >
-      {issues.length}
+      {total}
     </span>
+  );
+}
+
+/**
+ * "Ava (AI) also texts new leads": a workflow that texts new leads while the AI teammate's Respond skill
+ * does too, so customers could get two first texts. The teammate's own settings warn the same way.
+ */
+export function DoubleTextWarning({ name, workspaceId }: { name: string; workspaceId: string }) {
+  return (
+    <div
+      data-testid="issue-double_texting"
+      className="flex items-start gap-2.5 rounded-[10px] border border-[color-mix(in_oklab,var(--warning)_35%,var(--border))] bg-[color-mix(in_oklab,var(--warning-soft)_60%,var(--card))] px-3.5 py-3"
+    >
+      <AlertTriangle className="mt-0.5 h-4 w-4 flex-none text-warning-text" strokeWidth={1.75} />
+      <span className="flex min-w-0 flex-1 flex-col">
+        <span className="text-[13px] font-medium">{name} (AI) also texts new leads</span>
+        <span className="mt-0.5 text-xs text-text-2">
+          Customers could get two first texts: this workflow’s and {name}’s. Turn off new-lead
+          messages in {name}’s Respond skill, or take the text out of this workflow. ·{' '}
+          <span className="text-warning-text">Doesn’t block publishing</span>
+        </span>
+        <span className="mt-2.5 flex flex-wrap items-center gap-1.5">
+          <Link
+            href={`/app/w/${workspaceId}/ai-team`}
+            className="inline-flex h-7 items-center rounded-control border border-border-strong bg-card px-2.5 text-[12.5px] font-medium text-text hover:bg-card-2"
+            data-testid="double-texting-open"
+          >
+            Open {name}’s settings
+          </Link>
+        </span>
+      </span>
+    </div>
   );
 }
 
@@ -51,11 +95,14 @@ export function ChecksPanel({
   onFix,
   onUndoFix,
   onSelectStep,
+  extra,
 }: {
   issues: readonly WorkflowIssue[];
   def: WorkflowDefinition;
   names: WorkflowNames;
   readOnly: boolean;
+  /** A warning the page adds itself, listed first (the AI teammate's double texting). */
+  extra?: ReactNode;
   /** The draft as it is passed a test. */
   tested: boolean;
   liveVersion: number | null;
@@ -65,17 +112,17 @@ export function ChecksPanel({
   onSelectStep: (stepId: string | null) => void;
 }) {
   const { errors } = issueCounts(issues);
+  const total = issues.length + (extra ? 1 : 0);
   return (
     <div data-testid="workflow-checks">
       <div className="mb-3 flex items-center justify-between gap-2">
         <h3 className="text-[15px] font-semibold">Things to check</h3>
-        <Badge variant={issues.length ? (errors ? 'danger' : 'pending') : 'ok'}>
-          {issues.length
-            ? `${issues.length} ${issues.length === 1 ? 'item' : 'items'}`
-            : 'All clear'}
+        <Badge variant={total ? (errors ? 'danger' : 'pending') : 'ok'}>
+          {total ? `${total} ${total === 1 ? 'item' : 'items'}` : 'All clear'}
         </Badge>
       </div>
       <div className="flex flex-col gap-2">
+        {extra}
         {lastFix ? (
           <div className="flex items-start gap-2.5 rounded-[10px] border border-[color-mix(in_oklab,var(--success)_30%,var(--border))] bg-[color-mix(in_oklab,var(--success-soft)_60%,var(--card))] px-3.5 py-3">
             <CheckCircle2
@@ -164,7 +211,7 @@ export function ChecksPanel({
             </div>
           );
         })}
-        {!issues.length && !lastFix ? (
+        {!issues.length && !lastFix && !extra ? (
           <div className="flex items-center gap-2.5 rounded-[10px] border border-[color-mix(in_oklab,var(--success)_30%,var(--border))] bg-[color-mix(in_oklab,var(--success-soft)_60%,var(--card))] px-3.5 py-3 text-[13px]">
             <CheckCircle2 className="h-4 w-4 flex-none text-success-text" strokeWidth={1.75} />
             Nothing to fix.

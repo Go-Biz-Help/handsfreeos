@@ -1,8 +1,10 @@
 'use client';
 import { formatClock } from '@hfos/core';
 import {
+  AlertTriangle,
   CircleAlert,
   Clock,
+  Globe,
   Image as ImageIcon,
   Mail,
   MessageCircle,
@@ -35,7 +37,8 @@ import type { PendingText } from './hooks';
 const PHOTO_TYPES = 'image/jpeg,image/png,image/gif';
 const PHOTO = new Set(PHOTO_TYPES.split(','));
 
-type Mode = 'sms' | 'email';
+/** Texts and email switch between each other; a website chat's replies stay in the chat. */
+type Mode = 'sms' | 'email' | 'chat';
 
 interface Attachment {
   readonly fileId: string;
@@ -64,6 +67,13 @@ export interface ComposerTarget {
   readonly quiet: ConversationGet['quiet'];
   readonly fromNumber: string | null;
   readonly businessName?: string;
+  /**
+   * Above the box when sending changes who answers: the AI teammate is handling the conversation, or it waits
+   * for a person ("Sending takes this conversation over from Ava.").
+   */
+  readonly handoverNote?: string | null;
+  /** A website chat whose visitor was blocked: replies can't reach them. */
+  readonly chatBlocked?: boolean;
 }
 
 interface Note {
@@ -250,6 +260,7 @@ export function Composer({
   const previews = useRef(new Set<string>());
   const ccId = useId();
   const email = mode === 'email';
+  const chat = mode === 'chat';
   const cross = mode !== channel;
   // Texting from an email thread goes to the customer's text thread; the server has the last word there.
   const canText: ConversationGet['canText'] =
@@ -346,15 +357,24 @@ export function Composer({
     : [];
   const from = choices.find((c) => c.key === fromKey) ?? choices[0] ?? null;
   const subjectValue = subject ?? opts?.replySubject ?? '';
-  const note = email
-    ? emailNote(opts, target, onEditPerson)
-    : textNote(
-        target,
-        reason,
-        setup,
-        variant === 'desktop' && target.email ? () => switchMode('email') : undefined,
-      );
-  const off = email ? !!opts && !opts.canEmail.ok : !canText.ok;
+  const note: Note | null = chat
+    ? target.chatBlocked
+      ? {
+          tone: 'warning',
+          icon: CircleAlert,
+          body: <>This visitor is blocked from the website chat, so replies can’t reach them.</>,
+          placeholder: 'This visitor is blocked',
+        }
+      : null
+    : email
+      ? emailNote(opts, target, onEditPerson)
+      : textNote(
+          target,
+          reason,
+          setup,
+          variant === 'desktop' && target.email ? () => switchMode('email') : undefined,
+        );
+  const off = chat ? !!target.chatBlocked : email ? !!opts && !opts.canEmail.ok : !canText.ok;
   const sendDisabled = off || busy || !text.trim() || (email && (!opts || !from));
 
   function switchMode(next: Mode) {
@@ -510,10 +530,44 @@ export function Composer({
     }
   }
 
+  /** A reply in the website chat: it shows in their chat window (no quiet hours, no attachments). */
+  async function sendChat(body: string) {
+    if (!target.conversationId) return;
+    const clientId = crypto.randomUUID();
+    onPending?.({ clientId, body, at: new Date().toISOString() });
+    setText('');
+    setBusy(true);
+    try {
+      const out = unwrap(
+        await apiBrowser().POST('/v1/commands/message.send', {
+          body: {
+            workspaceId: target.workspaceId,
+            conversationId: target.conversationId,
+            channel: 'chat',
+            body,
+            clientId,
+          },
+        }),
+      );
+      onSettled?.(clientId, { messageId: out.messageId });
+      onSent?.({
+        messageId: out.messageId,
+        conversationId: out.conversationId,
+        crossChannel: false,
+      });
+    } catch (e) {
+      onDropPending?.(clientId);
+      setText(body);
+      toast.error(errorMessage(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
   function send(acknowledgeQuietHours: boolean) {
     const body = text.trim();
     if (!body || busy || off) return;
-    void (email ? sendEmail(body) : sendText(body, acknowledgeQuietHours));
+    void (chat ? sendChat(body) : email ? sendEmail(body) : sendText(body, acknowledgeQuietHours));
   }
 
   function onKeyDown(e: KeyboardEvent<HTMLTextAreaElement>) {
@@ -525,11 +579,25 @@ export function Composer({
 
   const placeholder = off
     ? (note?.placeholder ?? (email ? 'Email isn’t available' : 'Texting isn’t available'))
-    : email
-      ? variant === 'phone'
-        ? 'Reply by email…'
-        : 'Write your email…'
-      : `Text ${target.firstName ?? target.phoneDisplay}…`;
+    : chat
+      ? `Reply to ${target.firstName ?? 'them'} in the chat…`
+      : email
+        ? variant === 'phone'
+          ? 'Reply by email…'
+          : 'Write your email…'
+        : `Text ${target.firstName ?? target.phoneDisplay}…`;
+  const handover = target.handoverNote ? (
+    <div
+      className={cn(
+        'flex items-start gap-1.5 text-xs leading-[1.4] text-warning-text',
+        variant === 'phone' && 'mx-3 mt-2',
+      )}
+      data-testid="composer-handover"
+    >
+      <AlertTriangle className="mt-px h-3.5 w-3.5 flex-none" strokeWidth={1.75} />
+      <span>{target.handoverNote}</span>
+    </div>
+  ) : null;
   const hidden = (
     <input
       ref={fileInput}
@@ -604,21 +672,29 @@ export function Composer({
         data-testid="composer"
         data-mode={mode}
       >
+        {handover}
         {noteBox}
         {tray ? <div className="px-3 pt-2.5">{tray}</div> : null}
         {chips ? <div className="flex flex-wrap gap-1.5 px-3 pt-2.5">{chips}</div> : null}
-        <div className="flex items-end gap-1.5 px-2.5 pb-[calc(env(safe-area-inset-bottom)+10px)] pt-2">
+        <div
+          className={cn(
+            'flex items-end gap-1.5 pb-[calc(env(safe-area-inset-bottom)+10px)] pr-2.5 pt-2',
+            chat ? 'pl-3' : 'pl-2.5',
+          )}
+        >
           {hidden}
-          <button
-            type="button"
-            title="Attach a photo"
-            aria-label="Attach a photo"
-            disabled={off || uploading || !target.personId}
-            onClick={() => fileInput.current?.click()}
-            className="flex h-11 w-11 flex-none items-center justify-center rounded-full text-text-2 disabled:opacity-45"
-          >
-            <Paperclip className="h-[18px] w-[18px]" strokeWidth={1.5} />
-          </button>
+          {chat ? null : (
+            <button
+              type="button"
+              title="Attach a photo"
+              aria-label="Attach a photo"
+              disabled={off || uploading || !target.personId}
+              onClick={() => fileInput.current?.click()}
+              className="flex h-11 w-11 flex-none items-center justify-center rounded-full text-text-2 disabled:opacity-45"
+            >
+              <Paperclip className="h-[18px] w-[18px]" strokeWidth={1.5} />
+            </button>
+          )}
           <textarea
             ref={area}
             rows={1}
@@ -713,7 +789,19 @@ export function Composer({
       data-testid="composer"
       data-mode={mode}
     >
-      {variant === 'desktop' ? (
+      {variant === 'desktop' && chat ? (
+        <div className="flex items-center justify-between gap-2">
+          <span
+            className="inline-flex h-7 items-center gap-1.5 rounded-[6px] bg-card-2 px-2.5 text-[13px] font-medium text-text-2"
+            data-testid="composer-mode-chat"
+          >
+            <Globe className="h-3.5 w-3.5" strokeWidth={1.5} />
+            Website chat
+          </span>
+          <span className="truncate text-xs text-text-3">Replies show in their chat window</span>
+        </div>
+      ) : null}
+      {variant === 'desktop' && !chat ? (
         <div className="flex items-center justify-between gap-2">
           <Segmented
             value={mode}
@@ -751,7 +839,9 @@ export function Composer({
             : `Texts go to ${target.phoneDisplay} and get their own thread in the inbox.`}
         </p>
       ) : null}
-      {noteBox ?? (!email && target.quiet.quiet ? <QuietStrip>{quietLine}</QuietStrip> : null)}
+      {handover}
+      {noteBox ??
+        (!email && !chat && target.quiet.quiet ? <QuietStrip>{quietLine}</QuietStrip> : null)}
       {email && !off && variant === 'desktop' ? (
         <div className="flex flex-col gap-1.5">
           <div className="flex items-center gap-2 text-[13px]">
@@ -813,32 +903,34 @@ export function Composer({
           className="block min-h-[46px] w-full resize-none bg-transparent px-3 pb-0.5 pt-2.5 text-[14.5px] leading-[1.45] placeholder:text-placeholder focus:outline-none disabled:cursor-not-allowed"
         />
         <div className="flex items-center gap-1 px-1.5 pb-1.5 pt-1">
-          <Button
-            variant="ghost"
-            size="icon"
-            title={
-              !target.personId
-                ? 'Add them as a customer to send photos'
-                : email
-                  ? variant === 'sheet'
-                    ? 'Attach'
-                    : 'Attach a photo or file'
-                  : 'Attach a photo'
-            }
-            aria-label={email ? 'Attach a file' : 'Attach a photo'}
-            disabled={off || uploading || !target.personId}
-            loading={uploading}
-            onClick={() => fileInput.current?.click()}
-          >
-            {uploading ? null : <Paperclip className="h-[18px] w-[18px]" strokeWidth={1.5} />}
-          </Button>
+          {chat ? null : (
+            <Button
+              variant="ghost"
+              size="icon"
+              title={
+                !target.personId
+                  ? 'Add them as a customer to send photos'
+                  : email
+                    ? variant === 'sheet'
+                      ? 'Attach'
+                      : 'Attach a photo or file'
+                    : 'Attach a photo'
+              }
+              aria-label={email ? 'Attach a file' : 'Attach a photo'}
+              disabled={off || uploading || !target.personId}
+              loading={uploading}
+              onClick={() => fileInput.current?.click()}
+            >
+              {uploading ? null : <Paperclip className="h-[18px] w-[18px]" strokeWidth={1.5} />}
+            </Button>
+          )}
           {variant === 'desktop' ? (
             <span className="hidden pl-0.5 text-xs text-text-3 lg:inline">
               Enter sends · Shift+Enter adds a line
             </span>
           ) : null}
           <span className="flex-1" />
-          {off || email ? null : <SegmentCounter text={text} photos={files.length} />}
+          {off || email || chat ? null : <SegmentCounter text={text} photos={files.length} />}
           <Button
             size="sm"
             disabled={sendDisabled}
@@ -847,7 +939,13 @@ export function Composer({
             data-testid="composer-send"
           >
             {busy ? null : <Send className="h-3.5 w-3.5" strokeWidth={1.5} />}
-            {email ? 'Send email' : target.quiet.quiet && !off ? 'Send…' : 'Send text'}
+            {email
+              ? 'Send email'
+              : chat
+                ? 'Send'
+                : target.quiet.quiet && !off
+                  ? 'Send…'
+                  : 'Send text'}
           </Button>
         </div>
       </div>

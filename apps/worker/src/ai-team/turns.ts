@@ -36,6 +36,23 @@ export function handoverLines(h: Handover): string[] {
   ];
 }
 
+/** A person's "Try again" on a draft they rejected: their reason, and what the draft said. */
+export interface Retry {
+  readonly reason: string | null;
+  readonly draft: string | null;
+}
+
+/** The lines a "Try again" adds to the context. The reason and the old draft are quoted as data. */
+export function retryLines(r: Retry): string[] {
+  const reason = r.reason?.trim();
+  return [
+    reason
+      ? `A person rejected your last draft: ${quoteData(reason)}. Write a better reply.`
+      : 'A person rejected your last draft. Write a better reply.',
+    ...(r.draft?.trim() ? [`Your rejected draft: ${quoteData(r.draft.trim())}`] : []),
+  ];
+}
+
 function speaker(h: HistoryLine, name: string): string {
   if (h.who === 'customer') return 'Customer';
   if (h.who === 'ai') return `You (${quoteData(name)})`;

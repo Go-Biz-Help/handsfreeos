@@ -1,6 +1,8 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { LeadDetail } from '@/components/pipeline/lead-detail';
+import { leadQualificationOf } from '@/lib/ai-team/inbox-types';
+import { teammateConfigOf } from '@/lib/ai-team/inbox-words';
 import { assigneeOptions } from '@/lib/api/people';
 import { apiServer, unwrapPage } from '@/lib/api/server';
 
@@ -49,6 +51,24 @@ export default async function LeadPage({
         }),
       ).items.filter((a) => Date.parse(a.endsAt) > now)
     : [];
+  // Qualifying answers name the teammate that asked them, and its questions name what's still missing.
+  const teammate = leadQualificationOf(lead.lead)
+    ? await api
+        .POST('/v1/queries/ai_teammate.get', { body: { workspaceId } })
+        .then((r) => {
+          const t = r.data?.teammate;
+          if (!t) return null;
+          const config = teammateConfigOf(t.config);
+          return {
+            name: t.name,
+            questions: (config?.qualify.questions ?? []).map((q) => ({
+              id: q.id,
+              question: q.question,
+            })),
+          };
+        })
+        .catch(() => null)
+    : null;
   return (
     <>
       <div className="mb-3.5 flex items-center gap-1.5 text-[13px]">
@@ -78,6 +98,7 @@ export default async function LeadPage({
           tags={tags.tags}
           timeZone={got.workspace.timezone}
           upcoming={upcoming}
+          teammate={teammate}
         />
       </div>
     </>

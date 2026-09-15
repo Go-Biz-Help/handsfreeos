@@ -14,9 +14,16 @@ import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Input, Select } from '@/components/ui/input';
 import { Segmented } from '@/components/ui/segmented';
-import type { ConversationStatus, ConversationSummary, InboxBox, Role } from '@/lib/api/types';
+import { INBOX_BOXES, type InboxBoxKey } from '@/lib/ai-team/inbox-types';
+import {
+  useConversationsWithDrafts,
+  useTeammateBrief,
+  type TeammateBrief,
+} from '@/lib/ai-team/use-inbox';
+import type { ConversationStatus, ConversationSummary, Role } from '@/lib/api/types';
 import { useUnread } from '@/lib/realtime/unread-provider';
 import { cn } from '@/lib/utils';
+import { TeammateBoxes } from './ai-bits';
 import { ConversationRow } from './conversation-row';
 import { useInboxList } from './hooks';
 import { NewMessageDialog } from './new-message-dialog';
@@ -32,6 +39,8 @@ interface InboxContextValue {
   readonly patchRow: (id: string, change: Partial<ConversationSummary>) => void;
   /** The list's filters as a query string, carried on links between conversations. */
   readonly listQuery: string;
+  /** The business's AI teammate: null when there isn't one, undefined until known. */
+  readonly teammate: TeammateBrief | null | undefined;
 }
 
 const InboxContext = createContext<InboxContextValue | null>(null);
@@ -42,14 +51,23 @@ export function useInbox(): InboxContextValue {
   return value;
 }
 
-const BOXES: readonly InboxBox[] = ['mine', 'unassigned', 'all'];
 const STATUSES: readonly ConversationStatus[] = ['open', 'snoozed', 'closed'];
 
-function emptyCopy(box: InboxBox, status: ConversationStatus, q: string) {
+function emptyCopy(box: InboxBoxKey, status: ConversationStatus, q: string, name: string) {
   if (q)
     return {
       title: `Nothing matches “${q}”`,
       body: 'Try a name, a number or words from a message.',
+    };
+  if (box === 'needs_person')
+    return {
+      title: 'Nobody is waiting for a person',
+      body: `Conversations ${name} hands to a person land here. They leave the box once someone replies.`,
+    };
+  if (box === 'ai')
+    return {
+      title: `${name} isn’t handling anything right now`,
+      body: `Conversations ${name} answers show here, until someone takes one over.`,
     };
   if (status === 'snoozed')
     return { title: 'Nothing snoozed', body: 'Conversations you snooze or close show up here.' };
@@ -89,8 +107,8 @@ export function InboxShell({
     : null;
   const boxParam = params.get('box') ?? '';
   const statusParam = params.get('status') ?? '';
-  const box: InboxBox = (BOXES as readonly string[]).includes(boxParam)
-    ? (boxParam as InboxBox)
+  const box: InboxBoxKey = (INBOX_BOXES as readonly string[]).includes(boxParam)
+    ? (boxParam as InboxBoxKey)
     : 'all';
   const status: ConversationStatus = (STATUSES as readonly string[]).includes(statusParam)
     ? (statusParam as ConversationStatus)
@@ -102,6 +120,12 @@ export function InboxShell({
   const { summary } = useUnread();
   const counts = summary?.open ?? { mine: 0, unassigned: 0, all: 0 };
   const waitThreshold = summary?.waitingThresholdMinutes ?? 10;
+  const teammate = useTeammateBrief(workspaceId);
+  const withDrafts = useConversationsWithDrafts(workspaceId, !!teammate);
+  const needsPerson = summary?.needsPerson ?? 0;
+  const aiCount = summary?.ai ?? 0;
+  // The teammate's boxes: once there's a teammate, or while anything is in them.
+  const showBoxes = !!teammate || needsPerson > 0 || aiCount > 0;
 
   const listQuery = useMemo(() => {
     const p = new URLSearchParams();
@@ -155,10 +179,11 @@ export function InboxShell({
       reloadList: list.reload,
       patchRow: list.patch,
       listQuery,
+      teammate,
     }),
-    [workspaceId, myUserId, role, members, timezone, list.reload, list.patch, listQuery],
+    [workspaceId, myUserId, role, members, timezone, list.reload, list.patch, listQuery, teammate],
   );
-  const empty = emptyCopy(box, status, q);
+  const empty = emptyCopy(box, status, q, teammate?.name ?? 'The AI teammate');
 
   return (
     <InboxContext.Provider value={value}>
@@ -202,6 +227,15 @@ export function InboxShell({
                 { value: 'all', label: `All · ${counts.all}`, testId: 'box-all' },
               ]}
             />
+            {showBoxes ? (
+              <TeammateBoxes
+                box={box}
+                name={teammate?.name ?? null}
+                needsPerson={needsPerson}
+                ai={aiCount}
+                onPick={(b) => setFilter({ box: b === 'all' ? null : b })}
+              />
+            ) : null}
             <div className="hidden gap-2 md:flex">
               <div className="relative flex-1">
                 <Search
@@ -272,6 +306,7 @@ export function InboxShell({
                   waitThreshold={waitThreshold}
                   timezone={timezone}
                   onOpen={() => list.patch(c.id, { unreadCount: 0 })}
+                  draftWaiting={withDrafts.has(c.id)}
                 />
               ))
             )}

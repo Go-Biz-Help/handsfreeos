@@ -807,3 +807,76 @@ test('workflow builder: the same workflow in Steps, Canvas and Describe', async 
   expect(await treeOrder(page)).toEqual(order);
   await expect(page.getByTestId('step-s_stlwait2')).toContainText('Wait 2 days');
 });
+
+/**
+ * The AI teammate in workflows: New workflow offers the two teammate recipes; "Hand to the AI teammate" comes
+ * from the add-step menu with its panel (the teammate's status, and that nothing happens while there's none or
+ * it's off; what it works toward; the first message; the conversation); and Checks warns about double texting
+ * once a workflow texts new leads while the teammate's Respond skill does too.
+ */
+test('workflow builder: hand to the AI teammate, its recipes and the double-texting warning', async ({
+  page,
+}) => {
+  test.setTimeout(180_000);
+  const owner = await signUpAndConfirm(page, 'wf-teammate');
+  const workspaceId = await createBusiness(page, { name: 'Lone Star HVAC & Roofing' });
+  const api = apiAs(await signInForApi(owner.email));
+
+  // New workflow offers the teammate's recipe variants beside the originals.
+  await page.goto(`/app/w/${workspaceId}/workflows/new`);
+  await expect(page.getByRole('heading', { name: 'How do you want to start?' })).toBeVisible();
+  await expect(page.getByTestId('recipe-speed_to_lead_ai')).toContainText(
+    'Speed to lead with your AI teammate',
+  );
+  await expect(page.getByTestId('recipe-missed_call_text_back_ai')).toContainText(
+    'Missed-call text back with your AI teammate',
+  );
+
+  // "Speed to lead" texts new leads; with no teammate there's nothing to warn about.
+  await page.getByTestId('recipe-speed_to_lead').click();
+  await page.getByTestId('workflow-create').click();
+  await expect(page).toHaveURL(/\/workflows\/[0-9a-f-]{36}$/);
+  const editor = page.url();
+  const workflowId = /workflows\/([0-9a-f-]{36})$/.exec(editor)![1]!;
+  await expect(page.getByTestId('workflow-rail')).toBeVisible();
+  await page.getByTestId('rail-checks').click();
+  await expect(page.getByTestId('workflow-checks')).toBeVisible();
+  await expect(page.getByTestId('issue-double_texting')).toHaveCount(0);
+
+  // Hand to the AI teammate, from the add-step menu: with no teammate yet, the step does nothing.
+  await page.getByTestId('add-after-s_stltask1').click();
+  await page.getByTestId('add-step-hand_to_ai_teammate').click();
+  await expect(page.getByTestId('panel-title')).toHaveText('Hand to the AI teammate');
+  const handId = selectedStep(page)!;
+  await expect(page.getByTestId('hand-to-ai-status')).toContainText('no AI teammate yet');
+  await saved(page);
+
+  // Ava arrives, off, with her Respond skill texting new leads: the panel names her and Checks warns.
+  await api('commands/ai_teammate.create', {
+    workspaceId,
+    preset: 'lead_responder',
+    name: 'Ava',
+    disclosure: 'first_message',
+  });
+  await openEditor(page, `${editor}?mode=steps&step=${handId}`);
+  await expect(page.getByTestId('hand-to-ai-status')).toContainText(
+    'Ava is off, so nothing happens at this step until someone turns it on.',
+  );
+  await page.getByTestId('hand-to-ai-goal-qualify').click();
+  await page.getByTestId('hand-to-ai-first-none').click();
+  await page.getByTestId('hand-to-ai-channel').selectOption('sms');
+  await saved(page);
+  await expect(page.getByTestId(`step-${handId}`)).toContainText(
+    'ask the qualifying questions; it waits for them',
+  );
+  const got = await api<WorkflowGet>('queries/workflow.get', { workspaceId, workflowId });
+  expect(stepIn(got.workflow.definition, handId)?.config).toMatchObject({
+    goal: 'qualify',
+    firstMessage: 'none',
+    channel: 'sms',
+  });
+  await page.getByTestId('rail-checks').click();
+  await expect(page.getByTestId('issue-double_texting')).toContainText(
+    'Ava (AI) also texts new leads',
+  );
+});

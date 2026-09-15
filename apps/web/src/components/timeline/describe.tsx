@@ -15,12 +15,37 @@ const inbound = (e: TimelineEntry) => isChannelEntry(e) && e.meta.direction === 
 const undelivered = (e: TimelineEntry) =>
   e.meta.status === 'failed' || e.meta.status === 'undelivered' || e.meta.status === 'bounced';
 
+/** The AI teammate that wrote the entry (`meta.aiTeammate`), or null for anyone else's. */
+function aiTeammateOf(
+  e: TimelineEntry,
+): { readonly name: string; readonly approvedBy: string | null } | null {
+  if (e.actorType !== 'ai_employee') return null;
+  const t = obj(e.meta.aiTeammate);
+  return { name: str(t.name) || 'The AI teammate', approvedBy: str(t.approvedBy) || null };
+}
+
 /**
- * Who did it, for the timeline row: the customer for what they sent us, a teammate, "Workflow: <name>" for
- * a workflow's step, "Import" for system work on someone's behalf, or the app.
+ * " · approved by Chris" after what the AI teammate did when a person's OK sent it (their name from the
+ * members the page has); nothing otherwise.
+ */
+export function timelineApproval(
+  e: TimelineEntry,
+  members: readonly { readonly id: string; readonly fullName: string }[] = [],
+): string {
+  const ai = aiTeammateOf(e);
+  if (!ai?.approvedBy) return '';
+  const name = members.find((m) => m.id === ai.approvedBy)?.fullName;
+  return ` · approved by ${name ? (name.trim().split(/\s+/)[0] ?? name) : 'a teammate'}`;
+}
+
+/**
+ * Who did it, for the timeline row: the customer for what they sent us, a teammate, "Ava (AI)" for the AI
+ * teammate, "Workflow: <name>" for a workflow's step, "Import" for system work on someone's behalf, or the app.
  */
 export function timelineActor(e: TimelineEntry, subjectName?: string): string {
   if (inbound(e)) return subjectName || 'The customer';
+  const ai = aiTeammateOf(e);
+  if (ai) return ai.name === 'The AI teammate' ? ai.name : `${ai.name} (AI)`;
   // What the customer did on the booking page: they booked, moved or cancelled it themselves.
   if (e.subtype === 'appointment_booked_online' || (isAppointment(e) && e.meta.by === 'customer'))
     return subjectName || 'The customer';
@@ -96,6 +121,8 @@ export function describeTimeline(
       return 'completed a task';
     case 'file_added':
       return 'uploaded a file';
+    case 'lead_qualified':
+      return `marked ${title || e.body || 'the lead'} qualified: every answer is in, and none rules them out`;
     default:
       return e.subtype?.replace(/_/g, ' ') ?? 'made a change';
   }
@@ -173,6 +200,9 @@ export function timelineBody(e: TimelineEntry): string | null {
 
 export function timelineDotClass(e: TimelineEntry): string {
   if (e.kind === 'sms' && str(e.meta.keyword) === 'stop') return 'bg-card-3';
+  // The AI teammate's entries wear its violet (an undelivered message still shows red).
+  if (aiTeammateOf(e) && !undelivered(e)) return 'bg-[color-mix(in_oklab,#7c3aed_85%,var(--text))]';
+  if (e.subtype === 'lead_qualified') return 'bg-success';
   if (e.kind === 'sms' || e.kind === 'email' || e.kind === 'chat')
     return undelivered(e) ? 'bg-danger' : 'bg-accent';
   if (e.kind === 'note') return 'bg-accent';

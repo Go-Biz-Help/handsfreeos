@@ -8,7 +8,7 @@
  * transaction. The database lets only the worker record the teammate's events and messages, so the two can't
  * share the person's transaction.
  */
-import { and, asc, eq, gt, isNull, sql as dsql } from 'drizzle-orm';
+import { and, asc, eq, gt, isNull, ne, sql as dsql } from 'drizzle-orm';
 import { ZodError } from 'zod';
 import { rows, sql } from '@hfos/db/client';
 import {
@@ -17,6 +17,7 @@ import {
   aiTeammates,
   calendars,
   chatWidgets,
+  conversations,
   messages,
   workspaces,
 } from '@hfos/db/schema';
@@ -51,6 +52,8 @@ import {
   AiTeammateDecideDraftInput,
   AiTeammateDecideDraftOutput,
   AiTeammateRestoreInput,
+  AiTeammateRetryInput,
+  AiTeammateRetryOutput,
   AiTeammateSaveConfigInput,
   AiTeammateSaveOutput,
   AiTeammateSendDraftInput,
@@ -497,6 +500,87 @@ export const aiTeammateDecideDraft = defineCommand({
       status,
       progress: { ...teammateProgressOf(teammate), becameAutomatic },
     };
+  },
+});
+
+export const aiTeammateRetry = defineCommand({
+  name: 'ai_teammate.retry',
+  description:
+    'Ask the AI teammate for a new reply after you rejected its draft. It answers the same messages again with your reason in mind, and the new draft waits for an OK.',
+  risk: 1,
+  input: AiTeammateRetryInput,
+  output: AiTeammateRetryOutput,
+  permission: 'inbox.use',
+  scope: inWorkspace,
+  emits: ['ai_teammate.retry_requested'],
+  async handler(ctx, input) {
+    requireHuman(ctx);
+    const ws = ctx.scope.workspaceId!;
+    const [d] = await ctx.tx
+      .select()
+      .from(aiTeammateDrafts)
+      .where(and(eq(aiTeammateDrafts.id, input.draftId), eq(aiTeammateDrafts.workspaceId, ws)));
+    if (!d) throw HfosError.notFound('Draft not found.');
+    if (d.kind !== 'reply' || !d.conversationId || d.status !== 'rejected')
+      throw HfosError.rule(
+        'not_a_rejected_reply',
+        409,
+        'Only a reply you rejected can be tried again.',
+      );
+    const conversationId = d.conversationId;
+    const [conv] = await ctx.tx
+      .select({ handledBy: conversations.handledBy, aiTeammateId: conversations.aiTeammateId })
+      .from(conversations)
+      .where(and(eq(conversations.id, conversationId), eq(conversations.workspaceId, ws)));
+    const teammate = await requireTeammate(ctx.tx, ws, d.teammateId);
+    if (!conv || conv.handledBy !== 'ai' || conv.aiTeammateId !== d.teammateId)
+      throw HfosError.rule(
+        'not_handled_by_teammate',
+        409,
+        `${teammate.name} isn’t handling this conversation anymore, so a person replies.`,
+      );
+    if (teammate.status === 'off')
+      throw HfosError.rule(
+        'teammate_off',
+        409,
+        `${teammate.name} is off, so a person replies. Turn ${teammate.name} on to try again.`,
+      );
+    // Only the latest reply draft: a newer one (waiting, or already decided) answered since. Compared in the
+    // database, whose times are finer than a JavaScript Date's.
+    const [newer] = await ctx.tx
+      .select({ id: aiTeammateDrafts.id, status: aiTeammateDrafts.status })
+      .from(aiTeammateDrafts)
+      .where(
+        and(
+          eq(aiTeammateDrafts.conversationId, conversationId),
+          eq(aiTeammateDrafts.kind, 'reply'),
+          ne(aiTeammateDrafts.id, d.id),
+          dsql`${aiTeammateDrafts.createdAt} >= (select created_at from app.ai_teammate_drafts where id = ${d.id})`,
+        ),
+      )
+      .limit(1);
+    if (newer)
+      throw HfosError.conflict(
+        newer.status === 'pending'
+          ? 'A new draft is already waiting for an OK.'
+          : 'A newer draft already answered this.',
+        'draft_superseded',
+      );
+    await ctx.emit({
+      type: 'ai_teammate.retry_requested',
+      entityType: 'ai_teammate_draft',
+      entityId: d.id,
+      payload: {
+        draftId: d.id,
+        teammateId: d.teammateId,
+        conversationId,
+        // The worker answers this run's messages again, with the reason.
+        runId: d.runId,
+        reason: d.reason,
+      },
+      after: { teammate: teammate.name, ...(d.reason ? { reason: d.reason } : {}) },
+    });
+    return { draftId: d.id, conversationId };
   },
 });
 

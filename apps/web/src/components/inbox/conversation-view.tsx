@@ -8,9 +8,11 @@ import {
   CircleCheck,
   Copy,
   Info,
+  Loader2,
   Mail,
   MoreHorizontal,
   Phone,
+  Sparkles,
   Undo2,
   UserPlus,
   UserRound,
@@ -37,12 +39,15 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { apiBrowser, errorMessage, unwrap } from '@/lib/api/client';
+import { handlingOf, type TeammateDraft } from '@/lib/ai-team/inbox-types';
+import { teammateCommands, useConversationDrafts } from '@/lib/ai-team/use-inbox';
 import type {
   ConversationGet,
   ConversationThread,
   PersonDetail,
   Pipeline,
   Tag,
+  ThreadItem,
 } from '@/lib/api/types';
 import { dropDraft, useComposerDraft } from '@/lib/assistant/drafts';
 import { useCalls } from '@/lib/calls/call-provider';
@@ -50,14 +55,40 @@ import { formatMoney } from '@/lib/format';
 import { snoozeOptions, zonedWhen } from '@/lib/inbox';
 import { useLiveRefresh } from '@/lib/realtime/live-provider';
 import { useMediaQuery } from '@/lib/use-media';
+import { SiteTag, WebsiteIcon } from './ai-bits';
+import {
+  ChatVisitorStrip,
+  HandBackDialog,
+  HandlingBanner,
+  handlingView,
+  TeammateContext,
+  useHandlingActions,
+} from './ai-handling';
 import { ChannelIcon, ContactAvatar, QuietStrip } from './bits';
 import { Composer, type ComposerTarget } from './composer';
 import { ContextPanel } from './context-panel';
 import { firstName } from './conversation-row';
+import {
+  DraftCard,
+  PhoneDraftBar,
+  RejectedNext,
+  SendingDraft,
+  TeammateLine,
+  useDraftDecision,
+} from './draft-card';
 import { useConversationActions, useThread } from './hooks';
 import { useInbox } from './inbox-shell';
 import { LinkPersonDialog } from './link-person-dialog';
 import { MessageLog } from './message-log';
+
+/** How long an approved draft's message may take to arrive before the thread stops saying "Sending…". */
+const SENDING_FOR_MS = 10 * 60_000;
+/** How long "writing a new draft" shows after Try again before it settles on "answers their next message". */
+const RETRY_FOR_MS = 2 * 60_000;
+
+/** The approved draft's message is in the thread. */
+const sentFor = (d: TeammateDraft, items: readonly ThreadItem[]): boolean =>
+  items.some((i) => i.type === 'message' && i.aiDraftId === d.id);
 
 function SheetAction({
   icon: Icon,
@@ -104,12 +135,26 @@ export function ConversationView({
   businessName: string;
 }) {
   const router = useRouter();
-  const { workspaceId, myUserId, role, members, timezone, reloadList, patchRow, listQuery } =
-    useInbox();
+  const {
+    workspaceId,
+    myUserId,
+    role,
+    members,
+    timezone,
+    reloadList,
+    patchRow,
+    listQuery,
+    teammate,
+  } = useInbox();
   const c = data.conversation;
   const person = data.person;
-  const first = person ? firstName(person.fullName) : null;
-  const who = first ?? 'this number';
+  const chat = c.channel === 'chat';
+  const first = person
+    ? firstName(person.fullName)
+    : chat && data.chat?.name
+      ? firstName(data.chat.name)
+      : null;
+  const who = first ?? (chat ? 'this visitor' : 'this number');
   const name = person?.fullName ?? c.counterpartDisplay;
   const listHref = `/app/w/${workspaceId}/inbox${listQuery}`;
   const customerHref = person ? `/app/w/${workspaceId}/customers/people/${person.id}` : null;
@@ -126,6 +171,56 @@ export function ConversationView({
     router.refresh();
   };
   const actions = useConversationActions(workspaceId, c.id, after);
+
+  // The AI teammate here: who handles the conversation, its draft, and what became of the last one.
+  const handling = handlingOf(c);
+  const drafts = useConversationDrafts(workspaceId, c.id);
+  const waiting = drafts.pending ?? drafts.approval;
+  const view = handlingView(handling);
+  const tm = teammate ?? null;
+  const tmName = handling.teammate?.name ?? tm?.name ?? null;
+  const aiName = tmName ?? 'The AI teammate';
+  const handlingActions = useHandlingActions({
+    workspaceId,
+    conversationId: c.id,
+    name: aiName,
+    who: first ?? 'them',
+    after: () => {
+      drafts.refresh();
+      after();
+    },
+  });
+  const [handBackOpen, setHandBackOpen] = useState(false);
+  const [dismissed, setDismissed] = useState<ReadonlySet<string>>(() => new Set());
+  const [retry, setRetry] = useState<{ id: string; at: number } | null>(null);
+  const [retrying, setRetrying] = useState(false);
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), 15_000);
+    return () => clearInterval(timer);
+  }, []);
+  const me = members.find((m) => m.id === myUserId);
+  const decision = useDraftDecision({
+    workspaceId,
+    draft: waiting,
+    who: first ?? 'them',
+    onDecided: (d, out, edits) => {
+      drafts.patch(d.id, {
+        status: out.status,
+        decidedAt: new Date().toISOString(),
+        decidedBy: { id: myUserId, fullName: me?.fullName ?? 'You' },
+        edits,
+        canDecide: false,
+      });
+      drafts.refresh();
+      t.refresh();
+      reloadList();
+    },
+    onRefused: () => {
+      drafts.refresh();
+      router.refresh();
+    },
+  });
   const calls = useCalls();
   const email = c.channel === 'email';
   // Calls go to the conversation's number, known customer or not (an email thread uses the customer's
@@ -188,7 +283,7 @@ export function ConversationView({
     }
   }
 
-  async function retry(messageId: string) {
+  async function retryMessage(messageId: string) {
     try {
       unwrap(
         await apiBrowser().POST('/v1/commands/message.retry', { body: { workspaceId, messageId } }),
@@ -197,6 +292,20 @@ export function ConversationView({
       t.refresh();
     } catch (e) {
       toast.error(errorMessage(e));
+    }
+  }
+
+  /** Try again: the teammate writes a new draft for the same messages, with the reason. */
+  async function tryAgain(draftId: string) {
+    setRetrying(true);
+    try {
+      await teammateCommands(workspaceId).retry(draftId);
+      setRetry({ id: draftId, at: Date.now() });
+    } catch (e) {
+      toast.error(errorMessage(e));
+      drafts.refresh();
+    } finally {
+      setRetrying(false);
     }
   }
 
@@ -235,14 +344,28 @@ export function ConversationView({
     conversationId: c.id,
     personId: person?.id ?? null,
     firstName: first,
-    // A website chat has no composer mode yet: it starts on texts, which canText (chat_channel) keeps shut.
-    channel: c.channel === 'chat' ? undefined : c.channel,
-    phoneDisplay: email ? (person?.phone ?? '') : c.counterpartDisplay,
+    // A website chat replies in the chat; texts and email switch between each other.
+    channel: c.channel,
+    phoneDisplay: email
+      ? (person?.phone ?? '')
+      : chat
+        ? (person?.phone ?? data.chat?.phone ?? '')
+        : c.counterpartDisplay,
     email: email ? c.counterpart : (person?.email ?? null),
     canText: data.canText,
     quiet: data.quiet,
     fromNumber: data.fromNumber,
     businessName,
+    // A person's message takes the conversation from the teammate (the phone's draft bar says so itself).
+    handoverNote:
+      phone && waiting
+        ? null
+        : view === 'ai'
+          ? `Sending takes this conversation over from ${aiName}. It stays quiet until someone hands it back.`
+          : view === 'needs_person'
+            ? `Replying takes it. ${aiName} stays quiet until someone hands it back.`
+            : null,
+    chatBlocked: data.chat?.blocked ?? false,
   };
   const composer = (
     <Composer
@@ -276,9 +399,102 @@ export function ConversationView({
       pipelines={pipelines}
       onAddPerson={() => setAddPerson(true)}
       onLinkPerson={() => setLinkPerson(true)}
+      extra={
+        tm && (view || drafts.items.length) ? (
+          <TeammateContext
+            workspaceId={workspaceId}
+            view={view}
+            handling={handling}
+            teammate={tm}
+            assignee={c.assignee}
+            myUserId={myUserId}
+            timezone={timezone}
+          />
+        ) : null
+      }
     />
   );
   const bannerClass = 'mx-3 mt-2.5 items-center md:mx-5 md:mt-3';
+  const channelLine = chat
+    ? `Website chat${data.chat?.pagePath ? ` · ${data.chat.onSiteNow ? 'on' : 'was on'} ${data.chat.pagePath}` : data.chat?.site ? ` · ${data.chat.site}` : ''}`
+    : null;
+  // Handing a conversation to the teammate: back from a person, or one nobody is handling yet.
+  const canHandToAi =
+    !!tm && tm.status !== 'off' && view !== 'ai' && view !== 'needs_person' && view !== 'person';
+
+  // After the newest message: the draft waiting for an OK, or what became of the last one.
+  const latest = drafts.latest;
+  const lastAt = t.items.at(-1)?.occurredAt ?? null;
+  const since = (iso: string | null) =>
+    !!iso && (!lastAt || Date.parse(iso) >= Date.parse(lastAt) - 1000);
+  let tail: ReactNode = null;
+  if (waiting) {
+    tail = (
+      <DraftCard
+        d={decision}
+        timezone={timezone}
+        progress={tm?.progress ?? null}
+        phone={phone}
+        now={now}
+      />
+    );
+  } else if (latest && !dismissed.has(latest.id)) {
+    const recent = !!latest.decidedAt && now - Date.parse(latest.decidedAt) < SENDING_FOR_MS;
+    if (
+      latest.status === 'approved' &&
+      latest.preview.message &&
+      recent &&
+      !sentFor(latest, t.items)
+    )
+      tail = <SendingDraft draft={latest} />;
+    else if (latest.status === 'rejected' && since(latest.decidedAt))
+      tail =
+        retry?.id === latest.id ? (
+          now - retry.at < RETRY_FOR_MS ? (
+            <TeammateLine icon={Loader2} testId="draft-retrying">
+              {latest.teammate.name} is writing a new draft…
+            </TeammateLine>
+          ) : (
+            <TeammateLine testId="draft-retry-later">
+              No new draft yet. {latest.teammate.name} answers {first ?? 'their'}
+              {first ? '’s' : ''} next message.
+            </TeammateLine>
+          )
+        ) : (
+          <RejectedNext
+            draft={latest}
+            who={first ?? 'them'}
+            mine={latest.decidedBy?.id === myUserId}
+            taking={handlingActions.busy === 'take'}
+            retrying={retrying}
+            onReply={() =>
+              void handlingActions.takeOver().then((ok) => {
+                if (ok) setDismissed((s) => new Set(s).add(latest.id));
+              })
+            }
+            onTryAgain={() => void tryAgain(latest.id)}
+          />
+        );
+    else if (latest.status === 'expired' && since(latest.decidedAt))
+      tail = (
+        <TeammateLine testId="draft-expired">
+          {latest.teammate.name}’s draft expired
+          {latest.decidedAt ? ` at ${zonedWhen(new Date(latest.decidedAt), timezone)}` : ''} before
+          anyone approved it, so this went to a person.
+        </TeammateLine>
+      );
+    else if (
+      latest.status === 'cancelled' &&
+      latest.reason === 'The customer wrote again.' &&
+      since(latest.decidedAt)
+    )
+      tail = (
+        <TeammateLine testId="draft-dropped">
+          {first ?? 'They'} wrote again, so {latest.teammate.name} dropped its draft and answers the
+          new message instead.
+        </TeammateLine>
+      );
+  }
 
   return (
     <div className="flex min-h-0 flex-1" data-testid="conversation" data-status={c.status}>
@@ -290,14 +506,20 @@ export function ConversationView({
             <div className="truncate text-[15px] font-semibold" data-testid="thread-name">
               {name}
             </div>
-            <div className="truncate text-xs text-text-3">
-              {email
-                ? `${c.counterpart} · Email`
-                : person
-                  ? `${person.phone ?? c.counterpartDisplay} · Texts`
-                  : 'Texts · not in Customers yet'}
+            <div className="flex items-center gap-1.5 truncate text-xs text-text-3">
+              {chat ? <WebsiteIcon className="h-3 w-3" /> : null}
+              <span className="truncate" data-testid="thread-channel">
+                {chat
+                  ? channelLine
+                  : email
+                    ? `${c.counterpart} · Email`
+                    : person
+                      ? `${person.phone ?? c.counterpartDisplay} · Texts`
+                      : 'Texts · not in Customers yet'}
+              </span>
             </div>
           </div>
+          {chat && data.chat?.onSiteNow ? <SiteTag /> : null}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button
@@ -424,6 +646,12 @@ export function ConversationView({
                   Add as a new person
                 </DropdownMenuItem>
               )}
+              {canHandToAi ? (
+                <DropdownMenuItem onSelect={() => setHandBackOpen(true)} data-testid="hand-to-ai">
+                  <Sparkles className="h-3.5 w-3.5" strokeWidth={1.5} />
+                  Hand to {aiName}
+                </DropdownMenuItem>
+              ) : null}
               <DropdownMenuItem
                 onSelect={() => void actions.markUnread()}
                 data-testid="mark-unread"
@@ -431,10 +659,12 @@ export function ConversationView({
                 <Mail className="h-3.5 w-3.5" strokeWidth={1.5} />
                 Mark as unread
               </DropdownMenuItem>
-              <DropdownMenuItem onSelect={() => void copyCounterpart()} data-testid="thread-copy">
-                <Copy className="h-3.5 w-3.5" strokeWidth={1.5} />
-                {email ? 'Copy email address' : 'Copy phone number'}
-              </DropdownMenuItem>
+              {chat ? null : (
+                <DropdownMenuItem onSelect={() => void copyCounterpart()} data-testid="thread-copy">
+                  <Copy className="h-3.5 w-3.5" strokeWidth={1.5} />
+                  {email ? 'Copy email address' : 'Copy phone number'}
+                </DropdownMenuItem>
+              )}
             </DropdownMenuContent>
           </DropdownMenu>
         </header>
@@ -453,11 +683,13 @@ export function ConversationView({
           <div className="ml-1.5 min-w-0 flex-1">
             <div className="truncate text-[15px] font-semibold">{name}</div>
             <div className="truncate text-xs text-text-3">
-              {email
-                ? `${c.counterpart} · Email`
-                : person
-                  ? `${person.phone ?? c.counterpartDisplay} · Texts`
-                  : 'Texts'}
+              {chat
+                ? channelLine
+                : email
+                  ? `${c.counterpart} · Email`
+                  : person
+                    ? `${person.phone ?? c.counterpartDisplay} · Texts`
+                    : 'Texts'}
             </div>
           </div>
           {canCall ? (
@@ -502,12 +734,33 @@ export function ConversationView({
             }
           >
             <span className="hidden md:inline">
-              <strong>{c.counterpartDisplay} isn’t a customer yet.</strong> Add them, or link the
-              number to someone you already have.
+              <strong>{c.counterpartDisplay} isn’t a customer yet.</strong> Add them, or link the{' '}
+              {chat ? 'chat' : 'number'} to someone you already have.
             </span>
             <span className="md:hidden">Not in Customers yet.</span>
           </Callout>
         )}
+        <HandlingBanner
+          view={view}
+          handling={handling}
+          teammate={tm}
+          myUserId={myUserId}
+          assignee={c.assignee}
+          timezone={timezone}
+          compact={phone}
+          busy={handlingActions.busy}
+          onTakeOver={() => void handlingActions.takeOver()}
+          onHandBack={() => setHandBackOpen(true)}
+          className={bannerClass}
+        />
+        {chat && data.chat ? (
+          <ChatVisitorStrip
+            chat={data.chat}
+            person={person}
+            name={tmName}
+            className="mx-3 mt-2.5 md:mx-5 md:mt-3"
+          />
+        ) : null}
         {c.status === 'snoozed' && c.snoozedUntil ? (
           <Callout
             tone="warning"
@@ -578,8 +831,12 @@ export function ConversationView({
               hasEarlier={t.hasEarlier}
               loadingEarlier={t.loadingEarlier}
               onLoadEarlier={() => void t.loadEarlier()}
-              onRetry={(id) => void retry(id)}
+              onRetry={(id) => void retryMessage(id)}
+              tail={tail}
             />
+            {phone && waiting ? (
+              <PhoneDraftBar d={decision} progress={tm?.progress ?? null} />
+            ) : null}
             {composer}
           </>
         )}
@@ -661,6 +918,18 @@ export function ConversationView({
             >
               Assign
             </SheetAction>
+            {canHandToAi ? (
+              <SheetAction
+                icon={Sparkles}
+                testId="sheet-hand-to-ai"
+                onClick={() => {
+                  setDetails(false);
+                  setHandBackOpen(true);
+                }}
+              >
+                Hand to {aiName}
+              </SheetAction>
+            ) : null}
             {c.status === 'open' ? (
               <>
                 <SheetAction
@@ -753,6 +1022,18 @@ export function ConversationView({
         open={linkPerson}
         onOpenChange={setLinkPerson}
         onLinked={after}
+      />
+      <HandBackDialog
+        open={handBackOpen}
+        onOpenChange={setHandBackOpen}
+        name={aiName}
+        who={first ?? 'them'}
+        busy={handlingActions.busy === 'back'}
+        onConfirm={() =>
+          void handlingActions.handBack().then((ok) => {
+            if (ok) setHandBackOpen(false);
+          })
+        }
       />
       {editing ? (
         <PersonDialog

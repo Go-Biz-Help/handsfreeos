@@ -182,6 +182,14 @@ export const ThreadItem = z.object({
   toAddresses: z.array(z.string()),
   ccAddresses: z.array(z.string()),
   via: z.enum(['microsoft', 'google']).nullable(),
+  /** The AI teammate that sent it (M7). */
+  teammate: z.object({ id: uuid, name: z.string() }).nullable(),
+  /** The person whose OK sent the teammate's message (its draft's approver). */
+  approvedBy: UserRef,
+  /** The teammate's draft it came from. */
+  aiDraftId: uuid.nullable(),
+  /** The business's hand-off line ("someone from our team will reply"), sent when the teammate handed it over. */
+  handoffLine: z.boolean(),
 });
 export type ThreadItem = z.infer<typeof ThreadItem>;
 export const ConversationThreadInput = ListInput.extend({

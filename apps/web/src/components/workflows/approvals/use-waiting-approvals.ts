@@ -11,11 +11,12 @@ export function approvalsChanged(): void {
 }
 
 /**
- * How many pending approvals the viewer can decide (null until known). It follows approvals opened, decided
- * and expired, live, and this tab's own decisions.
+ * How many things wait for the viewer's yes (null until known): the workflow approvals they can decide and
+ * the AI teammate's drafts. It follows approvals and drafts opened, decided and expired, live, and this tab's
+ * own decisions.
  */
 export function useWaitingApprovals(workspaceId: string): number | null {
-  const version = useLiveVersion(['workflow_approval']);
+  const version = useLiveVersion(['workflow_approval', 'ai_teammate_draft']);
   const [mine, setMine] = useState(0);
   const [count, setCount] = useState<number | null>(null);
   useEffect(() => {
@@ -25,10 +26,21 @@ export function useWaitingApprovals(workspaceId: string): number | null {
   }, []);
   useEffect(() => {
     let live = true;
-    apiBrowser()
-      .POST('/v1/queries/workflow.approval_list', { body: { workspaceId, limit: 100 } })
-      .then((r) => {
-        if (live && r.data) setCount(r.data.items.filter((a) => a.canDecide).length);
+    const api = apiBrowser();
+    Promise.all([
+      api
+        .POST('/v1/queries/workflow.approval_list', { body: { workspaceId, limit: 100 } })
+        .then((r) => (r.data ? r.data.items.filter((a) => a.canDecide).length : null)),
+      // A business without an AI teammate has no drafts; a refusal counts as none.
+      api
+        .POST('/v1/queries/ai_teammate.draft_list', {
+          body: { workspaceId, status: 'pending', limit: 100 },
+        })
+        .then((r) => (r.data ? r.data.items.filter((d) => d.canDecide).length : 0))
+        .catch(() => 0),
+    ])
+      .then(([flows, drafts]) => {
+        if (live && flows !== null) setCount(flows + drafts);
       })
       .catch(() => {
         // The count is a nicety: the page itself says what's waiting.

@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { conversationHandoffReason } from './ai-team';
 import { isoDateTime, uuid } from './common';
 import { AddressOut, ListInput, TagRef, UserRef } from './crm';
 import { QuietState } from './telephony';
@@ -41,6 +42,20 @@ export const ConversationSummary = z.object({
   snoozedUntil: isoDateTime.nullable(),
   openLead: OpenLeadRef.nullable(),
   createdAt: isoDateTime,
+  /** Who answers it (M7): nobody in particular, the AI teammate, or a person who took it or picked it up. */
+  handledBy: z.enum(['none', 'ai', 'person']),
+  /** The AI teammate that answers it, or answered it before a person took over ("Hand back to Ava"). */
+  teammate: z.object({ id: uuid, name: z.string() }).nullable(),
+  /** Handed to a person and nobody has picked it up yet ("Needs a person"). */
+  needsPersonSince: isoDateTime.nullable(),
+  /** Why it went to a person. */
+  handoffReason: conversationHandoffReason.nullable(),
+  /** The teammate's note for whoever picks it up. */
+  handoffNote: z.string().nullable(),
+  /** Who took it over from the teammate. */
+  takenOverBy: UserRef,
+  /** A website chat whose visitor's chat window checked in within the last 2 minutes ("On the site now"). */
+  onSiteNow: z.boolean(),
 });
 export type ConversationSummary = z.infer<typeof ConversationSummary>;
 

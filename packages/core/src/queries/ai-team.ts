@@ -149,6 +149,7 @@ type DraftRow = {
   via: string | null;
   expires_at: Date | null;
   created_at: Date;
+  run_knowledge: unknown[] | null;
   sort_key: string;
 };
 
@@ -176,6 +177,7 @@ function draftOut(r: DraftRow, manages: boolean): TeammateDraftOut {
     expiresAt: iso(r.expires_at),
     createdAt: iso(r.created_at)!,
     canDecide: r.status === 'pending' && (r.kind === 'reply' || manages),
+    knowledge: Array.isArray(r.run_knowledge) ? r.run_knowledge : [],
   };
 }
 
@@ -198,9 +200,10 @@ export const aiTeammateDraftList = defineQuery({
               coalesce(nullif(btrim(p.first_name || ' ' || p.last_name), ''), 'Customer') as person_name,
               d.lead_id, l.title as lead_title, d.preview, d.edits, d.reason, d.decided_by,
               coalesce(nullif(u.full_name, ''), u.email::text) as decided_name, d.decided_at, d.via, d.expires_at,
-              d.created_at, ${SORT_KEY(sql`d.created_at`)} as sort_key
+              d.created_at, rn.knowledge as run_knowledge, ${SORT_KEY(sql`d.created_at`)} as sort_key
             from app.ai_teammate_drafts d
             join app.ai_teammates t on t.id = d.teammate_id
+            left join app.ai_teammate_runs rn on rn.id = d.run_id
             left join app.conversations c on c.id = d.conversation_id
             left join app.people p on p.id = d.person_id
             left join app.leads l on l.id = d.lead_id

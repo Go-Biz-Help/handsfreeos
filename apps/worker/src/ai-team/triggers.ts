@@ -78,6 +78,8 @@ export async function scheduleReply(
     readonly trigger: string;
     /** The workflow run that handed the conversation over: its loop guard, for the run. */
     readonly origin?: AiEmployeeOrigin | null;
+    /** "Try again": the person's reason and the draft they rejected, for the run's context. */
+    readonly retry?: { readonly reason: string | null; readonly draft: string | null } | null;
   },
 ): Promise<Date> {
   const runAt = new Date(
@@ -91,11 +93,29 @@ export async function scheduleReply(
       conversationId: input.conversationId,
       trigger: input.trigger,
       ...(input.origin ? { origin: input.origin } : {}),
+      ...(input.retry ? { retry: input.retry } : {}),
     },
     workspaceId: input.scope.workspaceId,
     organizationId: input.scope.organizationId,
+    // A retry's reason goes on a reply that was already waiting, too.
+    mergePayload: !!input.retry,
   });
   return runAt;
+}
+
+/**
+ * Moves the conversation's answered-through mark back to just before the messages this run answered, so the
+ * next run answers them again (a dropped draft, or a person's "Try again").
+ */
+export async function rewindToRun(tx: Tx, conversationId: string, runId: string): Promise<void> {
+  await tx.execute(
+    sql`update app.conversations c set ai_answered_through = b.before
+        from (select min(m.occurred_at) - interval '1 millisecond' as before
+              from app.ai_teammate_runs r cross join unnest(r.message_ids) as x (id)
+              join app.messages m on m.id = x.id
+              where r.id = ${runId}) b
+        where c.id = ${conversationId} and b.before is not null`,
+  );
 }
 
 /**
@@ -117,15 +137,7 @@ export async function dropPendingDraft(
         returning run_id`,
   );
   const runId = dropped[0]?.run_id;
-  if (opts.rewind && runId)
-    await tx.execute(
-      sql`update app.conversations c set ai_answered_through = b.before
-          from (select min(m.occurred_at) - interval '1 millisecond' as before
-                from app.ai_teammate_runs r cross join unnest(r.message_ids) as x (id)
-                join app.messages m on m.id = x.id
-                where r.id = ${runId}) b
-          where c.id = ${conversationId} and b.before is not null`,
-    );
+  if (opts.rewind && runId) await rewindToRun(tx, conversationId, runId);
   return dropped.length > 0;
 }
 
@@ -355,9 +367,56 @@ export const onHandedToAi: EventHandler = async (ctx) => {
   });
 };
 
+/**
+ * `ai_teammate.retry_requested` (a person's "Try again" on a draft they rejected): the teammate answers the same
+ * messages again, with their reason. A person asked for it, so the teammate's working hours don't hold it back
+ * (what it writes still waits for an OK).
+ */
+export const onRetryRequested: EventHandler = async (ctx) => {
+  const e = ctx.event;
+  const scope = scopeOf(e);
+  const p = isRecord(e.payload) ? e.payload : {};
+  const conversationId = str(p['conversationId']);
+  if (!scope || !conversationId) return;
+  const found = await teammateOn(ctx.tx, scope);
+  if (!found) return;
+  const [conv] = await ctx.tx
+    .select()
+    .from(conversations)
+    .where(eq(conversations.id, conversationId));
+  if (
+    !conv ||
+    conv.handledBy !== 'ai' ||
+    conv.aiTeammateId !== found.teammate.id ||
+    !answersChannel(found.config, conv.channel) ||
+    !(await widgetAnswers(ctx.tx, conv, found.teammate.id))
+  )
+    return;
+  const runId = str(p['runId']);
+  if (runId) await rewindToRun(ctx.tx, conv.id, runId);
+  const batch = await unansweredMessages(ctx.tx, conv.id, await answeredThroughOf(ctx.tx, conv.id));
+  if (!batch.length) return;
+  const draftId = str(p['draftId']);
+  const [rejected] = draftId
+    ? await rows<{ body: string | null }>(
+        ctx.tx,
+        sql`select preview #>> '{message,body}' as body from app.ai_teammate_drafts where id = ${draftId}`,
+      )
+    : [];
+  await scheduleReply(ctx.tx, {
+    scope,
+    conversationId: conv.id,
+    channel: conv.channel as TeammateChannel,
+    firstAt: batch[0]!.at,
+    trigger: e.eventType,
+    retry: { reason: str(p['reason']), draft: rejected?.body ?? null },
+  });
+};
+
 const TEAMMATE_HANDLERS: Readonly<Record<string, EventHandler>> = {
   'message.received': onCustomerMessage,
   'conversation.handed_to_ai': onHandedToAi,
+  'ai_teammate.retry_requested': onRetryRequested,
   'ai_teammate.draft_decided': onDraftDecided,
   'lead.created': onLeadCreated,
   'conversation.handed_off': onHandedOff,

@@ -544,9 +544,125 @@ function describeAction(e: AuditEntry): string {
         : `blocked ${s(e.after?.name) || 'a website visitor'} from the website chat`;
     case 'chat.unblock_visitor':
       return `let ${s(e.after?.name) || 'a website visitor'} use the website chat again`;
+    // Milestone 7: the AI teammate
+    case 'ai_teammate.create':
+      return `set up the AI teammate ${s(e.after?.name)}${s(e.after?.preset) ? ` as ${s(e.after?.preset)}` : ''}`;
+    case 'ai_teammate.save_config':
+      return teammateSaveSentence(e);
+    case 'ai_teammate.restore':
+      return `brought back an earlier version of ${s(e.after?.name) || 'the AI teammate'}’s settings`;
+    case 'ai_teammate.set_status':
+      return teammateStatusSentence(e);
+    case 'ai_teammate.decide_draft':
+      return teammateDecisionSentence(e);
+    case 'ai_teammate.send_draft':
+      return `sent ${teammateOf(e)}’s approved draft${Number(e.after?.actions ?? 0) ? ', with its booking change' : ''}`;
+    case 'ai_teammate.retry':
+      return `asked ${teammateOf(e)} for a new draft${s(e.after?.reason) ? ` (“${s(e.after?.reason)}”)` : ''}`;
+    case 'chat.mark_sent':
+      return 'delivered a reply to a website chat';
+    case 'chat.mark_read':
+      return `saw ${Number(e.after?.replies ?? 1) === 1 ? 'a reply' : `${Number(e.after?.replies)} replies`} in the website chat`;
+    case 'ai_teammate.reply':
+      return `saved a draft from ${teammateOf(e)} for someone’s OK`;
+    case 'ai_teammate.expire_draft':
+      return 'let an AI teammate draft expire, so the conversation went to a person';
+    case 'ai_teammate.budget_notice':
+      return `told ${list(e.after?.emailed) || 'the owners'} that ${teammateOf(e)} used its share of today’s AI limit`;
+    case 'conversation.hand_off':
+      return `handed the conversation with ${withWho(e)} to a person${handoffReasonWords(e)}`;
+    case 'conversation.pick_up':
+      return `picked up the conversation with ${withWho(e)}`;
+    case 'conversation.take_over':
+      return `took over the conversation with ${withWho(e)} from the AI teammate${e.after?.draftCancelled ? ', dropping its draft' : ''}`;
+    case 'conversation.hand_to_ai':
+      return `handed the conversation with ${withWho(e)} to ${teammateOf(e)}`;
+    case 'lead.record_answers':
+      return s(e.after?.status) === 'qualified' && e.after?.answers === undefined
+        ? `marked ${title(e)} qualified`
+        : `recorded ${Number(e.after?.answers ?? 0) === 1 ? 'a qualifying answer' : `${Number(e.after?.answers ?? 0)} qualifying answers`} on ${title(e)}${QUALIFY_STATUS[s(e.after?.status)] ?? ''}`;
+    case 'appointment.book_for_customer':
+      return `booked ${name(e) === 'a record' ? 'a visit' : name(e)} for the customer`;
+    case 'attendee.reschedule_for_customer':
+      return 'moved a visit for the customer';
+    case 'attendee.cancel_for_customer':
+      return 'cancelled a visit for the customer';
+    case 'message.record_opt_out':
+      return `recorded that ${s(e.after?.number) || 'a customer'} asked to stop getting texts${s(e.after?.words) ? ` (“${s(e.after?.words)}”)` : ''}`;
     default:
       return e.action;
   }
+}
+
+// ---- Milestone 7: the AI teammate helpers ----
+
+/** "Ava (AI)", from the entry's own words (its name is copied into most of them). */
+const teammateOf = (e: AuditEntry) => {
+  const n = s(e.after?.teammate) || s(e.after?.name);
+  return n ? `${n} (AI)` : 'the AI teammate';
+};
+
+const QUALIFY_STATUS: Record<string, string> = {
+  qualified: ', and the lead qualified',
+  not_a_fit: ', and an answer rules them out',
+  incomplete: '',
+};
+
+const HANDOFF_REASON_WORDS: Record<string, string> = {
+  asked_for_person: 'they asked for a person',
+  frustrated: 'they sounded frustrated',
+  cant_answer: 'it couldn’t answer from Knowledge',
+  sensitive: 'a sensitive topic',
+  emergency: 'an emergency',
+  legal: 'a legal threat',
+  complaint: 'a complaint',
+  refund: 'a refund',
+  cancellation: 'cancelling service',
+  limit: 'the daily reply limit',
+  budget: 'the day’s AI limit',
+  error: 'something went wrong',
+  draft_expired: 'nobody approved its draft in time',
+  loop: 'an automatic reply loop',
+  other: 'a person should take it',
+};
+const handoffReasonWords = (e: AuditEntry) => {
+  const r = HANDOFF_REASON_WORDS[s(e.after?.reason)];
+  return r ? ` (${r})` : '';
+};
+
+function teammateSaveSentence(e: AuditEntry): string {
+  const changes = Array.isArray(e.after?.changes) ? e.after.changes.map(String) : [];
+  const who = s(e.after?.name) || 'the AI teammate';
+  if (!changes.length) return `saved ${who}’s settings`;
+  const more = changes.length > 1 ? ` and ${changes.length - 1} more` : '';
+  return `changed ${who}’s settings: ${changes[0]}${more}`;
+}
+
+function teammateStatusSentence(e: AuditEntry): string {
+  const who = s(e.after?.name) || 'the AI teammate';
+  switch (s(e.after?.status)) {
+    case 'off':
+      return `turned ${who} off`;
+    case 'training':
+      return s(e.before?.status) === 'automatic'
+        ? `put ${who} back on training wheels`
+        : `turned ${who} on, with training wheels`;
+    case 'automatic':
+      return s(e.after?.via) === 'threshold'
+        ? `gave ${who} its last approval, so it replies on its own now`
+        : `switched ${who} to automatic`;
+    default:
+      return `changed ${who}’s status`;
+  }
+}
+
+function teammateDecisionSentence(e: AuditEntry): string {
+  // The approval that reached the threshold also records the switch to automatic.
+  if (s(e.after?.status) === 'automatic') return teammateStatusSentence(e);
+  const who = teammateOf(e);
+  if (s(e.after?.decision) === 'Rejected')
+    return `rejected ${who}’s draft${s(e.after?.reason) ? `: “${s(e.after?.reason)}”` : ''}`;
+  return `approved ${who}’s draft${e.after?.edited ? ' with an edit' : ''}`;
 }
 
 // ---- Milestone 7: website chat helpers ----
@@ -922,9 +1038,11 @@ export type AuditCategory =
   | 'files'
   | 'imports'
   | 'workflows'
+  | 'ai_team'
   | 'other';
 
 export const AUDIT_CATEGORY_LABEL: Record<AuditCategory, string> = {
+  ai_team: 'AI teammate',
   members: 'Members',
   invitations: 'Invitations',
   workspace: 'Workspace',
@@ -957,13 +1075,21 @@ const CALENDAR_PREFIXES = [
 
 /**
  * Who did it, for a log row: a person, "Workflow: Speed to lead" (audit.list names the workflow, which is
- * recorded as itself), or HandsFreeOS for system work.
+ * recorded as itself), "Ava (AI)" for the AI teammate (its name from the page, else from the entry), or
+ * HandsFreeOS for system work.
  */
-export function auditActor(e: AuditEntry): {
+export function auditActor(
+  e: AuditEntry,
+  teammateName?: string | null,
+): {
   readonly name: string;
-  readonly kind: 'person' | 'workflow' | 'system';
+  readonly kind: 'person' | 'workflow' | 'system' | 'ai';
   readonly workflowId: string | null;
 } {
+  if (e.actor.type === 'ai_employee') {
+    const n = teammateName || s(e.after?.teammate);
+    return { name: n ? `${n} (AI)` : 'The AI teammate', kind: 'ai', workflowId: null };
+  }
   if (e.actor.type === 'workflow')
     return {
       name: e.actor.workflow ? `Workflow: ${e.actor.workflow.name}` : 'A workflow',
@@ -976,6 +1102,13 @@ export function auditActor(e: AuditEntry): {
 
 export function auditCategory(action: string): AuditCategory {
   if (action.startsWith('workflow')) return 'workflows';
+  if (
+    action.startsWith('ai_teammate.') ||
+    ['conversation.hand_off', 'conversation.pick_up', 'conversation.take_over'].includes(action) ||
+    action === 'conversation.hand_to_ai' ||
+    action === 'lead.record_answers'
+  )
+    return 'ai_team';
   if (CALENDAR_PREFIXES.some((p) => action.startsWith(p))) return 'calendar';
   if (action.startsWith('membership.')) return 'members';
   if (action.startsWith('invitation.')) return 'invitations';

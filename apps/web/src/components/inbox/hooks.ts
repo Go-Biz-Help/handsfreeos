@@ -2,20 +2,21 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { apiBrowser, errorMessage, unwrap } from '@/lib/api/client';
+import type { InboxBoxKey } from '@/lib/ai-team/inbox-types';
 import type {
   ConversationStatus,
   ConversationSummary,
   ConversationThread,
-  InboxBox,
   ThreadItem,
 } from '@/lib/api/types';
 import { useLiveVersion } from '@/lib/realtime/live-provider';
 import { useUnread } from '@/lib/realtime/unread-provider';
 
 export interface InboxFilters {
-  readonly box: InboxBox;
+  /** Mine, unassigned or everyone's, or the AI teammate's boxes: "Needs a person" and its own. */
+  readonly box: InboxBoxKey;
   readonly status: ConversationStatus;
-  readonly channel?: 'sms' | 'email';
+  readonly channel?: 'sms' | 'email' | 'chat';
   readonly q?: string;
 }
 
@@ -26,7 +27,11 @@ const PAGE = 30;
  * refetch as many rows as are showing (so "Show more" pages survive a live refresh).
  */
 export function useInboxList(workspaceId: string, filters: InboxFilters) {
-  const live = useLiveVersion(['conversation', 'message', 'call', 'person'], 300);
+  // Drafts: a row says when the teammate's reply waits for an OK.
+  const live = useLiveVersion(
+    ['conversation', 'message', 'call', 'person', 'ai_teammate_draft'],
+    300,
+  );
   const key = `${filters.box}|${filters.status}|${filters.channel ?? ''}|${filters.q ?? ''}`;
   const [state, setState] = useState<{
     key: string;

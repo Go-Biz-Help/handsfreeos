@@ -28,6 +28,7 @@ import {
   type ConversationChat,
   type ConversationSummary,
 } from '../schemas/conversation';
+import type { ConversationHandoffReason } from '../schemas/ai-team';
 import {
   ConversationThreadInput,
   ConversationThreadOutput,
@@ -65,6 +66,15 @@ type ConversationRow = {
   awaiting_reply_since: Date | null;
   snoozed_until: Date | null;
   created_at: Date;
+  handled_by: 'none' | 'ai' | 'person';
+  ai_teammate_id: string | null;
+  teammate_name: string | null;
+  needs_person_since: Date | null;
+  handoff_reason: ConversationHandoffReason | null;
+  handoff_note: string | null;
+  taken_over_by: string | null;
+  taken_over_name: string | null;
+  on_site_now: boolean;
   open_lead: {
     id: string;
     title: string;
@@ -85,6 +95,10 @@ const conversationSelect = (
     c.assignee_user_id, coalesce(nullif(u.full_name, ''), u.email::text) as assignee_name, c.unread_count, c.last_message_at,
     c.last_preview, c.last_direction::text as last_direction, c.awaiting_reply_since, c.snoozed_until, c.created_at,
     cv.name as visitor_name,
+    coalesce(cv.last_seen_at > now() - ${CHAT_ON_SITE_MS}::float8 * interval '1 millisecond', false) as on_site_now,
+    c.handled_by::text as handled_by, c.ai_teammate_id, tm.name as teammate_name, c.needs_person_since,
+    c.handoff_reason, c.handoff_note, c.taken_over_by,
+    coalesce(nullif(tu.full_name, ''), tu.email::text) as taken_over_name,
     (select json_build_object('id', l.id, 'title', l.title, 'stageName', s.name, 'valueCents', l.value_cents,
               'nextAction', l.next_action, 'nextActionAt', l.next_action_at)
        from app.leads l join app.pipeline_stages s on s.id = l.stage_id
@@ -99,6 +113,8 @@ const conversationSelect = (
   left join app.people p on p.id = c.person_id
   left join app.users u on u.id = c.assignee_user_id
   left join app.chat_visitors cv on cv.conversation_id = c.id
+  left join app.ai_teammates tm on tm.id = c.ai_teammate_id
+  left join app.users tu on tu.id = c.taken_over_by
   where c.workspace_id = ${workspaceId}`;
 
 function summary(r: ConversationRow): ConversationSummary {
@@ -137,6 +153,16 @@ function summary(r: ConversationRow): ConversationSummary {
         }
       : null,
     createdAt: iso(r.created_at)!,
+    handledBy: r.handled_by,
+    teammate:
+      r.ai_teammate_id && r.teammate_name ? { id: r.ai_teammate_id, name: r.teammate_name } : null,
+    needsPersonSince: iso(r.needs_person_since),
+    handoffReason: r.handoff_reason,
+    handoffNote: r.handoff_note,
+    takenOverBy: r.taken_over_by
+      ? { id: r.taken_over_by, fullName: r.taken_over_name ?? 'Former member' }
+      : null,
+    onSiteNow: r.channel === 'chat' && !!r.on_site_now,
   };
 }
 
@@ -415,6 +441,12 @@ type ThreadRow = {
   to_addresses: string[] | null;
   cc_addresses: string[] | null;
   via: 'microsoft' | 'google' | null;
+  teammate_id: string | null;
+  teammate_name: string | null;
+  approved_by: string | null;
+  approved_name: string | null;
+  ai_draft_id: string | null;
+  handoff_line: boolean;
   sort_key: string;
 };
 
@@ -425,9 +457,14 @@ const messageBranch = (workspaceId: string) => sql`
     null::int as duration_seconds, false as is_voicemail, false as has_recording, null::text as transcript,
     null::uuid as answered_by, null::text as answered_name, null::text as recording_path, null::int as recording_seconds, null::text as answered_via,
     m.body_html, m.to_addresses, m.cc_addresses, mc.provider::text as via,
+    m.sent_by_teammate_id as teammate_id, tt.name as teammate_name, m.approved_by,
+    coalesce(nullif(ab.full_name, ''), ab.email::text) as approved_name, m.ai_draft_id,
+    coalesce(m.client_id, '') like 'handoff:%' as handoff_line,
     ${SORT_KEY(sql`m.occurred_at`)} as sort_key
   from app.messages m left join app.users su on su.id = m.sent_by
   left join app.mailbox_connections mc on mc.id = m.mailbox_connection_id
+  left join app.ai_teammates tt on tt.id = m.sent_by_teammate_id
+  left join app.users ab on ab.id = m.approved_by
   where m.workspace_id = ${workspaceId}`;
 
 function threadItem(r: ThreadRow): ThreadItem {
@@ -460,6 +497,13 @@ function threadItem(r: ThreadRow): ThreadItem {
     toAddresses: r.to_addresses ?? [],
     ccAddresses: r.cc_addresses ?? [],
     via: r.via,
+    teammate:
+      r.teammate_id && r.teammate_name ? { id: r.teammate_id, name: r.teammate_name } : null,
+    approvedBy: r.approved_by
+      ? { id: r.approved_by, fullName: r.approved_name ?? 'Former member' }
+      : null,
+    aiDraftId: r.ai_draft_id,
+    handoffLine: !!r.handoff_line,
   };
 }
 
@@ -487,6 +531,7 @@ export const conversationThread = defineQuery({
               c.duration_seconds, c.is_voicemail, c.recording_object_path is not null, c.transcript, c.answered_by_user_id,
               coalesce(nullif(au.full_name, ''), au.email::text), c.recording_object_path, c.recording_seconds, c.answered_via::text,
               null::text, '{}'::text[], '{}'::text[], null::text,
+              null::uuid, null::text, null::uuid, null::text, null::uuid, false,
               ${SORT_KEY(sql`c.started_at`)}
             from app.calls c
             left join app.users pu on pu.id = c.placed_by

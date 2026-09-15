@@ -115,6 +115,7 @@ const ACTION_ICONS: Record<string, LucideIcon> = {
   webhook_out: Webhook,
   enrol_workflow: Workflow,
   remove_from_workflow: UserX,
+  hand_to_ai_teammate: Sparkles,
 };
 
 export function actionIcon(action: string): LucideIcon {

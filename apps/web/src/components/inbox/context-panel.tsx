@@ -10,7 +10,7 @@ import {
   UserPlus,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { toast } from 'sonner';
 import { NextActionChip, StageBadge, TagChip } from '@/components/crm/chips';
 import { LeadDialog } from '@/components/crm/lead-dialog';
@@ -50,6 +50,7 @@ export function ContextPanel({
   pipelines,
   onAddPerson,
   onLinkPerson,
+  extra,
 }: {
   data: ConversationGet;
   workspaceId: string;
@@ -58,6 +59,8 @@ export function ContextPanel({
   pipelines: Pipeline[];
   onAddPerson: () => void;
   onLinkPerson: () => void;
+  /** What the AI teammate is doing in this conversation. */
+  extra?: ReactNode;
 }) {
   const router = useRouter();
   const { person, conversation: c } = data;
@@ -89,13 +92,15 @@ export function ContextPanel({
           <div className="min-w-0">
             <h3 className="truncate text-[15px] font-semibold">{c.counterpartDisplay}</h3>
             <div className="text-xs text-text-3">
-              First texted {formatDate(c.createdAt, { time: true })}
+              {c.channel === 'chat' ? 'First wrote in the website chat' : 'First texted'}{' '}
+              {formatDate(c.createdAt, { time: true })}
             </div>
           </div>
         </div>
         <p className="text-[13px] text-text-2">
-          This number doesn’t match anyone in Customers. Once you add or link them, this
-          conversation and any calls show on their timeline.
+          {c.channel === 'chat'
+            ? 'This visitor doesn’t match anyone in Customers. Once you add or link them, this chat shows on their timeline.'
+            : 'This number doesn’t match anyone in Customers. Once you add or link them, this conversation and any calls show on their timeline.'}
         </p>
         <Button size="sm" onClick={onAddPerson} data-testid="context-add-person">
           <UserPlus className="h-3.5 w-3.5" strokeWidth={1.5} />
@@ -110,6 +115,7 @@ export function ContextPanel({
           <LinkIcon className="h-3.5 w-3.5" strokeWidth={1.5} />
           Link to an existing customer
         </Button>
+        {extra}
       </div>
     );
 
@@ -250,6 +256,8 @@ export function ContextPanel({
           Add task
         </Button>
       </section>
+
+      {extra}
 
       <div className="h-px bg-border" />
 

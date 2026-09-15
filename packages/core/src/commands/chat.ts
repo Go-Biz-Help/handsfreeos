@@ -378,16 +378,27 @@ export const chatMarkSent = defineCommand({
   output: ChatMarkSentOutput,
   permission: 'inbox.use',
   scope: inWorkspace,
-  emits: [],
+  // Its own event, not a second message.sent (the worker's chat handler answers that one by marking it sent):
+  // it only refreshes the inbox's open thread, live.
+  emits: ['chat.reply_sent'],
   actors: ['system'],
   async handler(ctx, input) {
-    const [m] = await rows<{ id: string }>(
+    const [m] = await rows<{ id: string; conversation_id: string }>(
       ctx.tx,
       sql`update app.messages set status = 'sent', sent_at = coalesce(sent_at, now())
           where id = ${input.messageId} and workspace_id = ${ctx.scope.workspaceId!}
             and channel = 'chat' and direction = 'outbound' and status = 'queued'
-          returning id`,
+          returning id, conversation_id`,
     );
+    if (m)
+      await ctx.emit({
+        type: 'chat.reply_sent',
+        entityType: 'message',
+        entityId: m.id,
+        payload: { conversationId: m.conversation_id, status: 'sent' },
+        before: { status: 'queued' },
+        after: { status: 'sent', channel: 'chat' },
+      });
     return { messageId: input.messageId, marked: !!m };
   },
 });
@@ -401,7 +412,9 @@ export const chatMarkRead = defineCommand({
   output: ChatMarkReadOutput,
   permission: 'inbox.use',
   scope: inWorkspace,
-  emits: [],
+  // A text's delivery receipt is message.delivered too: it refreshes the inbox's thread ("Seen"), live. No worker
+  // handler answers it, so nothing goes out.
+  emits: ['message.delivered'],
   actors: ['system'],
   async handler(ctx, input) {
     const ws = ctx.scope.workspaceId!;
@@ -423,6 +436,19 @@ export const chatMarkRead = defineCommand({
             and created_at <= (select t.created_at from app.messages t where t.id = ${through.id})
           returning id`,
     );
+    // One event for the replies the window showed (the thread refetches them all).
+    if (marked.length)
+      await ctx.emit({
+        type: 'message.delivered',
+        entityType: 'message',
+        entityId: through.id,
+        payload: {
+          conversationId: visitor.conversationId,
+          status: 'delivered',
+          messageIds: marked.map((m) => m.id),
+        },
+        after: { status: 'delivered', channel: 'chat', replies: marked.length },
+      });
     return { marked: marked.length };
   },
 });

@@ -66,7 +66,12 @@ const GROUPS: readonly { title: string; items: readonly MenuItem[] }[] = [
   },
   {
     title: 'The conversation',
-    items: [action('assign_conversation'), action('close_conversation')],
+    items: [
+      action('assign_conversation'),
+      action('close_conversation'),
+      // The AI teammate takes the conversation: in its violet, like the AI steps.
+      { ...action('hand_to_ai_teammate'), tone: 'ai' },
+    ],
   },
   {
     title: 'Other workflows and apps',

@@ -56,8 +56,10 @@ type LeadStage = LeadGet['stages'][number];
 import { daysLabel, formatDate, formatDateOnly, formatMoney } from '@/lib/format';
 import { useLiveRefresh, useLiveVersion } from '@/lib/realtime/live-provider';
 import { cn } from '@/lib/utils';
+import { leadQualificationOf } from '@/lib/ai-team/inbox-types';
 import { LeadEditDialog } from './lead-edit-dialog';
 import { LostReasonDialog } from './lost-reason-dialog';
+import { QualificationCard } from './qualification-card';
 
 export interface LeadDetailData {
   lead: LeadCard;
@@ -83,6 +85,7 @@ export function LeadDetail({
   onChanged,
   timeZone,
   upcoming,
+  teammate,
 }: {
   workspaceId: string;
   leadId: string;
@@ -97,6 +100,11 @@ export function LeadDetail({
   /** The workspace's time zone; with it the full page offers Book and lists upcoming appointments. */
   timeZone?: string;
   upcoming?: Appointment[];
+  /** The AI teammate that asks the qualifying questions: its name and its questions now. */
+  teammate?: {
+    readonly name: string;
+    readonly questions: readonly { readonly id: string; readonly question: string }[];
+  } | null;
 }) {
   const router = useRouter();
   const [data, setData] = useState<LeadDetailData | null>(initial ?? null);
@@ -567,6 +575,14 @@ export function LeadDetail({
         </div>
       )}
 
+      {!compact && leadQualificationOf(lead) ? (
+        <QualificationCard
+          qualification={leadQualificationOf(lead)!}
+          teammateName={teammate?.name ?? null}
+          questions={teammate?.questions ?? []}
+        />
+      ) : null}
+
       {timeZone && !compact ? (
         <UpcomingAppointments
           timeZone={timeZone}
@@ -623,6 +639,7 @@ export function LeadDetail({
             myUserId={myUserId}
             canModerate={canModerate}
             subjectName={lead.person?.fullName}
+            members={members}
           />
         </Card>
       </section>

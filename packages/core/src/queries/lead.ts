@@ -4,6 +4,7 @@ import { leadCards } from '../crm/lead-cards';
 import { HfosError } from '../errors';
 import { defineQuery } from '../kernel/define';
 import { decodeCursor, page } from '../kernel/pagination';
+import { LeadQualification } from '../schemas/ai-team';
 import {
   LeadBoardInput,
   LeadBoardOutput,
@@ -127,6 +128,16 @@ export const leadGet = defineQuery({
       .from(pipelineStages)
       .where(eq(pipelineStages.pipelineId, card.pipelineId))
       .orderBy(asc(pipelineStages.position));
-    return { lead: card, stages };
+    // Its qualifying answers (the column starts as {}): none recorded is null.
+    const [row] = await ctx.tx
+      .select({ qualification: leads.qualification })
+      .from(leads)
+      .where(eq(leads.id, input.leadId));
+    const raw = row?.qualification;
+    const parsed =
+      raw && typeof raw === 'object' && Object.keys(raw).length
+        ? LeadQualification.safeParse(raw)
+        : null;
+    return { lead: { ...card, qualification: parsed?.success ? parsed.data : null }, stages };
   },
 });

@@ -301,6 +301,7 @@ describe('registry', () => {
       'ai_teammate.set_status',
       'ai_teammate.decide_draft',
       'ai_teammate.send_draft',
+      'ai_teammate.retry',
       'appointment.book_for_customer',
       'attendee.reschedule_for_customer',
       'attendee.cancel_for_customer',

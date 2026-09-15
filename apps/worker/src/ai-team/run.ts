@@ -99,7 +99,14 @@ import {
   type RunEnd,
   type RunState,
 } from './tools';
-import { firstMessageTurn, handoverLines, nudgeTurn, type Handover } from './turns';
+import {
+  firstMessageTurn,
+  handoverLines,
+  nudgeTurn,
+  retryLines,
+  type Handover,
+  type Retry,
+} from './turns';
 
 const str = (v: unknown): string | null => (typeof v === 'string' && v ? v : null);
 const isRecord = (v: unknown): v is Record<string, unknown> =>
@@ -136,6 +143,8 @@ export interface RunSpec {
   readonly handover: Handover | null;
   /** A nudge: which one, and when the message it follows went out. */
   readonly nudge?: { readonly n: number; readonly lastAt: number } | null;
+  /** A person's "Try again": their reason and the draft they rejected. */
+  readonly retry?: Retry | null;
 }
 
 interface StartedRun extends RunSpec {
@@ -217,6 +226,15 @@ export function originOf(v: unknown): AiEmployeeOrigin | null {
   };
 }
 
+/** A person's "Try again", as a job carries it. */
+export function retryOf(v: unknown): Retry | null {
+  if (!isRecord(v)) return null;
+  return {
+    reason: str(v['reason'])?.slice(0, 1000) ?? null,
+    draft: str(v['draft'])?.slice(0, 4000) ?? null,
+  };
+}
+
 /** A workflow's goal and note, as a job carries them. */
 export function handoverOf(p: Readonly<Record<string, unknown>>): Handover | null {
   const goal = AI_TEAMMATE_GOALS.find((g) => g === p['goal']);
@@ -236,6 +254,7 @@ export const teammateReplyJob: JobHandler = async (ctx) => {
     trigger: triggerOf(p['trigger']),
     origin: originOf(p['origin']),
     handover: handoverOf(p),
+    retry: retryOf(p['retry']),
   });
   if (!run) return;
   return runIt(ctx, run);
@@ -561,9 +580,11 @@ async function answer(ctx: JobContext, run: StartedRun): Promise<JobResult> {
   const base = {
     provider,
     system: TEAMMATE_SYSTEM,
-    context: run.handover
-      ? [contextText(rc), ...handoverLines(run.handover)].join('\n')
-      : contextText(rc),
+    context: [
+      contextText(rc),
+      ...(run.handover ? handoverLines(run.handover) : []),
+      ...(run.retry ? retryLines(run.retry) : []),
+    ].join('\n'),
     maxTokens: MAX_TOKENS,
     execute,
     onTurnUsage,

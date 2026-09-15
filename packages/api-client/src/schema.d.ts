@@ -157,6 +157,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/ai_teammate.retry": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Ask the AI teammate for a new reply after you rejected its draft. It answers the same messages again with your reason in mind, and the new draft waits for an OK.
+         * @description Risk level 1. Requires inbox.use. Emits ai_teammate.retry_requested.
+         */
+        post: operations["command_ai_teammate_retry"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/ai_teammate.save_config": {
         parameters: {
             query?: never;
@@ -4998,6 +5018,40 @@ export interface operations {
                         revision: number;
                         /** Format: uuid */
                         teammateId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_ai_teammate_retry: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    draftId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        conversationId: string;
+                        /** Format: uuid */
+                        draftId: string;
                     };
                 };
             };
@@ -12410,6 +12464,7 @@ export interface operations {
                             id: string;
                             /** @enum {string} */
                             kind: "reply" | "approval";
+                            knowledge: unknown[];
                             lead: {
                                 /** Format: uuid */
                                 id: string;
@@ -14182,6 +14237,10 @@ export interface operations {
                             counterpartDisplay: string;
                             /** Format: date-time */
                             createdAt: string;
+                            /** @enum {string} */
+                            handledBy: "none" | "ai" | "person";
+                            handoffNote: string | null;
+                            handoffReason: ("asked_for_person" | "frustrated" | "cant_answer" | "sensitive" | "emergency" | "legal" | "complaint" | "refund" | "cancellation" | "limit" | "budget" | "error" | "draft_expired" | "loop" | "other") | null;
                             /** Format: uuid */
                             id: string;
                             lastDirection: ("inbound" | "outbound") | null;
@@ -14192,6 +14251,8 @@ export interface operations {
                                 /** Format: uuid */
                                 id: string;
                             } | null;
+                            needsPersonSince: string | null;
+                            onSiteNow: boolean;
                             openLead: {
                                 /** Format: uuid */
                                 id: string;
@@ -14209,6 +14270,16 @@ export interface operations {
                             snoozedUntil: string | null;
                             /** @enum {string} */
                             status: "open" | "snoozed" | "closed";
+                            takenOverBy: {
+                                fullName: string;
+                                /** Format: uuid */
+                                id: string;
+                            } | null;
+                            teammate: {
+                                /** Format: uuid */
+                                id: string;
+                                name: string;
+                            } | null;
                             unreadCount: number;
                         };
                         fromNumber: string | null;
@@ -14289,12 +14360,18 @@ export interface operations {
                 content: {
                     "application/json": {
                         items: {
+                            aiDraftId: string | null;
                             answeredBy: {
                                 fullName: string;
                                 /** Format: uuid */
                                 id: string;
                             } | null;
                             answeredVia: ("browser" | "forwarding") | null;
+                            approvedBy: {
+                                fullName: string;
+                                /** Format: uuid */
+                                id: string;
+                            } | null;
                             body: string | null;
                             bodyHtml: string | null;
                             ccAddresses: string[];
@@ -14306,6 +14383,7 @@ export interface operations {
                             errorCode: string | null;
                             errorMessage: string | null;
                             fromAddress: string | null;
+                            handoffLine: boolean;
                             hasRecording: boolean;
                             /** Format: uuid */
                             id: string;
@@ -14330,6 +14408,11 @@ export interface operations {
                             } | null;
                             status: string;
                             subject: string | null;
+                            teammate: {
+                                /** Format: uuid */
+                                id: string;
+                                name: string;
+                            } | null;
                             toAddresses: string[];
                             transcript: string | null;
                             /** @enum {string} */
@@ -14944,6 +15027,10 @@ export interface operations {
                             counterpartDisplay: string;
                             /** Format: date-time */
                             createdAt: string;
+                            /** @enum {string} */
+                            handledBy: "none" | "ai" | "person";
+                            handoffNote: string | null;
+                            handoffReason: ("asked_for_person" | "frustrated" | "cant_answer" | "sensitive" | "emergency" | "legal" | "complaint" | "refund" | "cancellation" | "limit" | "budget" | "error" | "draft_expired" | "loop" | "other") | null;
                             /** Format: uuid */
                             id: string;
                             lastDirection: ("inbound" | "outbound") | null;
@@ -14954,6 +15041,8 @@ export interface operations {
                                 /** Format: uuid */
                                 id: string;
                             } | null;
+                            needsPersonSince: string | null;
+                            onSiteNow: boolean;
                             openLead: {
                                 /** Format: uuid */
                                 id: string;
@@ -14971,6 +15060,16 @@ export interface operations {
                             snoozedUntil: string | null;
                             /** @enum {string} */
                             status: "open" | "snoozed" | "closed";
+                            takenOverBy: {
+                                fullName: string;
+                                /** Format: uuid */
+                                id: string;
+                            } | null;
+                            teammate: {
+                                /** Format: uuid */
+                                id: string;
+                                name: string;
+                            } | null;
                             unreadCount: number;
                         }[];
                         nextCursor: string | null;
@@ -15663,6 +15762,32 @@ export interface operations {
                             /** Format: uuid */
                             pipelineId: string;
                             position: number;
+                            qualification: {
+                                /** @default {} */
+                                answers: {
+                                    [key: string]: {
+                                        answer: string;
+                                        /** Format: date-time */
+                                        answeredAt: string;
+                                        /** @enum {string} */
+                                        by: "ai" | "person";
+                                        question: string;
+                                    };
+                                };
+                                /** @default [] */
+                                missing: string[];
+                                /** @default [] */
+                                notAFit: string[];
+                                /** @default null */
+                                qualifiedAt: string | null;
+                                /**
+                                 * @default incomplete
+                                 * @enum {string}
+                                 */
+                                status: "qualified" | "not_a_fit" | "incomplete";
+                                /** @default null */
+                                updatedAt: string | null;
+                            } | null;
                             source: string | null;
                             /** Format: date-time */
                             stageEnteredAt: string;
@@ -15828,12 +15953,18 @@ export interface operations {
                         /** Format: uuid */
                         conversationId: string;
                         message: {
+                            aiDraftId: string | null;
                             answeredBy: {
                                 fullName: string;
                                 /** Format: uuid */
                                 id: string;
                             } | null;
                             answeredVia: ("browser" | "forwarding") | null;
+                            approvedBy: {
+                                fullName: string;
+                                /** Format: uuid */
+                                id: string;
+                            } | null;
                             body: string | null;
                             bodyHtml: string | null;
                             ccAddresses: string[];
@@ -15845,6 +15976,7 @@ export interface operations {
                             errorCode: string | null;
                             errorMessage: string | null;
                             fromAddress: string | null;
+                            handoffLine: boolean;
                             hasRecording: boolean;
                             /** Format: uuid */
                             id: string;
@@ -15869,6 +16001,11 @@ export interface operations {
                             } | null;
                             status: string;
                             subject: string | null;
+                            teammate: {
+                                /** Format: uuid */
+                                id: string;
+                                name: string;
+                            } | null;
                             toAddresses: string[];
                             transcript: string | null;
                             /** @enum {string} */

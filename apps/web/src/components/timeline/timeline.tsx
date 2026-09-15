@@ -22,6 +22,7 @@ import {
   describeTimeline,
   isChannelEntry,
   timelineActor,
+  timelineApproval,
   timelineBody,
   timelineDotClass,
 } from './describe';
@@ -43,6 +44,7 @@ export function Timeline({
   canModerate,
   subjectName,
   timeZone,
+  members,
 }: {
   workspaceId: string;
   recordType: RecordType;
@@ -54,6 +56,8 @@ export function Timeline({
   subjectName?: string;
   /** The workspace's time zone, for appointment times. */
   timeZone?: string;
+  /** The team, for "approved by Chris" after what the AI teammate did with someone's OK. */
+  members?: readonly { readonly id: string; readonly fullName: string }[];
 }) {
   const router = useRouter();
   const key = `${initial.items[0]?.id ?? ''}:${initial.items.length}`;
@@ -130,6 +134,7 @@ export function Timeline({
                 <span className="text-[13px] leading-5">
                   <strong className="font-semibold">{timelineActor(e, subjectName)}</strong>{' '}
                   {describeTimeline(e, recordType, myUserId, timeZone)}
+                  {timelineApproval(e, members)}
                   {workflowRunOf(e) ? (
                     <>
                       {' · '}

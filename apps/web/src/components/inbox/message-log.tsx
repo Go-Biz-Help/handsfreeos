@@ -1,9 +1,12 @@
 'use client';
 import { smsKeyword } from '@hfos/core';
-import { CheckCheck, CircleAlert } from 'lucide-react';
-import { Fragment } from 'react';
+import { CheckCheck, CircleAlert, Sparkles } from 'lucide-react';
+import { Fragment, type ReactNode } from 'react';
 import { CallCard } from '@/components/calls/call-card';
 import { Button } from '@/components/ui/button';
+import { AI_TEXT } from '@/components/workflows/chips';
+import { teammateMessageOf } from '@/lib/ai-team/inbox-types';
+import { teammateLabel } from '@/lib/ai-team/inbox-words';
 import type { ThreadItem } from '@/lib/api/types';
 import { clockTime, dayDivider } from '@/lib/inbox';
 import { cn } from '@/lib/utils';
@@ -62,9 +65,12 @@ export function MessageLog({
   onLoadEarlier,
   onRetry,
   compact,
+  tail,
 }: {
   items: ThreadItem[];
   pending: PendingText[];
+  /** After the newest message: the AI teammate's draft, or what became of it. */
+  tail?: ReactNode;
   /** For "Mike opted out of texts"; null for a number nobody has linked. */
   customerFirstName: string | null;
   /** The customer's full name, on the emails they sent. */
@@ -103,7 +109,7 @@ export function MessageLog({
             </Button>
           </div>
         ) : null}
-        {items.length === 0 && pending.length === 0 ? (
+        {items.length === 0 && pending.length === 0 && !tail ? (
           <div className="py-10 text-center text-[13px] text-text-3">
             No messages yet. Say hello below.
           </div>
@@ -155,6 +161,7 @@ export function MessageLog({
             )}
           </Fragment>
         ))}
+        {tail}
       </div>
     </div>
   );
@@ -175,6 +182,8 @@ function MessageEntry({
   const failed = out && FAILED.has(item.status);
   const time = entryTime(item.occurredAt, compact);
   const keyword = !out && item.body ? smsKeyword(item.body) : null;
+  // The AI teammate's reply reads "Ava (AI)", with "approved by Chris" when a person's OK sent it.
+  const ai = out ? teammateMessageOf(item) : null;
   const sender = item.sentBy ? firstName(item.sentBy.fullName) : 'HandsFreeOS';
   const mediaNames = item.media.map((m) => m.name).join(', ');
   return (
@@ -214,10 +223,23 @@ function MessageEntry({
         <div className="flex items-center gap-[5px] whitespace-nowrap px-1 text-[11.5px] text-text-3">
           {out ? (
             <>
-              <span>
-                {sender} · {time}
-              </span>
-              <DeliveryStatus status={item.status} />
+              {ai ? (
+                <>
+                  <span
+                    className={cn('inline-flex items-center gap-[3px] font-semibold', AI_TEXT)}
+                    data-testid="ai-label"
+                  >
+                    <Sparkles className="h-3 w-3" strokeWidth={1.75} />
+                    {teammateLabel(ai)}
+                  </span>
+                  <span>· {time}</span>
+                </>
+              ) : (
+                <span>
+                  {sender} · {time}
+                </span>
+              )}
+              <DeliveryStatus status={item.status} chat={item.channel === 'chat'} />
               {failed && onRetry ? (
                 <Button
                   variant="ghost"
@@ -250,14 +272,15 @@ function MessageEntry({
   );
 }
 
-function DeliveryStatus({ status }: { status: string }) {
+/** Where a reply is. A website chat's is "Seen" once the visitor's chat window read it. */
+function DeliveryStatus({ status, chat }: { status: string; chat?: boolean }) {
   if (status === 'queued' || status === 'sending') return <span>· Sending…</span>;
   if (status === 'sent') return <span>· Sent</span>;
   if (status === 'delivered')
     return (
       <span className="inline-flex items-center gap-[3px] text-success-text">
         <CheckCheck className="h-3.5 w-3.5" strokeWidth={1.75} />
-        Delivered
+        {chat ? 'Seen' : 'Delivered'}
       </span>
     );
   if (FAILED.has(status))

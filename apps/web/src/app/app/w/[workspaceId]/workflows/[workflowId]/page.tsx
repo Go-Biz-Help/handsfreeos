@@ -3,6 +3,7 @@ import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { WorkflowEditor } from '@/components/workflows/editor';
 import type { QuietHours } from '@/components/workflows/editor-context';
+import { teammateBriefOf } from '@/lib/ai-team/inbox-words';
 import { apiServer, unwrap, unwrapPage } from '@/lib/api/server';
 import type { SampleContact } from '@/lib/workflows/sample';
 
@@ -24,10 +25,15 @@ export default async function WorkflowEditorPage({
   const { api } = await apiServer();
   const got = unwrapPage(await api.POST('/v1/queries/workspace.get', { body: { workspaceId } }));
   const canManage = hasWorkspacePermission(got.workspace.role, 'workflows.manage');
-  const [wf, catalogs, people] = await Promise.all([
+  const [wf, catalogs, people, teammate] = await Promise.all([
     unwrapPage(await api.POST('/v1/queries/workflow.get', { body: { workspaceId, workflowId } })),
     unwrapPage(await api.POST('/v1/queries/workflow.catalogs', { body: { workspaceId } })),
     unwrapPage(await api.POST('/v1/queries/person.list', { body: { workspaceId, limit: 1 } })),
+    // The AI teammate, for its step's panel and the double-texting warning (the editor works without it).
+    api
+      .POST('/v1/queries/ai_teammate.get', { body: { workspaceId } })
+      .then((r) => (r.data ? teammateBriefOf(r.data) : null))
+      .catch(() => null),
   ]);
   let quietHours: QuietHours | null = null;
   try {
@@ -61,6 +67,7 @@ export default async function WorkflowEditorPage({
       quietHours={quietHours}
       sample={sample}
       initialStep={step}
+      teammate={teammate}
     />
   );
 }

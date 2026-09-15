@@ -51,6 +51,7 @@ import {
   aiTeammateDraftList,
   aiTeammateGet,
   aiTeammateRestore,
+  aiTeammateRetry,
   aiTeammateSaveConfig,
   aiTeammateSendDraft,
   aiTeammateSetStatus,
@@ -1430,6 +1431,60 @@ describe('deciding the teammate’s drafts (three approvals turn it automatic)',
       rejectedCount: 0,
       automaticVia: null,
     });
+  });
+});
+
+describe('trying a rejected draft again', () => {
+  let r: Biz;
+  const retry = (draftId: string, u: TestUser = r.member) =>
+    runFull(aiTeammateRetry, { workspaceId: r.wsId, draftId }, u);
+  const reject = (draftId: string, u: TestUser, reason?: string) =>
+    run(aiTeammateDecideDraft, { workspaceId: r.wsId, draftId, decision: 'reject', reason }, u);
+  const drafted = async (name: string, kind: 'reply' | 'approval' = 'reply') => {
+    const c = await aiChat(r, name);
+    return { ...c, draftId: await pendingDraft(r, { ...c, kind }) };
+  };
+
+  beforeAll(async () => {
+    r = await setupBusiness('retry', 'first_message');
+  });
+
+  it('asks the teammate again, with the reason, only for the latest reply it still handles', async () => {
+    const kit = await drafted('Kit');
+    await expectHfos(() => retry(kit.draftId), 'rule_violation', 'not_a_rejected_reply');
+    await reject(kit.draftId, r.member, 'Say we’re licensed');
+    const again = await retry(kit.draftId);
+    expect(again.output).toEqual({ draftId: kit.draftId, conversationId: kit.conversationId });
+    expect(await eventsOf(again.eventIds)).toEqual([
+      expect.objectContaining({
+        type: 'ai_teammate.retry_requested',
+        entityType: 'ai_teammate_draft',
+        entityId: kit.draftId,
+        payload: expect.objectContaining({
+          draftId: kit.draftId,
+          conversationId: kit.conversationId,
+          teammateId: r.teammateId,
+          reason: 'Say we’re licensed',
+        }),
+      }),
+    ]);
+    // Once a newer draft answers, the old one can't be tried again.
+    await pendingDraft(r, { conversationId: kit.conversationId, personId: kit.personId });
+    await expectHfos(() => retry(kit.draftId), 'conflict', 'draft_superseded');
+  });
+
+  it('refuses once a person has taken over, and for what the teammate asks approval for', async () => {
+    const lia = await drafted('Lia');
+    await reject(lia.draftId, r.member);
+    await run(
+      conversationTakeOver,
+      { workspaceId: r.wsId, conversationId: lia.conversationId },
+      r.member,
+    );
+    await expectHfos(() => retry(lia.draftId), 'rule_violation', 'not_handled_by_teammate');
+    const mo = await drafted('Mo', 'approval');
+    await reject(mo.draftId, r.owner);
+    await expectHfos(() => retry(mo.draftId, r.owner), 'rule_violation', 'not_a_rejected_reply');
   });
 });
 

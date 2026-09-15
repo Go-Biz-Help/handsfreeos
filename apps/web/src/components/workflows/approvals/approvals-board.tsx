@@ -11,10 +11,13 @@ import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { EmptyState } from '@/components/ui/empty-state';
 import { FieldError, Label } from '@/components/ui/field';
 import { Textarea } from '@/components/ui/textarea';
+import type { TeammateDraft, TeammateGetOut } from '@/lib/ai-team/inbox-types';
+import { progressShort } from '@/lib/ai-team/inbox-words';
 import { apiBrowser, errorMessage, unwrap } from '@/lib/api/client';
 import { useLiveRefresh } from '@/lib/realtime/live-provider';
 import { cn, relativeTime } from '@/lib/utils';
 import { KindTile } from '../chips';
+import { DecidedDraftRow, TeammateDraftCard } from './teammate-draft-card';
 import type { Approval } from './types';
 import { approvalsChanged } from './use-waiting-approvals';
 import {
@@ -30,8 +33,14 @@ import {
 } from './words';
 
 type View = 'waiting' | 'decided';
+/** All, only workflow approvals, or only the AI teammate's drafts. */
+export type ApprovalsFilter = 'all' | 'workflows' | 'ai';
 
 const SECTION = 'text-xs font-semibold uppercase tracking-[0.06em] text-text-3';
+
+type Waiting =
+  | { readonly kind: 'workflow'; readonly at: string; readonly a: Approval }
+  | { readonly kind: 'ai'; readonly at: string; readonly d: TeammateDraft };
 const CHIP =
   'inline-flex max-w-full items-center gap-1 rounded-[7px] bg-card-2 px-2 py-[3px] text-xs font-medium text-text-2';
 
@@ -45,11 +54,15 @@ function useNow(initial: number, everyMs = 30_000): number {
   return now;
 }
 
+const CHIP_BUTTON =
+  'h-7 rounded-full border px-3 text-[13px] font-medium transition-colors whitespace-nowrap';
+
 /**
- * The Approvals page: approval steps waiting for the viewer, each showing what will happen (the AI-written
- * text, editable; the customer and what they said; the knowledge used; the workflow; the run; the time left),
- * with Approve, or Reject with a reason. The Decided view lists what was approved, rejected or expired lately.
- * It follows approvals opened, decided and expired, live.
+ * The Approvals page: what waits for the viewer's yes, from workflows (approval steps) and from the AI
+ * teammate (its drafts), with a filter between them. A workflow approval shows what will happen (the
+ * AI-written text, editable; the customer and what they said; the knowledge used; the workflow; the run; the
+ * time left). A teammate draft shows the conversation it answers, the message (editable) and any booking it
+ * holds. The Decided view lists what was approved, rejected or expired lately. It follows both, live.
  */
 export function ApprovalsBoard({
   workspaceId,
@@ -57,6 +70,12 @@ export function ApprovalsBoard({
   decided,
   allowPrices,
   serverNow,
+  drafts = [],
+  decidedDrafts = [],
+  teammateName = null,
+  progress = null,
+  timezone = 'America/Chicago',
+  initialFilter = 'all',
 }: {
   workspaceId: string;
   /** Pending approvals the viewer can decide, newest first. */
@@ -67,20 +86,73 @@ export function ApprovalsBoard({
   allowPrices: boolean | null;
   /** When the server rendered the page. */
   serverNow: number;
+  /** The AI teammate's drafts waiting for someone (discounts included, read-only for members). */
+  drafts?: TeammateDraft[];
+  /** Its drafts decided, expired or dropped lately. */
+  decidedDrafts?: TeammateDraft[];
+  /** The business's AI teammate (null when there isn't one). */
+  teammateName?: string | null;
+  progress?: TeammateGetOut['progress'];
+  timezone?: string;
+  /** From `?filter=`: the AI teammate area links straight to its drafts. */
+  initialFilter?: ApprovalsFilter;
 }) {
-  useLiveRefresh(['workflow_approval']);
+  useLiveRefresh(['workflow_approval', 'ai_teammate_draft']);
   const now = useNow(serverNow);
   const [view, setView] = useState<View>('waiting');
+  const [filter, setFilter] = useState<ApprovalsFilter>(initialFilter);
   const [done, setDone] = useState<ReadonlySet<string>>(() => new Set());
-  const open = waiting.filter((a) => !done.has(a.id));
+  const openFlows = waiting.filter((a) => !done.has(a.id));
+  const openDrafts = drafts.filter((d) => !done.has(d.id));
+  const all: Waiting[] = [
+    ...openFlows.map((a) => ({ kind: 'workflow' as const, at: a.createdAt, a })),
+    ...openDrafts.map((d) => ({ kind: 'ai' as const, at: d.createdAt, d })),
+  ].sort((x, y) => Date.parse(y.at) - Date.parse(x.at));
+  const shown = all.filter(
+    (w) => filter === 'all' || (filter === 'ai' ? w.kind === 'ai' : w.kind === 'workflow'),
+  );
+  const decidedCount = decided.length + decidedDrafts.length;
+  const name = teammateName ?? (drafts[0] ?? decidedDrafts[0])?.teammate.name ?? null;
   const tabs: readonly { id: View; label: string }[] = [
-    { id: 'waiting', label: `Waiting · ${open.length}` },
-    { id: 'decided', label: `Decided · ${decided.length}` },
+    { id: 'waiting', label: `Waiting · ${all.length}` },
+    { id: 'decided', label: `Decided · ${decidedCount}` },
   ];
+  const filters: readonly { id: ApprovalsFilter; label: string }[] = name
+    ? [
+        { id: 'all', label: `All · ${all.length}` },
+        { id: 'workflows', label: `Workflows · ${openFlows.length}` },
+        { id: 'ai', label: `${name} · ${openDrafts.length}` },
+      ]
+    : [];
+  const training = progress?.status === 'training' ? progressShort(progress) : null;
+  const markDone = (id: string) => setDone((s) => new Set(s).add(id));
   return (
     <div data-testid="approvals-board">
       <div className="mb-2.5 flex flex-wrap items-center justify-between gap-2">
-        <h2 className={SECTION}>{view === 'waiting' ? 'Waiting for you' : 'Decided lately'}</h2>
+        <div className="flex flex-wrap items-center gap-2.5">
+          <h2 className={SECTION}>{view === 'waiting' ? 'Waiting for you' : 'Decided lately'}</h2>
+          {view === 'waiting' && filters.length ? (
+            <div role="group" aria-label="Show" className="flex flex-wrap gap-1.5">
+              {filters.map((f) => (
+                <button
+                  key={f.id}
+                  type="button"
+                  aria-pressed={filter === f.id}
+                  data-testid={`approvals-filter-${f.id}`}
+                  onClick={() => setFilter(f.id)}
+                  className={cn(
+                    CHIP_BUTTON,
+                    filter === f.id
+                      ? 'border-accent bg-accent-soft text-accent-text'
+                      : 'border-border bg-card text-text-2 hover:text-text',
+                  )}
+                >
+                  {f.label}
+                </button>
+              ))}
+            </div>
+          ) : null}
+        </div>
         <div role="tablist" aria-label="Approvals" className="flex gap-1.5">
           {tabs.map((t) => (
             <button
@@ -102,26 +174,50 @@ export function ApprovalsBoard({
           ))}
         </div>
       </div>
+      {view === 'waiting' && name && training && openDrafts.length ? (
+        <p
+          className="mb-3 flex items-start gap-2 rounded-[9px] bg-card-2 px-[11px] py-[9px] text-[12.5px] leading-[1.45] text-text-2"
+          data-testid="approvals-training"
+        >
+          <Info className="mt-px h-3.5 w-3.5 flex-none" strokeWidth={1.75} />
+          {name}’s drafts show here and inline in the inbox. Every approval counts toward its
+          training wheels: {training}.
+        </p>
+      ) : null}
       {view === 'decided' ? (
-        <DecidedList workspaceId={workspaceId} items={decided} now={now} />
-      ) : open.length ? (
+        <DecidedList workspaceId={workspaceId} items={decided} drafts={decidedDrafts} now={now} />
+      ) : shown.length ? (
         <div className="flex flex-col gap-2.5">
-          {open.map((a, i) => (
-            <ApprovalCard
-              key={a.id}
-              a={a}
-              workspaceId={workspaceId}
-              now={now}
-              allowPrices={allowPrices}
-              startOpen={i === 0}
-              onDone={() => setDone((s) => new Set(s).add(a.id))}
-            />
-          ))}
+          {shown.map((w, i) =>
+            w.kind === 'workflow' ? (
+              <ApprovalCard
+                key={w.a.id}
+                a={w.a}
+                workspaceId={workspaceId}
+                now={now}
+                allowPrices={allowPrices}
+                startOpen={i === 0}
+                onDone={() => markDone(w.a.id)}
+              />
+            ) : (
+              <TeammateDraftCard
+                key={w.d.id}
+                d={w.d}
+                workspaceId={workspaceId}
+                timezone={timezone}
+                now={now}
+                startOpen={i === 0}
+                onDone={() => markDone(w.d.id)}
+              />
+            ),
+          )}
         </div>
       ) : (
         <Card data-testid="approvals-empty">
-          <EmptyState title="Nothing waiting for you">
-            When a workflow’s approval step needs you, it shows up here, on Home and by email.
+          <EmptyState title="Nothing waiting here">
+            {name
+              ? `New drafts from ${name} and workflow approvals show up here, on Home and by email.`
+              : 'When a workflow’s approval step needs you, it shows up here, on Home and by email.'}
           </EmptyState>
         </Card>
       )}
@@ -434,13 +530,15 @@ function ApprovalCard({
 function DecidedList({
   workspaceId,
   items,
+  drafts,
   now,
 }: {
   workspaceId: string;
   items: Approval[];
+  drafts: TeammateDraft[];
   now: number;
 }) {
-  if (!items.length)
+  if (!items.length && !drafts.length)
     return (
       <Card data-testid="approvals-decided-empty">
         <EmptyState title="Nothing decided lately">
@@ -448,10 +546,27 @@ function DecidedList({
         </EmptyState>
       </Card>
     );
+  const at = (x: { decidedAt: string | null; createdAt: string }) =>
+    Date.parse(x.decidedAt ?? x.createdAt);
+  const rows = [
+    ...items.map((a) => ({ kind: 'workflow' as const, t: at(a), a })),
+    ...drafts.map((d) => ({ kind: 'ai' as const, t: at(d), d })),
+  ].sort((x, y) => y.t - x.t);
   return (
     <Card className="overflow-hidden" data-testid="approvals-decided">
       <ul>
-        {items.map((a, i) => {
+        {rows.map((row, i) => {
+          if (row.kind === 'ai')
+            return (
+              <DecidedDraftRow
+                key={row.d.id}
+                d={row.d}
+                workspaceId={workspaceId}
+                now={now}
+                first={i === 0}
+              />
+            );
+          const a = row.a;
           const who = customerOf(a);
           return (
             <li

@@ -2,12 +2,12 @@ import { addDays, localInstant } from '@hfos/core';
 import Link from 'next/link';
 import { Plus, UserPlus } from 'lucide-react';
 import { HomeSummary } from '@/components/home/home-summary';
+import { HomeWaiting } from '@/components/home/home-waiting';
 import { SetupChecklist } from '@/components/home/setup-checklist';
 import { PageHeader } from '@/components/shell/page-header';
 import { Badge, RoleBadge } from '@/components/ui/badge';
 import { ButtonLink } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { HomeApprovals } from '@/components/workflows/approvals/approvals-waiting';
 import { assigneeOptions } from '@/lib/api/people';
 import { apiServer, fetchMe, unwrapPage } from '@/lib/api/server';
 import { todayIn } from '@/lib/calendar/time';
@@ -98,7 +98,7 @@ export default async function WorkspaceHomePage({
           </>
         }
       />
-      <HomeApprovals workspaceId={ws.id} />
+      <HomeWaiting workspaceId={ws.id} myUserId={userId} timeZone={ws.timezone} />
       {hasCustomers && tasks && leads && audit && members ? (
         <HomeSummary
           workspaceId={ws.id}

@@ -465,6 +465,7 @@ export function RecordPage(props: RecordPageProps) {
                 myUserId={myUserId}
                 canModerate={canModerate}
                 subjectName={person?.fullName}
+                members={members}
               />
             </Card>
           </TabsContent>

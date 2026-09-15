@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import type { ConversationSummary } from '@/lib/api/types';
 import { listTime, minutesWaiting, zonedWhen } from '@/lib/inbox';
 import { cn } from '@/lib/utils';
+import { AiTag, NeedTag, SiteTag, WebsiteIcon } from './ai-bits';
 import { ContactAvatar, CountBadge, Pill, WaitChip } from './bits';
 
 export const firstName = (full: string): string => full.trim().split(/\s+/)[0] || full;
@@ -19,7 +20,10 @@ export function previewLine(c: ConversationSummary, myUserId: string): string {
   return `${c.lastSentBy.id === myUserId ? 'You' : firstName(c.lastSentBy.fullName)}: ${text}`;
 }
 
-/** Customer or number, the latest message, and what needs attention: wait, stage, owner, unread. */
+/**
+ * Customer or number, the latest message, and what needs attention: wait, the AI teammate ("Ava", "Ava · draft
+ * waiting", "Needs a person"), a chat visitor still on the site, stage, owner, unread.
+ */
 export function ConversationRow({
   c,
   href,
@@ -28,6 +32,7 @@ export function ConversationRow({
   waitThreshold,
   timezone,
   onOpen,
+  draftWaiting = false,
 }: {
   c: ConversationSummary;
   href: string;
@@ -36,9 +41,14 @@ export function ConversationRow({
   waitThreshold: number;
   timezone: string;
   onOpen?: () => void;
+  /** The teammate's reply waits for someone's OK. */
+  draftWaiting?: boolean;
 }) {
   const unread = c.unreadCount > 0;
   const name = c.person?.fullName ?? c.counterpartDisplay;
+  const needsPerson = c.status === 'open' && !!c.needsPersonSince;
+  const aiName = c.handledBy === 'ai' ? (c.teammate?.name ?? null) : null;
+  const handedFor = needsPerson ? minutesWaiting(c.needsPersonSince) : null;
   const waited = c.status === 'open' ? minutesWaiting(c.awaitingReplySince) : null;
   return (
     <Link
@@ -63,6 +73,8 @@ export function ConversationRow({
               strokeWidth={1.5}
               aria-label="Email"
             />
+          ) : c.channel === 'chat' ? (
+            <WebsiteIcon />
           ) : (
             <MessageCircle
               className="hidden h-3.5 w-3.5 flex-none text-text-3 md:block"
@@ -88,7 +100,18 @@ export function ConversationRow({
           {previewLine(c, myUserId)}
         </p>
         <div className="mt-[7px] flex min-h-5 items-center gap-1.5">
-          {waited !== null && waited >= waitThreshold ? <WaitChip minutes={waited} /> : null}
+          {needsPerson ? (
+            <>
+              <NeedTag />
+              {handedFor !== null ? <WaitChip minutes={handedFor} /> : null}
+            </>
+          ) : aiName ? (
+            <AiTag>{draftWaiting ? `${aiName} · draft waiting` : aiName}</AiTag>
+          ) : null}
+          {c.onSiteNow ? <SiteTag testId="row-on-site-now" /> : null}
+          {!needsPerson && waited !== null && waited >= waitThreshold ? (
+            <WaitChip minutes={waited} />
+          ) : null}
           {c.openLead ? (
             <StageBadge
               name={c.openLead.stageName}
@@ -96,7 +119,7 @@ export function ConversationRow({
               className="hidden h-5 text-[11.5px] md:inline-flex"
             />
           ) : null}
-          {c.person ? null : <Pill>New number</Pill>}
+          {c.person || c.channel === 'chat' ? null : <Pill>New number</Pill>}
           {c.status === 'snoozed' && c.snoozedUntil ? (
             <Pill icon={AlarmClock}>
               Snoozed until {zonedWhen(new Date(c.snoozedUntil), timezone)}

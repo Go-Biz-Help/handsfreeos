@@ -3,6 +3,7 @@ import { ChevronDown, Copy, Search } from 'lucide-react';
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
+import { TeammateMark } from '@/components/ai-team/mark';
 import { Avatar } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -39,11 +40,16 @@ function sinceFor(range: Range): string {
   return new Date(Date.now() - RANGE_MS[range]).toISOString();
 }
 
+/** Filtered here, not by the API: the AI teammate's own changes and the ones about it (drafts, hand-offs). */
+const AI_TEAMMATE = 'ai_teammate';
+
 /** What the API filters by for the choices on screen. "Assistant" is where a change came from. */
 function filters(range: Range, actor: string, category: string) {
   return {
     since: sinceFor(range),
-    ...(actor !== 'all' && actor !== 'system' && actor !== 'workflows' ? { actorId: actor } : {}),
+    ...(actor !== 'all' && actor !== 'system' && actor !== 'workflows' && actor !== AI_TEAMMATE
+      ? { actorId: actor }
+      : {}),
     // What workflows did comes through the workflow channel.
     ...(actor === 'workflows' ? { channel: 'workflow' as const } : {}),
     ...(ACTION_PREFIX[category] ? { action: ACTION_PREFIX[category] } : {}),
@@ -60,7 +66,16 @@ function dayLabel(iso: string): string {
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
-export function AuditLog({ workspaceId, initial }: { workspaceId: string; initial: AuditList }) {
+export function AuditLog({
+  workspaceId,
+  initial,
+  teammateName = null,
+}: {
+  workspaceId: string;
+  initial: AuditList;
+  /** The business's AI teammate, for "Ava (AI)" rows and the filter. */
+  teammateName?: string | null;
+}) {
   const [range, setRange] = useState<Range>('30d');
   const [actor, setActor] = useState('all');
   const [category, setCategory] = useState('all');
@@ -97,21 +112,29 @@ export function AuditLog({ workspaceId, initial }: { workspaceId: string; initia
 
   const actors = useMemo(() => {
     const map = new Map<string, string>();
+    // The AI teammate has its own choice below.
     for (const e of [...initial.entries, ...data.entries])
-      if (e.actor.userId) map.set(e.actor.userId, auditActor(e).name);
+      if (e.actor.userId && e.actor.type !== 'ai_employee')
+        map.set(e.actor.userId, auditActor(e, teammateName).name);
     // People first, then each workflow ("Workflow: Speed to lead"): a workflow is recorded as itself.
     return [...map.entries()].sort(
       ([, a], [, b]) =>
         Number(a.startsWith('Workflow: ')) - Number(b.startsWith('Workflow: ')) ||
         a.localeCompare(b),
     );
-  }, [initial, data]);
+  }, [initial, data, teammateName]);
 
   const visible = useMemo(() => {
     const needle = q.trim().toLowerCase();
     return data.entries.filter((e) => {
       if (actor === 'system' && e.actor.type !== 'system') return false;
       if (actor === 'workflows' && e.actor.type !== 'workflow') return false;
+      if (
+        actor === AI_TEAMMATE &&
+        e.actor.type !== 'ai_employee' &&
+        auditCategory(e.action) !== 'ai_team'
+      )
+        return false;
       if (category === 'assistant') {
         if (e.channel !== 'assistant') return false;
       } else if (category === 'workflows') {
@@ -119,9 +142,11 @@ export function AuditLog({ workspaceId, initial }: { workspaceId: string; initia
         if (auditCategory(e.action) !== 'workflows' && e.actor.type !== 'workflow') return false;
       } else if (category !== 'all' && auditCategory(e.action) !== category) return false;
       if (!needle) return true;
-      return `${auditActor(e).name} ${describeAudit(e)} ${e.action}`.toLowerCase().includes(needle);
+      return `${auditActor(e, teammateName).name} ${describeAudit(e)} ${e.action}`
+        .toLowerCase()
+        .includes(needle);
     });
-  }, [data, q, actor, category]);
+  }, [data, q, actor, category, teammateName]);
 
   async function loadMore() {
     if (!data.nextCursor) return;
@@ -179,6 +204,9 @@ export function AuditLog({ workspaceId, initial }: { workspaceId: string; initia
             </option>
           ))}
           <option value="workflows">All workflows</option>
+          <option value={AI_TEAMMATE}>
+            {teammateName ? `${teammateName} (AI teammate)` : 'AI teammate'}
+          </option>
           <option value="system">HandsFreeOS (system)</option>
         </Select>
         <Select
@@ -233,7 +261,7 @@ export function AuditLog({ workspaceId, initial }: { workspaceId: string; initia
             </div>
             {g.entries.map((e) => {
               const expanded = open === e.id;
-              const who = auditActor(e);
+              const who = auditActor(e, teammateName);
               const actorName = who.name;
               return (
                 <div key={e.id}>
@@ -253,12 +281,16 @@ export function AuditLog({ workspaceId, initial }: { workspaceId: string; initia
                       })}
                     </span>
                     <span className="flex min-w-0 items-center gap-2.5">
-                      <Avatar
-                        name={actorName}
-                        seed={e.actor.userId ?? 'system'}
-                        size="sm"
-                        className={e.actor.type === 'system' ? 'bg-[#5b616a]' : undefined}
-                      />
+                      {who.kind === 'ai' ? (
+                        <TeammateMark size="sm" label={actorName} />
+                      ) : (
+                        <Avatar
+                          name={actorName}
+                          seed={e.actor.userId ?? 'system'}
+                          size="sm"
+                          className={e.actor.type === 'system' ? 'bg-[#5b616a]' : undefined}
+                        />
+                      )}
                       <span className="truncate">
                         <strong className="font-semibold">{actorName}</strong> {describeAudit(e)}
                       </span>
