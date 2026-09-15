@@ -314,6 +314,8 @@ describe('registry', () => {
       'chat_visitor.record_seen',
       'chat.receive',
       'chat.identify',
+      'chat.mark_sent',
+      'chat.mark_read',
       'chat.block_visitor',
       'chat.unblock_visitor',
     ]);
