@@ -500,7 +500,9 @@ export const AiTeammateActivityOutput = z.object({
   /** Today in the business's time zone, plus what's waiting now. */
   counters: z.object({
     runsToday: z.int(),
+    /** Today's runs whose reply went out: on its own, or as a draft someone approved and it sent. */
     repliedToday: z.int(),
+    /** Today's runs whose draft hasn't gone out: still waiting, rejected or expired. */
     draftedToday: z.int(),
     handedOffToday: z.int(),
     failedToday: z.int(),

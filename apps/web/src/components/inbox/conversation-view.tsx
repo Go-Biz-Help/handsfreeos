@@ -223,15 +223,17 @@ export function ConversationView({
   });
   const calls = useCalls();
   const email = c.channel === 'email';
-  // Calls go to the conversation's number, known customer or not (an email thread uses the customer's
-  // phone); customers see the business number.
-  const callPhone = email ? (person?.phoneE164 ?? null) : c.counterpart;
+  // Calls go to a text conversation's number, known customer or not. An email thread or a website chat uses
+  // the customer's phone, so a chat visitor not in Customers has no Call (the chat's counterpart isn't a
+  // number). Customers see the business number.
+  const byNumber = !email && !chat;
+  const callPhone = byNumber ? c.counterpart : (person?.phoneE164 ?? null);
   const canCall = calls.available && !!callPhone;
   const callTarget = {
     name,
     phone: callPhone ?? '',
     personId: person?.id ?? null,
-    conversationId: email ? undefined : c.id,
+    conversationId: byNumber ? c.id : undefined,
   };
   const [addPerson, setAddPerson] = useState(false);
   const [linkPerson, setLinkPerson] = useState(false);
@@ -501,7 +503,7 @@ export function ConversationView({
       <div className="relative flex min-w-0 flex-1 flex-col">
         {/* Wide screens: name, assign, snooze, close, more. */}
         <header className="hidden h-16 flex-none items-center gap-2 border-b border-border bg-card pl-5 pr-4 md:flex">
-          <ContactAvatar person={person} />
+          <ContactAvatar person={person} chat={chat} />
           <div className="min-w-0 flex-1">
             <div className="truncate text-[15px] font-semibold" data-testid="thread-name">
               {name}
@@ -679,7 +681,7 @@ export function ConversationView({
           >
             <ArrowLeft className="h-[18px] w-[18px]" strokeWidth={1.5} />
           </Link>
-          <ContactAvatar person={person} />
+          <ContactAvatar person={person} chat={chat} />
           <div className="ml-1.5 min-w-0 flex-1">
             <div className="truncate text-[15px] font-semibold">{name}</div>
             <div className="truncate text-xs text-text-3">

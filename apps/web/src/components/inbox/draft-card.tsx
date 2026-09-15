@@ -407,7 +407,7 @@ export function DraftCard({
             ) : null}
             <Textarea
               aria-label={`Edit ${name}’s draft`}
-              className="min-h-[92px] text-[14px] leading-[1.5] max-md:text-base"
+              className="min-h-[92px] text-[14px] leading-[1.5] max-md:max-h-[45vh] max-md:min-h-[132px] max-md:text-base max-md:field-sizing-content"
               value={d.body}
               autoFocus
               maxLength={email ? 10000 : 1600}

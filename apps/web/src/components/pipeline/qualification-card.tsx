@@ -16,6 +16,8 @@ const STATUS = {
 
 const joinAnd = (list: readonly string[]) =>
   list.length <= 1 ? (list[0] ?? '') : `${list.slice(0, -1).join(', ')} and ${list.at(-1)}`;
+/** A full stop, unless the line already ends with one (a quoted question ends “…?”). */
+const endSentence = (s: string) => (/[.?!…][”"’)]?$/.test(s) ? s : `${s}.`);
 
 /**
  * The lead's qualifying answers: each under the question as it was asked (the text is copied in, so it still
@@ -35,15 +37,24 @@ export function QualificationCard({
 }) {
   const s = STATUS[q.status];
   const Icon = s.icon;
+  // Answered in order; answers saved together follow the order the questions are asked in.
+  const asOrder = (id: string) => {
+    const i = questions.findIndex((x) => x.id === id);
+    return i === -1 ? questions.length : i;
+  };
   const answers = Object.entries(q.answers).sort(
-    ([, a], [, b]) => Date.parse(a.answeredAt) - Date.parse(b.answeredAt),
+    ([ia, a], [ib, b]) =>
+      Date.parse(a.answeredAt) - Date.parse(b.answeredAt) || asOrder(ia) - asOrder(ib),
   );
   const by = (who: 'ai' | 'person') =>
     who === 'ai' ? `by ${teammateName ? aiName(teammateName) : 'the AI teammate'}` : 'by a person';
   const asked = answers.find(([, a]) => a.by === 'ai')?.[1];
   const questionText = (id: string) =>
     q.answers[id]?.question ?? questions.find((x) => x.id === id)?.question ?? null;
-  const missing = q.missing.map(questionText).filter((t): t is string => !!t);
+  const missing = q.missing
+    .map(questionText)
+    .filter((t): t is string => !!t)
+    .map((t) => `“${t}”`);
   const ruledOut = q.notAFit
     .map((id) => {
       const a = q.answers[id];
@@ -112,9 +123,9 @@ export function QualificationCard({
           {q.status === 'qualified'
             ? `All ${answers.length} answered, and nothing is marked not a fit.`
             : q.status === 'not_a_fit'
-              ? `Not a fit: ${joinAnd(ruledOut) || 'an answer rules them out'}. A person decides whether to mark the lead lost.`
+              ? `Not a fit: ${endSentence(joinAnd(ruledOut) || 'an answer rules them out')} A person decides whether to mark the lead lost.`
               : missing.length
-                ? `Still to ask: ${joinAnd(missing)}.`
+                ? `Still to ask: ${endSentence(joinAnd(missing))}`
                 : `${q.missing.length} ${q.missing.length === 1 ? 'question' : 'questions'} still to ask.`}
         </span>
       </div>

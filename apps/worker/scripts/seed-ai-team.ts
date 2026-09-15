@@ -676,7 +676,7 @@ export async function seedAiTeam(
   });
 
   d.step(
-    'Lone Star: Dale puts Ava on texts and the website chat, booking AC tune-ups at any hour, and turns her on in training',
+    'Lone Star: Dale puts Ava on texts and the website chat, booking AC tune-ups at any hour, with a day to OK each draft, and turns her on in training',
   );
   await save('dale', {
     identity: {
@@ -685,6 +685,9 @@ export async function seedAiTeam(
     channels: { sms: true, email: false, chat: true, widgetId: widget.widgetId },
     book: { enabled: true, calendarIds: [tuneUp], reschedule: true, cancel: true },
     hours: { mode: 'always' },
+    // A draft waits a day for an OK (the longest allowed) before a person gets the conversation, so Kendra's
+    // reply below is still waiting in a demo later the same day.
+    autonomy: { draftExpiresMinutes: 1440 },
   });
   await as('dale', aiTeammateSetStatus, { workspaceId, teammateId, status: 'training' });
 

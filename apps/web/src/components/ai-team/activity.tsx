@@ -57,6 +57,10 @@ import { LogRow } from './log';
 
 type Filter = 'all' | 'handed_off' | 'drafted';
 
+/** Who the run was for: someone not in Customers is a website chat's visitor, or a customer by text or email. */
+const whoOf = (r: Pick<TeammateRun, 'person' | 'channel'>): string =>
+  r.person?.fullName ?? (r.channel === 'chat' ? 'Unknown visitor' : 'Unknown customer');
+
 const PERIOD_WORDS: Readonly<Record<ActivityPeriod, string>> = {
   today: 'today',
   '7d': 'in the last 7 days',
@@ -343,7 +347,7 @@ export function TeammateActivityView({
           <span>Result</span>
         </div>
         {shown.map((r) => {
-          const who = r.person?.fullName ?? 'Unknown visitor';
+          const who = whoOf(r);
           return (
             <button
               key={r.id}
@@ -443,7 +447,7 @@ function RunSheet({
     <Sheet open={!!run} onOpenChange={(o) => !o && onClose()}>
       {run ? (
         <SheetContent
-          title={`Run · ${run.person?.fullName ?? 'Unknown visitor'}`}
+          title={`Run · ${whoOf(run)}`}
           description={[
             run.channel ? CHANNEL_NAMES[run.channel] : null,
             `started ${fmtTime(run.startedAt, timeZone)}`,

@@ -401,7 +401,7 @@ Go Biz Help's template "${flows.template}" is on version ${flows.templateVersion
 so it shows Update available, and the "HVAC FAQs" pack's ${flows.packItems} items wait there as suggestions.
 Its AI teammate ${ava.name} (${ava.seconds.toFixed(1)}s) answers texts and the website chat in training wheels, at ${ava.approved} of ${ava.approvalsNeeded} approved · ${ava.edited} edited:
 ${ava.answered} conversations she answered, Tom Reyes waiting in Needs a person with her note, Kendra Lee's reply waiting for an OK
-(it expires two hours after the seed ran), and Angela Brooks's website chat, where her Attic insulation lead qualified. The
+(it waits a day after the seed ran before a person gets it), and Angela Brooks's website chat, where her Attic insulation lead qualified. The
 chat widget shows on ${ava.site}; try it at ${deps.webUrl}/chat-preview/${ava.widgetKey}?w=${lonestar}
 Emails the stack sent, including the pending invitation for ${PENDING_INVITEE}: ${env.mailpitUrl}
 `);

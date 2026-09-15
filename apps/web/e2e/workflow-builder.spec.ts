@@ -821,6 +821,11 @@ test('workflow builder: hand to the AI teammate, its recipes and the double-text
   const owner = await signUpAndConfirm(page, 'wf-teammate');
   const workspaceId = await createBusiness(page, { name: 'Lone Star HVAC & Roofing' });
   const api = apiAs(await signInForApi(owner.email));
+  // Quiet hours set explicitly (nothing here sends, so it passes at any hour).
+  await api('commands/phone.update_settings', {
+    workspaceId,
+    quietHours: { enabled: true, start: '20:00', end: '08:00' },
+  });
 
   // New workflow offers the teammate's recipe variants beside the originals.
   await page.goto(`/app/w/${workspaceId}/workflows/new`);

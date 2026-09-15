@@ -7,8 +7,9 @@ test.use({ colorScheme: 'dark' });
 /**
  * The AI teammate on a 390 px phone, in the dark theme: it's in the drawer (the bar stays at five), the
  * picker fits, the builder's rail folds into a card at the top, each module opens full screen and saves
- * from there, the status and checks open in a sheet, and the test console fills the screen and answers a
- * price question from the knowledge base without sending anything.
+ * from there (its fields 16 px, so an iPhone doesn't zoom), History is the list's last row, the status and
+ * checks open in a sheet, the test console fills the screen and answers a price question from the knowledge
+ * base without sending anything, and a lead's Qualification card fits.
  *
  * Quiet hours are set explicitly (8 PM to 8 AM) so nothing depends on the default.
  */
@@ -84,6 +85,23 @@ test('AI teammate at 390 px, dark: drawer, picker, modules full screen, checks a
   await expect(screen).toBeHidden();
   await expect(page.getByTestId('phone-module-followUp')).toContainText('Up to 2 nudges');
 
+  // Its fields are 16 px on a phone, so an iPhone doesn't zoom in on them.
+  await page.getByTestId('phone-module-identity').click();
+  await expect(screen.getByRole('textbox').first()).toHaveCSS('font-size', '16px');
+  await screen.getByRole('button', { name: 'Back' }).click();
+  await expect(screen).toBeHidden();
+
+  // History is the list's last row: the revisions in a sheet that fits the phone.
+  await page.getByTestId('phone-history').click();
+  const history = page.getByRole('dialog', { name: 'History' });
+  await expect(history).toContainText('Riley · 2 revisions');
+  await expect(history.getByTestId('teammate-history').getByTestId(/^revision-\d+$/)).toHaveCount(
+    2,
+  );
+  expect((await history.boundingBox())!.width).toBeLessThanOrEqual(390);
+  await page.keyboard.press('Escape');
+  await expect(history).toBeHidden();
+
   // The status, labels and things to check open in a sheet.
   await page.getByTestId('teammate-phone-checks').click();
   const sheet = page.getByTestId('teammate-phone-sheet');
@@ -122,5 +140,52 @@ test('AI teammate at 390 px, dark: drawer, picker, modules full screen, checks a
   await page.getByTestId('subnav-activity').click();
   await expect(page.getByTestId('teammate-activity')).toBeVisible();
   await expect(page.getByTestId('activity-ai-usage')).toContainText('AI used today');
+  expect(await width()).toBeLessThanOrEqual(390);
+
+  // A lead's Qualification card on the phone: Riley's two questions, one answered, the other still to ask.
+  const got = await api<{
+    teammate: { id: string; revision: number; config: Record<string, Record<string, unknown>> };
+  }>(token, 'queries', 'ai_teammate.get', { workspaceId });
+  await api(token, 'commands', 'ai_teammate.save_config', {
+    workspaceId,
+    teammateId: got.teammate.id,
+    baseRevision: got.teammate.revision,
+    config: {
+      ...got.teammate.config,
+      qualify: {
+        ...got.teammate.config.qualify,
+        enabled: true,
+        questions: [
+          { id: 'system', question: 'What kind of system do you have?', kind: 'text' },
+          { id: 'zip', question: 'What ZIP code is it in?', kind: 'text' },
+        ],
+      },
+    },
+  });
+  const { personId } = await api<{ personId: string }>(token, 'commands', 'person.create', {
+    workspaceId,
+    firstName: 'Angela',
+    lastName: 'Brooks',
+  });
+  const { leadId } = await api<{ leadId: string }>(token, 'commands', 'lead.create', {
+    workspaceId,
+    title: 'Attic insulation',
+    personId,
+  });
+  await api(token, 'commands', 'lead.record_answers', {
+    workspaceId,
+    leadId,
+    answers: [{ questionId: 'system', answer: 'Central AC, about 12 years old' }],
+  });
+  await page.goto(`/app/w/${workspaceId}/leads/${leadId}`);
+  const qualification = page.getByTestId('qualification-card');
+  await expect(qualification.getByTestId('qualification-status')).toHaveText('Incomplete');
+  await expect(qualification.getByTestId('qualification-answer-system')).toContainText(
+    'Central AC, about 12 years old',
+  );
+  await expect(qualification.getByTestId('qualification-summary')).toHaveText(
+    'Still to ask: “What ZIP code is it in?”',
+  );
+  expect((await qualification.boundingBox())!.width).toBeLessThanOrEqual(390);
   expect(await width()).toBeLessThanOrEqual(390);
 });

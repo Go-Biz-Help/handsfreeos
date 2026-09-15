@@ -61,7 +61,7 @@ export function ConversationRow({
         selected ? 'bg-accent-soft' : 'hover:bg-card-2',
       )}
     >
-      <ContactAvatar person={c.person} />
+      <ContactAvatar person={c.person} chat={c.channel === 'chat'} />
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-1.5">
           <span className={cn('truncate text-sm', unread ? 'font-semibold' : 'font-medium')}>

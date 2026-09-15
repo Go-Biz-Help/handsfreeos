@@ -1,6 +1,6 @@
 'use client';
 import { smsSegments } from '@hfos/core';
-import { Clock, Image as ImageIcon, Moon, Phone } from 'lucide-react';
+import { Clock, Globe, Image as ImageIcon, Moon, Phone } from 'lucide-react';
 import { useEffect, useState, type ComponentType, type ReactNode } from 'react';
 import { Avatar } from '@/components/ui/avatar';
 import { waitingLabel } from '@/lib/inbox';
@@ -95,7 +95,15 @@ export function ChannelIcon({
 }
 
 /** A number that isn't in Customers yet. */
-export function PhoneAvatar({ size = 'md' }: { size?: 'sm' | 'md' | 'panel' }) {
+export function PhoneAvatar({
+  size = 'md',
+  chat = false,
+}: {
+  size?: 'sm' | 'md' | 'panel';
+  /** A website chat's visitor: a globe, like the chat's channel mark, instead of a phone. */
+  chat?: boolean;
+}) {
+  const Icon = chat ? Globe : Phone;
   return (
     <span
       aria-hidden
@@ -104,7 +112,7 @@ export function PhoneAvatar({ size = 'md' }: { size?: 'sm' | 'md' | 'panel' }) {
         size === 'sm' ? 'h-6 w-6' : size === 'panel' ? 'h-12 w-12' : 'h-8 w-8',
       )}
     >
-      <Phone
+      <Icon
         className={
           size === 'panel' ? 'h-[18px] w-[18px]' : size === 'sm' ? 'h-3 w-3' : 'h-3.5 w-3.5'
         }
@@ -118,11 +126,14 @@ export function PhoneAvatar({ size = 'md' }: { size?: 'sm' | 'md' | 'panel' }) {
 export function ContactAvatar({
   person,
   size = 'md',
+  chat = false,
 }: {
   person: { id: string; fullName: string } | null;
   size?: 'sm' | 'md' | 'panel';
+  /** A website chat: its visitor shows a globe until they're a customer. */
+  chat?: boolean;
 }) {
-  if (!person) return <PhoneAvatar size={size} />;
+  if (!person) return <PhoneAvatar size={size} chat={chat} />;
   return (
     <Avatar
       name={person.fullName}

@@ -8,6 +8,7 @@
 import { randomBytes, randomUUID } from 'node:crypto';
 import type { AiProvider, AiRequest } from '@hfos/ai';
 import {
+  aiTeammateActivity,
   aiTeammateCreate,
   aiTeammateDecideDraft,
   aiTeammateGet,
@@ -166,6 +167,17 @@ export function decide(w: TeammateWorld, draftId: string, decision: 'approve' | 
     ownerOf(w),
     meta(),
   ).then((r) => r.output);
+}
+
+/** The teammate's Activity (today's counters and its runs), as the owner sees it. */
+export function activityOf(w: TeammateWorld) {
+  return executeQuery(
+    api(),
+    aiTeammateActivity,
+    { workspaceId: w.workspaceId },
+    ownerOf(w),
+    meta(),
+  );
 }
 
 /** A customer on file, with a mobile number (and an email unless told otherwise). */

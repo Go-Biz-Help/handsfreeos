@@ -439,8 +439,12 @@ export const aiTeammateActivity = defineQuery({
       ctx.tx,
       sql`select
             count(*) filter (where r.started_at >= ${today})::int as runs_today,
-            count(*) filter (where r.started_at >= ${today} and r.outcome = 'replied')::int as replied_today,
-            count(*) filter (where r.started_at >= ${today} and r.outcome = 'drafted')::int as drafted_today,
+            count(*) filter (where r.started_at >= ${today} and (r.outcome = 'replied'
+              or (r.outcome = 'drafted' and exists (select 1 from app.ai_teammate_drafts d
+                where d.run_id = r.id and d.sent_at is not null))))::int as replied_today,
+            count(*) filter (where r.started_at >= ${today} and r.outcome = 'drafted'
+              and not exists (select 1 from app.ai_teammate_drafts d
+                where d.run_id = r.id and d.sent_at is not null))::int as drafted_today,
             count(*) filter (where r.started_at >= ${today} and r.outcome = 'handed_off')::int as handed_off_today,
             count(*) filter (where r.started_at >= ${today} and r.status = 'failed')::int as failed_today,
             count(*) filter (where r.started_at >= ${today} and r.status = 'done'

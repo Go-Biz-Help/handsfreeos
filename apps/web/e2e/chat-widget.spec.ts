@@ -71,15 +71,15 @@ test('the chat on an allowed site, by keyboard: the AI reply, a staff reply live
   await expect(second).toContainText('an AI assistant');
   await expect(second).not.toContainText('real person here');
 
-  // The transcript is in the inbox; Dale replies there and the window shows it live, with "Dale joined".
+  // The transcript is in the inbox; Dale replies there from the chat composer (taking it over from Ava), and the
+  // window shows it live, with "Dale joined".
   const [conversation] = await chatConversations(biz.token, biz.workspaceId);
   expect(conversation).toBeTruthy();
-  await api(biz.token, 'commands', 'message.send', {
-    workspaceId: biz.workspaceId,
-    conversationId: conversation!.id,
-    channel: 'chat',
-    body: 'Hi, Dale here. Marco can check the AC on Thursday.',
-  });
+  await page.goto(`/app/w/${biz.workspaceId}/inbox/${conversation!.id}`);
+  await expect(page.getByTestId('composer-mode-chat')).toBeVisible();
+  const composer = page.getByRole('textbox', { name: 'Message', exact: true });
+  await composer.fill('Hi, Dale here. Marco can check the AC on Thursday.');
+  await page.getByTestId('composer-send').click();
   await expect(chat.getByTestId('chat-joined')).toHaveText('Dale joined');
   await expect(chat.getByTestId('chat-message-person')).toContainText('Marco can check the AC');
 
@@ -88,13 +88,9 @@ test('the chat on an allowed site, by keyboard: the AI reply, a staff reply live
   await expect(site.locator('hfos-chat[open]')).toHaveCount(0);
   expect(await site.evaluate(() => document.activeElement?.tagName)).toBe('HFOS-CHAT');
 
-  // A reply while it's closed: the page hears only a count ("unread"), never text or a token.
-  await api(biz.token, 'commands', 'message.send', {
-    workspaceId: biz.workspaceId,
-    conversationId: conversation!.id,
-    channel: 'chat',
-    body: 'He’ll be there at 1 PM.',
-  });
+  // A reply from the composer while it's closed: the page hears only a count ("unread"), never text or a token.
+  await composer.fill('He’ll be there at 1 PM.');
+  await page.getByTestId('composer-send').click();
   await expect.poll(() => windowMessages(site)).toContainEqual({ hfos: 'unread', n: 1 });
   for (const m of (await windowMessages(site)) as Record<string, unknown>[]) {
     expect(Object.keys(m).sort()).toEqual(expect.arrayContaining(['hfos']));

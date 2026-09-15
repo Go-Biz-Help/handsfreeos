@@ -1,8 +1,9 @@
 import type { InputHTMLAttributes, SelectHTMLAttributes } from 'react';
 import { cn } from '@/lib/utils';
 
+// 16 px on phones (max-md) whatever the size: iPhones zoom the page in on a field with smaller text.
 const base =
-  'w-full rounded-control border border-border-strong bg-card px-3 text-[15px] text-text placeholder:text-placeholder transition-[border-color,box-shadow] focus:border-accent focus:outline-none focus:ring-[3px] focus:ring-ring disabled:bg-card-2 disabled:text-text-2 [&[readonly]]:bg-card-2 [&[readonly]]:text-text-2';
+  'w-full rounded-control border border-border-strong bg-card px-3 text-[15px] text-text placeholder:text-placeholder transition-[border-color,box-shadow] focus:border-accent focus:outline-none focus:ring-[3px] focus:ring-ring disabled:bg-card-2 disabled:text-text-2 [&[readonly]]:bg-card-2 [&[readonly]]:text-text-2 max-md:text-base';
 
 export interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
   invalid?: boolean;

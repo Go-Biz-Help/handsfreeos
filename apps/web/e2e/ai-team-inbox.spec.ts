@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 import { api } from './booking-helpers';
 import { conversationFor, draftIn, needsPerson, sentIn, teammateBusiness } from './ai-team';
 import {
@@ -17,6 +17,17 @@ const TOM = '+17135550155';
 interface Progress {
   progress: { approvedCount: number; editedCount: number; rejectedCount: number };
 }
+
+/** A 390 px phone (the phone layout follows the width), in the dark theme; and back to the desk. */
+async function onPhone(page: Page) {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.emulateMedia({ colorScheme: 'dark' });
+}
+async function onDesk(page: Page) {
+  await page.setViewportSize({ width: 1280, height: 832 });
+  await page.emulateMedia({ colorScheme: 'light' });
+}
+const pageWidth = (page: Page) => page.evaluate(() => document.documentElement.scrollWidth);
 
 /**
  * The AI teammate's drafts inline in the inbox: one approved as it is, one edited first, one rejected with a
@@ -41,6 +52,21 @@ test('AI teammate in the inbox: approve, edit and reject its drafts', async ({ p
   await expect(page.getByTestId(`conversation-row-${conversationId}`)).toContainText(
     'Ava · draft waiting',
   );
+
+  // On a phone the draft stays in the thread and its buttons move to a sticky bar; Edit shows all of it, in a
+  // 16 px box (an iPhone doesn't zoom in on it).
+  await onPhone(page);
+  const bar = page.getByTestId('draft-bar');
+  await expect(bar.getByTestId('draft-approve')).toBeVisible();
+  expect((await bar.getByTestId('draft-approve').boundingBox())!.height).toBeGreaterThanOrEqual(44);
+  await expect(card.getByTestId('draft-approve')).toHaveCount(0);
+  expect(await pageWidth(page)).toBeLessThanOrEqual(390);
+  await bar.getByTestId('draft-edit').click();
+  const editor = card.getByTestId('draft-input');
+  await expect(editor).toHaveCSS('font-size', '16px');
+  expect(await editor.evaluate((el) => el.scrollHeight <= el.clientHeight + 1)).toBe(true);
+  await bar.getByRole('button', { name: 'Cancel' }).click();
+  await onDesk(page);
 
   // Approve: it goes out a moment later, as the teammate.
   await card.getByTestId('draft-approve').click();
@@ -153,6 +179,12 @@ test('AI teammate in the inbox: take over, hand back and needs a person', async 
     timeout: 20_000,
   });
   await expect(page.getByTestId('handoff-why')).toHaveText('Why: they asked for a person.');
+  // The banner fits a phone, with Take it in reach.
+  await onPhone(page);
+  await expect(page.getByTestId('handling-needs-person')).toBeVisible();
+  await expect(page.getByTestId('take-it')).toBeVisible();
+  expect(await pageWidth(page)).toBeLessThanOrEqual(390);
+  await onDesk(page);
   await sentIn(b, conversationId, /passed this to our team/);
   await expect(page.getByTestId('box-needs_person-count')).toHaveText('1');
   await page.getByTestId('box-needs_person').click();
@@ -165,6 +197,12 @@ test('AI teammate in the inbox: take over, hand back and needs a person', async 
   const home = page.getByTestId('home-needs-person');
   await expect(home).toContainText('Needs a person');
   await expect(home.getByTestId('home-needs-person-row')).toHaveCount(1);
+  // Home's card fits a phone too.
+  await onPhone(page);
+  await expect(home.getByTestId('home-take-it')).toBeVisible();
+  expect((await home.boundingBox())!.width).toBeLessThanOrEqual(390);
+  expect(await pageWidth(page)).toBeLessThanOrEqual(390);
+  await onDesk(page);
   await home.getByTestId('home-take-it').click();
   await expect(page).toHaveURL(new RegExp(`/inbox/${conversationId}`));
   await expect(page.getByTestId('handling-person')).toContainText('You took over');
@@ -231,5 +269,14 @@ test('a website chat in the inbox: the page, their name, and a reply from the ch
   await expect(
     page.getByTestId('message-log').locator('[data-direction="outbound"]').last(),
   ).toContainText('Seen', { timeout: 45_000 });
+
+  // On a phone the chat fills the screen: their name, and the chat composer (16 px) with no Call for a visitor.
+  await onPhone(page);
+  await expect(page.getByTestId('chat-visitor')).toContainText('Said their name is Linda Park.');
+  const box = page.getByRole('textbox', { name: 'Message', exact: true });
+  await expect(box).toHaveAttribute('placeholder', /in the chat/);
+  await expect(box).toHaveCSS('font-size', '16px');
+  await expect(page.getByTestId('thread-call-phone')).toHaveCount(0);
+  expect(await pageWidth(page)).toBeLessThanOrEqual(390);
   await context.close();
 });

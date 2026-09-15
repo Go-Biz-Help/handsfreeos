@@ -11,6 +11,7 @@ import { closeTestDbs } from '@hfos/db/testing';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { replyJobKey } from '../src/ai-team/index';
 import {
+  activityOf,
   addFact,
   admin,
   aiMessages,
@@ -174,6 +175,8 @@ describe('automatic and training', () => {
       expect(sent).toHaveLength(4);
       expect(sent[3]).toMatchObject({ approved_by: null, ai_draft_id: null });
       expect(textsTo(t, c.phone)).toHaveLength(4);
+      // Activity counts the three approved drafts that went out as replies sent, beside the automatic one.
+      expect((await activityOf(t)).counters.repliedToday).toBe(4);
     } finally {
       await t.app.close();
     }

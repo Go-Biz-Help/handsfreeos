@@ -9,6 +9,7 @@ import {
   Clock,
   Gauge,
   Hand,
+  History as HistoryIcon,
   IdCard,
   MessagesSquare,
   Repeat,
@@ -30,6 +31,7 @@ import {
   moduleOfField,
   MODULES,
   moduleSummary,
+  plural,
   progressView,
   savedLine,
   type ModuleKey,
@@ -349,6 +351,24 @@ export function TeammateBuilder(props: TeammateBuilderProps) {
             </button>
           );
         })}
+        {/* History lives in the rail's Save card on wide screens; phones reach it here. */}
+        <button
+          type="button"
+          onClick={() => setHistoryOpen(true)}
+          data-testid="phone-history"
+          className="mt-3 flex min-h-[60px] w-full items-center gap-3 border-y border-border bg-card px-4 py-2 text-left active:bg-card-2"
+        >
+          <span className="inline-flex h-6 w-6 flex-none items-center justify-center rounded-[7px] bg-card-2 text-text-2">
+            <HistoryIcon className="h-[13px] w-[13px]" strokeWidth={1.75} />
+          </span>
+          <span className="flex min-w-0 flex-1 flex-col">
+            <span className="text-[15px] font-medium">History</span>
+            <span className="truncate text-xs text-text-3">
+              {plural(revisions.length, 'revision', 'revisions')} · see or restore an older version
+            </span>
+          </span>
+          <ChevronRight className="h-4 w-4 flex-none text-text-3" strokeWidth={1.75} />
+        </button>
       </div>
 
       {/* Wide screens: the module list, the module, and the rail. */}

@@ -107,9 +107,13 @@ export async function textFromCustomer(opts: {
 export async function setUpTexting(page: Page, workspaceId: string): Promise<string> {
   await page.goto(`/app/w/${workspaceId}/settings/texting`);
   await expect(page.getByTestId('number-step')).toBeVisible();
-  await page.getByTestId('show-numbers').click();
   const picked = page.getByTestId('number-results').getByRole('radio', { checked: true });
-  await expect(picked).toBeVisible();
+  // On a cold dev server the page can show before its script runs, and a click then submits the search the
+  // browser's own way (a reload) instead: search again until numbers show.
+  await expect(async () => {
+    await page.getByTestId('show-numbers').click();
+    await expect(picked).toBeVisible({ timeout: 10_000 });
+  }).toPass({ timeout: 90_000 });
   const display = (await picked.locator('.font-mono').textContent())!.trim();
   await page.getByTestId('buy-number').click();
   await expect(page.getByTestId('business-step')).toBeVisible({ timeout: 30_000 });
@@ -130,8 +134,11 @@ export async function setUpTexting(page: Page, workspaceId: string): Promise<str
     .fill('Hi Mike, this is Lone Star HVAC. Marco is on the way. Reply STOP to opt out.');
   await page.getByTestId('business-agree').check();
   await page.getByTestId('submit-registration').click();
-  await expect(page.getByTestId('review-step')).toBeVisible({ timeout: 15_000 });
-  // The fake carrier approves in a few seconds; the page turns into the configured settings.
+  // The details go to the (fake) carriers. On a cold server that can take a while, and they may approve before the
+  // review step has shown, so either will do; then the page turns into the configured settings.
+  await expect(
+    page.getByTestId('review-step').or(page.getByTestId('texting-configured')).first(),
+  ).toBeVisible({ timeout: 60_000 });
   await expect(page.getByTestId('texting-configured')).toBeVisible({ timeout: 60_000 });
   return `+1${display.replace(/[^0-9]/g, '')}`;
 }

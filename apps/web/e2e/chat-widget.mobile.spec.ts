@@ -1,12 +1,20 @@
 import { expect, test } from '@playwright/test';
-import { businessWithChat, CHAT_SITE, chatFrame, sitePage, teammateReply } from './chat-helpers';
+import {
+  businessWithChat,
+  CHAT_SITE,
+  chatConversations,
+  chatFrame,
+  sitePage,
+  teammateReply,
+} from './chat-helpers';
 
 test.use({ colorScheme: 'dark' });
 
 /**
  * The website chat on a phone at 390 px, in dark mode: the button clear of the edges, the window as a full-screen
  * sheet with the page's scroll locked behind it, a 16 px text box (phones don't zoom in), nothing wider than the
- * phone, the visitor's dark setting followed, and the AI teammate's reply.
+ * phone, the visitor's dark setting followed, and the AI teammate's reply. The owner's side on his phone too:
+ * Settings → Website chat, and a reply from the inbox's chat composer that the visitor sees.
  */
 test('the chat on a phone: a full-screen sheet, the page locked, a 16 px box, dark', async ({
   page,
@@ -14,6 +22,14 @@ test('the chat on a phone: a full-screen sheet, the page locked, a 16 px box, da
 }) => {
   test.setTimeout(240_000);
   const biz = await businessWithChat(page, 'chat-phone', { teammate: true });
+  const phoneWidth = () => page.evaluate(() => document.documentElement.scrollWidth);
+
+  // Settings → Website chat on the owner's phone: it fits, with the snippet, and its fields are 16 px.
+  await page.goto(`/app/w/${biz.workspaceId}/settings/website-chat`);
+  await expect(page.getByTestId('chat-settings')).toBeVisible();
+  await expect(page.getByTestId('chat-snippet')).toBeVisible();
+  await expect(page.getByTestId('chat-daily-cap')).toHaveCSS('font-size', '16px');
+  expect(await phoneWidth()).toBeLessThanOrEqual(390);
 
   const context = await browser.newContext({
     viewport: { width: 390, height: 844 },
@@ -57,6 +73,18 @@ test('the chat on a phone: a full-screen sheet, the page locked, a 16 px box, da
   await chat.getByTestId('chat-send').tap();
   await expect(chat.getByTestId('chat-message-visitor')).toContainText('stopped blowing cold');
   await expect(await teammateReply(chat, biz.workspaceId)).toContainText('AI assistant');
+
+  // The owner answers from the inbox on his phone: the chat fills the screen with the chat composer, and the
+  // visitor sees the reply.
+  const [conversation] = await chatConversations(biz.token, biz.workspaceId);
+  await page.goto(`/app/w/${biz.workspaceId}/inbox/${conversation!.id}`);
+  const composer = page.getByRole('textbox', { name: 'Message', exact: true });
+  await expect(composer).toHaveAttribute('placeholder', /in the chat/);
+  await expect(composer).toHaveCSS('font-size', '16px');
+  expect(await phoneWidth()).toBeLessThanOrEqual(390);
+  await composer.fill('Hi, Dale here. Marco can come by at 3 today.');
+  await page.getByTestId('composer-send').click();
+  await expect(chat.getByTestId('chat-message-person')).toContainText('Marco can come by at 3');
 
   // Closing gives the page its scroll back.
   await chat.getByTestId('chat-close').tap();

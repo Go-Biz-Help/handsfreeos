@@ -25,6 +25,19 @@ test('AI teammate approvals: five approvals turn it automatic, then it replies o
 
   await page.goto(`/app/w/${b.workspaceId}/workflows/approvals`);
   await expect(page.getByTestId('approvals-count')).toHaveText('5');
+
+  // On a phone (390 px, dark) each draft is a card that fits, with Approve and send in reach.
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.emulateMedia({ colorScheme: 'dark' });
+  const firstCard = page.getByTestId('teammate-draft').first();
+  const firstReview = firstCard.getByTestId('teammate-draft-review');
+  if (await firstReview.isVisible()) await firstReview.click();
+  await expect(firstCard.getByTestId('teammate-draft-approve')).toBeVisible();
+  expect((await firstCard.boundingBox())!.width).toBeLessThanOrEqual(390);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
+  await page.setViewportSize({ width: 1280, height: 832 });
+  await page.emulateMedia({ colorScheme: 'light' });
+
   await expect(page.getByTestId('approvals-filter-all')).toHaveText('All · 5');
   await expect(page.getByTestId('approvals-filter-workflows')).toHaveText('Workflows · 0');
   await page.getByTestId('approvals-filter-ai').click();
