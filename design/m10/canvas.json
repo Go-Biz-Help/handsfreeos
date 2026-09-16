@@ -140,7 +140,7 @@
       "x": 7402,
       "y": 0,
       "w": 900,
-      "text": "For you to decide on this canvas:\n1. The words for the offline states: Waiting, Sent, Held, Refused and Still send?, the strip “Offline — 4 changes waiting”, and the screen’s name, “Changes on this phone”.\n2. Where Ask HandsFreeOS lives: the mark at the top right of every screen, as on the web at 390 px, rather than a floating button over the lists.\n3. Whether Record cash or a check should be the first button on an unpaid invoice on a phone, above Send a payment link.\n4. The notification grid: which moments get a push switch, and approval emails staying on with no switch.\n5. Whether the phone offers Create an account. The boards leave it out, so new businesses start on the web.\n6. Whether calls need their own list on the phone. The boards keep them in each conversation, as the web does."
+      "text": "Decided by Chris on Wed, Sep 16, 2026 — all six as drawn:\n1. The words for the offline states stay: Waiting, Sent, Held, Refused and Still send?, the strip “Offline — 4 changes waiting”, and the screen’s name, “Changes on this phone”.\n2. Ask HandsFreeOS stays the mark at the top right of every screen.\n3. Record cash or a check stays the first button on an unpaid invoice on a phone, above Send a payment link.\n4. The notification grid stays as drawn, with approval emails always on.\n5. No Create an account on the phone: new accounts start on the web.\n6. Calls stay inside each conversation, with no separate calls list."
     },
     {
       "id": "assumptions",
