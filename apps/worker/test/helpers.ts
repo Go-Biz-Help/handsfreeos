@@ -10,6 +10,9 @@ import { createSafeFetch } from '../src/http/safe-fetch';
 import type { FakeMailboxes } from '../src/mailbox/fake';
 import { fakeMailboxServices, type MailboxServices } from '../src/mailbox/index';
 import { createSmtpMailer } from '../src/mailer';
+import { createMoneyLinks } from '../src/money/links';
+import type { FakePayments } from '../src/payments/fake';
+import { fakePaymentServices, type PaymentServices } from '../src/payments/index';
 import type { WorkerServices } from '../src/services';
 import { createSupabaseStore } from '../src/storage';
 import { createFakeTelephony, type FakeTelephony } from '../src/telephony/fake';
@@ -21,7 +24,20 @@ export type TestServices = WorkerServices & {
   readonly telephony: FakeTelephony;
   readonly mailboxes: MailboxServices & { readonly fake: FakeMailboxes };
   readonly calendars: CalendarServices & { readonly fake: FakeCalendars };
+  readonly payments: PaymentServices & { readonly fake: FakePayments };
 };
+
+/**
+ * The stand-in payment provider for tests. Its webhooks go nowhere by default, so no test resolves
+ * TEST_PUBLIC_URL over the network; a test that wants them to arrive calls
+ * `s.payments.fake.setDeliver(post => app.inject({ method: 'POST', url: new URL(post.url).pathname, … }))`
+ * and gets the real signed bytes at the real route.
+ */
+function paymentsForTests(): PaymentServices & { readonly fake: FakePayments } {
+  const services = fakePaymentServices(TEST_PUBLIC_URL, { settleMs: 0, refreshEveryMs: 60_000 });
+  services.fake.setDeliver(async () => ({ ok: false }));
+  return services;
+}
 
 /**
  * Worker services for tests: the real database, Mailpit and Storage, the fake carrier without callbacks.
@@ -67,7 +83,14 @@ export function testServices(
     mailboxes: fakeMailboxServices(TEST_PUBLIC_URL, 60_000),
     // Refreshes run when a test asks (the job's next run is a minute out).
     calendars: fakeCalendarServices(TEST_PUBLIC_URL, 60_000),
+    // The stand-in provider. A bank transfer settles only when a test asks (settleMs 0), and token refreshes
+    // run when a test asks: the job's next run is a minute out.
+    payments: paymentsForTests(),
     bookingLinks: createBookingLinks({
+      webUrl: 'http://localhost:3000',
+      key: randomBytes(32).toString('base64'),
+    }),
+    moneyLinks: createMoneyLinks({
       webUrl: 'http://localhost:3000',
       key: randomBytes(32).toString('base64'),
     }),

@@ -23,6 +23,7 @@ import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { registerTeammateTestRoutes } from '../ai-team/test-routes';
 import { registerAttentionTestRoutes } from '../attention/test-routes';
+import { registerMoneyTestRoutes } from '../money/test-routes';
 import { processJobs, type JobMap, type JobStats } from '../jobs';
 import { parseBody, type HttpDeps } from './common';
 
@@ -54,6 +55,9 @@ export function registerTestRoutes(app: FastifyInstance, deps: HttpDeps, test: T
   // The Action Center's: reconcile a business, run its due work, send now, the morning summary
   // (attention/test-routes.ts).
   registerAttentionTestRoutes(app, deps, test.jobs);
+  // Money's: make the stand-in provider post one of its signed webhooks now, and run this business's money
+  // jobs (money/test-routes.ts).
+  registerMoneyTestRoutes(app, deps, test.jobs);
 
   app.post('/test/scheduled-jobs/run-due', async (req) => {
     const body = parseBody(RunDue, req.body ?? {});

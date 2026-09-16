@@ -27,7 +27,9 @@ import type { JobHandler, JobMap } from './jobs';
 import { knowledgeDocumentJob } from './knowledge/document';
 import { knowledgeScanJob } from './knowledge/scan';
 import { mailboxSync } from './mailbox/sync';
+import { moneyJobs } from './money/refunds';
 import { errorMessage } from './outbox';
+import { PAYMENT_JOBS, PAYMENT_PLAN_KEY, paymentJobs } from './payments/refresh';
 import {
   systemActor,
   tenantOf,
@@ -258,6 +260,10 @@ export const jobs: JobMap = {
   [CHAT_JOBS.unreadFollowUp]: chatUnreadFollowUp,
   // The Action Center: the hourly plan and each business's sweep, exact-time rechecks, snoozes running out.
   ...attentionJobs,
+  // Payments: each connection's token kept alive (Square's lasts 30 days), and the hourly re-arm behind it.
+  ...paymentJobs,
+  // Money: a refund carried out at the provider, with its own retries (money/refunds.ts).
+  ...moneyJobs,
 };
 
 /** Periodic jobs exist exactly once (their dedupe key keeps one pending row); the first run is an hour out. */
@@ -291,6 +297,16 @@ export async function ensureRecurringJobs(services: WorkerServices): Promise<voi
     await scheduleJob(tx, {
       kind: ATTENTION_JOBS.plan,
       dedupeKey: ATTENTION_PLAN_KEY,
+      runAt,
+      payload: {},
+      workspaceId: null,
+      organizationId: null,
+    });
+    // The re-arm behind the per-connection token refresh: a job that exhausted its retries would otherwise end
+    // a business's payments silently thirty days later.
+    await scheduleJob(tx, {
+      kind: PAYMENT_JOBS.plan,
+      dedupeKey: PAYMENT_PLAN_KEY,
       runAt,
       payload: {},
       workspaceId: null,

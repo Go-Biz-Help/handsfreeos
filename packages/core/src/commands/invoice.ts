@@ -559,7 +559,13 @@ export const invoiceRecordPayment = defineCommand({
         failureCode: input.status === 'failed' ? input.failureCode : null,
         feeCents: input.feeCents ?? existing.fee_cents,
         netCents: input.netCents ?? existing.net_cents,
-        receivedAt: input.status === 'succeeded' ? (existing.received_at ?? receivedAt) : null,
+        // A raw read gives timestamps back as strings, so the kept one has to become a Date again.
+        receivedAt:
+          input.status === 'succeeded'
+            ? existing.received_at
+              ? new Date(existing.received_at)
+              : receivedAt
+            : null,
       })
       .where(eq(payments.id, existing.id));
     const changed = from !== input.status;

@@ -7,6 +7,7 @@ import { z } from 'zod';
 import { registerTeammateRoutes } from '../ai-team/routes';
 import { registerAssistantRoutes } from '../assistant/routes';
 import { registerKnowledgeRoutes } from '../knowledge/routes';
+import { registerFakePaymentRoutes } from '../payments/fake-routes';
 import { ProviderError } from '../telephony/provider';
 import { registerWorkflowRoutes } from '../workflows/index';
 import { registerBuilderRoutes } from '../workflows/builder-routes';
@@ -22,6 +23,7 @@ import {
 import { registerBookingRoutes } from './booking';
 import { registerChatRoutes } from './chat';
 import { registerEmailRoutes } from './email';
+import { registerMoneyRoutes } from './money';
 import { registerOAuthRoutes } from './oauth';
 import { registerTestRoutes } from './test-routes';
 import { registerVoiceRoutes } from './voice';
@@ -143,9 +145,13 @@ export async function buildHttpServer(deps: HttpDeps): Promise<FastifyInstance> 
   registerVoiceRoutes(app, deps);
   registerEmailRoutes(app, deps);
   registerOAuthRoutes(app, deps);
+  // The stand-in provider's own payment page; it registers nothing when the real providers are configured.
+  registerFakePaymentRoutes(app, deps);
   registerAssistantRoutes(app, deps, deps.assistant ?? null);
   registerTeammateRoutes(app, deps);
   await registerBookingRoutes(app, deps);
+  // The customer's own estimate and invoice pages, and the two payment providers' webhooks.
+  await registerMoneyRoutes(app, deps);
   await registerChatRoutes(app, deps);
   await registerKnowledgeRoutes(app, deps);
   await registerWorkflowRoutes(app, deps);

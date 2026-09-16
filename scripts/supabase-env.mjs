@@ -48,9 +48,20 @@ const previousWorkerEnv = existsSync('apps/worker/.env')
 const previous = (name) =>
   new RegExp(`^${name}=(.+)$`, 'm').exec(previousWorkerEnv)?.[1]?.trim() || '';
 const encryptionKey = previous('WORKER_ENCRYPTION_KEY') || randomBytes(32).toString('base64');
-const assistantLines = ['ANTHROPIC_API_KEY', 'ASSISTANT_MODEL', 'ASSISTANT_DAILY_TOKENS'].flatMap(
-  (name) => (previous(name) ? [`${name}=${previous(name)}`] : []),
-);
+const keep = (names) => names.flatMap((n) => (previous(n) ? [`${n}=${previous(n)}`] : []));
+const assistantLines = keep(['ANTHROPIC_API_KEY', 'ASSISTANT_MODEL', 'ASSISTANT_DAILY_TOKENS']);
+// A real Stripe or Square app someone pasted in stays across runs, the way the Assistant's key does — and
+// PAYMENTS_PROVIDER is left out when one is there, so the worker picks the real providers on its own.
+const paymentLines = keep([
+  'STRIPE_CLIENT_ID',
+  'STRIPE_SECRET_KEY',
+  'STRIPE_PUBLISHABLE_KEY',
+  'STRIPE_WEBHOOK_SECRET',
+  'SQUARE_APPLICATION_ID',
+  'SQUARE_APPLICATION_SECRET',
+  'SQUARE_WEBHOOK_SIGNATURE_KEYS',
+  'SQUARE_ENVIRONMENT',
+]);
 
 const write = (path, lines) => {
   writeFileSync(path, [header, ...lines, ''].join('\n'));
@@ -99,6 +110,12 @@ write('apps/worker/.env', [
   // Cloudflare Turnstile's always-pass test secret: bookings and website chats run the human check the way they do
   // in production, through Cloudflare (so it needs the internet). Any token passes it. Production refuses it.
   'TURNSTILE_SECRET_KEY=1x0000000000000000000000000000000AA',
+  // Taking money on your own computer: the stand-in provider, with its own payment page on the worker and
+  // properly signed webhooks posted back to it. No Stripe or Square account is needed to run everything.
+  // A bank transfer settles three seconds after it is paid, so the "Paying — expected by…" state is real.
+  ...(paymentLines.length
+    ? paymentLines
+    : ['PAYMENTS_PROVIDER=fake', 'PAYMENTS_FAKE_SETTLE_MS=3000']),
   ...assistantLines,
 ]);
 write('apps/web/.env.local', [

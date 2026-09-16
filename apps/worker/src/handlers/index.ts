@@ -32,6 +32,8 @@ import { onFileDeleted } from './file-removed';
 import { onImportRequested } from './import-run';
 import { onInvitationCreated, onInvitationResendRequested } from './invitation-email';
 import { onMailboxReauthRequired, onMailboxSyncWanted } from './mailbox';
+import { onRefundRequested } from '../money/refunds';
+import { onPaymentConnectionConnected, onPaymentConnectionDisconnected } from './payments';
 import {
   onConversationLinked,
   onConversationSnoozed,
@@ -78,6 +80,11 @@ const ownTeammateAndWorkflows: HandlerMap = withWorkflows(
     'calendar_connection.connected': onCalendarRefreshWanted,
     'calendar_connection.sync_requested': onCalendarRefreshWanted,
     'calendar_connection.reauth_required': onCalendarReauthRequired,
+    // A connected payment account: its token refresh starts, and disconnecting tells the provider too.
+    'payment_connection.connected': onPaymentConnectionConnected,
+    'payment_connection.disconnected': onPaymentConnectionDisconnected,
+    // A person asked for a refund: the provider call is queued, so it retries on its own (money/refunds.ts).
+    'refund.requested': onRefundRequested,
     // Appointments follow into people's own calendars (write-through) first; then the reminders, what the
     // customer hears and the team's email (handlers/appointment-messages.ts).
     'appointment.booked': [

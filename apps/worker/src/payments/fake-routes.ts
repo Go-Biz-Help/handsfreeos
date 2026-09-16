@@ -1,0 +1,183 @@
+/**
+ * The stand-in provider's own payment page, served by the worker — the place a real provider's hosted page or
+ * browser SDK would be. Development and tests only: it exists only when the stand-in does, so production never
+ * has it.
+ *
+ * Both flows are here, because both are real:
+ * - **Confirm in the browser** (the Stripe stand-in): the page is opened for an intent, and paying confirms it.
+ *   Our own route then reads the intent back, so the answer is the provider's.
+ * - **Tokenise, then charge** (the Square stand-in): the page turns what was typed into a one-time token and
+ *   hands it back; our route charges with it.
+ *
+ * The page never writes anything of ours, exactly like the real thing.
+ */
+import type { FastifyInstance, FastifyReply } from 'fastify';
+import { escapeHtml } from '../emails/templates';
+import type { HttpDeps } from '../http/common';
+import { FAKE_BANK, FAKE_CARDS, type FakePayments } from './fake';
+import { isPaymentProvider, type PaymentMethodKind, type PaymentProviderName } from './provider';
+
+const shell = (title: string, inner: string) =>
+  `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${escapeHtml(title)}</title></head>` +
+  `<body style="font-family: system-ui, -apple-system, 'Segoe UI', sans-serif; color: #191d25; background: #f7f8fa; margin: 0;">` +
+  `<main style="max-width: 440px; margin: 10vh auto; background: #fff; border: 1px solid #e3e6eb; border-radius: 12px; padding: 28px 30px;">${inner}</main></body></html>`;
+
+const problem = (reply: FastifyReply, body: string) =>
+  reply
+    .code(400)
+    .type('text/html; charset=utf-8')
+    .header('cache-control', 'no-store')
+    .send(
+      shell(
+        'That payment link doesn’t work',
+        `<h1 style="font-size: 18px; margin: 0 0 8px;">That payment link doesn’t work</h1>` +
+          `<p style="font-size: 14px; line-height: 1.5; color: #5b616a; margin: 0;">${escapeHtml(body)}</p>`,
+      ),
+    );
+
+const money = (cents: number) =>
+  `$${(cents / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+interface PayQuery {
+  provider?: string;
+  account?: string;
+  amount?: string;
+  intent?: string;
+  return?: string;
+  methods?: string;
+  instrument?: string;
+  method?: string;
+  decision?: string;
+}
+
+const methodOf = (value: string | undefined): PaymentMethodKind =>
+  value === 'ach' ? 'ach' : 'card';
+
+export function registerFakePaymentRoutes(app: FastifyInstance, deps: HttpDeps): void {
+  const fake: FakePayments | null = deps.payments.fake;
+  if (!fake) return;
+
+  /** Only back to this server or the app: a stand-in is still not an open redirect. */
+  const safeReturn = (value: string | undefined): string | null => {
+    if (!value) return null;
+    const allowed = [deps.webUrl, deps.publicUrl];
+    return allowed.some((base) => value.startsWith(`${base}/`) || value === base) ? value : null;
+  };
+
+  const back = (reply: FastifyReply, url: string, params: Record<string, string>) => {
+    const target = new URL(url);
+    for (const [k, v] of Object.entries(params)) target.searchParams.set(k, v);
+    return reply
+      .header('referrer-policy', 'no-referrer')
+      .header('cache-control', 'no-store')
+      .redirect(target.toString(), 302);
+  };
+
+  const hidden = (k: string, v: string) =>
+    `<input type="hidden" name="${escapeHtml(k)}" value="${escapeHtml(v)}">`;
+
+  app.get('/payments/fake/pay', async (req, reply) => {
+    const q = req.query as PayQuery;
+    if (!q.provider || !isPaymentProvider(q.provider) || !q.account)
+      return problem(reply, 'Go back and start the payment again.');
+    const provider = q.provider as PaymentProviderName;
+    const intent = q.intent ? fake.page.intent(q.intent) : null;
+    const amount = intent?.amountCents ?? Number(q.amount ?? 0);
+    if (!Number.isFinite(amount) || amount < 1) return problem(reply, 'There is no amount to pay.');
+    if (q.intent && !intent) return problem(reply, 'That payment has already been taken.');
+    const methods = (q.methods ?? 'card')
+      .split(',')
+      .map((m) => m.trim())
+      .filter((m) => m === 'card' || m === 'ach');
+    const name = provider === 'stripe' ? 'Stripe' : 'Square';
+    const choice =
+      methods.includes('ach') && methods.includes('card')
+        ? `<fieldset style="border: 0; padding: 0; margin: 0 0 14px;">` +
+          `<legend style="font-size: 13px; font-weight: 600; margin-bottom: 6px;">How to pay</legend>` +
+          `<label style="display: block; font-size: 14px; margin-bottom: 4px;"><input type="radio" name="method" value="ach" checked> Bank transfer</label>` +
+          `<label style="display: block; font-size: 14px;"><input type="radio" name="method" value="card"> Card</label>` +
+          `</fieldset>`
+        : hidden('method', methods[0] ?? 'card');
+    return reply
+      .type('text/html; charset=utf-8')
+      .header('cache-control', 'no-store')
+      .send(
+        shell(
+          `Pay ${money(amount)}`,
+          `<h1 style="font-size: 18px; margin: 0 0 6px;">Pay ${escapeHtml(money(amount))}</h1>` +
+            `<p style="font-size: 14px; line-height: 1.5; color: #5b616a; margin: 0 0 18px;">` +
+            `A stand-in for ${escapeHtml(name)}’s payment page on this development server. No real money moves.</p>` +
+            `<form method="post" action="/payments/fake/pay">` +
+            hidden('provider', provider) +
+            hidden('account', q.account) +
+            hidden('amount', String(amount)) +
+            (q.intent ? hidden('intent', q.intent) : '') +
+            (q.return ? hidden('return', q.return) : '') +
+            choice +
+            `<label for="instrument" style="display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px;">Card or account number</label>` +
+            `<input id="instrument" name="instrument" inputmode="numeric" autocomplete="off" required value="${escapeHtml(FAKE_CARDS.succeeds)}" ` +
+            `style="width: 100%; box-sizing: border-box; height: 38px; padding: 0 10px; border: 1px solid #c9ced6; border-radius: 8px; font-size: 15px;">` +
+            `<p style="font-size: 12px; line-height: 1.6; color: #5b616a; margin: 10px 0 0;">` +
+            `Goes through: ${escapeHtml(FAKE_CARDS.succeeds)}<br>` +
+            `Declined: ${escapeHtml(FAKE_CARDS.declines)}<br>` +
+            `Fails when a plan bills it: ${escapeHtml(FAKE_CARDS.failsOffSession)}<br>` +
+            `Can be disputed: ${escapeHtml(FAKE_CARDS.disputes)}<br>` +
+            `Bank account that settles later: ${escapeHtml(FAKE_BANK.settles)}</p>` +
+            `<div style="display: flex; gap: 8px; margin-top: 18px;">` +
+            `<button type="submit" name="decision" value="pay" data-testid="fake-pay" style="height: 36px; padding: 0 16px; border: 0; border-radius: 8px; background: #2d69d8; color: #fff; font-weight: 600;">Pay ${escapeHtml(money(amount))}</button>` +
+            `<button type="submit" name="decision" value="cancel" formnovalidate data-testid="fake-cancel" style="height: 36px; padding: 0 16px; border: 1px solid #c9ced6; border-radius: 8px; background: #fff;">Cancel</button>` +
+            `</div></form>`,
+        ),
+      );
+  });
+
+  app.post('/payments/fake/pay', async (req, reply) => {
+    const b = (req.body ?? {}) as PayQuery;
+    if (!b.provider || !isPaymentProvider(b.provider) || !b.account)
+      return problem(reply, 'Go back and start the payment again.');
+    const returnUrl = safeReturn(b.return);
+    if (b.decision === 'cancel')
+      return returnUrl
+        ? back(reply, returnUrl, { payment: 'cancelled' })
+        : problem(reply, 'The payment was cancelled.');
+    const instrument = String(b.instrument ?? '').trim();
+    const method = methodOf(b.method);
+    if (!instrument) return problem(reply, 'There was no card or account number.');
+
+    // Confirm in the browser: the intent already exists, and paying settles it.
+    if (b.intent) {
+      const charge = await fake.page.confirm({
+        providerPaymentId: b.intent,
+        instrument,
+        method,
+      });
+      if (!charge) return problem(reply, 'That payment has already been taken.');
+      return returnUrl
+        ? back(reply, returnUrl, { payment: charge.id, result: charge.status })
+        : reply
+            .type('text/html; charset=utf-8')
+            .header('cache-control', 'no-store')
+            .send(
+              shell(
+                'Done',
+                `<h1 style="font-size: 18px; margin: 0 0 8px;">${escapeHtml(charge.status)}</h1>` +
+                  `<p style="font-size: 14px; color: #5b616a; margin: 0;">${escapeHtml(charge.id)}</p>`,
+              ),
+            );
+    }
+
+    // Tokenise, then charge: the page only mints the token, exactly as a browser SDK does.
+    const token = fake.page.tokenise({ instrument, method });
+    return returnUrl
+      ? back(reply, returnUrl, { token, method })
+      : reply
+          .type('text/html; charset=utf-8')
+          .header('cache-control', 'no-store')
+          .send(
+            shell(
+              'Card ready',
+              `<p style="font-size: 14px; color: #5b616a; margin: 0;">${escapeHtml(token)}</p>`,
+            ),
+          );
+  });
+}

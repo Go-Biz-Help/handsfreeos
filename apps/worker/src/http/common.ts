@@ -7,6 +7,7 @@ import type { WorkerServices } from '../services';
 import { verifyTwilioSignature, type WebhookParams } from '../telephony/signature';
 import type { BookingHttpOptions } from './booking';
 import type { ChatHttpOptions } from './chat';
+import type { MoneyHttpOptions } from './money';
 import type { TestRoutes } from './test-routes';
 
 export interface HttpDeps extends WorkerServices {
@@ -20,6 +21,11 @@ export interface HttpDeps extends WorkerServices {
   readonly booking?: BookingHttpOptions;
   /** The website chat's IP-hashing key, bot check and limits (default: a per-process key, no bot check). */
   readonly chat?: ChatHttpOptions;
+  /**
+   * The customer's money pages: their per-address limits. `limitFactor` falls back to the booking page's, so
+   * one setting scales every public page Playwright drives from one address.
+   */
+  readonly money?: MoneyHttpOptions;
   /** Playwright's routes (http/test-routes.ts): only with the fake providers, never in production. */
   readonly testRoutes?: TestRoutes | null;
 }

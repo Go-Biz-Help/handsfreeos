@@ -23,8 +23,13 @@ export interface ApiEnv {
 // (a name containing _OAUTH_, like GOOGLE_CALENDAR_OAUTH_CLIENT_ID); Turnstile's keys; and the key the
 // website chat hashes visitors' IP addresses with. Claude Code's own CLAUDE_CODE_*OAUTH* names in a
 // developer's shell are left alone.
+//
+// The payment providers are named by prefix, not by what looks secret: STRIPE_CLIENT_ID and
+// SQUARE_APPLICATION_ID would sail through every other rule here, and an API process that holds a Connect
+// client id is one env file away from holding the key beside it. All five providers are listed now, including
+// the three that are only on the roadmap, so the guard is already in place when they land.
 const FORBIDDEN =
-  /SECRET|SERVICE_ROLE|SIGNING_KEY|ENCRYPTION_KEY|^TWILIO_|^POSTMARK_|^TURNSTILE_|^(?!CLAUDE_CODE_).*_OAUTH_|^(ANTHROPIC|OPENAI)_|^CHAT_IP_KEY$/i;
+  /SECRET|SERVICE_ROLE|SIGNING_KEY|ENCRYPTION_KEY|^TWILIO_|^POSTMARK_|^TURNSTILE_|^(?!CLAUDE_CODE_).*_OAUTH_|^(ANTHROPIC|OPENAI)_|^CHAT_IP_KEY$|^STRIPE_|^SQUARE_|^PAYMENTS_|^PAYPAL_|^NMI_|^AUTHORIZE_NET_/i;
 
 /** Reads and validates the API process environment. Refuses to boot with privileged keys present. */
 export function readEnv(env: NodeJS.ProcessEnv = process.env): ApiEnv {

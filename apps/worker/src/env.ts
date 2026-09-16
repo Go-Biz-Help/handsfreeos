@@ -71,6 +71,25 @@ export interface WorkerEnv {
   readonly googleCalendarClientSecret: string | null;
   /** How often each connected calendar's busy times are read again (milliseconds; tests shorten it). */
   readonly calendarRefreshMs: number;
+  /**
+   * Taking money: Stripe's Connect platform and Square's application, or the stand-in that serves its own
+   * payment page on the worker and posts properly signed webhooks back to it. Production refuses the stand-in.
+   */
+  readonly paymentsProvider: 'real' | 'fake';
+  /** Stripe Connect: the platform's `ca_…`, our own secret key, the public key the page loads, and `whsec_…`. */
+  readonly stripeClientId: string | null;
+  readonly stripeSecretKey: string | null;
+  readonly stripePublishableKey: string | null;
+  readonly stripeWebhookSecret: string | null;
+  /** Square: the developer application's id and secret. The id is public and the page loads the SDK with it. */
+  readonly squareApplicationId: string | null;
+  readonly squareApplicationSecret: string | null;
+  /** Comma-separated, so a signature key can be rotated without dropping a webhook in between. */
+  readonly squareWebhookSignatureKeys: readonly string[];
+  /** Which Square to talk to: its sandbox has its own application and its own hosts. */
+  readonly squareEnvironment: 'live' | 'test';
+  /** How long the stand-in takes to settle a bank transfer; null (the default) means only when asked. */
+  readonly paymentsFakeSettleMs: number | null;
   /** The Assistant: Claude, a scripted stand-in for tests, or none (the panel says it isn't set up). */
   readonly assistantProvider: 'anthropic' | 'scripted' | 'none';
   readonly anthropicApiKey: string | null;
@@ -180,6 +199,33 @@ export function readEnv(env: NodeJS.ProcessEnv = process.env): WorkerEnv {
   if (!Number.isInteger(calendarRefreshMs) || calendarRefreshMs < 1_000)
     throw new Error('CALENDAR_REFRESH_MS must be a whole number of milliseconds, 1000 or more');
 
+  // Taking money. Local development gets the stand-in unless a real Stripe or Square app is configured.
+  const stripeClientId = env.STRIPE_CLIENT_ID || null;
+  const stripeSecretKey = env.STRIPE_SECRET_KEY || null;
+  const squareApplicationId = env.SQUARE_APPLICATION_ID || null;
+  const squareApplicationSecret = env.SQUARE_APPLICATION_SECRET || null;
+  const paymentsProvider = (env.PAYMENTS_PROVIDER ??
+    (production || stripeClientId || squareApplicationId ? 'real' : 'fake')) as string;
+  if (paymentsProvider !== 'real' && paymentsProvider !== 'fake')
+    throw new Error('PAYMENTS_PROVIDER must be real or fake');
+  if (production && paymentsProvider === 'fake')
+    throw new Error('PAYMENTS_PROVIDER=fake is for development and tests only');
+  // A test key in production would take nobody's money and look like it had.
+  if (production && stripeSecretKey && /^(sk|rk)_test_/.test(stripeSecretKey))
+    throw new Error('STRIPE_SECRET_KEY is a test key; production needs the live one');
+  if (stripeClientId && !stripeSecretKey)
+    throw new Error('STRIPE_SECRET_KEY is required with STRIPE_CLIENT_ID');
+  if (squareApplicationId && !squareApplicationSecret)
+    throw new Error('SQUARE_APPLICATION_SECRET is required with SQUARE_APPLICATION_ID');
+  const squareEnvironment = (env.SQUARE_ENVIRONMENT ?? (production ? 'live' : 'test')) as string;
+  if (squareEnvironment !== 'live' && squareEnvironment !== 'test')
+    throw new Error('SQUARE_ENVIRONMENT must be live or test');
+  if (production && squareEnvironment === 'test')
+    throw new Error('SQUARE_ENVIRONMENT=test is for development and tests only');
+  const fakeSettleMs = env.PAYMENTS_FAKE_SETTLE_MS ? Number(env.PAYMENTS_FAKE_SETTLE_MS) : null;
+  if (fakeSettleMs !== null && (!Number.isFinite(fakeSettleMs) || fakeSettleMs < 0))
+    throw new Error('PAYMENTS_FAKE_SETTLE_MS must be a whole number of milliseconds');
+
   const anthropicApiKey = env.ANTHROPIC_API_KEY || null;
   const assistantProvider = (env.ASSISTANT_PROVIDER ??
     (anthropicApiKey ? 'anthropic' : 'none')) as string;
@@ -271,6 +317,16 @@ export function readEnv(env: NodeJS.ProcessEnv = process.env): WorkerEnv {
     googleCalendarClientId,
     googleCalendarClientSecret,
     calendarRefreshMs,
+    paymentsProvider,
+    stripeClientId,
+    stripeSecretKey,
+    stripePublishableKey: env.STRIPE_PUBLISHABLE_KEY || null,
+    stripeWebhookSecret: env.STRIPE_WEBHOOK_SECRET || null,
+    squareApplicationId,
+    squareApplicationSecret,
+    squareWebhookSignatureKeys: list(env.SQUARE_WEBHOOK_SIGNATURE_KEYS),
+    squareEnvironment,
+    paymentsFakeSettleMs: fakeSettleMs,
     assistantProvider: assistantProvider as WorkerEnv['assistantProvider'],
     anthropicApiKey,
     assistantModel: env.ASSISTANT_MODEL || 'claude-sonnet-5',

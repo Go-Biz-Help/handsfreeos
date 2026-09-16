@@ -15,6 +15,8 @@ import { loadEnv, readEnv } from './env';
 import { handlers } from './handlers/index';
 import { createCalendars } from './calendar/index';
 import { createMailboxes } from './mailbox/index';
+import { createMoneyLinks } from './money/links';
+import { createPayments } from './payments/index';
 import { createSafeFetch } from './http/safe-fetch';
 import { buildHttpServer } from './http/server';
 import { processJobs } from './jobs';
@@ -57,7 +59,13 @@ const services: EngineServices = {
   email: createEmail(env, log),
   mailboxes: createMailboxes(env),
   calendars: createCalendars(env),
+  payments: createPayments(env),
   bookingLinks: createBookingLinks({
+    webUrl: env.webUrl,
+    key: env.encryptionKey,
+    previousKeys: env.encryptionKeysPrevious,
+  }),
+  moneyLinks: createMoneyLinks({
     webUrl: env.webUrl,
     key: env.encryptionKey,
     previousKeys: env.encryptionKeysPrevious,
@@ -125,6 +133,7 @@ log.info(
     email: services.email.transport.name,
     mailboxes: env.mailboxProvider,
     calendars: env.calendarProvider,
+    payments: env.paymentsProvider,
     assistant: env.assistantProvider,
     handlers: Object.keys(handlers),
     storage: !!env.supabaseSecretKey,

@@ -1,35 +1,58 @@
 /**
- * Connecting mailboxes and calendars: the browser comes here from Settings (Email, or My calendar) with a
- * one-time state, goes on to Microsoft's or Google's sign-in, and comes back to the callback, which seals the
- * tokens and connects the mailbox or the person's calendar (the state says which). Outlook's change
- * notifications land here too (only as a nudge to sync). With the fake providers, the sign-in page is this
- * server's own, and tests can drop mail into a fake mailbox or busy time into a fake calendar.
+ * Connecting mailboxes, calendars and the accounts a business is paid into: the browser comes here from
+ * Settings (Email, My calendar, or Payments) with a one-time state, goes on to the provider's sign-in, and
+ * comes back to the callback, which seals the tokens and connects the mailbox, the person's calendar or the
+ * payment account (the state says which). Outlook's change notifications land here too (only as a nudge to
+ * sync). With the stand-in providers, the sign-in page is this server's own, and tests can drop mail into a
+ * fake mailbox, busy time into a fake calendar, or connect a stand-in Stripe or Square account.
+ *
+ * **No PKCE on the payment providers.** Stripe's Connect OAuth doesn't offer it at all, and Square's PKCE flow
+ * trades the 30-day refresh token for rotating short-lived ones, which is the wrong trade for a connection that
+ * has to stay alive for years. The one-time state — random, hashed, ten minutes — is what ties a callback back
+ * to the business that started it, exactly as it does for the other two.
  */
 import { timingSafeEqual } from 'node:crypto';
 import { eq } from 'drizzle-orm';
-import { calendarConnectionActivate, executeCommand, mailboxActivate } from '@hfos/core/server';
+import {
+  calendarConnectionActivate,
+  executeCommand,
+  mailboxActivate,
+  paymentConnectionActivate,
+} from '@hfos/core/server';
 import { asWorker, rows, sql } from '@hfos/db/client';
-import { calendarConnections, mailboxConnections } from '@hfos/db/schema';
+import { calendarConnections, mailboxConnections, paymentConnections } from '@hfos/db/schema';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { CALENDAR_NAME } from '../calendar/provider';
 import { escapeHtml } from '../emails/templates';
 import { fakeCode } from '../mailbox/fake';
 import { party, pkcePair, type MailboxProviderName } from '../mailbox/provider';
 import { PROVIDER_NAME, sha256Hex, syncSoon } from '../mailbox/sync';
+import { fakePaymentCode } from '../payments/fake';
+import {
+  ACCOUNT_HELD_ELSEWHERE,
+  isPaymentProvider,
+  PAYMENT_NAME,
+  PaymentAuthError,
+  type PaymentProviderName,
+} from '../payments/provider';
+import { nextRefreshAt } from '../payments/refresh';
 import { errorMessage } from '../outbox';
 import { systemActor, workerMeta, type TenantScope } from '../services';
 import type { HttpDeps } from './common';
 
 const isProvider = (p: string): p is MailboxProviderName => p === 'microsoft' || p === 'google';
 
-/** A sign-in's one-time state, as private.oauth_connection_by_state finds it (mailboxes and calendars share it). */
+/**
+ * A sign-in's one-time state, as private.oauth_connection_by_state finds it. All three kinds share it, and all
+ * three share /oauth/:provider/start and /callback.
+ */
 type StateRow = {
-  kind: 'mailbox' | 'calendar';
+  kind: 'mailbox' | 'calendar' | 'payment';
   connection_id: string;
   workspace_id: string;
   organization_id: string;
-  /** Mailboxes and calendars name their providers the same way. */
-  provider: MailboxProviderName;
+  /** Mailboxes and calendars name their providers the same way; payments name Stripe and Square. */
+  provider: MailboxProviderName | PaymentProviderName;
   status: string;
   state_expires_at: Date | string | null;
 };
@@ -73,18 +96,23 @@ function deadEnd(
 export function registerOAuthRoutes(app: FastifyInstance, deps: HttpDeps): void {
   const { providers, fake } = deps.mailboxes;
   const calendars = deps.calendars;
-  const callbackUrl = (p: MailboxProviderName) => `${deps.publicUrl}/oauth/${p}/callback`;
+  const payments = deps.payments;
+  const callbackUrl = (p: MailboxProviderName | PaymentProviderName) =>
+    `${deps.publicUrl}/oauth/${p}/callback`;
   const settingsUrl = (workspaceId: string) => `${deps.webUrl}/app/w/${workspaceId}/settings/email`;
   const myCalendarUrl = (workspaceId: string) =>
     `${deps.webUrl}/app/w/${workspaceId}/settings/my-calendar`;
+  const paymentsUrl = (workspaceId: string) =>
+    `${deps.webUrl}/app/w/${workspaceId}/settings/payments`;
   const scopeOf = (row: StateRow): TenantScope => ({
     workspaceId: row.workspace_id,
     organizationId: row.organization_id,
   });
 
-  /** The mailbox or calendar sign-in a state belongs to, still good or not. */
+  /** The mailbox, calendar or payment sign-in a state belongs to, still good or not. */
   async function lookup(provider: string, state: string | undefined): Promise<StateRow | null> {
-    if (!isProvider(provider) || !state || state.length > 200) return null;
+    if ((!isProvider(provider) && !isPaymentProvider(provider)) || !state || state.length > 200)
+      return null;
     const [row] = await asWorker(deps.httpDb, {}, (tx) =>
       rows<StateRow>(
         tx,
@@ -100,12 +128,25 @@ export function registerOAuthRoutes(app: FastifyInstance, deps: HttpDeps): void 
       return null;
     return new Date(row.state_expires_at).getTime() > Date.now() ? row : null;
   }
+  const SETTINGS_PAGE: Record<StateRow['kind'], string> = {
+    mailbox: 'Email',
+    calendar: 'My calendar',
+    payment: 'Payments',
+  };
+  /**
+   * Which Settings page to send someone back to when their link is dead. A used or expired state has no row
+   * left to ask, but Stripe and Square are only ever payments, so the answer is still right; Microsoft and
+   * Google could be either a mailbox or a calendar, so those fall back to Email as they always have.
+   */
+  const kindOf = (provider: string, found: StateRow | null): StateRow['kind'] | undefined =>
+    found?.kind ?? (isPaymentProvider(provider) ? 'payment' : undefined);
+
   const expired = (reply: FastifyReply, kind?: StateRow['kind']) =>
     deadEnd(
       reply,
       400,
       'This sign-in link has expired',
-      `Sign-in links last ten minutes. Go back to Settings, open ${kind === 'calendar' ? 'My calendar' : 'Email'}, and choose Connect again.`,
+      `Sign-in links last ten minutes. Go back to Settings, open ${SETTINGS_PAGE[kind ?? 'mailbox']}, and choose Connect again.`,
     );
 
   app.get('/oauth/:provider/start', async (req, reply) => {
@@ -113,8 +154,10 @@ export function registerOAuthRoutes(app: FastifyInstance, deps: HttpDeps): void 
     const { state } = req.query as { state?: string };
     const found = await lookup(provider, state);
     const row = waiting(provider, found);
-    if (!row || !state) return expired(reply, found?.kind);
+    if (!row || !state) return expired(reply, kindOf(provider, found));
+    if (row.kind === 'payment') return startPayment(row, state, reply);
     if (row.kind === 'calendar') return startCalendar(row, state, reply);
+    if (!isProvider(row.provider)) return expired(reply, row.kind);
     const p = providers[row.provider];
     const name = PROVIDER_NAME[row.provider];
     if (!p.configured)
@@ -149,8 +192,10 @@ export function registerOAuthRoutes(app: FastifyInstance, deps: HttpDeps): void 
     const q = req.query as CallbackQuery;
     const found = await lookup(provider, q.state);
     const row = waiting(provider, found);
-    if (!row) return expired(reply, found?.kind);
+    if (!row) return expired(reply, kindOf(provider, found));
+    if (row.kind === 'payment') return paymentCallback(row, q, reply);
     if (row.kind === 'calendar') return calendarCallback(row, q, reply);
+    if (!isProvider(row.provider)) return expired(reply, row.kind);
     const scope = scopeOf(row);
     const back = (result: string) =>
       reply
@@ -216,6 +261,7 @@ export function registerOAuthRoutes(app: FastifyInstance, deps: HttpDeps): void 
   // ---------- a person's own calendar: the same sign-in, back to Settings → My calendar ----------
 
   async function startCalendar(row: StateRow, state: string, reply: FastifyReply) {
+    if (!isProvider(row.provider)) return expired(reply, row.kind);
     const p = calendars.providers[row.provider];
     const name = CALENDAR_NAME[row.provider];
     if (!p.configured)
@@ -242,6 +288,8 @@ export function registerOAuthRoutes(app: FastifyInstance, deps: HttpDeps): void 
   }
 
   async function calendarCallback(row: StateRow, q: CallbackQuery, reply: FastifyReply) {
+    if (!isProvider(row.provider)) return expired(reply, row.kind);
+    const provider = row.provider;
     const scope = scopeOf(row);
     const back = (result: 'connected' | 'cancelled' | 'missing_permissions' | 'failed') =>
       reply
@@ -265,12 +313,12 @@ export function registerOAuthRoutes(app: FastifyInstance, deps: HttpDeps): void 
         .where(eq(calendarConnections.id, row.connection_id)),
     );
     if (!c?.verifier) return back('failed');
-    const p = calendars.providers[row.provider];
+    const p = calendars.providers[provider];
     try {
       const tokens = await p.exchangeCode({
         code: q.code,
         codeVerifier: deps.sealer.open(c.verifier),
-        redirectUri: callbackUrl(row.provider),
+        redirectUri: callbackUrl(provider),
       });
       if (p.missingScopes(tokens.scopes).length > 0) {
         await note('Some permissions were left unticked on the sign-in screen.');
@@ -299,6 +347,124 @@ export function registerOAuthRoutes(app: FastifyInstance, deps: HttpDeps): void 
         'a calendar did not connect',
       );
       await note(errorMessage(e));
+      return back('failed');
+    }
+  }
+
+  // ---------- the account a business is paid into: back to Settings → Payments ----------
+
+  /**
+   * Stripe won't attach `read_write` to a Standard account another platform already controls, and pushes the
+   * seller towards a second account. That is a real dead end rather than a failure to retry, so it gets a page
+   * that says what happened and offers Square instead; the provider's own code stays in `last_error`.
+   */
+  const heldElsewhere = (row: StateRow, reply: FastifyReply) =>
+    deadEnd(
+      reply,
+      409,
+      'That Stripe account is connected to another platform',
+      'Stripe only lets one platform manage an account. Either disconnect the other one in your Stripe ' +
+        'dashboard and try again, create a second Stripe account for HandsFreeOS, or connect Square instead.',
+      { href: paymentsUrl(row.workspace_id), label: 'Back to Payments' },
+    );
+
+  async function startPayment(row: StateRow, state: string, reply: FastifyReply) {
+    if (!isPaymentProvider(row.provider)) return expired(reply, row.kind);
+    const p = payments.providers[row.provider];
+    const name = PAYMENT_NAME[row.provider];
+    if (!p?.configured)
+      return deadEnd(
+        reply,
+        503,
+        `${name} isn’t set up yet`,
+        `This server can’t connect ${name} accounts yet.`,
+        { href: paymentsUrl(row.workspace_id), label: 'Back to Payments' },
+      );
+    // No PKCE here (see the file's header), so there is nothing to seal before sending the browser on: the
+    // one-time state, already hashed on the row with ten minutes to live, is what ties the callback back.
+    return reply
+      .header('referrer-policy', 'no-referrer')
+      .redirect(p.authorizeUrl({ state, redirectUri: callbackUrl(row.provider) }), 302);
+  }
+
+  async function paymentCallback(row: StateRow, q: CallbackQuery, reply: FastifyReply) {
+    if (!isPaymentProvider(row.provider)) return expired(reply, row.kind);
+    const provider = row.provider;
+    const scope = scopeOf(row);
+    const back = (result: 'connected' | 'cancelled' | 'missing_permissions' | 'failed') =>
+      reply
+        .header('referrer-policy', 'no-referrer')
+        .redirect(`${paymentsUrl(row.workspace_id)}?payments=${result}`, 302);
+    const note = (error: string) =>
+      asWorker(deps.httpDb, scope, (tx) =>
+        tx
+          .update(paymentConnections)
+          .set({ lastError: error.slice(0, 2000) })
+          .where(eq(paymentConnections.id, row.connection_id)),
+      );
+    if (q.error || !q.code) {
+      const raw = (q.error ?? 'no code').slice(0, 80);
+      await note(`The sign-in ended without access (${raw}).`);
+      // Stripe can refuse on the way back as well as in the exchange.
+      if (
+        /platform/i.test(
+          `${q.error ?? ''} ${(q as { error_description?: string }).error_description ?? ''}`,
+        )
+      )
+        return heldElsewhere(row, reply);
+      return back(q.error === 'access_denied' ? 'cancelled' : 'failed');
+    }
+    const p = payments.providers[provider];
+    try {
+      const tokens = await p.exchangeCode({ code: q.code, redirectUri: callbackUrl(provider) });
+      // The account's own name and what it can actually do, read once, here.
+      const account = await p.describe(tokens);
+      if (account.missingScopes.length > 0) {
+        await note(
+          `Some permissions were left unticked on the sign-in screen (${account.missingScopes
+            .slice(0, 5)
+            .join(', ')}).`,
+        );
+        return back('missing_permissions');
+      }
+      await executeCommand(
+        deps.httpDb,
+        paymentConnectionActivate,
+        {
+          workspaceId: row.workspace_id,
+          connectionId: row.connection_id,
+          externalAccountId: account.externalAccountId,
+          locationId: account.locationId,
+          displayName: account.displayName,
+          scopes: tokens.scopes.slice(0, 50).map((s) => s.slice(0, 200)),
+          capabilities: { ...account.capabilities },
+          tokenEnc: deps.sealer.seal(JSON.stringify(tokens)),
+          tokenKeyId: deps.sealer.keyId,
+          tokenExpiresAt: tokens.expiresAt,
+          // Square's token lapses in 30 days, so its first renewal is booked now; Stripe's needs none.
+          nextRefreshAt:
+            nextRefreshAt(
+              tokens.expiresAt,
+              payments.refreshEveryMs,
+              payments.refreshAheadMs,
+            )?.toISOString() ?? null,
+        },
+        systemActor(scope),
+        workerMeta(),
+      );
+      return back('connected');
+    } catch (e) {
+      // The provider's own code goes in beside the message: the page says it in plain words, and whoever has
+      // to work out why has the word the provider actually used.
+      await note(
+        e instanceof PaymentAuthError ? `${errorMessage(e)} (${e.code})` : errorMessage(e),
+      );
+      if (e instanceof PaymentAuthError && e.code === ACCOUNT_HELD_ELSEWHERE)
+        return heldElsewhere(row, reply);
+      deps.log.warn(
+        { connectionId: row.connection_id, provider, err: errorMessage(e) },
+        'a payment account did not connect',
+      );
       return back('failed');
     }
   }
@@ -375,6 +541,83 @@ export function registerOAuthRoutes(app: FastifyInstance, deps: HttpDeps): void 
     }
     return reply.code(202).send();
   });
+
+  // ---------- the stand-in payment sign-in (development and tests only) ----------
+  // It stands apart from the mailbox and calendar one because it has no PKCE and because what it pretends is
+  // different: which account signed in, whether the seller ticked everything, and Stripe's refusal to attach to
+  // an account another platform controls.
+  if (payments.fake) {
+    const payCallback = (p: PaymentProviderName) => callbackUrl(p);
+    app.get('/oauth/fake/payments/:provider/authorize', async (req, reply) => {
+      const { provider } = req.params as { provider: string };
+      const q = req.query as Record<string, string | undefined>;
+      if (!isPaymentProvider(provider) || !q.state || q.redirect_uri !== payCallback(provider))
+        return deadEnd(
+          reply,
+          400,
+          'That sign-in link doesn’t work',
+          'Go back to Settings → Payments and try again.',
+        );
+      const name = PAYMENT_NAME[provider];
+      const hidden = (k: string, v: string) =>
+        `<input type="hidden" name="${k}" value="${escapeHtml(v)}">`;
+      const suggested = `${provider === 'stripe' ? 'acct' : 'merchant'}_${Math.random().toString(36).slice(2, 10)}`;
+      return reply
+        .type('text/html; charset=utf-8')
+        .send(
+          shell(
+            `Sign in to ${name}`,
+            `<h1 style="font-size: 18px; margin: 0 0 8px;">Sign in to ${escapeHtml(name)}</h1>` +
+              `<p style="font-size: 14px; line-height: 1.5; color: #5b616a; margin: 0 0 18px;">` +
+              `A stand-in for ${escapeHtml(name)}’s sign-in on this development server. No real account is touched and no real money moves.</p>` +
+              `<form method="get" action="/oauth/fake/payments/${provider}/approve">` +
+              hidden('state', q.state) +
+              hidden('redirect_uri', q.redirect_uri) +
+              `<label for="account" style="display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px;">Account</label>` +
+              `<input id="account" name="account" required value="${escapeHtml(suggested)}" ` +
+              `style="width: 100%; box-sizing: border-box; height: 38px; padding: 0 10px; border: 1px solid #c9ced6; border-radius: 8px; font-size: 15px;">` +
+              `<label style="display: block; font-size: 13px; margin-top: 12px;"><input type="checkbox" name="partial" value="1"> Leave a permission unticked</label>` +
+              (provider === 'stripe'
+                ? `<label style="display: block; font-size: 13px; margin-top: 6px;"><input type="checkbox" name="held" value="1"> This account is controlled by another platform</label>`
+                : '') +
+              `<div style="display: flex; gap: 8px; margin-top: 18px;">` +
+              `<button type="submit" name="decision" value="allow" data-testid="fake-connect" style="height: 36px; padding: 0 16px; border: 0; border-radius: 8px; background: #2d69d8; color: #fff; font-weight: 600;">Connect</button>` +
+              `<button type="submit" name="decision" value="deny" formnovalidate data-testid="fake-connect-cancel" style="height: 36px; padding: 0 16px; border: 1px solid #c9ced6; border-radius: 8px; background: #fff;">Cancel</button>` +
+              `</div></form>`,
+          ),
+        );
+    });
+
+    app.get('/oauth/fake/payments/:provider/approve', async (req, reply) => {
+      const { provider } = req.params as { provider: string };
+      const q = req.query as Record<string, string | undefined>;
+      // The stand-in only ever answers our own callback.
+      if (!isPaymentProvider(provider) || !q.state || q.redirect_uri !== payCallback(provider))
+        return deadEnd(
+          reply,
+          400,
+          'That sign-in link doesn’t work',
+          'Go back to Settings → Payments and try again.',
+        );
+      const target = new URL(q.redirect_uri);
+      target.searchParams.set('state', q.state);
+      const account = (q.account ?? '').trim();
+      if (q.decision !== 'allow' || !account) target.searchParams.set('error', 'access_denied');
+      else {
+        if (q.held === '1') payments.fake?.holdAccount(account);
+        target.searchParams.set(
+          'code',
+          fakePaymentCode({
+            provider,
+            accountId: account,
+            displayName: account,
+            partialScopes: q.partial === '1',
+          }),
+        );
+      }
+      return reply.redirect(target.toString(), 302);
+    });
+  }
 
   const fakeCalendars = calendars.fake;
   if (!fake && !fakeCalendars) return;

@@ -1,4 +1,5 @@
 import type { ProcessorMap } from '../deliveries';
+import { paymentProcessors } from '../money/processors';
 import { workflowProcessors } from '../workflows/index';
 import { onEmailEvent, onInboundEmail } from './postmark';
 import { onInboundText, onTextStatus } from './twilio-messaging';
@@ -27,4 +28,7 @@ export const processors: ProcessorMap = {
   'postmark:email.event': onEmailEvent,
   // A workflow's inbound webhook: match or create the customer, start the run.
   ...workflowProcessors,
+  // Stripe's and Square's events, under our own names for them (money/webhook-events.ts): a payment landing,
+  // settling or refused, a refund, a dispute, a plan's cycle, an account changing, and a revoked sign-in.
+  ...paymentProcessors,
 };

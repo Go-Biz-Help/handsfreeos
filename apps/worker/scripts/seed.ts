@@ -30,10 +30,12 @@ import { createBookingLinks } from '../src/booking/links';
 import { createSealer } from '../src/crypto';
 import { fakeCalendarServices } from '../src/calendar/index';
 import { fakeMailboxServices } from '../src/mailbox/index';
+import { fakePaymentServices } from '../src/payments/index';
 import { createLocalEmail, LOCAL_WEBHOOK_PASSWORD } from '../src/email/local';
 import { handlers } from '../src/handlers/index';
 import { createSafeFetch } from '../src/http/safe-fetch';
 import { createSmtpMailer } from '../src/mailer';
+import { createMoneyLinks } from '../src/money/links';
 import { processOnce, type OutboxDeps } from '../src/outbox';
 import { createSupabaseStore, unconfiguredStore } from '../src/storage';
 import { createFakeTelephony } from '../src/telephony/fake';
@@ -203,7 +205,16 @@ async function main(): Promise<void> {
       (process.env.WORKER_PUBLIC_URL ?? 'http://127.0.0.1:4100').replace(/\/+$/, ''),
       60_000,
     ),
+    // The stand-in provider, so the seed can connect a payment account and take a payment through it.
+    payments: fakePaymentServices(
+      (process.env.WORKER_PUBLIC_URL ?? 'http://127.0.0.1:4100').replace(/\/+$/, ''),
+      { settleMs: 0 },
+    ),
     bookingLinks: createBookingLinks({
+      webUrl: (process.env.WEB_URL ?? 'http://localhost:3000').replace(/\/+$/, ''),
+      key,
+    }),
+    moneyLinks: createMoneyLinks({
       webUrl: (process.env.WEB_URL ?? 'http://localhost:3000').replace(/\/+$/, ''),
       key,
     }),
