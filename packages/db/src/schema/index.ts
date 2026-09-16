@@ -2767,6 +2767,9 @@ export const payments = app.table('payments', {
   feeCents: cents('fee_cents'),
   netCents: cents('net_cents'),
   receivedAt: ts('received_at'),
+  /** What the card was ("Visa", "4242"), where the provider said. Never the number, and null for anything else. */
+  cardBrand: text('card_brand'),
+  cardLast4: text('card_last4'),
   /** The person who recorded a cash or cheque payment. */
   recordedBy: userRef('recorded_by'),
   /** Written before the provider is called; a unique index behind it makes charging twice impossible. */

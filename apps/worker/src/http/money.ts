@@ -21,6 +21,11 @@
  * - Square (`server_charge`): the browser tokenises the card and one POST charges it from here.
  * A declined card is a **200 with `status: 'failed'`** and plain words — a decline is an answer, not an error.
  *
+ * **What these pages deliberately do not return**: a provider's or bank's own payment reference — neither
+ * gives one we could show a customer reliably, so `reference` here is ours — and a structured city and state,
+ * because `business.address` is the free-text block a business typed in Settings → Payments, returned verbatim
+ * rather than parsed into parts nobody asked them for.
+ *
  * **The webhooks** (`/webhooks/stripe`, `/webhooks/square`) are parsed from the exact bytes that arrived, so
  * the signature is checked over what was signed; the provider's own verifier does that (payments/provider.ts),
  * never anything written here. Only then is the event stored, deduplicated on the provider's event id, and
@@ -32,7 +37,7 @@
 import { randomUUID } from 'node:crypto';
 import rateLimit from '@fastify/rate-limit';
 import {
-  ACCEPTANCE_WORDING,
+  acceptanceWording,
   APPROVE_LABEL,
   DECLINE_LABEL,
   estimateAcceptOnline,
@@ -48,6 +53,7 @@ import {
   invoiceRecordView,
   invoiceSelect,
   invoiceState,
+  depositTermsOf,
   linesFor,
   linesOut,
   loadMoneySettings,
@@ -57,6 +63,7 @@ import {
   type EstimateRow,
   type InvoiceRow,
   type MoneySettings,
+  type MoneyTermsOut,
   type RequestMeta,
 } from '@hfos/core/server';
 import { and, eq } from 'drizzle-orm';
@@ -203,8 +210,18 @@ const PayBody = z.object({
 
 // ---- Reading a document as its customer sees it ----
 
-/** The business behind the document: what a customer needs to recognise it and reach a person. */
-async function businessOf(tx: Tx, workspaceId: string): Promise<PublicBusiness> {
+/** What a business looks like on a customer's page: enough to recognise it and to reach a person. */
+export interface PublicMoneyBusiness extends PublicBusiness {
+  /**
+   * Where the business is, as they wrote it in Settings → Payments (`money.businessAddress`) — the address
+   * that belongs at the top of a document they send. Failing that, the one they typed for "at our place" on a
+   * calendar, which is the same string the booking page already shows customers, and which was never really
+   * meant to be the business's own address. Null when they have given neither, and never parsed into parts.
+   */
+  readonly address: string | null;
+}
+
+async function businessOf(tx: Tx, workspaceId: string): Promise<PublicMoneyBusiness> {
   const [w] = await tx
     .select({ name: workspaces.name })
     .from(workspaces)
@@ -214,10 +231,23 @@ async function businessOf(tx: Tx, workspaceId: string): Promise<PublicBusiness> 
     .from(phoneNumbers)
     .where(and(eq(phoneNumbers.workspaceId, workspaceId), eq(phoneNumbers.status, 'active')))
     .limit(1);
+  const settings = await loadMoneySettings(tx, workspaceId);
+  // Failing a real one, the first calendar that says where "at our place" is.
+  const [place] = await rows<{ address: string | null }>(
+    tx,
+    sql`select opt ->> 'address' as address
+        from app.calendars c,
+          lateral jsonb_array_elements(coalesce(c.config -> 'locations' -> 'options', '[]'::jsonb)) as opt
+        where c.workspace_id = ${workspaceId} and c.status <> 'archived'
+          and opt ->> 'kind' = 'business' and length(btrim(coalesce(opt ->> 'address', ''))) > 0
+        order by c.created_at, c.id
+        limit 1`,
+  );
   return {
     name: w?.name ?? 'The business',
     phone: phone?.e164 ?? null,
     phoneDisplay: phone ? formatPhone(phone.e164) : null,
+    address: settings.businessAddress.trim() || place?.address?.trim() || null,
   };
 }
 
@@ -227,6 +257,8 @@ const customerOf = (r: { first_name: string | null; last_name: string | null }) 
 const totalsOf = (r: EstimateRow | InvoiceRow) => ({
   subtotalCents: Number(r.subtotal_cents),
   discountCents: Number(r.discount_cents),
+  /** Set when the discount was asked for as a percentage, so the page can say "10% off". */
+  discountPercentBp: r.discount_percent_bp,
   taxableBaseCents: Number(r.taxable_base_cents),
   taxCents: Number(r.tax_cents),
   taxRateBp: r.tax_rate_bp,
@@ -235,12 +267,29 @@ const totalsOf = (r: EstimateRow | InvoiceRow) => ({
   currency: r.currency,
 });
 
+/**
+ * The document discount as it was written — a share or an amount — in the same shape core gives a deposit, so
+ * the page can say "10% off" and not only what came off. The two columns are exclusive by the same rule.
+ */
+const discountTermsOf = (r: EstimateRow | InvoiceRow): MoneyTermsOut =>
+  r.discount_percent_bp !== null
+    ? { kind: 'percent', percentBp: r.discount_percent_bp, amountCents: 0 }
+    : Number(r.discount_cents) > 0
+      ? { kind: 'amount', percentBp: 0, amountCents: Number(r.discount_cents) }
+      : { kind: 'none', percentBp: 0, amountCents: 0 };
+
 const deposit = (r: EstimateRow): number => {
   const total = Number(r.total_cents);
   if (r.deposit_cents !== null) return Math.min(Number(r.deposit_cents), total);
   if (r.deposit_percent_bp === null) return 0;
   return Math.min(Math.round((total * r.deposit_percent_bp) / 10_000), total);
 };
+
+/**
+ * The number to quote on the phone about one payment or refund. **Ours, not the provider's**: neither Stripe
+ * nor Square gives a reference we could show a customer reliably, and we store none of our own beyond the row.
+ */
+const referenceOf = (id: string): string => id.replace(/-/g, '').slice(0, 8).toUpperCase();
 
 /** A business's time zone, so "good until" and "due" are read where the business is. */
 async function timezoneOf(tx: Tx, workspaceId: string): Promise<string> {
@@ -266,9 +315,10 @@ async function estimateView(deps: HttpDeps, scope: TenantScope, estimateId: stri
       Date.now(),
     );
     const open = state === 'sent' || state === 'viewed';
+    const business = await businessOf(tx, scope.workspaceId);
     return {
       state: state as string,
-      business: await businessOf(tx, scope.workspaceId),
+      business,
       customer: {
         name: customerOf(row),
         email: row.person_email,
@@ -281,6 +331,10 @@ async function estimateView(deps: HttpDeps, scope: TenantScope, estimateId: stri
         currency: row.currency,
         lines: linesOut(lines, Number(row.discount_cents)),
         totals: totalsOf(row),
+        /** The discount as it was written, so the page can say "10% off" and not only the amount. */
+        discount: discountTermsOf(row),
+        /** What is asked for up front, as it was written ("25%"), beside the figure it comes to. */
+        deposit: depositTermsOf(row),
         depositCents: deposit(row),
         expiresOn: row.expires_on,
         expiresAt,
@@ -297,8 +351,11 @@ async function estimateView(deps: HttpDeps, scope: TenantScope, estimateId: stri
             : state === 'void'
               ? 'withdrawn'
               : 'answered',
-        /** The exact words that must sit above Approve: what the acceptance is recorded with. */
-        wording: ACCEPTANCE_WORDING,
+        /**
+         * The exact words that must sit above Approve, naming this estimate's own figure and this business:
+         * the sentence is the evidence, and it is what the acceptance is recorded with.
+         */
+        wording: acceptanceWording(Number(row.total_cents), business.name),
         nameLabel: TYPED_NAME_LABEL,
         acceptLabel: APPROVE_LABEL,
         declineLabel: DECLINE_LABEL,
@@ -313,11 +370,21 @@ async function estimateView(deps: HttpDeps, scope: TenantScope, estimateId: stri
 }
 
 type PublicPayment = {
+  id: string;
   amountCents: number;
   method: string;
   status: string;
+  cardBrand: string | null;
+  cardLast4: string | null;
   receivedAt: string | null;
   createdAt: string;
+};
+
+type PublicRefund = {
+  id: string;
+  amountCents: number;
+  status: string;
+  refundedAt: string | null;
 };
 
 /** What the account behind this invoice can take, and the public keys the browser needs to use it. */
@@ -402,11 +469,22 @@ async function invoiceView(deps: HttpDeps, scope: TenantScope, invoiceId: string
     // Only what the customer's own receipt needs: never a fee, a provider id or who recorded it.
     const paid = await rows<PublicPayment>(
       tx,
-      sql`select p.amount_cents::float8 as "amountCents", p.method::text as method,
-            p.status::text as status, p.received_at as "receivedAt", p.created_at as "createdAt"
+      sql`select p.id, p.amount_cents::float8 as "amountCents", p.method::text as method,
+            p.status::text as status, p.card_brand as "cardBrand", p.card_last4 as "cardLast4",
+            p.received_at as "receivedAt", p.created_at as "createdAt"
           from app.payments p
           where p.invoice_id = ${row.id} and p.status in ('processing', 'succeeded')
           order by p.created_at, p.id`,
+    );
+    // Money already given back, and the day it went: the figure on its own leaves a customer guessing.
+    // Only the ones that landed, so this list and `amountRefundedCents` can never disagree.
+    const given = await rows<PublicRefund>(
+      tx,
+      sql`select rf.id, rf.amount_cents::float8 as "amountCents", rf.status::text as status,
+            rf.refunded_at as "refundedAt"
+          from app.refunds rf
+          where rf.invoice_id = ${row.id} and rf.status = 'succeeded'
+          order by rf.refunded_at, rf.id`,
     );
     const owed = Number(row.balance_cents);
     const account =
@@ -426,8 +504,12 @@ async function invoiceView(deps: HttpDeps, scope: TenantScope, invoiceId: string
         title: row.title,
         notes: row.notes,
         currency: row.currency,
+        /** What this invoice is for: a 'deposit' reads differently from the balance that follows it. */
+        purpose: row.purpose,
         lines: linesOut(lines, Number(row.discount_cents)),
         totals: totalsOf(row),
+        /** The discount as it was written, so the page can say "10% off" and not only the amount. */
+        discount: discountTermsOf(row),
         dueOn: row.due_on,
         terms: row.terms,
         sentAt: moneyIso(row.sent_at),
@@ -437,10 +519,25 @@ async function invoiceView(deps: HttpDeps, scope: TenantScope, invoiceId: string
         balanceCents: owed,
       },
       payments: paid.map((p) => ({
-        ...p,
         amountCents: Number(p.amountCents),
+        method: p.method,
+        status: p.status,
+        /** A payment's purpose is its invoice's: money against a deposit invoice is a deposit paid. */
+        purpose: row.purpose,
+        /** "Visa •••• 4242" on the receipt. Both null for a bank transfer, cash, or a provider that didn't say. */
+        cardBrand: p.cardBrand,
+        cardLast4: p.cardLast4,
+        /** Ours, for the phone. The providers give no reference we could show reliably (see below). */
+        reference: referenceOf(p.id),
         receivedAt: moneyIso(p.receivedAt),
         createdAt: moneyIso(p.createdAt)!,
+      })),
+      /** What has been given back, and when: the figure on its own leaves a customer guessing. */
+      refunds: given.map((r) => ({
+        amountCents: Number(r.amountCents),
+        status: r.status,
+        refundedAt: moneyIso(r.refundedAt),
+        reference: referenceOf(r.id),
       })),
       pay: {
         canPay: !!account,
@@ -534,6 +631,8 @@ export async function registerMoneyRoutes(app: FastifyInstance, deps: HttpDeps):
       feeCents?: number | null;
       netCents?: number | null;
       receivedAt?: string | null;
+      cardBrand?: string | null;
+      cardLast4?: string | null;
     },
   ) {
     const { output } = await executeCommand(
@@ -554,6 +653,9 @@ export async function registerMoneyRoutes(app: FastifyInstance, deps: HttpDeps):
         feeCents: over.feeCents ?? null,
         netCents: over.netCents ?? null,
         receivedAt: over.receivedAt ?? null,
+        // What the card was, where the provider said so — and nothing at all where it didn't.
+        cardBrand: over.cardBrand ?? null,
+        cardLast4: over.cardLast4 ?? null,
       },
       systemActor(scope),
       meta(),
@@ -645,7 +747,17 @@ export async function registerMoneyRoutes(app: FastifyInstance, deps: HttpDeps):
         refuseHoneypot(req.body);
         const body = parseBody(AcceptBody, req.body ?? {});
         const e = await linked('estimate', req.params.token);
-        // The wording is ours, not the page's: what is recorded is what the customer had to have read.
+        // The wording is ours, not the page's: what is recorded is what the customer had to have read, and it
+        // is rendered here from this estimate's own figure and this business's name.
+        const wording = await asWorker(deps.httpDb, e.scope, async (tx) => {
+          const [found] = await rows<{ total_cents: number }>(
+            tx,
+            sql`select total_cents::float8 as total_cents from app.estimates where id = ${e.documentId}`,
+          );
+          if (!found) throw linkNotFound();
+          const business = await businessOf(tx, e.scope.workspaceId);
+          return acceptanceWording(Number(found.total_cents), business.name);
+        });
         const { output } = await executeCommand(
           deps.httpDb,
           estimateAcceptOnline,
@@ -653,7 +765,7 @@ export async function registerMoneyRoutes(app: FastifyInstance, deps: HttpDeps):
             workspaceId: e.scope.workspaceId,
             estimateId: e.documentId,
             name: body.name,
-            wording: ACCEPTANCE_WORDING,
+            wording,
           },
           systemActor(e.scope),
           meta(),
@@ -932,6 +1044,8 @@ export async function registerMoneyRoutes(app: FastifyInstance, deps: HttpDeps):
           feeCents: result.feeCents,
           netCents: result.netCents,
           receivedAt: result.receivedAt,
+          cardBrand: result.cardBrand,
+          cardLast4: result.cardLast4,
         });
         return {
           stage: 'recorded' as const,

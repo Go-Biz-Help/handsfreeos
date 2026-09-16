@@ -25322,6 +25322,11 @@
                   "settings": {
                     "type": "object",
                     "properties": {
+                      "businessAddress": {
+                        "default": "",
+                        "type": "string",
+                        "maxLength": 300
+                      },
                       "tax": {
                         "default": {},
                         "type": "object",
@@ -25535,6 +25540,11 @@
                     "settings": {
                       "type": "object",
                       "properties": {
+                        "businessAddress": {
+                          "default": "",
+                          "type": "string",
+                          "maxLength": 300
+                        },
                         "tax": {
                           "type": "object",
                           "properties": {
@@ -25757,6 +25767,7 @@
                         }
                       },
                       "required": [
+                        "businessAddress",
                         "tax",
                         "numbering",
                         "terms",
@@ -50770,6 +50781,35 @@
                             ],
                             "additionalProperties": false
                           },
+                          "deposit": {
+                            "type": "object",
+                            "properties": {
+                              "kind": {
+                                "type": "string",
+                                "enum": [
+                                  "none",
+                                  "percent",
+                                  "amount"
+                                ]
+                              },
+                              "percentBp": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 10000
+                              },
+                              "amountCents": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 100000000000
+                              }
+                            },
+                            "required": [
+                              "kind",
+                              "percentBp",
+                              "amountCents"
+                            ],
+                            "additionalProperties": false
+                          },
                           "depositCents": {
                             "type": "number"
                           },
@@ -50862,6 +50902,7 @@
                           "leadId",
                           "assignee",
                           "totals",
+                          "deposit",
                           "depositCents",
                           "expiresOn",
                           "sentAt",
@@ -51088,6 +51129,35 @@
                             "taxLabel",
                             "totalCents",
                             "currency"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "deposit": {
+                          "type": "object",
+                          "properties": {
+                            "kind": {
+                              "type": "string",
+                              "enum": [
+                                "none",
+                                "percent",
+                                "amount"
+                              ]
+                            },
+                            "percentBp": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 10000
+                            },
+                            "amountCents": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 100000000000
+                            }
+                          },
+                          "required": [
+                            "kind",
+                            "percentBp",
+                            "amountCents"
                           ],
                           "additionalProperties": false
                         },
@@ -51341,6 +51411,7 @@
                         "leadId",
                         "assignee",
                         "totals",
+                        "deposit",
                         "depositCents",
                         "expiresOn",
                         "sentAt",
@@ -54037,6 +54108,35 @@
                             ],
                             "additionalProperties": false
                           },
+                          "deposit": {
+                            "type": "object",
+                            "properties": {
+                              "kind": {
+                                "type": "string",
+                                "enum": [
+                                  "none",
+                                  "percent",
+                                  "amount"
+                                ]
+                              },
+                              "percentBp": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 10000
+                              },
+                              "amountCents": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 100000000000
+                              }
+                            },
+                            "required": [
+                              "kind",
+                              "percentBp",
+                              "amountCents"
+                            ],
+                            "additionalProperties": false
+                          },
                           "depositCents": {
                             "type": "number"
                           },
@@ -54129,6 +54229,7 @@
                           "leadId",
                           "assignee",
                           "totals",
+                          "deposit",
                           "depositCents",
                           "expiresOn",
                           "sentAt",
@@ -54820,6 +54921,11 @@
                     "settings": {
                       "type": "object",
                       "properties": {
+                        "businessAddress": {
+                          "default": "",
+                          "type": "string",
+                          "maxLength": 300
+                        },
                         "tax": {
                           "type": "object",
                           "properties": {
@@ -55042,6 +55148,7 @@
                         }
                       },
                       "required": [
+                        "businessAddress",
                         "tax",
                         "numbering",
                         "terms",

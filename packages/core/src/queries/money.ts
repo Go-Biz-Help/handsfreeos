@@ -98,6 +98,17 @@ const invoiceMemberClause = (ctx: QueryContext) =>
 const like = (search: string | undefined): string | null =>
   search?.trim() ? `%${search.trim().toLowerCase()}%` : null;
 
+/**
+ * A real Postgres array for `= any(...)`. Interpolating the list itself spreads it into one parameter each,
+ * which Postgres reads as a row constructor and refuses ("op ANY/ALL (array) requires array on right side").
+ * The knowledge queries have the same helper for the same reason.
+ */
+const textArray = (values: readonly string[]) =>
+  sql`array[${sql.join(
+    values.map((v) => sql`${v}`),
+    sql`, `,
+  )}]::text[]`;
+
 /** Lists are keyed on (created_at, id), newest first, as every other list here is. */
 function cursorClause(cursor: string | undefined, alias: 'e' | 'i' | 'p' | 's') {
   const c = decodeCursor(cursor);
@@ -316,7 +327,7 @@ export const estimateList = defineQuery({
       ctx.tx,
       sql`${estimateSelect}
           where e.workspace_id = ${ctx.scope.workspaceId!}
-            ${input.status?.length ? sql`and e.status::text = any(${input.status})` : sql``}
+            ${input.status?.length ? sql`and e.status::text = any(${textArray(input.status)})` : sql``}
             ${input.openOnly ? sql`and e.status = 'sent'` : sql``}
             ${input.personId ? sql`and e.person_id = ${input.personId}::uuid` : sql``}
             ${input.leadId ? sql`and e.lead_id = ${input.leadId}::uuid` : sql``}
@@ -412,8 +423,8 @@ export const invoiceList = defineQuery({
       ctx.tx,
       sql`${invoiceSelect}
           where i.workspace_id = ${ctx.scope.workspaceId!}
-            ${input.status?.length ? sql`and i.status::text = any(${input.status})` : sql``}
-            ${input.purpose?.length ? sql`and i.purpose::text = any(${input.purpose})` : sql``}
+            ${input.status?.length ? sql`and i.status::text = any(${textArray(input.status)})` : sql``}
+            ${input.purpose?.length ? sql`and i.purpose::text = any(${textArray(input.purpose)})` : sql``}
             ${input.openOnly ? sql`and i.status in ('sent', 'partly_paid', 'overdue')` : sql``}
             ${input.personId ? sql`and i.person_id = ${input.personId}::uuid` : sql``}
             ${input.leadId ? sql`and i.lead_id = ${input.leadId}::uuid` : sql``}
@@ -504,8 +515,8 @@ export const paymentList = defineQuery({
           where p.workspace_id = ${ctx.scope.workspaceId!}
             ${input.invoiceId ? sql`and p.invoice_id = ${input.invoiceId}::uuid` : sql``}
             ${input.personId ? sql`and i.person_id = ${input.personId}::uuid` : sql``}
-            ${input.status?.length ? sql`and p.status::text = any(${input.status})` : sql``}
-            ${input.method?.length ? sql`and p.method::text = any(${input.method})` : sql``}
+            ${input.status?.length ? sql`and p.status::text = any(${textArray(input.status)})` : sql``}
+            ${input.method?.length ? sql`and p.method::text = any(${textArray(input.method)})` : sql``}
             ${input.succeededOnly ? sql`and p.status = 'succeeded'` : sql``}
             ${input.since ? sql`and p.created_at >= ${input.since}::timestamptz` : sql``}
             ${invoiceMemberClause(ctx)}
@@ -547,7 +558,7 @@ export const subscriptionList = defineQuery({
       ctx.tx,
       sql`${subscriptionSelect}
           where s.workspace_id = ${ctx.scope.workspaceId!}
-            ${input.status?.length ? sql`and s.status::text = any(${input.status})` : sql``}
+            ${input.status?.length ? sql`and s.status::text = any(${textArray(input.status)})` : sql``}
             ${input.personId ? sql`and s.person_id = ${input.personId}::uuid` : sql``}
             ${input.planId ? sql`and s.plan_id = ${input.planId}::uuid` : sql``}
             ${cursorClause(input.cursor, 's')}

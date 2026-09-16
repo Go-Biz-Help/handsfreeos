@@ -13,6 +13,10 @@
  * - `POST /test/money/run-due { workspaceId }` moves this business's money jobs up to now and runs them —
  *   reminders, overdue marks, estimates expiring, plan cycles, refunds and the token refresh — answering
  *   `{ moved, ran }`.
+ * - `POST /test/money/link { workspaceId, estimateId | invoiceId }` hands back the customer's own link for a
+ *   document. A link is `<public_ref><code>` and the code is an HMAC with the worker's key, so a browser test
+ *   has no other way to reach `/e/…` or `/i/…`: the real ones travel by text and email, and the specs must not
+ *   read the key. Exactly what `estimateUrlFor` / `invoiceUrlFor` hand the messages.
  *
  * **A job and the record that armed it commit together, but the event that armed them is handled by the
  * worker's own loop.** So a spec that has just made something happen should wait for that work to drain — or
@@ -26,6 +30,7 @@ import { z } from 'zod';
 import { parseBody, type HttpDeps } from '../http/common';
 import { processJobs, type JobMap, type JobStats } from '../jobs';
 import type { TenantScope } from '../services';
+import { estimateUrlFor, invoiceUrlFor } from './links';
 
 /**
  * Every money job kind, by the prefix its name starts with. A prefix rather than a list so that a job added
@@ -55,6 +60,16 @@ const ProviderEvent = z.object({
 });
 
 const RunDue = z.object({ workspaceId: z.uuid() });
+
+const MoneyLink = z
+  .object({
+    workspaceId: z.uuid(),
+    estimateId: z.uuid().optional(),
+    invoiceId: z.uuid().optional(),
+  })
+  .refine((b) => !!b.estimateId !== !!b.invoiceId, {
+    error: 'Name one of estimateId or invoiceId.',
+  });
 
 async function scopeOf(deps: HttpDeps, workspaceId: string): Promise<TenantScope> {
   const [ws] = await asWorker(deps.db, { workspaceId }, (tx) =>
@@ -111,6 +126,25 @@ async function runDue(
 
 export function registerMoneyTestRoutes(app: FastifyInstance, deps: HttpDeps, jobs: JobMap): void {
   if (process.env.NODE_ENV === 'production') return;
+
+  /**
+   * The customer's own link for a document, as the messages will send it. Above the stand-in's guard on
+   * purpose: reaching `/e/…` and `/i/…` from a browser test has nothing to do with which provider is on.
+   */
+  app.post('/test/money/link', async (req) => {
+    const body = parseBody(MoneyLink, req.body ?? {});
+    const scope = await scopeOf(deps, body.workspaceId);
+    const kind = body.estimateId ? 'estimate' : 'invoice';
+    const id = body.estimateId ?? body.invoiceId!;
+    const url = await asWorker(deps.db, scope, (tx) =>
+      body.estimateId
+        ? estimateUrlFor(tx, deps.moneyLinks, id)
+        : invoiceUrlFor(tx, deps.moneyLinks, id),
+    );
+    if (!url) throw HfosError.notFound('No such document.');
+    return { kind, url, token: url.slice(url.lastIndexOf('/') + 1) };
+  });
+
   const fake = deps.payments.fake;
   if (!fake) return;
 

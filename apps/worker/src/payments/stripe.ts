@@ -17,6 +17,8 @@ import {
   ACCOUNT_HELD_ELSEWHERE,
   centsOf,
   cleanMetadata,
+  cardBrandLabel,
+  cardLast4,
   declineWording,
   hmacHex,
   idempotencyKey,
@@ -237,6 +239,8 @@ export function createStripePayments(opts: {
     const code = str(error['decline_code']) ?? str(error['code']);
     const charge = obj(i['latest_charge']);
     const balance = obj(charge['balance_transaction']);
+    // The card, when it was one: the intent is read back with its charge expanded, which carries these.
+    const card = obj(obj(charge['payment_method_details'])['card']);
     const state = stateOf(status);
     return {
       providerPaymentId: String(i['id'] ?? ''),
@@ -249,6 +253,8 @@ export function createStripePayments(opts: {
       netCents: centsOf(balance['net']),
       receivedAt: state === 'succeeded' ? isoOf(i['created']) : null,
       capturable: status === 'requires_capture',
+      cardBrand: cardBrandLabel(str(card['brand'])),
+      cardLast4: cardLast4(str(card['last4'])),
     };
   }
 

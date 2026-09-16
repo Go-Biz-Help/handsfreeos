@@ -132,6 +132,17 @@ const Reminders = z.object({
 });
 
 export const MoneySettings = z.object({
+  /**
+   * Where the business is, as they write it themselves — a few lines, exactly as it should read at the top of
+   * an estimate or an invoice. Free text on purpose: a seller's address belongs on the document they send, and
+   * nothing in HandsFreeOS has any business parsing it into a city and a state.
+   */
+  businessAddress: z
+    .string()
+    .trim()
+    .max(300, 'Keep it under 300 characters.')
+    .refine((a) => a.split('\n').length <= 5, { error: 'Five lines at most.' })
+    .default(''),
   tax: Tax.prefault({}),
   numbering: Numbering.prefault({}),
   /** When an invoice is due, unless a document says otherwise. */
@@ -218,6 +229,7 @@ export function reminderSchedule(settings: MoneySettings): ReminderStep[] {
 // ---- What fights with what ----
 
 export const MONEY_ISSUE_CODES = [
+  'no_business_address',
   'deposit_without_amount',
   'tax_without_taxable',
   'same_prefix',
@@ -242,6 +254,15 @@ export interface MoneyIssue {
   readonly fixes: readonly MoneyIssueFix[];
 }
 
+/**
+ * What the settings document itself can't know. A business that has never sent anything is not doing anything
+ * wrong by having no address on file yet, so the one check that depends on this stays quiet until it's passed.
+ */
+export interface MoneyFacts {
+  /** Whether this business has ever sent an estimate or an invoice. */
+  readonly hasSentDocuments?: boolean;
+}
+
 /** An error stops the settings being saved; a warning never does. */
 export function hasBlockingMoneyIssues(issues: readonly MoneyIssue[]): boolean {
   return issues.some((i) => i.severity === 'error');
@@ -254,9 +275,21 @@ const NO_DEPOSIT_FIX: MoneyIssueFix = {
 };
 
 /** Every conflict in a money settings document, in a stable order. */
-export function checkMoneySettings(settings: MoneySettings): MoneyIssue[] {
+export function checkMoneySettings(settings: MoneySettings, facts: MoneyFacts = {}): MoneyIssue[] {
   const issues: MoneyIssue[] = [];
   const { tax, deposit, numbering: numbers, reminders } = settings;
+
+  // A warning, never an error: documents go out perfectly well without it, and stopping a save over it would
+  // be worse than the gap. It waits until they have actually sent something, so a business setting itself up
+  // is never told off for a field it hasn't reached yet.
+  if (facts.hasSentDocuments === true && !settings.businessAddress.trim())
+    issues.push({
+      code: 'no_business_address',
+      severity: 'warning',
+      message: 'Estimates and invoices go out without your address on them',
+      fields: ['businessAddress'],
+      fixes: [],
+    });
 
   if (deposit.kind === 'percent' && deposit.percentBp <= 0)
     issues.push({

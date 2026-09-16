@@ -25,6 +25,8 @@ import type { Logger } from 'pino';
 import {
   centsOf,
   cleanMetadata,
+  cardBrandLabel,
+  cardLast4,
   declineWording,
   hmacBase64,
   hmacHex,
@@ -106,6 +108,8 @@ export interface FakeCharge {
   readonly metadata: Readonly<Record<string, string>>;
   /** The last four of whatever was typed, so a spec can tell one charge from another. */
   instrument: string;
+  /** The brand the number says it is, worked out while the whole number was still in hand. */
+  cardBrand: string | null;
   /** Stripe's flow: what the browser confirms with. Null for the Square stand-in. */
   readonly clientSecret: string | null;
   readonly createdAt: string;
@@ -362,6 +366,20 @@ export function createFakePayments(opts: {
           },
         };
 
+  /**
+   * What the stand-in calls a card, from its first digit — the same rule the card networks use, so the specs see
+   * real-looking brands ("Visa", "Mastercard") without anybody hard-coding one per test number.
+   */
+  function fakeCardBrand(instrument: string): string | null {
+    const value = digits(instrument);
+    if (!value) return null;
+    if (value.startsWith('4')) return 'visa';
+    if (/^5[1-5]/.test(value) || /^2[2-7]/.test(value)) return 'mastercard';
+    if (/^3[47]/.test(value)) return 'amex';
+    if (value.startsWith('6')) return 'discover';
+    return null;
+  }
+
   /** How a card or a bank account behaves when it is charged. */
   function outcome(
     instrument: string,
@@ -418,6 +436,10 @@ export function createFakePayments(opts: {
       netCents: c.netCents,
       receivedAt: c.receivedAt,
       capturable: c.capturable,
+      // The stand-in knows what was typed, so it answers the way a real provider does: the brand it can work
+      // out from the number, the last four, and neither for a bank transfer.
+      cardBrand: c.method === 'card' ? c.cardBrand : null,
+      cardLast4: c.method === 'card' ? cardLast4(c.instrument) : null,
     };
   }
 
@@ -488,6 +510,7 @@ export function createFakePayments(opts: {
       description: input.description,
       metadata: cleanMetadata(input.metadata),
       instrument: last4(input.instrument),
+      cardBrand: cardBrandLabel(fakeCardBrand(input.instrument)),
       clientSecret: input.clientSecret ?? null,
       createdAt: now(),
     };
@@ -1052,6 +1075,7 @@ export function createFakePayments(opts: {
         // The page can only pay what the intent was made for; it never changes the amount.
         c.method = method;
         c.instrument = last4(instrument);
+        c.cardBrand = cardBrandLabel(fakeCardBrand(instrument));
         await land(c, settled, answer.failureCode);
         if (settled === 'processing' && method === 'ach') settleLater(c);
         return c;

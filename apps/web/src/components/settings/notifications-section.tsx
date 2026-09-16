@@ -14,6 +14,8 @@ export interface NotificationPrefs {
   readonly aiHandoff: boolean;
   /** Online bookings and cancellations on your appointments (the calendar's team email). */
   readonly bookingEmail: boolean;
+  /** An invoice was paid: the short note to whoever it is on, and to the owners and admins. */
+  readonly paymentEmail: boolean;
   /** The worker's daily email to an organization's owners and admins about its businesses. */
   readonly agencyDigest: boolean;
 }
@@ -63,6 +65,15 @@ const ROWS: readonly {
     testId: 'notify-booking',
     on: 'You’ll get an email about online bookings',
     off: 'You won’t get booking emails',
+  },
+  {
+    key: 'paymentEmail',
+    title: 'Email me when a customer pays',
+    description:
+      'A short note when an invoice is settled, with what it was for and how they paid. It goes to whoever the invoice is on and to every owner and admin.',
+    testId: 'notify-payment',
+    on: 'You’ll get an email when a customer pays',
+    off: 'You won’t get these emails',
   },
   {
     key: 'agencyDigest',

@@ -30,6 +30,7 @@ export default async function SettingsPage({
         attentionDigest?: boolean;
         aiHandoff?: boolean;
         bookingEmail?: boolean;
+        paymentEmail?: boolean;
         agencyDigest?: boolean;
       };
     }
@@ -57,6 +58,7 @@ export default async function SettingsPage({
                 attentionDigest: notifications?.attentionDigest !== false,
                 aiHandoff: notifications?.aiHandoff !== false,
                 bookingEmail: notifications?.bookingEmail !== false,
+                paymentEmail: notifications?.paymentEmail !== false,
                 agencyDigest: notifications?.agencyDigest !== false,
               }}
             />

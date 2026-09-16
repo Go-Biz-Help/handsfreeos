@@ -11155,6 +11155,8 @@ export interface operations {
                     settings: {
                         /** @default true */
                         bankTransfer?: boolean;
+                        /** @default  */
+                        businessAddress?: string;
                         /** @default {} */
                         deposit?: {
                             /** @default 0 */
@@ -11252,6 +11254,8 @@ export interface operations {
                         settings: {
                             /** @default true */
                             bankTransfer: boolean;
+                            /** @default  */
+                            businessAddress: string;
                             deposit: {
                                 /** @default 0 */
                                 amountCents: number;
@@ -18438,6 +18442,12 @@ export interface operations {
                             createdAt: string;
                             declinedAt: string | null;
                             declinedReason: string | null;
+                            deposit: {
+                                amountCents: number;
+                                /** @enum {string} */
+                                kind: "none" | "percent" | "amount";
+                                percentBp: number;
+                            };
                             depositCents: number;
                             expiresOn: string | null;
                             firstViewedAt: string | null;
@@ -18551,6 +18561,12 @@ export interface operations {
                             /** Format: date-time */
                             createdAt: string;
                             declinedAt: string | null;
+                            deposit: {
+                                amountCents: number;
+                                /** @enum {string} */
+                                kind: "none" | "percent" | "amount";
+                                percentBp: number;
+                            };
                             depositCents: number;
                             expiresOn: string | null;
                             firstViewedAt: string | null;
@@ -20115,6 +20131,12 @@ export interface operations {
                             /** Format: date-time */
                             createdAt: string;
                             declinedAt: string | null;
+                            deposit: {
+                                amountCents: number;
+                                /** @enum {string} */
+                                kind: "none" | "percent" | "amount";
+                                percentBp: number;
+                            };
                             depositCents: number;
                             expiresOn: string | null;
                             firstViewedAt: string | null;
@@ -20272,6 +20294,8 @@ export interface operations {
                         settings: {
                             /** @default true */
                             bankTransfer: boolean;
+                            /** @default  */
+                            businessAddress: string;
                             deposit: {
                                 /** @default 0 */
                                 amountCents: number;

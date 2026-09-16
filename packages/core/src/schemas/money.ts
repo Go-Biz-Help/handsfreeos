@@ -133,6 +133,20 @@ export const MoneyTerms = z.object({
 });
 export type MoneyTerms = z.infer<typeof MoneyTerms>;
 
+/**
+ * A discount or a deposit **as it was written**, so an editor gets back the shape the person chose rather than
+ * having to guess it from the figure. Both numbers are always filled in — the one the kind doesn't use is 0 —
+ * so nothing downstream has to handle an absent field.
+ */
+export const MoneyTermsOut = z.object({
+  kind: z.enum(['none', 'percent', 'amount']),
+  /** For 'percent', in basis points: 2,500 is 25%. 0 when it wasn't written as a percentage. */
+  percentBp: basisPoints,
+  /** For 'amount', in cents. 0 when it wasn't written as an amount. */
+  amountCents: cents,
+});
+export type MoneyTermsOut = z.infer<typeof MoneyTermsOut>;
+
 /** A line as it is written: what the product said at the moment it was added. */
 export const MoneyLineInput = z.object({
   /** The catalogue row it came from; null for a line typed by hand. */
@@ -536,6 +550,9 @@ export const EstimateSummaryOut = z.object({
   leadId: uuid.nullable(),
   assignee: userOut.nullable(),
   totals: MoneyTotalsOut,
+  /** What was asked for up front, as the person wrote it: "25%" stays a percentage across a reload. */
+  deposit: MoneyTermsOut,
+  /** And what that comes to on this total, which is the figure every screen shows. */
   depositCents: z.number(),
   expiresOn: localDate.nullable(),
   sentAt: isoDateTime.nullable(),
@@ -668,6 +685,14 @@ export const InvoiceRecordPaymentInput = z.object({
   feeCents: cents.nullable().default(null),
   netCents: cents.nullable().default(null),
   receivedAt: isoDateTime.nullable().default(null),
+  /** What the card was, where the provider said so: "Visa", "4242". Never the number. */
+  cardBrand: z.string().trim().min(1).max(40).nullable().default(null),
+  cardLast4: z
+    .string()
+    .trim()
+    .regex(/^\d{4}$/, 'Four digits.')
+    .nullable()
+    .default(null),
   idempotencyKey: idempotencyKey.nullable().default(null),
 });
 export const PaymentStateOutput = z.object({

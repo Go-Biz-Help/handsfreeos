@@ -27,6 +27,7 @@ import type { JobHandler, JobMap } from './jobs';
 import { knowledgeDocumentJob } from './knowledge/document';
 import { knowledgeScanJob } from './knowledge/scan';
 import { mailboxSync } from './mailbox/sync';
+import { moneyDocumentJobs, MONEY_JOBS, MONEY_PLAN_KEY } from './money/jobs';
 import { moneyJobs } from './money/refunds';
 import { errorMessage } from './outbox';
 import { PAYMENT_JOBS, PAYMENT_PLAN_KEY, paymentJobs } from './payments/refresh';
@@ -264,6 +265,10 @@ export const jobs: JobMap = {
   ...paymentJobs,
   // Money: a refund carried out at the provider, with its own retries (money/refunds.ts).
   ...moneyJobs,
+  // Money: an invoice's message and its reminders, marking one overdue, an estimate's message, its nudge and
+  // its expiry, a receipt and a payment that failed, a plan's cycle read back, and the hourly plan and each
+  // business's sweep behind them all (money/jobs.ts).
+  ...moneyDocumentJobs,
 };
 
 /** Periodic jobs exist exactly once (their dedupe key keeps one pending row); the first run is an hour out. */
@@ -307,6 +312,16 @@ export async function ensureRecurringJobs(services: WorkerServices): Promise<voi
     await scheduleJob(tx, {
       kind: PAYMENT_JOBS.plan,
       dedupeKey: PAYMENT_PLAN_KEY,
+      runAt,
+      payload: {},
+      workspaceId: null,
+      organizationId: null,
+    });
+    // Money: every business's hourly sweep, which re-arms the reminders, overdue marks, expiries and plan
+    // cycles that should be waiting — including for a job that exhausted its retries (money/jobs.ts).
+    await scheduleJob(tx, {
+      kind: MONEY_JOBS.plan,
+      dedupeKey: MONEY_PLAN_KEY,
       runAt,
       payload: {},
       workspaceId: null,

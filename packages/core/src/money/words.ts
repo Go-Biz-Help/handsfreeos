@@ -105,11 +105,18 @@ export const PAY_LABEL = 'Pay now';
 export const TYPED_NAME_LABEL = 'Type your full name';
 
 /**
- * What the customer agrees to when they type their name. Stored with the acceptance, word for word, so the
- * business can show later exactly what was on screen. Change this and old acceptances keep their own wording.
+ * What the customer agrees to when they type their name, with the figure and the business named in it: the
+ * sentence *is* the evidence, so a generic one is worth less than one that says what was approved and who it
+ * was from. "By typing my name I approve this estimate for $8,604.76 from Lone Star HVAC & Roofing."
+ *
+ * Stored with the acceptance word for word, so the business can show later exactly what was on screen. Change
+ * this wording and every acceptance already made keeps its own.
  */
-export const ACCEPTANCE_WORDING =
-  'By typing your name and choosing Approve, you accept this estimate, the work described and the price shown.';
+export function acceptanceWording(totalCents: number, businessName: string): string {
+  return `By typing my name I approve this estimate for ${money(totalCents)} from ${
+    businessName.trim() || 'this business'
+  }.`;
+}
 
 /** "Approved by Maria Lopez on Tue, Sep 22 at 4:12 PM". */
 export function acceptedWording(
@@ -179,19 +186,74 @@ export function dueWording(dueDate: string | null, now: Date | number, timeZone:
   return `Due ${dayLabel(midday, timeZone)}`;
 }
 
-/** "Good through Fri, Oct 24", "Expires today", "Expired". */
-export function expiryWording(
-  expiresAt: string | null,
+/**
+ * How long an estimate is good for, in two voices from one piece of arithmetic — the way a payment method has
+ * `PAYMENT_METHOD_WORDS` for a sentence and `PAYMENT_METHOD_LABELS` for a button. `expiryWording` stands on its
+ * own ("Good through Fri, Oct 24"); `expiryPhrase` goes inside a line someone else is writing ("Sent Thu,
+ * Sep 17 · opened · good until Fri, Sep 25").
+ *
+ * Both take the **day** an estimate stays good through — `estimates.expires_on`, what `estimateExpiresOn` works
+ * out — not an instant, exactly as `dueWording` takes a due day. A date read as an instant is UTC midnight,
+ * which is the evening before west of Greenwich: a Chicago customer would be told at 11 PM that an estimate good
+ * through today expired yesterday. Both sides of the sum are counted in the business's own days.
+ *
+ * Unlike a due day, they show the date itself rather than a bare weekday from the second day on: how long a
+ * price is held is a promise, and a customer reads the date back.
+ */
+interface ExpiryVoice {
+  readonly none: string;
+  readonly past: string;
+  readonly today: string;
+  readonly tomorrow: string;
+  readonly through: (day: string) => string;
+}
+
+const STANDING_ALONE: ExpiryVoice = {
+  none: 'No expiry',
+  past: 'Expired',
+  today: 'Expires today',
+  tomorrow: 'Expires tomorrow',
+  through: (day) => `Good through ${day}`,
+};
+
+const IN_A_SENTENCE: ExpiryVoice = {
+  none: 'no expiry',
+  past: 'expired',
+  today: 'good until today',
+  tomorrow: 'good until tomorrow',
+  through: (day) => `good until ${day}`,
+};
+
+function expiryIn(
+  voice: ExpiryVoice,
+  expiresOn: string | null,
   now: Date | number,
   timeZone: string,
 ): string {
-  if (!expiresAt) return 'No expiry';
-  const today = localDateOf(at(now), timeZone);
-  const days = daysBetween(today, localDateOf(at(expiresAt), timeZone));
-  if (days < 0) return 'Expired';
-  if (days === 0) return 'Expires today';
-  if (days === 1) return 'Expires tomorrow';
-  return `Good through ${dayLabel(at(expiresAt), timeZone)}`;
+  if (!expiresOn) return voice.none;
+  const days = daysBetween(localDateOf(at(now), timeZone), expiresOn);
+  if (days < 0) return voice.past;
+  if (days === 0) return voice.today;
+  if (days === 1) return voice.tomorrow;
+  return voice.through(dayLabel(localInstant(expiresOn, '12:00', timeZone), timeZone));
+}
+
+/** On its own, as a badge or a heading: "Good through Fri, Oct 24", "Expires today", "Expired". */
+export function expiryWording(
+  expiresOn: string | null,
+  now: Date | number,
+  timeZone: string,
+): string {
+  return expiryIn(STANDING_ALONE, expiresOn, now, timeZone);
+}
+
+/** Inside a line: "Sent Thu, Sep 17 · opened · good until Fri, Sep 25", "… · expired". */
+export function expiryPhrase(
+  expiresOn: string | null,
+  now: Date | number,
+  timeZone: string,
+): string {
+  return expiryIn(IN_A_SENTENCE, expiresOn, now, timeZone);
 }
 
 /** "$1,240 owed" — what the Action Center's card and the customer's page both say about a balance. */

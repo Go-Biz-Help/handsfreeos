@@ -511,6 +511,9 @@ export const invoiceRecordPayment = defineCommand({
           feeCents: input.feeCents,
           netCents: input.netCents,
           receivedAt,
+          // Only a card has these, and only the provider can say what they are.
+          cardBrand: input.method === 'card' ? input.cardBrand : null,
+          cardLast4: input.method === 'card' ? input.cardLast4 : null,
           idempotencyKey: input.idempotencyKey,
         })
         .returning({ id: payments.id });
@@ -559,6 +562,9 @@ export const invoiceRecordPayment = defineCommand({
         failureCode: input.status === 'failed' ? input.failureCode : null,
         feeCents: input.feeCents ?? existing.fee_cents,
         netCents: input.netCents ?? existing.net_cents,
+        // A later callback fills these in if the first answer had not yet; it never blanks them.
+        cardBrand: input.cardBrand ?? existing.card_brand,
+        cardLast4: input.cardLast4 ?? existing.card_last4,
         // A raw read gives timestamps back as strings, so the kept one has to become a Date again.
         receivedAt:
           input.status === 'succeeded'
@@ -604,6 +610,8 @@ type PaymentLookupRow = {
   fee_cents: number | null;
   net_cents: number | null;
   received_at: Date | null;
+  card_brand: string | null;
+  card_last4: string | null;
 };
 
 /** The row this callback is about: its id, the provider's own id, or the key written before the call. */
@@ -623,7 +631,7 @@ async function findPayment(
     sql`select p.id, p.amount_cents::float8 as amount_cents, p.method::text as method,
           p.provider::text as provider, p.connection_id, p.provider_payment_id, p.provider_status,
           p.status::text as status, p.fee_cents::float8 as fee_cents, p.net_cents::float8 as net_cents,
-          p.received_at
+          p.received_at, p.card_brand, p.card_last4
         from app.payments p
         where p.workspace_id = ${ws}
           and (

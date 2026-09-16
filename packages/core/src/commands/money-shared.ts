@@ -614,6 +614,7 @@ export function estimateOut(r: EstimateRow, now: number, timeZone: string) {
     leadId: r.lead_id,
     assignee: userOf(r.assignee_user_id, r.assignee_name),
     totals: totalsOf(r),
+    deposit: depositTermsOf(r),
     depositCents: depositOf(r),
     expiresOn: r.expires_on,
     sentAt: moneyIso(r.sent_at),
@@ -623,6 +624,22 @@ export function estimateOut(r: EstimateRow, now: number, timeZone: string) {
     voidedAt: moneyIso(r.voided_at),
     createdAt: isoAt(r.created_at),
   };
+}
+
+/**
+ * The deposit as it was written: a share of the total, or an amount. The two columns are exclusive (0045's
+ * check), so which one is set is the whole answer — a reader never has to work it back out of the figure, and
+ * "25%" stays 25% across a reload even when the total moves.
+ */
+export function depositTermsOf(r: {
+  deposit_percent_bp: number | null;
+  deposit_cents: number | null;
+}): { kind: 'none' | 'percent' | 'amount'; percentBp: number; amountCents: number } {
+  if (r.deposit_percent_bp !== null)
+    return { kind: 'percent', percentBp: r.deposit_percent_bp, amountCents: 0 };
+  if (r.deposit_cents !== null)
+    return { kind: 'amount', percentBp: 0, amountCents: num(r.deposit_cents) };
+  return { kind: 'none', percentBp: 0, amountCents: 0 };
 }
 
 /** What the estimate asks for up front, as cents on its own total. */

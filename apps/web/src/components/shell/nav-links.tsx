@@ -2,6 +2,7 @@
 import {
   BookOpen,
   CalendarDays,
+  CircleDollarSign,
   ClipboardList,
   Home,
   Inbox,
@@ -51,6 +52,8 @@ export function navItems(workspaceId: string): NavItem[] {
       icon: CalendarDays,
       primary: true,
     },
+    // Money is a drawer item on phones too, so the bottom bar stays at five.
+    { key: 'money', href: `${base}/money`, label: 'Money', icon: CircleDollarSign },
     // Workflows is a drawer item on phones, so the bottom bar stays at five.
     { key: 'workflows', href: `${base}/workflows`, label: 'Workflows', icon: Workflow },
     // Knowledge is a drawer item on phones too.

@@ -11,8 +11,11 @@ import {
   estimateCreate,
   estimateSend,
   executeCommand,
+  executeQuery,
   invoiceCreate,
   invoiceSend,
+  moneySaveSettings,
+  moneySettingsGet,
   organizationCreate,
   paymentConnectionConnect,
   paymentConnectionSetDefault,
@@ -34,6 +37,13 @@ export { admin, api, drain, errorOf, get, post } from './booking-world';
 
 const ROOM = { max: 10_000, timeWindow: MIN };
 const shortId = () => randomUUID().slice(0, 8);
+
+/** Where "at our place" is: the stand-in a business's documents fall back to until they set a real one. */
+export const CALENDAR_ADDRESS = '4120 Almeda Rd, Houston, TX 77004';
+
+/** The seller's own address, as they write it in Settings → Payments (`money.businessAddress`). */
+export const BUSINESS_ADDRESS =
+  'Lone Star HVAC & Roofing\n7200 Harwin Dr, Suite 210\nHouston, TX 77036';
 
 const actorOf = (u: TestUser): HumanActor => ({
   type: 'human',
@@ -106,6 +116,16 @@ export async function moneyWorld(label: string): Promise<MoneyWorld> {
     workerId: `vitest-${label}-${process.pid}`,
     number: null,
   };
+  // A calendar that says where the business is. Written straight in: its only job here is to hold the address
+  // the money pages read, and the calendar builder has its own tests.
+  await rows(
+    admin(),
+    sql`insert into app.calendars (workspace_id, name, slug, config)
+        values (${base.workspaceId}, 'Service calls', ${`calls-${shortId()}`},
+          ${JSON.stringify({
+            locations: { options: [{ kind: 'business', address: CALENDAR_ADDRESS }] },
+          })}::jsonb)`,
+  );
   const phone = nextPhone();
   const person = await run(base, personCreate, {
     workspaceId: base.workspaceId,
@@ -282,6 +302,37 @@ export async function payOnStandInPage(
   return new URL(String(paid.headers.location));
 }
 
+/**
+ * Changes one money setting and leaves the rest as they are. The whole document is saved, and the numbering
+ * counters have moved on by now, so anything less than a read-then-write is refused.
+ */
+export async function patchMoneySettings(
+  w: MoneyWorld,
+  patch: Record<string, unknown>,
+): Promise<void> {
+  const { settings } = (await executeQuery(
+    api(),
+    moneySettingsGet,
+    { workspaceId: w.workspaceId },
+    actorOf(w.owner),
+    meta(),
+  )) as { settings: { numbering: Record<string, { next: number }> } & Record<string, unknown> };
+  // The counter row is the authority and the document's `next` is only a mirror of it, so a save that sends
+  // the stored one back is refused the moment anything has been sent. The page does the same.
+  const counters = await rows<{ kind: string; next_number: string }>(
+    admin(),
+    sql`select kind, next_number::text as next_number from app.document_counters
+        where workspace_id = ${w.workspaceId}`,
+  );
+  const numbering = { ...settings.numbering };
+  for (const c of counters)
+    numbering[c.kind] = { ...numbering[c.kind]!, next: Number(c.next_number) };
+  await run(w, moneySaveSettings, {
+    workspaceId: w.workspaceId,
+    settings: { ...settings, numbering, ...patch },
+  });
+}
+
 /** The invoice row as the database has it, for the assertions that are about money and not about JSON. */
 export async function invoiceRow(invoiceId: string) {
   const [row] = await rows<{
@@ -310,10 +361,13 @@ export async function paymentRows(invoiceId: string) {
     provider_payment_id: string | null;
     provider_status: string | null;
     idempotency_key: string | null;
+    card_brand: string | null;
+    card_last4: string | null;
   }>(
     admin(),
     sql`select id, status::text as status, method::text as method,
-          amount_cents::float8 as amount_cents, provider_payment_id, provider_status, idempotency_key
+          amount_cents::float8 as amount_cents, provider_payment_id, provider_status, idempotency_key,
+          card_brand, card_last4
         from app.payments where invoice_id = ${invoiceId} order by created_at, id`,
   );
 }

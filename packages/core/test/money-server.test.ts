@@ -65,8 +65,11 @@ import {
   productCreate,
   productList,
 } from '../src/server';
-import { ACCEPTANCE_WORDING } from '../src/money/index';
+import { acceptanceWording } from '../src/money/index';
 import { business, lead as leadFacts } from './attention-fixtures';
+
+/** The sentence the customer's page renders for this estimate; the command stores whatever it is given. */
+const WORDING = acceptanceWording(180_000, 'Lone Star Test HVAC');
 
 const api = () => testDbs().api.db;
 const worker = () => testDbs().worker.db;
@@ -367,6 +370,59 @@ describe('an estimate', () => {
     );
   });
 
+  it('gives the deposit back as it was written, so 25% stays 25% across a reload', async () => {
+    const made = await newEstimate({ deposit: { kind: 'percent', percentBp: 2_500 } });
+    const read = async (id: string) =>
+      (await ask(estimateGet, { workspaceId: w.wsId, estimateId: id }, w.owner)).estimate;
+
+    let got = await read(made.estimateId);
+    expect(got.deposit).toEqual({ kind: 'percent', percentBp: 2_500, amountCents: 0 });
+    // And what that comes to, which is the figure on screen.
+    expect(got.depositCents).toBe(Math.round(made.totalCents * 0.25));
+
+    // Save it back exactly as it was read: a percentage must not land as the amount it happened to come to.
+    const saved = await run(
+      estimateUpdate,
+      {
+        workspaceId: w.wsId,
+        estimateId: made.estimateId,
+        personId: w.personId,
+        lines: [
+          ...draftLines,
+          { name: 'Permit', quantity: 1, unitPriceCents: 20_000, taxable: false },
+        ],
+        deposit: got.deposit,
+        baseRevision: got.revision,
+      },
+      w.owner,
+    );
+    got = await read(made.estimateId);
+    expect(got.deposit).toEqual({ kind: 'percent', percentBp: 2_500, amountCents: 0 });
+    // It is a share of the total, so it followed the total up rather than sticking at the old figure.
+    expect(got.depositCents).toBe(Math.round(saved.totalCents * 0.25));
+
+    // An amount comes back as an amount, and a save that doesn't mention the deposit leaves it alone.
+    const flat = await newEstimate({ deposit: { kind: 'amount', amountCents: 50_000 } });
+    const before = await read(flat.estimateId);
+    expect(before.deposit).toEqual({ kind: 'amount', percentBp: 0, amountCents: 50_000 });
+    await run(
+      estimateUpdate,
+      {
+        workspaceId: w.wsId,
+        estimateId: flat.estimateId,
+        personId: w.personId,
+        lines: draftLines,
+        baseRevision: before.revision,
+      },
+      w.owner,
+    );
+    expect((await read(flat.estimateId)).deposit).toEqual({
+      kind: 'amount',
+      percentBp: 0,
+      amountCents: 50_000,
+    });
+  });
+
   it('takes the next number on send, freezes, and refuses a second send', async () => {
     const made = await newEstimate();
     const sent = await run(
@@ -426,7 +482,7 @@ describe('an estimate', () => {
       workspaceId: w.wsId,
       estimateId: made.estimateId,
       name: 'Maria L.',
-      wording: ACCEPTANCE_WORDING,
+      wording: WORDING,
     });
     expect(accepted.acceptedName).toBe('Maria L.');
     expect(accepted.acceptedVia).toBe('link');
@@ -439,7 +495,7 @@ describe('an estimate', () => {
           workspaceId: w.wsId,
           estimateId: made.estimateId,
           name: 'Maria L. again',
-          wording: ACCEPTANCE_WORDING,
+          wording: WORDING,
         }),
       'rule_violation',
       'estimate_not_open',
@@ -449,7 +505,7 @@ describe('an estimate', () => {
       { workspaceId: w.wsId, estimateId: made.estimateId },
       w.owner,
     );
-    expect(got.estimate.acceptedWording).toBe(ACCEPTANCE_WORDING);
+    expect(got.estimate.acceptedWording).toBe(WORDING);
     expect(got.estimate.state).toBe('accepted');
   });
 
@@ -514,7 +570,7 @@ describe('converting an estimate', () => {
       workspaceId: w.wsId,
       estimateId: made.estimateId,
       name: 'Maria L.',
-      wording: ACCEPTANCE_WORDING,
+      wording: WORDING,
     });
     const converted = await run(
       estimateConvert,

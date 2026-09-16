@@ -17,6 +17,8 @@ import { randomUUID } from 'node:crypto';
 import {
   centsOf,
   cleanMetadata,
+  cardBrandLabel,
+  cardLast4,
   declineWording,
   hmacBase64,
   idempotencyKey,
@@ -253,6 +255,9 @@ export function createSquarePayments(opts: {
         netCents: null,
         receivedAt: null,
         capturable: false,
+        // A refusal tells us nothing about the card, and guessing from what was typed would be worse.
+        cardBrand: null,
+        cardLast4: null,
       };
     return fail(res, error);
   }
@@ -266,6 +271,8 @@ export function createSquarePayments(opts: {
       return amount === null ? sum : (sum ?? 0) + amount;
     }, null);
     const amount = centsOf(obj(p['amount_money'])['amount']) ?? fallbackAmount;
+    // The card, when it was one. Square says "VISA"; `cardBrandLabel` gives it back its capitals.
+    const card = obj(obj(p['card_details'])['card']);
     return {
       providerPaymentId: String(p['id'] ?? ''),
       status: state,
@@ -277,6 +284,8 @@ export function createSquarePayments(opts: {
       netCents: fees === null ? null : amount - fees,
       receivedAt: state === 'succeeded' ? isoOf(p['updated_at'] ?? p['created_at']) : null,
       capturable: status === 'APPROVED',
+      cardBrand: cardBrandLabel(str(card['card_brand'])),
+      cardLast4: cardLast4(str(card['last_4'])),
     };
   }
 

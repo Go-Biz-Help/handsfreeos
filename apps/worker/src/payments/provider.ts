@@ -175,6 +175,12 @@ export interface PaymentResult {
   readonly receivedAt: string | null;
   /** A held card waiting to be captured. */
   readonly capturable: boolean;
+  /**
+   * What the card was, when it was a card and the provider said: "Visa", "4242". Never the number — the
+   * provider holds that — and null for a bank transfer, for cash, and any time a provider doesn't say.
+   */
+  readonly cardBrand: string | null;
+  readonly cardLast4: string | null;
 }
 
 export interface RefundInput {
@@ -450,6 +456,47 @@ export function cleanMetadata(metadata: Readonly<Record<string, string>>): Recor
     if (k && typeof v === 'string') out[k.slice(0, 40)] = v.slice(0, 500);
   return out;
 }
+
+/** The card brands the two providers name, each spelt the way a person writes it on a receipt. */
+const CARD_BRANDS: Readonly<Record<string, string>> = {
+  visa: 'Visa',
+  mastercard: 'Mastercard',
+  amex: 'American Express',
+  american_express: 'American Express',
+  discover: 'Discover',
+  diners: 'Diners Club',
+  diners_club: 'Diners Club',
+  jcb: 'JCB',
+  unionpay: 'UnionPay',
+  china_unionpay: 'UnionPay',
+  interac: 'Interac',
+  eftpos_au: 'Eftpos',
+  link: 'Link',
+};
+
+/**
+ * "Visa" from Stripe's `visa` and Square's `VISA`. A brand neither of them names — and Stripe's own literal
+ * `unknown` — is null rather than a guess; anything else they send is title-cased as they spelt it.
+ */
+export function cardBrandLabel(raw: string | null | undefined): string | null {
+  const key = (raw ?? '')
+    .trim()
+    .toLowerCase()
+    .replace(/[\s-]+/g, '_');
+  if (!key || key === 'unknown') return null;
+  return (
+    CARD_BRANDS[key] ??
+    key
+      .split('_')
+      .filter(Boolean)
+      .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+      .join(' ')
+  );
+}
+
+/** The last four digits a provider gave, when they really are four digits. */
+export const cardLast4 = (raw: string | null | undefined): string | null =>
+  /^\d{4}$/.test((raw ?? '').trim()) ? (raw ?? '').trim() : null;
 
 /**
  * What the customer reads when a card is refused. The provider's own message names the issuer and sometimes the

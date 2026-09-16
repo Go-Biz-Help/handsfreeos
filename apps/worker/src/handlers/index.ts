@@ -32,6 +32,15 @@ import { onFileDeleted } from './file-removed';
 import { onImportRequested } from './import-run';
 import { onInvitationCreated, onInvitationResendRequested } from './invitation-email';
 import { onMailboxReauthRequired, onMailboxSyncWanted } from './mailbox';
+import {
+  onEstimateSent,
+  onInvoiceChanged,
+  onInvoicePaid,
+  onInvoiceSent,
+  onPaymentFailed,
+  onPaymentRecorded,
+  onSubscriptionLive,
+} from '../money/jobs';
 import { onRefundRequested } from '../money/refunds';
 import { onPaymentConnectionConnected, onPaymentConnectionDisconnected } from './payments';
 import {
@@ -85,6 +94,20 @@ const ownTeammateAndWorkflows: HandlerMap = withWorkflows(
     'payment_connection.disconnected': onPaymentConnectionDisconnected,
     // A person asked for a refund: the provider call is queued, so it retries on its own (money/refunds.ts).
     'refund.requested': onRefundRequested,
+    // Money (money/jobs.ts): a document that went out carries its own message and then the jobs that follow
+    // it — an estimate's nudge and expiry, an invoice's reminder ladder and its overdue mark. A payment
+    // brings the customer a receipt (or, where nobody was watching, that it didn't go through), and a
+    // settled invoice brings the team its "you've been paid".
+    'estimate.sent': onEstimateSent,
+    'invoice.sent': onInvoiceSent,
+    'invoice.updated': onInvoiceChanged,
+    'payment.recorded': [onPaymentRecorded, onInvoiceChanged],
+    'payment.updated': onInvoiceChanged,
+    'payment.failed': [onPaymentFailed, onInvoiceChanged],
+    'refund.recorded': onInvoiceChanged,
+    'invoice.paid': onInvoicePaid,
+    'subscription.started': onSubscriptionLive,
+    'subscription.resumed': onSubscriptionLive,
     // Appointments follow into people's own calendars (write-through) first; then the reminders, what the
     // customer hears and the team's email (handlers/appointment-messages.ts).
     'appointment.booked': [

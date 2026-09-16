@@ -21,13 +21,7 @@ import { requireHuman } from '../kernel/actor';
 import { defineCommand } from '../kernel/define';
 import { executeCommandWithin } from '../kernel/execute';
 import type { CommandContext } from '../kernel/types';
-import {
-  ACCEPTANCE_WORDING,
-  acceptedWording,
-  estimateMoveProblem,
-  money,
-  type EstimateStatus,
-} from '../money/index';
+import { acceptedWording, estimateMoveProblem, money, type EstimateStatus } from '../money/index';
 import {
   DocumentRecordViewInput,
   DocumentViewOutput,
@@ -53,6 +47,7 @@ import {
   businessToday,
   depositColumns,
   depositOf,
+  depositTermsOf,
   documentHash,
   draftOf,
   expiresAtOf,
@@ -208,7 +203,9 @@ export const estimateUpdate = defineCommand({
     const settings = await loadMoneySettings(ctx.tx, ws);
     const draft = draftOf(input.lines, settings, {
       discount: input.discount,
-      deposit: input.deposit ?? settings.deposit,
+      // Left out on a save, the deposit already on the document stands. A save that doesn't mention it never
+      // quietly swaps a business's "$500 up front" for whatever the settings default happens to be.
+      deposit: input.deposit ?? depositTermsOf(before),
     });
     await ctx.tx
       .update(estimates)
@@ -668,9 +665,6 @@ export const estimateExpire = defineCommand({
     return stateOut(fresh, true);
   },
 });
-
-/** The wording the customer's page shows above Approve, so the worker and the page never disagree. */
-export const ESTIMATE_ACCEPTANCE_WORDING = ACCEPTANCE_WORDING;
 
 export const estimateCommands = [
   estimateCreate,

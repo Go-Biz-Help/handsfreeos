@@ -8,7 +8,13 @@
  * that sits in `processing` for days and settles later.
  */
 import { randomBytes, randomUUID } from 'node:crypto';
-import { estimateCreate, estimateVoid, invoiceVoid } from '@hfos/core/server';
+import {
+  acceptanceWording,
+  estimateCreate,
+  estimateVoid,
+  invoiceVoid,
+  paymentRefund,
+} from '@hfos/core/server';
 import { rows, sql } from '@hfos/db/client';
 import { closeTestDbs } from '@hfos/db/testing';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -28,11 +34,14 @@ import {
 } from '../src/payments/fake';
 import {
   admin,
+  BUSINESS_ADDRESS,
+  CALENDAR_ADDRESS,
   drain,
   errorOf,
   get,
   invoiceRow,
   moneyWorld,
+  patchMoneySettings,
   paymentRows,
   payOnStandInPage,
   post,
@@ -54,6 +63,68 @@ afterAll(async () => {
   await w?.app.close();
   await closeTestDbs();
 });
+
+interface MoneyTerms {
+  kind: string;
+  percentBp: number;
+  amountCents: number;
+}
+
+interface EstimateView {
+  state: string;
+  business: {
+    name: string;
+    phone: string | null;
+    phoneDisplay: string | null;
+    address: string | null;
+  };
+  customer: { name: string };
+  estimate: {
+    number: string | null;
+    totals: { totalCents: number; discountCents: number; discountPercentBp: number | null };
+    discount: MoneyTerms;
+    deposit: MoneyTerms;
+    depositCents: number;
+    lines: { name: string }[];
+  };
+  answer: { canAccept: boolean; canDecline: boolean; wording: string; reason: string | null };
+}
+
+interface InvoiceView {
+  state: string;
+  invoice: {
+    purpose: string;
+    balanceCents: number;
+    amountPaidCents: number;
+    amountRefundedCents: number;
+    discount: MoneyTerms;
+    totals: { discountPercentBp: number | null };
+    number: string | null;
+  };
+  payments: {
+    amountCents: number;
+    method: string;
+    status: string;
+    purpose: string;
+    cardBrand: string | null;
+    cardLast4: string | null;
+    reference: string;
+    receivedAt: string | null;
+  }[];
+  refunds: { amountCents: number; status: string; refundedAt: string | null; reference: string }[];
+  pay: {
+    canPay: boolean;
+    reason: string | null;
+    methods: string[];
+    session: {
+      provider: string;
+      flow: string;
+      publishableKey: string;
+      accountId: string;
+      locationId: string | null;
+    } | null;
+  };
+}
 
 interface PayAnswer {
   stage: 'prepared' | 'recorded';
@@ -178,17 +249,7 @@ describe('the estimate a customer was sent', () => {
     // Never cached, and the token never leaves in a Referer header.
     expect(res.headers['cache-control']).toBe('no-store');
     expect(res.headers['referrer-policy']).toBe('no-referrer');
-    const body = res.json() as {
-      state: string;
-      business: { name: string };
-      customer: { name: string };
-      estimate: {
-        number: string | null;
-        totals: { totalCents: number };
-        lines: { name: string }[];
-      };
-      answer: { canAccept: boolean; canDecline: boolean; wording: string; reason: string | null };
-    };
+    const body = res.json() as EstimateView;
     expect(body.state).toBe('sent');
     expect(body.business.name).toContain('Lone Star');
     expect(body.customer.name).toBe('Maria Lopez');
@@ -196,7 +257,37 @@ describe('the estimate a customer was sent', () => {
     expect(body.estimate.lines[0]!.name).toBe('AC tune-up');
     expect(body.estimate.totals.totalCents).toBe(e.totalCents);
     expect(body.answer).toMatchObject({ canAccept: true, canDecline: true, reason: null });
-    expect(body.answer.wording.length).toBeGreaterThan(10);
+    // The sentence names this estimate's own figure and this business: it is the evidence, not a boilerplate.
+    expect(body.answer.wording).toBe(acceptanceWording(e.totalCents, body.business.name));
+    // `money` shows cents only when there are any, so a round estimate reads "$180".
+    expect(body.answer.wording).toContain('$180 from');
+  });
+
+  it('shows the discount and the deposit as they were written, and where the business is', async () => {
+    const e = await sentEstimate(w, {
+      discount: { kind: 'percent', percentBp: 1_000 },
+      deposit: { kind: 'percent', percentBp: 2_500 },
+    });
+    const body = (await get(w, `/public/estimate/${e.token}`)).json() as EstimateView;
+    // "Discount · 10% off", not only the amount that came off.
+    expect(body.estimate.discount).toEqual({ kind: 'percent', percentBp: 1_000, amountCents: 0 });
+    expect(body.estimate.totals.discountPercentBp).toBe(1_000);
+    expect(body.estimate.totals.discountCents).toBeGreaterThan(0);
+    // "Deposit to start · 25%", beside the figure it comes to.
+    expect(body.estimate.deposit).toEqual({ kind: 'percent', percentBp: 2_500, amountCents: 0 });
+    expect(body.estimate.depositCents).toBe(Math.round(e.totalCents * 0.25));
+    // Until they set one in Settings → Payments, the address they typed for "at our place" stands in.
+    expect(body.business.address).toBe(CALENDAR_ADDRESS);
+
+    const flat = await sentEstimate(w, { discount: { kind: 'amount', amountCents: 2_000 } });
+    const flatBody = (await get(w, `/public/estimate/${flat.token}`)).json() as EstimateView;
+    expect(flatBody.estimate.discount).toEqual({
+      kind: 'amount',
+      percentBp: 0,
+      amountCents: 2_000,
+    });
+    expect(flatBody.estimate.totals.discountPercentBp).toBeNull();
+    expect(flatBody.estimate.deposit.kind).toBe('none');
   });
 
   it('is not found with a wrong code, and out of date once it has been reissued', async () => {
@@ -215,6 +306,22 @@ describe('the estimate a customer was sent', () => {
     // The newest link works.
     const fresh = await tokenOf(w, 'estimate', e.id);
     expect((await get(w, `/public/estimate/${fresh}`)).statusCode).toBe(200);
+  });
+
+  it('shows the address from Settings → Payments, over the calendar’s stand-in', async () => {
+    await patchMoneySettings(w, { businessAddress: BUSINESS_ADDRESS });
+    const e = await sentEstimate(w);
+    const estimate = (await get(w, `/public/estimate/${e.token}`)).json() as EstimateView;
+    // A seller's own address, verbatim and in their own line breaks — never parsed into a city and a state.
+    expect(estimate.business.address).toBe(BUSINESS_ADDRESS);
+    expect(estimate.business.address).toContain('\n');
+    const inv = await sentInvoice(w);
+    const invoice = (await get(w, `/public/invoice/${inv.token}`)).json() as {
+      business: { address: string | null };
+    };
+    expect(invoice.business.address).toBe(BUSINESS_ADDRESS);
+    // Put back, so the tests that came before this one keep the world they were written against.
+    await patchMoneySettings(w, { businessAddress: '' });
   });
 
   it('never opens a draft: no link to one was ever sent', async () => {
@@ -382,6 +489,23 @@ describe('the invoice a customer pays', () => {
     await drain(w);
     expect((await invoiceRow(inv.id)).status).toBe('paid');
     expect(await paymentRows(inv.id)).toHaveLength(1);
+    // Square names the card too, spelt the way a person writes it.
+    const view = (await get(w, `/public/invoice/${inv.token}`)).json() as InvoiceView;
+    expect(view.payments[0]).toMatchObject({
+      cardBrand: 'Visa',
+      cardLast4: FAKE_CARDS.succeeds.slice(-4),
+    });
+  });
+
+  it('leaves the card brand off a bank transfer, which never had one', async () => {
+    const inv = await sentInvoice(w);
+    const sent = await payWithStripe(inv, FAKE_BANK.settles, 'ach');
+    expect(sent.payment.status).toBe('processing');
+    await drain(w);
+    const view = (await get(w, `/public/invoice/${inv.token}`)).json() as InvoiceView;
+    expect(view.payments[0]).toMatchObject({ method: 'ach', cardBrand: null, cardLast4: null });
+    const [row] = await paymentRows(inv.id);
+    expect(row).toMatchObject({ card_brand: null, card_last4: null });
   });
 
   it('answers a declined card with plain words, and leaves the invoice owing', async () => {
@@ -422,20 +546,63 @@ describe('the invoice a customer pays', () => {
     await payWithStripe(inv, FAKE_CARDS.succeeds);
     await drain(w);
     const res = await get(w, `/public/invoice/${inv.token}`);
-    const body = res.json() as {
-      state: string;
-      payments: { amountCents: number; status: string; method: string }[];
-      pay: { canPay: boolean; reason: string };
-      invoice: { balanceCents: number; amountPaidCents: number };
-    };
+    const body = res.json() as InvoiceView;
     expect(body.state).toBe('paid');
     expect(body.payments).toHaveLength(1);
-    expect(body.payments[0]).toMatchObject({ amountCents: inv.totalCents, status: 'succeeded' });
+    expect(body.payments[0]).toMatchObject({
+      amountCents: inv.totalCents,
+      status: 'succeeded',
+      method: 'card',
+      // A payment's purpose is its invoice's, so the receipt line can read "Paid" or "Deposit paid".
+      purpose: 'standard',
+      // "Visa •••• 4242": what makes a receipt read like a receipt.
+      cardBrand: 'Visa',
+      cardLast4: FAKE_CARDS.succeeds.slice(-4),
+    });
+    expect(body.payments[0]!.reference).toMatch(/^[0-9A-F]{8}$/);
+    expect(body.payments[0]!.receivedAt).toBeTruthy();
+    expect(body.refunds).toEqual([]);
     expect(body.pay).toMatchObject({ canPay: false, reason: 'paid' });
     expect(body.invoice).toMatchObject({ balanceCents: 0, amountPaidCents: inv.totalCents });
     const again = await post(w, `/public/invoice/${inv.token}/pay`, { clientId: randomUUID() });
     expect(again.statusCode).toBe(409);
     expect(errorOf(again).rule).toBe('invoice_settled');
+  });
+
+  it('says a deposit is a deposit, and names the day money went back', async () => {
+    const inv = await sentInvoice(w, {
+      purpose: 'deposit',
+      connectionId: w.square.connectionId,
+      discount: { kind: 'percent', percentBp: 1_000 },
+    });
+    await payWithSquare(inv, FAKE_CARDS.succeeds);
+    await drain(w);
+    const before = (await get(w, `/public/invoice/${inv.token}`)).json() as InvoiceView;
+    expect(before.invoice.purpose).toBe('deposit');
+    expect(before.payments[0]!.purpose).toBe('deposit');
+    expect(before.invoice.discount).toEqual({ kind: 'percent', percentBp: 1_000, amountCents: 0 });
+    expect(before.invoice.totals.discountPercentBp).toBe(1_000);
+
+    const [payment] = await paymentRows(inv.id);
+    const refund = (await run(w, paymentRefund, {
+      workspaceId: w.workspaceId,
+      paymentId: payment!.id,
+      amountCents: 1_000,
+      reason: 'Overcharged',
+    })) as { refundId: string };
+    expect(refund.refundId).toBeTruthy();
+    await drain(w);
+    const ran = await post(w, '/test/money/run-due', { workspaceId: w.workspaceId });
+    expect(ran.statusCode, ran.body).toBe(200);
+    await drain(w);
+
+    const after = (await get(w, `/public/invoice/${inv.token}`)).json() as InvoiceView;
+    expect(after.refunds).toHaveLength(1);
+    expect(after.refunds[0]).toMatchObject({ amountCents: 1_000, status: 'succeeded' });
+    // The day it was sent back, not only the amount.
+    expect(after.refunds[0]!.refundedAt).toBeTruthy();
+    expect(after.refunds[0]!.reference).toMatch(/^[0-9A-F]{8}$/);
+    expect(after.invoice.amountRefundedCents).toBe(1_000);
   });
 
   it('refuses to take money on a withdrawn invoice, and says so plainly', async () => {

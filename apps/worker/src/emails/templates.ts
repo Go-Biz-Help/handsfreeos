@@ -1,5 +1,5 @@
 /** The emails the worker sends the team (Mailpit locally, the production provider elsewhere). Plain and short. */
-import { moneyLabel } from '@hfos/core/server';
+import { moneyLabel, PAYMENT_METHOD_WORDS, type PaymentMethod } from '@hfos/core/server';
 
 export interface EmailContent {
   readonly subject: string;
@@ -445,6 +445,63 @@ export function teamBookingEmail(input: {
     wordmark +
       `<p style="font-size: 15px; line-height: 1.5; margin: 0 0 12px;"><strong>${escapeHtml(input.customer)}</strong> ${escapeHtml(input.sentence)}.</p>` +
       `<table style="width: 100%; border-collapse: collapse; font-size: 13px; margin: 0 0 14px;">${shown.map(([k, v]) => detailRow(k, v)).join('')}</table>` +
+      button(input.link, 'Open in HandsFreeOS') +
+      small(off),
+  );
+  return { subject, text, html };
+}
+
+/**
+ * An invoice was settled: the short "you've been paid" to whoever is on it and to the owners and admins (M9).
+ * It never says what a way of paying costs the business — naming it is a fact, pricing it is a decision Chris
+ * cut from everything anyone reads.
+ */
+export function invoicePaidEmail(input: {
+  customer: string;
+  /** The invoice number, or null for one that somehow went out without one. */
+  invoice: string | null;
+  title: string | null;
+  /** The payment that settled it. */
+  amountCents: number;
+  /** What the invoice came to in all; the same figure when it was paid in one go. */
+  totalCents: number;
+  /** 'card', 'ach', 'cash', 'check', 'other'; null when we don't know. */
+  method: string | null;
+  link: string;
+}): EmailContent {
+  const noun = input.invoice ? `invoice ${input.invoice}` : 'their invoice';
+  const how = input.method
+    ? ` by ${PAYMENT_METHOD_WORDS[input.method as PaymentMethod] ?? input.method}`
+    : '';
+  const subject = `You’ve been paid: ${input.customer}, ${moneyLabel(input.totalCents)}`;
+  const opening =
+    input.amountCents >= input.totalCents
+      ? `${input.customer} paid ${noun} — ${moneyLabel(input.totalCents)}${how}.`
+      : `${input.customer} has now paid ${noun} in full — ${moneyLabel(input.totalCents)}. The last payment was ${moneyLabel(input.amountCents)}${how}.`;
+  const rows: [string, string | null][] = [
+    ['Invoice', input.invoice],
+    ['For', input.title],
+    ['Paid', `${moneyLabel(input.totalCents)}${how}`],
+  ];
+  const shown = rows.filter((r): r is [string, string] => !!r[1]);
+  const off = 'Turn these off in Settings, then Account.';
+  const text = [
+    opening,
+    '',
+    ...shown.map(([k, v]) => `${k}: ${v}`),
+    '',
+    `Open in HandsFreeOS: ${input.link}`,
+    '',
+    off,
+  ].join('\n');
+  const html = shell(
+    wordmark +
+      `<p style="font-size: 15px; line-height: 1.5; margin: 0 0 12px;"><strong>${escapeHtml(input.customer)}</strong>${escapeHtml(
+        opening.slice(input.customer.length),
+      )}</p>` +
+      `<table style="width: 100%; border-collapse: collapse; font-size: 13px; margin: 0 0 14px;">${shown
+        .map(([k, v]) => detailRow(k, v))
+        .join('')}</table>` +
       button(input.link, 'Open in HandsFreeOS') +
       small(off),
   );

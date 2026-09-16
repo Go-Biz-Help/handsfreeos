@@ -1,12 +1,13 @@
 /** What money is called on screen, and the sentences the pages, the messages and the audit log share. */
 import { describe, expect, it } from 'vitest';
 import {
-  ACCEPTANCE_WORDING,
+  acceptanceWording,
   acceptedWording,
   declinedWording,
   dueWording,
   ESTIMATE_STATUSES,
   ESTIMATE_WORDS,
+  expiryPhrase,
   expiryWording,
   INVOICE_STATUSES,
   INVOICE_WORDS,
@@ -68,10 +69,17 @@ describe('the acceptance', () => {
     );
   });
 
-  it('has one sentence the customer agrees to, stored word for word', () => {
-    expect(ACCEPTANCE_WORDING).toContain('typing your name');
-    expect(ACCEPTANCE_WORDING).toContain('Approve');
-    expect(ACCEPTANCE_WORDING.length).toBeLessThanOrEqual(1_000);
+  it('names the figure and the business in the sentence the customer agrees to', () => {
+    const sentence = acceptanceWording(860_476, 'Lone Star HVAC & Roofing');
+    expect(sentence).toBe(
+      'By typing my name I approve this estimate for $8,604.76 from Lone Star HVAC & Roofing.',
+    );
+    // It is stored word for word, so it has to fit the column that keeps it.
+    expect(acceptanceWording(100_000_000_000, 'A'.repeat(200)).length).toBeLessThanOrEqual(1_000);
+    // A business with no name still gets a sentence that reads, and a round figure keeps no stray cents.
+    expect(acceptanceWording(2_500, '  ')).toBe(
+      'By typing my name I approve this estimate for $25 from this business.',
+    );
   });
 });
 
@@ -121,16 +129,43 @@ describe('dates in words', () => {
     expect(dueWording(null, NOW, TZ)).toBe('No due date');
   });
 
-  it('says how long an estimate is good for', () => {
-    expect(expiryWording(at('2026-10-15', '10:00').toISOString(), NOW, TZ)).toBe(
-      'Good through Thu, Oct 15',
-    );
-    expect(expiryWording(at('2026-09-15', '23:00').toISOString(), NOW, TZ)).toBe('Expires today');
-    expect(expiryWording(at('2026-09-16', '10:00').toISOString(), NOW, TZ)).toBe(
-      'Expires tomorrow',
-    );
-    expect(expiryWording(at('2026-09-14', '10:00').toISOString(), NOW, TZ)).toBe('Expired');
+  it('says how long an estimate is good for, from the day it stays good through', () => {
+    expect(expiryWording('2026-10-15', NOW, TZ)).toBe('Good through Thu, Oct 15');
+    expect(expiryWording('2026-09-15', NOW, TZ)).toBe('Expires today');
+    expect(expiryWording('2026-09-16', NOW, TZ)).toBe('Expires tomorrow');
+    expect(expiryWording('2026-09-14', NOW, TZ)).toBe('Expired');
     expect(expiryWording(null, NOW, TZ)).toBe('No expiry');
+  });
+
+  it('says the same thing inside a line, in the voice the list writes in', () => {
+    expect(expiryPhrase('2026-10-15', NOW, TZ)).toBe('good until Thu, Oct 15');
+    expect(expiryPhrase('2026-09-15', NOW, TZ)).toBe('good until today');
+    expect(expiryPhrase('2026-09-16', NOW, TZ)).toBe('good until tomorrow');
+    expect(expiryPhrase('2026-09-14', NOW, TZ)).toBe('expired');
+    expect(expiryPhrase(null, NOW, TZ)).toBe('no expiry');
+    expect(`Sent Thu, Sep 17 · opened · ${expiryPhrase('2026-09-18', NOW, TZ)}`).toBe(
+      'Sent Thu, Sep 17 · opened · good until Fri, Sep 18',
+    );
+  });
+
+  it('holds at 11 PM in Chicago, where a date read as an instant slips a day', () => {
+    // 23:00 in Chicago is already tomorrow in UTC, and the stored date is UTC midnight if anyone parses it.
+    const lateOn30th = at('2026-09-30', '23:00');
+    expect(lateOn30th.toISOString()).toBe('2026-10-01T04:00:00.000Z');
+    expect(Date.parse('2026-09-30')).toBe(Date.parse('2026-09-30T00:00:00.000Z'));
+
+    expect(expiryWording('2026-09-30', lateOn30th, TZ)).toBe('Expires today');
+    expect(expiryWording('2026-10-01', lateOn30th, TZ)).toBe('Expires tomorrow');
+    expect(expiryWording('2026-10-05', lateOn30th, TZ)).toBe('Good through Mon, Oct 5');
+    expect(expiryWording('2026-09-29', lateOn30th, TZ)).toBe('Expired');
+
+    // The two voices share the arithmetic, so neither can drift from the other.
+    expect(expiryPhrase('2026-09-30', lateOn30th, TZ)).toBe('good until today');
+    expect(expiryPhrase('2026-09-29', lateOn30th, TZ)).toBe('expired');
+
+    // Its sibling counts the same days: neither sends the customer a day early.
+    expect(dueWording('2026-09-30', lateOn30th, TZ)).toBe('Due today');
+    expect(dueWording('2026-09-29', lateOn30th, TZ)).toBe('1 day overdue');
   });
 });
 

@@ -25,6 +25,9 @@ export function SettingsNav({
           { href: `${base}/texting`, label: 'Texting & calls' },
           { href: `${base}/email`, label: 'Email' },
           { href: `${base}/website-chat`, label: 'Website chat' },
+          // Payments is exact so its own Products page is the only tab marked while you're on it.
+          { href: `${base}/payments`, label: 'Payments', exact: true },
+          { href: `${base}/payments/products`, label: 'Products' },
           { href: `${base}/action-center`, label: 'Action Center' },
         ]
       : []),

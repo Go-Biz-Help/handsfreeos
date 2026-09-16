@@ -276,8 +276,28 @@ describe('settings that fight', () => {
     expect(positions).toEqual([...positions].sort((a, b) => a - b));
   });
 
+  it('asks for the business’s address once they are actually sending documents', () => {
+    const blank = settings({});
+    expect(blank.businessAddress).toBe('');
+    // A business still setting itself up is not told off for a field it hasn't reached.
+    expect(codesOf(blank)).toEqual([]);
+    expect(checkMoneySettings(blank, { hasSentDocuments: false })).toEqual([]);
+    // Once documents have gone out, a missing address is worth saying — gently.
+    const [issue] = checkMoneySettings(blank, { hasSentDocuments: true });
+    expect(issue).toMatchObject({
+      code: 'no_business_address',
+      severity: 'warning',
+      fields: ['businessAddress'],
+    });
+    expect(hasBlockingMoneyIssues([issue!])).toBe(false);
+    // Given one, it says nothing at all.
+    const filled = settings({ businessAddress: '4120 Almeda Rd\nHouston, TX 77004' });
+    expect(checkMoneySettings(filled, { hasSentDocuments: true })).toEqual([]);
+  });
+
   it('names every way they can fight', () => {
     expect(MONEY_ISSUE_CODES).toEqual([
+      'no_business_address',
       'deposit_without_amount',
       'tax_without_taxable',
       'same_prefix',
