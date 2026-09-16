@@ -254,6 +254,11 @@ content_path = "./supabase/templates/recovery.html"
 subject = "Confirm your new HandsFreeOS email"
 content_path = "./supabase/templates/email_change.html"
 
+# Signing in with an emailed code (the phone app, and the web's Email me a code) sends this for existing accounts.
+[auth.email.template.magic_link]
+subject = "Your HandsFreeOS sign-in code"
+content_path = "./supabase/templates/magic_link.html"
+
 # Uncomment to customize notification email template
 # [auth.email.notification.password_changed]
 # enabled = true

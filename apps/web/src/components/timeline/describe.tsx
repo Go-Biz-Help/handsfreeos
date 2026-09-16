@@ -82,7 +82,9 @@ export function describeTimeline(
     if (inbound(e)) return 'texted';
     const auto = actionCenterNoun(e);
     if (auto) return undelivered(e) ? `sent ${auto} · not delivered` : `sent ${auto}`;
-    return undelivered(e) ? 'sent a text · not delivered' : 'sent a text';
+    // Held for quiet hours (M10), and sent when they ended.
+    const held = e.meta.scheduled === true ? ' when quiet hours ended' : '';
+    return undelivered(e) ? `sent a text${held} · not delivered` : `sent a text${held}`;
   }
   if (e.kind === 'email') {
     const subject = str(e.meta.subject) ? ` · ${str(e.meta.subject)}` : '';
@@ -211,12 +213,18 @@ function describeAppointment(e: TimelineEntry, timeZone?: string): string {
 /** A call through the business number (it has a call id), or one logged by hand. */
 function describeCall(e: TimelineEntry, viewerId?: string): string {
   if (!e.meta.callId) return 'logged a call';
+  // A call a teammate placed through their own cell (M10), showing the business number.
+  const cell = e.meta.answeredVia === 'bridge';
   switch (e.subtype) {
     case 'voicemail':
       return `left a voicemail · ${clock(num(e.meta.recordingSeconds))}`;
     case 'missed':
     case 'outbound_missed':
-      return 'called, no answer';
+      return cell ? 'called from their cell, no answer' : 'called, no answer';
+    case 'outbound':
+      return cell
+        ? `called · ${clock(num(e.meta.durationSeconds))} · from their cell`
+        : `called · ${clock(num(e.meta.durationSeconds))}`;
     case 'answered': {
       const how =
         e.meta.answeredVia === 'forwarding'

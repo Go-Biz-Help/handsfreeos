@@ -48,7 +48,7 @@ export interface paths {
         put?: never;
         /**
          * Delete your own account. Your sign-in and your name are removed and you are signed out everywhere; the customers, messages and jobs you worked on stay with each business, shown as from a former teammate. A business’s only owner makes someone else an owner first.
-         * @description Risk level 4. Emits account.deletion_requested.
+         * @description Risk level 4. Emits account.deletion_requested, organization.owner_added.
          */
         post: operations["command_account_delete"];
         delete?: never;
@@ -811,6 +811,26 @@ export interface paths {
          * @description Risk level 1. Requires calendars.manage. Emits calendar.status_changed.
          */
         post: operations["command_calendar_set_status"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/call.cancel_connect": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Cancel a call through your own cell before the customer answers: HandsFreeOS hangs it up, and you can call again at once.
+         * @description Risk level 1. Requires inbox.use. Emits call.bridge_cancelled, call.missed.
+         */
+        post: operations["command_call_cancel_connect"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2491,6 +2511,26 @@ export interface paths {
          * @description Risk level 2. Requires money.manage. Emits money.settings_saved.
          */
         post: operations["command_money_save_settings"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/organization.add_owner": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Make someone an owner of your organization (an agency and all its businesses). They must already own one of its businesses. Use it to hand an agency over before you leave.
+         * @description Risk level 4. Requires org.members.manage. Emits organization.owner_added.
+         */
+        post: operations["command_organization_add_owner"];
         delete?: never;
         options?: never;
         head?: never;
@@ -4357,6 +4397,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/queries/account.deletion_check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Whether you can delete your account now: the businesses and agencies you’re the only owner of (with who could take each over), and the ones that pass to their other owners when you go.
+         * @description Any signed-in user.
+         */
+        post: operations["query_account_deletion_check"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/queries/account.me": {
         parameters: {
             query?: never;
@@ -5637,6 +5697,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/queries/push_device.list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The phones you get notifications on: each install of the HandsFreeOS app you’re signed in on, newest first.
+         * @description Any signed-in user.
+         */
+        post: operations["query_push_device_list"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/queries/resource.list": {
         parameters: {
             query?: never;
@@ -5811,6 +5891,26 @@ export interface paths {
          * @description Requires records.read.
          */
         post: operations["query_timeline_list"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/user_phone.get": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * My cell phone: the number HandsFreeOS rings when you press Call, and whether you’ve confirmed it by pressing 1.
+         * @description Any signed-in user.
+         */
+        post: operations["query_user_phone_get"];
         delete?: never;
         options?: never;
         head?: never;
@@ -8142,6 +8242,39 @@ export interface operations {
                         }[];
                         /** @enum {string} */
                         status: "draft" | "active" | "paused" | "archived";
+                    };
+                };
+            };
+        };
+    };
+    command_call_cancel_connect: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    callId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        callId: string;
+                        cancelled: boolean;
                     };
                 };
             };
@@ -11768,6 +11901,43 @@ export interface operations {
                         };
                         /** Format: uuid */
                         workspaceId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_organization_add_owner: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    organizationId: string;
+                    /** Format: uuid */
+                    userId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changed: boolean;
+                        /** Format: uuid */
+                        organizationId: string;
+                        /** @enum {string} */
+                        previousRole: "none" | "admin" | "owner";
+                        /** Format: uuid */
+                        userId: string;
                     };
                 };
             };
@@ -16083,6 +16253,69 @@ export interface operations {
                         updated: string[];
                         /** Format: uuid */
                         workspaceId: string;
+                    };
+                };
+            };
+        };
+    };
+    query_account_deletion_check: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": Record<string, never>;
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        agencies: {
+                            businessCount: number;
+                            candidates: {
+                                email: string;
+                                fullName: string;
+                                owns: string[];
+                                /** Format: uuid */
+                                userId: string;
+                            }[];
+                            name: string;
+                            /** Format: uuid */
+                            organizationId: string;
+                        }[];
+                        businesses: {
+                            name: string;
+                            suggestion: {
+                                email: string;
+                                fullName: string;
+                                /** Format: uuid */
+                                userId: string;
+                            } | null;
+                            /** Format: uuid */
+                            workspaceId: string;
+                        }[];
+                        handsOver: {
+                            name: string;
+                            /** Format: uuid */
+                            organizationId: string;
+                            to: {
+                                email: string;
+                                fullName: string;
+                                /** Format: uuid */
+                                userId: string;
+                            }[];
+                            /** Format: uuid */
+                            workspaceId: string;
+                        }[];
+                        ready: boolean;
                     };
                 };
             };
@@ -21785,6 +22018,41 @@ export interface operations {
             };
         };
     };
+    query_push_device_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": Record<string, never>;
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        devices: {
+                            appVersion: string;
+                            deviceName: string | null;
+                            /** Format: uuid */
+                            id: string;
+                            /** Format: date-time */
+                            lastSeenAt: string;
+                            /** @enum {string} */
+                            platform: "ios" | "android";
+                        }[];
+                    };
+                };
+            };
+        };
+    };
     query_resource_list: {
         parameters: {
             query?: never;
@@ -22367,6 +22635,38 @@ export interface operations {
                             subtype: string | null;
                         }[];
                         nextCursor: string | null;
+                    };
+                };
+            };
+        };
+    };
+    query_user_phone_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": Record<string, never>;
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        phone: {
+                            e164: string;
+                            /** Format: uuid */
+                            id: string;
+                            lastVerificationAt: string | null;
+                            verifiedAt: string | null;
+                        } | null;
                     };
                 };
             };

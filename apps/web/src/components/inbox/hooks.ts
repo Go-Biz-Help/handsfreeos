@@ -178,7 +178,12 @@ export function useThread(
         if (cancelled) return;
         const fresh = unwrap(r).items;
         setItems((old) => {
-          const map = new Map(old.map((i) => [i.id, i]));
+          const freshIds = new Set(fresh.map((i) => i.id));
+          // A text held for quiet hours sits at the newest end of the thread; gone from the newest page, it was
+          // cancelled (a sent one comes back under the same id).
+          const map = new Map(
+            old.filter((i) => !i.scheduledFor || freshIds.has(i.id)).map((i) => [i.id, i]),
+          );
           for (const i of fresh) map.set(i.id, i);
           return [...map.values()].sort(byTime);
         });
@@ -224,6 +229,8 @@ export function useThread(
     loadingEarlier,
     loadEarlier,
     refresh: useCallback(() => setNonce((n) => n + 1), []),
+    /** Takes an item out of the thread at once (a held text just cancelled). */
+    forget: useCallback((id: string) => setItems((all) => all.filter((i) => i.id !== id)), []),
     addPending: useCallback(
       (p: Omit<PendingText, 'messageId' | 'error'>) =>
         setPending((all) => [...all, { ...p, messageId: null, error: null }]),

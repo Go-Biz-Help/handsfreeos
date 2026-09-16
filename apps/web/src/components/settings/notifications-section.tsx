@@ -1,9 +1,11 @@
 'use client';
+import type { PushSwitch, PushSwitches } from '@hfos/core';
+import { Smartphone } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
+import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { apiBrowser, errorMessage, unwrap } from '@/lib/api/client';
-import { SetRow } from './set-row';
 
 export interface NotificationPrefs {
   /** Something urgent is waiting: a hot lead, a lead nobody answered, or a customer waiting for a reply. */
@@ -20,127 +22,236 @@ export interface NotificationPrefs {
   readonly agencyDigest: boolean;
 }
 
-const ROWS: readonly {
-  readonly key: keyof NotificationPrefs;
+type EmailKey = keyof NotificationPrefs;
+
+interface Row {
   readonly title: string;
   readonly description: string;
-  readonly testId: string;
-  readonly on: string;
-  readonly off: string;
+  /** The phone's switch, or null when this moment never pushes. */
+  readonly push: PushSwitch | null;
+  /** The email switch, 'always' for an email that always goes, or null when it never emails. */
+  readonly email: EmailKey | 'always' | null;
   /** Shown only to organization owners and admins. */
   readonly agencyOnly?: boolean;
-}[] = [
+}
+
+/** The moments, push beside email (design/m10/Web.dc.html). */
+const ROWS: readonly Row[] = [
   {
-    key: 'unansweredEmail',
+    title: 'A customer waiting on a reply',
+    description: 'A new text, email or website chat that nobody has answered yet.',
+    push: 'customerWaiting',
+    email: null,
+  },
+  {
     title: 'Urgent items',
     description:
-      'One email as soon as something can’t wait: a hot lead, a new lead nobody has answered, or a customer waiting for a reply. Owners and admins also get the ones nobody is assigned to.',
-    testId: 'notify-unanswered',
-    on: 'You’ll get an email when something is urgent',
-    off: 'You won’t get these emails',
+      'As soon as something can’t wait: a hot lead, a new lead nobody has answered, or a customer left waiting. Owners and admins also get the ones nobody is assigned to.',
+    push: 'urgent',
+    email: 'unansweredEmail',
   },
   {
-    key: 'attentionDigest',
+    title: 'Approvals',
+    description:
+      'A draft from the AI teammate, or a workflow step waiting for your OK. The email always goes.',
+    push: 'approval',
+    email: 'always',
+  },
+  {
+    title: 'Your appointments',
+    description:
+      'When one of your appointments is booked, moved or cancelled, online or by the team.',
+    push: 'booking',
+    email: 'bookingEmail',
+  },
+  {
+    title: 'Assigned to you',
+    description: 'When someone gives you a lead, a conversation, a task or an item on Home.',
+    push: 'assigned',
+    email: null,
+  },
+  {
+    title: 'A customer pays',
+    description: 'A short note when an invoice is settled, with what it was for and how they paid.',
+    push: 'payment',
+    email: 'paymentEmail',
+  },
+  {
     title: 'Morning summary',
-    description:
-      'One email at 7 AM with what needs your attention that day, urgent first. Nothing comes on a day when nothing does.',
-    testId: 'notify-attention-digest',
-    on: 'You’ll get the morning summary',
-    off: 'You won’t get the morning summary',
+    description: 'One email at 7 AM with what needs your attention that day, urgent first.',
+    push: null,
+    email: 'attentionDigest',
   },
   {
-    key: 'aiHandoff',
-    title: 'Email me when the AI teammate hands me a conversation',
-    description:
-      'When it hands one to you, or to everyone on its hand-off list when nobody is assigned. Emergencies always email every owner and admin.',
-    testId: 'notify-ai-handoff',
-    on: 'You’ll get an email when the AI teammate hands you a conversation',
-    off: 'You won’t get hand-off emails',
+    title: 'The AI teammate hands you a conversation',
+    description: 'When the AI teammate hands one to you, or to everyone on its hand-off list.',
+    push: null,
+    email: 'aiHandoff',
   },
   {
-    key: 'bookingEmail',
-    title: 'Booking emails',
-    description:
-      'When a customer books or cancels one of your appointments online, or is booked in from the waitlist. Only on calendars set to email the team.',
-    testId: 'notify-booking',
-    on: 'You’ll get an email about online bookings',
-    off: 'You won’t get booking emails',
-  },
-  {
-    key: 'paymentEmail',
-    title: 'Email me when a customer pays',
-    description:
-      'A short note when an invoice is settled, with what it was for and how they paid. It goes to whoever the invoice is on and to every owner and admin.',
-    testId: 'notify-payment',
-    on: 'You’ll get an email when a customer pays',
-    off: 'You won’t get these emails',
-  },
-  {
-    key: 'agencyDigest',
     title: 'Daily agency digest',
     description:
-      'One email around 8 AM about the client businesses that need a look: failed workflow runs, approvals waiting, paused workflows and template updates. It leaves out businesses where you’re an owner or admin yourself, and only comes when something needs attention.',
-    testId: 'notify-agency-digest',
-    on: 'You’ll get the daily agency digest',
-    off: 'You won’t get the daily agency digest',
+      'One email around 8 AM about the client businesses that need a look: failed workflow runs, approvals waiting, paused workflows and template updates.',
+    push: null,
+    email: 'agencyDigest',
     agencyOnly: true,
   },
 ];
 
-/** Per-person notification choices, saved to the account (so every workspace and device follows them). */
+const Faint = ({ children }: { children: string }) => (
+  <span className="text-[13px] text-text-3">{children}</span>
+);
+
+/**
+ * Per-person notification choices, saved to the account so every business and every phone follows them: push
+ * beside today's email switches. Settings save a whole top-level key at a time, so a push change sends all six push
+ * switches (`settings.push`) and an email change all six email ones (`settings.notifications`).
+ */
 export function NotificationsSection({
   initial,
   agency,
+  phones,
 }: {
-  initial: NotificationPrefs;
-  /** An owner or admin of an organization: the agency digest's switch shows. */
+  initial: { readonly email: NotificationPrefs; readonly push: PushSwitches };
+  /** An owner or admin of an organization: the agency digest's row shows. */
   agency: boolean;
+  /** How many phones the person gets push on now. */
+  phones: number;
 }) {
-  const [prefs, setPrefs] = useState(initial);
+  const [email, setEmail] = useState(initial.email);
+  const [push, setPush] = useState(initial.push);
   const [saving, setSaving] = useState(false);
-  const shown = ROWS.filter((row) => agency || !row.agencyOnly);
+  const rows = ROWS.filter((row) => agency || !row.agencyOnly);
 
-  async function toggle(row: (typeof ROWS)[number], value: boolean) {
-    const was = prefs;
-    const next = { ...prefs, [row.key]: value };
-    setPrefs(next);
+  async function save(
+    change: { push: PushSwitches } | { notifications: NotificationPrefs },
+    words: string,
+    undo: () => void,
+  ) {
     setSaving(true);
     try {
-      // Settings merge by their top-level key, so every choice goes every time.
       unwrap(
         await apiBrowser().POST('/v1/commands/user.update_profile', {
-          body: { settings: { notifications: next } },
+          body: { settings: change },
         }),
       );
-      toast.success(value ? row.on : row.off);
+      toast.success(words);
     } catch (e) {
-      setPrefs(was);
+      undo();
       toast.error(errorMessage(e));
     } finally {
       setSaving(false);
     }
   }
 
+  function togglePush(row: Row, key: PushSwitch, on: boolean) {
+    const was = push;
+    const next = { ...push, [key]: on };
+    setPush(next);
+    void save({ push: next }, on ? `${row.title}: push on` : `${row.title}: push off`, () =>
+      setPush(was),
+    );
+  }
+
+  function toggleEmail(row: Row, key: EmailKey, on: boolean) {
+    const was = email;
+    const next = { ...email, [key]: on };
+    setEmail(next);
+    void save(
+      { notifications: next },
+      on ? `${row.title}: email on` : `${row.title}: email off`,
+      () => setEmail(was),
+    );
+  }
+
   return (
     <div>
-      <h2 className="text-lg font-semibold tracking-tight">Notifications</h2>
-      {shown.map((row, i) => (
-        <SetRow
-          key={row.key}
-          first={i === 0}
-          className={i === 0 ? 'mt-2' : i === shown.length - 1 ? 'pb-0' : undefined}
-          title={row.title}
-          description={row.description}
+      <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
+        <div className="min-w-0">
+          <h2 className="text-lg font-semibold tracking-tight">Notifications</h2>
+          <p className="mt-1 text-[13px] text-text-2">
+            Push goes to the HandsFreeOS app on your phones. Email works as it does today.
+          </p>
+        </div>
+        <Badge
+          variant={phones > 0 ? 'accent' : 'gray'}
+          className="h-6 px-2.5 text-[12.5px] font-semibold"
+          title={
+            phones > 0
+              ? 'Every phone you’re signed in on gets push'
+              : 'Sign in to the HandsFreeOS app on your phone to get push'
+          }
+          data-testid="push-phones"
         >
-          <Switch
-            checked={prefs[row.key]}
-            disabled={saving}
-            onChange={(v) => void toggle(row, v)}
-            label={row.title}
-            testId={row.testId}
-          />
-        </SetRow>
-      ))}
+          <Smartphone className="h-[13px] w-[13px]" strokeWidth={1.75} />
+          {phones === 0 ? 'No phones yet' : phones === 1 ? 'On 1 phone' : `On ${phones} phones`}
+        </Badge>
+      </div>
+      <table className="mt-3 w-full border-separate border-spacing-0 text-[13.5px]">
+        <thead>
+          <tr className="text-left text-xs font-medium text-text-3">
+            <th scope="col" className="border-b border-border py-2 font-medium">
+              When
+            </th>
+            <th
+              scope="col"
+              className="w-[72px] border-b border-border py-2 text-center font-medium"
+            >
+              Push
+            </th>
+            <th
+              scope="col"
+              className="w-[72px] border-b border-border py-2 text-center font-medium"
+            >
+              Email
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row, i) => {
+            const last = i === rows.length - 1;
+            const cell = `py-3 align-top ${last ? '' : 'border-b border-border'}`;
+            return (
+              <tr key={row.title}>
+                <th scope="row" className={`${cell} pr-3 text-left font-normal`}>
+                  <span className="block font-medium">{row.title}</span>
+                  <span className="mt-0.5 block max-w-[640px] text-[12.5px] leading-[1.4] text-text-3">
+                    {row.description}
+                  </span>
+                </th>
+                <td className={`${cell} text-center`}>
+                  {row.push ? (
+                    <Switch
+                      checked={push[row.push]}
+                      disabled={saving}
+                      onChange={(on) => togglePush(row, row.push!, on)}
+                      label={`${row.title}: push`}
+                      testId={`push-${row.push}`}
+                    />
+                  ) : (
+                    <Faint>—</Faint>
+                  )}
+                </td>
+                <td className={`${cell} text-center`}>
+                  {row.email === 'always' ? (
+                    <Faint>Always</Faint>
+                  ) : row.email ? (
+                    <Switch
+                      checked={email[row.email]}
+                      disabled={saving}
+                      onChange={(on) => toggleEmail(row, row.email as EmailKey, on)}
+                      label={`${row.title}: email`}
+                      testId={`email-${row.email}`}
+                    />
+                  ) : (
+                    <Faint>—</Faint>
+                  )}
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
     </div>
   );
 }

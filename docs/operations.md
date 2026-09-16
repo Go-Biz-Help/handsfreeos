@@ -1,12 +1,13 @@
 # Running HandsFreeOS
 
-This guide covers everything about HandsFreeOS that lives outside the code: the database, hosting, the web app, the phone carrier, email, connected mailboxes, the Assistant, the calendar and online booking, workflows and the knowledge base, the AI teammate and website chat, your laptop setup, and going live. Each section gives the steps in order, with what you should see after each one. Secrets never go in this repository: they live in Fly.io secrets, GitHub repository secrets, Vercel environment variables and your password manager, and nowhere else.
+This guide covers everything about HandsFreeOS that lives outside the code: the database, hosting, the sync service for the phone app, the web app, the phone carrier, email, connected mailboxes, the Assistant, the calendar and online booking, workflows and the knowledge base, the AI teammate and website chat, your laptop setup, and going live. Each section gives the steps in order, with what you should see after each one. Secrets never go in this repository: they live in Fly.io secrets, GitHub repository secrets, Vercel environment variables and your password manager, and nowhere else.
 
 If you are setting up HandsFreeOS for the first time, start with the checklist in "Going live, and when something goes wrong". It tells you which parts of the other sections to do, and in what order.
 
 Some sections are split into named parts. The rest of this guide refers to them by these names:
 
 - Fly Part 1 to Fly Part 10: "Hosting: the API and the worker on Fly.io".
+- Sync Part 1 to Sync Part 9: "Sync service: PowerSync on Fly".
 - Twilio Step 1 to Twilio Step 4: "The phone carrier: Twilio".
 - Postmark Part A to Postmark Part J: "Email: Postmark".
 - Stage 0 to Stage 9 (the go-live checklist) and Check 1 to Check 9 (the end-to-end check): "Going live, and when something goes wrong".
@@ -18,6 +19,7 @@ A plain "step 5" means step 5 of the list you are reading, or of the part named 
 - [Before you start](#before-you-start)
 - [The database: Supabase (hosted)](#the-database-supabase-hosted)
 - [Hosting: the API and the worker on Fly.io](#hosting-the-api-and-the-worker-on-flyio)
+- [Sync service: PowerSync on Fly](#sync-service-powersync-on-fly)
 - [The web app on Vercel](#the-web-app-on-vercel)
 - [The phone carrier: Twilio](#the-phone-carrier-twilio)
 - [Email: Postmark](#email-postmark)
@@ -40,7 +42,7 @@ Go Biz Help (or the company that owns HandsFreeOS, if it has its own) holds and 
 | Account                                                             | What HandsFreeOS uses it for                                                                                  | Rough cost                                                                                                                                                                                                                         | More in                                     |
 | ------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------- |
 | Supabase, organization `Go Biz Help` (already exists)               | The database, sign-in, file storage and live updates                                                          | Pro plan from $25 a month for the whole organization, plus about $10 a month for this project's Micro compute. Point-in-time recovery is optional, about $105 a month more.                                                        | "The database: Supabase (hosted)"           |
-| Fly.io (a new organization, with a card)                            | Runs the API and the worker                                                                                   | About $8 a month in `dfw` with one worker machine (about $6.40 in `iad`), or about $12 with two                                                                                                                                    | "Hosting: the API and the worker on Fly.io" |
+| Fly.io (a new organization, with a card)                            | Runs the API, the worker and the sync service for the phone app                                               | About $8 a month in `dfw` with one worker machine (about $6.40 in `iad`), or about $12 with two, plus about $13 to $15 for the sync service                                                                                        | "Hosting: the API and the worker on Fly.io" |
 | Vercel (a Pro team)                                                 | Runs the web app at `https://app.handsfreeos.com`                                                             | $20 a month, including one seat that can deploy and $20 of usage credit. 14-day trial.                                                                                                                                             | "The web app on Vercel"                     |
 | Twilio (one master account, upgraded to paid)                       | Phone numbers, texts and calls for every client                                                               | A starting balance of about $50. Then $1.15 a month per local number, $2.15 per toll-free number, texts and minutes, and carrier registration fees for local numbers. All client subaccounts draw on the master account's balance. | "The phone carrier: Twilio"                 |
 | Postmark (Platform plan recommended)                                | Business email, customers' replies, platform mail and sign-in email                                           | $18 a month for 10,000 emails on Platform ($16.50 on Pro, which allows only 10 domains)                                                                                                                                            | "Email: Postmark"                           |
@@ -140,6 +142,9 @@ Make one folder in your password manager named `HandsFreeOS`. Every secret in th
 | Square developer application                                               | The application's **Application ID** and **Application Secret**, and the **webhook signature key** for each of production and sandbox                                                                               | Fly.io secrets `SQUARE_APPLICATION_ID`, `SQUARE_APPLICATION_SECRET` and `SQUARE_WEBHOOK_SIGNATURE_KEYS` on `handsfreeos-worker` only                                                                                            |
 | Square sandbox                                                             | The sandbox application id, secret and signature key, for your laptop                                                                                                                                               | `apps/worker/.env` on your Mac only                                                                                                                                                                                             |
 | Dev tunnel token, Postmark dev server token, Postmark dev webhook password | Laptop testing only (see "Local development")                                                                                                                                                                       | On your Mac only: the tunnel token in `~/.cloudflared/handsfreeos-dev.token`, the two Postmark dev values in `apps/worker/.env`. The dev webhook password also goes inside the dev server's webhook address in Postmark.        |
+| hfos_sync database password                                                | The `hfos_sync` password and the finished `PS_DATA_SOURCE_URI` string (Sync Part 2)                                                                                                                                 | Fly.io secret `PS_DATA_SOURCE_URI` on `handsfreeos-sync`                                                                                                                                                                        |
+| Sync storage Postgres password                                             | The password of PowerSync's own Postgres and the finished `PS_STORAGE_URI` string (Sync Part 4)                                                                                                                     | Fly.io secret `POSTGRES_PASSWORD` on `handsfreeos-sync-storage`, and inside `PS_STORAGE_URI` on `handsfreeos-sync`                                                                                                              |
+| Sync admin token                                                           | `PS_ADMIN_TOKEN`, the sync service's diagnostics token (Sync Part 5)                                                                                                                                                | Fly.io secret `PS_ADMIN_TOKEN` on `handsfreeos-sync` only                                                                                                                                                                       |
 
 Two values do not follow the pattern. The Fly.io deploy token (`FLY_API_TOKEN`) lives only in GitHub, not in your password manager: if it is lost, you make a new one. The file `.env.hosted` at the repository root already holds the two database passwords, the two finished connection strings and the publishable key. It is gitignored and exists only on your Mac. Never commit, attach or paste it anywhere.
 
@@ -746,13 +751,14 @@ Add other addresses (such as Vercel preview addresses or `http://localhost:3000`
 
 #### Email templates
 
-Only three emails are customized. Their bodies are in `supabase/templates` and their subjects are in `supabase/config.toml`, so the dashboard needs both.
+Four emails are customized. Their bodies are in `supabase/templates` and their subjects are in `supabase/config.toml`, so the dashboard needs both.
 
 | Email                    | Subject                              | Body file                              |
 | ------------------------ | ------------------------------------ | -------------------------------------- |
 | **Confirm sign up**      | `Confirm your HandsFreeOS email`     | `supabase/templates/confirmation.html` |
 | **Reset password**       | `Reset your HandsFreeOS password`    | `supabase/templates/recovery.html`     |
 | **Change email address** | `Confirm your new HandsFreeOS email` | `supabase/templates/email_change.html` |
+| **Magic link or OTP**    | `Your HandsFreeOS sign-in code`      | `supabase/templates/magic_link.html`   |
 
 1. In Terminal, go to the repo:
 
@@ -786,7 +792,19 @@ Only three emails are customized. Their bodies are in `supabase/templates` and t
    pbcopy < supabase/templates/email_change.html
    ```
 
-Leave the other templates (**Invite user**, **Magic link or OTP**, **Reauthentication**) on Supabase's defaults. Workspace invitations come from the worker, not from Supabase Auth.
+10. Repeat steps 3 to 7 for **Magic link or OTP**. It carries the 6-digit code that **Email me a code** sends, on the web's sign-in page and in the phone app. Copy its body with the command below.
+
+    ```bash
+    pbcopy < supabase/templates/magic_link.html
+    ```
+
+    You should see `{{ .Token }}` in the body, and no link: the code is typed into HandsFreeOS. Supabase's default for this email is a link only, so until this is done the web's code page waits for a code that never comes.
+
+11. Check it. Sign out, open `https://app.handsfreeos.com/sign-in`, type your email address and click **Email me a code**.
+
+    You should see "Check your email", and an email titled "Your HandsFreeOS sign-in code" with six digits. Type them in and you are signed in. **Email me a code** only signs in accounts that already exist: an unknown address shows "There’s no HandsFreeOS account for that email. Check it, or create an account."
+
+Leave the other templates (**Invite user**, **Reauthentication**) on Supabase's defaults. Workspace invitations come from the worker, not from Supabase Auth.
 
 #### Passkeys and sign-in rules
 
@@ -952,15 +970,20 @@ Before you start:
 
 ### Deleting an account
 
-A person can delete their own account, typing their email address to confirm. It needs signal: the phone app never saves it for later. What happens:
+A person can delete their own account, typing their email address to confirm: in the phone app, on the web under **Settings** → **Account** → **Delete my account**, or on the public page `https://app.handsfreeos.com/delete-account`. The public page explains how and what each business keeps, for the app stores and for anyone who can't find it. Signed in, it has the same button, which is the only way for an account that belongs to no business, since that account has no business settings to open. It needs signal: the phone app never saves it for later. What happens:
 
-1. **An only owner is refused.** Someone who is the only owner of a business's organization, which is every business's founder and every agency's owner, sees "You’re the owner of Lone Star HVAC, and it can’t be handed to someone else from the app yet. Ask HandsFreeOS support to delete your account, so the business isn’t left without an owner." Nothing changes. An account that belongs to no business is told to ask support too. There is no support tool for either yet: a developer has to add another owner to the organization first (then the person can delete their account), or delete an account in no business by hand.
+1. **Nothing is left without an owner.** The web page shows this before anyone presses the button, and the button waits until it's sorted:
+   - **A business's only owner** (a founder, say) sees "You’re the only owner of Lone Star HVAC & Roofing. Make Priya or someone else an owner first, so the business isn’t left without one." with **Open Members**. Once someone else is an owner of the business, the business's organization (the one it was created with) passes to that person when the founder's account goes, and the page says "Lone Star HVAC & Roofing stays with Priya Natarajan, its other owner." The audit log records it as the founder making Priya an owner before deleting their account.
+   - **An agency's only owner** (an organization with more than one business) picks someone who already owns one of its businesses and presses **Make owner** (`organization.add_owner`). That person then reaches every business in the agency, which the page says. Only someone who owns one of its businesses, or an admin of the agency, can be made its owner. Each business in the agency records it in its audit log.
+   - The phone app refuses the same cases in plain words ("Make someone else an owner first, in Members on the web…") and points to the web.
 2. **The worker's job** starts a few seconds later. In each business the person belonged to:
    - They come off every calendar's team and every service's staff list, through the calendars' own settings, so booking stops offering them. Their upcoming visits stay booked as they are, and nobody is contacted. A calendar left with nobody to book is paused. A service they were the only one listed for stays as it is, because an empty list means everyone.
    - The mailboxes they connected are disconnected.
 3. **The profile.** Their memberships, confirmed cell, phones registered for notifications, command receipts and Assistant chats are deleted, and their own calendar is disconnected. The profile becomes "Former teammate" with a made-up address, `deleted-<id>@deleted.handsfreeos.invalid`. Everything they worked on stays, credited to "Former teammate". A deleted account can never join a business again.
 4. **Sign-in, in Supabase Auth.** Every session ends at once: the worker signs the person out everywhere, which deletes all their refresh tokens. Then sign-in is blocked. The sign-in is banned for 100 years, so Supabase refuses their password, emailed links and codes, Sign in with Google and any refresh token. Its email moves to the made-up address and its name and photo are removed, so the person's email address is free for a new account. The sign-in itself stays, because deleting it would delete the business records linked to it. An access token already handed out keeps working until it expires, within the hour, but the person belongs to no business by then, so it opens nothing.
 5. **The audit log** of each business records the deletion (`account.deleted`).
+
+An account that belongs to no business goes straight to step 3: there is no business to leave, so its request queues the worker's job directly (`private.request_account_deletion`) and is noted on the account itself.
 
 In the Supabase dashboard, **Authentication** → **Users** shows the deleted person as `deleted-…@deleted.handsfreeos.invalid`, banned.
 
@@ -1964,7 +1987,7 @@ It must be an **organization** token. A deploy token (`fly tokens create deploy`
    gh run watch --repo gobizhelp/handsfreeos
    ```
 
-   You should see each step get a check mark, and the run end successfully after several minutes. On GitHub, **Actions** → **Deploy** shows the same run with a green check. Its job **API and worker to Fly.io** shows the step **Deploy the worker (webhooks first, so providers never hit a half-deployed pair)**, then **Deploy the API**.
+   You should see each step get a check mark, and the run end successfully after several minutes. On GitHub, **Actions** → **Deploy** shows the same run with a green check. Its job **API, worker and sync service to Fly.io** shows the step **Deploy the worker (webhooks first, so providers never hit a half-deployed pair)**, then **Deploy the API**. Until the sync service is set up, its steps note that they skipped (see Sync Part 8 in "Sync service: PowerSync on Fly").
 
 The token lives only in GitHub. Never paste it into a file or a workflow. If it leaks or is lost, make a new one and store it as in step 3. Then find the old token's ID:
 
@@ -2439,11 +2462,612 @@ Fly sends each organization one bill a month. Running machines are billed by the
 
 Total for Fly in `dfw`: about $8 a month with one worker machine, or about $12 with two. In `iad`, about $6.40 or $9.60.
 
+The sync service for the phone app adds about $13 to $15 a month on Fly (see "Rough cost of the sync service" in "Sync service: PowerSync on Fly").
+
 Other bills:
 
 - Supabase bills separately. The Go Biz Help organization is on the Pro plan, from $25 a month for the whole organization. This project's compute comes on top: when the project was created, Supabase quoted about $10 a month for its Micro size.
 - Twilio, Postmark, Vercel and Anthropic also bill separately (see "Before you start" at the top of this guide).
 - Fly's pricing page lists no charge for its builders as of September 2026. Check your first invoice for any line you do not expect.
+
+## Sync service: PowerSync on Fly
+
+The phone app keeps its own copy of each business it works in, so it works with no signal. The **sync service** keeps those copies in step: it follows every change in the hosted database and streams each person's share of it to their phones. It is the PowerSync Service (Open Edition, which is free), run on Fly.io beside the API and the worker. Phones only read through it. Every change made on a phone still goes to the API as a command. The web app doesn't use it.
+
+It runs as two Fly apps:
+
+| Fly app                    | Address                                                              | What it does                                               | Its files                                                                    |
+| -------------------------- | -------------------------------------------------------------------- | ---------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| `handsfreeos-sync`         | `https://sync.handsfreeos.com`                                       | Follows the database's changes and streams them to phones. | `apps/sync/fly.toml`, `apps/sync/service.yaml`, `apps/sync/sync-config.yaml` |
+| `handsfreeos-sync-storage` | None. Only `handsfreeos-sync` reaches it, over Fly's private network | PowerSync's own Postgres, which holds its working data.    | `apps/sync/storage/fly.toml`                                                 |
+
+How it fits together:
+
+- **It reads the database as `hfos_sync`**, a role that migration `20260921000400_sync_replication.sql` creates. That role can read only the tables phones need, which the `powersync` publication lists by name. No table that holds a secret is among them.
+- **It needs the database's direct connection.** It follows changes through Postgres logical replication, which Supabase's pooler can't carry. The direct host, `db.ybupfghakoszfcxhyrby.supabase.co`, has only an IPv6 address, and Fly machines reach it over IPv6. If they ever can't, Supabase's IPv4 add-on gives the same host an IPv4 address too.
+- **A replication slot keeps its place.** Postgres keeps the write-ahead log (WAL) the service hasn't read yet. While the service is stopped, that log grows, up to the cap you set in Sync Part 3. Past the cap Postgres throws the slot away, and the service has to copy everything again (see "The slot was lost").
+- **Its working data lives in a Postgres of its own**, never in the Supabase database. In a test, keeping it in the Supabase database wrote about 7 times the synced data again as WAL on every full copy, and lost the slot twice. That Postgres holds nothing that can't be rebuilt from the database, so it needs no backups.
+- **Phones sign in with their Supabase access token.** The service checks it against Supabase's published signing keys and refuses a token more than an hour old, so Auth's access tokens must keep their 1-hour lifetime (Sync Part 3).
+- **One machine each, always on.** Only one process may follow the slot, and a stopped one lets WAL pile up.
+- **Deploys and alerts.** After CI passes on `main`, the Deploy workflow ships the sync service after the API and the worker, but only when its settings changed. It waits for a new sync config to finish copying and keeps the daily compaction machine in step. The **Sync health** workflow checks the service every hour, and fails, which emails you, when it needs attention.
+
+The first time, do the parts in order. Stage 4 of the go-live checklist says when.
+
+### Before you start
+
+You need:
+
+- Fly Parts 1 to 4 done: flyctl signed in, the organization with its card, and the region decided. The sync service goes in the same region as the API and the worker. Its two `fly.toml` files say `primary_region = "dfw"`. If you switched the other two to `iad`, switch these the same way, from the repository root, and commit the change:
+
+  ```bash
+  sed -i '' 's/primary_region = "dfw"/primary_region = "iad"/' apps/sync/fly.toml apps/sync/storage/fly.toml
+  ```
+
+- The migrations through `20260921000700_mobile_grants.sql` applied to the hosted database (see "Apply new migrations" in "The database: Supabase (hosted)").
+- The Supabase CLI signed in to your account (`supabase login`), for Sync Part 3.
+- Your password manager.
+
+### Sync Part 1: Check that the database is ready
+
+1. Open a new, empty query in the SQL Editor: `https://supabase.com/dashboard/project/ybupfghakoszfcxhyrby/sql/new`.
+2. Paste this and click **Run**:
+
+   ```sql
+   select rolname, rolcanlogin, rolreplication, rolbypassrls from pg_roles where rolname = 'hfos_sync';
+   ```
+
+   You should see one row: `hfos_sync`, `true`, `true`, `true`. No row means the migrations aren't applied yet.
+
+3. Replace the query with this one and click **Run**:
+
+   ```sql
+   select count(*) as tables from pg_publication_tables where pubname = 'powersync';
+   ```
+
+   You should see about 50. `0` means migration `20260921000400_sync_replication.sql` isn't applied.
+
+4. Replace the query with this one and click **Run**:
+
+   ```sql
+   select slot_name, active, wal_status from pg_replication_slots;
+   ```
+
+   You should see no row whose name starts with `hfos_sync_`. Other slots, such as Supabase Realtime's, are fine.
+
+### Sync Part 2: Give hfos_sync a password
+
+The migration creates `hfos_sync` without a password, so nothing can sign in as it until you give it one.
+
+1. Make a password of letters and digits only:
+
+   ```bash
+   openssl rand -hex 32
+   ```
+
+2. Save it in your password manager, in a new entry named "hfos_sync database password".
+3. In a new SQL Editor query, paste this line with the password in place of the placeholder, and click **Run**:
+
+   ```sql
+   alter role hfos_sync with password '<hfos_sync password>';
+   ```
+
+   You should see a success message and no rows. As with the other role passwords, Postgres writes this command into the project's database logs.
+
+4. If the SQL Editor saved the query, delete it, as in steps 16 and 17 of "Change an app role password".
+5. In the same password manager entry, save the connection string the sync service uses, as `PS_DATA_SOURCE_URI`:
+
+   ```text
+   postgresql://hfos_sync:<hfos_sync password>@db.ybupfghakoszfcxhyrby.supabase.co:5432/postgres
+   ```
+
+   The user name is plain `hfos_sync`. The `.ybupfghakoszfcxhyrby` ending in the API's and the worker's strings belongs to the pooler, and this string doesn't go through the pooler.
+
+### Sync Part 3: Cap the WAL a slot may keep, and keep tokens to an hour
+
+`max_slot_wal_keep_size` is how much WAL Postgres keeps for a slot whose reader is behind or stopped. Too small, and a sync service that is down for a while loses its place and copies everything again. With no cap, a stopped sync service could fill the database's disk, which Supabase then grows and bills. 4 GB covers many days of HandsFreeOS's writes.
+
+1. Check the value now, in a new SQL Editor query:
+
+   ```sql
+   show max_slot_wal_keep_size;
+   ```
+
+   You should see a size, or `-1`, which means there is no cap.
+
+2. In Terminal, set it. It takes effect without restarting the database.
+
+   ```bash
+   supabase postgres-config update --config max_slot_wal_keep_size=4GB --project-ref ybupfghakoszfcxhyrby --experimental
+   ```
+
+   You should see the project's changed settings printed, with `max_slot_wal_keep_size` at `4GB`.
+
+3. Run the `show` query from step 1 again.
+
+   You should see `4GB`.
+
+4. Check how many replication slots the project allows:
+
+   ```sql
+   show max_replication_slots;
+   ```
+
+   You should see `5` or more. The sync service uses one slot, and a second for a few minutes whenever a changed sync config copies everything (see "Every sync config change copies everything"). So at least two must be free.
+
+5. Check how long Auth's access tokens last. In the Supabase dashboard, search for "JWT expiry" (in current dashboards: **Project Settings** → **JWT Keys** → **Access token expiry time**).
+
+   You should see `3600` seconds. Leave it at 3600 or less. The sync service refuses tokens more than an hour old, so a longer lifetime would stop phones syncing an hour after they sign in.
+
+### Sync Part 4: PowerSync's own Postgres
+
+1. Create the app. Use your organization's slug from Fly Part 2.
+
+   ```bash
+   fly apps create handsfreeos-sync-storage --org <org-slug>
+   ```
+
+2. Make its password:
+
+   ```bash
+   openssl rand -hex 32
+   ```
+
+3. Save it in your password manager, in a new entry named "Sync storage Postgres password".
+4. Start a staged import:
+
+   ```bash
+   fly secrets import --stage --app handsfreeos-sync-storage
+   ```
+
+5. Type `POSTGRES_PASSWORD=`, then paste the password right after it, with no space and no quotes. Press Return, then Control-D.
+6. Clear the clipboard:
+
+   ```bash
+   pbcopy < /dev/null
+   ```
+
+7. Create its disk (a Fly volume) in the region from "Before you start". 3 GB is plenty to begin with.
+
+   ```bash
+   fly volumes create pg_data --app handsfreeos-sync-storage --region dfw --size 3 --yes
+   ```
+
+   You should see the new volume `pg_data`, 3 GB, in `dfw`.
+
+8. Deploy it, from the repository root:
+
+   ```bash
+   fly deploy . --config apps/sync/storage/fly.toml --ha=false
+   ```
+
+   You should see Fly pull the Postgres image (nothing is built) and start one machine.
+
+9. Read its log:
+
+   ```bash
+   fly logs --app handsfreeos-sync-storage --no-tail
+   ```
+
+   You should see `database system is ready to accept connections`.
+
+10. Check that it has no public address:
+
+    ```bash
+    fly ips list --app handsfreeos-sync-storage
+    ```
+
+    You should see an empty list. The sync service reaches it at `handsfreeos-sync-storage.internal`, a name only apps in your Fly organization can look up. If an address is listed, release it with `fly ips release <address> --app handsfreeos-sync-storage`.
+
+11. In the "Sync storage Postgres password" entry, save the connection string the sync service uses, as `PS_STORAGE_URI`:
+
+    ```text
+    postgresql://powersync:<storage password>@handsfreeos-sync-storage.internal:5432/powersync
+    ```
+
+Postgres reads `POSTGRES_PASSWORD` only the first time it starts on an empty volume. To change the password later, see "Rotating the sync service's secrets".
+
+### Sync Part 5: Create the sync app and give it its secrets
+
+1. Create the app:
+
+   ```bash
+   fly apps create handsfreeos-sync --org <org-slug>
+   ```
+
+2. Make its admin token:
+
+   ```bash
+   openssl rand -hex 32
+   ```
+
+3. Save it in your password manager, in a new entry named "Sync admin token". It opens the service's diagnostics. Only the status check inside the service's own machine uses it, so it never needs to leave Fly and your password manager.
+4. In your password manager, make a secure note named "handsfreeos-sync first import", with these three lines. Copy each value from its own entry.
+
+   ```text
+   PS_DATA_SOURCE_URI=postgresql://hfos_sync:<hfos_sync password>@db.ybupfghakoszfcxhyrby.supabase.co:5432/postgres
+   PS_STORAGE_URI=postgresql://powersync:<storage password>@handsfreeos-sync-storage.internal:5432/powersync
+   PS_ADMIN_TOKEN=<sync admin token>
+   ```
+
+5. Copy the three lines from the note.
+6. Start the import:
+
+   ```bash
+   fly secrets import --stage --app handsfreeos-sync
+   ```
+
+7. Paste the lines. Press Return, then Control-D.
+8. Clear the clipboard:
+
+   ```bash
+   pbcopy < /dev/null
+   ```
+
+9. Check the secrets:
+
+   ```bash
+   fly secrets list --app handsfreeos-sync
+   ```
+
+   You should see the three names, marked `Staged`.
+
+10. Delete the "handsfreeos-sync first import" note. Each value already has its own entry.
+
+Everything else the service reads is already in `apps/sync/fly.toml`: where its config lives, the SSL modes, and the address of Supabase's signing keys (`PS_JWKS_URI`). If HandsFreeOS ever moves to another Supabase project, change `PS_JWKS_URI` there.
+
+### Sync Part 6: The first deploy, by hand
+
+1. Switch to `main`, bring it up to date, and check for uncommitted changes:
+
+   ```bash
+   git checkout main && git pull && git status
+   ```
+
+   You should see `nothing to commit, working tree clean`.
+
+2. Deploy the service. `--ha=false` matters: only one machine may follow the slot.
+
+   ```bash
+   fly deploy . --config apps/sync/fly.toml --ha=false --wait-timeout 600
+   ```
+
+   You should see Fly pull PowerSync's image (nothing is built), then one machine start and pass its health check.
+
+3. Wait for its first copy of the database, and check its health:
+
+   ```bash
+   fly ssh console --app handsfreeos-sync -g app -C "node /config/status.mjs --wait 900"
+   ```
+
+   You should see `Database (default): connected`, a `Serving:` line that says `first copy done` and `wal_status reserved`, and then `Healthy.` With today's data the first copy takes about a minute. If it says `PowerSync can't reach the database`, see "PowerSync can't reach the database" below.
+
+4. Read its log:
+
+   ```bash
+   fly logs --app handsfreeos-sync --no-tail
+   ```
+
+   You should see `Running on port 8080` and `Created replication slot hfos_sync_1_…`, and no line with `PSYNC_` in it.
+
+5. Check the slot from the database's side, in a new SQL Editor query:
+
+   ```sql
+   select slot_name, active, wal_status from pg_replication_slots where slot_name like 'hfos_sync_%';
+   ```
+
+   You should see one row: `hfos_sync_1_…`, `true`, `reserved`.
+
+6. Create the daily compaction machine (see "Compaction"):
+
+   ```bash
+   node apps/sync/scripts/compaction-machine.mjs
+   ```
+
+   You should see ``Created the compaction machine: it runs `compact` about once a day.``
+
+7. List the app's machines:
+
+   ```bash
+   fly machine list --app handsfreeos-sync
+   ```
+
+   You should see two: the service, in process group `app` and `started`, and `compact`, which shows `stopped` once its first run is over (a minute or two).
+
+8. Check that the secrets are live:
+
+   ```bash
+   fly secrets list --app handsfreeos-sync
+   ```
+
+   You should see all three names marked `Deployed`. If one shows `Staged` and step 3 didn't end with `Healthy.`, apply them with `fly secrets deploy --app handsfreeos-sync`, then run step 3 again.
+
+### Sync Part 7: Point sync.handsfreeos.com at it
+
+This is Fly Part 8 again, for one more name.
+
+1. Check the app's addresses:
+
+   ```bash
+   fly ips list --app handsfreeos-sync
+   ```
+
+   You should see a shared IPv4 address and an IPv6 address. If one is missing, add it with `fly ips allocate-v4 --shared --app handsfreeos-sync` or `fly ips allocate-v6 --app handsfreeos-sync`.
+
+2. Ask Fly for the certificate:
+
+   ```bash
+   fly certs add sync.handsfreeos.com --app handsfreeos-sync
+   ```
+
+   You should see `Certificate created for sync.handsfreeos.com`, then an `A` line and an `AAAA` line.
+
+3. At Cloudflare, add an **A** record named `sync` with the IPv4 address from step 2, and an **AAAA** record named `sync` with the IPv6 address. Set both to **DNS only** (grey cloud), like `api` and `hooks`.
+4. Check the DNS:
+
+   ```bash
+   dig +short sync.handsfreeos.com
+   ```
+
+   You should see the IPv4 address from step 2. New records can take a while to appear.
+
+5. Check the certificate:
+
+   ```bash
+   fly certs check sync.handsfreeos.com --app handsfreeos-sync
+   ```
+
+   You should see that the certificate is issued. If not, wait a few minutes and run it again.
+
+6. Try the service at its real address:
+
+   ```bash
+   curl -fsS https://sync.handsfreeos.com/probes/liveness
+   ```
+
+   You should see `{"ready":true,"started":true,"touched_at":"…"}`.
+
+The phone app's builds carry this address. Nothing else calls it.
+
+### Sync Part 8: Let GitHub deploy it
+
+The organization token from Fly Part 9 already covers both new apps. From now on, after CI passes on `main`, the Deploy workflow's job **API, worker and sync service to Fly.io** also:
+
+1. **Checks that the sync service is set up**: `handsfreeos-sync` exists and has all three secrets. Until then it notes "handsfreeos-sync doesn't exist on Fly yet, so the sync service wasn't deployed." and ends there.
+2. **Checks whether its settings changed** since the running machine was deployed, from a fingerprint of `apps/sync/fly.toml`, `service.yaml`, `sync-config.yaml` and the status check. Every deploy makes phones reconnect, so when nothing changed it notes "The sync service's config hasn't changed, so it wasn't redeployed." Your hand deploy in Sync Part 6 had no fingerprint, so the first run after it deploys once more.
+3. **Deploys it**, on one machine.
+4. **Waits up to 15 minutes for a new sync config to finish copying**, and fails the run if it doesn't (see "A deploy that doesn't finish").
+5. **Keeps the compaction machine in step** with the service.
+
+Run it once to prove it works:
+
+1. Start the workflow:
+
+   ```bash
+   gh workflow run Deploy --repo gobizhelp/handsfreeos --ref main
+   ```
+
+2. Watch it. Pick the newest Deploy run and press Return.
+
+   ```bash
+   gh run watch --repo gobizhelp/handsfreeos
+   ```
+
+   You should see the run end successfully. The first time, the steps **Deploy the sync service (one machine, never stopped)**, **Wait for a new sync config to finish copying** and **Keep the daily compaction machine in step** each get a check mark.
+
+Deploy `handsfreeos-sync-storage` only by hand (Sync Part 4, step 8), and only after changing `apps/sync/storage/fly.toml`. It restarts Postgres, and the sync service reconnects on its own.
+
+### Sync Part 9: The hourly health check
+
+The **Sync health** workflow (`.github/workflows/sync-health.yml`) runs the status check from Sync Part 6 inside the service's machine every hour, at 23 minutes past. It fails, and GitHub emails you, when:
+
+- the slot's `wal_status` is `unreserved` or `lost`, or less than half of its WAL budget is left;
+- the service can't reach the database, reports a fatal error, or doesn't answer;
+- a new sync config has been copying for more than 10 minutes.
+
+Until Fly and the sync service are set up, it only notes that it skipped. Each run takes about a minute of GitHub Actions time, so about 12 hours a month.
+
+1. Run it once now:
+
+   ```bash
+   gh workflow run "Sync health" --repo gobizhelp/handsfreeos --ref main
+   ```
+
+2. Watch it. Pick the newest Sync health run and press Return.
+
+   ```bash
+   gh run watch --repo gobizhelp/handsfreeos
+   ```
+
+   You should see the run end successfully, and `Healthy.` at the end of its step **Ask the sync service how it is**.
+
+3. Make sure its failures reach you. GitHub emails a scheduled workflow's failures to the person who last changed its `cron:` line, which is the account that committed the file. On GitHub, click your profile picture, then **Settings** → **Notifications**. Under **System**, set **Actions** to email you, for failed workflows only. If the page has moved, search GitHub's settings for "Actions notifications".
+
+### Every sync config change copies everything
+
+`apps/sync/sync-config.yaml` says which rows and columns each person's phones get, as streams. **Any change to that file, even to a comment, makes PowerSync copy everything again**:
+
+- It makes a second replication slot and copies every table the streams read into new buckets, while phones keep using the old ones. When the copy is done, it moves phones over, drops the old slot and deletes the old buckets.
+- Until then, the storage Postgres holds both copies, and the hosted database keeps WAL for both slots.
+- With today's data a copy takes about a minute. In a test, 12 busy businesses (about 350,000 rows) also took about a minute on this machine size.
+
+So:
+
+1. Batch changes to the file, and push them together, at a quiet time.
+2. First apply any migration the changed streams need (see "Apply new migrations"). A copy that names a column the hosted database doesn't have never finishes.
+3. Watch the Deploy run's step **Wait for a new sync config to finish copying**.
+
+Phones stay on old app builds for weeks, so what a stream sends may only grow: new tables and new columns. To remove or rename a column, change its type, or send different rows, add a new version of the stream beside the old one (`business_v2` next to `business_v1`). New app builds use the new version, and old builds keep the old one. CI holds this line: the phone's contract (`packages/core/test/mobile-contract.test.ts`) records every stream's tables, columns and types, and fails when a column goes or changes. Remove an old stream only once the API's minimum app version (`MIN_APP_VERSION`) is past every build that uses it.
+
+Adding a column with a default to a table phones read doesn't reach phones for existing rows until each row is written again, or until the next full copy.
+
+### Compaction
+
+PowerSync never edits a bucket in place: every change adds an operation to it. **Compacting** folds each bucket's history down, so a phone's first copy downloads less and the storage Postgres stays small. It must run on a machine of its own, because PowerSync's `compact` command and the running service both want port 8080.
+
+- **The `compact` machine** in `handsfreeos-sync` does it. Fly starts it about once a day, and it stops when it's done. It runs with the service's image, settings, files and secrets, and the Deploy workflow replaces it whenever those change.
+- **To see that it runs**, find its ID:
+
+  ```bash
+  fly machine list --app handsfreeos-sync
+  ```
+
+  Then read its log:
+
+  ```bash
+  fly logs --app handsfreeos-sync --machine <compact machine ID> --no-tail
+  ```
+
+  You should see `Compacting storage for all buckets...` and `Successfully compacted storage.` Fly keeps logs for a limited time, so an empty log may only mean the last run was a while ago.
+
+- **To run it now:**
+
+  ```bash
+  fly machine start <compact machine ID> --app handsfreeos-sync
+  ```
+
+- **If the storage volume fills up.** Compaction frees space inside Postgres for new data, but the files don't shrink. To see how full the volume is:
+
+  ```bash
+  fly ssh console --app handsfreeos-sync-storage -C "df -h /var/lib/postgresql/data"
+  ```
+
+  To add room, find the volume's ID with `fly volumes list --app handsfreeos-sync-storage`, then grow it. It stays online.
+
+  ```bash
+  fly volumes extend <volume ID> --size 6 --app handsfreeos-sync-storage
+  ```
+
+  Or, at a quiet time, rewrite the tables to give the space back. Each table is locked while it's rewritten, so phones may wait a few seconds for new changes.
+
+  ```bash
+  fly ssh console --app handsfreeos-sync-storage -C "vacuumdb -U powersync -d powersync --full --analyze"
+  ```
+
+### When the sync service needs attention
+
+Start with the status check. It names what's wrong:
+
+```bash
+fly ssh console --app handsfreeos-sync -g app -C "node /config/status.mjs"
+```
+
+For the machine IDs these steps ask for, run `fly machine list --app handsfreeos-sync`. The service is the machine in process group `app`.
+
+#### The slot was lost
+
+`wal_status lost` means the service fell further behind than the cap from Sync Part 3, usually because it was stopped. (`unreserved` means it's about to.) Postgres has thrown away WAL the service hadn't read, so it can't catch up. Phones keep their copy, but get no new changes.
+
+1. See why it fell behind:
+
+   ```bash
+   fly status --app handsfreeos-sync
+   ```
+
+   You should see the service's machine `started`. Read `fly logs --app handsfreeos-sync --no-tail` for errors.
+
+2. In a new SQL Editor query, list the sync service's slots:
+
+   ```sql
+   select slot_name, active, wal_status from pg_replication_slots where slot_name like 'hfos_sync_%';
+   ```
+
+3. Drop each slot whose `wal_status` is `lost`, one query each, with its name in place of the placeholder:
+
+   ```sql
+   select pg_drop_replication_slot('<slot name>');
+   ```
+
+   Postgres refuses to drop a slot that is `active`. If it refuses, stop the service first with `fly machine stop <service machine ID> --app handsfreeos-sync`, and drop the slot again.
+
+4. Start the service again:
+
+   ```bash
+   fly machine restart <service machine ID> --app handsfreeos-sync
+   ```
+
+   If you stopped it in step 3, use `fly machine start` instead of `fly machine restart`.
+
+5. Wait for its new copy:
+
+   ```bash
+   fly ssh console --app handsfreeos-sync -g app -C "node /config/status.mjs --wait 900"
+   ```
+
+   You should see a new slot (`hfos_sync_2_…` or later), `first copy done`, and `Healthy.`
+
+6. If a long outage or a big import caused it, raise the cap (Sync Part 3).
+
+Phones need nothing: they catch up on their own once the copy is done.
+
+#### Less than half the WAL budget is left
+
+The service is stopped or can't keep up. Check that its machine is `started` and read its log (step 1 above), and restart it if needed (step 4). If it's copying a changed sync config and the budget is running out, raise the cap for now (Sync Part 3), so the copy isn't lost halfway.
+
+#### A deploy that doesn't finish
+
+A changed sync config is still copying after 15 minutes: the Deploy run failed at **Wait for a new sync config to finish copying**, or the status check says `a stuck deploy?`. While the copy is stuck, its slot keeps WAL.
+
+1. Read the log for the reason:
+
+   ```bash
+   fly logs --app handsfreeos-sync --no-tail
+   ```
+
+   Look for lines with `PSYNC_` in them. The usual causes:
+   - A stream names a table or column the hosted database doesn't have. Apply the migration (see "Apply new migrations"), then restart the service with `fly machine restart <service machine ID> --app handsfreeos-sync`.
+   - `PSYNC_S1146`: the new slot was lost during the copy. Raise the cap (Sync Part 3), drop that slot as in "The slot was lost", and restart the service.
+
+2. If you can't fix it within the hour, go back: revert the change to `apps/sync/sync-config.yaml` on `main`, and let the Deploy workflow ship the old config.
+3. Once the status check says `Healthy.` again, list the slots (step 2 of "The slot was lost") and drop any `hfos_sync_` slot that is not `active`.
+
+#### PowerSync can't reach the database
+
+- **`password authentication failed for user "hfos_sync"`**: `PS_DATA_SOURCE_URI` doesn't match the password from Sync Part 2. Load the correct string without it landing on screen or in your shell history, then set it. The service restarts and carries on from its slot.
+
+  ```bash
+  read -s DB_URL
+  ```
+
+  ```bash
+  fly secrets set --app handsfreeos-sync PS_DATA_SOURCE_URI="$DB_URL" && unset DB_URL
+  ```
+
+- **A timeout, `ENETUNREACH` or `EHOSTUNREACH` for `db.ybupfghakoszfcxhyrby.supabase.co`**: the machine can't reach the database over IPv6. That has happened on some of Fly's hosts for a day at a time. Turn on Supabase's IPv4 add-on (about $4 a month): in the Supabase dashboard, open **Project Settings** → **Add-ons** and enable **Dedicated IPv4 address**. If the page has moved, search the dashboard for "IPv4". The host name stays the same, so nothing changes on Fly. Restart the service afterwards.
+- **`too many connections`**: the service keeps up to 8 connections to the database, plus the one that follows the slot, beside the API's and the worker's. See "How many connections the apps use" in "The database: Supabase (hosted)".
+
+#### Phones don't sync, but the service is healthy
+
+- The service's log shows `PSYNC_S2101` or another token error: check that `PS_JWKS_URI` in `apps/sync/fly.toml` names this Supabase project, and that access tokens still last 3600 seconds (Sync Part 3, step 5).
+- The app build points somewhere else: phones must use `https://sync.handsfreeos.com`.
+
+#### Rotating the sync service's secrets
+
+- **The `hfos_sync` password.** Make a new one and save it (Sync Part 2, steps 1 and 2), change it in the database (Sync Part 2, step 3), then set the new `PS_DATA_SOURCE_URI` as in "PowerSync can't reach the database" above. The service restarts and carries on from its slot, with nothing copied again.
+- **The storage password.** Make a new one with `openssl rand -hex 32` and save it. Open Postgres inside the storage machine:
+
+  ```bash
+  fly ssh console --app handsfreeos-sync-storage -C "psql -U powersync -d powersync"
+  ```
+
+  At the `powersync=#` prompt, type `\password powersync`, paste the new password at both prompts (nothing appears as you paste), then type `\q`. Save the new `PS_STORAGE_URI` in your password manager and set it on `handsfreeos-sync` the same way as `PS_DATA_SOURCE_URI` above. Finally, stage the new `POSTGRES_PASSWORD` on `handsfreeos-sync-storage` with `fly secrets import --stage --app handsfreeos-sync-storage`, so the app's record matches. Staged, it doesn't restart Postgres.
+
+- **The admin token.** Make a new one with `openssl rand -hex 32`, save it, load it with `read -s TOKEN`, and set it with `fly secrets set --app handsfreeos-sync PS_ADMIN_TOKEN="$TOKEN" && unset TOKEN`. Nothing outside the machine uses it.
+
+#### Taking the service down for longer than a day
+
+A stopped service still holds its slot, and its WAL grows until the cap. If you stop it on purpose for longer than that covers, stop its machine with `fly machine stop <service machine ID> --app handsfreeos-sync`, then drop its slot (steps 2 and 3 of "The slot was lost"). When it starts again, it copies everything.
+
+### Rough cost of the sync service
+
+| Item                                                                       | About per month                   |
+| -------------------------------------------------------------------------- | --------------------------------- |
+| `handsfreeos-sync` machine, always running (`shared-cpu-1x`, 1 GB)         | $6 to $7, depending on the region |
+| `handsfreeos-sync-storage` machine, always running (`shared-cpu-1x`, 1 GB) | $6 to $7, depending on the region |
+| The storage volume, 3 GB                                                   | $0.45                             |
+| The `compact` machine, a minute or two a day                               | A few cents                       |
+| Supabase's IPv4 add-on, only if Fly can't reach the database over IPv6     | About $4                          |
+
+Total: about $13 to $15 a month on Fly.
 
 ## The web app on Vercel
 
@@ -2635,6 +3259,8 @@ The web app reads six settings, plus a seventh for the check that bookings and w
 
 The web app's server reads one more setting, `CHAT_LOOKUP_CACHE_MS`, which is never copied into the pages: how long, in milliseconds, it keeps each website chat widget's settings before asking the worker again. Leave it unset. In production it keeps them for a minute (`60000`). `0` keeps nothing, which the browser tests use so a pause or a new key shows at once.
 
+And one for the Android app, also server-only and not a secret: `ANDROID_SHA256_CERT_FINGERPRINTS`, the SHA-256 fingerprints of the certificates the Android app is signed with. Leave it unset until the app is built for release. "Links that open the phone app" below says where the values come from.
+
 To add or change a variable after the import:
 
 1. Open the project, click **Settings**, then **Environment Variables**.
@@ -2726,6 +3352,43 @@ A push to `main` also builds with the current settings.
 20. Click **Add task**. The browser sends this straight to the API, so it proves the API accepts the web address.
 
     You should see the new task in the list. If saving fails, run the two `access-control-allow-origin` checks in steps 11 and 12 of "Change the API and worker settings".
+
+### Links that open the phone app
+
+A link to `https://app.handsfreeos.com/app/…` (the link in an urgent email, say) opens the HandsFreeOS app on a phone that has it, and the website on one that doesn't. The web app serves the two files that make phones trust that, from `/.well-known`:
+
+- `https://app.handsfreeos.com/.well-known/apple-app-site-association`, for iPhones. It names the app as Go Biz Help LLC's team and bundle, `8246H5FJ42.com.gobizhelp.handsfreeos`, and claims only `/app/*`. Every page a customer opens is excluded first (`/i/`, `/e/`, `/p/`, `/book/`, `/m/`, `/hold/`, `/w/`, `/chat/`, `/embed/` and `/invite/`), so a customer tapping their invoice always lands in the browser. Nothing needs setting.
+- `https://app.handsfreeos.com/.well-known/assetlinks.json`, for Android. It names the package `com.gobizhelp.handsfreeos`, with the fingerprints from `ANDROID_SHA256_CERT_FINGERPRINTS`. Until that is set, the list of fingerprints is empty and Android opens these links in the browser.
+
+Both are served as JSON with no redirect and no session work (`proxy.ts` leaves `/.well-known` alone), and browsers and Vercel keep them for an hour.
+
+**Where the Android fingerprints come from.** Android only opens the app for links when the app installed on the phone is signed with a certificate whose fingerprint is in the file. There are two:
+
+1. **Google Play's app signing key**, for the app people install from Google Play. Play re-signs the app with its own key. In Play Console, open the app, then **Test and release** → **App integrity** → **App signing**, and copy **SHA-256 certificate fingerprint** under **App signing key certificate**. (Older menus: **Setup** → **App integrity**.) It exists once the first build is uploaded to Play.
+2. **The upload key, from EAS**, for builds installed without Play (internal distribution, or an `.apk` from EAS). In Terminal, in `apps/mobile`, run `eas credentials --platform android`, choose the build profile, and read **SHA256 Fingerprint** under the keystore. It is also on the Expo website: the project's **Credentials** → **Android** → the keystore.
+
+Each looks like 32 pairs of letters and digits joined by colons, for example `14:6D:E9:…:D5:1B`. To set them:
+
+1. In Vercel, open the project, then **Settings** → **Environment Variables**.
+2. Add `ANDROID_SHA256_CERT_FINGERPRINTS` with both fingerprints, separated by a comma. Tick **Production** only, and choose **Config**.
+3. Redeploy (see "Redeploy after a change").
+4. Check it:
+
+   ```bash
+   curl -s https://app.handsfreeos.com/.well-known/assetlinks.json
+   ```
+
+   You should see both fingerprints under `sha256_cert_fingerprints`, in upper case. A value that isn't a fingerprint is left out, so a missing one means it was copied wrong.
+
+5. Check the iPhone file too:
+
+   ```bash
+   curl -sI https://app.handsfreeos.com/.well-known/apple-app-site-association
+   ```
+
+   You should see `HTTP/2 200` and `content-type: application/json`, with no `location` header. Apple's servers fetch it through their own cache, so an iPhone can take up to a day to notice a change.
+
+Passkeys in the phone app need a different site: `handsfreeos.com` itself, which isn't this web app.
 
 ### Keep the web address the same everywhere
 
@@ -3403,8 +4066,9 @@ Changing `WORKER_PUBLIC_URL` breaks every client's calls and texts at once. The 
 - **Microphones need HTTPS.** Browsers only allow calls from pages served over HTTPS (or localhost). A blocked microphone shows "Your browser blocked the microphone. Allow it in the address bar, then try again."
 - **Calls through a person's own cell.** In the phone app, **Call** doesn't dial from the phone. HandsFreeOS rings the person's own cell from the business number, and their cell hears "Press 1 to call Mike Johnson." (said twice, then 5 seconds to press). Pressing 1 says "Calling Mike Johnson." and dials the customer from the business number, so the customer sees the business number and never the person's own. The cell rings for 25 seconds and the customer for 30. With no answer, or no 1 (a cell's voicemail picking up), the customer never rings, and the call doesn't show in their conversation. When the customer doesn't pick up, the person hears "Mike Johnson didn’t answer." or "Mike Johnson’s line is busy. Try again in a few minutes." The call is recorded on two channels from the moment the customer answers, and lands in the customer's conversation with its recording and words, like any call.
 - **Who can be called that way.** Only numbers the business already has: a customer's, or one that texted or called the business. One call through a cell at a time per person (pressing **Call** twice for the same customer is the same call). A call that waited more than 2 minutes for the worker (it was down) isn't placed.
-- **Confirming a cell.** Before the first such call, the person confirms their cell. HandsFreeOS calls it from the business number, so the business needs an active number, and says "This is HandsFreeOS confirming this is your phone. Press 1." Pressing 1 confirms it: "Thanks. Your phone is confirmed. Goodbye." Each person has one confirmed cell, and setting a different number clears the old one. They can ask for 3 verification calls an hour and 6 a day. Past that the app says, for example, "You’ve asked for 3 verification calls in the last hour. Try again in 40 minutes."
-- **The business number on forwarded calls.** Each number's routing says what forwarding phones see: the customer's number (the default, as before) or the business number. With the business number, the phone shows the business as the caller, and the whisper still names the customer: "Call for {business} from Mike Johnson. Press 1 to take it." It helps where a phone screens or silences callers it doesn't know (iPhone's **Screen Unknown Callers**, spam-blocking apps): the forwarding phone saves the business number as a contact. The command is `phone_number.set_caller_id`; the web app's **Texting & calls** page shows it with Milestone 10's web screens.
+- **Cancel.** Until the customer picks up, **Cancel** on the call sheet ends the call at once (`call.cancel_connect`), so the person can call again straight away, and the worker hangs up Twilio's call (`Status=completed`). A call cancelled before the customer's phone rang leaves no trace in their conversation. One cancelled while it rang shows there as a call they didn't answer. Once the customer answers, the person hangs up on their own phone.
+- **Confirming a cell.** Before the first such call, the person confirms their cell, in the app or on the web under **Settings** → **Account** → **My cell phone**. HandsFreeOS calls it from the business number, so the business needs an active number, and says "This is HandsFreeOS confirming this is your phone. Press 1." Pressing 1 confirms it: "Thanks. Your phone is confirmed. Goodbye." Each person has one confirmed cell, and setting a different number clears the old one. They can ask for 3 verification calls an hour and 6 a day. Past that the app says, for example, "You’ve asked for 3 verification calls in the last hour. Try again in 40 minutes."
+- **The business number on forwarded calls.** Each number's routing says what forwarding phones see: the customer's number (the default, as before) or the business number. With the business number, the phone shows the business as the caller, and the whisper still names the customer: "Call for {business} from Mike Johnson. Press 1 to take it." It helps where a phone screens or silences callers it doesn't know (iPhone's **Screen Unknown Callers**, spam-blocking apps): the forwarding phone saves the business number as a contact. An owner or admin picks it in **Settings** → **Texting & calls** → **What forwarded phones show** (`phone_number.set_caller_id`). Saving the rest of the routing keeps the choice.
 - **Words of a whole call.** A call through a cell is transcribed from its recording by Twilio's Conversational Intelligence, not by the voicemail transcription above. The first time, the worker makes a Conversational Intelligence service named `hfos-call-transcripts` in the client subaccount (English, with Twilio's data logging off). It asks for the words once the recording is stored, reads them back a few minutes later as "Dale: … / Mike: …", and then deletes Twilio's copies of the recording and the words. If Twilio refuses, for example because Conversational Intelligence isn't turned on for the account, the call keeps its recording with no words, and the worker logs `the provider would not transcribe a call recording (is Conversational Intelligence turned on?)`. If Twilio is down, it keeps trying for 6 hours. Check this with the first real call through a cell. If the words never arrive and that line is in the log, open **Conversational Intelligence** in the Twilio console for the master account and follow its prompts to turn it on.
 - **Recording and consent.** Calls through a cell are recorded from the moment the customer answers, and HandsFreeOS says nothing to the customer about it. Some states require everyone on a call to agree to a recording. Check with a lawyer before clients rely on these calls.
 
@@ -5070,6 +5734,8 @@ Before someone's first question, on the web or in the phone app, the Assistant a
 
 Until someone says OK, the worker answers their questions with "The Assistant uses Anthropic’s Claude: what you ask about is sent to Claude to answer you. Say OK once, on the web or your phone, and it won’t ask again." and sends nothing to Anthropic.
 
+On the web, the panel shows the consent step ("The Assistant uses Anthropic’s Claude") instead of the chat until the person presses **OK, continue**. **Not now** closes the panel. An OK given on the phone while a web page was open counts as soon as the panel opens, and if the worker refuses a question for want of an OK, the step shows and the question is asked once they say OK.
+
 ### When a question fails
 
 Every failed question writes an `assistant run failed` line to the worker's log. Its `err` field says why. To read the recent log:
@@ -6207,7 +6873,7 @@ The repository has a stand-in website for scans. It has a `robots.txt` that keep
 
 The worker refuses an address that isn't in `FETCH_TEST_ORIGINS` ("Scan only a local test site listed in FETCH_TEST_ORIGINS."), a scan while another is running ("A scan is already running."), and a scan before a website address is saved ("Add the website address first.").
 
-The three test addresses, `/test/scheduled-jobs/run-due`, `/test/knowledge/scan-at` and `/test/outbox/skip-stale`, exist only while the worker uses the fake carrier, and never in production. A running tunnel exposes them too. The browser tests use the third to skip events the other test suites left in the local database. They also start the stand-in website and give their own worker `FETCH_TEST_ORIGINS=http://127.0.0.1:4190` and the scripted model, so you don't need to set anything for them.
+The four test addresses, `/test/scheduled-jobs/run-due`, `/test/knowledge/scan-at`, `/test/outbox/skip-stale` and `/test/scheduled-jobs/skip-stale`, exist only while the worker uses the fake carrier, and never in production. A running tunnel exposes them too. The browser tests use the last two to skip the events the other test suites left in the local database, and their jobs due within two hours, so a spec's own work (a texting spec's registration check, say) doesn't wait behind them. Jobs due later, such as a seeded business's reminders next week, stay. They also start the stand-in website and give their own worker `FETCH_TEST_ORIGINS=http://127.0.0.1:4190` and the scripted model, so you don't need to set anything for them.
 
 ### Before turning workflows on for a client
 
@@ -7456,6 +8122,48 @@ Both kinds of tests need the local stack running and `pnpm env:local` done.
    pnpm openapi
    ```
 
+#### Sync scenarios
+
+These play phones with PowerSync's Node client against a local PowerSync Service and the real API, in `apps/sync/test`: two people editing one customer offline, a change whose answer is lost, "Still send?", a refused customer holding its lead, a refused change undone, the API out of reach, a member staffed on a job and then removed, and the 12-month window. Each file makes its own business and people, so the demo seed isn't needed. CI runs them in the Sync service workflow, on `main` and nightly.
+
+1. Start PowerSync beside the local stack:
+
+   ```bash
+   pnpm sync:start
+   ```
+
+   You should see `PowerSync is ready (slot hfos_sync_1_…), after … s.`
+
+2. Run the scenarios:
+
+   ```bash
+   pnpm --filter @hfos/sync test:scenarios
+   ```
+
+   You should see 3 files and 9 tests pass, in about 20 seconds. `HFOS_SYNC_TRACE=1` in front of the command prints what each test phone's uploader does, and `HFOS_SYNC_TRACE=sdk` adds PowerSync's own log.
+
+3. Run the per-person limits against the live service:
+
+   ```bash
+   HFOS_SYNC_TESTS=1 pnpm --filter @hfos/db exec vitest run test/sync-limits.test.ts
+   ```
+
+4. Check the status script the Fly machine runs:
+
+   ```bash
+   docker exec hfos-sync node /config/status.mjs
+   ```
+
+   You should see `Healthy.`
+
+5. Stop PowerSync:
+
+   ```bash
+   pnpm sync:stop
+   ```
+
+   You should see `PowerSync stopped; its storage and replication slot are gone.` Always stop it this way: a stopped service's replication slot would keep the local database's WAL.
+
 #### Browser tests (Playwright)
 
 1. Stop `pnpm dev` with Control-C. The browser tests start their own worker on port 4100 with an 8-second reply reminder. If the dev worker still holds the port, it answers instead and the reminder test fails. Playwright starts the API and the web app itself when they are not running.
@@ -8223,6 +8931,22 @@ You should see, at the end:
    ```
 
 4. `FLY_API_TOKEN` in `gh secret list --repo gobizhelp/handsfreeos`, and a green Deploy run.
+
+Then set up the sync service, which the phone app reads through: do Sync Parts 1 to 9 in "Sync service: PowerSync on Fly". It needs the migrations through `20260921000700_mobile_grants.sql` on the hosted database first. The web app doesn't need it, so the stages after this one don't wait for it. You should see, at the end:
+
+1. `Healthy.` from its status check:
+
+   ```bash
+   fly ssh console --app handsfreeos-sync -g app -C "node /config/status.mjs"
+   ```
+
+2. `{"ready":true,"started":true,"touched_at":"…"}` from its public address:
+
+   ```bash
+   curl https://sync.handsfreeos.com/probes/liveness
+   ```
+
+3. A green Sync health run, and in the Deploy run the sync service's steps with check marks.
 
 Then give the worker the Anthropic key, so the Assistant can answer: do "Make the account and set a spend limit", "Make the production key" and "Give the worker the key" in "The Assistant: Anthropic". The worker runs without it, and until then the Assistant panel says "The Assistant isn’t available yet". Ask the Assistant its first question once you have an account (Stage 5).
 

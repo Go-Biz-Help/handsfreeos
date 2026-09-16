@@ -12,6 +12,7 @@ import { cancelToolCall } from '@/lib/assistant/stream';
 import { useMatches } from '@/lib/use-media';
 import { useAssistant } from './assistant-provider';
 import { AssistantComposer } from './composer';
+import { ConsentStep } from './consent-step';
 import type { ConfirmCardData } from './confirm-card';
 import { AssistantMark } from './mark';
 import { MessageList } from './message-list';
@@ -162,12 +163,14 @@ function PanelContent({ phone, titleId }: { phone: boolean; titleId?: string }) 
 
       {!chat ? (
         <ThreadList phone={phone} />
+      ) : a.consentNeeded ? (
+        <ConsentStep phone={phone} />
       ) : a.setup === 'missing' ? (
         <NotSetUp />
       ) : (
         <MessageList phone={phone} onEdit={(card) => void edit(card)} />
       )}
-      {chat ? <AssistantComposer phone={phone} /> : null}
+      {chat && !a.consentNeeded ? <AssistantComposer phone={phone} /> : null}
 
       {editing ? (
         <MessageSheet

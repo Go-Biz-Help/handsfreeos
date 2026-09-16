@@ -169,6 +169,11 @@ export interface TelephonyProvider {
   /** Places a call from a business number; the provider then asks `answerUrl` what to say. */
   placeCall(account: ProviderAccount, request: PlaceCallRequest): Promise<{ sid: string }>;
   /**
+   * Hangs up a call the worker placed, ringing or answered (a call through someone's cell they cancelled). One that
+   * already ended, or that the provider no longer knows, is fine.
+   */
+  endCall(account: ProviderAccount, callSid: string): Promise<void>;
+  /**
    * Asks for a whole call recording's words (a voicemail gets its own when it is recorded). The worker reads them
    * with fetchTranscription until they're ready.
    */

@@ -29,6 +29,8 @@ export type BridgeStatus =
   | 'cell_unanswered'
   | 'customer_unanswered'
   | 'customer_busy'
+  /** The person pressed Cancel before the customer answered (call.cancel_connect). */
+  | 'cancelled'
   /** The carrier couldn't place it. */
   | 'failed';
 
@@ -56,6 +58,7 @@ export function bridgeStatusOf(call: BridgeCallFacts): BridgeStatus | null {
     return call.answeredByUserId ? 'calling_customer' : 'calling_cell';
   }
   if (call.answeredAt) return 'ended';
+  if (call.status === 'canceled') return 'cancelled';
   if (!call.answeredByUserId) return call.status === 'failed' ? 'failed' : 'cell_unanswered';
   if (call.status === 'busy') return 'customer_busy';
   return call.status === 'failed' ? 'failed' : 'customer_unanswered';
@@ -79,6 +82,8 @@ export function bridgeStatusWords(status: BridgeStatus, customerName: string | n
       return `${customerName?.trim() || 'The customer'} didn’t answer`;
     case 'customer_busy':
       return `${customerName?.trim() || 'The customer'}’s line is busy`;
+    case 'cancelled':
+      return 'Call cancelled';
     case 'failed':
       return 'The call didn’t go through';
   }

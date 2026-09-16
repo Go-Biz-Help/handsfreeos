@@ -1471,6 +1471,12 @@ function Configured({
 
       <div className="flex flex-col gap-5">
         <CallsCard routing={calls.routing} save={calls.save} update={calls.update} team={team} />
+        <CallerIdCard
+          workspaceId={workspaceId}
+          phoneNumberId={n.id}
+          display={n.display}
+          initial={n.routing.forwardedCallerId}
+        />
         <VoicemailCard
           routing={calls.routing}
           save={calls.save}
@@ -1548,10 +1554,12 @@ function useRouting(workspaceId: string, number: PhoneNumberInfo) {
     }
     const job = queue.current.then(async () => {
       const next = change(saved.current);
+      // What forwarded phones show is its own choice (CallerIdCard): left out, the number keeps it.
+      const { forwardedCallerId: _own, ...routing } = next;
       try {
         unwrap(
           await apiBrowser().POST('/v1/commands/phone_number.set_routing', {
-            body: { workspaceId, phoneNumberId: number.id, routing: next },
+            body: { workspaceId, phoneNumberId: number.id, routing },
           }),
         );
         saved.current = next;
@@ -1816,6 +1824,89 @@ function CallsCard({
         <span className="text-[13px]">
           Forwarded phones hear “Press 1 to take this call,” so a cell’s own voicemail can never
           grab the call first.
+        </span>
+      </Callout>
+    </Card>
+  );
+}
+
+/**
+ * What a forwarded phone shows when a customer calls the business number (M10): the customer's number, or the
+ * business's. iOS 26's call screening sends callers a phone doesn't know to voicemail, so a person who turned it on
+ * saves the business number as a contact and picks the business number here; the whisper still names the caller.
+ */
+function CallerIdCard({
+  workspaceId,
+  phoneNumberId,
+  display,
+  initial,
+}: {
+  workspaceId: string;
+  phoneNumberId: string;
+  display: string;
+  initial: 'customer' | 'business';
+}) {
+  const router = useRouter();
+  const [choice, setChoice] = useState(initial);
+  const [busy, setBusy] = useState(false);
+
+  async function choose(next: 'customer' | 'business') {
+    if (next === choice || busy) return;
+    const was = choice;
+    setChoice(next);
+    setBusy(true);
+    try {
+      unwrap(
+        await apiBrowser().POST('/v1/commands/phone_number.set_caller_id', {
+          body: { workspaceId, phoneNumberId, forwardedCallerId: next },
+        }),
+      );
+      toast.success(
+        next === 'business'
+          ? `Forwarded phones show ${display}`
+          : 'Forwarded phones show the customer’s number',
+      );
+      router.refresh();
+    } catch (e) {
+      setChoice(was);
+      toast.error(errorMessage(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Card className="p-6" data-testid="caller-id">
+      <h2 className="text-lg font-semibold tracking-tight">What forwarded phones show</h2>
+      <p className="mt-1 text-[13px] text-text-2">
+        When a customer calls and a phone above rings, its screen shows one of these. Either way,
+        the phone hears who is calling before pressing 1.
+      </p>
+      <div
+        role="radiogroup"
+        aria-label="What forwarded phones show"
+        className="mt-3.5 flex flex-col gap-2.5"
+      >
+        <RadioCard
+          selected={choice === 'customer'}
+          onSelect={() => void choose('customer')}
+          title="The customer’s number"
+          description="You see who is calling before you pick up."
+          testId="caller-id-customer"
+        />
+        <RadioCard
+          selected={choice === 'business'}
+          onSelect={() => void choose('business')}
+          title={`The business number, ${display}`}
+          description="Every call rings through on a phone that screens or silences unknown callers, once the business number is saved as a contact on it."
+          testId="caller-id-business"
+        />
+      </div>
+      <Callout tone="neutral" icon={Info} className="mt-3">
+        <span className="text-[13px]">
+          iPhones that screen unknown callers send calls from numbers they don’t know to voicemail,
+          including forwarded customers. Save {display} as a contact on each forwarded phone and
+          pick the business number here.
         </span>
       </Callout>
     </Card>

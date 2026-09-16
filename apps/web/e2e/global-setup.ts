@@ -46,18 +46,24 @@ export default async function globalSetup(): Promise<() => Promise<void>> {
     await new Promise((r) => setTimeout(r, 250));
   }
 
-  // The core, DB and worker suites leave thousands of pending events in the shared local database, and the
-  // worker would spend minutes on them before reaching the specs' own. Skip the ones written before this run
-  // started (never the run's own). A reused dev worker without the test routes just keeps its backlog.
-  try {
-    const res = await fetch(`${WORKER_URL}/test/outbox/skip-stale`, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ before: startedAt }),
-    });
-    if (!res.ok) console.warn(`Old outbox events weren't skipped (${res.status}).`);
-  } catch {
-    console.warn('Old outbox events weren’t skipped: the worker didn’t answer.');
+  // The core, DB and worker suites leave thousands of pending events and due jobs in the shared local database,
+  // and the worker would spend minutes on them before reaching the specs' own (a texting spec's registration poll
+  // timed out behind 1,700 old jobs). Skip the ones written before this run started (never the run's own). A reused
+  // dev worker without the test routes just keeps its backlog.
+  for (const [route, what] of [
+    ['/test/outbox/skip-stale', 'outbox events'],
+    ['/test/scheduled-jobs/skip-stale', 'scheduled jobs'],
+  ] as const) {
+    try {
+      const res = await fetch(`${WORKER_URL}${route}`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ before: startedAt }),
+      });
+      if (!res.ok) console.warn(`Old ${what} weren’t skipped (${res.status}).`);
+    } catch {
+      console.warn(`Old ${what} weren’t skipped: the worker didn’t answer.`);
+    }
   }
 
   return async () => {

@@ -828,6 +828,23 @@ export function createTwilioTelephony(master: {
       return { sid: res.sid };
     },
 
+    async endCall(account, callSid) {
+      try {
+        // `completed` hangs up whatever state the call is in (`canceled` would leave an answered one going).
+        await call(
+          credsOf(account),
+          'POST',
+          `${API}/Accounts/${account.sid}/Calls/${callSid}.json`,
+          {
+            Status: 'completed',
+          },
+        );
+      } catch (e) {
+        // Already over: gone (404), or "Call is not in-progress" (21220).
+        if (!(e instanceof ProviderError && (e.httpStatus === 404 || e.code === '21220'))) throw e;
+      }
+    },
+
     async transcribeRecording(account, recordingSid) {
       const creds = credsOf(account);
       const res = await call<{ sid: string }>(creds, 'POST', `${INTELLIGENCE}/Transcripts`, {

@@ -8,6 +8,8 @@
  *   business number with a short timeout; the routes play "Press 1 to call Mike Johnson" and only a 1 dials the
  *   customer, showing the business number, recorded on two channels. The call's own status reports (the `status`
  *   route) and the customer's leg (`leg-status`) move the call on as they do for every call.
+ * - **Cancelling it** (`call.bridge_cancelled` from call.cancel_connect): the call already ended in HandsFreeOS; the
+ *   carrier's call is hung up. A call cancelled while it was being placed is hung up as soon as it is recorded.
  * - **The words** of a recorded call: once the recording is stored (processors/twilio-voice.ts), `call.transcribe` asks
  *   the provider for them and `call.transcript` reads them back until they're ready; they're attached to the call and
  *   the provider's copies deleted. A provider that refuses (Conversational Intelligence not turned on) or stays down
@@ -136,6 +138,26 @@ export const onBridgeRequested: EventHandler = async (ctx) => {
     actor,
     meta,
   );
+  // Cancelled while it was being placed (call.cancel_connect saw no carrier call to hang up yet): hang it up now.
+  const [now] = await asWorker(ctx.db, scope, (tx) =>
+    tx.select({ status: calls.status }).from(calls).where(eq(calls.id, callId)),
+  );
+  if (now?.status === 'canceled') await ctx.telephony.endCall(account, sid);
+};
+
+/** call.cancel_connect ended a call through someone's cell: hang the carrier's call up, whatever state it's in. */
+export const onBridgeCancelled: EventHandler = async (ctx) => {
+  if (!isUuid(ctx.event.entityId)) return;
+  const scope = tenantOf(ctx.scope);
+  const [c] = await ctx.tx
+    .select({ providerSid: calls.providerSid, answeredVia: calls.answeredVia })
+    .from(calls)
+    .where(and(eq(calls.id, ctx.event.entityId), eq(calls.workspaceId, scope.workspaceId)));
+  // Not placed yet: onBridgeRequested sees the cancel and never places it (or hangs it up once recorded).
+  if (!c?.providerSid || c.answeredVia !== 'bridge') return;
+  const account = await loadAccount(ctx.tx, scope.workspaceId, ctx.sealer);
+  if (!account) return;
+  await ctx.telephony.endCall(account, c.providerSid);
 };
 
 /** Someone set their cell: call it from the business number so they can press 1. */

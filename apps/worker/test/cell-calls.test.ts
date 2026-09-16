@@ -8,12 +8,16 @@
  *   words, never a failed recording). Not answered, a voicemail that presses nothing, and a busy customer
  *   never reach the customer's conversation (or reach it as an unanswered call, for the busy customer). A call that
  *   waited for a worker that was down isn't placed.
+ * - **Cancelling it** (step 7): the carrier's call is hung up, whether it was cancelled while ringing, before the
+ *   worker placed it (nothing is ever placed), or while it was being placed (hung up once recorded); the person can
+ *   call again at once, and the carrier's report afterwards changes nothing.
  * - **Business caller ID on forwarded calls:** forwarded phones see the business number and still hear who is calling.
  */
 import { randomUUID } from 'node:crypto';
 import { and, eq } from 'drizzle-orm';
 import {
   bridgeStatusOf,
+  callCancelConnect,
   callConnectMe,
   createTokenVerifier,
   executeCommand,
@@ -605,6 +609,88 @@ describe('calling a customer through your own cell', () => {
     const row = await callRow(out.callId);
     expect(row).toMatchObject({ status: 'failed', providerSid: null });
     expect(bridgeStatusOf(row)).toBe('failed');
+  });
+});
+
+describe('cancelling a call through your own cell', () => {
+  const cancel = (u: TestUser, callId: string) =>
+    executeCommand(api(), callCancelConnect, { workspaceId, callId }, actor(u), meta()).then(
+      (r) => r.output,
+    );
+
+  it('hangs up a call still ringing the cell; the person can call again at once', async () => {
+    const { out, placed, base } = await placeBridge(dale);
+    expect(await cancel(dale, out.callId)).toEqual({ callId: out.callId, cancelled: true });
+    await drain();
+    expect(s.telephony.ended).toContain(placed.sid);
+    // The carrier's report afterwards changes nothing, and answering places nothing.
+    await post(`${V}/status`, { ...base, CallStatus: 'canceled' });
+    await drain();
+    const row = await callRow(out.callId);
+    expect(row).toMatchObject({ status: 'canceled', activityId: null });
+    expect(bridgeStatusOf(row)).toBe('cancelled');
+    expect(
+      (await post(`${V}/bridge?callId=${out.callId}`, { ...base, CallStatus: 'in-progress' })).body,
+    ).toContain('The call wasn’t placed.');
+    const again = await placeBridge(dale);
+    expect(again.out.duplicate).toBe(false);
+    expect(again.placed.sid).not.toBe(placed.sid);
+    await cancel(dale, again.out.callId);
+    await drain();
+    expect(s.telephony.ended).toContain(again.placed.sid);
+  });
+
+  it('cancelled before the worker placed it: nothing is ever placed', async () => {
+    const out = (
+      await executeCommand(
+        api(),
+        callConnectMe,
+        { workspaceId, personId: mikeId },
+        actor(dale),
+        meta(),
+      )
+    ).output;
+    await cancel(dale, out.callId);
+    const before = s.telephony.calls.length;
+    await drain();
+    expect(s.telephony.calls).toHaveLength(before);
+    expect(await callRow(out.callId)).toMatchObject({ status: 'canceled', providerSid: null });
+  });
+
+  it('cancelled while it was being placed: hung up as soon as it is recorded', async () => {
+    const telephony = s.telephony as { placeCall: typeof s.telephony.placeCall };
+    const place = telephony.placeCall;
+    let cancelledId: string | null = null;
+    telephony.placeCall = async (account, request) => {
+      const placed = await place(account, request);
+      // The person presses Cancel while the carrier is placing it.
+      const [row] = await admin()
+        .select({ id: calls.id })
+        .from(calls)
+        .where(and(eq(calls.placedBy, dale.id), eq(calls.status, 'initiated')));
+      if (row) {
+        cancelledId = row.id;
+        await cancel(dale, row.id);
+      }
+      return placed;
+    };
+    try {
+      await executeCommand(
+        api(),
+        callConnectMe,
+        { workspaceId, personId: mikeId },
+        actor(dale),
+        meta(),
+      );
+      await drain();
+    } finally {
+      telephony.placeCall = place;
+    }
+    expect(cancelledId).not.toBeNull();
+    const row = await callRow(cancelledId!);
+    expect(row.status).toBe('canceled');
+    expect(row.providerSid).toBe(lastPlaced().sid);
+    expect(s.telephony.ended).toContain(lastPlaced().sid);
   });
 });
 

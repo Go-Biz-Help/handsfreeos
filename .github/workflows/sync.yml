@@ -1,0 +1,77 @@
+name: Sync service
+
+# The sync service, end to end: PowerSync's Node client plays phones against the real local PowerSync Service and
+# the real API (apps/sync/test: two people editing one customer offline, a replayed change, "Still send?", held and
+# refused changes, a member's access, the 12-month window), then the per-person bucket and parameter limits against
+# the live service (packages/db/test/sync-limits.test.ts). Its own workflow, on main and nightly, so the 45-minute
+# CI job keeps its room.
+on:
+  push:
+    branches: [main]
+  schedule:
+    # Nightly, 2:47 AM in Houston.
+    - cron: '47 7 * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: sync-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CI: true
+
+jobs:
+  scenarios:
+    name: Sync scenarios and limits against the real service
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.117.0
+
+      - name: Start the local Supabase stack (every migration applied)
+        run: node scripts/supabase.mjs start -x imgproxy,studio,edge-runtime,logflare,vector
+
+      - name: Write local env files
+        run: pnpm env:local
+
+      # Its own storage Postgres beside the stack, as on Fly; the step ends once the first copy of the database is done.
+      - name: Start PowerSync
+        run: pnpm sync:start
+
+      # Each scenario file makes its own business and people through the API; nothing depends on the demo seed.
+      - name: Sync scenarios
+        run: pnpm --filter @hfos/sync test:scenarios
+
+      - name: Per-person limits against the live service
+        env:
+          HFOS_SYNC_TESTS: '1'
+        run: pnpm --filter @hfos/db exec vitest run test/sync-limits.test.ts
+
+      # The same check the Deploy and Sync health workflows run inside the Fly machine.
+      - name: The service's status check says it's healthy
+        run: docker exec hfos-sync node /config/status.mjs
+
+      - name: PowerSync's log
+        if: failure()
+        run: docker logs --tail 400 hfos-sync
+
+      - name: Stop PowerSync and drop its replication slot
+        if: always()
+        run: pnpm sync:stop
+
+      - name: Stop the local stack
+        if: always()
+        run: node scripts/supabase.mjs stop --no-backup

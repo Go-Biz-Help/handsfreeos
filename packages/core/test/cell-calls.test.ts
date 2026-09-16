@@ -7,6 +7,8 @@
  *   through a cell at a time (pressing Call twice is the same call); online only from a phone, and a repeat runs once.
  * - **Where it lands:** a call nobody pressed 1 on never reaches the customer's conversation or timeline; one that
  *   connected reads "Dale called · 2:14"; and the statuses the app shows.
+ * - **call.cancel_connect** (step 7): the person's own call, before the customer picks up; it ends at once so they can
+ *   call again, asks the worker to hang up, and a customer whose phone already rang gets it filed as not answered.
  * - **Business caller ID on forwarded calls:** its own command, kept when routing is saved, shown in setup status.
  */
 import { randomUUID } from 'node:crypto';
@@ -34,6 +36,7 @@ import type {
 } from '../src/kernel/types';
 import { bridgeStatusOf, bridgeStatusWords } from '../src/messaging/bridge';
 import {
+  callCancelConnect,
   callConnectMe,
   callRecord,
   callUpdateStatus,
@@ -650,6 +653,129 @@ describe('calling a customer through your own cell', () => {
       'online_only',
     );
     expect(registry.command('call.connect_me')!.offline).toBe('online');
+  });
+});
+
+describe('cancelling a call through your own cell', () => {
+  const eventsOf = async (callId: string) =>
+    (await admin().select().from(events).where(eq(events.entityId, callId))).map(
+      (e) => e.eventType,
+    );
+  const callRow = async (callId: string) =>
+    (await admin().select().from(calls).where(eq(calls.id, callId)))[0]!;
+
+  it('ends a call still ringing the cell at once, never reaching the customer, so they can call again', async () => {
+    await verifiedCell(priya);
+    const out = await run(callConnectMe, { workspaceId: wsId, personId: mikeId }, priya);
+    const [conv] = await admin()
+      .select()
+      .from(conversations)
+      .where(eq(conversations.id, out.conversationId));
+    // Someone else's call doesn't exist for them.
+    await expectHfos(
+      () => run(callCancelConnect, { workspaceId: wsId, callId: out.callId }, dale),
+      'not_found',
+    );
+    expect(await run(callCancelConnect, { workspaceId: wsId, callId: out.callId }, priya)).toEqual({
+      callId: out.callId,
+      cancelled: true,
+    });
+    const done = await callRow(out.callId);
+    expect(done).toMatchObject({ status: 'canceled', activityId: null, answeredAt: null });
+    expect(done.endedAt).toBeInstanceOf(Date);
+    expect(bridgeStatusOf(done)).toBe('cancelled');
+    expect(bridgeStatusWords('cancelled', 'Mike Johnson')).toBe('Call cancelled');
+    const types = await eventsOf(out.callId);
+    expect(types).toContain('call.bridge_cancelled');
+    expect(types).not.toContain('call.missed');
+    expect(types).not.toContain('call.bridge_unanswered');
+    const [conv2] = await admin()
+      .select()
+      .from(conversations)
+      .where(eq(conversations.id, out.conversationId));
+    expect(conv2!.lastPreview).toBe(conv!.lastPreview);
+    const thread = await ask(
+      conversationThread,
+      { workspaceId: wsId, conversationId: out.conversationId },
+      priya,
+    );
+    expect(thread.items.find((i) => i.id === out.callId)).toBeUndefined();
+    // Pressing Cancel again changes nothing, and a new call goes straight away.
+    expect(await run(callCancelConnect, { workspaceId: wsId, callId: out.callId }, priya)).toEqual({
+      callId: out.callId,
+      cancelled: false,
+    });
+    const again = await run(callConnectMe, { workspaceId: wsId, personId: mikeId }, priya);
+    expect(again).toMatchObject({ duplicate: false });
+    expect(again.callId).not.toBe(out.callId);
+    await run(callCancelConnect, { workspaceId: wsId, callId: again.callId }, priya);
+  });
+
+  it('files a call the customer’s phone already rang for as not answered', async () => {
+    const out = await run(callConnectMe, { workspaceId: wsId, personId: mikeId }, priya);
+    const providerSid = `CAcancel${uniq()}`;
+    await sys(callRecord, {
+      workspaceId: wsId,
+      providerSid,
+      callId: out.callId,
+      direction: 'outbound',
+      from: businessNumber,
+      to: MIKE,
+    });
+    await sys(callUpdateStatus, {
+      workspaceId: wsId,
+      providerSid,
+      status: 'ringing',
+      answeredByUserId: priya.id,
+    });
+    expect(bridgeStatusOf(await callRow(out.callId))).toBe('calling_customer');
+    await run(callCancelConnect, { workspaceId: wsId, callId: out.callId }, priya);
+    const done = await callRow(out.callId);
+    expect(bridgeStatusOf(done)).toBe('cancelled');
+    const types = await eventsOf(out.callId);
+    expect(types).toEqual(expect.arrayContaining(['call.bridge_cancelled', 'call.missed']));
+    const [entry] = await admin()
+      .select()
+      .from(activities)
+      .where(eq(activities.id, done.activityId!));
+    expect(entry).toMatchObject({
+      kind: 'call',
+      subtype: 'outbound_missed',
+      authorUserId: priya.id,
+    });
+    // The carrier's own report afterwards changes nothing.
+    await sys(callUpdateStatus, { workspaceId: wsId, providerSid, status: 'canceled' });
+    expect((await callRow(out.callId)).status).toBe('canceled');
+  });
+
+  it('refuses once the customer picked up: they hang up on their phone', async () => {
+    const out = await run(callConnectMe, { workspaceId: wsId, personId: mikeId }, priya);
+    const providerSid = `CAtalking${uniq()}`;
+    await sys(callRecord, {
+      workspaceId: wsId,
+      providerSid,
+      callId: out.callId,
+      direction: 'outbound',
+      from: businessNumber,
+      to: MIKE,
+    });
+    await sys(callUpdateStatus, {
+      workspaceId: wsId,
+      providerSid,
+      status: 'in_progress',
+      answeredByUserId: priya.id,
+      answeredNumber: MIKE,
+    });
+    const err = await expectHfos(
+      () => run(callCancelConnect, { workspaceId: wsId, callId: out.callId }, priya),
+      'rule_violation',
+      'already_connected',
+    );
+    expect(err.message).toBe(
+      'You’re already talking to Mike Johnson. Hang up on your phone to end the call.',
+    );
+    await sys(callUpdateStatus, { workspaceId: wsId, providerSid, status: 'completed' });
+    expect(registry.command('call.cancel_connect')).toMatchObject({ offline: 'online', risk: 1 });
   });
 });
 

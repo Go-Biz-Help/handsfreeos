@@ -75,6 +75,41 @@ function describeAction(e: AuditEntry): string {
         : 'joined the workspace';
     case 'membership.change_role':
       return `changed ${who(e)}'s role from ${ROLE[s(e.before?.role)] ?? s(e.before?.role)} to ${ROLE[s(e.after?.role)] ?? s(e.after?.role)}`;
+    // Milestone 10: a person's own account, handing a business over, and their cell
+    case 'organization.add_owner':
+      return `made ${who(e)} an owner of ${s(e.after?.organization) || 'the organization'}`;
+    case 'account.delete':
+      return e.entityId && e.entityId !== e.actor.userId
+        ? `made ${who(e)} an owner of ${s(e.after?.organization) || 'the business'} before deleting their account`
+        : 'asked to delete their account';
+    case 'account.note_deleted':
+      return 'finished deleting a teammate’s account: what they worked on stays, shown as from a former teammate';
+    case 'assistant.consent':
+      return 'said OK to the Assistant sending what they ask about to Anthropic’s Claude';
+    case 'user_phone.start_verification':
+      return 'asked HandsFreeOS to call their cell phone to confirm it';
+    case 'user_phone.verify':
+      return 'confirmed a teammate’s cell phone: they pressed 1 on the call';
+    case 'push_device.register':
+      return 'turned on notifications on a phone';
+    case 'push_device.remove':
+      return 'turned off notifications on a phone';
+    case 'call.connect_me':
+      return `called ${s(e.after?.to) || 'a customer'} through their cell`;
+    case 'call.cancel_connect':
+      return s(e.after?.direction)
+        ? `filed the cancelled call to ${withWho(e)}: their phone had started to ring`
+        : `cancelled a call to ${withWho(e)} through their cell`;
+    case 'phone_number.set_caller_id':
+      return s(e.after?.forwardedCallerId) === 'business'
+        ? 'set forwarded calls to show the business number'
+        : 'set forwarded calls to show the customer’s number';
+    case 'message.cancel_scheduled':
+      return 'cancelled a text that was waiting for quiet hours to end';
+    case 'message.release_scheduled':
+      return s(e.after?.status) === 'failed'
+        ? `didn’t send a text held for quiet hours${s(e.after?.errorMessage) ? `: ${s(e.after?.errorMessage)}` : ''}`
+        : `sent a text to ${s(e.after?.to)} when quiet hours ended`;
     case 'membership.remove':
       return e.actor.userId === e.entityId
         ? 'left the workspace'
@@ -217,15 +252,17 @@ function describeAction(e: AuditEntry): string {
     case 'conversation.link_person':
       return `linked the conversation with ${withWho(e)} to ${s(e.after?.person)}`;
     case 'conversation.unanswered_check':
-      return `emailed ${list(e.after?.emailed) || 'nobody'} that ${s(e.after?.with)} is waiting for a reply`;
+      return unansweredSentence(e);
     case 'message.send':
       return e.entityType === 'conversation'
         ? `started a conversation with ${withWho(e)}`
-        : s(e.after?.to) === 'Website chat'
-          ? 'replied in a website chat'
-          : s(e.after?.subject)
-            ? `sent an email to ${s(e.after?.to)} · ${s(e.after?.subject)}`
-            : `sent a text to ${s(e.after?.to)}`;
+        : s(e.after?.sendAt)
+          ? `held a text to ${s(e.after?.to)} until quiet hours end, ${when(e.after?.sendAt)}`
+          : s(e.after?.to) === 'Website chat'
+            ? 'replied in a website chat'
+            : s(e.after?.subject)
+              ? `sent an email to ${s(e.after?.to)} · ${s(e.after?.subject)}`
+              : `sent a text to ${s(e.after?.to)}`;
     case 'message.retry':
       return `tried the ${s(e.after?.to).includes('@') ? 'email' : 'text'} to ${s(e.after?.to)} again`;
     case 'message.receive':
@@ -241,6 +278,9 @@ function describeAction(e: AuditEntry): string {
     case 'call.record':
       return `took a call from ${s(e.after?.from) || 'a caller'}`;
     case 'call.update_status':
+      // A call through a teammate's cell that nobody pressed 1 on (M10): it never reached the customer.
+      if (s(e.after?.status) && !s(e.after?.direction))
+        return `ended a call through a teammate’s cell to ${withWho(e)}: nobody pressed 1, so it never rang`;
       return s(e.after?.duration)
         ? `logged a ${s(e.after?.duration)} call ${s(e.after?.direction) === 'outbound' ? 'to' : 'from'} ${s(e.after?.with)}`
         : `logged a missed call ${s(e.after?.direction) === 'outbound' ? 'to' : 'from'} ${s(e.after?.with)}`;
@@ -1116,6 +1156,25 @@ function calendarStatusSentence(e: AuditEntry): string {
 
 const withWho = (e: AuditEntry) =>
   s(e.after?.with) || s(e.before?.with) || e.entityName || 'a customer';
+
+/**
+ * A customer waiting for a reply, told: by email to the people named, and (M10) on the phones of `pushed` people,
+ * so the line never says "emailed nobody" when phones were told.
+ */
+function unansweredSentence(e: AuditEntry): string {
+  const emailed = list(e.after?.emailed);
+  const pushed = Number(e.after?.pushed ?? 0);
+  const phones =
+    pushed > 0 ? `told ${pushed === 1 ? '1 person' : `${pushed} people`} on their phones` : '';
+  const how =
+    emailed && phones
+      ? `emailed ${emailed} and ${phones}`
+      : emailed
+        ? `emailed ${emailed}`
+        : phones;
+  return `${how || 'emailed nobody'} that ${s(e.after?.with)} is waiting for a reply`;
+}
+
 const when = (v: unknown) => {
   const d = typeof v === 'string' ? new Date(v) : null;
   return d && !Number.isNaN(d.getTime())
@@ -1303,7 +1362,14 @@ export function auditCategory(action: string): AuditCategory {
   )
     return 'ai_team';
   if (CALENDAR_PREFIXES.some((p) => action.startsWith(p))) return 'calendar';
-  if (action.startsWith('membership.')) return 'members';
+  // A person's own account (deleting it hands a business over) and their cell phone: about the team (M10).
+  if (
+    action.startsWith('membership.') ||
+    action.startsWith('account.') ||
+    action.startsWith('user_phone.') ||
+    action === 'organization.add_owner'
+  )
+    return 'members';
   if (action.startsWith('invitation.')) return 'invitations';
   if (action.startsWith('workspace.') || action.startsWith('organization.')) return 'workspace';
   if (

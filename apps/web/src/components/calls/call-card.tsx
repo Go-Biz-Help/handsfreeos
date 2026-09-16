@@ -69,6 +69,10 @@ export function CallCard({
   const live = LIVE.has(item.status);
   const answered = inbound ? !!item.answeredVia : item.status === 'completed';
   const missed = !live && !answered;
+  // A call a teammate placed through their own cell (M10): "Dale called · from their cell".
+  const bridge = !inbound && item.answeredVia === 'bridge';
+  const caller = item.sentBy ?? item.answeredBy;
+  const callerFirst = caller?.fullName.trim().split(/\s+/)[0] || null;
   const title = live
     ? inbound
       ? 'Incoming call'
@@ -76,7 +80,9 @@ export function CallCard({
     : answered
       ? inbound
         ? 'Incoming call'
-        : 'Outgoing call'
+        : bridge && callerFirst
+          ? `${callerFirst} called`
+          : 'Outgoing call'
       : inbound
         ? 'Missed call'
         : 'Call not answered';
@@ -88,9 +94,15 @@ export function CallCard({
       ? answered
         ? answeredLine(item)
         : null
-      : item.sentBy
-        ? `${item.sentBy.fullName} called`
-        : null;
+      : bridge
+        ? answered
+          ? 'from their cell, showing the business number'
+          : caller
+            ? `${caller.fullName} called from their cell`
+            : 'called from a cell'
+        : item.sentBy
+          ? `${item.sentBy.fullName} called`
+          : null;
   return (
     <div
       data-testid={`call-${item.id}`}

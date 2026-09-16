@@ -2,7 +2,8 @@
  * M10 step 6b: the fake carrier on your own computer. With callbacks on (as `pnpm dev` runs it), the calls the worker
  * places play out against its own TwiML over real HTTP: the verification call answers and presses 1, and a call
  * through the cell answers, presses 1, reaches the customer, talks, hangs up and leaves a recording whose words come
- * back. That is what makes "Call" work end to end locally, with nothing mocked.
+ * back. That is what makes "Call" work end to end locally, with nothing mocked. A call cancelled while the cell rings
+ * (step 7) stops where it is: the customer is never dialed.
  */
 import { randomUUID } from 'node:crypto';
 import { createServer } from 'node:net';
@@ -10,6 +11,7 @@ import { eq } from 'drizzle-orm';
 import pino from 'pino';
 import {
   bridgeStatusOf,
+  callCancelConnect,
   callConnectMe,
   createTokenVerifier,
   executeCommand,
@@ -192,5 +194,31 @@ describe('calls through a cell on the fake carrier, played out', () => {
     });
     expect(bridgeStatusOf(c!)).toBe('ended');
     expect(c!.activityId).toBeTruthy();
+  }, 60_000);
+
+  it('stops a call cancelled while the cell rings: the customer is never dialed', async () => {
+    const { callId } = (
+      await executeCommand(
+        api(),
+        callConnectMe,
+        { workspaceId, personId: mikeId },
+        actor(dale),
+        meta(),
+      )
+    ).output;
+    let sid: string | null = null;
+    await until(async () => {
+      const [c] = await admin().select().from(calls).where(eq(calls.id, callId));
+      sid = c?.providerSid ?? null;
+      return !!sid;
+    });
+    await executeCommand(api(), callCancelConnect, { workspaceId, callId }, actor(dale), meta());
+    await until(async () => s.telephony.ended.includes(sid!));
+    // Long enough for a call that kept going to have dialed the customer.
+    await sleep(3_000);
+    await until(async () => true);
+    const [c] = await admin().select().from(calls).where(eq(calls.id, callId));
+    expect(c).toMatchObject({ status: 'canceled', answeredByUserId: null, answeredNumber: null });
+    expect(bridgeStatusOf(c!)).toBe('cancelled');
   }, 60_000);
 });

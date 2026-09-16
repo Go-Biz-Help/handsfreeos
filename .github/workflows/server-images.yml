@@ -1,0 +1,65 @@
+name: Server images
+
+# Builds the API's and the worker's Docker images exactly as Fly's builders do, and fails if either production tree
+# carries the phone's native code: react-native, @op-engineering/op-sqlite, or better-sqlite3 (the sync scenarios'
+# SQLite driver). drizzle-orm lists all three as optional peers, and pnpm would link them from elsewhere in the
+# workspace; .pnpmfile.mjs stops it, and this is the proof. Its own workflow, so the 45-minute CI job keeps its room.
+on:
+  push:
+    branches: [main]
+  pull_request:
+    paths:
+      - '**/package.json'
+      - pnpm-lock.yaml
+      - pnpm-workspace.yaml
+      - .pnpmfile.mjs
+      - .dockerignore
+      - apps/api/**
+      - apps/worker/**
+      - packages/**
+      - .github/workflows/server-images.yml
+  schedule:
+    # Nightly, 3:17 AM in Houston.
+    - cron: '17 8 * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: server-images-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  images:
+    name: ${{ matrix.app }} image has no phone code
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        app: [api, worker]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build the image from the repository root, as Fly does
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: apps/${{ matrix.app }}/Dockerfile
+          tags: hfos-${{ matrix.app }}:check
+          load: true
+          cache-from: type=gha,scope=${{ matrix.app }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.app }}
+
+      # Packages only: drizzle-orm's own folders named after its drivers (drizzle-orm/better-sqlite3) are fine.
+      - name: The production node_modules hold no react-native, op-sqlite or better-sqlite3
+        run: |
+          found=$(docker run --rm --entrypoint sh hfos-${{ matrix.app }}:check -c \
+            "find /app/node_modules \( -path '*/node_modules/react-native' -o -path '*/node_modules/@react-native' -o -path '*/node_modules/@op-engineering/op-sqlite' -o -path '*/node_modules/better-sqlite3' \) -prune -print")
+          if [ -n "$found" ]; then
+            echo "::error::The ${{ matrix.app }} image carries phone-only packages (check .pnpmfile.mjs):"
+            echo "$found"
+            exit 1
+          fi
+          docker run --rm --entrypoint sh hfos-${{ matrix.app }}:check -c 'du -sh /app/node_modules'
+          docker image ls hfos-${{ matrix.app }}:check --format 'Image size: {{.Size}}'

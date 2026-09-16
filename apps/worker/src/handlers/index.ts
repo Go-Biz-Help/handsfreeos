@@ -46,7 +46,7 @@ import {
 } from '../money/jobs';
 import { onRefundRequested } from '../money/refunds';
 import { onPlanCardRequested, onPlanChanged } from '../money/subscriptions';
-import { onBridgeRequested, onVerificationRequested } from '../telephony/cell';
+import { onBridgeCancelled, onBridgeRequested, onVerificationRequested } from '../telephony/cell';
 import { onPaymentConnectionConnected, onPaymentConnectionDisconnected } from './payments';
 import {
   onConversationLinked,
@@ -84,6 +84,7 @@ const ownTeammateAndWorkflows: HandlerMap = withWorkflows(
     'message.schedule_cancelled': onScheduleCancelled,
     // A call through someone's own cell rings it first; confirming a cell calls it (telephony/cell.ts).
     'call.started': onBridgeRequested,
+    'call.bridge_cancelled': onBridgeCancelled,
     'user_phone.verification_requested': onVerificationRequested,
     // Someone deleted their account: the job takes them off each business, then the profile and sign-in go.
     'account.deletion_requested': onAccountDeletionRequested,

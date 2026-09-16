@@ -113,6 +113,7 @@ describe('registry', () => {
       'invitation.accept',
       'membership.change_role',
       'membership.remove',
+      'organization.add_owner',
       'user.update_profile',
       'account.delete',
       'assistant.consent',
@@ -191,6 +192,7 @@ describe('registry', () => {
       'call.attach_recording',
       'call.attach_transcript',
       'call.connect_me',
+      'call.cancel_connect',
       'user_phone.start_verification',
       'user_phone.record_call',
       'user_phone.verify',
@@ -393,6 +395,9 @@ describe('registry', () => {
     ]);
     expect(registry.queries.map((q) => q.name)).toEqual([
       'account.me',
+      'account.deletion_check',
+      'push_device.list',
+      'user_phone.get',
       'workspace.get',
       'workspace.members',
       'workspace.invitations',

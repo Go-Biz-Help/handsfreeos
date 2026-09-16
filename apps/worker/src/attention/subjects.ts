@@ -40,6 +40,8 @@ export const ATTENTION_EVENTS: readonly string[] = [
   // A call through someone's own cell that never reached the customer (M10): it changes nothing for them, but
   // every call event is looked at, so a card never waits on one it didn't hear about.
   'call.bridge_unanswered',
+  // Cancelled before the customer answered: the same, and a customer whose phone was already ringing gets call.missed.
+  'call.bridge_cancelled',
   'call.voicemail_left',
   'call.transcribed',
   'activity.logged',

@@ -40,3 +40,17 @@ export const PushDeviceRemoveOutput = z.object({
   deviceId: uuid.nullable(),
   changed: z.boolean(),
 });
+
+/** The phones a person gets notifications on (M10): each live install of the app they're signed in on. */
+export const PushDeviceListInput = z.object({});
+export const PushDeviceListOutput = z.object({
+  devices: z.array(
+    z.object({
+      id: uuid,
+      platform: pushPlatform,
+      deviceName: z.string().nullable(),
+      appVersion: z.string(),
+      lastSeenAt: z.iso.datetime(),
+    }),
+  ),
+});

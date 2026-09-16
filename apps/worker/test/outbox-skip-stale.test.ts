@@ -16,8 +16,9 @@ import { testServices } from './helpers';
 
 /**
  * Playwright's POST /test/outbox/skip-stale: pending events written before a browser run began are marked done
- * (with a note), and later ones stay pending. Only this test's own rows are backdated (to 2001), so the other
- * suites' rows in the shared database are never touched.
+ * (with a note), and later ones stay pending. POST /test/scheduled-jobs/skip-stale (step 7) does the same for due
+ * business jobs, leaving jobs not yet due and the worker's own recurring ones. Only this test's own rows are backdated
+ * (to 2001), so the other suites' rows in the shared database are never touched.
  */
 
 const actor = (u: TestUser): HumanActor => ({
@@ -133,5 +134,76 @@ describe('POST /test/outbox/skip-stale', () => {
   it('refuses a `before` that isn’t a time', async () => {
     expect((await post({ before: 'yesterday' })).statusCode).toBe(400);
     expect((await post({})).statusCode).toBe(400);
+  });
+});
+
+describe('POST /test/scheduled-jobs/skip-stale', () => {
+  it('cancels due business jobs written before `before`, and leaves the rest', async () => {
+    const { output } = await executeCommand(
+      testDbs().api.db,
+      organizationCreate,
+      { businessName: 'Stale Jobs HVAC' },
+      actor(owner),
+      { correlationId: randomUUID(), channel: 'test' as const },
+    );
+    const tag = randomUUID();
+    const job = async (
+      name: string,
+      opts: { createdAt: string; runAt: string; business: boolean },
+    ) => {
+      const [row] = await rows<{ id: string }>(
+        admin(),
+        sql`insert into app.scheduled_jobs (organization_id, workspace_id, kind, dedupe_key, run_at, payload, created_at)
+            values (${opts.business ? output.organizationId : null}, ${opts.business ? output.workspaceId : null},
+              'test.stale', ${`${tag}:${name}`}, ${opts.runAt}::timestamptz, '{}'::jsonb, ${opts.createdAt}::timestamptz)
+            returning id`,
+      );
+      return row!.id;
+    };
+    const stale = await job('stale', {
+      createdAt: '2001-01-01T00:00:00Z',
+      runAt: '2001-01-01T00:05:00Z',
+      business: true,
+    });
+    // A plan that fans out over every business, left pending with no business of its own.
+    const plan = await job('plan', {
+      createdAt: '2001-01-01T00:00:00Z',
+      runAt: '2001-01-01T00:05:00Z',
+      business: false,
+    });
+    // Due during the run (a recheck an hour from now).
+    const soon = await job('soon', {
+      createdAt: '2001-01-01T00:00:00Z',
+      runAt: new Date(Date.now() + 60 * 60_000).toISOString(),
+      business: true,
+    });
+    // Due long after it (a seeded business's reminder next week).
+    const later = await job('later', {
+      createdAt: '2001-01-01T00:00:00Z',
+      runAt: new Date(Date.now() + 7 * 86_400_000).toISOString(),
+      business: true,
+    });
+    const fresh = await job('fresh', {
+      createdAt: '2001-01-03T00:00:00Z',
+      runAt: '2001-01-03T00:05:00Z',
+      business: true,
+    });
+    const res = await app.inject({
+      method: 'POST',
+      url: '/test/scheduled-jobs/skip-stale',
+      payload: { before: '2001-01-02T00:00:00Z' },
+    });
+    expect(res.statusCode, res.body).toBe(200);
+    expect(res.json()).toEqual({ skipped: 3 });
+    const after = await rows<{ id: string; status: string; last_error: string | null }>(
+      admin(),
+      sql`select id, status::text as status, last_error from app.scheduled_jobs where dedupe_key like ${`${tag}:%`}`,
+    );
+    const statusOf = (id: string) => after.find((r) => r.id === id);
+    for (const id of [stale, plan, soon])
+      expect(statusOf(id)).toEqual({ id, status: 'cancelled', last_error: STALE_SKIP_NOTE });
+    for (const id of [later, fresh])
+      expect(statusOf(id)).toMatchObject({ status: 'pending', last_error: null });
+    await rows(admin(), sql`delete from app.scheduled_jobs where dedupe_key like ${`${tag}:%`}`);
   });
 });

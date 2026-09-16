@@ -1,4 +1,5 @@
 import type { QueryDef } from '../kernel/types';
+import { accountDeletionCheck, pushDeviceList, userPhoneGet } from './account';
 import { aiTeammateActivity, aiTeammateDraftList, aiTeammateGet } from './ai-team';
 import {
   attentionForRecord,
@@ -86,6 +87,9 @@ import {
 } from './knowledge';
 
 export {
+  accountDeletionCheck,
+  pushDeviceList,
+  userPhoneGet,
   conversationGet,
   conversationThread,
   inboxList,
@@ -137,6 +141,9 @@ export { emailComposeOptions };
 
 export const queries: readonly QueryDef[] = [
   me,
+  accountDeletionCheck,
+  pushDeviceList,
+  userPhoneGet,
   workspaceGet,
   workspaceMembers,
   workspaceInvitations,

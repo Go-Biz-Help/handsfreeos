@@ -8,11 +8,18 @@
  *   UPDATE_CONTRACT=1 pnpm --filter @hfos/core exec vitest run test/mobile-contract.test.ts
  *   pnpm exec prettier --write packages/core/test/contract/mobile-contract.json
  *
- * `tables` is the synced tables' slot: the sync service's streams (apps/sync) record each table's columns there.
+ * `tables` is what each sync stream sends: "stream.table" → every column and its type in the database, read from
+ * apps/sync/sync-config.yaml (apps/sync/src/shape.ts). A column removed, renamed or given another type fails here;
+ * stream names carry a version (`business_v1`), so that kind of change is a new stream beside the old one, which
+ * old builds keep using. Retiring a stream (once MIN_APP_VERSION is past every build that uses it) means deleting
+ * its tables from the record by hand, on purpose. A type change a phone reads the same way (integer to bigint) can
+ * be edited in the record by hand too, saying why in the commit.
  */
 import { readFileSync, writeFileSync } from 'node:fs';
-import { describe, expect, it } from 'vitest';
+import { closeTestDbs, testDbs } from '@hfos/db/testing';
+import { afterAll, describe, expect, it } from 'vitest';
 import { z } from 'zod';
+import { syncConfigFile, syncedTables, unversionedStreams } from '../../../apps/sync/src/shape';
 import { registry } from '../src/server';
 import {
   incompatibilities,
@@ -25,8 +32,8 @@ const RECORD = new URL('./contract/mobile-contract.json', import.meta.url);
 
 /**
  * Online commands the phone also sends: a draft estimate or invoice saved on it (a stale save keeps a new draft);
- * calling a customer through the person's own cell and verifying that cell; deleting the account; the
- * Assistant's consent; and registering the phone for push notifications, or removing it.
+ * calling a customer through the person's own cell, cancelling that call, and verifying that cell; deleting the
+ * account; the Assistant's consent; and registering the phone for push notifications, or removing it.
  */
 const ONLINE_COMMANDS = [
   'estimate.create',
@@ -34,6 +41,7 @@ const ONLINE_COMMANDS = [
   'invoice.create',
   'invoice.update',
   'call.connect_me',
+  'call.cancel_connect',
   'user_phone.start_verification',
   'account.delete',
   'assistant.consent',
@@ -92,14 +100,17 @@ function currentContract(tables: Contract['tables']): Contract {
 }
 
 describe('the phone’s contract', () => {
-  it('only grows', () => {
+  afterAll(closeTestDbs);
+
+  it('only grows', async () => {
     let recorded: Contract | null = null;
     try {
       recorded = JSON.parse(readFileSync(RECORD, 'utf8')) as Contract;
     } catch {
       recorded = null;
     }
-    const current = currentContract(recorded?.tables ?? {});
+    // The synced tables' columns and types come from the streams and the local database's schema.
+    const current = currentContract(await syncedTables(testDbs().admin.db));
     if (process.env.UPDATE_CONTRACT || !recorded) {
       if (recorded) expect(incompatibilities(recorded, current)).toEqual([]);
       writeFileSync(RECORD, `${JSON.stringify(current, null, 2)}\n`);
@@ -127,6 +138,40 @@ describe('the phone’s contract', () => {
         'estimate.update',
       ]),
     );
+  });
+
+  it('versions every sync stream, so a change old builds can’t take is a new stream', async () => {
+    expect(unversionedStreams(), 'stream names end in _v1, _v2, …').toEqual([]);
+    const recorded = JSON.parse(readFileSync(RECORD, 'utf8')) as Contract;
+    expect(Object.keys(recorded.tables)).toEqual(
+      expect.arrayContaining(['me_v1.workspace_access', 'business_v1.people', 'agency_v1.users']),
+    );
+    // Scratch copies of today's streams: a customer's notes dropped, their number renamed, their city retyped.
+    const config = readFileSync(syncConfigFile, 'utf8');
+    const people = /^( {6}- SELECT id, workspace_id, company_id, first_name.*)$/m;
+    const line = people.exec(config)![1]!;
+    const tablesWith = (edited: string) =>
+      syncedTables(testDbs().admin.db, config.replace(line, edited));
+    const broken = await tablesWith(
+      line
+        .replace(' notes,', '')
+        .replace(' phone_e164,', ' phone_e164 AS phone_number,')
+        .replace(' city,', ' created_at AS city,'),
+    );
+    expect(incompatibilities(recorded, { ...recorded, tables: broken })).toEqual([
+      'table business_v1.people: column phone_e164 removed',
+      'table business_v1.people: column city changed from text to timestamp with time zone',
+      'table business_v1.people: column notes removed',
+    ]);
+    // The same change as a new version beside the old stream is growth: old builds keep business_v1.
+    const v2 = config.replace(
+      /\n {2}agency_v1:/,
+      `\n  business_v2:\n    queries:\n${line.replace(' notes,', '').replace('IN access', "= 'x'")}\n\n  agency_v1:`,
+    );
+    const grown = await syncedTables(testDbs().admin.db, v2);
+    expect(Object.keys(grown)).toContain('business_v2.people');
+    expect(incompatibilities(recorded, { ...recorded, tables: grown })).toEqual([]);
+    expect(unversionedStreams(config.replace('agency_v1:', 'agency:'))).toEqual(['agency']);
   });
 });
 

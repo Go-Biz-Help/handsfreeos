@@ -15,6 +15,13 @@
  * note saying why. The core, DB and worker suites leave thousands of events behind in the shared local database,
  * and a browser run's worker would otherwise spend minutes on them before reaching the specs' own. Playwright's
  * global setup calls it with the run's start time, so the run's own events are never touched.
+ *
+ * POST /test/scheduled-jobs/skip-stale { before } does the same for the jobs those suites leave behind (reminders,
+ * pushes, rechecks, sweeps and the plans that fan out over every test business, often thousands): a pending job
+ * written before `before` that is due by two hours after it is cancelled with the same note, so a spec's own jobs (a
+ * registration's poll) don't wait behind them, and no sweep of the suites' businesses floods the outbox mid-run. A
+ * browser run is shorter than that; jobs due later (a seeded business's reminders next week) are left for the next
+ * `pnpm dev`, and the worker makes its recurring plans again whenever it starts.
  */
 import { randomUUID } from 'node:crypto';
 import { HfosError, scheduleJob } from '@hfos/core/server';
@@ -134,6 +141,24 @@ export function registerTestRoutes(app: FastifyInstance, deps: HttpDeps, test: T
               update app.outbox
               set status = 'done', locked_at = null, locked_by = null, last_error = ${STALE_SKIP_NOTE}
               where status = 'pending' and created_at < ${body.before}::timestamptz
+              returning 1)
+            select count(*)::int as skipped from skipped`,
+      ),
+    );
+    return { skipped: row?.skipped ?? 0 };
+  });
+
+  app.post('/test/scheduled-jobs/skip-stale', async (req) => {
+    const body = parseBody(SkipStale, req.body ?? {});
+    const [row] = await asWorker(deps.db, {}, (tx) =>
+      rows<{ skipped: number }>(
+        tx,
+        sql`with skipped as (
+              update app.scheduled_jobs
+              set status = 'cancelled', locked_at = null, locked_by = null, finished_at = now(),
+                last_error = ${STALE_SKIP_NOTE}
+              where status = 'pending' and created_at < ${body.before}::timestamptz
+                and run_at <= greatest(now(), ${body.before}::timestamptz) + interval '2 hours'
               returning 1)
             select count(*)::int as skipped from skipped`,
       ),

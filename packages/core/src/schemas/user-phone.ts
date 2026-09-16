@@ -21,6 +21,21 @@ export const UserPhoneStartVerificationOutput = z.object({
   callerId: z.string(),
 });
 
+/** My cell phone as the person set it: verified, or waiting for them to press 1 (null when there is none). */
+export const UserPhoneGetInput = z.object({});
+export const UserPhoneGetOutput = z.object({
+  phone: z
+    .object({
+      id: uuid,
+      e164: z.string(),
+      /** When they pressed 1 on the call; null until they do. */
+      verifiedAt: z.iso.datetime().nullable(),
+      /** The last verification call HandsFreeOS placed to it. */
+      lastVerificationAt: z.iso.datetime().nullable(),
+    })
+    .nullable(),
+});
+
 // ---------- worker-only (system actor) ----------
 export const UserPhoneRecordCallInput = z.object({
   workspaceId: uuid,

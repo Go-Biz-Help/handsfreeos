@@ -7,6 +7,10 @@ type Ok<P extends keyof paths> = paths[P] extends {
   : never;
 
 export type Me = Ok<'/v1/queries/account.me'>;
+// Milestone 10: a person's own account (Settings → Account, Delete my account)
+export type AccountDeletionCheck = Ok<'/v1/queries/account.deletion_check'>;
+export type PushDeviceList = Ok<'/v1/queries/push_device.list'>;
+export type CellPhone = NonNullable<Ok<'/v1/queries/user_phone.get'>['phone']>;
 export type WorkspaceSummary = Me['workspaces'][number];
 export type WorkspaceGet = Ok<'/v1/queries/workspace.get'>;
 export type Members = Ok<'/v1/queries/workspace.members'>;

@@ -58,6 +58,48 @@ export const AccountDeleteOutput = z.object({
   requestedAt: isoDateTime,
 });
 
+const PersonRef = z.object({ userId: uuid, fullName: z.string(), email: z.string() });
+
+/**
+ * Whether Delete my account works now, and what stands in the way (M10). A business that would be left without an
+ * owner needs someone else made an owner first (Members); an agency, someone who owns one of its businesses made an
+ * owner of the agency (organization.add_owner). An organization holding a single business passes to that business's
+ * other owners on its own, and is listed so the page can say so.
+ */
+export const AccountDeletionCheckInput = z.object({});
+export const AccountDeletionCheckOutput = z.object({
+  /** Nothing stands in the way. */
+  ready: z.boolean(),
+  /** Businesses the person is the only owner of. */
+  businesses: z.array(
+    z.object({
+      workspaceId: uuid,
+      name: z.string(),
+      /** A teammate to suggest making an owner (an admin first, then a member); null when there is nobody else. */
+      suggestion: PersonRef.nullable(),
+    }),
+  ),
+  /** Agencies (organizations with several businesses) the person is the only owner of. */
+  agencies: z.array(
+    z.object({
+      organizationId: uuid,
+      name: z.string(),
+      businessCount: z.number().int(),
+      /** Who can be made an owner: people who own one of its businesses (named), or admins of the agency. */
+      candidates: z.array(PersonRef.extend({ owns: z.array(z.string()) })),
+    }),
+  ),
+  /** Organizations holding one business that pass to its other owners when the person's account goes. */
+  handsOver: z.array(
+    z.object({
+      organizationId: uuid,
+      workspaceId: uuid,
+      name: z.string(),
+      to: z.array(PersonRef),
+    }),
+  ),
+});
+
 /** The person's OK to send what they ask the Assistant about to Anthropic's Claude. One OK covers every app. */
 export const AssistantConsentInput = z.object({
   /** The wording version they were shown (ASSISTANT_CONSENT_VERSION). */

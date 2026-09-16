@@ -1,6 +1,6 @@
 'use client';
 import { smsKeyword } from '@hfos/core';
-import { CheckCheck, CircleAlert, Sparkles } from 'lucide-react';
+import { CheckCheck, CircleAlert, Moon, Sparkles } from 'lucide-react';
 import { Fragment, type ReactNode } from 'react';
 import { CallCard } from '@/components/calls/call-card';
 import { Button } from '@/components/ui/button';
@@ -64,11 +64,14 @@ export function MessageLog({
   loadingEarlier,
   onLoadEarlier,
   onRetry,
+  onCancelScheduled,
   compact,
   tail,
 }: {
   items: ThreadItem[];
   pending: PendingText[];
+  /** Cancel on a text held for quiet hours: it never goes. */
+  onCancelScheduled?: (messageId: string) => void;
   /** After the newest message: the AI teammate's draft, or what became of it. */
   tail?: ReactNode;
   /** For "Mike opted out of texts"; null for a number nobody has linked. */
@@ -133,6 +136,7 @@ export function MessageLog({
               <MessageEntry
                 item={item}
                 onRetry={onRetry}
+                onCancelScheduled={onCancelScheduled}
                 customerFirstName={customerFirstName}
                 compact={compact}
               />
@@ -167,14 +171,77 @@ export function MessageLog({
   );
 }
 
+/** When a held text goes, as this browser reads the moment: "at 8:00 AM", "tomorrow at 8:00 AM", "Monday at 8:00 AM". */
+export function heldWhen(iso: string, now = new Date()): string {
+  const d = new Date(iso);
+  const time = clockTime(iso);
+  if (d.toDateString() === now.toDateString()) return `at ${time}`;
+  const tomorrow = new Date(now);
+  tomorrow.setDate(now.getDate() + 1);
+  if (d.toDateString() === tomorrow.toDateString()) return `tomorrow at ${time}`;
+  return `${d.toLocaleDateString('en-US', { weekday: 'long' })} at ${time}`;
+}
+
+/** A text held for quiet hours (M10): it waits in the thread with when it goes, and Cancel keeps it from going. */
+function HeldEntry({
+  item,
+  onCancel,
+}: {
+  item: ThreadItem & { scheduledFor: string };
+  onCancel?: (messageId: string) => void;
+}) {
+  const sender = item.sentBy ? firstName(item.sentBy.fullName) : 'HandsFreeOS';
+  return (
+    <div
+      data-testid={`message-${item.id}`}
+      data-direction={item.direction}
+      data-status="scheduled"
+      className="mt-2 flex max-w-[84%] flex-col items-end gap-[3px] self-end md:max-w-[76%]"
+    >
+      {item.media.map((m) => (
+        <MediaThumb
+          key={m.objectPath}
+          bucket={m.bucket}
+          objectPath={m.objectPath}
+          name={m.name}
+          contentType={m.contentType}
+        />
+      ))}
+      {item.body ? (
+        <div className="whitespace-pre-wrap rounded-2xl rounded-br-[5px] border border-dashed border-[color-mix(in_oklab,var(--accent)_55%,transparent)] bg-accent-soft px-[13px] py-[9px] text-[15px] leading-[1.45] text-text [overflow-wrap:anywhere] md:text-sm">
+          {item.body}
+        </div>
+      ) : null}
+      <div className="flex flex-wrap items-center justify-end gap-x-[5px] px-1 text-[11.5px] text-text-3">
+        <Moon className="h-3 w-3 text-warning-text" strokeWidth={1.75} />
+        <span data-testid={`held-${item.id}`}>
+          {sender} · Sends {heldWhen(item.scheduledFor)}, when quiet hours end
+        </span>
+        {onCancel ? (
+          <Button
+            variant="ghost"
+            className="h-6 px-1.5 text-xs"
+            onClick={() => onCancel(item.id)}
+            data-testid={`cancel-held-${item.id}`}
+          >
+            Cancel
+          </Button>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
 function MessageEntry({
   item,
   onRetry,
+  onCancelScheduled,
   customerFirstName,
   compact,
 }: {
   item: ThreadItem;
   onRetry?: (messageId: string) => void;
+  onCancelScheduled?: (messageId: string) => void;
   customerFirstName: string | null;
   compact?: boolean;
 }) {
@@ -186,6 +253,10 @@ function MessageEntry({
   const ai = out ? teammateMessageOf(item) : null;
   const sender = item.sentBy ? firstName(item.sentBy.fullName) : 'HandsFreeOS';
   const mediaNames = item.media.map((m) => m.name).join(', ');
+  if (out && item.scheduledFor)
+    return (
+      <HeldEntry item={{ ...item, scheduledFor: item.scheduledFor }} onCancel={onCancelScheduled} />
+    );
   return (
     <>
       <div

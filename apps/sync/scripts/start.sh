@@ -69,8 +69,8 @@ docker create --name "$SERVICE" --network "$NETWORK" -p "127.0.0.1:$PORT:8080" \
 # The service runs as an unprivileged user, so the copied folder must be readable by everyone (mktemp makes it 700).
 config_dir=$(mktemp -d)
 trap 'rm -rf "$config_dir"' EXIT
-cp "$SYNC_DIR/service.yaml" "$SYNC_DIR/sync-config.yaml" "$config_dir/"
-chmod 755 "$config_dir" && chmod 644 "$config_dir"/*.yaml
+cp "$SYNC_DIR/service.yaml" "$SYNC_DIR/sync-config.yaml" "$SYNC_DIR/scripts/status.mjs" "$config_dir/"
+chmod 755 "$config_dir" && chmod 644 "$config_dir"/*
 docker cp "$config_dir/." "$SERVICE:/config"
 docker start "$SERVICE" >/dev/null
 

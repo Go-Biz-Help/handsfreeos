@@ -49,6 +49,7 @@ export default async function WorkspaceLayout({
               workspaceId={workspaceId}
               workspaceName={current.name}
               enabled={hasWorkspacePermission(current.role, 'assistant.use')}
+              consentNeeded={me.assistantConsent.needed}
             >
               <div className="flex min-h-screen bg-bg">
                 <ThemeSync theme={parseTheme((me.user.settings as { theme?: unknown }).theme)} />

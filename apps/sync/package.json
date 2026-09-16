@@ -1,0 +1,22 @@
+{
+  "name": "@hfos/sync",
+  "private": true,
+  "type": "module",
+  "description": "The PowerSync Service's config, its local and Fly scripts, and the end-to-end sync scenarios (a Node client plays the phone).",
+  "scripts": {
+    "lint": "eslint . --config ../../eslint.config.js",
+    "typecheck": "tsc --noEmit",
+    "test:scenarios": "vitest run"
+  },
+  "devDependencies": {
+    "@hfos/api": "workspace:*",
+    "@hfos/core": "workspace:*",
+    "@hfos/db": "workspace:*",
+    "@powersync/common": "2.2.1",
+    "@powersync/node": "1.0.1",
+    "@types/node": "^22.20.0",
+    "better-sqlite3": "12.11.1",
+    "typescript": "^5.9.0",
+    "vitest": "^4.0.0"
+  }
+}

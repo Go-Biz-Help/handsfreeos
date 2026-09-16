@@ -739,6 +739,23 @@
         "required": ["workspaceId", "itemId"]
       }
     },
+    "call.cancel_connect": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "callId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": ["workspaceId", "callId"]
+      }
+    },
     "call.connect_me": {
       "offline": "online",
       "input": {
@@ -4305,5 +4322,1092 @@
       }
     }
   },
-  "tables": {}
+  "tables": {
+    "agency_v1.organization_memberships": {
+      "columns": {
+        "id": "uuid",
+        "organization_id": "uuid",
+        "user_id": "uuid",
+        "role": "app.org_role",
+        "created_at": "timestamp with time zone",
+        "updated_at": "timestamp with time zone"
+      }
+    },
+    "agency_v1.organizations": {
+      "columns": {
+        "id": "uuid",
+        "name": "text",
+        "slug": "text",
+        "created_at": "timestamp with time zone",
+        "updated_at": "timestamp with time zone"
+      }
+    },
+    "agency_v1.users": {
+      "columns": {
+        "id": "uuid",
+        "email": "citext",
+        "full_name": "text",
+        "avatar_url": "text"
+      }
+    },
+    "business_v1.activities": {
+      "columns": {
+        "id": "uuid",
+        "workspace_id": "uuid",
+        "kind": "app.activity_kind",
+        "subtype": "text",
+        "person_id": "uuid",
+        "company_id": "uuid",
+        "lead_id": "uuid",
+        "body": "text",
+        "occurred_at": "timestamp with time zone",
+        "author_user_id": "uuid",
+        "actor_type": "app.actor_type",
+        "meta": "jsonb",
+        "created_at": "timestamp with time zone",
+        "updated_at": "timestamp with time zone"
+      }
+    },
+    "business_v1.ai_teammate_drafts": {
+      "columns": {
+        "id": "uuid",
+        "workspace_id": "uuid",
+        "teammate_id": "uuid",
+        "conversation_id": "uuid",
+        "person_id": "uuid",
+        "lead_id": "uuid",
+        "kind": "text",
+        "status": "app.workflow_approval_status",
+        "preview": "jsonb",
+        "edits": "jsonb",
+        "expires_at": "timestamp with time zone",
+        "client_id": "text",
+        "created_at": "timestamp with time zone",
+        "updated_at": "timestamp with time zone"
+      }
+    },
+    "business_v1.ai_teammates": {
+      "columns": {
+        "id": "uuid",
+        "workspace_id": "uuid",
+        "name": "text",
+        "status": "app.ai_teammate_status",
+        "archived_at": "timestamp with time zone",
+        "created_at": "timestamp with time zone",
+        "updated_at": "timestamp with time zone"
+      }
+    },
+    "business_v1.appointment_attendees": {
+      "columns": {
+        "id": "uuid",
+        "workspace_id": "uuid",
+        "appointment_id": "uuid",
+        "person_id": "uuid",
+        "status": "app.attendee_status",
+        "seats": "integer",
+        "intake": "jsonb",
+        "contact_phone_e164": "text",
+        "contact_email": "text",
+        "sms_ok": "boolean",
+        "source": "app.appointment_source",
+        "reschedule_count": "integer",
+        "cancelled_at": "timestamp with time zone",
+        "confirmed_at": "timestamp with time zone",
+        "confirmed_via": "text",
+        "confirmed_by": "uuid",
+        "confirm_asked_at": "timestamp with time zone",
+        "created_by": "uuid",
+        "created_at": "timestamp with time zone",
+        "updated_at": "timestamp with time zone"
+      }
+    },
+    "business_v1.appointment_staff": {
+      "columns": {
+        "id": "text",
+        "workspace_id": "uuid",
+        "appointment_id": "uuid",
+        "user_id": "uuid",
+        "role": "app.appointment_staff_role",
+        "active": "boolean",
+        "created_at": "timestamp with time zone"
+      }
+    },
+    "business_v1.appointments": {
+      "columns": {
+        "id": "uuid",
+        "workspace_id": "uuid",
+        "calendar_id": "uuid",
+        "calendar_revision": "integer",
+        "service_id": "uuid",
+        "kind": "app.appointment_kind",
+        "title": "text",
+        "starts_at": "timestamp with time zone",
+        "ends_at": "timestamp with time zone",
+        "buffer_before": "integer",
+        "buffer_after": "integer",
+        "capacity": "integer",
+        "seats_taken": "integer",
+        "status": "app.appointment_status",
+        "location": "jsonb",
+        "series_id": "uuid",
+        "occurrence": "integer",
+        "owner_user_id": "uuid",
+        "lead_id": "uuid",
+        "source": "app.appointment_source",
+        "notes": "text",
+        "client_id": "text",
+        "field_times": "jsonb",
+        "created_by": "uuid",
+        "created_at": "timestamp with time zone",
+        "updated_at": "timestamp with time zone"
+      }
+    },
+    "business_v1.attention_items": {
+      "columns": {
+        "id": "uuid",
+        "workspace_id": "uuid",
+        "kind": "text",
+        "subject_type": "text",
+        "subject_id": "uuid",
+        "person_id": "uuid",
+        "lead_id": "uuid",
+        "conversation_id": "uuid",
+        "state": "app.attention_state",
+        "opened_at": "timestamp with time zone",
+        "since_at": "timestamp with time zone",
+        "urgent_from": "timestamp with time zone",
+        "due_at": "timestamp with time zone",
+        "value_cents": "bigint",
+        "value_is_estimate": "boolean",
+        "money_key": "text",
+        "probability": "real",
+        "confidence": "real",
+        "reasons": "jsonb",
+        "title": "text",
+        "detail": "text",
+        "assignee_user_id": "uuid",
+        "snoozed_until": "timestamp with time zone",
+        "snoozed_at": "timestamp with time zone",
+        "snoozed_by": "uuid",
+        "dismissed_at": "timestamp with time zone",
+        "dismissed_by": "uuid",
+        "dismiss_reason": "text",
+        "handled_at": "timestamp with time zone",
+        "handled_by": "uuid",
+        "handled_via": "text",
+        "handled_until": "timestamp with time zone",
+        "auto_state": "text",
+        "auto_scheduled_for": "timestamp with time zone",
+        "auto_done_at": "timestamp with time zone",
+        "auto_skip_reason": "text",
+        "auto_cancelled_by": "uuid",
+        "created_at": "timestamp with time zone",
+        "updated_at": "timestamp with time zone"
+      }
+    },
+    "business_v1.calendar_busy_blocks": {
+      "columns": {
+        "id": "uuid",
+        "workspace_id": "uuid",
+        "user_id": "uuid",
+        "starts_at": "timestamp with time zone",
+        "ends_at": "timestamp with time zone",
+        "created_at": "timestamp with time zone"
+      }
+    },
+    "business_v1.calendar_members": {
+      "columns": {
+        "id": "text",
+        "workspace_id": "uuid",
+        "calendar_id": "uuid",
+        "user_id": "uuid",
+        "weight": "integer",
+        "priority": "integer",
+        "required": "boolean",
+        "created_at": "timestamp with time zone"
+      }
+    },
+    "business_v1.calendar_services": {
+      "columns": {
+        "id": "text",
+        "workspace_id": "uuid",
+        "calendar_id": "uuid",
+        "service_id": "uuid",
+        "position": "integer",
+        "overrides": "jsonb",
+        "created_at": "timestamp with time zone"
+      }
+    },
+    "business_v1.calendars": {
+      "columns": {
+        "id": "uuid",
+        "workspace_id": "uuid",
+        "name": "text",
+        "description": "text",
+        "color": "text",
+        "slug": "text",
+        "status": "app.calendar_status",
+        "public": "boolean",
+        "config": "jsonb",
+        "config_version": "integer",
+        "revision": "integer",
+        "labels": "text[]",
+        "owner_user_id": "uuid",
+        "timezone": "text",
+        "created_at": "timestamp with time zone",
+        "updated_at": "timestamp with time zone"
+      }
+    },
+    "business_v1.calls": {
+      "columns": {
+        "id": "uuid",
+        "workspace_id": "uuid",
+        "conversation_id": "uuid",
+        "phone_number_id": "uuid",
+        "person_id": "uuid",
+        "direction": "app.direction",
+        "from_e164": "text",
+        "to_e164": "text",
+        "status": "app.call_status",
+        "answered_via": "app.call_answered_via",
+        "answered_by_user_id": "uuid",
+        "answered_number": "text",
+        "placed_by": "uuid",
+        "started_at": "timestamp with time zone",
+        "answered_at": "timestamp with time zone",
+        "ended_at": "timestamp with time zone",
+        "duration_seconds": "integer",
+        "is_voicemail": "boolean",
+        "recording_seconds": "integer",
+        "transcript": "text",
+        "transcript_status": "text",
+        "created_at": "timestamp with time zone",
+        "updated_at": "timestamp with time zone"
+      }
+    },
+    "business_v1.companies": {
+      "columns": {
+        "id": "uuid",
+        "workspace_id": "uuid",
+        "name": "text",
+        "email": "citext",
+        "phone": "text",
+        "phone_e164": "text",
+        "website": "text",
+        "address_line1": "text",
+        "address_line2": "text",
+        "city": "text",
+        "state": "text",
+        "postal_code": "text",
+        "country": "text",
+        "notes": "text",
+        "source": "text",
+        "owner_user_id": "uuid",
+        "archived_at": "timestamp with time zone",
+        "possible_duplicate_of": "uuid",
+        "field_times": "jsonb",
+        "created_by": "uuid",
+        "created_at": "timestamp with time zone",
+        "updated_at": "timestamp with time zone"
+      }
+    },
+    "business_v1.conversations": {
+      "columns": {
+        "id": "uuid",
+        "workspace_id": "uuid",
+        "channel": "app.channel",
+        "counterpart": "text",
+        "phone_number_id": "uuid",
+        "email_address_id": "uuid",
+        "person_id": "uuid",
+        "status": "app.conversation_status",
+        "assignee_user_id": "uuid",
+        "snoozed_until": "timestamp with time zone",
+        "unread_count": "integer",
+        "last_message_at": "timestamp with time zone",
+        "last_inbound_at": "timestamp with time zone",
+        "last_outbound_at": "timestamp with time zone",
+        "last_preview": "text",
+        "last_direction": "app.direction",
+        "awaiting_reply_since": "timestamp with time zone",
+        "closed_at": "timestamp with time zone",
+        "closed_by": "uuid",
+        "handled_by": "app.conversation_handler",
+        "ai_teammate_id": "uuid",
+        "needs_person_since": "timestamp with time zone",
+        "handoff_reason": "text",
+        "handoff_note": "text",
+        "taken_over_by": "uuid",
+        "ai_disclosed_at": "timestamp with time zone",
+        "created_by": "uuid",
+        "created_at": "timestamp with time zone",
+        "updated_at": "timestamp with time zone"
+      }
+    },
+    "business_v1.email_addresses": {
+      "columns": {
+        "id": "uuid",
+        "workspace_id": "uuid",
+        "email_domain_id": "uuid",
+        "local_part": "text",
+        "address": "text",
+        "display_name": "text",
+        "is_default": "boolean",
+        "verified_at": "timestamp with time zone",
+        "created_at": "timestamp with time zone",
+        "updated_at": "timestamp with time zone"
+      }
+    },
+    "business_v1.email_suppressions": {
+      "columns": {
+        "id": "uuid",
+        "workspace_id": "uuid",
+        "address": "text",
+        "reason": "app.suppression_reason",
+        "created_at": "timestamp with time zone",
+        "updated_at": "timestamp with time zone"
+      }
+    },
+    "business_v1.estimate_lines": {
+      "columns": {
+        "id": "uuid",
+        "workspace_id": "uuid",
+        "estimate_id": "uuid",
+        "position": "integer",
+        "product_id": "uuid",
+        "name": "text",
+        "description": "text",
+        "quantity": "numeric",
+        "unit_label": "text",
+        "unit_price_cents": "bigint",
+        "taxable": "boolean",
+        "discount_cents": "bigint",
+        "amount_cents": "bigint",
+        "created_at": "timestamp with time zone",
+        "updated_at": "timestamp with time zone"
+      }
+    },
+    "business_v1.estimates": {
+      "columns": {
+        "id": "uuid",
+        "workspace_id": "uuid",
+        "number": "text",
+        "status": "app.estimate_status",
+        "person_id": "uuid",
+        "lead_id": "uuid",
+        "assignee_user_id": "uuid",
+        "title": "text",
+        "notes": "text",
+        "subtotal_cents": "bigint",
+        "discount_cents": "bigint",
+        "discount_percent_bp": "integer",
+        "taxable_base_cents": "bigint",
+        "tax_cents": "bigint",
+        "total_cents": "bigint",
+        "tax_rate_bp": "integer",
+        "tax_label": "text",
+        "currency": "character",
+        "deposit_percent_bp": "integer",
+        "deposit_cents": "bigint",
+        "expires_on": "date",
+        "sent_at": "timestamp with time zone",
+        "first_viewed_at": "timestamp with time zone",
+        "last_viewed_at": "timestamp with time zone",
+        "accepted_at": "timestamp with time zone",
+        "accepted_via": "text",
+        "accepted_by": "uuid",
+        "accepted_name": "text",
+        "declined_at": "timestamp with time zone",
+        "declined_reason": "text",
+        "voided_at": "timestamp with time zone",
+        "voided_by": "uuid",
+        "void_reason": "text",
+        "created_by": "uuid",
+        "created_at": "timestamp with time zone",
+        "updated_at": "timestamp with time zone"
+      }
+    },
+    "business_v1.files": {
+      "columns": {
+        "id": "uuid",
+        "workspace_id": "uuid",
+        "record_type": "app.record_type",
+        "record_id": "uuid",
+        "bucket": "text",
+        "object_path": "text",
+        "name": "text",
+        "mime_type": "text",
+        "size_bytes": "bigint",
+        "status": "app.file_status",
+        "created_by": "uuid",
+        "created_at": "timestamp with time zone",
+        "updated_at": "timestamp with time zone"
+      }
+    },
+    "business_v1.invoice_lines": {
+      "columns": {
+        "id": "uuid",
+        "workspace_id": "uuid",
+        "invoice_id": "uuid",
+        "position": "integer",
+        "product_id": "uuid",
+        "name": "text",
+        "description": "text",
+        "quantity": "numeric",
+        "unit_label": "text",
+        "unit_price_cents": "bigint",
+        "taxable": "boolean",
+        "discount_cents": "bigint",
+        "amount_cents": "bigint",
+        "created_at": "timestamp with time zone",
+        "updated_at": "timestamp with time zone"
+      }
+    },
+    "business_v1.invoices": {
+      "columns": {
+        "id": "uuid",
+        "workspace_id": "uuid",
+        "number": "text",
+        "status": "app.invoice_status",
+        "person_id": "uuid",
+        "lead_id": "uuid",
+        "assignee_user_id": "uuid",
+        "title": "text",
+        "notes": "text",
+        "estimate_id": "uuid",
+        "attendee_id": "uuid",
+        "subscription_id": "uuid",
+        "purpose": "app.invoice_purpose",
+        "origin": "app.money_origin",
+        "subtotal_cents": "bigint",
+        "discount_cents": "bigint",
+        "discount_percent_bp": "integer",
+        "taxable_base_cents": "bigint",
+        "tax_cents": "bigint",
+        "total_cents": "bigint",
+        "tax_rate_bp": "integer",
+        "tax_label": "text",
+        "currency": "character",
+        "due_on": "date",
+        "terms": "text",
+        "amount_paid_cents": "bigint",
+        "amount_refunded_cents": "bigint",
+        "sent_at": "timestamp with time zone",
+        "first_viewed_at": "timestamp with time zone",
+        "last_viewed_at": "timestamp with time zone",
+        "paid_at": "timestamp with time zone",
+        "voided_at": "timestamp with time zone",
+        "voided_by": "uuid",
+        "void_reason": "text",
+        "created_by": "uuid",
+        "created_at": "timestamp with time zone",
+        "updated_at": "timestamp with time zone"
+      }
+    },
+    "business_v1.leads": {
+      "columns": {
+        "id": "uuid",
+        "workspace_id": "uuid",
+        "pipeline_id": "uuid",
+        "stage_id": "uuid",
+        "person_id": "uuid",
+        "company_id": "uuid",
+        "title": "text",
+        "value_cents": "bigint",
+        "source": "text",
+        "assignee_user_id": "uuid",
+        "expected_close_on": "date",
+        "next_action": "text",
+        "next_action_at": "timestamp with time zone",
+        "status": "app.lead_status",
+        "won_at": "timestamp with time zone",
+        "lost_at": "timestamp with time zone",
+        "lost_reason": "text",
+        "position": "bigint",
+        "stage_entered_at": "timestamp with time zone",
+        "archived_at": "timestamp with time zone",
+        "qualification": "jsonb",
+        "last_contact_at": "timestamp with time zone",
+        "first_response_at": "timestamp with time zone",
+        "field_times": "jsonb",
+        "created_by": "uuid",
+        "created_at": "timestamp with time zone",
+        "updated_at": "timestamp with time zone"
+      }
+    },
+    "business_v1.messages": {
+      "columns": {
+        "id": "uuid",
+        "workspace_id": "uuid",
+        "conversation_id": "uuid",
+        "channel": "app.channel",
+        "direction": "app.direction",
+        "status": "app.message_status",
+        "from_address": "text",
+        "to_addresses": "text[]",
+        "cc_addresses": "text[]",
+        "subject": "text",
+        "body_text": "text",
+        "media": "jsonb",
+        "segments": "integer",
+        "error_code": "text",
+        "error_message": "text",
+        "sent_by": "uuid",
+        "sent_by_teammate_id": "uuid",
+        "approved_by": "uuid",
+        "client_id": "text",
+        "email_address_id": "uuid",
+        "occurred_at": "timestamp with time zone",
+        "sent_at": "timestamp with time zone",
+        "delivered_at": "timestamp with time zone",
+        "created_at": "timestamp with time zone",
+        "updated_at": "timestamp with time zone"
+      }
+    },
+    "business_v1.opt_outs": {
+      "columns": {
+        "id": "uuid",
+        "workspace_id": "uuid",
+        "counterpart_e164": "text",
+        "opted_out": "boolean",
+        "source": "app.opt_out_source",
+        "opted_out_at": "timestamp with time zone",
+        "opted_in_at": "timestamp with time zone",
+        "created_at": "timestamp with time zone",
+        "updated_at": "timestamp with time zone"
+      }
+    },
+    "business_v1.payments": {
+      "columns": {
+        "id": "uuid",
+        "workspace_id": "uuid",
+        "invoice_id": "uuid",
+        "amount_cents": "bigint",
+        "currency": "character",
+        "method": "app.payment_method",
+        "provider": "app.payment_provider",
+        "status": "app.payment_status",
+        "failure_code": "text",
+        "fee_cents": "bigint",
+        "net_cents": "bigint",
+        "received_at": "timestamp with time zone",
+        "card_brand": "text",
+        "card_last4": "text",
+        "recorded_by": "uuid",
+        "created_at": "timestamp with time zone",
+        "updated_at": "timestamp with time zone"
+      }
+    },
+    "business_v1.people": {
+      "columns": {
+        "id": "uuid",
+        "workspace_id": "uuid",
+        "company_id": "uuid",
+        "first_name": "text",
+        "last_name": "text",
+        "email": "citext",
+        "phone": "text",
+        "phone_e164": "text",
+        "phone_alt": "text",
+        "address_line1": "text",
+        "address_line2": "text",
+        "city": "text",
+        "state": "text",
+        "postal_code": "text",
+        "country": "text",
+        "notes": "text",
+        "source": "text",
+        "owner_user_id": "uuid",
+        "archived_at": "timestamp with time zone",
+        "sms_consent": "app.sms_consent",
+        "sms_consent_at": "timestamp with time zone",
+        "sms_consent_source": "text",
+        "possible_duplicate_of": "uuid",
+        "field_times": "jsonb",
+        "created_by": "uuid",
+        "created_at": "timestamp with time zone",
+        "updated_at": "timestamp with time zone"
+      }
+    },
+    "business_v1.phone_numbers": {
+      "columns": {
+        "id": "uuid",
+        "workspace_id": "uuid",
+        "e164": "text",
+        "number_type": "app.phone_number_type",
+        "label": "text",
+        "capabilities": "jsonb",
+        "status": "app.phone_number_status",
+        "created_at": "timestamp with time zone",
+        "updated_at": "timestamp with time zone"
+      }
+    },
+    "business_v1.pipeline_stages": {
+      "columns": {
+        "id": "uuid",
+        "workspace_id": "uuid",
+        "pipeline_id": "uuid",
+        "name": "text",
+        "kind": "app.stage_kind",
+        "position": "integer",
+        "created_at": "timestamp with time zone",
+        "updated_at": "timestamp with time zone"
+      }
+    },
+    "business_v1.pipelines": {
+      "columns": {
+        "id": "uuid",
+        "workspace_id": "uuid",
+        "name": "text",
+        "position": "integer",
+        "archived_at": "timestamp with time zone",
+        "created_at": "timestamp with time zone",
+        "updated_at": "timestamp with time zone"
+      }
+    },
+    "business_v1.plans": {
+      "columns": {
+        "id": "uuid",
+        "workspace_id": "uuid",
+        "name": "text",
+        "description": "text",
+        "price_cents": "bigint",
+        "interval": "app.plan_interval",
+        "interval_count": "integer",
+        "taxable": "boolean",
+        "includes": "jsonb",
+        "archived_at": "timestamp with time zone",
+        "created_at": "timestamp with time zone",
+        "updated_at": "timestamp with time zone"
+      }
+    },
+    "business_v1.products": {
+      "columns": {
+        "id": "uuid",
+        "workspace_id": "uuid",
+        "name": "text",
+        "description": "text",
+        "sku": "text",
+        "kind": "app.product_kind",
+        "unit_price_cents": "bigint",
+        "unit_label": "text",
+        "taxable": "boolean",
+        "service_id": "uuid",
+        "archived_at": "timestamp with time zone",
+        "created_at": "timestamp with time zone",
+        "updated_at": "timestamp with time zone"
+      }
+    },
+    "business_v1.record_tags": {
+      "columns": {
+        "id": "text",
+        "workspace_id": "uuid",
+        "tag_id": "uuid",
+        "record_type": "app.record_type",
+        "record_id": "uuid",
+        "created_by": "uuid",
+        "created_at": "timestamp with time zone"
+      }
+    },
+    "business_v1.refunds": {
+      "columns": {
+        "id": "uuid",
+        "workspace_id": "uuid",
+        "payment_id": "uuid",
+        "invoice_id": "uuid",
+        "amount_cents": "bigint",
+        "currency": "character",
+        "reason": "text",
+        "provider": "app.payment_provider",
+        "status": "app.refund_status",
+        "failure_code": "text",
+        "refunded_at": "timestamp with time zone",
+        "requested_by": "uuid",
+        "created_at": "timestamp with time zone",
+        "updated_at": "timestamp with time zone"
+      }
+    },
+    "business_v1.schedule_exceptions": {
+      "columns": {
+        "id": "uuid",
+        "workspace_id": "uuid",
+        "schedule_id": "uuid",
+        "kind": "app.schedule_exception_kind",
+        "starts_at": "timestamp with time zone",
+        "ends_at": "timestamp with time zone",
+        "all_day": "boolean",
+        "note": "text",
+        "created_at": "timestamp with time zone",
+        "updated_at": "timestamp with time zone"
+      }
+    },
+    "business_v1.schedules": {
+      "columns": {
+        "id": "uuid",
+        "workspace_id": "uuid",
+        "owner_kind": "app.schedule_owner_kind",
+        "owner_id": "uuid",
+        "timezone": "text",
+        "weekly": "jsonb",
+        "created_at": "timestamp with time zone",
+        "updated_at": "timestamp with time zone"
+      }
+    },
+    "business_v1.service_staff": {
+      "columns": {
+        "id": "text",
+        "workspace_id": "uuid",
+        "service_id": "uuid",
+        "user_id": "uuid",
+        "created_at": "timestamp with time zone"
+      }
+    },
+    "business_v1.services": {
+      "columns": {
+        "id": "uuid",
+        "workspace_id": "uuid",
+        "name": "text",
+        "description": "text",
+        "durations": "integer[]",
+        "default_duration": "integer",
+        "buffer_before": "integer",
+        "buffer_after": "integer",
+        "color": "text",
+        "price_cents": "integer",
+        "location_kinds": "text[]",
+        "archived_at": "timestamp with time zone",
+        "created_at": "timestamp with time zone",
+        "updated_at": "timestamp with time zone"
+      }
+    },
+    "business_v1.subscriptions": {
+      "columns": {
+        "id": "uuid",
+        "workspace_id": "uuid",
+        "plan_id": "uuid",
+        "plan_name": "text",
+        "price_cents": "bigint",
+        "currency": "character",
+        "interval": "app.plan_interval",
+        "interval_count": "integer",
+        "taxable": "boolean",
+        "includes": "jsonb",
+        "person_id": "uuid",
+        "lead_id": "uuid",
+        "provider": "app.payment_provider",
+        "status": "app.subscription_status",
+        "started_on": "date",
+        "current_period_start": "date",
+        "current_period_end": "date",
+        "next_billing_on": "date",
+        "paused_at": "timestamp with time zone",
+        "cancelled_at": "timestamp with time zone",
+        "cancel_reason": "text",
+        "ended_on": "date",
+        "failed_cycles": "integer",
+        "last_error": "text",
+        "card_brand": "text",
+        "card_last4": "text",
+        "card_expiry_month": "smallint",
+        "card_expiry_year": "smallint",
+        "card_requested_at": "timestamp with time zone",
+        "created_by": "uuid",
+        "created_at": "timestamp with time zone",
+        "updated_at": "timestamp with time zone"
+      }
+    },
+    "business_v1.tags": {
+      "columns": {
+        "id": "uuid",
+        "workspace_id": "uuid",
+        "name": "citext",
+        "color": "text",
+        "created_at": "timestamp with time zone",
+        "updated_at": "timestamp with time zone"
+      }
+    },
+    "business_v1.tasks": {
+      "columns": {
+        "id": "uuid",
+        "workspace_id": "uuid",
+        "title": "text",
+        "notes": "text",
+        "due_at": "timestamp with time zone",
+        "all_day": "boolean",
+        "assignee_user_id": "uuid",
+        "person_id": "uuid",
+        "company_id": "uuid",
+        "lead_id": "uuid",
+        "done_at": "timestamp with time zone",
+        "done_by": "uuid",
+        "field_times": "jsonb",
+        "created_by": "uuid",
+        "created_at": "timestamp with time zone",
+        "updated_at": "timestamp with time zone"
+      }
+    },
+    "business_v1.users": {
+      "columns": {
+        "id": "uuid",
+        "email": "citext",
+        "full_name": "text",
+        "avatar_url": "text"
+      }
+    },
+    "business_v1.workflow_approvals": {
+      "columns": {
+        "id": "uuid",
+        "workspace_id": "uuid",
+        "workflow_id": "uuid",
+        "run_id": "uuid",
+        "step_key": "text",
+        "status": "app.workflow_approval_status",
+        "approvers": "uuid[]",
+        "preview": "jsonb",
+        "edits": "jsonb",
+        "expires_at": "timestamp with time zone",
+        "created_at": "timestamp with time zone",
+        "updated_at": "timestamp with time zone"
+      }
+    },
+    "business_v1.workspace_memberships": {
+      "columns": {
+        "id": "uuid",
+        "workspace_id": "uuid",
+        "user_id": "uuid",
+        "role": "app.member_role",
+        "team_id": "uuid",
+        "location_id": "uuid",
+        "created_at": "timestamp with time zone",
+        "updated_at": "timestamp with time zone"
+      }
+    },
+    "business_v1.workspaces": {
+      "columns": {
+        "id": "uuid",
+        "organization_id": "uuid",
+        "name": "text",
+        "slug": "text",
+        "timezone": "text",
+        "industry": "text",
+        "settings": "jsonb",
+        "created_at": "timestamp with time zone",
+        "updated_at": "timestamp with time zone"
+      }
+    },
+    "me_v1.command_receipts": {
+      "columns": {
+        "id": "uuid",
+        "command_id": "uuid",
+        "workspace_id": "uuid",
+        "command": "text",
+        "outcome": "app.command_outcome",
+        "answer": "jsonb",
+        "occurred_at": "timestamp with time zone",
+        "received_at": "timestamp with time zone"
+      }
+    },
+    "me_v1.estimate_lines": {
+      "columns": {
+        "id": "uuid",
+        "workspace_id": "uuid",
+        "estimate_id": "uuid",
+        "position": "integer",
+        "product_id": "uuid",
+        "name": "text",
+        "description": "text",
+        "quantity": "numeric",
+        "unit_label": "text",
+        "unit_price_cents": "bigint",
+        "taxable": "boolean",
+        "discount_cents": "bigint",
+        "amount_cents": "bigint",
+        "created_at": "timestamp with time zone",
+        "updated_at": "timestamp with time zone"
+      }
+    },
+    "me_v1.estimates": {
+      "columns": {
+        "id": "uuid",
+        "workspace_id": "uuid",
+        "number": "text",
+        "status": "app.estimate_status",
+        "person_id": "uuid",
+        "lead_id": "uuid",
+        "assignee_user_id": "uuid",
+        "title": "text",
+        "notes": "text",
+        "subtotal_cents": "bigint",
+        "discount_cents": "bigint",
+        "discount_percent_bp": "integer",
+        "taxable_base_cents": "bigint",
+        "tax_cents": "bigint",
+        "total_cents": "bigint",
+        "tax_rate_bp": "integer",
+        "tax_label": "text",
+        "currency": "character",
+        "deposit_percent_bp": "integer",
+        "deposit_cents": "bigint",
+        "expires_on": "date",
+        "sent_at": "timestamp with time zone",
+        "first_viewed_at": "timestamp with time zone",
+        "last_viewed_at": "timestamp with time zone",
+        "accepted_at": "timestamp with time zone",
+        "accepted_via": "text",
+        "accepted_by": "uuid",
+        "accepted_name": "text",
+        "declined_at": "timestamp with time zone",
+        "declined_reason": "text",
+        "voided_at": "timestamp with time zone",
+        "voided_by": "uuid",
+        "void_reason": "text",
+        "created_by": "uuid",
+        "created_at": "timestamp with time zone",
+        "updated_at": "timestamp with time zone"
+      }
+    },
+    "me_v1.invoice_lines": {
+      "columns": {
+        "id": "uuid",
+        "workspace_id": "uuid",
+        "invoice_id": "uuid",
+        "position": "integer",
+        "product_id": "uuid",
+        "name": "text",
+        "description": "text",
+        "quantity": "numeric",
+        "unit_label": "text",
+        "unit_price_cents": "bigint",
+        "taxable": "boolean",
+        "discount_cents": "bigint",
+        "amount_cents": "bigint",
+        "created_at": "timestamp with time zone",
+        "updated_at": "timestamp with time zone"
+      }
+    },
+    "me_v1.invoices": {
+      "columns": {
+        "id": "uuid",
+        "workspace_id": "uuid",
+        "number": "text",
+        "status": "app.invoice_status",
+        "person_id": "uuid",
+        "lead_id": "uuid",
+        "assignee_user_id": "uuid",
+        "title": "text",
+        "notes": "text",
+        "estimate_id": "uuid",
+        "attendee_id": "uuid",
+        "subscription_id": "uuid",
+        "purpose": "app.invoice_purpose",
+        "origin": "app.money_origin",
+        "subtotal_cents": "bigint",
+        "discount_cents": "bigint",
+        "discount_percent_bp": "integer",
+        "taxable_base_cents": "bigint",
+        "tax_cents": "bigint",
+        "total_cents": "bigint",
+        "tax_rate_bp": "integer",
+        "tax_label": "text",
+        "currency": "character",
+        "due_on": "date",
+        "terms": "text",
+        "amount_paid_cents": "bigint",
+        "amount_refunded_cents": "bigint",
+        "sent_at": "timestamp with time zone",
+        "first_viewed_at": "timestamp with time zone",
+        "last_viewed_at": "timestamp with time zone",
+        "paid_at": "timestamp with time zone",
+        "voided_at": "timestamp with time zone",
+        "voided_by": "uuid",
+        "void_reason": "text",
+        "created_by": "uuid",
+        "created_at": "timestamp with time zone",
+        "updated_at": "timestamp with time zone"
+      }
+    },
+    "me_v1.my_profile": {
+      "columns": {
+        "id": "uuid",
+        "email": "citext",
+        "full_name": "text",
+        "avatar_url": "text",
+        "settings": "jsonb",
+        "deleted_at": "timestamp with time zone",
+        "created_at": "timestamp with time zone",
+        "updated_at": "timestamp with time zone"
+      }
+    },
+    "me_v1.payments": {
+      "columns": {
+        "id": "uuid",
+        "workspace_id": "uuid",
+        "invoice_id": "uuid",
+        "amount_cents": "bigint",
+        "currency": "character",
+        "method": "app.payment_method",
+        "provider": "app.payment_provider",
+        "status": "app.payment_status",
+        "failure_code": "text",
+        "fee_cents": "bigint",
+        "net_cents": "bigint",
+        "received_at": "timestamp with time zone",
+        "card_brand": "text",
+        "card_last4": "text",
+        "recorded_by": "uuid",
+        "created_at": "timestamp with time zone",
+        "updated_at": "timestamp with time zone"
+      }
+    },
+    "me_v1.push_devices": {
+      "columns": {
+        "id": "uuid",
+        "platform": "app.push_platform",
+        "app_version": "text",
+        "device_name": "text",
+        "last_seen_at": "timestamp with time zone",
+        "disabled_at": "timestamp with time zone",
+        "disabled_reason": "text",
+        "created_at": "timestamp with time zone",
+        "updated_at": "timestamp with time zone"
+      }
+    },
+    "me_v1.refunds": {
+      "columns": {
+        "id": "uuid",
+        "workspace_id": "uuid",
+        "payment_id": "uuid",
+        "invoice_id": "uuid",
+        "amount_cents": "bigint",
+        "currency": "character",
+        "reason": "text",
+        "provider": "app.payment_provider",
+        "status": "app.refund_status",
+        "failure_code": "text",
+        "refunded_at": "timestamp with time zone",
+        "requested_by": "uuid",
+        "created_at": "timestamp with time zone",
+        "updated_at": "timestamp with time zone"
+      }
+    },
+    "me_v1.user_phones": {
+      "columns": {
+        "id": "uuid",
+        "e164": "text",
+        "verified_at": "timestamp with time zone",
+        "verification_count": "integer",
+        "last_verification_at": "timestamp with time zone",
+        "created_at": "timestamp with time zone",
+        "updated_at": "timestamp with time zone"
+      }
+    },
+    "me_v1.workspace_access": {
+      "columns": {
+        "id": "text",
+        "user_id": "uuid",
+        "workspace_id": "uuid",
+        "role": "app.member_role"
+      }
+    }
+  }
 }

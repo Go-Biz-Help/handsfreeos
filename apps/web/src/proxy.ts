@@ -12,6 +12,9 @@ export async function proxy(request: NextRequest) {
   // The website chat runs inside businesses' own sites for signed-out visitors, so the loader and the chat
   // window never touch the session. The window's frame rule is set per widget (lib/chat/frame.ts).
   if (path.startsWith('/embed/')) return NextResponse.next();
+  // The files that let the phone app open links (lib/app-links.ts): fetched by Apple's and Google's servers with no
+  // session, and never redirected. The matcher leaves them out too; this is the belt to its braces.
+  if (path.startsWith('/.well-known/')) return NextResponse.next();
   if (path.startsWith('/chat/')) return chatWindowProxy(request);
 
   let response = NextResponse.next({ request });
@@ -51,6 +54,6 @@ export async function proxy(request: NextRequest) {
 
 export const config = {
   matcher: [
-    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)',
+    '/((?!_next/static|_next/image|favicon.ico|\\.well-known/|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)',
   ],
 };

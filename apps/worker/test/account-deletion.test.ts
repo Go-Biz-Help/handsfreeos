@@ -5,6 +5,8 @@
  *   anonymizes his profile (memberships, cell and all), ends every session, blocks sign-in, and notes it once in the
  *   business's log. A second run changes nothing.
  * - A job for someone who is (now) a business's only owner does nothing at all.
+ * - Someone in no business (step 7): the job their request queued for them anonymizes them and blocks sign-in, with no
+ *   business to leave, and the request noted on their own account never fails in the outbox.
  */
 import { randomUUID } from 'node:crypto';
 import { and, eq } from 'drizzle-orm';
@@ -307,5 +309,39 @@ describe('deleting an account', () => {
     });
     expect(await notes()).toHaveLength(1);
     expect((await calendarRow(tuneUps)).revision).toBe(2);
+  }, 60_000);
+
+  it('deletes an account in no business: the job it queued for itself, with no business to leave', async () => {
+    const loner = await createTestUser('delete-loner', { fullName: 'Lee Loner' });
+    await run(accountDelete, { confirmEmail: loner.email }, loner);
+    // The request is noted on the account itself: the outbox marks it done and runs nothing for it.
+    const [noted] = await admin()
+      .select()
+      .from(events)
+      .where(
+        and(eq(events.eventType, 'account.deletion_requested'), eq(events.entityId, loner.id)),
+      );
+    expect(noted).toMatchObject({ workspaceId: null, organizationId: null });
+    const runner = `vitest-delete-${randomUUID().slice(0, 8)}`;
+    await rows(
+      admin(),
+      sql`update app.outbox set locked_at = now(), locked_by = ${runner} where event_id = ${noted!.id}`,
+    );
+    expect(
+      await processOnce({ ...s, handlers, workerId: runner, batchSize: 5, reservedOnly: true }),
+    ).toMatchObject({ claimed: 1, done: 1, retried: 0, failed: 0 });
+
+    expect(await runJobs(ACCOUNT_JOBS.delete, accountDeleteJobKey(loner.id))).toMatchObject({
+      claimed: 1,
+      done: 1,
+      failed: 0,
+    });
+    const [profile] = await admin().select().from(users).where(eq(users.id, loner.id));
+    expect(profile).toMatchObject({ fullName: 'Former teammate', email: deletedEmailOf(loner.id) });
+    const banned = await anon().auth.signInWithPassword({
+      email: deletedEmailOf(loner.id),
+      password: loner.password,
+    });
+    expect(banned.error?.code).toBe('user_banned');
   }, 60_000);
 });

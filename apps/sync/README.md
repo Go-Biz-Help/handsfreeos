@@ -1,13 +1,19 @@
 # apps/sync — what each phone keeps
 
-The PowerSync Service (Open Edition 1.26.1) keeps a copy of each business on the phones of the people who work in it. Phones **read** through it; every change still goes through the API's commands. This folder holds its configuration and the scripts that run it beside the local Supabase stack. The Fly deployment and CI job arrive in M10 step 5.
+The PowerSync Service (Open Edition 1.26.1) keeps a copy of each business on the phones of the people who work in it. Phones **read** through it; every change still goes through the API's commands. This folder holds its configuration, the scripts that run it beside the local Supabase stack, its Fly config, and the end-to-end sync scenarios. "Sync service: PowerSync on Fly" in `docs/operations.md` sets it up on Fly and says what to do when it needs attention.
 
-| File               | What it is                                                                                                                                                    |
-| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `service.yaml`     | The service: source database, its own storage, Supabase JWT checks, admin token. Everything that differs between a laptop and Fly comes from the environment. |
-| `sync-config.yaml` | The Sync Streams (edition 3): which rows and columns each person's phone gets.                                                                                |
-| `scripts/start.sh` | `pnpm sync:start`                                                                                                                                             |
-| `scripts/stop.sh`  | `pnpm sync:stop`                                                                                                                                              |
+| File                             | What it is                                                                                                                                                                                                                                                                         |
+| -------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `service.yaml`                   | The service: source database, its own storage, Supabase JWT checks, admin token. Everything that differs between a laptop and Fly comes from the environment.                                                                                                                      |
+| `sync-config.yaml`               | The Sync Streams (edition 3): which rows and columns each person's phone gets.                                                                                                                                                                                                     |
+| `scripts/start.sh`               | `pnpm sync:start`                                                                                                                                                                                                                                                                  |
+| `scripts/stop.sh`                | `pnpm sync:stop`                                                                                                                                                                                                                                                                   |
+| `scripts/status.mjs`             | The service's health in words, from inside its machine or container (`docker exec hfos-sync node /config/status.mjs`); exits 1 when its slot is in danger, it can't reach the database, or a new sync config is stuck copying. The Deploy and Sync health workflows run it on Fly. |
+| `scripts/compaction-machine.mjs` | Creates or replaces the Fly machine that runs PowerSync's `compact` about once a day, with the service's image, settings and files.                                                                                                                                                |
+| `fly.toml`                       | `handsfreeos-sync` on Fly: PowerSync's image pinned by digest, these files written into the machine, one machine that never stops, the health check, `sync.handsfreeos.com`.                                                                                                       |
+| `storage/fly.toml`               | `handsfreeos-sync-storage`: PowerSync's own Postgres 17 on a Fly volume, reachable only over Fly's private network. No backups: it can be rebuilt.                                                                                                                                 |
+| `src/shape.ts`                   | Every stream's client tables, their columns and database types, read from `sync-config.yaml`: the phone's contract records them, and the scenarios' phones declare them.                                                                                                           |
+| `test/`                          | The sync scenarios (`pnpm --filter @hfos/sync test:scenarios`, with `pnpm sync:start` running): PowerSync's Node client plays phones against this service and the real API.                                                                                                        |
 
 ## Running it locally
 
@@ -27,6 +33,9 @@ pnpm sync:stop               # removes it, its storage and its replication slot
   - `sync-streams.test.ts` runs every query here in Postgres for an owner, a member, an agency admin and a stranger. It fails if a phone would get a row or column RLS and the grants wouldn't let that person read. Add a row to its fixture when a stream reads a new table.
   - `packages/db/test/sync-access.test.ts` and `sync-window.test.ts` hold the stored rules to RLS.
   - `sync-limits.test.ts` needs the running service: `HFOS_SYNC_TESTS=1 pnpm --filter @hfos/db exec vitest run test/sync-limits.test.ts`.
+  - `packages/core/test/mobile-contract.test.ts` records every stream's tables, columns and types (`src/shape.ts`), and fails when a column an old app build reads is removed, renamed or retyped, or a stream name has no version.
+  - The sync scenarios (`test/scenarios`) need the running service too: `pnpm --filter @hfos/sync test:scenarios`. Their phones keep a real SQLite copy and an outbox, and follow the plan's upload rules (`test/harness/phone.ts`). `HFOS_SYNC_TRACE=1` prints what each phone's uploader does; `HFOS_SYNC_TRACE=sdk` adds PowerSync's own log.
+  - CI: `.github/workflows/sync.yml` starts the stack and this service and runs the scenarios and the limits, on `main` and nightly.
 
 ## How the streams are cut
 

@@ -33,6 +33,10 @@ import { cn } from '@/lib/utils';
 import { AttachmentChip } from './attachment-chip';
 import { ChannelIcon, QuietStrip, SegmentCounter } from './bits';
 import type { PendingText } from './hooks';
+import { heldWhen } from './message-log';
+
+/** A text in quiet hours: ask first, send now anyway, or hold it until quiet hours end. */
+type QuietChoice = 'ask' | 'now' | 'later';
 
 const PHOTO_TYPES = 'image/jpeg,image/png,image/gif';
 const PHOTO = new Set(PHOTO_TYPES.split(','));
@@ -419,8 +423,12 @@ export function Composer({
     }
   }
 
-  async function sendText(body: string, acknowledgeQuietHours: boolean) {
-    if (target.quiet.quiet && !acknowledgeQuietHours) {
+  /**
+   * A text. In quiet hours `ask` puts the question first: Send now (`acknowledgeQuietHours`), or Send at 8:00 AM
+   * when quiet hours end (`sendAfterQuietHours`: it waits in the thread, cancellable, and goes then).
+   */
+  async function sendText(body: string, when: QuietChoice) {
+    if (target.quiet.quiet && when === 'ask') {
       setConfirmQuiet(true);
       return;
     }
@@ -440,14 +448,20 @@ export function Composer({
             body,
             attachmentFileIds: files.map((f) => f.fileId),
             clientId,
-            acknowledgeQuietHours,
+            ...(when === 'later'
+              ? { sendAfterQuietHours: true }
+              : { acknowledgeQuietHours: when === 'now' }),
           },
         }),
       );
       if (!cross) onSettled?.(clientId, { messageId: out.messageId });
       setFiles([]);
       setConfirmQuiet(false);
-      if (cross)
+      if (out.scheduledFor)
+        toast.success(
+          `Held. It goes to ${who} ${heldWhen(out.scheduledFor)}, when quiet hours end. You can cancel it in the thread.`,
+        );
+      else if (cross)
         toast.success(
           `Text sent to ${target.phoneDisplay}. Texts have their own thread in the inbox.`,
         );
@@ -564,18 +578,20 @@ export function Composer({
     }
   }
 
-  function send(acknowledgeQuietHours: boolean) {
+  function send(when: QuietChoice = 'ask') {
     const body = text.trim();
     if (!body || busy || off) return;
-    void (chat ? sendChat(body) : email ? sendEmail(body) : sendText(body, acknowledgeQuietHours));
+    void (chat ? sendChat(body) : email ? sendEmail(body) : sendText(body, when));
   }
 
   function onKeyDown(e: KeyboardEvent<HTMLTextAreaElement>) {
     if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
       e.preventDefault();
-      send(false);
+      send();
     }
   }
+  /** "8:00 AM", when quiet hours end where the business is. */
+  const quietEnds = target.quiet.endsAt ? formatClock(target.quiet.endsAt) : null;
 
   const placeholder = off
     ? (note?.placeholder ?? (email ? 'Email isn’t available' : 'Texting isn’t available'))
@@ -713,7 +729,7 @@ export function Composer({
             aria-label="Send"
             data-testid="composer-send"
             disabled={sendDisabled}
-            onClick={() => send(false)}
+            onClick={() => send()}
             className="flex h-11 w-11 flex-none items-center justify-center rounded-full bg-accent text-white disabled:opacity-45"
           >
             <Send className="h-[18px] w-[18px]" strokeWidth={1.5} />
@@ -725,17 +741,24 @@ export function Composer({
               <ChannelIcon icon={Moon} tone="warning" size={40} />
               <div className="flex flex-col gap-1">
                 <h3 className="text-[15px] font-semibold">
-                  It’s {formatClock(target.quiet.localTime)} where the business is
+                  It’s {formatClock(target.quiet.localTime)}, inside quiet hours
                 </h3>
                 <p className="text-[13px] text-text-2">
-                  Quiet hours
-                  {target.quiet.endsAt ? ` end at ${formatClock(target.quiet.endsAt)}` : ' are on'}.
-                  Send this text to {who} now anyway?
+                  Send this text to {who} now, or {quietEnds ? `at ${quietEnds} ` : ''}when quiet
+                  hours end?
                 </p>
               </div>
             </div>
             <div className="mt-[18px] flex flex-col gap-2">
-              <Button size="lg" onClick={() => send(true)} data-testid="quiet-send-now">
+              <Button size="lg" onClick={() => send('later')} data-testid="quiet-send-later">
+                {quietEnds ? `Send at ${quietEnds}` : 'Send when quiet hours end'}
+              </Button>
+              <Button
+                size="lg"
+                variant="secondary"
+                onClick={() => send('now')}
+                data-testid="quiet-send-now"
+              >
                 Send now
               </Button>
               <Button size="lg" variant="ghost" onClick={() => setConfirmQuiet(false)}>
@@ -935,7 +958,7 @@ export function Composer({
             size="sm"
             disabled={sendDisabled}
             loading={busy}
-            onClick={() => send(false)}
+            onClick={() => send()}
             data-testid="composer-send"
           >
             {busy ? null : <Send className="h-3.5 w-3.5" strokeWidth={1.5} />}
@@ -958,13 +981,24 @@ export function Composer({
         </div>
       ) : null}
       {confirmQuiet ? (
-        <div className="flex items-center justify-end gap-2" data-testid="quiet-confirm">
-          <span className="flex-1 text-xs text-text-2">Send it now anyway?</span>
+        <div className="flex flex-wrap items-center justify-end gap-2" data-testid="quiet-confirm">
+          <span className="min-w-[160px] flex-1 text-xs text-text-2">
+            It’s {formatClock(target.quiet.localTime)}, inside quiet hours. Send now, or
+            {quietEnds ? ` at ${quietEnds}` : ''} when quiet hours end?
+          </span>
           <Button variant="ghost" size="sm" onClick={() => setConfirmQuiet(false)}>
             Keep as draft
           </Button>
-          <Button size="sm" onClick={() => send(true)} data-testid="quiet-send-now">
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => send('now')}
+            data-testid="quiet-send-now"
+          >
             Send now
+          </Button>
+          <Button size="sm" onClick={() => send('later')} data-testid="quiet-send-later">
+            {quietEnds ? `Send at ${quietEnds} when quiet hours end` : 'Send when quiet hours end'}
           </Button>
         </div>
       ) : null}

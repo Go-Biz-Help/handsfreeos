@@ -49,6 +49,8 @@ export interface FakeTelephony extends TelephonyProvider {
   readonly sent: FakeSent[];
   /** Calls placed from business numbers (verification calls, and rings to people's own cells). */
   readonly calls: FakeCall[];
+  /** The calls HandsFreeOS hung up (endCall), by sid. */
+  readonly ended: string[];
   /** Registration steps in the order they were submitted. */
   readonly registrations: RegistrationRequest[];
   /** Recording and transcription ids deleted at the "provider". */
@@ -91,11 +93,13 @@ export interface FakeOptions {
  * Calls it places play out against the worker's own TwiML when callbacks are on: the phone answers and
  * presses 1, and a customer it dials picks up, talks for a few seconds and hangs up, leaving a recording. A cell
  * ending in 0404 never answers; one ending in 0405 answers but presses nothing (its voicemail); a customer
- * ending in 0486 is busy. A recording id containing "silent" has no words to transcribe.
+ * ending in 0486 is busy. A recording id containing "silent" has no words to transcribe. A call hung up with endCall
+ * stops where it is and reports how it ended, as Twilio does.
  */
 export function createFakeTelephony(opts: FakeOptions): FakeTelephony {
   const sent: FakeSent[] = [];
   const calls: FakeCall[] = [];
+  const ended: string[] = [];
   const registrations: RegistrationRequest[] = [];
   const deleted: string[] = [];
   const transcribed: string[] = [];
@@ -160,19 +164,30 @@ export function createFakeTelephony(opts: FakeOptions): FakeTelephony {
     };
     const status = (CallStatus: string, extra: Record<string, string> = {}) =>
       post(c.statusCallbackUrl, token, { ...base, CallStatus, ...extra });
+    let answered = false;
+    // Hung up by HandsFreeOS (endCall): it reports how it ended and plays no further.
+    const hungUp = async () => {
+      if (!ended.includes(c.sid)) return false;
+      await status(answered ? 'completed' : 'canceled');
+      return true;
+    };
     await wait(400);
+    if (await hungUp()) return;
     await status('ringing');
     await wait(800);
+    if (await hungUp()) return;
     if (c.to.endsWith('0404')) {
       await status('no-answer');
       return;
     }
+    answered = true;
     let twiml = await post(c.answerUrl, token, { ...base, CallStatus: 'in-progress' });
     let talked = 0;
     for (let step = 0; step < 4 && twiml; step++) {
       const gather = attr(twiml, 'Gather', 'action');
       if (gather) {
         await wait(600);
+        if (await hungUp()) return;
         const digits = c.to.endsWith('0405') ? '' : '1';
         twiml = await post(gather, token, { ...base, CallStatus: 'in-progress', Digits: digits });
         continue;
@@ -200,6 +215,12 @@ export function createFakeTelephony(opts: FakeOptions): FakeTelephony {
       }
       await post(legStatus, token, { ...leg, CallStatus: 'ringing' });
       await wait(1000);
+      if (ended.includes(c.sid)) {
+        // Hung up while the customer's phone rang: their leg ends with the call.
+        await post(legStatus, token, { ...leg, CallStatus: 'canceled' });
+        await hungUp();
+        return;
+      }
       await post(legStatus, token, { ...leg, CallStatus: 'in-progress' });
       await wait(3000);
       talked = 3;
@@ -235,6 +256,7 @@ export function createFakeTelephony(opts: FakeOptions): FakeTelephony {
     masterAuthToken: FAKE_AUTH_TOKEN,
     sent,
     calls,
+    ended,
     registrations,
     deleted,
     transcribed,
@@ -346,6 +368,9 @@ export function createFakeTelephony(opts: FakeOptions): FakeTelephony {
       calls.push(c);
       if (opts.callbacks) void playOut(account, c);
       return { sid: c.sid };
+    },
+    async endCall(_account, callSid) {
+      if (!ended.includes(callSid)) ended.push(callSid);
     },
     async transcribeRecording(_account, recordingSid) {
       transcribed.push(recordingSid);

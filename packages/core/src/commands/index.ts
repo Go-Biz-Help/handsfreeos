@@ -105,6 +105,7 @@ import { emailReceive, emailSuppressionRecord } from './email-inbound';
 import {
   callAttachRecording,
   callAttachTranscript,
+  callCancelConnect,
   callConnectMe,
   callRecord,
   callStart,
@@ -128,6 +129,7 @@ import { leadUpdate } from './lead.update';
 import { membershipChangeRole } from './membership.change_role';
 import { membershipInvite } from './membership.invite';
 import { membershipRemove } from './membership.remove';
+import { organizationAddOwner } from './organization.add_owner';
 import { organizationCreate } from './organization.create';
 import { personArchive } from './person.archive';
 import { personCreate } from './person.create';
@@ -299,6 +301,7 @@ export {
   registrationUpdateStatus,
   callAttachRecording,
   callAttachTranscript,
+  callCancelConnect,
   callConnectMe,
   callRecord,
   callStart,
@@ -349,6 +352,7 @@ export {
   membershipChangeRole,
   membershipInvite,
   membershipRemove,
+  organizationAddOwner,
   organizationCreate,
   personArchive,
   personCreate,
@@ -432,6 +436,7 @@ export const commands: readonly CommandDef[] = [
   invitationAccept,
   membershipChangeRole,
   membershipRemove,
+  organizationAddOwner,
   userUpdateProfile,
   accountDelete,
   assistantConsent,
@@ -510,6 +515,7 @@ export const commands: readonly CommandDef[] = [
   callAttachRecording,
   callAttachTranscript,
   callConnectMe,
+  callCancelConnect,
   userPhoneStartVerification,
   userPhoneRecordCall,
   userPhoneVerify,

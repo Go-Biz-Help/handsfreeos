@@ -63,7 +63,10 @@ export async function processOnce(deps: OutboxDeps): Promise<OutboxStats> {
   stats.claimed = claimed.length;
 
   for (const row of claimed) {
-    const list = handlersFor(deps.handlers, row.event_type);
+    // A person's own account events (no organization, no business: a profile saved, the Assistant's OK, deleting an
+    // account that belongs to no business) have no tenant for a handler to act in, and the worker can't read them.
+    const list =
+      row.organization_id || row.workspace_id ? handlersFor(deps.handlers, row.event_type) : [];
     try {
       if (list.length === 0) {
         await asWorker(deps.db, {}, (tx) =>

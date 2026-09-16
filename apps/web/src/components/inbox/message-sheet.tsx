@@ -3,6 +3,7 @@ import { X } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
+import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetClose, SheetContent } from '@/components/ui/sheet';
 import { apiBrowser, errorMessage, unwrap } from '@/lib/api/client';
@@ -153,6 +154,23 @@ function SheetThread({
   const { data } = loaded;
   const t = useThread(workspaceId, data.conversation.id, loaded.thread);
   const first = firstName(person.fullName);
+
+  /** Cancel on a text held for quiet hours: it never goes. */
+  async function cancelHeld(messageId: string) {
+    try {
+      unwrap(
+        await apiBrowser().POST('/v1/commands/message.cancel_scheduled', {
+          body: { workspaceId, messageId },
+        }),
+      );
+      t.forget(messageId);
+      toast.success('Cancelled. That text won’t go.');
+    } catch (e) {
+      toast.error(errorMessage(e));
+      t.refresh();
+    }
+  }
+
   return (
     <div
       className="flex min-h-0 flex-1 flex-col"
@@ -161,6 +179,7 @@ function SheetThread({
     >
       <MessageLog
         compact
+        onCancelScheduled={(id) => void cancelHeld(id)}
         items={t.items}
         pending={t.pending}
         customerFirstName={first}

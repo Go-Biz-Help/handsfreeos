@@ -272,7 +272,8 @@ export async function alertUrgent(
           itemId: item?.id ?? null,
           _broadcast: false,
         },
-        after: { with: customer, emailed: emailed.map((r) => r.full_name || r.email) },
+        // `pushed`: how many people it went to on their phones, so the log doesn't read "emailed nobody" when it did.
+        after: { with: customer, emailed: emailed.map((r) => r.full_name || r.email), pushed },
         correlationId: o.correlationId ?? o.causationId,
         causationId: o.causationId,
       });

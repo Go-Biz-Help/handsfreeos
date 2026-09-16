@@ -71,6 +71,17 @@ export const CallConnectMeOutput = z.object({
   duplicate: z.boolean(),
 });
 
+/**
+ * Cancel a call through your own cell before the customer picks up (the call sheet's Cancel): HandsFreeOS hangs up,
+ * and you can call again at once.
+ */
+export const CallCancelConnectInput = z.object({ workspaceId: uuid, callId: uuid });
+export const CallCancelConnectOutput = z.object({
+  callId: uuid,
+  /** False when the call had already ended. */
+  cancelled: z.boolean(),
+});
+
 // ---------- worker-only (system actor) ----------
 export const CallRecordInput = z.object({
   workspaceId: uuid,

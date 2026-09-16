@@ -1,0 +1,74 @@
+# HandsFreeOS sync service on Fly.io: the PowerSync Service (Open Edition) that keeps each phone's copy of the database
+# in step, at https://sync.handsfreeos.com. Deployed from the repository root by .github/workflows/deploy.yml once
+# its secrets exist, or by hand (docs/operations.md, "Sync service: PowerSync on Fly"):
+#   fly deploy . --config apps/sync/fly.toml --ha=false --wait-timeout 600
+#
+# Nothing is built: the image is PowerSync's own, pinned by digest (the one `pnpm sync:start` runs), and every deploy
+# writes this folder's service.yaml and sync-config.yaml (and the status check) into the machine.
+#
+# Secrets never go in this file. `fly secrets import` sets the three it needs:
+#   PS_DATA_SOURCE_URI  hfos_sync on the hosted database's direct connection (logical replication can't use a pooler)
+#   PS_STORAGE_URI      the powersync role on handsfreeos-sync-storage, PowerSync's own Postgres (apps/sync/storage)
+#   PS_ADMIN_TOKEN      the diagnostics API's token
+#
+# Exactly one machine, always running: only one process may replicate at a time, and while the service is stopped
+# its replication slot keeps the database's write-ahead log from being recycled.
+
+app = "handsfreeos-sync"
+primary_region = "dfw"
+kill_signal = "SIGTERM"
+kill_timeout = "30s"
+
+[build]
+  image = "journeyapps/powersync-service:1.26.1@sha256:413a0c813e96935ebe7203b5759f8a594a7b7cd8aa42134713e63af637e0f079"
+
+[processes]
+  app = "start -r unified"
+
+[env]
+  POWERSYNC_CONFIG_PATH = "/config/service.yaml"
+  # Supabase's certificate authority ships inside PowerSync, so the hosted database is checked in full.
+  PS_DATA_SOURCE_SSLMODE = "verify-full"
+  # handsfreeos-sync-storage is reached over Fly's private network, which is encrypted between machines.
+  PS_STORAGE_SSLMODE = "disable"
+  PS_JWKS_URI = "https://ybupfghakoszfcxhyrby.supabase.co/auth/v1/.well-known/jwks.json"
+  # About 80 percent of the machine's memory.
+  NODE_OPTIONS = "--max-old-space-size=800"
+
+[[files]]
+  guest_path = "/config/service.yaml"
+  local_path = "service.yaml"
+
+[[files]]
+  guest_path = "/config/sync-config.yaml"
+  local_path = "sync-config.yaml"
+
+[[files]]
+  guest_path = "/config/status.mjs"
+  local_path = "scripts/status.mjs"
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  # Replication must never pause: a sleeping service would let its slot hold the database's WAL.
+  auto_stop_machines = "off"
+  auto_start_machines = true
+  min_machines_running = 1
+  processes = ["app"]
+
+  # PowerSync takes up to 200 open sync connections per process, and suggests planning for 100.
+  [http_service.concurrency]
+    type = "connections"
+    soft_limit = 100
+    hard_limit = 200
+
+  [[http_service.checks]]
+    grace_period = "30s"
+    interval = "15s"
+    method = "GET"
+    path = "/probes/liveness"
+    timeout = "5s"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "1gb"

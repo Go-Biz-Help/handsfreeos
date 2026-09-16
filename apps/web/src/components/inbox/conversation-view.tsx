@@ -300,6 +300,22 @@ export function ConversationView({
     }
   }
 
+  /** Cancel on a text held for quiet hours: it never goes. */
+  async function cancelHeld(messageId: string) {
+    try {
+      unwrap(
+        await apiBrowser().POST('/v1/commands/message.cancel_scheduled', {
+          body: { workspaceId, messageId },
+        }),
+      );
+      t.forget(messageId);
+      toast.success('Cancelled. That text won’t go.');
+    } catch (e) {
+      toast.error(errorMessage(e));
+      t.refresh();
+    }
+  }
+
   /** Try again: the teammate writes a new draft for the same messages, with the reason. */
   async function tryAgain(draftId: string) {
     setRetrying(true);
@@ -848,6 +864,7 @@ export function ConversationView({
               loadingEarlier={t.loadingEarlier}
               onLoadEarlier={() => void t.loadEarlier()}
               onRetry={(id) => void retryMessage(id)}
+              onCancelScheduled={(id) => void cancelHeld(id)}
               tail={tail}
             />
             {phone && waiting ? (

@@ -1,15 +1,16 @@
 /**
  * M10 step 6b on the local database: a person's own account.
  * - **Delete my account:** typing the email to confirm; a business's founder (its organization's only owner) is
- *   refused in plain words naming the business, and nothing changes; a teammate's request is recorded in every
- *   business they can reach, each naming only itself; an account in no business is told to ask support; asking twice
- *   is fine; online only from a phone.
+ *   refused in plain words naming the business and how to hand it over, and nothing changes; a teammate's request is
+ *   recorded in every business they can reach, each naming only itself; an account in no business queues the
+ *   worker's job for itself and notes it on the account; asking twice is fine; online only from a phone. (Handing
+ *   a business or an agency over: ownership.test.ts.)
  * - **The Assistant's consent:** kept with the wording version and the time, once per wording; account.me says whether
  *   the consent step still shows; one OK covers every app.
  */
 import { randomUUID } from 'node:crypto';
 import { and, eq } from 'drizzle-orm';
-import { rows, sql } from '@hfos/db/client';
+import { asUser, rows, sql } from '@hfos/db/client';
 import { events, organizationMemberships, users, workspaceMemberships } from '@hfos/db/schema';
 import { closeTestDbs, createTestUser, testDbs, type TestUser } from '@hfos/db/testing';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -52,6 +53,11 @@ const phoneMeta = (occurredAt = new Date()): RequestMeta => ({
   confirmedAt: null,
   appVersion: '1.0.0',
 });
+
+/** Raw SQL as a signed-in person (RLS on), for the database's own guards. */
+function executeQueryAs(u: TestUser, query: ReturnType<typeof sql>) {
+  return asUser(api(), u.claims, (tx) => tx.execute(query));
+}
 
 async function expectHfos(fn: () => Promise<unknown>, code: HfosError['code'], rule?: string) {
   try {
@@ -135,11 +141,12 @@ describe('delete my account', () => {
     );
     expect(err.disposition).toBe('final');
     expect(err.message).toBe(
-      'You’re the owner of Founder HVAC & Roofing, and it can’t be handed to someone else from the app yet. Ask HandsFreeOS support to delete your account, so the business isn’t left without an owner.',
+      'You’re the only owner of Founder HVAC & Roofing. Make someone else an owner first, in Members on the web, so the business isn’t left without one.',
     );
+    // Its organization holds only this business, so it is named once, as the business.
     expect(err.details).toEqual({
       businesses: [{ workspaceId: wsId, name: 'Founder HVAC & Roofing' }],
-      organizations: [{ organizationId: orgId, name: 'Founder HVAC & Roofing', agency: false }],
+      organizations: [],
     });
     // The probes were undone: both memberships are still there, and nothing was asked for.
     expect(
@@ -172,7 +179,12 @@ describe('delete my account', () => {
       'rule_violation',
       'only_owner',
     );
-    expect(agency.message).toContain('the agency Account Test Agency');
+    expect(agency.message).toBe(
+      'You’re the only owner of the agency Account Test Agency. Make someone who owns one of its businesses an owner of the agency first, from Delete my account on the web, so it isn’t left without one.',
+    );
+    expect(agency.details).toMatchObject({
+      organizations: [{ name: 'Account Test Agency', agency: true }],
+    });
   });
 
   it('a client business’s owner under an agency may go: the agency still owns it', async () => {
@@ -205,16 +217,35 @@ describe('delete my account', () => {
     await admin().update(users).set({ deletedAt: null }).where(eq(users.id, marco.id));
   });
 
-  it('an account in no business at all is told to ask support', async () => {
+  it('an account in no business queues the worker’s job for itself, noted on its own account', async () => {
     const loner = await createTestUser('acct-loner');
-    const err = await expectHfos(
-      () => run(accountDelete, { confirmEmail: loner.email }, loner),
-      'rule_violation',
-      'no_business',
+    const out = await run(accountDelete, { confirmEmail: loner.email }, loner);
+    expect(out.userId).toBe(loner.id);
+    const job = await rows<{ kind: string; workspace_id: string | null; payload: unknown }>(
+      admin(),
+      sql`select kind, workspace_id, payload from app.scheduled_jobs
+          where dedupe_key = ${`account-delete:${loner.id}`} and status = 'pending'`,
     );
-    expect(err.message).toBe(
-      'This account isn’t part of any business, so it can’t be deleted from the app. Ask HandsFreeOS support to delete it.',
-    );
+    expect(job).toEqual([
+      { kind: 'account.delete', workspace_id: null, payload: { userId: loner.id } },
+    ]);
+    const noted = await admin()
+      .select()
+      .from(events)
+      .where(and(eq(events.actorId, loner.id), eq(events.eventType, 'account.deletion_requested')));
+    expect(noted).toHaveLength(1);
+    expect(noted[0]).toMatchObject({ workspaceId: null, organizationId: null, entityId: loner.id });
+    // Asking again keeps the one job.
+    await run(accountDelete, { confirmEmail: loner.email }, loner);
+    const [{ n }] = (await rows<{ n: number }>(
+      admin(),
+      sql`select count(*)::int as n from app.scheduled_jobs where dedupe_key = ${`account-delete:${loner.id}`}`,
+    )) as [{ n: number }];
+    expect(n).toBe(1);
+    // Nobody in a business can queue the job for themselves, whatever they call.
+    await expect(
+      executeQueryAs(marco, sql`select private.request_account_deletion()`),
+    ).rejects.toThrow();
   });
 
   it('needs signal on a phone, and the worker notes it in each business', async () => {

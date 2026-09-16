@@ -17,6 +17,8 @@ import {
 import {
   CallAttachRecordingInput,
   CallAttachTranscriptInput,
+  CallCancelConnectInput,
+  CallCancelConnectOutput,
   CallConnectMeInput,
   CallConnectMeOutput,
   CallRecordInput,
@@ -336,6 +338,78 @@ export const callConnectMe = defineCommand({
   },
 });
 
+/**
+ * The call sheet's Cancel: a call through the person's own cell that hasn't reached the customer yet ends now, and the
+ * worker hangs it up at the carrier (call.bridge_cancelled). It is settled here, not when the carrier reports back, so
+ * the person can call again at once even if that report never comes. One nobody pressed 1 on never rang the customer and
+ * leaves no trace in their conversation; one the customer's phone was already ringing for is filed like a call they
+ * didn't answer. Once the customer picks up, the person hangs up on their own phone.
+ */
+export const callCancelConnect = defineCommand({
+  name: 'call.cancel_connect',
+  description:
+    'Cancel a call through your own cell before the customer answers: HandsFreeOS hangs it up, and you can call again at once.',
+  risk: 1,
+  input: CallCancelConnectInput,
+  output: CallCancelConnectOutput,
+  permission: 'inbox.use',
+  scope: inWorkspace,
+  emits: ['call.bridge_cancelled', 'call.missed'],
+  async handler(ctx, input) {
+    const workspaceId = ctx.scope.workspaceId!;
+    const me = requireHuman(ctx).userId;
+    const [c] = await ctx.tx
+      .select()
+      .from(calls)
+      .where(and(eq(calls.id, input.callId), eq(calls.workspaceId, workspaceId)));
+    // Only the person's own call through their cell: anyone else's doesn't exist here.
+    if (!c || c.placedBy !== me || c.answeredVia !== 'bridge')
+      throw HfosError.notFound('Call not found.');
+    if (FINAL.has(c.status) || c.endedAt) return { callId: c.id, cancelled: false };
+    if (c.answeredAt) {
+      const [p] = c.personId
+        ? await rows<{ name: string }>(
+            ctx.tx,
+            sql`select trim(first_name || ' ' || last_name) as name from app.people where id = ${c.personId}`,
+          )
+        : [];
+      const who = p?.name || formatPhone(counterpartOf(c)) || 'the customer';
+      throw HfosError.rule(
+        'already_connected',
+        409,
+        `You’re already talking to ${who}. Hang up on your phone to end the call.`,
+      );
+    }
+    const at = new Date();
+    await ctx.emit({
+      type: 'call.bridge_cancelled',
+      entityType: 'call',
+      entityId: c.id,
+      payload: {
+        conversationId: c.conversationId,
+        personId: c.personId,
+        placedBy: c.placedBy,
+        // Pressed 1: the customer's phone may already be ringing.
+        customerRang: !!c.answeredByUserId,
+      },
+      after: { with: formatPhone(counterpartOf(c)), status: 'canceled' },
+    });
+    // The customer's phone was already ringing: filed as a call they didn't answer, like any other.
+    const activityId = c.answeredByUserId
+      ? await settleCall(ctx, { ...c, status: 'canceled', endedAt: at }, at, { link: false })
+      : null;
+    // People change a call only this way (private.cancel_bridge_call): theirs, not answered, not ended, in one step.
+    const [done] = await rows<{ cancelled: boolean }>(
+      ctx.tx,
+      sql`select private.cancel_bridge_call(${c.id}, ${activityId}) as cancelled`,
+    );
+    // Answered or ended in the same instant: nothing here is kept, and a second look tells them which.
+    if (!done?.cancelled)
+      throw HfosError.conflict('That call just changed. Look at it again.', 'call_changed');
+    return { callId: c.id, cancelled: true };
+  },
+});
+
 export const callRecord = defineCommand({
   name: 'call.record',
   description:
@@ -416,8 +490,17 @@ export const callRecord = defineCommand({
   },
 });
 
-/** An ended call lands on the timeline and in the conversation's preview; a missed inbound call waits for a reply. */
-async function settleCall(ctx: CommandContext, c: Call, at: Date): Promise<void> {
+/**
+ * An ended call lands on the timeline and in the conversation's preview; a missed inbound call waits for a reply. The
+ * timeline entry is linked to the call here, unless `link` is false (a person cancelling their own call links it in
+ * the one change they may make to it), and its id comes back.
+ */
+async function settleCall(
+  ctx: CommandContext,
+  c: Call,
+  at: Date,
+  opts: { readonly link?: boolean } = {},
+): Promise<string | null> {
   // A call through someone's own cell that nobody pressed 1 on never reached the customer: nothing happened in
   // their conversation or on their timeline, and it is no missed call. Its own event says how it ended.
   if (c.answeredVia === 'bridge' && !c.answeredByUserId) {
@@ -433,7 +516,7 @@ async function settleCall(ctx: CommandContext, c: Call, at: Date): Promise<void>
       },
       after: { with: formatPhone(counterpartOf(c)), status: c.status },
     });
-    return;
+    return null;
   }
   const answered = !!c.answeredAt;
   const subtype =
@@ -464,8 +547,9 @@ async function settleCall(ctx: CommandContext, c: Call, at: Date): Promise<void>
       ...(answered ? { duration: clock(c.durationSeconds) } : {}),
     },
   });
-  if (!c.activityId) {
-    const activityId = await logChannelActivity(ctx, {
+  let activityId = c.activityId;
+  if (!activityId) {
+    activityId = await logChannelActivity(ctx, {
       kind: 'call',
       subtype,
       personId: c.personId,
@@ -488,9 +572,10 @@ async function settleCall(ctx: CommandContext, c: Call, at: Date): Promise<void>
         recordingPath: c.recordingObjectPath,
       },
     });
-    if (activityId) await ctx.tx.update(calls).set({ activityId }).where(eq(calls.id, c.id));
+    if (activityId && opts.link !== false)
+      await ctx.tx.update(calls).set({ activityId }).where(eq(calls.id, c.id));
   }
-  if (!c.conversationId) return;
+  if (!c.conversationId) return activityId;
   const needsReply = c.direction === 'inbound' && !answered;
   await ctx.tx
     .update(conversations)
@@ -511,6 +596,7 @@ async function settleCall(ctx: CommandContext, c: Call, at: Date): Promise<void>
         : { awaitingReplySince: null }),
     })
     .where(eq(conversations.id, c.conversationId));
+  return activityId;
 }
 
 export const callUpdateStatus = defineCommand({

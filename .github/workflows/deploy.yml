@@ -1,7 +1,8 @@
 name: Deploy
 
-# After CI passes on main, ship the API and the worker to Fly.io. Until the FLY_API_TOKEN repository secret
-# exists this workflow only notes that it skipped, so main stays green before the Fly organization is set up.
+# After CI passes on main, ship the API and the worker to Fly.io, then the sync service. Until the FLY_API_TOKEN
+# repository secret exists this workflow only notes that it skipped, so main stays green before the Fly organization
+# is set up; the sync service likewise waits until its own Fly app has its secrets.
 on:
   workflow_run:
     workflows: [CI]
@@ -15,10 +16,11 @@ concurrency:
 
 jobs:
   deploy:
-    name: API and worker to Fly.io
+    name: API, worker and sync service to Fly.io
     if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    # A changed sync config can take up to 15 minutes to finish copying.
+    timeout-minutes: 60
     env:
       FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
     steps:
@@ -49,3 +51,53 @@ jobs:
       - name: Deploy the API
         if: steps.check.outputs.ready == 'true'
         run: flyctl deploy . --config apps/api/fly.toml --dockerfile apps/api/Dockerfile --remote-only --wait-timeout 300
+
+      # The sync service (apps/sync) ships only once handsfreeos-sync exists with its three secrets ("Sync service:
+      # PowerSync on Fly" in docs/operations.md), and only when its config changed since the running one: a deploy
+      # makes every phone reconnect, and a changed sync-config.yaml makes PowerSync copy the whole database again.
+      - name: Is the sync service set up, and did its config change?
+        id: sync
+        if: steps.check.outputs.ready == 'true'
+        run: |
+          set -euo pipefail
+          if ! secrets=$(flyctl secrets list --app handsfreeos-sync --json 2>/dev/null); then
+            echo "::notice::handsfreeos-sync doesn't exist on Fly yet, so the sync service wasn't deployed."
+            echo "deploy=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          missing=$(node -e '
+            const have = new Set(JSON.parse(process.argv[1] || "[]").map((s) => s.name ?? s.Name));
+            console.log(["PS_DATA_SOURCE_URI", "PS_STORAGE_URI", "PS_ADMIN_TOKEN"].filter((n) => !have.has(n)).join(" "));
+          ' "$secrets")
+          if [ -n "$missing" ]; then
+            echo "::notice::handsfreeos-sync has no $missing yet, so the sync service wasn't deployed."
+            echo "deploy=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          wanted=$(cat apps/sync/fly.toml apps/sync/service.yaml apps/sync/sync-config.yaml apps/sync/scripts/status.mjs | sha256sum | cut -c1-16)
+          running=$(flyctl machine list --app handsfreeos-sync --json | node -e '
+            const machines = JSON.parse(require("fs").readFileSync(0, "utf8") || "[]");
+            const service = machines.find((m) => m.config?.metadata?.fly_process_group === "app");
+            console.log(service?.config?.env?.HFOS_SYNC_CONFIG ?? "");
+          ')
+          if [ "$wanted" = "$running" ]; then
+            echo "::notice::The sync service's config hasn't changed, so it wasn't redeployed."
+            echo "deploy=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "deploy=true" >> "$GITHUB_OUTPUT"
+            echo "config=$wanted" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Deploy the sync service (one machine, never stopped)
+        if: steps.sync.outputs.deploy == 'true'
+        run: flyctl deploy . --config apps/sync/fly.toml --ha=false --wait-timeout 600 --env HFOS_SYNC_CONFIG=${{ steps.sync.outputs.config }}
+
+      # A new sync config copies the whole database before it serves phones; one that doesn't finish holds WAL in the
+      # hosted database, so the run fails and GitHub emails you ("A deploy that doesn't finish" in the guide).
+      - name: Wait for a new sync config to finish copying
+        if: steps.sync.outputs.deploy == 'true'
+        run: flyctl ssh console --app handsfreeos-sync -g app -C "node /config/status.mjs --wait 900"
+
+      - name: Keep the daily compaction machine in step
+        if: steps.sync.outputs.deploy == 'true'
+        run: node apps/sync/scripts/compaction-machine.mjs

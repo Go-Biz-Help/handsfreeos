@@ -1,0 +1,56 @@
+name: Sync health
+
+# Every hour, asks the live sync service how it is (apps/sync/scripts/status.mjs, run inside its machine, where its
+# admin token already is) and fails, so GitHub emails you, when:
+#   - its replication slot is in danger: wal_status unreserved or lost, or less than half its WAL budget left;
+#   - it can't reach the database, reports a fatal error, or isn't answering at all;
+#   - a new sync config has been copying for more than 10 minutes (a stuck deploy).
+# "When the sync service needs attention" in docs/operations.md says what to do for each. Like the Deploy
+# workflow, it only notes that it skipped until Fly.io and the sync service are set up.
+on:
+  schedule:
+    - cron: '23 * * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: sync-health
+  cancel-in-progress: false
+
+jobs:
+  health:
+    name: Sync service health
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+    steps:
+      - name: Is Fly.io set up?
+        id: check
+        run: |
+          if [ -z "$FLY_API_TOKEN" ]; then
+            echo "::notice::FLY_API_TOKEN is not set, so nothing was checked."
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: superfly/flyctl-actions/setup-flyctl@1.6
+        if: steps.check.outputs.ready == 'true'
+
+      - name: Is the sync service deployed?
+        id: app
+        if: steps.check.outputs.ready == 'true'
+        run: |
+          machines=$(flyctl machine list --app handsfreeos-sync --json 2>/dev/null || echo '[]')
+          deployed=$(node -e '
+            const machines = JSON.parse(process.argv[1] || "[]");
+            console.log(machines.some((m) => m.config?.metadata?.fly_process_group === "app"));
+          ' "$machines")
+          if [ "$deployed" != "true" ]; then
+            echo "::notice::handsfreeos-sync isn't deployed yet, so nothing was checked."
+          fi
+          echo "deployed=$deployed" >> "$GITHUB_OUTPUT"
+
+      - name: Ask the sync service how it is
+        if: steps.app.outputs.deployed == 'true'
+        run: flyctl ssh console --app handsfreeos-sync -g app -C "node /config/status.mjs --wait 600"

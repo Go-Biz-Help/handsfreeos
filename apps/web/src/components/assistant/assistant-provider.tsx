@@ -1,5 +1,5 @@
 'use client';
-import type { AssistantCard, AssistantEvent } from '@hfos/core';
+import { ASSISTANT_CONSENT_VERSION, type AssistantCard, type AssistantEvent } from '@hfos/core';
 import { usePathname } from 'next/navigation';
 import {
   createContext,
@@ -91,6 +91,15 @@ export interface Shortcut {
 export interface AssistantValue {
   /** The person may use the Assistant here (assistant.use). */
   readonly enabled: boolean;
+  /**
+   * The consent step shows before any question: the person hasn't said OK yet to what they ask about going to
+   * Anthropic's Claude (account.me's assistantConsent, or the worker's assistant_consent_required refusal).
+   */
+  readonly consentNeeded: boolean;
+  /** "OK, continue": keeps the OK with the account, then asks the question that was waiting, if any. */
+  giveConsent(): Promise<void>;
+  /** "Not now": closes the panel; the step shows again next time. */
+  declineConsent(): void;
   readonly workspaceId: string;
   readonly workspaceName: string;
   readonly open: boolean;
@@ -162,6 +171,9 @@ const NONE: AssistantValue = {
   setCall: noop,
   closeIfCovering: noop,
   forgetThread: noop,
+  consentNeeded: false,
+  giveConsent: async () => undefined,
+  declineConsent: noop,
 };
 
 const AssistantContext = createContext<AssistantValue | null>(null);
@@ -256,16 +268,22 @@ export function AssistantProvider({
   workspaceId,
   workspaceName,
   enabled,
+  consentNeeded: consentNeededAtLoad = false,
   children,
 }: {
   workspaceId: string;
   workspaceName: string;
   enabled: boolean;
+  /** account.me's assistantConsent.needed when the page loaded. */
+  consentNeeded?: boolean;
   children: ReactNode;
 }) {
   const pathname = usePathname();
   const page = usePageRecord(workspaceId);
   const wide = useMatches(onInbox(pathname, workspaceId) ? DOCK_ON_INBOX : DOCK);
+  const [consentNeeded, setConsentNeeded] = useState(consentNeededAtLoad);
+  /** A question asked while the consent step was up (or refused for want of it): asked once the person says OK. */
+  const waitingQuestionRef = useRef<string | null>(null);
   const [open, setOpenState] = useState(false);
   const [view, setView] = useState<View>('chat');
   const [threadId, setThreadId] = useState<string | null>(null);
@@ -339,6 +357,12 @@ export function AssistantProvider({
     (raw: string) => {
       const text = raw.trim();
       if (!text || !enabled || streamRef.current) return;
+      // Nothing goes to Claude before the person's OK: the question waits for it.
+      if (consentNeeded) {
+        waitingQuestionRef.current = text;
+        setView('chat');
+        return;
+      }
       const now = new Date().toISOString();
       const userKey = `q-${crypto.randomUUID()}`;
       const answerKey = `a-${crypto.randomUUID()}`;
@@ -449,6 +473,14 @@ export function AssistantProvider({
             setMessages((all) => all.filter((m) => m.key !== userKey && m.key !== answerKey));
             return;
           }
+          // No OK on file after all (given on another device and taken back, or a newer wording): the consent
+          // step shows, and the question waits for it. Nothing reached Claude.
+          if (e instanceof ApiError && e.rule === 'assistant_consent_required') {
+            setMessages((all) => all.filter((m) => m.key !== userKey && m.key !== answerKey));
+            waitingQuestionRef.current = text;
+            setConsentNeeded(true);
+            return;
+          }
           const notice = noticeFor(e);
           if (notice.code === 'budget_reached') setPaused(true);
           finish(notice);
@@ -462,7 +494,7 @@ export function AssistantProvider({
         }
       })();
     },
-    [enabled, patchAnswer, setCall, setThread, workspaceId],
+    [consentNeeded, enabled, patchAnswer, setCall, setThread, workspaceId],
   );
 
   const retry = useCallback(
@@ -613,6 +645,45 @@ export function AssistantProvider({
 
   useEffect(() => () => streamRef.current?.abort(), []);
 
+  const giveConsent = useCallback(async () => {
+    try {
+      unwrap(
+        await apiBrowser().POST('/v1/commands/assistant.consent', {
+          body: { version: ASSISTANT_CONSENT_VERSION },
+        }),
+      );
+      setConsentNeeded(false);
+    } catch (e) {
+      toast.error(errorMessage(e));
+    }
+  }, []);
+  const declineConsent = useCallback(() => {
+    waitingQuestionRef.current = null;
+    setOpenState(false);
+  }, []);
+  // Opening the panel with the step to show: the OK may have been given since the page loaded (on the phone, or
+  // in another tab), and then the step never shows.
+  useEffect(() => {
+    if (!open || !consentNeeded || !enabled) return;
+    let cancelled = false;
+    apiBrowser()
+      .POST('/v1/queries/account.me', { body: {} })
+      .then((r) => {
+        if (!cancelled && !unwrap(r).assistantConsent.needed) setConsentNeeded(false);
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [consentNeeded, enabled, open]);
+  // The OK is kept: the question that was waiting for it is asked now.
+  useEffect(() => {
+    if (consentNeeded || !waitingQuestionRef.current) return;
+    const waiting = waitingQuestionRef.current;
+    waitingQuestionRef.current = null;
+    ask(waiting);
+  }, [ask, consentNeeded]);
+
   const shortcut = useMemo<Shortcut | null>(
     () =>
       mac === null
@@ -656,9 +727,15 @@ export function AssistantProvider({
       setCall,
       closeIfCovering,
       forgetThread,
+      consentNeeded,
+      giveConsent,
+      declineConsent,
     }),
     [
       enabled,
+      consentNeeded,
+      giveConsent,
+      declineConsent,
       workspaceId,
       workspaceName,
       isOpen,
