@@ -9,9 +9,10 @@ import { Brand } from '@/components/ui/brand';
 import { Input } from '@/components/ui/input';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
 import type { Me, WorkspaceSummary } from '@/lib/api/types';
+import { useAttentionSummary } from '@/lib/realtime/attention-summary';
 import { useUnread } from '@/lib/realtime/unread-provider';
 import { cn } from '@/lib/utils';
-import { isActive, navItems, NavLinks, UnreadCount } from './nav-links';
+import { isActive, navItems, NavLinks, UnreadCount, UrgentCount } from './nav-links';
 import { SearchField } from './search-field';
 import { UserMenu } from './user-menu';
 import { WorkspaceSwitcher } from './workspace-switcher';
@@ -27,6 +28,7 @@ export function MobileShell({ me, current }: { me: Me; current: WorkspaceSummary
   const nested = active && !active.exact && pathname !== active.href;
   const title = active?.label ?? current.name;
   const unread = useUnread().summary?.unread.all ?? 0;
+  const urgent = useAttentionSummary().summary?.urgent ?? 0;
   // A conversation fills the phone screen: the composer takes the bottom bar's place.
   const inThread = new RegExp(`^/app/w/${current.id}/inbox/[^/]+`).test(pathname);
   const inboxHref = `/app/w/${current.id}/inbox`;
@@ -108,6 +110,12 @@ export function MobileShell({ me, current }: { me: Me; current: WorkspaceSummary
               >
                 <span className="relative">
                   <Icon className="h-[22px] w-[22px]" strokeWidth={on ? 2 : 1.5} />
+                  {item.key === 'home' ? (
+                    <UrgentCount
+                      count={urgent}
+                      className="absolute -right-2.5 -top-1.5 h-4 min-w-4 px-1 text-[10px] ring-2 ring-card"
+                    />
+                  ) : null}
                   {item.key === 'inbox' ? (
                     <UnreadCount
                       count={unread}

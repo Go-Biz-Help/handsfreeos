@@ -13,6 +13,7 @@ import type { ConversationHandling } from '@/lib/ai-team/inbox-types';
 import { aiName, firstNameOf, handoffWhy, progressShort } from '@/lib/ai-team/inbox-words';
 import { teammateCommands, type TeammateBrief } from '@/lib/ai-team/use-inbox';
 import { zonedWhen } from '@/lib/inbox';
+import { useUnread } from '@/lib/realtime/unread-provider';
 import { cn } from '@/lib/utils';
 
 const STRIP = 'flex gap-2.5 rounded-[10px] text-[13px] leading-[1.4]';
@@ -38,6 +39,9 @@ export function useHandlingActions(opts: {
 }) {
   const [busy, setBusy] = useState<'take' | 'back' | null>(null);
   const cmd = teammateCommands(opts.workspaceId);
+  // Taking over (or handing back) moves the conversation between the inbox's boxes, and this tab's own change
+  // doesn't come back over Realtime: the counts are read again here.
+  const unread = useUnread();
   return {
     busy,
     async takeOver(): Promise<boolean> {
@@ -50,6 +54,7 @@ export function useHandlingActions(opts: {
             : `It’s yours. ${opts.name} stays quiet until you hand it back.`,
         );
         opts.after();
+        unread.refresh();
         return true;
       } catch (e) {
         toast.error(errorMessage(e));
@@ -64,6 +69,7 @@ export function useHandlingActions(opts: {
         await cmd.handToAi(opts.conversationId);
         toast.success(`Handed back to ${opts.name}. It answers ${opts.who}’s next message.`);
         opts.after();
+        unread.refresh();
         return true;
       } catch (e) {
         toast.error(errorMessage(e));

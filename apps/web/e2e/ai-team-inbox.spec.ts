@@ -193,18 +193,15 @@ test('AI teammate in the inbox: take over, hand back and needs a person', async 
     'Needs a person',
   );
 
-  await page.goto(`/app/w/${b.workspaceId}`);
-  const home = page.getByTestId('home-needs-person');
-  await expect(home).toContainText('Needs a person');
-  await expect(home.getByTestId('home-needs-person-row')).toHaveCount(1);
-  // Home's card fits a phone too.
+  // Take it from the conversation itself. (Home's Action Center opens its "Customer waiting" card once the
+  // hand-off has waited 15 open-hour minutes, so it isn't on Home yet; action-center.spec.ts covers that card.)
+  await page.goto(`/app/w/${b.workspaceId}/inbox/${conversationId}`);
+  await expect(page.getByTestId('handling-needs-person')).toBeVisible();
   await onPhone(page);
-  await expect(home.getByTestId('home-take-it')).toBeVisible();
-  expect((await home.boundingBox())!.width).toBeLessThanOrEqual(390);
+  await expect(page.getByTestId('take-it')).toBeVisible();
   expect(await pageWidth(page)).toBeLessThanOrEqual(390);
   await onDesk(page);
-  await home.getByTestId('home-take-it').click();
-  await expect(page).toHaveURL(new RegExp(`/inbox/${conversationId}`));
+  await page.getByTestId('take-it').click();
   await expect(page.getByTestId('handling-person')).toContainText('You took over');
   await expect(page.getByTestId('box-needs_person-count')).toHaveCount(0);
 });

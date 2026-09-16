@@ -167,11 +167,13 @@ test('on a phone: an AI-written text approved with an edit', async ({ page }) =>
 
   await page.emulateMedia({ colorScheme: 'dark' });
   await page.goto(`/app/w/${workspaceId}`);
-  const home = page.getByTestId('home-approvals');
-  await expect(home).toContainText('1 approval waiting');
+  // Home's Action Center has the approval: Review opens it on the Approvals page.
+  const home = page.getByTestId('attention-card').filter({ hasText: 'Pat Nguyen' });
+  await expect(home).toContainText('Approval', { timeout: 30_000 });
   const homeBox = (await home.boundingBox())!;
   expect(homeBox.x + homeBox.width).toBeLessThanOrEqual(390);
-  await home.getByTestId('home-approvals-open').click();
+  await expect(home.getByTestId('attention-handle')).toHaveText('Review');
+  await home.getByTestId('attention-handle').click();
   await expect(page).toHaveURL(/\/workflows\/approvals$/);
 
   const card = page.getByTestId('approval-card');

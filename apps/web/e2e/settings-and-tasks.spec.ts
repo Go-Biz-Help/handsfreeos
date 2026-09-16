@@ -1,8 +1,8 @@
 import { expect, test } from '@playwright/test';
 import { createBusiness, signUpAndConfirm } from './helpers';
 
-/** Pipeline and workspace settings, the tasks page, and the home summary once customers exist. */
-test('owner edits pipelines and the workspace; tasks and the home briefing reflect the work', async ({
+/** Pipeline and workspace settings, the tasks page, and Home's Action Center once customers exist. */
+test('owner edits pipelines and the workspace; tasks and the Action Center reflect the work', async ({
   page,
 }) => {
   await signUpAndConfirm(page, 'settings-owner');
@@ -76,12 +76,14 @@ test('owner edits pipelines and the workspace; tasks and the home briefing refle
   await page.getByTestId('tasks-group-overdue').getByTestId('task-toggle').click();
   await expect(page.getByTestId('tasks-group-done')).toContainText('Send the roof photos');
 
+  // Home is the Action Center: the lead with no next action waits there with its value; the done task doesn't.
   await page.goto(`/app/w/${workspaceId}`);
-  await expect(page.getByTestId('home-summary')).toContainText('Leads without a next action');
-  await expect(page.getByTestId('home-summary')).toContainText('Hail damage repair');
-  await expect(page.getByTestId('home-summary')).toContainText(
-    'completed the task Send the roof photos',
-  );
+  const hail = page.getByTestId('attention-card').filter({ hasText: 'Hail damage repair' });
+  await expect(hail).toContainText('No next action', { timeout: 30_000 });
+  await expect(page.getByTestId('attention-affected')).toHaveText('$4,100 affected');
+  await expect(
+    page.getByTestId('attention-card').filter({ hasText: 'Send the roof photos' }),
+  ).toHaveCount(0);
 
   // Members see the settings sub-nav without the workspace pages.
   await page.goto(`/app/w/${workspaceId}/settings`);

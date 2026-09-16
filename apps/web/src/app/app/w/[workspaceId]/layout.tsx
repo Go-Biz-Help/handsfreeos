@@ -10,6 +10,7 @@ import { ThemeSync } from '@/components/shell/theme-sync';
 import { WorkspaceMain } from '@/components/shell/workspace-main';
 import { ApiError, apiServer, fetchMe, unwrap } from '@/lib/api/server';
 import { CallProvider } from '@/lib/calls/call-provider';
+import { AttentionSummaryProvider } from '@/lib/realtime/attention-summary';
 import { LiveProvider } from '@/lib/realtime/live-provider';
 import { UnreadProvider } from '@/lib/realtime/unread-provider';
 import { parseTheme } from '@/lib/theme';
@@ -39,26 +40,29 @@ export default async function WorkspaceLayout({
   return (
     <LiveProvider workspaceId={workspaceId}>
       <UnreadProvider workspaceId={workspaceId}>
-        <CallProvider workspaceId={workspaceId} workspaceName={current.name}>
-          {/* Inside LiveProvider: pages refresh when the Assistant changes something. */}
-          <AssistantProvider
-            key={workspaceId}
-            workspaceId={workspaceId}
-            workspaceName={current.name}
-            enabled={hasWorkspacePermission(current.role, 'assistant.use')}
-          >
-            <div className="flex min-h-screen bg-bg">
-              <ThemeSync theme={parseTheme((me.user.settings as { theme?: unknown }).theme)} />
-              <Sidebar me={me} current={current} />
-              <div className="flex min-w-0 flex-1 flex-col">
-                <MobileShell me={me} current={current} />
-                <WorkspaceMain workspaceId={workspaceId}>{children}</WorkspaceMain>
+        {/* The urgent count on Home, in the sidebar and the phone's bottom bar. */}
+        <AttentionSummaryProvider workspaceId={workspaceId}>
+          <CallProvider workspaceId={workspaceId} workspaceName={current.name}>
+            {/* Inside LiveProvider: pages refresh when the Assistant changes something. */}
+            <AssistantProvider
+              key={workspaceId}
+              workspaceId={workspaceId}
+              workspaceName={current.name}
+              enabled={hasWorkspacePermission(current.role, 'assistant.use')}
+            >
+              <div className="flex min-h-screen bg-bg">
+                <ThemeSync theme={parseTheme((me.user.settings as { theme?: unknown }).theme)} />
+                <Sidebar me={me} current={current} />
+                <div className="flex min-w-0 flex-1 flex-col">
+                  <MobileShell me={me} current={current} />
+                  <WorkspaceMain workspaceId={workspaceId}>{children}</WorkspaceMain>
+                </div>
+                <AssistantPanel />
               </div>
-              <AssistantPanel />
-            </div>
-            <CallOverlays />
-          </AssistantProvider>
-        </CallProvider>
+              <CallOverlays />
+            </AssistantProvider>
+          </CallProvider>
+        </AttentionSummaryProvider>
       </UnreadProvider>
     </LiveProvider>
   );

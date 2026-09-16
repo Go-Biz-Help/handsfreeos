@@ -155,11 +155,10 @@ test('workflow approval: an AI text approved with an edit, one rejected, one exp
     .poll(() => runState(api, workspaceId, workflowId, mike), { timeout: 30_000 })
     .toBe('awaiting_approval');
   await page.goto(`/app/w/${workspaceId}`);
-  const home = page.getByTestId('home-approvals');
-  await expect(home).toContainText('1 approval waiting');
-  await expect(home).toContainText('Mike Johnson');
-  await expect(home).toContainText('Answer with AI · a text');
-  await home.getByTestId('home-approvals-open').click();
+  const home = page.getByTestId('attention-card').filter({ hasText: 'Mike Johnson' });
+  await expect(home).toContainText('Approval', { timeout: 30_000 });
+  await expect(home.getByTestId('attention-handle')).toHaveText('Review');
+  await home.getByTestId('attention-handle').click();
   await expect(page).toHaveURL(/\/workflows\/approvals$/);
 
   // 4. The Approvals page: what will go, what Mike said, the knowledge used. Edit it, then approve.

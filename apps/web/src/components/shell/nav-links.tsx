@@ -16,6 +16,7 @@ import {
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import type { ComponentType } from 'react';
+import { useAttentionSummary } from '@/lib/realtime/attention-summary';
 import { useUnread } from '@/lib/realtime/unread-provider';
 import { cn } from '@/lib/utils';
 
@@ -85,6 +86,24 @@ export function UnreadCount({ count, className }: { count: number; className?: s
   );
 }
 
+/** The count on Home: items that turned urgent, in the viewer's own scope (the Action Center's summary). */
+export function UrgentCount({ count, className }: { count: number; className?: string }) {
+  if (count <= 0) return null;
+  return (
+    <span
+      data-testid="urgent-badge"
+      title={`${count} urgent`}
+      className={cn(
+        'inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-danger px-1.5 text-[11px] font-semibold leading-none text-on-solid',
+        className,
+      )}
+    >
+      <span aria-hidden>{count > 99 ? '99+' : count}</span>
+      <span className="sr-only">{count} urgent</span>
+    </span>
+  );
+}
+
 export function NavLinks({
   workspaceId,
   onNavigate,
@@ -94,6 +113,7 @@ export function NavLinks({
 }) {
   const pathname = usePathname();
   const unread = useUnread().summary?.unread.all ?? 0;
+  const urgent = useAttentionSummary().summary?.urgent ?? 0;
   return (
     <nav className="mt-2.5 flex flex-col gap-0.5" aria-label="Workspace">
       {navItems(workspaceId).map((item) => {
@@ -114,6 +134,7 @@ export function NavLinks({
           >
             <Icon className="h-[18px] w-[18px]" strokeWidth={1.5} />
             {item.label}
+            {item.key === 'home' ? <UrgentCount count={urgent} className="ml-auto" /> : null}
             {item.key === 'inbox' ? <UnreadCount count={unread} className="ml-auto" /> : null}
           </Link>
         );
