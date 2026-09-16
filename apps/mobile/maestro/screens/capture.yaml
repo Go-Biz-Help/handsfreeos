@@ -1,0 +1,177 @@
+# Screenshots of each canvas screen the shell builds, in one theme (THEME=light or dark). Not run in CI:
+#   maestro test -e THEME=dark -e PREFIX=ios apps/mobile/maestro/screens/capture.yaml --test-output-dir <dir>
+# (THEME and PREFIX have no defaults here: a flow's own env wins over -e.)
+appId: com.gobizhelp.handsfreeos
+name: Canvas screens
+tags:
+  - screens
+env:
+  PASSWORD: HandsFree-Demo-2026
+---
+- runFlow: ../subflows/start-signed-out.yaml
+- runFlow:
+    file: ../subflows/sign-in-with-password.yaml
+    env:
+      EMAIL: dale@lonestarhvac.test
+# The theme, from Settings → Appearance.
+- tapOn:
+    id: 'tab-more'
+- tapOn:
+    id: 'more-settings'
+- tapOn:
+    id: 'setting-appearance'
+- tapOn:
+    id: 'appearance-${THEME}'
+- tapOn:
+    id: 'appearance-done'
+- waitForAnimationToEnd
+- takeScreenshot: ${PREFIX}-08-settings-${THEME}
+- tapOn:
+    id: 'setting-delete-account'
+- waitForAnimationToEnd
+- takeScreenshot: ${PREFIX}-10-delete-account-${THEME}
+- tapOn:
+    id: 'back'
+- waitForAnimationToEnd
+- tapOn:
+    id: 'back'
+- waitForAnimationToEnd
+- takeScreenshot: ${PREFIX}-07-more-${THEME}
+- tapOn:
+    id: 'tab-home'
+- waitForAnimationToEnd
+- takeScreenshot: ${PREFIX}-05-home-${THEME}
+# Three changes waiting (the stand-in until the queue arrives), then signing out warns.
+- tapOn:
+    id: 'tab-more'
+- tapOn:
+    id: 'more-settings'
+- scrollUntilVisible:
+    element:
+      id: 'test-waiting-3'
+    centerElement: true
+- waitForAnimationToEnd
+- tapOn:
+    id: 'test-waiting-3'
+- scrollUntilVisible:
+    element:
+      id: 'setting-sign-out'
+    direction: UP
+    centerElement: true
+- waitForAnimationToEnd
+- tapOn:
+    id: 'setting-sign-out'
+- waitForAnimationToEnd
+- takeScreenshot: ${PREFIX}-09-sign-out-${THEME}
+- tapOn:
+    id: 'stay-signed-in'
+- waitForAnimationToEnd
+# No signal: Home with the strip and "As of".
+- scrollUntilVisible:
+    element:
+      id: 'test-no-signal'
+    centerElement: true
+- waitForAnimationToEnd
+- tapOn:
+    id: 'test-no-signal'
+- tapOn:
+    id: 'tab-home'
+- waitForAnimationToEnd
+- takeScreenshot: ${PREFIX}-06-home-offline-${THEME}
+# Opening the app again with no signal: locked, still signed in.
+- stopApp
+- launchApp:
+    stopApp: false
+- extendedWaitUntil:
+    visible:
+      id: 'test-unlock-prompt'
+    timeout: 45000
+- tapOn:
+    id: 'test-unlock-cancel'
+- waitForAnimationToEnd
+- takeScreenshot: ${PREFIX}-04-unlock-offline-${THEME}
+- tapOn:
+    id: 'unlock'
+- extendedWaitUntil:
+    visible:
+      id: 'test-unlock-match'
+    timeout: 10000
+- tapOn:
+    id: 'test-unlock-match'
+- extendedWaitUntil:
+    visible:
+      id: 'home'
+    timeout: 10000
+- tapOn:
+    id: 'tab-more'
+- tapOn:
+    id: 'more-settings'
+- scrollUntilVisible:
+    element:
+      id: 'test-no-signal'
+    centerElement: true
+- waitForAnimationToEnd
+- tapOn:
+    id: 'test-no-signal'
+- tapOn:
+    id: 'test-waiting-0'
+# Signing in: email first, then the password, then the 6-digit code screen.
+- scrollUntilVisible:
+    element:
+      id: 'setting-sign-out'
+    direction: UP
+    centerElement: true
+- waitForAnimationToEnd
+- tapOn:
+    id: 'setting-sign-out'
+- tapOn:
+    id: 'confirm-sign-out'
+- extendedWaitUntil:
+    visible:
+      id: 'sign-in'
+    timeout: 10000
+- tapOn:
+    id: 'email'
+- eraseText: 60
+- inputText: dale@lonestarhvac.test
+# Tapping the heading puts the keyboard away (hideKeyboard is unreliable on iOS).
+- tapOn: 'Welcome back'
+- waitForAnimationToEnd
+- takeScreenshot: ${PREFIX}-01-sign-in-${THEME}
+- tapOn:
+    id: 'use-my-password'
+- tapOn:
+    id: 'password'
+- inputText: ${PASSWORD}
+- tapOn: 'Enter your password'
+- waitForAnimationToEnd
+- takeScreenshot: ${PREFIX}-03-password-${THEME}
+- tapOn:
+    id: 'back'
+- waitForAnimationToEnd
+- tapOn:
+    id: 'email-me-a-code'
+- extendedWaitUntil:
+    visible:
+      id: 'code-screen'
+    timeout: 15000
+- tapOn:
+    id: 'code-input'
+- inputText: '48291'
+- tapOn: 'Check your email'
+- waitForAnimationToEnd
+- takeScreenshot: ${PREFIX}-02-code-${THEME}
+- tapOn:
+    id: 'back'
+- waitForAnimationToEnd
+# The business switcher, as agency staff.
+- runFlow:
+    file: ../subflows/sign-in-with-password.yaml
+    env:
+      EMAIL: chris@gobizhelp.test
+- tapOn:
+    id: 'business-mark'
+- waitForAnimationToEnd
+- takeScreenshot: ${PREFIX}-11-switcher-${THEME}
+- tapOn:
+    id: 'business-switcher-close'

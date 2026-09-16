@@ -1,0 +1,40 @@
+appId: com.gobizhelp.handsfreeos
+name: Sign in with an emailed code
+# The code comes from the email supabase/templates/magic_link.html sends, read from the local stack's Mailpit.
+tags:
+  - ci
+  - code
+env:
+  EMAIL: dale@lonestarhvac.test
+---
+- runFlow: subflows/start-signed-out.yaml
+- tapOn:
+    id: 'email'
+- eraseText: 60
+- inputText: ${EMAIL}
+- tapOn:
+    id: 'email-me-a-code'
+- extendedWaitUntil:
+    visible:
+      id: 'code-screen'
+    timeout: 15000
+- assertVisible: 'Check your email'
+# A wrong code is refused in plain words, and the right one signs in.
+- tapOn:
+    id: 'code-input'
+- inputText: '000000'
+- extendedWaitUntil:
+    visible: 'That code isn’t right, or it has expired. Check the email, or send another code.'
+    timeout: 15000
+- runScript:
+    file: scripts/latest-code.js
+    env:
+      EMAIL: ${EMAIL}
+- tapOn:
+    id: 'code-input'
+- eraseText: 6
+- inputText: ${output.code}
+- extendedWaitUntil:
+    visible:
+      id: 'home'
+    timeout: 30000

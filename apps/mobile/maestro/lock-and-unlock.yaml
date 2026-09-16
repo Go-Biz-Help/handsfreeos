@@ -1,0 +1,58 @@
+appId: com.gobizhelp.handsfreeos
+name: Lock with Face ID and unlock
+tags:
+  - ci
+# Seed accounts (apps/worker/scripts/seed.ts); the password is the seed's, for local stacks only.
+env:
+  EMAIL: dale@lonestarhvac.test
+  PASSWORD: HandsFree-Demo-2026
+---
+- runFlow: subflows/start-signed-out.yaml
+- runFlow: subflows/sign-in-with-password.yaml
+# Opening the app again locks it (test builds stand in for Face ID with Match and No match).
+- stopApp
+- launchApp:
+    stopApp: false
+# The prompt comes up by itself; a miss keeps the app locked.
+- extendedWaitUntil:
+    visible:
+      id: 'test-unlock-prompt'
+    timeout: 45000
+- tapOn:
+    id: 'test-unlock-no-match'
+- assertVisible: 'HandsFreeOS is locked'
+- assertVisible: 'Dale Ramsey · Lone Star HVAC & Roofing'
+- assertVisible: 'That didn’t match. Try again.'
+- tapOn:
+    id: 'unlock'
+- extendedWaitUntil:
+    visible:
+      id: 'test-unlock-match'
+    timeout: 10000
+- tapOn:
+    id: 'test-unlock-match'
+- extendedWaitUntil:
+    visible:
+      id: 'home'
+    timeout: 10000
+- assertNotVisible:
+    id: 'lock-screen'
+# Signing out from the lock screen goes back to signing in.
+- stopApp
+- launchApp:
+    stopApp: false
+- extendedWaitUntil:
+    visible:
+      id: 'test-unlock-prompt'
+    timeout: 45000
+- tapOn:
+    id: 'test-unlock-cancel'
+- tapOn:
+    id: 'lock-sign-out'
+- assertVisible: 'Sign out?'
+- tapOn:
+    id: 'confirm-sign-out'
+- extendedWaitUntil:
+    visible:
+      id: 'sign-in'
+    timeout: 10000

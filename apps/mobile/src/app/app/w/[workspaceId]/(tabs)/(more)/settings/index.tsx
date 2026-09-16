@@ -1,0 +1,248 @@
+import * as Linking from 'expo-linking';
+import { router } from 'expo-router';
+import * as React from 'react';
+import { View } from 'react-native';
+
+import {
+  CloudCheck,
+  Fingerprint,
+  Layers,
+  LogOut,
+  Moon,
+  ScanFace,
+  User,
+  UserX,
+} from '@/components/icons';
+import { businessHref, useBusiness } from '@/components/shell/business-context';
+import { List, ListLabel, ListRow } from '@/components/shell/list';
+import { Screen } from '@/components/shell/screen';
+import { SignOutSheet } from '@/components/shell/sign-out-sheet';
+import { UpToDate } from '@/components/shell/up-to-date';
+import { Button } from '@/components/ui/button';
+import { Segmented } from '@/components/ui/segmented';
+import { Sheet } from '@/components/ui/sheet';
+import { Switch } from '@/components/ui/switch';
+import { Text } from '@/components/ui/text';
+import { toast } from '@/components/ui/toast';
+import { APPEARANCE_LABELS, setAppearance, useAppearance, type Appearance } from '@/lib/appearance';
+import { biometrics, unlockLabel, type BiometricInfo } from '@/lib/biometrics';
+import { isKept, useKeepChoices } from '@/lib/businesses';
+import { config, testToolsEnabled } from '@/lib/config';
+import { lockEnabledFor, setLockEnabledFor } from '@/lib/lock';
+import { isTestOffline, setTestOffline, useNetwork } from '@/lib/network';
+import { setTestWaiting, useWaitingCount } from '@/lib/sync-status';
+import { expireSavedSignIn } from '@/lib/test-tools';
+
+/**
+ * Settings on the phone are about you and this phone: Face ID, the businesses kept here, the changes waiting, how it
+ * looks, signing out and deleting the account. Everything about the business stays on the web.
+ */
+export default function Settings() {
+  const { me, business, userId } = useBusiness();
+  const appearance = useAppearance();
+  const choices = useKeepChoices(userId);
+  const [info, setInfo] = React.useState<BiometricInfo | null>(null);
+  const [lockOn, setLockOn] = React.useState(() => lockEnabledFor(userId));
+  const [appearanceOpen, setAppearanceOpen] = React.useState(false);
+  const [signingOut, setSigningOut] = React.useState(false);
+
+  React.useEffect(() => {
+    void biometrics.info().then(setInfo);
+  }, []);
+
+  const kept = me.businesses.filter((b) => isKept(choices, b.id));
+  const keptDetail =
+    kept.length === 0
+      ? 'None: every business opens only with signal'
+      : kept.length === 1
+        ? `${kept[0]!.name} · works with no signal`
+        : `${kept.length} businesses · work with no signal`;
+
+  const toggleLock = async (next: boolean) => {
+    // Turning the lock on or off asks first, so it can't be switched off by whoever picks the phone up.
+    const result = await biometrics.authenticate(next ? 'Turn on the lock' : 'Turn off the lock');
+    if (result !== 'unlocked') {
+      if (result === 'failed') toast.error('That didn’t match, so nothing changed.');
+      return;
+    }
+    setLockEnabledFor(userId, next);
+    setLockOn(next);
+  };
+
+  const method = info?.method ?? 'Face ID';
+  return (
+    <Screen
+      title="Settings"
+      leading="back"
+      back={businessHref(business.id, 'more')}
+      testID="settings"
+      contentClassName="gap-2"
+    >
+      <ListLabel>This phone</ListLabel>
+      <List>
+        <ListRow
+          icon={method === 'fingerprint' || method === 'Touch ID' ? Fingerprint : ScanFace}
+          label={unlockLabel(method)}
+          detail={
+            info && !info.available
+              ? 'Set up Face ID, a fingerprint or a passcode on this phone first'
+              : 'Asks when you open the app'
+          }
+          end={
+            <Switch
+              label={unlockLabel(method)}
+              testID="setting-lock"
+              checked={Boolean(info?.available) && lockOn}
+              disabled={!info?.available}
+              onCheckedChange={(next) => void toggleLock(next)}
+            />
+          }
+        />
+        <ListRow
+          icon={Layers}
+          label="Businesses on this phone"
+          detail={keptDetail}
+          onPress={() => router.push(businessHref(business.id, 'settings/businesses'))}
+          testID="setting-businesses"
+        />
+        <ListRow
+          icon={CloudCheck}
+          label="Changes on this phone"
+          end={<UpToDate compact />}
+          onPress={() => router.push(businessHref(business.id, 'changes'))}
+          testID="setting-changes"
+        />
+      </List>
+
+      <ListLabel>You</ListLabel>
+      <List>
+        <ListRow
+          icon={User}
+          label="Profile and sign-in"
+          detail={me.user.email}
+          external
+          onPress={() => void Linking.openURL(`${config.webUrl}/app/w/${business.id}/settings`)}
+          testID="setting-profile"
+        />
+        <ListRow
+          icon={Moon}
+          label="Appearance"
+          end={APPEARANCE_LABELS[appearance]}
+          onPress={() => setAppearanceOpen(true)}
+          testID="setting-appearance"
+        />
+      </List>
+
+      <View className="h-2" />
+      <List>
+        <ListRow
+          icon={LogOut}
+          label="Sign out"
+          onPress={() => setSigningOut(true)}
+          testID="setting-sign-out"
+        />
+        <ListRow
+          icon={UserX}
+          label="Delete my account"
+          danger
+          onPress={() => router.push(businessHref(business.id, 'settings/delete-account'))}
+          testID="setting-delete-account"
+        />
+      </List>
+      <Text className="px-1 text-[12.5px] leading-[18px] text-text-3">
+        Business settings, texting, payments and members are on the web.
+      </Text>
+
+      {testToolsEnabled ? <TestTools /> : null}
+
+      <Sheet
+        open={appearanceOpen}
+        onClose={() => setAppearanceOpen(false)}
+        title="Appearance"
+        testID="appearance-sheet"
+      >
+        <Text className="mb-3 mt-1 text-sm text-text-2">
+          System follows this phone’s own light or dark setting.
+        </Text>
+        <Segmented<Appearance>
+          label="Appearance"
+          value={appearance}
+          onChange={setAppearance}
+          options={[
+            { value: 'system', label: 'System', testID: 'appearance-system' },
+            { value: 'light', label: 'Light', testID: 'appearance-light' },
+            { value: 'dark', label: 'Dark', testID: 'appearance-dark' },
+          ]}
+        />
+        <Button
+          variant="secondary"
+          className="mt-4"
+          onPress={() => setAppearanceOpen(false)}
+          testID="appearance-done"
+        >
+          Done
+        </Button>
+      </Sheet>
+      <SignOutSheet open={signingOut} onClose={() => setSigningOut(false)} />
+    </Screen>
+  );
+}
+
+/** Development and test builds: pretend there's no signal, or changes waiting, to see the strip and the warnings. */
+function TestTools() {
+  const { online } = useNetwork();
+  const waiting = useWaitingCount();
+  const [offline, setOffline] = React.useState(isTestOffline());
+  return (
+    <>
+      <ListLabel>Test tools</ListLabel>
+      <List testID="test-tools">
+        <ListRow
+          label="No signal"
+          detail={online ? 'Every request fails, as in a dead zone' : 'The phone has no signal now'}
+          end={
+            <Switch
+              label="No signal"
+              testID="test-no-signal"
+              checked={offline}
+              onCheckedChange={(next) => {
+                setTestOffline(next);
+                setOffline(next);
+              }}
+            />
+          }
+        />
+        <View className="gap-2 px-4 py-3">
+          <Text className="text-base">Changes waiting</Text>
+          <Segmented<string>
+            label="Changes waiting"
+            value={String([0, 1, 3, 7].includes(waiting) ? waiting : 0)}
+            onChange={(v) => setTestWaiting(Number(v))}
+            options={['0', '1', '3', '7'].map((v) => ({
+              value: v,
+              label: v,
+              testID: `test-waiting-${v}`,
+            }))}
+          />
+        </View>
+        <ListRow
+          label="Access token expired"
+          detail="As after an hour with no signal"
+          onPress={() =>
+            void expireSavedSignIn().then(() =>
+              toast.show('The saved sign-in now looks an hour old.'),
+            )
+          }
+          testID="test-expire-sign-in"
+        />
+        {__DEV__ ? (
+          <ListRow
+            label="Self-test"
+            detail="Time zones and dates on this phone"
+            onPress={() => router.push('/self-test')}
+          />
+        ) : null}
+      </List>
+    </>
+  );
+}

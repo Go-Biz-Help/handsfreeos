@@ -1,0 +1,151 @@
+name: Phone app on Android
+
+# The phone app's Maestro flows (apps/mobile/maestro, tagged `ci`) on an Android emulator: signing in with a
+# password and with an emailed code (read from the local stack's Mailpit), Home and the tabs, switching business,
+# locking and unlocking, and no signal with the access token run out (airplane mode, which only Android emulators
+# have). Its own workflow, so the 45-minute CI job keeps its room.
+on:
+  push:
+    branches: [main]
+  schedule:
+    # Nightly, 2:17 AM in Houston.
+    - cron: '17 7 * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: mobile-e2e-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CI: true
+  MAESTRO_VERSION: 2.10.0
+  MAESTRO_CLI_NO_ANALYTICS: 1
+  MAESTRO_CLI_ANALYSIS_NOTIFICATION_DISABLED: true
+
+jobs:
+  maestro-android:
+    name: Maestro flows on an Android emulator
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: zulu
+          java-version: '17'
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      # React Native builds with NDK 27.1 and expo-updates asks for 27.0 (spike 1a): about 4.8 GB between them.
+      # Gradle downloads a missing one during the build; the cache saves both when the job ends.
+      - name: Cache the Android NDKs
+        uses: actions/cache@v4
+        with:
+          path: |
+            /usr/local/lib/android/sdk/ndk/27.1.12297006
+            /usr/local/lib/android/sdk/ndk/27.0.12077973
+          key: android-ndk-27.1.12297006-27.0.12077973
+
+      - name: Let the emulator use KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.117.0
+
+      - name: Start the local Supabase stack
+        run: node scripts/supabase.mjs start -x imgproxy,studio,edge-runtime,logflare,vector
+
+      - name: Write local env files
+        run: pnpm env:local
+
+      - name: Seed the demo businesses
+        run: pnpm db:seed
+
+      - name: Start the API
+        run: |
+          pnpm --filter @hfos/api exec tsx src/server.ts > api.log 2>&1 &
+          for i in $(seq 1 60); do
+            if curl -sf http://127.0.0.1:4000/healthz > /dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat api.log
+          exit 1
+
+      # The emulator reaches this machine's Supabase and API through `adb reverse`, as localhost. The publishable key
+      # is the local stack's, and public.
+      - name: Point the app at the local stack
+        working-directory: apps/mobile
+        run: |
+          KEY=$(node ../../scripts/supabase.mjs status -o env | sed -n 's/^PUBLISHABLE_KEY="\{0,1\}\([^"]*\)"\{0,1\}$/\1/p')
+          test -n "$KEY"
+          {
+            echo "EXPO_PUBLIC_SUPABASE_URL=http://localhost:54421"
+            echo "EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY=$KEY"
+            echo "EXPO_PUBLIC_API_URL=http://localhost:4000"
+            echo "EXPO_PUBLIC_WEB_URL=http://localhost:3000"
+          } > .env.local
+
+      # A release build carries its JavaScript, so no Metro. EXPO_PUBLIC_E2E=1 swaps Face ID for a test prompt,
+      # shows the test switches, and lets the build use plain http to the emulator's host (app.config.ts). The build
+      # must say op-sqlite is using SQLCipher: with the switch in the wrong package.json it quietly isn't (spike 1a).
+      - name: Build the test app (release, x86_64)
+        working-directory: apps/mobile
+        env:
+          EXPO_PUBLIC_E2E: '1'
+        run: |
+          set -o pipefail
+          npx expo prebuild --platform android --no-install
+          cd android
+          ./gradlew assembleRelease -PreactNativeArchitectures=x86_64 --no-daemon | tee ../gradle.log
+          grep -q "using sqlcipher" ../gradle.log
+
+      - name: Install Maestro
+        run: |
+          curl -Ls "https://get.maestro.mobile.dev" | bash
+          echo "$HOME/.maestro/bin" >> "$GITHUB_PATH"
+
+      - name: Run the flows
+        uses: reactivecircus/android-emulator-runner@v2.38.0
+        with:
+          api-level: 36
+          arch: x86_64
+          target: google_apis
+          profile: pixel_6
+          # Android 16 swaps in 2 GB, and then System UI stops responding and Maestro stalls.
+          ram-size: 4096M
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -no-snapshot-save
+          script: |
+            adb reverse tcp:54421 tcp:54421
+            adb reverse tcp:4000 tcp:4000
+            adb install -r apps/mobile/android/app/build/outputs/apk/release/app-release.apk
+            maestro test apps/mobile/maestro --include-tags ci --format junit --output maestro-report.xml --test-output-dir maestro-artifacts
+
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: maestro-android
+          path: |
+            maestro-report.xml
+            maestro-artifacts
+            api.log
+            apps/mobile/gradle.log
+          retention-days: 7
+
+      - name: Stop the local stack
+        if: always()
+        run: node scripts/supabase.mjs stop --no-backup

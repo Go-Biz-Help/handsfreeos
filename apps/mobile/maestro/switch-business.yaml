@@ -1,0 +1,55 @@
+appId: com.gobizhelp.handsfreeos
+name: Switch business and keep businesses on the phone
+tags:
+  - ci
+# Seed accounts (apps/worker/scripts/seed.ts); the password is the seed's, for local stacks only.
+env:
+  EMAIL: chris@gobizhelp.test
+  PASSWORD: HandsFree-Demo-2026
+---
+- runFlow: subflows/start-signed-out.yaml
+- runFlow: subflows/sign-in-with-password.yaml
+# The business mark at the top left opens the switcher.
+- tapOn:
+    id: 'business-mark'
+- extendedWaitUntil:
+    visible: 'Businesses'
+    timeout: 5000
+- assertVisible: 'Chris Demo · chris@gobizhelp.test'
+- assertVisible: 'Lone Star HVAC & Roofing'
+- assertVisible: 'Bayou Plumbing Co.'
+- assertVisible: 'Summit Roofing'
+- tapOn: 'Summit Roofing'
+- extendedWaitUntil:
+    visible:
+      id: 'home'
+    timeout: 15000
+- assertVisible:
+    id: 'home-business'
+    text: 'Summit Roofing'
+# The one opened last is kept on the phone by default; another can be kept too.
+- tapOn:
+    id: 'tab-more'
+- tapOn:
+    id: 'more-settings'
+- tapOn:
+    id: 'setting-businesses'
+- assertVisible: 'Businesses on this phone'
+- assertVisible: 'Works with no signal'
+- assertVisible: 'Opens only with signal'
+- waitForAnimationToEnd
+- tapOn:
+    id: 'back'
+- waitForAnimationToEnd
+- tapOn:
+    id: 'back'
+- tapOn:
+    id: 'more-switch-business'
+- tapOn: 'Bayou Plumbing Co.'
+- extendedWaitUntil:
+    visible:
+      id: 'home'
+    timeout: 15000
+- assertVisible:
+    id: 'home-business'
+    text: 'Bayou Plumbing Co.'

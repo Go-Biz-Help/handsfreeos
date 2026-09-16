@@ -1,67 +1,46 @@
-import { cn } from '@/lib/utils';
 import { Slot } from '@rn-primitives/slot';
 import { cva, type VariantProps } from 'class-variance-authority';
 import * as React from 'react';
-import { Platform, Text as RNText, type Role } from 'react-native';
+import { Text as RNText, type Role } from 'react-native';
 
-const textVariants = cva(
-  cn(
-    'text-foreground text-base',
-    Platform.select({
-      web: 'select-text',
-    }),
-  ),
-  {
-    variants: {
-      variant: {
-        default: '',
-        h1: cn(
-          'text-center text-4xl font-extrabold tracking-tight',
-          Platform.select({ web: 'scroll-m-20 text-balance' }),
-        ),
-        h2: cn(
-          'border-border border-b pb-2 text-3xl font-semibold tracking-tight',
-          Platform.select({ web: 'scroll-m-20 first:mt-0' }),
-        ),
-        h3: cn('text-2xl font-semibold tracking-tight', Platform.select({ web: 'scroll-m-20' })),
-        h4: cn('text-xl font-semibold tracking-tight', Platform.select({ web: 'scroll-m-20' })),
-        p: 'mt-3 leading-7 sm:mt-6',
-        blockquote: 'mt-4 border-l-2 pl-3 italic sm:mt-6 sm:pl-6',
-        code: cn(
-          'bg-muted relative rounded px-[0.3rem] py-[0.2rem] font-mono text-sm font-semibold',
-        ),
-        lead: 'text-muted-foreground text-xl',
-        large: 'text-lg font-semibold',
-        small: 'text-sm font-medium leading-none',
-        muted: 'text-muted-foreground text-sm',
-      },
-    },
-    defaultVariants: {
-      variant: 'default',
+import { cn } from '@/lib/utils';
+
+/**
+ * Text in the web's type: Hanken Grotesk, `text-text`, with the sizes the phone boards use. A phone reads 15 px as
+ * the web reads 14 px, so body text is 15 px here.
+ */
+const textVariants = cva('font-sans text-[15px] text-text', {
+  variants: {
+    variant: {
+      default: '',
+      /** "Welcome back", "Check your email": the sign-in screens' headings. */
+      title: 'text-[28px] font-semibold tracking-[-0.56px] leading-[34px]',
+      /** A page's own heading ("Delete my account", "HandsFreeOS is locked"). */
+      heading: 'text-[22px] font-semibold tracking-[-0.22px] leading-[28px]',
+      /** A sheet's title. */
+      sheetTitle: 'text-lg font-semibold tracking-[-0.18px]',
+      /** The line under a heading. */
+      lead: 'text-[15.5px] text-text-2 leading-[22px]',
+      muted: 'text-sm text-text-2',
+      small: 'text-[13px] text-text-3',
+      /** Group labels in lists ("THIS PHONE"). */
+      group: 'text-xs font-semibold uppercase tracking-[0.5px] text-text-3',
+      mono: 'font-mono text-sm',
     },
   },
-);
+  defaultVariants: { variant: 'default' },
+});
 
 type TextVariantProps = VariantProps<typeof textVariants>;
-
 type TextVariant = NonNullable<TextVariantProps['variant']>;
 
 const ROLE: Partial<Record<TextVariant, Role>> = {
-  h1: 'heading',
-  h2: 'heading',
-  h3: 'heading',
-  h4: 'heading',
-  blockquote: Platform.select({ web: 'blockquote' as Role }),
-  code: Platform.select({ web: 'code' as Role }),
+  title: 'heading',
+  heading: 'heading',
+  sheetTitle: 'heading',
 };
 
-const ARIA_LEVEL: Partial<Record<TextVariant, string>> = {
-  h1: '1',
-  h2: '2',
-  h3: '3',
-  h4: '4',
-};
-
+/** Classes a parent (a button, a badge) hands its text. */
 const TextClassContext = React.createContext<string | undefined>(undefined);
 
 function Text({
@@ -70,7 +49,6 @@ function Text({
   variant = 'default',
   ...props
 }: React.ComponentProps<typeof RNText> &
-  React.RefAttributes<typeof RNText> &
   TextVariantProps & {
     asChild?: boolean;
   }) {
@@ -80,10 +58,9 @@ function Text({
     <Component
       className={cn(textVariants({ variant }), textClass, className)}
       role={variant ? ROLE[variant] : undefined}
-      aria-level={variant ? ARIA_LEVEL[variant] : undefined}
       {...props}
     />
   );
 }
 
-export { Text, TextClassContext };
+export { Text, TextClassContext, textVariants };

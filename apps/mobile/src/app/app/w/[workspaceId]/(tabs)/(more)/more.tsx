@@ -1,0 +1,99 @@
+import * as Linking from 'expo-linking';
+import { router } from 'expo-router';
+import { View } from 'react-native';
+
+import {
+  CircleDollarSign,
+  ClipboardList,
+  CloudCheck,
+  Globe,
+  Settings2,
+  Sparkles,
+  Users,
+} from '@/components/icons';
+import { businessHref, useBusiness } from '@/components/shell/business-context';
+import { List, ListRow } from '@/components/shell/list';
+import { Screen } from '@/components/shell/screen';
+import { UpToDate } from '@/components/shell/up-to-date';
+import { Avatar } from '@/components/ui/avatar';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { Text } from '@/components/ui/text';
+import { ROLE_LABELS } from '@/lib/businesses';
+import { config } from '@/lib/config';
+
+/** More: Customers, Tasks, Money, Approvals and Settings, then Open on the web for the desk work. */
+export default function More() {
+  const { me, business, userId, openSwitcher } = useBusiness();
+  const name = me.user.fullName || me.user.email;
+  const go = (path: string) => router.push(businessHref(business.id, path));
+  return (
+    <Screen title="More" testID="more">
+      <Card className="flex-row items-center gap-3 px-3.5 py-3">
+        <Avatar name={name} seed={userId} size="lg" />
+        <View className="min-w-0 flex-1 gap-px">
+          <Text className="text-base font-semibold" numberOfLines={1}>
+            {name}
+          </Text>
+          <Text className="text-[12.5px] text-text-3" numberOfLines={1}>
+            {ROLE_LABELS[business.role]} · {business.name}
+          </Text>
+        </View>
+        <Button variant="secondary" size="sm" onPress={openSwitcher} testID="more-switch-business">
+          Switch
+        </Button>
+      </Card>
+      <List>
+        <ListRow
+          icon={CloudCheck}
+          label="Changes on this phone"
+          end={<UpToDate compact />}
+          onPress={() => go('changes')}
+          testID="more-changes"
+        />
+      </List>
+      <List>
+        <ListRow
+          icon={Users}
+          label="Customers"
+          onPress={() => go('customers')}
+          testID="more-customers"
+        />
+        <ListRow
+          icon={ClipboardList}
+          label="Tasks"
+          onPress={() => go('tasks')}
+          testID="more-tasks"
+        />
+        <ListRow
+          icon={CircleDollarSign}
+          label="Money"
+          onPress={() => go('money')}
+          testID="more-money"
+        />
+        <ListRow
+          icon={Sparkles}
+          label="Approvals"
+          onPress={() => go('approvals')}
+          testID="more-approvals"
+        />
+        <ListRow
+          icon={Settings2}
+          label="Settings"
+          onPress={() => go('settings')}
+          testID="more-settings"
+        />
+      </List>
+      <List>
+        <ListRow
+          icon={Globe}
+          label="Open on the web"
+          detail="Workflows, the AI teammate, business settings, members and more"
+          external
+          onPress={() => void Linking.openURL(`${config.webUrl}/app/w/${business.id}`)}
+          testID="more-open-on-web"
+        />
+      </List>
+    </Screen>
+  );
+}

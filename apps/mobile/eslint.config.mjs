@@ -13,4 +13,19 @@ export default [
     },
     rules: { '@typescript-eslint/no-require-imports': 'off' },
   },
+  {
+    // Maestro runs these scripts itself, with its own globals and the flow's env as variables.
+    files: ['maestro/**/*.js'],
+    languageOptions: {
+      sourceType: 'script',
+      globals: {
+        http: 'readonly',
+        json: 'readonly',
+        output: 'writable',
+        maestro: 'readonly',
+        EMAIL: 'readonly',
+        MAILPIT_URL: 'readonly',
+      },
+    },
+  },
 ];

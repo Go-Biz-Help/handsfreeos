@@ -1,0 +1,55 @@
+appId: com.gobizhelp.handsfreeos
+name: No signal, with the access token run out
+tags:
+  - ci
+  - android-only
+# Seed accounts (apps/worker/scripts/seed.ts); the password is the seed's, for local stacks only.
+env:
+  EMAIL: dale@lonestarhvac.test
+  PASSWORD: HandsFree-Demo-2026
+---
+- runFlow: subflows/start-signed-out.yaml
+- runFlow: subflows/sign-in-with-password.yaml
+# Make the saved sign-in's access token an hour old, then lose signal and open the app again.
+- tapOn:
+    id: 'tab-more'
+- tapOn:
+    id: 'more-settings'
+- scrollUntilVisible:
+    element:
+      id: 'test-expire-sign-in'
+    centerElement: true
+- tapOn:
+    id: 'test-expire-sign-in'
+- setAirplaneMode: enabled
+- stopApp
+- launchApp:
+    stopApp: false
+- extendedWaitUntil:
+    visible:
+      id: 'test-unlock-prompt'
+    timeout: 45000
+- tapOn:
+    id: 'test-unlock-cancel'
+- assertVisible: 'No signal, and still signed in. Your changes wait on the phone, and your sign-in is checked again once you’re back online.'
+- tapOn:
+    id: 'unlock'
+- extendedWaitUntil:
+    visible:
+      id: 'test-unlock-match'
+    timeout: 10000
+- tapOn:
+    id: 'test-unlock-match'
+# Still signed in, with the strip under the top bar.
+- extendedWaitUntil:
+    visible:
+      id: 'status-strip'
+    timeout: 20000
+- assertVisible: 'Offline'
+# Signal back: the strip goes and the sign-in refreshes.
+- setAirplaneMode: disabled
+- extendedWaitUntil:
+    notVisible:
+      id: 'status-strip'
+    timeout: 60000
+- assertVisible: 'Up to date'

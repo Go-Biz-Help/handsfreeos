@@ -1,0 +1,55 @@
+# Opens the app on the sign-in screen, whatever state it was left in.
+appId: com.gobizhelp.handsfreeos
+---
+- launchApp:
+    stopApp: true
+# Wait for the app itself (a locked app asks at once, in front of the lock screen).
+- extendedWaitUntil:
+    visible:
+      id: 'sign-in|lock-screen|home|test-unlock-prompt|more|settings'
+    timeout: 45000
+- runFlow:
+    when:
+      visible:
+        id: 'test-unlock-prompt'
+    commands:
+      - tapOn:
+          id: 'test-unlock-cancel'
+- runFlow:
+    when:
+      visible:
+        id: 'lock-screen'
+    commands:
+      - tapOn:
+          id: 'lock-sign-out'
+      - tapOn:
+          id: 'confirm-sign-out'
+- runFlow:
+    when:
+      notVisible:
+        id: 'sign-in'
+    commands:
+      - tapOn:
+          id: 'tab-more'
+      - tapOn:
+          id: 'more-settings'
+      - scrollUntilVisible:
+          element:
+            id: 'setting-sign-out'
+          centerElement: true
+      - tapOn:
+          id: 'setting-sign-out'
+      - tapOn:
+          id: 'confirm-sign-out'
+- extendedWaitUntil:
+    visible:
+      id: 'sign-in'
+    timeout: 20000
+# A test run left the "No signal" test switch on: turn it off so signing in can reach Supabase.
+- runFlow:
+    when:
+      visible:
+        id: 'test-signal-off'
+    commands:
+      - tapOn:
+          id: 'test-signal-off'

@@ -33,3 +33,6 @@ design/**/preview/
 
 # TypeScript incremental build state
 *.tsbuildinfo
+
+# IDE folders (Android Studio)
+.idea/

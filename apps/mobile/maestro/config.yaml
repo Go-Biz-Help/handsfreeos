@@ -1,0 +1,14 @@
+# Maestro flows for the phone app. CI runs the tagged `ci` flows on an Android emulator (.github/workflows/mobile-e2e.yml);
+# locally: `maestro test apps/mobile/maestro` with a test build (EXPO_PUBLIC_E2E=1) on a simulator or emulator.
+# Seed accounts come from apps/worker/scripts/seed.ts (pnpm db:seed).
+flows:
+  - '*.yaml'
+executionOrder:
+  continueOnFailure: false
+  flowsOrder:
+    - Sign in with a password
+    - Sign in with an emailed code
+    - Home and the five tabs
+    - Switch business and keep businesses on the phone
+    - Lock with Face ID and unlock
+    - No signal, with the access token run out

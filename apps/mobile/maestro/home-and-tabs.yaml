@@ -1,0 +1,55 @@
+appId: com.gobizhelp.handsfreeos
+name: Home and the five tabs
+tags:
+  - ci
+# Seed accounts (apps/worker/scripts/seed.ts); the password is the seed's, for local stacks only.
+env:
+  EMAIL: dale@lonestarhvac.test
+  PASSWORD: HandsFree-Demo-2026
+---
+- runFlow: subflows/start-signed-out.yaml
+- runFlow: subflows/sign-in-with-password.yaml
+# Home: the business, the greeting, "Up to date", Ask HandsFreeOS at the top right.
+- assertVisible: 'Lone Star HVAC & Roofing'
+- assertVisible: 'Up to date'
+- assertVisible:
+    id: 'ask-handsfreeos'
+- assertVisible:
+    id: 'business-mark'
+- tapOn:
+    id: 'tab-inbox'
+- assertVisible: 'Conversations show here'
+- tapOn:
+    id: 'tab-pipeline'
+- assertVisible: 'Your leads, stage by stage'
+- tapOn:
+    id: 'tab-calendar'
+- assertVisible: 'Your day and week'
+- tapOn:
+    id: 'tab-more'
+- assertVisible: 'Customers'
+- assertVisible:
+    id: 'more-open-on-web'
+- tapOn:
+    id: 'more-customers'
+- assertVisible: 'Customers on the phone'
+- waitForAnimationToEnd
+- tapOn:
+    id: 'back'
+- tapOn:
+    id: 'more-settings'
+- assertVisible:
+    id: 'setting-businesses'
+- assertVisible:
+    id: 'setting-sign-out'
+# Ask HandsFreeOS is one tap away from every screen.
+- tapOn:
+    id: 'ask-handsfreeos'
+- assertVisible: 'Ask HandsFreeOS here soon'
+- waitForAnimationToEnd
+- tapOn:
+    id: 'close'
+- tapOn:
+    id: 'tab-home'
+- assertVisible:
+    id: 'home'

@@ -1,105 +1,107 @@
-import { TextClassContext } from '@/components/ui/text';
-import { cn } from '@/lib/utils';
 import { cva, type VariantProps } from 'class-variance-authority';
-import { Platform, Pressable } from 'react-native';
+import type { LucideIcon } from 'lucide-react-native';
+import * as React from 'react';
+import { ActivityIndicator, Pressable } from 'react-native';
 
-const buttonVariants = cva(
-  cn(
-    'group shrink-0 flex-row items-center justify-center gap-2 rounded-md shadow-none',
-    Platform.select({
-      web: "focus-visible:border-ring focus-visible:ring-ring/50 aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive whitespace-nowrap outline-none transition-all focus-visible:ring-[3px] disabled:pointer-events-none [&_svg:not([class*='size-'])]:size-4 [&_svg]:pointer-events-none [&_svg]:shrink-0",
-    }),
-  ),
-  {
-    variants: {
-      variant: {
-        default: cn(
-          'bg-primary active:bg-primary/90 shadow-sm shadow-black/5',
-          Platform.select({ web: 'hover:bg-primary/90' }),
-        ),
-        destructive: cn(
-          'bg-destructive active:bg-destructive/90 dark:bg-destructive/60 shadow-sm shadow-black/5',
-          Platform.select({
-            web: 'hover:bg-destructive/90 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40',
-          }),
-        ),
-        outline: cn(
-          'border-border bg-background active:bg-accent dark:bg-input/30 dark:border-input dark:active:bg-input/50 border shadow-sm shadow-black/5',
-          Platform.select({
-            web: 'hover:bg-accent dark:hover:bg-input/50',
-          }),
-        ),
-        secondary: cn(
-          'bg-secondary active:bg-secondary/80 shadow-sm shadow-black/5',
-          Platform.select({ web: 'hover:bg-secondary/80' }),
-        ),
-        ghost: cn(
-          'active:bg-accent dark:active:bg-accent/50',
-          Platform.select({ web: 'hover:bg-accent dark:hover:bg-accent/50' }),
-        ),
-        link: '',
-      },
-      size: {
-        default: cn('h-10 px-4 py-2 sm:h-9', Platform.select({ web: 'has-[>svg]:px-3' })),
-        sm: cn('h-9 gap-1.5 rounded-md px-3 sm:h-8', Platform.select({ web: 'has-[>svg]:px-2.5' })),
-        lg: cn('h-11 rounded-md px-6 sm:h-10', Platform.select({ web: 'has-[>svg]:px-4' })),
-        icon: 'h-10 w-10 sm:h-9 sm:w-9',
-      },
+import { Icon } from '@/components/ui/icon';
+import { Text, TextClassContext } from '@/components/ui/text';
+import { cn } from '@/lib/utils';
+import { useColors } from '@/theme';
+
+/**
+ * The web's buttons (apps/web/src/components/ui/button.tsx) at phone size. `lg` (44 px) is the default: a finger needs
+ * that much. Smaller sizes keep a 44 px touch area around them.
+ */
+const buttonVariants = cva('flex-row items-center justify-center gap-2 border border-transparent', {
+  variants: {
+    variant: {
+      primary: 'bg-accent active:bg-accent-hover',
+      secondary: 'bg-card border-border-strong active:bg-card-2',
+      ghost: 'active:bg-card-2',
+      danger: 'bg-danger active:opacity-90',
+      /** Sign out and Delete my account in a list of choices: a secondary button with the danger colour. */
+      dangerOutline: 'bg-card border-border-strong active:bg-card-2',
     },
-    defaultVariants: {
-      variant: 'default',
-      size: 'default',
+    size: {
+      sm: 'h-9 px-3 rounded-control',
+      md: 'h-10 px-3.5 rounded-control',
+      lg: 'h-11 px-[18px] rounded-menu',
     },
   },
-);
+  defaultVariants: { variant: 'primary', size: 'lg' },
+});
 
-const buttonTextVariants = cva(
-  cn(
-    'text-foreground text-sm font-medium',
-    Platform.select({ web: 'pointer-events-none transition-colors' }),
-  ),
-  {
-    variants: {
-      variant: {
-        default: 'text-primary-foreground',
-        destructive: 'text-white',
-        outline: cn(
-          'group-active:text-accent-foreground',
-          Platform.select({ web: 'group-hover:text-accent-foreground' }),
-        ),
-        secondary: 'text-secondary-foreground',
-        ghost: 'group-active:text-accent-foreground',
-        link: cn(
-          'text-primary group-active:underline',
-          Platform.select({ web: 'underline-offset-4 hover:underline group-hover:underline' }),
-        ),
-      },
-      size: {
-        default: '',
-        sm: '',
-        lg: '',
-        icon: '',
-      },
+const buttonTextVariants = cva('font-sans font-medium', {
+  variants: {
+    variant: {
+      primary: 'text-white',
+      secondary: 'text-text',
+      ghost: 'text-text-2',
+      danger: 'text-on-solid',
+      dangerOutline: 'text-danger-text',
     },
-    defaultVariants: {
-      variant: 'default',
-      size: 'default',
+    size: {
+      sm: 'text-[13px]',
+      md: 'text-sm',
+      lg: 'text-[15px]',
     },
   },
-);
+  defaultVariants: { variant: 'primary', size: 'lg' },
+});
 
-type ButtonProps = React.ComponentProps<typeof Pressable> &
-  React.RefAttributes<typeof Pressable> &
-  VariantProps<typeof buttonVariants>;
+type ButtonProps = Omit<React.ComponentProps<typeof Pressable>, 'children'> &
+  VariantProps<typeof buttonVariants> & {
+    /** The words on the button, or custom content. */
+    children?: React.ReactNode;
+    icon?: LucideIcon;
+    /** Shows a spinner and ignores presses. */
+    loading?: boolean;
+  };
 
-function Button({ className, variant, size, ...props }: ButtonProps) {
+const SMALL_HIT = { top: 4, bottom: 4, left: 0, right: 0 };
+
+function Button({
+  className,
+  variant,
+  size,
+  icon,
+  loading,
+  disabled,
+  children,
+  hitSlop,
+  ...props
+}: ButtonProps) {
+  const colors = useColors();
+  const textClass = buttonTextVariants({ variant, size });
+  const spinner =
+    variant === 'primary' || variant === undefined || variant === null
+      ? '#ffffff'
+      : variant === 'danger'
+        ? colors.onSolid
+        : colors.text2;
   return (
-    <TextClassContext.Provider value={buttonTextVariants({ variant, size })}>
+    <TextClassContext.Provider value={textClass}>
       <Pressable
-        className={cn(props.disabled && 'opacity-50', buttonVariants({ variant, size }), className)}
         role="button"
+        accessibilityState={{ disabled: Boolean(disabled || loading), busy: Boolean(loading) }}
+        disabled={disabled || loading}
+        hitSlop={
+          hitSlop ?? (size === 'sm' ? SMALL_HIT : size === 'md' ? { top: 2, bottom: 2 } : undefined)
+        }
+        className={cn(
+          buttonVariants({ variant, size }),
+          (disabled || loading) && 'opacity-50',
+          className,
+        )}
         {...props}
-      />
+      >
+        {loading ? (
+          <ActivityIndicator size="small" color={spinner} />
+        ) : icon ? (
+          <Icon as={icon} className="size-[18px]" />
+        ) : null}
+        {typeof children === 'string' ? <Text numberOfLines={1}>{children}</Text> : children}
+      </Pressable>
     </TextClassContext.Provider>
   );
 }
