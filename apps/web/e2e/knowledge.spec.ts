@@ -69,6 +69,10 @@ test('knowledge: profile, an FAQ, a CSV import, a website scan, suggestions and 
   await expect(page.getByTestId('prices-note')).toContainText('Off.');
   await prices.click();
   await expect(page.getByTestId('prices-note')).toContainText('On.');
+  // The note turns on the moment it's pressed; the toast is what says the save landed, so reload after it.
+  await expect(
+    page.locator('[data-sonner-toast]').filter({ hasText: 'The AI may quote prices' }),
+  ).toBeVisible();
   await page.reload();
   await expect(page.getByTestId('prices-switch')).toHaveAttribute('aria-checked', 'true');
 
