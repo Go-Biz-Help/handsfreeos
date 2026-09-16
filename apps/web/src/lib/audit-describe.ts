@@ -723,16 +723,7 @@ function attentionSettingsSentence(e: AuditEntry): string {
 }
 
 /** What the worker notices as facts change: an item opened, came back, became urgent or cleared. */
-const NOTICED = new Set([
-  'opened',
-  'detected',
-  'reopened',
-  'resolved',
-  'urgent',
-  'became_urgent',
-  'snooze_ended',
-  'updated',
-]);
+const NOTICED = new Set(['opened', 'reopened', 'snooze_ended', 'resolved', 'became_urgent']);
 const noticedTail = (e: AuditEntry): string | null => {
   const [head, tail = ''] = e.action.split('.', 2);
   return head === 'attention_item' || (head === 'attention' && NOTICED.has(tail)) ? tail : null;
@@ -751,19 +742,15 @@ function detectionSentence(e: AuditEntry): string | null {
   if (tail === null) return null;
   switch (tail) {
     case 'opened':
-    case 'detected':
       return `noticed ${itemOf(e)}`;
     case 'reopened':
       return `brought back ${itemOf(e)}: something changed`;
     case 'resolved':
       return `cleared ${itemOf(e)}: it doesn’t need anyone now`;
-    case 'urgent':
     case 'became_urgent':
       return `marked ${itemOf(e)} urgent`;
-    case 'snooze_ended':
-      return `brought back ${itemOf(e)}: its snooze ended`;
     default:
-      return `updated ${itemOf(e)}`;
+      return `brought back ${itemOf(e)}: its snooze ended`;
   }
 }
 

@@ -101,6 +101,21 @@ async function bookingAt(owner: Owner, calendarId: string, startsAt: string) {
   return { appointmentId: appointment.id, seat: appointment.attendees[0]! };
 }
 
+/** The texts the business sent this customer. */
+async function textsTo(owner: Owner, personId: string): Promise<string[]> {
+  const { items } = await api<{
+    items: { kind: string; body: string | null; meta: { direction?: string } }[];
+  }>(owner.token, 'queries', 'timeline.list', {
+    workspaceId: owner.workspaceId,
+    recordType: 'person',
+    recordId: personId,
+    limit: 50,
+  });
+  return items
+    .filter((i) => i.kind === 'sms' && i.meta.direction === 'outbound')
+    .map((i) => i.body ?? '');
+}
+
 /** The customer's timeline entries for a confirmation. */
 async function confirmations(owner: Owner, personId: string) {
   const { items } = await api<{ items: { subtype: string | null; meta: { via?: string } }[] }>(
@@ -232,6 +247,13 @@ test('a C reply to the day-before reminder confirms, and the calendar sheet says
       timeout: 30_000,
     })
     .toEqual(['sms']);
+
+  // A short thank-you goes back by text.
+  await expect
+    .poll(async () => (await textsTo(owner, seat.personId)).some((b) => /confirmed for/i.test(b)), {
+      timeout: 30_000,
+    })
+    .toBe(true);
 
   const sheet = await openSheet(page, owner, appointmentId);
   await expect(sheet.getByTestId('sheet-confirmed')).toHaveAttribute('data-via', 'sms');
