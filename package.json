@@ -3,7 +3,10 @@
   "private": true,
   "type": "module",
   "engines": {
-    "node": ">=22.12"
+    "node": ">=22.13"
+  },
+  "op-sqlite": {
+    "sqlcipher": true
   },
   "scripts": {
     "dev": "turbo run dev",

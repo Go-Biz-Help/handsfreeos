@@ -10,7 +10,7 @@
 FROM node:22-alpine AS base
 RUN npm install -g pnpm@12.3.4
 WORKDIR /repo
-COPY pnpm-lock.yaml pnpm-workspace.yaml package.json tsconfig.base.json ./
+COPY pnpm-lock.yaml pnpm-workspace.yaml package.json tsconfig.base.json .pnpmfile.mjs ./
 # Hoisted, copied (not hard-linked) layout: the bundled workspace code resolves third-party packages
 # from the app's own node_modules, and `pnpm deploy` works across Docker layers.
 RUN printf '\nnodeLinker: hoisted\npackageImportMethod: copy\n' >> pnpm-workspace.yaml
