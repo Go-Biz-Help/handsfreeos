@@ -58,6 +58,8 @@ import {
   estimateSelect,
   invoiceOut,
   invoiceSelect,
+  invoiceStateColumns,
+  invoiceStateOf,
   linesFor,
   linesOut,
   paymentOut,
@@ -69,6 +71,7 @@ import {
   type DocumentKind,
   type EstimateRow,
   type InvoiceRow,
+  type InvoiceStateRow,
   type PaymentRow,
   type SubscriptionRow,
 } from '../commands/money-shared';
@@ -361,17 +364,11 @@ export const estimateGet = defineQuery({
     );
     if (!row) throw notThere('estimate');
     const lines = await linesFor(ctx.tx, 'estimate', [row.id]);
-    const raised = await rows<{
-      id: string;
-      number: string | null;
-      status: string;
-      purpose: string;
-      total_cents: number;
-      balance_cents: number;
-    }>(
+    const raised = await rows<
+      InvoiceStateRow & { id: string; number: string | null; purpose: string }
+    >(
       ctx.tx,
-      sql`select i.id, i.number, i.status::text as status, i.purpose::text as purpose,
-            i.total_cents::float8 as total_cents, i.balance_cents::float8 as balance_cents
+      sql`select i.id, i.number, i.purpose::text as purpose, ${invoiceStateColumns}
           from app.invoices i
           where i.workspace_id = ${ctx.scope.workspaceId!} and i.estimate_id = ${row.id}::uuid
             ${invoiceMemberClause(ctx)}
@@ -399,6 +396,7 @@ export const estimateGet = defineQuery({
         id: r.id,
         number: r.number,
         status: r.status as never,
+        state: invoiceStateOf(r, now, tz) as string,
         purpose: r.purpose as never,
         totalCents: Number(r.total_cents),
         balanceCents: Number(r.balance_cents),
@@ -585,29 +583,26 @@ export const subscriptionGet = defineQuery({
           where s.workspace_id = ${ctx.scope.workspaceId!} and s.id = ${input.subscriptionId}::uuid`,
     );
     if (!row) throw notThere('plan');
-    const raised = await rows<{
-      id: string;
-      number: string | null;
-      status: string;
-      total_cents: number;
-      balance_cents: number;
-      due_on: string | null;
-      created_at: Date | string;
-    }>(
+    const raised = await rows<
+      InvoiceStateRow & { id: string; number: string | null; created_at: Date | string }
+    >(
       ctx.tx,
-      sql`select i.id, i.number, i.status::text as status, i.total_cents::float8 as total_cents,
-            i.balance_cents::float8 as balance_cents, i.due_on::text as due_on, i.created_at
+      sql`select i.id, i.number, i.created_at, ${invoiceStateColumns}
           from app.invoices i
           where i.workspace_id = ${ctx.scope.workspaceId!} and i.subscription_id = ${row.id}::uuid
           order by i.created_at desc, i.id desc
           limit 100`,
     );
+    const now = Date.now();
+    const tz = await workspaceTimezone(ctx.tx, ctx.scope.workspaceId!);
     return {
       subscription: subscriptionOut(row),
       invoices: raised.map((r) => ({
         id: r.id,
         number: r.number,
         status: r.status as never,
+        // A cycle refunded in full is stored as paid; the plan's list says what the invoice's page says.
+        state: invoiceStateOf(r, now, tz) as string,
         totalCents: Number(r.total_cents),
         balanceCents: Number(r.balance_cents),
         dueOn: r.due_on,
@@ -688,7 +683,9 @@ export const moneySummary = defineQuery({
       overdueCents: Number(r?.overdue_cents ?? 0),
       overdueCount: Number(r?.overdue_count ?? 0),
       settlingCents: Number(r?.settling_cents ?? 0),
-      collectedCents: Number(r?.collected_cents ?? 0),
+      // What came in, less what went back in the same window: what the headline says it is ("after $X
+      // refunded"). A refund never goes back on a bill, so this is the one figure it takes money off.
+      collectedCents: Number(r?.collected_cents ?? 0) - Number(r?.refunded_cents ?? 0),
       refundedCents: Number(r?.refunded_cents ?? 0),
       quotedCents: Number(r?.quoted_cents ?? 0),
       quotedCount: Number(r?.quoted_count ?? 0),

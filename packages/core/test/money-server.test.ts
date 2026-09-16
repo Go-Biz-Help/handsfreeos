@@ -796,10 +796,110 @@ describe('an invoice', () => {
       { workspaceId: w.wsId, invoiceId: paid.invoiceId, amountCents: 10_000 },
       w.owner,
     );
-    await expectHfos(
+    const refused = await expectHfos(
       () => run(invoiceVoid, { workspaceId: w.wsId, invoiceId: paid.invoiceId }, w.owner),
       'rule_violation',
       'invoice_has_payments',
+    );
+    expect(refused.message).toBe('$100 has been paid against this invoice. Refund it instead.');
+  });
+
+  /**
+   * Billing again (the wrong card was charged, say) is give it all back, void it, send a new one. So a paid
+   * invoice is voided once everything paid on it has gone back — and not while any of it is still kept, still
+   * arriving, or still on its way back.
+   */
+  it('is voided once everything paid on it has been given back, and not a moment before', async () => {
+    const sent = await sentInvoice();
+    const payment = await run(
+      invoiceRecordCashPayment,
+      { workspaceId: w.wsId, invoiceId: sent.invoiceId, amountCents: 100_000 },
+      w.owner,
+    );
+    expect(payment.invoiceStatus).toBe('paid');
+    const some = await run(
+      paymentRefund,
+      { workspaceId: w.wsId, paymentId: payment.paymentId, amountCents: 40_000 },
+      w.owner,
+    );
+    // A refund on its way back: nobody knows yet what the invoice holds.
+    const moving = await expectHfos(
+      () => run(invoiceVoid, { workspaceId: w.wsId, invoiceId: sent.invoiceId }, w.owner),
+      'rule_violation',
+      'invoice_money_moving',
+    );
+    expect(moving.message).toBe(
+      'A refund on this invoice is still on its way back. Void it once the refund has gone through.',
+    );
+    await sys(paymentRecordRefund, {
+      workspaceId: w.wsId,
+      refundId: some.refundId,
+      status: 'succeeded',
+    });
+    const held = await expectHfos(
+      () => run(invoiceVoid, { workspaceId: w.wsId, invoiceId: sent.invoiceId }, w.owner),
+      'rule_violation',
+      'invoice_has_payments',
+    );
+    expect(held.message).toBe(
+      '$600 paid against this invoice hasn’t been given back. Refund it instead.',
+    );
+    const rest = await run(
+      paymentRefund,
+      { workspaceId: w.wsId, paymentId: payment.paymentId },
+      w.owner,
+    );
+    await sys(paymentRecordRefund, {
+      workspaceId: w.wsId,
+      refundId: rest.refundId,
+      status: 'succeeded',
+    });
+    const refunded = await ask(
+      invoiceGet,
+      { workspaceId: w.wsId, invoiceId: sent.invoiceId },
+      w.owner,
+    );
+    expect(refunded.invoice).toMatchObject({ status: 'paid', state: 'refunded', balanceCents: 0 });
+
+    const voided = await run(
+      invoiceVoid,
+      { workspaceId: w.wsId, invoiceId: sent.invoiceId, reason: 'Charged the wrong card' },
+      w.owner,
+    );
+    expect(voided).toMatchObject({ status: 'void', balanceCents: 0, changed: true });
+    const after = await ask(
+      invoiceGet,
+      { workspaceId: w.wsId, invoiceId: sent.invoiceId },
+      w.owner,
+    );
+    expect(after.invoice).toMatchObject({
+      state: 'void',
+      amountPaidCents: 100_000,
+      amountRefundedCents: 100_000,
+    });
+    // The payment and both refunds are still the record of what moved.
+    expect(after.payments).toHaveLength(1);
+    expect(after.refunds.map((r) => r.status)).toEqual(['succeeded', 'succeeded']);
+  });
+
+  it('is not voided while a payment is still arriving', async () => {
+    const sent = await sentInvoice();
+    await sys(invoiceRecordPayment, {
+      workspaceId: w.wsId,
+      invoiceId: sent.invoiceId,
+      amountCents: 100_000,
+      method: 'ach',
+      provider: 'stripe',
+      status: 'processing',
+      providerPaymentId: `pi_${randomUUID().slice(0, 12)}`,
+    });
+    const moving = await expectHfos(
+      () => run(invoiceVoid, { workspaceId: w.wsId, invoiceId: sent.invoiceId }, w.owner),
+      'rule_violation',
+      'invoice_money_moving',
+    );
+    expect(moving.message).toBe(
+      'A payment on this invoice is still on its way. Once it lands, refund it, then void the invoice.',
     );
   });
 });
@@ -807,7 +907,7 @@ describe('an invoice', () => {
 // ---------- refunds ----------
 
 describe('a refund', () => {
-  it('is asked for as pending, settles through the worker and gives the balance back', async () => {
+  it('is asked for as pending, settles through the worker, and never puts the money back on the bill', async () => {
     const sent = await sentInvoice();
     const payment = await run(
       invoiceRecordCashPayment,
@@ -830,7 +930,13 @@ describe('a refund', () => {
     });
     got = await ask(invoiceGet, { workspaceId: w.wsId, invoiceId: sent.invoiceId }, w.owner);
     expect(got.invoice.amountRefundedCents).toBe(30_000);
-    expect(got.invoice.balanceCents).toBe(30_000);
+    // Money given back, not money owed again: still paid, nothing due, and it reads as partly refunded.
+    expect(got.invoice).toMatchObject({
+      status: 'paid',
+      state: 'partly_refunded',
+      balanceCents: 0,
+    });
+    expect(got.invoice.paidAt).not.toBeNull();
   });
 
   it('refuses more than is left on the payment', async () => {
@@ -902,6 +1008,94 @@ describe('a refund', () => {
       w.owner,
     );
     expect(asked.status).toBe('pending');
+  });
+
+  /**
+   * Stored, a refunded invoice is still paid; everywhere it is listed it has to read as refunded. The two lists
+   * that are not `invoice.list` — the invoices an estimate raised, and a plan's cycles — carry that `state` too.
+   */
+  it('reads as refunded under the estimate it came from and on the plan that billed it', async () => {
+    const giveItAllBack = async (invoiceId: string, amountCents: number) => {
+      const payment = await run(
+        invoiceRecordCashPayment,
+        { workspaceId: w.wsId, invoiceId, amountCents },
+        w.owner,
+      );
+      const asked = await run(
+        paymentRefund,
+        { workspaceId: w.wsId, paymentId: payment.paymentId },
+        w.owner,
+      );
+      await sys(paymentRecordRefund, {
+        workspaceId: w.wsId,
+        refundId: asked.refundId,
+        status: 'succeeded',
+      });
+    };
+
+    const made = await newEstimate();
+    await run(estimateSend, { workspaceId: w.wsId, estimateId: made.estimateId }, w.owner);
+    const converted = await run(
+      estimateConvert,
+      { workspaceId: w.wsId, estimateId: made.estimateId },
+      w.owner,
+    );
+    await run(invoiceSend, { workspaceId: w.wsId, invoiceId: converted.invoiceId }, w.owner);
+    const beforeRefund = await ask(
+      estimateGet,
+      { workspaceId: w.wsId, estimateId: made.estimateId },
+      w.owner,
+    );
+    expect(beforeRefund.invoices).toEqual([
+      expect.objectContaining({ id: converted.invoiceId, status: 'sent', state: 'sent' }),
+    ]);
+    await giveItAllBack(converted.invoiceId, converted.totalCents);
+    const fromEstimate = await ask(
+      estimateGet,
+      { workspaceId: w.wsId, estimateId: made.estimateId },
+      w.owner,
+    );
+    expect(fromEstimate.invoices).toEqual([
+      expect.objectContaining({ id: converted.invoiceId, status: 'paid', state: 'refunded' }),
+    ]);
+
+    const started = await run(
+      subscriptionStart,
+      {
+        workspaceId: w.wsId,
+        personId: w.personId,
+        planName: 'Comfort Club',
+        priceCents: 2_900,
+        interval: 'month',
+      },
+      w.owner,
+    );
+    const cycle = await run(
+      invoiceCreate,
+      {
+        workspaceId: w.wsId,
+        personId: w.personId,
+        title: 'Comfort Club',
+        purpose: 'subscription',
+        subscriptionId: started.subscriptionId,
+        lines: [{ name: 'Comfort Club', quantity: 1, unitPriceCents: 2_900, taxable: false }],
+      },
+      w.owner,
+    );
+    const sentCycle = await run(
+      invoiceSend,
+      { workspaceId: w.wsId, invoiceId: cycle.invoiceId },
+      w.owner,
+    );
+    await giveItAllBack(cycle.invoiceId, sentCycle.totalCents);
+    const onPlan = await ask(
+      subscriptionGet,
+      { workspaceId: w.wsId, subscriptionId: started.subscriptionId },
+      w.owner,
+    );
+    expect(onPlan.invoices).toEqual([
+      expect.objectContaining({ id: cycle.invoiceId, status: 'paid', state: 'refunded' }),
+    ]);
   });
 });
 
@@ -1217,6 +1411,23 @@ describe('the member rule', () => {
     expect(summary.outstandingCents).toBeGreaterThan(0);
     expect(summary.collectedCents).toBeGreaterThan(0);
     expect(summary.overdueCents).toBeGreaterThanOrEqual(0);
+    // Collected is what came in less what went back — the headline says "after $X refunded" — and what is
+    // outstanding counts only what is still owed, which a refund never adds to.
+    const [ledger] = await rows<{ paid: number; refunded: number; owed: number }>(
+      admin(),
+      sql`select
+            (select coalesce(sum(amount_cents), 0) from app.payments
+              where workspace_id = ${w.wsId} and status = 'succeeded')::float8 as paid,
+            (select coalesce(sum(amount_cents), 0) from app.refunds
+              where workspace_id = ${w.wsId} and status = 'succeeded')::float8 as refunded,
+            (select coalesce(sum(balance_cents), 0) from app.invoices
+              where workspace_id = ${w.wsId} and status in ('sent', 'partly_paid', 'overdue')
+                and balance_cents > 0)::float8 as owed`,
+    );
+    expect(summary.refundedCents).toBeGreaterThan(0);
+    expect(summary.refundedCents).toBe(ledger!.refunded);
+    expect(summary.collectedCents).toBe(ledger!.paid - ledger!.refunded);
+    expect(summary.outstandingCents).toBe(ledger!.owed);
   });
 
   it('answers money.for_record for the visit a member worked', async () => {

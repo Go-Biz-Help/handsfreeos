@@ -15,9 +15,13 @@ import type { MoneyFilters } from './list-options';
 import { invoiceListBody } from './list-options';
 import { StatusBadge } from './status-badge';
 
-/** What the "Due" column says: a paid invoice is done, a settling one is on its way, a draft has not gone out. */
+/**
+ * What the "Due" column says: a paid invoice is done, a settling one is on its way, a draft has not gone out.
+ * One whose money all went back is refunded, not "paid" — the badge beside it and the column say the same.
+ */
 function dueLabel(inv: InvoiceSummary, now: number, timeZone: string): string {
   if (inv.voidedAt) return 'Voided';
+  if (inv.state === 'refunded') return 'Refunded';
   if (inv.status === 'paid')
     return inv.paidAt ? `Paid ${dayLabel(Date.parse(inv.paidAt), timeZone)}` : 'Paid';
   if (inv.state === 'paying') return 'A payment is on its way';
@@ -48,7 +52,7 @@ export function InvoicesList({
   now: number;
 }) {
   const router = useRouter();
-  useLiveRefresh(['invoice', 'payment']);
+  useLiveRefresh(['invoice', 'payment', 'refund']);
   const key = JSON.stringify({
     filters,
     first: initial.invoices[0]?.id,

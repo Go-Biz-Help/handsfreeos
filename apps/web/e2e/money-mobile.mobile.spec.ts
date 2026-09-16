@@ -57,8 +57,10 @@ async function noSidewaysScroll(page: Page) {
 
 test('Money at 390px: every list has a phone shape, and nothing scrolls sideways', async ({
   page,
+  context,
 }) => {
   test.setTimeout(240_000);
+  await context.grantPermissions(['clipboard-read', 'clipboard-write']);
   const o = await moneyOwner(page, 'money-phone');
 
   // A catalogue with more columns than a phone has room for, and a plan sold from it.
@@ -127,6 +129,16 @@ test('Money at 390px: every list has a phone shape, and nothing scrolls sideways
   // The row still opens the plan.
   await who.locator('a').first().click();
   await expect(page.getByTestId('plan-status')).toBeVisible();
+  await noSidewaysScroll(page);
+
+  // Waiting on Laura's card, the link to send her copies from a phone as well as it emails.
+  await page.getByTestId('plan-copy-link').click();
+  await expect(
+    page.locator('[data-sonner-toast]').filter({ hasText: 'Link copied' }),
+  ).toBeVisible();
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toMatch(
+    /^http:\/\/localhost:3000\/p\/[0-9A-Za-z]{18}$/,
+  );
   await noSidewaysScroll(page);
 
   // ---- The invoice and estimate lists keep their own phone cards ----

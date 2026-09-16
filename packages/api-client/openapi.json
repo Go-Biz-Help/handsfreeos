@@ -24543,7 +24543,7 @@
     "/v1/commands/invoice.void": {
       "post": {
         "operationId": "command_invoice_void",
-        "summary": "Withdraw an invoice. Its number is kept and never used again. A paid invoice is refunded instead: the money moved, and the ledger has to say so.",
+        "summary": "Withdraw an invoice. Its number is kept and never used again. Money paid on it is refunded first — the money moved, and the ledger has to say so — and once everything paid has been given back it can be voided and a new invoice sent in its place.",
         "tags": [
           "commands"
         ],
@@ -52003,6 +52003,9 @@
                               "void"
                             ]
                           },
+                          "state": {
+                            "type": "string"
+                          },
                           "purpose": {
                             "type": "string",
                             "enum": [
@@ -52025,6 +52028,7 @@
                           "id",
                           "number",
                           "status",
+                          "state",
                           "purpose",
                           "totalCents",
                           "balanceCents"
@@ -54438,6 +54442,9 @@
                               "void"
                             ]
                           },
+                          "state": {
+                            "type": "string"
+                          },
                           "totalCents": {
                             "type": "number"
                           },
@@ -54466,6 +54473,7 @@
                           "id",
                           "number",
                           "status",
+                          "state",
                           "totalCents",
                           "balanceCents",
                           "dueOn",

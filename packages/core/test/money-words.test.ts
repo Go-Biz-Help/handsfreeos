@@ -34,11 +34,13 @@ describe('what every state is called', () => {
     expect(ESTIMATE_WORDS.viewed).toBe('Opened');
   });
 
-  it('names each invoice state, plus overdue and paying', () => {
+  it('names each invoice state, plus overdue, paying and money given back', () => {
     for (const status of INVOICE_STATUSES) expect(INVOICE_WORDS[status]).toBeTruthy();
     expect(INVOICE_WORDS.partly_paid).toBe('Partly paid');
     expect(INVOICE_WORDS.overdue).toBe('Overdue');
     expect(INVOICE_WORDS.paying).toBe('Paying');
+    expect(INVOICE_WORDS.refunded).toBe('Refunded');
+    expect(INVOICE_WORDS.partly_refunded).toBe('Partly refunded');
   });
 
   it('names each payment state, method and terms', () => {

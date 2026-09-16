@@ -128,6 +128,8 @@ const STATE_WORDS: Readonly<Record<string, string>> = {
   partly_paid: 'Part paid',
   paying: 'Paying',
   paid: 'Paid',
+  refunded: 'Refunded',
+  partly_refunded: 'Partly refunded',
   overdue: 'Overdue',
   accepted: 'Approved',
   declined: 'Declined',
@@ -136,8 +138,15 @@ const STATE_WORDS: Readonly<Record<string, string>> = {
 };
 const stateWord = (state: string) => STATE_WORDS[state] ?? state;
 
+/** Late is red and money on its way is amber; money that went back is done with, so it steps back. */
 const toneOf = (state: string): Row['tone'] =>
-  state === 'overdue' ? 'danger' : state === 'paying' ? 'warning' : 'accent';
+  state === 'overdue'
+    ? 'danger'
+    : state === 'paying'
+      ? 'warning'
+      : state === 'refunded'
+        ? 'muted'
+        : 'accent';
 
 /** A local date ('2026-10-22') as people say it, in the business's zone. */
 const dayWords = (date: string | null, timezone: string): string =>

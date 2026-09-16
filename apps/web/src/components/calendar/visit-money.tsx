@@ -50,7 +50,7 @@ export function useVisitMoney(
   workspaceId: string,
   appointmentId: string | null,
 ): VisitMoney | null {
-  const version = useLiveVersion(['invoice', 'payment']);
+  const version = useLiveVersion(['invoice', 'payment', 'refund']);
   const [found, setFound] = useState<MoneyForRecordOut | null>(null);
   const load = useCallback(async () => {
     if (!appointmentId) return;

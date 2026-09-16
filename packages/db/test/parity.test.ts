@@ -57,6 +57,61 @@ describe('check constraints mirror core', () => {
   );
 });
 
+/** Core's money arithmetic, loaded by path for the same reason: pure, with no imports of its own. */
+const totalsFile = fileURLToPath(new URL('../../core/src/money/totals.ts', import.meta.url));
+
+describe('generated columns mirror core', () => {
+  /**
+   * The balance is worked out in three places — the generated column, its Drizzle mirror and core's
+   * `balanceCents` — and a customer's page, the reminder job and Home read different ones. So all three are
+   * run over the cases that matter, rather than their SQL compared as text: unpaid, part paid, paid, refunded
+   * in part and in full, part paid then given back, and an overpayment given back a bit at a time.
+   */
+  it('app.invoices.balance_cents is core’s balanceCents, in the database and in the mirror', async () => {
+    const { balanceCents } = (await import(/* @vite-ignore */ totalsFile)) as {
+      balanceCents: (total: number, paid: number, refunded: number) => number;
+    };
+    const cases: [number, number, number][] = [
+      [45000, 0, 0],
+      [45000, 20000, 0],
+      [45000, 45000, 0],
+      [45000, 45000, 5000],
+      [45000, 45000, 45000],
+      [45000, 15000, 15000],
+      [45000, 50000, 0],
+      [45000, 50000, 2000],
+      [45000, 50000, 5000],
+      [45000, 50000, 20000],
+      [45000, 50000, 50000],
+      [0, 0, 0],
+    ];
+    const values = sql.join(
+      cases.map(([t, p, r], i) => sql`(${i}::int, ${t}::bigint, ${p}::bigint, ${r}::bigint)`),
+      sql`, `,
+    );
+    const evaluate = async (expression: ReturnType<typeof sql>) =>
+      (
+        await rows<{ balance: string }>(
+          dbs.admin.db,
+          sql`select (${expression})::text as balance
+              from (values ${values}) as v(i, total_cents, amount_paid_cents, amount_refunded_cents)
+              order by v.i`,
+        )
+      ).map((r) => Number(r.balance));
+    const [live] = await rows<{ expression: string }>(
+      dbs.admin.db,
+      sql`select generation_expression as expression from information_schema.columns
+          where table_schema = 'app' and table_name = 'invoices' and column_name = 'balance_cents'`,
+    );
+    const mirror = getTableColumns(schema.invoices).balanceCents.generated?.as;
+    expect(live?.expression).toBeTruthy();
+    expect(mirror).toBeTruthy();
+    const expected = cases.map(([t, p, r]) => balanceCents(t, p, r));
+    expect(await evaluate(sql.raw(live!.expression))).toEqual(expected);
+    expect(await evaluate(mirror as ReturnType<typeof sql>)).toEqual(expected);
+  });
+});
+
 describe('Drizzle schema mirrors the live app schema', () => {
   for (const [key, table] of Object.entries(tables)) {
     it(`app.${getTableName(table)} (${key}) has exactly the columns Drizzle declares`, async () => {

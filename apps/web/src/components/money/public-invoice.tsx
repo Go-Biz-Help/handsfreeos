@@ -32,6 +32,7 @@ import {
   CreditCard,
   Hourglass,
   Link2Off,
+  Undo2,
 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
@@ -350,7 +351,7 @@ export function PublicInvoice({ token }: { token: string }) {
       </MoneyFrame>
     );
 
-  const { business, invoice, payments, pay: payBlock } = view;
+  const { business, invoice, payments, refunds, pay: payBlock } = view;
 
   if (view.state === 'void')
     return (
@@ -374,14 +375,19 @@ export function PublicInvoice({ token }: { token: string }) {
   /** What isn't even on its way: a bank transfer already sent is money the customer has done their part of. */
   const owedNow = Math.max(0, owed - settlingCents);
   /**
-   * A refund puts money back on the balance (`total − paid + refunded`), so a settled invoice can read as owing
-   * again after one. The business's own word for it is still `paid`, and a customer who has just been refunded
-   * must never be asked to pay it back: the receipt leads, the refund sits under it, and there is no Pay button.
-   * The totals below still add up in the open, so nothing is hidden — if something really is owed, we call them.
+   * A refund gives money back and never puts it back on the bill, so a paid invoice stays paid however much went
+   * back: its balance stays at nothing and the worker offers no payment on it. Refunded in full, the page leads
+   * with the money going back rather than a thank-you for a payment they no longer made; partly refunded, the
+   * receipt still leads and the refund sits under it. Either way there is no Pay button — the balance says so,
+   * and `paidUp` is kept as a guard in case a state ever arrives that the balance doesn't.
    */
-  const paidUp = view.state === 'paid' || owed <= 0;
+  const refundedInFull = view.state === 'refunded';
+  const paidUp =
+    view.state === 'paid' || refundedInFull || view.state === 'partly_refunded' || owed <= 0;
   const canPay = payBlock.canPay && !paidUp && owedNow > 0 && !!method;
   const failed = outcome?.status === 'failed';
+  /** The day the last of it went back: the figure on its own leaves a customer guessing. */
+  const lastRefundAt = refunds.reduce<string | null>((last, r) => r.refundedAt ?? last, null);
 
   const extras = (
     <>
@@ -402,6 +408,14 @@ export function PublicInvoice({ token }: { token: string }) {
           testId="money-settling"
         />
       ))}
+      {/* Keyed on the arithmetic, not on the state, so it always says what the ledger says. */}
+      <TotalRow
+        label={owed <= 0 ? 'Nothing left to pay' : 'Amount due'}
+        value={money(Math.max(0, owed))}
+        big
+        testId="money-due"
+      />
+      {/* Under what is due, not inside it: money given back never goes back on the bill. */}
       {invoice.amountRefundedCents > 0 ? (
         <TotalRow
           label="Refunded to you"
@@ -409,13 +423,6 @@ export function PublicInvoice({ token }: { token: string }) {
           testId="money-refunded"
         />
       ) : null}
-      {/* Keyed on the arithmetic, not on the state: after a refund this still says what the ledger says. */}
-      <TotalRow
-        label={owed <= 0 ? 'Nothing left to pay' : 'Amount due'}
-        value={money(Math.max(0, owed))}
-        big
-        testId="money-due"
-      />
     </>
   );
 
@@ -449,7 +456,19 @@ export function PublicInvoice({ token }: { token: string }) {
       }
     >
       <MoneyBody testId="invoice-body">
-        {paidUp ? (
+        {refundedInFull ? (
+          <div
+            className="flex items-start gap-2.5 rounded-card border border-border bg-card p-3.5 text-[13.5px] leading-[1.5] text-text"
+            data-testid="invoice-refunded"
+            data-print="card"
+          >
+            <Undo2 size={19} className="mt-px flex-none text-text-2" aria-hidden />
+            <span className="min-w-0 flex-1">
+              <b className="font-semibold">Refunded.</b> {money(invoice.amountRefundedCents)} went
+              back to you{lastRefundAt ? ` on ${momentShort(lastRefundAt)}` : ''}.
+            </span>
+          </div>
+        ) : paidUp ? (
           <OkBox icon={<CircleCheck size={19} />} testId="invoice-paid">
             <b className="font-semibold">
               Paid in full. Thank you

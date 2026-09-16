@@ -10,7 +10,8 @@
  * - **A sent document is frozen.** The database guard says so too; these helpers refuse first, in plain words.
  * - **Nobody writes what an invoice has been paid.** `amount_paid_cents`, `amount_refunded_cents`, `paid_at` and
  *   the paid and partly-paid statuses are recounted by `private.money_roll_up_invoice()` whenever a payment or a
- *   refund lands. Commands here write payments; the invoice follows on its own.
+ *   refund lands. Commands here write payments; the invoice follows on its own. A refund is counted but never
+ *   reopens it (0053): paid stays paid.
  * - **A number comes from the counter row, inside the send transaction.** `update … set next_number =
  *   next_number + 1 … returning` locks that business's counter for a few milliseconds, so two people sending at
  *   once can never land on the same number.
@@ -38,6 +39,7 @@ import {
   type DocumentNumbering,
   type DocumentTotals,
   type EstimateStatus,
+  type InvoiceState,
   type InvoiceStatus,
   type MoneySettings,
 } from '../money/index';
@@ -667,23 +669,57 @@ export function depositOf(r: {
   );
 }
 
+/**
+ * Everything `invoiceStateOf` reads, for a query that lists invoices without the whole `invoiceSelect` (the
+ * estimate's "invoices from this", a plan's cycles): the stored status, the due day, whether they opened it,
+ * the money on it and whether a payment is on its way. Aliased on `app.invoices i`.
+ */
+export const invoiceStateColumns = sql`i.status::text as status, i.due_on::text as due_on,
+  i.first_viewed_at, i.total_cents::float8 as total_cents, i.amount_paid_cents::float8 as amount_paid_cents,
+  i.amount_refunded_cents::float8 as amount_refunded_cents, i.balance_cents::float8 as balance_cents,
+  exists (select 1 from app.payments p where p.invoice_id = i.id and p.status = 'processing') as settling`;
+
+export type InvoiceStateRow = Pick<
+  InvoiceRow,
+  | 'status'
+  | 'due_on'
+  | 'first_viewed_at'
+  | 'total_cents'
+  | 'amount_paid_cents'
+  | 'amount_refunded_cents'
+  | 'balance_cents'
+  | 'settling'
+>;
+
+/**
+ * What an invoice is called on screen, from its row — opened, paying, overdue, refunded — so every list that
+ * shows one says the same word as the invoice's own page. The stored status alone would call a refunded
+ * invoice "Paid".
+ */
+export function invoiceStateOf(r: InvoiceStateRow, now: number, timeZone: string): InvoiceState {
+  return invoiceState(
+    {
+      status: r.status,
+      dueDate: r.due_on,
+      timeZone,
+      balanceCents: num(r.balance_cents),
+      viewedAt: moneyIso(r.first_viewed_at),
+      hasProcessingPayment: r.settling,
+      totalCents: num(r.total_cents),
+      paidCents: num(r.amount_paid_cents),
+      refundedCents: num(r.amount_refunded_cents),
+    },
+    now,
+  );
+}
+
 export function invoiceOut(r: InvoiceRow, now: number, timeZone: string) {
   return {
     id: r.id,
     publicRef: r.public_ref,
     number: r.number,
     status: r.status,
-    state: invoiceState(
-      {
-        status: r.status,
-        dueDate: r.due_on,
-        timeZone,
-        balanceCents: num(r.balance_cents),
-        viewedAt: moneyIso(r.first_viewed_at),
-        hasProcessingPayment: r.settling,
-      },
-      now,
-    ) as string,
+    state: invoiceStateOf(r, now, timeZone) as string,
     purpose: r.purpose as never,
     origin: r.origin as never,
     title: r.title,

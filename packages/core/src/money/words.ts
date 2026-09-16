@@ -56,6 +56,8 @@ export const INVOICE_WORDS: Readonly<Record<InvoiceState, string>> = {
   viewed: 'Opened',
   partly_paid: 'Partly paid',
   paid: 'Paid',
+  refunded: 'Refunded',
+  partly_refunded: 'Partly refunded',
   overdue: 'Overdue',
   paying: 'Paying',
   void: 'Void',

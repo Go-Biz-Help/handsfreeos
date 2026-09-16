@@ -1,4 +1,4 @@
-import { money } from '@hfos/core';
+import { money, refundShares } from '@hfos/core';
 import type { ReactNode } from 'react';
 import { cn } from '@/lib/utils';
 
@@ -57,6 +57,10 @@ export interface TotalsShape {
  * The totals block every money screen shares. `subtotalCents` is the lines before the document discount, so the
  * three lines read down to the total the way the canvas draws them; tax names the rate and what it was worked
  * out on, because that is the number people check.
+ *
+ * On an invoice the rows still add up once money has gone back. A refund never puts money back on the bill,
+ * so what was refunded sits under "Amount due" rather than inside the sum — except the part that used up an
+ * overpayment, which is exactly what took a credit back to nothing, and so reads above it.
  */
 export function Totals({
   totals,
@@ -80,6 +84,7 @@ export function Totals({
 }) {
   const discounted = totals.discountCents > 0;
   const owes = balanceCents !== undefined;
+  const refund = refundShares(totals.totalCents, paidCents ?? 0, refundedCents ?? 0);
   return (
     <div className={className} data-testid={testId}>
       <TotalRow
@@ -117,10 +122,21 @@ export function Totals({
               testId="totals-paid"
             />
           ) : null}
-          {refundedCents ? (
-            <TotalRow label="Refunded" value={money(refundedCents)} testId="totals-refunded" />
+          {refund.fromOverpaymentCents ? (
+            <TotalRow
+              label="Overpayment given back"
+              value={money(refund.fromOverpaymentCents)}
+              testId="totals-overpayment"
+            />
           ) : null}
           <TotalRow label="Amount due" value={money(balanceCents)} big testId="totals-balance" />
+          {refund.givenBackCents ? (
+            <TotalRow
+              label="Refunded to the customer"
+              value={money(refund.givenBackCents)}
+              testId="totals-refunded"
+            />
+          ) : null}
         </>
       ) : null}
       {children}

@@ -16,6 +16,7 @@ import {
   Hourglass,
   Pause,
   Send,
+  Undo2,
   X,
 } from 'lucide-react';
 import type { ComponentType } from 'react';
@@ -23,7 +24,8 @@ import { cn } from '@/lib/utils';
 
 /**
  * The look of every money state, straight from the canvas: a draft is quiet, a sent document takes the accent,
- * money on its way is amber, money in is green, and late is red. A voided document is struck through.
+ * money on its way is amber, money in is green, and late is red. A voided document is struck through. Money
+ * given back wears the refund's own arrow: green while some of it is still in, quiet once all of it went back.
  */
 export type StatusLook = 'draft' | 'sent' | 'waiting' | 'paid' | 'late' | 'void' | 'quiet';
 
@@ -61,6 +63,8 @@ const INVOICE_FACES: Readonly<Record<InvoiceState, Face>> = {
   partly_paid: { look: 'waiting', icon: CircleDollarSign },
   paying: { look: 'waiting', icon: Clock },
   paid: { look: 'paid', icon: Check },
+  partly_refunded: { look: 'paid', icon: Undo2 },
+  refunded: { look: 'quiet', icon: Undo2 },
   overdue: { look: 'late', icon: AlertTriangle },
   void: { look: 'void', icon: null },
 };

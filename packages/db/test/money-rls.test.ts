@@ -595,45 +595,108 @@ describe('what the customer did is the worker’s', () => {
   });
 });
 
+/** What the roll-up has made of an invoice, as its owner reads it. */
+async function paidState(id: string) {
+  const [row] = await as(owner)((tx) =>
+    rows<{
+      amount_paid_cents: string;
+      amount_refunded_cents: string;
+      balance_cents: string;
+      status: string;
+      paid_at: Date | null;
+    }>(
+      tx,
+      sql`select amount_paid_cents, amount_refunded_cents, balance_cents, status, paid_at
+          from app.invoices where id = ${id}`,
+    ),
+  );
+  return row!;
+}
+
+/** A refund the worker has recorded as gone through. */
+async function refunded(b: Business, invoiceId: string, paymentId: string, amountCents: number) {
+  await worker(b)((tx) =>
+    tx.execute(
+      sql`insert into app.refunds (workspace_id, payment_id, invoice_id, amount_cents, status, refunded_at)
+          values (${b.ws}, ${paymentId}, ${invoiceId}, ${amountCents}, 'succeeded', now())`,
+    ),
+  );
+}
+
 describe('what an invoice has been paid is counted, not typed', () => {
-  it('a cash payment a person records pays the invoice down, and a refund puts it back', async () => {
+  it('a cash payment a person records pays the invoice down, and a refund never puts it back', async () => {
     const id = await invoice(A, a, {}, 45000);
     await send(A, 'invoices', id, `INV-${uniq()}`);
     const paymentId = await cash(owner, A, id, 20000);
-    const read = async () => {
-      const [row] = await as(owner)((tx) =>
-        rows<{
-          amount_paid_cents: string;
-          amount_refunded_cents: string;
-          balance_cents: string;
-          status: string;
-          paid_at: Date | null;
-        }>(
-          tx,
-          sql`select amount_paid_cents, amount_refunded_cents, balance_cents, status, paid_at
-              from app.invoices where id = ${id}`,
-        ),
-      );
-      return row!;
-    };
-    expect(await read()).toMatchObject({ amount_paid_cents: '20000', status: 'partly_paid' });
-    expect((await read()).balance_cents).toBe('25000');
+    expect(await paidState(id)).toMatchObject({
+      amount_paid_cents: '20000',
+      status: 'partly_paid',
+    });
+    expect((await paidState(id)).balance_cents).toBe('25000');
     await cash(owner, A, id, 25000);
-    const paid = await read();
+    const paid = await paidState(id);
     expect(paid).toMatchObject({ amount_paid_cents: '45000', status: 'paid', balance_cents: '0' });
     expect(paid.paid_at).not.toBeNull();
 
-    await worker(A)((tx) =>
-      tx.execute(
-        sql`insert into app.refunds (workspace_id, payment_id, invoice_id, amount_cents, status, refunded_at)
-            values (${A.ws}, ${paymentId}, ${id}, 5000, 'succeeded', now())`,
-      ),
-    );
-    expect(await read()).toMatchObject({
+    // Money given back is counted, and that is all it is: the invoice stays paid, from the day it was.
+    await refunded(A, id, paymentId, 5000);
+    const after = await paidState(id);
+    expect(after).toMatchObject({
       amount_refunded_cents: '5000',
-      status: 'partly_paid',
-      balance_cents: '5000',
+      status: 'paid',
+      balance_cents: '0',
     });
+    expect(after.paid_at).toEqual(paid.paid_at);
+  });
+
+  it('a full refund keeps the invoice paid, with nothing owed and the day it was paid kept', async () => {
+    const id = await invoice(A, a, {}, 45000);
+    await send(A, 'invoices', id, `INV-${uniq()}`);
+    const paymentId = await cash(owner, A, id, 45000);
+    const paid = await paidState(id);
+    expect(paid).toMatchObject({ status: 'paid', balance_cents: '0' });
+    await refunded(A, id, paymentId, 45000);
+    const after = await paidState(id);
+    expect(after).toMatchObject({
+      amount_paid_cents: '45000',
+      amount_refunded_cents: '45000',
+      status: 'paid',
+      balance_cents: '0',
+    });
+    expect(after.paid_at).not.toBeNull();
+    expect(after.paid_at).toEqual(paid.paid_at);
+  });
+
+  it('paid more than was owed, then the extra given back: a credit first, then nothing owed', async () => {
+    const id = await invoice(A, a, {}, 45000);
+    await send(A, 'invoices', id, `INV-${uniq()}`);
+    // Two payments crossing in the post: the worker records what arrived, whatever it adds up to.
+    await cash(owner, A, id, 45000);
+    const extra = await cash(owner, A, id, 5000);
+    expect(await paidState(id)).toMatchObject({ status: 'paid', balance_cents: '-5000' });
+    await refunded(A, id, extra, 2000);
+    expect((await paidState(id)).balance_cents).toBe('-3000');
+    await refunded(A, id, extra, 3000);
+    expect(await paidState(id)).toMatchObject({
+      amount_refunded_cents: '5000',
+      status: 'paid',
+      balance_cents: '0',
+    });
+  });
+
+  it('part paid, then that part given back: only the unpaid part is owed', async () => {
+    const id = await invoice(A, a, {}, 45000);
+    await send(A, 'invoices', id, `INV-${uniq()}`);
+    const paymentId = await cash(owner, A, id, 15000);
+    await refunded(A, id, paymentId, 15000);
+    const after = await paidState(id);
+    expect(after).toMatchObject({
+      amount_paid_cents: '15000',
+      amount_refunded_cents: '15000',
+      status: 'partly_paid',
+      balance_cents: '30000',
+    });
+    expect(after.paid_at).toBeNull();
   });
 
   it('a payment that has not succeeded pays nothing down', async () => {

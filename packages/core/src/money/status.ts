@@ -11,13 +11,15 @@
  * - **opened** is `first_viewed_at`: a sent document the customer has looked at.
  * - **paying** is a payment in `processing`. A bank transfer takes days to settle, so an invoice with one is
  *   never overdue — it's paying.
- * - **refunded** is the refunds against it. A refunded invoice stays paid and its balance says the rest.
+ * - **refunded** and **partly refunded** are money given back on a paid invoice. **A refund gives money back;
+ *   it never puts it back on the bill.** The invoice stays paid, nothing is owed again and nothing chases it,
+ *   exactly as Stripe, Square and QuickBooks keep one. To bill again, the business gives everything back, voids
+ *   it and sends a new one.
  *
  * `invoiceState` and `estimateState` work those out for the screen; `invoiceIsOverdue` is what the overdue job
  * and the Action Center's detector both run on.
  */
 import { addDays, startOfLocalDay } from '../calendar/engine/zoned';
-import { balanceCents } from './totals';
 
 // ---- Estimates ----
 
@@ -57,15 +59,17 @@ export const INVOICE_STATUSES = [
 export type InvoiceStatus = (typeof INVOICE_STATUSES)[number];
 
 /**
- * Where an invoice may go from each state. A paid invoice is refunded, never voided: the money moved, and the
- * ledger has to say so — the refund rows carry that, and the balance follows them.
+ * Where an invoice may go from each state. Money that moved is never voided away: the ledger has to say so, so
+ * a paid invoice is refunded first, and only once everything paid on it has gone back may it be voided and a
+ * new one sent. That is a rule about money rather than about states, so `invoiceVoidBlock` says it and
+ * `invoice.void` enforces it; this map says only that the move exists.
  */
 export const INVOICE_TRANSITIONS: Readonly<Record<InvoiceStatus, readonly InvoiceStatus[]>> = {
   draft: ['sent', 'void'],
   sent: ['partly_paid', 'paid', 'overdue', 'void'],
   partly_paid: ['paid', 'overdue', 'void'],
   overdue: ['partly_paid', 'paid', 'void'],
-  paid: [],
+  paid: ['void'],
   void: [],
 };
 
@@ -205,27 +209,65 @@ export function invoiceIsOpen(status: InvoiceStatus): boolean {
 export interface PaymentRollup {
   readonly status: InvoiceStatus;
   readonly totalCents: number;
+  /** What succeeded, gross. */
   readonly paidCents: number;
+  /** What went back. It plays no part in the status: a refund never unpays an invoice. */
   readonly refundedCents: number;
 }
 
 /**
- * What an open invoice becomes once money lands: paid when nothing is owed, partly paid while something is. An
- * overdue invoice stays overdue until it's settled — a dollar on account doesn't make it current — and a draft,
- * paid or voided invoice is left where it is.
+ * The stored status the roll-up gives an invoice when money lands — `private.money_roll_up_invoice()` (0053),
+ * arm for arm, so the two can't disagree:
+ * - a draft or a voided invoice keeps its status;
+ * - **paid** once what was paid, gross, reaches a total above nothing. Refunds are ignored: giving money back
+ *   never reopens it;
+ * - **partly paid** while something short of that was paid — an overdue invoice too. It still reads as overdue
+ *   on screen, because `invoiceState` works lateness out from the day, and the overdue job marks it again;
+ * - back to **sent** only if what was paid ever fell, which it can't while payments only move forward.
  */
 export function invoiceStatusForPayments(f: PaymentRollup): InvoiceStatus {
-  if (!invoiceIsOpen(f.status)) return f.status;
-  const owed = balanceCents(f.totalCents, f.paidCents, f.refundedCents);
-  if (owed <= 0 && f.paidCents > 0) return 'paid';
-  if (f.paidCents <= 0) return f.status;
-  return f.status === 'overdue' ? 'overdue' : 'partly_paid';
+  if (f.status === 'draft' || f.status === 'void') return f.status;
+  if (f.totalCents > 0 && f.paidCents >= f.totalCents) return 'paid';
+  if (f.paidCents > 0) return 'partly_paid';
+  if (f.status === 'paid' || f.status === 'partly_paid') return 'sent';
+  return f.status;
+}
+
+// ---- Voiding ----
+
+export interface InvoiceVoidFacts {
+  /** What succeeded, gross. */
+  readonly paidCents: number;
+  /** What has gone back. */
+  readonly refundedCents: number;
+  /** A payment on its way (a bank transfer settling). */
+  readonly hasProcessingPayment?: boolean;
+  /** A refund asked for that hasn't gone through yet. */
+  readonly hasPendingRefund?: boolean;
+}
+
+/**
+ * What stops an invoice being voided, or null when nothing does. Money moved is never voided away:
+ * - `money_moving` — a payment is still arriving or a refund is still going back, so what the invoice holds
+ *   isn't known yet;
+ * - `money_held` — something paid on it hasn't been given back. Refund it first.
+ *
+ * Once everything paid has gone back it can be voided, and that is how a business bills again (the wrong card
+ * was charged, say): refund, void, send a new one. The status move itself is `canInvoiceMove`'s.
+ */
+export function invoiceVoidBlock(f: InvoiceVoidFacts): 'money_moving' | 'money_held' | null {
+  if (f.hasProcessingPayment === true || f.hasPendingRefund === true) return 'money_moving';
+  if (f.paidCents - f.refundedCents > 0) return 'money_held';
+  return null;
 }
 
 // ---- Overdue, opened, and paying ----
 
-/** What an invoice looks like on screen: its status, or the state worked out from the day and its payments. */
-export type InvoiceState = InvoiceStatus | 'viewed' | 'paying';
+/**
+ * What an invoice looks like on screen: its status, or the state worked out from the day, its payments and its
+ * refunds. `refunded` and `partly_refunded` are a paid invoice's only: an open one's own state leads.
+ */
+export type InvoiceState = InvoiceStatus | 'viewed' | 'paying' | 'refunded' | 'partly_refunded';
 
 /** What an estimate looks like on screen. */
 export type EstimateState = EstimateStatus | 'viewed';
@@ -242,6 +284,10 @@ export interface InvoiceStateFacts {
   readonly viewedAt?: string | null;
   /** A payment is on its way (a bank transfer settling): never overdue while one is. */
   readonly hasProcessingPayment?: boolean;
+  /** The total, what was paid (gross) and what went back: whether a paid invoice reads as refunded. */
+  readonly totalCents?: number;
+  readonly paidCents?: number;
+  readonly refundedCents?: number;
 }
 
 /** The moment an invoice due on `dueDate` becomes late: the end of that day where the business is. */
@@ -270,13 +316,29 @@ export function invoiceIsOverdue(f: InvoiceStateFacts, now: Date | number): bool
   return at >= overdueFrom(f.dueDate, f.timeZone);
 }
 
-/** What the invoice is called right now: paying beats overdue, and both beat what's stored. */
+/**
+ * What the invoice is called right now: paying beats overdue, and both beat what's stored. A paid invoice
+ * whose every paid cent went back is `refunded`; one with money given back beyond anything overpaid is
+ * `partly_refunded`. A draft and a voided invoice are what they are.
+ */
 export function invoiceState(f: InvoiceStateFacts, now: Date | number): InvoiceState {
+  if (f.status === 'paid') return paidInvoiceState(f);
   if (!invoiceIsOpen(f.status)) return f.status;
   if (f.hasProcessingPayment === true && f.balanceCents > 0) return 'paying';
   if (invoiceIsOverdue(f, now)) return 'overdue';
   if (f.status !== 'sent') return f.status;
   return f.viewedAt ? 'viewed' : 'sent';
+}
+
+/** A paid invoice, and what went back on it. Without the figures there is nothing to say but paid. */
+function paidInvoiceState(f: InvoiceStateFacts): 'paid' | 'refunded' | 'partly_refunded' {
+  const paid = f.paidCents ?? 0;
+  const refunded = f.refundedCents ?? 0;
+  if (paid > 0 && refunded >= paid) return 'refunded';
+  // Giving back only what was overpaid leaves the bill paid exactly: that's still just paid.
+  if (refunded > 0 && f.totalCents !== undefined && paid - refunded < f.totalCents)
+    return 'partly_refunded';
+  return 'paid';
 }
 
 /**

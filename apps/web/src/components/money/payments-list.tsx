@@ -55,7 +55,7 @@ export function PaymentsList({
   collectedCents: number;
   days: number;
 }) {
-  useLiveRefresh(['payment', 'invoice']);
+  useLiveRefresh(['payment', 'invoice', 'refund']);
   const key = JSON.stringify({
     filters,
     first: initial.payments[0]?.id,

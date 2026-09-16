@@ -52,7 +52,7 @@ import {
   invoiceRecordPayment,
   invoiceRecordView,
   invoiceSelect,
-  invoiceState,
+  invoiceStateOf,
   depositTermsOf,
   linesFor,
   linesOut,
@@ -471,17 +471,8 @@ async function invoiceView(deps: HttpDeps, scope: TenantScope, invoiceId: string
     const tz = await timezoneOf(tx, scope.workspaceId);
     const settings = await loadMoneySettings(tx, scope.workspaceId);
     const lines = (await linesFor(tx, 'invoice', [row.id])).get(row.id) ?? [];
-    const state = invoiceState(
-      {
-        status: row.status,
-        dueDate: row.due_on,
-        timeZone: tz,
-        balanceCents: Number(row.balance_cents),
-        viewedAt: moneyIso(row.first_viewed_at),
-        hasProcessingPayment: row.settling,
-      },
-      Date.now(),
-    );
+    // The same word the business sees: a paid invoice whose money went back reads as refunded, never as owing.
+    const state = invoiceStateOf(row, Date.now(), tz);
     // Only what the customer's own receipt needs: never a fee, a provider id or who recorded it.
     const paid = await rows<PublicPayment>(
       tx,

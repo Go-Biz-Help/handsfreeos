@@ -603,6 +603,45 @@ describe('the invoice a customer pays', () => {
     expect(after.refunds[0]!.refundedAt).toBeTruthy();
     expect(after.refunds[0]!.reference).toMatch(/^[0-9A-F]{8}$/);
     expect(after.invoice.amountRefundedCents).toBe(1_000);
+    // Part of it given back is still a paid deposit: nothing owed, and nothing to pay.
+    expect(after.state).toBe('partly_refunded');
+    expect(after.invoice.balanceCents).toBe(0);
+    expect(after.pay).toMatchObject({ canPay: false, reason: 'paid' });
+  });
+
+  it('reads as refunded once it all went back, and never asks for the money again', async () => {
+    const inv = await sentInvoice(w);
+    await payWithStripe(inv, FAKE_CARDS.succeeds);
+    await drain(w);
+    const [payment] = await paymentRows(inv.id);
+    await run(w, paymentRefund, {
+      workspaceId: w.workspaceId,
+      paymentId: payment!.id,
+      reason: 'Job called off',
+    });
+    await drain(w);
+    const ran = await post(w, '/test/money/run-due', { workspaceId: w.workspaceId });
+    expect(ran.statusCode, ran.body).toBe(200);
+    await drain(w);
+
+    expect(await invoiceRow(inv.id)).toMatchObject({
+      status: 'paid',
+      amount_refunded_cents: inv.totalCents,
+      balance_cents: 0,
+    });
+    const view = (await get(w, `/public/invoice/${inv.token}`)).json() as InvoiceView;
+    expect(view.state).toBe('refunded');
+    expect(view.invoice).toMatchObject({
+      balanceCents: 0,
+      amountPaidCents: inv.totalCents,
+      amountRefundedCents: inv.totalCents,
+    });
+    expect(view.refunds).toHaveLength(1);
+    expect(view.refunds[0]!.refundedAt).toBeTruthy();
+    expect(view.pay).toMatchObject({ canPay: false, reason: 'paid', session: null });
+    const again = await post(w, `/public/invoice/${inv.token}/pay`, { clientId: randomUUID() });
+    expect(again.statusCode).toBe(409);
+    expect(errorOf(again).rule).toBe('invoice_settled');
   });
 
   it('refuses to take money on a withdrawn invoice, and says so plainly', async () => {

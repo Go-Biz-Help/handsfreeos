@@ -44,6 +44,8 @@ import { apiBrowser, errorMessage, unwrap } from '@/lib/api/client';
 import type { PaymentConnectionRow, PaymentListRow, SubscriptionRow } from '@/lib/api/types';
 import { useLiveRefresh } from '@/lib/realtime/live-provider';
 import { cn } from '@/lib/utils';
+import { CopyLinkButton } from './copy-link';
+import { listState } from './list-bits';
 import { connectionLabel, providerTruths } from './plan-start';
 import { planPriceLabel } from './plans-list';
 import { StatusBadge } from './status-badge';
@@ -53,6 +55,8 @@ export interface PlanCycle {
   id: string;
   number: string | null;
   status: string;
+  /** What the invoice reads as: a cycle refunded in full is stored as paid but reads "Refunded". */
+  state: string;
   totalCents: number;
   balanceCents: number;
   dueOn: string | null;
@@ -168,7 +172,7 @@ export function PlanPage({
   canManage: boolean;
   timeZone: string;
 }) {
-  useLiveRefresh(['subscription', 'invoice', 'payment']);
+  useLiveRefresh(['subscription', 'invoice', 'payment', 'refund']);
   const router = useRouter();
   const sub = subscription;
   const account = connections.find((c) => c.id === sub.connectionId) ?? null;
@@ -237,7 +241,9 @@ export function PlanPage({
       );
     });
 
-  const paid = cycles.filter((c) => c.status === 'paid').length;
+  // Counted by what each invoice reads as, so a cycle whose money all went back isn't counted as paid.
+  const paid = cycles.filter((c) => c.state === 'paid' || c.state === 'partly_refunded').length;
+  const refunded = cycles.filter((c) => c.state === 'refunded').length;
   /**
    * The card the plan actually bills, as the customer put it on their own page. Failing that (a plan set up
    * before this page existed), the card the newest cycle was charged.
@@ -277,17 +283,26 @@ export function PlanPage({
         </div>
         <div className="flex flex-wrap items-center gap-2 max-md:w-full">
           {canManage && (billing || sub.status === 'paused') && sub.hasCard ? (
-            <Button
-              variant="secondary"
-              className="max-md:h-11 max-md:flex-1"
-              loading={busy === 'ask-email'}
-              disabled={!sub.person.email && !sub.person.phone}
-              onClick={askFor(sub.person.email ? 'email' : 'sms')}
-              data-testid="plan-change-card"
-            >
-              <CreditCard className="h-4 w-4" strokeWidth={1.5} />
-              Ask for a new card
-            </Button>
+            <>
+              <Button
+                variant="secondary"
+                className="max-md:h-11 max-md:flex-1"
+                loading={busy === 'ask-email'}
+                disabled={!sub.person.email && !sub.person.phone}
+                onClick={askFor(sub.person.email ? 'email' : 'sms')}
+                data-testid="plan-change-card"
+              >
+                <CreditCard className="h-4 w-4" strokeWidth={1.5} />
+                Ask for a new card
+              </Button>
+              {/* The page they change the card on, for whatever else the business talks to them through. */}
+              <CopyLinkButton
+                workspaceId={workspaceId}
+                kind="plan"
+                id={sub.id}
+                className="max-md:h-11 max-md:flex-1"
+              />
+            </>
           ) : null}
           {canManage && billing ? (
             <Button
@@ -374,6 +389,14 @@ export function PlanPage({
                 <MessageSquare className="h-3.5 w-3.5" strokeWidth={1.5} />
                 Text it instead
               </Button>
+              {/* The same link, for wherever else the business talks to them. */}
+              <CopyLinkButton
+                workspaceId={workspaceId}
+                kind="plan"
+                id={sub.id}
+                variant="secondary"
+                size="sm"
+              />
             </div>
           ) : null}
         </Card>
@@ -520,7 +543,9 @@ export function PlanPage({
             <span className="text-xs text-text-3">
               {cycles.length === 0
                 ? 'Nothing yet'
-                : `${cycles.length} ${cycles.length === 1 ? 'invoice' : 'invoices'} · ${paid} paid`}
+                : `${cycles.length} ${cycles.length === 1 ? 'invoice' : 'invoices'} · ${paid} paid${
+                    refunded ? ` · ${refunded} refunded` : ''
+                  }`}
             </span>
           </div>
           {cycles.length === 0 ? (
@@ -550,7 +575,11 @@ export function PlanPage({
                         {whenLabel(Date.parse(c.createdAt), timeZone)}
                       </span>
                     </span>
-                    <StatusBadge kind="invoice" state={c.status} />
+                    <StatusBadge
+                      kind="invoice"
+                      state={listState(c.state)}
+                      testId="plan-cycle-status"
+                    />
                     <span className="w-[90px] flex-none text-right tabular-nums max-md:w-auto">
                       {money(c.totalCents)}
                     </span>

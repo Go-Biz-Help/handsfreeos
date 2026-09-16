@@ -80,3 +80,18 @@ export interface VoiceToken {
 export function voiceToken(workspaceId: string): Promise<VoiceToken> {
   return workerPost('/v1/telephony/voice-token', { workspaceId });
 }
+
+/** Which of a customer's own pages a link opens: an estimate (`/e/…`), an invoice (`/i/…`) or a plan (`/p/…`). */
+export type MoneyLinkKind = 'estimate' | 'invoice' | 'plan';
+
+/**
+ * A customer's own link, exactly as they were sent it, for the business to copy (owners and admins; the worker
+ * checks). The worker mints it because it holds the key the API may not.
+ */
+export function moneyLink(input: {
+  workspaceId: string;
+  kind: MoneyLinkKind;
+  id: string;
+}): Promise<{ url: string }> {
+  return workerPost('/v1/money/link', input);
+}

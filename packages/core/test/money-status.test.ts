@@ -1,6 +1,7 @@
 /**
- * Every state a document can be in, every move it may make, and the two states that are worked out rather than
- * stored: overdue, and the bank transfer that is on its way and therefore isn't late.
+ * Every state a document can be in, every move it may make, and the states that are worked out rather than
+ * stored: overdue, the bank transfer that is on its way and therefore isn't late, and money given back on a
+ * paid invoice — which never makes it owe again.
  */
 import { describe, expect, it } from 'vitest';
 import {
@@ -16,11 +17,13 @@ import {
   estimateState,
   INVOICE_STATUSES,
   INVOICE_TRANSITIONS,
+  INVOICE_WORDS,
   invoiceIsOpen,
   invoiceIsOverdue,
   invoiceMoveProblem,
   invoiceState,
   invoiceStatusForPayments,
+  invoiceVoidBlock,
   isManualPaymentMethod,
   overdueFrom,
   PAYMENT_METHODS,
@@ -94,15 +97,22 @@ describe('invoice states', () => {
       ['partly_paid', 'paid'],
       ['partly_paid', 'overdue'],
       ['partly_paid', 'void'],
+      ['paid', 'void'],
       ['overdue', 'partly_paid'],
       ['overdue', 'paid'],
       ['overdue', 'void'],
     ]);
   });
 
-  it('refunds a paid invoice rather than voiding it', () => {
-    expect(invoiceMoveProblem('paid', 'void')).toBe('A paid invoice can’t be voided.');
-    expect(INVOICE_TRANSITIONS.paid).toEqual([]);
+  it('never unpays an invoice: a paid one only ever goes to void, and only once the money is back', () => {
+    expect(INVOICE_TRANSITIONS.paid).toEqual(['void']);
+    expect(invoiceMoveProblem('paid', 'sent')).toBe('A paid invoice can’t be sent again.');
+    expect(invoiceMoveProblem('paid', 'partly_paid')).toBe(
+      'A paid invoice can’t be marked partly paid.',
+    );
+    // The move exists; whether the money allows it is the void rule's to say.
+    expect(invoiceVoidBlock({ paidCents: 10_000, refundedCents: 0 })).toBe('money_held');
+    expect(invoiceVoidBlock({ paidCents: 10_000, refundedCents: 10_000 })).toBeNull();
   });
 
   it('counts sent, partly paid and overdue as money still expected', () => {
@@ -162,19 +172,103 @@ describe('what a payment does to an invoice', () => {
     expect(rollup()).toBe('sent');
   });
 
-  it('leaves an overdue invoice overdue until it is settled', () => {
-    expect(rollup({ status: 'overdue', paidCents: 2_500 })).toBe('overdue');
+  // The roll-up in 0053, arm for arm. An overdue invoice with part of it paid is stored as partly paid there,
+  // and still reads as overdue on screen: `invoiceState` works lateness out from the day, not from the status.
+  it('stores an overdue invoice with part of it paid as partly paid, and paid once it is settled', () => {
+    expect(rollup({ status: 'overdue', paidCents: 2_500 })).toBe('partly_paid');
     expect(rollup({ status: 'overdue', paidCents: 10_000 })).toBe('paid');
   });
 
-  it('leaves a draft, a paid or a voided invoice alone', () => {
+  it('leaves a draft and a voided invoice alone', () => {
     expect(rollup({ status: 'draft', paidCents: 10_000 })).toBe('draft');
     expect(rollup({ status: 'void', paidCents: 10_000 })).toBe('void');
-    expect(rollup({ status: 'paid', paidCents: 0 })).toBe('paid');
+    // Only if what was paid ever fell, which payments that only move forward can't do.
+    expect(rollup({ status: 'paid', paidCents: 0 })).toBe('sent');
   });
 
-  it('owes again after a refund', () => {
-    expect(rollup({ paidCents: 10_000, refundedCents: 2_500 })).toBe('partly_paid');
+  it('never owes again after a refund: paid stays paid, and part paid stays part paid', () => {
+    expect(rollup({ status: 'paid', paidCents: 10_000, refundedCents: 2_500 })).toBe('paid');
+    expect(rollup({ status: 'paid', paidCents: 10_000, refundedCents: 10_000 })).toBe('paid');
+    expect(rollup({ status: 'partly_paid', paidCents: 4_000, refundedCents: 4_000 })).toBe(
+      'partly_paid',
+    );
+  });
+});
+
+describe('money given back', () => {
+  const paid = (over: Partial<InvoiceStateFacts> = {}): InvoiceStateFacts => ({
+    status: 'paid',
+    dueDate: '2026-09-20',
+    timeZone: TZ,
+    balanceCents: 0,
+    viewedAt: null,
+    hasProcessingPayment: false,
+    totalCents: 10_000,
+    paidCents: 10_000,
+    refundedCents: 0,
+    ...over,
+  });
+  const now = at('2026-10-15', '09:00');
+
+  it('reads as refunded once every paid cent went back, and partly refunded while some of it is kept', () => {
+    expect(invoiceState(paid(), now)).toBe('paid');
+    expect(invoiceState(paid({ refundedCents: 10_000 }), now)).toBe('refunded');
+    expect(invoiceState(paid({ refundedCents: 2_500 }), now)).toBe('partly_refunded');
+    expect(INVOICE_WORDS.refunded).toBe('Refunded');
+    expect(INVOICE_WORDS.partly_refunded).toBe('Partly refunded');
+  });
+
+  it('is still just paid when only an overpayment went back', () => {
+    const over = paid({ paidCents: 12_000 });
+    expect(invoiceState({ ...over, balanceCents: -2_000 }, now)).toBe('paid');
+    expect(invoiceState({ ...over, refundedCents: 2_000 }, now)).toBe('paid');
+    // Beyond the overpayment is money the business gave back from the bill itself.
+    expect(invoiceState({ ...over, refundedCents: 3_000 }, now)).toBe('partly_refunded');
+    expect(invoiceState({ ...over, refundedCents: 12_000 }, now)).toBe('refunded');
+  });
+
+  it('leaves an open invoice its own state, and a void one void', () => {
+    // Part paid, and that part given back: still waiting on the rest, so it is still what it was.
+    const part = paid({ status: 'partly_paid', paidCents: 4_000, refundedCents: 4_000 });
+    expect(invoiceState({ ...part, balanceCents: 6_000 }, at('2026-09-18', '09:00'))).toBe(
+      'partly_paid',
+    );
+    expect(invoiceState({ ...part, balanceCents: 6_000 }, now)).toBe('overdue');
+    expect(invoiceState(paid({ status: 'void', refundedCents: 10_000 }), now)).toBe('void');
+    // Without the figures there is nothing to say but paid.
+    expect(
+      invoiceState(
+        { status: 'paid', dueDate: null, timeZone: TZ, balanceCents: 0, refundedCents: 500 },
+        now,
+      ),
+    ).toBe('paid');
+  });
+
+  it('is never overdue once refunded in full, however late the day', () => {
+    const refunded = paid({ refundedCents: 10_000 });
+    expect(invoiceIsOverdue(refunded, now)).toBe(false);
+    expect(invoiceIsOverdue(refunded, at('2027-01-01', '09:00'))).toBe(false);
+  });
+});
+
+describe('voiding an invoice money has touched', () => {
+  it('is allowed once everything paid has gone back, and not while any of it is kept', () => {
+    expect(invoiceVoidBlock({ paidCents: 0, refundedCents: 0 })).toBeNull();
+    expect(invoiceVoidBlock({ paidCents: 10_000, refundedCents: 10_000 })).toBeNull();
+    expect(invoiceVoidBlock({ paidCents: 10_000, refundedCents: 9_999 })).toBe('money_held');
+    expect(invoiceVoidBlock({ paidCents: 4_000, refundedCents: 0 })).toBe('money_held');
+  });
+
+  it('waits while money is still moving either way', () => {
+    expect(invoiceVoidBlock({ paidCents: 0, refundedCents: 0, hasProcessingPayment: true })).toBe(
+      'money_moving',
+    );
+    expect(invoiceVoidBlock({ paidCents: 10_000, refundedCents: 0, hasPendingRefund: true })).toBe(
+      'money_moving',
+    );
+    expect(
+      invoiceVoidBlock({ paidCents: 10_000, refundedCents: 10_000, hasPendingRefund: false }),
+    ).toBeNull();
   });
 });
 

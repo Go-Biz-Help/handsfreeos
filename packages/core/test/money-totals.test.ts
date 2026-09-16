@@ -13,6 +13,7 @@ import {
   lineAmountCents,
   lineSubtotalCents,
   quantityThousandths,
+  refundShares,
   roundHalfUp,
   taxCentsOf,
   type MoneyLine,
@@ -229,11 +230,48 @@ describe('the deposit', () => {
 });
 
 describe('the balance', () => {
-  it('is what is owed after payments and refunds', () => {
+  it('is what is owed after payments', () => {
     expect(balanceCents(10_000, 0, 0)).toBe(10_000);
     expect(balanceCents(10_000, 10_000, 0)).toBe(0);
-    expect(balanceCents(10_000, 10_000, 2_500)).toBe(2_500);
     expect(balanceCents(10_000, 12_000, 0)).toBe(-2_000);
+  });
+
+  it('never goes back up for a refund: money given back is not put back on the bill', () => {
+    expect(balanceCents(10_000, 10_000, 2_500)).toBe(0);
+    expect(balanceCents(10_000, 10_000, 10_000)).toBe(0);
+    // Part paid, then that part given back: only the unpaid part is owed, never the whole bill again.
+    expect(balanceCents(10_000, 4_000, 4_000)).toBe(6_000);
+  });
+
+  it('lets a refund use up an overpayment, and never takes a credit below nothing', () => {
+    expect(balanceCents(10_000, 12_000, 500)).toBe(-1_500);
+    expect(balanceCents(10_000, 12_000, 2_000)).toBe(0);
+    expect(balanceCents(10_000, 12_000, 12_000)).toBe(0);
+  });
+
+  it('splits a refund into what used up an overpayment and what went back past it', () => {
+    expect(refundShares(10_000, 10_000, 2_500)).toEqual({
+      fromOverpaymentCents: 0,
+      givenBackCents: 2_500,
+    });
+    expect(refundShares(10_000, 12_000, 500)).toEqual({
+      fromOverpaymentCents: 500,
+      givenBackCents: 0,
+    });
+    expect(refundShares(10_000, 12_000, 5_000)).toEqual({
+      fromOverpaymentCents: 2_000,
+      givenBackCents: 3_000,
+    });
+    // The part that used up the overpayment is the part inside the balance's sum.
+    for (const [total, paid, refunded] of [
+      [10_000, 10_000, 2_500],
+      [10_000, 12_000, 500],
+      [10_000, 12_000, 5_000],
+      [10_000, 4_000, 4_000],
+    ] as const)
+      expect(total - paid + refundShares(total, paid, refunded).fromOverpaymentCents).toBe(
+        balanceCents(total, paid, refunded),
+      );
   });
 
   it('comes out of computeTotals with the payments on it', () => {
@@ -243,7 +281,7 @@ describe('the balance', () => {
       refundedCents: 5_000,
     });
     expect(totals.totalCents).toBe(50_000);
-    expect(totals.balanceCents).toBe(35_000);
+    expect(totals.balanceCents).toBe(30_000);
   });
 });
 

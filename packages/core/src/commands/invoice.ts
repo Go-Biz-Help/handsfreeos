@@ -9,7 +9,8 @@
  * the paid and partly-paid statuses are recounted by `private.money_roll_up_invoice()` from the payments and
  * refunds that succeeded, under a row lock, every time one lands. So a person recording cash and the worker
  * recording a card both do the same thing — write a payment row — and the invoice follows on its own. That is
- * also why a mistaken payment is refunded rather than edited.
+ * also why a mistaken payment is refunded rather than edited. **A refund gives money back and never puts it
+ * back on the bill** (0053): a refunded invoice stays paid, and billing again is a void and a new invoice.
  *
  * A payment's status only ever moves forward, so a webhook delivered out of order can never un-pay an invoice.
  * `processing` is the days a bank transfer takes: an invoice with one is never overdue, it is paying.
@@ -28,6 +29,7 @@ import {
   dueDateFor,
   invoiceIsOverdue,
   invoiceMoveProblem,
+  invoiceVoidBlock,
   money,
   owedWording,
   type InvoiceStatus,
@@ -362,7 +364,7 @@ export const invoiceSend = defineCommand({
 export const invoiceVoid = defineCommand({
   name: 'invoice.void',
   description:
-    'Withdraw an invoice. Its number is kept and never used again. A paid invoice is refunded instead: the money moved, and the ledger has to say so.',
+    'Withdraw an invoice. Its number is kept and never used again. Money paid on it is refunded first — the money moved, and the ledger has to say so — and once everything paid has been given back it can be voided and a new invoice sent in its place.',
   risk: 2,
   input: InvoiceVoidInput,
   output: InvoiceStateOutput,
@@ -374,11 +376,35 @@ export const invoiceVoid = defineCommand({
     const before = await requireInvoice(ctx, input.invoiceId);
     if (before.status === 'void') return stateOut(before, false);
     assertMove(before, 'void');
-    if (Number(before.amount_paid_cents) > 0)
+    const paid = Number(before.amount_paid_cents);
+    const refunded = Number(before.amount_refunded_cents);
+    const [refunding] = await rows<{ pending: boolean }>(
+      ctx.tx,
+      sql`select exists (select 1 from app.refunds r
+            where r.invoice_id = ${before.id}::uuid and r.status = 'pending') as pending`,
+    );
+    const block = invoiceVoidBlock({
+      paidCents: paid,
+      refundedCents: refunded,
+      hasProcessingPayment: before.settling,
+      hasPendingRefund: refunding?.pending === true,
+    });
+    // Until the money stops moving nobody knows what the invoice holds, so neither answer below is safe yet.
+    if (block === 'money_moving')
+      throw HfosError.rule(
+        'invoice_money_moving',
+        409,
+        before.settling
+          ? 'A payment on this invoice is still on its way. Once it lands, refund it, then void the invoice.'
+          : 'A refund on this invoice is still on its way back. Void it once the refund has gone through.',
+      );
+    if (block === 'money_held')
       throw HfosError.rule(
         'invoice_has_payments',
         409,
-        `${money(Number(before.amount_paid_cents))} has been paid against this invoice. Refund it instead.`,
+        refunded > 0
+          ? `${money(paid - refunded)} paid against this invoice hasn’t been given back. Refund it instead.`
+          : `${money(paid)} has been paid against this invoice. Refund it instead.`,
       );
     await ctx.tx
       .update(invoices)

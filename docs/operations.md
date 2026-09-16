@@ -6550,7 +6550,7 @@ HandsFreeOS takes money for a business, not from it. **Each business signs into 
 
 What you set up here is the **platform**: one Stripe Connect platform and one Square developer application, both owned by HandsFreeOS, which is what lets a business click Connect and sign in. Every value goes on `handsfreeos-worker`. The API refuses to start if it holds any variable starting with `STRIPE_`, `SQUARE_`, `PAYMENTS_`, `PAYPAL_`, `NMI_` or `AUTHORIZE_NET_`, and none of them ever goes in Vercel or GitHub.
 
-Money needs the migrations `20260920000100_money_catalog.sql` to `20260920000900_subscription_cards.sql`. See "Apply new migrations".
+Money needs the migrations `20260920000100_money_catalog.sql` to `20260920001000_refunds_close.sql`. See "Apply new migrations".
 
 Without any of this, everything else in HandsFreeOS works. **Settings** → **Payments** simply says the provider isn't set up, and a business can still write estimates and invoices and record cash, cheques and card payments they took themselves.
 
@@ -7218,7 +7218,7 @@ Money runs against a payment stand-in (`apps/worker/src/payments/fake.ts`) unles
     -d '{"workspaceId":"<workspace id>","invoiceId":"<invoice id>"}'
   ```
 
-  hands back the customer's own link for a document or a plan (`estimateId`, `invoiceId` or `subscriptionId`). Those links are signed with the worker's own key and normally travel only by text and email, so this is the only way to open one from a browser by hand. Every email the stack sends is in Mailpit at http://localhost:54424, and the links in those work too.
+  hands back the customer's own link for a document or a plan (`estimateId`, `invoiceId` or `subscriptionId`). Those links are signed with the worker's own key, so the API can't make one: in the app, an owner or admin presses **Copy link** on the estimate, invoice or plan page, which asks the worker's signed-in `POST /v1/money/link` for the very link the customer was sent. This route is the same thing without signing in. Every email the stack sends is in Mailpit at http://localhost:54424, and the links in those work too.
 
 - **What is real even here.** Every webhook the stand-in posts is signed with the real algorithms and goes through the real verifier; every payment's answer is read back from the provider rather than trusted from the page; card details never reach HandsFreeOS, because the stand-in's page mints a token exactly as Stripe's and Square's do. So the paths this exercises are the ones production uses.
 - **Watching a hold expire.** A time held while a customer pays goes back on the calendar fifteen minutes after its deposit invoice is raised. The seed leaves one held for Gerald Tran, so open the calendar within fifteen minutes of `pnpm db:reset` to see "Not booked yet · waiting on a deposit", or run `run-due` to let it go at once.

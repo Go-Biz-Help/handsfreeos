@@ -8,7 +8,8 @@
  *    the largest line, **before** tax.
  * 3. Tax is one rounding step for the whole document: `roundHalfUp(taxable base × rate / 10,000)`. Rounding each
  *    line would drift a penny or two away from what the lines add up to.
- * 4. `total = subtotal + tax`, `balance = total − paid + refunded`.
+ * 4. `total = subtotal + tax`, `balance = total − paid`. A refund gives money back and never puts it back on the
+ *    bill: it only uses up an overpayment, so a credit shows as a negative balance until it has gone back.
  *
  * Money is integer cents (USD). Quantities are the only decimals: up to three places.
  */
@@ -123,7 +124,7 @@ export interface DocumentTotals {
   readonly depositCents: number;
   readonly paidCents: number;
   readonly refundedCents: number;
-  /** What's still owed: `total − paid + refunded`. */
+  /** What's still owed: `total − paid`, which a refund never reopens (see `balanceCents`). */
   readonly balanceCents: number;
 }
 
@@ -183,9 +184,34 @@ export function taxCentsOf(taxableBaseCents: number, taxRateBp: number): number 
   return roundHalfUp((base * clampBp(taxRateBp)) / BASIS_POINTS);
 }
 
-/** What's still owed: `total − paid + refunded`. A credit shows as a negative balance. */
+/**
+ * What's still owed: `total − paid`. **A refund gives money back; it never puts it back on the bill** — that
+ * is how Stripe, Square and QuickBooks keep a refunded invoice, and the business voids and reissues to bill
+ * again. The one thing a refund does touch is an overpayment: paid $120 on $100 is a $20 credit (a negative
+ * balance), and giving that $20 back brings it to nothing, never below it.
+ *
+ * The same sum as `app.invoices.balance_cents` (0053):
+ * `greatest(total − paid, least(0, total − paid + refunded))`.
+ */
 export function balanceCents(totalCents: number, paidCents: number, refundedCents: number): number {
-  return whole(totalCents) - whole(paidCents) + whole(refundedCents);
+  const owed = whole(totalCents) - whole(paidCents);
+  return Math.max(owed, Math.min(0, owed + whole(refundedCents)));
+}
+
+/**
+ * How what was given back sits against the bill: the part that used up an overpayment, which is inside the
+ * balance's sum (`total − paid + fromOverpayment = balance`, so a ledger that adds up shows it there), and the
+ * rest, which went back to the customer without touching what is owed. The two add up to what was refunded.
+ */
+export function refundShares(
+  totalCents: number,
+  paidCents: number,
+  refundedCents: number,
+): { readonly fromOverpaymentCents: number; readonly givenBackCents: number } {
+  const refunded = Math.max(0, whole(refundedCents));
+  const overpaid = Math.max(0, whole(paidCents) - whole(totalCents));
+  const fromOverpayment = Math.min(refunded, overpaid);
+  return { fromOverpaymentCents: fromOverpayment, givenBackCents: refunded - fromOverpayment };
 }
 
 /**

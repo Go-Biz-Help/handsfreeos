@@ -3,8 +3,10 @@ import { api, ownerWithSite, WORKER, type Owner } from './booking-helpers';
 
 /**
  * Maintenance plans, end to end (design/m9 Plans.dc.html): a customer put on a plan from the catalogue, the
- * provider set up, a cycle billed and kept here as an invoice and a payment, paused, started again, cancelled —
- * and the Settings → Payments disconnect that lists the plan still billing and offers to cancel it first.
+ * provider set up, a cycle billed and kept here as an invoice and a payment — then given back, when it reads as
+ * refunded rather than paid — paused, started again, cancelled, and the Settings → Payments disconnect that
+ * lists the plan still billing and offers to cancel it first. The plan's own link copies whether it is waiting
+ * on a card or already billing.
  *
  * Everything the provider does runs against the stand-in (apps/worker/src/payments/fake.ts): the cycle is
  * driven on purpose through `POST /test/money/provider-event`, which makes it post its **properly signed**
@@ -37,7 +39,7 @@ interface Plan {
 }
 
 const planOf = async (owner: Owner, subscriptionId: string) =>
-  await api<{ subscription: Plan; invoices: { id: string; status: string }[] }>(
+  await api<{ subscription: Plan; invoices: { id: string; status: string; state: string }[] }>(
     owner.token,
     'queries',
     'subscription.get',
@@ -175,8 +177,11 @@ async function moneyOwner(page: Page, label: string): Promise<Owner & { accountI
 
 test('Money → Plans: a plan started, billed, paused, started again and cancelled', async ({
   page,
+  context,
 }) => {
   test.setTimeout(300_000);
+  // Copy link writes to the clipboard, and the spec reads it back.
+  await context.grantPermissions(['clipboard-read', 'clipboard-write']);
   const owner = await moneyOwner(page, 'plans');
   await api(owner.token, 'commands', 'plan.create', {
     workspaceId: owner.workspaceId,
@@ -210,9 +215,19 @@ test('Money → Plans: a plan started, billed, paused, started again and cancell
   // The business asks, and the link goes out on the same ladder every other money message uses.
   await page.getByTestId('plan-ask-email').click();
   await expect(page.getByTestId('plan-awaiting-card')).toBeVisible();
+  // Or it copies that same link, to send however else it talks to Sarah.
+  await page.getByTestId('plan-copy-link').click();
+  await expect(
+    page
+      .locator('[data-sonner-toast]')
+      .filter({ hasText: 'Link copied' })
+      .filter({ hasText: 'Anyone with this link can put a card on this plan.' }),
+  ).toBeVisible();
+  const link = await page.evaluate(() => navigator.clipboard.readText());
+  expect(link).toMatch(/^http:\/\/localhost:3000\/p\/[0-9A-Za-z]{18}$/);
+  expect(link).toBe(await planLink(owner, subscriptionId));
 
-  // ---- the customer, signed out, puts a card on it through the provider's own page ----
-  const link = await planLink(owner, subscriptionId);
+  // ---- the customer, signed out, opens the copied link and puts a card on it through the provider's page ----
   const customerPage = await page.context().browser()!.newContext();
   const theirs = await customerPage.newPage();
   await theirs.goto(link);
@@ -241,6 +256,17 @@ test('Money → Plans: a plan started, billed, paused, started again and cancell
   await expect(page.getByTestId('plan-standing')).toContainText('Next charge');
   await expect(page.getByTestId('plan-awaiting-card')).toHaveCount(0);
   await expect(page.getByTestId('plan-card')).toContainText('•••• 4242');
+  // Billing, the same page is where the card is changed later, so its link copies from beside the ask.
+  await expect(page.getByTestId('plan-change-card')).toBeVisible();
+  await page.evaluate(() => navigator.clipboard.writeText(''));
+  await page.getByTestId('plan-copy-link').click();
+  await expect(
+    page
+      .locator('[data-sonner-toast]')
+      .filter({ hasText: 'Link copied' })
+      .filter({ hasText: 'Anyone with this link can put a card on this plan.' }),
+  ).toBeVisible();
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(link);
 
   // ---- a cycle: the provider bills it, and it lands here as an invoice and a payment ----
   await worker('/test/money/provider-event', {
@@ -264,13 +290,32 @@ test('Money → Plans: a plan started, billed, paused, started again and cancell
   await expect(cycles).toContainText('Paid');
 
   // The money is on the ledger like any other dollar the business takes.
-  const payments = await api<{ payments: { amountCents: number; method: string }[] }>(
+  const payments = await api<{ payments: { id: string; amountCents: number; method: string }[] }>(
     owner.token,
     'queries',
     'payment.list',
     { workspaceId: owner.workspaceId, succeededOnly: true },
   );
   expect(payments.payments[0]).toMatchObject({ amountCents: 2_900, method: 'card' });
+
+  // ---- given back: the cycle reads as refunded on the plan, never as paid ----
+  await api(owner.token, 'commands', 'payment.refund', {
+    workspaceId: owner.workspaceId,
+    paymentId: payments.payments[0]!.id,
+    reason: 'The visit was missed',
+  });
+  await expect
+    .poll(
+      async () => {
+        await worker('/test/money/run-due', { workspaceId: owner.workspaceId });
+        return (await planOf(owner, subscriptionId)).invoices[0]?.state;
+      },
+      { timeout: 60_000, intervals: [1_000, 2_000, 3_000] },
+    )
+    .toBe('refunded');
+  await page.reload();
+  await expect(cycles.getByTestId('plan-cycle-status')).toHaveText('Refunded');
+  await expect(cycles).toContainText('1 invoice · 0 paid · 1 refunded');
 
   // ---- paused, then started again ----
   await page.getByTestId('plan-pause').click();

@@ -48,7 +48,7 @@ export function useRecordMoney(
   recordId: string | null,
   opts: { readonly payments?: boolean } = {},
 ): RecordMoney | null {
-  const version = useLiveVersion(['invoice', 'payment', 'estimate', 'subscription']);
+  const version = useLiveVersion(['invoice', 'payment', 'refund', 'estimate', 'subscription']);
   const wantPayments = opts.payments ?? false;
   const [found, setFound] = useState<RecordMoney | null>(null);
   const load = useCallback(async () => {
@@ -177,7 +177,10 @@ export function RecordMoneyTab({
               ? `${personName} has ${found.invoices.filter((i) => i.balanceCents > 0).length === 1 ? 'an invoice' : 'invoices'} still to pay.`
               : found.collectedCents > 0
                 ? `${money(found.collectedCents)} paid in all. Nothing outstanding.`
-                : 'Nothing has been billed yet.'}
+                : // Billed and all of it given back (or voided) is not the same as never billed.
+                  found.invoices.some((i) => i.sentAt)
+                  ? 'Nothing outstanding.'
+                  : 'Nothing has been billed yet.'}
           </p>
         </div>
         {canManage ? (

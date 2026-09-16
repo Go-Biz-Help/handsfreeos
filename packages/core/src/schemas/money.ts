@@ -597,6 +597,8 @@ export const EstimateGetOutput = z.object({
       id: uuid,
       number: z.string().nullable(),
       status: invoiceStatus,
+      /** What it reads as on screen, as `InvoiceSummaryOut.state` does: a refunded invoice is stored as paid. */
+      state: z.string(),
       purpose: invoicePurpose,
       totalCents: z.number(),
       balanceCents: z.number(),
@@ -721,7 +723,10 @@ export const InvoiceSummaryOut = z.object({
   publicRef: z.string(),
   number: z.string().nullable(),
   status: invoiceStatus,
-  /** 'paying' while a bank transfer settles, 'overdue' once it is late, 'viewed' when they opened it. */
+  /**
+   * 'paying' while a bank transfer settles, 'overdue' once it is late, 'viewed' when they opened it, and
+   * 'refunded' or 'partly_refunded' once money paid on it went back (it stays paid: a refund never reopens it).
+   */
   state: z.string(),
   purpose: invoicePurpose,
   origin: moneyOrigin,
@@ -1018,6 +1023,8 @@ export const SubscriptionGetOutput = z.object({
       id: uuid,
       number: z.string().nullable(),
       status: invoiceStatus,
+      /** What it reads as on screen, as `InvoiceSummaryOut.state` does: a refunded invoice is stored as paid. */
+      state: z.string(),
       totalCents: z.number(),
       balanceCents: z.number(),
       dueOn: localDate.nullable(),

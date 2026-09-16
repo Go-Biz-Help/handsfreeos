@@ -420,6 +420,7 @@ describe('a refund after a disconnect', () => {
     expect(row!.provider_refund_id).toBeTruthy();
     const invoice = await invoiceRow(inv.id);
     expect(invoice.amount_refunded_cents).toBe(inv.totalCents);
-    expect(invoice.balance_cents).toBe(inv.totalCents);
+    // Given back, not owed again: the invoice stays paid with nothing due.
+    expect(invoice).toMatchObject({ status: 'paid', balance_cents: 0 });
   });
 });

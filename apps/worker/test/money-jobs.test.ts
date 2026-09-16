@@ -1,9 +1,10 @@
 /**
  * The money jobs on the real database (M9 step 6), with the fake carrier, Mailpit and the stand-in provider:
  * the reminder ladder armed when an invoice goes out and stopped the moment it is paid, nothing sent while a
- * bank transfer settles, an invoice marked overdue at the right local moment and not a day early, an estimate
- * expiring and its one nudge, a plan's cycle read back when no webhook arrived, quiet hours holding a text, a
- * retry sending once, and the hourly sweep putting back a job that was lost.
+ * bank transfer settles, an invoice marked overdue at the right local moment and not a day early, a refunded
+ * invoice left alone for good, an estimate expiring and its one nudge, a plan's cycle read back when no webhook
+ * arrived, quiet hours holding a text, a retry sending once, and the hourly sweep putting back a job that was
+ * lost.
  *
  * The provider's webhooks are pointed at nothing here on purpose: these tests are about what the worker does
  * on its own time, and money-webhooks.test.ts is about what it does when the provider speaks.
@@ -17,6 +18,7 @@ import {
   localDateOf,
   moneySaveSettings,
   overdueFrom,
+  paymentRefund,
   type RequestMeta,
 } from '@hfos/core/server';
 import { rows, sql } from '@hfos/db/client';
@@ -206,7 +208,9 @@ describe('an invoice and its reminder ladder', () => {
   }, 120_000);
 
   it('says nothing while a bank transfer is settling, and looks again tomorrow', async () => {
-    const dueOn = today();
+    // Due days ahead, and each job run as of its own moment: an invoice due today has its on-the-day rung sent
+    // the moment it goes out whenever the test runs after nine, before the transfer is ever on its way.
+    const dueOn = addDays(today(), 10);
     const invoice = await sentInvoice(w, { dueOn });
     await executeCommand(
       w.s.db,
@@ -275,6 +279,68 @@ describe('marking an invoice overdue', () => {
     expect(await jobRow(invoiceMessageKey(invoice.id, 'before_3'))).toBeUndefined();
     expect(await jobRow(invoiceMessageKey(invoice.id, 'on_due'))).toBeUndefined();
     expect(await runAt(invoiceMessageKey(invoice.id, 'after_7'))).toBe(at(2, '09:00'));
+  }, 120_000);
+});
+
+describe('an invoice whose money went back', () => {
+  /**
+   * A refund gives money back and never puts it back on the bill. Before 0053 a refunded invoice reopened, and
+   * every one of these jobs went after the customer for the money they had just been given back.
+   */
+  it('is never reminded, never marked late, and nothing is armed for it again', async () => {
+    const invoice = await sentInvoice(w, { dueOn: addDays(today(), 10) });
+    const paid = await run(w, invoiceRecordCashPayment, {
+      workspaceId: w.workspaceId,
+      invoiceId: invoice.id,
+      amountCents: invoice.totalCents,
+      method: 'cash',
+    });
+    await drain(w);
+    await run(w, paymentRefund, {
+      workspaceId: w.workspaceId,
+      paymentId: paid.paymentId,
+      reason: 'Job called off',
+    });
+    // Cash goes back by hand, so the worker settles the refund as soon as it is asked for.
+    await drain(w);
+    const [row] = await rows<{ status: string; balance: number; refunded: number }>(
+      admin(),
+      sql`select status::text as status, balance_cents::float8 as balance,
+            amount_refunded_cents::float8 as refunded
+          from app.invoices where id = ${invoice.id}`,
+    );
+    expect(row).toEqual({ status: 'paid', balance: 0, refunded: invoice.totalCents });
+
+    // Weeks later, as far as the due day is concerned, and every job it ever had put back for now.
+    await rows(
+      admin(),
+      sql`update app.invoices set due_on = ${addDays(today(), -10)}::date where id = ${invoice.id}`,
+    );
+    const sent = texts().length;
+    for (const key of ['before_3', 'on_due', 'after_7'])
+      await armAndRun(MONEY_JOBS.invoiceMessage, invoiceMessageKey(invoice.id, key), {
+        invoiceId: invoice.id,
+        key,
+      });
+    expect(texts()).toHaveLength(sent);
+    const state = await rungs(invoice.id);
+    for (const key of ['before_3', 'on_due', 'after_7'])
+      expect(state[key], key).toMatchObject({ status: 'skipped', reason: 'paid' });
+
+    await armAndRun(MONEY_JOBS.invoiceOverdue, invoiceOverdueKey(invoice.id), {
+      invoiceId: invoice.id,
+    });
+    expect(await invoiceStatusOf(invoice.id)).toBe('paid');
+
+    // And the hourly sweep, which re-arms whatever should be waiting, finds nothing to wait for.
+    await armAndRun(MONEY_JOBS.sweep, moneySweepKey(w.workspaceId), {});
+    const waiting = await rows<{ kind: string }>(
+      admin(),
+      sql`select kind from app.scheduled_jobs
+          where workspace_id = ${w.workspaceId} and status = 'pending'
+            and payload ->> 'invoiceId' = ${invoice.id}`,
+    );
+    expect(waiting).toEqual([]);
   }, 120_000);
 });
 

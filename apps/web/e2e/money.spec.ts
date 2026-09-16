@@ -1,10 +1,11 @@
 import { expect, test, type Page } from '@playwright/test';
-import { api, signInOwner } from './booking-helpers';
+import { api, signInOwner, WORKER } from './booking-helpers';
 import { createBusiness, signUpAndConfirm } from './helpers';
 
 /**
  * The owner's money journey, end to end through the Money section: a catalogue, an estimate written from a
- * lead, sent, approved, turned into an invoice, and paid in cash.
+ * lead, sent, approved, turned into an invoice, paid in cash — and refunded, which gives the money back without
+ * ever putting it back on the bill.
  *
  * Open hours and quiet hours are pinned so the spec passes at any hour of any day — the worker's reminder and
  * nudge jobs read both, and nothing here should depend on when it runs.
@@ -19,6 +20,35 @@ interface Owner {
   readonly userId: string;
   readonly workspaceId: string;
 }
+
+type Json = Record<string, unknown>;
+
+/**
+ * Presses Copy link on a document's own page and reads back what landed on the clipboard, once the toast says
+ * it was copied and what the link lets its holder do.
+ */
+async function copyLink(page: Page, kind: 'estimate' | 'invoice', does: string): Promise<string> {
+  await page.getByTestId(`${kind}-copy-link`).click();
+  await expect(
+    page
+      .locator('[data-sonner-toast]')
+      .filter({ hasText: 'Link copied' })
+      .filter({ hasText: does }),
+  ).toBeVisible();
+  return page.evaluate(() => navigator.clipboard.readText());
+}
+
+/** One of the worker's test routes: the money jobs run now, or a customer's own link. */
+const worker = async <T = Json>(path: string, body: unknown): Promise<T> => {
+  const res = await fetch(`${WORKER}${path}`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  const json = (await res.json().catch(() => null)) as unknown;
+  if (!res.ok) throw new Error(`${path} failed (${res.status}): ${JSON.stringify(json)}`);
+  return json as T;
+};
 
 async function moneyOwner(page: Page, label: string): Promise<Owner> {
   const { email } = await signUpAndConfirm(page, label);
@@ -49,10 +79,14 @@ async function moneyOwner(page: Page, label: string): Promise<Owner> {
   return { token, userId, workspaceId };
 }
 
-test('Money: a catalogue, an estimate from a lead, sent, approved, invoiced and paid', async ({
+test('Money: a catalogue, an estimate from a lead, sent, approved, invoiced, paid and refunded', async ({
   page,
+  browser,
+  context,
 }) => {
-  test.setTimeout(240_000);
+  test.setTimeout(300_000);
+  // Copy link writes to the clipboard, and the spec reads it back.
+  await context.grantPermissions(['clipboard-read', 'clipboard-write']);
   const o = await moneyOwner(page, 'money');
 
   // The catalogue: a taxable part and labour the business does not charge tax on.
@@ -126,6 +160,7 @@ test('Money: a catalogue, an estimate from a lead, sent, approved, invoiced and 
   await page.getByTestId('document-save').click();
   await expect(page.getByTestId('document-saved')).toContainText('all changes saved');
   await expect(page).toHaveURL(/\/money\/estimates\/[0-9a-f-]{36}$/);
+  const estimatePath = new URL(page.url()).pathname;
 
   // Reloaded, the deposit still reads as the quarter it was written as, not as the cents it came to.
   await page.reload();
@@ -142,6 +177,20 @@ test('Money: a catalogue, an estimate from a lead, sent, approved, invoiced and 
   await expect(page.getByTestId('document-activity')).toContainText('Sent to Maria Lopez');
   await expect(page.getByTestId('document-line')).toHaveCount(2);
 
+  // Copy link: the very link she was sent, to paste anywhere, and it opens her own page signed out.
+  const estimateLink = await copyLink(
+    page,
+    'estimate',
+    'Anyone with this link can see and approve',
+  );
+  expect(estimateLink).toMatch(/^http:\/\/localhost:3000\/e\/[0-9A-Za-z]{18}$/);
+  const hers = await browser.newContext();
+  const herEstimate = await hers.newPage();
+  await herEstimate.goto(estimateLink);
+  await expect(herEstimate.getByTestId('estimate-hero')).toContainText('$8,323.20');
+  await expect(herEstimate.getByTestId('approve-open')).toBeVisible();
+  await hers.close();
+
   // She says yes on the phone, and the estimate records it in her name.
   await page.getByTestId('estimate-accepted').click();
   await page.getByTestId('accepted-confirm').click();
@@ -152,6 +201,8 @@ test('Money: a catalogue, an estimate from a lead, sent, approved, invoiced and 
   await page.getByTestId('estimate-convert').click();
   await page.getByTestId('convert-confirm').click();
   await expect(page).toHaveURL(/\/money\/invoices\/[0-9a-f-]{36}$/);
+  const invoicePath = new URL(page.url()).pathname;
+  const invoiceId = invoicePath.split('/').pop()!;
   await expect(page.getByTestId('document-status')).toHaveText('Draft');
   await expect(page.getByTestId('totals-total-value').first()).toHaveText('$8,323.20');
 
@@ -160,6 +211,17 @@ test('Money: a catalogue, an estimate from a lead, sent, approved, invoiced and 
   await page.getByTestId('send-confirm').click();
   await expect(page.getByTestId('document-status')).toHaveText('Sent');
   await expect(page.getByRole('heading', { name: 'INV-1001' })).toBeVisible();
+  const invoiceLink = await copyLink(
+    page,
+    'invoice',
+    'Anyone with this link can pay this invoice.',
+  );
+  expect(invoiceLink).toMatch(/^http:\/\/localhost:3000\/i\/[0-9A-Za-z]{18}$/);
+  // Exactly the link the messages send, not a second one that would have to be retired separately.
+  expect(invoiceLink).toBe(
+    (await worker<{ url: string }>('/test/money/link', { workspaceId: o.workspaceId, invoiceId }))
+      .url,
+  );
 
   await page.getByTestId('invoice-record-payment').click();
   await expect(page.getByTestId('cash-dialog')).toBeVisible();
@@ -180,6 +242,64 @@ test('Money: a catalogue, an estimate from a lead, sent, approved, invoiced and 
   await page.getByTestId('money-tab-payments').click();
   await expect(page.getByTestId('payments-table')).toContainText('$8,323.20');
   await expect(page.getByTestId('payments-table')).toContainText('Cash');
+
+  // ---- All of it given back: the money goes back, and nothing goes back on the bill ----
+  await page.goto(invoicePath);
+  await page.getByTestId('invoice-payments').getByTestId('payment-refund').click();
+  await expect(page.getByTestId('refund-dialog')).toBeVisible();
+  await page.getByTestId('refund-confirm').click();
+  await expect(page.locator('[data-sonner-toast]').getByText('$8,323.20 refunded.')).toBeVisible();
+  // Cash goes back by hand, so the worker settles the refund itself; run its jobs rather than wait on them.
+  await expect
+    .poll(
+      async () => {
+        await worker('/test/money/run-due', { workspaceId: o.workspaceId });
+        const got = await api<{ invoice: { state: string } }>(o.token, 'queries', 'invoice.get', {
+          workspaceId: o.workspaceId,
+          invoiceId,
+        });
+        return got.invoice.state;
+      },
+      { timeout: 60_000, intervals: [1_000, 2_000, 3_000] },
+    )
+    .toBe('refunded');
+  await page.reload();
+  await expect(page.getByTestId('document-status')).toHaveText('Refunded');
+  await expect(page.getByTestId('totals-balance-value')).toHaveText('$0');
+  await expect(page.getByTestId('totals-refunded-value')).toHaveText('$8,323.20');
+  await expect(page.getByTestId('document-activity')).toContainText('$8,323.20 refunded on');
+  // Nothing is owed, so there is nothing to record; and with every cent back, it can be voided and reissued.
+  await expect(page.getByTestId('invoice-record-payment')).toHaveCount(0);
+  await expect(page.getByTestId('document-void')).toBeVisible();
+
+  // The section adds up: nothing outstanding, nothing collected once the refund is taken off.
+  await page.goto(`/app/w/${o.workspaceId}/money`);
+  await expect(page.getByTestId('money-outstanding-value')).toHaveText('$0');
+  await expect(page.getByTestId('money-collected-value')).toHaveText('$0');
+  await expect(page.getByTestId('money-collected')).toContainText('after $8,323.20 refunded');
+  await expect(page.getByTestId('invoice-row-INV-1001').getByTestId('invoice-status')).toHaveText(
+    'Refunded',
+  );
+  // Not "Paid" anywhere on the row, the Due column included.
+  await expect(page.getByTestId('invoice-row-INV-1001')).not.toContainText('Paid');
+  // And under the estimate it came from, where it used to read "Paid" whatever went back.
+  await page.goto(estimatePath);
+  await expect(
+    page.getByTestId('estimate-invoices').getByTestId('estimate-invoice-status'),
+  ).toHaveText('Refunded');
+
+  // The customer's own page, from the link copied earlier and signed out: the refund leads, and there is no
+  // way to pay it again.
+  const signedOut = await browser.newContext();
+  const theirs = await signedOut.newPage();
+  await theirs.goto(invoiceLink);
+  await expect(theirs.getByTestId('invoice-refunded')).toContainText(
+    /^Refunded\. \$8,323\.20 went back to you on \w{3}, \w{3} \d{1,2}\.$/,
+  );
+  await expect(theirs.getByTestId('invoice-paid')).toHaveCount(0);
+  await expect(theirs.getByTestId('money-due')).toContainText('Nothing left to pay');
+  await expect(theirs.getByTestId('pay')).toHaveCount(0);
+  await signedOut.close();
 });
 
 /**

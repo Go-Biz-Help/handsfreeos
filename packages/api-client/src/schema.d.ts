@@ -1787,7 +1787,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Withdraw an invoice. Its number is kept and never used again. A paid invoice is refunded instead: the money moved, and the ledger has to say so.
+         * Withdraw an invoice. Its number is kept and never used again. Money paid on it is refunded first — the money moved, and the ledger has to say so — and once everything paid has been given back it can be voided and a new invoice sent in its place.
          * @description Risk level 2. Requires money.manage. Emits invoice.voided.
          */
         post: operations["command_invoice_void"];
@@ -18683,6 +18683,7 @@ export interface operations {
                             number: string | null;
                             /** @enum {string} */
                             purpose: "standard" | "deposit" | "balance" | "setup_fee" | "subscription" | "quick";
+                            state: string;
                             /** @enum {string} */
                             status: "draft" | "sent" | "partly_paid" | "paid" | "overdue" | "void";
                             totalCents: number;
@@ -21347,6 +21348,7 @@ export interface operations {
                             /** Format: uuid */
                             id: string;
                             number: string | null;
+                            state: string;
                             /** @enum {string} */
                             status: "draft" | "sent" | "partly_paid" | "paid" | "overdue" | "void";
                             totalCents: number;

@@ -5,6 +5,7 @@ import {
   declinedWording,
   dueWording,
   expiryPhrase,
+  invoiceVoidBlock,
   money,
   PAYMENT_METHOD_LABELS,
   paidWording,
@@ -35,7 +36,9 @@ import {
   RefundDialog,
   VoidDialog,
 } from './document-actions';
+import { CopyLinkButton } from './copy-link';
 import { DocumentView } from './document-view';
+import { listState } from './list-bits';
 import { MoneyCrumbs } from './subnav';
 import { StatusBadge } from './status-badge';
 import { TotalRow } from './totals';
@@ -147,7 +150,8 @@ export function EstimateDocument({
   timeZone: string;
   now: number;
 }) {
-  useLiveRefresh(['estimate', 'invoice']);
+  // The invoices raised from it read as what their money says, so a payment or a refund landing counts too.
+  useLiveRefresh(['estimate', 'invoice', 'payment', 'refund']);
   const est: EstimateDetail = data.estimate;
   const [converting, setConverting] = useState(false);
   const [accepting, setAccepting] = useState(false);
@@ -251,6 +255,16 @@ export function EstimateDocument({
                 They said yes
               </Button>
             ) : null}
+            {/* The page they were sent stays theirs to open once answered, so the link is offered until it's voided. */}
+            {canManage && est.sentAt && !est.voidedAt ? (
+              <CopyLinkButton
+                workspaceId={workspaceId}
+                kind="estimate"
+                id={est.id}
+                version={est.linkVersion}
+                className="max-md:h-11 max-md:flex-1"
+              />
+            ) : null}
             {canManage && !est.voidedAt ? (
               <Button
                 variant="ghost"
@@ -303,7 +317,12 @@ export function EstimateDocument({
                     >
                       {inv.number ?? 'Draft'}
                     </Link>
-                    <StatusBadge kind="invoice" state={inv.status} />
+                    {/* Worked out, as the Invoices list does: stored, a refunded invoice is still "paid". */}
+                    <StatusBadge
+                      kind="invoice"
+                      state={listState(inv.state)}
+                      testId="estimate-invoice-status"
+                    />
                     <span className="flex-1" />
                     <span className="tabular-nums">{money(inv.totalCents)}</span>
                   </li>
@@ -340,6 +359,19 @@ export function EstimateDocument({
   );
 }
 
+/**
+ * The line beside an invoice's customer: when it is due while something is owed, and otherwise how it ended.
+ * A refund never reopens an invoice, so a refunded one says what went back rather than a due date.
+ */
+function invoiceSub(inv: InvoiceDetail, now: number, timeZone: string): string {
+  if (inv.voidedAt) return `Voided ${dayLabel(Date.parse(inv.voidedAt), timeZone)}`;
+  if (inv.state === 'refunded') return 'Refunded in full';
+  if (inv.state === 'partly_refunded')
+    return `Paid in full · ${money(inv.amountRefundedCents)} refunded`;
+  if (inv.status === 'paid') return 'Paid in full';
+  return dueWording(inv.dueOn, now, timeZone);
+}
+
 /** An invoice that has gone out: what is owed, what has been paid, and what can still be given back. */
 export function InvoiceDocument({
   workspaceId,
@@ -354,12 +386,25 @@ export function InvoiceDocument({
   timeZone: string;
   now: number;
 }) {
-  useLiveRefresh(['invoice', 'payment']);
+  // A refund lands as its own event, and the invoice has to say so when it does.
+  useLiveRefresh(['invoice', 'payment', 'refund']);
   const inv: InvoiceDetail = data.invoice;
   const [paying, setPaying] = useState(false);
   const [voiding, setVoiding] = useState(false);
   const [refunding, setRefunding] = useState<PaymentRow | null>(null);
   const owes = inv.balanceCents > 0 && !inv.voidedAt;
+  /**
+   * Money that moved is never voided away: once everything paid has gone back (and nothing is still arriving or
+   * going back) it can be, which is how a business bills again. The command asks the same question.
+   */
+  const voidable =
+    !inv.voidedAt &&
+    invoiceVoidBlock({
+      paidCents: inv.amountPaidCents,
+      refundedCents: inv.amountRefundedCents,
+      hasProcessingPayment: data.payments.some((p) => p.status === 'processing'),
+      hasPendingRefund: data.refunds.some((r) => r.status === 'pending'),
+    }) === null;
 
   const events: Event[] = [
     {
@@ -435,7 +480,7 @@ export function InvoiceDocument({
         state={inv.state}
         person={inv.person}
         title={inv.title}
-        sub={inv.status === 'paid' ? 'Paid in full' : dueWording(inv.dueOn, now, timeZone)}
+        sub={invoiceSub(inv, now, timeZone)}
         actions={
           <>
             {canManage && owes ? (
@@ -448,7 +493,17 @@ export function InvoiceDocument({
                 Record a payment
               </Button>
             ) : null}
-            {canManage && !inv.voidedAt && inv.amountPaidCents === 0 ? (
+            {/* Paid or not, the page they were sent is theirs: the receipt lives there too. */}
+            {canManage && inv.sentAt && !inv.voidedAt ? (
+              <CopyLinkButton
+                workspaceId={workspaceId}
+                kind="invoice"
+                id={inv.id}
+                version={inv.linkVersion}
+                className="max-md:h-11 max-md:flex-1"
+              />
+            ) : null}
+            {canManage && voidable ? (
               <Button
                 variant="ghost"
                 className="max-md:h-11"
@@ -493,7 +548,12 @@ export function InvoiceDocument({
                       <StatusBadge kind="payment" state={p.status} />
                       <span className="flex-1" />
                       {canManage && p.status === 'succeeded' && left > 0 ? (
-                        <Button variant="ghost" size="sm" onClick={() => setRefunding(p)}>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setRefunding(p)}
+                          data-testid="payment-refund"
+                        >
                           <RotateCcw className="h-3.5 w-3.5" strokeWidth={1.5} />
                           Refund
                         </Button>

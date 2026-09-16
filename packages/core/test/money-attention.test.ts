@@ -228,13 +228,17 @@ describe('invoice_overdue', () => {
     expect(codes(never)).toEqual(['amount', 'overdue', 'not_viewed']);
   });
 
-  it('lets go when the balance does, and stays for a refund that owes again', () => {
+  it('lets go when the balance does, and a refund never brings it back', () => {
     expect(run({ paidCents: 124_000 })).toBeNull();
     expect(run({ status: 'paid', paidCents: 124_000 })).toBeNull();
     expect(run({ status: 'void' })).toBeNull();
     expect(run({ dueDate: null })).toBeNull();
-    const refunded = run({ status: 'partly_paid', paidCents: 124_000, refundedCents: 24_000 });
-    expect(refunded?.value).toBe(24_000);
+    // Paid, then given back: the money went back, it was never put back on the bill.
+    expect(run({ status: 'paid', paidCents: 124_000, refundedCents: 24_000 })).toBeNull();
+    expect(run({ status: 'paid', paidCents: 124_000, refundedCents: 124_000 })).toBeNull();
+    // Part paid, then that part given back: what is owed is the part never paid, not the whole bill again.
+    const partRefunded = run({ status: 'partly_paid', paidCents: 24_000, refundedCents: 24_000 });
+    expect(partRefunded?.value).toBe(100_000);
   });
 
   it('ignores a balance too small to be worth a card', () => {
@@ -269,10 +273,11 @@ describe('invoice_overdue', () => {
     expect(words(part, 'amount')).toBe('$1,000 owed');
     // The same facts twice are the same fingerprint: a sweep that changes nothing writes nothing.
     expect(run({ paidCents: 24_000, status: 'partly_paid' })?.fingerprint).toBe(part?.fingerprint);
-    // And a refund that puts money back owed moves it again.
+    // A refund changes nothing that is owed, so it changes nothing here: no new figure, and a card someone
+    // dismissed stays dismissed.
     const refunded = run({ paidCents: 24_000, status: 'partly_paid', refundedCents: 10_000 });
-    expect(refunded?.value).toBe(110_000);
-    expect(refunded?.fingerprint).not.toBe(part?.fingerprint);
+    expect(refunded?.value).toBe(100_000);
+    expect(refunded?.fingerprint).toBe(part?.fingerprint);
   });
 
   it('honours the grace days a business sets', () => {

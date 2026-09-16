@@ -145,7 +145,17 @@ export interface PublicEstimateView {
 }
 
 export interface PublicInvoiceView {
-  readonly state: 'sent' | 'viewed' | 'partly_paid' | 'paid' | 'overdue' | 'paying' | 'void';
+  /** `refunded` and `partly_refunded` are a paid invoice with money given back: it never owes again. */
+  readonly state:
+    | 'sent'
+    | 'viewed'
+    | 'partly_paid'
+    | 'paid'
+    | 'refunded'
+    | 'partly_refunded'
+    | 'overdue'
+    | 'paying'
+    | 'void';
   readonly business: PublicBusiness;
   readonly customer: PublicCustomer;
   readonly invoice: {
@@ -171,6 +181,14 @@ export interface PublicInvoiceView {
     readonly status: 'processing' | 'succeeded';
     readonly receivedAt: string | null;
     readonly createdAt: string;
+  }[];
+  /** Money already given back, oldest first, with the day each went: only the ones that went through. */
+  readonly refunds: readonly {
+    readonly amountCents: number;
+    readonly status: 'succeeded';
+    readonly refundedAt: string | null;
+    /** Ours, for the phone. */
+    readonly reference: string;
   }[];
   readonly pay: {
     readonly canPay: boolean;
