@@ -1,6 +1,8 @@
 import { z } from 'zod';
+import { ATTENTION_KINDS } from '../attention/kinds';
 import { isLocalDate } from '../calendar/engine/zoned';
 import type { Permission } from '../permissions';
+import { ATTENTION_ASK_ACTIONS } from '../schemas/attention';
 import { uuid } from '../schemas/common';
 
 /**
@@ -92,8 +94,14 @@ export const assistantTools = [
   define({
     name: 'what_needs_attention',
     description:
-      'What is waiting on the business right now: customers waiting for a reply, overdue and due-today tasks, leads without a next action, and new leads nobody has contacted.',
-    input: z.object({}),
+      'The Action Center: what needs attention now, from the same list Home shows and in the same order (urgent first, then by value, urgency and how likely it is to pay off). It covers hot leads, new leads nobody has answered, customers waiting on a reply, leads gone quiet or without a next action, unconfirmed appointments, approvals the person can decide and overdue tasks. Returns “$ affected”, the counts, and the top 8 items with their ids, reasons and value, shown as a card. Leave out scope for the person’s usual view (Mine for members, Everyone for owners and admins).',
+    input: z.object({
+      scope: z
+        .enum(['mine', 'everyone'])
+        .optional()
+        .describe('mine: the person’s own items and unassigned ones; everyone: the whole business'),
+      kind: z.enum(ATTENTION_KINDS).optional().describe('Only items of this kind'),
+    }),
     autonomy: 'auto',
     permission: 'records.read',
   }),
@@ -454,6 +462,43 @@ export const assistantTools = [
     }),
     autonomy: 'confirm',
     permission: 'knowledge.manage',
+  }),
+
+  // ---------- the Action Center (asks first) ----------
+  define({
+    name: 'handle_attention_item',
+    description:
+      'Handle one Action Center item the way Let HandsFreeOS Handle does on Home (item ids come from what_needs_attention or the context). A confirmation request or a follow-up goes out as HandsFreeOS’s own message after a short wait the person can cancel. A customer waiting on a reply is handed to the AI teammate when it can take them, otherwise they get the reply you write in body. A lead with no next action gets the one the person gave (nextAction, dueAt), otherwise the suggested one. The card shows exactly what will happen. Approvals and overdue tasks aren’t handled this way.',
+    input: z.object({
+      itemId: uuid,
+      action: z
+        .enum(ATTENTION_ASK_ACTIONS)
+        .optional()
+        .describe('Only to choose another way: hand_to_ai, reply (with body) or set_next_action'),
+      body: z.string().trim().min(1).max(10000).optional().describe('A reply’s words'),
+      subject: z.string().trim().min(1).max(200).optional().describe('An email reply’s subject'),
+      nextAction: z.string().trim().min(1).max(500).optional().describe('The next action to set'),
+      dueAt: when.optional().describe('When that next action is due'),
+    }),
+    autonomy: 'confirm',
+    permission: 'records.write',
+  }),
+  define({
+    name: 'update_attention_item',
+    description:
+      'Snooze an Action Center item until a time (30 days at most; it comes back sooner if something changes), dismiss it with the person’s reason if they gave one (it comes back only if something changes), or assign it to a teammate (for a lead, a conversation or a task that makes them its owner; null leaves it for anyone). Item ids come from what_needs_attention or the context.',
+    input: z.object({
+      itemId: uuid,
+      action: z.enum(['snooze', 'dismiss', 'assign']),
+      until: when.optional().describe('Snooze: when it comes back'),
+      reason: z.string().trim().max(500).optional().describe('Dismiss: why'),
+      assigneeUserId: uuid
+        .nullable()
+        .optional()
+        .describe('Assign: the teammate’s user id, or null for anyone'),
+    }),
+    autonomy: 'confirm',
+    permission: 'records.write',
   }),
 ] as const;
 

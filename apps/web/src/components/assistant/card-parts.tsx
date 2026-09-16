@@ -26,20 +26,23 @@ export function Dot({ tone }: { tone: Tone }) {
   return <span aria-hidden className={cn('h-2 w-2 flex-none rounded-full', DOT[tone])} />;
 }
 
-/** A card row that opens a page in the app. */
+/** A card row that opens a page in the app. `itemId` marks an Action Center item's row (`data-item`, as on Home). */
 export function RowLink({
   href,
   children,
   className,
+  itemId,
 }: {
   href: string;
   children: ReactNode;
   className?: string;
+  itemId?: string;
 }) {
   const { closeIfCovering } = useAssistant();
   return (
     <Link
       href={href}
+      data-item={itemId}
       onClick={() => closeIfCovering(href)}
       className={cn(
         cardRow,

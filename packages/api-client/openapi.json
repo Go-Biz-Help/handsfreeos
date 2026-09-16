@@ -30264,7 +30264,7 @@
                                     },
                                     "href": {
                                       "type": "string",
-                                      "pattern": "^\\/app\\/w\\/[0-9a-f-]{36}(\\/[A-Za-z0-9_\\-/?=&.]*)?$"
+                                      "pattern": "^\\/app\\/w\\/[0-9a-f-]{36}([/?][A-Za-z0-9_\\-/?=&.]*)?$"
                                     },
                                     "lead": {
                                       "anyOf": [
@@ -30360,7 +30360,7 @@
                                     },
                                     "href": {
                                       "type": "string",
-                                      "pattern": "^\\/app\\/w\\/[0-9a-f-]{36}(\\/[A-Za-z0-9_\\-/?=&.]*)?$"
+                                      "pattern": "^\\/app\\/w\\/[0-9a-f-]{36}([/?][A-Za-z0-9_\\-/?=&.]*)?$"
                                     }
                                   },
                                   "required": [
@@ -30408,7 +30408,7 @@
                                           },
                                           "href": {
                                             "type": "string",
-                                            "pattern": "^\\/app\\/w\\/[0-9a-f-]{36}(\\/[A-Za-z0-9_\\-/?=&.]*)?$"
+                                            "pattern": "^\\/app\\/w\\/[0-9a-f-]{36}([/?][A-Za-z0-9_\\-/?=&.]*)?$"
                                           }
                                         },
                                         "required": [
@@ -30436,6 +30436,38 @@
                                       "enum": [
                                         "attention"
                                       ]
+                                    },
+                                    "affected": {
+                                      "type": "object",
+                                      "properties": {
+                                        "cents": {
+                                          "type": "number"
+                                        },
+                                        "total": {
+                                          "type": "integer",
+                                          "minimum": -9007199254740991,
+                                          "maximum": 9007199254740991
+                                        },
+                                        "urgent": {
+                                          "type": "integer",
+                                          "minimum": -9007199254740991,
+                                          "maximum": 9007199254740991
+                                        },
+                                        "scope": {
+                                          "type": "string",
+                                          "enum": [
+                                            "mine",
+                                            "everyone"
+                                          ]
+                                        }
+                                      },
+                                      "required": [
+                                        "cents",
+                                        "total",
+                                        "urgent",
+                                        "scope"
+                                      ],
+                                      "additionalProperties": false
                                     },
                                     "items": {
                                       "maxItems": 8,
@@ -30472,7 +30504,48 @@
                                           },
                                           "href": {
                                             "type": "string",
-                                            "pattern": "^\\/app\\/w\\/[0-9a-f-]{36}(\\/[A-Za-z0-9_\\-/?=&.]*)?$"
+                                            "pattern": "^\\/app\\/w\\/[0-9a-f-]{36}([/?][A-Za-z0-9_\\-/?=&.]*)?$"
+                                          },
+                                          "itemId": {
+                                            "type": "string",
+                                            "format": "uuid",
+                                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                          },
+                                          "kind": {
+                                            "type": "string",
+                                            "enum": [
+                                              "hot_lead",
+                                              "unanswered_lead",
+                                              "stale_opportunity",
+                                              "missing_next_action",
+                                              "unconfirmed_appointment",
+                                              "ai_approval",
+                                              "customer_waiting",
+                                              "overdue_task"
+                                            ]
+                                          },
+                                          "chips": {
+                                            "maxItems": 3,
+                                            "type": "array",
+                                            "items": {
+                                              "type": "object",
+                                              "properties": {
+                                                "code": {
+                                                  "type": "string"
+                                                },
+                                                "text": {
+                                                  "type": "string"
+                                                }
+                                              },
+                                              "required": [
+                                                "code",
+                                                "text"
+                                              ],
+                                              "additionalProperties": false
+                                            }
+                                          },
+                                          "valueCents": {
+                                            "type": "number"
                                           }
                                         },
                                         "required": [
@@ -30537,7 +30610,7 @@
                                       "anyOf": [
                                         {
                                           "type": "string",
-                                          "pattern": "^\\/app\\/w\\/[0-9a-f-]{36}(\\/[A-Za-z0-9_\\-/?=&.]*)?$"
+                                          "pattern": "^\\/app\\/w\\/[0-9a-f-]{36}([/?][A-Za-z0-9_\\-/?=&.]*)?$"
                                         },
                                         {
                                           "type": "null"
@@ -30595,7 +30668,7 @@
                                             "anyOf": [
                                               {
                                                 "type": "string",
-                                                "pattern": "^\\/app\\/w\\/[0-9a-f-]{36}(\\/[A-Za-z0-9_\\-/?=&.]*)?$"
+                                                "pattern": "^\\/app\\/w\\/[0-9a-f-]{36}([/?][A-Za-z0-9_\\-/?=&.]*)?$"
                                               },
                                               {
                                                 "type": "null"
@@ -30756,7 +30829,7 @@
                                     },
                                     "href": {
                                       "type": "string",
-                                      "pattern": "^\\/app\\/w\\/[0-9a-f-]{36}(\\/[A-Za-z0-9_\\-/?=&.]*)?$"
+                                      "pattern": "^\\/app\\/w\\/[0-9a-f-]{36}([/?][A-Za-z0-9_\\-/?=&.]*)?$"
                                     }
                                   },
                                   "required": [
@@ -30816,7 +30889,7 @@
                                     },
                                     "href": {
                                       "type": "string",
-                                      "pattern": "^\\/app\\/w\\/[0-9a-f-]{36}(\\/[A-Za-z0-9_\\-/?=&.]*)?$"
+                                      "pattern": "^\\/app\\/w\\/[0-9a-f-]{36}([/?][A-Za-z0-9_\\-/?=&.]*)?$"
                                     }
                                   },
                                   "required": [
@@ -30862,7 +30935,7 @@
                                       "anyOf": [
                                         {
                                           "type": "string",
-                                          "pattern": "^\\/app\\/w\\/[0-9a-f-]{36}(\\/[A-Za-z0-9_\\-/?=&.]*)?$"
+                                          "pattern": "^\\/app\\/w\\/[0-9a-f-]{36}([/?][A-Za-z0-9_\\-/?=&.]*)?$"
                                         },
                                         {
                                           "type": "null"
@@ -31135,7 +31208,7 @@
                                     },
                                     "href": {
                                       "type": "string",
-                                      "pattern": "^\\/app\\/w\\/[0-9a-f-]{36}(\\/[A-Za-z0-9_\\-/?=&.]*)?$"
+                                      "pattern": "^\\/app\\/w\\/[0-9a-f-]{36}([/?][A-Za-z0-9_\\-/?=&.]*)?$"
                                     }
                                   },
                                   "required": [
@@ -31192,7 +31265,7 @@
                                           },
                                           "href": {
                                             "type": "string",
-                                            "pattern": "^\\/app\\/w\\/[0-9a-f-]{36}(\\/[A-Za-z0-9_\\-/?=&.]*)?$"
+                                            "pattern": "^\\/app\\/w\\/[0-9a-f-]{36}([/?][A-Za-z0-9_\\-/?=&.]*)?$"
                                           }
                                         },
                                         "required": [
@@ -31207,7 +31280,7 @@
                                     },
                                     "href": {
                                       "type": "string",
-                                      "pattern": "^\\/app\\/w\\/[0-9a-f-]{36}(\\/[A-Za-z0-9_\\-/?=&.]*)?$"
+                                      "pattern": "^\\/app\\/w\\/[0-9a-f-]{36}([/?][A-Za-z0-9_\\-/?=&.]*)?$"
                                     }
                                   },
                                   "required": [
@@ -31276,7 +31349,7 @@
                             "anyOf": [
                               {
                                 "type": "string",
-                                "pattern": "^\\/app\\/w\\/[0-9a-f-]{36}(\\/[A-Za-z0-9_\\-/?=&.]*)?$"
+                                "pattern": "^\\/app\\/w\\/[0-9a-f-]{36}([/?][A-Za-z0-9_\\-/?=&.]*)?$"
                               },
                               {
                                 "type": "null"

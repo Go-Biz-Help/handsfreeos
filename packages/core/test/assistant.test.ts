@@ -170,6 +170,111 @@ describe('Assistant calendar tools', () => {
   });
 });
 
+describe('Assistant Action Center tools', () => {
+  const tool = (name: string) => assistantTools.find((t) => t.name === name)!;
+  const id = randomUUID();
+
+  it('read the list on their own, and handle, snooze, dismiss or assign only on Confirm', () => {
+    const what = tool('what_needs_attention');
+    expect(what).toMatchObject({ autonomy: 'auto', permission: 'records.read' });
+    expect(what.description).toMatch(/same list Home shows and in the same order/);
+    expect(what.description).not.toMatch(/nobody has contacted/);
+    for (const name of ['handle_attention_item', 'update_attention_item'])
+      expect(tool(name)).toMatchObject({ autonomy: 'confirm', permission: 'records.write' });
+    expect(toolInputSchema(what)).toMatchObject({
+      type: 'object',
+      properties: { scope: { enum: ['mine', 'everyone'] }, kind: { type: 'string' } },
+    });
+    expect(toolInputSchema(tool('update_attention_item'))).toMatchObject({
+      type: 'object',
+      required: ['itemId', 'action'],
+    });
+    expect(toolInputSchema(tool('handle_attention_item'))).toMatchObject({
+      type: 'object',
+      required: ['itemId'],
+    });
+
+    expect(what.input.parse({})).toEqual({});
+    expect(what.input.parse({ scope: 'everyone', kind: 'hot_lead' })).toEqual({
+      scope: 'everyone',
+      kind: 'hot_lead',
+    });
+    expect(what.input.safeParse({ kind: 'invoice_overdue' }).success).toBe(false);
+    expect(tool('handle_attention_item').input.parse({ itemId: id })).toEqual({ itemId: id });
+    expect(
+      tool('handle_attention_item').input.parse({
+        itemId: id,
+        nextAction: 'Call about the quote',
+        dueAt: '2026-09-17T09:00:00-05:00',
+      }),
+    ).toMatchObject({ dueAt: '2026-09-17T14:00:00.000Z' });
+    expect(
+      tool('handle_attention_item').input.safeParse({ itemId: id, action: 'call' }).success,
+    ).toBe(false);
+    const update = tool('update_attention_item').input;
+    expect(
+      update.parse({ itemId: id, action: 'snooze', until: '2026-09-16T08:00:00-05:00' }),
+    ).toEqual({ itemId: id, action: 'snooze', until: '2026-09-16T13:00:00.000Z' });
+    expect(update.parse({ itemId: id, action: 'assign', assigneeUserId: null })).toEqual({
+      itemId: id,
+      action: 'assign',
+      assigneeUserId: null,
+    });
+    expect(update.safeParse({ itemId: id, action: 'resolve' }).success).toBe(false);
+  });
+
+  it('draw the attention card with or without the Action Center’s fields, linking only inside the app', () => {
+    const ws = randomUUID();
+    const before = {
+      type: 'attention',
+      items: [
+        {
+          title: 'Mike Johnson texted',
+          detail: 'Is Thursday still OK? · Nobody assigned',
+          tone: 'accent',
+          waitingSince: '2026-09-15T14:00:00.000Z',
+          href: `/app/w/${ws}/inbox/${id}`,
+        },
+      ],
+    };
+    // A chat saved before M8 still loads.
+    expect(AssistantCard.safeParse(before).success).toBe(true);
+    const now = {
+      type: 'attention',
+      affected: { cents: 1_850_000, total: 3, urgent: 1, scope: 'everyone' },
+      items: [
+        {
+          title: 'Maria Lopez · New AC install',
+          detail: 'Hot lead · $18,500 · qualified',
+          tone: 'danger',
+          waitingSince: '2026-09-15T14:00:00.000Z',
+          href: `/app/w/${ws}?item=${id}`,
+          itemId: id,
+          kind: 'hot_lead',
+          chips: [
+            { code: 'waiting', text: 'waiting 11 min' },
+            { code: 'value', text: '$18,500' },
+          ],
+          valueCents: 1_850_000,
+        },
+      ],
+    };
+    expect(AssistantCard.safeParse(now).success).toBe(true);
+    const item = now.items[0]!;
+    expect(
+      AssistantCard.safeParse({ ...now, items: [{ ...item, href: `/app/w/${ws}?item=<b>` }] })
+        .success,
+    ).toBe(false);
+    expect(
+      AssistantCard.safeParse({ ...now, items: [{ ...item, href: 'https://example.com/?item=1' }] })
+        .success,
+    ).toBe(false);
+    expect(
+      AssistantCard.safeParse({ ...now, affected: { ...now.affected, scope: 'team' } }).success,
+    ).toBe(false);
+  });
+});
+
 describe('crm.metrics', () => {
   it('counts leads, new customers, texts, emails and calls in the period, and nothing outside it', async () => {
     const since = new Date(Date.now() - 3_600_000).toISOString();

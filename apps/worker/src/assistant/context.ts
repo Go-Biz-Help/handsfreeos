@@ -1,5 +1,6 @@
 import {
   assistantTools,
+  ATTENTION_KIND_LABELS,
   briefFromProfile,
   executeQuery,
   groundingRules,
@@ -8,6 +9,7 @@ import {
   registry,
   ROLE_LABELS,
   type AssistantTool,
+  type AttentionKind,
   type HumanActor,
   type Permission,
 } from '@hfos/core/server';
@@ -106,6 +108,31 @@ interface ApprovalList {
     canDecide: boolean;
   }[];
 }
+interface AttentionList {
+  scope: 'mine' | 'everyone';
+  counts: { total: number };
+  items: {
+    id: string;
+    kind: AttentionKind;
+    title: string;
+    urgent: boolean;
+    reasons: { text: string }[];
+  }[];
+}
+
+/** The Action Center's top items as Home shows them to this person, with their ids. */
+const attentionFor = (list: AttentionList | null): PromptContext['attention'] =>
+  list && {
+    scope: list.scope,
+    total: list.counts.total,
+    items: list.items.slice(0, 8).map((i) => ({
+      id: i.id,
+      title: i.title,
+      kind: ATTENTION_KIND_LABELS[i.kind],
+      urgent: i.urgent,
+      chips: i.reasons.slice(0, 3).map((r) => r.text),
+    })),
+  };
 
 /** The name of the record on screen, or null when it can't be read (gone, or not this person's to see). */
 async function pageLabel(
@@ -280,7 +307,7 @@ export async function questionContext(
   ];
   const live = services.items.filter((s) => !s.archivedAt);
   const scope = { workspaceId, organizationId: workspace.organizationId };
-  const [calendars, shown, next, flows, approvals, knowledge] = await Promise.all([
+  const [calendars, shown, next, flows, approvals, knowledge, attention] = await Promise.all([
     calendarsFor(ask, new Map(people.map((p) => [p.userId, p.fullName])), live),
     page ? pageDetails(ask, page, workspace.timezone) : Promise.resolve(null),
     page?.type === 'person'
@@ -291,6 +318,7 @@ export async function questionContext(
       (): ApprovalList => ({ items: [] }),
     ),
     knowledgeFor(db, scope).catch(() => null),
+    ask<AttentionList>('attention.list').catch((): null => null),
   ]);
   return {
     organizationId: workspace.organizationId,
@@ -328,6 +356,7 @@ export async function questionContext(
           what: approvalWhat(a.preview),
         })),
       knowledge,
+      attention: attentionFor(attention),
     },
   };
 }

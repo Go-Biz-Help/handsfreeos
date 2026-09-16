@@ -101,7 +101,7 @@ const STEP_LABEL: Record<string, string> = {
   list_leads: 'Looking at leads',
   get_lead: 'Looking at the lead',
   business_numbers: 'Counting',
-  what_needs_attention: 'Checking what’s waiting',
+  what_needs_attention: 'Checking the Action Center',
   list_tasks: 'Looking at tasks',
   todays_schedule: 'Looking at today',
   find_availability: 'Checking open times',

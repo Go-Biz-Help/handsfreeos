@@ -1,9 +1,13 @@
 import { z } from 'zod';
+import { attentionKind, attentionScope } from './attention';
 import { AppointmentStatusValue } from './calendar';
 import { isoDateTime, uuid } from './common';
 
-/** Where a card's row or button goes: an app path only (the panel never renders other links). */
-const appPath = z.string().regex(/^\/app\/w\/[0-9a-f-]{36}(\/[A-Za-z0-9_\-/?=&.]*)?$/);
+/**
+ * Where a card's row or button goes: an app path only (the panel never renders other links). Home itself may take
+ * a query ("?item=…", an Action Center item).
+ */
+const appPath = z.string().regex(/^\/app\/w\/[0-9a-f-]{36}([/?][A-Za-z0-9_\-/?=&.]*)?$/);
 const tone = z.enum(['accent', 'warning', 'danger', 'muted']);
 const named = z.object({ id: uuid, name: z.string() });
 
@@ -40,8 +44,16 @@ export const AssistantCard = z.discriminatedUnion('type', [
       .array(z.object({ id: uuid, label: z.string(), detail: z.string(), href: appPath }))
       .max(8),
   }),
+  /**
+   * "What needs my attention?": the Action Center's list in Home's order (M8). Chats saved before M8 have only each
+   * row's words, tone and link, so everything the Action Center adds is optional.
+   */
   z.object({
     type: z.literal('attention'),
+    /** The header: "$47,300 affected", how many need attention and how many are urgent, in Mine or Everyone. */
+    affected: z
+      .object({ cents: z.number(), total: z.int(), urgent: z.int(), scope: attentionScope })
+      .optional(),
     items: z
       .array(
         z.object({
@@ -50,6 +62,16 @@ export const AssistantCard = z.discriminatedUnion('type', [
           tone,
           waitingSince: isoDateTime.nullable(),
           href: appPath,
+          /** The attention item (its row on Home). */
+          itemId: uuid.optional(),
+          kind: attentionKind.optional(),
+          /** Up to three reason chips, worded as of the answer: "$18,500", "waiting 11 min", "qualified". */
+          chips: z
+            .array(z.object({ code: z.string(), text: z.string() }))
+            .max(3)
+            .optional(),
+          /** Its value; left out when the typical job value stands in for a lead with none. */
+          valueCents: z.number().optional(),
         }),
       )
       .max(8),

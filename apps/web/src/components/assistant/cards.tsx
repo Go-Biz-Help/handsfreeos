@@ -1,11 +1,12 @@
 'use client';
 import type { AssistantCard } from '@hfos/core';
-import { Check, Pencil, Phone, Undo2 } from 'lucide-react';
+import { Check, Clock, Pencil, Phone, Undo2 } from 'lucide-react';
 import { useState, type ReactNode } from 'react';
 import { toast } from 'sonner';
 import { NextActionChip, StageBadge } from '@/components/crm/chips';
 import { WaitChip } from '@/components/inbox/bits';
 import { Avatar } from '@/components/ui/avatar';
+import { Badge } from '@/components/ui/badge';
 import { Button, ButtonLink } from '@/components/ui/button';
 import { ApiError, errorMessage } from '@/lib/api/client';
 import { chatWhen } from '@/lib/assistant/format';
@@ -127,29 +128,104 @@ export function ChoicesCard({ card }: { card: CardOf<'choices'> }) {
   );
 }
 
-/** "What needs attention?": customers waiting, overdue tasks, leads with nothing planned. */
+/** Chips that tell time: a row shows its first one on the right. */
+const TIME_CHIPS: ReadonlySet<string> = new Set([
+  'waiting',
+  'not_contacted',
+  'last_contact',
+  'no_contact',
+  'follow_up_overdue',
+  'overdue',
+  'starts_in',
+  'expires_in',
+]);
+/** Approvals read violet and appointments teal, as on Home; every other row goes by its tone. */
+const KIND_DOT: Readonly<Record<string, string>> = {
+  ai_approval: 'bg-[color-mix(in_oklab,#7c3aed_72%,var(--card))]',
+  unconfirmed_appointment: 'bg-[color-mix(in_oklab,#0e7490_76%,var(--card))]',
+};
+const capital = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+
+/** "Waiting 11 min", red once the row is urgent. */
+function TimeChip({ text, late }: { text: string; late: boolean }) {
+  return (
+    <span
+      className={cn(
+        'inline-flex h-[22px] max-w-[45%] flex-none items-center gap-1 whitespace-nowrap rounded-[6px] px-[7px] text-xs font-medium',
+        late ? 'bg-danger-soft text-danger-text' : 'bg-warning-soft text-warning-text',
+      )}
+    >
+      <Clock className="h-3 w-3 flex-none" strokeWidth={1.75} aria-hidden />
+      <span className="truncate">{capital(text)}</span>
+    </span>
+  );
+}
+
+/**
+ * "What needs my attention?": the Action Center's list in Home's order (design/m8 Assistant), with "$ affected", the
+ * urgent count, why each item ranks where it does, and Open Home. Chats from before M8 keep their rows as they were.
+ */
 export function AttentionCard({ card, at }: { card: CardOf<'attention'>; at: string }) {
+  const { workspaceId } = useAssistant();
+  const head = card.affected;
   return (
     <div className={cardShell} data-testid="assistant-card-attention">
-      <div className={cardHead}>
-        <CardTitle>Waiting on you</CardTitle>
-        <span className="text-xs text-text-3">{chatWhen(at, { time: true })}</span>
-      </div>
+      {head ? (
+        <div className={cn(cardHead, 'items-end')}>
+          <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+            <span className="truncate text-xs text-text-3">
+              Needs attention · {head.scope === 'mine' ? 'Mine' : 'Everyone'} ·{' '}
+              {chatWhen(at, { time: true })}
+            </span>
+            <span
+              className="text-[22px] font-semibold leading-[1.15] tracking-[-0.01em]"
+              data-testid="assistant-attention-affected"
+            >
+              {head.cents > 0
+                ? `${formatMoney(head.cents)} affected`
+                : head.total === 1
+                  ? '1 needs attention'
+                  : `${head.total} need attention`}
+            </span>
+          </span>
+          {head.urgent ? <Badge variant="danger">{head.urgent} urgent</Badge> : null}
+        </div>
+      ) : (
+        <div className={cardHead}>
+          <CardTitle>Waiting on you</CardTitle>
+          <span className="text-xs text-text-3">{chatWhen(at, { time: true })}</span>
+        </div>
+      )}
       {card.items.map((item, i) => {
-        const waited = minutesWaiting(item.waitingSince);
+        const time = item.chips?.find((c) => TIME_CHIPS.has(c.code));
+        const waited = item.chips ? null : minutesWaiting(item.waitingSince);
+        const kindDot = item.kind && item.tone !== 'danger' ? KIND_DOT[item.kind] : undefined;
         return (
-          <RowLink key={`${item.href}-${i}`} href={item.href}>
-            <Dot tone={item.tone} />
+          <RowLink key={item.itemId ?? `${item.href}-${i}`} href={item.href} itemId={item.itemId}>
+            {kindDot ? (
+              <span aria-hidden className={cn('h-2 w-2 flex-none rounded-full', kindDot)} />
+            ) : (
+              <Dot tone={item.tone} />
+            )}
             <span className="flex min-w-0 flex-1 flex-col">
               <span className="truncate font-medium">{item.title}</span>
               {item.detail ? (
                 <span className="truncate text-xs text-text-3">{item.detail}</span>
               ) : null}
             </span>
-            {waited !== null ? <WaitChip minutes={waited} /> : null}
+            {time ? (
+              <TimeChip text={time.text} late={item.tone === 'danger'} />
+            ) : waited !== null ? (
+              <WaitChip minutes={waited} />
+            ) : null}
           </RowLink>
         );
       })}
+      {head ? (
+        <RowLink href={`/app/w/${workspaceId}`}>
+          <LinkLabel>Open Home</LinkLabel>
+        </RowLink>
+      ) : null}
     </div>
   );
 }

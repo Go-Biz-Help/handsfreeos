@@ -8,6 +8,7 @@ import {
   CalendarX2,
   CircleCheck,
   Clock,
+  Info,
   MessageSquareOff,
   Moon,
   ShieldCheck,
@@ -42,6 +43,9 @@ const WARNING: Record<string, { icon: LucideIcon; className: string }> = {
   busy: { icon: CalendarClock, className: CAUTION },
   time_off: { icon: CalendarOff, className: CAUTION },
   no_text_consent: { icon: MessageSquareOff, className: CAUTION },
+  // The Action Center: what else to know about HandsFreeOS's message, and one it's already sending.
+  note: { icon: Info, className: 'bg-accent-soft text-accent-text' },
+  scheduled: { icon: Clock, className: 'bg-accent-soft text-accent-text' },
 };
 const OTHER_WARNING = { icon: TriangleAlert, className: CAUTION };
 
@@ -98,6 +102,14 @@ function cancelledText(card: ConfirmCardData): string {
       return 'Not answered. It’s still waiting for a decision.';
     case 'add_knowledge_item':
       return 'Nothing added.';
+    case 'handle_attention_item':
+      return 'Not handled. It’s still on Home.';
+    case 'update_attention_item':
+      return card.confirmLabel === 'Snooze'
+        ? 'Not snoozed. It’s still on Home.'
+        : card.confirmLabel === 'Dismiss'
+          ? 'Not dismissed. It’s still on Home.'
+          : 'Not changed.';
     default:
       return 'Not changed.';
   }
@@ -112,15 +124,21 @@ const OPEN_LABELS: Record<string, string> = {
   add_knowledge_item: 'Open item',
 };
 
-const openLabel = (tool: string) =>
-  OPEN_LABELS[tool] ??
-  (tool === 'send_text' || tool === 'send_email'
-    ? 'Open conversation'
-    : tool === 'create_customer' || tool === 'update_customer'
-      ? 'Open customer'
-      : tool.endsWith('_lead')
-        ? 'Open lead'
-        : 'Open');
+/** An Action Center card opens where its result landed: the conversation, the lead, or Home. */
+const attentionOpenLabel = (href: string) =>
+  /\/inbox\//.test(href) ? 'Open conversation' : /\/leads\//.test(href) ? 'Open lead' : 'Open Home';
+
+const openLabel = (tool: string, href: string) =>
+  tool === 'handle_attention_item' || tool === 'update_attention_item'
+    ? attentionOpenLabel(href)
+    : (OPEN_LABELS[tool] ??
+      (tool === 'send_text' || tool === 'send_email'
+        ? 'Open conversation'
+        : tool === 'create_customer' || tool === 'update_customer'
+          ? 'Open customer'
+          : tool.endsWith('_lead')
+            ? 'Open lead'
+            : 'Open'));
 
 /**
  * Anything that reaches a customer, or changes a lead, a customer or an appointment, waits here for the
@@ -321,7 +339,7 @@ export function ConfirmCard({
                 onClick={() => a.closeIfCovering(state.href!)}
                 className="flex-none font-medium text-accent-text hover:underline max-md:inline-flex max-md:min-h-11 max-md:items-center max-md:px-1"
               >
-                {openLabel(card.tool)}
+                {openLabel(card.tool, state.href)}
               </Link>
             ) : null
           }

@@ -1,6 +1,7 @@
 import { ScriptedProvider, type ScriptRule } from '@hfos/ai';
 import { addDays, localDateOf, localInstant, weekdayOf } from '@hfos/core/server';
 import { isoWithOffset } from './calendar-format';
+import { attentionRules } from './scripted-attention';
 import { workflowRules } from './scripted-workflows';
 
 /**
@@ -102,18 +103,8 @@ const MOVE =
   /^move (?:it|his appointment|her appointment|their appointment) to tomorrow at (\d{1,2})(?::(\d{2}))? ?(am|pm)$/i;
 
 const rules: ScriptRule[] = [
+  ...attentionRules,
   ...workflowRules,
-  {
-    when: /what needs (my )?attention|what.s waiting/i,
-    calls: () => [{ name: 'what_needs_attention', arguments: {} }],
-    reply: (_q, r) => {
-      const waiting =
-        (parse(r['what_needs_attention'])['waiting'] as unknown[] | undefined)?.length ?? 0;
-      return waiting
-        ? `${waiting === 1 ? 'One customer is' : `${waiting} customers are`} waiting on a reply. Here’s everything that needs you.`
-        : 'Nothing urgent. Here’s what’s coming up.';
-    },
-  },
   {
     when: /how many (new )?leads/i,
     calls: () => [

@@ -13810,12 +13810,28 @@ export interface operations {
                                 /** @enum {string} */
                                 type: "choices";
                             } | {
+                                affected?: {
+                                    cents: number;
+                                    /** @enum {string} */
+                                    scope: "mine" | "everyone";
+                                    total: number;
+                                    urgent: number;
+                                };
                                 items: {
+                                    chips?: {
+                                        code: string;
+                                        text: string;
+                                    }[];
                                     detail: string;
                                     href: string;
+                                    /** Format: uuid */
+                                    itemId?: string;
+                                    /** @enum {string} */
+                                    kind?: "hot_lead" | "unanswered_lead" | "stale_opportunity" | "missing_next_action" | "unconfirmed_appointment" | "ai_approval" | "customer_waiting" | "overdue_task";
                                     title: string;
                                     /** @enum {string} */
                                     tone: "accent" | "warning" | "danger" | "muted";
+                                    valueCents?: number;
                                     waitingSince: string | null;
                                 }[];
                                 /** @enum {string} */

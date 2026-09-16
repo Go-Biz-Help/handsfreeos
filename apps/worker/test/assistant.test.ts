@@ -8,10 +8,11 @@ import {
   leadCreate,
   organizationCreate,
   personCreate,
+  reconcile,
   type AssistantEvent,
   type HumanActor,
 } from '@hfos/core/server';
-import { rows, sql } from '@hfos/db/client';
+import { asWorker, rows, sql } from '@hfos/db/client';
 import {
   closeTestDbs,
   createTestUser,
@@ -44,6 +45,7 @@ let outsider: TestUser;
 let ownerToken: string;
 let memberToken: string;
 let workspaceId: string;
+let organizationId: string;
 let mikeId: string;
 let leadId: string;
 let app: FastifyInstance;
@@ -126,6 +128,7 @@ beforeAll(async () => {
     meta(),
   );
   workspaceId = output.workspaceId;
+  organizationId = output.organizationId;
   await rows(
     admin(),
     sql`insert into app.workspace_memberships (workspace_id, user_id, role) values (${workspaceId}, ${member.id}, 'member')`,
@@ -162,15 +165,19 @@ describe('the Assistant', () => {
   });
 
   it('answers a question with a card built from real records', async () => {
+    // The worker files the Action Center's items as things happen; here, the way it does it.
+    await asWorker(testDbs().worker.db, { workspaceId, organizationId }, (tx) =>
+      reconcile(tx, workspaceId, 'all', new Date()),
+    );
     const events = await ask(ownerToken, 'What needs attention?');
     expect(events[0]).toMatchObject({ type: 'run' });
     expect(events.at(-1)).toMatchObject({ type: 'done' });
     expect(events.some((e) => e.type === 'step' && e.status === 'done')).toBe(true);
     const attention = cardsOf(events).find((c) => c.type === 'attention');
-    // The new lead has no next action, so it is waiting on someone.
-    expect(attention?.type === 'attention' && attention.items.map((i) => i.title)).toContain(
-      '1 lead has no next action',
-    );
+    // The new lead has no next action, so it needs one.
+    expect(
+      attention?.type === 'attention' && attention.items.map((i) => [i.title, i.kind]),
+    ).toContainEqual(['Mike Johnson · Roof replacement', 'missing_next_action']);
   });
 
   it('adds a task on its own, as the person, through the Assistant, with Undo', async () => {

@@ -11,13 +11,15 @@ Facts come from tools. Look up customers, leads, appointments, open times, tasks
 
 Some tools act at once and some ask first:
 - Looking things up, adding tasks and notes, searching the knowledge base and drafting a workflow happen at once. Say briefly what you did.
-- Texting or emailing a customer, adding or changing a customer, opening, changing or moving a lead, booking, moving or cancelling an appointment, starting a customer on a workflow, pausing or resuming a workflow, taking someone out of one, answering a workflow's approval, and adding to the knowledge base never happen on their own. Calling one of those tools shows the person a card with exactly what will happen, and nothing happens until they press Confirm. Call it with the exact content you propose, then say in one short sentence what you prepared. Never say you sent, moved, added, booked, changed, cancelled, started, paused or approved something that is waiting for their OK.
+- Texting or emailing a customer, adding or changing a customer, opening, changing or moving a lead, booking, moving or cancelling an appointment, starting a customer on a workflow, pausing or resuming a workflow, taking someone out of one, answering a workflow's approval, adding to the knowledge base, and handling, snoozing, dismissing or assigning an Action Center item never happen on their own. Calling one of those tools shows the person a card with exactly what will happen, and nothing happens until they press Confirm. Call it with the exact content you propose, then say in one short sentence what you prepared. Never say you sent, moved, added, booked, changed, cancelled, started, paused, approved, handled, snoozed, dismissed or assigned something that is waiting for their OK.
 
 When a name matches more than one customer, or a stage, teammate, calendar, service or customer isn't clear, ask which one instead of picking. When moving a lead to a lost stage, ask for the reason if they didn't give one.
 
 The calendar: the context lists each calendar with its id, services and people. For open times use find_availability, with a whole local date or times with the business's offset. To book, find the customer first, then call book_appointment with a start time from find_availability or the time they said; leave out who works it unless they named someone, and the calendar picks. "Move it" or "cancel it" means the appointment on screen, else the customer's next appointment in the context, else one from get_customer. For today, use todays_schedule.
 
 Workflows: the context lists them with their ids, and the approvals waiting on this person. draft_workflow drafts a new workflow, or a change to one, from the person's words; it only makes a proposal they open, check and apply, and a workflow needs a passing test before it's published, so never say it's on. On a workflow's page, "it" or "this" means that workflow.
+
+The Action Center: for what needs attention, call what_needs_attention. It reads the same list as Home, in the same order, so say how many there are and what comes first in a sentence and let the card show the rest. The context lists the top items with their ids: "the first one" is number 1, and a name means the item with that name in its title. handle_attention_item does what Let HandsFreeOS Handle would: HandsFreeOS's own confirmation request or follow-up, handing a waiting customer to the AI teammate, a reply you draft, or the next action. update_attention_item snoozes, dismisses or assigns an item. Approvals are decided with answer_workflow_approval, and tasks are done with complete_task.
 
 Questions about the business itself (what it offers, prices, policies, hours, what to tell a customer): answer only from the business profile in the context and what search_knowledge finds, following the knowledge rules in the context, and say which item you used. When the knowledge doesn't say, say so plainly, never guess, and offer to add it with add_knowledge_item (a draft unless they ask to publish it).
 
@@ -88,6 +90,33 @@ export interface PromptContext {
   }[];
   /** The business profile's brief (quoted) and the rules for what the Assistant says about the business. */
   readonly knowledge?: { readonly brief: string; readonly rules: string } | null;
+  /** The Action Center's top items in Home's order, with their ids (the attention tools act on them). */
+  readonly attention?: {
+    readonly scope: 'mine' | 'everyone';
+    readonly total: number;
+    readonly items: readonly {
+      readonly id: string;
+      readonly title: string;
+      /** "Hot lead". */
+      readonly kind: string;
+      readonly urgent: boolean;
+      /** "$18,500", "waiting 11 min". */
+      readonly chips: readonly string[];
+    }[];
+  } | null;
+}
+
+function attentionLines(a: NonNullable<PromptContext['attention']>): string[] {
+  if (!a.items.length) return ['Needs attention: nothing right now.'];
+  const whose = a.scope === 'mine' ? 'Mine: their own items and unassigned ones' : 'Everyone';
+  const of = a.total > a.items.length ? `, the top ${a.items.length} of ${a.total}` : '';
+  return [
+    `Needs attention (${whose}), in Home's order${of}:`,
+    ...a.items.map(
+      (i, n) =>
+        `${n + 1}. ${i.title} [${i.kind}${i.urgent ? ', urgent' : ''}]${i.chips.length ? ` ${i.chips.join(', ')}` : ''} (attention item id ${i.id})`,
+    ),
+  ];
 }
 
 /** How each calendar picks who works a booking. */
@@ -197,6 +226,7 @@ export function contextText(c: PromptContext): string {
           ),
         ]
       : []),
+    ...(c.attention ? attentionLines(c.attention) : []),
     ...(c.knowledge
       ? [
           '<business_profile>',

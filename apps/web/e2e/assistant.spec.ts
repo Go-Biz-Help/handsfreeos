@@ -48,8 +48,12 @@ test('assistant: ask, act at once, confirm before contacting or changing, audit 
   await page.getByTestId('lead-save').click();
   await expect(page.getByTestId('open-lead-card')).toContainText('Roof replacement');
 
-  // The shortcut (⌘J on a Mac, Ctrl+J elsewhere) opens and closes it; so does the sidebar button.
+  // The shortcut (⌘J on a Mac, Ctrl+J elsewhere) opens and closes it; so does the sidebar button. Home lists
+  // Mike's lead first (the worker files it as it comes in, with no next action).
   await page.goto(`/app/w/${workspaceId}`);
+  await expect(
+    page.getByTestId('attention-card').filter({ hasText: 'Roof replacement' }),
+  ).toBeVisible({ timeout: 30_000 });
   const button = page.getByTestId('ask-assistant');
   await expect(button).toHaveAttribute('aria-keyshortcuts', /^(Meta|Control)\+J$/);
   const keys = (await button.getAttribute('aria-keyshortcuts'))!.replace(/J$/, 'j');
@@ -62,11 +66,11 @@ test('assistant: ask, act at once, confirm before contacting or changing, audit 
   await expect(panel(page)).toBeVisible();
   await expect(button).toHaveAttribute('aria-pressed', 'true');
 
-  // What needs attention: the lead with nothing planned next is on the list.
+  // What needs attention: the Action Center's list, with Mike's lead that has nothing planned next.
   let answer = await ask(page, 'What needs attention?');
   const attention = answer.getByTestId('assistant-card-attention');
-  await expect(attention).toContainText('1 lead has no next action');
-  await expect(attention).toContainText('Roof replacement');
+  await expect(attention).toContainText('Mike Johnson · Roof replacement');
+  await expect(attention).toContainText('No next action');
 
   // On Mike’s page it knows who he is. A task happens at once, shows in Tasks, and Undo takes it back.
   await page.goto(mikeUrl);
