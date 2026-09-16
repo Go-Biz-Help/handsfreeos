@@ -1,0 +1,254 @@
+{
+  "artboards": [
+    {
+      "file": "Main.dc.html",
+      "title": "Home: the Action Center on the phone",
+      "x": 0,
+      "y": 0,
+      "w": 2160,
+      "h": 1040
+    },
+    {
+      "file": "Inbox.dc.html",
+      "title": "Inbox: replies, photos and a text waiting for signal",
+      "x": 2260,
+      "y": 0,
+      "w": 1738,
+      "h": 1040
+    },
+    {
+      "file": "Customer.dc.html",
+      "title": "A customer, and a record made with no signal",
+      "x": 4098,
+      "y": 0,
+      "w": 1738,
+      "h": 1040
+    },
+    {
+      "file": "Pipeline.dc.html",
+      "title": "Pipeline by stage, Move to…, and tasks",
+      "x": 0,
+      "y": 1600,
+      "w": 1738,
+      "h": 1040
+    },
+    {
+      "file": "Calendar.dc.html",
+      "title": "Calendar, and “Not booked yet”",
+      "x": 1838,
+      "y": 1600,
+      "w": 1738,
+      "h": 1040
+    },
+    {
+      "file": "Money.dc.html",
+      "title": "Money on the phone, and Marco’s view",
+      "x": 3676,
+      "y": 1600,
+      "w": 1738,
+      "h": 1040
+    },
+    {
+      "file": "Assistant.dc.html",
+      "title": "The Assistant, full screen",
+      "x": 0,
+      "y": 3200,
+      "w": 1738,
+      "h": 1040
+    },
+    {
+      "file": "Offline.dc.html",
+      "title": "Offline: changes waiting, Still send?, merged and refused",
+      "x": 1838,
+      "y": 3200,
+      "w": 2160,
+      "h": 1040
+    },
+    {
+      "file": "Notifications.dc.html",
+      "title": "Notifications with buttons",
+      "x": 4098,
+      "y": 3200,
+      "w": 2160,
+      "h": 1040
+    },
+    {
+      "file": "Calls.dc.html",
+      "title": "Calls through your own cell",
+      "x": 0,
+      "y": 4800,
+      "w": 2160,
+      "h": 1040
+    },
+    {
+      "file": "SignIn.dc.html",
+      "title": "Sign-in, Face ID and the business switcher",
+      "x": 2260,
+      "y": 4800,
+      "w": 2582,
+      "h": 1040
+    },
+    {
+      "file": "More.dc.html",
+      "title": "More and Settings",
+      "x": 4942,
+      "y": 4800,
+      "w": 2160,
+      "h": 1040
+    },
+    {
+      "file": "Dark.dc.html",
+      "title": "Home, a conversation and the changes list, in dark",
+      "x": 0,
+      "y": 6400,
+      "w": 1316,
+      "h": 1040
+    },
+    {
+      "file": "Web.dc.html",
+      "title": "What changes on the web",
+      "x": 1416,
+      "y": 6400,
+      "w": 1880,
+      "h": 2120
+    }
+  ],
+  "annotations": [
+    {
+      "id": "direction",
+      "x": 0,
+      "y": -720,
+      "w": 1000,
+      "text": "HandsFreeOS Milestone 10, step 0: the iPhone and Android app. One app for both phones, on the same API as the web, that keeps working with no signal. Same look as Milestones 1 to 9: the web’s own colours, type and radii, inside the phone’s status bar, tab bar and home indicator.\nFourteen boards: Home; Inbox; a customer; pipeline and tasks; calendar; money; the Assistant; Offline, the heart of the milestone; notifications with buttons; calls through your own cell; sign-in; More and Settings; three screens in dark; and the four web changes.\nStart with Offline, in the third row: the changes list, “Still send?”, the quiet-hours question, a merged phone number and a refused change.\nEvery phone is 390 × 844. Ask HandsFreeOS is the mark at the top right of every screen. Nothing on these boards is clickable; each board has a light and dark switch in its properties."
+    },
+    {
+      "id": "sample-data",
+      "x": 1100,
+      "y": -720,
+      "w": 1000,
+      "text": "Sample data only: Lone Star HVAC & Roofing, the same fictional Houston business as Milestones 5 to 9. Dale (owner) is on an iPhone, Priya (admin) on the web and an Android phone, Marco (member technician) on a phone. The AI teammate is Ava. Chris Demo is the seed’s agency owner at Go Biz Help.\nToday is Tuesday, September 22, 2026, as on the Milestone 8 and 9 boards. Maria Lopez’s website form came in at 7:51 AM and she is the hot lead on Home. Dale calls her at 8:06, is in her house from 8:58 with no signal, and wins the job. Marco is next door at Mike Johnson’s, also with no signal until 9:10. Dale’s signal comes back at 10:57 AM.\nTwo changes from the Milestone 9 boards so that one day’s story holds together: Maria has no estimate or invoice yet (she is a lead this morning, as in the seed), so INV-1042 is now Mike Johnson’s AC repair from Friday, which was Marco’s job; and Sarah Alvarez’s $29 September plan charge, INV-1044, was refunded this morning.\nPeople, numbers, addresses and times are placeholders. Maria’s address, Rosa Delgado and her lead, Dale’s cell number and every time of day are invented."
+    },
+    {
+      "id": "the-figures",
+      "x": 2200,
+      "y": -720,
+      "w": 1000,
+      "text": "Every figure is worked out by the generator, not typed.\nHome: $49,852 affected = four lead values (Maria $18,500, Tom Reyes $12,400, Linda Okafor $9,800, Riverside Apartments $6,600) plus ABC Dental’s overdue $2,551.88, rounded because it is a summary, as on the Milestone 9 boards. At 9:45 AM, with Maria and Kendra answered, it is $31,352.\nTax is 8.25% on taxable lines. Labour is $145 an hour and not taxed.\nINV-1042, Mike Johnson: $385 + $65 + 2 hours $290 = $740; tax on $450 = $37.13; total $777.13.\nINV-1039, Bayou Bistro: 6 hours $870 + refrigerant $410 = $1,280; tax on $410 = $33.83; total $1,313.83, paid in full by check 4127.\nOutstanding $6,565.14 = ABC Dental $2,551.88 (overdue) + Sarah Alvarez $1,922.30 (on its way) + Bayou Bistro $1,313.83 + Mike Johnson $777.13 (not due yet).\nCollected in 30 days $4,015.11 = $2,843.11 from the four payments on the list, plus $1,201 from 20 plan cycles that billed themselves, less the $29 refunded.\nPipeline: New 4 leads, $21,850 (Carlos Mendoza’s has no value yet); Contacted 4, $27,550; Estimate sent 4, $80,000; Won 3; Lost 2.\nDale’s phone: 4 changes waiting at 9:45 AM and 7 by 10:12 AM; at 10:57 AM 3 went and 4 are still to go. Marco’s phone: 3 changes waiting at 8:51 AM."
+    },
+    {
+      "id": "decisions",
+      "x": 7402,
+      "y": 0,
+      "w": 900,
+      "text": "For you to decide on this canvas:\n1. The words for the offline states: Waiting, Sent, Held, Refused and Still send?, the strip “Offline — 4 changes waiting”, and the screen’s name, “Changes on this phone”.\n2. Where Ask HandsFreeOS lives: the mark at the top right of every screen, as on the web at 390 px, rather than a floating button over the lists.\n3. Whether Record cash or a check should be the first button on an unpaid invoice on a phone, above Send a payment link.\n4. The notification grid: which moments get a push switch, and approval emails staying on with no switch.\n5. Whether the phone offers Create an account. The boards leave it out, so new businesses start on the web.\n6. Whether calls need their own list on the phone. The boards keep them in each conversation, as the web does."
+    },
+    {
+      "id": "assumptions",
+      "x": 7402,
+      "y": 1500,
+      "w": 900,
+      "text": "Choices I made that the plan didn’t spell out:\n• The status line: “Up to date” sits on Home and in More; with no signal, or with changes still to go, a strip shows under the top bar on every screen and opens the changes list.\n• The changes list groups Needs you, Waiting and Sent just now, and folds what was sent into one row.\n• “Still send?” offers Send now, Edit and Discard; Discard removes only that message.\n• The quiet-hours sheet offers Send at 8:00 AM first, then Send now and Edit.\n• A refused change shows the reason and Fix and try again; it never retries on its own, and fixing it lets what it held go too.\n• A merged detail shows both values, marked Kept and Not kept, and the value from before both.\n• Timeline entries made offline say which phone made them and when they arrived.\n• With no signal, Call buttons are greyed with a one-line reason and Let HandsFreeOS Handle still works.\n• The duplicate flag’s only button is Open Maria Lopez, because merging is deferred.\n• Take over works with no signal, because conversation commands have an offline class in the plan; Ava keeps answering until it arrives.\n• The Text and Email switch is on the phone’s composer, although the web shows it only on the desktop.\n• One Assistant OK per person covers the web and the phone; Not now asks again next time.\n• The contacts card sits under My cell phone, and calls stay inside each conversation.\n• Offline booking reuses the web’s “Not booked yet” look, and keeps its Tell Mike box.\n• Deleting an account means typing your email to confirm. A business’s only owner sees why they can’t yet (the Web board).\n• The iPhone status bar and home indicator are drawn because the brief asks for them and the lock screens need them.\n• Maria’s install is on Monday, because Marco’s Thursday already has David Kim’s duct cleaning from the Milestone 9 booking board."
+    },
+    {
+      "id": "main",
+      "x": 0,
+      "y": 1074,
+      "w": 1000,
+      "text": "Home is the first of five tabs: Home, Inbox, Pipeline, Calendar and More. Ask HandsFreeOS is the mark at the top right of every screen, and the LS mark at the top left switches business.\nDecisions on show: Home is the Action Center, with the web’s cards, words and buttons; Assign, Snooze and Dismiss sit in the ⋯ sheet; approvals are reached from their card and from More; the status line says “Up to date” or “Offline — 4 changes waiting”; calls need signal while Let HandsFreeOS Handle works without it (it goes within 30 minutes, then asks).\nInvented: where the Up to date line sits; “As of 8:58 AM” when offline; greying Call with its one-line reason; Approvals as a phone list with Waiting and Decided tabs."
+    },
+    {
+      "id": "inbox",
+      "x": 2260,
+      "y": 1074,
+      "w": 1000,
+      "text": "The web’s inbox at phone size: the list, a reply to Mike with a photo, a text to Maria written with no signal, and a conversation Ava is handling.\nDecisions on show: a text written offline goes by itself within 30 minutes (“sends by 10:42 AM”), then asks “Still send?”; photos are resized to about 2,048 px and upload on their own track; Take over from the AI teammate is in the plan’s offline list, so it waits with the other changes.\nInvented: the Text and Email switch on the phone’s composer (the web shows it only on the desktop composer); the Ava chip beside Open, Snoozed and Closed; the dashed bubble for a waiting text."
+    },
+    {
+      "id": "customer",
+      "x": 4098,
+      "y": 1074,
+      "w": 1000,
+      "text": "Customer 360 on a phone: Maria Lopez on Dale’s phone after his morning in her house, and the record Marco made next door with no signal.\nDecisions on show: records made offline are kept and flagged “Possible duplicate of …”, never blocked; merging duplicates is deferred; tags are added and removed one at a time; timeline entries carry the moment they really happened; photos upload on their own; newest wins, and the history keeps both phone numbers.\nInvented: the header’s order (Call, Text, Email, then Book, Note, Photo, Task and Lead in a scrolling row); the words under the duplicate flag and its one button, Open Maria Lopez; “Dale’s phone, no signal · arrived 10:57 AM” on timeline entries; Maria’s address, next door to Mike Johnson; “from his cell” on Dale’s call."
+    },
+    {
+      "id": "pipeline",
+      "x": 0,
+      "y": 2674,
+      "w": 1000,
+      "text": "The board becomes one stage at a time with a switcher, a lead’s own page, Move to… and the tasks list.\nDecisions on show: stage moves work offline and are checked against the stage the person saw, so an older move doesn’t overwrite a newer one; Lost asks why, as on the web; Tasks live in More.\nInvented: the stage chips with counts; Move to… as a sheet (the web drags cards); the lead page’s layout; on a phone, a task’s due words sit under its title instead of beside it."
+    },
+    {
+      "id": "calendar",
+      "x": 1838,
+      "y": 2674,
+      "w": 1000,
+      "text": "Dale’s Tuesday, David Kim’s duct cleaning from the Milestone 9 booking board, and Marco asking for a time with no signal.\nDecisions on show: booking offline asks for a time and shows “Not booked yet” with “We’ll confirm this time when you’re back online” until the server confirms it; a booking reaches the customer, so it follows the 30-minute rule; a visit’s money is the web’s own deposit block.\nInvented: Marco’s return visit to Mike Johnson, Thursday at 1:00 PM; the notes on David’s visit; the line about someone booking the time first; borrowing the web’s striped bar and amber words (used today for a time held for a deposit) for “Not booked yet”."
+    },
+    {
+      "id": "money",
+      "x": 3676,
+      "y": 2674,
+      "w": 1000,
+      "text": "The invoices list with the new Refunded badge, Bayou Bistro’s invoice on a phone, recording Elena’s check, and Marco’s list.\nDecisions on show: recording cash works offline; payments, refunds and copying links need signal; members only ever receive the invoices for jobs they are on (Marco sees INV-1042 and nothing else); a refund no longer reopens an invoice (fb378ad).\nInvented: the compact three-number strip; Record cash or a check as the first button on an unpaid invoice; Sarah’s refunded plan charge; check 4127."
+    },
+    {
+      "id": "assistant",
+      "x": 0,
+      "y": 4274,
+      "w": 1000,
+      "text": "The Assistant full screen: consent the first time, a money card, a confirm card, and no signal.\nDecisions on show: the Assistant needs signal; its first use says that what you ask about goes to Anthropic’s Claude, and records the OK; nothing reaches a customer without a confirm card; money figures come from queries, never from the model.\nInvented: every word of the consent screen except the plan’s sentence; that one OK covers the web and the phone; that Not now asks again next time; the saved question with Ask again."
+    },
+    {
+      "id": "offline",
+      "x": 1838,
+      "y": 4274,
+      "w": 1000,
+      "text": "The heart of the milestone. Dale spent the morning in Maria’s house with no signal; signal came back at 10:57 AM.\nDecisions on show: three kinds of action (any time; fresh for 30 minutes, then “Still send?”; online only); a refused change holds only what depends on it, and everything else still goes; photos upload on their own track; newest wins detail by detail, and the timeline shows both values; a text landing in the business’s quiet hours asks “Send now, or at 8:00 AM when quiet hours end?”; nothing runs twice.\nInvented: the screen’s name, “Changes on this phone”, and its three groups; folding what was sent into one row; the refusal’s wording; Discard; “Send at 8:00 AM” as the first choice; showing the value from before both changes; the Fix and try again form with Don’t add Rosa."
+    },
+    {
+      "id": "notifications",
+      "x": 4098,
+      "y": 4274,
+      "w": 1000,
+      "text": "Lock screens on Dale’s iPhone and Priya’s Android phone.\nDecisions on show: push at the moments today’s emails cover, plus approvals and things assigned; the buttons per kind (Reply, Call and Let AI handle on a customer’s message; Call, Let HandsFreeOS handle and Snooze 1 hour on an urgent lead; Approve and Review on an approval); Call opens the app first; the buttons that reach a customer or approve something (Reply, Let AI handle, Let HandsFreeOS handle, Approve) ask for Face ID or the phone’s unlock first, and Snooze 1 hour doesn’t; the reply is typed on the lock screen; a button pressed twice does it once; Android draws the notification itself.\nInvented: every title and body; naming the business on each; which of them reach Dale and which reach Priya."
+    },
+    {
+      "id": "calls",
+      "x": 0,
+      "y": 5874,
+      "w": 1000,
+      "text": "Calling through your own cell. There is no calling inside the app.\nDecisions on show: Call rings your verified cell from the business number, you press 1, and the customer sees the business number; the cell is verified by the same kind of call, a limited number of times; iPhones are offered the business number as a contact, with no permission to read contacts; voicemails and transcripts as today; calls need signal.\nInvented: the My cell phone page and where the contacts card sits; the words on the Calling your cell sheet; showing calls inside the conversation rather than a separate list; Dale’s cell, (512) 555-0142 (the brief wrote +1 512 555 0142; the boards use the app’s usual format)."
+    },
+    {
+      "id": "signin",
+      "x": 2260,
+      "y": 5874,
+      "w": 1000,
+      "text": "Signing in with an emailed code, a password or a passkey, then Face ID; and the business switcher for agency staff.\nDecisions on show: no Google or Apple buttons on the phones; Email me a code sends a 6-digit code; passkeys once handsfreeos.com is live; a saved sign-in counts offline, behind Face ID, and only a real refusal signs you out; agency staff choose which businesses to keep, the last one opened by default.\nInvented: email first with three ways in; no Create an account on the phone; the lock screen’s words and its Sign out; the passkey sheet’s words; “Opens only with signal” for businesses not kept."
+    },
+    {
+      "id": "more",
+      "x": 4942,
+      "y": 5874,
+      "w": 1000,
+      "text": "More, Settings → Notifications, this phone’s settings, deleting an account, and signing out with changes waiting.\nDecisions on show: More holds Customers, Tasks, Money, Approvals, Settings and Open on the web; a push switch beside each email switch, on by default except payments; My cell phone, Face ID and the businesses kept on the phone; Delete my account in the app; signing out keeps unsent changes locked to that person, and someone else signing in deletes them.\nInvented: the grid’s rows and short descriptions; “Always” for approval emails, which have no switch today; the Email only group; typing your email to confirm deletion; Marco as the person deleting."
+    },
+    {
+      "id": "dark",
+      "x": 0,
+      "y": 7474,
+      "w": 1000,
+      "text": "Home, the text waiting for signal and the changes list, drawn by the same code as their own boards with the theme set to dark. Nothing new is shown here."
+    },
+    {
+      "id": "web",
+      "x": 1416,
+      "y": 8554,
+      "w": 1000,
+      "text": "The four web changes, in the web app’s own style.\nDecisions on show: Email me a code on the sign-in page, so people who only used Google can get into the app; push switches and My cell phone in Settings; Delete my account on the web as well as in the app, with a business’s only owner handing it over first; the Assistant’s consent step in the web panel.\nInvented: the blue panel around Email me a code; the code page; the grid that replaces today’s list of email switches; “On 1 phone”; the only-owner wording and its Open Members button."
+    }
+  ],
+  "launch": {
+    "view": "canvas"
+  }
+}
