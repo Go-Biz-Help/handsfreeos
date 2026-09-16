@@ -54,11 +54,12 @@ test('Action Center settings: switches, the wording’s preview and problems, an
     quietHours: { enabled: true, start: '20:00', end: '08:00' },
   });
 
-  // In the Settings nav, after Website chat.
+  // Last in the Settings nav, after the channels and the money pages Milestone 9 added.
   await page.goto(`/app/w/${owner.workspaceId}/settings`);
   const nav = page.getByRole('navigation', { name: 'Settings' });
   const tabs = await nav.getByRole('link').allTextContents();
-  expect(tabs.indexOf('Action Center')).toBe(tabs.indexOf('Website chat') + 1);
+  expect(tabs.indexOf('Action Center')).toBe(tabs.length - 1);
+  expect(tabs.indexOf('Action Center')).toBeGreaterThan(tabs.indexOf('Website chat'));
   await nav.getByRole('link', { name: 'Action Center' }).click();
   await expect(page).toHaveURL(new RegExp(`/app/w/${owner.workspaceId}/settings/action-center$`));
   await expect(page.getByTestId('action-center-settings')).toBeVisible();
