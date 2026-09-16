@@ -9,10 +9,12 @@ import {
   CalendarClock,
   Check,
   Clock,
+  FileText,
   Flame,
   Hourglass,
   ListChecks,
   MessageCircle,
+  Receipt,
   Signpost,
   Sparkles,
   UserRound,
@@ -42,6 +44,8 @@ export const KIND_LOOK: Readonly<Record<AttentionKind, { icon: LucideIcon; tone:
   unconfirmed_appointment: { icon: CalendarClock, tone: `${BR_SOFT} ${BR_TEXT}` },
   ai_approval: { icon: Sparkles, tone: `${AI_SOFT} ${AI_TEXT}` },
   overdue_task: { icon: ListChecks, tone: 'bg-warning-soft text-warning-text' },
+  estimate_waiting: { icon: FileText, tone: 'bg-warning-soft text-warning-text' },
+  invoice_overdue: { icon: Receipt, tone: `${HOT_SOFT} ${HOT_TEXT}` },
 };
 
 /** A card's kind, in the canvas's words ("Gone quiet", "Not confirmed"). */
@@ -54,6 +58,8 @@ export const KIND_WORD: Readonly<Record<AttentionKind, string>> = {
   unconfirmed_appointment: 'Not confirmed',
   ai_approval: 'Approval',
   overdue_task: 'Overdue task',
+  estimate_waiting: 'Estimate waiting',
+  invoice_overdue: 'Invoice overdue',
 };
 
 /** The kind's icon on its tinted tile: 30 px on cards, 24 px in Settings' list. */

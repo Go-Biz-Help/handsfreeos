@@ -31,6 +31,8 @@ const NOUNS: Readonly<Record<AttentionKind, readonly [string, string]>> = {
   ai_approval: ['approval', 'approvals'],
   customer_waiting: ['customer', 'customers'],
   overdue_task: ['task', 'tasks'],
+  estimate_waiting: ['estimate', 'estimates'],
+  invoice_overdue: ['invoice', 'invoices'],
 };
 
 /** The kinds about a lead: assigning one makes that person the lead's owner. */

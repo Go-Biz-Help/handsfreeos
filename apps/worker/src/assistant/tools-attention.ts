@@ -50,6 +50,8 @@ const KIND_WORD: Readonly<Record<AttentionKind, string>> = {
   ai_approval: 'Approval',
   customer_waiting: 'Customer waiting',
   overdue_task: 'Overdue task',
+  estimate_waiting: 'Estimate waiting',
+  invoice_overdue: 'Invoice overdue',
 };
 
 /** Chips that tell time: a row shows the first one on its right. */
@@ -592,6 +594,8 @@ const ASSIGN_CHANGES: Readonly<Record<AttentionKind, string>> = {
   overdue_task: 'Who the task is for, too',
   unconfirmed_appointment: 'Only who follows up on it. The appointment stays as it is.',
   ai_approval: 'Only who follows up on it. Who may decide it stays the same.',
+  estimate_waiting: 'Only who follows up on it. The estimate stays as it is.',
+  invoice_overdue: 'Only who follows up on it. The invoice stays as it is.',
 };
 
 type UpdateAction = 'snooze' | 'dismiss' | 'assign';

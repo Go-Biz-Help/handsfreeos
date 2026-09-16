@@ -8,6 +8,8 @@ import type { AttentionKind } from './kinds';
 
 export const REASON_CODES = [
   'value',
+  /** Money this item is about: "$1,240 owed" on an invoice, "$8,400 quoted" on an estimate. */
+  'amount',
   'waiting',
   'not_contacted',
   'auto_replied',
@@ -27,6 +29,8 @@ export const REASON_CODES = [
   'approval',
   'expires_in',
   'overdue',
+  /** Sent, and the customer hasn't opened it yet: it may never have arrived. */
+  'not_viewed',
   'stage',
   'not_a_fit',
 ] as const;

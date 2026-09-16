@@ -6,6 +6,7 @@
  */
 import { z } from 'zod';
 import { isoDateTime } from '../schemas/common';
+import { readForgiving } from '../schemas/forgiving';
 import type { AttentionKind } from './kinds';
 import { DEFAULT_NUDGE_TEMPLATE, nudgePlaceholderProblem } from './nudge';
 
@@ -21,6 +22,8 @@ const kindSwitches = {
   ai_approval: on(),
   customer_waiting: on(),
   overdue_task: on(),
+  estimate_waiting: on(),
+  invoice_overdue: on(),
 } satisfies Record<AttentionKind, z.ZodType>;
 
 const Hot = z.object({
@@ -47,6 +50,19 @@ const Stale = z.object({
 const Appointments = z.object({
   /** An unconfirmed one-on-one appointment opens this many hours before it starts. */
   windowHours: z.int().min(1, 'At least 1 hour.').max(168, 'At most a week.').default(48),
+});
+
+/**
+ * When money asks for attention. Both are ask-first: these say when the card opens, not when anything is sent.
+ * What a business's own reminders say and when they go out lives in the money settings.
+ */
+const Money = z.object({
+  /** An estimate nobody has answered opens this many days after it went out. */
+  estimateWaitingDays: z.int().min(1, 'At least 1 day.').max(60, 'At most 60 days.').default(3),
+  /** An unpaid invoice opens this many days after its due day: 0 opens it the morning after. */
+  invoiceOverdueDays: z.int().min(0).max(60, 'At most 60 days.').default(1),
+  /** Nothing smaller than this opens a card, so a $3 balance doesn't take up Home. */
+  minBalanceCents: z.int().min(0).max(MAX_CENTS).default(0),
 });
 
 const Auto = z
@@ -84,6 +100,7 @@ export const AttentionSettings = z.object({
   unanswered: Unanswered.prefault({}),
   stale: Stale.prefault({}),
   appointments: Appointments.prefault({}),
+  money: Money.prefault({}),
   /** The value of a lead with none; null works it out (the median won lead over 365 days, else $500). */
   typicalJobValueCents: z.int().min(0).max(MAX_CENTS).nullable().default(null),
   auto: Auto.prefault({}),
@@ -104,39 +121,12 @@ export function parseAttentionSettings(raw: unknown): AttentionSettings {
   return AttentionSettings.parse(raw ?? {});
 }
 
-const isPlainObject = (v: unknown): v is Record<string, unknown> =>
-  typeof v === 'object' && v !== null && !Array.isArray(v);
-
-/** Removes the value at a path (or, when that isn't there, its nearest parent that is). */
-function dropNearest(doc: Record<string, unknown>, path: readonly PropertyKey[]): boolean {
-  for (let len = path.length; len > 0; len--) {
-    let at: unknown = doc;
-    for (const key of path.slice(0, len - 1)) {
-      at = isPlainObject(at) ? at[key as string] : undefined;
-    }
-    const last = path[len - 1] as string;
-    if (isPlainObject(at) && last in at) {
-      delete at[last];
-      return true;
-    }
-  }
-  return false;
-}
-
 /**
  * Reads stored settings forgivingly: every field that doesn't pass falls back to its default, and the rest is
  * kept. Never throws. Nudges read as off until the template has been reviewed.
  */
 export function readAttentionSettings(raw: unknown): AttentionSettings {
-  const doc: Record<string, unknown> = isPlainObject(raw) ? JSON.parse(JSON.stringify(raw)) : {};
-  for (let round = 0; round < 25; round++) {
-    const result = AttentionSettings.safeParse(doc);
-    if (result.success) return result.data;
-    let dropped = false;
-    for (const issue of result.error.issues) dropped = dropNearest(doc, issue.path) || dropped;
-    if (!dropped) break;
-  }
-  return defaultAttentionSettings();
+  return readForgiving(AttentionSettings, raw);
 }
 
 /** A business's Action Center settings, from its workspace settings (like `openHoursOf`). */

@@ -6,10 +6,12 @@ import { sql } from 'drizzle-orm';
 import {
   bigint,
   boolean,
+  char,
   customType,
   date,
   jsonb,
   integer,
+  numeric,
   pgSchema,
   primaryKey,
   real,
@@ -2404,7 +2406,452 @@ export const attentionItems = app.table('attention_items', {
   ...timestamps(),
 });
 
+// ---------- Milestone 9: money (0044-0050) ----------
+export const productKind = app.enum('product_kind', ['product', 'service', 'fee']);
+export const planInterval = app.enum('plan_interval', ['month', 'quarter', 'year']);
+export const estimateStatus = app.enum('estimate_status', [
+  'draft',
+  'sent',
+  'accepted',
+  'declined',
+  'expired',
+  'void',
+]);
+export const invoiceStatus = app.enum('invoice_status', [
+  'draft',
+  'sent',
+  'partly_paid',
+  'paid',
+  'overdue',
+  'void',
+]);
+export const invoicePurpose = app.enum('invoice_purpose', [
+  'standard',
+  'deposit',
+  'balance',
+  'setup_fee',
+  'subscription',
+  'quick',
+]);
+export const moneyOrigin = app.enum('money_origin', [
+  'staff',
+  'estimate',
+  'booking',
+  'subscription',
+  'workflow',
+  'assistant',
+]);
+export const paymentProvider = app.enum('payment_provider', [
+  'stripe',
+  'square',
+  'paypal',
+  'nmi',
+  'authorize_net',
+]);
+export const paymentEnvironment = app.enum('payment_environment', ['live', 'test']);
+export const paymentConnectionStatus = app.enum('payment_connection_status', [
+  'pending',
+  'active',
+  'reauth_required',
+  'error',
+  'disconnected',
+]);
+export const paymentMethod = app.enum('payment_method', ['card', 'ach', 'cash', 'check', 'other']);
+export const paymentStatus = app.enum('payment_status', [
+  'requires_payment',
+  'processing',
+  'succeeded',
+  'failed',
+]);
+export const refundStatus = app.enum('refund_status', ['pending', 'succeeded', 'failed']);
+export const subscriptionStatus = app.enum('subscription_status', [
+  'draft',
+  'active',
+  'past_due',
+  'paused',
+  'cancelled',
+  'unmanaged',
+]);
+
+export type ProductKind = (typeof productKind.enumValues)[number];
+export type PlanInterval = (typeof planInterval.enumValues)[number];
+export type EstimateStatus = (typeof estimateStatus.enumValues)[number];
+export type InvoiceStatus = (typeof invoiceStatus.enumValues)[number];
+export type InvoicePurpose = (typeof invoicePurpose.enumValues)[number];
+export type MoneyOrigin = (typeof moneyOrigin.enumValues)[number];
+export type PaymentProvider = (typeof paymentProvider.enumValues)[number];
+export type PaymentEnvironment = (typeof paymentEnvironment.enumValues)[number];
+export type PaymentConnectionStatus = (typeof paymentConnectionStatus.enumValues)[number];
+export type PaymentMethod = (typeof paymentMethod.enumValues)[number];
+export type PaymentStatus = (typeof paymentStatus.enumValues)[number];
+export type RefundStatus = (typeof refundStatus.enumValues)[number];
+export type SubscriptionStatus = (typeof subscriptionStatus.enumValues)[number];
+
+/** USD only in Milestone 9; the column is there so the day a second currency arrives is not a back-fill. */
+const currency = () => char('currency', { length: 3 }).notNull().default('USD');
+/** Cents, as bigint: a document total outgrows an int long before a business does. */
+const cents = (name: string) => bigint(name, { mode: 'number' });
+
+/** One sellable thing: a part, work done, or a charge. Archived, never deleted. */
+export const products = app.table('products', {
+  id: id(),
+  workspaceId: workspaceRef(),
+  name: text('name').notNull(),
+  description: text('description'),
+  sku: text('sku'),
+  kind: productKind('kind').notNull().default('product'),
+  unitPriceCents: cents('unit_price_cents').notNull().default(0),
+  unitLabel: text('unit_label').notNull().default('each'),
+  taxable: boolean('taxable').notNull().default(true),
+  /** The bookable service this is the price of: one product per service. */
+  serviceId: uuid('service_id').references(() => services.id, { onDelete: 'set null' }),
+  archivedAt: ts('archived_at'),
+  createdBy: userRef('created_by'),
+  ...timestamps(),
+});
+
+/** What a maintenance plan costs and what it includes; a subscription takes a copy when it is sold. */
+export const plans = app.table('plans', {
+  id: id(),
+  workspaceId: workspaceRef(),
+  name: text('name').notNull(),
+  description: text('description'),
+  priceCents: cents('price_cents').notNull().default(0),
+  interval: planInterval('interval').notNull().default('month'),
+  intervalCount: integer('interval_count').notNull().default(1),
+  taxable: boolean('taxable').notNull().default(true),
+  /** The "what you get" lines the plan page prints. */
+  includes: jsonb('includes').$type<string[]>().notNull().default([]),
+  archivedAt: ts('archived_at'),
+  createdBy: userRef('created_by'),
+  ...timestamps(),
+});
+
+/** Per business and kind. Sending locks this row and takes the next number in the same transaction. */
+export const documentCounters = app.table(
+  'document_counters',
+  {
+    workspaceId: workspaceRef(),
+    /** estimate, invoice. */
+    kind: text('kind').notNull(),
+    nextNumber: bigint('next_number', { mode: 'number' }).notNull().default(1),
+    prefix: text('prefix').notNull().default(''),
+    pad: integer('pad').notNull().default(4),
+    ...timestamps(),
+  },
+  (t) => [primaryKey({ columns: [t.workspaceId, t.kind] })],
+);
+
+/**
+ * A quote. Frozen once sent: number, tax, totals and lines are that document's for life, and changing one
+ * means voiding and reissuing (a guard trigger, 0045). What the customer did on /e/<token> — opening it, and
+ * pressing Accept with their typed name — is the worker's; a person may record a yes given on the phone as
+ * 'staff', in their own name.
+ */
+export const estimates = app.table('estimates', {
+  id: id(),
+  workspaceId: workspaceRef(),
+  /** 8 random characters, not secret: /e/<public_ref><code>, the code an HMAC over link_version. */
+  publicRef: text('public_ref').notNull(),
+  linkVersion: integer('link_version').notNull().default(1),
+  /** Taken from the counter when it is sent, and kept for life, void or not. */
+  number: text('number'),
+  status: estimateStatus('status').notNull().default('draft'),
+  personId: uuid('person_id')
+    .notNull()
+    .references(() => people.id),
+  leadId: uuid('lead_id').references(() => leads.id, { onDelete: 'set null' }),
+  assigneeUserId: userRef('assignee_user_id'),
+  title: text('title'),
+  notes: text('notes'),
+  subtotalCents: cents('subtotal_cents').notNull().default(0),
+  discountCents: cents('discount_cents').notNull().default(0),
+  /** Set when the discount was asked for as a percentage ("10% off"). */
+  discountPercentBp: integer('discount_percent_bp'),
+  taxableBaseCents: cents('taxable_base_cents').notNull().default(0),
+  taxCents: cents('tax_cents').notNull().default(0),
+  totalCents: cents('total_cents').notNull().default(0),
+  /** One rate per business, snapshotted here with the name it is shown under. */
+  taxRateBp: integer('tax_rate_bp').notNull().default(0),
+  taxLabel: text('tax_label'),
+  currency: currency(),
+  /** What is asked for up front if they accept: a share of the total or an amount, never both. */
+  depositPercentBp: integer('deposit_percent_bp'),
+  depositCents: cents('deposit_cents'),
+  expiresOn: date('expires_on'),
+  sentAt: ts('sent_at'),
+  firstViewedAt: ts('first_viewed_at'),
+  lastViewedAt: ts('last_viewed_at'),
+  acceptedAt: ts('accepted_at'),
+  /** link (the customer pressed Accept) or staff (a person recorded a yes given on the phone). */
+  acceptedVia: text('accepted_via'),
+  acceptedBy: userRef('accepted_by'),
+  acceptedName: text('accepted_name'),
+  /** The exact wording shown above the Accept button, and a hash of what was accepted. */
+  acceptedWording: text('accepted_wording'),
+  acceptedHash: text('accepted_hash'),
+  declinedAt: ts('declined_at'),
+  declinedReason: text('declined_reason'),
+  voidedAt: ts('voided_at'),
+  voidedBy: userRef('voided_by'),
+  voidReason: text('void_reason'),
+  createdBy: userRef('created_by'),
+  ...timestamps(),
+});
+
+/** What a product said at the moment it was added: repricing the catalogue never reprices a document. */
+export const estimateLines = app.table('estimate_lines', {
+  id: id(),
+  workspaceId: workspaceRef(),
+  estimateId: uuid('estimate_id')
+    .notNull()
+    .references(() => estimates.id, { onDelete: 'cascade' }),
+  position: integer('position').notNull().default(0),
+  productId: uuid('product_id').references(() => products.id, { onDelete: 'set null' }),
+  name: text('name').notNull(),
+  description: text('description'),
+  quantity: numeric('quantity', { precision: 12, scale: 3 })
+    .notNull()
+    .default(sql`1`),
+  unitLabel: text('unit_label').notNull().default('each'),
+  unitPriceCents: cents('unit_price_cents').notNull().default(0),
+  taxable: boolean('taxable').notNull().default(true),
+  /** This line's share of the document discount, allocated pro rata before tax. */
+  discountCents: cents('discount_cents').notNull().default(0),
+  amountCents: cents('amount_cents').notNull().default(0),
+  ...timestamps(),
+});
+
+/**
+ * A bill. Frozen on send like an estimate. amount_paid_cents, amount_refunded_cents and paid_at are rolled up
+ * from the payments and refunds that succeeded (0047) and never written by hand; balance_cents is generated.
+ */
+export const invoices = app.table('invoices', {
+  id: id(),
+  workspaceId: workspaceRef(),
+  publicRef: text('public_ref').notNull(),
+  linkVersion: integer('link_version').notNull().default(1),
+  number: text('number'),
+  status: invoiceStatus('status').notNull().default('draft'),
+  personId: uuid('person_id')
+    .notNull()
+    .references(() => people.id),
+  leadId: uuid('lead_id').references(() => leads.id, { onDelete: 'set null' }),
+  assigneeUserId: userRef('assignee_user_id'),
+  title: text('title'),
+  notes: text('notes'),
+  estimateId: uuid('estimate_id').references(() => estimates.id, { onDelete: 'set null' }),
+  /** The booking this is for: the seat, so a deposit and a balance both point at one visit. */
+  attendeeId: uuid('attendee_id').references(() => appointmentAttendees.id, {
+    onDelete: 'set null',
+  }),
+  subscriptionId: uuid('subscription_id').references((): AnyPgColumn => subscriptions.id, {
+    onDelete: 'set null',
+  }),
+  purpose: invoicePurpose('purpose').notNull().default('standard'),
+  origin: moneyOrigin('origin').notNull().default('staff'),
+  /** The account it is paid into: a business can have several connected at once. */
+  connectionId: uuid('connection_id').references((): AnyPgColumn => paymentConnections.id, {
+    onDelete: 'set null',
+  }),
+  subtotalCents: cents('subtotal_cents').notNull().default(0),
+  discountCents: cents('discount_cents').notNull().default(0),
+  discountPercentBp: integer('discount_percent_bp'),
+  taxableBaseCents: cents('taxable_base_cents').notNull().default(0),
+  taxCents: cents('tax_cents').notNull().default(0),
+  totalCents: cents('total_cents').notNull().default(0),
+  taxRateBp: integer('tax_rate_bp').notNull().default(0),
+  taxLabel: text('tax_label'),
+  currency: currency(),
+  dueOn: date('due_on'),
+  terms: text('terms'),
+  amountPaidCents: cents('amount_paid_cents').notNull().default(0),
+  amountRefundedCents: cents('amount_refunded_cents').notNull().default(0),
+  /** total - paid + refunded, generated by the database. */
+  balanceCents: cents('balance_cents').generatedAlwaysAs(
+    sql`total_cents - amount_paid_cents + amount_refunded_cents`,
+  ),
+  sentAt: ts('sent_at'),
+  firstViewedAt: ts('first_viewed_at'),
+  lastViewedAt: ts('last_viewed_at'),
+  paidAt: ts('paid_at'),
+  /** Which reminders have gone out, before and after the due date: the worker's. */
+  reminderState: jsonb('reminder_state').$type<Json>().notNull().default({}),
+  voidedAt: ts('voided_at'),
+  voidedBy: userRef('voided_by'),
+  voidReason: text('void_reason'),
+  createdBy: userRef('created_by'),
+  ...timestamps(),
+});
+
+export const invoiceLines = app.table('invoice_lines', {
+  id: id(),
+  workspaceId: workspaceRef(),
+  invoiceId: uuid('invoice_id')
+    .notNull()
+    .references(() => invoices.id, { onDelete: 'cascade' }),
+  position: integer('position').notNull().default(0),
+  productId: uuid('product_id').references(() => products.id, { onDelete: 'set null' }),
+  name: text('name').notNull(),
+  description: text('description'),
+  quantity: numeric('quantity', { precision: 12, scale: 3 })
+    .notNull()
+    .default(sql`1`),
+  unitLabel: text('unit_label').notNull().default('each'),
+  unitPriceCents: cents('unit_price_cents').notNull().default(0),
+  taxable: boolean('taxable').notNull().default(true),
+  discountCents: cents('discount_cents').notNull().default(0),
+  amountCents: cents('amount_cents').notNull().default(0),
+  ...timestamps(),
+});
+
+/**
+ * One account a business has connected. People never read token_enc, token_key_id, pkce_verifier_enc or the
+ * sign-in state: those columns are not granted to `authenticated` at all (0046).
+ */
+export const paymentConnections = app.table('payment_connections', {
+  id: id(),
+  workspaceId: workspaceRef(),
+  provider: paymentProvider('provider').notNull(),
+  environment: paymentEnvironment('environment').notNull().default('live'),
+  status: paymentConnectionStatus('status').notNull().default('pending'),
+  /** The provider's own id for the account, and (Square) the location money is taken at. */
+  externalAccountId: text('external_account_id'),
+  locationId: text('location_id'),
+  label: text('label'),
+  displayName: text('display_name'),
+  isDefault: boolean('is_default').notNull().default(false),
+  capabilities: jsonb('capabilities').$type<Json>().notNull().default({}),
+  scopes: text('scopes')
+    .array()
+    .notNull()
+    .default(sql`'{}'`),
+  oauthStateHash: text('oauth_state_hash'),
+  oauthStateExpiresAt: ts('oauth_state_expires_at'),
+  pkceVerifierEnc: text('pkce_verifier_enc'),
+  tokenEnc: text('token_enc'),
+  tokenKeyId: text('token_key_id'),
+  tokenExpiresAt: ts('token_expires_at'),
+  /** Square's token expires in 30 days, so a refresh runs weekly with an hourly re-arm. */
+  nextRefreshAt: ts('next_refresh_at'),
+  failures: integer('failures').notNull().default(0),
+  lastError: text('last_error'),
+  /** person, revoked, deauthorized, failed, replaced. */
+  disconnectedReason: text('disconnected_reason'),
+  connectedAt: ts('connected_at'),
+  disconnectedAt: ts('disconnected_at'),
+  createdBy: userRef('created_by'),
+  ...timestamps(),
+});
+
+/** Status only moves forward, so a late webhook can never un-pay an invoice (a guard trigger, 0047). */
+export const payments = app.table('payments', {
+  id: id(),
+  workspaceId: workspaceRef(),
+  invoiceId: uuid('invoice_id')
+    .notNull()
+    .references(() => invoices.id, { onDelete: 'cascade' }),
+  amountCents: cents('amount_cents').notNull(),
+  currency: currency(),
+  method: paymentMethod('method').notNull(),
+  /** Null for cash, a cheque or anything else taken off the system. */
+  provider: paymentProvider('provider'),
+  connectionId: uuid('connection_id').references(() => paymentConnections.id, {
+    onDelete: 'set null',
+  }),
+  providerPaymentId: text('provider_payment_id'),
+  /** The provider's own word for where it is, kept beside ours. */
+  providerStatus: text('provider_status'),
+  status: paymentStatus('status').notNull().default('requires_payment'),
+  failureCode: text('failure_code'),
+  feeCents: cents('fee_cents'),
+  netCents: cents('net_cents'),
+  receivedAt: ts('received_at'),
+  /** The person who recorded a cash or cheque payment. */
+  recordedBy: userRef('recorded_by'),
+  /** Written before the provider is called; a unique index behind it makes charging twice impossible. */
+  idempotencyKey: text('idempotency_key'),
+  ...timestamps(),
+});
+
+export const refunds = app.table('refunds', {
+  id: id(),
+  workspaceId: workspaceRef(),
+  paymentId: uuid('payment_id')
+    .notNull()
+    .references(() => payments.id, { onDelete: 'cascade' }),
+  invoiceId: uuid('invoice_id')
+    .notNull()
+    .references(() => invoices.id, { onDelete: 'cascade' }),
+  amountCents: cents('amount_cents').notNull(),
+  currency: currency(),
+  reason: text('reason'),
+  provider: paymentProvider('provider'),
+  connectionId: uuid('connection_id').references(() => paymentConnections.id, {
+    onDelete: 'set null',
+  }),
+  providerRefundId: text('provider_refund_id'),
+  providerStatus: text('provider_status'),
+  status: refundStatus('status').notNull().default('pending'),
+  failureCode: text('failure_code'),
+  refundedAt: ts('refunded_at'),
+  requestedBy: userRef('requested_by'),
+  idempotencyKey: text('idempotency_key'),
+  ...timestamps(),
+});
+
+/** Our mirror of a plan billing at the provider. 'unmanaged' is one whose account was disconnected. */
+export const subscriptions = app.table('subscriptions', {
+  id: id(),
+  workspaceId: workspaceRef(),
+  publicRef: text('public_ref').notNull(),
+  payVersion: integer('pay_version').notNull().default(1),
+  planId: uuid('plan_id').references(() => plans.id, { onDelete: 'set null' }),
+  /** The plan as it was sold: repricing the catalogue never reprices a customer. */
+  planName: text('plan_name').notNull(),
+  priceCents: cents('price_cents').notNull().default(0),
+  currency: currency(),
+  interval: planInterval('interval').notNull().default('month'),
+  intervalCount: integer('interval_count').notNull().default(1),
+  taxable: boolean('taxable').notNull().default(true),
+  includes: jsonb('includes').$type<string[]>().notNull().default([]),
+  personId: uuid('person_id')
+    .notNull()
+    .references(() => people.id),
+  leadId: uuid('lead_id').references(() => leads.id, { onDelete: 'set null' }),
+  connectionId: uuid('connection_id').references(() => paymentConnections.id, {
+    onDelete: 'set null',
+  }),
+  provider: paymentProvider('provider'),
+  externalSubscriptionId: text('external_subscription_id'),
+  status: subscriptionStatus('status').notNull().default('draft'),
+  startedOn: date('started_on'),
+  currentPeriodStart: date('current_period_start'),
+  currentPeriodEnd: date('current_period_end'),
+  nextBillingOn: date('next_billing_on'),
+  pausedAt: ts('paused_at'),
+  cancelledAt: ts('cancelled_at'),
+  cancelReason: text('cancel_reason'),
+  endedOn: date('ended_on'),
+  /** How many cycles in a row the card has failed; the provider's own retries happen underneath this. */
+  failedCycles: integer('failed_cycles').notNull().default(0),
+  lastError: text('last_error'),
+  createdBy: userRef('created_by'),
+  ...timestamps(),
+});
+
 export const tables = {
+  products,
+  plans,
+  documentCounters,
+  estimates,
+  estimateLines,
+  invoices,
+  invoiceLines,
+  paymentConnections,
+  payments,
+  refunds,
+  subscriptions,
   attentionItems,
   aiTeammates,
   aiTeammateRevisions,

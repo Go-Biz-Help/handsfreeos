@@ -6124,7 +6124,11 @@ export interface operations {
                             /** @default true */
                             customer_waiting?: boolean;
                             /** @default true */
+                            estimate_waiting?: boolean;
+                            /** @default true */
                             hot_lead?: boolean;
+                            /** @default true */
+                            invoice_overdue?: boolean;
                             /** @default true */
                             missing_next_action?: boolean;
                             /** @default true */
@@ -6135,6 +6139,15 @@ export interface operations {
                             unanswered_lead?: boolean;
                             /** @default true */
                             unconfirmed_appointment?: boolean;
+                        };
+                        /** @default {} */
+                        money?: {
+                            /** @default 3 */
+                            estimateWaitingDays?: number;
+                            /** @default 1 */
+                            invoiceOverdueDays?: number;
+                            /** @default 0 */
+                            minBalanceCents?: number;
                         };
                         /** @default {} */
                         nudge?: {
@@ -6201,7 +6214,11 @@ export interface operations {
                                 /** @default true */
                                 customer_waiting: boolean;
                                 /** @default true */
+                                estimate_waiting: boolean;
+                                /** @default true */
                                 hot_lead: boolean;
+                                /** @default true */
+                                invoice_overdue: boolean;
                                 /** @default true */
                                 missing_next_action: boolean;
                                 /** @default true */
@@ -6212,6 +6229,14 @@ export interface operations {
                                 unanswered_lead: boolean;
                                 /** @default true */
                                 unconfirmed_appointment: boolean;
+                            };
+                            money: {
+                                /** @default 3 */
+                                estimateWaitingDays: number;
+                                /** @default 1 */
+                                invoiceOverdueDays: number;
+                                /** @default 0 */
+                                minBalanceCents: number;
                             };
                             nudge: {
                                 /** @default 14 */
@@ -13827,7 +13852,7 @@ export interface operations {
                                     /** Format: uuid */
                                     itemId?: string;
                                     /** @enum {string} */
-                                    kind?: "hot_lead" | "unanswered_lead" | "stale_opportunity" | "missing_next_action" | "unconfirmed_appointment" | "ai_approval" | "customer_waiting" | "overdue_task";
+                                    kind?: "hot_lead" | "unanswered_lead" | "stale_opportunity" | "missing_next_action" | "unconfirmed_appointment" | "ai_approval" | "customer_waiting" | "overdue_task" | "estimate_waiting" | "invoice_overdue";
                                     title: string;
                                     /** @enum {string} */
                                     tone: "accent" | "warning" | "danger" | "muted";
@@ -14110,7 +14135,7 @@ export interface operations {
                             /** Format: uuid */
                             id: string;
                             /** @enum {string} */
-                            kind: "hot_lead" | "unanswered_lead" | "stale_opportunity" | "missing_next_action" | "unconfirmed_appointment" | "ai_approval" | "customer_waiting" | "overdue_task";
+                            kind: "hot_lead" | "unanswered_lead" | "stale_opportunity" | "missing_next_action" | "unconfirmed_appointment" | "ai_approval" | "customer_waiting" | "overdue_task" | "estimate_waiting" | "invoice_overdue";
                             leadId: string | null;
                             /** @enum {string} */
                             letHandleMode: "auto" | "ask" | "none";
@@ -14120,7 +14145,7 @@ export interface operations {
                             reach: ("sms" | "email" | "chat") | null;
                             reasons: {
                                 /** @enum {string} */
-                                code: "value" | "waiting" | "not_contacted" | "auto_replied" | "ready_to_book" | "qualified" | "repeat_customer" | "came_in_today" | "handed_off" | "last_contact" | "no_contact" | "follow_up_overdue" | "no_next_action" | "next_action" | "starts_in" | "asked_to_confirm" | "draft" | "approval" | "expires_in" | "overdue" | "stage" | "not_a_fit";
+                                code: "value" | "amount" | "waiting" | "not_contacted" | "auto_replied" | "ready_to_book" | "qualified" | "repeat_customer" | "came_in_today" | "handed_off" | "last_contact" | "no_contact" | "follow_up_overdue" | "no_next_action" | "next_action" | "starts_in" | "asked_to_confirm" | "draft" | "approval" | "expires_in" | "overdue" | "not_viewed" | "stage" | "not_a_fit";
                                 label: string;
                                 /** Format: date-time */
                                 since?: string;
@@ -14163,7 +14188,7 @@ export interface operations {
                 "application/json": {
                     /** @default false */
                     includeHandled?: boolean;
-                    kinds?: ("hot_lead" | "unanswered_lead" | "stale_opportunity" | "missing_next_action" | "unconfirmed_appointment" | "ai_approval" | "customer_waiting" | "overdue_task")[];
+                    kinds?: ("hot_lead" | "unanswered_lead" | "stale_opportunity" | "missing_next_action" | "unconfirmed_appointment" | "ai_approval" | "customer_waiting" | "overdue_task" | "estimate_waiting" | "invoice_overdue")[];
                     /** @enum {string} */
                     scope?: "mine" | "everyone";
                     /** Format: uuid */
@@ -14228,7 +14253,7 @@ export interface operations {
                             /** Format: uuid */
                             id: string;
                             /** @enum {string} */
-                            kind: "hot_lead" | "unanswered_lead" | "stale_opportunity" | "missing_next_action" | "unconfirmed_appointment" | "ai_approval" | "customer_waiting" | "overdue_task";
+                            kind: "hot_lead" | "unanswered_lead" | "stale_opportunity" | "missing_next_action" | "unconfirmed_appointment" | "ai_approval" | "customer_waiting" | "overdue_task" | "estimate_waiting" | "invoice_overdue";
                             leadId: string | null;
                             /** @enum {string} */
                             letHandleMode: "auto" | "ask" | "none";
@@ -14238,7 +14263,7 @@ export interface operations {
                             reach: ("sms" | "email" | "chat") | null;
                             reasons: {
                                 /** @enum {string} */
-                                code: "value" | "waiting" | "not_contacted" | "auto_replied" | "ready_to_book" | "qualified" | "repeat_customer" | "came_in_today" | "handed_off" | "last_contact" | "no_contact" | "follow_up_overdue" | "no_next_action" | "next_action" | "starts_in" | "asked_to_confirm" | "draft" | "approval" | "expires_in" | "overdue" | "stage" | "not_a_fit";
+                                code: "value" | "amount" | "waiting" | "not_contacted" | "auto_replied" | "ready_to_book" | "qualified" | "repeat_customer" | "came_in_today" | "handed_off" | "last_contact" | "no_contact" | "follow_up_overdue" | "no_next_action" | "next_action" | "starts_in" | "asked_to_confirm" | "draft" | "approval" | "expires_in" | "overdue" | "not_viewed" | "stage" | "not_a_fit";
                                 label: string;
                                 /** Format: date-time */
                                 since?: string;
@@ -14306,7 +14331,7 @@ export interface operations {
                             /** Format: uuid */
                             id: string;
                             /** @enum {string} */
-                            kind: "hot_lead" | "unanswered_lead" | "stale_opportunity" | "missing_next_action" | "unconfirmed_appointment" | "ai_approval" | "customer_waiting" | "overdue_task";
+                            kind: "hot_lead" | "unanswered_lead" | "stale_opportunity" | "missing_next_action" | "unconfirmed_appointment" | "ai_approval" | "customer_waiting" | "overdue_task" | "estimate_waiting" | "invoice_overdue";
                             leadId: string | null;
                             /** @enum {string} */
                             letHandleMode: "auto" | "ask" | "none";
@@ -14316,7 +14341,7 @@ export interface operations {
                             reach: ("sms" | "email" | "chat") | null;
                             reasons: {
                                 /** @enum {string} */
-                                code: "value" | "waiting" | "not_contacted" | "auto_replied" | "ready_to_book" | "qualified" | "repeat_customer" | "came_in_today" | "handed_off" | "last_contact" | "no_contact" | "follow_up_overdue" | "no_next_action" | "next_action" | "starts_in" | "asked_to_confirm" | "draft" | "approval" | "expires_in" | "overdue" | "stage" | "not_a_fit";
+                                code: "value" | "amount" | "waiting" | "not_contacted" | "auto_replied" | "ready_to_book" | "qualified" | "repeat_customer" | "came_in_today" | "handed_off" | "last_contact" | "no_contact" | "follow_up_overdue" | "no_next_action" | "next_action" | "starts_in" | "asked_to_confirm" | "draft" | "approval" | "expires_in" | "overdue" | "not_viewed" | "stage" | "not_a_fit";
                                 label: string;
                                 /** Format: date-time */
                                 since?: string;
@@ -14350,7 +14375,7 @@ export interface operations {
                             /** Format: uuid */
                             itemId: string;
                             /** @enum {string} */
-                            kind: "hot_lead" | "unanswered_lead" | "stale_opportunity" | "missing_next_action" | "unconfirmed_appointment" | "ai_approval" | "customer_waiting" | "overdue_task";
+                            kind: "hot_lead" | "unanswered_lead" | "stale_opportunity" | "missing_next_action" | "unconfirmed_appointment" | "ai_approval" | "customer_waiting" | "overdue_task" | "estimate_waiting" | "invoice_overdue";
                             /** Format: date-time */
                             scheduledFor: string;
                             title: string;
@@ -14410,7 +14435,7 @@ export interface operations {
                         /** Format: uuid */
                         itemId: string;
                         /** @enum {string} */
-                        kind: "hot_lead" | "unanswered_lead" | "stale_opportunity" | "missing_next_action" | "unconfirmed_appointment" | "ai_approval" | "customer_waiting" | "overdue_task";
+                        kind: "hot_lead" | "unanswered_lead" | "stale_opportunity" | "missing_next_action" | "unconfirmed_appointment" | "ai_approval" | "customer_waiting" | "overdue_task" | "estimate_waiting" | "invoice_overdue";
                         /** @enum {string} */
                         mode: "auto" | "ask" | "none";
                         options: {
@@ -14480,7 +14505,11 @@ export interface operations {
                                 /** @default true */
                                 customer_waiting: boolean;
                                 /** @default true */
+                                estimate_waiting: boolean;
+                                /** @default true */
                                 hot_lead: boolean;
+                                /** @default true */
+                                invoice_overdue: boolean;
                                 /** @default true */
                                 missing_next_action: boolean;
                                 /** @default true */
@@ -14491,6 +14520,14 @@ export interface operations {
                                 unanswered_lead: boolean;
                                 /** @default true */
                                 unconfirmed_appointment: boolean;
+                            };
+                            money: {
+                                /** @default 3 */
+                                estimateWaitingDays: number;
+                                /** @default 1 */
+                                invoiceOverdueDays: number;
+                                /** @default 0 */
+                                minBalanceCents: number;
                             };
                             nudge: {
                                 /** @default 14 */

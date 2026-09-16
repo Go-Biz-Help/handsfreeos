@@ -380,6 +380,10 @@ export function handleLook(
       return isDraft(item) ? { label: 'Approve', icon: Check } : { label: 'Review', icon: Check };
     case 'overdue_task':
       return { label: 'Open task', icon: ListChecks };
+    case 'estimate_waiting':
+      return { label: 'Follow up', icon: email ? Mail : MessageCircle };
+    case 'invoice_overdue':
+      return { label: 'Send reminder', icon: email ? Mail : MessageCircle };
   }
 }
 

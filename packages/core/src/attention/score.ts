@@ -32,6 +32,10 @@ export const URGENCY_RULES: Readonly<Record<AttentionKind, UrgencyRule>> = {
   ai_approval: { grows: 'since', start: 1, stepMs: 2 * HOUR },
   customer_waiting: { grows: 'since', start: 1, stepMs: 30 * MIN },
   overdue_task: { grows: 'since', start: 1, stepMs: 3 * DAY },
+  // A quote goes cold: from the day it was sent, at the cap after ten days of silence.
+  estimate_waiting: { grows: 'since', start: 1, stepMs: 5 * DAY },
+  // Money owed climbs slowly — its size does the talking — and is at the cap three weeks past the due day.
+  invoice_overdue: { grows: 'since', start: 1, stepMs: 10 * DAY },
 };
 
 /**

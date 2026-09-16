@@ -843,6 +843,13 @@ function resolutionOf(
       if (!t) return 'subject_gone';
       return t.doneAt ? 'done' : 'rescheduled';
     }
+    // The money kinds: their documents load in Milestone 9's step 3, which tells these two apart properly
+    // (answered, expired, voided; paid, part-paid, settling, voided). Until then, why it stopped holding is
+    // the usual reason.
+    case 'estimate_waiting':
+      return 'answered';
+    case 'invoice_overdue':
+      return 'paid';
   }
 }
 

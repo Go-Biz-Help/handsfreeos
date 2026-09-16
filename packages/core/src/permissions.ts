@@ -35,6 +35,8 @@ export const ROLE_PERMISSIONS = {
     'workflows.manage',
     'knowledge.manage',
     'ai_team.manage',
+    'money.read',
+    'money.manage',
   ],
   admin: [
     'workspace.read',
@@ -61,6 +63,8 @@ export const ROLE_PERMISSIONS = {
     'workflows.manage',
     'knowledge.manage',
     'ai_team.manage',
+    'money.read',
+    'money.manage',
   ],
   member: [
     'workspace.read',
@@ -70,6 +74,7 @@ export const ROLE_PERMISSIONS = {
     'inbox.use',
     'assistant.use',
     'appointments.write',
+    'money.read',
   ],
   org_owner: [
     'org.read',

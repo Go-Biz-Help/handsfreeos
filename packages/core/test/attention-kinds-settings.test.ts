@@ -27,7 +27,7 @@ import { ROLE_PERMISSIONS, WORKSPACE_ROLES } from '../src/permissions';
 import { uid } from './attention-fixtures';
 
 describe('attention kinds', () => {
-  it('lists the eight kinds in order', () => {
+  it('lists the ten kinds in order', () => {
     expect(ATTENTION_KINDS).toEqual([
       'hot_lead',
       'unanswered_lead',
@@ -37,6 +37,8 @@ describe('attention kinds', () => {
       'ai_approval',
       'customer_waiting',
       'overdue_task',
+      'estimate_waiting',
+      'invoice_overdue',
     ]);
   });
 
@@ -78,15 +80,32 @@ describe('attention kinds', () => {
   });
 
   it('lets every role act, but never hands off an AI approval or an overdue task', () => {
+    // Money is the exception: chasing it needs money.manage, which a member doesn't have.
+    const money: AttentionKind[] = ['estimate_waiting', 'invoice_overdue'];
     for (const role of WORKSPACE_ROLES)
       for (const kind of ATTENTION_KINDS)
-        for (const action of ATTENTION_ACTIONS)
+        for (const action of ATTENTION_ACTIONS) {
+          if (money.includes(kind) && (action === 'handle' || action === 'let_handle')) continue;
           expect(mayTakeAttentionAction(role, kind, action), `${role} ${kind}.${action}`).toBe(
             ATTENTION_PERMISSIONS[kind][action] !== null,
           );
+        }
     expect(ATTENTION_PERMISSIONS.ai_approval.let_handle).toBeNull();
     expect(ATTENTION_PERMISSIONS.overdue_task.let_handle).toBeNull();
     expect(mayTakeAttentionAction(null, 'hot_lead', 'snooze')).toBe(false);
+  });
+
+  it('shows a member the money cards but never the button that chases someone', () => {
+    for (const kind of ['estimate_waiting', 'invoice_overdue'] as AttentionKind[]) {
+      expect(ATTENTION_PERMISSIONS[kind].handle).toEqual(['records.write', 'money.manage']);
+      for (const role of ['owner', 'admin'] as const)
+        expect(mayTakeAttentionAction(role, kind, 'handle')).toBe(true);
+      expect(mayTakeAttentionAction('member', kind, 'handle')).toBe(false);
+      expect(mayTakeAttentionAction('member', kind, 'let_handle')).toBe(false);
+      // They can still pass it on, put it off or let it go.
+      for (const action of ['assign', 'snooze', 'dismiss'] as const)
+        expect(mayTakeAttentionAction('member', kind, action)).toBe(true);
+    }
   });
 
   it('runs only confirmation requests and follow-up nudges on their own', () => {
@@ -106,6 +125,9 @@ describe('attention kinds', () => {
       'ai_approval',
       'customer_waiting',
       'overdue_task',
+      // Money never chases itself.
+      'estimate_waiting',
+      'invoice_overdue',
     ];
     for (const kind of askFirst) expect(autoActionOf(kind)).toBeNull();
   });
@@ -120,6 +142,8 @@ describe('attention kinds', () => {
     expect(letHandleModeOf('customer_waiting')).toBe('ask');
     expect(letHandleModeOf('ai_approval')).toBe('none');
     expect(letHandleModeOf('overdue_task')).toBe('none');
+    expect(letHandleModeOf('estimate_waiting')).toBe('ask');
+    expect(letHandleModeOf('invoice_overdue')).toBe('ask');
   });
 });
 
@@ -132,6 +156,11 @@ describe('attention settings', () => {
     expect(s.unanswered).toEqual({ afterOpenMinutes: 15 });
     expect(s.stale).toEqual({ days: 7, stageDays: {} });
     expect(s.appointments).toEqual({ windowHours: 48 });
+    expect(s.money).toEqual({
+      estimateWaitingDays: 3,
+      invoiceOverdueDays: 1,
+      minBalanceCents: 0,
+    });
     expect(s.typicalJobValueCents).toBeNull();
     expect(s.auto).toEqual({ confirmRequests: true, nudges: false, nudgeReviewedAt: null });
     expect(s.nudge).toEqual({ template: DEFAULT_NUDGE_TEMPLATE, cooldownDays: 14 });

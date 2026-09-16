@@ -84,19 +84,12 @@ export function untilChip(code: ReasonCode, until: number, now: number): Attenti
   return { ...c, label: chipText(c, now) };
 }
 
-/** $18,500, or $18,500.50 when there are cents. */
-export function moneyLabel(cents: number): string {
-  const whole = cents % 100 === 0;
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-    minimumFractionDigits: whole ? 0 : 2,
-    maximumFractionDigits: whole ? 0 : 2,
-  }).format(cents / 100);
-}
+/** $18,500, or $18,500.50 when there are cents. The money core owns it now; this keeps the old name working. */
+export { money as moneyLabel } from '../money/format';
 
 /** Most telling first: a card shows the first three. */
 export const CHIP_ORDER: readonly ReasonCode[] = [
+  'amount',
   'value',
   'waiting',
   'ready_to_book',
@@ -117,6 +110,7 @@ export const CHIP_ORDER: readonly ReasonCode[] = [
   'approval',
   'expires_in',
   'overdue',
+  'not_viewed',
   'stage',
   'not_a_fit',
 ];

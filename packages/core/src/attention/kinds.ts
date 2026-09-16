@@ -16,6 +16,8 @@ export const ATTENTION_KINDS = [
   'ai_approval',
   'customer_waiting',
   'overdue_task',
+  'estimate_waiting',
+  'invoice_overdue',
 ] as const;
 export type AttentionKind = (typeof ATTENTION_KINDS)[number];
 
@@ -31,6 +33,8 @@ export const ATTENTION_KIND_LABELS: Readonly<Record<AttentionKind, string>> = {
   ai_approval: 'Approval',
   customer_waiting: 'Customer waiting',
   overdue_task: 'Overdue task',
+  estimate_waiting: 'Estimate waiting',
+  invoice_overdue: 'Invoice overdue',
 };
 
 /** For folded groups: "Unconfirmed appointments · 4 customers". */
@@ -43,6 +47,8 @@ export const ATTENTION_KIND_PLURALS: Readonly<Record<AttentionKind, string>> = {
   ai_approval: 'Approvals',
   customer_waiting: 'Customers waiting',
   overdue_task: 'Overdue tasks',
+  estimate_waiting: 'Estimates waiting',
+  invoice_overdue: 'Overdue invoices',
 };
 
 /**
@@ -58,6 +64,8 @@ export const ATTENTION_SUBJECT_OF = {
   ai_approval: 'approval',
   customer_waiting: 'conversation',
   overdue_task: 'task',
+  estimate_waiting: 'estimate',
+  invoice_overdue: 'invoice',
 } as const satisfies Record<AttentionKind, string>;
 export type AttentionSubjectType = (typeof ATTENTION_SUBJECT_OF)[AttentionKind];
 
@@ -79,6 +87,12 @@ export const ATTENTION_ACTIONS = ['handle', 'let_handle', 'assign', 'snooze', 'd
 export type AttentionAction = (typeof ATTENTION_ACTIONS)[number];
 
 const ITEM = 'records.write' satisfies Permission;
+
+/**
+ * Chasing money — following up an estimate, reminding someone about an invoice — is `money.manage`, the
+ * permission owners and admins have and members don't, so a member sees the card but no Send button.
+ */
+const MONEY = 'money.manage' satisfies Permission;
 
 /**
  * Every permission an action on a kind needs; null when the kind doesn't offer it.
@@ -151,6 +165,20 @@ export const ATTENTION_PERMISSIONS: Readonly<
     snooze: [ITEM],
     dismiss: [ITEM],
   },
+  estimate_waiting: {
+    handle: [ITEM, MONEY],
+    let_handle: [ITEM, MONEY],
+    assign: [ITEM],
+    snooze: [ITEM],
+    dismiss: [ITEM],
+  },
+  invoice_overdue: {
+    handle: [ITEM, MONEY],
+    let_handle: [ITEM, MONEY],
+    assign: [ITEM],
+    snooze: [ITEM],
+    dismiss: [ITEM],
+  },
 };
 
 /** The permissions an action on a kind needs, or null when the kind doesn't offer it. */
@@ -181,6 +209,8 @@ export const ATTENTION_HANDLE_LABELS: Readonly<Record<AttentionKind, string>> = 
   ai_approval: 'Review',
   customer_waiting: 'Reply',
   overdue_task: 'Open task',
+  estimate_waiting: 'Follow up',
+  invoice_overdue: 'Send reminder',
 };
 
 // ---- What runs on its own ----
@@ -193,6 +223,10 @@ export type AutoAction = (typeof AUTO_ACTIONS)[number];
  * The kinds that may run on their own, and what they do. A missing next action runs on its own only when it is
  * an overdue follow-up (the lead's next action has a time, and it has passed): a nudge. With no next action at
  * all, it asks first (a suggested one).
+ *
+ * Money is never here. An unreviewed message chasing money is the worst possible first automatic message, so
+ * both money kinds ask first — the per-document reminders a business agreed to in advance are a different
+ * thing, scheduled when the invoice is sent.
  */
 export const AUTO_KINDS: Readonly<Partial<Record<AttentionKind, AutoAction>>> = {
   unconfirmed_appointment: 'confirm_request',

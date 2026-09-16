@@ -4,10 +4,12 @@ import {
   Check,
   ChevronDown,
   Clock,
+  FileText,
   Flame,
   Hourglass,
   ListChecks,
   MessageCircle,
+  Receipt,
   ShieldCheck,
   Sparkles,
   UserPlus,
@@ -33,6 +35,8 @@ const KIND_LOOK: Readonly<
   ai_approval: { icon: Sparkles, tile: cn(AI_SOFT, AI_TEXT) },
   customer_waiting: { icon: MessageCircle, tile: 'bg-warning-soft text-warning-text' },
   overdue_task: { icon: ListChecks, tile: 'bg-warning-soft text-warning-text' },
+  estimate_waiting: { icon: FileText, tile: 'bg-warning-soft text-warning-text' },
+  invoice_overdue: { icon: Receipt, tile: 'bg-danger-soft text-danger-text' },
 };
 
 /** The kind label's colour where it isn't grey: hot leads in red, approvals in the AI teammate's violet. */

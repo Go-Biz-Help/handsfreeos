@@ -4,7 +4,9 @@
  */
 import * as aiApproval from './detectors/ai-approval';
 import * as customerWaiting from './detectors/customer-waiting';
+import * as estimateWaiting from './detectors/estimate-waiting';
 import * as hotLead from './detectors/hot-lead';
+import * as invoiceOverdue from './detectors/invoice-overdue';
 import * as missingNextAction from './detectors/missing-next-action';
 import * as overdueTask from './detectors/overdue-task';
 import * as staleOpportunity from './detectors/stale-opportunity';
@@ -28,6 +30,8 @@ export const DETECTORS = {
   ai_approval: aiApproval,
   customer_waiting: customerWaiting,
   overdue_task: overdueTask,
+  estimate_waiting: estimateWaiting,
+  invoice_overdue: invoiceOverdue,
 } as const satisfies { readonly [K in AttentionKind]: DetectorModule<never> };
 
 /** The facts one kind's detector reads. */

@@ -20871,6 +20871,14 @@
                           "overdue_task": {
                             "default": true,
                             "type": "boolean"
+                          },
+                          "estimate_waiting": {
+                            "default": true,
+                            "type": "boolean"
+                          },
+                          "invoice_overdue": {
+                            "default": true,
+                            "type": "boolean"
                           }
                         }
                       },
@@ -20939,6 +20947,30 @@
                             "type": "integer",
                             "minimum": 1,
                             "maximum": 168
+                          }
+                        }
+                      },
+                      "money": {
+                        "default": {},
+                        "type": "object",
+                        "properties": {
+                          "estimateWaitingDays": {
+                            "default": 3,
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 60
+                          },
+                          "invoiceOverdueDays": {
+                            "default": 1,
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 60
+                          },
+                          "minBalanceCents": {
+                            "default": 0,
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 10000000000
                           }
                         }
                       },
@@ -21065,6 +21097,14 @@
                             "overdue_task": {
                               "default": true,
                               "type": "boolean"
+                            },
+                            "estimate_waiting": {
+                              "default": true,
+                              "type": "boolean"
+                            },
+                            "invoice_overdue": {
+                              "default": true,
+                              "type": "boolean"
                             }
                           },
                           "required": [
@@ -21075,7 +21115,9 @@
                             "unconfirmed_appointment",
                             "ai_approval",
                             "customer_waiting",
-                            "overdue_task"
+                            "overdue_task",
+                            "estimate_waiting",
+                            "invoice_overdue"
                           ],
                           "additionalProperties": false
                         },
@@ -21161,6 +21203,35 @@
                           ],
                           "additionalProperties": false
                         },
+                        "money": {
+                          "type": "object",
+                          "properties": {
+                            "estimateWaitingDays": {
+                              "default": 3,
+                              "type": "integer",
+                              "minimum": 1,
+                              "maximum": 60
+                            },
+                            "invoiceOverdueDays": {
+                              "default": 1,
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 60
+                            },
+                            "minBalanceCents": {
+                              "default": 0,
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 10000000000
+                            }
+                          },
+                          "required": [
+                            "estimateWaitingDays",
+                            "invoiceOverdueDays",
+                            "minBalanceCents"
+                          ],
+                          "additionalProperties": false
+                        },
                         "typicalJobValueCents": {
                           "default": null,
                           "anyOf": [
@@ -21239,6 +21310,7 @@
                         "unanswered",
                         "stale",
                         "appointments",
+                        "money",
                         "typicalJobValueCents",
                         "auto",
                         "nudge",
@@ -30521,7 +30593,9 @@
                                               "unconfirmed_appointment",
                                               "ai_approval",
                                               "customer_waiting",
-                                              "overdue_task"
+                                              "overdue_task",
+                                              "estimate_waiting",
+                                              "invoice_overdue"
                                             ]
                                           },
                                           "chips": {
@@ -43087,7 +43161,7 @@
                     ]
                   },
                   "kinds": {
-                    "maxItems": 8,
+                    "maxItems": 10,
                     "type": "array",
                     "items": {
                       "type": "string",
@@ -43099,7 +43173,9 @@
                         "unconfirmed_appointment",
                         "ai_approval",
                         "customer_waiting",
-                        "overdue_task"
+                        "overdue_task",
+                        "estimate_waiting",
+                        "invoice_overdue"
                       ]
                     }
                   },
@@ -43155,7 +43231,9 @@
                               "unconfirmed_appointment",
                               "ai_approval",
                               "customer_waiting",
-                              "overdue_task"
+                              "overdue_task",
+                              "estimate_waiting",
+                              "invoice_overdue"
                             ]
                           },
                           "state": {
@@ -43285,6 +43363,7 @@
                                   "type": "string",
                                   "enum": [
                                     "value",
+                                    "amount",
                                     "waiting",
                                     "not_contacted",
                                     "auto_replied",
@@ -43304,6 +43383,7 @@
                                     "approval",
                                     "expires_in",
                                     "overdue",
+                                    "not_viewed",
                                     "stage",
                                     "not_a_fit"
                                   ]
@@ -43663,7 +43743,9 @@
                               "unconfirmed_appointment",
                               "ai_approval",
                               "customer_waiting",
-                              "overdue_task"
+                              "overdue_task",
+                              "estimate_waiting",
+                              "invoice_overdue"
                             ]
                           },
                           "state": {
@@ -43793,6 +43875,7 @@
                                   "type": "string",
                                   "enum": [
                                     "value",
+                                    "amount",
                                     "waiting",
                                     "not_contacted",
                                     "auto_replied",
@@ -43812,6 +43895,7 @@
                                     "approval",
                                     "expires_in",
                                     "overdue",
+                                    "not_viewed",
                                     "stage",
                                     "not_a_fit"
                                   ]
@@ -44171,7 +44255,9 @@
                               "unconfirmed_appointment",
                               "ai_approval",
                               "customer_waiting",
-                              "overdue_task"
+                              "overdue_task",
+                              "estimate_waiting",
+                              "invoice_overdue"
                             ]
                           },
                           "title": {
@@ -44447,7 +44533,9 @@
                               "unconfirmed_appointment",
                               "ai_approval",
                               "customer_waiting",
-                              "overdue_task"
+                              "overdue_task",
+                              "estimate_waiting",
+                              "invoice_overdue"
                             ]
                           },
                           "state": {
@@ -44577,6 +44665,7 @@
                                   "type": "string",
                                   "enum": [
                                     "value",
+                                    "amount",
                                     "waiting",
                                     "not_contacted",
                                     "auto_replied",
@@ -44596,6 +44685,7 @@
                                     "approval",
                                     "expires_in",
                                     "overdue",
+                                    "not_viewed",
                                     "stage",
                                     "not_a_fit"
                                   ]
@@ -45004,7 +45094,9 @@
                         "unconfirmed_appointment",
                         "ai_approval",
                         "customer_waiting",
-                        "overdue_task"
+                        "overdue_task",
+                        "estimate_waiting",
+                        "invoice_overdue"
                       ]
                     },
                     "mode": {
@@ -45348,6 +45440,14 @@
                             "overdue_task": {
                               "default": true,
                               "type": "boolean"
+                            },
+                            "estimate_waiting": {
+                              "default": true,
+                              "type": "boolean"
+                            },
+                            "invoice_overdue": {
+                              "default": true,
+                              "type": "boolean"
                             }
                           },
                           "required": [
@@ -45358,7 +45458,9 @@
                             "unconfirmed_appointment",
                             "ai_approval",
                             "customer_waiting",
-                            "overdue_task"
+                            "overdue_task",
+                            "estimate_waiting",
+                            "invoice_overdue"
                           ],
                           "additionalProperties": false
                         },
@@ -45444,6 +45546,35 @@
                           ],
                           "additionalProperties": false
                         },
+                        "money": {
+                          "type": "object",
+                          "properties": {
+                            "estimateWaitingDays": {
+                              "default": 3,
+                              "type": "integer",
+                              "minimum": 1,
+                              "maximum": 60
+                            },
+                            "invoiceOverdueDays": {
+                              "default": 1,
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 60
+                            },
+                            "minBalanceCents": {
+                              "default": 0,
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 10000000000
+                            }
+                          },
+                          "required": [
+                            "estimateWaitingDays",
+                            "invoiceOverdueDays",
+                            "minBalanceCents"
+                          ],
+                          "additionalProperties": false
+                        },
                         "typicalJobValueCents": {
                           "default": null,
                           "anyOf": [
@@ -45522,6 +45653,7 @@
                         "unanswered",
                         "stale",
                         "appointments",
+                        "money",
                         "typicalJobValueCents",
                         "auto",
                         "nudge",
