@@ -1,4 +1,5 @@
 import { withTeammate } from '../ai-team/index';
+import { withAttention } from '../attention/index';
 import { onChatReplySent } from '../chat/followup';
 import { onKnowledgeDocumentAdded } from '../knowledge/document';
 import { onKnowledgeScanRequested } from '../knowledge/scan';
@@ -11,6 +12,7 @@ import {
   onBookedTeamEmail,
   onCancelledNotice,
   onCancelledTeamEmail,
+  onConfirmedThanks,
   onMovedNotice,
   onReassignedNotice,
 } from './appointment-messages';
@@ -46,9 +48,11 @@ import { onSeatFreed } from './waitlist';
  * Event type → handler, or several run in order in one transaction (a retry runs them all again). Events
  * without a handler are marked done untouched. withTeammate adds the AI teammate's handlers (a customer's
  * message, a hand-back, an approved draft: ai-team/triggers.ts), then withWorkflows appends the workflow
- * dispatcher last to every event workflows start on, wait for or stop on (workflows/dispatch.ts).
+ * dispatcher to every event workflows start on, wait for or stop on (workflows/dispatch.ts), and withAttention
+ * appends the Action Center's reconcile last to every event that can change what needs attention
+ * (attention/index.ts).
  */
-export const handlers: HandlerMap = withWorkflows(
+const ownTeammateAndWorkflows: HandlerMap = withWorkflows(
   withTeammate({
     'invitation.created': onInvitationCreated,
     'invitation.resend_requested': onInvitationResendRequested,
@@ -92,6 +96,8 @@ export const handlers: HandlerMap = withWorkflows(
     'attendee.removed': [onAppointmentChanged, onCancelledNotice],
     'attendee.rescheduled': [onAppointmentChanged, onArmReminders, onMovedNotice],
     'attendee.cancelled': [onAppointmentChanged, onCancelledNotice, onCancelledTeamEmail],
+    // A customer who confirmed by replying C hears a short thank-you (handlers/appointment-messages.ts).
+    'attendee.confirmed': onConfirmedThanks,
     'session.published': onAppointmentChanged,
     'series.created': [onAppointmentChanged, onArmReminders],
     'series.cancelled': onAppointmentChanged,
@@ -104,3 +110,5 @@ export const handlers: HandlerMap = withWorkflows(
     'knowledge_pack.pushed': onPackPushed,
   }),
 );
+
+export const handlers: HandlerMap = withAttention(ownTeammateAndWorkflows);

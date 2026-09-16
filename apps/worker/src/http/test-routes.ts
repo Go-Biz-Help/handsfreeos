@@ -22,6 +22,7 @@ import { asWorker, rows, sql } from '@hfos/db/client';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { registerTeammateTestRoutes } from '../ai-team/test-routes';
+import { registerAttentionTestRoutes } from '../attention/test-routes';
 import { processJobs, type JobMap, type JobStats } from '../jobs';
 import { parseBody, type HttpDeps } from './common';
 
@@ -50,6 +51,8 @@ export function registerTestRoutes(app: FastifyInstance, deps: HttpDeps, test: T
   if (process.env.NODE_ENV === 'production') return;
   // The AI teammate's: run its due work now, use up its AI share, expire a draft (ai-team/test-routes.ts).
   registerTeammateTestRoutes(app, deps, test.jobs);
+  // The Action Center's: reconcile a business now or as of a time (attention/test-routes.ts).
+  registerAttentionTestRoutes(app, deps);
 
   app.post('/test/scheduled-jobs/run-due', async (req) => {
     const body = parseBody(RunDue, req.body ?? {});

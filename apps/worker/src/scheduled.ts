@@ -21,6 +21,7 @@ import {
 import { DIGEST_JOBS, DIGEST_PLAN_KEY, digestJobs } from './agency-digest';
 import { handoffAlertDue } from './ai-team/escalation';
 import { teammateJobs } from './ai-team/index';
+import { ATTENTION_JOBS, ATTENTION_PLAN_KEY, attentionJobs } from './attention/index';
 import { appointmentNotice } from './booking/notices';
 import { appointmentReminder } from './booking/reminders';
 import { waitlistOfferExpire, waitlistOfferJob } from './booking/waitlist';
@@ -324,6 +325,8 @@ export const jobs: JobMap = {
   ...teammateJobs,
   // The website chat: a reply still unread after 10 minutes goes by email or text.
   [CHAT_JOBS.unreadFollowUp]: chatUnreadFollowUp,
+  // The Action Center: the hourly plan and each business's sweep, exact-time rechecks, snoozes running out.
+  ...attentionJobs,
 };
 
 /** Periodic jobs exist exactly once (their dedupe key keeps one pending row); the first run is an hour out. */
@@ -349,6 +352,14 @@ export async function ensureRecurringJobs(services: WorkerServices): Promise<voi
     await scheduleJob(tx, {
       kind: DIGEST_JOBS.plan,
       dedupeKey: DIGEST_PLAN_KEY,
+      runAt,
+      payload: {},
+      workspaceId: null,
+      organizationId: null,
+    });
+    await scheduleJob(tx, {
+      kind: ATTENTION_JOBS.plan,
+      dedupeKey: ATTENTION_PLAN_KEY,
       runAt,
       payload: {},
       workspaceId: null,
