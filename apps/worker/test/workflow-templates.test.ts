@@ -143,9 +143,29 @@ beforeAll(async () => {
       name: 'Estimate follow-up',
       from: 'recipe',
       recipeKey: 'estimate_follow_up',
-      mapping: { estimate_stage: stageA },
     })
   ).workflowId;
+  // The recipe runs on the estimate going out (M9) and names nothing of Lone Star's own, so its trigger is
+  // pointed at one of their stages here. A template's whole job is swapping a real id for a placeholder and
+  // back again, so the source workflow has to carry one.
+  await run(w, workflowSaveDraft, {
+    workspaceId: w.workspaceId,
+    workflowId: sourceId,
+    baseRevision: 1,
+    ops: [
+      {
+        op: 'set_trigger',
+        trigger: {
+          kind: 'event',
+          event: 'lead.stage_changed',
+          filters: {
+            match: 'all',
+            conditions: [{ field: 'trigger.to_stage_id', op: 'eq', value: stageA }],
+          },
+        },
+      },
+    ],
+  });
   templateId = (
     await run(w, workflowTemplateCreateFromWorkflow, {
       organizationId: w.organizationId,
