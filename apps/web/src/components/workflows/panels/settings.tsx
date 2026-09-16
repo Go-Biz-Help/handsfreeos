@@ -10,6 +10,7 @@ const STOP_LABELS: Record<StopOn, string> = {
   booking: 'Book an appointment',
   lead_won: 'Their lead is won',
   lead_lost: 'Their lead is lost',
+  estimate_accepted: 'Approve their estimate',
 };
 
 /** Re-entry, stopping early, quiet hours, consent and how long a run may last. */

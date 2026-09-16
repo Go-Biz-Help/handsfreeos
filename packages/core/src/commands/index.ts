@@ -246,6 +246,20 @@ import {
   attentionUnsnooze,
 } from './attention';
 import { attendeeConfirm, attendeeConfirmOnline } from './attendee-confirm';
+import { paymentConnectionCommands } from './payment-connection';
+import {
+  moneySaveSettings,
+  planArchive,
+  planCreate,
+  planUpdate,
+  productArchive,
+  productCreate,
+  productUpdate,
+} from './money-catalog';
+import { estimateCommands } from './estimate';
+import { invoiceCommands } from './invoice';
+import { paymentCommands } from './payment';
+import { subscriptionCommands } from './subscription';
 
 export {
   conversationAssign,
@@ -611,6 +625,18 @@ export const commands: readonly CommandDef[] = [
   attentionRecordAuto,
   attendeeConfirm,
   attendeeConfirmOnline,
+  productCreate,
+  productUpdate,
+  productArchive,
+  planCreate,
+  planUpdate,
+  planArchive,
+  ...paymentConnectionCommands,
+  ...estimateCommands,
+  ...invoiceCommands,
+  ...paymentCommands,
+  ...subscriptionCommands,
+  moneySaveSettings,
 ] as unknown as readonly CommandDef[];
 export { callPreview } from './call';
 export { attendeeFromPerson } from './appointment';
@@ -630,3 +656,10 @@ export * from './chat-widget';
 export * from './chat';
 export * from './attention';
 export * from './attendee-confirm';
+export * from './payment-connection';
+export * from './money-catalog';
+export * from './estimate';
+export * from './invoice';
+export * from './payment';
+export * from './subscription';
+export * from './money-shared';

@@ -17,10 +17,12 @@ import {
   PAYMENT_TERMS,
   readMoneySettings,
   reminderSchedule,
+  estimateExpiresOn,
   TERMS_DAYS,
   type MoneyIssueCode,
   type MoneySettings,
 } from '../src/money/index';
+import { addDays } from '../src/calendar/engine/zoned';
 
 const settings = (patch: Parameters<typeof applyMoneyPatch>[1] = {}): MoneySettings =>
   applyMoneyPatch(defaultMoneySettings(), patch);
@@ -31,12 +33,12 @@ describe('the defaults', () => {
     expect(d.tax).toEqual({ rateBp: 0, name: 'Sales tax', newProductsTaxable: true });
     expect(d.numbering.estimate).toEqual({ prefix: 'EST-', next: 1_001, pad: 4 });
     expect(d.numbering.invoice).toEqual({ prefix: 'INV-', next: 1_001, pad: 4 });
-    expect(d.terms).toBe('due_on_receipt');
-    expect(d.estimateGoodForDays).toBe(30);
+    expect(d.terms).toBe('net_14');
+    expect(d.estimateGoodForDays).toBe(14);
     expect(d.deposit).toEqual({ kind: 'none', percentBp: 2_500, amountCents: 0 });
     expect(d.bankTransfer).toBe(true);
     expect(d.reminders).toEqual({
-      beforeDueDays: [],
+      beforeDueDays: [3],
       onDue: true,
       afterDueDays: [3, 7, 14],
       estimateAfterDays: 3,
@@ -47,6 +49,29 @@ describe('the defaults', () => {
 
   it('start with nothing to argue about', () => {
     expect(checkMoneySettings(defaultMoneySettings())).toEqual([]);
+  });
+
+  it('hang together: two weeks to pay, reminded inside it, chased after it', () => {
+    const d = defaultMoneySettings();
+    const issued = '2026-09-16';
+    const due = dueDateFor(d.terms, issued);
+    expect(due).toBe('2026-09-30');
+    // Every reminder lands after the invoice goes out and on the right side of the due day.
+    const days = reminderSchedule(d).map((step) => ({
+      ...step,
+      on: addDays(due, step.when === 'before' ? -step.days : step.days),
+    }));
+    expect(days.map((x) => x.on)).toEqual([
+      '2026-09-27',
+      '2026-09-30',
+      '2026-10-03',
+      '2026-10-07',
+      '2026-10-14',
+    ]);
+    for (const x of days) expect(x.on >= issued).toBe(true);
+    // And an estimate is nudged well inside the fortnight it stays good for.
+    expect(d.reminders.estimateAfterDays).toBeLessThan(d.estimateGoodForDays);
+    expect(estimateExpiresOn(issued, d.estimateGoodForDays)).toBe('2026-09-30');
   });
 
   it('preview the first invoice number', () => {
@@ -92,19 +117,21 @@ describe('the reminder schedule', () => {
 
 describe('reading stored settings', () => {
   it('keeps what passes and defaults what doesn’t, without throwing', () => {
+    // Each kept value is deliberately *not* the default, so this can tell keeping from falling back.
     const read = readMoneySettings({
       tax: { rateBp: 'eight', name: 'State tax' },
-      terms: 'net_14',
+      terms: 'net_30',
       estimateGoodForDays: 9_999,
       reminders: { onDue: false, afterDueDays: [5] },
       somethingNewer: { unknown: true },
     });
-    expect(read.tax.rateBp).toBe(0);
-    expect(read.tax.name).toBe('State tax');
-    expect(read.terms).toBe('net_14');
-    expect(read.estimateGoodForDays).toBe(30);
-    expect(read.reminders.onDue).toBe(false);
-    expect(read.reminders.afterDueDays).toEqual([5]);
+    expect(read.tax.rateBp).toBe(0); // 'eight' isn't a rate: back to the default
+    expect(read.tax.name).toBe('State tax'); // kept
+    expect(read.terms).toBe('net_30'); // kept
+    expect(read.estimateGoodForDays).toBe(14); // over a year: back to the default
+    expect(read.reminders.onDue).toBe(false); // kept
+    expect(read.reminders.afterDueDays).toEqual([5]); // kept
+    expect(read.reminders.beforeDueDays).toEqual([3]); // untouched, so the default
   });
 
   it('falls all the way back for nonsense', () => {
@@ -187,12 +214,24 @@ describe('settings that fight', () => {
   });
 
   it('says plainly why a before-due reminder is pointless on due-on-receipt terms', () => {
-    const s = settings({ reminders: { beforeDueDays: [3] } });
+    // The default reminder, kept by a business that then switches to payment on the day.
+    const s = settings({ terms: 'due_on_receipt' });
+    expect(s.reminders.beforeDueDays).toEqual([3]);
     const found = issue(s, 'reminder_before_sending');
     expect(found.message).toBe(
       'Invoices are due on receipt, so a reminder before the due date never goes out',
     );
     expect(found.fixes[0]?.label).toBe('Only remind from the due date');
+    for (const fix of found.fixes)
+      expect(codesOf(applyMoneyPatch(s, fix.patch))).not.toContain('reminder_before_sending');
+  });
+
+  it('leaves the fortnight’s reminder alone: three days before Net 14 is inside it', () => {
+    expect(codesOf(settings({ terms: 'net_14', reminders: { beforeDueDays: [3] } }))).toEqual([]);
+    // A fortnight out on Net 14 lands on the day it was sent, which is no reminder at all.
+    expect(codesOf(settings({ terms: 'net_14', reminders: { beforeDueDays: [14] } }))).toEqual([
+      'reminder_before_sending',
+    ]);
   });
 
   it('spots an estimate nudge that lands after the estimate expires', () => {
@@ -205,13 +244,26 @@ describe('settings that fight', () => {
       expect(codesOf(applyMoneyPatch(s, fix.patch))).not.toContain('nudge_after_expiry');
   });
 
+  it('measures the nudge against the fortnight an estimate now stays good', () => {
+    // Three days into fourteen: nothing to say.
+    expect(codesOf(settings({ reminders: { estimateAfterDays: 13 } }))).toEqual([]);
+    // On the day it stops being good, the nudge is too late to be worth sending.
+    expect(codesOf(settings({ reminders: { estimateAfterDays: 14 } }))).toEqual([
+      'nudge_after_expiry',
+    ]);
+    // With nothing sooner worth suggesting, the only way out is to stop nudging.
+    const short = settings({ estimateGoodForDays: 2, reminders: { estimateAfterDays: 5 } });
+    expect(issue(short, 'nudge_after_expiry').fixes.map((f) => f.id)).toEqual(['nudge_off']);
+  });
+
   it('reports several at once, always in the same order', () => {
     const s = settings({
       deposit: { kind: 'amount', amountCents: 0 },
       tax: { rateBp: 825, newProductsTaxable: false },
       numbering: { estimate: { prefix: 'INV-' } },
+      terms: 'net_7',
       estimateGoodForDays: 2,
-      reminders: { beforeDueDays: [3], onDue: true, afterDueDays: [7], estimateAfterDays: 5 },
+      reminders: { beforeDueDays: [10], onDue: true, afterDueDays: [7], estimateAfterDays: 5 },
     });
     expect(codesOf(s)).toEqual([
       'deposit_without_amount',

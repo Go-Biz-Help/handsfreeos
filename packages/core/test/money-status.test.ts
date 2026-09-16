@@ -10,7 +10,7 @@ import {
   canRefundMove,
   ESTIMATE_STATUSES,
   ESTIMATE_TRANSITIONS,
-  estimateExpiresAt,
+  estimateExpiresOn,
   estimateIsOpen,
   estimateMoveProblem,
   estimateState,
@@ -30,7 +30,7 @@ import {
   type InvoiceStateFacts,
   type InvoiceStatus,
 } from '../src/money/index';
-import { at, TZ } from './attention-fixtures';
+import { at, iso, TZ } from './attention-fixtures';
 
 const pairs = <T extends string>(all: readonly T[]): [T, T][] =>
   all.flatMap((from) => all.filter((to) => to !== from).map((to) => [from, to] as [T, T]));
@@ -117,16 +117,23 @@ describe('a payment’s status', () => {
     expect(canPaymentMove('processing', 'succeeded')).toBe(true);
     expect(canPaymentMove('processing', 'requires_payment')).toBe(false);
     expect(canPaymentMove('succeeded', 'failed')).toBe(false);
-    expect(canPaymentMove('failed', 'succeeded')).toBe(false);
     expect(paymentMoveProblem('succeeded', 'processing')).toBe(
       'A payment’s status only moves forward.',
     );
   });
 
-  it('ends at succeeded or failed', () => {
+  // A bank transfer can soft-fail and settle days later, so failed is not the end of it: the database's
+  // rank in 0047 puts succeeded above failed for exactly this, and core says the same.
+  it('lets a soft-failed bank transfer still settle', () => {
+    expect(canPaymentMove('failed', 'succeeded')).toBe(true);
+    expect(canPaymentMove('failed', 'processing')).toBe(false);
+    expect(canPaymentMove('failed', 'requires_payment')).toBe(false);
+  });
+
+  it('ends at succeeded', () => {
     for (const to of PAYMENT_STATUSES) {
       expect(canPaymentMove('succeeded', to)).toBe(false);
-      expect(canPaymentMove('failed', to)).toBe(false);
+      expect(canPaymentMove('failed', to)).toBe(to === 'succeeded');
     }
     expect(canRefundMove('pending', 'succeeded')).toBe(true);
     expect(canRefundMove('succeeded', 'pending')).toBe(false);
@@ -220,21 +227,33 @@ describe('overdue', () => {
 });
 
 describe('an estimate’s expiry', () => {
-  it('is so many days after it was sent', () => {
-    const sent = at('2026-09-15', '10:00').toISOString();
-    expect(estimateExpiresAt(sent, 30)).toBe(at('2026-10-15', '10:00').toISOString());
+  it('is a day, so many days after it went out — the business’s default or the document’s own', () => {
+    // estimates.expires_on: a date, like an invoice's due_on, not a moment fourteen days later to the minute.
+    expect(estimateExpiresOn('2026-09-16', 14)).toBe('2026-09-30');
+    expect(estimateExpiresOn('2026-09-16', 30)).toBe('2026-10-16');
+    expect(estimateExpiresOn('2026-09-16', 0)).toBe('2026-09-16');
   });
 
-  it('reads as expired the moment it passes, before the job gets to it', () => {
-    const expiresAt = at('2026-10-15', '10:00').toISOString();
+  it('stays good until that day is over where the business is', () => {
+    // The same bridge from a stored day to a moment that an invoice's due day uses.
+    const expiresAt = new Date(overdueFrom('2026-09-30', TZ)).toISOString();
     const facts = { status: 'sent' as EstimateStatus, expiresAt, viewedAt: null };
-    expect(estimateState(facts, at('2026-10-15', '09:59'))).toBe('sent');
-    expect(estimateState(facts, at('2026-10-15', '10:00'))).toBe('expired');
-    expect(estimateState({ ...facts, viewedAt: expiresAt }, at('2026-10-01', '09:00'))).toBe(
-      'viewed',
-    );
+    expect(estimateState(facts, at('2026-09-30', '23:59'))).toBe('sent');
+    expect(estimateState(facts, at('2026-10-01', '00:00'))).toBe('expired');
+  });
+
+  it('reads as opened once they have looked, and leaves an answered one alone', () => {
+    const expiresAt = new Date(overdueFrom('2026-09-30', TZ)).toISOString();
+    const facts = { status: 'sent' as EstimateStatus, expiresAt, viewedAt: null };
+    expect(
+      estimateState(
+        { ...facts, viewedAt: iso(at('2026-09-20', '08:00')) },
+        at('2026-09-21', '09:00'),
+      ),
+    ).toBe('viewed');
     expect(estimateState({ ...facts, status: 'accepted' }, at('2026-11-01', '09:00'))).toBe(
       'accepted',
     );
+    expect(estimateState({ ...facts, expiresAt: null }, at('2027-01-01', '09:00'))).toBe('sent');
   });
 });

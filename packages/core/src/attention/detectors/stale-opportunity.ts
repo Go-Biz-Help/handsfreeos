@@ -2,9 +2,13 @@
  * A stale opportunity: an open lead with no real contact, either way, for the stale days of its stage (7 by
  * default). Counts from its last contact, or from when it came in if there's been none. Imports count too (the
  * list folds them into a group). A new contact clears it, and it reopens when that goes stale in turn.
+ *
+ * A lead with an estimate still out raises nothing here: the estimate's own card says the same thing more
+ * exactly and offers the follow-up, and two cards for one job is noise.
  */
 import { chip, sinceChip } from '../chips';
 import {
+  leadHasEstimateOut,
   leadIsOpen,
   leadProbability,
   leadValue,
@@ -23,6 +27,8 @@ export interface StaleOpportunityFacts {
 function assess(f: StaleOpportunityFacts, settings: AttentionSettings, now: number): Assessment {
   const { lead, business } = f;
   if (!leadIsOpen(lead)) return null;
+  // An estimate of theirs is out and unanswered: its own card is the one to act on.
+  if (leadHasEstimateOut(lead)) return null;
   const from = ms(lead.lastContactAt ?? lead.createdAt);
   const due = from + staleDaysFor(settings, lead.stage.id) * DAY;
   if (now < due) return { wakeAt: due };

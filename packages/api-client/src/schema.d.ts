@@ -1397,6 +1397,126 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/estimate.convert": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Turn an estimate into an invoice. The lines are copied as they were agreed and the deposit is carried through as what to ask for first; ask for the deposit on its own and it is raised as a one-line deposit invoice instead.
+         * @description Risk level 2. Requires money.manage. Emits estimate.converted.
+         */
+        post: operations["command_estimate_convert"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/estimate.create": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start an estimate for a customer: its lines from the catalogue or typed by hand, a discount, and what to ask for up front if they say yes. It stays a draft until it is sent.
+         * @description Risk level 1. Requires money.manage. Emits estimate.created.
+         */
+        post: operations["command_estimate_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/estimate.mark_accepted": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Record that the customer said yes — on the phone, or in person. It is marked as recorded by staff, in your name, and never as the customer’s own approval.
+         * @description Risk level 2. Requires money.manage. Emits estimate.accepted.
+         */
+        post: operations["command_estimate_mark_accepted"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/estimate.send": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Send an estimate to the customer. It takes the next number, stamps when it went out and freezes: from here its number, its tax, its totals and its lines are what the customer was shown. The worker sends the text or the email with the link.
+         * @description Risk level 2. Requires money.manage. Emits estimate.sent.
+         */
+        post: operations["command_estimate_send"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/estimate.update": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Save a draft estimate: its header and all of its lines at once, against the revision you loaded. Someone else’s save in between is kept and yours is refused. A sent estimate can’t be edited — void it and reissue.
+         * @description Risk level 1. Requires money.manage. Emits estimate.updated.
+         */
+        post: operations["command_estimate_update"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/estimate.void": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Withdraw an estimate. Its number is kept and never used again — the gap is the record — and nothing about it can change afterwards.
+         * @description Risk level 2. Requires money.manage. Emits estimate.voided.
+         */
+        post: operations["command_estimate_void"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/file.begin_upload": {
         parameters: {
             query?: never;
@@ -1571,6 +1691,106 @@ export interface paths {
          * @description Risk level 2. Requires invitations.revoke. Emits invitation.revoked.
          */
         post: operations["command_invitation_revoke"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/invoice.create": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start an invoice for a customer: its lines, a discount, what it is for and which connected account it is paid into. It stays a draft until it is sent. A deposit at booking, a plan’s cycle and a quick payment all make one of these.
+         * @description Risk level 1. Requires money.manage. Emits invoice.created.
+         */
+        post: operations["command_invoice_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/invoice.record_cash_payment": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Record money taken off the system: cash, a cheque, or another way. It lands as a payment in your name and the invoice recounts itself — nobody marks an invoice paid by hand.
+         * @description Risk level 2. Requires money.manage. Emits payment.recorded, invoice.paid.
+         */
+        post: operations["command_invoice_record_cash_payment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/invoice.send": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Send an invoice to the customer. It takes the next number, works out its due date from the business’s terms if it hasn’t got one, stamps when it went out and freezes. The worker sends the text or the email with the link they pay on.
+         * @description Risk level 2. Requires money.manage. Emits invoice.sent.
+         */
+        post: operations["command_invoice_send"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/invoice.update": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Save a draft invoice: its header and all of its lines at once, against the revision you loaded. A sent invoice can’t be edited — void it and reissue, so it says the same thing next year.
+         * @description Risk level 1. Requires money.manage. Emits invoice.updated.
+         */
+        post: operations["command_invoice_update"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/invoice.void": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Withdraw an invoice. Its number is kept and never used again. A paid invoice is refunded instead: the money moved, and the ledger has to say so.
+         * @description Risk level 2. Requires money.manage. Emits invoice.voided.
+         */
+        post: operations["command_invoice_void"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2177,6 +2397,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/money.save_settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Save the money settings: the sales tax and what it is called, invoice and estimate numbering, payment terms and notes, how long an estimate stays good, the deposit to ask for, whether bank transfer is offered, and when reminders go out. The next number only ever moves forward.
+         * @description Risk level 2. Requires money.manage. Emits money.settings_saved.
+         */
+        post: operations["command_money_save_settings"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/organization.create": {
         parameters: {
             query?: never;
@@ -2191,6 +2431,106 @@ export interface paths {
          * @description Risk level 1. Emits organization.created, workspace.created.
          */
         post: operations["command_organization_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/payment_connection.connect": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start connecting a Stripe or Square account to be paid into. Returns a one-time state; the browser signs in at the provider through the worker. A business can have several accounts connected at once.
+         * @description Risk level 2. Requires money.manage. Emits payment_connection.connect_started.
+         */
+        post: operations["command_payment_connection_connect"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/payment_connection.disconnect": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Disconnect a payment account. HandsFreeOS forgets the sign-in and stops taking money into it; payments already on their way still settle, and reconnecting the same account restores refunds on old payments. Plans billing through it keep billing at the provider, so this refuses and lists them until you say you know.
+         * @description Risk level 3. Requires money.manage. Emits payment_connection.disconnected, subscription.unmanaged.
+         */
+        post: operations["command_payment_connection_disconnect"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/payment_connection.set_default": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Choose which connected account new invoices are paid into. One default per business and environment.
+         * @description Risk level 1. Requires money.manage. Emits payment_connection.default_set.
+         */
+        post: operations["command_payment_connection_set_default"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/payment_connection.set_label": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Rename a connected payment account, so a business tells its own accounts apart.
+         * @description Risk level 1. Requires money.manage. Emits payment_connection.renamed.
+         */
+        post: operations["command_payment_connection_set_label"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/payment.refund": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Give money back on a payment, all of it or part. The worker calls the provider and records what came back; the invoice recounts itself. Refused when the account it was taken through is no longer connected — reconnect it, or refund it at the provider.
+         * @description Risk level 3. Requires money.manage. Emits refund.requested.
+         */
+        post: operations["command_payment_refund"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2431,6 +2771,126 @@ export interface paths {
          * @description Risk level 1. Requires pipelines.manage. Emits pipeline.updated.
          */
         post: operations["command_pipeline_update"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/plan.archive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Stop selling a maintenance plan, or put it back. Customers already on it keep billing: their subscription holds its own copy.
+         * @description Risk level 1. Requires money.manage. Emits plan.archived, plan.restored.
+         */
+        post: operations["command_plan_archive"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/plan.create": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add a maintenance plan to sell: what it costs, how often it bills and what the customer gets. Selling it takes a copy, so repricing the plan never reprices a customer already on it.
+         * @description Risk level 1. Requires money.manage. Emits plan.created.
+         */
+        post: operations["command_plan_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/plan.update": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Change a maintenance plan in the catalogue. Customers already on it keep the price they were sold.
+         * @description Risk level 1. Requires money.manage. Emits plan.updated.
+         */
+        post: operations["command_plan_update"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/product.archive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Stop selling something, or put it back. Nothing in the catalogue is ever deleted: archiving keeps every old document readable, and frees the name for a new item.
+         * @description Risk level 1. Requires money.manage. Emits product.archived, product.restored.
+         */
+        post: operations["command_product_archive"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/product.create": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add something to sell: a part, work done, or a charge like a call-out fee, with its unit price, what one unit is called and whether it is taxed. It can be the price of a bookable service.
+         * @description Risk level 1. Requires money.manage. Emits product.created.
+         */
+        post: operations["command_product_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/product.update": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Change something in the catalogue. Repricing it never reprices a document that has already gone out: every line keeps what the product said when it was added.
+         * @description Risk level 1. Requires money.manage. Emits product.updated.
+         */
+        post: operations["command_product_update"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2751,6 +3211,86 @@ export interface paths {
          * @description Risk level 2. Requires pipelines.manage. Emits stage.updated.
          */
         post: operations["command_stage_update"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/subscription.cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * End a plan. The worker cancels it at the provider, so nothing is billed again; what has already been billed stays on the ledger.
+         * @description Risk level 3. Requires money.manage. Emits subscription.cancelled.
+         */
+        post: operations["command_subscription_cancel"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/subscription.pause": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Pause a plan: nothing is billed until it is resumed. The worker pauses it at the provider too.
+         * @description Risk level 2. Requires money.manage. Emits subscription.paused.
+         */
+        post: operations["command_subscription_pause"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/subscription.resume": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start a paused plan billing again, from the next cycle.
+         * @description Risk level 2. Requires money.manage. Emits subscription.resumed.
+         */
+        post: operations["command_subscription_resume"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/subscription.start": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Put a customer on a maintenance plan. The plan is copied as it is sold today, so repricing the catalogue never reprices them. It starts as a draft; the worker sets it up at the provider and the first cycle makes it live.
+         * @description Risk level 3. Requires money.manage. Emits subscription.started.
+         */
+        post: operations["command_subscription_start"];
         delete?: never;
         options?: never;
         head?: never;
@@ -4217,6 +4757,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/queries/estimate.get": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * One estimate: its lines, its totals, what the customer did with it (opened, approved with the name they typed, declined) and the invoices raised from it.
+         * @description Requires money.read.
+         */
+        post: operations["query_estimate_get"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/estimate.list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Estimates, newest first, with what each comes to and where it stands (opened, approved, declined, expired). A member sees the ones on the leads they own; owners and admins see them all.
+         * @description Requires money.read.
+         */
+        post: operations["query_estimate_list"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/queries/file.list": {
         parameters: {
             query?: never;
@@ -4331,6 +4911,46 @@ export interface paths {
          * @description Any signed-in user.
          */
         post: operations["query_invitation_preview"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/invoice.get": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * One invoice: its lines, its totals, what has been paid and refunded, and every payment against it with its method and where it stands.
+         * @description Requires money.read.
+         */
+        post: operations["query_invoice_get"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/invoice.list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Invoices, newest first, with what is owed and where each stands — paying while a bank transfer settles, overdue once it is late. A member sees the ones for the visits they worked and the leads they own.
+         * @description Requires money.read.
+         */
+        post: operations["query_invoice_list"];
         delete?: never;
         options?: never;
         head?: never;
@@ -4557,6 +5177,106 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/queries/money.for_record": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The money on one lead, customer or visit: its estimates, its invoices and the plans that customer is on, with what is still owed and what has been collected. The member rule applies here too.
+         * @description Requires money.read.
+         */
+        post: operations["query_money_for_record"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/money.settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The money settings, every default filled in: the sales tax and what it is called, numbering with a live preview of the next number, terms and notes, how long an estimate stays good, the deposit and the reminders.
+         * @description Requires money.manage.
+         */
+        post: operations["query_money_settings"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/money.summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * What the business is owed, what is late, what is on its way, what it has collected lately, what is quoted and out, and what its plans bill each month. Owners and admins only: the whole business’s receivables are exactly what the member rule withholds.
+         * @description Requires money.manage.
+         */
+        post: operations["query_money_summary"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/payment_connection.list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The payment accounts a business has connected, which one is the default, what each can do and how many plans still bill through it. Never a token: those columns are not granted to people at all.
+         * @description Requires money.manage.
+         */
+        post: operations["query_payment_connection_list"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/payment.list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Payments, newest first: what was taken, how, where it stands and what it was refunded. A member sees the payments on the invoices they can see.
+         * @description Requires money.read.
+         */
+        post: operations["query_payment_list"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/queries/person.get": {
         parameters: {
             query?: never;
@@ -4637,6 +5357,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/queries/plan.list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The maintenance plans a business sells: what each costs, how often it bills and what it includes.
+         * @description Requires money.read.
+         */
+        post: operations["query_plan_list"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/product.list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The things a business sells: parts, work and charges, with their unit price, what a unit is called and whether it is taxed. Archived ones are left out unless you ask for them.
+         * @description Requires money.read.
+         */
+        post: operations["query_product_list"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/queries/resource.list": {
         parameters: {
             query?: never;
@@ -4691,6 +5451,46 @@ export interface paths {
          * @description Requires workspace.read.
          */
         post: operations["query_service_list"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/subscription.get": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * One plan a customer is on, and the invoices its cycles have raised.
+         * @description Requires money.manage.
+         */
+        post: operations["query_subscription_get"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/subscription.list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The maintenance plans customers are on: what each bills, when it next bills and where it stands. A plan is money a business is owed every month, so it is owners and admins only.
+         * @description Requires money.manage.
+         */
+        post: operations["query_subscription_list"];
         delete?: never;
         options?: never;
         head?: never;
@@ -6142,7 +6942,7 @@ export interface operations {
                         };
                         /** @default {} */
                         money?: {
-                            /** @default 3 */
+                            /** @default 5 */
                             estimateWaitingDays?: number;
                             /** @default 1 */
                             invoiceOverdueDays?: number;
@@ -6231,7 +7031,7 @@ export interface operations {
                                 unconfirmed_appointment: boolean;
                             };
                             money: {
-                                /** @default 3 */
+                                /** @default 5 */
                                 estimateWaitingDays: number;
                                 /** @default 1 */
                                 invoiceOverdueDays: number;
@@ -8146,6 +8946,336 @@ export interface operations {
             };
         };
     };
+    command_estimate_convert: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    connectionId?: string | null;
+                    dueOn?: string | null;
+                    /** Format: uuid */
+                    estimateId: string;
+                    /**
+                     * @default standard
+                     * @enum {string}
+                     */
+                    purpose?: "standard" | "deposit";
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        depositCents: number;
+                        /** Format: uuid */
+                        estimateId: string;
+                        /** Format: uuid */
+                        invoiceId: string;
+                        /** @enum {string} */
+                        purpose: "standard" | "deposit" | "balance" | "setup_fee" | "subscription" | "quick";
+                        totalCents: number;
+                    };
+                };
+            };
+        };
+    };
+    command_estimate_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    assigneeUserId?: string | null;
+                    deposit?: {
+                        amountCents?: number;
+                        /**
+                         * @default none
+                         * @enum {string}
+                         */
+                        kind?: "none" | "percent" | "amount";
+                        percentBp?: number;
+                    };
+                    discount?: {
+                        amountCents?: number;
+                        /**
+                         * @default none
+                         * @enum {string}
+                         */
+                        kind?: "none" | "percent" | "amount";
+                        percentBp?: number;
+                    };
+                    expiresOn?: string | null;
+                    leadId?: string | null;
+                    /** @default [] */
+                    lines?: {
+                        /** @default null */
+                        description?: string | null;
+                        /** @default 0 */
+                        discountCents?: number;
+                        name: string;
+                        /** @default null */
+                        productId?: string | null;
+                        quantity: number;
+                        /** @default true */
+                        taxable?: boolean;
+                        /** @default each */
+                        unitLabel?: string;
+                        unitPriceCents: number;
+                    }[];
+                    notes?: string | null;
+                    /** Format: uuid */
+                    personId: string;
+                    title?: string | null;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changed: boolean;
+                        /** Format: uuid */
+                        estimateId: string;
+                        number: string | null;
+                        revision: number;
+                        /** @enum {string} */
+                        status: "draft" | "sent" | "accepted" | "declined" | "expired" | "void";
+                        totalCents: number;
+                    };
+                };
+            };
+        };
+    };
+    command_estimate_mark_accepted: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    estimateId: string;
+                    name: string;
+                    note?: string | null;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: date-time */
+                        acceptedAt: string;
+                        acceptedHash: string;
+                        acceptedName: string;
+                        /** @enum {string} */
+                        acceptedVia: "link" | "staff";
+                        /** Format: uuid */
+                        estimateId: string;
+                        /** @enum {string} */
+                        status: "draft" | "sent" | "accepted" | "declined" | "expired" | "void";
+                        wording: string;
+                    };
+                };
+            };
+        };
+    };
+    command_estimate_send: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /**
+                     * @default [
+                     *       "email"
+                     *     ]
+                     */
+                    channels?: ("sms" | "email")[];
+                    /** Format: uuid */
+                    estimateId: string;
+                    /** @default null */
+                    message?: string | null;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changed: boolean;
+                        /** Format: uuid */
+                        estimateId: string;
+                        number: string | null;
+                        revision: number;
+                        /** @enum {string} */
+                        status: "draft" | "sent" | "accepted" | "declined" | "expired" | "void";
+                        totalCents: number;
+                    };
+                };
+            };
+        };
+    };
+    command_estimate_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    assigneeUserId?: string | null;
+                    baseRevision: number;
+                    deposit?: {
+                        amountCents?: number;
+                        /**
+                         * @default none
+                         * @enum {string}
+                         */
+                        kind?: "none" | "percent" | "amount";
+                        percentBp?: number;
+                    };
+                    discount?: {
+                        amountCents?: number;
+                        /**
+                         * @default none
+                         * @enum {string}
+                         */
+                        kind?: "none" | "percent" | "amount";
+                        percentBp?: number;
+                    };
+                    /** Format: uuid */
+                    estimateId: string;
+                    expiresOn?: string | null;
+                    leadId?: string | null;
+                    /** @default [] */
+                    lines?: {
+                        /** @default null */
+                        description?: string | null;
+                        /** @default 0 */
+                        discountCents?: number;
+                        name: string;
+                        /** @default null */
+                        productId?: string | null;
+                        quantity: number;
+                        /** @default true */
+                        taxable?: boolean;
+                        /** @default each */
+                        unitLabel?: string;
+                        unitPriceCents: number;
+                    }[];
+                    notes?: string | null;
+                    /** Format: uuid */
+                    personId: string;
+                    title?: string | null;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changed: boolean;
+                        /** Format: uuid */
+                        estimateId: string;
+                        number: string | null;
+                        revision: number;
+                        /** @enum {string} */
+                        status: "draft" | "sent" | "accepted" | "declined" | "expired" | "void";
+                        totalCents: number;
+                    };
+                };
+            };
+        };
+    };
+    command_estimate_void: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    estimateId: string;
+                    reason?: string | null;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changed: boolean;
+                        /** Format: uuid */
+                        estimateId: string;
+                        number: string | null;
+                        revision: number;
+                        /** @enum {string} */
+                        status: "draft" | "sent" | "accepted" | "declined" | "expired" | "void";
+                        totalCents: number;
+                    };
+                };
+            };
+        };
+    };
     command_file_begin_upload: {
         parameters: {
             query?: never;
@@ -8464,6 +9594,305 @@ export interface operations {
                         email: string;
                         /** Format: uuid */
                         invitationId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_invoice_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    assigneeUserId?: string | null;
+                    attendeeId?: string | null;
+                    connectionId?: string | null;
+                    discount?: {
+                        amountCents?: number;
+                        /**
+                         * @default none
+                         * @enum {string}
+                         */
+                        kind?: "none" | "percent" | "amount";
+                        percentBp?: number;
+                    };
+                    dueOn?: string | null;
+                    estimateId?: string | null;
+                    leadId?: string | null;
+                    /** @default [] */
+                    lines?: {
+                        /** @default null */
+                        description?: string | null;
+                        /** @default 0 */
+                        discountCents?: number;
+                        name: string;
+                        /** @default null */
+                        productId?: string | null;
+                        quantity: number;
+                        /** @default true */
+                        taxable?: boolean;
+                        /** @default each */
+                        unitLabel?: string;
+                        unitPriceCents: number;
+                    }[];
+                    notes?: string | null;
+                    /**
+                     * @default staff
+                     * @enum {string}
+                     */
+                    origin?: "staff" | "estimate" | "booking" | "subscription" | "workflow" | "assistant";
+                    /** Format: uuid */
+                    personId: string;
+                    /**
+                     * @default standard
+                     * @enum {string}
+                     */
+                    purpose?: "standard" | "deposit" | "balance" | "setup_fee" | "subscription" | "quick";
+                    subscriptionId?: string | null;
+                    terms?: string | null;
+                    title?: string | null;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        balanceCents: number;
+                        changed: boolean;
+                        dueOn: string | null;
+                        /** Format: uuid */
+                        invoiceId: string;
+                        number: string | null;
+                        revision: number;
+                        /** @enum {string} */
+                        status: "draft" | "sent" | "partly_paid" | "paid" | "overdue" | "void";
+                        totalCents: number;
+                    };
+                };
+            };
+        };
+    };
+    command_invoice_record_cash_payment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    amountCents: number;
+                    /** Format: uuid */
+                    invoiceId: string;
+                    /**
+                     * @default cash
+                     * @enum {string}
+                     */
+                    method?: "cash" | "check" | "other";
+                    /** Format: date-time */
+                    receivedAt?: string;
+                    reference?: string | null;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        amountCents: number;
+                        changed: boolean;
+                        invoiceBalanceCents: number;
+                        /** Format: uuid */
+                        invoiceId: string;
+                        /** @enum {string} */
+                        invoiceStatus: "draft" | "sent" | "partly_paid" | "paid" | "overdue" | "void";
+                        /** Format: uuid */
+                        paymentId: string;
+                        /** @enum {string} */
+                        status: "requires_payment" | "processing" | "succeeded" | "failed";
+                    };
+                };
+            };
+        };
+    };
+    command_invoice_send: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /**
+                     * @default [
+                     *       "email"
+                     *     ]
+                     */
+                    channels?: ("sms" | "email")[];
+                    /** Format: uuid */
+                    invoiceId: string;
+                    /** @default null */
+                    message?: string | null;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        balanceCents: number;
+                        changed: boolean;
+                        dueOn: string | null;
+                        /** Format: uuid */
+                        invoiceId: string;
+                        number: string | null;
+                        revision: number;
+                        /** @enum {string} */
+                        status: "draft" | "sent" | "partly_paid" | "paid" | "overdue" | "void";
+                        totalCents: number;
+                    };
+                };
+            };
+        };
+    };
+    command_invoice_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    assigneeUserId?: string | null;
+                    baseRevision: number;
+                    connectionId?: string | null;
+                    discount?: {
+                        amountCents?: number;
+                        /**
+                         * @default none
+                         * @enum {string}
+                         */
+                        kind?: "none" | "percent" | "amount";
+                        percentBp?: number;
+                    };
+                    dueOn?: string | null;
+                    /** Format: uuid */
+                    invoiceId: string;
+                    leadId?: string | null;
+                    /** @default [] */
+                    lines?: {
+                        /** @default null */
+                        description?: string | null;
+                        /** @default 0 */
+                        discountCents?: number;
+                        name: string;
+                        /** @default null */
+                        productId?: string | null;
+                        quantity: number;
+                        /** @default true */
+                        taxable?: boolean;
+                        /** @default each */
+                        unitLabel?: string;
+                        unitPriceCents: number;
+                    }[];
+                    notes?: string | null;
+                    /** Format: uuid */
+                    personId: string;
+                    terms?: string | null;
+                    title?: string | null;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        balanceCents: number;
+                        changed: boolean;
+                        dueOn: string | null;
+                        /** Format: uuid */
+                        invoiceId: string;
+                        number: string | null;
+                        revision: number;
+                        /** @enum {string} */
+                        status: "draft" | "sent" | "partly_paid" | "paid" | "overdue" | "void";
+                        totalCents: number;
+                    };
+                };
+            };
+        };
+    };
+    command_invoice_void: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    invoiceId: string;
+                    reason?: string | null;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        balanceCents: number;
+                        changed: boolean;
+                        dueOn: string | null;
+                        /** Format: uuid */
+                        invoiceId: string;
+                        number: string | null;
+                        revision: number;
+                        /** @enum {string} */
+                        status: "draft" | "sent" | "partly_paid" | "paid" | "overdue" | "void";
+                        totalCents: number;
                     };
                 };
             };
@@ -9713,6 +11142,194 @@ export interface operations {
             };
         };
     };
+    command_money_save_settings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    settings: {
+                        /** @default true */
+                        bankTransfer?: boolean;
+                        /** @default {} */
+                        deposit?: {
+                            /** @default 0 */
+                            amountCents?: number;
+                            /**
+                             * @default none
+                             * @enum {string}
+                             */
+                            kind?: "none" | "percent" | "amount";
+                            /** @default 2500 */
+                            percentBp?: number;
+                        };
+                        /** @default 14 */
+                        estimateGoodForDays?: number;
+                        /** @default {} */
+                        notes?: {
+                            /** @default Thanks for the opportunity. Call or text us with any questions. */
+                            estimate?: string;
+                            /** @default Thank you for your business. */
+                            invoice?: string;
+                        };
+                        /** @default {} */
+                        numbering?: {
+                            /** @default {} */
+                            estimate?: {
+                                /** @default 1001 */
+                                next?: number;
+                                /** @default 4 */
+                                pad?: number;
+                                /** @default EST- */
+                                prefix?: string;
+                            };
+                            /** @default {} */
+                            invoice?: {
+                                /** @default 1001 */
+                                next?: number;
+                                /** @default 4 */
+                                pad?: number;
+                                /** @default INV- */
+                                prefix?: string;
+                            };
+                        };
+                        /** @default {} */
+                        reminders?: {
+                            /**
+                             * @default [
+                             *       3,
+                             *       7,
+                             *       14
+                             *     ]
+                             */
+                            afterDueDays?: number[];
+                            /**
+                             * @default [
+                             *       3
+                             *     ]
+                             */
+                            beforeDueDays?: number[];
+                            /** @default 3 */
+                            estimateAfterDays?: number | null;
+                            /** @default true */
+                            onDue?: boolean;
+                        };
+                        /** @default {} */
+                        tax?: {
+                            /** @default Sales tax */
+                            name?: string;
+                            /** @default true */
+                            newProductsTaxable?: boolean;
+                            /** @default 0 */
+                            rateBp?: number;
+                        };
+                        /**
+                         * @default net_14
+                         * @enum {string}
+                         */
+                        terms?: "due_on_receipt" | "net_7" | "net_14" | "net_30";
+                    };
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changed: boolean;
+                        nextEstimateNumber: string;
+                        nextInvoiceNumber: string;
+                        settings: {
+                            /** @default true */
+                            bankTransfer: boolean;
+                            deposit: {
+                                /** @default 0 */
+                                amountCents: number;
+                                /**
+                                 * @default none
+                                 * @enum {string}
+                                 */
+                                kind: "none" | "percent" | "amount";
+                                /** @default 2500 */
+                                percentBp: number;
+                            };
+                            /** @default 14 */
+                            estimateGoodForDays: number;
+                            notes: {
+                                /** @default Thanks for the opportunity. Call or text us with any questions. */
+                                estimate: string;
+                                /** @default Thank you for your business. */
+                                invoice: string;
+                            };
+                            numbering: {
+                                estimate: {
+                                    /** @default 1001 */
+                                    next: number;
+                                    /** @default 4 */
+                                    pad: number;
+                                    /** @default EST- */
+                                    prefix: string;
+                                };
+                                invoice: {
+                                    /** @default 1001 */
+                                    next: number;
+                                    /** @default 4 */
+                                    pad: number;
+                                    /** @default INV- */
+                                    prefix: string;
+                                };
+                            };
+                            reminders: {
+                                /**
+                                 * @default [
+                                 *       3,
+                                 *       7,
+                                 *       14
+                                 *     ]
+                                 */
+                                afterDueDays: number[];
+                                /**
+                                 * @default [
+                                 *       3
+                                 *     ]
+                                 */
+                                beforeDueDays: number[];
+                                /** @default 3 */
+                                estimateAfterDays: number | null;
+                                /** @default true */
+                                onDue: boolean;
+                            };
+                            tax: {
+                                /** @default Sales tax */
+                                name: string;
+                                /** @default true */
+                                newProductsTaxable: boolean;
+                                /** @default 0 */
+                                rateBp: number;
+                            };
+                            /**
+                             * @default net_14
+                             * @enum {string}
+                             */
+                            terms: "due_on_receipt" | "net_7" | "net_14" | "net_30";
+                        };
+                        /** Format: uuid */
+                        workspaceId: string;
+                    };
+                };
+            };
+        };
+    };
     command_organization_create: {
         parameters: {
             query?: never;
@@ -9747,6 +11364,199 @@ export interface operations {
                         organizationId: string;
                         /** Format: uuid */
                         workspaceId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_payment_connection_connect: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /**
+                     * @default live
+                     * @enum {string}
+                     */
+                    environment?: "live" | "test";
+                    label?: string | null;
+                    /** @enum {string} */
+                    provider: "stripe" | "square";
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        connectionId: string;
+                        state: string;
+                    };
+                };
+            };
+        };
+    };
+    command_payment_connection_disconnect: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @default false */
+                    acknowledgeSubscriptions?: boolean;
+                    /** Format: uuid */
+                    connectionId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changed: boolean;
+                        /** Format: uuid */
+                        connectionId: string;
+                        isDefault: boolean;
+                        /** @enum {string} */
+                        status: "pending" | "active" | "reauth_required" | "error" | "disconnected";
+                    };
+                };
+            };
+        };
+    };
+    command_payment_connection_set_default: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    connectionId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changed: boolean;
+                        /** Format: uuid */
+                        connectionId: string;
+                        isDefault: boolean;
+                        /** @enum {string} */
+                        status: "pending" | "active" | "reauth_required" | "error" | "disconnected";
+                    };
+                };
+            };
+        };
+    };
+    command_payment_connection_set_label: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    connectionId: string;
+                    label: string | null;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changed: boolean;
+                        /** Format: uuid */
+                        connectionId: string;
+                        isDefault: boolean;
+                        /** @enum {string} */
+                        status: "pending" | "active" | "reauth_required" | "error" | "disconnected";
+                    };
+                };
+            };
+        };
+    };
+    command_payment_refund: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    amountCents?: number;
+                    idempotencyKey?: string;
+                    /** Format: uuid */
+                    paymentId: string;
+                    reason?: string | null;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        amountCents: number;
+                        /** Format: uuid */
+                        invoiceId: string;
+                        manual: boolean;
+                        /** Format: uuid */
+                        paymentId: string;
+                        /** Format: uuid */
+                        refundId: string;
+                        /** @enum {string} */
+                        status: "pending" | "succeeded" | "failed";
                     };
                 };
             };
@@ -10208,6 +12018,311 @@ export interface operations {
                     "application/json": {
                         /** Format: uuid */
                         pipelineId: string;
+                        updated: string[];
+                    };
+                };
+            };
+        };
+    };
+    command_plan_archive: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @default true */
+                    archived?: boolean;
+                    /** Format: uuid */
+                    planId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        archived: boolean;
+                        /** Format: uuid */
+                        planId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_plan_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    description?: string | null;
+                    /** @default [] */
+                    includes?: string[];
+                    /**
+                     * @default month
+                     * @enum {string}
+                     */
+                    interval?: "month" | "quarter" | "year";
+                    /** @default 1 */
+                    intervalCount?: number;
+                    name: string;
+                    /** @default 0 */
+                    priceCents?: number;
+                    taxable?: boolean;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        archived: boolean;
+                        plan: {
+                            archivedAt: string | null;
+                            description: string | null;
+                            /** Format: uuid */
+                            id: string;
+                            includes: string[];
+                            /** @enum {string} */
+                            interval: "month" | "quarter" | "year";
+                            intervalCount: number;
+                            name: string;
+                            priceCents: number;
+                            taxable: boolean;
+                        };
+                        /** Format: uuid */
+                        planId: string;
+                        /** @default [] */
+                        updated: string[];
+                    };
+                };
+            };
+        };
+    };
+    command_plan_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    description?: string | null;
+                    includes?: string[];
+                    /** @enum {string} */
+                    interval?: "month" | "quarter" | "year";
+                    intervalCount?: number;
+                    name?: string;
+                    /** Format: uuid */
+                    planId: string;
+                    priceCents?: number;
+                    taxable?: boolean;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        archived: boolean;
+                        plan: {
+                            archivedAt: string | null;
+                            description: string | null;
+                            /** Format: uuid */
+                            id: string;
+                            includes: string[];
+                            /** @enum {string} */
+                            interval: "month" | "quarter" | "year";
+                            intervalCount: number;
+                            name: string;
+                            priceCents: number;
+                            taxable: boolean;
+                        };
+                        /** Format: uuid */
+                        planId: string;
+                        /** @default [] */
+                        updated: string[];
+                    };
+                };
+            };
+        };
+    };
+    command_product_archive: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @default true */
+                    archived?: boolean;
+                    /** Format: uuid */
+                    productId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        archived: boolean;
+                        /** Format: uuid */
+                        productId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_product_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    description?: string | null;
+                    /**
+                     * @default product
+                     * @enum {string}
+                     */
+                    kind?: "product" | "service" | "fee";
+                    name: string;
+                    serviceId?: string | null;
+                    sku?: string | null;
+                    taxable?: boolean;
+                    /** @default each */
+                    unitLabel?: string;
+                    /** @default 0 */
+                    unitPriceCents?: number;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        archived: boolean;
+                        product: {
+                            archivedAt: string | null;
+                            description: string | null;
+                            /** Format: uuid */
+                            id: string;
+                            /** @enum {string} */
+                            kind: "product" | "service" | "fee";
+                            name: string;
+                            serviceId: string | null;
+                            sku: string | null;
+                            taxable: boolean;
+                            unitLabel: string;
+                            unitPriceCents: number;
+                        };
+                        /** Format: uuid */
+                        productId: string;
+                        /** @default [] */
+                        updated: string[];
+                    };
+                };
+            };
+        };
+    };
+    command_product_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    description?: string | null;
+                    /** @enum {string} */
+                    kind?: "product" | "service" | "fee";
+                    name?: string;
+                    /** Format: uuid */
+                    productId: string;
+                    serviceId?: string | null;
+                    sku?: string | null;
+                    taxable?: boolean;
+                    unitLabel?: string;
+                    unitPriceCents?: number;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        archived: boolean;
+                        product: {
+                            archivedAt: string | null;
+                            description: string | null;
+                            /** Format: uuid */
+                            id: string;
+                            /** @enum {string} */
+                            kind: "product" | "service" | "fee";
+                            name: string;
+                            serviceId: string | null;
+                            sku: string | null;
+                            taxable: boolean;
+                            unitLabel: string;
+                            unitPriceCents: number;
+                        };
+                        /** Format: uuid */
+                        productId: string;
+                        /** @default [] */
                         updated: string[];
                     };
                 };
@@ -10960,6 +13075,162 @@ export interface operations {
             };
         };
     };
+    command_subscription_cancel: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    reason?: string | null;
+                    /** Format: uuid */
+                    subscriptionId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changed: boolean;
+                        nextBillingOn: string | null;
+                        /** @enum {string} */
+                        status: "draft" | "active" | "past_due" | "paused" | "cancelled" | "unmanaged";
+                        /** Format: uuid */
+                        subscriptionId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_subscription_pause: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    subscriptionId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changed: boolean;
+                        nextBillingOn: string | null;
+                        /** @enum {string} */
+                        status: "draft" | "active" | "past_due" | "paused" | "cancelled" | "unmanaged";
+                        /** Format: uuid */
+                        subscriptionId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_subscription_resume: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    subscriptionId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changed: boolean;
+                        nextBillingOn: string | null;
+                        /** @enum {string} */
+                        status: "draft" | "active" | "past_due" | "paused" | "cancelled" | "unmanaged";
+                        /** Format: uuid */
+                        subscriptionId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_subscription_start: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    connectionId?: string | null;
+                    includes?: string[];
+                    /** @enum {string} */
+                    interval?: "month" | "quarter" | "year";
+                    intervalCount?: number;
+                    leadId?: string | null;
+                    /** Format: uuid */
+                    personId: string;
+                    planId?: string | null;
+                    planName?: string;
+                    priceCents?: number;
+                    startedOn?: string | null;
+                    taxable?: boolean;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changed: boolean;
+                        nextBillingOn: string | null;
+                        /** @enum {string} */
+                        status: "draft" | "active" | "past_due" | "paused" | "cancelled" | "unmanaged";
+                        /** Format: uuid */
+                        subscriptionId: string;
+                    };
+                };
+            };
+        };
+    };
     command_tag_create: {
         parameters: {
             query?: never;
@@ -11640,7 +13911,7 @@ export interface operations {
                     organizationId: string;
                     trigger?: {
                         /** @enum {string} */
-                        event: "person.created" | "person.updated" | "record.tags_changed" | "lead.created" | "lead.stage_changed" | "lead.assigned" | "lead.qualified" | "appointment.booked" | "appointment.rescheduled" | "appointment.cancelled" | "appointment.completed" | "appointment.no_show" | "message.received" | "call.missed" | "call.voicemail_left" | "call.completed" | "task.completed" | "ai_teammate.handed_off";
+                        event: "person.created" | "person.updated" | "record.tags_changed" | "lead.created" | "lead.stage_changed" | "lead.assigned" | "lead.qualified" | "appointment.booked" | "appointment.rescheduled" | "appointment.cancelled" | "appointment.completed" | "appointment.no_show" | "message.received" | "call.missed" | "call.voicemail_left" | "call.completed" | "task.completed" | "ai_teammate.handed_off" | "estimate.sent" | "estimate.accepted" | "estimate.declined" | "invoice.paid" | "invoice.overdue";
                         /** @default {} */
                         filters?: {
                             /** @default [] */
@@ -12158,7 +14429,7 @@ export interface operations {
                     recipeKey?: "speed_to_lead" | "missed_call_text_back" | "appointment_follow_up_review" | "estimate_follow_up" | "no_show_rebook" | "speed_to_lead_ai" | "missed_call_text_back_ai";
                     trigger?: {
                         /** @enum {string} */
-                        event: "person.created" | "person.updated" | "record.tags_changed" | "lead.created" | "lead.stage_changed" | "lead.assigned" | "lead.qualified" | "appointment.booked" | "appointment.rescheduled" | "appointment.cancelled" | "appointment.completed" | "appointment.no_show" | "message.received" | "call.missed" | "call.voicemail_left" | "call.completed" | "task.completed" | "ai_teammate.handed_off";
+                        event: "person.created" | "person.updated" | "record.tags_changed" | "lead.created" | "lead.stage_changed" | "lead.assigned" | "lead.qualified" | "appointment.booked" | "appointment.rescheduled" | "appointment.cancelled" | "appointment.completed" | "appointment.no_show" | "message.received" | "call.missed" | "call.voicemail_left" | "call.completed" | "task.completed" | "ai_teammate.handed_off" | "estimate.sent" | "estimate.accepted" | "estimate.declined" | "invoice.paid" | "invoice.overdue";
                         /** @default {} */
                         filters?: {
                             /** @default [] */
@@ -14522,7 +16793,7 @@ export interface operations {
                                 unconfirmed_appointment: boolean;
                             };
                             money: {
-                                /** @default 3 */
+                                /** @default 5 */
                                 estimateWaitingDays: number;
                                 /** @default 1 */
                                 invoiceOverdueDays: number;
@@ -16123,6 +18394,202 @@ export interface operations {
             };
         };
     };
+    query_estimate_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    estimateId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        estimate: {
+                            acceptedAt: string | null;
+                            acceptedBy: {
+                                fullName: string;
+                                /** Format: uuid */
+                                id: string;
+                            } | null;
+                            acceptedName: string | null;
+                            acceptedVia: ("link" | "staff") | null;
+                            acceptedWording: string | null;
+                            assignee: {
+                                fullName: string;
+                                /** Format: uuid */
+                                id: string;
+                            } | null;
+                            /** Format: date-time */
+                            createdAt: string;
+                            declinedAt: string | null;
+                            declinedReason: string | null;
+                            depositCents: number;
+                            expiresOn: string | null;
+                            firstViewedAt: string | null;
+                            /** Format: uuid */
+                            id: string;
+                            leadId: string | null;
+                            lines: {
+                                allocatedCents: number;
+                                amountCents: number;
+                                description: string | null;
+                                discountCents: number;
+                                /** Format: uuid */
+                                id: string;
+                                name: string;
+                                netCents: number;
+                                position: number;
+                                productId: string | null;
+                                quantity: number;
+                                taxable: boolean;
+                                unitLabel: string;
+                                unitPriceCents: number;
+                            }[];
+                            linkVersion: number;
+                            notes: string | null;
+                            number: string | null;
+                            person: {
+                                email: string | null;
+                                fullName: string;
+                                /** Format: uuid */
+                                id: string;
+                                phone: string | null;
+                            };
+                            publicRef: string;
+                            revision: number;
+                            sentAt: string | null;
+                            state: string;
+                            /** @enum {string} */
+                            status: "draft" | "sent" | "accepted" | "declined" | "expired" | "void";
+                            title: string | null;
+                            totals: {
+                                currency: string;
+                                discountCents: number;
+                                discountPercentBp: number | null;
+                                subtotalCents: number;
+                                taxableBaseCents: number;
+                                taxCents: number;
+                                taxLabel: string | null;
+                                taxRateBp: number;
+                                totalCents: number;
+                            };
+                            voidedAt: string | null;
+                            voidReason: string | null;
+                        };
+                        invoices: {
+                            balanceCents: number;
+                            /** Format: uuid */
+                            id: string;
+                            number: string | null;
+                            /** @enum {string} */
+                            purpose: "standard" | "deposit" | "balance" | "setup_fee" | "subscription" | "quick";
+                            /** @enum {string} */
+                            status: "draft" | "sent" | "partly_paid" | "paid" | "overdue" | "void";
+                            totalCents: number;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    query_estimate_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    cursor?: string;
+                    /** Format: uuid */
+                    leadId?: string;
+                    /** @default 25 */
+                    limit?: number;
+                    /** @default false */
+                    openOnly?: boolean;
+                    /** Format: uuid */
+                    personId?: string;
+                    search?: string;
+                    status?: ("draft" | "sent" | "accepted" | "declined" | "expired" | "void")[];
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        estimates: {
+                            acceptedAt: string | null;
+                            assignee: {
+                                fullName: string;
+                                /** Format: uuid */
+                                id: string;
+                            } | null;
+                            /** Format: date-time */
+                            createdAt: string;
+                            declinedAt: string | null;
+                            depositCents: number;
+                            expiresOn: string | null;
+                            firstViewedAt: string | null;
+                            /** Format: uuid */
+                            id: string;
+                            leadId: string | null;
+                            number: string | null;
+                            person: {
+                                email: string | null;
+                                fullName: string;
+                                /** Format: uuid */
+                                id: string;
+                                phone: string | null;
+                            };
+                            publicRef: string;
+                            sentAt: string | null;
+                            state: string;
+                            /** @enum {string} */
+                            status: "draft" | "sent" | "accepted" | "declined" | "expired" | "void";
+                            title: string | null;
+                            totals: {
+                                currency: string;
+                                discountCents: number;
+                                discountPercentBp: number | null;
+                                subtotalCents: number;
+                                taxableBaseCents: number;
+                                taxCents: number;
+                                taxLabel: string | null;
+                                taxRateBp: number;
+                                totalCents: number;
+                            };
+                            voidedAt: string | null;
+                        }[];
+                        nextCursor: string | null;
+                    };
+                };
+            };
+        };
+    };
     query_file_list: {
         parameters: {
             query?: never;
@@ -16491,6 +18958,254 @@ export interface operations {
                         /** @enum {string} */
                         status: "pending" | "used" | "revoked" | "expired";
                         workspaceName: string;
+                    };
+                };
+            };
+        };
+    };
+    query_invoice_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    invoiceId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        invoice: {
+                            amountPaidCents: number;
+                            amountRefundedCents: number;
+                            assignee: {
+                                fullName: string;
+                                /** Format: uuid */
+                                id: string;
+                            } | null;
+                            attendeeId: string | null;
+                            balanceCents: number;
+                            connectionId: string | null;
+                            /** Format: date-time */
+                            createdAt: string;
+                            dueOn: string | null;
+                            estimateId: string | null;
+                            firstViewedAt: string | null;
+                            /** Format: uuid */
+                            id: string;
+                            leadId: string | null;
+                            lines: {
+                                allocatedCents: number;
+                                amountCents: number;
+                                description: string | null;
+                                discountCents: number;
+                                /** Format: uuid */
+                                id: string;
+                                name: string;
+                                netCents: number;
+                                position: number;
+                                productId: string | null;
+                                quantity: number;
+                                taxable: boolean;
+                                unitLabel: string;
+                                unitPriceCents: number;
+                            }[];
+                            linkVersion: number;
+                            notes: string | null;
+                            number: string | null;
+                            /** @enum {string} */
+                            origin: "staff" | "estimate" | "booking" | "subscription" | "workflow" | "assistant";
+                            paidAt: string | null;
+                            person: {
+                                email: string | null;
+                                fullName: string;
+                                /** Format: uuid */
+                                id: string;
+                                phone: string | null;
+                            };
+                            publicRef: string;
+                            /** @enum {string} */
+                            purpose: "standard" | "deposit" | "balance" | "setup_fee" | "subscription" | "quick";
+                            revision: number;
+                            sentAt: string | null;
+                            state: string;
+                            /** @enum {string} */
+                            status: "draft" | "sent" | "partly_paid" | "paid" | "overdue" | "void";
+                            subscriptionId: string | null;
+                            terms: string | null;
+                            title: string | null;
+                            totals: {
+                                currency: string;
+                                discountCents: number;
+                                discountPercentBp: number | null;
+                                subtotalCents: number;
+                                taxableBaseCents: number;
+                                taxCents: number;
+                                taxLabel: string | null;
+                                taxRateBp: number;
+                                totalCents: number;
+                            };
+                            voidedAt: string | null;
+                            voidReason: string | null;
+                        };
+                        payments: {
+                            amountCents: number;
+                            connectionId: string | null;
+                            /** Format: date-time */
+                            createdAt: string;
+                            failureCode: string | null;
+                            feeCents: number | null;
+                            /** Format: uuid */
+                            id: string;
+                            /** Format: uuid */
+                            invoiceId: string;
+                            /** @enum {string} */
+                            method: "card" | "ach" | "cash" | "check" | "other";
+                            netCents: number | null;
+                            provider: ("stripe" | "square" | "paypal" | "nmi" | "authorize_net") | null;
+                            providerStatus: string | null;
+                            receivedAt: string | null;
+                            recordedBy: {
+                                fullName: string;
+                                /** Format: uuid */
+                                id: string;
+                            } | null;
+                            refundedCents: number;
+                            /** @enum {string} */
+                            status: "requires_payment" | "processing" | "succeeded" | "failed";
+                        }[];
+                        refunds: {
+                            amountCents: number;
+                            /** Format: date-time */
+                            createdAt: string;
+                            failureCode: string | null;
+                            /** Format: uuid */
+                            id: string;
+                            /** Format: uuid */
+                            invoiceId: string;
+                            /** Format: uuid */
+                            paymentId: string;
+                            reason: string | null;
+                            refundedAt: string | null;
+                            requestedBy: {
+                                fullName: string;
+                                /** Format: uuid */
+                                id: string;
+                            } | null;
+                            /** @enum {string} */
+                            status: "pending" | "succeeded" | "failed";
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    query_invoice_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    attendeeId?: string;
+                    cursor?: string;
+                    /** Format: uuid */
+                    leadId?: string;
+                    /** @default 25 */
+                    limit?: number;
+                    /** @default false */
+                    openOnly?: boolean;
+                    /** Format: uuid */
+                    personId?: string;
+                    purpose?: ("standard" | "deposit" | "balance" | "setup_fee" | "subscription" | "quick")[];
+                    search?: string;
+                    status?: ("draft" | "sent" | "partly_paid" | "paid" | "overdue" | "void")[];
+                    /** Format: uuid */
+                    subscriptionId?: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        invoices: {
+                            amountPaidCents: number;
+                            amountRefundedCents: number;
+                            assignee: {
+                                fullName: string;
+                                /** Format: uuid */
+                                id: string;
+                            } | null;
+                            attendeeId: string | null;
+                            balanceCents: number;
+                            connectionId: string | null;
+                            /** Format: date-time */
+                            createdAt: string;
+                            dueOn: string | null;
+                            estimateId: string | null;
+                            firstViewedAt: string | null;
+                            /** Format: uuid */
+                            id: string;
+                            leadId: string | null;
+                            number: string | null;
+                            /** @enum {string} */
+                            origin: "staff" | "estimate" | "booking" | "subscription" | "workflow" | "assistant";
+                            paidAt: string | null;
+                            person: {
+                                email: string | null;
+                                fullName: string;
+                                /** Format: uuid */
+                                id: string;
+                                phone: string | null;
+                            };
+                            publicRef: string;
+                            /** @enum {string} */
+                            purpose: "standard" | "deposit" | "balance" | "setup_fee" | "subscription" | "quick";
+                            sentAt: string | null;
+                            state: string;
+                            /** @enum {string} */
+                            status: "draft" | "sent" | "partly_paid" | "paid" | "overdue" | "void";
+                            subscriptionId: string | null;
+                            terms: string | null;
+                            title: string | null;
+                            totals: {
+                                currency: string;
+                                discountCents: number;
+                                discountPercentBp: number | null;
+                                subtotalCents: number;
+                                taxableBaseCents: number;
+                                taxCents: number;
+                                taxLabel: string | null;
+                                taxRateBp: number;
+                                totalCents: number;
+                            };
+                            voidedAt: string | null;
+                        }[];
+                        nextCursor: string | null;
                     };
                 };
             };
@@ -17361,6 +20076,454 @@ export interface operations {
             };
         };
     };
+    query_money_for_record: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    recordId: string;
+                    /** @enum {string} */
+                    recordType: "lead" | "person" | "appointment";
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        balanceCents: number;
+                        collectedCents: number;
+                        estimates: {
+                            acceptedAt: string | null;
+                            assignee: {
+                                fullName: string;
+                                /** Format: uuid */
+                                id: string;
+                            } | null;
+                            /** Format: date-time */
+                            createdAt: string;
+                            declinedAt: string | null;
+                            depositCents: number;
+                            expiresOn: string | null;
+                            firstViewedAt: string | null;
+                            /** Format: uuid */
+                            id: string;
+                            leadId: string | null;
+                            number: string | null;
+                            person: {
+                                email: string | null;
+                                fullName: string;
+                                /** Format: uuid */
+                                id: string;
+                                phone: string | null;
+                            };
+                            publicRef: string;
+                            sentAt: string | null;
+                            state: string;
+                            /** @enum {string} */
+                            status: "draft" | "sent" | "accepted" | "declined" | "expired" | "void";
+                            title: string | null;
+                            totals: {
+                                currency: string;
+                                discountCents: number;
+                                discountPercentBp: number | null;
+                                subtotalCents: number;
+                                taxableBaseCents: number;
+                                taxCents: number;
+                                taxLabel: string | null;
+                                taxRateBp: number;
+                                totalCents: number;
+                            };
+                            voidedAt: string | null;
+                        }[];
+                        invoices: {
+                            amountPaidCents: number;
+                            amountRefundedCents: number;
+                            assignee: {
+                                fullName: string;
+                                /** Format: uuid */
+                                id: string;
+                            } | null;
+                            attendeeId: string | null;
+                            balanceCents: number;
+                            connectionId: string | null;
+                            /** Format: date-time */
+                            createdAt: string;
+                            dueOn: string | null;
+                            estimateId: string | null;
+                            firstViewedAt: string | null;
+                            /** Format: uuid */
+                            id: string;
+                            leadId: string | null;
+                            number: string | null;
+                            /** @enum {string} */
+                            origin: "staff" | "estimate" | "booking" | "subscription" | "workflow" | "assistant";
+                            paidAt: string | null;
+                            person: {
+                                email: string | null;
+                                fullName: string;
+                                /** Format: uuid */
+                                id: string;
+                                phone: string | null;
+                            };
+                            publicRef: string;
+                            /** @enum {string} */
+                            purpose: "standard" | "deposit" | "balance" | "setup_fee" | "subscription" | "quick";
+                            sentAt: string | null;
+                            state: string;
+                            /** @enum {string} */
+                            status: "draft" | "sent" | "partly_paid" | "paid" | "overdue" | "void";
+                            subscriptionId: string | null;
+                            terms: string | null;
+                            title: string | null;
+                            totals: {
+                                currency: string;
+                                discountCents: number;
+                                discountPercentBp: number | null;
+                                subtotalCents: number;
+                                taxableBaseCents: number;
+                                taxCents: number;
+                                taxLabel: string | null;
+                                taxRateBp: number;
+                                totalCents: number;
+                            };
+                            voidedAt: string | null;
+                        }[];
+                        quotedCents: number;
+                        subscriptions: {
+                            cancelledAt: string | null;
+                            cancelReason: string | null;
+                            connectionId: string | null;
+                            /** Format: date-time */
+                            createdAt: string;
+                            currentPeriodEnd: string | null;
+                            currentPeriodStart: string | null;
+                            endedOn: string | null;
+                            failedCycles: number;
+                            /** Format: uuid */
+                            id: string;
+                            includes: string[];
+                            /** @enum {string} */
+                            interval: "month" | "quarter" | "year";
+                            intervalCount: number;
+                            lastError: string | null;
+                            leadId: string | null;
+                            nextBillingOn: string | null;
+                            pausedAt: string | null;
+                            person: {
+                                email: string | null;
+                                fullName: string;
+                                /** Format: uuid */
+                                id: string;
+                                phone: string | null;
+                            };
+                            planId: string | null;
+                            planName: string;
+                            priceCents: number;
+                            provider: ("stripe" | "square" | "paypal" | "nmi" | "authorize_net") | null;
+                            publicRef: string;
+                            startedOn: string | null;
+                            /** @enum {string} */
+                            status: "draft" | "active" | "past_due" | "paused" | "cancelled" | "unmanaged";
+                            taxable: boolean;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    query_money_settings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        nextEstimateNumber: string;
+                        nextInvoiceNumber: string;
+                        settings: {
+                            /** @default true */
+                            bankTransfer: boolean;
+                            deposit: {
+                                /** @default 0 */
+                                amountCents: number;
+                                /**
+                                 * @default none
+                                 * @enum {string}
+                                 */
+                                kind: "none" | "percent" | "amount";
+                                /** @default 2500 */
+                                percentBp: number;
+                            };
+                            /** @default 14 */
+                            estimateGoodForDays: number;
+                            notes: {
+                                /** @default Thanks for the opportunity. Call or text us with any questions. */
+                                estimate: string;
+                                /** @default Thank you for your business. */
+                                invoice: string;
+                            };
+                            numbering: {
+                                estimate: {
+                                    /** @default 1001 */
+                                    next: number;
+                                    /** @default 4 */
+                                    pad: number;
+                                    /** @default EST- */
+                                    prefix: string;
+                                };
+                                invoice: {
+                                    /** @default 1001 */
+                                    next: number;
+                                    /** @default 4 */
+                                    pad: number;
+                                    /** @default INV- */
+                                    prefix: string;
+                                };
+                            };
+                            reminders: {
+                                /**
+                                 * @default [
+                                 *       3,
+                                 *       7,
+                                 *       14
+                                 *     ]
+                                 */
+                                afterDueDays: number[];
+                                /**
+                                 * @default [
+                                 *       3
+                                 *     ]
+                                 */
+                                beforeDueDays: number[];
+                                /** @default 3 */
+                                estimateAfterDays: number | null;
+                                /** @default true */
+                                onDue: boolean;
+                            };
+                            tax: {
+                                /** @default Sales tax */
+                                name: string;
+                                /** @default true */
+                                newProductsTaxable: boolean;
+                                /** @default 0 */
+                                rateBp: number;
+                            };
+                            /**
+                             * @default net_14
+                             * @enum {string}
+                             */
+                            terms: "due_on_receipt" | "net_7" | "net_14" | "net_30";
+                        };
+                    };
+                };
+            };
+        };
+    };
+    query_money_summary: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @default 30 */
+                    days?: number;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        activePlans: number;
+                        collectedCents: number;
+                        monthlyRecurringCents: number;
+                        /** Format: date-time */
+                        now: string;
+                        outstandingCents: number;
+                        outstandingCount: number;
+                        overdueCents: number;
+                        overdueCount: number;
+                        quotedCents: number;
+                        quotedCount: number;
+                        refundedCents: number;
+                        settlingCents: number;
+                    };
+                };
+            };
+        };
+    };
+    query_payment_connection_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {string} */
+                    environment?: "live" | "test";
+                    /** @default false */
+                    includeDisconnected?: boolean;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        connections: {
+                            capabilities: {
+                                [key: string]: unknown;
+                            };
+                            connectedAt: string | null;
+                            disconnectedAt: string | null;
+                            disconnectedReason: ("person" | "revoked" | "deauthorized" | "failed" | "replaced") | null;
+                            displayName: string | null;
+                            /** @enum {string} */
+                            environment: "live" | "test";
+                            externalAccountId: string | null;
+                            failures: number;
+                            /** Format: uuid */
+                            id: string;
+                            isDefault: boolean;
+                            label: string | null;
+                            lastError: string | null;
+                            liveSubscriptions: number;
+                            locationId: string | null;
+                            /** @enum {string} */
+                            provider: "stripe" | "square" | "paypal" | "nmi" | "authorize_net";
+                            /** @enum {string} */
+                            status: "pending" | "active" | "reauth_required" | "error" | "disconnected";
+                            tokenExpiresAt: string | null;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    query_payment_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    cursor?: string;
+                    /** Format: uuid */
+                    invoiceId?: string;
+                    /** @default 25 */
+                    limit?: number;
+                    method?: ("card" | "ach" | "cash" | "check" | "other")[];
+                    /** Format: uuid */
+                    personId?: string;
+                    /** Format: date-time */
+                    since?: string;
+                    status?: ("requires_payment" | "processing" | "succeeded" | "failed")[];
+                    /** @default false */
+                    succeededOnly?: boolean;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        nextCursor: string | null;
+                        payments: {
+                            amountCents: number;
+                            connectionId: string | null;
+                            /** Format: date-time */
+                            createdAt: string;
+                            failureCode: string | null;
+                            feeCents: number | null;
+                            /** Format: uuid */
+                            id: string;
+                            /** Format: uuid */
+                            invoiceId: string;
+                            invoiceNumber: string | null;
+                            /** @enum {string} */
+                            method: "card" | "ach" | "cash" | "check" | "other";
+                            netCents: number | null;
+                            person: {
+                                email: string | null;
+                                fullName: string;
+                                /** Format: uuid */
+                                id: string;
+                                phone: string | null;
+                            } | null;
+                            provider: ("stripe" | "square" | "paypal" | "nmi" | "authorize_net") | null;
+                            providerStatus: string | null;
+                            receivedAt: string | null;
+                            recordedBy: {
+                                fullName: string;
+                                /** Format: uuid */
+                                id: string;
+                            } | null;
+                            refundedCents: number;
+                            /** @enum {string} */
+                            status: "requires_payment" | "processing" | "succeeded" | "failed";
+                        }[];
+                    };
+                };
+            };
+        };
+    };
     query_person_get: {
         parameters: {
             query?: never;
@@ -17659,6 +20822,96 @@ export interface operations {
             };
         };
     };
+    query_plan_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @default false */
+                    includeArchived?: boolean;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        plans: {
+                            archivedAt: string | null;
+                            description: string | null;
+                            /** Format: uuid */
+                            id: string;
+                            includes: string[];
+                            /** @enum {string} */
+                            interval: "month" | "quarter" | "year";
+                            intervalCount: number;
+                            name: string;
+                            priceCents: number;
+                            taxable: boolean;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    query_product_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @default false */
+                    includeArchived?: boolean;
+                    /** @enum {string} */
+                    kind?: "product" | "service" | "fee";
+                    search?: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        products: {
+                            archivedAt: string | null;
+                            description: string | null;
+                            /** Format: uuid */
+                            id: string;
+                            /** @enum {string} */
+                            kind: "product" | "service" | "fee";
+                            name: string;
+                            serviceId: string | null;
+                            sku: string | null;
+                            taxable: boolean;
+                            unitLabel: string;
+                            unitPriceCents: number;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
     query_resource_list: {
         parameters: {
             query?: never;
@@ -17845,6 +21098,159 @@ export interface operations {
                                 resourceId: string;
                             }[];
                             staffUserIds: string[];
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    query_subscription_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    subscriptionId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        invoices: {
+                            balanceCents: number;
+                            /** Format: date-time */
+                            createdAt: string;
+                            dueOn: string | null;
+                            /** Format: uuid */
+                            id: string;
+                            number: string | null;
+                            /** @enum {string} */
+                            status: "draft" | "sent" | "partly_paid" | "paid" | "overdue" | "void";
+                            totalCents: number;
+                        }[];
+                        subscription: {
+                            cancelledAt: string | null;
+                            cancelReason: string | null;
+                            connectionId: string | null;
+                            /** Format: date-time */
+                            createdAt: string;
+                            currentPeriodEnd: string | null;
+                            currentPeriodStart: string | null;
+                            endedOn: string | null;
+                            failedCycles: number;
+                            /** Format: uuid */
+                            id: string;
+                            includes: string[];
+                            /** @enum {string} */
+                            interval: "month" | "quarter" | "year";
+                            intervalCount: number;
+                            lastError: string | null;
+                            leadId: string | null;
+                            nextBillingOn: string | null;
+                            pausedAt: string | null;
+                            person: {
+                                email: string | null;
+                                fullName: string;
+                                /** Format: uuid */
+                                id: string;
+                                phone: string | null;
+                            };
+                            planId: string | null;
+                            planName: string;
+                            priceCents: number;
+                            provider: ("stripe" | "square" | "paypal" | "nmi" | "authorize_net") | null;
+                            publicRef: string;
+                            startedOn: string | null;
+                            /** @enum {string} */
+                            status: "draft" | "active" | "past_due" | "paused" | "cancelled" | "unmanaged";
+                            taxable: boolean;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    query_subscription_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    cursor?: string;
+                    /** @default 25 */
+                    limit?: number;
+                    /** Format: uuid */
+                    personId?: string;
+                    /** Format: uuid */
+                    planId?: string;
+                    status?: ("draft" | "active" | "past_due" | "paused" | "cancelled" | "unmanaged")[];
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        nextCursor: string | null;
+                        subscriptions: {
+                            cancelledAt: string | null;
+                            cancelReason: string | null;
+                            connectionId: string | null;
+                            /** Format: date-time */
+                            createdAt: string;
+                            currentPeriodEnd: string | null;
+                            currentPeriodStart: string | null;
+                            endedOn: string | null;
+                            failedCycles: number;
+                            /** Format: uuid */
+                            id: string;
+                            includes: string[];
+                            /** @enum {string} */
+                            interval: "month" | "quarter" | "year";
+                            intervalCount: number;
+                            lastError: string | null;
+                            leadId: string | null;
+                            nextBillingOn: string | null;
+                            pausedAt: string | null;
+                            person: {
+                                email: string | null;
+                                fullName: string;
+                                /** Format: uuid */
+                                id: string;
+                                phone: string | null;
+                            };
+                            planId: string | null;
+                            planName: string;
+                            priceCents: number;
+                            provider: ("stripe" | "square" | "paypal" | "nmi" | "authorize_net") | null;
+                            publicRef: string;
+                            startedOn: string | null;
+                            /** @enum {string} */
+                            status: "draft" | "active" | "past_due" | "paused" | "cancelled" | "unmanaged";
+                            taxable: boolean;
                         }[];
                     };
                 };

@@ -48,6 +48,18 @@ export interface LeadFacts {
   readonly lastContactAt: string | null;
   /** `leads.qualification.status`, or null when it has no qualifying answers. */
   readonly qualification: 'qualified' | 'not_a_fit' | 'incomplete' | null;
+  /**
+   * When an estimate on this lead went out, while it is still out: sent, unanswered and still good (M9). The
+   * estimate's own card is the more exact fact and carries the better action, so while one is out this lead
+   * raises neither "Gone quiet" nor "No next action" — two cards for "chase Tom about the quote" is noise.
+   * An overdue invoice is different: money owed after the work is its own thing, and keeps its card.
+   */
+  readonly estimateOutAt: string | null;
+}
+
+/** An estimate of this lead's is out and unanswered, so the estimate's card speaks for it. */
+export function leadHasEstimateOut(lead: LeadFacts): boolean {
+  return lead.estimateOutAt !== null;
 }
 
 /** The lead behind an appointment, approval, conversation or task: only for its value. */

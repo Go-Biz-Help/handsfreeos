@@ -265,6 +265,7 @@ async function loadLeads(
     first_response_at: Date | null;
     last_contact_at: Date | null;
     qualification: string | null;
+    estimate_out_at: Date | null;
     source: string | null;
     first_name: string | null;
     last_name: string | null;
@@ -281,7 +282,13 @@ async function loadLeads(
           (select count(*)::int from app.pipeline_stages o
             where o.pipeline_id = l.pipeline_id and o.kind = 'open') as open_stages,
           l.stage_entered_at, l.next_action, l.next_action_at, l.first_response_at, l.last_contact_at,
-          l.qualification ->> 'status' as qualification, l.source,
+          l.qualification ->> 'status' as qualification,
+          -- M9: an estimate of theirs that is out, unanswered and still good. While one is, the estimate's
+          -- own card speaks for this lead and the stale and next-action detectors stand down.
+          (select max(e.sent_at) from app.estimates e
+            where e.lead_id = l.id and e.status = 'sent'
+              and (e.expires_on is null or e.expires_on >= current_date)) as estimate_out_at,
+          l.source,
           p.first_name, p.last_name, c.name as company_name
         from app.leads l
         join app.pipeline_stages s on s.id = l.stage_id
@@ -317,6 +324,7 @@ async function loadLeads(
         firstResponseAt: iso(r.first_response_at),
         lastContactAt: iso(r.last_contact_at),
         qualification: q === 'qualified' || q === 'not_a_fit' || q === 'incomplete' ? q : null,
+        estimateOutAt: iso(r.estimate_out_at),
       },
       title: r.title,
       personName: nameOf(r.first_name, r.last_name),

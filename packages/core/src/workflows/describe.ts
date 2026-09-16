@@ -360,6 +360,7 @@ const STOP_WORDS = {
   booking: 'they book',
   lead_won: 'the lead is won',
   lead_lost: 'the lead is lost',
+  estimate_accepted: 'they approve the estimate',
 } as const;
 
 export function describeSetting<K extends keyof WorkflowSettings>(

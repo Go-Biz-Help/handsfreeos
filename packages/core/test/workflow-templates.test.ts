@@ -90,11 +90,35 @@ beforeAll(async () => {
         name: 'Estimate follow-up',
         from: 'recipe',
         recipeKey: 'estimate_follow_up',
-        mapping: { estimate_stage: estimateStage },
       },
       owner,
     )
   ).workflowId;
+  // The recipe runs on the estimate going out now (M9) and names nothing of this business's own, so the
+  // trigger is pointed at one of its stages here: a template has to swap a real id for a placeholder, and
+  // that is what these tests are about.
+  await run(
+    workflowSaveDraft,
+    {
+      workspaceId: wsId,
+      workflowId: sourceId,
+      baseRevision: 1,
+      ops: [
+        {
+          op: 'set_trigger',
+          trigger: {
+            kind: 'event',
+            event: 'lead.stage_changed',
+            filters: {
+              match: 'all',
+              conditions: [{ field: 'trigger.to_stage_id', op: 'eq', value: estimateStage }],
+            },
+          },
+        },
+      ],
+    },
+    owner,
+  );
   templateId = (
     await run(
       workflowTemplateCreateFromWorkflow,

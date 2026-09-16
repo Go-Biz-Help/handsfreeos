@@ -157,7 +157,7 @@ describe('attention settings', () => {
     expect(s.stale).toEqual({ days: 7, stageDays: {} });
     expect(s.appointments).toEqual({ windowHours: 48 });
     expect(s.money).toEqual({
-      estimateWaitingDays: 3,
+      estimateWaitingDays: 5,
       invoiceOverdueDays: 1,
       minBalanceCents: 0,
     });

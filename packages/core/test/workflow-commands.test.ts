@@ -197,18 +197,19 @@ let liveVersionId: string;
 
 describe('creating', () => {
   it('creates from a recipe with a mapping; unmapped placeholders stay as issues', async () => {
+    // A recipe that names a calendar is the one with something to map. Estimate follow-up stopped needing a
+    // mapping in M9: it runs on the estimate going out, not on a lead reaching a stage someone has to pick.
     const mapped = await run(
       workflowCreate,
       {
         workspaceId: wsId,
-        name: 'Estimate follow-up',
+        name: 'Rebook no-shows',
         from: 'recipe',
-        recipeKey: 'estimate_follow_up',
-        mapping: { estimate_stage: estimateStage },
+        recipeKey: 'no_show_rebook',
+        mapping: { calendar: calendarId },
       },
       owner,
     );
-    estimateWorkflowId = mapped.workflowId;
     expect(mapped.revision).toBe(1);
     expect(mapped.placeholders).toEqual([]);
     expect(mapped.issues.filter((i) => i.severity === 'error')).toEqual([]);
@@ -218,18 +219,18 @@ describe('creating', () => {
       revision: 1,
       tested: false,
       activeVersion: null,
-      trigger: { kind: 'event', event: 'lead.stage_changed' },
-      source: { kind: 'recipe', recipeKey: 'estimate_follow_up', recipeName: 'Estimate follow-up' },
+      trigger: { kind: 'event', event: 'appointment.no_show' },
+      source: { kind: 'recipe', recipeKey: 'no_show_rebook', recipeName: 'No-show rebook' },
     });
-    expect(JSON.stringify(workflow.definition)).toContain(estimateStage);
+    expect(JSON.stringify(workflow.definition)).toContain(calendarId);
 
     const unmapped = await run(
       workflowCreate,
-      { workspaceId: wsId, name: 'Broken', from: 'recipe', recipeKey: 'estimate_follow_up' },
+      { workspaceId: wsId, name: 'Broken', from: 'recipe', recipeKey: 'no_show_rebook' },
       owner,
     );
     brokenId = unmapped.workflowId;
-    expect(unmapped.placeholders.map((p) => p.key)).toEqual(['estimate_stage']);
+    expect(unmapped.placeholders.map((p) => p.key)).toEqual(['calendar']);
     expect(unmapped.issues.map((i) => i.code)).toContain('placeholder_unmapped');
     await expectHfos(
       () =>
@@ -239,14 +240,37 @@ describe('creating', () => {
             workspaceId: wsId,
             name: 'Nope',
             from: 'recipe',
-            recipeKey: 'estimate_follow_up',
-            mapping: { not_a_placeholder: estimateStage },
+            recipeKey: 'no_show_rebook',
+            mapping: { not_a_placeholder: calendarId },
           },
           owner,
         ),
       'validation',
       400,
     );
+  });
+
+  it('takes the estimate follow-up recipe with nothing to map: it runs on the estimate going out', async () => {
+    const made = await run(
+      workflowCreate,
+      {
+        workspaceId: wsId,
+        name: 'Estimate follow-up',
+        from: 'recipe',
+        recipeKey: 'estimate_follow_up',
+      },
+      owner,
+    );
+    estimateWorkflowId = made.workflowId;
+    expect(made.placeholders).toEqual([]);
+    expect(made.issues.filter((i) => i.severity === 'error')).toEqual([]);
+    const { workflow } = await get(made.workflowId, member);
+    expect(workflow).toMatchObject({
+      trigger: { kind: 'event', event: 'estimate.sent' },
+      source: { kind: 'recipe', recipeKey: 'estimate_follow_up', recipeName: 'Estimate follow-up' },
+    });
+    // It stops the moment the customer says yes, as well as on a reply or the lead closing.
+    expect(JSON.stringify(workflow.definition)).toContain('estimate_accepted');
   });
 
   it('indexes the trigger: its event, the calendars it names, or every calendar', async () => {
@@ -948,9 +972,26 @@ describe('proposals and tests', () => {
 
 describe('the agency', () => {
   it('saves, publishes and pushes templates: organization owners and admins only', async () => {
+    // A workflow that names one of this business's stages: what a template has to swap for a placeholder.
+    const stageWorkflow = await run(
+      workflowCreate,
+      {
+        workspaceId: wsId,
+        name: 'Estimate sent chase',
+        trigger: {
+          kind: 'event',
+          event: 'lead.stage_changed',
+          filters: {
+            match: 'all',
+            conditions: [{ field: 'trigger.to_stage_id', op: 'eq', value: estimateStage }],
+          },
+        },
+      },
+      owner,
+    );
     const created = await run(
       workflowTemplateCreateFromWorkflow,
-      { organizationId: orgId, workflowId: estimateWorkflowId, name: 'Estimate follow-up' },
+      { organizationId: orgId, workflowId: stageWorkflow.workflowId, name: 'Estimate follow-up' },
       owner,
     );
     const templateId = created.templateId;

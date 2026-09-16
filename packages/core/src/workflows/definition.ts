@@ -115,6 +115,24 @@ export const TRIGGER_EVENTS = {
     subject: 'payload_person',
     provides: ['conversation'],
   },
+  /**
+   * Money (M9). The event's entity is the document, so the customer comes from `payload.personId`, which every
+   * one of these carries. They provide no record of their own: an estimate and an invoice are not among the
+   * three a run can hold, so a message templates from the customer and the business.
+   */
+  'estimate.sent': { label: 'An estimate goes out', subject: 'payload_person', provides: [] },
+  'estimate.accepted': {
+    label: 'A customer approves an estimate',
+    subject: 'payload_person',
+    provides: [],
+  },
+  'estimate.declined': {
+    label: 'A customer declines an estimate',
+    subject: 'payload_person',
+    provides: [],
+  },
+  'invoice.paid': { label: 'An invoice is paid', subject: 'payload_person', provides: [] },
+  'invoice.overdue': { label: 'An invoice goes overdue', subject: 'payload_person', provides: [] },
 } as const satisfies Record<string, TriggerEventDef>;
 export type TriggerEventKey = keyof typeof TRIGGER_EVENTS;
 export const TRIGGER_EVENT_KEYS = Object.keys(TRIGGER_EVENTS) as [
@@ -477,7 +495,11 @@ export const Reentry = z.discriminatedUnion('mode', [
 ]);
 export type Reentry = z.infer<typeof Reentry>;
 
-export const STOP_ON = ['reply', 'booking', 'lead_won', 'lead_lost'] as const;
+/**
+ * What stops a run early. `estimate_accepted` (M9) is how a follow-up chain stops the moment the customer says
+ * yes — the worker's dispatcher maps `estimate.accepted` onto it.
+ */
+export const STOP_ON = ['reply', 'booking', 'lead_won', 'lead_lost', 'estimate_accepted'] as const;
 export type StopOn = (typeof STOP_ON)[number];
 
 export const WorkflowSettings = z.object({

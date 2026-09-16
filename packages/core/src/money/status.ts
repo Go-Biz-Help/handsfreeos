@@ -94,14 +94,19 @@ export function isManualPaymentMethod(method: PaymentMethod): boolean {
 
 /**
  * A payment's status only ever moves forward, so a webhook delivered out of order can never un-pay an invoice.
- * `succeeded` and `failed` are the end of it. (The database guard keeps a late callback quietly rather than
- * raising; this is the same rule for the code that decides what to send it.)
+ * `succeeded` is the end of it.
+ *
+ * **`failed` is not.** A bank transfer can soft-fail — the bank returns it, the customer's bank retries, and days
+ * later it settles — so `failed → succeeded` is allowed and nothing else leaves `failed`. This matches
+ * `private.payment_status_rank` in 0047 exactly (requires_payment 0, processing 1, failed 2, succeeded 3); the
+ * database keeps a backwards callback quietly rather than raising, and this is the same rule for the code that
+ * decides what to send it.
  */
 export const PAYMENT_TRANSITIONS: Readonly<Record<PaymentStatus, readonly PaymentStatus[]>> = {
   requires_payment: ['processing', 'succeeded', 'failed'],
   processing: ['succeeded', 'failed'],
   succeeded: [],
-  failed: [],
+  failed: ['succeeded'],
 };
 
 export const REFUND_TRANSITIONS: Readonly<Record<RefundStatus, readonly RefundStatus[]>> = {
@@ -261,15 +266,19 @@ export function invoiceState(f: InvoiceStateFacts, now: Date | number): InvoiceS
   return f.viewedAt ? 'viewed' : 'sent';
 }
 
-/** When an estimate sent at `sentAt` stops being good. */
-export function estimateExpiresAt(sentAt: string, goodForDays: number): string {
-  const days = Math.max(0, Math.round(goodForDays));
-  return new Date(Date.parse(sentAt) + days * 86_400_000).toISOString();
+/**
+ * The day an estimate sent on `issuedDate` (a local date) stays good through — `estimates.expires_on`, the
+ * business's own default unless the document says otherwise. It's a day, not a moment, exactly as an invoice's
+ * due day is: the estimate is good until that day is over where the business is (`overdueFrom` gives that
+ * instant, and it's how a stored date becomes the `expiresAt` the rules compare).
+ */
+export function estimateExpiresOn(issuedDate: string, goodForDays: number): string {
+  return addDays(issuedDate, Math.max(0, Math.round(goodForDays)));
 }
 
 export interface EstimateStateFacts {
   readonly status: EstimateStatus;
-  /** When it stops being good; null when it never does. */
+  /** When it stops being good, as an instant; null when it never does. */
   readonly expiresAt: string | null;
   /** When the customer first opened it; null when they haven't. */
   readonly viewedAt?: string | null;

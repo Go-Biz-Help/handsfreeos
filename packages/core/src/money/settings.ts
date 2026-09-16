@@ -112,13 +112,14 @@ const reminderDays = z.int().min(1, 'At least 1 day.').max(90, 'At most 90 days.
 
 const Reminders = z.object({
   /**
-   * Days before the due date a reminder goes out. None to begin with: invoices are due on receipt until a
-   * business says otherwise, and there's nothing to remind anyone about before the day it lands.
+   * Days before the due date a reminder goes out. One, three days out: with Net 14 that's a nudge in the second
+   * week, while there's still time to pay without anyone being late. A business on due-on-receipt terms should
+   * empty this — `checkMoneySettings` says so, because the reminder would land before the invoice.
    */
   beforeDueDays: z
     .array(reminderDays)
     .max(3, 'At most three.')
-    .default(() => []),
+    .default(() => [3]),
   /** One on the day it's due. */
   onDue: z.boolean().default(true),
   /** Days after the due date a reminder goes out. */
@@ -134,10 +135,10 @@ export const MoneySettings = z.object({
   tax: Tax.prefault({}),
   numbering: Numbering.prefault({}),
   /** When an invoice is due, unless a document says otherwise. */
-  terms: z.enum(PAYMENT_TERMS).default('due_on_receipt'),
+  terms: z.enum(PAYMENT_TERMS).default('net_14'),
   notes: Notes.prefault({}),
   /** How many days an estimate stays good after it's sent. */
-  estimateGoodForDays: z.int().min(1, 'At least 1 day.').max(365, 'At most a year.').default(30),
+  estimateGoodForDays: z.int().min(1, 'At least 1 day.').max(365, 'At most a year.').default(14),
   deposit: Deposit.prefault({}),
   /** Offer bank transfer on the customer's page. It's the cheap rail, so it leads. */
   bankTransfer: z.boolean().default(true),

@@ -58,7 +58,9 @@ const Appointments = z.object({
  */
 const Money = z.object({
   /** An estimate nobody has answered opens this many days after it went out. */
-  estimateWaitingDays: z.int().min(1, 'At least 1 day.').max(60, 'At most 60 days.').default(3),
+  // Five days, not three: HandsFreeOS sends its own check-in on day three, so the card asks a person only
+  // once that has had its chance.
+  estimateWaitingDays: z.int().min(1, 'At least 1 day.').max(60, 'At most 60 days.').default(5),
   /** An unpaid invoice opens this many days after its due day: 0 opens it the morning after. */
   invoiceOverdueDays: z.int().min(0).max(60, 'At most 60 days.').default(1),
   /** Nothing smaller than this opens a card, so a $3 balance doesn't take up Home. */

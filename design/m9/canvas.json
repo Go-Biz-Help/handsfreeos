@@ -1,0 +1,226 @@
+{
+  "artboards": [
+    {
+      "file": "Main.dc.html",
+      "title": "Money: the invoices list",
+      "x": 0,
+      "y": 0,
+      "w": 1440,
+      "h": 760,
+      "is_interactive": true
+    },
+    {
+      "file": "Editor.dc.html",
+      "title": "The document editor, mid-edit",
+      "x": 1530,
+      "y": 0,
+      "w": 1440,
+      "h": 890
+    },
+    {
+      "file": "Estimate.dc.html",
+      "title": "The customer’s estimate page",
+      "x": 3060,
+      "y": 0,
+      "w": 1620,
+      "h": 1250
+    },
+    {
+      "file": "Invoice.dc.html",
+      "title": "The customer’s invoice page",
+      "x": 4770,
+      "y": 0,
+      "w": 1620,
+      "h": 1320
+    },
+    {
+      "file": "Settings.dc.html",
+      "title": "Settings: Payments",
+      "x": 0,
+      "y": 1750,
+      "w": 1440,
+      "h": 1420,
+      "is_interactive": true
+    },
+    {
+      "file": "Products.dc.html",
+      "title": "Settings: Products",
+      "x": 1530,
+      "y": 1750,
+      "w": 1660,
+      "h": 1180
+    },
+    {
+      "file": "Plans.dc.html",
+      "title": "Maintenance plans",
+      "x": 3280,
+      "y": 1750,
+      "w": 1720,
+      "h": 920
+    },
+    {
+      "file": "Booking.dc.html",
+      "title": "Booking with a deposit",
+      "x": 5090,
+      "y": 1750,
+      "w": 1400,
+      "h": 1080
+    },
+    {
+      "file": "Cards.dc.html",
+      "title": "The two new cards on Home",
+      "x": 0,
+      "y": 3600,
+      "w": 1560,
+      "h": 1180
+    },
+    {
+      "file": "Emails.dc.html",
+      "title": "The estimate, invoice and receipt emails",
+      "x": 1650,
+      "y": 3600,
+      "w": 1560,
+      "h": 900
+    },
+    {
+      "file": "Phone.dc.html",
+      "title": "Money on a phone",
+      "x": 3300,
+      "y": 3600,
+      "w": 1400,
+      "h": 1030
+    },
+    {
+      "file": "PhoneDark.dc.html",
+      "title": "Money on a phone, in dark",
+      "x": 4790,
+      "y": 3600,
+      "w": 1400,
+      "h": 1030
+    }
+  ],
+  "annotations": [
+    {
+      "id": "direction",
+      "x": 0,
+      "y": -640,
+      "w": 900,
+      "text": "HandsFreeOS Milestone 9, step 0: Money. A business quotes a job, the customer approves it and pays, and the money lands in the business’s own account. Same look as Milestones 1 to 8.\nTwelve boards: the Money section and the one document editor; the customer’s estimate and invoice pages; Settings → Payments and Products; booking with a deposit; maintenance plans; the two new cards on Home; the three emails; and 390 px in light and dark.\nNothing on these boards mentions a card fee or a surcharge. That was a decision, and it holds on every screen the customer sees.\nInteractive: Main (the four subnav chips) and Settings (every switch)."
+    },
+    {
+      "id": "sample-data",
+      "x": 1000,
+      "y": -640,
+      "w": 820,
+      "text": "Sample data only: Lone Star HVAC & Roofing, the same fictional Houston business, the same customers and the same September dates as Milestones 5 to 8. The team is Dale (owner), Priya (admin) and Marco (member).\nToday is Tuesday, September 22, 2026, as on the Milestone 8 boards. Three boards happen earlier and say so: the editor is Wednesday, Sep 16 before the estimate was sent; the customer’s estimate page is Sep 16 and Sep 17; the invoice email and receipt are Friday, Sep 18.\nPeople, prices, addresses, card numbers and account ids are placeholders. The two payment accounts are stand-ins for a real Stripe and a real Square connection."
+    },
+    {
+      "id": "the-figures",
+      "x": 1920,
+      "y": -640,
+      "w": 900,
+      "text": "Every figure on these boards is worked out, not typed, so the arithmetic holds up.\nSales tax is 8.25%, called “TX sales tax”. Labour is $145.00 an hour and is not taxed.\nMaria Lopez’s estimate: $6,400.00 + $2,320.00 + $289.00 = $9,009. 10% off = −$900.90. Tax on the two taxable lines after the discount: $6,020.10 × 8.25% = $496.66. Total $8,604.76. A 25% deposit is $2,151.19, so the balance is $6,453.57.\nThe headline strip: outstanding $12,241.58 is the four unpaid balances (Maria $6,453.57, Sarah $1,922.30, Bayou Bistro $1,313.83, ABC Dental $2,551.88). Overdue $2,551.88 is ABC Dental alone. Collected $6,195.30 is the five payments listed on the Payments chip ($4,994.30) plus 20 plan cycles that billed themselves ($1,201).\nHome: $49,852 affected = Milestone 8’s four lead values ($47,300) plus what ABC Dental owes ($2,551.88) = $49,851.88, shown rounded because it is a summary."
+    },
+    {
+      "id": "decisions",
+      "x": 6690,
+      "y": 0,
+      "w": 720,
+      "text": "For you to decide on this canvas:\n1. The words for each state: Draft, Sent, Paying, Paid, Overdue, Void; Approved, Declined, Expired.\n2. The two new card kinds: “Invoice overdue” and “Estimate waiting”.\n3. The two lines the customer reads: “Bank transfer · Takes 1 to 3 business days” and “Card · Instant. Visa, Mastercard, Amex, Apple Pay and Google Pay.” Neither says anything about what a way of paying costs. The reason bank transfer is first lives in Settings → Payments, where the owner reads it.\n4. The defaults: 8.25% tax called “TX sales tax”, INV- and EST- with the next numbers, Net 14, estimates good for 14 days, a 25% deposit on estimates over $2,000, and reminders 3 days before, on the day, then 3, 7 and 14 days after.\n5. Whether “Money” sits between Calendar and Workflows in the drawer, as drawn.\n6. Whether the money pages should be exact to the cent while Home stays rounded, as drawn."
+    },
+    {
+      "id": "assumptions",
+      "x": 6690,
+      "y": 1100,
+      "w": 720,
+      "text": "Choices I made that the plan didn’t spell out:\n• A deposit from an estimate is its own small invoice, paid first, then credited on the job invoice — so the job invoice reads “Total, Deposit paid, Amount due” and the list never counts the same money twice. The plan says both “a deposit is an invoice” and “credited on the invoice”, and this is the only way I can make both true.\n• Outstanding, overdue and collected are sums of balances, not totals, so a paid deposit doesn’t inflate them.\n• A draft carries no number anywhere — in the list it shows an em dash.\n• Tom Reyes’s card changes kind rather than adding a second card, so Home’s count goes 9 → 10.\n• Money got its own drawer item with four chips, rather than four drawer items.\n• The Money section’s numbers are exact; Home’s “$ affected” drops the cents, as Milestone 8 does.\n• Settings → Payments and Products are two tabs, with Payments before Products.\n• Tom’s estimate is $12,928.50 while his lead still says $12,400 on Home. A lead value is what a person guessed; the estimate is the real quote. They are meant to differ.\n• The customer’s pages are drawn in a browser at 486 px wide because that is the width that matters — they are phone pages that centre in a column on a desktop."
+    },
+    {
+      "id": "main",
+      "x": 0,
+      "y": 790,
+      "w": 760,
+      "text": "Money is one drawer item with four lists. The phone bar stays at five.\nDecisions on show: the headline strip is exact to the cent, because this page is about money; Home’s “$ affected” is the only rounded one. A draft has no number — it gets one when you press Send. A deposit and a plan cycle are ordinary invoices with a purpose, so there is one ledger.\nTry: the Estimates, Payments and Plans chips. They open the other three lists on this board.\nInvented: the “All statuses” filter and the search box; the plan says lists, not what filters they get."
+    },
+    {
+      "id": "editor",
+      "x": 1530,
+      "y": 920,
+      "w": 760,
+      "text": "One editor for estimates and invoices. This is Maria Lopez’s estimate on Wednesday, Sep 16, before it was sent.\nDecisions on show: lines come from the catalogue but a change here changes only this document; the discount is a percentage off the whole thing, spread over the lines before tax; tax is one rounding step over the discounted taxable lines; the number is taken when you press Send.\nInvented: the catalogue picker is drawn as a popover with a search box, and “New product ‘therm’…” at the bottom. The plan doesn’t say how you pick a line. Also the “Paid into” row: the plan says a document chooses its account, and this is where I put the choice."
+    },
+    {
+      "id": "estimate",
+      "x": 3060,
+      "y": 1280,
+      "w": 760,
+      "text": "Three states of the same page: as sent, Approve with her name typed, and after she approved.\nDecisions on show: a link, not a PDF; Approve needs a typed name and records it with the moment and the exact wording; any non-empty name is accepted; both buttons POST; approving suggests Won on the lead but doesn’t move it.\nThe sentence she types her name under — “By typing my name I approve this estimate for $8,604.76 from Lone Star HVAC & Roofing.” — is the one we store as evidence. Approved as written.\nInvented: “Print or save a PDF” is the browser’s own print, not something we generate."
+    },
+    {
+      "id": "invoice",
+      "x": 4770,
+      "y": 1350,
+      "w": 760,
+      "text": "What Maria owes after the deposit, the two ways to pay, and the receipt. The third frame is this same invoice at 9:12 AM on Tuesday — the Money list board is what it looks like before she pays, which is why it reads Sent there and Paid here.\nDecisions on show: bank transfer comes first because it is the cheapest for the business, and the page never says so — no surcharge, no card-fee line, no talk of what a way of paying costs; nothing added to what she owes; card fields come from the provider so no card number touches us; one press, one payment.\nInvented: the deposit shown as a credit on the job invoice rather than as a separate document in front of her. The plan says a deposit is its own invoice; this board shows that invoice paid and credited here, which is how “credited on the invoice” in the plan’s verification reads to me."
+    },
+    {
+      "id": "settings",
+      "x": 0,
+      "y": 3200,
+      "w": 760,
+      "text": "Settings gains two tabs: Payments and Products. Only owners and admins see them.\nDecisions on show: several accounts at once, including two of the same provider, with one default; Square’s 30-day token and the weekly renewal said out loud; one tax rate for the business with its own name; numbering with a live preview and a note that voided numbers are never reused; reminders agreed in advance, which is the only money message that goes on its own.\nTry: every switch.\nInvented: the reminder schedule (3 days before, on the day, then 3, 7 and 14 days after) and “Ask for a deposit on estimates over $2,000”. The plan says “the reminder schedule” and “deposit defaults” without saying what they are."
+    },
+    {
+      "id": "products",
+      "x": 1530,
+      "y": 2960,
+      "w": 760,
+      "text": "The catalogue, next to the other settings. One price, used in two places: an estimate line, and what a customer books.\nDecisions on show: products are new and separate from bookable services, with an optional link between them; each item is marked taxable or not; archiving keeps it on documents it is already on.\nInvented: the codes (AC-3T-16, LAB-STD), the unit labels, and “Used on 6 documents”. Plans are deliberately not here — they have members and cycles, so they live under Money → Plans."
+    },
+    {
+      "id": "plans",
+      "x": 3280,
+      "y": 2700,
+      "w": 760,
+      "text": "The three plans, who is on them, and one member’s plan open beside it.\nDecisions on show: plans bill themselves through Stripe Billing or Square Subscriptions, and we keep a copy of each cycle as an invoice and a payment; a failed cycle says so and when it retries; pause keeps the member, cancel ends it at the end of the month already paid for.\nInvented: all three plans and their prices, the pause and cancel wording, and “27 members”. The plan only says $29 a month as an example."
+    },
+    {
+      "id": "booking",
+      "x": 5090,
+      "y": 2860,
+      "w": 760,
+      "text": "The booking flow’s new pay step, for a calendar that asks for a deposit.\nDecisions on show: the card is held, not charged, until the time is confirmed; if the time goes while they are typing nothing is taken; a bank deposit on a lost time is refunded in full, at once, by itself.\nInvented: duct cleaning at $450 with a $250 deposit, and the “Other times this week” list on the lost-time screen. The plan says the slot is held and nothing is charged; it doesn’t say what the page then offers."
+    },
+    {
+      "id": "cards",
+      "x": 0,
+      "y": 4810,
+      "w": 760,
+      "text": "The two kinds Milestone 8 left unbuilt, in place among its cards.\nDecisions on show: both are ask-first only — HandsFreeOS never chases money on its own; “$ affected” now counts overdue invoices alongside lead values, each customer once; an estimate isn’t counted until it is approved.\nInvented: Tom Reyes was already on Milestone 8’s list as Gone quiet. Here the same item shows the more exact kind, Estimate waiting, so he has one card and not two. That is why the count goes from 9 to 10 and not to 11."
+    },
+    {
+      "id": "emails",
+      "x": 1650,
+      "y": 4530,
+      "w": 760,
+      "text": "Three customer emails in the shell the booking emails already use.\nDecisions on show: they come from the business, not from HandsFreeOS; one button each, to the customer’s own page; no attachments, because a PDF is the thing mail filters strip.\nInvented: every sentence in them, and the line that the team gets its own short email when money lands."
+    },
+    {
+      "id": "phone",
+      "x": 3300,
+      "y": 4660,
+      "w": 760,
+      "text": "Everything at 390 px: the editor, the customer’s invoice and Settings → Payments.\nDecisions on show: the table becomes a card per line with a sticky totals bar, so the number you are changing and the number that matters are both on screen; buttons are 44 px; the customer’s page was always a phone page.\nInvented: the sticky bar’s one-line summary (“Subtotal $9,009.00 · 10% off · tax $496.66”) and that it opens."
+    },
+    {
+      "id": "phonedark",
+      "x": 4790,
+      "y": 4660,
+      "w": 760,
+      "text": "The same three screens in dark. Every board here also has a theme switch in its own properties, so any of them can be read in dark."
+    }
+  ],
+  "launch": {
+    "view": "canvas"
+  }
+}

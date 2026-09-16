@@ -42,7 +42,8 @@ describe('estimate_waiting', () => {
       totalCents: 840_000,
       sentAt: iso(at('2026-09-10', '09:00')),
       viewedAt: null,
-      expiresAt: iso(at('2026-10-10', '09:00')),
+      // Good for the fortnight the business gives: expires_on 2026-09-24, so it lasts until that day is over.
+      expiresAt: iso(at('2026-09-25', '00:00')),
       assigneeUserId: DALE,
       ...over,
     },
@@ -53,14 +54,23 @@ describe('estimate_waiting', () => {
     s: AttentionSettings = settings,
   ) => DETECTORS.estimate_waiting.detect(facts(over), s, now);
 
-  it('waits the three days a business gave the customer', () => {
+  it('waits the days a business gave the customer', () => {
+    // Three days here, not the default five: this is the setting doing its job, whatever it's set to.
+    const gave3 = parseAttentionSettings({ money: { estimateWaitingDays: 3 } });
     const f = facts();
-    expect(DETECTORS.estimate_waiting.detect(f, settings, at('2026-09-12', '09:00'))).toBeNull();
-    expect(DETECTORS.estimate_waiting.wakeAt(f, settings, at('2026-09-12', '09:00'))).toBe(
+    expect(DETECTORS.estimate_waiting.detect(f, gave3, at('2026-09-12', '09:00'))).toBeNull();
+    expect(DETECTORS.estimate_waiting.wakeAt(f, gave3, at('2026-09-12', '09:00'))).toBe(
       iso(at('2026-09-13', '09:00')),
     );
+    expect(DETECTORS.estimate_waiting.detect(f, gave3, at('2026-09-13', '09:01'))).not.toBeNull();
+  });
+
+  it('by default waits five days, a couple after the check-in HandsFreeOS sends on day three', () => {
+    const f = facts();
+    expect(settings.money.estimateWaitingDays).toBe(5);
+    expect(DETECTORS.estimate_waiting.detect(f, settings, at('2026-09-14', '09:00'))).toBeNull();
     expect(
-      DETECTORS.estimate_waiting.detect(f, settings, at('2026-09-13', '09:01')),
+      DETECTORS.estimate_waiting.detect(f, settings, at('2026-09-15', '09:01')),
     ).not.toBeNull();
   });
 
@@ -71,7 +81,7 @@ describe('estimate_waiting', () => {
     expect(words(d, 'not_viewed')).toBe('not opened yet');
     expect(d?.assignee).toBe(DALE);
     expect(d?.since).toBe(iso(at('2026-09-10', '09:00')));
-    expect(d?.dueAt).toBe(iso(at('2026-10-10', '09:00')));
+    expect(d?.dueAt).toBe(iso(at('2026-09-25', '00:00')));
   });
 
   it('drops the "not opened" chip once the customer has looked', () => {
@@ -82,7 +92,7 @@ describe('estimate_waiting', () => {
   });
 
   it('counts down as the expiry nears, and lets go once it passes', () => {
-    const nearly = at('2026-10-09', '21:00');
+    const nearly = at('2026-09-24', '12:00');
     const d = run({}, nearly);
     expect(
       chipText(
@@ -90,8 +100,8 @@ describe('estimate_waiting', () => {
         nearly,
       ),
     ).toBe('expires in 12 h');
-    expect(run({}, at('2026-10-10', '09:00'))).toBeNull();
-    expect(run({}, at('2026-10-11', '09:00'))).toBeNull();
+    expect(run({}, at('2026-09-25', '00:00'))).toBeNull();
+    expect(run({}, at('2026-09-26', '09:00'))).toBeNull();
   });
 
   it('never opens for an estimate that expires before it would', () => {

@@ -74,6 +74,7 @@ export function lead(over: Partial<LeadFacts> = {}): LeadFacts {
     firstResponseAt: null,
     lastContactAt: null,
     qualification: null,
+    estimateOutAt: null,
     ...over,
   };
 }

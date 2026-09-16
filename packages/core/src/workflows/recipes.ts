@@ -449,20 +449,13 @@ export const WORKFLOW_RECIPES: readonly WorkflowRecipe[] = [
     key: 'estimate_follow_up',
     name: 'Estimate follow-up',
     description:
-      'Follow up on a sent estimate by text, then email, then a task. Stops when it’s won, lost or they reply.',
-    placeholders: [{ key: 'estimate_stage', kind: 'stage', label: 'Estimate sent' }],
+      'Follow up on an estimate that has gone out, by text, then email, then a task. Stops the moment they approve it, or if it’s won, lost or they reply.',
+    // It runs on the real thing now (M9): the estimate going out, not a lead reaching a stage, so there is
+    // nothing for a business to map when they install it.
+    placeholders: [],
     definition: {
       version: 1,
-      trigger: {
-        kind: 'event',
-        event: 'lead.stage_changed',
-        filters: {
-          match: 'all',
-          conditions: [
-            { field: 'trigger.to_stage_id', op: 'eq', value: { $ph: 'estimate_stage' } },
-          ],
-        },
-      },
+      trigger: { kind: 'event', event: 'estimate.sent', filters: {} },
       steps: [
         wait('s_efuwait1', 2, 'days'),
         text(
@@ -476,7 +469,7 @@ export const WORKFLOW_RECIPES: readonly WorkflowRecipe[] = [
           action: 'send_email',
           config: {
             subject: 'Your estimate from {{business.name}}',
-            body: `Hi ${first('there')},\n\nI wanted to follow up on your estimate for {{lead.title}}. If you have any questions or want to get on the schedule, just reply to this email.\n\nThanks,\n{{business.name}}`,
+            body: `Hi ${first('there')},\n\nI wanted to follow up on the estimate we sent over. If you have any questions or want to get on the schedule, just reply to this email.\n\nThanks,\n{{business.name}}`,
           },
         },
         wait('s_efuwait3', 5, 'days'),
@@ -484,7 +477,7 @@ export const WORKFLOW_RECIPES: readonly WorkflowRecipe[] = [
           kind: 'lead_assignee',
         }),
       ],
-      settings: { stopOn: ['reply', 'lead_won', 'lead_lost'] },
+      settings: { stopOn: ['reply', 'estimate_accepted', 'lead_won', 'lead_lost'] },
     },
   },
   {

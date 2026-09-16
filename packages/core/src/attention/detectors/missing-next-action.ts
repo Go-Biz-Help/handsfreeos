@@ -3,10 +3,14 @@
  * - an overdue follow-up: the lead's next action has a time, and it has passed (it may run on its own as a nudge);
  * - no next action at all (it asks first, with a suggested one).
  * A next action in the future isn't missing: it opens when its time comes. One with words but no time isn't either.
+ *
+ * A lead with an estimate still out raises nothing here either: chasing the estimate is the next action, and
+ * the estimate's own card carries it.
  */
 import { FOLLOW_UP_OVERDUE } from '../kinds';
 import { chip, sinceChip } from '../chips';
 import {
+  leadHasEstimateOut,
   leadIsOpen,
   leadProbability,
   leadValue,
@@ -25,6 +29,8 @@ export interface MissingNextActionFacts {
 function assess(f: MissingNextActionFacts, settings: AttentionSettings, now: number): Assessment {
   const { lead, business } = f;
   if (!leadIsOpen(lead)) return null;
+  // The next action on a lead with an estimate out is "chase the estimate", which has its own card.
+  if (leadHasEstimateOut(lead)) return null;
   const value = leadValue(lead, business, settings);
   const probability = leadProbability({
     stage: lead.stage,
