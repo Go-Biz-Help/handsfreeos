@@ -21,7 +21,7 @@ pnpm sync:stop               # removes it, its storage and its replication slot
 - **The replication role** is `hfos_sync` (migration 0057), which has no password in the migrations. `sync:start` gives it a local-only one. At go-live it gets a real one, set by hand.
 - **The slot** is `hfos_sync_<n>_<hash>`. A slot held by a stopped service keeps WAL until `max_slot_wal_keep_size` (512 MB locally), then is lost. So `sync:stop` drops it.
 - **Tokens** are the phone's Supabase access token, checked against Auth's ES256 keys (`/auth/v1/.well-known/jwks.json`). `auth.user_id()` in the streams is the token's `sub`. PowerSync refuses tokens older than an hour, so Auth's JWT expiry must stay at 3,600 s.
-- **Diagnostics:** `curl -X POST http://127.0.0.1:54430/api/admin/v1/diagnostics -H 'authorization: Bearer hfos-sync-local-admin-token' -d '{}'` shows the slot, lag, `wal_status` and any stream errors.
+- **Diagnostics:** `curl -X POST http://127.0.0.1:54430/api/admin/v1/diagnostics -H "authorization: Bearer $HFOS_SYNC_ADMIN_TOKEN" -d '{}'` (the token `sync:start` gave the service; it reads `HFOS_SYNC_ADMIN_TOKEN` and falls back to a local-only default) shows the slot, lag, `wal_status` and any stream errors.
 - **The tests:**
   - `packages/db/test/sync-secrets.test.ts` checks the publication, the role's grants and this config on every DB run.
   - `sync-streams.test.ts` runs every query here in Postgres for an owner, a member, an agency admin and a stranger. It fails if a phone would get a row or column RLS and the grants wouldn't let that person read. Add a row to its fixture when a stream reads a new table.
