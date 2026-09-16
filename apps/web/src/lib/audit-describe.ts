@@ -660,20 +660,35 @@ function letHandleSentence(e: AuditEntry): string {
 
 /** Why an automatic message didn't go, in plain words (the worker's reason codes). */
 const AUTO_SKIP: Record<string, string> = {
+  // Who it would have gone to
   opted_out: 'they opted out',
-  no_consent: 'they haven’t agreed to texts and have no email',
-  no_contact: 'there’s no way to reach them',
-  quiet_hours: 'it was quiet hours',
-  cooldown: 'they got an automatic message recently',
   someone_talking: 'someone is talking with them',
-  ai_handling: 'the AI teammate is handling them',
-  draft_pending: 'a draft is waiting',
-  in_workflow: 'they’re in a workflow',
-  recent_person: 'a person messaged them recently',
+  customer_waiting: 'they’re waiting on a reply',
+  draft_pending: 'a draft is waiting for approval',
+  workflow_running: 'they’re in a workflow',
+  recent_person_contact: 'a person messaged them recently',
+  cooldown: 'they got an automatic message recently',
+  // What it was about
   lead_closed: 'the lead is closed',
-  switched_off: 'it’s switched off',
-  nudges_off: 'follow-ups are off',
-  facts_changed: 'things changed before it went',
+  subject_gone: 'what it was about is gone',
+  not_open: 'the item wasn’t open any more',
+  resolved: 'it had already been taken care of',
+  already_sent: 'one had already gone',
+  too_late: 'it was too late to send',
+  // The business's own settings
+  turned_off: 'it’s switched off',
+  nudge_not_reviewed: 'nobody has read the follow-up wording yet',
+  nudge_incomplete: 'the follow-up wording couldn’t be filled in',
+  quiet_hours: 'it was quiet hours',
+  no_booking_link: 'there’s no booking link to send',
+  // No way to send it
+  no_way_to_reach: 'there’s no way to reach them',
+  messaging_not_ready: 'texting isn’t set up yet',
+  no_number: 'there’s no number to text from',
+  no_email_address: 'there’s no email address for them',
+  recipient_suppressed: 'email to them is stopped',
+  email_domain_unverified: 'the business’s email domain isn’t verified',
+  invalid_contact: 'their number or address isn’t usable',
 };
 
 function recordAutoSentence(e: AuditEntry): string {
