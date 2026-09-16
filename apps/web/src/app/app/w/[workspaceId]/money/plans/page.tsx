@@ -6,6 +6,7 @@ import {
   readFilters,
   subscriptionListBody,
 } from '@/components/money/list-options';
+import { StartPlanDialog } from '@/components/money/plan-start';
 import { PlansList } from '@/components/money/plans-list';
 import { MoneyActions, MoneySubnav } from '@/components/money/subnav';
 import { PageHeader } from '@/components/shell/page-header';
@@ -17,8 +18,8 @@ export const metadata: Metadata = { title: 'Plans' };
 const STATUSES = PLAN_STATUS_CHOICES.map((s) => s.value);
 
 /**
- * The maintenance plans a business sells and who is on them. Starting, pausing and cancelling a plan live on
- * the customer's own record (Milestone 9, step 13); this is the list that shows what is billing.
+ * The maintenance plans a business sells and who is on them. Each row opens the plan's own page, where it is
+ * paused, resumed, cancelled or pointed at another account.
  */
 export default async function PlansPage({
   params,
@@ -30,13 +31,18 @@ export default async function PlansPage({
   const { workspaceId } = await params;
   const filters = readFilters(await searchParams, { status: STATUSES });
   const shell = await loadMoneyShell(workspaceId);
-  const [plans, subscriptions] = await Promise.all([
+  const [plans, subscriptions, connections] = await Promise.all([
     shell.api.POST('/v1/queries/plan.list', { body: { workspaceId } }).then((r) => unwrapPage(r)),
     allowed(
       shell.api
         .POST('/v1/queries/subscription.list', {
           body: subscriptionListBody(workspaceId, filters),
         })
+        .then((r) => unwrapPage(r)),
+    ),
+    allowed(
+      shell.api
+        .POST('/v1/queries/payment_connection.list', { body: { workspaceId } })
         .then((r) => unwrapPage(r)),
     ),
   ]);
@@ -53,11 +59,18 @@ export default async function PlansPage({
       ) : null}
       <MoneySubnav workspaceId={workspaceId} tab="plans">
         {shell.canManage ? (
-          <MoneyFilterBar
-            filters={filters}
-            statuses={PLAN_STATUS_CHOICES}
-            count={subscriptions?.subscriptions.length ?? 0}
-          />
+          <>
+            <MoneyFilterBar
+              filters={filters}
+              statuses={PLAN_STATUS_CHOICES}
+              count={subscriptions?.subscriptions.length ?? 0}
+            />
+            <StartPlanDialog
+              workspaceId={workspaceId}
+              plans={plans.plans}
+              connections={connections?.connections ?? []}
+            />
+          </>
         ) : null}
       </MoneySubnav>
       <PlansList

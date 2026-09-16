@@ -7939,6 +7939,52 @@
                               "deposit",
                               "full"
                             ]
+                          },
+                          "deposit": {
+                            "default": null,
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "kind": {
+                                    "type": "string",
+                                    "enum": [
+                                      "percent",
+                                      "amount"
+                                    ]
+                                  },
+                                  "percentBp": {
+                                    "type": "integer",
+                                    "minimum": 1,
+                                    "maximum": 10000
+                                  },
+                                  "amountCents": {
+                                    "type": "integer",
+                                    "minimum": 1,
+                                    "maximum": 100000000
+                                  }
+                                },
+                                "required": [
+                                  "kind"
+                                ]
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "connectionId": {
+                            "default": null,
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "format": "uuid",
+                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
                           }
                         }
                       },
@@ -25200,6 +25246,223 @@
         }
       }
     },
+    "/v1/commands/subscription.request_card": {
+      "post": {
+        "operationId": "command_subscription_request_card",
+        "summary": "Ask the customer to put a card on their plan, by text, by email, or just to get the link. The plan waits until they do; asking again keeps the same link working.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 2. Requires money.manage. Emits subscription.card_requested.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "subscriptionId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "channels": {
+                    "default": [],
+                    "maxItems": 2,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "enum": [
+                        "sms",
+                        "email"
+                      ]
+                    }
+                  },
+                  "message": {
+                    "default": null,
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 2000
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "subscriptionId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "subscriptionId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "draft",
+                        "active",
+                        "past_due",
+                        "paused",
+                        "cancelled",
+                        "unmanaged"
+                      ]
+                    },
+                    "cardRequestedAt": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "format": "date-time",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "hasCard": {
+                      "type": "boolean"
+                    },
+                    "changed": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "subscriptionId",
+                    "status",
+                    "cardRequestedAt",
+                    "hasCard",
+                    "changed"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/commands/subscription.set_connection": {
+      "post": {
+        "operationId": "command_subscription_set_connection",
+        "summary": "Change which connected account a plan bills through. Only a plan the provider does not hold yet, or one left unmanaged when its account went away: a live plan lives inside one provider account and cannot be moved, so that is cancelled and started again instead.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 2. Requires money.manage. Emits subscription.connection_changed.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "subscriptionId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "connectionId": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "subscriptionId",
+                  "connectionId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "subscriptionId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "draft",
+                        "active",
+                        "past_due",
+                        "paused",
+                        "cancelled",
+                        "unmanaged"
+                      ]
+                    },
+                    "nextBillingOn": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "format": "date",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "changed": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "subscriptionId",
+                    "status",
+                    "nextBillingOn",
+                    "changed"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/commands/subscription.cancel": {
       "post": {
         "operationId": "command_subscription_cancel",
@@ -35674,6 +35937,121 @@
                                     "type": {
                                       "type": "string",
                                       "enum": [
+                                        "money"
+                                      ]
+                                    },
+                                    "title": {
+                                      "type": "string"
+                                    },
+                                    "value": {
+                                      "type": "string"
+                                    },
+                                    "detail": {
+                                      "type": [
+                                        "string",
+                                        "null"
+                                      ]
+                                    },
+                                    "tone": {
+                                      "type": "string",
+                                      "enum": [
+                                        "accent",
+                                        "warning",
+                                        "danger",
+                                        "muted"
+                                      ]
+                                    },
+                                    "stats": {
+                                      "maxItems": 4,
+                                      "type": "array",
+                                      "items": {
+                                        "type": "object",
+                                        "properties": {
+                                          "value": {
+                                            "type": "string"
+                                          },
+                                          "label": {
+                                            "type": "string"
+                                          }
+                                        },
+                                        "required": [
+                                          "value",
+                                          "label"
+                                        ],
+                                        "additionalProperties": false
+                                      }
+                                    },
+                                    "items": {
+                                      "maxItems": 8,
+                                      "type": "array",
+                                      "items": {
+                                        "type": "object",
+                                        "properties": {
+                                          "title": {
+                                            "type": "string"
+                                          },
+                                          "detail": {
+                                            "type": "string"
+                                          },
+                                          "status": {
+                                            "type": "string"
+                                          },
+                                          "tone": {
+                                            "type": "string",
+                                            "enum": [
+                                              "accent",
+                                              "warning",
+                                              "danger",
+                                              "muted"
+                                            ]
+                                          },
+                                          "href": {
+                                            "anyOf": [
+                                              {
+                                                "type": "string",
+                                                "pattern": "^\\/app\\/w\\/[0-9a-f-]{36}([/?][A-Za-z0-9_\\-/?=&.]*)?$"
+                                              },
+                                              {
+                                                "type": "null"
+                                              }
+                                            ]
+                                          }
+                                        },
+                                        "required": [
+                                          "title",
+                                          "detail",
+                                          "tone",
+                                          "href"
+                                        ],
+                                        "additionalProperties": false
+                                      }
+                                    },
+                                    "href": {
+                                      "anyOf": [
+                                        {
+                                          "type": "string",
+                                          "pattern": "^\\/app\\/w\\/[0-9a-f-]{36}([/?][A-Za-z0-9_\\-/?=&.]*)?$"
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    }
+                                  },
+                                  "required": [
+                                    "type",
+                                    "title",
+                                    "value",
+                                    "href"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "type": {
+                                      "type": "string",
+                                      "enum": [
                                         "knowledge"
                                       ]
                                     },
@@ -37028,10 +37406,59 @@
                                     "deposit",
                                     "full"
                                   ]
+                                },
+                                "deposit": {
+                                  "default": null,
+                                  "anyOf": [
+                                    {
+                                      "type": "object",
+                                      "properties": {
+                                        "kind": {
+                                          "type": "string",
+                                          "enum": [
+                                            "percent",
+                                            "amount"
+                                          ]
+                                        },
+                                        "percentBp": {
+                                          "type": "integer",
+                                          "minimum": 1,
+                                          "maximum": 10000
+                                        },
+                                        "amountCents": {
+                                          "type": "integer",
+                                          "minimum": 1,
+                                          "maximum": 100000000
+                                        }
+                                      },
+                                      "required": [
+                                        "kind"
+                                      ],
+                                      "additionalProperties": false
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "connectionId": {
+                                  "default": null,
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "format": "uuid",
+                                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
                                 }
                               },
                               "required": [
-                                "mode"
+                                "mode",
+                                "deposit",
+                                "connectionId"
                               ],
                               "additionalProperties": false
                             },
@@ -37930,6 +38357,18 @@
                                       "type": "null"
                                     }
                                   ]
+                                },
+                                "heldUntil": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "format": "date-time",
+                                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
                                 }
                               },
                               "required": [
@@ -37941,10 +38380,23 @@
                                 "confirmedAt",
                                 "confirmedVia",
                                 "confirmedBy",
-                                "confirmAskedAt"
+                                "confirmAskedAt",
+                                "heldUntil"
                               ],
                               "additionalProperties": false
                             }
+                          },
+                          "heldUntil": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "format": "date-time",
+                                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
                           },
                           "createdAt": {
                             "type": "string",
@@ -37979,6 +38431,7 @@
                           "staff",
                           "resources",
                           "attendees",
+                          "heldUntil",
                           "createdAt",
                           "updatedAt"
                         ],
@@ -38415,6 +38868,18 @@
                                   }
                                 ]
                               },
+                              "heldUntil": {
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "format": "date-time",
+                                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
                               "contactPhone": {
                                 "type": [
                                   "string",
@@ -38652,6 +39117,7 @@
                               "confirmedVia",
                               "confirmedBy",
                               "confirmAskedAt",
+                              "heldUntil",
                               "contactPhone",
                               "contactEmail",
                               "smsOk",
@@ -38663,6 +39129,18 @@
                             ],
                             "additionalProperties": false
                           }
+                        },
+                        "heldUntil": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "format": "date-time",
+                              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
                         },
                         "createdAt": {
                           "type": "string",
@@ -38678,6 +39156,18 @@
                           "type": "integer",
                           "minimum": -9007199254740991,
                           "maximum": 9007199254740991
+                        },
+                        "priceCents": {
+                          "anyOf": [
+                            {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
                         },
                         "series": {
                           "anyOf": [
@@ -38799,9 +39289,11 @@
                         "staff",
                         "resources",
                         "attendees",
+                        "heldUntil",
                         "createdAt",
                         "updatedAt",
                         "calendarRevision",
+                        "priceCents",
                         "series",
                         "waitlist",
                         "createdBy"
@@ -47705,6 +48197,10 @@
                               }
                             ]
                           },
+                          "callable": {
+                            "default": false,
+                            "type": "boolean"
+                          },
                           "title": {
                             "type": "string"
                           },
@@ -48064,6 +48560,7 @@
                           "appointmentId",
                           "startsAt",
                           "reach",
+                          "callable",
                           "title",
                           "detail",
                           "valueCents",
@@ -48217,6 +48714,10 @@
                               }
                             ]
                           },
+                          "callable": {
+                            "default": false,
+                            "type": "boolean"
+                          },
                           "title": {
                             "type": "string"
                           },
@@ -48576,6 +49077,7 @@
                           "appointmentId",
                           "startsAt",
                           "reach",
+                          "callable",
                           "title",
                           "detail",
                           "valueCents",
@@ -49007,6 +49509,10 @@
                               }
                             ]
                           },
+                          "callable": {
+                            "default": false,
+                            "type": "boolean"
+                          },
                           "title": {
                             "type": "string"
                           },
@@ -49366,6 +49872,7 @@
                           "appointmentId",
                           "startsAt",
                           "reach",
+                          "callable",
                           "title",
                           "detail",
                           "valueCents",
@@ -49696,6 +50203,40 @@
                                 "type": "null"
                               }
                             ]
+                          },
+                          "draft": {
+                            "default": null,
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "body": {
+                                    "type": "string"
+                                  },
+                                  "subject": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  }
+                                },
+                                "required": [
+                                  "body",
+                                  "subject"
+                                ],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "note": {
+                            "default": null,
+                            "type": [
+                              "string",
+                              "null"
+                            ]
                           }
                         },
                         "required": [
@@ -49705,7 +50246,9 @@
                           "reason",
                           "channel",
                           "conversationId",
-                          "suggestion"
+                          "suggestion",
+                          "draft",
+                          "note"
                         ],
                         "additionalProperties": false
                       }
@@ -52580,6 +53123,18 @@
                           "refundedCents": {
                             "type": "number"
                           },
+                          "cardBrand": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "cardLast4": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
                           "createdAt": {
                             "type": "string",
                             "format": "date-time",
@@ -52601,6 +53156,8 @@
                           "receivedAt",
                           "recordedBy",
                           "refundedCents",
+                          "cardBrand",
+                          "cardLast4",
                           "createdAt"
                         ],
                         "additionalProperties": false
@@ -52943,6 +53500,18 @@
                           "refundedCents": {
                             "type": "number"
                           },
+                          "cardBrand": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "cardLast4": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
                           "createdAt": {
                             "type": "string",
                             "format": "date-time",
@@ -53009,6 +53578,8 @@
                           "receivedAt",
                           "recordedBy",
                           "refundedCents",
+                          "cardBrand",
+                          "cardLast4",
                           "createdAt",
                           "person",
                           "invoiceNumber"
@@ -53243,6 +53814,63 @@
                               }
                             ]
                           },
+                          "externalSubscriptionId": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "hasCard": {
+                            "type": "boolean"
+                          },
+                          "cardBrand": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "cardLast4": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "cardExpiryMonth": {
+                            "anyOf": [
+                              {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "cardExpiryYear": {
+                            "anyOf": [
+                              {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "cardRequestedAt": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "format": "date-time",
+                                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
                           "startedOn": {
                             "anyOf": [
                               {
@@ -53365,6 +53993,13 @@
                           "leadId",
                           "connectionId",
                           "provider",
+                          "externalSubscriptionId",
+                          "hasCard",
+                          "cardBrand",
+                          "cardLast4",
+                          "cardExpiryMonth",
+                          "cardExpiryYear",
+                          "cardRequestedAt",
                           "startedOn",
                           "currentPeriodStart",
                           "currentPeriodEnd",
@@ -53576,6 +54211,63 @@
                             }
                           ]
                         },
+                        "externalSubscriptionId": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "hasCard": {
+                          "type": "boolean"
+                        },
+                        "cardBrand": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "cardLast4": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "cardExpiryMonth": {
+                          "anyOf": [
+                            {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "cardExpiryYear": {
+                          "anyOf": [
+                            {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "cardRequestedAt": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "format": "date-time",
+                              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
                         "startedOn": {
                           "anyOf": [
                             {
@@ -53698,6 +54390,13 @@
                         "leadId",
                         "connectionId",
                         "provider",
+                        "externalSubscriptionId",
+                        "hasCard",
+                        "cardBrand",
+                        "cardLast4",
+                        "cardExpiryMonth",
+                        "cardExpiryYear",
+                        "cardRequestedAt",
                         "startedOn",
                         "currentPeriodStart",
                         "currentPeriodEnd",
@@ -54719,6 +55418,63 @@
                               }
                             ]
                           },
+                          "externalSubscriptionId": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "hasCard": {
+                            "type": "boolean"
+                          },
+                          "cardBrand": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "cardLast4": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "cardExpiryMonth": {
+                            "anyOf": [
+                              {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "cardExpiryYear": {
+                            "anyOf": [
+                              {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "cardRequestedAt": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "format": "date-time",
+                                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
                           "startedOn": {
                             "anyOf": [
                               {
@@ -54841,6 +55597,13 @@
                           "leadId",
                           "connectionId",
                           "provider",
+                          "externalSubscriptionId",
+                          "hasCard",
+                          "cardBrand",
+                          "cardLast4",
+                          "cardExpiryMonth",
+                          "cardExpiryYear",
+                          "cardRequestedAt",
                           "startedOn",
                           "currentPeriodStart",
                           "currentPeriodEnd",

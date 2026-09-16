@@ -16,11 +16,13 @@ import {
   Upload,
 } from 'lucide-react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useState } from 'react';
 import { toast } from 'sonner';
+import { hasWorkspacePermission } from '@hfos/core';
 import { AppointmentDialog } from '@/components/calendar/appointment-dialog';
 import { AppointmentSheet } from '@/components/calendar/appointment-sheet';
+import { firstName } from '@/components/calendar/appt';
 import { AppointmentRow, UpcomingAppointments } from '@/components/calendar/upcoming-card';
 import { FileGrid } from '@/components/files/file-grid';
 import { UploadZone } from '@/components/files/upload-zone';
@@ -58,6 +60,7 @@ import { addressLine, daysLabel, formatDate, formatMoney, monthYear, telHref } f
 import { useCalls } from '@/lib/calls/call-provider';
 import { useLiveRefresh } from '@/lib/realtime/live-provider';
 import { ConversationsCard } from '@/components/inbox/conversations-card';
+import { OwesBadge, RecordMoneyTab, useRecordMoney } from './record-money';
 import { MessageSheet } from '@/components/inbox/message-sheet';
 import {
   AddToWorkflowButton,
@@ -71,7 +74,16 @@ import { NextActionDialog } from './next-action-dialog';
 import { PersonDialog } from './person-dialog';
 import { TagPicker } from './tag-picker';
 
-type Tab = 'timeline' | 'appointments' | 'leads' | 'tasks' | 'files' | 'details';
+type Tab = 'timeline' | 'appointments' | 'money' | 'leads' | 'tasks' | 'files' | 'details';
+const TABS: readonly Tab[] = [
+  'timeline',
+  'appointments',
+  'money',
+  'leads',
+  'tasks',
+  'files',
+  'details',
+];
 
 export interface RecordPageProps {
   workspaceId: string;
@@ -113,7 +125,15 @@ export function RecordPage(props: RecordPageProps) {
   const lead = openLeads[0] ?? null;
   const relation = person ? { personId: person.id } : { companyId: company!.id };
 
-  const [tab, setTab] = useState<Tab>('timeline');
+  /**
+   * This customer's money, for the header's "Owes $X" and the Money tab. `money.for_record` already holds a
+   * member to the jobs they are on, so a member who is on none of this customer's simply finds nothing here.
+   */
+  const recordMoney = useRecordMoney(workspaceId, 'person', person?.id ?? null, { payments: true });
+  const canBill = hasWorkspacePermission(props.role, 'money.manage');
+  // `?tab=money` so the inbox's "See their money" lands on the tab it names.
+  const wanted = useSearchParams().get('tab');
+  const [tab, setTab] = useState<Tab>(TABS.includes(wanted as Tab) ? (wanted as Tab) : 'timeline');
   const [log, setLog] = useState<LoggableKind | null>(null);
   const [editing, setEditing] = useState(false);
   const [archiving, setArchiving] = useState(false);
@@ -211,6 +231,7 @@ export function RecordPage(props: RecordPageProps) {
                   Customer since {monthYear((person ?? company)!.createdAt)}
                 </Badge>
               )}
+              <OwesBadge found={recordMoney} />
             </div>
             <div className="flex flex-wrap items-center gap-x-3.5 gap-y-1 text-[13px]">
               {phone ? (
@@ -441,6 +462,14 @@ export function RecordPage(props: RecordPageProps) {
                 Appointments · {upcoming.length}
               </TabsTrigger>
             ) : null}
+            {person ? (
+              <TabsTrigger value="money" data-testid="tab-money">
+                Money
+                {recordMoney && !recordMoney.empty
+                  ? ` · ${recordMoney.invoices.length + recordMoney.estimates.length}`
+                  : ''}
+              </TabsTrigger>
+            ) : null}
             <TabsTrigger value="leads" data-testid="tab-leads">
               Leads · {props.leads.length}
             </TabsTrigger>
@@ -454,6 +483,18 @@ export function RecordPage(props: RecordPageProps) {
               Details
             </TabsTrigger>
           </TabsList>
+          {person ? (
+            <TabsContent value="money">
+              <RecordMoneyTab
+                workspaceId={workspaceId}
+                personId={person.id}
+                personName={firstName(person.fullName)}
+                found={recordMoney}
+                canManage={canBill}
+                timeZone={props.timeZone ?? 'UTC'}
+              />
+            </TabsContent>
+          ) : null}
           <TabsContent value="timeline">
             <Card>
               <Timeline
@@ -821,6 +862,7 @@ export function RecordPage(props: RecordPageProps) {
           timeZone={props.timeZone}
           people={people}
           myUserId={myUserId}
+          myRole={props.role}
           onClose={() => setOpenAppt(null)}
           onChanged={() => router.refresh()}
         />

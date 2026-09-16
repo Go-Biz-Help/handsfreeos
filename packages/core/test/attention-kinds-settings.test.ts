@@ -14,7 +14,9 @@ import {
   defaultAttentionSettings,
   isLeadKind,
   LEAD_PRECEDENCE,
+  LET_HANDLE_REFUSALS,
   letHandleModeOf,
+  letHandleRefusal,
   mayTakeAttentionAction,
   nudgesOn,
   parseAttentionSettings,
@@ -142,8 +144,21 @@ describe('attention kinds', () => {
     expect(letHandleModeOf('customer_waiting')).toBe('ask');
     expect(letHandleModeOf('ai_approval')).toBe('none');
     expect(letHandleModeOf('overdue_task')).toBe('none');
+    // Money asks first: it writes the follow-up and waits for a person to send it.
     expect(letHandleModeOf('estimate_waiting')).toBe('ask');
     expect(letHandleModeOf('invoice_overdue')).toBe('ask');
+  });
+
+  it('refuses the kinds HandsFreeOS never handles in a sentence a person can read', () => {
+    for (const kind of ATTENTION_KINDS) {
+      const refusal = letHandleRefusal(kind);
+      expect(refusal === null, kind).toBe(letHandleModeOf(kind, [{ code: 'x' }]) !== 'none');
+      if (refusal) expect(refusal, kind).toMatch(/^[A-Z].*\.$/);
+    }
+    // Only the two kinds nobody can hand off are refused; every other kind has something to offer.
+    expect(Object.keys(LET_HANDLE_REFUSALS).sort()).toEqual(['ai_approval', 'overdue_task']);
+    expect(letHandleRefusal('hot_lead')).toBeNull();
+    expect(letHandleRefusal('invoice_overdue')).toBeNull();
   });
 });
 

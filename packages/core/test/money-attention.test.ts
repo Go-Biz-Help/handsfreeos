@@ -11,12 +11,21 @@ import {
   ATTENTION_KIND_PLURALS,
   ATTENTION_SUBJECT_OF,
   attentionWakeAt,
+  AUTO_KINDS,
+  autoActionOf,
   chipText,
   detectAttention,
   DETECTORS,
   isLeadKind,
+  lastReminderNote,
+  letHandleModeOf,
+  letHandleRefusal,
+  mayTakeAttentionAction,
+  moneyDraftEmail,
+  moneyDraftText,
   parseAttentionSettings,
   scoreOf,
+  tooSoonAfterReminder,
   URGENCY_RULES,
   type AttentionSettings,
   type Detection,
@@ -226,6 +235,25 @@ describe('invoice_overdue', () => {
     ).toBe(600_000);
   });
 
+  /**
+   * A part payment is the case that matters: the card must re-rank on the smaller balance rather than sit there
+   * saying the old figure, and a card someone dismissed last week has to come back now that the number changed.
+   */
+  it('changes its fingerprint when what is owed changes', () => {
+    const full = run();
+    const part = run({ paidCents: 24_000, status: 'partly_paid' });
+    expect(full?.value).toBe(124_000);
+    expect(part?.value).toBe(100_000);
+    expect(part?.fingerprint).not.toBe(full?.fingerprint);
+    expect(words(part, 'amount')).toBe('$1,000 owed');
+    // The same facts twice are the same fingerprint: a sweep that changes nothing writes nothing.
+    expect(run({ paidCents: 24_000, status: 'partly_paid' })?.fingerprint).toBe(part?.fingerprint);
+    // And a refund that puts money back owed moves it again.
+    const refunded = run({ paidCents: 24_000, status: 'partly_paid', refundedCents: 10_000 });
+    expect(refunded?.value).toBe(110_000);
+    expect(refunded?.fingerprint).not.toBe(part?.fingerprint);
+  });
+
   it('honours the grace days a business sets', () => {
     const s = parseAttentionSettings({ money: { invoiceOverdueDays: 0 } });
     expect(DETECTORS.invoice_overdue.detect(facts(), s, at('2026-09-21', '00:01'))).not.toBeNull();
@@ -234,6 +262,115 @@ describe('invoice_overdue', () => {
   it('is off when a business turns the kind off', () => {
     const off = parseAttentionSettings({ kinds: { invoice_overdue: false } });
     expect(run({}, at('2026-09-25', '09:00'), off)).toBeNull();
+  });
+});
+
+// ---- the follow-up a person sends ----
+
+/**
+ * The words Home puts in front of a person when they follow one of these cards up. Nobody's words but the
+ * business's own: the document read back, with an offer rather than a demand, and never a link nobody can mint.
+ */
+describe('the follow-up draft', () => {
+  const invoice = {
+    kind: 'invoice_overdue' as const,
+    firstName: 'Robert',
+    businessName: 'Lone Star HVAC',
+    senderFirstName: 'Dale',
+    title: 'Ductwork repair',
+    number: 'INV-1036',
+    amountCents: 255_188,
+    day: '2026-09-04',
+    timeZone: TZ,
+    now: NOW.getTime(),
+    firstText: false,
+  };
+  const estimate = {
+    ...invoice,
+    kind: 'estimate_waiting' as const,
+    firstName: 'Tom',
+    title: 'Rooftop unit replacement',
+    number: 'EST-1036',
+    amountCents: 1_292_850,
+    day: '2026-09-25',
+  };
+
+  it('says who it is from, what the document says, and what to do about it', () => {
+    expect(moneyDraftText(invoice)).toBe(
+      "Hi Robert, it's Dale at Lone Star HVAC. I'm following up on invoice INV-1036 for $2,551.88, " +
+        'which was due Fri, Sep 4. The payment link we sent still works. Let me know if you would like ' +
+        'it again, or if something needs sorting out.',
+    );
+    expect(moneyDraftText(estimate)).toBe(
+      "Hi Tom, it's Dale at Lone Star HVAC. Just checking in on estimate EST-1036 for $12,928.50. " +
+        "It's good until Fri, Sep 25. The link we sent still works if you want to approve it. Happy to " +
+        'answer any questions.',
+    );
+  });
+
+  it('carries the STOP wording on a first text, and never asks anyone to reply CANCEL', () => {
+    const first = moneyDraftText({ ...invoice, firstText: true });
+    expect(first).toContain('Reply STOP to opt out.');
+    expect(moneyDraftText(invoice)).not.toContain('STOP');
+    for (const words of [moneyDraftText(invoice), moneyDraftText(estimate)])
+      expect(words).not.toMatch(/\b(CANCEL|YES)\b/);
+  });
+
+  it('spells the document out in an email, and signs it', () => {
+    const mail = moneyDraftEmail(invoice);
+    expect(mail.subject).toBe('Following up on invoice INV-1036');
+    expect(mail.body).toContain('Invoice: INV-1036');
+    expect(mail.body).toContain('For: Ductwork repair');
+    expect(mail.body).toContain('Amount due: $2,551.88');
+    expect(mail.body).toContain('Due: Fri, Sep 4');
+    expect(mail.body.endsWith('Dale\nLone Star HVAC')).toBe(true);
+    expect(moneyDraftEmail(estimate).subject).toBe('Checking in on estimate EST-1036');
+    expect(moneyDraftEmail(estimate).body).toContain('Good through: Fri, Sep 25');
+  });
+
+  it('manages without a name, a number or a date', () => {
+    const bare = moneyDraftText({
+      ...invoice,
+      firstName: null,
+      senderFirstName: null,
+      number: null,
+      day: null,
+    });
+    expect(bare).toBe(
+      "Hi there, it's Lone Star HVAC. I'm following up on your invoice for $2,551.88, which is still " +
+        'open. The payment link we sent still works. Let me know if you would like it again, or if ' +
+        'something needs sorting out.',
+    );
+  });
+
+  /**
+   * The business's own ladder is already writing to this customer about this invoice. Two messages an hour
+   * apart about the same bill is what makes a business look broken.
+   */
+  it('says when the last reminder went out, and holds the next one for a day', () => {
+    const hoursAgo = (h: number, kind: 'reminder' | 'document' = 'reminder') => ({
+      at: new Date(NOW.getTime() - h * 3_600_000).toISOString(),
+      channel: 'sms' as const,
+      kind,
+    });
+    expect(lastReminderNote(hoursAgo(3), NOW.getTime(), TZ)).toBe(
+      'Your last reminder about this invoice went out by text 3 hours ago.',
+    );
+    expect(lastReminderNote(hoursAgo(72), NOW.getTime(), TZ)).toBe(
+      'Your last reminder about this invoice went out by text on Sat, Sep 12.',
+    );
+    expect(lastReminderNote(null, NOW.getTime(), TZ)).toBeNull();
+    // The invoice going out is the same mistake to make twice, and says which it was.
+    expect(lastReminderNote(hoursAgo(2, 'document'), NOW.getTime(), TZ)).toBe(
+      'The invoice itself went out by text 2 hours ago.',
+    );
+
+    const held = tooSoonAfterReminder(hoursAgo(3), NOW.getTime(), TZ);
+    expect(held).toContain('went out by text 3 hours ago');
+    expect(held).toContain('Give it a day before you follow up');
+    // A day later it is a person's own call again.
+    expect(tooSoonAfterReminder(hoursAgo(25), NOW.getTime(), TZ)).toBeNull();
+    expect(tooSoonAfterReminder(null, NOW.getTime(), TZ)).toBeNull();
   });
 });
 
@@ -249,7 +386,90 @@ describe('money in the Action Center', () => {
     }
     expect(ATTENTION_SUBJECT_OF.estimate_waiting).toBe('estimate');
     expect(ATTENTION_SUBJECT_OF.invoice_overdue).toBe('invoice');
-    expect(ATTENTION_HANDLE_LABELS.invoice_overdue).toBe('Send reminder');
+    // The card is handled by reaching the customer, not by reading the document.
+    expect(ATTENTION_HANDLE_LABELS.estimate_waiting).toBe('Follow up');
+    expect(ATTENTION_HANDLE_LABELS.invoice_overdue).toBe('Follow up');
+  });
+
+  /**
+   * Chris's rule: money never chases itself *unreviewed*. Neither kind ever runs on its own, and neither is
+   * ever handed to the AI teammate — Let HandsFreeOS Handle writes the follow-up and waits for a person.
+   */
+  it('asks first, always: nothing automatic, and never the AI teammate', () => {
+    for (const kind of ['estimate_waiting', 'invoice_overdue'] as const) {
+      expect(autoActionOf(kind)).toBeNull();
+      expect(AUTO_KINDS[kind]).toBeUndefined();
+      expect(letHandleModeOf(kind)).toBe('ask');
+      // Nothing to refuse: the refusals are for the kinds HandsFreeOS genuinely can't do.
+      expect(letHandleRefusal(kind)).toBeNull();
+      // A member can still pass it on, put it off or let it go.
+      for (const action of ['assign', 'snooze', 'dismiss'] as const)
+        expect(mayTakeAttentionAction('member', kind, action)).toBe(true);
+      // Writing to a customer about money is money.manage, for both the card's button and the draft.
+      expect(mayTakeAttentionAction('member', kind, 'handle')).toBe(false);
+      expect(mayTakeAttentionAction('member', kind, 'let_handle')).toBe(false);
+    }
+  });
+
+  /**
+   * "$ affected" counts money owed, each job once. An overdue invoice for a lead that already has a card is
+   * that lead's money seen again, and an estimate stays out until someone accepts it.
+   */
+  it('counts an overdue invoice once, even when its lead is already counted', () => {
+    const lead = uid(1);
+    const owed = detectAttention(
+      'invoice_overdue',
+      {
+        business,
+        invoice: {
+          id: INVOICE,
+          status: 'partly_paid',
+          dueDate: '2026-09-20',
+          totalCents: 124_000,
+          paidCents: 24_000,
+          refundedCents: 0,
+          viewedAt: null,
+          assigneeUserId: null,
+        },
+        hasProcessingPayment: false,
+      },
+      settings,
+      at('2026-09-25', '09:00'),
+    );
+    expect(owed?.value).toBe(100_000);
+    const overdue = { ...owed!, leadId: lead };
+    const leadCard = {
+      value: 180_000,
+      valueIsEstimate: false,
+      moneyKey: `lead:${lead}`,
+      leadId: lead,
+    };
+    // The lead is worth more than what is still owed on it: one figure, the larger.
+    expect(affectedCents([leadCard, overdue])).toBe(180_000);
+    // The same job, and only the invoice left open: still one figure.
+    expect(affectedCents([overdue])).toBe(100_000);
+    // A different lead's overdue invoice is its own money.
+    const other = { ...overdue, leadId: uid(2), value: 40_000 };
+    expect(affectedCents([leadCard, overdue, other])).toBe(220_000);
+    // An invoice with no lead behind it counts on its own, under its own key.
+    expect(affectedCents([leadCard, { ...owed!, leadId: null }])).toBe(280_000);
+    // The estimate stays out until it's accepted, whether or not its lead has a card.
+    const quoted = DETECTORS.estimate_waiting.detect(
+      {
+        estimate: {
+          id: ESTIMATE,
+          status: 'sent',
+          totalCents: 840_000,
+          sentAt: iso(at('2026-09-10', '09:00')),
+          viewedAt: null,
+          expiresAt: null,
+          assigneeUserId: null,
+        },
+      },
+      settings,
+      NOW,
+    );
+    expect(affectedCents([leadCard, { ...quoted!, leadId: lead }])).toBe(180_000);
   });
 
   it('climbs slowly: the size of the money does the talking', () => {

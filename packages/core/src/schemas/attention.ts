@@ -61,10 +61,12 @@ export const AttentionItemOut = z.object({
   startsAt: isoDateTime.nullable(),
   /**
    * How the item reaches the customer: its automatic action (a confirmation request or a nudge, by the same rules
-   * as the preview), or a person's reply for a hot lead, an unanswered lead or a waiting customer. Null when it
-   * doesn't contact them, or nothing can reach them.
+   * as the preview), a person's reply for a hot lead, an unanswered lead or a waiting customer, or the follow-up
+   * a money card would send. Null when it doesn't contact them, or nothing can reach them.
    */
   reach: attentionReach.nullable(),
+  /** A phone number to ring, and the business is open: the card offers the call before the message. */
+  callable: z.boolean().default(false),
   title: z.string(),
   detail: z.string().nullable(),
   valueCents: z.number(),
@@ -206,6 +208,16 @@ export const AttentionAskOptionOut = z.object({
   conversationId: uuid.nullable(),
   /** A suggested next action. */
   suggestion: z.object({ text: z.string(), dueAt: isoDateTime.nullable() }).nullable(),
+  /**
+   * The message already written, for the person to read, change or send as it is: a money card's follow-up,
+   * built from the document's own figures. Nothing sends it but a person.
+   */
+  draft: z.object({ body: z.string(), subject: z.string().nullable() }).nullable().default(null),
+  /**
+   * What the person should know before they send it — "Your last reminder about this invoice went out by text
+   * on Fri, Sep 18" — whether or not the option is available.
+   */
+  note: z.string().nullable().default(null),
 });
 export type AttentionAskOptionOut = z.infer<typeof AttentionAskOptionOut>;
 export const AttentionPreviewHandleInput = z.object(itemRef);

@@ -57,8 +57,10 @@ import {
   linesFor,
   linesOut,
   loadMoneySettings,
+  money as moneyWords,
   moneyIso,
   PAY_LABEL,
+  subscriptionRecordCard,
   TYPED_NAME_LABEL,
   type EstimateRow,
   type InvoiceRow,
@@ -195,6 +197,20 @@ const DeclineBody = z.object({
   reason: z.string().trim().max(1_000).nullable().default(null),
   ...honeypot,
 });
+/**
+ * A card for a plan. The same two phases as paying, for the same reason: the first POST hands the browser a
+ * session with the provider's own public keys (and, on this development server, the stand-in's page), the
+ * browser turns a card into a token in the provider's own fields, and the second POST saves that token. **No
+ * card number ever reaches us** — which is what keeps HandsFreeOS in the lightest PCI bracket.
+ */
+const PlanCardBody = z.object({
+  /** One per Save press, so a doubled submit saves the same card once. */
+  clientId: z.string().trim().min(8).max(64),
+  /** The token the browser minted; absent on the first phase. */
+  sourceToken: z.string().trim().min(1).max(4_000).nullable().default(null),
+  ...honeypot,
+});
+
 const PayBody = z.object({
   /** One per Pay press: a retried or doubled submit takes the payment once. */
   clientId: z.string().trim().min(8).max(64),
@@ -554,6 +570,154 @@ async function invoiceView(deps: HttpDeps, scope: TenantScope, invoiceId: string
   });
 }
 
+// ---- The customer's own plan page ----
+
+interface PlanRow extends Record<string, unknown> {
+  id: string;
+  status: string;
+  plan_name: string;
+  price_cents: number;
+  interval: string;
+  interval_count: number;
+  includes: unknown;
+  connection_id: string | null;
+  customer_ref: string | null;
+  method_token: string | null;
+  card_brand: string | null;
+  card_last4: string | null;
+  card_expiry_month: number | null;
+  card_expiry_year: number | null;
+  card_requested_at: Date | string | null;
+  started_on: string | null;
+  next_billing_on: string | null;
+  first_name: string | null;
+  last_name: string | null;
+  person_email: string | null;
+  person_phone: string | null;
+}
+
+const planSql = (subscriptionId: string) =>
+  sql`select s.id, s.status::text as status, s.plan_name, s.price_cents::float8 as price_cents,
+        s.interval::text as interval, s.interval_count, s.includes, s.connection_id,
+        s.customer_ref, s.method_token, s.card_brand, s.card_last4,
+        s.card_expiry_month, s.card_expiry_year, s.card_requested_at,
+        s.started_on::text as started_on, s.next_billing_on::text as next_billing_on,
+        pe.first_name, pe.last_name, pe.email::text as person_email, pe.phone as person_phone
+      from app.subscriptions s
+      left join app.people pe on pe.id = s.person_id
+      where s.id = ${subscriptionId}`;
+
+/**
+ * The account a plan's card is saved on: the one it names, else the business's default. A plan is card-only —
+ * Square has no other way to bill one, and Stripe Billing needs a card on the customer — so an account that
+ * cannot take a card cannot take a plan either.
+ */
+async function planAccount(
+  deps: HttpDeps,
+  tx: Tx,
+  workspaceId: string,
+  plan: PlanRow,
+): Promise<PayableAccount | null> {
+  const list = await tx
+    .select()
+    .from(paymentConnections)
+    .where(eq(paymentConnections.workspaceId, workspaceId));
+  const chosen = plan.connection_id
+    ? list.find((c) => c.id === plan.connection_id)
+    : (list.find((c) => c.isDefault && paymentConnectionUsable(c)) ??
+      list.find((c) => paymentConnectionUsable(c)));
+  if (!chosen || !paymentConnectionUsable(chosen)) return null;
+  if (!isPaymentProvider(chosen.provider)) return null;
+  const provider = deps.payments.providers[chosen.provider];
+  if (!provider?.configured) return null;
+  const caps = (chosen.capabilities ?? {}) as Partial<PaymentCapabilities>;
+  if (caps.card !== true) return null;
+  return {
+    connection: chosen,
+    methods: ['card'],
+    session: {
+      provider: chosen.provider,
+      flow: provider.flow,
+      publishableKey: provider.publishableKey,
+      accountId: chosen.externalAccountId ?? '',
+      locationId: chosen.locationId,
+    },
+  };
+}
+
+/** "$29 a month", "$290 a year", "$149 every 3 months" — the same wording the business's own screens use. */
+function planPriceLabel(cents: number, interval: string, count: number): string {
+  const every =
+    count === 1
+      ? interval === 'year'
+        ? 'a year'
+        : interval === 'quarter'
+          ? 'a quarter'
+          : 'a month'
+      : `every ${count} ${interval}s`;
+  return `${moneyWords(cents)} ${every}`;
+}
+
+/** Where the plan stands, in the customer's own terms rather than ours. */
+function planStanding(plan: PlanRow): 'waiting' | 'billing' | 'paused' | 'ended' {
+  if (plan.status === 'cancelled') return 'ended';
+  if (plan.status === 'paused') return 'paused';
+  return plan.method_token ? 'billing' : 'waiting';
+}
+
+async function planView(deps: HttpDeps, scope: TenantScope, subscriptionId: string) {
+  return asWorker(deps.httpDb, scope, async (tx) => {
+    const [row] = await rows<PlanRow>(tx, planSql(subscriptionId));
+    if (!row) throw linkNotFound();
+    const standing = planStanding(row);
+    const account =
+      standing === 'ended' ? null : await planAccount(deps, tx, scope.workspaceId, row);
+    const includes = Array.isArray(row.includes)
+      ? row.includes.filter((x): x is string => typeof x === 'string')
+      : [];
+    return {
+      standing,
+      business: await businessOf(tx, scope.workspaceId),
+      customer: {
+        name: customerOf(row),
+        email: row.person_email,
+        phone: row.person_phone ? formatPhone(row.person_phone) : null,
+      },
+      plan: {
+        name: row.plan_name,
+        priceCents: Number(row.price_cents),
+        priceLabel: planPriceLabel(
+          Number(row.price_cents),
+          row.interval,
+          Number(row.interval_count),
+        ),
+        interval: row.interval,
+        intervalCount: Number(row.interval_count),
+        includes,
+        /** The day it first bills: the one the business set, else the day the card lands. */
+        startsOn: row.started_on,
+        nextBillingOn: row.next_billing_on,
+      },
+      /** As much of the card as anyone may ever see. Never the number, and never the provider's token. */
+      card: row.method_token
+        ? {
+            brand: row.card_brand,
+            last4: row.card_last4,
+            expiryMonth: row.card_expiry_month === null ? null : Number(row.card_expiry_month),
+            expiryYear: row.card_expiry_year === null ? null : Number(row.card_expiry_year),
+          }
+        : null,
+      save: {
+        canSave: !!account,
+        /** Why not, when a card cannot go on it here: the page says so rather than offering a dead button. */
+        reason: standing === 'ended' ? 'ended' : account ? null : 'no_account',
+        /** Public keys only: never a secret key, and never the account's access token. */
+        session: account?.session ?? null,
+      },
+    };
+  });
+}
+
 // ---- Taking a payment ----
 
 /** Everything a pay attempt needs, resolved once against the invoice the token named. */
@@ -797,6 +961,134 @@ export async function registerMoneyRoutes(app: FastifyInstance, deps: HttpDeps):
           meta(),
         );
         return estimateView(deps, e.scope, e.documentId);
+      },
+    );
+
+    // ---------- the plan ----------
+    pub.get<{ Params: { token: string } }>(
+      '/public/plan/:token',
+      { config: { rateLimit: limits.read } },
+      async (req) => {
+        const p = await linked('plan', req.params.token);
+        return planView(deps, p.scope, p.documentId);
+      },
+    );
+
+    /**
+     * Putting a card on a plan, in the two phases paying uses: no token yet hands the browser a session (and,
+     * on this development server, the stand-in's own page); a token is saved at the provider against their
+     * customer, and the plan goes live from there on its own.
+     *
+     * **A declined card is a 200 with `status: 'declined'`** and plain words. A decline is an answer, not a
+     * failure state: the plan stays exactly where it was, waiting, and they can try another card.
+     */
+    pub.post<{ Params: { token: string } }>(
+      '/public/plan/:token/card',
+      { config: { rateLimit: limits.pay } },
+      async (req) => {
+        refuseHoneypot(req.body);
+        const body = parseBody(PlanCardBody, req.body ?? {});
+        const p = await linked('plan', req.params.token);
+        const scope = p.scope;
+        const found = await asWorker(deps.httpDb, scope, async (tx) => {
+          const [row] = await rows<PlanRow>(tx, planSql(p.documentId));
+          if (!row) throw linkNotFound();
+          if (row.status === 'cancelled')
+            throw HfosError.rule(
+              'subscription_cancelled',
+              409,
+              'This plan has ended. Please call us if you would like to start it again.',
+            );
+          const account = await planAccount(deps, tx, scope.workspaceId, row);
+          if (!account) throw cannotTakePayment();
+          return { row, account };
+        });
+        const { row, account } = found;
+        const api = deps.payments.providers[account.session.provider]!;
+        const returnUrl = `${links.webUrl}/${MONEY_LINK_PATH.plan}/${req.params.token}`;
+
+        // Nothing to save yet: hand the browser what it needs to turn a card into a token.
+        if (!body.sourceToken) {
+          return {
+            stage: 'prepared' as const,
+            session: {
+              ...account.session,
+              /** The stand-in's own page; null with the real providers, which run in the browser. */
+              hostedUrl: deps.payments.fake
+                ? `${deps.publicUrl}/payments/fake/pay?provider=${encodeURIComponent(
+                    account.session.provider,
+                  )}&account=${encodeURIComponent(account.session.accountId)}&amount=${Math.max(
+                    1,
+                    Math.round(Number(row.price_cents)),
+                  )}&methods=card&return=${encodeURIComponent(returnUrl)}`
+                : null,
+              returnUrl,
+            },
+            plan: await planView(deps, scope, row.id),
+          };
+        }
+
+        let sealed;
+        try {
+          sealed = accountFor(deps.sealer, account.connection);
+        } catch (e) {
+          return refused(e, scope, account.connection.id);
+        }
+        try {
+          // The provider's customer first: the card and the plan must hang off the same one.
+          const customer = await api.ensureCustomer(sealed, {
+            customerRef: row.customer_ref,
+            name: customerOf(row),
+            email: row.person_email,
+            phone: row.person_phone,
+            idempotencyKey: `plan-customer-${row.id}`,
+          });
+          const saved = await api.saveMethod(sealed, {
+            customerRef: customer.customerRef,
+            sourceToken: body.sourceToken,
+            idempotencyKey: `plan-card-${row.id}-${body.clientId}`.slice(0, 64),
+          });
+          await executeCommand(
+            deps.httpDb,
+            subscriptionRecordCard,
+            {
+              workspaceId: scope.workspaceId,
+              subscriptionId: row.id,
+              provider: account.session.provider,
+              connectionId: account.connection.id,
+              customerRef: customer.customerRef,
+              methodToken: saved.token,
+              cardBrand: saved.brand,
+              cardLast4: saved.last4,
+              cardExpiryMonth: saved.expiryMonth,
+              cardExpiryYear: saved.expiryYear,
+            },
+            systemActor(scope),
+            meta(),
+          );
+          return {
+            stage: 'saved' as const,
+            status: 'saved' as const,
+            plan: await planView(deps, scope, row.id),
+          };
+        } catch (e) {
+          if (e instanceof HfosError) throw e;
+          // A card the provider refuses is an answer for the customer, not an error for the business.
+          if (e instanceof PaymentError && e.permanent) {
+            deps.log.info(
+              { workspaceId: scope.workspaceId, subscriptionId: row.id, code: e.code },
+              'a card for a plan was refused',
+            );
+            return {
+              stage: 'saved' as const,
+              status: 'declined' as const,
+              failureCode: e.code,
+              failureMessage: declineWording(e.code),
+              plan: await planView(deps, scope, row.id),
+            };
+          }
+          return refused(e, scope, account.connection.id);
+        }
       },
     );
 

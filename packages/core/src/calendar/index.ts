@@ -2,6 +2,7 @@
 export * from './config';
 export * from './catalogs';
 export * from './terms';
+export * from './deposit';
 export * from './format';
 export * from './presets';
 export * from './rules';

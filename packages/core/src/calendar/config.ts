@@ -274,7 +274,27 @@ const Crm = z.object({
   createLead: z.object({ pipelineId: id, stageId: id }).nullable().default(null),
 });
 
-const Payments = z.object({ mode: z.enum(['none', 'deposit', 'full']).default('none') });
+/**
+ * What this calendar asks for up front, when it asks for part of the price. `null` on `payments.deposit`
+ * means "whatever the business asks for" (Settings → Payments), so a business that changes its deposit
+ * changes it everywhere; a figure here is this calendar's own and overrides it.
+ */
+export const CalendarDeposit = z.object({
+  kind: z.enum(['percent', 'amount']),
+  /** For 'percent', in basis points: 2,500 is 25%. */
+  percentBp: z.int().min(1, 'Set how much of the price the deposit is.').max(10_000).optional(),
+  /** For 'amount', in cents. */
+  amountCents: z.int().min(1, 'Set how much the deposit is.').max(100_000_000).optional(),
+});
+export type CalendarDeposit = z.infer<typeof CalendarDeposit>;
+
+const Payments = z.object({
+  mode: z.enum(['none', 'deposit', 'full']).default('none'),
+  /** Null: the business's own deposit. A figure here is this calendar's. */
+  deposit: CalendarDeposit.nullable().default(null),
+  /** Which connected account the money lands in. Null: the business's default. */
+  connectionId: id.nullable().default(null),
+});
 
 const Automations = z.object({
   workflowIds: z

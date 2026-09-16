@@ -47,7 +47,7 @@ import { useRouter } from 'next/navigation';
 import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
+import { Button, ButtonLink } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { copyText } from '@/components/ui/copy-field';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
@@ -88,7 +88,7 @@ import { cn } from '@/lib/utils';
 import { CalendarDot, CalendarStatusBadge, LabelChips } from './chips';
 import { HistorySheet } from './history-sheet';
 import { ImpactDialog } from './impact-dialog';
-import { ModuleForm, type BuilderPerson } from './modules';
+import { ModuleForm, type BuilderPayments, type BuilderPerson } from './modules';
 
 const ICONS: Record<ModuleKey, LucideIcon> = {
   team: Users,
@@ -161,6 +161,8 @@ export interface BuilderProps {
   territories: TerritoryItem[];
   pipelines: Pipeline[];
   textingReady: boolean;
+  /** Settings → Payments: the connected accounts and the deposit the business asks for by default. */
+  payments: BuilderPayments;
 }
 
 /**
@@ -205,6 +207,8 @@ export function CalendarBuilder(props: BuilderProps) {
         territories: props.territories,
         pipelines: props.pipelines,
         textingReady: props.textingReady,
+        paymentAccounts: props.payments.accounts,
+        businessDeposit: props.payments.deposit,
       }),
     [
       calendar.timezone,
@@ -215,6 +219,8 @@ export function CalendarBuilder(props: BuilderProps) {
       props.territories,
       props.pipelines,
       props.textingReady,
+      props.payments.accounts,
+      props.payments.deposit,
     ],
   );
   const [now] = useState(() => Date.now());
@@ -517,7 +523,7 @@ export function CalendarBuilder(props: BuilderProps) {
             onChange={(e) => setModule(e.target.value as ModuleKey)}
           >
             {MODULES.map((m) => (
-              <option key={m.key} value={m.key} disabled={'soon' in m}>
+              <option key={m.key} value={m.key}>
                 {m.name}
                 {flagged.has(m.key) ? ' •' : ''}
               </option>
@@ -531,7 +537,6 @@ export function CalendarBuilder(props: BuilderProps) {
             </div>
             {MODULES.map((m) => {
               const Icon = ICONS[m.key];
-              const soon = 'soon' in m;
               const active = module === m.key;
               return (
                 <button
@@ -539,15 +544,12 @@ export function CalendarBuilder(props: BuilderProps) {
                   type="button"
                   aria-current={active ? 'page' : undefined}
                   data-testid={`module-${m.key}`}
-                  title={soon ? m.soon : undefined}
                   onClick={() => setModule(m.key)}
                   className={cn(
                     'flex min-h-[42px] w-full items-center gap-2.5 rounded-control px-2.5 py-1.5 text-left transition-colors',
                     active
                       ? 'bg-accent-soft text-accent-text'
-                      : soon
-                        ? 'text-text-3 hover:bg-card-2'
-                        : 'text-text-2 hover:bg-card-2 hover:text-text',
+                      : 'text-text-2 hover:bg-card-2 hover:text-text',
                   )}
                 >
                   <Icon className="h-4 w-4 flex-none" strokeWidth={1.5} />
@@ -594,6 +596,7 @@ export function CalendarBuilder(props: BuilderProps) {
             pipelines={props.pipelines}
             calendarId={calendar.id}
             calendarName={calendar.name}
+            payments={props.payments}
           />
         </Card>
 
@@ -754,6 +757,17 @@ export function CalendarBuilder(props: BuilderProps) {
                               {fix.label}
                             </Button>
                           ))}
+                          {/* The other way out of this one is a page to visit, not a settings patch. */}
+                          {issue.code === 'payment_unavailable' ? (
+                            <ButtonLink
+                              href={`/app/w/${workspaceId}/settings/payments`}
+                              size="sm"
+                              className="h-7 text-[12.5px]"
+                              data-testid="fix-payment_unavailable-connect_account"
+                            >
+                              Connect an account
+                            </ButtonLink>
+                          ) : null}
                         </span>
                       ) : null}
                     </span>

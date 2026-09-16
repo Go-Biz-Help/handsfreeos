@@ -1,6 +1,7 @@
 'use client';
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { NextActionDialog } from '@/components/crm/next-action-dialog';
+import { MessageSheet } from '@/components/inbox/message-sheet';
 import { TaskDialog } from '@/components/tasks/task-dialog';
 import { Card } from '@/components/ui/card';
 import type { Appointment, AttentionList, Task } from '@/lib/api/types';
@@ -201,6 +202,28 @@ export function ActionCenter({
             members={members.map((m) => ({ id: m.id, fullName: m.fullName }))}
             myUserId={myUserId}
             initial={task}
+          />
+        ) : null;
+        break;
+      }
+      case 'message': {
+        const m = dialog.message;
+        // The follow-up about a money document, written and waiting for the person to read it and press send.
+        // Sending it doesn't settle anything — the invoice is still owed — so the card stays until it is.
+        overlay = m ? (
+          <MessageSheet
+            key={item.id}
+            workspaceId={workspaceId}
+            person={m.person}
+            channel={m.channel}
+            initialText={m.body}
+            {...(m.subject ? { initialSubject: m.subject } : {})}
+            open
+            onOpenChange={close}
+            onSent={() => {
+              list.reload();
+              refreshSummary();
+            }}
           />
         ) : null;
         break;

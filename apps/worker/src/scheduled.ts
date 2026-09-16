@@ -18,6 +18,7 @@ import { alertUrgent, waitOf } from './attention/alerts';
 import { ATTENTION_JOBS, ATTENTION_PLAN_KEY, attentionJobs } from './attention/index';
 import { appointmentNotice } from './booking/notices';
 import { appointmentReminder } from './booking/reminders';
+import { depositJobs } from './booking/deposit';
 import { waitlistOfferExpire, waitlistOfferJob } from './booking/waitlist';
 import { appointmentCalendarSync, calendarRefresh } from './calendar/sync';
 import { CHAT_JOBS, chatUnreadFollowUp } from './chat/followup';
@@ -29,6 +30,7 @@ import { knowledgeScanJob } from './knowledge/scan';
 import { mailboxSync } from './mailbox/sync';
 import { moneyDocumentJobs, MONEY_JOBS, MONEY_PLAN_KEY } from './money/jobs';
 import { moneyJobs } from './money/refunds';
+import { planJobs } from './money/subscriptions';
 import { errorMessage } from './outbox';
 import { PAYMENT_JOBS, PAYMENT_PLAN_KEY, paymentJobs } from './payments/refresh';
 import {
@@ -245,6 +247,8 @@ export const jobs: JobMap = {
   'appointment.reminder': appointmentReminder,
   'appointment.notice': appointmentNotice,
   'waitlist.offer': waitlistOfferJob,
+  // A time held while a customer pays a deposit, given back when nobody does (booking/deposit.ts).
+  ...depositJobs,
   'waitlist.offer_expire': waitlistOfferExpire,
   'knowledge.scan': knowledgeScanJob,
   'knowledge.document': knowledgeDocumentJob,
@@ -269,6 +273,9 @@ export const jobs: JobMap = {
   // its expiry, a receipt and a payment that failed, a plan's cycle read back, and the hourly plan and each
   // business's sweep behind them all (money/jobs.ts).
   ...moneyDocumentJobs,
+  // Money: a plan made to match at the provider — created, paused, resumed or cancelled there
+  // (money/subscriptions.ts).
+  ...planJobs,
 };
 
 /** Periodic jobs exist exactly once (their dedupe key keeps one pending row); the first run is an hour out. */

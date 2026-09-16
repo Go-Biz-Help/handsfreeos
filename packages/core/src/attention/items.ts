@@ -121,8 +121,15 @@ export interface ItemHints {
   readonly appointmentId: string | null;
   readonly startsAt: string | null;
   readonly reach: 'sms' | 'email' | 'chat' | null;
+  /** There's a number to ring and the business is open: a money card offers the call first. */
+  readonly callable: boolean;
 }
-export const NO_HINTS: ItemHints = { appointmentId: null, startsAt: null, reach: null };
+export const NO_HINTS: ItemHints = {
+  appointmentId: null,
+  startsAt: null,
+  reach: null,
+  callable: false,
+};
 
 /** One row as people see it at `now`: ticking chips recounted, its rank, and what this person may do. */
 export function itemOut(
@@ -149,6 +156,7 @@ export function itemOut(
     appointmentId: hints.appointmentId,
     startsAt: hints.startsAt,
     reach: hints.reach,
+    callable: hints.callable,
     title: row.title,
     detail: row.detail,
     valueCents: s.value,

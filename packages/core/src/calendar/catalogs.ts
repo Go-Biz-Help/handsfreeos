@@ -3,6 +3,7 @@
  * the database (and the builder from the page's queries); the rules, presets, diff and impact read it.
  */
 import type { WeeklyHours } from './config';
+import { NO_DEPOSIT, type DepositTerms } from '../money/totals';
 
 export interface CatalogPerson {
   readonly userId: string;
@@ -20,6 +21,8 @@ export interface CatalogService {
   readonly durations: readonly number[];
   readonly bufferBefore: number;
   readonly bufferAfter: number;
+  /** What it costs, where anyone has said: the product that prices it, else its own "price shown". */
+  readonly priceCents?: number | null;
   /** Who can do it; empty means everyone. */
   readonly eligibleUserIds: readonly string[];
   readonly requiredResources: readonly { readonly resourceId: string; readonly quantity: number }[];
@@ -55,6 +58,17 @@ export interface CatalogPipeline {
   }[];
 }
 
+/** One account a business has connected and can be paid into (Settings → Payments). */
+export interface CatalogPaymentAccount {
+  readonly id: string;
+  /** The business's own label for it, else the provider's name for the account. */
+  readonly name: string;
+  /** stripe, square. */
+  readonly provider: string;
+  /** The one everything is paid into unless a document names another. */
+  readonly isDefault: boolean;
+}
+
 export interface CalendarCatalogs {
   /** The calendar's time zone (the workspace's when the calendar has none). */
   readonly timeZone: string;
@@ -66,8 +80,15 @@ export interface CalendarCatalogs {
   readonly pipelines: readonly CatalogPipeline[];
   /** Texting is registered and has a number. */
   readonly textingReady: boolean;
-  /** False until Milestone 9. */
+  /** The business has at least one connected payment account, so a booking can take money. */
   readonly paymentsAvailable: boolean;
+  /**
+   * The accounts money could land in. Empty for a member: `payment_connections` needs money.manage, and the
+   * builder is owners and admins only, so `paymentsAvailable` reads false for them too.
+   */
+  readonly paymentAccounts: readonly CatalogPaymentAccount[];
+  /** What the business asks for up front (Settings → Payments); a calendar may ask for its own instead. */
+  readonly businessDeposit: DepositTerms;
 }
 
 export function emptyCatalogs(timeZone = 'America/Chicago'): CalendarCatalogs {
@@ -80,6 +101,8 @@ export function emptyCatalogs(timeZone = 'America/Chicago'): CalendarCatalogs {
     pipelines: [],
     textingReady: false,
     paymentsAvailable: false,
+    paymentAccounts: [],
+    businessDeposit: NO_DEPOSIT,
   };
 }
 

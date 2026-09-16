@@ -12,7 +12,7 @@ import { GoogleLogo, MicrosoftLogo } from '@/components/settings/provider-logos'
 import type { Appointment } from '@/lib/api/types';
 import { clockLabel, dateOf, fmtLength, fmtRange, hourLabel } from '@/lib/calendar/time';
 import { cn } from '@/lib/utils';
-import { areaOf, customersOf, firstName, isPast } from './appt';
+import { areaOf, customersOf, firstName, holdOf, holdWords, isPast } from './appt';
 
 export interface GridBlock {
   readonly key: string;
@@ -440,6 +440,7 @@ function EventBlock({
   ]
     .filter(Boolean)
     .join(' · ');
+  const hold = holdOf(a, now);
   const chips: ReactNode[] = [];
   if (a.capacity > 1)
     chips.push(
@@ -520,12 +521,18 @@ function EventBlock({
         className={cn(
           'cal-ev',
           (isPast(a, now) || a.status !== 'scheduled') && 'cal-past',
+          hold && 'cal-held',
           selected && 'cal-sel',
           dragging && 'cal-dragging',
           draggable && a.status === 'scheduled' && 'cursor-grab active:cursor-grabbing',
         )}
         style={style}
-        title={`${a.title} · ${range}`}
+        data-held={hold ? 'true' : undefined}
+        title={
+          hold
+            ? `${a.title} · ${range} — not booked yet. ${holdWords(hold, timeZone)}`
+            : `${a.title} · ${range}`
+        }
         onPointerDown={(e) => onPointerDown(e, 'move', e.currentTarget)}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
@@ -533,6 +540,12 @@ function EventBlock({
         onClick={onClick}
       >
         <span className="cal-t pr-3">{a.title}</span>
+        {/* Above everything the block might drop for want of room: a time nobody paid for must never read as booked. */}
+        {hold ? (
+          <span className="cal-held-chip cal-mini mt-0.5 self-start" data-testid="appt-held">
+            {minutes >= 40 ? 'Not booked · waiting on a deposit' : 'Not booked yet'}
+          </span>
+        ) : null}
         {a.source === 'booking_page' || a.source === 'ai_teammate' ? (
           <span
             className="absolute right-1.5 top-[5px] text-text-2"

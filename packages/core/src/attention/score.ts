@@ -137,14 +137,24 @@ export interface AffectedItem {
   readonly value: number;
   readonly valueIsEstimate: boolean;
   readonly moneyKey: string | null;
+  /**
+   * The lead the item belongs to, when it has one. An overdue invoice for a job already counted is that job's
+   * money seen again, not more of it: both count under the lead, and the larger figure stands. An invoice with
+   * no lead (the work came in some other way) counts on its own.
+   */
+  readonly leadId?: string | null;
 }
 
-/** "$X affected", in cents: each money key once (its largest value), estimates left out. */
+/**
+ * "$X affected", in cents: money owed, each job counted once (its largest figure), estimates left out until
+ * someone accepts one and it becomes an invoice.
+ */
 export function affectedCents(items: readonly AffectedItem[]): number {
   const byKey = new Map<string, number>();
   for (const i of items) {
-    if (i.valueIsEstimate || !i.moneyKey || i.value <= 0) continue;
-    byKey.set(i.moneyKey, Math.max(byKey.get(i.moneyKey) ?? 0, i.value));
+    const key = i.leadId ? `lead:${i.leadId}` : i.moneyKey;
+    if (i.valueIsEstimate || !key || i.value <= 0) continue;
+    byKey.set(key, Math.max(byKey.get(key) ?? 0, i.value));
   }
   let total = 0;
   for (const v of byKey.values()) total += v;

@@ -3,10 +3,12 @@ import { asWorker, rows, sql, type Tx } from '@hfos/db/client';
 import { closeTestDbs, createTestUser, testDbs, type TestUser } from '@hfos/db/testing';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { z } from 'zod';
+import { TEAMMATE_TOOL_NAMES } from '../src/ai-team/tools';
 import { assistantTools, toolInputSchema } from '../src/assistant/tools';
 import { AssistantCard } from '../src/schemas/assistant';
 import { HfosError } from '../src/errors';
 import { executeCommand, executeQuery } from '../src/kernel/execute';
+import { ROLE_PERMISSIONS } from '../src/permissions';
 import type { CommandDef, HumanActor, QueryDef, RequestMeta } from '../src/kernel/types';
 import {
   assistantThreadArchive,
@@ -167,6 +169,106 @@ describe('Assistant calendar tools', () => {
         href: `/app/w/${ws}/calendar?date=2026-09-18&appt=${id}`,
       }).success,
     ).toBe(true);
+  });
+});
+
+describe('Assistant money tools', () => {
+  const tool = (name: string) => assistantTools.find((t) => t.name === name)!;
+  const id = randomUUID();
+  const READS = ['money_owed', 'money_collected', 'customer_money', 'estimates_waiting'];
+  const WRITES = ['send_estimate', 'record_payment'];
+
+  it('read on their own for anyone who may see money, and move money only on Confirm', () => {
+    for (const name of READS)
+      expect([name, tool(name)]).toMatchObject([
+        name,
+        { autonomy: 'auto', permission: 'money.read' },
+      ]);
+    for (const name of WRITES)
+      expect([name, tool(name)]).toMatchObject([
+        name,
+        { autonomy: 'confirm', permission: 'money.manage' },
+      ]);
+  });
+
+  it('split on the same permission that hides the buttons: a member gets the reads and not the writes', () => {
+    const can = (role: keyof typeof ROLE_PERMISSIONS) => (p: string) =>
+      (ROLE_PERMISSIONS[role] as readonly string[]).includes(p);
+    const offered = (role: 'owner' | 'admin' | 'member') =>
+      assistantTools.filter((t) => can(role)(t.permission)).map((t) => t.name);
+    for (const role of ['owner', 'admin'] as const)
+      for (const name of [...READS, ...WRITES]) expect(offered(role)).toContain(name);
+    for (const name of READS) expect(offered('member')).toContain(name);
+    for (const name of WRITES) expect(offered('member')).not.toContain(name);
+  });
+
+  it('are never handed to the AI teammate: it may not quote a price, or issue an invoice', () => {
+    for (const name of [...READS, ...WRITES]) expect(TEAMMATE_TOOL_NAMES).not.toContain(name);
+    expect(TEAMMATE_TOOL_NAMES.some((n) => /money|invoice|estimate|payment/i.test(n))).toBe(false);
+  });
+
+  it('take the ids and amounts the commands take, and refuse what they do not', () => {
+    expect(tool('money_owed').input.parse({})).toEqual({ overdueOnly: false, limit: 8 });
+    expect(tool('money_collected').input.parse({})).toEqual({ days: 30 });
+    expect(tool('money_collected').input.safeParse({ days: 0 }).success).toBe(false);
+    expect(tool('customer_money').input.safeParse({ personId: 'nope' }).success).toBe(false);
+    expect(tool('send_estimate').input.parse({ estimateId: id })).toEqual({
+      estimateId: id,
+      channels: ['email'],
+    });
+    expect(
+      tool('send_estimate').input.safeParse({ estimateId: id, channels: ['pigeon'] }).success,
+    ).toBe(false);
+    expect(tool('record_payment').input.parse({ invoiceId: id })).toEqual({
+      invoiceId: id,
+      method: 'cash',
+    });
+    // It writes down money already taken; a card is never one of the ways.
+    expect(tool('record_payment').input.safeParse({ invoiceId: id, method: 'card' }).success).toBe(
+      false,
+    );
+    expect(tool('record_payment').input.safeParse({ invoiceId: id, amount: -5 }).success).toBe(
+      false,
+    );
+    expect(toolInputSchema(tool('record_payment'))).toMatchObject({
+      type: 'object',
+      required: ['invoiceId'],
+    });
+  });
+
+  it('draw the money card, with or without the parts an older chat never had, linking only inside the app', () => {
+    const ws = randomUUID();
+    // The headline on its own is a whole card: a chat saved without stats or rows still loads.
+    const total = {
+      type: 'money',
+      title: 'What you are owed',
+      value: '$12,480.75',
+      href: `/app/w/${ws}/money`,
+    };
+    expect(AssistantCard.safeParse(total).success).toBe(true);
+    const full = {
+      ...total,
+      detail: '6 invoices · 2 overdue',
+      tone: 'danger',
+      stats: [{ value: '$2,080.80', label: 'overdue · 2 invoices' }],
+      items: [
+        {
+          title: 'INV-1044 · ABC Dental',
+          detail: '$2,080.80 · due Fri, Sep 18',
+          status: 'Overdue',
+          tone: 'danger',
+          href: `/app/w/${ws}/money/invoices/${id}`,
+        },
+      ],
+    };
+    expect(AssistantCard.safeParse(full).success).toBe(true);
+    expect(
+      AssistantCard.safeParse({
+        ...full,
+        items: [{ ...full.items[0]!, href: 'https://example.com/pay' }],
+      }).success,
+    ).toBe(false);
+    expect(AssistantCard.safeParse({ ...full, tone: 'green' }).success).toBe(false);
   });
 });
 

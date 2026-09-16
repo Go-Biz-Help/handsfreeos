@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import type { Appointment } from '@/lib/api/types';
 import { dateOf, fmtMonthDay, fmtRange, todayIn, weekdayShort } from '@/lib/calendar/time';
-import { firstName, namesText } from './appt';
+import { firstName, holdOf, holdWords, namesText, useNow } from './appt';
 
 /** One appointment as a row: a date tile, the calendar's color, what and when, who and what's reserved. */
 export function AppointmentRow({
@@ -17,8 +17,10 @@ export function AppointmentRow({
   timeZone: string;
   onOpen: (id: string) => void;
 }) {
+  const now = useNow();
   const d = dateOf(a.startsAt, timeZone);
   const sameMonth = d.slice(0, 7) === todayIn(timeZone).slice(0, 7);
+  const hold = holdOf(a, now);
   const detail = [
     fmtRange(a.startsAt, a.endsAt, timeZone),
     namesText(a.staff.map((s) => firstName(s.fullName))),
@@ -32,6 +34,7 @@ export function AppointmentRow({
       onClick={() => onOpen(a.id)}
       className="flex w-full items-center gap-3 border-t border-border py-[9px] text-left hover:bg-card-2"
       data-testid={`upcoming-${a.id}`}
+      data-held={hold ? 'true' : undefined}
     >
       <span className="flex w-11 flex-none flex-col items-center rounded-control bg-card-2 py-1">
         <span className="text-[10.5px] font-semibold uppercase text-text-3">{weekdayShort(d)}</span>
@@ -52,7 +55,11 @@ export function AppointmentRow({
               {a.source === 'ai_teammate' ? 'Booked by AI' : 'Booked online'}
             </Badge>
           ) : null}
-          {a.status === 'completed' ? (
+          {hold ? (
+            <Badge variant="pending" className="h-5 text-[11.5px]">
+              Not booked yet
+            </Badge>
+          ) : a.status === 'completed' ? (
             <Badge variant="ok" className="h-5 text-[11.5px]">
               Completed
             </Badge>
@@ -62,7 +69,9 @@ export function AppointmentRow({
             </Badge>
           ) : null}
         </span>
-        <span className="truncate text-xs text-text-3">{detail}</span>
+        <span className="truncate text-xs text-text-3">
+          {hold ? holdWords(hold, timeZone) : detail}
+        </span>
       </span>
     </button>
   );

@@ -31,6 +31,7 @@ import {
   type PaymentProviderName,
 } from '../payments/provider';
 import { systemActor, workerMeta, type TenantScope } from '../services';
+import { recordPlanCycle } from './subscriptions';
 import {
   disputeFactsOf,
   paymentFactsOf,
@@ -260,7 +261,13 @@ async function ourSubscription(ctx: DeliveryContext, r: Routed, externalId: stri
   return row ?? null;
 }
 
-/** A plan billed a cycle, or its card was refused. Both providers say so about the plan, not the invoice. */
+/**
+ * A plan billed a cycle, or its card was refused. Both providers say so about the plan, not the invoice.
+ *
+ * A cycle that was actually billed becomes **an invoice and a payment here** (money/subscriptions.ts), so a
+ * plan's money sits in the same ledger as every other dollar: the customer's receipt, the collected figure and
+ * next year's accounts all read the same rows. A failed one raises nothing — no money moved.
+ */
 function cycleProcessor(outcome: 'billed' | 'failed'): DeliveryProcessor {
   return async (ctx) => {
     const r = routed(ctx);
@@ -268,6 +275,18 @@ function cycleProcessor(outcome: 'billed' | 'failed'): DeliveryProcessor {
     const facts = subscriptionFactsOf(r.event);
     const plan = await ourSubscription(ctx, r, facts.providerSubscriptionId);
     if (!plan) return 'ignored';
+    const invoiceId =
+      outcome === 'billed'
+        ? await recordPlanCycle(ctx.db, r.scope, plan.id, {
+            providerPaymentId: facts.providerPaymentId,
+            amountPaidCents: facts.amountPaidCents,
+            currentPeriodStart: facts.currentPeriodStart,
+            currentPeriodEnd: facts.currentPeriodEnd,
+          })
+        : null;
+    // Square cancels at the end of the period already paid for, so a plan cancelled here can still bill once
+    // more there. The money is real and is kept; the plan stays cancelled rather than springing back to life.
+    if (plan.status === 'cancelled') return;
     await executeCommand(
       ctx.db,
       subscriptionRecordCycle,
@@ -276,6 +295,7 @@ function cycleProcessor(outcome: 'billed' | 'failed'): DeliveryProcessor {
         subscriptionId: plan.id,
         outcome,
         externalSubscriptionId: facts.providerSubscriptionId,
+        invoiceId,
         currentPeriodStart: asDate(facts.currentPeriodStart),
         currentPeriodEnd: asDate(facts.currentPeriodEnd),
         nextBillingOn: asDate(facts.currentPeriodEnd),

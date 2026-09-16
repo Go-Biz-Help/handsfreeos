@@ -196,6 +196,41 @@ export const AssistantCard = z.discriminatedUnion('type', [
     unsupported: z.array(z.string()).max(5),
     href: appPath,
   }),
+  /**
+   * Money: a total ("what are we owed?") or the documents behind it. Every figure is already formatted by the
+   * worker from real rows, so the model never writes an amount of its own. New in M9 — chats saved before it
+   * have no card of this type, and every part beyond the headline is optional so it can stay that way.
+   */
+  z.object({
+    type: z.literal('money'),
+    /** "What you are owed", "Collected in the last 30 days", "INV-1044". */
+    title: z.string(),
+    /** The figure itself, already formatted: "$12,480.75". */
+    value: z.string(),
+    /** Under the figure: "6 invoices · 2 overdue". */
+    detail: z.string().nullable().optional(),
+    tone: tone.optional(),
+    /** Up to four smaller figures beside it: overdue, on its way, quoted out. */
+    stats: z
+      .array(z.object({ value: z.string(), label: z.string() }))
+      .max(4)
+      .optional(),
+    /** The documents behind the figure, one row each. */
+    items: z
+      .array(
+        z.object({
+          title: z.string(),
+          detail: z.string(),
+          /** What the document's own page calls it: "Overdue", "Paying", "Sent". */
+          status: z.string().optional(),
+          tone,
+          href: appPath.nullable(),
+        }),
+      )
+      .max(8)
+      .optional(),
+    href: appPath.nullable(),
+  }),
   /** Knowledge base matches the answer drew on. */
   z.object({
     type: z.literal('knowledge'),

@@ -4,11 +4,14 @@
  */
 import { and, eq } from 'drizzle-orm';
 import type { Tx } from '@hfos/db/client';
-import { aiTeammateRuns, conversations, leads } from '@hfos/db/schema';
+import { aiTeammateRuns, bookingSites, conversations, leads } from '@hfos/db/schema';
+import { calendarCharge } from '../calendar/deposit-load';
+import { loadCalendar } from '../calendar/load';
 import { HfosError } from '../errors';
 import { aiEmployeeOf } from '../kernel/actor';
 import type { AiEmployeeActor, CommandContext, QueryContext } from '../kernel/types';
 import { loadConversation } from '../messaging/store';
+import { money } from '../money/format';
 import type { TeammateConfig } from './config';
 import { loadTeammate, teammateConfigOf } from './load';
 
@@ -123,6 +126,50 @@ export async function assertTeammateCalendar(
       'calendar_not_allowed',
     );
   return config;
+}
+
+/**
+ * A calendar that asks for money before it will hold a time is **not the AI teammate's to book**. The deposit
+ * is taken on the customer's own booking page, where their card is held rather than charged and the time goes
+ * back if they never pay — none of which a teammate booking on their behalf can do. So it books nothing, says
+ * what the visit takes, and sends them the page.
+ *
+ * The check is here, beside the one that keeps it to the calendars its settings list, so a model that names a
+ * calendar it shouldn't gets the same answer either way.
+ */
+export async function assertTeammateMayBook(
+  tx: Tx,
+  ai: AiEmployeeActor,
+  calendarId: string,
+  serviceId?: string | null,
+): Promise<TeammateConfig> {
+  const config = await assertTeammateCalendar(tx, ai, calendarId);
+  const calendar = await loadCalendar(tx, ai.workspaceId, calendarId);
+  const due = await calendarCharge(tx, ai.workspaceId, calendar.config, serviceId);
+  if (!due) return config;
+  const path = await bookingPathOf(tx, ai.workspaceId, calendar.slug);
+  throw new HfosError(
+    'rule_violation',
+    409,
+    `${calendar.name} takes ${money(due.charge.amountCents)}${
+      due.charge.mode === 'deposit' ? ' as a deposit' : ''
+    } before a time is held, and that is paid on the booking page. Don’t book it yourself: tell them what it takes and send them the page to book on${path ? ` (${path})` : ''}.`,
+    { amountCents: due.charge.amountCents, mode: due.charge.mode, bookingPath: path },
+    'deposit_required',
+  );
+}
+
+/** The path a customer books this calendar on, or null when the business's booking page is off. */
+export async function bookingPathOf(
+  tx: Tx,
+  workspaceId: string,
+  calendarSlug: string,
+): Promise<string | null> {
+  const [site] = await tx
+    .select({ slug: bookingSites.slug, enabled: bookingSites.enabled })
+    .from(bookingSites)
+    .where(eq(bookingSites.workspaceId, workspaceId));
+  return site?.enabled ? `/book/${site.slug}/${calendarSlug}` : null;
 }
 
 /** The conversation the AI teammate is answering, while it's still the one handling it. */

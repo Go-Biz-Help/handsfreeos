@@ -46,6 +46,7 @@ import {
   type BookingResult,
 } from '../calendar/booking';
 import type { CalendarConfig } from '../calendar/config';
+import { DEPOSIT_HOLD_MS } from '../calendar/deposit';
 import { computeSlots } from '../calendar/engine/slots';
 import { chooseAssignment } from '../calendar/engine/strategies';
 import { isLocalDate } from '../calendar/engine/zoned';
@@ -63,7 +64,7 @@ import { requirePerson } from '../crm/records';
 import { HfosError } from '../errors';
 import { defineCommand } from '../kernel/define';
 import type { CommandContext } from '../kernel/types';
-import { isOptedOut, matchPersonByPhone } from '../messaging/store';
+import { isOptedOut, matchPersonByPhone, scheduleJob } from '../messaging/store';
 import {
   AppointmentBookOnlineInput,
   AppointmentBookOnlineOutput,
@@ -260,7 +261,12 @@ export async function leadFor(
   return out.leadId;
 }
 
-export async function bookingOutput(tx: Tx, r: BookingResult, created: boolean) {
+export async function bookingOutput(
+  tx: Tx,
+  r: BookingResult,
+  created: boolean,
+  hold?: { held: boolean; expiresAt: string | null },
+) {
   const [att] = r.attendeeId
     ? await tx
         .select({ personId: appointmentAttendees.personId })
@@ -284,7 +290,34 @@ export async function bookingOutput(tx: Tx, r: BookingResult, created: boolean) 
     userIds: r.userIds,
     joined: r.joined,
     duplicate: r.duplicate,
+    held: hold?.held ?? false,
+    holdExpiresAt: hold?.expiresAt ?? null,
   };
+}
+
+/** The job that gives a time back when nobody pays for it, keyed so one booking has exactly one. */
+export const DEPOSIT_HOLD_JOB = 'booking.deposit_hold';
+export const depositHoldKey = (attendeeId: string): string => `deposit-hold:${attendeeId}`;
+
+/**
+ * Whether this booking is still a hold, and until when. The pending expiry job **is** the hold: it is written
+ * in the same transaction as the booking and it is gone the moment the deposit is paid, so a doubled submit is
+ * answered with the hold it already made rather than a second one.
+ */
+export async function holdState(
+  tx: Tx,
+  attendeeId: string,
+): Promise<{ held: boolean; expiresAt: string | null }> {
+  const [job] = await rows<{ run_at: Date | string }>(
+    tx,
+    sql`select run_at from app.scheduled_jobs
+        where kind = ${DEPOSIT_HOLD_JOB} and dedupe_key = ${depositHoldKey(attendeeId)}
+          and status = 'pending'
+        limit 1`,
+  );
+  return job
+    ? { held: true, expiresAt: new Date(job.run_at).toISOString() }
+    : { held: false, expiresAt: null };
 }
 
 /**
@@ -360,7 +393,8 @@ export const appointmentBookOnline = defineCommand({
     const calendar = await loadCalendar(ctx.tx, ws, input.calendarId);
     assertBookable(calendar);
     const earlier = await findBookingByClientId(ctx.tx, ws, input.clientId);
-    if (earlier?.attendeeId) return bookingOutput(ctx.tx, earlier, false);
+    if (earlier?.attendeeId)
+      return bookingOutput(ctx.tx, earlier, false, await holdState(ctx.tx, earlier.attendeeId));
     const { config } = calendar;
     const service = await resolveService(ctx.tx, calendar, input.serviceId);
     const issues: { path: string; message: string }[] = [];
@@ -429,7 +463,13 @@ export const appointmentBookOnline = defineCommand({
       clientId: input.clientId,
       source: 'booking_page',
     });
-    if (result.duplicate) return bookingOutput(ctx.tx, result, false);
+    if (result.duplicate)
+      return bookingOutput(
+        ctx.tx,
+        result,
+        false,
+        result.attendeeId ? await holdState(ctx.tx, result.attendeeId) : undefined,
+      );
 
     const host = result.userIds[0] ?? null;
     const owner =
@@ -455,6 +495,26 @@ export const appointmentBookOnline = defineCommand({
           .update(appointments)
           .set({ leadId })
           .where(eq(appointments.id, result.appointmentId));
+    }
+    /**
+     * A calendar that asks for money holds the time instead of confirming it: nothing is announced, so no
+     * confirmation reaches the customer and no reminder is armed until the deposit is paid
+     * (booking.confirm_deposit does both). A hold nobody pays for runs out and gives the time back.
+     */
+    if (input.hold) {
+      const expiresAt = new Date(Date.now() + DEPOSIT_HOLD_MS);
+      await scheduleJob(ctx.tx, {
+        kind: DEPOSIT_HOLD_JOB,
+        dedupeKey: depositHoldKey(result.attendeeId!),
+        runAt: expiresAt,
+        payload: { attendeeId: result.attendeeId, appointmentId: result.appointmentId },
+        workspaceId: ws,
+        organizationId: ctx.scope.organizationId,
+      });
+      return bookingOutput(ctx.tx, result, created, {
+        held: true,
+        expiresAt: expiresAt.toISOString(),
+      });
     }
     await announceBooked(
       ctx,

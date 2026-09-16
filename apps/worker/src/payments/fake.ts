@@ -791,6 +791,20 @@ export function createFakePayments(opts: {
       async saveMethod(account, input) {
         guard(account);
         const t = readToken(input.sourceToken);
+        /**
+         * Saving a card is where a bad one is refused, exactly as it is at both real providers: Stripe refuses
+         * the attach and Square runs its own verification. The card that fails only when nobody is watching
+         * (`failsOffSession`) saves fine here — that is the whole point of it.
+         */
+        const answer = outcome(t.instrument, t.method, false);
+        if (answer.status === 'failed')
+          throw new PaymentError(
+            declineWording(answer.failureCode),
+            402,
+            true,
+            null,
+            answer.failureCode ?? 'card_declined',
+          );
         const saved: SavedMethod = {
           token: mintToken({ ...t, saved: true }),
           kind: t.method,

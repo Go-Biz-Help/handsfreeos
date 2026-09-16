@@ -13,10 +13,11 @@
  * - `POST /test/money/run-due { workspaceId }` moves this business's money jobs up to now and runs them —
  *   reminders, overdue marks, estimates expiring, plan cycles, refunds and the token refresh — answering
  *   `{ moved, ran }`.
- * - `POST /test/money/link { workspaceId, estimateId | invoiceId }` hands back the customer's own link for a
- *   document. A link is `<public_ref><code>` and the code is an HMAC with the worker's key, so a browser test
- *   has no other way to reach `/e/…` or `/i/…`: the real ones travel by text and email, and the specs must not
- *   read the key. Exactly what `estimateUrlFor` / `invoiceUrlFor` hand the messages.
+ * - `POST /test/money/link { workspaceId, estimateId | invoiceId | subscriptionId }` hands back the customer's
+ *   own link for a document or a plan. A link is `<public_ref><code>` and the code is an HMAC with the worker's
+ *   key, so a browser test has no other way to reach `/e/…`, `/i/…` or `/p/…`: the real ones travel by text and
+ *   email, and the specs must not read the key. Exactly what `estimateUrlFor`, `invoiceUrlFor` and `planUrlFor`
+ *   hand the messages.
  *
  * **A job and the record that armed it commit together, but the event that armed them is handled by the
  * worker's own loop.** So a spec that has just made something happen should wait for that work to drain — or
@@ -30,7 +31,7 @@ import { z } from 'zod';
 import { parseBody, type HttpDeps } from '../http/common';
 import { processJobs, type JobMap, type JobStats } from '../jobs';
 import type { TenantScope } from '../services';
-import { estimateUrlFor, invoiceUrlFor } from './links';
+import { estimateUrlFor, invoiceUrlFor, planUrlFor } from './links';
 
 /**
  * Every money job kind, by the prefix its name starts with. A prefix rather than a list so that a job added
@@ -66,9 +67,10 @@ const MoneyLink = z
     workspaceId: z.uuid(),
     estimateId: z.uuid().optional(),
     invoiceId: z.uuid().optional(),
+    subscriptionId: z.uuid().optional(),
   })
-  .refine((b) => !!b.estimateId !== !!b.invoiceId, {
-    error: 'Name one of estimateId or invoiceId.',
+  .refine((b) => [b.estimateId, b.invoiceId, b.subscriptionId].filter(Boolean).length === 1, {
+    error: 'Name one of estimateId, invoiceId or subscriptionId.',
   });
 
 async function scopeOf(deps: HttpDeps, workspaceId: string): Promise<TenantScope> {
@@ -134,12 +136,14 @@ export function registerMoneyTestRoutes(app: FastifyInstance, deps: HttpDeps, jo
   app.post('/test/money/link', async (req) => {
     const body = parseBody(MoneyLink, req.body ?? {});
     const scope = await scopeOf(deps, body.workspaceId);
-    const kind = body.estimateId ? 'estimate' : 'invoice';
-    const id = body.estimateId ?? body.invoiceId!;
+    const kind = body.estimateId ? 'estimate' : body.invoiceId ? 'invoice' : 'plan';
+    const id = body.estimateId ?? body.invoiceId ?? body.subscriptionId!;
     const url = await asWorker(deps.db, scope, (tx) =>
-      body.estimateId
+      kind === 'estimate'
         ? estimateUrlFor(tx, deps.moneyLinks, id)
-        : invoiceUrlFor(tx, deps.moneyLinks, id),
+        : kind === 'invoice'
+          ? invoiceUrlFor(tx, deps.moneyLinks, id)
+          : planUrlFor(tx, deps.moneyLinks, id),
     );
     if (!url) throw HfosError.notFound('No such document.');
     return { kind, url, token: url.slice(url.lastIndexOf('/') + 1) };

@@ -22,8 +22,10 @@ import {
   workspaces,
   type CalendarStatus,
 } from '@hfos/db/schema';
+import { loadMoneySettings } from '../commands/money-shared';
 import { HfosError } from '../errors';
 import { liveNumber, loadRegistrations, readiness } from '../messaging/store';
+import { NO_DEPOSIT, type DepositTerms } from '../money/totals';
 import type {
   CalendarCatalogs,
   CatalogPerson,
@@ -184,11 +186,32 @@ async function scheduleRows(tx: Tx, workspaceId: string): Promise<ScheduleRow[]>
     .where(eq(schedules.workspaceId, workspaceId));
 }
 
+/**
+ * A read the calendar's rules would like but can live without, in its own savepoint: the money side is
+ * readable by fewer people than a calendar is, and a refusal must never cost someone their calendar page
+ * (a rolled-back savepoint leaves the transaction usable, where a plain catch would not).
+ */
+async function inSavepoint<T>(tx: Tx, read: (sp: Tx) => Promise<T>): Promise<T | null> {
+  try {
+    return await tx.transaction((sp) => read(sp as unknown as Tx));
+  } catch {
+    return null;
+  }
+}
+
+/** What the business asks for up front, or nothing when its money settings can't be read from here. */
+async function businessDepositOf(tx: Tx, workspaceId: string): Promise<DepositTerms> {
+  const settings = await inSavepoint(tx, (sp) => loadMoneySettings(sp, workspaceId));
+  return settings?.deposit ?? NO_DEPOSIT;
+}
+
 function toCatalogService(
   row: typeof services.$inferSelect,
   staff: readonly { serviceId: string; userId: string }[],
   needs: readonly { serviceId: string; resourceId: string; quantity: number }[],
   hours: WeeklyHours | null,
+  /** The product that prices it, where one does: the money side of the same thing. */
+  price?: number | null,
 ): CatalogService {
   const durations = [
     row.defaultDuration,
@@ -200,6 +223,7 @@ function toCatalogService(
     durations,
     bufferBefore: row.bufferBefore,
     bufferAfter: row.bufferAfter,
+    priceCents: price ?? row.priceCents ?? null,
     eligibleUserIds: staff.filter((s) => s.serviceId === row.id).map((s) => s.userId),
     requiredResources: needs
       .filter((r) => r.serviceId === row.id)
@@ -341,11 +365,42 @@ export async function loadCatalogs(
     .orderBy(asc(pipelineStages.position));
   const number = await liveNumber(tx, workspaceId);
   const regs = await loadRegistrations(tx, workspaceId);
+  // Whether a booking can take money at all: one live account is enough. The read runs as the caller, and
+  // `payment_connections` is only readable with money.manage, so a member reading a calendar sees false —
+  // which is right for them either way, since only owners and admins change these settings.
+  // What the catalogue says a service costs, where a product prices it: the deposit rules read this, and a
+  // member who may not see products simply gets the service's own "price shown".
+  const productPrice = new Map<string, number>();
+  for (const p of await inSavepoint(tx, (sp) =>
+    rows<{ service_id: string; unit_price_cents: number }>(
+      sp,
+      sql`select service_id, unit_price_cents::float8 as unit_price_cents from app.products
+          where workspace_id = ${workspaceId} and service_id is not null and archived_at is null
+            and unit_price_cents > 0`,
+    ),
+  ).then((list) => list ?? []))
+    productPrice.set(p.service_id, Math.round(Number(p.unit_price_cents)));
+
+  const paid = await rows<{
+    id: string;
+    name: string | null;
+    provider: string;
+    is_default: boolean;
+  }>(
+    tx,
+    sql`select id, coalesce(nullif(btrim(label), ''), display_name) as name,
+          provider::text as provider, is_default
+        from app.payment_connections
+        where workspace_id = ${workspaceId} and status = 'active'
+        order by is_default desc, connected_at, id`,
+  );
 
   return {
     timeZone: opts.timeZone,
     team,
-    services: serviceList.map((s) => toCatalogService(s, staff, needs, hoursOf('service', s.id))),
+    services: serviceList.map((s) =>
+      toCatalogService(s, staff, needs, hoursOf('service', s.id), productPrice.get(s.id)),
+    ),
     resources: resourceList.map((r): CatalogResource => ({
       id: r.id,
       name: r.name,
@@ -363,7 +418,14 @@ export async function loadCatalogs(
         .map((s) => ({ id: s.id, name: s.name, archived: false })),
     })),
     textingReady: readiness(number, regs).messagingReady,
-    paymentsAvailable: false,
+    paymentsAvailable: paid.length > 0,
+    businessDeposit: await businessDepositOf(tx, workspaceId),
+    paymentAccounts: paid.map((p) => ({
+      id: p.id,
+      name: p.name ?? '',
+      provider: p.provider,
+      isDefault: p.is_default,
+    })),
   };
 }
 

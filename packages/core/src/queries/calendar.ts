@@ -27,6 +27,7 @@ import { assertTeammateCalendar } from '../ai-team/reach';
 import { aiEmployeeOf } from '../kernel/actor';
 import { slotOut } from '../calendar/booking';
 import { parseConfig } from '../calendar/config';
+import { DEPOSIT_HOLD_MS } from '../calendar/deposit';
 import { computeSlots } from '../calendar/engine/slots';
 import {
   dbNow,
@@ -267,6 +268,66 @@ export const calendarAvailability = defineQuery({
 
 // ---- Appointments ----
 
+/**
+ * The seats that are only **held** while a customer pays a deposit, and when each hold runs out.
+ *
+ * A held seat is a real appointment on a real slot; what makes it a hold rather than a booking is that
+ * nothing was announced and **its deposit invoice is still a draft** (`booking.confirm_deposit` issues that
+ * invoice the moment the money is in hand, and `booking.release_hold` withdraws it when nobody pays). So the
+ * draft is the hold, and the hold runs out `DEPOSIT_HOLD_MINUTES` after it was raised — the same moment the
+ * expiry job is set for. The job itself is the worker's alone (`app.scheduled_jobs` is granted to the service
+ * actor and nobody else), which is why this reads the invoice instead.
+ */
+async function holdsFor(
+  tx: Tx,
+  workspaceId: string,
+  attendeeIds: readonly string[],
+): Promise<Map<string, string>> {
+  if (!attendeeIds.length) return new Map();
+  const held = await rows<{ attendee_id: string; created_at: Date | string }>(
+    tx,
+    sql`select attendee_id, created_at from app.invoices
+        where workspace_id = ${workspaceId} and origin = 'booking' and status = 'draft'
+          and attendee_id = any(${uuidArray(attendeeIds)})`,
+  );
+  return new Map(
+    held.map((h) => [
+      h.attendee_id,
+      new Date(new Date(h.created_at).getTime() + DEPOSIT_HOLD_MS).toISOString(),
+    ]),
+  );
+}
+
+/** The first of a set of hold expiries, so an appointment says the soonest its seats could go. */
+const soonest = (times: readonly (string | null)[]): string | null =>
+  times.filter((t): t is string => !!t).sort()[0] ?? null;
+
+/**
+ * What a visit costs, as the catalogue has it: the product a service is priced by if there is one (the money
+ * side of the same thing), else the service's own price shown. The booking page's deposit is worked out from
+ * exactly this, so the sheet's "left after the visit" and the customer's "due after the visit" agree.
+ */
+async function visitPrice(
+  tx: Tx,
+  workspaceId: string,
+  serviceId: string | null,
+): Promise<number | null> {
+  if (!serviceId) return null;
+  const [row] = await rows<{ service_price: number | null; product_price: number | null }>(
+    tx,
+    sql`select s.price_cents::float8 as service_price, p.unit_price_cents::float8 as product_price
+        from app.services s
+        left join app.products p
+          on p.service_id = s.id and p.workspace_id = s.workspace_id and p.archived_at is null
+        where s.id = ${serviceId} and s.workspace_id = ${workspaceId}
+        limit 1`,
+  );
+  if (!row) return null;
+  const priced = row.product_price !== null && Number(row.product_price) > 0;
+  const cents = Math.round(Number(priced ? row.product_price : row.service_price) || 0);
+  return cents > 0 ? cents : null;
+}
+
 async function appointmentCards(
   tx: Tx,
   workspaceId: string,
@@ -333,6 +394,11 @@ async function appointmentCards(
     tx,
     attendees.flatMap((p) => (p.confirmedBy ? [p.confirmedBy] : [])),
   );
+  const holds = await holdsFor(
+    tx,
+    workspaceId,
+    attendees.map((p) => p.id),
+  );
   return list.map(({ a, calendarName, calendarColor, serviceName }) => ({
     id: a.id,
     calendar: { id: a.calendarId, name: calendarName, color: calendarColor },
@@ -375,7 +441,13 @@ async function appointmentCards(
           ? { id: p.confirmedBy, fullName: confirmers.get(p.confirmedBy) ?? 'Someone' }
           : null,
         confirmAskedAt: p.confirmAskedAt?.toISOString() ?? null,
+        heldUntil: holds.get(p.id) ?? null,
       })),
+    heldUntil: soonest(
+      attendees
+        .filter((p) => p.appointmentId === a.id && p.status !== 'cancelled')
+        .map((p) => holds.get(p.id) ?? null),
+    ),
     createdAt: a.createdAt.toISOString(),
     updatedAt: a.updatedAt.toISOString(),
   }));
@@ -486,10 +558,17 @@ export const appointmentGet = defineQuery({
       ctx.tx,
       attendees.flatMap(({ a }) => (a.confirmedBy ? [a.confirmedBy] : [])),
     );
+    // Every seat here, not only the booked ones the card counted, so a cancelled seat reads as cancelled.
+    const holds = await holdsFor(
+      ctx.tx,
+      input.workspaceId,
+      attendees.map(({ a }) => a.id),
+    );
     return {
       appointment: {
         ...card,
         calendarRevision: row!.calendarRevision,
+        priceCents: await visitPrice(ctx.tx, input.workspaceId, card.service?.id ?? null),
         attendees: attendees.map(({ a, firstName, lastName }) => ({
           id: a.id,
           personId: a.personId,
@@ -510,6 +589,7 @@ export const appointmentGet = defineQuery({
             ? { id: a.confirmedBy, fullName: confirmers.get(a.confirmedBy) ?? 'Someone' }
             : null,
           confirmAskedAt: a.confirmAskedAt?.toISOString() ?? null,
+          heldUntil: holds.get(a.id) ?? null,
         })),
         series: series ? { id: series.id, rule: series.rule } : null,
         waitlist: waitlist.map((w) => ({

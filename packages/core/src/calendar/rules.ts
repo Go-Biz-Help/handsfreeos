@@ -34,6 +34,9 @@ export const ISSUE_CODES = [
   'window_inverted',
   'window_past',
   'payment_unavailable',
+  'deposit_without_amount',
+  'payment_without_price',
+  'payment_account_gone',
   'member_gone',
   'public_without_team',
   'lead_stage_gone',
@@ -662,10 +665,91 @@ function outsideRules({ config, catalogs, push }: Ctx): void {
     push({
       code: 'payment_unavailable',
       severity: 'error',
-      message: 'Taking payment at booking isn’t available yet',
+      // The other way out of this one is connecting an account in Settings → Payments, which is a page to
+      // visit rather than a settings patch: the builder puts that beside these fixes as a link.
+      message: 'Taking payment at booking needs a connected payment account',
       fields: ['payments.mode'],
       fixes: [
         { id: 'payment_off', label: 'Turn off payment', patch: { payments: { mode: 'none' } } },
+      ],
+    });
+
+  const pay = config.payments;
+  // A deposit of 0% or $0 would hold a time for nothing and take nothing: say so before it's saved.
+  if (pay.mode === 'deposit' && pay.deposit) {
+    const figure = pay.deposit.kind === 'percent' ? pay.deposit.percentBp : pay.deposit.amountCents;
+    if (!figure || figure <= 0)
+      push({
+        code: 'deposit_without_amount',
+        severity: 'error',
+        message: 'The deposit has no amount set',
+        fields: ['payments.deposit'],
+        fixes: [
+          {
+            id: 'deposit_business',
+            label: 'Ask for what the business asks for',
+            patch: { payments: { deposit: null } },
+          },
+          {
+            id: 'deposit_quarter',
+            label: 'Ask for 25%',
+            patch: { payments: { deposit: { kind: 'percent', percentBp: 2_500 } } },
+          },
+        ],
+      });
+  }
+  /**
+   * It asks for a share of the price, and nothing it books has a price — so every booking would work out to
+   * nothing and go through free. The page does exactly that rather than holding a time for $0, which is why
+   * this is caught here, when the calendar is being set up, and not at the moment a customer books.
+   */
+  if (pay.mode !== 'none') {
+    const terms = pay.deposit ?? catalogs.businessDeposit;
+    const setAmount =
+      pay.mode === 'deposit' && terms.kind === 'amount' && (terms.amountCents ?? 0) > 0;
+    const priced = config.services.items.some((item) => {
+      const service = catalogs.services.find((s) => s.id === item.serviceId);
+      return !!service && !service.archived && (service.priceCents ?? 0) > 0;
+    });
+    if (!setAmount && !priced)
+      push({
+        code: 'payment_without_price',
+        severity: 'error',
+        message:
+          pay.mode === 'full'
+            ? 'This calendar asks for the full price, but nothing it books has a price'
+            : 'This calendar asks for a deposit, but nothing it books has a price',
+        fields: ['payments.mode', 'payments.deposit', 'services.items'],
+        fixes: [
+          { id: 'payment_off', label: 'Turn off payment', patch: { payments: { mode: 'none' } } },
+          {
+            id: 'deposit_set_amount',
+            label: 'Ask for a set amount',
+            patch: {
+              payments: { mode: 'deposit', deposit: { kind: 'amount', amountCents: 5_000 } },
+            },
+          },
+        ],
+      });
+  }
+  // The account this calendar names was disconnected: money would land nowhere, so nobody could book.
+  if (
+    pay.mode !== 'none' &&
+    pay.connectionId &&
+    catalogs.paymentAccounts.length > 0 &&
+    !catalogs.paymentAccounts.some((a) => a.id === pay.connectionId)
+  )
+    push({
+      code: 'payment_account_gone',
+      severity: 'error',
+      message: 'The account this calendar is paid into isn’t connected any more',
+      fields: ['payments.connectionId'],
+      fixes: [
+        {
+          id: 'payment_default_account',
+          label: 'Use the business’s account',
+          patch: { payments: { connectionId: null } },
+        },
       ],
     });
 

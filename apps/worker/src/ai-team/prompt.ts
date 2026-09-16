@@ -10,6 +10,7 @@ import {
   formatHours,
   groundingContext,
   localDateOf,
+  money,
   quoteData,
   type ReplyProblem,
   type TeammateChannel,
@@ -123,7 +124,11 @@ function skillLines(rc: RunContext): string[] {
             )
             .join('; ')}`
         : '';
-      out.push(`  - ${quoteData(c.name)} (calendar id ${c.id})${services}`);
+      // A calendar that takes money is not its to book: the customer pays on the page, where the card is held.
+      const deposit = c.deposit
+        ? ` — takes ${money(c.deposit.amountCents)}${c.deposit.mode === 'deposit' ? ' as a deposit' : ''} to book, so **don't book it yourself**: say what it takes and send them${c.bookingPath ? ` ${c.bookingPath}` : ' the booking page'} to book and pay on`
+        : '';
+      out.push(`  - ${quoteData(c.name)} (calendar id ${c.id})${services}${deposit}`);
     }
     const changes = [
       ...(config.book.reschedule ? ['move'] : []),

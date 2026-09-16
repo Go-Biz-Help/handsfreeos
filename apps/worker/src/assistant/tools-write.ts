@@ -9,6 +9,7 @@ import type {
 } from './runtime';
 import { attentionAutoTools, attentionConfirmTools } from './tools-attention';
 import { calendarConfirmTools } from './tools-calendar';
+import { moneyConfirmTools, moneyReadTools } from './tools-money';
 import { command, money, paths, query, readTools, when } from './tools-read';
 import { workflowAutoTools, workflowConfirmTools, type WorkflowToolDeps } from './tools-workflow';
 
@@ -788,6 +789,7 @@ const confirmTools: Record<string, ConfirmTool> = {
   ...calendarConfirmTools,
   ...workflowConfirmTools,
   ...attentionConfirmTools,
+  ...moneyConfirmTools,
 };
 
 /** Every tool the Assistant can call has one of these; worker tests check none is missing. */
@@ -795,6 +797,7 @@ export const executorFor = (name: string) =>
   readTools[name] ??
   autoWrites[name] ??
   attentionAutoTools[name] ??
+  moneyReadTools[name] ??
   workflowAutoTools[name] ??
   confirmTools[name];
 
@@ -805,7 +808,11 @@ export function createToolExecutor(
 ): ToolExecutor {
   return {
     async run(tool: AssistantTool, args: Args, ctx: ToolContext) {
-      const run = readTools[tool.name] ?? autoWrites[tool.name] ?? attentionAutoTools[tool.name];
+      const run =
+        readTools[tool.name] ??
+        autoWrites[tool.name] ??
+        attentionAutoTools[tool.name] ??
+        moneyReadTools[tool.name];
       if (run) return run(db, ctx, args);
       const flow = workflowAutoTools[tool.name];
       if (!flow) throw new Error(`No executor for ${tool.name}`);

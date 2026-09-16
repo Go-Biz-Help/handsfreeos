@@ -387,6 +387,8 @@ export type PaymentRow = {
   recorded_by: string | null;
   recorded_by_name: string | null;
   refunded_cents: number;
+  card_brand: string | null;
+  card_last4: string | null;
   created_at: Date | string;
 };
 
@@ -423,6 +425,13 @@ export type SubscriptionRow = {
   lead_id: string | null;
   connection_id: string | null;
   provider: string | null;
+  external_subscription_id: string | null;
+  has_card: boolean;
+  card_brand: string | null;
+  card_last4: string | null;
+  card_expiry_month: number | null;
+  card_expiry_year: number | null;
+  card_requested_at: Date | string | null;
   started_on: string | null;
   current_period_start: string | null;
   current_period_end: string | null;
@@ -478,6 +487,8 @@ export const subscriptionSelect = sql`
   select s.id, s.public_ref, s.status::text as status, s.plan_id, s.plan_name,
     s.price_cents::float8 as price_cents, s.interval::text as interval, s.interval_count, s.taxable,
     s.includes, ${PERSON_COLUMNS}, s.lead_id, s.connection_id, s.provider::text as provider,
+    s.external_subscription_id, (s.method_token is not null) as has_card, s.card_brand, s.card_last4,
+    s.card_expiry_month, s.card_expiry_year, s.card_requested_at,
     s.started_on::text as started_on, s.current_period_start::text as current_period_start,
     s.current_period_end::text as current_period_end, s.next_billing_on::text as next_billing_on,
     s.paused_at, s.cancelled_at, s.cancel_reason, s.ended_on::text as ended_on, s.failed_cycles,
@@ -526,7 +537,7 @@ export async function paymentsFor(
           p.received_at, p.recorded_by, coalesce(nullif(u.full_name, ''), u.email::text) as recorded_by_name,
           coalesce((select sum(r.amount_cents) from app.refunds r
             where r.payment_id = p.id and r.status = 'succeeded'), 0)::float8 as refunded_cents,
-          p.created_at
+          p.card_brand, p.card_last4, p.created_at
         from app.payments p
         left join app.users u on u.id = p.recorded_by
         where p.workspace_id = ${workspaceId}
@@ -757,6 +768,8 @@ export function paymentOut(r: PaymentRow) {
     receivedAt: moneyIso(r.received_at),
     recordedBy: userOf(r.recorded_by, r.recorded_by_name),
     refundedCents: num(r.refunded_cents),
+    cardBrand: r.card_brand,
+    cardLast4: r.card_last4,
     createdAt: isoAt(r.created_at),
   };
 }
@@ -792,6 +805,13 @@ export function subscriptionOut(r: SubscriptionRow) {
     leadId: r.lead_id,
     connectionId: r.connection_id,
     provider: (r.provider ?? null) as never,
+    externalSubscriptionId: r.external_subscription_id,
+    hasCard: !!r.has_card,
+    cardBrand: r.card_brand,
+    cardLast4: r.card_last4,
+    cardExpiryMonth: r.card_expiry_month === null ? null : Number(r.card_expiry_month),
+    cardExpiryYear: r.card_expiry_year === null ? null : Number(r.card_expiry_year),
+    cardRequestedAt: moneyIso(r.card_requested_at),
     startedOn: r.started_on,
     currentPeriodStart: r.current_period_start,
     currentPeriodEnd: r.current_period_end,

@@ -156,8 +156,32 @@ export function PaymentConnectionCard({
       router.refresh();
     });
 
+  /**
+   * The plans this account bills, cancelled first — the way out the plan's pitfall asks for. Each one is
+   * cancelled at the provider while we still have the sign-in to do it with; once the account is disconnected
+   * nothing here can stop them, because the tokens are destroyed on purpose.
+   */
+  async function cancelPlansThenDisconnect(list: { id: string; planName: string }[]) {
+    for (const plan of list)
+      unwrap(
+        await apiBrowser().POST('/v1/commands/subscription.cancel', {
+          body: {
+            workspaceId,
+            subscriptionId: plan.id,
+            reason: `The ${provider} account it billed through was disconnected`,
+          },
+        }),
+      );
+    await disconnect(
+      true,
+      list.length === 1
+        ? 'The plan was cancelled, and the account disconnected.'
+        : `${list.length} plans were cancelled, and the account disconnected.`,
+    );
+  }
+
   /** Plans keep billing at the provider after a disconnect, so the command refuses until the business says it knows. */
-  async function disconnect(acknowledgeSubscriptions: boolean) {
+  async function disconnect(acknowledgeSubscriptions: boolean, said?: string) {
     unwrap(
       await apiBrowser().POST('/v1/commands/payment_connection.disconnect', {
         body: { workspaceId, connectionId: c.id, acknowledgeSubscriptions },
@@ -165,9 +189,10 @@ export function PaymentConnectionCard({
     );
     setPlans(null);
     toast.success(
-      acknowledgeSubscriptions
-        ? 'Disconnected. The plans keep billing at the provider and now say so.'
-        : 'Disconnected. Reconnect the same account later and refunds on old payments work again.',
+      said ??
+        (acknowledgeSubscriptions
+          ? 'Disconnected. The plans keep billing at the provider and now say so.'
+          : 'Disconnected. Reconnect the same account later and refunds on old payments work again.'),
     );
     router.refresh();
   }
@@ -277,9 +302,10 @@ export function PaymentConnectionCard({
       <Dialog open={plans !== null} onOpenChange={(open) => !open && setPlans(null)}>
         <DialogContent title="Plans still bill through this account">
           <p className="text-[13px] text-text-2">
-            Disconnecting forgets the sign-in here, but the provider keeps charging these plans.
-            Cancel them there first, or disconnect anyway and they’ll be marked as no longer managed
-            by HandsFreeOS.
+            Disconnecting forgets the sign-in here, but {provider} keeps charging{' '}
+            {(plans ?? []).length === 1 ? 'this customer' : 'these customers'} every cycle. Cancel
+            them first — which can only be done while the account is still connected — or disconnect
+            anyway and they’ll be marked as no longer managed by HandsFreeOS.
           </p>
           <ul className="mt-3 flex flex-col gap-1 text-[13px]" data-testid="pay-disconnect-plans">
             {(plans ?? []).map((p) => (
@@ -289,9 +315,18 @@ export function PaymentConnectionCard({
               </li>
             ))}
           </ul>
-          <div className="mt-4 flex justify-end gap-2">
+          <div className="mt-4 flex flex-wrap justify-end gap-2">
             <Button variant="ghost" size="sm" onClick={() => setPlans(null)}>
               Keep it connected
+            </Button>
+            <Button
+              variant="secondary"
+              size="sm"
+              loading={busy === 'cancel-plans'}
+              onClick={() => void run('cancel-plans', () => cancelPlansThenDisconnect(plans ?? []))}
+              data-testid="pay-cancel-plans"
+            >
+              Cancel {(plans ?? []).length === 1 ? 'the plan' : 'them'} first
             </Button>
             <Button
               variant="danger"

@@ -16,7 +16,7 @@ import {
 } from '@/lib/calendar/time';
 import { cn } from '@/lib/utils';
 import { calendarProviderName } from '@/components/settings/calendar-connection-card';
-import { areaOf, customersOf, isPast } from './appt';
+import { areaOf, customersOf, holdOf, holdWords, isPast } from './appt';
 
 type Row =
   | { kind: 'appt'; at: number; appt: Appointment }
@@ -191,12 +191,14 @@ export function Agenda({
             const a = r.appt;
             const customers = customersOf(a);
             const area = areaOf(a.location.address);
+            const hold = holdOf(a, now);
             return (
               <button
                 key={a.id}
                 type="button"
                 onClick={() => onOpen(a)}
                 data-testid={`agenda-appt-${a.id}`}
+                data-held={hold ? 'true' : undefined}
                 className="flex min-h-16 w-full items-stretch gap-3 border-b border-border bg-card px-3.5 py-3 text-left hover:bg-card-2"
                 style={{ ['--c' as string]: a.calendar.color }}
               >
@@ -206,7 +208,14 @@ export function Agenda({
                     {fmtLength(minutesBetween(a.startsAt, a.endsAt))}
                   </small>
                 </div>
-                <span className="w-1 flex-none rounded bg-[var(--c)]" />
+                <span
+                  className={cn(
+                    'w-1 flex-none rounded',
+                    hold
+                      ? 'bg-[repeating-linear-gradient(180deg,var(--warning-text)_0_3px,transparent_3px_6px)]'
+                      : 'bg-[var(--c)]',
+                  )}
+                />
                 <div
                   className={cn(
                     'flex min-w-0 flex-1 flex-col gap-0.5',
@@ -214,6 +223,15 @@ export function Agenda({
                   )}
                 >
                   <span className="truncate text-[15px] font-semibold">{a.title}</span>
+                  {/* Before anything else on the row: nobody should ring to confirm a visit that isn't booked. */}
+                  {hold ? (
+                    <span
+                      className="text-[13px] font-medium text-warning-text"
+                      data-testid="agenda-held"
+                    >
+                      Not booked yet · {holdWords(hold, timeZone)}
+                    </span>
+                  ) : null}
                   {(() => {
                     const sub =
                       [

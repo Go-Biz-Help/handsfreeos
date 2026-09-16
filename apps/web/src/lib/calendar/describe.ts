@@ -7,6 +7,7 @@ import {
   formatHours,
   formatNotice,
   LOCATION_NAMES,
+  money,
   personName,
   type CalendarCatalogs,
   type CalendarConfig,
@@ -30,7 +31,7 @@ export const MODULES = [
   { key: 'notify', name: 'Notifications' },
   { key: 'connections', name: 'Calendar connections' },
   { key: 'crm', name: 'CRM' },
-  { key: 'payments', name: 'Payments', soon: 'Coming with Payments' },
+  { key: 'payments', name: 'Payments' },
   { key: 'automations', name: 'Automations' },
 ] as const;
 export type ModuleKey = (typeof MODULES)[number]['key'];
@@ -212,6 +213,12 @@ export function describeCalendar(config: CalendarConfig, catalogs: CalendarCatal
         ? 'Customers get a confirmation and no reminders.'
         : 'Customers don’t get a confirmation or reminders.',
   );
+  if (config.payments.mode !== 'none')
+    out.push(
+      `The time is held while they pay ${
+        config.payments.mode === 'full' ? 'the full price' : 'a deposit'
+      }. If it goes while they’re typing, nothing is charged.`,
+    );
   if (!config.public) out.push('It isn’t on the booking page. Staff book it from the calendar.');
   return out;
 }
@@ -329,8 +336,20 @@ export function moduleSummary(
         ? 'Doesn’t touch the CRM'
         : 'Keeps the customer’s owner';
     }
-    case 'payments':
-      return 'Coming with Payments';
+    case 'payments': {
+      const own = config.payments.deposit;
+      const how =
+        !own || config.payments.mode !== 'deposit'
+          ? ''
+          : own.kind === 'percent'
+            ? ` of ${(own.percentBp ?? 0) / 100}%`
+            : ` of ${money(own.amountCents ?? 0)}`;
+      return config.payments.mode === 'deposit'
+        ? `Takes a deposit${how} to book`
+        : config.payments.mode === 'full'
+          ? 'Paid in full to book'
+          : 'No payment to book';
+    }
     case 'automations':
       return 'Workflows for its appointments';
   }

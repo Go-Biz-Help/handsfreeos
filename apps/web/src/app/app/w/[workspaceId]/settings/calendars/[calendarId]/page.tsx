@@ -53,6 +53,18 @@ export default async function CalendarBuilderPage({
   } catch {
     // Not able to read it: treat texting as not ready, which only adds a warning.
   }
+  // Settings → Payments, for the Payments module: the accounts money can be taken into, and the deposit the
+  // business asks for. Both are the business's, set once; the calendar only chooses whether to ask.
+  const [accounts, moneySettings] = await Promise.all([
+    api
+      .POST('/v1/queries/payment_connection.list', { body: { workspaceId } })
+      .then((r) => r.data?.connections ?? [])
+      .catch(() => []),
+    api
+      .POST('/v1/queries/money.settings', { body: { workspaceId } })
+      .then((r) => r.data?.settings ?? null)
+      .catch(() => null),
+  ]);
   const roles = new Map(members.members.map((m) => [m.userId, m.role]));
   const people = assigneeOptions(members).map((p) => ({
     userId: p.id,
@@ -73,6 +85,18 @@ export default async function CalendarBuilderPage({
       territories={territories.items}
       pipelines={pipelines.pipelines}
       textingReady={textingReady}
+      payments={{
+        // Only a live account counts, exactly as the server's `paymentsAvailable` counts it.
+        accounts: accounts
+          .filter((c) => c.status === 'active')
+          .map((c) => ({
+            id: c.id,
+            name: c.label ?? c.displayName ?? '',
+            provider: c.provider,
+            isDefault: c.isDefault,
+          })),
+        deposit: moneySettings?.deposit ?? { kind: 'none' },
+      }}
     />
   );
 }

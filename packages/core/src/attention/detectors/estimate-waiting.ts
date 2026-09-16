@@ -3,7 +3,8 @@
  * after it went out and clears when the customer answers or it stops being good — an expired estimate is
  * reissued, not chased.
  *
- * Ask-first only. Money never chases itself: Let HandsFreeOS Handle drafts the follow-up and waits to be sent.
+ * A person always sends it. Money never chases itself, so Let HandsFreeOS Handle is refused in words: Handle
+ * opens the estimate, and the follow-up is written there.
  *
  * Its value is what was quoted, marked as an estimate, so it shows on the card but stays out of "$ affected"
  * until the customer accepts it and it becomes an invoice.

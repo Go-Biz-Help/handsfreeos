@@ -60,7 +60,8 @@ describe('defaults', () => {
       assignContactOwner: false,
       createLead: null,
     });
-    expect(c.payments).toEqual({ mode: 'none' });
+    // No payment, the business's own deposit, and the business's default account.
+    expect(c.payments).toEqual({ mode: 'none', deposit: null, connectionId: null });
     expect(c.automations).toEqual({ workflowIds: [] });
   });
 

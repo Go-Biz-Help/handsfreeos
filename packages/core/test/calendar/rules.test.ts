@@ -41,6 +41,16 @@ const me = { userId: DALE };
 const address = { options: [{ kind: 'customer_address' as const }] };
 const bed = { required: [{ resourceId: TRUCK }] };
 const TRUCK_WITHOUT_HOURS = { id: TRUCK, name: 'Truck 2', quantity: 2, archived: false };
+/** A connected payment account, and one this business disconnected since. */
+const ACCOUNT = {
+  id: '00000000-0000-4000-8000-0000000009a1',
+  name: 'Lone Star Stripe',
+  provider: 'stripe',
+  isDefault: true,
+};
+const OLD_ACCOUNT = '00000000-0000-4000-8000-0000000009a2';
+/** The same services, with a price on the one the deposit cases book. */
+const PRICED = catalogs.services.map((s) => (s.id === TUNE_UP ? { ...s, priceCents: 18_000 } : s));
 
 /** The smallest settings that trigger each rule. */
 const CASES: Case[] = [
@@ -180,7 +190,36 @@ const CASES: Case[] = [
     code: 'payment_unavailable',
     severity: 'error',
     patch: { payments: { mode: 'deposit' } },
-    message: 'Taking payment at booking isn’t available yet',
+    message: 'Taking payment at booking needs a connected payment account',
+  },
+  {
+    // A deposit of 0% would hold a time for nothing and take nothing.
+    code: 'deposit_without_amount',
+    severity: 'error',
+    patch: {
+      services: { mode: 'one', items: [{ serviceId: TUNE_UP }] },
+      payments: { mode: 'deposit', deposit: { kind: 'percent' } },
+    },
+    catalogs: { paymentsAvailable: true, paymentAccounts: [ACCOUNT], services: PRICED },
+    message: 'The deposit has no amount set',
+  },
+  {
+    // A share of a price nobody set is nothing, so every booking would go through free.
+    code: 'payment_without_price',
+    severity: 'error',
+    patch: { payments: { mode: 'deposit' } },
+    catalogs: { paymentsAvailable: true, paymentAccounts: [ACCOUNT] },
+    message: 'This calendar asks for a deposit, but nothing it books has a price',
+  },
+  {
+    code: 'payment_account_gone',
+    severity: 'error',
+    patch: {
+      services: { mode: 'one', items: [{ serviceId: TUNE_UP }] },
+      payments: { mode: 'deposit', connectionId: OLD_ACCOUNT },
+    },
+    catalogs: { paymentsAvailable: true, paymentAccounts: [ACCOUNT], services: PRICED },
+    message: 'The account this calendar is paid into isn’t connected any more',
   },
   {
     code: 'member_gone',

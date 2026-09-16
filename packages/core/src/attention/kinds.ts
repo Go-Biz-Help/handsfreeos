@@ -165,6 +165,9 @@ export const ATTENTION_PERMISSIONS: Readonly<
     snooze: [ITEM],
     dismiss: [ITEM],
   },
+  // Money asks first: Let HandsFreeOS Handle writes the follow-up and waits for a person to send it, so both
+  // actions need money.manage — a member sees the card, and the money, and no way to write to the customer
+  // about it.
   estimate_waiting: {
     handle: [ITEM, MONEY],
     let_handle: [ITEM, MONEY],
@@ -199,7 +202,13 @@ export function mayTakeAttentionAction(
   return needed !== null && needed.every((p) => hasWorkspacePermission(role, p));
 }
 
-/** The main button's verb; the card adds the name ("Call Maria"). */
+/**
+ * The main button's verb; the card adds the name ("Call Maria").
+ *
+ * A money card is handled in one press like every other kind: it reaches the customer the way that suits them
+ * (a call in open hours, otherwise a text or an email), with the follow-up already written. The document itself
+ * is one press away in the card's ⋯ menu — reading it is not handling it.
+ */
 export const ATTENTION_HANDLE_LABELS: Readonly<Record<AttentionKind, string>> = {
   hot_lead: 'Call',
   unanswered_lead: 'Reply',
@@ -210,7 +219,7 @@ export const ATTENTION_HANDLE_LABELS: Readonly<Record<AttentionKind, string>> = 
   customer_waiting: 'Reply',
   overdue_task: 'Open task',
   estimate_waiting: 'Follow up',
-  invoice_overdue: 'Send reminder',
+  invoice_overdue: 'Follow up',
 };
 
 // ---- What runs on its own ----
@@ -239,6 +248,13 @@ export const FOLLOW_UP_OVERDUE = 'follow_up_overdue';
 
 /** The wait between scheduling an automatic action and sending it: "Will follow up at 10:40 · Cancel". */
 export const AUTO_CANCEL_WINDOW_MINUTES = 60;
+
+/**
+ * How long a money card rests once someone has followed it up. Following up doesn't pay an invoice or answer
+ * an estimate, so the card isn't finished — it just shouldn't be asked again tomorrow. It comes back after
+ * this, or sooner if the figures move (a part payment, a refund).
+ */
+export const MONEY_FOLLOW_UP_REST_DAYS = 7;
 /** Nothing automatic goes to someone a person messaged within this long. */
 export const AUTO_RECENT_PERSON_HOURS = 72;
 
@@ -254,6 +270,26 @@ export function autoActionOf(
 }
 
 /**
+ * The kinds HandsFreeOS never handles, and what a person is told when they ask it to. One sentence each, used by
+ * the command that refuses, by the preview the sheet reads, and by the Assistant — so everyone says the same
+ * thing, and nobody meets a bare permission error for something no role may do.
+ *
+ * Money is deliberately **not** here. Chris's rule is that money never chases itself *unreviewed*: HandsFreeOS
+ * writes the follow-up from the document's own figures and puts it in front of a person, who reads it and
+ * presses send. That is the ask-first shape a hot lead already uses — nothing is queued, nothing is sent, and
+ * the AI teammate is never offered a conversation about money.
+ */
+export const LET_HANDLE_REFUSALS: Readonly<Partial<Record<AttentionKind, string>>> = {
+  ai_approval: 'Approvals always wait for a person to decide.',
+  overdue_task: 'This is a to-do for someone on the team.',
+};
+
+/** Why HandsFreeOS won't handle this kind, or null when it does. */
+export function letHandleRefusal(kind: AttentionKind): string | null {
+  return LET_HANDLE_REFUSALS[kind] ?? null;
+}
+
+/**
  * What Let HandsFreeOS Handle does for one item: runs on its own ('auto'), asks first ('ask'), or isn't offered
  * ('none'). `reasons` are the item's reason chips.
  */
@@ -261,6 +297,7 @@ export function letHandleModeOf(
   kind: AttentionKind,
   reasons: readonly { readonly code: string }[] = [],
 ): 'auto' | 'ask' | 'none' {
+  if (letHandleRefusal(kind)) return 'none';
   if (autoActionOf(kind, reasons)) return 'auto';
   return ATTENTION_PERMISSIONS[kind].let_handle ? 'ask' : 'none';
 }

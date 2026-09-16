@@ -78,6 +78,30 @@ export const ATTENTION_EVENTS: readonly string[] = [
   'task.completed',
   'task.reopened',
   'task.deleted',
+  // Money (M9): an estimate nobody answered and an invoice nobody paid. The document's own events are what
+  // open and close these cards — the hourly sweep is the safety net, not the mechanism. A payment matters
+  // whatever it did: succeeded pays the invoice off, processing means a bank transfer is on its way (never
+  // late while one is), failed puts it back where it was, and a refund makes it owed again.
+  'estimate.created',
+  'estimate.updated',
+  'estimate.sent',
+  'estimate.viewed',
+  'estimate.accepted',
+  'estimate.declined',
+  'estimate.expired',
+  'estimate.voided',
+  'estimate.converted',
+  'invoice.created',
+  'invoice.updated',
+  'invoice.sent',
+  'invoice.viewed',
+  'invoice.paid',
+  'invoice.overdue',
+  'invoice.voided',
+  'payment.recorded',
+  'payment.updated',
+  'payment.failed',
+  'refund.recorded',
   // A person brought an item back (Undo, or "show it now").
   'attention.restored',
   'attention.unsnoozed',
@@ -93,6 +117,8 @@ const SUBJECT_TYPES: ReadonlySet<string> = new Set<AttentionSubjectRef['type']>(
   'attendee',
   'approval',
   'task',
+  'estimate',
+  'invoice',
 ]);
 
 /** A subject from loose values (a job's payload, an item's row), or null. */
@@ -185,6 +211,21 @@ export async function subjectsOf(
       for (const s of seats) add('attendee', s.id);
       break;
     }
+    // A money document is its own subject; reconcile widens it to the lead and the customer behind it, so an
+    // estimate that is answered lets that lead's own card come back in the same pass.
+    case 'estimate':
+      add('estimate', id);
+      // Approving one raises the invoice that collects the money.
+      add('invoice', p['invoiceId']);
+      break;
+    case 'invoice':
+      add('invoice', id);
+      add('estimate', p['estimateId']);
+      break;
+    case 'payment':
+    case 'refund':
+      add('invoice', p['invoiceId']);
+      break;
     case 'attention_item':
       add(String(p['subjectType'] ?? ''), p['subjectId']);
       break;

@@ -130,13 +130,24 @@ export function autoAt(item: Pick<AttentionItem, 'auto'>): number | null {
     : null;
 }
 
+/** The chips that are already money: a card with one of these needs no stand-in value. */
+const MONEY_CODES: ReadonlySet<string> = new Set(['value', 'amount']);
+
 /**
  * Up to three chips for a card as of `now`: its reasons in order, a typical job value as "About $4,200" (it isn't
  * counted in $ affected), and "Follows up at 9:05 AM" when HandsFreeOS is about to act.
+ *
+ * An estimate's value is an estimate in the other sense — a real figure someone quoted, which simply isn't owed
+ * yet — and its own chip says so ("$12,928.50 quoted"). Standing "About $12,928.50" in front of that would say
+ * the same money twice, and call an exact quote a guess.
  */
 export function chipsOf(item: AttentionItem, now: number, timeZone: string): ShownChip[] {
   const out: ShownChip[] = [];
-  if (item.valueIsEstimate && item.valueCents > 0 && !item.reasons.some((r) => r.code === 'value'))
+  if (
+    item.valueIsEstimate &&
+    item.valueCents > 0 &&
+    !item.reasons.some((r) => MONEY_CODES.has(r.code))
+  )
     out.push({
       key: 'estimate',
       text: `About ${moneyLabel(item.valueCents)}`,
@@ -351,6 +362,15 @@ export function targetOf(item: AttentionItem, workspaceId: string): ItemTarget {
       };
     case 'overdue_task':
       return { href: `${base}/tasks`, label: 'Open Tasks' };
+    // The document itself: what it says, what has been paid, and the buttons that follow it up or remind
+    // them — none of which HandsFreeOS ever presses on its own.
+    case 'estimate_waiting':
+      return {
+        href: `${base}/money/estimates/${item.subject.id}`,
+        label: 'Open the estimate',
+      };
+    case 'invoice_overdue':
+      return { href: `${base}/money/invoices/${item.subject.id}`, label: 'Open the invoice' };
   }
   if (item.personId)
     return { href: `${base}/customers/people/${item.personId}`, label: 'Open the customer' };

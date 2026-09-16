@@ -49,6 +49,19 @@ export function addOpenTime(
   return since + ms;
 }
 
+/**
+ * Whether the business is open at that moment. A business with no open hours set is treated as open, the way
+ * every other rule here treats it: with nothing to go on, plain time is the honest answer.
+ *
+ * It is what decides whether a card offers to ring someone. Nobody wants a call about an unpaid invoice at
+ * half past ten at night.
+ */
+export function isOpenAt(hours: WeeklyHours, timeZone: string, at: number): boolean {
+  if (hours.length === 0) return true;
+  // Yesterday too: a span that runs past midnight is written on the day it starts.
+  return spans(hours, timeZone, at - DAY, 3).some((s) => s.start <= at && at < s.end);
+}
+
 /** How much open time lies between two instants, in ms. */
 export function openTimeBetween(
   hours: WeeklyHours,

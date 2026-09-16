@@ -5,8 +5,12 @@
  * **A bank transfer settling is not late.** A payment in `processing` takes days to arrive, so while one is on
  * its way the invoice is paying, not overdue — chasing someone who has already paid is worse than waiting.
  *
- * Ask-first only, like the estimate: money never chases itself. Its value is the balance owed, counted once in
- * "$ affected" under its own money key, so it never folds into the lead's value.
+ * A person always sends it, like the estimate: money never chases itself, and Let HandsFreeOS Handle is refused
+ * in words. The reminders the business set when it sent the invoice are the exception that proves the rule — it
+ * agreed to that ladder in advance.
+ *
+ * Its value is the balance owed. It counts in "$ affected" under the lead it belongs to, so an invoice for a job
+ * already counted is that job's money seen again, not more of it.
  */
 import { chip, sinceChip } from '../chips';
 import { balanceCents } from '../../money/totals';

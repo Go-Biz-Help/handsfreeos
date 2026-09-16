@@ -7,6 +7,7 @@
  */
 import { eq } from 'drizzle-orm';
 import {
+  calendarMostCharged,
   LeadQualification,
   loadCalendar,
   openHoursOf,
@@ -132,6 +133,13 @@ export interface RunCalendar {
   readonly name: string;
   readonly timeZone: string;
   readonly services: readonly { id: string; name: string; durations: number[] }[];
+  /**
+   * What this calendar asks for before it will hold a time. A calendar with one is **not the teammate's to
+   * book**: the deposit is paid on the customer's own page, so it sends them there instead.
+   */
+  readonly deposit: { readonly amountCents: number; readonly mode: 'deposit' | 'full' } | null;
+  /** The page a customer books it on, when the booking site is on. */
+  readonly bookingPath: string | null;
 }
 
 export interface RunAppointment {
@@ -373,6 +381,12 @@ async function calendarsOf(
   ids: readonly string[],
 ): Promise<RunCalendar[]> {
   const out: RunCalendar[] = [];
+  const [row] = await rows<{ site: string | null }>(
+    tx,
+    sql`select (select b.slug::text from app.booking_sites b
+                where b.workspace_id = ${workspaceId} and b.enabled) as site`,
+  );
+  const site = row?.site ?? null;
   for (const id of ids) {
     const cal = await loadCalendar(tx, workspaceId, id).catch(() => null);
     if (!cal || cal.status === 'archived') continue;
@@ -388,7 +402,15 @@ async function calendarsOf(
               where id = any(${uuidArray(serviceIds)}) and archived_at is null order by name`,
         )
       : [];
-    out.push({ id: cal.id, name: cal.name, timeZone: cal.timeZone, services });
+    const most = await calendarMostCharged(tx, workspaceId, cal.config);
+    out.push({
+      id: cal.id,
+      name: cal.name,
+      timeZone: cal.timeZone,
+      services,
+      deposit: most ? { amountCents: most.amountCents, mode: most.mode } : null,
+      bookingPath: site ? `/book/${site}/${cal.slug}` : null,
+    });
   }
   return out;
 }

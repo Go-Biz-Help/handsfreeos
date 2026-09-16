@@ -506,6 +506,7 @@ export const paymentList = defineQuery({
             coalesce(nullif(u.full_name, ''), u.email::text) as recorded_by_name,
             coalesce((select sum(r.amount_cents) from app.refunds r
               where r.payment_id = p.id and r.status = 'succeeded'), 0)::float8 as refunded_cents,
+            p.card_brand, p.card_last4,
             i.number as invoice_number, i.person_id, pe.first_name, pe.last_name,
             pe.email::text as person_email, pe.phone as person_phone
           from app.payments p

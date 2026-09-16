@@ -2,7 +2,14 @@
  * The builder's view of what a calendar's settings refer to, made from the page's queries, so the same
  * rules the server saves with (validateCalendar, labels, diff, impact) run live in the browser.
  */
-import type { CalendarCatalogs, CatalogPipeline, CatalogService, WeeklyHours } from '@hfos/core';
+import type {
+  CalendarCatalogs,
+  CatalogPaymentAccount,
+  DepositTerms,
+  CatalogPipeline,
+  CatalogService,
+  WeeklyHours,
+} from '@hfos/core';
 import type { Pipeline, ResourceItem, ServiceItem, TerritoryItem } from '@/lib/api/types';
 
 export interface CatalogInput {
@@ -16,6 +23,10 @@ export interface CatalogInput {
   readonly territories: readonly TerritoryItem[];
   readonly pipelines: readonly Pipeline[];
   readonly textingReady: boolean;
+  /** The accounts money could land in; one is enough for a calendar to ask for a deposit or the full price. */
+  readonly paymentAccounts?: readonly CatalogPaymentAccount[];
+  /** What the business asks for up front (Settings → Payments), which a calendar may override. */
+  readonly businessDeposit?: DepositTerms;
 }
 
 export function serviceCatalog(s: ServiceItem): CatalogService {
@@ -28,6 +39,7 @@ export function serviceCatalog(s: ServiceItem): CatalogService {
     eligibleUserIds: s.staffUserIds,
     requiredResources: s.resources,
     archived: !!s.archivedAt,
+    priceCents: s.priceCents ?? null,
     hours: (s.hours as WeeklyHours | null) ?? null,
   };
 }
@@ -68,6 +80,8 @@ export function buildCatalogs(input: CatalogInput): CalendarCatalogs {
       stages: p.stages.map((s) => ({ id: s.id, name: s.name, archived: false })),
     })),
     textingReady: input.textingReady,
-    paymentsAvailable: false,
+    paymentsAvailable: (input.paymentAccounts ?? []).length > 0,
+    paymentAccounts: input.paymentAccounts ?? [],
+    businessDeposit: input.businessDeposit ?? { kind: 'none' },
   };
 }

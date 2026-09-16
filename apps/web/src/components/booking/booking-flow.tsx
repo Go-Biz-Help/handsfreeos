@@ -19,32 +19,32 @@ import {
   Plus,
 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
-import { Button, ButtonLink } from '@/components/ui/button';
+import { Button } from '@/components/ui/button';
 import { FieldError, Label } from '@/components/ui/field';
 import { Input, Select } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { ApiError } from '@/lib/api/errors';
 import {
   bookOnline,
-  calendarFileUrl,
   getOpenTimes,
+  isHeld,
   joinWaitlist,
   TURNSTILE_SITE_KEY,
   type Booked,
   type FullSession,
+  type Held,
   type IntakeQuestion,
   type LocationKind,
   type PublicCalendarPage,
   type PublicSlot,
+  type RecordedPay,
 } from '@/lib/api/public-booking';
 import { cn } from '@/lib/utils';
-import { AddToCalendar } from './add-to-calendar';
+import { BookedPanel } from './booked-panel';
+import { DepositStep, TimeWentPanel } from './deposit-pay';
 import {
   dateShort,
-  dayLong,
   dayShort,
-  hoursLabel,
-  joinNames,
   lengthLabel,
   localDate,
   money,
@@ -57,7 +57,16 @@ import { TimePicker } from './time-picker';
 import { Turnstile } from './turnstile';
 
 type Answer = string | number | boolean | string[] | null;
-type Step = 'choose' | 'time' | 'sessions' | 'details' | 'waitlist' | 'booked' | 'waitlisted';
+type Step =
+  | 'choose'
+  | 'time'
+  | 'sessions'
+  | 'details'
+  | 'pay'
+  | 'waitlist'
+  | 'booked'
+  | 'waitlisted'
+  | 'gone';
 type SessionRow =
   | { readonly kind: 'open'; readonly slot: PublicSlot }
   | { readonly kind: 'full'; readonly full: FullSession };
@@ -466,11 +475,16 @@ export function BookingFlow({
       info.people.length > 1 ||
       chooseLocation ||
       maxParty > 1);
-  const flow: Step[] = sessionsMode
-    ? ['sessions', 'details']
-    : hasChoices
-      ? ['choose', 'time', 'details']
-      : ['time', 'details'];
+  // A calendar that asks for money adds a step: the time is held while they pay for it.
+  const takesPayment = !!info.payment;
+  const flow: Step[] = [
+    ...(sessionsMode
+      ? (['sessions', 'details'] as Step[])
+      : hasChoices
+        ? (['choose', 'time', 'details'] as Step[])
+        : (['time', 'details'] as Step[])),
+    ...(takesPayment ? (['pay'] as Step[]) : []),
+  ];
   const [step, setStep] = useState<Step>(flow[0]!);
   const index = flow.indexOf(step);
   const stepLabel = index >= 0 ? `Step ${index + 1} of ${flow.length}` : undefined;
@@ -577,6 +591,12 @@ export function BookingFlow({
   } | null>(null);
   const [off, setOff] = useState(false);
   const [booked, setBooked] = useState<Booked | null>(null);
+  /** The time this calendar is holding while they pay for it, and what is due. */
+  const [held, setHeld] = useState<Held | null>(null);
+  /** The time went while they were paying: nothing was charged, and here are other times. */
+  const [lost, setLost] = useState<{ answer: RecordedPay; times: readonly PublicSlot[] } | null>(
+    null,
+  );
   const [waitFor, setWaitFor] = useState<WaitlistTarget | null>(null);
   const [waitlisted, setWaitlisted] = useState<{ position: number; again: boolean } | null>(null);
 
@@ -654,8 +674,14 @@ export function BookingFlow({
         website,
         turnstileToken: botToken ?? undefined,
       });
-      setBooked(res);
-      go('booked');
+      // A calendar that asks for money holds the time instead of confirming it: the pay step comes next.
+      if (isHeld(res)) {
+        setHeld(res);
+        go('pay');
+      } else {
+        setBooked(res);
+        go('booked');
+      }
     } catch (e) {
       failed(e);
     } finally {
@@ -693,6 +719,8 @@ export function BookingFlow({
   function restart() {
     clientId.current = null;
     setBooked(null);
+    setHeld(null);
+    setLost(null);
     setWaitlisted(null);
     setWaitFor(null);
     setSlot(null);
@@ -712,99 +740,31 @@ export function BookingFlow({
   if (off) return <BookingOff business={business} />;
 
   // ---------- booked ----------
-  if (step === 'booked' && booked) {
-    const b = booked.booking;
-    const p = booked.policies;
-    const cutoffs = [
-      ...(p.cancel.allowed ? [p.cancel.cutoffHours] : []),
-      ...(p.reschedule.allowed ? [p.reschedule.cutoffHours] : []),
-    ];
-    const email = booked.contact.email;
-    const phone = booked.contact.phoneDisplay;
-    const done =
-      email && booked.contact.texts
-        ? `We emailed the details to ${email} and texted ${phone}.`
-        : email
-          ? `We emailed the details to ${email}.`
-          : booked.contact.texts
-            ? `We texted the details to ${phone}.`
-            : 'Add it to your calendar so it’s not forgotten.';
-    const changeNote = cutoffs.length
-      ? `${Math.min(...cutoffs) ? `Up to ${hoursLabel(Math.min(...cutoffs))} before.` : 'Up to the start time.'}${email ? ' The link is in your email too.' : booked.contact.texts ? ' The link is in your text too.' : ''}`
-      : `To change it, please ${callPhrase(business)}.`;
-    const summary: [string, string | null][] = [
-      [
-        'What',
-        `${b.title} · ${b.kind === 'session' ? seatsLabel(b.seats) : lengthLabel(b.durationMinutes)}`,
-      ],
-      [
-        'When',
-        `${dayLong(b.startsAt, tz)}, ${timeRange(b.startsAt, b.endsAt, tz)} ${b.timezoneLabel}`,
-      ],
-      ['Where', b.where],
-      ['Who', b.with.length ? `${joinNames(b.with)} from ${business.name}` : null],
-    ];
+  if (step === 'booked' && booked)
     return (
-      <div
-        className="mx-auto flex w-full max-w-[560px] flex-1 flex-col gap-4 px-4 pb-6 pt-6 md:pt-10"
-        data-testid="booked"
-      >
-        <div className="flex flex-col items-center gap-1.5 text-center">
-          <span className="inline-flex h-14 w-14 items-center justify-center rounded-full bg-success-soft text-success-text">
-            <Check size={26} aria-hidden />
-          </span>
-          <h1 className="text-[22px] font-semibold">You’re booked</h1>
-          <p className="text-[13px] text-text-2">{done}</p>
-        </div>
-        <dl className="rounded-card border border-border bg-card px-4 py-1 shadow-1">
-          {summary
-            .filter((r): r is [string, string] => !!r[1])
-            .map(([k, v], i) => (
-              <div
-                key={k}
-                className={cn('flex items-start gap-3 py-[9px]', i > 0 && 'border-t border-border')}
-              >
-                <dt className="mt-px w-11 flex-none text-xs text-text-3">{k}</dt>
-                <dd className="text-[13px]" data-testid={`booked-${k.toLowerCase()}`}>
-                  {v}
-                </dd>
-              </div>
-            ))}
-        </dl>
-        <div className="flex flex-col gap-2">
-          <span className="text-[13px] font-medium">Add to your calendar</span>
-          <AddToCalendar
-            entry={{
-              title: `${b.title} with ${business.name}`,
-              startsAt: b.startsAt,
-              endsAt: b.endsAt,
-              where: b.where,
-              details: `Change or cancel: ${booked.manageUrl}`,
-              icsUrl: calendarFileUrl(booked.manageToken),
-            }}
-          />
-        </div>
-        <div className="flex flex-col gap-1.5">
-          <ButtonLink
-            href={`/m/${booked.manageToken}`}
-            variant="secondary"
-            size="lg"
-            className="w-full"
-          >
-            Change or cancel
-          </ButtonLink>
-          <span className="text-center text-xs text-text-3">{changeNote}</span>
-        </div>
-        <button
-          type="button"
-          onClick={restart}
-          className="self-center text-[13px] font-medium text-accent-text hover:underline"
-        >
-          Book something else
-        </button>
-      </div>
+      <BookedPanel
+        booked={booked}
+        tz={tz}
+        business={business}
+        deposit={held?.deposit ?? null}
+        onRestart={restart}
+      />
     );
-  }
+
+  // ---------- the time went while they were paying ----------
+  if (step === 'gone' && lost)
+    return (
+      <TimeWentPanel
+        answer={lost.answer}
+        tz={tz}
+        times={lost.times}
+        onPick={(s) => {
+          restart();
+          setSlot(s);
+        }}
+        onRestart={restart}
+      />
+    );
 
   // ---------- on the waitlist ----------
   if (step === 'waitlisted' && waitlisted && waitFor) {
@@ -1244,6 +1204,26 @@ export function BookingFlow({
         <TimesIn label={page.timezoneLabel} />
       </>
     );
+  } else if (step === 'pay' && held) {
+    content = (
+      <DepositStep
+        hold={held}
+        tz={tz}
+        stepLabel="Last step"
+        onBack={() => go('details')}
+        onPaid={(answer) => {
+          setHeld(answer.hold);
+          if (answer.hold.booked) {
+            setBooked(answer.hold.booked);
+            go('booked');
+          }
+        }}
+        onLost={(answer) => {
+          setLost({ answer, times: answer.times ?? [] });
+          go('gone');
+        }}
+      />
+    );
   } else if (step === 'waitlist' && waitFor) {
     content = (
       <form
@@ -1299,6 +1279,14 @@ export function BookingFlow({
           }
           onBack={back}
         />
+        {info.payment ? (
+          <p className="text-[13px] text-text-2" data-testid="payment-ahead">
+            {info.payment.mode === 'full'
+              ? `${money(info.payment.amountCents)} is due to book. `
+              : `A ${money(info.payment.amountCents)} deposit is due to book. `}
+            Your card is held, not charged, until the time is confirmed.
+          </p>
+        ) : null}
         {taken ? (
           <div className="flex flex-col gap-2.5" data-testid="slot-taken">
             <div
@@ -1396,7 +1384,7 @@ export function BookingFlow({
             loading={submitting}
             disabled={!slot || (botSiteKey !== null && !botToken)}
           >
-            Book {what}
+            {takesPayment ? 'Continue to payment' : `Book ${what}`}
           </Button>
         </ActionBar>
       </form>

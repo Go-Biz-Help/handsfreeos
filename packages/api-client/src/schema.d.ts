@@ -3257,6 +3257,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/subscription.request_card": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Ask the customer to put a card on their plan, by text, by email, or just to get the link. The plan waits until they do; asking again keeps the same link working.
+         * @description Risk level 2. Requires money.manage. Emits subscription.card_requested.
+         */
+        post: operations["command_subscription_request_card"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/subscription.resume": {
         parameters: {
             query?: never;
@@ -3271,6 +3291,26 @@ export interface paths {
          * @description Risk level 2. Requires money.manage. Emits subscription.resumed.
          */
         post: operations["command_subscription_resume"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/subscription.set_connection": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Change which connected account a plan bills through. Only a plan the provider does not hold yet, or one left unmanaged when its account went away: a live plan lives inside one provider account and cannot be moved, so that is cancelled and started again instead.
+         * @description Risk level 2. Requires money.manage. Emits subscription.connection_changed.
+         */
+        post: operations["command_subscription_set_connection"];
         delete?: never;
         options?: never;
         head?: never;
@@ -7550,6 +7590,15 @@ export interface operations {
                         };
                         /** @default {} */
                         payments?: {
+                            /** @default null */
+                            connectionId?: string | null;
+                            /** @default null */
+                            deposit?: {
+                                amountCents?: number;
+                                /** @enum {string} */
+                                kind: "percent" | "amount";
+                                percentBp?: number;
+                            } | null;
                             /**
                              * @default none
                              * @enum {string}
@@ -13152,6 +13201,47 @@ export interface operations {
             };
         };
     };
+    command_subscription_request_card: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @default [] */
+                    channels?: ("sms" | "email")[];
+                    /** @default null */
+                    message?: string | null;
+                    /** Format: uuid */
+                    subscriptionId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        cardRequestedAt: string | null;
+                        changed: boolean;
+                        hasCard: boolean;
+                        /** @enum {string} */
+                        status: "draft" | "active" | "past_due" | "paused" | "cancelled" | "unmanaged";
+                        /** Format: uuid */
+                        subscriptionId: string;
+                    };
+                };
+            };
+        };
+    };
     command_subscription_resume: {
         parameters: {
             query?: never;
@@ -13162,6 +13252,43 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": {
+                    /** Format: uuid */
+                    subscriptionId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changed: boolean;
+                        nextBillingOn: string | null;
+                        /** @enum {string} */
+                        status: "draft" | "active" | "past_due" | "paused" | "cancelled" | "unmanaged";
+                        /** Format: uuid */
+                        subscriptionId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_subscription_set_connection: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    connectionId: string | null;
                     /** Format: uuid */
                     subscriptionId: string;
                     /** Format: uuid */
@@ -15796,6 +15923,7 @@ export interface operations {
                                 contactEmail: string | null;
                                 contactPhone: string | null;
                                 fullName: string;
+                                heldUntil: string | null;
                                 /** Format: uuid */
                                 id: string;
                                 intake: {
@@ -15858,6 +15986,7 @@ export interface operations {
                             } | null;
                             /** Format: date-time */
                             endsAt: string;
+                            heldUntil: string | null;
                             /** Format: uuid */
                             id: string;
                             /** @enum {string} */
@@ -15875,6 +16004,7 @@ export interface operations {
                             };
                             notes: string | null;
                             occurrence: number | null;
+                            priceCents: number | null;
                             resources: {
                                 name: string;
                                 quantity: number;
@@ -15971,6 +16101,7 @@ export interface operations {
                                 } | null;
                                 confirmedVia: ("sms" | "link" | "staff" | "ai") | null;
                                 fullName: string;
+                                heldUntil: string | null;
                                 /** Format: uuid */
                                 id: string;
                                 /** Format: uuid */
@@ -15992,6 +16123,7 @@ export interface operations {
                             createdAt: string;
                             /** Format: date-time */
                             endsAt: string;
+                            heldUntil: string | null;
                             /** Format: uuid */
                             id: string;
                             /** @enum {string} */
@@ -16261,6 +16393,27 @@ export interface operations {
                                 unsupported: string[];
                                 workflowId: string | null;
                             } | {
+                                detail?: string | null;
+                                href: string | null;
+                                items?: {
+                                    detail: string;
+                                    href: string | null;
+                                    status?: string;
+                                    title: string;
+                                    /** @enum {string} */
+                                    tone: "accent" | "warning" | "danger" | "muted";
+                                }[];
+                                stats?: {
+                                    label: string;
+                                    value: string;
+                                }[];
+                                title: string;
+                                /** @enum {string} */
+                                tone?: "accent" | "warning" | "danger" | "muted";
+                                /** @enum {string} */
+                                type: "money";
+                                value: string;
+                            } | {
                                 href: string;
                                 items: {
                                     href: string;
@@ -16390,6 +16543,8 @@ export interface operations {
                                 skipReason: string | null;
                                 state: ("scheduled" | "sent" | "skipped" | "cancelled") | null;
                             };
+                            /** @default false */
+                            callable: boolean;
                             conversationId: string | null;
                             detail: string | null;
                             dismissedAt: string | null;
@@ -16508,6 +16663,8 @@ export interface operations {
                                 skipReason: string | null;
                                 state: ("scheduled" | "sent" | "skipped" | "cancelled") | null;
                             };
+                            /** @default false */
+                            callable: boolean;
                             conversationId: string | null;
                             detail: string | null;
                             dismissedAt: string | null;
@@ -16586,6 +16743,8 @@ export interface operations {
                                 skipReason: string | null;
                                 state: ("scheduled" | "sent" | "skipped" | "cancelled") | null;
                             };
+                            /** @default false */
+                            callable: boolean;
                             conversationId: string | null;
                             detail: string | null;
                             dismissedAt: string | null;
@@ -16719,7 +16878,14 @@ export interface operations {
                             available: boolean;
                             channel: ("sms" | "email" | "chat") | null;
                             conversationId: string | null;
+                            /** @default null */
+                            draft: {
+                                body: string;
+                                subject: string | null;
+                            } | null;
                             label: string;
+                            /** @default null */
+                            note: string | null;
                             reason: string | null;
                             suggestion: {
                                 dueAt: string | null;
@@ -17242,6 +17408,15 @@ export interface operations {
                                     staffEmail: boolean;
                                 };
                                 payments: {
+                                    /** @default null */
+                                    connectionId: string | null;
+                                    /** @default null */
+                                    deposit: {
+                                        amountCents?: number;
+                                        /** @enum {string} */
+                                        kind: "percent" | "amount";
+                                        percentBp?: number;
+                                    } | null;
                                     /**
                                      * @default none
                                      * @enum {string}
@@ -19079,6 +19254,8 @@ export interface operations {
                         };
                         payments: {
                             amountCents: number;
+                            cardBrand: string | null;
+                            cardLast4: string | null;
                             connectionId: string | null;
                             /** Format: date-time */
                             createdAt: string;
@@ -20227,13 +20404,20 @@ export interface operations {
                         subscriptions: {
                             cancelledAt: string | null;
                             cancelReason: string | null;
+                            cardBrand: string | null;
+                            cardExpiryMonth: number | null;
+                            cardExpiryYear: number | null;
+                            cardLast4: string | null;
+                            cardRequestedAt: string | null;
                             connectionId: string | null;
                             /** Format: date-time */
                             createdAt: string;
                             currentPeriodEnd: string | null;
                             currentPeriodStart: string | null;
                             endedOn: string | null;
+                            externalSubscriptionId: string | null;
                             failedCycles: number;
+                            hasCard: boolean;
                             /** Format: uuid */
                             id: string;
                             includes: string[];
@@ -20511,6 +20695,8 @@ export interface operations {
                         nextCursor: string | null;
                         payments: {
                             amountCents: number;
+                            cardBrand: string | null;
+                            cardLast4: string | null;
                             connectionId: string | null;
                             /** Format: date-time */
                             createdAt: string;
@@ -21168,13 +21354,20 @@ export interface operations {
                         subscription: {
                             cancelledAt: string | null;
                             cancelReason: string | null;
+                            cardBrand: string | null;
+                            cardExpiryMonth: number | null;
+                            cardExpiryYear: number | null;
+                            cardLast4: string | null;
+                            cardRequestedAt: string | null;
                             connectionId: string | null;
                             /** Format: date-time */
                             createdAt: string;
                             currentPeriodEnd: string | null;
                             currentPeriodStart: string | null;
                             endedOn: string | null;
+                            externalSubscriptionId: string | null;
                             failedCycles: number;
+                            hasCard: boolean;
                             /** Format: uuid */
                             id: string;
                             includes: string[];
@@ -21242,13 +21435,20 @@ export interface operations {
                         subscriptions: {
                             cancelledAt: string | null;
                             cancelReason: string | null;
+                            cardBrand: string | null;
+                            cardExpiryMonth: number | null;
+                            cardExpiryYear: number | null;
+                            cardLast4: string | null;
+                            cardRequestedAt: string | null;
                             connectionId: string | null;
                             /** Format: date-time */
                             createdAt: string;
                             currentPeriodEnd: string | null;
                             currentPeriodStart: string | null;
                             endedOn: string | null;
+                            externalSubscriptionId: string | null;
                             failedCycles: number;
+                            hasCard: boolean;
                             /** Format: uuid */
                             id: string;
                             includes: string[];

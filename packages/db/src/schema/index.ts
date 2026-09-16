@@ -15,6 +15,7 @@ import {
   pgSchema,
   primaryKey,
   real,
+  smallint,
   text,
   timestamp,
   uuid,
@@ -2827,6 +2828,15 @@ export const subscriptions = app.table('subscriptions', {
   }),
   provider: paymentProvider('provider'),
   externalSubscriptionId: text('external_subscription_id'),
+  /** The provider's customer and the token for the card it bills. Never a number, and the worker's alone. */
+  customerRef: text('customer_ref'),
+  methodToken: text('method_token'),
+  cardBrand: text('card_brand'),
+  cardLast4: text('card_last4'),
+  cardExpiryMonth: smallint('card_expiry_month'),
+  cardExpiryYear: smallint('card_expiry_year'),
+  /** Set while the plan waits on the customer to put a card on it; cleared the moment one lands. */
+  cardRequestedAt: ts('card_requested_at'),
   status: subscriptionStatus('status').notNull().default('draft'),
   startedOn: date('started_on'),
   currentPeriodStart: date('current_period_start'),

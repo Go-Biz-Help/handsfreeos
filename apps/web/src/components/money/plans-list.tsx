@@ -139,7 +139,8 @@ export function PlansList({
               {subscriptions.map((s) => (
                 <tr key={s.id} data-testid={`subscription-row-${s.id}`} className="hover:bg-card-2">
                   <Td>
-                    <Link href={`/app/w/${workspaceId}/customers/people/${s.person.id}`}>
+                    {/* The row opens the plan itself: what it bills, its cycles, and pausing or cancelling it. */}
+                    <Link href={`/app/w/${workspaceId}/money/plans/${s.id}`}>
                       <CustomerCell person={s.person} />
                     </Link>
                   </Td>

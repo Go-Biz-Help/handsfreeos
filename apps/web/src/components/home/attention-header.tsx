@@ -52,7 +52,7 @@ export function AttentionHeader({
           title={
             nothing || countFirst
               ? undefined
-              : 'Lead values, each counted once. Estimates aren’t counted.'
+              : 'Lead values and overdue invoices, each job counted once. An estimate counts once it’s approved.'
           }
           className="text-[26px] font-semibold leading-[1.2] tracking-[-0.015em] tabular-nums"
         >

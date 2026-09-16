@@ -27,6 +27,14 @@ import {
   type AttentionKind,
 } from './kinds';
 import type { AttentionContext, AttentionItemRow } from './load';
+import {
+  lastReminderNote,
+  moneyDraftEmail,
+  moneyDraftText,
+  tooSoonAfterReminder,
+  type LastReminder,
+  type MoneyDraftInput,
+} from './money-draft';
 import { renderNudge } from './nudge';
 import {
   clockLabel,
@@ -48,6 +56,15 @@ export const REPLY_KINDS: ReadonlySet<AttentionKind> = new Set([
   'hot_lead',
   'unanswered_lead',
   'customer_waiting',
+]);
+
+/**
+ * The kinds whose Handle is a person following up about a money document. They reach the customer by the same
+ * reply rules, with the message already written (money-draft.ts) — and never through the AI teammate.
+ */
+export const MONEY_KINDS: ReadonlySet<AttentionKind> = new Set([
+  'estimate_waiting',
+  'invoice_overdue',
 ]);
 
 /** When quiet hours end after `t`, or null when it isn't quiet then. */
@@ -621,14 +638,137 @@ export async function conversationForItem(
   return c ?? null;
 }
 
+/**
+ * The last thing the business's own ladder actually sent about an invoice (`invoices.reminder_state`): a rung of
+ * reminders, or the `sent` rung, which is the invoice itself going out. Both count — writing to someone an hour
+ * after their invoice landed is the same mistake as two reminders an hour apart.
+ */
+export function lastSentReminder(state: unknown): LastReminder | null {
+  const rungs = (state as { reminders?: Record<string, unknown> } | null)?.reminders;
+  if (!rungs || typeof rungs !== 'object') return null;
+  let best: LastReminder | null = null;
+  for (const [key, entry] of Object.entries(rungs)) {
+    const r = entry as { status?: unknown; channel?: unknown; at?: unknown };
+    if (r?.status !== 'sent' || typeof r.at !== 'string') continue;
+    const at = Date.parse(r.at);
+    if (!Number.isFinite(at)) continue;
+    if (!best || at > Date.parse(best.at))
+      best = {
+        at: r.at,
+        channel: r.channel === 'sms' || r.channel === 'email' ? r.channel : null,
+        kind: key === 'sent' ? 'document' : 'reminder',
+      };
+  }
+  return best;
+}
+
+interface MoneyDocumentRow extends Record<string, unknown> {
+  number: string | null;
+  title: string | null;
+  amount: number;
+  day: string | null;
+  reminder_state: unknown;
+  first_name: string | null;
+  phone: string | null;
+  email: string | null;
+  consent: 'unknown' | 'opted_in' | 'opted_out';
+}
+
+/**
+ * The one choice a money card offers: the follow-up, already written from the document's own figures, for a
+ * person to read and send. Never the AI teammate — an AI that talks to a customer about a bill is a different
+ * conversation, and one Chris hasn't had.
+ *
+ * The business's own reminder ladder is already writing to this customer about this invoice on the schedule
+ * they agreed, so the option carries when the last one went out, and refuses to offer a second within the day.
+ */
+async function moneyAskOptions(
+  tx: Tx,
+  ctx: AttentionContext,
+  item: AttentionItemRow,
+  now: Date,
+  sender: string | null,
+): Promise<AttentionAskOptionOut[]> {
+  const ws = ctx.workspaceId;
+  const invoice = item.kind === 'invoice_overdue';
+  const [doc] = await rows<MoneyDocumentRow>(
+    tx,
+    invoice
+      ? sql`select i.number, i.title, i.balance_cents::float8 as amount, i.due_on::text as day,
+              i.reminder_state, p.first_name, p.phone_e164 as phone, p.email::text as email,
+              p.sms_consent::text as consent
+            from app.invoices i join app.people p on p.id = i.person_id
+            where i.workspace_id = ${ws} and i.id = ${item.subjectId}`
+      : sql`select e.number, e.title, e.total_cents::float8 as amount, e.expires_on::text as day,
+              null::jsonb as reminder_state, p.first_name, p.phone_e164 as phone, p.email::text as email,
+              p.sms_consent::text as consent
+            from app.estimates e join app.people p on p.id = e.person_id
+            where e.workspace_id = ${ws} and e.id = ${item.subjectId}`,
+  );
+  if (!doc) return [];
+  const conv = await conversationForItem(tx, ws, item);
+  // Never a website chat about money: a visitor's chat is gone by the time a bill is late.
+  const conversationChannel = conv && conv.channel !== 'chat' ? conv.channel : null;
+  const textNumber = conversationChannel === 'sms' ? conv!.counterpart : doc.phone;
+  const textStopped =
+    doc.consent === 'opted_out' || (textNumber ? await isOptedOut(tx, ws, textNumber) : false);
+  const channel = replyChannelRule({
+    conversationChannel,
+    phone: doc.phone,
+    email: doc.email,
+    textStopped,
+  });
+  const draftInput: MoneyDraftInput = {
+    kind: invoice ? 'invoice_overdue' : 'estimate_waiting',
+    firstName: doc.first_name,
+    businessName: ctx.name,
+    senderFirstName: sender,
+    title: doc.title,
+    number: doc.number,
+    amountCents: Math.max(0, Math.round(Number(doc.amount))),
+    day: doc.day,
+    timeZone: ctx.timeZone,
+    now: now.getTime(),
+    // A number we have never texted carries the STOP wording, as every other first text does.
+    firstText: channel === 'sms' && !conversationChannel,
+  };
+  const mail = moneyDraftEmail(draftInput);
+  const last = invoice ? lastSentReminder(doc.reminder_state) : null;
+  const tooSoon = tooSoonAfterReminder(last, now.getTime(), ctx.timeZone);
+  const cannot = textStopped
+    ? 'They texted STOP, and there’s no email address for them.'
+    : 'There’s no number or email for them.';
+  return [
+    {
+      action: 'reply',
+      label: channel === 'email' ? 'Email them' : 'Text them',
+      available: channel !== null && !tooSoon,
+      reason: tooSoon ?? (channel === null ? cannot : null),
+      channel,
+      conversationId: conv && conv.channel === channel ? conv.id : null,
+      suggestion: null,
+      draft:
+        channel === null
+          ? null
+          : channel === 'email'
+            ? { body: mail.body, subject: mail.subject }
+            : { body: moneyDraftText(draftInput), subject: null },
+      note: tooSoon ? null : lastReminderNote(last, now.getTime(), ctx.timeZone),
+    },
+  ];
+}
+
 /** The ask-first choices for an item, each as the person would run it. */
 export async function askOptions(
   tx: Tx,
   ctx: AttentionContext,
   item: AttentionItemRow,
   now: Date,
+  /** Who is asking, by first name: the follow-up is signed as them ("it's Dale at Lone Star"). */
+  sender: string | null = null,
 ): Promise<AttentionAskOptionOut[]> {
   const kind = item.kind as AttentionKind;
+  if (MONEY_KINDS.has(kind)) return moneyAskOptions(tx, ctx, item, now, sender);
   if (kind === 'missing_next_action') {
     const [p] = item.personId
       ? await rows<{ first_name: string | null }>(
@@ -650,6 +790,8 @@ export async function askOptions(
           ctx.timeZone,
           now.getTime(),
         ),
+        draft: null,
+        note: null,
       },
     ];
   }
@@ -708,6 +850,8 @@ export async function askOptions(
       channel: conv?.channel ?? null,
       conversationId: conv?.id ?? null,
       suggestion: null,
+      draft: null,
+      note: null,
     },
     {
       action: 'reply',
@@ -719,6 +863,8 @@ export async function askOptions(
       // A reply that falls back to email starts from the customer, not the text conversation.
       conversationId: conv && conv.channel === channel ? conv.id : null,
       suggestion: null,
+      draft: null,
+      note: null,
     },
   ];
 }

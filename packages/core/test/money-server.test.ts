@@ -64,6 +64,15 @@ import {
   planCreate,
   productCreate,
   productList,
+  subscriptionGet,
+  subscriptionList,
+  subscriptionPause,
+  subscriptionRecordCard,
+  subscriptionRecordCycle,
+  subscriptionRequestCard,
+  subscriptionResume,
+  subscriptionSetConnection,
+  subscriptionStart,
 } from '../src/server';
 import { acceptanceWording } from '../src/money/index';
 import { business, lead as leadFacts } from './attention-fixtures';
@@ -893,6 +902,243 @@ describe('a refund', () => {
       w.owner,
     );
     expect(asked.status).toBe('pending');
+  });
+});
+
+// ---------- plans ----------
+
+describe('a maintenance plan', () => {
+  /** A connected account to bill through, written the way the worker's activate does. */
+  async function connectedAccount(label: string): Promise<string> {
+    const [row] = await rows<{ id: string }>(
+      admin(),
+      sql`insert into app.payment_connections (workspace_id, provider, environment, status,
+            external_account_id, label, token_enc, token_key_id, connected_at)
+          values (${w.wsId}, 'stripe', 'test', 'active', ${`acct_${randomUUID().slice(0, 8)}`},
+            ${label}, 'sealed', 'test-key', now())
+          returning id`,
+    );
+    return row!.id;
+  }
+
+  it('is copied as it is sold, and can be moved between accounts only before the provider holds it', async () => {
+    const first = await connectedAccount('First account');
+    const second = await connectedAccount('Second account');
+    const plan = await run(
+      planCreate,
+      {
+        workspaceId: w.wsId,
+        name: 'Comfort Club',
+        priceCents: 2_900,
+        interval: 'month',
+        includes: ['Two visits a year'],
+      },
+      w.owner,
+    );
+    const started = await run(
+      subscriptionStart,
+      {
+        workspaceId: w.wsId,
+        personId: w.personId,
+        planId: plan.planId,
+        connectionId: first,
+      },
+      w.owner,
+    );
+    expect(started.status).toBe('draft');
+
+    // Nothing at the provider yet, so it can still be billed anywhere.
+    const moved = await run(
+      subscriptionSetConnection,
+      { workspaceId: w.wsId, subscriptionId: started.subscriptionId, connectionId: second },
+      w.owner,
+    );
+    expect(moved.changed).toBe(true);
+    const got = await ask(
+      subscriptionGet,
+      { workspaceId: w.wsId, subscriptionId: started.subscriptionId },
+      w.owner,
+    );
+    expect(got.subscription).toMatchObject({
+      planName: 'Comfort Club',
+      priceCents: 2_900,
+      connectionId: second,
+      includes: ['Two visits a year'],
+    });
+
+    // Once the provider holds it, a plan lives inside that one account: it is cancelled and started again.
+    await sys(subscriptionRecordCycle, {
+      workspaceId: w.wsId,
+      subscriptionId: started.subscriptionId,
+      outcome: 'activated',
+      externalSubscriptionId: `sub_${randomUUID().slice(0, 8)}`,
+      currentPeriodStart: '2026-09-22',
+      currentPeriodEnd: '2026-10-22',
+      nextBillingOn: '2026-10-22',
+    });
+    await expectHfos(
+      () =>
+        run(
+          subscriptionSetConnection,
+          { workspaceId: w.wsId, subscriptionId: started.subscriptionId, connectionId: first },
+          w.owner,
+        ),
+      'rule_violation',
+      'subscription_at_provider',
+    );
+
+    // Pausing and starting it again are the two ways to stop the money without ending the plan.
+    expect(
+      (
+        await run(
+          subscriptionPause,
+          { workspaceId: w.wsId, subscriptionId: started.subscriptionId },
+          w.owner,
+        )
+      ).status,
+    ).toBe('paused');
+    expect(
+      (
+        await run(
+          subscriptionResume,
+          { workspaceId: w.wsId, subscriptionId: started.subscriptionId },
+          w.owner,
+        )
+      ).status,
+    ).toBe('active');
+    // A member may not see a plan at all: it is money owed every month.
+    await expectHfos(() => ask(subscriptionList, { workspaceId: w.wsId }, w.tech), 'forbidden');
+  });
+
+  it('starts waiting on the customer, and only the provider may say what card it bills', async () => {
+    const account = await connectedAccount('Card account');
+    const plan = await run(
+      planCreate,
+      { workspaceId: w.wsId, name: 'Comfort Club Plus', priceCents: 29_000, interval: 'year' },
+      w.owner,
+    );
+    const started = await run(
+      subscriptionStart,
+      {
+        workspaceId: w.wsId,
+        personId: w.personId,
+        planId: plan.planId,
+        connectionId: account,
+      },
+      w.owner,
+    );
+    // Neither provider will bill a customer they have no card for, so a new plan waits on them.
+    const waiting = (
+      await ask(
+        subscriptionGet,
+        { workspaceId: w.wsId, subscriptionId: started.subscriptionId },
+        w.owner,
+      )
+    ).subscription;
+    expect(waiting).toMatchObject({ status: 'draft', hasCard: false, cardBrand: null });
+    expect(waiting.cardRequestedAt).not.toBeNull();
+
+    // Asking again keeps the same link working: it is the ask that is repeated, never the plan.
+    const asked = await run(
+      subscriptionRequestCard,
+      { workspaceId: w.wsId, subscriptionId: started.subscriptionId, channels: ['email'] },
+      w.owner,
+    );
+    expect(asked).toMatchObject({ hasCard: false, changed: true });
+
+    // A person may not write a word of what the provider decides, whatever they send.
+    const stillOne = await rows<{ pay_version: number }>(
+      admin(),
+      sql`select pay_version from app.subscriptions where id = ${started.subscriptionId}`,
+    );
+    expect(stillOne[0]!.pay_version).toBe(1);
+    const refused = await rows(
+      admin(),
+      sql`update app.subscriptions set card_last4 = '4242'
+          where id = ${started.subscriptionId}::uuid`,
+    ).then(
+      () => 'it was allowed',
+      (e: unknown) => String((e as { cause?: { message?: string } })?.cause?.message ?? e),
+    );
+    expect(refused).toMatch(/provider decides/i);
+
+    // The worker's own command is what writes it, and the wait ends there.
+    const saved = await sys(subscriptionRecordCard, {
+      workspaceId: w.wsId,
+      subscriptionId: started.subscriptionId,
+      provider: 'stripe',
+      connectionId: account,
+      customerRef: 'cus_test_1',
+      methodToken: 'pm_test_1',
+      cardBrand: 'Visa',
+      cardLast4: '4242',
+      cardExpiryMonth: 4,
+      cardExpiryYear: 2029,
+    });
+    expect(saved).toMatchObject({ hasCard: true, cardRequestedAt: null });
+    const withCard = (
+      await ask(
+        subscriptionGet,
+        { workspaceId: w.wsId, subscriptionId: started.subscriptionId },
+        w.owner,
+      )
+    ).subscription;
+    expect(withCard).toMatchObject({
+      hasCard: true,
+      cardBrand: 'Visa',
+      cardLast4: '4242',
+      cardExpiryMonth: 4,
+      cardExpiryYear: 2029,
+      cardRequestedAt: null,
+    });
+    // And what may never be read back out of a query, however the card got there.
+    expect(Object.keys(withCard)).not.toContain('methodToken');
+    expect(Object.keys(withCard)).not.toContain('customerRef');
+  });
+
+  it('left unmanaged by a disconnect is handed back by pointing it at a connected account', async () => {
+    const account = await connectedAccount('Back again');
+    const plan = await run(
+      planCreate,
+      { workspaceId: w.wsId, name: 'Commercial Care', priceCents: 14_900, interval: 'month' },
+      w.owner,
+    );
+    const started = await run(
+      subscriptionStart,
+      { workspaceId: w.wsId, personId: w.personId, planId: plan.planId },
+      w.owner,
+    );
+    await sys(subscriptionRecordCycle, {
+      workspaceId: w.wsId,
+      subscriptionId: started.subscriptionId,
+      outcome: 'unmanaged',
+      externalSubscriptionId: `sub_${randomUUID().slice(0, 8)}`,
+      message: 'The account this plan bills through isn’t connected any more.',
+    });
+    const stranded = await ask(
+      subscriptionGet,
+      { workspaceId: w.wsId, subscriptionId: started.subscriptionId },
+      w.owner,
+    );
+    expect(stranded.subscription.status).toBe('unmanaged');
+    expect(stranded.subscription.lastError).toMatch(/isn’t connected/);
+    // While it is unmanaged nothing here may drive it — the tokens are gone on purpose.
+    await expectHfos(
+      () =>
+        run(
+          subscriptionPause,
+          { workspaceId: w.wsId, subscriptionId: started.subscriptionId },
+          w.owner,
+        ),
+      'rule_violation',
+      'subscription_unmanaged',
+    );
+    const back = await run(
+      subscriptionSetConnection,
+      { workspaceId: w.wsId, subscriptionId: started.subscriptionId, connectionId: account },
+      w.owner,
+    );
+    expect(back.status).toBe('active');
   });
 });
 

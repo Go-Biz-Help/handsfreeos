@@ -281,6 +281,61 @@ export function invoiceReminderEmail(i: InvoiceReminderInput): EmailText {
   };
 }
 
+// ---- The plan's card ----
+
+export interface PlanCardMessageInput {
+  readonly business: MoneyBusiness;
+  readonly firstName: string;
+  readonly planName: string;
+  /** "$29 a month", worked out where the plan is read, so one wording serves the text and the email. */
+  readonly priceLabel: string;
+  readonly includes: readonly string[];
+  /** The customer's own plan page: `${WEB_URL}/p/<token>`. */
+  readonly url: string;
+  /** Changing a card that already works reads differently from a plan that cannot bill at all. */
+  readonly replacing: boolean;
+  readonly first: boolean;
+}
+
+/**
+ * "Lone Star HVAC: Your Comfort Club plan is $29 a month. Add a card to start it here: <link>"
+ *
+ * A plan bills at the provider, and neither provider will bill a customer they have no card for. This is the
+ * one message that closes that: the customer's own page, where the card goes in the provider's own fields.
+ */
+export function planCardText(i: PlanCardMessageInput): string {
+  return text(
+    [
+      i.replacing
+        ? `${i.business.name}: You can update the card on your ${inSentence(i.planName)} plan here: ${i.url}`
+        : `${i.business.name}: Your ${inSentence(i.planName)} plan is ${i.priceLabel}.`,
+      i.replacing ? null : `Add a card to start it here: ${i.url}`,
+    ],
+    i.first,
+  );
+}
+
+export function planCardEmail(i: PlanCardMessageInput): EmailText {
+  return {
+    subject: i.replacing
+      ? `Update the card on your ${i.planName} plan`
+      : `Start your ${i.planName} plan with ${i.business.name}`,
+    body: paragraphs([
+      i.replacing
+        ? `${hello(i.firstName)} you can put a new card on your ${inSentence(i.planName)} plan whenever you like — nothing changes until you do.`
+        : `${hello(i.firstName)} here’s your ${inSentence(i.planName)} plan. Add a card and it starts straight away.`,
+      lines([
+        `Plan: ${i.planName}`,
+        `Price: ${i.priceLabel}`,
+        ...i.includes.slice(0, 6).map((what) => `· ${what}`),
+      ]),
+      i.replacing ? `Update your card here: ${i.url}` : `Add your card here: ${i.url}`,
+      'The card is held by our payment company, never by us.',
+      footer(i.business),
+    ]),
+  };
+}
+
 // ---- What a payment brings ----
 
 export interface PaymentMessageInput {

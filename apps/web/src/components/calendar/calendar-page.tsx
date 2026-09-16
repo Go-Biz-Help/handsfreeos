@@ -740,6 +740,7 @@ export function CalendarPage(props: {
           timeZone={tz}
           people={simplePeople}
           myUserId={myUserId}
+          myRole={props.role}
           onClose={() => go({ appt: null })}
           onChanged={() => router.refresh()}
         />

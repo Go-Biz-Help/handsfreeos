@@ -34,6 +34,7 @@ export interface AcItem {
   readonly state: string;
   readonly valueCents: number;
   readonly subject: { readonly type: string; readonly id: string };
+  readonly leadId: string | null;
   readonly conversationId: string | null;
   readonly assignee: { readonly id: string; readonly fullName: string } | null;
 }

@@ -2,6 +2,7 @@ import { ScriptedProvider, type ScriptRule } from '@hfos/ai';
 import { addDays, localDateOf, localInstant, weekdayOf } from '@hfos/core/server';
 import { isoWithOffset } from './calendar-format';
 import { attentionRules } from './scripted-attention';
+import { moneyRules } from './scripted-money';
 import { workflowRules } from './scripted-workflows';
 
 /**
@@ -104,6 +105,7 @@ const MOVE =
 
 const rules: ScriptRule[] = [
   ...attentionRules,
+  ...moneyRules,
   ...workflowRules,
   {
     when: /how many (new )?leads/i,

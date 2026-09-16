@@ -5,11 +5,13 @@ import {
   ArrowUpRight,
   CalendarPlus,
   Check,
+  FileText,
   ListChecks,
   Mail,
   MessageCircle,
   MoreHorizontal,
   Phone,
+  Receipt,
   Send,
   UserRound,
   type LucideIcon,
@@ -63,8 +65,22 @@ import { attentionCommands, type AttentionListState } from './use-attention';
 
 /** Which dialog or sheet the Action Center has open, and for which item. */
 export interface AttentionDialog {
-  readonly type: 'let_handle' | 'dismiss' | 'pick_time' | 'next_action' | 'task' | 'menu';
+  readonly type:
+    'let_handle' | 'dismiss' | 'pick_time' | 'next_action' | 'task' | 'menu' | 'message';
   readonly item: AttentionItem;
+  /** For 'message': the composer, already filled in with the follow-up about their document. */
+  readonly message?: {
+    readonly channel: 'sms' | 'email';
+    readonly person: {
+      readonly id: string;
+      readonly fullName: string;
+      readonly phone: string | null;
+      readonly phoneE164: string | null;
+      readonly email: string | null;
+    };
+    readonly body: string;
+    readonly subject: string | null;
+  };
 }
 
 const UNDO_MS = 6000;
@@ -202,6 +218,43 @@ export function useItemActions(o: {
       settle();
     }
 
+    /**
+     * A money card handled in one press: ring them when there's a number and the business is open, otherwise
+     * open the composer with the follow-up already written from the document's own figures. When it can't go —
+     * no way to reach them, or the business's own reminder went out today — the Let HandsFreeOS Handle sheet
+     * says so instead of opening a composer that shouldn't be used.
+     */
+    async function followUp(item: AttentionItem) {
+      if (!item.personId) return router.push(targetOf(item, workspaceId).href);
+      if (callsAvailable && item.callable) return call(item);
+      const { options } = await cmd.preview(item.id);
+      const reply = options.find((o) => o.action === 'reply');
+      const channel = reply?.channel;
+      if (!reply?.available || !reply.draft || (channel !== 'sms' && channel !== 'email'))
+        return open({ type: 'let_handle', item });
+      const { person } = unwrap(
+        await apiBrowser().POST('/v1/queries/person.get', {
+          body: { workspaceId, personId: item.personId },
+        }),
+      );
+      open({
+        type: 'message',
+        item,
+        message: {
+          channel,
+          person: {
+            id: person.id,
+            fullName: person.fullName,
+            phone: person.phone,
+            phoneE164: person.phoneE164,
+            email: person.email,
+          },
+          body: reply.draft.body,
+          subject: reply.draft.subject,
+        },
+      });
+    }
+
     async function approve(item: AttentionItem) {
       hide([item.id]);
       try {
@@ -241,6 +294,11 @@ export function useItemActions(o: {
           case 'overdue_task':
             if (hasTask(item.subject.id)) return open({ type: 'task', item });
             return router.push(`${base}/tasks`);
+          // Money is handled like the rest: reach the customer, with the follow-up already written. The
+          // document itself is one press away in the ⋯ menu.
+          case 'estimate_waiting':
+          case 'invoice_overdue':
+            return void withBusy(item.id, () => followUp(item));
         }
       },
       call(item) {
@@ -380,10 +438,19 @@ export function handleLook(
       return isDraft(item) ? { label: 'Approve', icon: Check } : { label: 'Review', icon: Check };
     case 'overdue_task':
       return { label: 'Open task', icon: ListChecks };
+    // Money reaches the customer like every other kind: a call while the business is open, otherwise a text
+    // or an email with the follow-up already written.
     case 'estimate_waiting':
-      return { label: 'Follow up', icon: email ? Mail : MessageCircle };
     case 'invoice_overdue':
-      return { label: 'Send reminder', icon: email ? Mail : MessageCircle };
+      if (callsAvailable && item.callable && item.personId)
+        return { label: `Call ${first}`, icon: Phone };
+      if (email) return { label: `Email ${first}`, icon: Mail };
+      if (item.reach === 'sms') return { label: `Text ${first}`, icon: MessageCircle };
+      // Nothing can reach them: the card falls back to the document it is about.
+      return {
+        label: item.kind === 'invoice_overdue' ? 'Open the invoice' : 'Open the estimate',
+        icon: item.kind === 'invoice_overdue' ? Receipt : FileText,
+      };
   }
 }
 

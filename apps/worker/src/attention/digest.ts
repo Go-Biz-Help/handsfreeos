@@ -139,6 +139,7 @@ function summaryFor(
         value: Number(r.valueCents ?? 0),
         valueIsEstimate: r.valueIsEstimate,
         moneyKey: r.moneyKey,
+        leadId: r.leadId,
       })),
     ),
     urgent: urgent.map(listed),

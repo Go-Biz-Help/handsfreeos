@@ -33,6 +33,7 @@ import { ConfirmCard, type ConfirmCardData } from './confirm-card';
 import { AssistantMark } from './mark';
 import { NoticeCard } from './notices';
 import { RichText } from './rich-text';
+import { MoneyCard } from './money-cards';
 import { KnowledgeCard, WorkflowCard } from './workflow-cards';
 
 /** The name of the record on screen ("Mike Johnson", "Texts with Mike Johnson"). */
@@ -232,6 +233,8 @@ function AnswerCardView({
       return <ConfirmCard card={card} onEdit={onEdit} />;
     case 'call':
       return <CallCard card={card} />;
+    case 'money':
+      return <MoneyCard card={card} />;
     case 'slots':
       return <SlotsCard card={card} />;
     case 'appointment':

@@ -1,8 +1,9 @@
 'use client';
-import { addDays, localInstant, type CalendarConfig } from '@hfos/core';
+import { addDays, hasWorkspacePermission, localInstant, type CalendarConfig } from '@hfos/core';
 import {
   CalendarClock,
   Check,
+  FileText,
   Globe,
   Mail,
   MapPin,
@@ -13,6 +14,7 @@ import {
   X,
 } from 'lucide-react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { MessageSheet } from '@/components/inbox/message-sheet';
@@ -21,7 +23,7 @@ import { Badge, type BadgeVariant } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetClose, SheetContent } from '@/components/ui/sheet';
 import { ApiError, apiBrowser, errorMessage, unwrap } from '@/lib/api/client';
-import type { AppointmentDetail } from '@/lib/api/types';
+import type { AppointmentDetail, Role } from '@/lib/api/types';
 import { useCalls } from '@/lib/calls/call-provider';
 import { byLead, reminderKeyOf, reminderLabel, reminderWhy } from '@/lib/calendar/reminders';
 import {
@@ -39,11 +41,12 @@ import {
 import { telHref } from '@/lib/format';
 import { useLiveVersion } from '@/lib/realtime/live-provider';
 import { AddAttendeeDialog } from './add-attendee-dialog';
-import { firstName, statusOf, useNow } from './appt';
+import { firstName, holdOf, statusOf, useNow } from './appt';
 import { CancelDialog } from './cancel-dialog';
 import { calendarConfig } from './config-cache';
 import { MoveDialog } from './move-dialog';
 import { ReassignDialog } from './reassign-dialog';
+import { invoiceThisVisit, useVisitMoney, VisitMoneyBlock } from './visit-money';
 
 const Section = ({
   label,
@@ -212,6 +215,7 @@ export function AppointmentSheet({
   timeZone,
   people,
   myUserId,
+  myRole,
   onClose,
   onChanged,
 }: {
@@ -221,11 +225,14 @@ export function AppointmentSheet({
   people: readonly { userId: string; fullName: string }[];
   /** Who is reading: their own confirmation mark says "Confirmed by you". */
   myUserId?: string;
+  /** What they may do with money: billing a visit is an owner's and an admin's. */
+  myRole?: Role;
   onClose: () => void;
   onChanged?: () => void;
 }) {
   const version = useLiveVersion(['appointment']);
   const now = useNow();
+  const router = useRouter();
   const calls = useCalls();
   const [appt, setAppt] = useState<AppointmentDetail | null>(null);
   const [missing, setMissing] = useState(false);
@@ -268,6 +275,29 @@ export function AppointmentSheet({
     onChanged?.();
   };
 
+  /**
+   * Bill this visit: a draft invoice for the job with the deposit already taken off, then straight into the
+   * editor so nothing goes out before someone has read it.
+   */
+  async function billVisit() {
+    if (!appt || !seat) return;
+    setBusy('invoice');
+    try {
+      const invoiceId = await invoiceThisVisit(
+        workspaceId,
+        appt,
+        seat,
+        money?.deposit ?? null,
+        timeZone,
+      );
+      toast.success('Draft invoice started for this visit.');
+      router.push(`/app/w/${workspaceId}/money/invoices/${invoiceId}`);
+    } catch (e) {
+      toast.error(errorMessage(e));
+      setBusy(null);
+    }
+  }
+
   async function setStatus(status: 'completed' | 'no_show') {
     if (!appt) return;
     setBusy(status);
@@ -308,11 +338,41 @@ export function AppointmentSheet({
     }
   }
 
+  const money = useVisitMoney(workspaceId, appt?.id ?? null);
   const status = appt ? statusOf(appt, now) : null;
   const booked = appt?.attendees.filter((x) => x.status !== 'cancelled') ?? [];
   const single = appt && appt.capacity === 1 && booked.length === 1 ? booked[0]! : null;
   // Confirming is for one-on-one bookings.
   const seat = single;
+  /**
+   * Held while a customer pays its deposit: a real slot nobody has been told is theirs. Everything that
+   * treats this as a booking — asking the customer to confirm it, billing it — waits until it really is one.
+   */
+  const hold = appt ? holdOf(appt, now) : null;
+  /**
+   * Billing is an owner's and an admin's, one customer at a time, once the time is really theirs and nobody
+   * has billed it yet — a second press would raise a second invoice for one visit.
+   */
+  const billable =
+    hasWorkspacePermission(myRole ?? null, 'money.manage') &&
+    !!seat &&
+    !hold &&
+    !!money &&
+    !money.jobInvoice;
+  const invoiceVisitButton = (wide?: boolean) =>
+    billable ? (
+      <Button
+        variant="secondary"
+        size="sm"
+        className={wide ? 'col-span-2 h-11 sm:h-8' : 'h-11 sm:h-8'}
+        loading={busy === 'invoice'}
+        onClick={() => void billVisit()}
+        data-testid="sheet-invoice-visit"
+      >
+        <FileText className="h-3.5 w-3.5" strokeWidth={1.5} />
+        Invoice this visit
+      </Button>
+    ) : null;
   const confirmation: Confirmation | null = seat?.confirmedAt
     ? {
         at: seat.confirmedAt,
@@ -324,8 +384,12 @@ export function AppointmentSheet({
           : null,
       }
     : null;
+  // Not while it is held: nobody has told this customer the time is theirs, so there is nothing to confirm.
   const upcoming =
-    !!appt && appt.status === 'scheduled' && Date.parse(appt.startsAt) > (now ?? Date.now());
+    !!appt &&
+    appt.status === 'scheduled' &&
+    !hold &&
+    Date.parse(appt.startsAt) > (now ?? Date.now());
   const seatFirst = seat ? firstName(seat.fullName) : '';
   /** "Confirmed by text 4:12 PM", "Confirmed online Wed 9:05 AM", "Confirmed by Priya 4:12 PM". */
   const confirmedWords = (c: Confirmation): string => {
@@ -611,6 +675,15 @@ export function AppointmentSheet({
                 </Section>
               ) : null}
 
+              <VisitMoneyBlock
+                workspaceId={workspaceId}
+                appt={appt}
+                hold={hold}
+                found={money}
+                timeZone={timeZone}
+                customerName={seatFirst || 'The customer'}
+              />
+
               {appt.capacity > 1 ? (
                 <Section
                   label="Seats"
@@ -813,6 +886,7 @@ export function AppointmentSheet({
                       <UserX className="h-3.5 w-3.5" strokeWidth={1.5} />
                       No-show
                     </Button>
+                    {invoiceVisitButton()}
                     <span className="hidden sm:block sm:flex-1" />
                     <Button
                       variant="secondary"
@@ -826,17 +900,20 @@ export function AppointmentSheet({
                     </Button>
                   </>
                 ) : appt.status === 'completed' ? (
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    className="col-span-2 h-11 sm:h-8"
-                    loading={busy === 'no_show'}
-                    onClick={() => void setStatus('no_show')}
-                    data-testid="sheet-no-show"
-                  >
-                    <UserX className="h-3.5 w-3.5" strokeWidth={1.5} />
-                    Mark as a no-show instead
-                  </Button>
+                  <>
+                    {invoiceVisitButton(true)}
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      className="col-span-2 h-11 sm:h-8"
+                      loading={busy === 'no_show'}
+                      onClick={() => void setStatus('no_show')}
+                      data-testid="sheet-no-show"
+                    >
+                      <UserX className="h-3.5 w-3.5" strokeWidth={1.5} />
+                      Mark as a no-show instead
+                    </Button>
+                  </>
                 ) : appt.status === 'no_show' ? (
                   <Button
                     variant="secondary"

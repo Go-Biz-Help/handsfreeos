@@ -57,6 +57,7 @@ const post = <T>(path: string, body: unknown) =>
 const seg = encodeURIComponent;
 const estimatePath = (token: string) => `/public/estimate/${seg(token)}`;
 const invoicePath = (token: string) => `/public/invoice/${seg(token)}`;
+const planPath = (token: string) => `/public/plan/${seg(token)}`;
 
 // ---- What a document looks like to the person who was sent it ----
 
@@ -275,3 +276,69 @@ export const markInvoiceViewed = (token: string) =>
 
 export const payInvoice = (token: string, body: PayRequest) =>
   post<PayAnswer>(`${invoicePath(token)}/pay`, body);
+
+// ---- The plan a customer puts a card on ----
+
+/** Where a plan stands, in the customer's own terms: waiting on them, billing, paused, or over. */
+export type PlanStanding = 'waiting' | 'billing' | 'paused' | 'ended';
+
+/** As much of the card as anyone may ever see. Never the number, and never the provider's token. */
+export interface PlanCard {
+  readonly brand: string | null;
+  readonly last4: string | null;
+  readonly expiryMonth: number | null;
+  readonly expiryYear: number | null;
+}
+
+export interface PublicPlanView {
+  readonly standing: PlanStanding;
+  readonly business: PublicBusiness;
+  readonly customer: PublicCustomer;
+  readonly plan: {
+    readonly name: string;
+    readonly priceCents: number;
+    /** "$29 a month", worked out by the worker so every screen says it the same way. */
+    readonly priceLabel: string;
+    readonly interval: string;
+    readonly intervalCount: number;
+    readonly includes: readonly string[];
+    readonly startsOn: string | null;
+    readonly nextBillingOn: string | null;
+  };
+  readonly card: PlanCard | null;
+  readonly save: {
+    readonly canSave: boolean;
+    /** Why a card can't go on it here: the page says so rather than offering a dead button. */
+    readonly reason: 'ended' | 'no_account' | null;
+    readonly session: PaySession | null;
+  };
+}
+
+/** Phase one: what the browser needs to turn a card into a token at the provider. */
+export interface PreparedCard {
+  readonly stage: 'prepared';
+  readonly session: PaySession & {
+    /** The provider's own page, where it serves one; null when its fields run inside this page. */
+    readonly hostedUrl: string | null;
+    readonly returnUrl: string;
+  };
+  readonly plan: PublicPlanView;
+}
+
+/** Phase two: saved, or refused. A decline arrives here with plain words, not as an error. */
+export interface SavedCard {
+  readonly stage: 'saved';
+  readonly status: 'saved' | 'declined';
+  readonly failureCode?: string | null;
+  readonly failureMessage?: string | null;
+  readonly plan: PublicPlanView;
+}
+
+export type PlanCardAnswer = PreparedCard | SavedCard;
+
+export const getPlan = (token: string) => call<PublicPlanView>(planPath(token), PRIVATE);
+
+export const savePlanCard = (
+  token: string,
+  body: { clientId: string; sourceToken?: string | null; website?: string },
+) => post<PlanCardAnswer>(`${planPath(token)}/card`, body);

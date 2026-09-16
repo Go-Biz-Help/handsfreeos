@@ -106,6 +106,8 @@ export const catalogs: CalendarCatalogs = {
   ],
   textingReady: true,
   paymentsAvailable: false,
+  paymentAccounts: [],
+  businessDeposit: { kind: 'percent', percentBp: 2_500 },
 };
 
 export const presetContext: PresetContext = {

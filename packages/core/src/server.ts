@@ -10,6 +10,7 @@ export * from './crm/matching';
 export * from './auth/token';
 export * from './messaging/store';
 export * from './calendar/load';
+export * from './calendar/deposit-load';
 export * from './calendar/booking';
 export * from './calendar/reminders';
 export * from './workflows/load';

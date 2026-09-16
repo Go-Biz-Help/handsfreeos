@@ -65,11 +65,16 @@ type RefundRow = {
   reason: string | null;
   idempotency_key: string | null;
   payment_method: string;
+  /** Where the money it gives back has got to: a bank transfer is days from landing. */
+  payment_status: string;
   provider: string | null;
   provider_payment_id: string | null;
   /** The account the money was taken into, whether or not that connection still exists. */
   external_account_id: string | null;
 };
+
+/** How long a refund waits for a bank transfer to land before asking again. */
+const SETTLING_WAIT_MS = 6 * 60 * 60_000;
 
 /** Writes what the provider said (or that there was no provider to ask). */
 async function record(
@@ -110,8 +115,8 @@ export const runRefund: JobHandler = async (ctx) => {
     rows<RefundRow>(
       tx,
       sql`select rf.id, rf.status::text as status, rf.amount_cents::float8 as amount_cents, rf.reason,
-            rf.idempotency_key, p.method::text as payment_method, p.provider::text as provider,
-            p.provider_payment_id,
+            rf.idempotency_key, p.method::text as payment_method, p.status::text as payment_status,
+            p.provider::text as provider, p.provider_payment_id,
             coalesce(rc.external_account_id, pc.external_account_id) as external_account_id
           from app.refunds rf
           join app.payments p on p.id = rf.payment_id
@@ -133,6 +138,19 @@ export const runRefund: JobHandler = async (ctx) => {
   }
   if (!isPaymentProvider(refund.provider)) return;
   const provider: PaymentProviderName = refund.provider;
+
+  /**
+   * The money hasn't landed yet. A bank transfer takes days, and neither provider will give back what it
+   * hasn't got — so the refund waits rather than being refused. This is what makes a deposit on a time that
+   * went "sent back at once" honest for bank transfers too: it goes the moment the money arrives.
+   */
+  if (refund.payment_status === 'requires_payment' || refund.payment_status === 'processing') {
+    ctx.log.debug(
+      { refundId, paymentStatus: refund.payment_status },
+      'a refund is waiting for the money it gives back to land',
+    );
+    return { rescheduleAt: new Date(ctx.now + SETTLING_WAIT_MS) };
+  }
 
   const found = refund.external_account_id
     ? await accountByExternalId(

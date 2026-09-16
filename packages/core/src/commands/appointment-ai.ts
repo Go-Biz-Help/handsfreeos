@@ -10,6 +10,7 @@ import { appointmentAttendees, appointments } from '@hfos/db/schema';
 import {
   AI_TEAMMATE_SOURCE,
   assertTeammateCalendar,
+  assertTeammateMayBook,
   chatIdentityUnverified,
   requireAiConversation,
 } from '../ai-team/reach';
@@ -108,7 +109,8 @@ export const appointmentBookForCustomer = defineCommand({
   async handler(ctx, input) {
     const ai = aiOf(ctx);
     const ws = ctx.scope.workspaceId!;
-    await assertTeammateCalendar(ctx.tx, ai, input.calendarId);
+    // Its calendars, and never one that asks for a deposit: that is paid on the customer's own page.
+    await assertTeammateMayBook(ctx.tx, ai, input.calendarId, input.serviceId ?? null);
     const { conv, person } = await customerOf(ctx, ai);
     const calendar = await loadCalendar(ctx.tx, ws, input.calendarId);
     assertBookable(calendar);
@@ -207,7 +209,13 @@ export const attendeeRescheduleForCustomer = defineCommand({
   async handler(ctx, input) {
     const ai = aiOf(ctx);
     const booked = await customerBooking(ctx, ai, input.appointmentId);
-    const config = await assertTeammateCalendar(ctx.tx, ai, booked.calendar.id);
+    // A move onto a paying calendar is a booking like any other: it takes a deposit, so it isn't its to make.
+    const config = await assertTeammateMayBook(
+      ctx.tx,
+      ai,
+      booked.calendar.id,
+      booked.appt.serviceId,
+    );
     if (!config.book.reschedule)
       throw HfosError.rule(
         'reschedule_off',

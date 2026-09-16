@@ -779,6 +779,9 @@ export const PaymentOut = z.object({
   receivedAt: isoDateTime.nullable(),
   recordedBy: userOut.nullable(),
   refundedCents: z.number(),
+  /** What the card was, where the provider said so: "Visa", "4242". Never the number, and null for anything else. */
+  cardBrand: z.string().nullable(),
+  cardLast4: z.string().nullable(),
   createdAt: isoDateTime,
 });
 export const RefundOut = z.object({
@@ -875,6 +878,59 @@ export const SubscriptionStartInput = z.object({
   startedOn: localDate.nullable().optional(),
 });
 export const SubscriptionRefInput = z.object({ ...inWorkspace, subscriptionId: uuid });
+/**
+ * Which connected account a plan bills through. Only before it exists at a provider, or after the account it
+ * billed through went away — a plan the provider already holds cannot be moved to another account.
+ */
+export const SubscriptionSetConnectionInput = z.object({
+  ...inWorkspace,
+  subscriptionId: uuid,
+  connectionId: uuid.nullable(),
+});
+/**
+ * Ask the customer for a card. A plan bills at the provider, and neither provider will bill a customer they
+ * have no card for — so a plan starts waiting, the customer gets their own link, and they put one on it.
+ */
+export const SubscriptionRequestCardInput = z.object({
+  ...inWorkspace,
+  subscriptionId: uuid,
+  /** How the link goes out; none means "just give me the link to send myself". */
+  channels: z
+    .array(z.enum(['sms', 'email']))
+    .max(2)
+    .default([]),
+  message: z.string().trim().max(2_000).nullable().default(null),
+});
+export const SubscriptionCardOutput = z.object({
+  subscriptionId: uuid,
+  status: subscriptionStatus,
+  /** Set while it waits on them; null the moment a card lands. */
+  cardRequestedAt: isoDateTime.nullable(),
+  hasCard: z.boolean(),
+  changed: z.boolean(),
+});
+
+/** Worker: the customer put a card on their plan, and this is what the provider handed back. */
+export const SubscriptionRecordCardInput = z.object({
+  ...inWorkspace,
+  subscriptionId: uuid,
+  provider: paymentProvider,
+  connectionId: uuid.nullable().default(null),
+  /** The provider's customer, so the plan is created against the same one the card is on. */
+  customerRef: z.string().trim().min(1).max(200),
+  /** The provider's token for the card. Never a number. */
+  methodToken: z.string().trim().min(1).max(4_000),
+  cardBrand: z.string().trim().min(1).max(40).nullable().default(null),
+  cardLast4: z
+    .string()
+    .trim()
+    .regex(/^\d{4}$/, 'Four digits.')
+    .nullable()
+    .default(null),
+  cardExpiryMonth: z.int().min(1).max(12).nullable().default(null),
+  cardExpiryYear: z.int().min(2000).max(2100).nullable().default(null),
+});
+
 export const SubscriptionCancelInput = z.object({
   ...inWorkspace,
   subscriptionId: uuid,
@@ -892,6 +948,8 @@ export const SubscriptionRecordCycleInput = z.object({
   ...inWorkspace,
   subscriptionId: uuid,
   outcome: z.enum(['activated', 'billed', 'failed', 'ended', 'unmanaged']),
+  /** Which provider is holding the plan, once one does. Set with the first answer and never changed after. */
+  provider: paymentProvider.nullable().default(null),
   externalSubscriptionId: providerId.nullable().default(null),
   /** The invoice the cycle raised, when it raised one. */
   invoiceId: uuid.nullable().default(null),
@@ -917,6 +975,16 @@ export const SubscriptionOut = z.object({
   leadId: uuid.nullable(),
   connectionId: uuid.nullable(),
   provider: paymentProvider.nullable(),
+  /** The provider's own id for the plan ("sub_1P4kR2"), which is what it is called at their end. Not a secret. */
+  externalSubscriptionId: z.string().nullable(),
+  /** The card the provider bills, as much of it as anyone may ever see. Never the number, and never the token. */
+  hasCard: z.boolean(),
+  cardBrand: z.string().nullable(),
+  cardLast4: z.string().nullable(),
+  cardExpiryMonth: z.int().nullable(),
+  cardExpiryYear: z.int().nullable(),
+  /** Set while the plan is waiting on the customer to put a card on it. */
+  cardRequestedAt: isoDateTime.nullable(),
   startedOn: localDate.nullable(),
   currentPeriodStart: localDate.nullable(),
   currentPeriodEnd: localDate.nullable(),

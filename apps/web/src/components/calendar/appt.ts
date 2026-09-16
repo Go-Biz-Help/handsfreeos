@@ -1,6 +1,7 @@
 import { useSyncExternalStore } from 'react';
 import type { BadgeVariant } from '@/components/ui/badge';
 import type { Appointment } from '@/lib/api/types';
+import { fmtTime } from '@/lib/calendar/time';
 
 /** Customers still on an appointment (not cancelled off it). */
 export const customersOf = (a: Pick<Appointment, 'attendees'>) =>
@@ -39,13 +40,55 @@ export function areaOf(address: string | null | undefined): string | null {
   return parts[parts.length - 1] ?? null;
 }
 
+/**
+ * A time only **held** while a customer pays the deposit that books it.
+ *
+ * It is a real appointment on a real slot, so it looks like a booking to anyone reading the calendar — but
+ * nobody has told the customer it is theirs, and if the deposit doesn't land it gives itself back within
+ * fifteen minutes. So every screen that shows one has to say so, or somebody rings to confirm a visit that
+ * isn't booked, or works around a slot that is about to free itself.
+ */
+export interface Hold {
+  /** When the hold runs out, as an instant. */
+  readonly until: number;
+  /** Whole minutes left, never below zero. */
+  readonly minutesLeft: number;
+  /** It ran out and the time hasn't been given back yet: treat it as gone, not as booked. */
+  readonly over: boolean;
+}
+
+export function holdOf(
+  a: Pick<Appointment, 'status'> & { heldUntil?: string | null },
+  now: number | null,
+): Hold | null {
+  // Only a live booking can be held: once it is cancelled or done, the hold is history.
+  if (!a.heldUntil || a.status !== 'scheduled') return null;
+  const until = Date.parse(a.heldUntil);
+  if (Number.isNaN(until)) return null;
+  const left = until - (now ?? Date.now());
+  return { until, minutesLeft: Math.max(0, Math.ceil(left / 60_000)), over: left <= 0 };
+}
+
+/**
+ * What a held time is, in words anybody can act on: it isn't booked, it's waiting on money, and here is when
+ * it goes. Deliberately never says "hold" on its own — nobody has to know what one is.
+ */
+export function holdWords(h: Hold, timeZone: string): string {
+  if (h.over) return 'Waiting on a deposit. The time is up, so this slot is going back.';
+  const left =
+    h.minutesLeft <= 1 ? 'under a minute left' : `${h.minutesLeft} minutes left to pay it`;
+  return `Waiting on a deposit. Held until ${fmtTime(h.until, timeZone)} · ${left}.`;
+}
+
 export function statusOf(
-  a: Pick<Appointment, 'status' | 'startsAt' | 'endsAt'>,
+  a: Pick<Appointment, 'status' | 'startsAt' | 'endsAt'> & { heldUntil?: string | null },
   now: number | null,
 ): { label: string; variant: BadgeVariant } {
   if (a.status === 'cancelled') return { label: 'Cancelled', variant: 'danger' };
   if (a.status === 'completed') return { label: 'Completed', variant: 'ok' };
   if (a.status === 'no_show') return { label: 'No-show', variant: 'gray' };
+  // Ahead of "Happening now": a time nobody has paid for isn't happening, whatever the clock says.
+  if (holdOf(a, now)) return { label: 'Not booked yet', variant: 'pending' };
   if (now !== null && Date.parse(a.startsAt) <= now && Date.parse(a.endsAt) > now)
     return { label: 'Happening now', variant: 'pending' };
   return { label: 'Scheduled', variant: 'accent' };

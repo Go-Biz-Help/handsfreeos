@@ -21,6 +21,7 @@ import {
   attendeeCancelOnline,
   attendeeRescheduleOnline,
 } from './appointment-online';
+import { bookingConfirmDeposit, bookingReleaseHold } from './booking-deposit';
 import { waitlistJoinOnline } from './waitlist-online';
 import { attendeeRecordReminder } from './reminder';
 import {
@@ -391,6 +392,8 @@ export {
   appointmentBookOnline,
   attendeeRescheduleOnline,
   attendeeCancelOnline,
+  bookingConfirmDeposit,
+  bookingReleaseHold,
   waitlistJoinOnline,
 };
 export { hashInvitationToken } from './invitation.accept';
@@ -532,6 +535,8 @@ export const commands: readonly CommandDef[] = [
   appointmentBookOnline,
   attendeeRescheduleOnline,
   attendeeCancelOnline,
+  bookingConfirmDeposit,
+  bookingReleaseHold,
   waitlistJoinOnline,
   ...calendarConnectionCommands,
   attendeeRecordReminder,
@@ -641,6 +646,7 @@ export const commands: readonly CommandDef[] = [
 export { callPreview } from './call';
 export { attendeeFromPerson } from './appointment';
 export { validateIntake } from './appointment-online';
+export { DEPOSIT_HOLD_JOB, depositHoldKey, holdState } from './appointment-online';
 export * from './calendar-connection';
 export * from './reminder';
 export * from './waitlist-offer';

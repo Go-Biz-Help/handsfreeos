@@ -18,7 +18,12 @@ import {
   visibleTo,
   type AttentionViewer,
 } from '../attention/items';
-import { autoActionOf, letHandleModeOf, type AttentionKind } from '../attention/kinds';
+import {
+  autoActionOf,
+  letHandleModeOf,
+  letHandleRefusal,
+  type AttentionKind,
+} from '../attention/kinds';
 import {
   DONE_RESOLUTIONS,
   loadAttentionContext,
@@ -143,6 +148,7 @@ export const attentionList = defineQuery({
           value: Number(r.valueCents ?? 0),
           valueIsEstimate: r.valueIsEstimate,
           moneyKey: r.moneyKey,
+          leadId: r.leadId,
         })),
       ),
       counts: {
@@ -256,17 +262,14 @@ export const attentionPreviewHandle = defineQuery({
     const mode = letHandleModeOf(kind, chipsOf(row));
     const base = { itemId: row.id, kind, mode, auto: null, options: [], reason: null };
     if (mode === 'none')
-      return {
-        ...base,
-        reason:
-          kind === 'ai_approval'
-            ? 'Approvals always wait for a person to decide.'
-            : 'This is a to-do for someone on the team.',
-      };
+      return { ...base, reason: letHandleRefusal(kind) ?? 'A person takes care of this one.' };
     const now = new Date();
     const actx = await loadAttentionContext(ctx.tx, ctx.scope.workspaceId!, now);
     if (mode === 'auto') return { ...base, auto: await planAutoAction(ctx.tx, actx, row, now) };
-    return { ...base, options: await askOptions(ctx.tx, actx, row, now) };
+    // A money follow-up is signed by whoever is reading it: "Hi Robert, it's Dale at Lone Star".
+    const me = requireHuman(ctx).userId;
+    const sender = (await userNames(ctx.tx, [me])).get(me)?.trim().split(/\s+/)[0] ?? null;
+    return { ...base, options: await askOptions(ctx.tx, actx, row, now, sender) };
   },
 });
 

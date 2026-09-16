@@ -42,7 +42,10 @@ const reminder = (r: Reminder) =>
     : `${formatDuration(r.minutes)} before`;
 
 type Names = Partial<
-  Pick<CalendarCatalogs, 'team' | 'services' | 'resources' | 'territories' | 'pipelines'>
+  Pick<
+    CalendarCatalogs,
+    'team' | 'services' | 'resources' | 'territories' | 'pipelines' | 'paymentAccounts'
+  >
 >;
 
 export function diffConfigs(a: CalendarConfig, b: CalendarConfig, catalogs?: Names): string[] {
@@ -216,6 +219,18 @@ export function diffConfigs(a: CalendarConfig, b: CalendarConfig, catalogs?: Nam
     return p && s ? `${p.name} · ${s.name}` : 'on';
   });
   change('Payment', a.payments.mode, b.payments.mode, (v) => PAYMENTS[v]);
+  change('Deposit', a.payments.deposit, b.payments.deposit, (v) =>
+    !v
+      ? 'what the business asks for'
+      : v.kind === 'percent'
+        ? `${(v.percentBp ?? 0) / 100}% of the price`
+        : `$${((v.amountCents ?? 0) / 100).toFixed(2)}`,
+  );
+  change('Paid into', a.payments.connectionId, b.payments.connectionId, (v) => {
+    if (!v) return 'the business’s account';
+    const account = catalogs?.paymentAccounts?.find((x) => x.id === v);
+    return account ? account.name || account.provider : 'another account';
+  });
   change('Workflows', a.automations.workflowIds.length, b.automations.workflowIds.length);
   if (
     a.automations.workflowIds.length === b.automations.workflowIds.length &&

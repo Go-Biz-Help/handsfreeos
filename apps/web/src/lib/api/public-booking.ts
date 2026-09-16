@@ -90,6 +90,18 @@ export interface BookingInfo {
     readonly dateTo: string | null;
   };
   readonly confirmation: { readonly text: boolean; readonly email: boolean };
+  /**
+   * What this calendar asks for before it will hold a time. Null when it asks for nothing, so the booking
+   * page can say what is due before anyone types their details.
+   */
+  readonly payment: {
+    readonly mode: 'deposit' | 'full';
+    readonly amountCents: number;
+    readonly priceCents: number;
+    readonly dueAfterCents: number;
+    /** False when no connected account could take it. */
+    readonly canPay: boolean;
+  } | null;
   /** Present when the worker checks for bots; its site key, or null to use this app's own. */
   readonly botCheck: { readonly siteKey: string | null } | null;
 }
@@ -174,6 +186,101 @@ export interface Booked {
   };
   readonly joined: boolean;
   readonly duplicate: boolean;
+}
+
+/** How a customer may pay a deposit. Bank transfer leads: it is the cheap rail. */
+export type PayMethod = 'ach' | 'card';
+
+/** What the account behind a deposit can take, and the public keys the browser needs. Never a secret. */
+export interface HoldPaySession {
+  readonly provider: string;
+  readonly flow: 'client_confirm' | 'server_charge';
+  readonly publishableKey: string;
+  readonly accountId: string;
+  readonly locationId: string | null;
+}
+
+/**
+ * A time held while a deposit is paid. `state` is the whole story: 'held' while they pay, 'booked' once the
+ * deposit is in hand, 'gone' if the time went — and then nothing was charged, because a card is only ever held.
+ */
+export interface Held {
+  readonly state: 'held' | 'booked' | 'gone';
+  readonly business: PublicBusiness;
+  readonly calendar: { readonly name: string; readonly bookingPath: string | null };
+  readonly appointment: PublicAppointment;
+  readonly deposit: {
+    /** 'deposit': part now, the rest on the invoice for the job. 'full': the whole price now. */
+    readonly mode: 'deposit' | 'full';
+    readonly what: string;
+    readonly amountCents: number;
+    readonly priceCents: number;
+    readonly dueAfterCents: number;
+    readonly paidCents: number;
+    readonly number: string | null;
+    readonly method: string | null;
+    readonly cardBrand: string | null;
+    readonly cardLast4: string | null;
+    readonly receivedAt: string | null;
+  };
+  readonly pay: {
+    readonly canPay: boolean;
+    readonly reason: 'gone' | 'paid' | 'no_account' | null;
+    readonly methods: readonly PayMethod[];
+    readonly session: HoldPaySession | null;
+  };
+  readonly holdToken: string;
+  readonly expiresAt: string | null;
+  readonly holdMinutes: number;
+  /** Filled once the deposit is paid: the booking, exactly as a booking without one answers. */
+  readonly booked: Booked | null;
+}
+
+export interface DepositPayRequest {
+  /** One per press, kept across the trip to the provider: a retry is answered, never charged again. */
+  readonly clientId: string;
+  readonly method?: PayMethod;
+  readonly providerPaymentId?: string;
+  readonly sourceToken?: string;
+  readonly website?: string;
+}
+
+export interface PreparedPay {
+  readonly stage: 'prepared';
+  readonly payment: {
+    readonly status: 'requires_payment';
+    readonly amountCents: number;
+    readonly method: PayMethod;
+    readonly flow: 'client_confirm' | 'server_charge';
+    readonly publishableKey: string;
+    readonly accountId: string;
+    readonly locationId: string | null;
+    readonly clientSecret: string | null;
+    readonly providerPaymentId: string | null;
+    /** The stand-in's own page; null with the real providers, which run in the browser. */
+    readonly hostedUrl: string | null;
+    readonly returnUrl: string;
+  };
+  readonly hold: Held;
+}
+
+export interface RecordedPay {
+  readonly stage: 'recorded';
+  /** Set only when the time went while they were paying. */
+  readonly state?: 'gone';
+  readonly payment?: {
+    readonly status: string;
+    readonly amountCents: number;
+    readonly method: PayMethod;
+    readonly failureCode: string | null;
+    readonly failureMessage: string | null;
+    /** On a lost time: nothing was taken, and whether a bank transfer had to be sent back. */
+    readonly charged?: boolean;
+    readonly refunded?: boolean;
+  };
+  readonly hold: Held;
+  /** Other times to pick from, when this one went. */
+  readonly times?: readonly PublicSlot[];
 }
 
 /** How a booking was confirmed: a text (C, or YES while asked), the Confirm button, staff, or the AI teammate. */
@@ -282,6 +389,7 @@ const post = <T>(path: string, body: unknown, init: RequestInit = FRESH) =>
 const seg = encodeURIComponent;
 const bookPath = (site: string, calendar: string) => `/public/book/${seg(site)}/${seg(calendar)}`;
 const managePath = (token: string) => `/public/manage/${seg(token)}`;
+const holdPath = (token: string) => `/public/hold/${seg(token)}`;
 
 /** A page's data, or the 404 page when the worker says there's no such page. */
 export async function pageData<T>(p: Promise<T>): Promise<T> {
@@ -322,8 +430,20 @@ export function getOpenTimes(
   return call<OpenTimes>(`${bookPath(site, calendar)}/slots?${params}`, FRESH);
 }
 
+/**
+ * Booking a calendar that asks for money answers with a **hold**, not a booking: the time is taken for a few
+ * minutes while the customer pays, and nobody is told anything until the deposit is in hand.
+ */
 export const bookOnline = (site: string, calendar: string, body: BookingRequest) =>
-  post<Booked>(`${bookPath(site, calendar)}/bookings`, body);
+  post<Booked | Held>(`${bookPath(site, calendar)}/bookings`, body);
+
+export const isHeld = (answer: Booked | Held): answer is Held =>
+  typeof (answer as Held).holdToken === 'string';
+
+export const getHold = (token: string) => call<Held>(holdPath(token), PRIVATE);
+
+export const payDeposit = (token: string, body: DepositPayRequest) =>
+  post<PreparedPay | RecordedPay>(`${holdPath(token)}/pay`, body, PRIVATE);
 
 export const joinWaitlist = (site: string, calendar: string, body: WaitlistRequest) =>
   post<{ position: number; alreadyWaiting: boolean }>(`${bookPath(site, calendar)}/waitlist`, body);

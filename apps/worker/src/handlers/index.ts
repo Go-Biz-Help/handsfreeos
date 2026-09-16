@@ -42,6 +42,7 @@ import {
   onSubscriptionLive,
 } from '../money/jobs';
 import { onRefundRequested } from '../money/refunds';
+import { onPlanCardRequested, onPlanChanged } from '../money/subscriptions';
 import { onPaymentConnectionConnected, onPaymentConnectionDisconnected } from './payments';
 import {
   onConversationLinked,
@@ -106,8 +107,16 @@ const ownTeammateAndWorkflows: HandlerMap = withWorkflows(
     'payment.failed': [onPaymentFailed, onInvoiceChanged],
     'refund.recorded': onInvoiceChanged,
     'invoice.paid': onInvoicePaid,
-    'subscription.started': onSubscriptionLive,
-    'subscription.resumed': onSubscriptionLive,
+    // A plan: the provider is made to match what it says here (money/subscriptions.ts), and the cycle job
+    // watches it from then on.
+    'subscription.started': [onPlanChanged, onSubscriptionLive],
+    'subscription.resumed': [onPlanChanged, onSubscriptionLive],
+    'subscription.paused': onPlanChanged,
+    'subscription.cancelled': onPlanChanged,
+    'subscription.connection_changed': [onPlanChanged, onSubscriptionLive],
+    // The customer was asked for a card, and then put one on: the link goes out, and the plan goes live.
+    'subscription.card_requested': onPlanCardRequested,
+    'subscription.card_saved': [onPlanChanged, onSubscriptionLive],
     // Appointments follow into people's own calendars (write-through) first; then the reminders, what the
     // customer hears and the team's email (handlers/appointment-messages.ts).
     'appointment.booked': [

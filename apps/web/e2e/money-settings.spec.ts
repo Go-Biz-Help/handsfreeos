@@ -326,7 +326,22 @@ test('Settings → Products: an item added, changed, archived and put back', asy
 test('The calendar’s Payments module: off without an account, on with one', async ({ page }) => {
   test.setTimeout(180_000);
   const owner = await ownerWithSite(page, 'money-deposit-module', 'Lone Star Deposits HVAC');
-  const calendar = await makeCalendar(owner, 'Duct cleaning');
+  // A priced service to be a percentage of: a calendar that asks for a share of nothing is its own conflict
+  // (payment_without_price), which is the deposit step's rule and has its own test.
+  const { serviceId } = await api<{ serviceId: string }>(
+    owner.token,
+    'commands',
+    'service.create',
+    {
+      workspaceId: owner.workspaceId,
+      name: 'Duct cleaning',
+      durations: [60],
+      priceCents: 45_000,
+    },
+  );
+  const calendar = await makeCalendar(owner, 'Duct cleaning', {
+    services: { mode: 'one', items: [{ serviceId }] },
+  });
 
   // Nothing is connected yet, so asking for a deposit is a conflict with a way out of it.
   await page.goto(`/app/w/${owner.workspaceId}/settings/calendars/${calendar.id}`);

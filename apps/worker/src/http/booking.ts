@@ -19,11 +19,13 @@ import {
   bookableDurations,
   calendarAvailability,
   computeSlots,
+  DEPOSIT_HOLD_MINUTES,
   executeCommand,
   executeQuery,
   findBookingByClientId,
   formatPhone,
   HfosError,
+  holdState,
   IntakeAnswers,
   loadCalendar,
   loadCatalogService,
@@ -60,9 +62,23 @@ import {
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { passThroughBotCheck, type BotCheck } from '../booking/bot-check';
+import {
+  cannotTakePayment,
+  confirmAndCapture,
+  depositPlan,
+  holdLost,
+  invoiceForHold,
+  raiseDepositInvoice,
+  recordDepositPayment,
+  refused,
+  undoOnLostSlot,
+  type DepositPayContext,
+} from '../booking/deposit';
 import { icsCalendar, icsSequence } from '../booking/ics';
 import { manageToken, resolveManageToken, resolveWaitlistToken } from '../booking/links';
 import { oneOnOne } from '../booking/visit';
+import { accountFor } from '../payments/index';
+import { declineWording, type PaymentMethodKind, type PaymentResult } from '../payments/provider';
 import { systemActor, type TenantScope } from '../services';
 import { parseBody, type HttpDeps } from './common';
 
@@ -87,14 +103,20 @@ export interface BookingLimits {
   readonly manageRead: RateRule;
   /** Rescheduling and cancelling. */
   readonly manageWrite: RateRule;
+  /** Paying the deposit that holds a time. */
+  readonly pay: RateRule;
 }
 
-/** Per address: reads 60 a minute, bookings 5 per 10 minutes, change-or-cancel 30 and 10 a minute. */
+/**
+ * Per address: reads 60 a minute, bookings 5 per 10 minutes, change-or-cancel 30 and 10 a minute, and
+ * deposits 8 per 10 minutes — the customer's money pages' figure, for the same reason.
+ */
 export const BOOKING_LIMITS: BookingLimits = {
   read: { max: 60, timeWindow: MIN },
   book: { max: 5, timeWindow: 10 * MIN },
   manageRead: { max: 30, timeWindow: MIN },
   manageWrite: { max: 10, timeWindow: MIN },
+  pay: { max: 8, timeWindow: 10 * MIN },
 };
 
 export interface BookingHttpOptions {
@@ -114,6 +136,7 @@ function limitsFor(opts: BookingHttpOptions): BookingLimits {
     book: opts.limits?.book ?? scaled(BOOKING_LIMITS.book),
     manageRead: opts.limits?.manageRead ?? scaled(BOOKING_LIMITS.manageRead),
     manageWrite: opts.limits?.manageWrite ?? scaled(BOOKING_LIMITS.manageWrite),
+    pay: opts.limits?.pay ?? opts.limits?.manageWrite ?? scaled(BOOKING_LIMITS.pay),
   };
 }
 
@@ -248,6 +271,46 @@ function whereText(location: unknown): string | null {
   if (l.kind === 'virtual') return l.meetingUrl ? `Online: ${l.meetingUrl}` : 'Online';
   if (l.kind === 'phone') return 'By phone';
   return null;
+}
+
+/** "Thursday, September 24 at 9:00 AM", for the deposit line on the invoice. */
+export function whenText(startsAt: string, timeZone: string): string {
+  const at = new Date(startsAt);
+  try {
+    const day = new Intl.DateTimeFormat('en-US', {
+      timeZone,
+      weekday: 'long',
+      month: 'long',
+      day: 'numeric',
+    }).format(at);
+    const clock = new Intl.DateTimeFormat('en-US', {
+      timeZone,
+      hour: 'numeric',
+      minute: '2-digit',
+    }).format(at);
+    return `${day} at ${clock}`;
+  } catch {
+    return at.toISOString();
+  }
+}
+
+/** What has landed against a deposit invoice: only what a customer's own page may be told. */
+async function depositPayments(tx: Tx, invoiceId: string) {
+  return rows<{
+    status: string;
+    method: string;
+    amount_cents: number;
+    card_brand: string | null;
+    card_last4: string | null;
+    received_at: Date | string | null;
+  }>(
+    tx,
+    sql`select status::text as status, method::text as method, amount_cents::float8 as amount_cents,
+          card_brand, card_last4, received_at
+        from app.payments
+        where invoice_id = ${invoiceId} and status in ('processing', 'succeeded')
+        order by created_at desc, id`,
+  );
 }
 
 // ---- Reads ----
@@ -407,7 +470,7 @@ async function fullSessions(
 }
 
 /** What the page needs to run the booking steps for one open calendar. */
-async function bookingInfo(tx: Tx, calendar: LoadedCalendar, botCheck: BotCheck) {
+async function bookingInfo(deps: HttpDeps, tx: Tx, calendar: LoadedCalendar, botCheck: BotCheck) {
   const { config } = calendar;
   const ws = calendar.workspaceId;
   const memberIds = config.team.members.map((m) => m.userId);
@@ -484,8 +547,31 @@ async function bookingInfo(tx: Tx, calendar: LoadedCalendar, botCheck: BotCheck)
       dateTo: config.window.dateTo,
     },
     confirmation: config.notifications.confirmation,
+    /**
+     * What this calendar asks for before it will hold a time, so the page can say so before anyone types
+     * their details and count the pay step into "Step 3 of 4". Null when it asks for nothing.
+     */
+    payment: await paymentInfo(deps, tx, calendar),
     botCheck: botCheck.enabled ? { siteKey: botCheck.siteKey } : null,
   };
+}
+
+/** The deposit this calendar asks for, on its cheapest service, in the words the page shows. */
+async function paymentInfo(deps: HttpDeps, tx: Tx, calendar: LoadedCalendar) {
+  const plan = await depositPlan(deps, tx, calendar.workspaceId, calendar.config, {
+    serviceId: null,
+    calendarName: calendar.name,
+  });
+  return plan
+    ? {
+        mode: plan.charge.mode,
+        amountCents: plan.charge.amountCents,
+        priceCents: plan.charge.priceCents,
+        dueAfterCents: plan.charge.dueAfterCents,
+        /** False when no connected account could take it: the page says so rather than taking details. */
+        canPay: !!plan.account,
+      }
+    : null;
 }
 
 // ---- Request bodies ----
@@ -499,6 +585,21 @@ const customerFields = {
   website: z.string().max(500).optional(),
   turnstileToken: z.string().max(2048).optional(),
 };
+
+/**
+ * Paying the deposit that holds a time. One route, two phases, exactly as the invoice page's is: nothing but
+ * a `clientId` asks for a session, and naming what the provider did takes the money.
+ */
+const DepositPayBody = z.object({
+  /** One per press, kept across the trip to the provider: a retry is answered, never charged again. */
+  clientId: z.string().trim().min(8).max(64),
+  method: z.enum(['card', 'ach']).default('card'),
+  /** Stripe, after the browser confirmed: the intent to read back. */
+  providerPaymentId: z.string().trim().max(200).optional(),
+  /** Square: the one-time token the browser made from the card. */
+  sourceToken: z.string().trim().max(2048).optional(),
+  website: z.string().max(500).optional(),
+});
 
 const BookingBody = z.object({
   /** One per Book tap on the page: a retried or doubled submit books once. */
@@ -729,6 +830,148 @@ export async function registerBookingRoutes(app: FastifyInstance, deps: HttpDeps
     });
   }
 
+  /** "You're booked", as both the booking route and a paid deposit answer with it. */
+  async function bookedPayload(
+    scope: TenantScope,
+    attendeeId: string,
+    extra: { joined: boolean; duplicate: boolean },
+  ) {
+    const view = await manageView(scope, attendeeId);
+    return worker(scope, async (tx) => {
+      const [att] = await tx
+        .select({
+          smsOk: appointmentAttendees.smsOk,
+          email: appointmentAttendees.contactEmail,
+          phone: appointmentAttendees.contactPhoneE164,
+        })
+        .from(appointmentAttendees)
+        .where(eq(appointmentAttendees.id, attendeeId));
+      return {
+        booking: view.appointment,
+        manageToken: view.manageToken,
+        manageUrl: view.manageUrl,
+        policies: view.policies,
+        contact: {
+          email: att?.email ?? null,
+          phoneDisplay: att?.phone ? formatPhone(att.phone) : null,
+          texts: !!att?.smsOk,
+        },
+        joined: extra.joined,
+        duplicate: extra.duplicate,
+      };
+    });
+  }
+
+  /**
+   * A held time as the pay step sees it: the visit, what is due now and what is left for after, and the public
+   * keys the browser needs. `state` is the whole story — 'held' while they pay, 'booked' once the deposit is
+   * in hand, 'gone' when the time went (and then nothing was charged, because a card was only ever held).
+   */
+  async function holdView(scope: TenantScope, attendeeId: string) {
+    const view = await worker(scope, async (tx) => {
+      const b = await loadBooked(tx, attendeeId);
+      if (!b) throw linkNotFound();
+      const calendar = await loadCalendar(tx, scope.workspaceId, b.p.calendarId);
+      const [site] = await tx
+        .select()
+        .from(bookingSites)
+        .where(eq(bookingSites.workspaceId, scope.workspaceId));
+      const invoice = await invoiceForHold(tx, scope.workspaceId, attendeeId);
+      const plan = await depositPlan(deps, tx, scope.workspaceId, calendar.config, {
+        serviceId: b.p.serviceId,
+        calendarName: calendar.name,
+      });
+      const hold = await holdState(tx, attendeeId);
+      const gone = b.a.status !== 'booked' || b.p.status !== 'scheduled';
+      const paid = invoice ? await depositPayments(tx, invoice.id) : [];
+      const landed = paid.find((p) => p.status === 'succeeded') ?? paid[0] ?? null;
+      const state = gone
+        ? ('gone' as const)
+        : invoice && invoice.status !== 'draft'
+          ? ('booked' as const)
+          : ('held' as const);
+      const bookable = calendar.status === 'active' && calendar.config.public && !!site?.enabled;
+      const account = plan?.account ?? null;
+      const amountCents = invoice?.amountCents ?? plan?.charge.amountCents ?? 0;
+      return {
+        state,
+        business: await businessIn(tx, scope.workspaceId, site?.name ?? null),
+        calendar: {
+          name: calendar.name,
+          bookingPath: bookable && site ? `/book/${site.slug}/${calendar.slug}` : null,
+        },
+        appointment: await publicAppointment(tx, b, calendar.timeZone),
+        deposit: {
+          /** 'deposit': part now, the rest on the invoice for the job. 'full': the whole price now. */
+          mode: plan?.charge.mode ?? 'deposit',
+          what: plan?.what ?? calendar.name,
+          amountCents,
+          priceCents: plan?.charge.priceCents ?? 0,
+          dueAfterCents: Math.max(0, (plan?.charge.priceCents ?? 0) - amountCents),
+          paidCents: invoice?.paidCents ?? 0,
+          number: invoice?.number ?? null,
+          method: landed?.method ?? null,
+          cardBrand: landed?.card_brand ?? null,
+          cardLast4: landed?.card_last4 ?? null,
+          receivedAt: landed?.received_at ? new Date(landed.received_at).toISOString() : null,
+        },
+        pay: {
+          canPay: state === 'held' && !!account,
+          /** Why not, when it can't be paid here: the page says so rather than offering a dead button. */
+          reason:
+            state === 'gone' ? 'gone' : state === 'booked' ? 'paid' : account ? null : 'no_account',
+          methods: account?.methods ?? [],
+          /** Public keys only: never a secret key, and never Square's access token. */
+          session: account?.session ?? null,
+        },
+        holdToken: manageToken(links, {
+          publicRef: b.a.publicRef,
+          attendeeId: b.a.id,
+          manageVersion: b.a.manageVersion,
+        }),
+        expiresAt: hold.expiresAt,
+        holdMinutes: DEPOSIT_HOLD_MINUTES,
+      };
+    });
+    return view.state === 'booked'
+      ? {
+          ...view,
+          booked: await bookedPayload(scope, attendeeId, { joined: false, duplicate: false }),
+        }
+      : { ...view, booked: null };
+  }
+
+  /** "Other times this week", for a customer whose time went while they were paying. */
+  async function openTimesNear(scope: TenantScope, attendeeId: string): Promise<PublicSlot[]> {
+    return worker(scope, async (tx) => {
+      const b = await loadBooked(tx, attendeeId);
+      if (!b) return [];
+      const calendar = await loadCalendar(tx, scope.workspaceId, b.p.calendarId);
+      if (calendar.status !== 'active' || !calendar.config.public) return [];
+      const minutes = Math.round((b.p.endsAt.getTime() - b.p.startsAt.getTime()) / MIN);
+      const location = (b.p.location ?? {}) as StoredLocation;
+      const service = b.p.serviceId
+        ? await loadCatalogService(tx, scope.workspaceId, b.p.serviceId)
+        : null;
+      const loaded = await loadSlotInput(
+        tx,
+        calendar,
+        {
+          from: Date.now(),
+          to: Date.now() + 7 * DAY,
+          serviceId: service?.id ?? null,
+          durationMinutes: calendar.config.schedule.mode === 'sessions' ? undefined : minutes,
+          partySize: b.a.seats,
+          locationKind: (location.kind ?? null) as LocationKind | null,
+          postalCode: location.postalCode ?? null,
+        },
+        { service },
+      );
+      const slots = computeSlots(loaded.input).map(slotOut).slice(0, 6);
+      return publicSlots(tx, calendar.config, slots);
+    });
+  }
+
   /** Checks a waitlist offer's link: 404 when it isn't one. */
   async function offerLink(token: string) {
     const r = await resolveWaitlistToken(deps.httpDb, links, token);
@@ -881,7 +1124,7 @@ export async function registerBookingRoutes(app: FastifyInstance, deps: HttpDeps
               name: calendar.name,
               description: calendar.description,
             },
-            booking: open ? await bookingInfo(tx, calendar, botCheck) : null,
+            booking: open ? await bookingInfo(deps, tx, calendar, botCheck) : null,
           };
         });
       },
@@ -950,12 +1193,25 @@ export async function registerBookingRoutes(app: FastifyInstance, deps: HttpDeps
             'Please confirm you’re a person, then try again.',
           );
         const { scope, calendar } = await openCalendar(req.params.site, req.params.calendar);
+        /**
+         * What this calendar asks for before it will hold the time. With a figure to ask for, the booking is
+         * **held** rather than confirmed and nobody is told anything until the deposit is in hand. A calendar
+         * that asks for payment with no account that can take it refuses here, in plain words.
+         */
+        const plan = await worker(scope, (tx) =>
+          depositPlan(deps, tx, scope.workspaceId, calendar.config, {
+            serviceId: body.serviceId ?? null,
+            calendarName: calendar.name,
+          }),
+        );
+        if (plan && !plan.account) throw cannotTakePayment();
         const { output } = await executeCommand(
           deps.httpDb,
           appointmentBookOnline,
           {
             workspaceId: scope.workspaceId,
             calendarId: calendar.id,
+            hold: !!plan,
             startsAt: body.startsAt,
             sessionId: body.sessionId ?? null,
             serviceId: body.serviceId ?? null,
@@ -977,29 +1233,24 @@ export async function registerBookingRoutes(app: FastifyInstance, deps: HttpDeps
           systemActor(scope),
           meta(),
         ).catch(publicPaths);
-        const view = await manageView(scope, output.attendeeId);
-        return worker(scope, async (tx) => {
-          const [att] = await tx
-            .select({
-              smsOk: appointmentAttendees.smsOk,
-              email: appointmentAttendees.contactEmail,
-              phone: appointmentAttendees.contactPhoneE164,
-            })
-            .from(appointmentAttendees)
-            .where(eq(appointmentAttendees.id, output.attendeeId));
-          return {
-            booking: view.appointment,
-            manageToken: view.manageToken,
-            manageUrl: view.manageUrl,
-            policies: view.policies,
-            contact: {
-              email: att?.email ?? null,
-              phoneDisplay: att?.phone ? formatPhone(att.phone) : null,
-              texts: !!att?.smsOk,
-            },
-            joined: output.joined,
-            duplicate: output.duplicate,
-          };
+        // Held: the time is theirs for fifteen minutes while they pay, and the deposit is its own invoice.
+        if (plan && output.held) {
+          const already = await worker(scope, (tx) =>
+            invoiceForHold(tx, scope.workspaceId, output.attendeeId),
+          );
+          if (!already)
+            await raiseDepositInvoice(deps, scope, {
+              personId: output.personId,
+              attendeeId: output.attendeeId,
+              leadId: output.leadId,
+              plan,
+              when: whenText(output.startsAt, calendar.timeZone),
+            });
+          return holdView(scope, output.attendeeId);
+        }
+        return bookedPayload(scope, output.attendeeId, {
+          joined: output.joined,
+          duplicate: output.duplicate,
         });
       },
     );
@@ -1043,6 +1294,251 @@ export async function registerBookingRoutes(app: FastifyInstance, deps: HttpDeps
           meta(),
         ).catch(publicPaths);
         return { position: output.position, alreadyWaiting: output.alreadyWaiting };
+      },
+    );
+
+    // ---------- a time held while a deposit is paid ----------
+    /**
+     * The pay step, and the page the provider sends the customer back to. A GET never changes anything: it
+     * says where the hold stands and hands the browser the public keys it needs, nothing more.
+     */
+    pub.get<{ Params: { token: string } }>(
+      '/public/hold/:token',
+      { config: { rateLimit: limits.manageRead } },
+      async (req, reply) => {
+        const m = await managed(req.params.token);
+        void reply.header('cache-control', 'no-store').header('referrer-policy', 'no-referrer');
+        return holdView(m.scope, m.attendeeId);
+      },
+    );
+
+    /**
+     * Paying the deposit, in the two phases the two providers need. **A card is authorised, not charged**;
+     * the time is confirmed in its own transaction, and only then is the card captured. If the time went
+     * while they were typing, the hold is let go and nothing is taken — and a bank transfer, which cannot be
+     * held, is sent back in full at once.
+     */
+    pub.post<{ Params: { token: string } }>(
+      '/public/hold/:token/pay',
+      { config: { rateLimit: limits.pay } },
+      async (req, reply) => {
+        refuseHoneypot(req.body);
+        const body = parseBody(DepositPayBody, req.body ?? {});
+        const m = await managed(req.params.token);
+        const scope = m.scope;
+        void reply.header('cache-control', 'no-store').header('referrer-policy', 'no-referrer');
+
+        const start = await worker(scope, async (tx) => {
+          const b = await loadBooked(tx, m.attendeeId);
+          if (!b) throw linkNotFound();
+          const calendar = await loadCalendar(tx, scope.workspaceId, b.p.calendarId);
+          const invoice = await invoiceForHold(tx, scope.workspaceId, m.attendeeId);
+          if (!invoice) throw HfosError.notFound('There’s nothing to pay for this booking.');
+          const plan = await depositPlan(deps, tx, scope.workspaceId, calendar.config, {
+            serviceId: b.p.serviceId,
+            calendarName: calendar.name,
+          });
+          const account = plan?.account ?? null;
+          if (!account) throw cannotTakePayment();
+          const method: PaymentMethodKind = account.methods.includes(body.method)
+            ? body.method
+            : account.methods[0]!;
+          return {
+            invoice,
+            account,
+            method,
+            gone: b.a.status !== 'booked' || b.p.status !== 'scheduled',
+            what: plan!.what,
+          };
+        });
+
+        // Already paid for: the answer is the booking it already made. Nothing is taken a second time.
+        if (start.invoice.status !== 'draft' || start.invoice.paidCents > 0)
+          return { stage: 'recorded' as const, hold: await holdView(scope, m.attendeeId) };
+
+        const ctx: DepositPayContext = {
+          invoiceId: start.invoice.id,
+          attendeeId: m.attendeeId,
+          account: start.account,
+          amountCents: start.invoice.amountCents,
+          method: start.method,
+          // Written on the payment row before the provider is called: one press, one payment.
+          idempotencyKey: `hold:${m.attendeeId}:${body.clientId}`.slice(0, 64),
+          description: `Deposit · ${start.what}`,
+        };
+        const provider = deps.payments.providers[ctx.account.session.provider]!;
+        let account;
+        try {
+          account = accountFor(deps.sealer, ctx.account.connection);
+        } catch (e) {
+          return refused(deps, e, scope, ctx.account.connection.id);
+        }
+        const returnUrl = `${links.webUrl}/hold/${req.params.token}`;
+
+        // Phase one: hand the browser whatever the provider needs it to do. `hold: true` is the whole point —
+        // Stripe's intent is made for capture later, so confirming it holds the card instead of taking it.
+        if (!body.sourceToken && !body.providerPaymentId) {
+          if (start.gone) throw holdLost();
+          let session;
+          try {
+            session = await provider.prepare(account, {
+              amountCents: ctx.amountCents,
+              methods: [ctx.method],
+              idempotencyKey: ctx.idempotencyKey,
+              description: ctx.description,
+              customerRef: null,
+              // A card is held, not charged, until the time is confirmed.
+              hold: ctx.method === 'card',
+              metadata: { attendeeId: m.attendeeId, workspaceId: scope.workspaceId },
+              returnUrl,
+            });
+          } catch (e) {
+            return refused(deps, e, scope, ctx.account.connection.id);
+          }
+          if (session.providerPaymentId)
+            await recordDepositPayment(deps, scope, ctx, {
+              status: 'requires_payment',
+              providerPaymentId: session.providerPaymentId,
+            });
+          return {
+            stage: 'prepared' as const,
+            payment: {
+              status: 'requires_payment' as const,
+              amountCents: ctx.amountCents,
+              method: ctx.method,
+              flow: session.flow,
+              publishableKey: session.publishableKey,
+              accountId: session.accountId,
+              locationId: session.locationId,
+              clientSecret: session.clientSecret,
+              providerPaymentId: session.providerPaymentId,
+              /** The stand-in's own page; null with the real providers, which run in the browser. */
+              hostedUrl: session.hostedUrl,
+              returnUrl,
+            },
+            hold: await holdView(scope, m.attendeeId),
+          };
+        }
+
+        /** The time went and nothing is owed: what the page says, whatever had to be undone first. */
+        const lost = async (undone: { refunded: boolean }) => ({
+          stage: 'recorded' as const,
+          state: 'gone' as const,
+          payment: {
+            status: 'failed' as const,
+            amountCents: ctx.amountCents,
+            method: ctx.method,
+            /** Nothing was taken: a card was only held, and a bank transfer has already gone back. */
+            charged: false,
+            refunded: undone.refunded,
+            failureCode: 'slot_taken',
+            failureMessage: undone.refunded
+              ? 'That time went, so we’ve sent your deposit straight back. It takes a day or two to land.'
+              : 'That time went, so nothing was charged. The hold on your card has been let go.',
+          },
+          hold: await holdView(scope, m.attendeeId),
+          times: await openTimesNear(scope, m.attendeeId),
+        });
+
+        /**
+         * The time went while they were on the provider's page. A card the browser already confirmed is held
+         * money, so the hold is let go; a card token that has not been charged is simply never charged — the
+         * best possible answer, because the money never leaves at all.
+         */
+        if (start.gone) {
+          let held: PaymentResult | null = null;
+          if (body.providerPaymentId) {
+            try {
+              held = await provider.confirmFromClient(account, body.providerPaymentId);
+            } catch {
+              // Nothing to read back is nothing to let go of.
+            }
+          }
+          return lost(await undoOnLostSlot(deps, scope, ctx, held));
+        }
+
+        // Phase two: the provider's own answer, never the page's guess.
+        let result: PaymentResult;
+        try {
+          result = body.providerPaymentId
+            ? await provider.confirmFromClient(account, body.providerPaymentId)
+            : await (async () => {
+                await recordDepositPayment(deps, scope, ctx, { status: 'requires_payment' });
+                const input = {
+                  amountCents: ctx.amountCents,
+                  method: ctx.method,
+                  sourceToken: body.sourceToken ?? null,
+                  idempotencyKey: ctx.idempotencyKey,
+                  description: ctx.description,
+                  customerRef: null,
+                  metadata: { attendeeId: m.attendeeId, workspaceId: scope.workspaceId },
+                };
+                // A card is held; a bank transfer cannot be, so it is charged and given back if the time goes.
+                return ctx.method === 'card'
+                  ? provider.authorize(account, input)
+                  : provider.charge(account, input);
+              })();
+        } catch (e) {
+          if (e instanceof HfosError) throw e;
+          return refused(deps, e, scope, ctx.account.connection.id);
+        }
+
+        // A refusal is an answer, not an error: the time stays held and they can try another card.
+        if (result.status === 'failed') {
+          await recordDepositPayment(deps, scope, ctx, {
+            status: 'failed',
+            providerPaymentId: result.providerPaymentId,
+            providerStatus: result.providerStatus,
+            failureCode: result.failureCode,
+          });
+          return {
+            stage: 'recorded' as const,
+            payment: {
+              status: 'failed' as const,
+              amountCents: result.amountCents,
+              method: ctx.method,
+              failureCode: result.failureCode,
+              failureMessage: result.failureMessage ?? declineWording(result.failureCode),
+            },
+            hold: await holdView(scope, m.attendeeId),
+          };
+        }
+        await recordDepositPayment(deps, scope, ctx, {
+          status: result.capturable ? 'processing' : result.status,
+          providerPaymentId: result.providerPaymentId,
+          providerStatus: result.providerStatus,
+          cardBrand: result.cardBrand,
+          cardLast4: result.cardLast4,
+        });
+
+        try {
+          const done = await confirmAndCapture(deps, scope, ctx, result);
+          await recordDepositPayment(deps, scope, ctx, {
+            status: done.payment.status,
+            providerPaymentId: done.payment.providerPaymentId,
+            providerStatus: done.payment.providerStatus,
+            feeCents: done.payment.feeCents,
+            netCents: done.payment.netCents,
+            receivedAt: done.payment.receivedAt,
+            cardBrand: done.payment.cardBrand ?? result.cardBrand,
+            cardLast4: done.payment.cardLast4 ?? result.cardLast4,
+          });
+          return {
+            stage: 'recorded' as const,
+            payment: {
+              status: done.payment.status,
+              amountCents: ctx.amountCents,
+              method: ctx.method,
+              failureCode: null,
+              failureMessage: null,
+            },
+            hold: await holdView(scope, m.attendeeId),
+          };
+        } catch (e) {
+          if (!(e instanceof HfosError && e.rule === 'booking_hold_lost')) throw e;
+          // The time went while they were paying. A held card is let go; a bank transfer goes back in full.
+          return lost(await undoOnLostSlot(deps, scope, ctx, result));
+        }
       },
     );
 

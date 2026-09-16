@@ -302,7 +302,9 @@ async function handlePlan(
         conversationId: chosen.conversationId,
       };
     case 'reply': {
-      const body = str(args['body']);
+      // A money card comes with its follow-up already written from the document's own figures, so the
+      // Assistant offers that unless the person dictates their own words.
+      const body = str(args['body']) ?? chosen.draft?.body ?? null;
       const handWhy = option('hand_to_ai')?.reason;
       if (!body)
         throw HfosError.validation(
@@ -310,7 +312,7 @@ async function handlePlan(
           `${handWhy ? `${handWhy} ` : ''}Write the reply in body; the card shows it before it goes.`,
         );
       const channel = chosen.channel ?? 'sms';
-      const subject = str(args['subject']) ?? null;
+      const subject = str(args['subject']) ?? chosen.draft?.subject ?? null;
       if (channel === 'email' && !subject)
         throw HfosError.validation(
           [{ path: 'subject', message: 'Give the email a subject.' }],

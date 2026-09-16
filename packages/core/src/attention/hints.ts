@@ -7,7 +7,10 @@
  */
 import { rows, sql, type Tx } from '@hfos/db/client';
 import { uuidArray } from '../calendar/load';
+import { workspaceMessaging } from '../messaging/store';
+import { openHoursOf } from '../schemas/workspace';
 import {
+  MONEY_KINDS,
   nudgeContact,
   reachBusinessOf,
   reachChannel,
@@ -20,6 +23,7 @@ import {
 import { chipsOf, NO_HINTS, type ItemHints } from './items';
 import { autoActionOf, type AttentionKind } from './kinds';
 import type { AttentionItemRow } from './load';
+import { isOpenAt } from './open-time';
 
 type Consent = 'unknown' | 'opted_in' | 'opted_out';
 
@@ -43,8 +47,17 @@ export async function loadItemHints(
   const plans = items.map((row) => {
     const kind = row.kind as AttentionKind;
     const auto = autoActionOf(kind, chipsOf(row));
-    return { row, auto, reply: !auto && REPLY_KINDS.has(kind) };
+    const money = MONEY_KINDS.has(kind);
+    // A money card reaches the customer by the reply rules too: its Handle writes to them about the document.
+    return { row, auto, money, reply: !auto && (REPLY_KINDS.has(kind) || money) };
   });
+  // Is the business open? Only a money card asks, and only to decide whether to offer the call first.
+  const openNow = plans.some((p) => p.money)
+    ? await (async () => {
+        const m = await workspaceMessaging(tx, workspaceId);
+        return isOpenAt(openHoursOf(m.rawSettings), m.timezone || 'UTC', Date.now());
+      })()
+    : false;
 
   // Booked seats: the appointment, its start, and the booking's own contact details.
   const seatIds = unique(items.filter((r) => r.subjectType === 'attendee').map((r) => r.subjectId));
@@ -215,7 +228,10 @@ export async function loadItemHints(
         email: reply.email,
         textStopped: reply.optedOut || (!!reply.textNumber && stoppedNumbers.has(reply.textNumber)),
       });
-    if (!seat && reach === null) continue;
+    // A call comes first on a money card when there's a number to ring and the business is open. Nobody wants
+    // the phone about an unpaid invoice at half past ten at night.
+    const callable = p.money && openNow && !!reply?.phone;
+    if (!seat && reach === null && !callable) continue;
     out.set(p.row.id, {
       ...NO_HINTS,
       ...(seat
@@ -225,6 +241,7 @@ export async function loadItemHints(
           }
         : {}),
       reach,
+      callable,
     });
   }
   return out;

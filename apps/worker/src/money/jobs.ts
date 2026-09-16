@@ -391,7 +391,7 @@ interface Person extends Record<string, unknown> {
 }
 
 /** Everything a money message is written from, read in one go inside the business's scope. */
-interface MessageWorld {
+export interface MessageWorld {
   readonly person: Person;
   readonly business: MoneyBusiness;
   readonly reach: Reach;
@@ -401,7 +401,7 @@ interface MessageWorld {
   readonly settings: MoneySettings;
 }
 
-async function messageWorld(
+export async function messageWorld(
   tx: Tx,
   s: WorkerServices,
   scope: TenantScope,
@@ -435,7 +435,7 @@ async function messageWorld(
 }
 
 /** What sending one message came to. */
-type Delivery =
+export type Delivery =
   | { readonly status: 'sent'; readonly channel: 'sms' | 'email'; readonly messageId: string }
   /** Quiet hours: the text waits for them to end. */
   | { readonly status: 'held'; readonly until: number }
@@ -446,7 +446,7 @@ type Delivery =
  * quiet hours, email when a text can't go, and nothing at all when neither can. The `clientId` is fixed for
  * the document and rung, so a retried job sends once.
  */
-async function deliver(
+export async function deliver(
   s: WorkerServices,
   scope: TenantScope,
   world: MessageWorld,
@@ -1103,18 +1103,25 @@ export const onEstimateSent: EventHandler = async (ctx) => {
   await armBusinessMoney(ctx.tx, scope, { estimateId });
 };
 
-/** An invoice went out: its message now, then the ladder and the overdue mark. */
+/**
+ * An invoice went out: its message now, then the ladder and the overdue mark. **Sent with no channels means
+ * nobody is messaged** — the deposit at booking is issued while the customer is on the page paying it, and a
+ * text saying "here's your invoice" at that moment would be the second time they heard it. The ladder is
+ * still armed: it is about what is owed, not about how the document travelled.
+ */
 export const onInvoiceSent: EventHandler = async (ctx) => {
   const scope = tenantOf(ctx.scope);
   const invoiceId = ctx.event.entityId;
   if (!invoiceId) return;
-  await armNow(
-    ctx.tx,
-    scope,
-    MONEY_JOBS.invoiceMessage,
-    invoiceMessageKey(invoiceId, INVOICE_SENT_KEY),
-    { invoiceId, key: INVOICE_SENT_KEY },
-  );
+  const asked = payloadOf(ctx)['channels'];
+  if (!Array.isArray(asked) || asked.length > 0)
+    await armNow(
+      ctx.tx,
+      scope,
+      MONEY_JOBS.invoiceMessage,
+      invoiceMessageKey(invoiceId, INVOICE_SENT_KEY),
+      { invoiceId, key: INVOICE_SENT_KEY },
+    );
   await armBusinessMoney(ctx.tx, scope, { invoiceId });
 };
 

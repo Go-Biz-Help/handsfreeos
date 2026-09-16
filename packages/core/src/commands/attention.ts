@@ -19,6 +19,7 @@ import {
   autoActionOf,
   isLeadKind,
   letHandleModeOf,
+  letHandleRefusal,
   type AttentionAction,
   type AttentionKind,
 } from '../attention/kinds';
@@ -72,6 +73,10 @@ const ASK_ACTIONS: Readonly<Partial<Record<AttentionKind, readonly AttentionAskA
   unanswered_lead: ['hand_to_ai', 'reply'],
   customer_waiting: ['hand_to_ai', 'reply'],
   missing_next_action: ['set_next_action'],
+  // Money offers the reply and nothing else. Handing a conversation about a bill to the AI teammate is a
+  // different conversation, and one Chris hasn't had.
+  estimate_waiting: ['reply'],
+  invoice_overdue: ['reply'],
 };
 
 const iso = (d: Date | null | undefined) => (d ? d.toISOString() : null);
@@ -440,7 +445,8 @@ export const attentionLetHandle = defineCommand({
       throw HfosError.rule(
         'let_handle_not_offered',
         409,
-        'HandsFreeOS doesn’t handle this kind of item. Open it to take care of it.',
+        letHandleRefusal(kind) ??
+          'HandsFreeOS doesn’t handle this kind of item. Open it to take care of it.',
       );
 
     if (mode === 'auto') {
@@ -560,6 +566,9 @@ export const attentionLetHandle = defineCommand({
       handledAt: new Date(),
       handledBy: me,
       handledVia: 'let_handle',
+      // Money is the one kind a follow-up doesn't settle: the invoice is still owed and the estimate still
+      // unanswered, so its card rests a week rather than for good. `handled_until` is the worker's column
+      // (0039's guard is explicit about it), and the worker sets it when it sees this item handled.
       ...CLEAR_SNOOZE,
     });
     await emitItem(

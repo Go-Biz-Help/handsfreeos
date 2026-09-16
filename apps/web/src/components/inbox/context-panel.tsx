@@ -14,6 +14,7 @@ import { useState, type ReactNode } from 'react';
 import { toast } from 'sonner';
 import { NextActionChip, StageBadge, TagChip } from '@/components/crm/chips';
 import { LeadDialog } from '@/components/crm/lead-dialog';
+import { InboxOwed, useRecordMoney } from '@/components/crm/record-money';
 import { TaskDialog } from '@/components/tasks/task-dialog';
 import { Button, ButtonLink } from '@/components/ui/button';
 import { useCalls } from '@/lib/calls/call-provider';
@@ -68,6 +69,8 @@ export function ContextPanel({
   const [newTask, setNewTask] = useState(false);
   const [completing, setCompleting] = useState<string | null>(null);
   const calls = useCalls();
+  /** What this customer owes. Hooks run before the unknown-contact branch returns; a null id asks nothing. */
+  const owed = useRecordMoney(workspaceId, 'person', data.person?.id ?? null);
 
   async function complete(taskId: string) {
     setCompleting(taskId);
@@ -178,6 +181,9 @@ export function ContextPanel({
 
       <div className="h-px bg-border" />
 
+      {/* What they owe, before the lead: it changes how you answer, and only shows when there is something. */}
+      <InboxOwed workspaceId={workspaceId} personId={person.id} found={owed} />
+
       <section className="flex flex-col gap-2">
         <Label>Open lead</Label>
         {lead ? (
@@ -263,7 +269,7 @@ export function ContextPanel({
 
       <section className="flex flex-col gap-1">
         <Label>Coming later</Label>
-        {['Appointments', 'Balance and invoices', 'AI summary of this customer'].map((label) => (
+        {['Appointments', 'AI summary of this customer'].map((label) => (
           <div
             key={label}
             className="flex h-[26px] items-center justify-between text-[13px] text-text-3"

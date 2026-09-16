@@ -179,6 +179,91 @@ export const assistantTools = [
     permission: 'inbox.use',
   }),
 
+  // ---------- money (auto for anyone who may see it) ----------
+  /**
+   * The money read tools run on their own for anyone with `money.read`, which is everyone — but a member only
+   * ever sees the documents for the jobs they are on, because the rule is in the database under the queries
+   * these call. The two that move money are `money.manage`, so a member is never offered them at all.
+   *
+   * The AI teammate has none of these: it may not quote a price it was not given, and an AI that can issue an
+   * invoice is a different conversation.
+   */
+  define({
+    name: 'money_owed',
+    description:
+      'What is unpaid: the total owed, how much of it is late, how much is on its way by bank transfer, and the invoices behind it (newest first, with ids). Use it for “what are we owed?”, “what is overdue?”, “who hasn’t paid?”. A member sees only the jobs they are on.',
+    input: z.object({
+      overdueOnly: z.boolean().default(false).describe('Only invoices past their due date'),
+      personId: uuid.optional().describe('Only this customer’s invoices'),
+      limit: z.number().int().min(1).max(20).default(8),
+    }),
+    autonomy: 'auto',
+    permission: 'money.read',
+  }),
+  define({
+    name: 'money_collected',
+    description:
+      'What has actually come in over the last so many days, less anything refunded in the same window, with the payments behind it. Use it for “what did we collect this month?” — for a calendar month pass the days since the 1st.',
+    input: z.object({
+      days: z.number().int().min(1).max(365).default(30).describe('How many days back to count'),
+    }),
+    autonomy: 'auto',
+    permission: 'money.read',
+  }),
+  define({
+    name: 'customer_money',
+    description:
+      'One customer’s money: what they still owe, what they have paid, what is quoted out to them, and the documents and plans behind it (with ids). Call search_customers first if you only have a name.',
+    input: z.object({ personId: uuid }),
+    autonomy: 'auto',
+    permission: 'money.read',
+  }),
+  define({
+    name: 'estimates_waiting',
+    description:
+      'Estimates that have gone out and are still waiting on an answer, oldest first, with how long each has been out, whether the customer opened it, and when it stops being good.',
+    input: z.object({ limit: z.number().int().min(1).max(20).default(8) }),
+    autonomy: 'auto',
+    permission: 'money.read',
+  }),
+
+  // ---------- money that moves, which always waits for the person's OK ----------
+  define({
+    name: 'send_estimate',
+    description:
+      'Send an estimate that is already written (a draft — get its id from customer_money or estimates_waiting) to the customer, by email, text or both. Sending takes its number and freezes it, so it cannot be edited afterwards. Nothing goes out until the person says yes on the card.',
+    input: z.object({
+      estimateId: uuid,
+      channels: z
+        .array(z.enum(['sms', 'email']))
+        .min(1)
+        .max(2)
+        .default(['email'])
+        .describe('How the customer gets the link'),
+      message: z.string().trim().max(2000).optional().describe('A line to go out with the link'),
+    }),
+    autonomy: 'confirm',
+    permission: 'money.manage',
+  }),
+  define({
+    name: 'record_payment',
+    description:
+      'Write down a payment the business took by hand — cash, a cheque, or one taken somewhere off HandsFreeOS. It records money already received; it never charges anyone. Leave out the amount for the whole balance. Nothing is recorded until the person says yes on the card.',
+    input: z.object({
+      invoiceId: uuid,
+      amount: dollars.optional().describe('Leave it out to record the whole balance'),
+      method: z.enum(['cash', 'check', 'other']).default('cash'),
+      reference: z
+        .string()
+        .trim()
+        .max(120)
+        .optional()
+        .describe('A cheque number, or where it was taken'),
+    }),
+    autonomy: 'confirm',
+    permission: 'money.manage',
+  }),
+
   // ---------- workflows and the knowledge base (auto) ----------
   define({
     name: 'list_workflows',

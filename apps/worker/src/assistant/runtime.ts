@@ -116,6 +116,10 @@ const STEP_LABEL: Record<string, string> = {
   list_workflows: 'Looking at workflows',
   draft_workflow: 'Drafting the workflow',
   search_knowledge: 'Searching your knowledge base',
+  money_owed: 'Adding up what you are owed',
+  money_collected: 'Adding up what has come in',
+  customer_money: 'Looking at their money',
+  estimates_waiting: 'Looking at estimates out',
 };
 const stepLabel = (tool: string) => STEP_LABEL[tool] ?? 'Preparing it for your OK';
 

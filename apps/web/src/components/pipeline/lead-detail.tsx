@@ -1,4 +1,5 @@
 'use client';
+import { hasWorkspacePermission } from '@hfos/core';
 import {
   AlertTriangle,
   Archive,
@@ -18,6 +19,7 @@ import { toast } from 'sonner';
 import { AppointmentDialog } from '@/components/calendar/appointment-dialog';
 import { AppointmentSheet } from '@/components/calendar/appointment-sheet';
 import { UpcomingAppointments } from '@/components/calendar/upcoming-card';
+import { LeadMoneyCard, useRecordMoney } from '@/components/crm/record-money';
 import { NextActionChip, StageBadge } from '@/components/crm/chips';
 import { NextActionDialog } from '@/components/crm/next-action-dialog';
 import { TagPicker } from '@/components/crm/tag-picker';
@@ -128,6 +130,9 @@ export function LeadDetail({
   const version = useLiveVersion(['lead', 'activity', 'task']);
   useLiveRefresh(initial ? ['lead', 'activity', 'task', 'appointment'] : []);
   const canModerate = role === 'owner' || role === 'admin';
+  const canBill = hasWorkspacePermission(role, 'money.manage');
+  /** What has been quoted or billed on this job. A member who doesn't own this lead finds nothing here. */
+  const leadMoney = useRecordMoney(workspaceId, 'lead', compact ? null : leadId);
 
   const fetchAll = useCallback(async () => {
     const api = apiBrowser();
@@ -606,6 +611,17 @@ export function LeadDetail({
         />
       ) : null}
 
+      {!compact ? (
+        <LeadMoneyCard
+          workspaceId={workspaceId}
+          leadId={leadId}
+          personId={lead.person?.id ?? null}
+          found={leadMoney}
+          canManage={canBill}
+          timeZone={timeZone ?? 'UTC'}
+        />
+      ) : null}
+
       {timeZone && !compact ? (
         <UpcomingAppointments
           timeZone={timeZone}
@@ -694,6 +710,7 @@ export function LeadDetail({
           appointmentId={openAppt}
           timeZone={timeZone}
           people={members.map((m) => ({ userId: m.id, fullName: m.fullName }))}
+          myRole={role}
           onClose={() => setOpenAppt(null)}
           onChanged={reload}
         />

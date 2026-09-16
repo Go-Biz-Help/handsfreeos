@@ -15,10 +15,15 @@
 import { and, eq, inArray, ne } from 'drizzle-orm';
 import { rows, sql, type Tx } from '@hfos/db/client';
 import { attentionItems } from '@hfos/db/schema';
+import { localInstant } from '../calendar/engine/zoned';
 import { uuidArray } from '../calendar/load';
 import { formatPhone } from '../crm/phone';
 import type { QuietHoursWindow } from '../messaging/quiet-hours';
 import { workspaceMessaging } from '../messaging/store';
+import { money } from '../money/format';
+import { overdueFrom, type EstimateStatus, type InvoiceStatus } from '../money/status';
+import { balanceCents } from '../money/totals';
+import { expiryPhrase } from '../money/words';
 import { openHoursOf } from '../schemas/workspace';
 import type { BusinessFacts, LeadFacts, LinkedLeadFacts } from './facts';
 import { foldCandidates } from './folding';
@@ -26,14 +31,15 @@ import { ATTENTION_SUBJECT_OF, type AttentionKind, type AttentionSubjectType } f
 import { attentionWakeAt, detectAttention, type AttentionFacts } from './registry';
 import { attentionSettingsOf, type AttentionSettings } from './settings';
 import type { AttentionCandidate, AttentionChip, Detection } from './types';
-import { clipLine, DETAIL_MAX, itemTitle, whenLabel } from './wording';
+import { clipLine, dayLabel, DETAIL_MAX, itemTitle, whenLabel } from './wording';
 
 export type AttentionItemRow = typeof attentionItems.$inferSelect;
 export type AttentionState = AttentionItemRow['state'];
 
 /** What changed, and whose facts to look at again: a record, or a customer (their leads and conversations). */
 export interface AttentionSubjectRef {
-  readonly type: 'lead' | 'person' | 'conversation' | 'attendee' | 'approval' | 'task';
+  readonly type:
+    'lead' | 'person' | 'conversation' | 'attendee' | 'approval' | 'task' | 'estimate' | 'invoice';
   readonly id: string;
 }
 
@@ -98,10 +104,24 @@ export const DONE_RESOLUTIONS = [
   'done',
   'next_action_set',
   'closed',
+  // Money: the customer answered the estimate, or the invoice was paid. An estimate that expired and an
+  // invoice that was withdrawn are not wins, so they stay out.
+  'answered',
+  'paid',
 ] as const;
 
-/** Kinds whose assignee is the item's own (for the rest it follows the lead, conversation or task). */
-const ITEM_OWNED: ReadonlySet<AttentionKind> = new Set(['unconfirmed_appointment', 'ai_approval']);
+/**
+ * Kinds whose assignee is the item's own (for the rest it follows the lead, conversation or task). A money
+ * card is one of them: `attention.assign` says plainly that it moves who follows the estimate or the invoice
+ * up and leaves the document as it is, so the next sweep must not hand it back to whoever wrote it. A card
+ * still starts out with the document's assignee.
+ */
+const ITEM_OWNED: ReadonlySet<AttentionKind> = new Set([
+  'unconfirmed_appointment',
+  'ai_approval',
+  'estimate_waiting',
+  'invoice_overdue',
+]);
 
 const DAY = 86_400_000;
 const iso = (d: Date | string | null | undefined): string | null =>
@@ -174,6 +194,8 @@ interface SubjectSets {
   readonly approvals: Set<string>;
   readonly tasks: Set<string>;
   readonly persons: Set<string>;
+  readonly estimates: Set<string>;
+  readonly invoices: Set<string>;
 }
 
 const emptySets = (): SubjectSets => ({
@@ -183,6 +205,8 @@ const emptySets = (): SubjectSets => ({
   approvals: new Set(),
   tasks: new Set(),
   persons: new Set(),
+  estimates: new Set(),
+  invoices: new Set(),
 });
 
 function addSubject(s: SubjectSets, type: string, id: string): void {
@@ -192,11 +216,17 @@ function addSubject(s: SubjectSets, type: string, id: string): void {
   else if (type === 'approval') s.approvals.add(id);
   else if (type === 'task') s.tasks.add(id);
   else if (type === 'person') s.persons.add(id);
+  else if (type === 'estimate') s.estimates.add(id);
+  else if (type === 'invoice') s.invoices.add(id);
 }
 
 /**
  * The subjects to look at, widened to what folding needs: a lead or a conversation brings in its customer, and a
  * customer brings in all their leads and conversations (one card per lead, and a waiting conversation joins it).
+ *
+ * A money document brings in its lead as well, because the two speak for each other: while an estimate is out
+ * the lead stands down ("chase Tom about the quote" is one card, not two), so an estimate that is answered,
+ * expires or is withdrawn has to let the lead's own card come back in the same breath.
  */
 async function expand(
   tx: Tx,
@@ -205,6 +235,20 @@ async function expand(
 ): Promise<SubjectSets> {
   const s = emptySets();
   for (const x of subjects) addSubject(s, x.type, x.id);
+  if (s.estimates.size || s.invoices.size) {
+    const documents = await rows<{ lead_id: string | null; person_id: string | null }>(
+      tx,
+      sql`select lead_id, person_id from app.estimates
+          where workspace_id = ${workspaceId} and id = any(${uuidArray([...s.estimates])})
+          union all
+          select lead_id, person_id from app.invoices
+          where workspace_id = ${workspaceId} and id = any(${uuidArray([...s.invoices])})`,
+    );
+    for (const d of documents) {
+      if (d.lead_id) s.leads.add(d.lead_id);
+      if (d.person_id) s.persons.add(d.person_id);
+    }
+  }
   const owners = await rows<{ person_id: string | null }>(
     tx,
     sql`select person_id from app.leads where workspace_id = ${workspaceId} and id = any(${uuidArray([...s.leads])})
@@ -769,6 +813,180 @@ async function loadTasks(
   );
 }
 
+// ---------- the money documents ----------
+
+/** The customer a document is for: their own name, else the company they belong to. */
+const customerOf = (r: {
+  first_name: string | null;
+  last_name: string | null;
+  company_name: string | null;
+}): string => nameOf(r.first_name, r.last_name) ?? r.company_name ?? 'Customer';
+
+interface EstimateInfo {
+  readonly estimate: AttentionFacts<'estimate_waiting'>['estimate'];
+  readonly personId: string;
+  readonly leadId: string | null;
+  readonly customer: string;
+  readonly title: string | null;
+  readonly number: string | null;
+  /** When they first opened it, for the detail line. */
+  readonly viewedAt: string | null;
+  readonly expiresOn: string | null;
+  readonly sentAt: string | null;
+}
+
+/**
+ * Estimates by id, and in a sweep every one that is out: sent and unanswered. The detector decides what to do
+ * with an expired one (nothing: the business reissues it), so they all come in and it judges.
+ */
+async function loadEstimates(
+  tx: Tx,
+  workspaceId: string,
+  ids: readonly string[],
+  all: boolean,
+  timeZone: string,
+): Promise<Map<string, EstimateInfo>> {
+  const list = await rows<{
+    id: string;
+    status: EstimateStatus;
+    total_cents: number;
+    sent_at: Date | null;
+    first_viewed_at: Date | null;
+    expires_on: string | null;
+    assignee_user_id: string | null;
+    person_id: string;
+    lead_id: string | null;
+    number: string | null;
+    title: string | null;
+    first_name: string | null;
+    last_name: string | null;
+    company_name: string | null;
+  }>(
+    tx,
+    sql`select e.id, e.status::text as status, e.total_cents::float8 as total_cents, e.sent_at,
+          e.first_viewed_at, e.expires_on::text as expires_on, e.assignee_user_id, e.person_id, e.lead_id,
+          e.number, e.title, p.first_name, p.last_name, c.name as company_name
+        from app.estimates e
+        join app.people p on p.id = e.person_id
+        left join app.companies c on c.id = p.company_id
+        where e.workspace_id = ${workspaceId}
+          and (e.id = any(${uuidArray(ids)}) ${all ? sql`or e.status = 'sent'` : sql``})`,
+  );
+  const out = new Map<string, EstimateInfo>();
+  for (const r of list)
+    out.set(r.id, {
+      estimate: {
+        id: r.id,
+        status: r.status,
+        totalCents: Number(r.total_cents),
+        sentAt: iso(r.sent_at),
+        viewedAt: iso(r.first_viewed_at),
+        // It is good until its last day is over where the business is, not at UTC midnight.
+        expiresAt: r.expires_on
+          ? new Date(overdueFrom(r.expires_on, timeZone)).toISOString()
+          : null,
+        assigneeUserId: r.assignee_user_id,
+      },
+      personId: r.person_id,
+      leadId: r.lead_id,
+      customer: customerOf(r),
+      title: r.title,
+      number: r.number,
+      viewedAt: iso(r.first_viewed_at),
+      expiresOn: r.expires_on,
+      sentAt: iso(r.sent_at),
+    });
+  return out;
+}
+
+interface InvoiceInfo {
+  readonly invoice: AttentionFacts<'invoice_overdue'>['invoice'];
+  readonly settling: boolean;
+  readonly personId: string;
+  readonly leadId: string | null;
+  readonly customer: string;
+  readonly title: string | null;
+  readonly number: string | null;
+  readonly dueOn: string | null;
+  readonly sentAt: string | null;
+  readonly paidCents: number;
+}
+
+/**
+ * Invoices by id, and in a sweep every open one with a due day. `settling` is a payment on its way — a bank
+ * transfer takes days, and an invoice being paid is never late.
+ */
+async function loadInvoices(
+  tx: Tx,
+  workspaceId: string,
+  ids: readonly string[],
+  all: boolean,
+): Promise<Map<string, InvoiceInfo>> {
+  const list = await rows<{
+    id: string;
+    status: InvoiceStatus;
+    due_on: string | null;
+    total_cents: number;
+    amount_paid_cents: number;
+    amount_refunded_cents: number;
+    first_viewed_at: Date | null;
+    assignee_user_id: string | null;
+    settling: boolean;
+    person_id: string;
+    lead_id: string | null;
+    number: string | null;
+    title: string | null;
+    sent_at: Date | null;
+    first_name: string | null;
+    last_name: string | null;
+    company_name: string | null;
+  }>(
+    tx,
+    sql`select i.id, i.status::text as status, i.due_on::text as due_on,
+          i.total_cents::float8 as total_cents, i.amount_paid_cents::float8 as amount_paid_cents,
+          i.amount_refunded_cents::float8 as amount_refunded_cents, i.first_viewed_at,
+          i.assignee_user_id,
+          exists (select 1 from app.payments y where y.invoice_id = i.id and y.status = 'processing')
+            as settling,
+          i.person_id, i.lead_id, i.number, i.title, i.sent_at,
+          p.first_name, p.last_name, c.name as company_name
+        from app.invoices i
+        join app.people p on p.id = i.person_id
+        left join app.companies c on c.id = p.company_id
+        where i.workspace_id = ${workspaceId}
+          and (i.id = any(${uuidArray(ids)})
+            ${
+              all
+                ? sql`or (i.status in ('sent', 'partly_paid', 'overdue') and i.due_on is not null)`
+                : sql``
+            })`,
+  );
+  const out = new Map<string, InvoiceInfo>();
+  for (const r of list)
+    out.set(r.id, {
+      invoice: {
+        id: r.id,
+        status: r.status,
+        dueDate: r.due_on,
+        totalCents: Number(r.total_cents),
+        paidCents: Number(r.amount_paid_cents),
+        refundedCents: Number(r.amount_refunded_cents),
+        viewedAt: iso(r.first_viewed_at),
+        assigneeUserId: r.assignee_user_id,
+      },
+      settling: r.settling,
+      personId: r.person_id,
+      leadId: r.lead_id,
+      customer: customerOf(r),
+      title: r.title,
+      number: r.number,
+      dueOn: r.due_on,
+      sentAt: iso(r.sent_at),
+      paidCents: Number(r.amount_paid_cents),
+    });
+  return out;
+}
+
 // ---------- detection ----------
 
 /** What an item shows beyond its facts, and what it links to. */
@@ -797,7 +1015,13 @@ interface Loaded {
   readonly attendees: Map<string, AttendeeInfo>;
   readonly approvals: Map<string, ApprovalInfo>;
   readonly tasks: Map<string, TaskInfo>;
+  readonly estimates: Map<string, EstimateInfo>;
+  readonly invoices: Map<string, InvoiceInfo>;
 }
+
+/** "Thu, Sep 17" for a stored day (`2026-09-17`), read where the business is. */
+const dayOf = (date: string, timeZone: string): string =>
+  dayLabel(localInstant(date, '12:00', timeZone), timeZone);
 
 /** Why an item's facts stopped holding, for its resolution and the audit log. */
 function resolutionOf(
@@ -851,13 +1075,47 @@ function resolutionOf(
       if (!t) return 'subject_gone';
       return t.doneAt ? 'done' : 'rescheduled';
     }
-    // The money kinds: their documents load in Milestone 9's step 3, which tells these two apart properly
-    // (answered, expired, voided; paid, part-paid, settling, voided). Until then, why it stopped holding is
-    // the usual reason.
-    case 'estimate_waiting':
-      return 'answered';
-    case 'invoice_overdue':
-      return 'paid';
+    /**
+     * An estimate stops waiting for several different reasons, and a person reading "3 handled today" should
+     * only see the one where somebody got an answer: accepted or declined is answered, the rest is
+     * housekeeping. A sent estimate whose day has passed is expired here before the job that stamps it gets
+     * there, so the card never chases a price that is no longer good.
+     */
+    case 'estimate_waiting': {
+      const e = loaded.estimates.get(row.subjectId);
+      if (!e) return 'subject_gone';
+      switch (e.estimate.status) {
+        case 'accepted':
+        case 'declined':
+          return 'answered';
+        case 'expired':
+          return 'expired';
+        case 'void':
+        case 'draft':
+          return 'withdrawn';
+        default:
+          if (e.estimate.expiresAt && Date.parse(e.estimate.expiresAt) <= now) return 'expired';
+          // Still out and still good: the business gave its estimates longer, so this one isn't due to ask
+          // about yet. Not an answer, and not a win for "handled today".
+          return 'not_due';
+      }
+    }
+    /**
+     * An invoice stops being overdue when the money arrives, when it is on its way (a bank transfer settles for
+     * days), when what is left is under the business's floor, or when the invoice is withdrawn.
+     */
+    case 'invoice_overdue': {
+      const i = loaded.invoices.get(row.subjectId);
+      if (!i) return 'subject_gone';
+      if (i.invoice.status === 'void') return 'voided';
+      if (i.invoice.status === 'draft' || !i.invoice.dueDate) return 'withdrawn';
+      const owed = balanceCents(i.invoice.totalCents, i.invoice.paidCents, i.invoice.refundedCents);
+      if (i.invoice.status === 'paid' || owed <= 0) return 'paid';
+      if (i.settling) return 'settling';
+      // Something is still owed: either a part payment took it under the business's floor, or the grace days
+      // moved. Either way nobody paid it off, so it isn't "handled today".
+      return i.invoice.paidCents > 0 ? 'part_paid' : 'not_due';
+    }
   }
 }
 
@@ -984,6 +1242,8 @@ export async function reconcile(
     ...scope.attendees,
     ...scope.approvals,
     ...scope.tasks,
+    ...scope.estimates,
+    ...scope.invoices,
   ];
   const existing: AttentionItemRow[] = [];
   if (all) {
@@ -1043,8 +1303,18 @@ export async function reconcile(
   for (const c of conversations.values()) if (c.personId) needTop.add(c.personId);
   for (const a of approvals.values()) if (a.personId && !a.leadId) needTop.add(a.personId);
   const topLeads = await loadTopLeads(tx, workspaceId, [...needTop]);
+  const estimates = await loadEstimates(tx, workspaceId, [...scope.estimates], all, ctx.timeZone);
+  const invoices = await loadInvoices(tx, workspaceId, [...scope.invoices], all);
   const members = await workspaceUsers(tx, workspaceId, ctx.organizationId);
-  const loaded: Loaded = { leads, conversations, attendees, approvals, tasks };
+  const loaded: Loaded = {
+    leads,
+    conversations,
+    attendees,
+    approvals,
+    tasks,
+    estimates,
+    invoices,
+  };
 
   // Detect.
   const candidates: AttentionCandidate[] = [];
@@ -1230,6 +1500,52 @@ export async function reconcile(
         subjectType: 'task',
         title: itemTitle(t.task.title),
         detail: detailOf(t.personName),
+        conversationId: null,
+      },
+    );
+
+  // The money kinds. Their cards carry the document's own words — what it says and when it went out — so a
+  // person can see what they are about to open without opening it.
+  for (const e of estimates.values())
+    run(
+      'estimate_waiting',
+      { estimate: e.estimate },
+      e.estimate.id,
+      { leadId: e.leadId, personId: e.personId },
+      {
+        subjectType: 'estimate',
+        title: itemTitle(e.customer, e.title, e.number),
+        detail: detailOf(
+          [
+            e.sentAt ? `Sent ${dayLabel(Date.parse(e.sentAt), ctx.timeZone)}` : null,
+            e.viewedAt ? 'opened' : null,
+            e.expiresOn ? expiryPhrase(e.expiresOn, now, ctx.timeZone) : null,
+          ]
+            .filter((p): p is string => p !== null)
+            .join(' · '),
+        ),
+        conversationId: null,
+      },
+    );
+
+  for (const i of invoices.values())
+    run(
+      'invoice_overdue',
+      { business, invoice: i.invoice, hasProcessingPayment: i.settling },
+      i.invoice.id,
+      { leadId: i.leadId, personId: i.personId },
+      {
+        subjectType: 'invoice',
+        title: itemTitle(i.customer, i.title, i.number),
+        detail: detailOf(
+          [
+            i.sentAt ? `Sent ${dayLabel(Date.parse(i.sentAt), ctx.timeZone)}` : null,
+            i.dueOn ? `due ${dayOf(i.dueOn, ctx.timeZone)}` : null,
+            i.paidCents > 0 ? `${money(i.paidCents)} paid so far` : null,
+          ]
+            .filter((p): p is string => p !== null)
+            .join(' · '),
+        ),
         conversationId: null,
       },
     );

@@ -159,10 +159,14 @@ export function LetHandleSheet({
       .then((p) => {
         if (cancelled) return;
         setPreview(p);
-        setChoice((p.options.find((o) => o.available) ?? p.options[0])?.action ?? null);
+        const first = p.options.find((o) => o.available) ?? p.options[0];
+        setChoice(first?.action ?? null);
         const suggestion = p.options.find((o) => o.action === 'set_next_action')?.suggestion;
         setNextText(suggestion?.text ?? '');
         setNextAt(suggestion?.dueAt ? toLocalInputValue(new Date(suggestion.dueAt)) : '');
+        // A money card's follow-up comes already written, from the document's own figures.
+        setBody(first?.draft?.body ?? '');
+        setSubject(first?.draft?.subject ?? '');
         setScheduledFor(p.auto?.scheduledFor ?? null);
       })
       .catch((e: unknown) => {
@@ -181,6 +185,8 @@ export function LetHandleSheet({
   const plan = preview?.auto ?? null;
   const option = preview?.options.find((o) => o.action === choice) ?? null;
   const confirm = (plan?.action ?? item.auto.action) === 'confirm_request';
+  /** A money card: its one choice is the follow-up about the document, already written. */
+  const money = item.kind === 'estimate_waiting' || item.kind === 'invoice_overdue';
   const clock = (iso: string) => clockLabel(Date.parse(iso), env.timeZone);
 
   const title =
@@ -192,7 +198,9 @@ export function LetHandleSheet({
         ? choice === 'hand_to_ai'
           ? `Hand ${name} to ${ai}?`
           : choice === 'reply'
-            ? `Reply to ${name}`
+            ? money
+              ? `Follow up with ${name}`
+              : `Reply to ${name}`
             : choice === 'set_next_action'
               ? `Set a next action for ${name}`
               : name
@@ -497,13 +505,20 @@ export function LetHandleSheet({
             </Field>
           </div>
         ) : null}
+        {/* What the business's own reminders have already said to this customer about this document. */}
+        {option?.note ? <InfoRow>{option.note}</InfoRow> : null}
         {options
           .filter((o) => !o.available && o.reason)
-          .map((o) => (
-            <InfoRow key={o.action}>
-              <strong className="font-semibold">{o.label}:</strong> {o.reason}
-            </InfoRow>
-          ))}
+          .map((o) =>
+            // A reminder went out today: that isn't a choice being unavailable, it's a reason to leave it.
+            o.action === 'reply' && options.length === 1 ? (
+              <WarnRow key={o.action}>{o.reason}</WarnRow>
+            ) : (
+              <InfoRow key={o.action}>
+                <strong className="font-semibold">{o.label}:</strong> {o.reason}
+              </InfoRow>
+            ),
+          )}
       </>
     );
     const PrimaryIcon =

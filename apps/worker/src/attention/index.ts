@@ -3,7 +3,13 @@
  * sweep, exact-time rechecks and snoozes running out (jobs.ts). Step 6 plugs its automatic handling, urgent alerts
  * and morning email into follow-ups.ts and BUSINESS_PLANNERS.
  */
-import { scheduleJob } from '@hfos/core/server';
+import {
+  MONEY_FOLLOW_UP_REST_DAYS,
+  MONEY_KINDS,
+  scheduleJob,
+  type AttentionKind,
+} from '@hfos/core/server';
+import { sql } from '@hfos/db/client';
 import { handlersFor, type EventHandler, type HandlerMap } from '../handlers/types';
 import { errorMessage } from '../outbox';
 import { onHandleRequested } from './auto';
@@ -68,6 +74,26 @@ export const onAttentionEvent: EventHandler = async (ctx) => {
   }
 };
 
+/**
+ * A person followed a money card up (M9). The invoice is still owed and the estimate still unanswered, so the
+ * card rests a week instead of for good: `handled_until` brings it back, and a change in the figures brings it
+ * back sooner. The column is the worker's — 0039's guard says so — which is why it is set here and not by the
+ * command that handled it.
+ */
+export const onItemHandled: EventHandler = async (ctx) => {
+  const { workspaceId } = ctx.scope;
+  const p = ctx.event.payload as Record<string, unknown>;
+  const itemId = p['itemId'];
+  if (!workspaceId || !isUuid(itemId) || !MONEY_KINDS.has(String(p['kind'] ?? '') as AttentionKind))
+    return;
+  await ctx.tx.execute(
+    sql`update app.attention_items
+        set handled_until = now() + ${`${MONEY_FOLLOW_UP_REST_DAYS} days`}::interval
+        where id = ${itemId} and workspace_id = ${workspaceId}
+          and state = 'handled' and handled_until is null`,
+  );
+};
+
 /** A person snoozed an item: it comes back at its time (a later snooze moves nothing; the job waits again). */
 export const onItemSnoozed: EventHandler = async (ctx) => {
   const { workspaceId, organizationId } = ctx.scope;
@@ -95,6 +121,7 @@ export function withAttention(handlers: HandlerMap): HandlerMap {
   for (const type of ATTENTION_EVENTS)
     out[type] = [...handlersFor(handlers, type), onAttentionEvent];
   out['attention.snoozed'] = [...handlersFor(handlers, 'attention.snoozed'), onItemSnoozed];
+  out['attention.handled'] = [...handlersFor(handlers, 'attention.handled'), onItemHandled];
   // A person asked HandsFreeOS to handle a safe item: the worker alone schedules and sends it (auto.ts).
   out['attention.handle_requested'] = [
     ...handlersFor(handlers, 'attention.handle_requested'),

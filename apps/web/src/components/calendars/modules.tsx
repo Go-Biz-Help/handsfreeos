@@ -2,12 +2,14 @@
 import {
   formatNotice,
   LOCATION_NAMES,
+  money,
   parseClock,
   minutesToClock,
   type AssignmentMode,
   type CalendarCatalogs,
   type CalendarConfig,
   type ConfigPatch,
+  type DepositTerms,
   type LocationKind,
   type Reminder,
   type WeeklyHours,
@@ -45,6 +47,21 @@ export interface BuilderPerson {
   readonly weekly: WeeklyHours | null;
 }
 
+/** One connected payment account, as the Payments module names it. */
+export interface BuilderPayAccount {
+  readonly id: string;
+  /** The business's own name for it, else the provider's. */
+  readonly name: string;
+  readonly provider: string;
+  readonly isDefault: boolean;
+}
+
+/** What Settings → Payments says, for the Payments module to show rather than ask again. */
+export interface BuilderPayments {
+  readonly accounts: readonly BuilderPayAccount[];
+  readonly deposit: DepositTerms;
+}
+
 export interface ModuleProps {
   readonly workspaceId: string;
   readonly draft: CalendarConfig;
@@ -59,6 +76,8 @@ export interface ModuleProps {
   /** The calendar itself, for Automations (its workflows and "Add automation"). */
   readonly calendarId?: string;
   readonly calendarName?: string;
+  /** Settings → Payments, for the Payments module. */
+  readonly payments?: BuilderPayments;
 }
 
 const WEEKDAYS_9_TO_5: WeeklyHours = [1, 2, 3, 4, 5].map((day) => ({
@@ -1700,14 +1719,202 @@ function CrmModule({ draft, patch, pipelines }: ModuleProps) {
   );
 }
 
+/**
+ * Payments: whether a time is held before money arrives, how much is asked for, and which account it lands in.
+ * The business's own deposit (Settings → Payments) is the default, so changing it there changes it everywhere;
+ * a calendar that needs its own figure sets one here and keeps it.
+ */
+function PaymentsModule({ workspaceId, draft, patch, catalogs, payments }: ModuleProps) {
+  const mode = draft.payments.mode;
+  const own = draft.payments.deposit;
+  const accounts = payments?.accounts ?? catalogs.paymentAccounts;
+  const chosen = accounts.find((a) => a.id === draft.payments.connectionId) ?? null;
+  const fallback = accounts.find((a) => a.isDefault) ?? accounts[0] ?? null;
+  const account = chosen ?? fallback;
+  const deposit = payments?.deposit ?? { kind: 'none' as const };
+  const paySettings = `/app/w/${workspaceId}/settings/payments`;
+  const depositWords = (terms: DepositTerms): string =>
+    terms.kind === 'percent'
+      ? `${(terms.percentBp ?? 0) / 100}% of the price`
+      : terms.kind === 'amount'
+        ? money(terms.amountCents ?? 0)
+        : 'nothing yet';
+  /** Which of the three the "How much" picker is on. */
+  const depositChoice = own === null ? 'business' : own.kind;
+
+  return (
+    <>
+      <Heading
+        title="Payments"
+        description="Take a deposit or the full price when customers book. The time is held while they pay."
+      />
+      {catalogs.paymentsAvailable ? null : (
+        <Callout>
+          No payment account is connected yet, so this calendar can only be booked without paying.{' '}
+          <Link href={paySettings} className="font-medium underline">
+            Connect one in Settings → Payments
+          </Link>
+          .
+        </Callout>
+      )}
+      <div className="mt-3 flex flex-col gap-2 sm:flex-row" role="radiogroup" aria-label="Payment">
+        <RadioCard
+          selected={mode === 'none'}
+          onSelect={() => patch({ payments: { mode: 'none' } })}
+          title="No payment"
+          description="Anyone can book without paying."
+          testId="pay-mode-none"
+        />
+        <RadioCard
+          selected={mode === 'deposit'}
+          onSelect={() => patch({ payments: { mode: 'deposit' } })}
+          title="A deposit"
+          description="Part now, the rest on the invoice for the job."
+          testId="pay-mode-deposit"
+        />
+        <RadioCard
+          selected={mode === 'full'}
+          onSelect={() => patch({ payments: { mode: 'full' } })}
+          title="The full price"
+          description="The whole price before the time is held."
+          testId="pay-mode-full"
+        />
+      </div>
+      {mode === 'none' ? null : (
+        <div className="mt-3" data-testid="pay-module-detail">
+          {mode === 'full' ? (
+            <SetRow
+              first
+              center
+              title="How much"
+              description="The price of what they book, in full."
+            >
+              <Link href={paySettings} className="text-[13px] text-accent-text hover:underline">
+                Deposits
+              </Link>
+            </SetRow>
+          ) : (
+            <SetRow
+              first
+              title="How much"
+              description={
+                depositChoice === 'business'
+                  ? deposit.kind === 'none'
+                    ? 'The business asks for no deposit yet, so nothing is taken up front.'
+                    : `The business asks for ${depositWords(deposit)}, then the rest on the invoice for the job.`
+                  : `This calendar asks for ${depositWords(own!)}, then the rest on the invoice for the job.`
+              }
+              body={
+                depositChoice === 'business' ? (
+                  <Link href={paySettings} className="text-[13px] text-accent-text hover:underline">
+                    Change what the business asks for
+                  </Link>
+                ) : depositChoice === 'percent' ? (
+                  <NumberField
+                    value={own?.percentBp ? own.percentBp / 100 : null}
+                    onChange={(v) =>
+                      patch({
+                        payments: {
+                          deposit: { kind: 'percent', percentBp: Math.round((v ?? 0) * 100) },
+                        },
+                      })
+                    }
+                    min={1}
+                    max={100}
+                    label="Share of the price"
+                    suffix="% of the price"
+                    nullable
+                    testId="deposit-percent"
+                  />
+                ) : (
+                  <NumberField
+                    value={own?.amountCents ? Math.round(own.amountCents / 100) : null}
+                    onChange={(v) =>
+                      patch({
+                        payments: { deposit: { kind: 'amount', amountCents: (v ?? 0) * 100 } },
+                      })
+                    }
+                    min={1}
+                    max={1_000_000}
+                    label="Deposit amount"
+                    suffix="dollars"
+                    nullable
+                    testId="deposit-amount"
+                  />
+                )
+              }
+            >
+              <Select
+                aria-label="How much"
+                value={depositChoice}
+                data-testid="deposit-kind"
+                onChange={(e) =>
+                  patch({
+                    payments: {
+                      deposit:
+                        e.target.value === 'business'
+                          ? null
+                          : e.target.value === 'percent'
+                            ? { kind: 'percent', percentBp: own?.percentBp ?? 2_500 }
+                            : { kind: 'amount', amountCents: own?.amountCents ?? 10_000 },
+                    },
+                  })
+                }
+              >
+                <option value="business">What the business asks for</option>
+                <option value="percent">A share of the price</option>
+                <option value="amount">A set amount</option>
+              </Select>
+            </SetRow>
+          )}
+          <SetRow
+            center
+            title="Paid into"
+            description={
+              account
+                ? `${capital(account.provider)}${account.name ? ` · ${account.name}` : ''}${
+                    chosen ? '' : ' — the account everything is paid into'
+                  }`
+                : 'No account is connected, so nothing can be taken yet.'
+            }
+          >
+            {accounts.length ? (
+              <Select
+                aria-label="Paid into"
+                value={draft.payments.connectionId ?? ''}
+                data-testid="pay-account"
+                onChange={(e) => patch({ payments: { connectionId: e.target.value || null } })}
+              >
+                <option value="">The business’s account</option>
+                {accounts.map((a) => (
+                  <option key={a.id} value={a.id}>
+                    {a.name || capital(a.provider)}
+                  </option>
+                ))}
+              </Select>
+            ) : (
+              <Link href={paySettings} className="text-[13px] text-accent-text hover:underline">
+                Connect one
+              </Link>
+            )}
+          </SetRow>
+          <Callout>
+            A card is held, not charged, until the time is confirmed — if the time goes while they
+            are typing, nothing is taken. A bank transfer can’t be held, so one on a lost time is
+            sent back in full, at once.
+          </Callout>
+        </div>
+      )}
+    </>
+  );
+}
+
 function SoonModule({ title, what }: { title: string; what: string }) {
   return (
     <>
       <Heading title={title} description={what} />
       <Callout>
-        {title === 'Payments'
-          ? 'Coming with Payments. Deposits and paying in full when booking arrive with Milestone 9.'
-          : 'Coming with Workflows. Run a workflow when someone books, reschedules or cancels.'}
+        Coming with Workflows. Run a workflow when someone books, reschedules or cancels.
       </Callout>
     </>
   );
@@ -1748,9 +1955,7 @@ export function ModuleForm(props: ModuleProps & { module: ModuleKey }) {
     case 'crm':
       return <CrmModule {...props} />;
     case 'payments':
-      return (
-        <SoonModule title="Payments" what="Take a deposit or the full price when customers book." />
-      );
+      return <PaymentsModule {...props} />;
     case 'automations':
       return props.calendarId ? (
         <CalendarAutomations

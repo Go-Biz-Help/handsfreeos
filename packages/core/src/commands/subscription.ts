@@ -23,7 +23,11 @@ import { money } from '../money/index';
 import {
   SubscriptionCancelInput,
   SubscriptionRecordCycleInput,
+  SubscriptionCardOutput,
+  SubscriptionRecordCardInput,
   SubscriptionRefInput,
+  SubscriptionRequestCardInput,
+  SubscriptionSetConnectionInput,
   SubscriptionStartInput,
   SubscriptionStateOutput,
 } from '../schemas/money';
@@ -35,6 +39,9 @@ const inWorkspace = (i: { workspaceId: string }) => ({
 
 type SubscriptionLite = {
   id: string;
+  public_ref: string;
+  pay_version: number;
+  has_card: boolean;
   status: string;
   plan_name: string;
   price_cents: number;
@@ -51,7 +58,8 @@ async function requireSubscription(
 ): Promise<SubscriptionLite> {
   const [row] = await rows<SubscriptionLite>(
     ctx.tx,
-    sql`select s.id, s.status::text as status, s.plan_name, s.price_cents::float8 as price_cents,
+    sql`select s.id, s.public_ref, s.pay_version, (s.method_token is not null) as has_card,
+          s.status::text as status, s.plan_name, s.price_cents::float8 as price_cents,
           s.person_id, s.lead_id, s.connection_id, s.external_subscription_id,
           s.next_billing_on::text as next_billing_on
         from app.subscriptions s
@@ -126,6 +134,9 @@ export const subscriptionStart = defineCommand({
         leadId: input.leadId ?? null,
         connectionId: input.connectionId ?? null,
         startedOn: input.startedOn ?? null,
+        // A new plan has no card: neither provider will bill a customer they have no card for, so it starts
+        // waiting on them and the customer's own link is what closes it.
+        cardRequestedAt: new Date(),
         createdBy: me,
       })
       .returning({ id: subscriptions.id });
@@ -135,8 +146,18 @@ export const subscriptionStart = defineCommand({
       type: 'subscription.started',
       entityType: 'subscription',
       entityId: fresh.id,
-      payload: { ...subjectOf(fresh), startedOn: input.startedOn ?? null },
-      after: { plan: planName, price: money(Number(fresh.price_cents)), status: 'draft' },
+      payload: {
+        ...subjectOf(fresh),
+        startedOn: input.startedOn ?? null,
+        publicRef: fresh.public_ref,
+        payVersion: fresh.pay_version,
+        awaitingCard: true,
+      },
+      after: {
+        plan: planName,
+        price: money(Number(fresh.price_cents)),
+        status: 'waiting on a card',
+      },
     });
     return stateOut(fresh, true);
   },
@@ -208,6 +229,187 @@ export const subscriptionResume = defineCommand({
       payload: subjectOf(fresh),
       before: { status: 'paused' },
       after: { plan: fresh.plan_name, status: 'active' },
+    });
+    return stateOut(fresh, true);
+  },
+});
+
+/**
+ * The customer's side of a plan.
+ *
+ * Neither provider will bill a customer they have no card for, so a plan starts **waiting on the customer**: the
+ * business presses Start, the customer gets their own link, and they put a card on it themselves through the
+ * provider's own fields. Nothing about the card ever reaches us but a token, a brand and four digits — which is
+ * what keeps HandsFreeOS in the lightest PCI bracket.
+ *
+ * Asking again never retires the link already sent: a customer who kept the first email can still use it, and a
+ * card that expired has one honest answer rather than a phone call.
+ */
+export const subscriptionRequestCard = defineCommand({
+  name: 'subscription.request_card',
+  description:
+    'Ask the customer to put a card on their plan, by text, by email, or just to get the link. The plan waits until they do; asking again keeps the same link working.',
+  risk: 2,
+  input: SubscriptionRequestCardInput,
+  output: SubscriptionCardOutput,
+  permission: 'money.manage',
+  scope: inWorkspace,
+  emits: ['subscription.card_requested'],
+  async handler(ctx, input) {
+    requireHuman(ctx);
+    const before = await requireSubscription(ctx, input.subscriptionId);
+    if (before.status === 'cancelled')
+      throw HfosError.rule(
+        'subscription_cancelled',
+        409,
+        'That plan has ended. Start a new one instead.',
+      );
+    await ctx.tx
+      .update(subscriptions)
+      .set({ cardRequestedAt: new Date() })
+      .where(eq(subscriptions.id, before.id));
+    const fresh = await requireSubscription(ctx, before.id);
+    await ctx.emit({
+      type: 'subscription.card_requested',
+      entityType: 'subscription',
+      entityId: fresh.id,
+      payload: {
+        ...subjectOf(fresh),
+        publicRef: fresh.public_ref,
+        payVersion: fresh.pay_version,
+        channels: input.channels,
+        message: input.message,
+        // Changing a card that already works reads differently from a plan that cannot bill at all.
+        hasCard: fresh.has_card,
+      },
+      after: {
+        plan: fresh.plan_name,
+        asked: input.channels.length ? input.channels.join(', ') : 'link only',
+      },
+    });
+    return {
+      subscriptionId: fresh.id,
+      status: fresh.status as never,
+      cardRequestedAt: new Date().toISOString(),
+      hasCard: fresh.has_card,
+      changed: true,
+    };
+  },
+});
+
+export const subscriptionRecordCard = defineCommand({
+  name: 'subscription.record_card',
+  description:
+    'Worker: the customer put a card on their plan. What the provider handed back is written down — their customer, their token for the card, and the brand, last four and expiry. Never a card number.',
+  risk: 1,
+  input: SubscriptionRecordCardInput,
+  output: SubscriptionCardOutput,
+  permission: null,
+  scope: inWorkspace,
+  emits: ['subscription.card_saved'],
+  actors: ['system'],
+  async handler(ctx, input) {
+    const before = await requireSubscription(ctx, input.subscriptionId);
+    if (before.status === 'cancelled')
+      throw HfosError.rule('subscription_cancelled', 409, 'That plan was cancelled.');
+    await ctx.tx
+      .update(subscriptions)
+      .set({
+        customerRef: input.customerRef,
+        methodToken: input.methodToken,
+        cardBrand: input.cardBrand,
+        cardLast4: input.cardLast4,
+        cardExpiryMonth: input.cardExpiryMonth,
+        cardExpiryYear: input.cardExpiryYear,
+        cardRequestedAt: null,
+        // The plan bills where its card is: a card saved on another account moves the plan to it.
+        ...(input.connectionId ? { connectionId: input.connectionId } : {}),
+        provider: input.provider,
+        lastError: null,
+      })
+      .where(eq(subscriptions.id, before.id));
+    const fresh = await requireSubscription(ctx, before.id);
+    await ctx.emit({
+      type: 'subscription.card_saved',
+      entityType: 'subscription',
+      entityId: fresh.id,
+      payload: { ...subjectOf(fresh), provider: input.provider },
+      before: { hadCard: before.has_card },
+      after: {
+        plan: fresh.plan_name,
+        card:
+          input.cardBrand && input.cardLast4
+            ? `${input.cardBrand} •••• ${input.cardLast4}`
+            : 'a card',
+      },
+    });
+    return {
+      subscriptionId: fresh.id,
+      status: fresh.status as never,
+      cardRequestedAt: null,
+      hasCard: true,
+      changed: true,
+    };
+  },
+});
+
+export const subscriptionSetConnection = defineCommand({
+  name: 'subscription.set_connection',
+  description:
+    'Change which connected account a plan bills through. Only a plan the provider does not hold yet, or one left unmanaged when its account went away: a live plan lives inside one provider account and cannot be moved, so that is cancelled and started again instead.',
+  risk: 2,
+  input: SubscriptionSetConnectionInput,
+  output: SubscriptionStateOutput,
+  permission: 'money.manage',
+  scope: inWorkspace,
+  emits: ['subscription.connection_changed'],
+  async handler(ctx, input) {
+    requireHuman(ctx);
+    const ws = ctx.scope.workspaceId!;
+    const before = await requireSubscription(ctx, input.subscriptionId);
+    if (before.status !== 'draft' && before.status !== 'unmanaged')
+      throw HfosError.rule(
+        'subscription_at_provider',
+        409,
+        'This plan is already billing at the provider, and a plan lives inside one account there. Cancel it and start a new one on the other account.',
+      );
+    if (input.connectionId) {
+      const [live] = await rows<{ id: string; status: string; provider: string }>(
+        ctx.tx,
+        sql`select id, status::text as status, provider::text as provider
+            from app.payment_connections
+            where workspace_id = ${ws} and id = ${input.connectionId}::uuid`,
+      );
+      if (!live)
+        throw HfosError.validation([
+          { path: 'connectionId', message: 'Pick an account in this workspace.' },
+        ]);
+      if (live.status !== 'active')
+        throw HfosError.rule(
+          'payment_connection_not_connected',
+          409,
+          'That account isn’t connected right now. Reconnect it in Settings → Payments first.',
+        );
+    }
+    // A plan whose account went away is still billing at the provider: pointing it at the account it is billing
+    // through hands it back to us, and the next cycle read corrects the rest.
+    const status = before.status === 'unmanaged' && input.connectionId ? 'active' : before.status;
+    await ctx.tx
+      .update(subscriptions)
+      .set({
+        connectionId: input.connectionId,
+        status,
+        ...(status === 'active' ? { lastError: null } : {}),
+      })
+      .where(eq(subscriptions.id, before.id));
+    const fresh = await requireSubscription(ctx, before.id);
+    await ctx.emit({
+      type: 'subscription.connection_changed',
+      entityType: 'subscription',
+      entityId: fresh.id,
+      payload: { ...subjectOf(fresh), wasUnmanaged: before.status === 'unmanaged' },
+      before: { connectionId: before.connection_id, status: before.status },
+      after: { plan: fresh.plan_name, status: fresh.status },
     });
     return stateOut(fresh, true);
   },
@@ -299,6 +501,7 @@ export const subscriptionRecordCycle = defineCommand({
       ctx.tx,
       sql`update app.subscriptions set
             status = ${status}::app.subscription_status,
+            provider = coalesce(provider, ${input.provider}::app.payment_provider),
             external_subscription_id = coalesce(${input.externalSubscriptionId}, external_subscription_id),
             current_period_start = coalesce(${input.currentPeriodStart}::date, current_period_start),
             current_period_end = coalesce(${input.currentPeriodEnd}::date, current_period_end),
@@ -355,6 +558,9 @@ export const subscriptionCommands = [
   subscriptionStart,
   subscriptionPause,
   subscriptionResume,
+  subscriptionRequestCard,
+  subscriptionRecordCard,
+  subscriptionSetConnection,
   subscriptionCancel,
   subscriptionRecordCycle,
 ] as const;

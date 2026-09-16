@@ -27,6 +27,7 @@ import {
   leadMoveStage,
   leadRecordAnswers,
   localDateOf,
+  money,
   personUpdate,
   quoteData,
   startOfLocalDay,
@@ -352,6 +353,22 @@ async function customersAppointment(d: ExecutorDeps, tx: Tx, appointmentId: stri
 }
 
 const NOT_THEIRS = 'That isn’t one of this customer’s upcoming appointments.';
+
+/**
+ * A calendar that asks for money holds the time only while the customer pays for it, on their own page, where
+ * their card is held rather than charged. So the teammate books nothing here: it says what the visit takes and
+ * sends them the page. The words are the model's to repeat, so they are the customer's words.
+ */
+const depositInstead = (cal: {
+  name: string;
+  deposit: { amountCents: number; mode: 'deposit' | 'full' } | null;
+  bookingPath: string | null;
+}): string =>
+  `Don’t book ${cal.name} yourself. It takes ${money(cal.deposit?.amountCents ?? 0)}${
+    cal.deposit?.mode === 'deposit' ? ' as a deposit' : ''
+  } before a time is held, and that is paid on the booking page. Tell the customer what it takes and${
+    cal.bookingPath ? ` send them ${cal.bookingPath} to book and pay on.` : ' ask them to call us.'
+  }`;
 const NO_CUSTOMER =
   'There’s no customer on file for this conversation yet, so there’s nowhere to put that.';
 const NO_LEAD = 'This customer has no open lead to put that on. Add a note instead.';
@@ -477,6 +494,7 @@ const RUNNERS: Readonly<Record<TeammateToolName, Runner>> = {
     const calendarId = String(args['calendarId']);
     const cal = d.rc.calendars.find((c) => c.id === calendarId);
     if (!cal) return refused({ error: 'That isn’t one of your calendars.' });
+    if (cal.deposit) return refused({ error: depositInstead(cal) });
     const slot = d.state.offered.get(timeKey(calendarId, String(args['startsAt'])));
     if (!slot)
       return refused({
@@ -505,6 +523,8 @@ const RUNNERS: Readonly<Record<TeammateToolName, Runner>> = {
   async reschedule(d, tx, args) {
     const appt = await customersAppointment(d, tx, String(args['appointmentId']));
     if (!appt) return refused({ error: NOT_THEIRS });
+    const onPaying = d.rc.calendars.find((c) => c.id === appt.calendarId);
+    if (onPaying?.deposit) return refused({ error: depositInstead(onPaying) });
     const slot = d.state.offered.get(timeKey(appt.calendarId, String(args['startsAt'])));
     if (!slot)
       return refused({

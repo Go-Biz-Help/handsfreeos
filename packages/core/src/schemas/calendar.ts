@@ -806,6 +806,12 @@ export const AppointmentAttendeeOut = z.object({
   confirmedBy: UserRef,
   /** When HandsFreeOS asked them to confirm (the day-before reminder, or a confirmation request), or null. */
   confirmAskedAt: isoDateTime.nullable(),
+  /**
+   * M9: this seat is only **held** while the customer pays the deposit that books it, and this is when the
+   * hold runs out. Null on every seat that is really booked. Nobody has been told the time is theirs, so
+   * staff must not treat it as a booking — it may give itself back in a few minutes.
+   */
+  heldUntil: isoDateTime.nullable(),
 });
 export const AppointmentOut = z.object({
   id: uuid,
@@ -829,6 +835,11 @@ export const AppointmentOut = z.object({
   staff: z.array(z.object({ userId: uuid, fullName: z.string(), role: z.enum(['host', 'crew']) })),
   resources: z.array(z.object({ resourceId: uuid, name: z.string(), quantity: z.int() })),
   attendees: z.array(AppointmentAttendeeOut),
+  /**
+   * M9: the soonest a seat's deposit hold runs out, so a row on the calendar can say the time is only held
+   * without reading every seat. Null once every seat on it is really booked.
+   */
+  heldUntil: isoDateTime.nullable(),
   createdAt: isoDateTime,
   updatedAt: isoDateTime,
 });
@@ -853,6 +864,13 @@ export const AppointmentGetInput = z.object({ workspaceId: uuid, appointmentId: 
 export const AppointmentGetOutput = z.object({
   appointment: AppointmentOut.extend({
     calendarRevision: z.int(),
+    /**
+     * M9: what this visit costs, where the catalogue says — the product a service is priced by if there is
+     * one, else the service's own price shown. The same figure a deposit was worked out from, so "what's left
+     * after the visit" here and "due after the visit" on the customer's page are one number. Null when
+     * nothing has a price.
+     */
+    priceCents: z.int().nullable(),
     attendees: z.array(
       AppointmentAttendeeOut.extend({
         contactPhone: z.string().nullable(),
@@ -919,6 +937,12 @@ export const AppointmentBookOnlineInput = z.object({
   notes: z.string().trim().max(2000).nullable().optional(),
   /** The page's idempotency key: a retried submit books once. */
   clientId,
+  /**
+   * The calendar asks for a deposit or the full price: the time is taken and **held** while they pay, and
+   * nobody is told anything until it is confirmed (booking.confirm_deposit). A hold nobody pays for runs out
+   * and gives the time back.
+   */
+  hold: z.boolean().default(false),
 });
 export const AppointmentBookOnlineOutput = z.object({
   appointmentId: uuid,
@@ -933,6 +957,35 @@ export const AppointmentBookOnlineOutput = z.object({
   userIds: z.array(uuid),
   joined: z.boolean(),
   duplicate: z.boolean(),
+  /** Held while they pay, and not confirmed to anyone yet. */
+  held: z.boolean().default(false),
+  /** When the hold runs out, for a held booking. */
+  holdExpiresAt: isoDateTime.nullable().default(null),
+});
+
+export const BookingConfirmDepositInput = z.object({
+  workspaceId: uuid,
+  attendeeId: uuid,
+  /** The deposit invoice raised for this booking; it is issued here, in the same transaction. */
+  invoiceId: uuid,
+});
+export const BookingConfirmDepositOutput = z.object({
+  appointmentId: uuid,
+  attendeeId: uuid,
+  invoiceId: uuid,
+  /** False when this hold was already confirmed: a second attempt is answered, not acted on twice. */
+  confirmed: z.boolean(),
+  number: z.string().nullable(),
+});
+export const BookingReleaseHoldInput = z.object({
+  workspaceId: uuid,
+  attendeeId: uuid,
+  reason: z.string().trim().max(500).nullable().default(null),
+});
+export const BookingReleaseHoldOutput = z.object({
+  attendeeId: uuid,
+  /** True when this call gave the time back; false when it was paid for, or already gone. */
+  released: z.boolean(),
 });
 export const AttendeeRescheduleOnlineInput = z.object({
   workspaceId: uuid,

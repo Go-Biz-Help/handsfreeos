@@ -9,12 +9,14 @@ import {
   AlarmClock,
   CalendarClock,
   EyeOff,
+  FileText,
   House,
   ListChecks,
   Mail,
   MessageCircle,
   MoreHorizontal,
   Phone,
+  Receipt,
   Signpost,
   Sparkles,
 } from 'lucide-react';
@@ -261,6 +263,29 @@ export function AttentionBanner({
           </ButtonLink>
         );
         break;
+      // Money on a lead page: straight to the document. The follow-up itself is written on Home, where the
+      // card knows how to reach them — this button says what it does, and no more.
+      case 'estimate_waiting':
+      case 'invoice_overdue': {
+        const kind = item.kind === 'estimate_waiting' ? 'estimates' : 'invoices';
+        handle = (
+          <ButtonLink
+            href={`/app/w/${workspaceId}/money/${kind}/${item.subject.id}`}
+            variant="primary"
+            size="sm"
+            className={tall}
+            data-testid={testId}
+          >
+            {item.kind === 'estimate_waiting' ? (
+              <FileText className="h-3.5 w-3.5" strokeWidth={1.5} />
+            ) : (
+              <Receipt className="h-3.5 w-3.5" strokeWidth={1.5} />
+            )}
+            {item.kind === 'estimate_waiting' ? 'Open the estimate' : 'Open the invoice'}
+          </ButtonLink>
+        );
+        break;
+      }
       default:
         handle = (
           <ButtonLink href={home} variant="primary" size="sm" className={tall} data-testid={testId}>

@@ -362,6 +362,27 @@ body[data-call='on'] [data-sonner-toaster][data-y-position='bottom'] {
 .cal-ev.cal-dragging {
   opacity: 0.35;
 }
+/*
+ * A time only held while a customer pays its deposit. It is a real appointment on a real slot, so without
+ * this it reads as booked: hatched and outlined, it reads as provisional at any size, and the block says so
+ * in words wherever there is room for them.
+ */
+.cal-ev.cal-held {
+  background:
+    repeating-linear-gradient(
+      135deg,
+      color-mix(in oklab, var(--warning-text) 12%, transparent) 0 2px,
+      transparent 2px 7px
+    ),
+    color-mix(in oklab, var(--c) 8%, var(--card));
+  outline: 1.5px dashed color-mix(in oklab, var(--warning-text) 60%, transparent);
+  outline-offset: -2px;
+}
+.cal-ev.cal-held .cal-held-chip {
+  border-color: color-mix(in oklab, var(--warning-text) 45%, transparent);
+  background: var(--warning-soft);
+  color: var(--warning-text);
+}
 .cal-ev .cal-t {
   min-width: 0;
   overflow: hidden;
