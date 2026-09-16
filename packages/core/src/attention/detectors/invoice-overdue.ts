@@ -14,7 +14,7 @@
  */
 import { chip, sinceChip } from '../chips';
 import { balanceCents } from '../../money/totals';
-import { invoiceIsOpen, overdueFrom, type InvoiceStatus } from '../../money/status';
+import { dueDayStart, invoiceIsOpen, overdueFrom, type InvoiceStatus } from '../../money/status';
 import { owedWording } from '../../money/words';
 import type { BusinessFacts, ValueFacts } from '../facts';
 import { fingerprintOf } from '../fingerprint';
@@ -68,7 +68,9 @@ function assess(f: InvoiceOverdueFacts, settings: AttentionSettings, now: number
     confidence: 0.9,
     reasons: [
       chip('amount', owedWording(owed)),
-      sinceChip('overdue', late, now),
+      // Counted from the due date, the way a person counts and the way `dueWording` already says it on the
+      // list, the document and the customer's own page — not from `late`, which is a day later.
+      sinceChip('overdue', dueDayStart(inv.dueDate, f.business.timeZone), now),
       ...(inv.viewedAt ? [] : [chip('not_viewed', 'not opened yet')]),
     ],
     assignee: inv.assigneeUserId,

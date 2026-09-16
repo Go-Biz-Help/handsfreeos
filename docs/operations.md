@@ -26,6 +26,7 @@ A plain "step 5" means step 5 of the list you are reading, or of the part named 
 - [The calendar: Google, Outlook and online booking](#the-calendar-google-outlook-and-online-booking)
 - [Workflows, the knowledge base and agency templates](#workflows-the-knowledge-base-and-agency-templates)
 - [The AI teammate and website chat](#the-ai-teammate-and-website-chat)
+- [Money: Stripe and Square](#money-stripe-and-square)
 - [Local development](#local-development)
 - [Going live, and when something goes wrong](#going-live-and-when-something-goes-wrong)
 
@@ -109,35 +110,39 @@ Run each check in Terminal and install only what is missing.
 
 Make one folder in your password manager named `HandsFreeOS`. Every secret in this guide goes there first, then only into the one place named below. Never commit a secret, never save it in a file inside the repository folder, and never paste it into a chat, an email or a support ticket. CI runs gitleaks over the whole git history and checks that the web build has no Supabase secret key, but do not count on either to catch every key or password.
 
-| Entry                                                                      | Holds                                                                                                                                                                | Where the value goes                                                                                                                                                                                                            |
-| -------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Supabase postgres password                                                 | The hosted database password for the `postgres` user                                                                                                                 | Only the Supabase CLI, typed in when it asks. No app.                                                                                                                                                                           |
-| hfos_api database password                                                 | The `hfos_api` password and the finished `DATABASE_URL` string                                                                                                       | Fly.io secret `DATABASE_URL` on `handsfreeos-api`                                                                                                                                                                               |
-| hfos_worker database password                                              | The `hfos_worker` password and the finished `DATABASE_URL_WORKER` string                                                                                             | Fly.io secret `DATABASE_URL_WORKER` on `handsfreeos-worker`                                                                                                                                                                     |
-| Supabase publishable key                                                   | The `sb_publishable_...` key. Not secret.                                                                                                                            | Vercel `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`                                                                                                                                                                                   |
-| Supabase secret key (worker)                                               | The `sb_secret_...` key named `hfos_worker`                                                                                                                          | Fly.io secret `SUPABASE_SECRET_KEY` on `handsfreeos-worker` only                                                                                                                                                                |
-| Worker encryption key (current)                                            | `WORKER_ENCRYPTION_KEY`. Old keys stay as separate entries labeled "previous, retired <date>" and are never deleted.                                                 | Fly.io secrets `WORKER_ENCRYPTION_KEY` and, after a rotation, `WORKER_ENCRYPTION_KEYS_PREVIOUS` on `handsfreeos-worker`                                                                                                         |
-| Twilio master account                                                      | The master **Account SID** and **Auth Token**                                                                                                                        | Fly.io secrets `TWILIO_ACCOUNT_SID` and `TWILIO_AUTH_TOKEN` on `handsfreeos-worker`                                                                                                                                             |
-| Twilio primary customer profile SID                                        | The approved Trust Hub profile (`BU...`)                                                                                                                             | Fly.io secret `TWILIO_PRIMARY_PROFILE_SID` on `handsfreeos-worker`                                                                                                                                                              |
-| Postmark login                                                             | Your Postmark password                                                                                                                                               | Nowhere else                                                                                                                                                                                                                    |
-| Postmark server API token                                                  | The production server's API token                                                                                                                                    | Fly.io secrets `POSTMARK_SERVER_TOKEN` and, inside it, `SMTP_URL` on `handsfreeos-worker`. Supabase's SMTP settings only if you do not use an SMTP token.                                                                       |
-| Postmark account API token                                                 | The account-level API token                                                                                                                                          | Fly.io secret `POSTMARK_ACCOUNT_TOKEN` on `handsfreeos-worker`                                                                                                                                                                  |
-| Postmark webhook password                                                  | A value you make with `openssl rand -hex 24`                                                                                                                         | Fly.io secret `POSTMARK_WEBHOOK_PASSWORD` on `handsfreeos-worker`, and inside both Postmark webhook addresses                                                                                                                   |
-| Postmark SMTP token                                                        | An Access Key and Secret Key                                                                                                                                         | Supabase's SMTP settings only                                                                                                                                                                                                   |
-| Worker SMTP_URL                                                            | The finished `smtp://...` string built from the server API token                                                                                                     | Fly.io secret `SMTP_URL` on `handsfreeos-worker`                                                                                                                                                                                |
-| Microsoft Entra app                                                        | The **Application (client) ID**, the client secret **Value**, its expiry date, and your Partner Global Account (PGA) ID                                              | Fly.io secrets `MICROSOFT_OAUTH_CLIENT_ID` and `MICROSOFT_OAUTH_CLIENT_SECRET` on `handsfreeos-worker`. The PGA ID goes only into the Entra app's **Branding & properties** page, under **Add Partner ID to verify publisher**. |
-| Google Gmail client                                                        | The Gmail OAuth client's **Client ID** and **Client secret**                                                                                                         | Fly.io secrets `GOOGLE_OAUTH_CLIENT_ID` and `GOOGLE_OAUTH_CLIENT_SECRET` on `handsfreeos-worker`                                                                                                                                |
-| Google Calendar client                                                     | The Google Calendar OAuth client's **Client ID** and **Client secret**, in the separate `HandsFreeOS Calendar` project                                               | Fly.io secrets `GOOGLE_CALENDAR_OAUTH_CLIENT_ID` and `GOOGLE_CALENDAR_OAUTH_CLIENT_SECRET` on `handsfreeos-worker`                                                                                                              |
-| Google sign-in client                                                      | The separate OAuth client for Sign in with Google                                                                                                                    | Supabase's Google provider only                                                                                                                                                                                                 |
-| Google local sign-in client                                                | The OAuth client for Sign in with Google on the local stack (see "Local development")                                                                                | The repository-root `.env` on your Mac only, as `SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID` and `SUPABASE_AUTH_EXTERNAL_GOOGLE_SECRET`. Git ignores that file.                                                                    |
-| Anthropic API key                                                          | The production key (starts with `sk-ant-api`), linked to the `handsfreeos-worker` service account. A key for your laptop is a separate entry, "Anthropic local key". | Fly.io secret `ANTHROPIC_API_KEY` on `handsfreeos-worker` only. The local key goes only in `apps/worker/.env` on your Mac.                                                                                                      |
-| Cloudflare Turnstile                                                       | The Turnstile widget's site key (not secret) and secret key, for the booking pages and the website chat                                                              | Site key: Vercel `NEXT_PUBLIC_TURNSTILE_SITE_KEY`. Secret key: Fly.io secret `TURNSTILE_SECRET_KEY` on `handsfreeos-worker` only                                                                                                |
-| Chat IP key                                                                | `CHAT_IP_KEY`, a value you make with `openssl rand -base64 32`. The website chat keeps visitors' IP addresses only as a one-way hash made with it.                   | Fly.io secret `CHAT_IP_KEY` on `handsfreeos-worker` only                                                                                                                                                                        |
-| Dev tunnel token, Postmark dev server token, Postmark dev webhook password | Laptop testing only (see "Local development")                                                                                                                        | On your Mac only: the tunnel token in `~/.cloudflared/handsfreeos-dev.token`, the two Postmark dev values in `apps/worker/.env`. The dev webhook password also goes inside the dev server's webhook address in Postmark.        |
+| Entry                                                                      | Holds                                                                                                                                                                                                               | Where the value goes                                                                                                                                                                                                            |
+| -------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Supabase postgres password                                                 | The hosted database password for the `postgres` user                                                                                                                                                                | Only the Supabase CLI, typed in when it asks. No app.                                                                                                                                                                           |
+| hfos_api database password                                                 | The `hfos_api` password and the finished `DATABASE_URL` string                                                                                                                                                      | Fly.io secret `DATABASE_URL` on `handsfreeos-api`                                                                                                                                                                               |
+| hfos_worker database password                                              | The `hfos_worker` password and the finished `DATABASE_URL_WORKER` string                                                                                                                                            | Fly.io secret `DATABASE_URL_WORKER` on `handsfreeos-worker`                                                                                                                                                                     |
+| Supabase publishable key                                                   | The `sb_publishable_...` key. Not secret.                                                                                                                                                                           | Vercel `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`                                                                                                                                                                                   |
+| Supabase secret key (worker)                                               | The `sb_secret_...` key named `hfos_worker`                                                                                                                                                                         | Fly.io secret `SUPABASE_SECRET_KEY` on `handsfreeos-worker` only                                                                                                                                                                |
+| Worker encryption key (current)                                            | `WORKER_ENCRYPTION_KEY`. Old keys stay as separate entries labeled "previous, retired <date>" and are never deleted.                                                                                                | Fly.io secrets `WORKER_ENCRYPTION_KEY` and, after a rotation, `WORKER_ENCRYPTION_KEYS_PREVIOUS` on `handsfreeos-worker`                                                                                                         |
+| Twilio master account                                                      | The master **Account SID** and **Auth Token**                                                                                                                                                                       | Fly.io secrets `TWILIO_ACCOUNT_SID` and `TWILIO_AUTH_TOKEN` on `handsfreeos-worker`                                                                                                                                             |
+| Twilio primary customer profile SID                                        | The approved Trust Hub profile (`BU...`)                                                                                                                                                                            | Fly.io secret `TWILIO_PRIMARY_PROFILE_SID` on `handsfreeos-worker`                                                                                                                                                              |
+| Postmark login                                                             | Your Postmark password                                                                                                                                                                                              | Nowhere else                                                                                                                                                                                                                    |
+| Postmark server API token                                                  | The production server's API token                                                                                                                                                                                   | Fly.io secrets `POSTMARK_SERVER_TOKEN` and, inside it, `SMTP_URL` on `handsfreeos-worker`. Supabase's SMTP settings only if you do not use an SMTP token.                                                                       |
+| Postmark account API token                                                 | The account-level API token                                                                                                                                                                                         | Fly.io secret `POSTMARK_ACCOUNT_TOKEN` on `handsfreeos-worker`                                                                                                                                                                  |
+| Postmark webhook password                                                  | A value you make with `openssl rand -hex 24`                                                                                                                                                                        | Fly.io secret `POSTMARK_WEBHOOK_PASSWORD` on `handsfreeos-worker`, and inside both Postmark webhook addresses                                                                                                                   |
+| Postmark SMTP token                                                        | An Access Key and Secret Key                                                                                                                                                                                        | Supabase's SMTP settings only                                                                                                                                                                                                   |
+| Worker SMTP_URL                                                            | The finished `smtp://...` string built from the server API token                                                                                                                                                    | Fly.io secret `SMTP_URL` on `handsfreeos-worker`                                                                                                                                                                                |
+| Microsoft Entra app                                                        | The **Application (client) ID**, the client secret **Value**, its expiry date, and your Partner Global Account (PGA) ID                                                                                             | Fly.io secrets `MICROSOFT_OAUTH_CLIENT_ID` and `MICROSOFT_OAUTH_CLIENT_SECRET` on `handsfreeos-worker`. The PGA ID goes only into the Entra app's **Branding & properties** page, under **Add Partner ID to verify publisher**. |
+| Google Gmail client                                                        | The Gmail OAuth client's **Client ID** and **Client secret**                                                                                                                                                        | Fly.io secrets `GOOGLE_OAUTH_CLIENT_ID` and `GOOGLE_OAUTH_CLIENT_SECRET` on `handsfreeos-worker`                                                                                                                                |
+| Google Calendar client                                                     | The Google Calendar OAuth client's **Client ID** and **Client secret**, in the separate `HandsFreeOS Calendar` project                                                                                              | Fly.io secrets `GOOGLE_CALENDAR_OAUTH_CLIENT_ID` and `GOOGLE_CALENDAR_OAUTH_CLIENT_SECRET` on `handsfreeos-worker`                                                                                                              |
+| Google sign-in client                                                      | The separate OAuth client for Sign in with Google                                                                                                                                                                   | Supabase's Google provider only                                                                                                                                                                                                 |
+| Google local sign-in client                                                | The OAuth client for Sign in with Google on the local stack (see "Local development")                                                                                                                               | The repository-root `.env` on your Mac only, as `SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID` and `SUPABASE_AUTH_EXTERNAL_GOOGLE_SECRET`. Git ignores that file.                                                                    |
+| Anthropic API key                                                          | The production key (starts with `sk-ant-api`), linked to the `handsfreeos-worker` service account. A key for your laptop is a separate entry, "Anthropic local key".                                                | Fly.io secret `ANTHROPIC_API_KEY` on `handsfreeos-worker` only. The local key goes only in `apps/worker/.env` on your Mac.                                                                                                      |
+| Cloudflare Turnstile                                                       | The Turnstile widget's site key (not secret) and secret key, for the booking pages and the website chat                                                                                                             | Site key: Vercel `NEXT_PUBLIC_TURNSTILE_SITE_KEY`. Secret key: Fly.io secret `TURNSTILE_SECRET_KEY` on `handsfreeos-worker` only                                                                                                |
+| Chat IP key                                                                | `CHAT_IP_KEY`, a value you make with `openssl rand -base64 32`. The website chat keeps visitors' IP addresses only as a one-way hash made with it.                                                                  | Fly.io secret `CHAT_IP_KEY` on `handsfreeos-worker` only                                                                                                                                                                        |
+| Stripe Connect platform                                                    | The platform's **Client ID** (starts `ca_`), its live **secret key** (starts `sk_live_`), its live **publishable key** (starts `pk_live_`, not secret) and the Connect **webhook signing secret** (starts `whsec_`) | Fly.io secrets `STRIPE_CLIENT_ID`, `STRIPE_SECRET_KEY`, `STRIPE_PUBLISHABLE_KEY` and `STRIPE_WEBHOOK_SECRET` on `handsfreeos-worker` only                                                                                       |
+| Stripe test keys                                                           | The same four values from Stripe's test mode, for your laptop                                                                                                                                                       | `apps/worker/.env` on your Mac only                                                                                                                                                                                             |
+| Square developer application                                               | The application's **Application ID** and **Application Secret**, and the **webhook signature key** for each of production and sandbox                                                                               | Fly.io secrets `SQUARE_APPLICATION_ID`, `SQUARE_APPLICATION_SECRET` and `SQUARE_WEBHOOK_SIGNATURE_KEYS` on `handsfreeos-worker` only                                                                                            |
+| Square sandbox                                                             | The sandbox application id, secret and signature key, for your laptop                                                                                                                                               | `apps/worker/.env` on your Mac only                                                                                                                                                                                             |
+| Dev tunnel token, Postmark dev server token, Postmark dev webhook password | Laptop testing only (see "Local development")                                                                                                                                                                       | On your Mac only: the tunnel token in `~/.cloudflared/handsfreeos-dev.token`, the two Postmark dev values in `apps/worker/.env`. The dev webhook password also goes inside the dev server's webhook address in Postmark.        |
 
 Two values do not follow the pattern. The Fly.io deploy token (`FLY_API_TOKEN`) lives only in GitHub, not in your password manager: if it is lost, you make a new one. The file `.env.hosted` at the repository root already holds the two database passwords, the two finished connection strings and the publishable key. It is gitignored and exists only on your Mac. Never commit, attach or paste it anywhere.
 
-The API refuses to start if it holds any variable whose name contains `SECRET`, `SERVICE_ROLE`, `SIGNING_KEY`, `ENCRYPTION_KEY` or `_OAUTH_` (such as `MICROSOFT_OAUTH_`, `GOOGLE_OAUTH_` and `GOOGLE_CALENDAR_OAUTH_`), or starts with `TWILIO_`, `POSTMARK_`, `TURNSTILE_`, `ANTHROPIC_` or `OPENAI_`, or is `CHAT_IP_KEY`. So every provider secret goes on `handsfreeos-worker`, never on `handsfreeos-api`, and never in Vercel or GitHub.
+The API refuses to start if it holds any variable whose name contains `SECRET`, `SERVICE_ROLE`, `SIGNING_KEY`, `ENCRYPTION_KEY` or `_OAUTH_` (such as `MICROSOFT_OAUTH_`, `GOOGLE_OAUTH_` and `GOOGLE_CALENDAR_OAUTH_`), or starts with `TWILIO_`, `POSTMARK_`, `TURNSTILE_`, `ANTHROPIC_`, `OPENAI_`, `STRIPE_`, `SQUARE_`, `PAYMENTS_`, `PAYPAL_`, `NMI_` or `AUTHORIZE_NET_`, or is `CHAT_IP_KEY`. So every provider secret goes on `handsfreeos-worker`, never on `handsfreeos-api`, and never in Vercel or GitHub.
 
 ## The database: Supabase (hosted)
 
@@ -1339,6 +1344,13 @@ If the Twilio or Postmark screens have moved, search their consoles for "Account
 | `GOOGLE_CALENDAR_OAUTH_CLIENT_ID`     | Only for Google Calendar in **Settings** → **My calendar**                  | The **Google** button in **Settings** → **My calendar** shows a page titled "Google Calendar isn’t set up yet".                                                                                                                                                          | The Web application OAuth client in the separate `HandsFreeOS Calendar` Google Cloud project, not the Gmail client. See "The calendar: Google, Outlook and online booking". Worker only.                                                           |
 | `GOOGLE_CALENDAR_OAUTH_CLIENT_SECRET` | Only for Google Calendar                                                    | Same as above.                                                                                                                                                                                                                                                           | The same Google Calendar client's secret (starts with `GOCSPX-`).                                                                                                                                                                                  |
 | `TURNSTILE_SECRET_KEY`                | Recommended, for the check that bookings and website chats come from people | Bookings and website chats rely on their limits, a hidden field only bots fill in, and the database's caps.                                                                                                                                                              | Cloudflare's **Turnstile** page: the widget's secret key. Set its site key on Vercel (`NEXT_PUBLIC_TURNSTILE_SITE_KEY`) first. Production refuses Cloudflare's test secret. See "Protect the booking page with Turnstile (optional)". Worker only. |
+| `STRIPE_CLIENT_ID`                    | Only to connect Stripe accounts                                             | **Settings** → **Payments** shows “Stripe isn’t set up yet” when a business presses Connect Stripe. Square still works; so does everything that does not take money.                                                                                                     | The Stripe dashboard, **Settings** → **Connect** → **Platform settings**: the live **Client ID** (starts `ca_`). See “Money: Stripe and Square”. Worker only.                                                                                      |
+| `STRIPE_SECRET_KEY`                   | With `STRIPE_CLIENT_ID`                                                     | The worker refuses to start with a client id and no secret key. Production also refuses a test key, because it would take nobody’s money and look like it had.                                                                                                           | Stripe, **Developers** → **API keys**: the live secret key (starts `sk_live_`). Worker only.                                                                                                                                                       |
+| `STRIPE_PUBLISHABLE_KEY`              | With `STRIPE_CLIENT_ID`                                                     | Customers’ payment pages cannot mint a card token, so a card is refused before it is typed.                                                                                                                                                                              | Stripe, **Developers** → **API keys**: the live publishable key (starts `pk_live_`). Not a secret, but it lives with the rest. Worker only.                                                                                                        |
+| `STRIPE_WEBHOOK_SECRET`               | With `STRIPE_CLIENT_ID`                                                     | Stripe’s events are refused with `400 signature`, so a bank transfer never settles here and a plan’s cycle never lands.                                                                                                                                                  | Stripe, **Developers** → **Webhooks**: the **Connect** endpoint’s signing secret (starts `whsec_`). Worker only.                                                                                                                                   |
+| `SQUARE_APPLICATION_ID`               | Only to connect Square accounts                                             | **Settings** → **Payments** shows “Square isn’t set up yet” when a business presses Connect Square.                                                                                                                                                                      | The Square developer dashboard, your application’s **Credentials**: the **Application ID**. See “Money: Stripe and Square”. Worker only.                                                                                                           |
+| `SQUARE_APPLICATION_SECRET`           | With `SQUARE_APPLICATION_ID`                                                | The worker refuses to start with an application id and no secret.                                                                                                                                                                                                        | The same **Credentials** page: the **Application Secret**. Worker only.                                                                                                                                                                            |
+| `SQUARE_WEBHOOK_SIGNATURE_KEYS`       | With `SQUARE_APPLICATION_ID`                                                | Square’s events are refused, so a plan’s cycle and a dispute never land here.                                                                                                                                                                                            | Square, **Webhooks** → your subscription: the **Signature Key**. Several, separated by commas, so a key can be rotated without a gap. Worker only.                                                                                                 |
 | `WORKER_ENCRYPTION_KEYS_PREVIOUS`     | Only after a key rotation. Leave it unset on the first setup.               | Nothing, until a key is rotated.                                                                                                                                                                                                                                         | Old `WORKER_ENCRYPTION_KEY` values from your password manager, separated by commas. Each must be a valid key, or the worker will not start.                                                                                                        |
 
 #### The worker: leave these unset
@@ -1362,6 +1374,9 @@ The defaults are right in production. Setting some of these changes real behavio
 | `CALENDAR_REFRESH_MS`                      | `600000` (every connected calendar's busy times are read every 10 minutes) | Must be a whole number of milliseconds, 1000 or more. A smaller number reads every calendar more often.                                                                       |
 | `UNANSWERED_ALERT_MS`                      | Not set: each workspace's own setting, in minutes                          | A demo override. It changes every workspace's alert timing.                                                                                                                   |
 | `FAKE_APPROVAL_MS`                         | `3000`                                                                     | Used only by the fake carrier.                                                                                                                                                |
+| `PAYMENTS_PROVIDER`                        | `real` in production                                                       | Production refuses `fake`, the stand-in for local development and tests. Left unset it is `real` as soon as a Stripe or Square application is configured.                     |
+| `SQUARE_ENVIRONMENT`                       | `live` in production                                                       | Production refuses `test`. `test` points every Square call at the sandbox.                                                                                                    |
+| `PAYMENTS_FAKE_SETTLE_MS`                  | Not set: a stand-in bank transfer settles only when asked                  | Local development only. It does nothing with the real providers.                                                                                                              |
 | `ASSISTANT_PROVIDER`                       | `anthropic` when `ANTHROPIC_API_KEY` is set, otherwise `none`              | Production refuses `scripted`, the stand-in the tests use. `none` turns the Assistant off even with a key.                                                                    |
 | `ASSISTANT_MODEL`                          | `claude-sonnet-5`                                                          | The Claude model the Assistant uses. Change it only as "Change the model" in "The Assistant: Anthropic" describes.                                                            |
 | `ASSISTANT_DAILY_TOKENS`                   | `2000000` tokens per workspace per day                                     | Change it only as "Change the daily limit" in "The Assistant: Anthropic" describes, with the same number on `handsfreeos-api`.                                                |
@@ -1372,7 +1387,7 @@ The defaults are right in production. Setting some of these changes real behavio
 - **The API:** when the worker has `ASSISTANT_DAILY_TOKENS`, `handsfreeos-api` needs the same number ("Change the daily limit" in "The Assistant: Anthropic").
 - **Turnstile:** the site key on Vercel (`NEXT_PUBLIC_TURNSTILE_SITE_KEY`) and the worker's `TURNSTILE_SECRET_KEY` come from the same Cloudflare widget.
 - **Vercel:** `NEXT_PUBLIC_API_URL` must be `https://api.handsfreeos.com`, and `NEXT_PUBLIC_WORKER_URL` must be `https://hooks.handsfreeos.com` (Fly Part 10). If the API address is missing, the web app tries `http://127.0.0.1:4000`. If the worker address is missing, number search, browser calls, mailbox and calendar sign-in and the booking pages try `http://127.0.0.1:4100`.
-- **Providers:** Twilio, Postmark, Microsoft and Google must call `https://hooks.handsfreeos.com`, never `handsfreeos-worker.fly.dev`. A Twilio request sent to any other address fails with `403 Invalid signature`.
+- **Providers:** Twilio, Postmark, Microsoft, Google, Stripe and Square must call `https://hooks.handsfreeos.com`, never `handsfreeos-worker.fly.dev`. A Twilio request sent to any other address fails with `403 Invalid signature`. Stripe’s Connect endpoint is `https://hooks.handsfreeos.com/webhooks/stripe` and Square’s is `https://hooks.handsfreeos.com/webhooks/square`; the OAuth returns are `https://hooks.handsfreeos.com/oauth/stripe/callback` and `https://hooks.handsfreeos.com/oauth/square/callback`.
 - **Never change `hooks.handsfreeos.com`.** The worker writes that address into every Twilio number it buys, and into each business's Messaging Service and browser-call (TwiML) app. Nothing re-points any of them afterwards (see "If the public address ever changes" in "The phone carrier: Twilio").
 
 ### Fly Part 6: Prepare the secret values and give them to Fly
@@ -6529,6 +6544,231 @@ Each answers with what it moved and ran. A record and the job behind it are comm
 6. Make sure the people who should hear have **Morning summary** and **Urgent items** on in their own **Settings** → **Notifications**, and that the business has someone to send email as ("Email: Postmark").
 7. Watch the first morning: **Handled by HandsFreeOS** should show the confirmation requests that went out, and every card that couldn't send should say why.
 
+## Money: Stripe and Square
+
+HandsFreeOS takes money for a business, not from it. **Each business signs into its own Stripe or Square account** in **Settings** → **Payments**. Their customers' payments land in that business's own balance. They are the merchant of record: the payouts are theirs, the fees are theirs, the chargebacks and the refunds are theirs, and they can revoke our access from their own dashboard at any time without asking us. HandsFreeOS never holds their money and never sees a card number — the customer's card details go from the customer's own browser straight to the provider, and only a token comes back.
+
+What you set up here is the **platform**: one Stripe Connect platform and one Square developer application, both owned by HandsFreeOS, which is what lets a business click Connect and sign in. Every value goes on `handsfreeos-worker`. The API refuses to start if it holds any variable starting with `STRIPE_`, `SQUARE_`, `PAYMENTS_`, `PAYPAL_`, `NMI_` or `AUTHORIZE_NET_`, and none of them ever goes in Vercel or GitHub.
+
+Money needs the migrations `20260920000100_money_catalog.sql` to `20260920000900_subscription_cards.sql`. See "Apply new migrations".
+
+Without any of this, everything else in HandsFreeOS works. **Settings** → **Payments** simply says the provider isn't set up, and a business can still write estimates and invoices and record cash, cheques and card payments they took themselves.
+
+### Before you start
+
+- A Stripe account for HandsFreeOS itself, with you as an administrator. Stripe Connect has to be enabled on it (Stripe asks a few questions about what your platform does).
+- A Square account for HandsFreeOS itself, and access to the Square Developer dashboard with it.
+- The business details Stripe and Square ask a platform for: legal company name, address, website and what the software does.
+- The worker already running at `https://hooks.handsfreeos.com` (Fly Part 8). **Both providers check a webhook address before they save it**, so the webhooks come after the worker is live.
+- Your password manager, open, so every value goes straight into it.
+
+#### Order of work
+
+Do Stripe Parts 1 to 5, then Square Parts 1 to 5, then the checks. Stripe's Connect application review can take a few days, so **start it first** and do everything else while you wait. Square's sandbox works immediately; its production application also needs Square to look at it before other people's accounts may connect.
+
+Nothing here is per-client. A business connects its own account from inside the app, and that takes a minute.
+
+### Stripe Part 1: Turn Connect on
+
+1. Sign in to the Stripe dashboard as HandsFreeOS.
+2. Go to **Connect** in the left menu and press **Get started**.
+3. Choose the **standard** account type when asked how your platform works: each business keeps its own full Stripe account and its own dashboard, which is the point.
+4. Fill in the platform profile Stripe asks for: what HandsFreeOS does, the kinds of business that use it, and your website.
+
+You should see Connect appear in the dashboard's left menu with a **Platform settings** page under it. Stripe may take a few days to approve the profile. You can finish the rest and test in test mode meanwhile.
+
+### Stripe Part 2: The platform's client id and its branding
+
+1. Go to **Settings** → **Connect** → **Platform settings** (search the dashboard for "Platform settings" if it has moved).
+2. Under **OAuth settings**, copy the **Client ID**. It starts with `ca_`.
+3. Save it in your password manager as "Stripe Connect platform", under Client ID.
+4. On the same page, add the **redirect URI**:
+
+   ```text
+   https://hooks.handsfreeos.com/oauth/stripe/callback
+   ```
+
+5. Set the platform name, icon and brand colour under **Branding**. This is what a business sees on Stripe's own sign-in screen, so it should say HandsFreeOS.
+
+You should see the redirect URI listed and saved. Stripe refuses the sign-in outright if the address the worker sends does not match this one exactly, including `https` and the trailing path.
+
+### Stripe Part 3: The API keys
+
+1. Go to **Developers** → **API keys**.
+2. Copy the **live secret key**. It starts with `sk_live_`.
+3. Save it in your password manager as "Stripe Connect platform", under secret key. **This key can move money in every connected account.** It goes on the worker and nowhere else.
+4. Copy the **live publishable key**. It starts with `pk_live_`. It is not a secret — it is sent to customers' browsers on purpose — but keep it with the rest.
+5. Save it under publishable key.
+6. Switch the dashboard to **test mode** (the toggle at the top) and copy the test versions of both keys.
+7. Save those as a separate entry, "Stripe test keys". They are for your laptop only.
+
+### Stripe Part 4: The Connect webhook
+
+Do this after the worker is live at `https://hooks.handsfreeos.com` (Fly Part 8). Stripe calls the address before it saves it.
+
+1. Go to **Developers** → **Webhooks**.
+2. Press **Add endpoint**, and choose **Connect** (events from connected accounts), not **Account**.
+3. Endpoint URL:
+
+   ```text
+   https://hooks.handsfreeos.com/webhooks/stripe
+   ```
+
+4. Select these events, and no others. They are exactly the ones the worker acts on; anything else is answered with a 200 and dropped.
+   - `payment_intent.succeeded`, `payment_intent.processing`, `payment_intent.amount_capturable_updated`, `payment_intent.payment_failed`, `payment_intent.canceled`
+   - `charge.refunded`, `charge.refund.updated`, `charge.dispute.created`, `charge.dispute.updated`, `charge.dispute.closed`
+   - `invoice.paid`, `invoice.payment_succeeded`, `invoice.payment_failed`
+   - `customer.subscription.created`, `customer.subscription.updated`, `customer.subscription.paused`, `customer.subscription.resumed`, `customer.subscription.deleted`
+   - `account.updated`, `capability.updated`, `account.application.deauthorized`
+5. Press **Add endpoint**.
+6. On the endpoint's page, press **Reveal** under **Signing secret** and copy it. It starts with `whsec_`.
+7. Save it in your password manager as "Stripe Connect platform", under webhook signing secret.
+
+You should see the endpoint listed as enabled. `account.application.deauthorized` is the one that matters most for trust: it is how a business revoking us in their own Stripe dashboard is noticed here, and the connection is marked disconnected without anybody having to tell us.
+
+### Stripe Part 5: A test account to connect
+
+You need a connected account of your own to try a real round trip with.
+
+1. Switch the dashboard to **test mode**.
+2. Go to **Connect** → **Accounts** → **Create**, or simply run the connect flow from a HandsFreeOS workspace and sign in with a new test account when Stripe offers it.
+3. Use Stripe's test card `4242 4242 4242 4242` with any future expiry and any CVC when you pay.
+
+Stripe's own test cards are listed under **Developers** → **Test data**.
+
+### Square Part 1: The developer application
+
+1. Sign in at the Square Developer dashboard with HandsFreeOS's Square account.
+2. Press **+** to make an application. Name it `HandsFreeOS`.
+3. Open the application, and note the environment switch at the top: **Sandbox** and **Production** have **different** credentials, and you will need both.
+
+### Square Part 2: The credentials
+
+1. With the switch on **Production**, open **Credentials**.
+2. Copy the **Application ID** and the **Application Secret**.
+3. Save both in your password manager as "Square developer application".
+4. Switch to **Sandbox** and copy the sandbox Application ID and secret.
+5. Save those as a separate entry, "Square sandbox". They are for your laptop only.
+
+### Square Part 3: The redirect
+
+1. Open **OAuth** in the application's left menu, with the switch on **Production**.
+2. Set the **Redirect URL**:
+
+   ```text
+   https://hooks.handsfreeos.com/oauth/square/callback
+   ```
+
+3. Save.
+4. Switch to **Sandbox** and set the same field to your laptop's address (see "Trying a real provider from your laptop"), or leave it until you need it.
+
+HandsFreeOS asks a seller for these permissions, and Square refuses the whole sign-in if one is left unticked: `MERCHANT_PROFILE_READ`, `PAYMENTS_READ`, `PAYMENTS_WRITE`, `CUSTOMERS_READ`, `CUSTOMERS_WRITE`, `SUBSCRIPTIONS_READ`, `SUBSCRIPTIONS_WRITE`, `ITEMS_READ`, `ITEMS_WRITE`. The seller sees them listed on Square's own screen.
+
+### Square Part 4: The webhook
+
+Do this after the worker is live at `https://hooks.handsfreeos.com` (Fly Part 8).
+
+1. Open **Webhooks** → **Subscriptions**, with the switch on **Production**.
+2. Press **Add subscription**. Name it `HandsFreeOS`.
+3. URL:
+
+   ```text
+   https://hooks.handsfreeos.com/webhooks/square
+   ```
+
+4. Choose the API version Square offers as current, and select these events, which are the ones the worker acts on:
+   - `payment.created`, `payment.updated` — Square has no "payment failed" event and no separate "succeeded" one, so where the money is has to be read off the payment itself
+   - `refund.created`, `refund.updated`
+   - `dispute.created`, `dispute.state.changed`, `dispute.evidence.added`
+   - `invoice.payment_made`
+   - `subscription.created`, `subscription.updated`
+   - `merchant.updated`, `location.updated`
+   - `oauth.authorization.revoked`
+5. Save, then copy the **Signature Key** from the subscription's page.
+6. Save it in your password manager as "Square developer application", under webhook signature key.
+7. Do the same in **Sandbox** if you will test from your laptop, and keep that signature key separate.
+
+`oauth.authorization.revoked` is Square's equivalent of Stripe's deauthorized event: it is how a seller revoking us in their own Square dashboard is noticed here.
+
+### Square Part 5: A sandbox seller to connect
+
+1. In the developer dashboard, open **Sandbox** → **Test accounts**.
+2. Use the default test seller, or make another.
+3. Square's sandbox card number is `4111 1111 1111 1111` with any future expiry and any CVC.
+
+### Give the worker the values
+
+Both providers' values go on `handsfreeos-worker` and nowhere else.
+
+1. Open your password manager and put the Stripe client id on the clipboard.
+2. In Terminal:
+
+   ```bash
+   fly secrets import --app handsfreeos-worker
+   ```
+
+3. Type `STRIPE_CLIENT_ID=` then paste, with no space and no quotes. Press Return.
+4. Do the same line by line for `STRIPE_SECRET_KEY`, `STRIPE_PUBLISHABLE_KEY`, `STRIPE_WEBHOOK_SECRET`, `SQUARE_APPLICATION_ID`, `SQUARE_APPLICATION_SECRET` and `SQUARE_WEBHOOK_SIGNATURE_KEYS`.
+5. Press Control-D when the last line is in.
+6. Clear the clipboard:
+
+   ```bash
+   pbcopy < /dev/null
+   ```
+
+7. Check the names arrived:
+
+   ```bash
+   fly secrets list --app handsfreeos-worker
+   ```
+
+You should see all seven in the `NAME` column. Fly never shows a value, only a digest. **Never run this import with `--app handsfreeos-api`** — the API refuses to start with any of these names present, and the deploy will fail.
+
+`SQUARE_WEBHOOK_SIGNATURE_KEYS` takes several keys separated by commas, so a signature key can be rotated without a gap: add the new one, save, then remove the old one a day later.
+
+### Check it started
+
+```bash
+fly logs --app handsfreeos-worker
+```
+
+You should see the `worker started` line with `"payments":"real"`. If it says `"payments":"fake"`, neither application is configured; if the worker refuses to start, the message names the missing half (a Stripe client id with no secret key, or a Square application id with no secret).
+
+### The watch items, and what to tell a client
+
+These are the four that bite, and the one question to ask each client's bank.
+
+- **Square signs you out every 30 days.** A Square seller's access token expires 30 days after it is granted. HandsFreeOS renews it every week on its own, and renews at once when a token has less than three days left — but a worker that has been down for a month cannot renew a token that has already lapsed. The business then sees **Reconnect** on the account in **Settings** → **Payments**, and nothing is taken until they press it. Stripe's access does not expire.
+- **Square cancels a plan only at the end of its period.** Square has no "cancel now". A plan cancelled here keeps billing until the period the customer is in runs out, and they keep the visits they have paid for. HandsFreeOS says so on the button ("Cancel at the end of the period"), in the dialog and under the cycles, before anybody presses it. Stripe ends a plan immediately.
+- **Stripe refuses an account another platform already controls.** Stripe lets only one platform manage a standard connected account at a time. A business whose accountant, website or old booking software already connected their Stripe account will see "That Stripe account is connected to another platform" with the three ways out: disconnect the other platform in their own Stripe dashboard, make a second Stripe account for HandsFreeOS, or connect Square instead.
+- **A plan keeps billing after a disconnect.** Disconnecting an account destroys the sign-in here on purpose, and the provider goes on charging the customers whose plans live in it. So the disconnect asks first, lists the plans, and offers **Cancel them first** — which can only be done while the account is still connected. If they disconnect anyway, those plans are marked as no longer managed by HandsFreeOS and the plan page says how to end them at the provider.
+- **Ask each client's bank whether bank transfer (ACH) is switched on.** It is the cheap rail and it leads on the customer's payment page, but neither provider turns it on for every seller by default — Stripe asks the business to enable ACH Direct Debit, and Square's bank transfers are not available to every merchant. If it is off, the account's own capabilities say so and HandsFreeOS simply doesn't offer it; the business should know that before they promise a customer they can pay by transfer. A transfer also takes one to three business days, and can be returned days later, which is why a deposit paid by transfer cannot hold a time the way a card can.
+
+Two more things worth saying to a client in the same breath:
+
+- **The money is theirs from the first payment.** Payouts go from Stripe or Square to their bank on the provider's own schedule. HandsFreeOS is never in the path, so there is nothing for them to chase us about and nothing of theirs for us to lose.
+- **They can revoke us.** From their own Stripe or Square dashboard, without telling us. HandsFreeOS hears about it through the webhook, marks the account disconnected, and says so on the Payments page.
+
+### Before a client takes a real payment
+
+1. They connect their own account in **Settings** → **Payments**, signed in as an owner or admin. If they have more than one, mark the one money should land in as **Default**.
+2. Fill in **Settings** → **Payments**: the business address that goes at the top of a document, the sales tax rate and what it is called, the estimate and invoice number prefixes and the number to start from, the payment terms, and the deposit they usually ask for.
+3. Check the reminder ladder with them: three days before the due date, on the day, then three, seven and fourteen days after, each at 9 AM where the business is. Ask whether that is more or less than they would send by hand.
+4. Add what they sell in **Settings** → **Products**, with the right tax setting on each. Anything collected for someone else — a permit, a licence fee — should be marked as not taxable.
+5. If they take deposits at booking, turn it on per calendar in **Settings** → **Calendars** → **Payments**, and agree the share. Tell them a held time goes back on the calendar after fifteen minutes if nobody pays.
+6. Send one real invoice for a small amount to a card they own, on the live account, and check it lands in their Stripe or Square balance and that the receipt reaches them.
+7. Ask their bank question (above) before anybody promises a customer a bank transfer.
+8. Tell them what HandsFreeOS will never do: it will not take a payment without a person raising the document, it will not chase a customer about money on its own — both money cards on Home end with a person reading the words and pressing send — and the AI teammate is never given a conversation about a bill.
+
+### When something goes wrong
+
+- **"Stripe isn't set up yet" or "Square isn't set up yet"** when a business presses Connect: the worker has no client id or application id for that provider. Check `fly secrets list --app handsfreeos-worker`.
+- **The sign-in comes back and the account still says Pending:** the callback failed. `fly logs --app handsfreeos-worker` names the provider's own error code, and the account card in **Settings** → **Payments** shows the last error in plain words. A mismatched redirect URI is the usual cause — it must match Stripe Part 2 or Square Part 3 exactly.
+- **"Some permissions were left unticked":** the seller unticked a permission on the provider's own screen. They press Connect again and accept all of them.
+- **A payment succeeded at the provider but the invoice here still says unpaid:** a webhook did not arrive or did not verify. Check the provider's own webhook page for failed deliveries, and check the signing secret. Nothing is lost — both providers retry for days, and the payment lands the moment a delivery verifies.
+- **A business says they were charged twice:** they weren't. A payment carries the customer's own press as its idempotency key, and a payment's status only ever moves forward, so a retried or doubled submit takes the money once. Show them **Money** → **Payments**, which lists every payment the business has taken, with what it was paid on, where it stands and which invoice it belongs to; the provider's own dashboard will show one charge against it.
+- **An account says Reconnect:** its token lapsed (Square) or the provider refused it. Nothing is taken until the business presses Reconnect and signs in again. Refunds on payments taken through the old sign-in still work once the same account is reconnected, because the credentials are found by the provider's account id rather than by the connection row.
+
 ## Local development
 
 This section runs all of HandsFreeOS on your Mac: the web app, the API, the worker, and a private copy of Supabase in Docker. It never touches the hosted Supabase project. By default nothing reaches Twilio, Postmark, Microsoft or Google either. The worker uses stand-ins for all of them, so nothing costs money and no phone is needed. The last part of this section explains how to swap one stand-in for the real provider when you need to.
@@ -6796,7 +7036,7 @@ What else the seed sets up:
 
 ### What the stand-ins do
 
-The `worker started` line names the three stand-ins: `telephony: "fake"` (the fake carrier), `email: "smtp"` (Mailpit) and `mailboxes: "fake"` (the mailbox stand-in). Production refuses the fake carrier and the mailbox stand-in.
+The `worker started` line names the stand-ins: `telephony: "fake"` (the fake carrier), `email: "smtp"` (Mailpit), `mailboxes: "fake"` (the mailbox stand-in), `calendars: "fake"` and `payments: "fake"` (the payment stand-in). Production refuses every one of them.
 
 #### The fake carrier (texts and calls)
 
@@ -6937,6 +7177,51 @@ How the stand-in behaves:
 - The Turnstile check runs locally with Cloudflare's always-pass test keys, which `pnpm env:local` writes: the booking page shows Cloudflare's check above the **Book** button, and it passes by itself. It goes through Cloudflare, so it needs the internet. To book without it, delete the `TURNSTILE_SECRET_KEY` line from `apps/worker/.env` and restart `pnpm dev`; the next `pnpm env:local` puts it back.
 - Setting `MICROSOFT_OAUTH_CLIENT_ID` (as in "Outlook" under "Trying a real provider from your laptop") switches calendars to the real providers too. The **Google** button then opens "Google Calendar isn’t set up yet" unless the Google Calendar values are set as well. To keep the calendar stand-in while you try real Outlook mail, also add `CALENDAR_PROVIDER=fake` to `apps/worker/.env`. `pnpm env:local` removes that line when it rewrites the file.
 - A running tunnel exposes the two test addresses above, like `/test/mailboxes/deliver`.
+
+### Trying money locally
+
+Money runs against a payment stand-in (`apps/worker/src/payments/fake.ts`) unless you configure a real Stripe or Square application, so **no Stripe or Square account is needed** and nothing costs money. `pnpm db:reset` leaves Lone Star with two connected accounts already, a catalogue, invoices paid and overdue, estimates out, a deposit paid at booking and two plans.
+
+- **Connecting an account.** In **Settings** → **Payments**, **Connect Stripe** and **Connect Square** open the stand-in's own sign-in page on the worker instead of the provider's, then come back the same way a real sign-in does. You can connect several, including two of the same kind, and mark one **Default**.
+- **Paying.** A customer's invoice page and the deposit step open the stand-in's own payment page, where Stripe's Payment Element or Square's card field would be. Type one of these numbers:
+
+  | Number                | What happens                                                                            |
+  | --------------------- | --------------------------------------------------------------------------------------- |
+  | `4242 4242 4242 4242` | Goes through.                                                                           |
+  | `4000 0000 0000 0002` | Refused by the card, there and then.                                                    |
+  | `4000 0000 0000 0341` | Saves fine, then fails the next time something bills it without the customer there.     |
+  | `4000 0000 0000 0259` | Goes through, and can then be disputed.                                                 |
+  | `000123456789`        | A bank transfer. It answers "on its way" and settles when you ask (see the test route). |
+  | `000111111116`        | A bank transfer the bank sends back days later.                                         |
+
+- **Skipping time.** Three worker routes stand in for waiting, and only exist with the stand-in provider:
+
+  ```bash
+  curl -sS -X POST http://127.0.0.1:4100/test/money/run-due \
+    -H 'content-type: application/json' \
+    -d '{"workspaceId":"<workspace id>"}'
+  ```
+
+  runs the money jobs that are waiting: reminders, overdue marks, estimates expiring, plan cycles, refunds and the token refresh. It answers `{"moved":n,"ran":{...}}`.
+
+  ```bash
+  curl -sS -X POST http://127.0.0.1:4100/test/money/provider-event \
+    -H 'content-type: application/json' \
+    -d '{"workspaceId":"<workspace id>","paymentId":"<the provider’s payment id>","event":"settle"}'
+  ```
+
+  makes the stand-in do the thing and post its **properly signed** webhook at our own endpoint, exactly as Stripe or Square would. `event` is `settle` (a bank transfer lands), `fail_transfer` (the bank sends it back), `dispute`, `cycle` (a plan bills its next month — name `subscriptionId` instead) or `revoke` (the seller ends our access — name `accountId`).
+
+  ```bash
+  curl -sS -X POST http://127.0.0.1:4100/test/money/link \
+    -H 'content-type: application/json' \
+    -d '{"workspaceId":"<workspace id>","invoiceId":"<invoice id>"}'
+  ```
+
+  hands back the customer's own link for a document or a plan (`estimateId`, `invoiceId` or `subscriptionId`). Those links are signed with the worker's own key and normally travel only by text and email, so this is the only way to open one from a browser by hand. Every email the stack sends is in Mailpit at http://localhost:54424, and the links in those work too.
+
+- **What is real even here.** Every webhook the stand-in posts is signed with the real algorithms and goes through the real verifier; every payment's answer is read back from the provider rather than trusted from the page; card details never reach HandsFreeOS, because the stand-in's page mints a token exactly as Stripe's and Square's do. So the paths this exercises are the ones production uses.
+- **Watching a hold expire.** A time held while a customer pays goes back on the calendar fifteen minutes after its deposit invoice is raised. The seed leaves one held for Gerald Tran, so open the calendar within fifteen minutes of `pnpm db:reset` to see "Not booked yet · waiting on a deposit", or run `run-due` to let it go at once.
 
 ### Running the tests
 
@@ -7715,7 +8000,8 @@ If a check fails with a certificate error, run `dig caa handsfreeos.com +short`.
 2. Create the Postmark account and ask Postmark to approve it (Postmark Part A). Until it is approved, Postmark only sends to domains you have added and verified in the account, so mail to customers and sign-in email to anyone else fails. Postmark says reviews finish in under 24 hours on weekdays.
 3. Set up the Microsoft Entra app and start publisher verification. In "Microsoft (Outlook and Microsoft 365)" in "Connected mailboxes: Outlook and Gmail", do only the parts that happen in Microsoft's consoles: "Register the app", "Add the redirect URI", "Add the Microsoft Graph permissions", "Create the client secret", "Branding and the publisher domain" and "Publisher verification". Publisher verification takes several business days. The worker gets the Microsoft values in Stage 6, and you test Outlook in Check 9 of the end-to-end check.
 4. Set up the Google Cloud project and the Gmail OAuth client. In "Google (Gmail)" in the same section, do only these parts: "Create the project and turn on the Gmail API", "Set up the Google Auth platform", "Verify the domain and fill in Branding", "Add the Gmail scopes (Data Access)", "Add test users (Audience)" and "Create the OAuth client (Clients)". Do not submit Google's restricted-scope verification yet. It needs a demo video of Connect Gmail working, which needs the worker, the web app and a workspace, so the submission waits until Stage 8. The review then takes weeks. Only Gmail waits on it.
-5. Create HandsFreeOS's Trust Hub primary customer profile and get it approved (Twilio Step 4). Do not skip it. Toll-free verification can fail with "Approved profile is required" until Twilio approves the profile, so every client's texting waits on it. Only the `TWILIO_PRIMARY_PROFILE_SID` setting is limited to local numbers. When Twilio approves the profile, set its SID on the worker as that step describes. The worker app exists from Stage 4 on.
+5. Turn Stripe Connect on for HandsFreeOS's own Stripe account and fill in the platform profile (Stripe Part 1 in "Money: Stripe and Square"), and make the Square developer application (Square Part 1). Stripe's review of a Connect platform can take a few days, and nobody else's account can connect until it passes. Everything else in that section can be done while you wait.
+6. Create HandsFreeOS's Trust Hub primary customer profile and get it approved (Twilio Step 4). Do not skip it. Toll-free verification can fail with "Approved profile is required" until Twilio approves the profile, so every client's texting waits on it. Only the `TWILIO_PRIMARY_PROFILE_SID` setting is limited to local numbers. When Twilio approves the profile, set its SID on the worker as that step describes. The worker app exists from Stage 4 on.
 
 Leave the "Before you start" checks in "Connected mailboxes: Outlook and Gmail" until Stage 6, apart from the public pages from Stage 0. They need the worker and the web app.
 
@@ -7788,6 +8074,7 @@ Several checks from here on sign in to the web app, so your first account comes 
 8. Set up the calendar with "The calendar: Google, Outlook and online booking": the Google Calendar project, `Calendars.ReadWrite` on the Microsoft app, and the worker's Google Calendar values. Then connect your own calendar in **Settings** → **My calendar**, and record the demo video for Google's review as you do. Outlook calendars work at once; Google Calendar stays limited to your test users until Google approves it.
 9. Set up Turnstile with "Protect the booking page with Turnstile (optional)" in the same section. It's optional while only booking pages use it, but do it before any business turns on its website chat.
 10. Before any business uses the AI teammate or the website chat, work through "Going live with the AI teammate and website chat" in "The AI teammate and website chat".
+11. Before any business takes a payment, finish "Money: Stripe and Square": the Stripe Connect webhook (Stripe Part 4) and the Square webhook subscription (Square Part 4), which both check the live worker address before they save, then give the worker the seven payment values and check its `worker started` line says `"payments":"real"`.
 
 #### Stage 7: sign-in email and Sign in with Google
 

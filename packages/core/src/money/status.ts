@@ -249,6 +249,19 @@ export function overdueFrom(dueDate: string, timeZone: string): number {
   return startOfLocalDay(addDays(dueDate, 1), timeZone);
 }
 
+/**
+ * The start of the due day where the business is — **what "days overdue" is counted from**.
+ *
+ * Not the same instant as `overdueFrom`, and the difference is a whole day. An invoice becomes late when its
+ * due day *ends*, but a person counting says "due on the 6th, it's the 16th, that's ten days" — they count
+ * from the date on the invoice, not from midnight after it. Counting elapsed time from `overdueFrom` gives
+ * nine, and nine is what a business reads as a bug in our arithmetic. `dueWording` has always counted the
+ * person's way; this is the same sum for anything that ticks.
+ */
+export function dueDayStart(dueDate: string, timeZone: string): number {
+  return startOfLocalDay(dueDate, timeZone);
+}
+
 /** Past its due day with money still owed, and nothing settling. */
 export function invoiceIsOverdue(f: InvoiceStateFacts, now: Date | number): boolean {
   if (!invoiceIsOpen(f.status) || !f.dueDate) return false;

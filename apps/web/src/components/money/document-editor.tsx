@@ -98,6 +98,20 @@ export function DocumentEditor(props: DocumentEditorProps) {
   const [sheetKey, setSheetKey] = useState<string | null>(null);
   const [openTotals, setOpenTotals] = useState(false);
   const [wantsTheirs, setWantsTheirs] = useState(false);
+  /**
+   * The phone's sticky totals bar grows when the totals are opened, so a spacer of a fixed height would let
+   * it cover the last line of the sheet. It is measured instead, and the spacer is whatever it really is.
+   */
+  const [bar, setBar] = useState<HTMLDivElement | null>(null);
+  const [barHeight, setBarHeight] = useState(0);
+  useEffect(() => {
+    if (!bar || typeof ResizeObserver === 'undefined') return;
+    const measure = () => setBarHeight(bar.offsetHeight);
+    measure();
+    const watch = new ResizeObserver(measure);
+    watch.observe(bar);
+    return () => watch.disconnect();
+  }, [bar]);
 
   const set = (patch: Partial<DocumentDraft>) => setDraft((d) => ({ ...d, ...patch }));
   const setLine = (key: string, patch: Partial<DraftLine>) =>
@@ -239,7 +253,8 @@ export function DocumentEditor(props: DocumentEditorProps) {
     if (id) setSending(true);
   }
 
-  const totalsBlock = (
+  /** Everything above the total: what the phone's bar shows when it is opened, under its own big Total. */
+  const totalsBreakdown = (
     <>
       <TotalRow label="Subtotal" value={money(totals.lineSubtotalCents)} testId="totals-subtotal" />
       {totals.discountCents > 0 ? (
@@ -261,6 +276,11 @@ export function DocumentEditor(props: DocumentEditorProps) {
           testId="totals-tax"
         />
       ) : null}
+    </>
+  );
+  const totalsBlock = (
+    <>
+      {totalsBreakdown}
       <TotalRow label="Total" value={money(totals.totalCents)} big testId="totals-total" />
     </>
   );
@@ -693,8 +713,17 @@ export function DocumentEditor(props: DocumentEditorProps) {
       </div>
 
       {/* The phone's sticky totals bar: what you are changing and what it comes to, both on screen. */}
-      <div className="h-[132px] md:hidden" aria-hidden />
-      <div className="fixed inset-x-0 bottom-[66px] z-20 flex flex-col gap-2 border-t border-border bg-card px-3.5 pb-3 pt-3 shadow-[0_-6px_18px_rgba(25,29,37,0.08)] md:hidden">
+      <div
+        className="md:hidden"
+        style={{ height: barHeight || 132 }}
+        data-testid="phone-totals-spacer"
+        aria-hidden
+      />
+      <div
+        ref={setBar}
+        className="fixed inset-x-0 bottom-[66px] z-20 flex flex-col gap-2 border-t border-border bg-card px-3.5 pb-3 pt-3 shadow-[0_-6px_18px_rgba(25,29,37,0.08)] md:hidden"
+        data-testid="phone-totals-bar"
+      >
         <button
           type="button"
           aria-expanded={openTotals}
@@ -709,7 +738,8 @@ export function DocumentEditor(props: DocumentEditorProps) {
           </span>
           <span aria-hidden>{openTotals ? '▾' : '▴'}</span>
         </button>
-        {openTotals ? <div className="px-0.5">{totalsBlock}</div> : null}
+        {/* Opened, the bar shows the breakdown only: its own big Total is right underneath. */}
+        {openTotals ? <div className="px-0.5">{totalsBreakdown}</div> : null}
         <div className="flex items-center justify-between px-0.5">
           <span className="text-[15px] font-semibold">Total</span>
           <span className="text-[22px] font-semibold tabular-nums" data-testid="phone-total">

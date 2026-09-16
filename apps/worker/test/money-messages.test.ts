@@ -21,6 +21,8 @@ import {
   invoiceSentText,
   paymentFailedEmail,
   paymentFailedText,
+  planCardEmail,
+  planCardText,
   receiptEmail,
   receiptText,
   reminderKeyOf,
@@ -312,6 +314,40 @@ const everyEmail = (): string[] => [
 const OUTSIDE_THE_TEXTING_ALPHABET = new RegExp(
   '[\\u2018\\u2019\\u201c\\u201d\\u2013\\u2014\\u2026\\u00a0]',
 );
+
+const PLAN = {
+  business: LONE_STAR,
+  firstName: 'Sarah',
+  planName: 'Comfort Club',
+  priceLabel: '$29 a month',
+  includes: ['Two tune-ups a year', 'No call-out fee'],
+  url: 'http://localhost:3000/p/9Hd4kQr7tE1zVm6nBx',
+  replacing: false,
+  first: false,
+};
+
+describe('what a plan asks a customer for', () => {
+  it('writes the plan’s name exactly as the business typed it', () => {
+    // It is a product they named, not a description of work: "your comfort Club plan" reads as a typo.
+    const text = planCardText(PLAN);
+    const email = planCardEmail(PLAN);
+    expect(text).toContain('Your Comfort Club plan is $29 a month.');
+    expect(email.subject).toBe('Start your Comfort Club plan with Lone Star HVAC');
+    expect(email.body).toContain('here’s your Comfort Club plan');
+    for (const body of [text, email.subject, email.body])
+      expect(body, body).not.toContain('comfort Club');
+
+    const again = { ...PLAN, replacing: true };
+    expect(planCardText(again)).toContain('the card on your Comfort Club plan');
+    expect(planCardEmail(again).subject).toBe('Update the card on your Comfort Club plan');
+    expect(planCardEmail(again).body).toContain('a new card on your Comfort Club plan');
+  });
+
+  it('leaves a name that is already lower case alone', () => {
+    // Nothing is capitalised for them either: "the works" stays "the works".
+    expect(planCardText({ ...PLAN, planName: 'the works' })).toContain('Your the works plan');
+  });
+});
 
 describe('the rules every money message keeps', () => {
   it('sends texts in the texting alphabet, with the link last', () => {

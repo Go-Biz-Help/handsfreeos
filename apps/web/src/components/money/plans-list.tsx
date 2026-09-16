@@ -5,7 +5,7 @@ import { Card } from '@/components/ui/card';
 import { EmptyState } from '@/components/ui/empty-state';
 import type { PlanRow, SubscriptionRow } from '@/lib/api/types';
 import { useLiveRefresh } from '@/lib/realtime/live-provider';
-import { CustomerCell, ListNote, Td, Th } from './list-bits';
+import { CustomerCell, ListNote, RowLink, Td, Th } from './list-bits';
 import { StatusBadge } from './status-badge';
 
 const EVERY: Readonly<Record<string, string>> = {
@@ -59,7 +59,7 @@ export function PlansList({
         </Card>
       ) : (
         <Card className="overflow-hidden">
-          <table className="w-full text-[13px]" data-testid="plans-table">
+          <table className="hidden w-full text-[13px] md:table" data-testid="plans-table">
             <thead>
               <tr>
                 <Th>Plan</Th>
@@ -112,6 +112,58 @@ export function PlansList({
               ) : null}
             </tbody>
           </table>
+
+          {/* On a phone the same rows read as cards: a five-column table would clip inside the card. */}
+          <ul className="md:hidden" data-testid="plans-cards">
+            {live.map((p) => {
+              const members = membersOf(p.id);
+              const monthly =
+                p.interval === 'month' && p.intervalCount === 1 ? p.priceCents * members : null;
+              return (
+                <li
+                  key={p.id}
+                  data-testid={`plan-card-${p.name}`}
+                  className="flex flex-col gap-1.5 border-t border-border px-4 py-3.5 first:border-t-0"
+                >
+                  <span className="flex items-baseline justify-between gap-3">
+                    <span className="truncate text-[15px] font-semibold">{p.name}</span>
+                    <span className="whitespace-nowrap text-[13px] tabular-nums text-text-2">
+                      {planPriceLabel(p.priceCents, p.interval, p.intervalCount)}
+                    </span>
+                  </span>
+                  {p.includes.length || p.description ? (
+                    <span className="text-[13px] leading-[1.45] text-text-2">
+                      {p.includes.length ? p.includes.join(', ') : p.description}
+                    </span>
+                  ) : null}
+                  <span className="flex items-baseline justify-between gap-3 text-[13px]">
+                    <span className="text-text-3">
+                      {members === 1 ? '1 member' : `${members} members`}
+                    </span>
+                    <span className="whitespace-nowrap font-semibold tabular-nums">
+                      {monthly === null ? '—' : `${money(monthly)} a month`}
+                    </span>
+                  </span>
+                </li>
+              );
+            })}
+            <li className="flex flex-col gap-1 border-t border-border bg-card-2 px-4 py-3.5">
+              <span className="flex items-baseline justify-between gap-3">
+                <span className="text-[13px] font-semibold">Recurring</span>
+                <span className="whitespace-nowrap text-[15px] font-semibold tabular-nums">
+                  {money(monthlyRecurringCents)} a month
+                </span>
+              </span>
+              {yearlyCents > 0 ? (
+                <span className="flex items-baseline justify-between gap-3 text-[13px] text-text-3">
+                  <span>Plans that bill once a year</span>
+                  <span className="whitespace-nowrap tabular-nums">
+                    {money(Math.round(yearlyCents))} a year
+                  </span>
+                </span>
+              ) : null}
+            </li>
+          </ul>
         </Card>
       )}
 
@@ -125,7 +177,7 @@ export function PlansList({
         </Card>
       ) : (
         <Card className="overflow-hidden">
-          <table className="w-full text-[13px]" data-testid="subscriptions-table">
+          <table className="hidden w-full text-[13px] md:table" data-testid="subscriptions-table">
             <thead>
               <tr>
                 <Th>Customer</Th>
@@ -158,6 +210,34 @@ export function PlansList({
               ))}
             </tbody>
           </table>
+
+          <ul className="md:hidden" data-testid="subscriptions-cards">
+            {subscriptions.map((s) => (
+              <li key={s.id} className="border-t border-border first:border-t-0">
+                <RowLink
+                  href={`/app/w/${workspaceId}/money/plans/${s.id}`}
+                  testId={`subscription-card-${s.id}`}
+                  className="flex flex-col gap-1.5 px-4 py-3.5 active:bg-card-2"
+                >
+                  <span className="flex items-center gap-2">
+                    <CustomerCell person={s.person} className="min-w-0 flex-1 text-[15px]" />
+                    <StatusBadge kind="subscription" state={s.status} />
+                  </span>
+                  <span className="truncate text-[13px] text-text-2">{s.planName}</span>
+                  <span className="flex items-baseline justify-between gap-3 text-[13px]">
+                    <span className="text-text-3">
+                      {s.nextBillingOn
+                        ? `Next bill ${dayLabel(localInstant(s.nextBillingOn, '12:00', timeZone), timeZone)}`
+                        : 'No next bill yet'}
+                    </span>
+                    <span className="whitespace-nowrap font-semibold tabular-nums">
+                      {planPriceLabel(s.priceCents, s.interval, s.intervalCount)}
+                    </span>
+                  </span>
+                </RowLink>
+              </li>
+            ))}
+          </ul>
         </Card>
       )}
       <ListNote>

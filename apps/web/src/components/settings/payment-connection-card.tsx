@@ -221,7 +221,12 @@ export function PaymentConnectionCard({
       data-default={c.isDefault ? 'yes' : 'no'}
     >
       <ProviderMark provider={c.provider} />
-      <span className="flex min-w-0 flex-1 flex-col gap-1">
+      {/*
+       * The basis is what makes this wrap rather than squeeze: on a phone an account with a "Make default"
+       * button beside its menu would otherwise crush the account id and what it can do into a 90 px column.
+       * Below about 200 px of room the buttons take the next line instead.
+       */}
+      <span className="flex min-w-0 flex-1 basis-[190px] flex-col gap-1">
         <span className="flex flex-wrap items-center gap-1.5">
           <span className="truncate text-[13px] font-medium">
             {provider}
@@ -257,7 +262,7 @@ export function PaymentConnectionCard({
           </span>
         ) : null}
       </span>
-      <span className="flex flex-none items-center gap-1.5">
+      <span className="ml-auto flex flex-none items-center gap-1.5">
         {c.status === 'active' && !c.isDefault ? (
           <Button
             variant="secondary"

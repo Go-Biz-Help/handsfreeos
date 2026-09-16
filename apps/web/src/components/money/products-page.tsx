@@ -123,7 +123,7 @@ export function ProductsPage({
               one of it is called.
             </EmptyState>
           ) : (
-            <div className="overflow-x-auto">
+            <div className="hidden overflow-x-auto md:block">
               <table className="w-full min-w-[720px] border-separate border-spacing-0 text-[13px]">
                 <thead>
                   <tr className="text-left text-xs font-medium tracking-[0.02em] text-text-3">
@@ -188,6 +188,71 @@ export function ProductsPage({
                 </tbody>
               </table>
             </div>
+          )}
+          {/*
+           * The same catalogue on a phone. Seven columns will not fit in 390 px, and a sideways swipe hides
+           * the price — the one thing anyone opens this page for — so each item is a card that opens the
+           * editor, exactly as its row does.
+           */}
+          {shown.length === 0 ? null : (
+            <ul className="border-t border-border md:hidden" data-testid="products-cards">
+              {shown.map((p) => {
+                const archived = p.archivedAt !== null;
+                const bookableAs = serviceName(p.serviceId);
+                return (
+                  <li key={p.id} className="border-b border-border last:border-b-0">
+                    <button
+                      type="button"
+                      onClick={() => setForm(formOf(p))}
+                      data-testid={`product-card-${p.name}`}
+                      data-archived={archived ? 'yes' : 'no'}
+                      className={cn(
+                        'flex w-full flex-col gap-1.5 px-4 py-3.5 text-left active:bg-card-2',
+                        form?.id === p.id && 'bg-accent-soft',
+                      )}
+                    >
+                      <span className="flex items-baseline justify-between gap-3">
+                        <span
+                          className={cn(
+                            'min-w-0 flex-1 truncate text-[15px] font-medium',
+                            archived && 'text-text-3 line-through',
+                          )}
+                        >
+                          {p.name}
+                        </span>
+                        <span className="whitespace-nowrap text-[15px] font-semibold tabular-nums">
+                          {money(p.unitPriceCents)}
+                        </span>
+                      </span>
+                      <span className="flex flex-wrap items-center gap-1.5 text-[13px] text-text-2">
+                        <span>{KIND_WORDS[p.kind]}</span>
+                        <span aria-hidden>·</span>
+                        <span>per {p.unitLabel}</span>
+                        {p.sku ? (
+                          <>
+                            <span aria-hidden>·</span>
+                            <span className="font-mono text-[12px]">{p.sku}</span>
+                          </>
+                        ) : null}
+                      </span>
+                      <span className="flex flex-wrap items-center gap-1.5">
+                        {p.taxable ? (
+                          <Badge variant="accent">Taxable</Badge>
+                        ) : (
+                          <Badge variant="gray">No tax</Badge>
+                        )}
+                        {archived ? <Badge variant="gray">Archived</Badge> : null}
+                        {bookableAs ? (
+                          <span className="text-[13px] text-text-3">
+                            Customers book it as {bookableAs}
+                          </span>
+                        ) : null}
+                      </span>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
           )}
           {archivedCount > 0 ? (
             <div className="flex items-center justify-between gap-3 border-t border-border px-5 py-3 text-[13px]">

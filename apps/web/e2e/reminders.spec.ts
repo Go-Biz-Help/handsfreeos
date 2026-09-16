@@ -87,26 +87,38 @@ async function attendeeAt(owner: Owner, calendarId: string, startsAt: string): P
   return appointment.attendees[0]!;
 }
 
-/** Both reminder jobs, run now as of when each was due. */
+/**
+ * Both reminder jobs, run now as of when each was due — **driven, not raced**.
+ *
+ * A booking's reminders are armed by an event the worker's own loop handles, so the first call here can land
+ * before the jobs exist and move nothing. That is "not yet", not a failure: asking once and asserting on the
+ * count is how this spec failed beside its neighbours while passing on its own. Each pass nudges again and
+ * remembers which keys have been moved, until both have.
+ */
 async function runReminders(owner: Owner, attendeeId: string): Promise<void> {
-  const res = await fetch(`${WORKER}/test/scheduled-jobs/run-due`, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({
-      workspaceId: owner.workspaceId,
-      dedupeKeys: [
-        `appt-reminder:${attendeeId}:day_before`,
-        `appt-reminder:${attendeeId}:before_120`,
-      ],
-    }),
-  });
-  expect(res.status).toBe(200);
-  const body = (await res.json()) as {
-    moved: unknown[];
-    ran: { failed: number; retried: number };
-  };
-  expect(body.moved).toHaveLength(2);
-  expect(body.ran.failed + body.ran.retried).toBe(0);
+  const keys = [`appt-reminder:${attendeeId}:day_before`, `appt-reminder:${attendeeId}:before_120`];
+  const ran = new Set<string>();
+  await expect
+    .poll(
+      async () => {
+        const res = await fetch(`${WORKER}/test/scheduled-jobs/run-due`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ workspaceId: owner.workspaceId, dedupeKeys: keys }),
+        });
+        expect(res.status).toBe(200);
+        const body = (await res.json()) as {
+          moved: { dedupeKey: string }[];
+          ran: { failed: number; retried: number };
+        };
+        // A job that failed or asked to be retried is a real failure and never becomes true by waiting.
+        expect(body.ran.failed + body.ran.retried).toBe(0);
+        for (const job of body.moved) ran.add(job.dedupeKey);
+        return [...ran].sort();
+      },
+      { timeout: 30_000, intervals: [250, 500, 1_000, 2_000] },
+    )
+    .toEqual([...keys].sort());
 }
 
 const statuses = (a: Attendee) =>

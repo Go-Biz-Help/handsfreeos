@@ -32,6 +32,7 @@ import {
   type EstimateWaitingFacts,
   type InvoiceOverdueFacts,
 } from '../src/attention/index';
+import { dueWording } from '../src/money/words';
 import { at, business, DALE, DAY, iso, NOW, TZ, uid } from './attention-fixtures';
 
 const settings = parseAttentionSettings({});
@@ -183,13 +184,33 @@ describe('invoice_overdue', () => {
   it('counts the lateness from the due day, not from when the card opened', () => {
     const now = at('2026-09-25', '09:00');
     const d = run({}, now);
+    // The card has been open since the due day ended: that is when the invoice became late.
     expect(d?.since).toBe(iso(at('2026-09-21', '00:00')));
-    expect(
-      chipText(
-        d!.reasons.find((r) => r.code === 'overdue')!,
-        now,
-      ),
-    ).toBe('4 days overdue');
+    // But the chip counts the way a person does, from the date on the invoice — due the 20th, today the
+    // 25th, five days — and says the same number as `dueWording` does on the list and on the document.
+    const chip = chipText(
+      d!.reasons.find((r) => r.code === 'overdue')!,
+      now,
+    );
+    expect(chip).toBe('5 days overdue');
+    expect(chip).toBe(dueWording('2026-09-20', now, TZ));
+  });
+
+  it('says the same number of days as every other place that counts them, at any hour', () => {
+    // The chip used to count from midnight after the due day, so it was a day behind the list and the
+    // document for the whole of every day. One invoice, one number, whatever the hour.
+    for (const clock of ['00:01', '06:59', '12:00', '18:30', '23:59'])
+      for (const day of ['2026-09-22', '2026-09-25', '2026-10-05']) {
+        const now = at(day, clock);
+        const d = run({}, now);
+        expect(
+          chipText(
+            d!.reasons.find((r) => r.code === 'overdue')!,
+            now,
+          ),
+          `${day} ${clock}`,
+        ).toBe(dueWording('2026-09-20', now, TZ));
+      }
   });
 
   it('is not overdue while a bank transfer is settling', () => {

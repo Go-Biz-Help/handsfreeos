@@ -48,6 +48,7 @@ import { seedCrm } from './seed-crm';
 import { seedGlow } from './seed-glow';
 import { seedAi, seedKnowledge } from './seed-knowledge';
 import { LONE_STAR_NUMBER, seedMessaging } from './seed-messaging';
+import { seedMoney } from './seed-money';
 import { seedWorkflows } from './seed-workflows';
 
 export const SEED_PASSWORD = 'HandsFree-Demo-2026';
@@ -375,6 +376,13 @@ async function main(): Promise<void> {
     { id: lonestar, organizationId: org.organizationId, dale, priya },
   );
 
+  // Milestone 9: what Lone Star sells, what it is owed and what it has been paid. Before the Action Center,
+  // so its sweep finds the overdue invoice and the estimate nobody has answered along with everything else.
+  const money = await seedMoney(
+    { api: api.db, admin: admin.db, worker: flow, actor, meta, step, since },
+    { id: lonestar, organizationId: org.organizationId, dale, priya, site: calendar.site },
+  );
+
   // Milestone 8: what needs Dale's attention, as the Action Center lists it, and the sweep that opens it all.
   const attention = await seedAttention(
     { api: api.db, admin: admin.db, worker: flow, actor, meta, step, since },
@@ -421,10 +429,23 @@ Its AI teammate ${ava.name} (${ava.seconds.toFixed(1)}s) answers texts and the w
 ${ava.answered} conversations she answered, Tom Reyes waiting in Needs a person with her note, Kendra Lee's reply waiting for an OK
 (it waits a day after the seed ran before a person gets it), and Angela Brooks's website chat, where her Attic insulation lead qualified. The
 chat widget shows on ${ava.site}; try it at ${deps.webUrl}/chat-preview/${ava.widgetKey}?w=${lonestar}
+Its money (${money.seconds.toFixed(1)}s) runs on ${money.accounts}, with ${money.products} things in the catalogue and the Comfort Club at $29 a month:
+  Paid, by card, with a receipt      ${money.paid}
+  Overdue, ten days past due         ${money.overdue}
+  An estimate waiting on an answer   ${money.waiting}
+  Out yesterday, not opened yet      ${money.fresh}
+  Declined                           ${money.declined}
+  A draft nobody has sent            ${money.draft}
+  A deposit paid to hold a time      ${money.depositInvoice} · ${money.depositAmount}, credited on ${money.jobInvoice}
+  A time held while ${money.heldFor} pays  (it goes back in 15 minutes if he doesn't)
+  A plan billing monthly             ${money.planCycle}
+  A plan waiting on a card           ${money.planWaiting}
+Customers pay deposits at ${deps.webUrl}/book/${calendar.site}/${money.depositCalendar}.
 Dale's Action Center (${attention.seconds.toFixed(1)}s) opens on ${attention.hotLead}: waiting about 11 minutes, ready to book, and
-nobody has answered. Under it, a website lead from three days ago nobody answered, leads gone quiet, leads with no
-next action, overdue tasks, customers waiting and Ava's reply to approve. ${attention.unconfirmed} visits aren't confirmed (they fold
-into one card), ${attention.confirmed} customers have confirmed theirs, and ${attention.handled} are under "Handled by HandsFreeOS".
+nobody has answered. Under it, an overdue invoice, an estimate nobody answered, a website lead from three days ago
+nobody answered, leads gone quiet, leads with no next action, overdue tasks, customers waiting and Ava's reply to
+approve. ${attention.unconfirmed} visits aren't confirmed (they fold into one card), ${attention.confirmed} customers have confirmed theirs, and ${attention.handled} are
+under "Handled by HandsFreeOS".
 Emails the stack sent, including the pending invitation for ${PENDING_INVITEE}: ${env.mailpitUrl}
 `);
 }

@@ -286,6 +286,12 @@ export function invoiceReminderEmail(i: InvoiceReminderInput): EmailText {
 export interface PlanCardMessageInput {
   readonly business: MoneyBusiness;
   readonly firstName: string;
+  /**
+   * **A name, not a description.** `inSentence` lowercases "Furnace repair" into a sentence because a service
+   * title says what is being done; a plan is a product the business named, and "your comfort Club plan" reads
+   * as a typo. Written exactly as they typed it — in the text, the email and the subject alike — with the
+   * sentences around it shaped so it sits mid-sentence with its capitals intact.
+   */
   readonly planName: string;
   /** "$29 a month", worked out where the plan is read, so one wording serves the text and the email. */
   readonly priceLabel: string;
@@ -307,8 +313,8 @@ export function planCardText(i: PlanCardMessageInput): string {
   return text(
     [
       i.replacing
-        ? `${i.business.name}: You can update the card on your ${inSentence(i.planName)} plan here: ${i.url}`
-        : `${i.business.name}: Your ${inSentence(i.planName)} plan is ${i.priceLabel}.`,
+        ? `${i.business.name}: You can update the card on your ${i.planName} plan here: ${i.url}`
+        : `${i.business.name}: Your ${i.planName} plan is ${i.priceLabel}.`,
       i.replacing ? null : `Add a card to start it here: ${i.url}`,
     ],
     i.first,
@@ -322,8 +328,8 @@ export function planCardEmail(i: PlanCardMessageInput): EmailText {
       : `Start your ${i.planName} plan with ${i.business.name}`,
     body: paragraphs([
       i.replacing
-        ? `${hello(i.firstName)} you can put a new card on your ${inSentence(i.planName)} plan whenever you like — nothing changes until you do.`
-        : `${hello(i.firstName)} here’s your ${inSentence(i.planName)} plan. Add a card and it starts straight away.`,
+        ? `${hello(i.firstName)} you can put a new card on your ${i.planName} plan whenever you like — nothing changes until you do.`
+        : `${hello(i.firstName)} here’s your ${i.planName} plan. Add a card and it starts straight away.`,
       lines([
         `Plan: ${i.planName}`,
         `Price: ${i.priceLabel}`,

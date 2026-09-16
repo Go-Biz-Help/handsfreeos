@@ -22,6 +22,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import type { MoneyTotals, PublicBusiness, PublicMoneyLine } from '@/lib/api/public-money';
 import { cn, initials } from '@/lib/utils';
+import { unitWord } from './document-view';
 
 export { CallButton, callPhrase, PublicState } from '@/components/booking/public-shell';
 
@@ -241,7 +242,8 @@ export function TotalRow({
 
 /** "1 each × $6,400 · taxed" — how a line's quantity, price and tax read under its name. */
 function rateLine(line: PublicMoneyLine, taxed: boolean): string {
-  const rate = `${line.quantity} ${line.unitLabel} × ${money(line.unitPriceCents)}`;
+  // The same pluralisation the business sees, so a customer is never told "24 hour × $125".
+  const rate = `${line.quantity} ${unitWord(line.quantity, line.unitLabel)} × ${money(line.unitPriceCents)}`;
   return taxed ? `${rate} · ${line.taxable ? 'taxed' : 'no tax'}` : rate;
 }
 
