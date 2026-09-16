@@ -14,9 +14,9 @@
  * - **Four one-on-one visits tomorrow that nobody has confirmed** (Rachel Stein's is the fourth, booked here),
  *   which fold into one "Unconfirmed appointments" card. Each has a confirmation request waiting out its cancel
  *   window — except Mike Johnson's, which HandsFreeOS won't send while he's waiting on a reply, and says so.
- * - **Thursday's four are settled**, three ways: HandsFreeOS asked Quincy Adams and he replied C (that's the row
- *   under "Handled by HandsFreeOS", and the thank-you text); Priya marked Greg Thompson and Hannah Nguyen
- *   confirmed; and Linda Park pressed Confirm on her booking page.
+ * - **Four are settled**, three ways: HandsFreeOS asked Quincy Adams about his visit tomorrow and he replied C
+ *   (that's the row under "Handled by HandsFreeOS", and the thank-you text); Priya marked Greg Thompson and
+ *   Hannah Nguyen confirmed; and Linda Park pressed Confirm on her booking page.
  *
  * Settings stay at their defaults on purpose: confirmation requests on, follow-up nudges off until an owner has
  * read the wording and chosen "Looks good, turn on" in Settings → Action Center.
@@ -217,6 +217,37 @@ export async function seedAttention(
       acknowledgeWarnings: true,
       notify: false,
     });
+
+  /**
+   * The visit HandsFreeOS asks about is booked here, **tomorrow**, rather than borrowed from the seeded week.
+   * A confirmation request needs an open "Not confirmed" item, and that opens only inside the Action Center's
+   * appointment window (`attention.appointments.windowHours`, 48 hours by default). The seeded week counts in
+   * business days, so its "two days out at 1 PM" visit is 48 hours away only from 1 PM onwards — and 72 to 108
+   * hours away when the seed runs on a Friday, Saturday or Sunday, because business days skip the weekend. A
+   * visit tomorrow is 15 to 38 hours out whatever the hour and whatever the day, so it is always inside the
+   * window and never so close that the request would be too late to send.
+   */
+  d.step(
+    'Lone Star: Quincy Adams is booked for tomorrow too — the visit HandsFreeOS will ask about',
+  );
+  const quincy = await one<{ id: string }>(
+    sql`select id from app.people where workspace_id = ${workspaceId}
+        and first_name = 'Quincy' and last_name = 'Adams'`,
+  );
+  if (calendar && quincy)
+    await as(ws.dale, appointmentCreate, {
+      workspaceId,
+      calendarId: calendar.id,
+      // 8 AM: Dale's morning is free tomorrow whichever day it is (Bill Hayes is at 10:30, his own
+      // calendar's busy hour at noon, Rachel's estimate visit at 3).
+      startsAt: new Date(localInstant(addDays(today, 1), '08:00', tz)).toISOString(),
+      durationMinutes: 60,
+      personId: quincy.id,
+      title: 'Duct cleaning',
+      notes: 'Before the shop opens. The bays fill up by nine.',
+      acknowledgeWarnings: true,
+      notify: false,
+    });
   await settle(w);
 
   // ---------- Thursday's visits, each settled its own way ----------
@@ -242,13 +273,15 @@ export async function seedAttention(
     );
   /**
    * HandsFreeOS's confirmation request for this customer goes now, instead of at the end of its cancel window.
-   * Answers with what the item did: `sent` when the message really went out.
+   * Answers with what the item did — `sent` when the message really went out, and otherwise which link of the
+   * chain was missing, so a seed that stops telling this story says why rather than only that it didn't.
    */
-  const askNow = async (name: string): Promise<string | null> => {
+  const askNow = async (name: string): Promise<string> => {
     const seat = await seatOf(name);
-    if (!seat) return null;
+    if (!seat) return 'no visit is booked for them';
     const item = await itemOf(seat.id);
-    if (!item) return null;
+    if (!item)
+      return `their visit at ${seat.starts_at} has no "Not confirmed" item (the Action Center's appointment window)`;
     const moved = await rows(
       d.admin,
       sql`update app.scheduled_jobs set run_at = now()
@@ -256,13 +289,14 @@ export async function seedAttention(
             and status = 'pending'
           returning id`,
     );
-    if (moved.length === 0) return null;
+    if (moved.length === 0) return 'no confirmation request was waiting to go out';
     await settle(w);
     const after = await one<{ auto_state: string | null; skip: string | null }>(
       sql`select auto_state::text as auto_state, auto_skip_reason as skip from app.attention_items
           where id = ${item.id}`,
     );
-    return after?.auto_state ?? null;
+    const state = after?.auto_state ?? 'nothing recorded';
+    return after?.skip ? `${state}: ${after.skip}` : state;
   };
   const textIn = async (name: string, body: string, minutesAgo: number): Promise<void> => {
     const person = await one<{ phone_e164: string | null }>(
@@ -302,12 +336,19 @@ export async function seedAttention(
   let asked: string | null = null;
   let confirmedByText = false;
   try {
-    d.step('Lone Star: HandsFreeOS asks Quincy Adams to confirm Thursday’s visit');
+    d.step('Lone Star: HandsFreeOS asks Quincy Adams to confirm tomorrow’s visit');
+    const seat = await seatOf('Quincy Adams');
     asked = await askNow('Quincy Adams');
     if (asked === 'sent') {
       d.step('Lone Star: Quincy replies C, and gets HandsFreeOS’s thank-you text');
       await textIn('Quincy Adams', 'C', 4);
-      confirmedByText = !(await seatOf('Quincy Adams'));
+      // The seat he was asked about, confirmed by his reply — not merely "he has no visit left".
+      const confirmed = seat
+        ? await one<{ at: Date | null }>(
+            sql`select confirmed_at as at from app.appointment_attendees where id = ${seat.id}`,
+          )
+        : null;
+      confirmedByText = !!confirmed?.at;
     }
   } finally {
     if (quiet.quiet) {
@@ -386,7 +427,7 @@ export async function seedAttention(
     );
   if (asked !== 'sent' || !counts.handled)
     throw new Error(
-      `No confirmation request went out (${asked ?? 'nothing to send'}), so "Handled by HandsFreeOS" would be empty.`,
+      `No confirmation request went out (${asked ?? 'it was never asked'}), so "Handled by HandsFreeOS" would be empty.`,
     );
 
   return {
