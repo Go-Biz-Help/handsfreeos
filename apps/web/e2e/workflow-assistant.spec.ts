@@ -1,4 +1,5 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
+import { consentToAssistant } from './booking-helpers';
 import { addPerson } from './calendar';
 import { createBusiness, signUpAndConfirm } from './helpers';
 import {
@@ -47,6 +48,7 @@ test('workflow assistant: draft and apply, start, pause and resume, an approval,
   test.setTimeout(300_000);
   const owner = await signUpAndConfirm(page, 'wf-assistant');
   const workspaceId = await createBusiness(page, { name: 'Lone Star HVAC & Roofing' });
+  await consentToAssistant(owner.email);
   const mike = await addPerson(page, workspaceId, 'Mike', 'Johnson', '(713) 555-0142');
   const api = apiAs(await signInForApi(owner.email));
   const workflows = `/app/w/${workspaceId}/workflows`;

@@ -68,6 +68,14 @@ export const ForwardingPhoneInput = z.object({
   label: z.string().trim().min(1, 'Name this phone.').max(40),
   enabled: z.boolean().default(true),
 });
+/**
+ * What a forwarding phone shows when a customer's call rings it: the customer's number (as always), or the
+ * business number, so a phone that silences unknown callers (iOS's call screening) still rings once the business
+ * number is a contact. Either way the phone hears who is calling before pressing 1.
+ */
+export const forwardedCallerId = z.enum(['customer', 'business']);
+export type ForwardedCallerId = z.infer<typeof forwardedCallerId>;
+
 export const PhoneRoutingInput = z.object({
   forwarding: z
     .array(ForwardingPhoneInput)
@@ -75,12 +83,15 @@ export const PhoneRoutingInput = z.object({
   ringSeconds: z.number().int().min(10).max(25),
   voicemailEnabled: z.boolean(),
   voicemailGreeting: z.string().trim().max(500).nullable(),
+  /** Left out, the number keeps what it shows now (phone_number.set_caller_id changes it on its own). */
+  forwardedCallerId: forwardedCallerId.optional(),
 });
 export const PhoneRoutingOut = z.object({
   forwarding: z.array(z.object({ e164: z.string(), label: z.string(), enabled: z.boolean() })),
   ringSeconds: z.number().int(),
   voicemailEnabled: z.boolean(),
   voicemailGreeting: z.string().nullable(),
+  forwardedCallerId: forwardedCallerId,
 });
 
 export const PhoneNumberBuyInput = z.object({
@@ -101,6 +112,15 @@ export const PhoneNumberSetRoutingInput = z.object({
   routing: PhoneRoutingInput,
 });
 export const PhoneNumberSetRoutingOutput = z.object({ phoneNumberId: uuid });
+export const PhoneNumberSetCallerIdInput = z.object({
+  workspaceId: uuid,
+  phoneNumberId: uuid,
+  forwardedCallerId: forwardedCallerId,
+});
+export const PhoneNumberSetCallerIdOutput = z.object({
+  phoneNumberId: uuid,
+  forwardedCallerId: forwardedCallerId,
+});
 export const PhoneUpdateSettingsInput = z.object({
   workspaceId: uuid,
   quietHours: QuietHoursSetting.optional(),

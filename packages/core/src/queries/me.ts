@@ -1,6 +1,7 @@
 import { eq } from 'drizzle-orm';
 import { rows, sql } from '@hfos/db/client';
 import { organizationMemberships, organizations, users } from '@hfos/db/schema';
+import { assistantConsentOf } from '../assistant/consent';
 import { HfosError } from '../errors';
 import { defineQuery } from '../kernel/define';
 import { MeInput, MeOutput } from '../schemas/user';
@@ -65,6 +66,8 @@ export const me = defineQuery({
         industry: w.industry,
         role: w.role,
       })),
+      // What the Assistant panels read before the first question (the same answer the worker enforces).
+      assistantConsent: assistantConsentOf(user.settings),
     };
   },
 });

@@ -22,7 +22,7 @@ export type Disposition = 'final' | 'retry' | 'ask';
 const ASK_RULES: ReadonlySet<string> = new Set([
   // Made too long ago to go out on its own: "Still send?" (x-hfos-confirmed-at).
   'stale_action',
-  // Texting in quiet hours: "Send now, or when they open?" (acknowledgeQuietHours).
+  // Texting in quiet hours: "Send now, or when quiet hours end?" (acknowledgeQuietHours or sendAfterQuietHours).
   'quiet_hours',
   // A booking's warnings: buffers, hours, busy, time off, a time in the past (acknowledgeWarnings).
   'needs_confirmation',
@@ -32,6 +32,8 @@ const ASK_RULES: ReadonlySet<string> = new Set([
   'has_open_work',
   // Disconnecting a payment account that plans still bill through (acknowledgeSubscriptions).
   'payment_connection_has_plans',
+  // The Assistant before the person's OK to send what they ask about to Anthropic's Claude (assistant.consent).
+  'assistant_consent_required',
 ]);
 
 /** A refusal's disposition, from its status and rule (the same answer for the API, the worker and the phone). */

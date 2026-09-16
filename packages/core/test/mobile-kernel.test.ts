@@ -289,6 +289,8 @@ describe('offline classes', () => {
     'conversation.take_over': 'anytime',
     'conversation.hand_to_ai': FRESH,
     'message.send': FRESH,
+    // Cancelling a text that waits for quiet hours to end only keeps it from going.
+    'message.cancel_scheduled': 'anytime',
     // The Action Center and approvals.
     'attention.snooze': 'anytime',
     'attention.unsnooze': 'anytime',

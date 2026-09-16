@@ -13,7 +13,8 @@ export const callStatus = z.enum([
   'canceled',
 ]);
 export type CallStatus = z.infer<typeof callStatus>;
-export const callAnsweredVia = z.enum(['browser', 'forwarding']);
+/** A teammate's browser, a forwarding phone, or the person's own cell (a call through it: call.connect_me). */
+export const callAnsweredVia = z.enum(['browser', 'forwarding', 'bridge']);
 
 const callRef = {
   callId: uuid.optional(),
@@ -39,6 +40,35 @@ export const CallStartOutput = z.object({
   to: z.string(),
   /** What the browser passes to Device.connect; the worker's TwiML app reads them. */
   params: z.record(z.string(), z.string()),
+});
+
+/**
+ * Calling a customer through your own cell. The number HandsFreeOS dials is always one the business already has:
+ * a conversation's, a customer's, or a number one of them has (never any number typed in).
+ */
+export const CallConnectMeInput = z
+  .object({
+    workspaceId: uuid,
+    conversationId: uuid.optional(),
+    personId: uuid.optional(),
+    /** A number a customer or conversation of this business already has. */
+    toPhone: phoneRequired.optional(),
+  })
+  .refine((v) => [v.conversationId, v.personId, v.toPhone].filter(Boolean).length === 1, {
+    path: ['personId'],
+    error: 'Pick one conversation, customer or number.',
+  });
+export const CallConnectMeOutput = z.object({
+  callId: uuid,
+  conversationId: uuid,
+  /** The customer's number: it rings once the person presses 1. */
+  to: z.string(),
+  /** The person's own verified cell, which HandsFreeOS rings first. */
+  cell: z.string(),
+  /** The business number both phones see. */
+  callerId: z.string(),
+  /** Pressed again while that call was still ringing: the same call. */
+  duplicate: z.boolean(),
 });
 
 // ---------- worker-only (system actor) ----------
@@ -84,7 +114,7 @@ export const CallAttachRecordingInput = z
     recordingSid: z.string().trim().min(2).max(64),
     objectPath: z.string().min(3).max(500),
     seconds: z.number().int().min(0).max(3600),
-    /** A message left after nobody answered (every recording in this milestone is one). */
+    /** A message left after nobody answered; false for a call through a person's own cell, recorded whole. */
     voicemail: z.boolean().default(true),
   })
   .refine(namesTheCall, { path: ['callId'], error: 'Name the call.' });

@@ -130,7 +130,8 @@ async function writeMirrors(
   calendarId: string,
   config: CalendarConfig,
   catalogs: CalendarCatalogs,
-  actorId: string,
+  /** Who changed it; null when HandsFreeOS did (a deleted account taken off the team). */
+  actorId: string | null,
 ): Promise<void> {
   const active = new Set(catalogs.team.filter((p) => p.active).map((p) => p.userId));
   await tx.delete(calendarMembers).where(eq(calendarMembers.calendarId, calendarId));
@@ -389,7 +390,8 @@ interface SaveArgs {
 }
 
 async function saveCalendar(ctx: CommandContext, args: SaveArgs) {
-  const me = requireHuman(ctx).userId;
+  // A person, or HandsFreeOS itself (the account-deletion job takes a former teammate off the team).
+  const me = ctx.actor.type === 'human' ? ctx.actor.userId : null;
   const ws = ctx.scope.workspaceId!;
   // The booking lock first: bookings on this calendar wait while its settings change, and the impact
   // review sees every appointment that exists.
@@ -618,6 +620,8 @@ export const calendarSave = defineCommand({
   permission: 'calendars.manage',
   scope: inWorkspace,
   emits: ['calendar.updated', 'appointment.reassigned', 'appointment.cancelled'],
+  // The worker too: deleting an account takes the person off every calendar team the same way.
+  actors: ['human', 'system'],
   async handler(ctx, input) {
     return saveCalendar(ctx, input);
   },
@@ -665,6 +669,8 @@ export const calendarSetStatus = defineCommand({
   permission: 'calendars.manage',
   scope: inWorkspace,
   emits: ['calendar.status_changed'],
+  // The worker pauses a calendar left with nobody to book when a deleted account was its only person.
+  actors: ['human', 'system'],
   async handler(ctx, input) {
     const ws = ctx.scope.workspaceId!;
     const current = await loadCalendar(ctx.tx, ws, input.calendarId, { forUpdate: true });

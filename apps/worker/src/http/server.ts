@@ -1,6 +1,6 @@
 import cors from '@fastify/cors';
 import formbody from '@fastify/formbody';
-import { formatPhone, HfosError } from '@hfos/core/server';
+import { dispositionOf, formatPhone, HfosError } from '@hfos/core/server';
 import { asWorker, rows, sql } from '@hfos/db/client';
 import Fastify, { type FastifyInstance } from 'fastify';
 import { z } from 'zod';
@@ -107,6 +107,8 @@ export async function buildHttpServer(deps: HttpDeps): Promise<FastifyInstance> 
     maxAge: 600,
   });
 
+  // Every error body says what a client keeping a queue should do with it (`disposition`: final, retry or ask),
+  // the same shape as the API's.
   app.setErrorHandler((err, _req, reply) => {
     if (err instanceof HfosError) return reply.code(err.status).send(err.toBody());
     if (err instanceof ProviderError)
@@ -114,18 +116,24 @@ export async function buildHttpServer(deps: HttpDeps): Promise<FastifyInstance> 
         error: {
           code: 'internal',
           message: 'The phone carrier did not answer. Try again in a minute.',
+          disposition: 'retry',
         },
       });
     const { statusCode: status, message } = err as { statusCode?: number; message?: string };
     if (status && status >= 400 && status < 500)
-      return reply
-        .code(status)
-        .send({ error: { code: 'validation', message: message ?? 'Bad request.' } });
+      return reply.code(status).send({
+        error: {
+          code: 'validation',
+          message: message ?? 'Bad request.',
+          disposition: dispositionOf(status),
+        },
+      });
     deps.log.error({ err }, 'worker http error');
-    return reply
-      .code(500)
-      .send({ error: { code: 'internal', message: 'Something went wrong on our side.' } });
+    return reply.code(500).send(HfosError.internal().toBody());
   });
+  app.setNotFoundHandler((_req, reply) =>
+    reply.code(404).send(HfosError.notFound('No such route.').toBody()),
+  );
 
   app.get('/healthz', async () => ({ ok: true }));
 

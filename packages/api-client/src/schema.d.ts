@@ -37,6 +37,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/account.delete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Delete your own account. Your sign-in and your name are removed and you are signed out everywhere; the customers, messages and jobs you worked on stay with each business, shown as from a former teammate. A business’s only owner makes someone else an owner first.
+         * @description Risk level 4. Emits account.deletion_requested.
+         */
+        post: operations["command_account_delete"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/activity.delete": {
         parameters: {
             query?: never;
@@ -417,6 +437,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/assistant.consent": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Say OK to what the Assistant does with your questions: what you ask about is sent to Anthropic’s Claude to answer you. One OK covers the web and the phone.
+         * @description Risk level 1. Emits assistant.consented.
+         */
+        post: operations["command_assistant_consent"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/attendee.confirm": {
         parameters: {
             query?: never;
@@ -771,6 +811,26 @@ export interface paths {
          * @description Risk level 1. Requires calendars.manage. Emits calendar.status_changed.
          */
         post: operations["command_calendar_set_status"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/call.connect_me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Call a customer through your own cell: HandsFreeOS rings your verified cell from the business number, you press 1, and the customer is connected, seeing the business number. Recorded, and filed in the customer’s conversation.
+         * @description Risk level 2. Requires inbox.use. Emits call.started.
+         */
+        post: operations["command_call_connect_me"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2357,6 +2417,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/message.cancel_scheduled": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Cancel a text waiting for quiet hours to end. It never goes, and leaves the conversation.
+         * @description Risk level 1. Requires inbox.use. Emits message.schedule_cancelled. Can wait on a phone with no signal.
+         */
+        post: operations["command_message_cancel_scheduled"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/message.retry": {
         parameters: {
             query?: never;
@@ -2388,7 +2468,7 @@ export interface paths {
         put?: never;
         /**
          * Text, email or chat with a customer: a text from the business number, an email from a workspace address or a connected mailbox, or a reply in a website chat. Texts and emails are queued here and the worker sends them. A person writing in a conversation the AI teammate is answering takes it over.
-         * @description Risk level 2. Requires inbox.use. Emits message.queued, message.sent, conversation.created, conversation.taken_over. Can wait on a phone for 30 minutes, then asks.
+         * @description Risk level 2. Requires inbox.use. Emits message.queued, message.sent, message.scheduled, conversation.created, conversation.taken_over. Can wait on a phone for 30 minutes, then asks.
          */
         post: operations["command_message_send"];
         delete?: never;
@@ -2677,6 +2757,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/phone_number.set_caller_id": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Choose what forwarding phones show when a customer calls: the customer’s number, or the business number (so a phone that silences unknown callers still rings once the business number is a contact). Either way the phone hears who is calling before pressing 1.
+         * @description Risk level 1. Requires channels.manage. Emits phone_number.routing_updated.
+         */
+        post: operations["command_phone_number_set_caller_id"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/phone_number.set_routing": {
         parameters: {
             query?: never;
@@ -2891,6 +2991,46 @@ export interface paths {
          * @description Risk level 1. Requires money.manage. Emits product.updated.
          */
         post: operations["command_product_update"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/push_device.register": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Get push notifications on this phone: registers its Expo push token for you, or refreshes it. Anyone else who signed in on this phone stops getting theirs here.
+         * @description Risk level 1. Emits push_device.registered.
+         */
+        post: operations["command_push_device_register"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/push_device.remove": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Stop push notifications on one of your phones: this one when you sign out or turn them off here, or another one from your list. Already off, nothing changes.
+         * @description Risk level 1. Emits push_device.removed.
+         */
+        post: operations["command_push_device_remove"];
         delete?: never;
         options?: never;
         head?: never;
@@ -3631,6 +3771,26 @@ export interface paths {
          * @description Risk level 1. Requires appointments.write. Emits time_off.removed.
          */
         post: operations["command_time_off_remove"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/user_phone.start_verification": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Set your own cell phone. HandsFreeOS calls it from the business number, and pressing 1 on that call confirms it’s yours. A different number takes the place of the one before, which is no longer verified.
+         * @description Risk level 1. Requires inbox.use. Emits user_phone.verification_requested.
+         */
+        post: operations["command_user_phone_start_verification"];
         delete?: never;
         options?: never;
         head?: never;
@@ -5949,6 +6109,37 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    command_account_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    confirmEmail: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: date-time */
+                        requestedAt: string;
+                        /** Format: uuid */
+                        userId: string;
+                    };
+                };
+            };
+        };
+    };
     command_activity_delete: {
         parameters: {
             query?: never;
@@ -6736,6 +6927,37 @@ export interface operations {
                     "application/json": {
                         /** Format: uuid */
                         threadId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_assistant_consent: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    version: number;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changed: boolean;
+                        /** Format: date-time */
+                        consentedAt: string;
+                        version: number;
                     };
                 };
             };
@@ -7920,6 +8142,47 @@ export interface operations {
                         }[];
                         /** @enum {string} */
                         status: "draft" | "active" | "paused" | "archived";
+                    };
+                };
+            };
+        };
+    };
+    command_call_connect_me: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    conversationId?: string;
+                    /** Format: uuid */
+                    personId?: string;
+                    toPhone?: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        callerId: string;
+                        /** Format: uuid */
+                        callId: string;
+                        cell: string;
+                        /** Format: uuid */
+                        conversationId: string;
+                        duplicate: boolean;
+                        to: string;
                     };
                 };
             };
@@ -11187,6 +11450,39 @@ export interface operations {
             };
         };
     };
+    command_message_cancel_scheduled: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    messageId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changed: boolean;
+                        /** Format: uuid */
+                        messageId: string;
+                    };
+                };
+            };
+        };
+    };
     command_message_retry: {
         parameters: {
             query?: never;
@@ -11254,6 +11550,8 @@ export interface operations {
                     mailboxConnectionId?: string;
                     /** Format: uuid */
                     personId?: string;
+                    /** @default false */
+                    sendAfterQuietHours?: boolean;
                     subject?: string;
                     toEmail?: string;
                     toPhone?: string;
@@ -11275,6 +11573,8 @@ export interface operations {
                         duplicate: boolean;
                         /** Format: uuid */
                         messageId: string;
+                        /** Format: date-time */
+                        scheduledFor?: string;
                         status: string;
                     };
                 };
@@ -12002,6 +12302,42 @@ export interface operations {
             };
         };
     };
+    command_phone_number_set_caller_id: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {string} */
+                    forwardedCallerId: "customer" | "business";
+                    /** Format: uuid */
+                    phoneNumberId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {string} */
+                        forwardedCallerId: "customer" | "business";
+                        /** Format: uuid */
+                        phoneNumberId: string;
+                    };
+                };
+            };
+        };
+    };
     command_phone_number_set_routing: {
         parameters: {
             query?: never;
@@ -12015,6 +12351,8 @@ export interface operations {
                     /** Format: uuid */
                     phoneNumberId: string;
                     routing: {
+                        /** @enum {string} */
+                        forwardedCallerId?: "customer" | "business";
                         forwarding: {
                             e164: string;
                             /** @default true */
@@ -12490,6 +12828,76 @@ export interface operations {
                         productId: string;
                         /** @default [] */
                         updated: string[];
+                    };
+                };
+            };
+        };
+    };
+    command_push_device_register: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    appVersion: string;
+                    deviceName?: string | null;
+                    /** @enum {string} */
+                    platform: "ios" | "android";
+                    token: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        created: boolean;
+                        /** Format: uuid */
+                        deviceId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_push_device_remove: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    deviceId?: string;
+                    /**
+                     * @default signed_out
+                     * @enum {string}
+                     */
+                    reason?: "signed_out" | "turned_off";
+                    token?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changed: boolean;
+                        deviceId: string | null;
                     };
                 };
             };
@@ -14035,6 +14443,41 @@ export interface operations {
                     "application/json": {
                         /** Format: uuid */
                         exceptionId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_user_phone_start_verification: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    phone: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        callerId: string;
+                        e164: string;
+                        /** @enum {string} */
+                        status: "calling" | "verified";
+                        /** Format: uuid */
+                        userPhoneId: string;
                     };
                 };
             };
@@ -15665,6 +16108,12 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        assistantConsent: {
+                            consentedAt: string | null;
+                            consentedVersion: number | null;
+                            needed: boolean;
+                            version: number;
+                        };
                         organizations: {
                             /** Format: uuid */
                             id: string;
@@ -18363,7 +18812,7 @@ export interface operations {
                                 /** Format: uuid */
                                 id: string;
                             } | null;
-                            answeredVia: ("browser" | "forwarding") | null;
+                            answeredVia: ("browser" | "forwarding" | "bridge") | null;
                             approvedBy: {
                                 fullName: string;
                                 /** Format: uuid */
@@ -18398,6 +18847,7 @@ export interface operations {
                             occurredAt: string;
                             recordingPath: string | null;
                             recordingSeconds: number | null;
+                            scheduledFor: string | null;
                             sentBy: {
                                 fullName: string;
                                 /** Format: uuid */
@@ -20421,7 +20871,7 @@ export interface operations {
                                 /** Format: uuid */
                                 id: string;
                             } | null;
-                            answeredVia: ("browser" | "forwarding") | null;
+                            answeredVia: ("browser" | "forwarding" | "bridge") | null;
                             approvedBy: {
                                 fullName: string;
                                 /** Format: uuid */
@@ -20456,6 +20906,7 @@ export interface operations {
                             occurredAt: string;
                             recordingPath: string | null;
                             recordingSeconds: number | null;
+                            scheduledFor: string | null;
                             sentBy: {
                                 fullName: string;
                                 /** Format: uuid */
@@ -21148,6 +21599,8 @@ export interface operations {
                             numberType: "local" | "toll_free";
                             purchasedAt: string | null;
                             routing: {
+                                /** @enum {string} */
+                                forwardedCallerId: "customer" | "business";
                                 forwarding: {
                                     e164: string;
                                     enabled: boolean;

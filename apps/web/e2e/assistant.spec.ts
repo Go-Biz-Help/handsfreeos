@@ -1,5 +1,6 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
 import { cardOnHome } from './action-center-helpers';
+import { consentToAssistant } from './booking-helpers';
 import { createBusiness, signIn, signUpAndConfirm } from './helpers';
 import { setUpTexting } from './telephony';
 
@@ -30,6 +31,7 @@ test('assistant: ask, act at once, confirm before contacting or changing, audit 
   test.setTimeout(240_000);
   const owner = await signUpAndConfirm(page, 'assistant-owner');
   const workspaceId = await createBusiness(page, { name: 'Lone Star HVAC & Roofing' });
+  await consentToAssistant(owner.email);
   await setUpTexting(page, workspaceId);
   // Tests text at any hour.
   await page.getByTestId('quiet-hours-switch').click();

@@ -37,6 +37,9 @@ export const ATTENTION_EVENTS: readonly string[] = [
   'call.received',
   'call.completed',
   'call.missed',
+  // A call through someone's own cell that never reached the customer (M10): it changes nothing for them, but
+  // every call event is looked at, so a card never waits on one it didn't hear about.
+  'call.bridge_unanswered',
   'call.voicemail_left',
   'call.transcribed',
   'activity.logged',

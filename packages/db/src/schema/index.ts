@@ -664,6 +664,8 @@ export interface PhoneRouting {
   readonly ringSeconds: number;
   readonly voicemailEnabled: boolean;
   readonly voicemailGreeting: string | null;
+  /** Milestone 10: what forwarding phones show when a customer calls (missing: the customer's number). */
+  readonly forwardedCallerId?: 'customer' | 'business';
 }
 /** A stored copy of an MMS photo, a recording or an email attachment in the `telephony` bucket. */
 export interface MediaRef {

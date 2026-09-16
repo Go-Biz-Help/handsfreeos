@@ -10,7 +10,7 @@ import { requireHuman } from '../kernel/actor';
 import { defineQuery } from '../kernel/define';
 import { decodeCursor, page } from '../kernel/pagination';
 import type { QueryContext } from '../kernel/types';
-import { quietHoursState } from '../messaging/quiet-hours';
+import { CANCELLED_TEXT, quietHoursState, SCHEDULED_TEXT } from '../messaging/quiet-hours';
 import {
   isOptedOut,
   liveNumber,
@@ -436,7 +436,8 @@ type ThreadRow = {
   answered_name: string | null;
   recording_path: string | null;
   recording_seconds: number | null;
-  answered_via: 'browser' | 'forwarding' | null;
+  answered_via: 'browser' | 'forwarding' | 'bridge' | null;
+  scheduled_for: Date | null;
   body_html: string | null;
   to_addresses: string[] | null;
   cc_addresses: string[] | null;
@@ -460,6 +461,7 @@ const messageBranch = (workspaceId: string) => sql`
     m.sent_by_teammate_id as teammate_id, tt.name as teammate_name, m.approved_by,
     coalesce(nullif(ab.full_name, ''), ab.email::text) as approved_name, m.ai_draft_id,
     coalesce(m.client_id, '') like 'handoff:%' as handoff_line,
+    case when m.status = 'queued' and m.error_code = ${SCHEDULED_TEXT} then m.occurred_at end as scheduled_for,
     ${SORT_KEY(sql`m.occurred_at`)} as sort_key
   from app.messages m left join app.users su on su.id = m.sent_by
   left join app.mailbox_connections mc on mc.id = m.mailbox_connection_id
@@ -504,6 +506,7 @@ function threadItem(r: ThreadRow): ThreadItem {
       : null,
     aiDraftId: r.ai_draft_id,
     handoffLine: !!r.handoff_line,
+    scheduledFor: iso(r.scheduled_for),
   };
 }
 
@@ -525,18 +528,21 @@ export const conversationThread = defineQuery({
       ctx.tx,
       sql`select * from (
             ${messageBranch(input.workspaceId)} and m.conversation_id = ${input.conversationId}
+              and m.error_code is distinct from ${CANCELLED_TEXT}
             union all
             select 'call'::text, c.id, c.conversation_id, c.started_at, c.direction::text, c.status::text, null::text, null::text, null::text,
               c.from_e164, '[]'::jsonb, c.placed_by, coalesce(nullif(pu.full_name, ''), pu.email::text), null::text, null::text, null::timestamptz,
               c.duration_seconds, c.is_voicemail, c.recording_object_path is not null, c.transcript, c.answered_by_user_id,
               coalesce(nullif(au.full_name, ''), au.email::text), c.recording_object_path, c.recording_seconds, c.answered_via::text,
               null::text, '{}'::text[], '{}'::text[], null::text,
-              null::uuid, null::text, null::uuid, null::text, null::uuid, false,
+              null::uuid, null::text, null::uuid, null::text, null::uuid, false, null::timestamptz,
               ${SORT_KEY(sql`c.started_at`)}
             from app.calls c
             left join app.users pu on pu.id = c.placed_by
             left join app.users au on au.id = c.answered_by_user_id
             where c.workspace_id = ${input.workspaceId} and c.conversation_id = ${input.conversationId}
+              -- A call through someone's own cell joins the conversation once the customer's phone was dialed.
+              and (c.answered_via is distinct from 'bridge' or c.answered_by_user_id is not null)
           ) t
           where true
           ${input.since ? sql`and t.occurred_at > ${input.since}::timestamptz` : sql``}

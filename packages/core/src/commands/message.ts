@@ -43,11 +43,15 @@ import {
 } from '../messaging/email';
 import { personTakesOver, takeOver } from '../messaging/handling';
 import {
+  CANCELLED_TEXT,
   formatClock,
   QUIET_REPLY_LIMIT,
   QUIET_REPLY_WINDOW_MS,
+  quietHoursEndAt,
   quietHoursState,
   quietPeriodStart,
+  SCHEDULED_TEXT,
+  scheduledForOf,
   type QuietHoursState,
 } from '../messaging/quiet-hours';
 import { confirmWord, messagePreview, smsKeyword, smsSegments, yesWord } from '../messaging/sms';
@@ -66,10 +70,14 @@ import {
 import {
   MessageAttachMediaInput,
   MessageAttachMediaOutput,
+  MessageCancelScheduledInput,
+  MessageCancelScheduledOutput,
   MessageReceiveInput,
   MessageReceiveOutput,
   MessageRecordOptOutInput,
   MessageRecordOptOutOutput,
+  MessageReleaseScheduledInput,
+  MessageReleaseScheduledOutput,
   MessageRetryInput,
   MessageRetryOutput,
   MessageSendInput,
@@ -144,7 +152,8 @@ async function customerOptedOut(ctx: CommandContext, conv: Conversation): Promis
 
 /**
  * The number, carrier approval, opt-out and quiet-hours checks every outbound text passes. STOP always wins.
- * `quietHours` says when the AI teammate's reply window let a text through during quiet hours.
+ * `quietHours` says when the AI teammate's reply window let a text through during quiet hours; `holdUntil` when a
+ * person's text waits for quiet hours to end instead (they asked for that).
  */
 async function assertCanText(
   ctx: CommandContext,
@@ -152,6 +161,8 @@ async function assertCanText(
   opts: {
     acknowledgeQuietHours: boolean;
     skipQuietHours?: boolean;
+    /** A person's "Send at 8:00 AM": in quiet hours the text waits for them to end. */
+    sendAfterQuietHours?: boolean;
     /** The AI teammate's reply window: the customer's text it answers. */
     inReplyToMessageId?: string;
     /** This send starts the conversation (never allowed in quiet hours for the AI teammate). */
@@ -175,6 +186,7 @@ async function assertCanText(
       'This customer texted STOP. They can text START to get texts again.',
     );
   let quietHours: 'reply_window' | null = null;
+  let holdUntil: Date | null = null;
   if (!opts.skipQuietHours) {
     const m = await workspaceMessaging(ctx.tx, workspaceId);
     const q = quietHoursState(m.settings.quietHours, m.timezone);
@@ -182,7 +194,9 @@ async function assertCanText(
       // The AI teammate may answer a customer's own text that just came in, a few times a night; never first.
       await assertQuietReply(ctx, conv, q, m, opts);
       quietHours = 'reply_window';
-    } else if (q.quiet && (ctx.actor.type !== 'human' || !opts.acknowledgeQuietHours))
+    } else if (q.quiet && ctx.actor.type === 'human' && opts.sendAfterQuietHours)
+      holdUntil = quietHoursEndAt(m.settings.quietHours, m.timezone);
+    else if (q.quiet && (ctx.actor.type !== 'human' || !opts.acknowledgeQuietHours))
       // Only a person can confirm a text in quiet hours. The system and workflows never can.
       throw new HfosError(
         'rule_violation',
@@ -192,7 +206,7 @@ async function assertCanText(
         'quiet_hours',
       );
   }
-  return { number, quietHours };
+  return { number, quietHours, holdUntil };
 }
 
 /**
@@ -669,7 +683,13 @@ export const messageSend = defineCommand({
   output: MessageSendOutput,
   permission: 'inbox.use',
   scope: inWorkspace,
-  emits: ['message.queued', 'message.sent', 'conversation.created', 'conversation.taken_over'],
+  emits: [
+    'message.queued',
+    'message.sent',
+    'message.scheduled',
+    'conversation.created',
+    'conversation.taken_over',
+  ],
   actors: ['human', 'system', 'workflow', 'ai_employee'],
   offline: { freshMinutes: FRESH_MINUTES },
   async handler(ctx, input) {
@@ -679,6 +699,14 @@ export const messageSend = defineCommand({
         {
           path: 'keepConversationStatus',
           message: 'Only HandsFreeOS itself sends without reopening the conversation.',
+        },
+      ]);
+    // Only a person chooses to send when quiet hours end; HandsFreeOS's own texts wait for them on their own.
+    if (input.sendAfterQuietHours && ctx.actor.type !== 'human')
+      throw HfosError.validation([
+        {
+          path: 'sendAfterQuietHours',
+          message: 'Only a person chooses to send a text when quiet hours end.',
         },
       ]);
     // Every message the AI teammate sends has its own clientId, so a retried job never sends it twice.
@@ -713,16 +741,30 @@ export const messageSend = defineCommand({
     const { conversation: conv, created } = await resolveSmsConversation(ctx, input);
     if (input.clientId) {
       const [dup] = await ctx.tx
-        .select({ id: messages.id, status: messages.status })
+        .select({
+          id: messages.id,
+          status: messages.status,
+          errorCode: messages.errorCode,
+          occurredAt: messages.occurredAt,
+        })
         .from(messages)
         .where(and(eq(messages.conversationId, conv.id), eq(messages.clientId, input.clientId)));
-      if (dup)
-        return { messageId: dup.id, conversationId: conv.id, status: dup.status, duplicate: true };
+      if (dup) {
+        const scheduledFor = scheduledForOf(dup);
+        return {
+          messageId: dup.id,
+          conversationId: conv.id,
+          status: dup.status,
+          duplicate: true,
+          ...(scheduledFor ? { scheduledFor } : {}),
+        };
+      }
     }
     const ai = aiEmployeeOf(ctx.actor);
     const claim = ai ? await assertAiMaySend(ctx, ai, conv, created) : false;
-    const { number, quietHours } = await assertCanText(ctx, conv, {
+    const { number, quietHours, holdUntil } = await assertCanText(ctx, conv, {
       acknowledgeQuietHours: input.acknowledgeQuietHours,
+      sendAfterQuietHours: input.sendAfterQuietHours,
       inReplyToMessageId: input.inReplyToMessageId,
       created,
     });
@@ -740,6 +782,55 @@ export const messageSend = defineCommand({
         payload: { channel: 'sms', personId: conv.personId },
         after: { with: to, channel: 'sms' },
       });
+    if (holdUntil) {
+      // "Send at 8:00 AM": the text waits in the conversation, scheduled and cancellable. Nothing reaches the
+      // timeline or the conversation's preview until it goes; the worker sends it then (message.release_scheduled).
+      const sendAt = holdUntil.toISOString();
+      await ctx.emit({
+        type: 'message.scheduled',
+        entityType: 'message',
+        entityId: messageId,
+        payload: {
+          conversationId: conv.id,
+          personId: conv.personId,
+          channel: 'sms',
+          mediaCount: media.length,
+          sendAt,
+        },
+        after: { to, preview: preview.slice(0, 80), segments, mediaCount: media.length, sendAt },
+      });
+      await ctx.tx.insert(messages).values({
+        id: messageId,
+        workspaceId,
+        conversationId: conv.id,
+        channel: 'sms',
+        direction: 'outbound',
+        status: 'queued',
+        fromAddress: number.e164,
+        toAddresses: [conv.counterpart],
+        bodyText: input.body,
+        media,
+        segments,
+        ...senderColumns(ctx),
+        clientId: input.clientId ?? null,
+        errorCode: SCHEDULED_TEXT,
+        occurredAt: holdUntil,
+      });
+      if (!conv.phoneNumberId)
+        await ctx.tx
+          .update(conversations)
+          .set({ phoneNumberId: number.id })
+          .where(eq(conversations.id, conv.id));
+      // The person answered it themselves: the AI teammate stops answering it now, not in the morning.
+      if (personTakesOver(ctx, conv)) await takeOver(ctx, conv, 'reply');
+      return {
+        messageId,
+        conversationId: conv.id,
+        status: 'queued',
+        duplicate: false,
+        scheduledFor: sendAt,
+      };
+    }
     const eventId = await ctx.emit({
       type: 'message.queued',
       entityType: 'message',
@@ -853,6 +944,167 @@ export const messageRetry = defineCommand({
       },
     });
     return { messageId: m.id };
+  },
+});
+
+export const messageCancelScheduled = defineCommand({
+  name: 'message.cancel_scheduled',
+  description:
+    'Cancel a text waiting for quiet hours to end. It never goes, and leaves the conversation.',
+  risk: 1,
+  input: MessageCancelScheduledInput,
+  output: MessageCancelScheduledOutput,
+  permission: 'inbox.use',
+  scope: inWorkspace,
+  emits: ['message.schedule_cancelled'],
+  // Cancelling only ever keeps a text from going, so it can wait on a phone; once the text went, it says so.
+  offline: 'anytime',
+  async handler(ctx, input) {
+    const [m] = await ctx.tx
+      .select()
+      .from(messages)
+      .where(
+        and(eq(messages.id, input.messageId), eq(messages.workspaceId, ctx.scope.workspaceId!)),
+      )
+      .for('update');
+    if (!m) throw HfosError.notFound('Message not found.');
+    if (m.errorCode === CANCELLED_TEXT && m.direction === 'outbound')
+      return { messageId: m.id, changed: false };
+    if (m.errorCode !== SCHEDULED_TEXT || m.status !== 'queued')
+      throw HfosError.rule(
+        'not_scheduled',
+        409,
+        'This text isn’t waiting any more: it already went, so it can’t be cancelled.',
+      );
+    await ctx.tx
+      .update(messages)
+      .set({ errorCode: CANCELLED_TEXT, errorMessage: 'Cancelled before it went.' })
+      .where(eq(messages.id, m.id));
+    const sendAt = m.occurredAt.toISOString();
+    await ctx.emit({
+      type: 'message.schedule_cancelled',
+      entityType: 'message',
+      entityId: m.id,
+      payload: { conversationId: m.conversationId, sendAt },
+      before: { sendAt },
+      after: { cancelled: true },
+    });
+    return { messageId: m.id, changed: true };
+  },
+});
+
+export const messageReleaseScheduled = defineCommand({
+  name: 'message.release_scheduled',
+  description:
+    'Worker: quiet hours ended, and a text held for them goes: every check a text passes runs again first, and one that can’t go says why.',
+  risk: 2,
+  input: MessageReleaseScheduledInput,
+  output: MessageReleaseScheduledOutput,
+  permission: 'inbox.use',
+  scope: inWorkspace,
+  emits: ['message.queued', 'message.failed'],
+  actors: ['system'],
+  async handler(ctx, input) {
+    const workspaceId = ctx.scope.workspaceId!;
+    const outcome = (
+      o: 'sent' | 'waiting' | 'cancelled' | 'refused' | 'gone',
+      retryAt: Date | null = null,
+    ) => ({ messageId: input.messageId, outcome: o, retryAt: retryAt?.toISOString() ?? null });
+    const [m] = await ctx.tx
+      .select()
+      .from(messages)
+      .where(and(eq(messages.id, input.messageId), eq(messages.workspaceId, workspaceId)))
+      .for('update');
+    if (!m || m.direction !== 'outbound' || m.channel !== 'sms') return outcome('gone');
+    if (m.errorCode === CANCELLED_TEXT) {
+      // Cancelled before it went: it ends there.
+      if (m.status === 'queued')
+        await ctx.tx.update(messages).set({ status: 'failed' }).where(eq(messages.id, m.id));
+      return outcome('cancelled');
+    }
+    if (m.errorCode !== SCHEDULED_TEXT || m.status !== 'queued') return outcome('gone');
+    const now = new Date();
+    if (m.occurredAt.getTime() > now.getTime() + 1000) return outcome('waiting', m.occurredAt);
+    const conv = await loadConversation(ctx, m.conversationId);
+    const settings = await workspaceMessaging(ctx.tx, workspaceId);
+    // Quiet hours again (their times changed, or this ran very late): it waits for these to end too.
+    const again = quietHoursEndAt(settings.settings.quietHours, settings.timezone, now);
+    if (again) {
+      await ctx.tx.update(messages).set({ occurredAt: again }).where(eq(messages.id, m.id));
+      return outcome('waiting', again);
+    }
+    try {
+      await assertCanText(ctx, conv, { acknowledgeQuietHours: true, skipQuietHours: true });
+    } catch (e) {
+      if (!(e instanceof HfosError) || e.status >= 500) throw e;
+      // The customer texted STOP overnight, or texting was switched off: it doesn't go, and says why.
+      const errorCode = e.rule ?? e.code;
+      await ctx.tx
+        .update(messages)
+        .set({ status: 'failed', errorCode, errorMessage: e.message })
+        .where(eq(messages.id, m.id));
+      await ctx.emit({
+        type: 'message.failed',
+        entityType: 'message',
+        entityId: m.id,
+        payload: { conversationId: m.conversationId, status: 'failed', errorCode },
+        before: { status: 'queued' },
+        after: { status: 'failed', channel: 'sms', errorCode, errorMessage: e.message },
+      });
+      return outcome('refused');
+    }
+    // It goes now: from this moment it is on the timeline and in the conversation, and the worker sends it.
+    const preview = messagePreview(m.bodyText, m.media.length);
+    const eventId = await ctx.emit({
+      type: 'message.queued',
+      entityType: 'message',
+      entityId: m.id,
+      payload: {
+        conversationId: conv.id,
+        personId: conv.personId,
+        channel: 'sms',
+        mediaCount: m.media.length,
+        scheduled: true,
+      },
+      after: {
+        to: formatPhone(conv.counterpart),
+        preview: preview.slice(0, 80),
+        segments: m.segments,
+        mediaCount: m.media.length,
+      },
+    });
+    const activityId = await logChannelActivity(ctx, {
+      kind: 'sms',
+      subtype: 'outbound',
+      personId: conv.personId,
+      body: m.bodyText,
+      occurredAt: now,
+      eventId,
+      authorUserId: m.sentBy,
+      meta: {
+        direction: 'outbound',
+        messageId: m.id,
+        conversationId: conv.id,
+        status: 'queued',
+        mediaCount: m.media.length,
+        scheduled: true,
+      },
+    });
+    await ctx.tx
+      .update(messages)
+      .set({ errorCode: null, occurredAt: now, activityId })
+      .where(eq(messages.id, m.id));
+    await ctx.tx
+      .update(conversations)
+      .set({
+        lastMessageAt: now,
+        lastOutboundAt: now,
+        lastPreview: preview,
+        lastDirection: 'outbound',
+        ...afterOutbound(false, false, now),
+      })
+      .where(eq(conversations.id, conv.id));
+    return outcome('sent');
   },
 });
 

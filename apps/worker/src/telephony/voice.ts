@@ -3,6 +3,11 @@
  * Everything here is pure (no I/O), so the routes and the tests share it.
  */
 import { createHmac } from 'node:crypto';
+import {
+  BRIDGE_CUSTOMER_RING_SECONDS,
+  BRIDGE_GATE_SECONDS,
+  type ForwardedCallerId,
+} from '@hfos/core';
 
 /** A natural-sounding voice for greetings and the forwarded-phone screen. */
 export const VOICE = 'Polly.Joanna-Neural';
@@ -87,8 +92,21 @@ export function voiceUrls(publicUrl: string) {
     hangup: `${base}/hangup`,
     recording: `${base}/recording`,
     transcription: `${base}/transcription`,
-    screen: (e164: string) => line('screen', e164),
+    /**
+     * A forwarding phone that picked up. `from` is the customer's number when forwarded phones show the business
+     * number instead (their leg then says the business is calling, so the screen reads the customer from here).
+     */
+    screen: (e164: string, from?: string | null) =>
+      from ? `${line('screen', e164)}&from=${encodeURIComponent(from)}` : line('screen', e164),
     screenResult: (e164: string) => line('screen-result', e164),
+    /** A call through someone's own cell: their cell answered, they pressed a key, and how the customer's leg went. */
+    bridge: (callId: string) => `${base}/bridge?callId=${callId}`,
+    bridgeGate: (callId: string) => `${base}/bridge-gate?callId=${callId}`,
+    bridgeResult: (callId: string) => `${base}/bridge-result?callId=${callId}`,
+    /** The call that confirms someone's cell: it answered, they pressed a key, and how it went. */
+    verify: (userPhoneId: string) => `${base}/verify?userPhoneId=${userPhoneId}`,
+    verifyResult: (userPhoneId: string) => `${base}/verify-result?userPhoneId=${userPhoneId}`,
+    verifyStatus: (userPhoneId: string) => `${base}/verify-status?userPhoneId=${userPhoneId}`,
   };
 }
 export type VoiceUrls = ReturnType<typeof voiceUrls>;
@@ -103,6 +121,8 @@ export interface Routing {
   readonly ringSeconds: number;
   readonly voicemailEnabled: boolean;
   readonly voicemailGreeting: string | null;
+  /** What forwarding phones show: the customer's number, or the business number. */
+  readonly forwardedCallerId: ForwardedCallerId;
 }
 
 /** The number's routing (phone_numbers.routing), with the rules the settings page enforces applied again. */
@@ -112,6 +132,7 @@ export function routingOf(raw: unknown): Routing {
     ringSeconds?: unknown;
     voicemailEnabled?: unknown;
     voicemailGreeting?: unknown;
+    forwardedCallerId?: unknown;
   };
   const ring = typeof r.ringSeconds === 'number' ? r.ringSeconds : 20;
   return {
@@ -129,6 +150,7 @@ export function routingOf(raw: unknown): Routing {
       typeof r.voicemailGreeting === 'string' && r.voicemailGreeting.trim()
         ? r.voicemailGreeting.trim()
         : null,
+    forwardedCallerId: r.forwardedCallerId === 'business' ? 'business' : 'customer',
   };
 }
 
@@ -146,7 +168,9 @@ export function spokenPhone(e164: string): string {
 /**
  * Rings every teammate's browser and each enabled forwarding phone at once. The first to answer takes the
  * call; forwarded phones hear "press 1" first, so a cell's own voicemail cannot grab it. `params` reach the
- * browsers as the call's custom parameters (who is calling, what else rings).
+ * browsers as the call's custom parameters (who is calling, what else rings). With `callerId`, forwarded phones
+ * see the business number rather than the customer's (a phone that silences unknown callers still rings), and
+ * still hear who is calling before they press 1; browsers name the caller from `params` either way.
  */
 export function ringTwiml(
   plan: {
@@ -155,6 +179,8 @@ export function ringTwiml(
     ringSeconds: number;
     line: string;
     params: Readonly<Record<string, string>>;
+    /** The business number, when forwarded phones show it. */
+    callerId?: string | null;
   },
   urls: VoiceUrls,
 ): string {
@@ -171,16 +197,18 @@ export function ringTwiml(
     .slice(0, 10)
     .map((id) => `<Client${attrs(leg)}><Identity>${escapeXml(id)}</Identity>${parameters}</Client>`)
     .join('');
+  const caller = plan.callerId ? plan.params['from'] || null : null;
   const numbers = plan.forwarding
     .slice(0, 3)
     .map(
       (f) =>
-        `<Number${attrs({ url: urls.screen(plan.line), method: 'POST', ...leg })}>${escapeXml(f.e164)}</Number>`,
+        `<Number${attrs({ url: urls.screen(plan.line, caller), method: 'POST', ...leg })}>${escapeXml(f.e164)}</Number>`,
     )
     .join('');
   // Twilio adds about five seconds to a Dial timeout, so ask for five fewer than the setting.
   const dial = attrs({
     answerOnBridge: true,
+    callerId: plan.callerId || undefined,
     timeout: Math.max(5, plan.ringSeconds - 5),
     action: urls.dialResult,
     method: 'POST',
@@ -237,3 +265,89 @@ export function outboundTwiml(from: string, to: string, urls: VoiceUrls): string
   });
   return twiml(`<Dial${dial}><Number${leg}>${escapeXml(to)}</Number></Dial>`);
 }
+
+// ---------- calls through someone's own cell ----------
+
+/**
+ * Someone's cell answered the call HandsFreeOS placed to connect them to a customer: "Press 1 to call Mike
+ * Johnson.", twice. Nothing pressed (a voicemail picked up, or they hung up) ends it, and the customer never rings.
+ */
+export function bridgeGateTwiml(customer: string, callId: string, urls: VoiceUrls): string {
+  const gather = attrs({
+    numDigits: 1,
+    timeout: Math.max(3, Math.round(BRIDGE_GATE_SECONDS / 2)),
+    action: urls.bridgeGate(callId),
+    method: 'POST',
+  });
+  const prompt = say(`Press 1 to call ${customer}.`);
+  return twiml(
+    `<Gather${gather}>${prompt}<Pause length="1"/>${prompt}</Gather>${say('The call wasn’t placed. Goodbye.')}${HANGUP}`,
+  );
+}
+
+/** They pressed 1: the customer is dialed from the business number, recorded on two channels (theirs second). */
+export function bridgeDialTwiml(
+  call: {
+    readonly callerId: string;
+    readonly to: string;
+    readonly callId: string;
+    readonly customer: string;
+  },
+  urls: VoiceUrls,
+): string {
+  const dial = attrs({
+    callerId: call.callerId,
+    answerOnBridge: true,
+    timeout: BRIDGE_CUSTOMER_RING_SECONDS,
+    action: urls.bridgeResult(call.callId),
+    method: 'POST',
+    record: 'record-from-answer-dual',
+    recordingStatusCallback: urls.recording,
+    recordingStatusCallbackMethod: 'POST',
+    recordingStatusCallbackEvent: 'completed absent',
+  });
+  const leg = attrs({
+    statusCallback: urls.legStatus,
+    statusCallbackEvent: 'ringing answered completed',
+    statusCallbackMethod: 'POST',
+  });
+  return twiml(
+    `${say(`Calling ${call.customer}.`)}<Dial${dial}><Number${leg}>${escapeXml(call.to)}</Number></Dial>`,
+  );
+}
+
+/** How the customer's phone went, said to the person before hanging up. */
+export function bridgeResultTwiml(dialStatus: string | undefined, customer: string): string {
+  switch (dialStatus) {
+    case 'busy':
+      return twiml(`${say(`${customer}’s line is busy. Try again in a few minutes.`)}${HANGUP}`);
+    case 'no-answer':
+      return twiml(`${say(`${customer} didn’t answer.`)}${HANGUP}`);
+    case 'failed':
+      return twiml(`${say('That call didn’t go through.')}${HANGUP}`);
+    default:
+      return HANGUP_TWIML;
+  }
+}
+
+export const BRIDGE_NOT_PLACED_TWIML = twiml(`${say('The call wasn’t placed. Goodbye.')}${HANGUP}`);
+
+// ---------- confirming someone's cell ----------
+
+export const VERIFY_WORDS = 'This is HandsFreeOS confirming this is your phone. Press 1.';
+
+/** The call that confirms someone's cell: pressing 1 proves the phone is theirs. */
+export function verifyTwiml(userPhoneId: string, urls: VoiceUrls): string {
+  const gather = attrs({
+    numDigits: 1,
+    timeout: 5,
+    action: urls.verifyResult(userPhoneId),
+    method: 'POST',
+  });
+  return twiml(
+    `<Gather${gather}>${say(VERIFY_WORDS)}<Pause length="1"/>${say(VERIFY_WORDS)}</Gather>${say('We didn’t hear a 1, so this phone isn’t confirmed. Goodbye.')}${HANGUP}`,
+  );
+}
+
+export const VERIFIED_TWIML = twiml(`${say('Thanks. Your phone is confirmed. Goodbye.')}${HANGUP}`);
+export const NOT_VERIFIED_TWIML = twiml(`${say('This phone isn’t confirmed. Goodbye.')}${HANGUP}`);

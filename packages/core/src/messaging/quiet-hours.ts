@@ -1,4 +1,5 @@
 /** Quiet hours in the workspace's time zone. Browser-safe: the composer shows the same answer the server enforces. */
+import { addDays, localDateOf, localInstant } from '../calendar/engine/zoned';
 
 export interface QuietHoursWindow {
   readonly enabled: boolean;
@@ -47,6 +48,39 @@ export function quietHoursState(
   const e = minutesOf(window.end);
   const quiet = s === e ? false : s < e ? local >= s && local < e : local >= s || local < e;
   return { quiet, localTime, endsAt: quiet ? window.end : null };
+}
+
+/** When quiet hours end, as an instant, or null when it isn't quiet hours at `now`. */
+export function quietHoursEndAt(
+  window: QuietHoursWindow,
+  timeZone: string,
+  now: Date = new Date(),
+): Date | null {
+  const q = quietHoursState(window, timeZone, now);
+  if (!q.quiet || !q.endsAt) return null;
+  const at = now.getTime();
+  const today = localDateOf(at, timeZone);
+  const end = localInstant(today, q.endsAt, timeZone);
+  return new Date(end > at ? end : localInstant(addDays(today, 1), q.endsAt, timeZone));
+}
+
+/**
+ * A text held until quiet hours end ("Send at 8:00 AM", message.send with sendAfterQuietHours): it stays queued,
+ * `error_code` holds this note, and `occurred_at` is when it goes. The worker sends it then, after every check a text
+ * passes; until then it can be cancelled, and the note turns to CANCELLED_TEXT (it never goes, and leaves the
+ * conversation).
+ */
+export const SCHEDULED_TEXT = 'scheduled';
+export const CANCELLED_TEXT = 'cancelled';
+
+/** When a held text goes, or null for any other message (as synced, or as the API returns it). */
+export function scheduledForOf(m: {
+  readonly status: string;
+  readonly errorCode: string | null;
+  readonly occurredAt: string | Date;
+}): string | null {
+  if (m.status !== 'queued' || m.errorCode !== SCHEDULED_TEXT) return null;
+  return new Date(m.occurredAt).toISOString();
 }
 
 /**

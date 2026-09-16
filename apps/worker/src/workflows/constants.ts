@@ -28,6 +28,14 @@ export const QUIET_JITTER_MS = 5 * 60_000;
 export const RETENTION_DAYS = 180;
 /** A due time a little ahead still counts as now (clocks and rounding). */
 export const EARLY_MS = 250;
+/**
+ * A step that would contact a customer doesn't when what started the run reached HandsFreeOS more than this long
+ * after it happened (a change made on a phone with no signal): "thanks for calling just now" three hours later says
+ * the wrong thing. Chris's 30-minute rule, as the phone uses it.
+ */
+export const LATE_EVENT_MS = 30 * 60_000;
+/** Lateness under this is the ordinary trip from a phone, not worth keeping on the run. */
+export const LATE_NOTED_MS = 60_000;
 
 export const LIVE_STATUSES = ['running', 'waiting', 'awaiting_approval', 'held'] as const;
 export type RunStatus = (typeof LIVE_STATUSES)[number] | 'completed' | 'stopped' | 'failed';

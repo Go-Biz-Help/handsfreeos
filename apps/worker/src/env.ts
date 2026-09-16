@@ -114,6 +114,13 @@ export interface WorkerEnv {
    * with the fake carrier, and production refuses it.
    */
   readonly fetchTestOrigins: readonly string[];
+  /**
+   * Push notifications to the phone app (push/): Expo's service, the stand-in that keeps what it was handed (the
+   * default outside production; production refuses it), or none (production without an access token yet).
+   */
+  readonly pushProvider: 'expo' | 'fake' | 'none';
+  /** Expo's access token for enhanced push security: every push carries it. The worker's alone. */
+  readonly expoAccessToken: string | null;
 }
 
 const list = (value: string | undefined): string[] =>
@@ -267,6 +274,25 @@ export function readEnv(env: NodeJS.ProcessEnv = process.env): WorkerEnv {
       );
   }
 
+  // Push: Expo with its access token (enhanced push security refuses sends without one). Production without a token
+  // yet runs with push off rather than refusing to start; the phone app needs the Expo project first anyway.
+  const expoAccessToken = env.EXPO_ACCESS_TOKEN?.trim() || null;
+  const pushProvider = (env.PUSH_PROVIDER ??
+    (production ? (expoAccessToken ? 'expo' : 'none') : 'fake')) as string;
+  if (!['expo', 'fake', 'none'].includes(pushProvider))
+    throw new Error('PUSH_PROVIDER must be expo, fake or none');
+  if (production && pushProvider === 'fake')
+    throw new Error('PUSH_PROVIDER=fake is for development and tests only');
+  if (pushProvider === 'expo' && !expoAccessToken)
+    throw new Error(
+      'EXPO_ACCESS_TOKEN is required with PUSH_PROVIDER=expo (Expo → Access tokens, with enhanced push security on)',
+    );
+  // expo-server-sdk sends to EXPO_BASE_URL when it is set (Expo's own testing), access token and all.
+  if (production && env.EXPO_BASE_URL)
+    throw new Error(
+      'EXPO_BASE_URL is for Expo’s own testing; production sends pushes only to Expo',
+    );
+
   const reminder = env.UNANSWERED_ALERT_MS ? Number(env.UNANSWERED_ALERT_MS) : null;
   return {
     databaseUrl,
@@ -335,5 +361,7 @@ export function readEnv(env: NodeJS.ProcessEnv = process.env): WorkerEnv {
     bookingRateLimitFactor: production ? 1 : 10,
     chatIpKey,
     fetchTestOrigins,
+    pushProvider: pushProvider as WorkerEnv['pushProvider'],
+    expoAccessToken,
   };
 }

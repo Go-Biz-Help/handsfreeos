@@ -3,6 +3,7 @@ import { AnthropicProvider } from '@hfos/ai';
 import { createTokenVerifier } from '@hfos/core/server';
 import { createDb } from '@hfos/db/client';
 import pino from 'pino';
+import { createAuthAdmin } from './account/auth-admin';
 import { createAi } from './ai/provider';
 import { scriptedAssistant } from './assistant/scripted';
 import { createToolExecutor } from './assistant/tools-write';
@@ -17,6 +18,7 @@ import { createCalendars } from './calendar/index';
 import { createMailboxes } from './mailbox/index';
 import { createMoneyLinks } from './money/links';
 import { createPayments } from './payments/index';
+import { createPush } from './push/index';
 import { createSafeFetch } from './http/safe-fetch';
 import { buildHttpServer } from './http/server';
 import { processJobs } from './jobs';
@@ -75,6 +77,12 @@ const services: EngineServices = {
     testOrigins: !env.production && env.telephonyProvider === 'fake' ? env.fetchTestOrigins : [],
   }),
   ai,
+  // Push notifications to the phone app: Expo's service, or the stand-in locally (push/index.ts).
+  push: createPush(env),
+  // Deleting an account ends its sessions and blocks sign-in with the worker's own secret key (account/).
+  ...(env.supabaseUrl && env.supabaseSecretKey
+    ? { authAdmin: createAuthAdmin(env.supabaseUrl, env.supabaseSecretKey) }
+    : {}),
   // Workflow AI steps and AI-sorted branches answer from that model, grounded in the knowledge base.
   workflowAi: createWorkflowAi({ db: handle.db, ai, log }),
 };
@@ -134,6 +142,7 @@ log.info(
     mailboxes: env.mailboxProvider,
     calendars: env.calendarProvider,
     payments: env.paymentsProvider,
+    push: env.pushProvider,
     assistant: env.assistantProvider,
     handlers: Object.keys(handlers),
     storage: !!env.supabaseSecretKey,
@@ -144,6 +153,8 @@ if (!env.supabaseSecretKey)
   log.warn(
     'SUPABASE_SECRET_KEY is not set: file removals, imports and photos will fail until it is',
   );
+if (env.pushProvider === 'none')
+  log.warn('EXPO_ACCESS_TOKEN is not set: push notifications to phones are off until it is');
 
 let running = true;
 let inFlight: Promise<void> = Promise.resolve();

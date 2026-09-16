@@ -500,14 +500,27 @@ export const mailboxDisconnect = defineCommand({
   permission: 'channels.manage',
   scope: inWorkspace,
   emits: ['mailbox.disconnected'],
+  // The worker too: deleting an account disconnects the mailboxes the person connected.
+  actors: ['human', 'system'],
   async handler(ctx, input) {
     const m = await loadMailbox(ctx, input.connectionId);
     if (m.status === 'disconnected') return { connectionId: m.id };
-    // The update guard clears the sealed tokens and the sync schedule. The subscription id is not readable
-    // by people, so the worker reads it from the row, which keeps it.
+    // For people the update guard clears the sealed tokens and the sync schedule; the worker's own scope passes
+    // that guard, so it clears them itself. The subscription id is not readable by people, so the worker reads it
+    // from the row, which keeps it.
     const [row] = await ctx.tx
       .update(mailboxConnections)
-      .set({ status: 'disconnected' })
+      .set({
+        status: 'disconnected',
+        ...(ctx.actor.type === 'human'
+          ? {}
+          : {
+              disconnectedAt: new Date(),
+              tokenEnc: null,
+              pkceVerifierEnc: null,
+              nextSyncAt: null,
+            }),
+      })
       .where(eq(mailboxConnections.id, m.id))
       .returning({ id: mailboxConnections.id });
     if (!row) throw HfosError.forbidden();

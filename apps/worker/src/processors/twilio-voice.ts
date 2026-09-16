@@ -11,6 +11,7 @@ import { calls } from '@hfos/db/schema';
 import type { DeliveryContext, DeliveryProcessor } from '../deliveries';
 import { systemActor, workerMeta, type TenantScope } from '../services';
 import { loadAccount } from '../telephony/accounts';
+import { queueTranscript } from '../telephony/cell';
 import type { ProviderAccount } from '../telephony/provider';
 import { isPhone, userIdOfIdentity } from '../telephony/voice';
 
@@ -237,7 +238,10 @@ export const onScreened: DeliveryProcessor = async (ctx) => {
   });
 };
 
-/** A voicemail finished recording: copy it into the workspace's storage and attach it to the call. */
+/**
+ * A recording finished: copy it into the workspace's storage and attach it to the call. A voicemail, or a whole call
+ * through someone's own cell (its words are then asked for, and read back by the `call.transcript` job).
+ */
 export const onRecording: DeliveryProcessor = async (ctx) => {
   const scope = tenant(ctx);
   const p = paramsOf(ctx);
@@ -251,9 +255,10 @@ export const onRecording: DeliveryProcessor = async (ctx) => {
     await forget(ctx, account, p.RecordingSid, null);
     return 'ignored';
   }
+  const whole = call.answeredVia === 'bridge';
   const got = await ctx.telephony.fetchRecording(account, p.RecordingSid);
   const ext = /wav/i.test(got.contentType) ? 'wav' : 'mp3';
-  const objectPath = `${scope.workspaceId}/calls/${call.id}/voicemail.${ext}`;
+  const objectPath = `${scope.workspaceId}/calls/${call.id}/${whole ? 'recording' : 'voicemail'}.${ext}`;
   await ctx.store.upload('telephony', objectPath, got.data, got.contentType, { upsert: true });
   await executeCommand(
     ctx.db,
@@ -264,11 +269,18 @@ export const onRecording: DeliveryProcessor = async (ctx) => {
       recordingSid: p.RecordingSid,
       objectPath,
       seconds,
-      voicemail: true,
+      voicemail: !whole,
     },
     systemActor(scope),
     workerMeta(),
   );
+  // A whole call's words are asked for from the provider's copy, which goes once they arrive (telephony/cell.ts).
+  if (whole) {
+    const recordingSid = p.RecordingSid;
+    if (!call.transcriptStatus)
+      await asWorker(ctx.db, scope, (tx) => queueTranscript(tx, scope, call, recordingSid));
+    return;
+  }
   // Twilio transcribes from its own copy (only messages over two seconds), so that copy goes when the words arrive.
   if (seconds <= 2) await forget(ctx, account, p.RecordingSid, null);
 };

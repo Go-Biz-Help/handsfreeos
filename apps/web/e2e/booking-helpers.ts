@@ -57,6 +57,16 @@ export async function api<T = Json>(
   return body as T;
 }
 
+/**
+ * The Assistant asks each person's OK once, before their first question (M10). Specs that use it give that OK
+ * through the API as the person, so they start where someone who already said OK would.
+ */
+export async function consentToAssistant(email: string, password = PASSWORD): Promise<void> {
+  const { ASSISTANT_CONSENT_VERSION } = await import('@hfos/core');
+  const { token } = await signInOwner(email, password);
+  await api(token, 'commands', 'assistant.consent', { version: ASSISTANT_CONSENT_VERSION });
+}
+
 const isObject = (v: unknown): v is Json =>
   typeof v === 'object' && v !== null && !Array.isArray(v);
 /** Objects merge key by key; arrays and plain values replace (like the calendar builder's patches). */

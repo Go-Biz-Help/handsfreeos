@@ -36,6 +36,7 @@ import { MAX_DEPTH } from './constants';
 import { RunData } from './data';
 import { runDefinition, versionDefinition } from './defs';
 import { enrol } from './enrol';
+import { lateOfEvent } from './late';
 import { LIFECYCLE_EVENTS, onLifecycleEvent } from './lifecycle';
 import { liveSql, stopRuns, wakeRun } from './runs';
 import { armDateTriggers } from './triggers';
@@ -198,6 +199,8 @@ async function startRuns(
   const depth = guard ? guard.depth + 1 : 0;
   const tz = await workspaceZone(ctx.tx, scope.workspaceId);
   const trigger = triggerContext(e);
+  // Made on a phone with no signal and recorded when it reconnected: the run knows how far behind it starts.
+  const late = lateOfEvent(e);
   const now = Date.now();
   for (const f of flows) {
     if (guard && f.id === guard.workflowId) continue;
@@ -227,7 +230,7 @@ async function startRuns(
         dedupeKey: `evt:${e.id}:${sub.personId}`,
         depth,
         originRunId: guard ? (guard.originRunId ?? guard.runId) : null,
-        context: { trigger },
+        context: { trigger, ...(late ? { _late: late } : {}) },
         log: ctx.log,
       });
     }
@@ -285,6 +288,8 @@ async function wake(ctx: HandlerContext, scope: TenantScope, r: WatchedRun): Pro
     eventId: e.id,
     at: e.createdAt.toISOString(),
     conversationId,
+    // What it woke for can have reached HandsFreeOS late too: the run is then as far behind as it was.
+    late: lateOfEvent(e),
   };
   await ctx.tx.execute(
     sql`update app.workflow_runs set context = context || ${JSON.stringify({ _woke: woke })}::jsonb, waiting_for = '{}'

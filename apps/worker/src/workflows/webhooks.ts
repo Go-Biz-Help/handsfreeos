@@ -309,7 +309,13 @@ const RevealInput = z.object({
   rotate: z.boolean().default(false),
 });
 
-const errorBody = (code: string, message: string) => ({ error: { code, message } });
+/**
+ * An error body shaped like the rest of the worker's (and the API's), with what a sender should do: a delivery that
+ * was refused as sent never goes through (final); too many at once goes through later (retry).
+ */
+const errorBody = (code: string, message: string, disposition: 'final' | 'retry' = 'final') => ({
+  error: { code, message, disposition },
+});
 
 export async function registerWorkflowRoutes(
   app: FastifyInstance,
@@ -374,7 +380,13 @@ export async function registerWorkflowRoutes(
         if (!allow(token, now))
           return reply
             .code(429)
-            .send(errorBody('rule_violation', 'Too many deliveries. Wait a minute and try again.'));
+            .send(
+              errorBody(
+                'rule_violation',
+                'Too many deliveries. Wait a minute and try again.',
+                'retry',
+              ),
+            );
         const deliveryId =
           (header(req, 'x-hfos-delivery-id') ?? '').trim().slice(0, 100) ||
           createHash('sha256').update(`${timestamp}.${raw}`).digest('hex');

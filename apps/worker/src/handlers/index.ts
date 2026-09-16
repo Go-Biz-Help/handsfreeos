@@ -1,8 +1,11 @@
+import { onAccountDeletionRequested } from '../account/delete';
 import { withTeammate } from '../ai-team/index';
 import { withAttention } from '../attention/index';
 import { onChatReplySent } from '../chat/followup';
 import { onKnowledgeDocumentAdded } from '../knowledge/document';
 import { onKnowledgeScanRequested } from '../knowledge/scan';
+import { onScheduleCancelled, onTextScheduled } from '../messaging/scheduled';
+import { withPush } from '../push/moments';
 import { withWorkflows } from '../workflows/index';
 import { onPackPushed, onTemplatePushed } from '../workflows/templates';
 import {
@@ -43,6 +46,7 @@ import {
 } from '../money/jobs';
 import { onRefundRequested } from '../money/refunds';
 import { onPlanCardRequested, onPlanChanged } from '../money/subscriptions';
+import { onBridgeRequested, onVerificationRequested } from '../telephony/cell';
 import { onPaymentConnectionConnected, onPaymentConnectionDisconnected } from './payments';
 import {
   onConversationLinked,
@@ -75,6 +79,14 @@ const ownTeammateAndWorkflows: HandlerMap = withWorkflows(
     'registration.submitted': onRegistrationSubmitted,
     'registration.status_changed': onRegistrationStatusChanged,
     'message.queued': onMessageQueued,
+    // A text waiting for quiet hours to end goes then; a cancelled one ends at once (messaging/scheduled.ts).
+    'message.scheduled': onTextScheduled,
+    'message.schedule_cancelled': onScheduleCancelled,
+    // A call through someone's own cell rings it first; confirming a cell calls it (telephony/cell.ts).
+    'call.started': onBridgeRequested,
+    'user_phone.verification_requested': onVerificationRequested,
+    // Someone deleted their account: the job takes them off each business, then the profile and sign-in go.
+    'account.deletion_requested': onAccountDeletionRequested,
     // A reply in a website chat is out: people's are marked sent, and the unread follow-up is armed (chat/).
     'message.sent': onChatReplySent,
     'conversation.linked': onConversationLinked,
@@ -150,4 +162,6 @@ const ownTeammateAndWorkflows: HandlerMap = withWorkflows(
   }),
 );
 
-export const handlers: HandlerMap = withAttention(ownTeammateAndWorkflows);
+// withPush appends last: a booking, an assignment, an approval waiting or a payment queues its push once the event's
+// other work is done (push/moments.ts).
+export const handlers: HandlerMap = withPush(withAttention(ownTeammateAndWorkflows));

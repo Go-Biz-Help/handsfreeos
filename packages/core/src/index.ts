@@ -5,6 +5,7 @@
 export * from './permissions';
 export * from './errors';
 export * from './mobile';
+export * from './push';
 export * from './schemas/index';
 export { slugify } from './slug';
 export const CORE_VERSION = '0.1.0';
@@ -12,8 +13,10 @@ export * from './crm/phone';
 export * from './crm/import-mapping';
 export * from './messaging/sms';
 export * from './messaging/quiet-hours';
+export * from './messaging/bridge';
 export * from './schemas/assistant';
 export * from './assistant/tools';
+export * from './assistant/consent';
 export * from './calendar/index';
 export * from './workflows/index';
 export * from './knowledge/index';

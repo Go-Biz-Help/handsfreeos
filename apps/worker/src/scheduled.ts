@@ -11,6 +11,7 @@ import {
 } from '@hfos/core/server';
 import { asWorker, rows, sql } from '@hfos/db/client';
 import { conversations, emailDomains, telephonyRegistrations } from '@hfos/db/schema';
+import { accountJobs } from './account/delete';
 import { DIGEST_JOBS, DIGEST_PLAN_KEY, digestJobs } from './agency-digest';
 import { handoffAlertDue } from './ai-team/escalation';
 import { teammateJobs } from './ai-team/index';
@@ -23,14 +24,28 @@ import { waitlistOfferExpire, waitlistOfferJob } from './booking/waitlist';
 import { appointmentCalendarSync, calendarRefresh } from './calendar/sync';
 import { CHAT_JOBS, chatUnreadFollowUp } from './chat/followup';
 import { domainRecordInput, lapsedMessage, sharedAddress } from './handlers/email';
+import {
+  nextReceiptCleanUp,
+  RECEIPT_JOBS,
+  RECEIPTS_CLEAN_UP_KEY,
+  receiptJobs,
+} from './housekeeping/receipts';
+import {
+  nextSweepNight,
+  SYNC_WINDOW_JOBS,
+  SYNC_WINDOW_PLAN_KEY,
+  syncWindowJobs,
+} from './housekeeping/sync-window';
 import { advanceRegistrations } from './handlers/telephony';
 import type { JobHandler, JobMap } from './jobs';
 import { knowledgeDocumentJob } from './knowledge/document';
 import { knowledgeScanJob } from './knowledge/scan';
 import { mailboxSync } from './mailbox/sync';
+import { scheduledTextJobs } from './messaging/scheduled';
 import { moneyDocumentJobs, MONEY_JOBS, MONEY_PLAN_KEY } from './money/jobs';
 import { moneyJobs } from './money/refunds';
 import { planJobs } from './money/subscriptions';
+import { pushJobs } from './push/send';
 import { errorMessage } from './outbox';
 import { PAYMENT_JOBS, PAYMENT_PLAN_KEY, paymentJobs } from './payments/refresh';
 import {
@@ -41,6 +56,7 @@ import {
   type WorkerServices,
 } from './services';
 import { loadAccount } from './telephony/accounts';
+import { cellJobs } from './telephony/cell';
 import type { RegistrationKind } from './telephony/provider';
 import { workflowJobs } from './workflows/index';
 import { templateJobs } from './workflows/templates';
@@ -276,6 +292,17 @@ export const jobs: JobMap = {
   // Money: a plan made to match at the provider — created, paused, resumed or cancelled there
   // (money/subscriptions.ts).
   ...planJobs,
+  // Push notifications: a moment's push to each phone, and what Apple and Google said 15 minutes on (push/send.ts).
+  ...pushJobs,
+  // Calls through someone's own cell: a recorded call's words, once ready (telephony/cell.ts).
+  ...cellJobs,
+  // A text that waited for quiet hours to end goes then (messaging/scheduled.ts).
+  ...scheduledTextJobs,
+  // Phones: the nightly time-window sweep, one business at a time, and the daily receipts clean-up (housekeeping/).
+  ...syncWindowJobs,
+  ...receiptJobs,
+  // Deleting an account: off each business, the profile anonymized, sessions ended and sign-in blocked (account/).
+  ...accountJobs,
 };
 
 /** Periodic jobs exist exactly once (their dedupe key keeps one pending row); the first run is an hour out. */
@@ -330,6 +357,24 @@ export async function ensureRecurringJobs(services: WorkerServices): Promise<voi
       kind: MONEY_JOBS.plan,
       dedupeKey: MONEY_PLAN_KEY,
       runAt,
+      payload: {},
+      workspaceId: null,
+      organizationId: null,
+    });
+    // Phones (M10), at night: each business's time-window sweep planned, and old command receipts removed.
+    const now = Date.now();
+    await scheduleJob(tx, {
+      kind: SYNC_WINDOW_JOBS.plan,
+      dedupeKey: SYNC_WINDOW_PLAN_KEY,
+      runAt: nextSweepNight(now),
+      payload: {},
+      workspaceId: null,
+      organizationId: null,
+    });
+    await scheduleJob(tx, {
+      kind: RECEIPT_JOBS.cleanUp,
+      dedupeKey: RECEIPTS_CLEAN_UP_KEY,
+      runAt: nextReceiptCleanUp(now),
       payload: {},
       workspaceId: null,
       organizationId: null,

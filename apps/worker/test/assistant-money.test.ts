@@ -34,6 +34,7 @@ import {
 } from '@hfos/db/testing';
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { consentToAssistant } from './assistant-consent';
 import { scriptedAssistant } from '../src/assistant/scripted';
 import { createToolExecutor } from '../src/assistant/tools-write';
 import { buildHttpServer } from '../src/http/server';
@@ -116,6 +117,7 @@ beforeAll(async () => {
     createTestUser('money-assistant-owner'),
     createTestUser('money-assistant-member'),
   ]);
+  await consentToAssistant(owner, member);
   const org = await run<{ workspaceId: string }>(
     organizationCreate,
     { businessName: 'Lone Star Assistant HVAC', timezone: 'America/Chicago' },

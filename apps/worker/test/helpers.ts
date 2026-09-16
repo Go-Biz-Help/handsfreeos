@@ -13,6 +13,8 @@ import { createSmtpMailer } from '../src/mailer';
 import { createMoneyLinks } from '../src/money/links';
 import type { FakePayments } from '../src/payments/fake';
 import { fakePaymentServices, type PaymentServices } from '../src/payments/index';
+import type { FakePush } from '../src/push/fake';
+import { fakePushServices, type PushServices } from '../src/push/index';
 import type { WorkerServices } from '../src/services';
 import { createSupabaseStore } from '../src/storage';
 import { createFakeTelephony, type FakeTelephony } from '../src/telephony/fake';
@@ -25,6 +27,7 @@ export type TestServices = WorkerServices & {
   readonly mailboxes: MailboxServices & { readonly fake: FakeMailboxes };
   readonly calendars: CalendarServices & { readonly fake: FakeCalendars };
   readonly payments: PaymentServices & { readonly fake: FakePayments };
+  readonly push: PushServices & { readonly fake: FakePush };
 };
 
 /**
@@ -96,5 +99,7 @@ export function testServices(
     }),
     fetchUrl: createSafeFetch({ testOrigins: opts.fetchOrigins ?? [] }),
     ai: opts.ai ?? { provider: null, dailyTokens: 2_000_000 },
+    // The push stand-in: what it was handed is `push.fake.sent`.
+    push: fakePushServices(),
   };
 }

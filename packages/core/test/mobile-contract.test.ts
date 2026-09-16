@@ -23,8 +23,23 @@ import {
 
 const RECORD = new URL('./contract/mobile-contract.json', import.meta.url);
 
-/** Online commands the phone also sends: a draft estimate or invoice saved on it (a stale save keeps a new draft). */
-const ONLINE_COMMANDS = ['estimate.create', 'estimate.update', 'invoice.create', 'invoice.update'];
+/**
+ * Online commands the phone also sends: a draft estimate or invoice saved on it (a stale save keeps a new draft);
+ * calling a customer through the person's own cell and verifying that cell; deleting the account; the
+ * Assistant's consent; and registering the phone for push notifications, or removing it.
+ */
+const ONLINE_COMMANDS = [
+  'estimate.create',
+  'estimate.update',
+  'invoice.create',
+  'invoice.update',
+  'call.connect_me',
+  'user_phone.start_verification',
+  'account.delete',
+  'assistant.consent',
+  'push_device.register',
+  'push_device.remove',
+];
 /** What the phone asks the server for that its own copy can't answer. */
 const QUERIES = [
   'account.me',

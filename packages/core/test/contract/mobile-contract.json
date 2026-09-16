@@ -1,6 +1,20 @@
 {
   "about": "What an old phone app build sends: may only grow. Refresh with UPDATE_CONTRACT=1 (see test/mobile-contract.test.ts).",
   "commands": {
+    "account.delete": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "confirmEmail": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 254
+          }
+        },
+        "required": ["confirmEmail"]
+      }
+    },
     "activity.log": {
       "offline": "anytime",
       "input": {
@@ -506,6 +520,20 @@
         "required": ["workspaceId", "appointmentId"]
       }
     },
+    "assistant.consent": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "version": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1000
+          }
+        },
+        "required": ["version"]
+      }
+    },
     "attendee.confirm": {
       "offline": "anytime",
       "input": {
@@ -709,6 +737,32 @@
           }
         },
         "required": ["workspaceId", "itemId"]
+      }
+    },
+    "call.connect_me": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "conversationId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "personId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "toPhone": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 40
+          }
+        },
+        "required": ["workspaceId"]
       }
     },
     "company.archive": {
@@ -2866,6 +2920,23 @@
         "required": ["workspaceId", "leadId"]
       }
     },
+    "message.cancel_scheduled": {
+      "offline": "anytime",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "messageId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": ["workspaceId", "messageId"]
+      }
+    },
     "message.send": {
       "offline": {
         "freshMinutes": 30
@@ -2940,6 +3011,10 @@
             "maxLength": 64
           },
           "acknowledgeQuietHours": {
+            "default": false,
+            "type": "boolean"
+          },
+          "sendAfterQuietHours": {
             "default": false,
             "type": "boolean"
           },
@@ -3525,6 +3600,61 @@
         "required": ["workspaceId", "personId"]
       }
     },
+    "push_device.register": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "platform": {
+            "type": "string",
+            "enum": ["ios", "android"]
+          },
+          "token": {
+            "type": "string",
+            "pattern": "^Expo(nent)?PushToken\\[[^\\]\\s]{1,200}\\]$"
+          },
+          "appVersion": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 40
+          },
+          "deviceName": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 120
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": ["platform", "token", "appVersion"]
+      }
+    },
+    "push_device.remove": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "token": {
+            "type": "string",
+            "pattern": "^Expo(nent)?PushToken\\[[^\\]\\s]{1,200}\\]$"
+          },
+          "deviceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "reason": {
+            "default": "signed_out",
+            "type": "string",
+            "enum": ["signed_out", "turned_off"]
+          }
+        }
+      }
+    },
     "record.add_tag": {
       "offline": "anytime",
       "input": {
@@ -3932,6 +4062,24 @@
           }
         },
         "required": ["workspaceId", "taskId"]
+      }
+    },
+    "user_phone.start_verification": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "phone": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 40
+          }
+        },
+        "required": ["workspaceId", "phone"]
       }
     },
     "workflow.decide_approval": {

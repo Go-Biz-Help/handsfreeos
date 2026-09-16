@@ -62,6 +62,7 @@ import {
 } from './constants';
 import { RunData } from './data';
 import { runDefinition } from './defs';
+import { lateAfterWait, lateContext, lateMsOf, type Late } from './late';
 import { runFailedEmail } from './emails';
 import { endRun, pruneStepLogs, type EndedRun } from './runs';
 import { openApproval, resumeApproval } from './approvals';
@@ -613,12 +614,17 @@ async function advanceFromLog(ec: ExecCtx, row: StepRow): Promise<Tick> {
 
 // ---- Steps ----
 
+/**
+ * When a wait wakes. Durations and times of day count from when the run's steps were meant to happen: a run started
+ * by an event that reached HandsFreeOS late counts from when it really happened (late.ts).
+ */
 async function wakeFor(ec: ExecCtx, u: WaitUntil): Promise<number | null> {
+  const from = ec.now - lateMsOf(ec.context);
   switch (u.kind) {
     case 'duration':
-      return addDuration(ec.now, u.duration, ec.timeZone);
+      return addDuration(from, u.duration, ec.timeZone);
     case 'time_of_day':
-      return nextTimeOfDay(ec.now, u.at, u.days, ec.timeZone);
+      return nextTimeOfDay(from, u.at, u.days, ec.timeZone);
     case 'date_field': {
       const record = anchorRecord(u.anchor);
       const id =
@@ -631,7 +637,7 @@ async function wakeFor(ec: ExecCtx, u: WaitUntil): Promise<number | null> {
       return anchor === null ? null : dateOffsetInstant(anchor, u.offset, u.at, ec.timeZone);
     }
     case 'event':
-      return addDuration(ec.now, u.timeout, ec.timeZone);
+      return addDuration(from, u.timeout, ec.timeZone);
   }
 }
 
@@ -657,7 +663,12 @@ async function startWait(ec: ExecCtx): Promise<Outcome> {
   const at = ec.testMode === 'send_to_me' ? ec.now + TEST_WAIT_MS : await wakeFor(ec, u);
   if (at === null) return { kind: 'done', output: { kind: u.kind, anchorMissing: true } };
   if (!isEvent && at <= ec.now + EARLY_MS)
-    return { kind: 'done', output: { kind: u.kind, wakeAt: iso(at), alreadyPast: true } };
+    return {
+      kind: 'done',
+      output: { kind: u.kind, wakeAt: iso(at), alreadyPast: true },
+      // Already past: a late run stays as far behind as the wait's time is.
+      context: lateContext(lateAfterWait(ec.context, at, ec.now)),
+    };
   return {
     kind: 'wait',
     until: at,
@@ -676,12 +687,15 @@ async function resumeWait(ec: ExecCtx, row: StepRow): Promise<Outcome> {
     if (isRecord(woke) && woke['stepKey'] === ec.stepKey) {
       const conversationId =
         typeof woke['conversationId'] === 'string' ? woke['conversationId'] : null;
+      // What happened just now wakes it: the run is as far behind as that event reached HandsFreeOS late.
+      const late = isRecord(woke['late']) ? (woke['late'] as unknown as Late) : null;
       return {
         kind: 'done',
         output: { ...out, timedOut: false, event: woke['event'] ?? null, at: woke['at'] ?? null },
         context: {
           wait: { timed_out: false, event: woke['event'] ?? null, at: woke['at'] ?? null },
           _woke: null,
+          _late: late,
         },
         ...(conversationId && !ec.run.conversationId ? { refs: { conversationId } } : {}),
       };
@@ -690,7 +704,11 @@ async function resumeWait(ec: ExecCtx, row: StepRow): Promise<Outcome> {
       return {
         kind: 'done',
         output: { ...out, timedOut: true },
-        context: { wait: { timed_out: true, event: null, at: null }, _woke: null },
+        context: {
+          wait: { timed_out: true, event: null, at: null },
+          _woke: null,
+          ...lateContext(lateAfterWait(ec.context, stored, ec.now)),
+        },
       };
     return { kind: 'wait', until: stored, runStatus: 'waiting', output: out, waitingFor: u.events };
   }
@@ -702,7 +720,11 @@ async function resumeWait(ec: ExecCtx, row: StepRow): Promise<Outcome> {
     at = fresh;
   }
   if (ec.now >= at - EARLY_MS)
-    return { kind: 'done', output: { ...out, wakeAt: iso(at), wokeAt: iso(ec.now) } };
+    return {
+      kind: 'done',
+      output: { ...out, wakeAt: iso(at), wokeAt: iso(ec.now) },
+      context: lateContext(lateAfterWait(ec.context, at, ec.now)),
+    };
   return { kind: 'wait', until: at, runStatus: 'waiting', output: { ...out, wakeAt: iso(at) } };
 }
 
@@ -884,8 +906,13 @@ async function resume(ec: ExecCtx, row: StepRow): Promise<Outcome> {
   switch (ec.step.type) {
     case 'wait':
       return resumeWait(ec, row);
-    case 'approval':
-      return resumeApproval(ec, row);
+    case 'approval': {
+      const o = await resumeApproval(ec, row);
+      // A person decided just now (or it expired as it was meant to): what follows is on time.
+      return o.kind === 'wait' || !lateMsOf(ec.context)
+        ? o
+        : ({ ...o, context: { ...(o.context ?? {}), _late: null } } as Outcome);
+    }
     default:
       // A text held for quiet hours: every check runs again.
       return execute(ec);

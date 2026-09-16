@@ -31,6 +31,7 @@ import { createSealer } from '../src/crypto';
 import { fakeCalendarServices } from '../src/calendar/index';
 import { fakeMailboxServices } from '../src/mailbox/index';
 import { fakePaymentServices } from '../src/payments/index';
+import { fakePushServices } from '../src/push/index';
 import { createLocalEmail, LOCAL_WEBHOOK_PASSWORD } from '../src/email/local';
 import { handlers } from '../src/handlers/index';
 import { createSafeFetch } from '../src/http/safe-fetch';
@@ -221,6 +222,8 @@ async function main(): Promise<void> {
     }),
     fetchUrl: createSafeFetch(),
     ai: { provider: null, dailyTokens: 2_000_000 },
+    // The seed registers no phones, so nothing is pushed; the stand-in keeps it that way.
+    push: fakePushServices(),
     workerId: `seed:${hostname()}:${process.pid}`,
     batchSize: 50,
     reservedOnly: true,

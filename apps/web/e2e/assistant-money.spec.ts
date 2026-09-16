@@ -1,5 +1,5 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
-import { api, signInOwner } from './booking-helpers';
+import { api, consentToAssistant, signInOwner } from './booking-helpers';
 import { createBusiness, signUpAndConfirm } from './helpers';
 
 const panel = (page: Page): Locator => page.getByTestId('assistant-panel');
@@ -40,6 +40,7 @@ test('assistant-money: what we are owed, and a cash payment written down only on
   test.setTimeout(240_000);
   const owner = await signUpAndConfirm(page, 'assistant-money');
   const workspaceId = await createBusiness(page, { name: 'Lone Star HVAC & Roofing' });
+  await consentToAssistant(owner.email);
   const { token } = await signInOwner(owner.email);
   await api(token, 'commands', 'money.save_settings', {
     workspaceId,

@@ -64,7 +64,9 @@ import {
 } from './conversation';
 import {
   messageAttachMedia,
+  messageCancelScheduled,
   messageReceive,
+  messageReleaseScheduled,
   messageRetry,
   messageSend,
   messageRecordOptOut,
@@ -77,6 +79,7 @@ import {
   phoneNumberFail,
   phoneNumberMarkReleased,
   phoneNumberRelease,
+  phoneNumberSetCallerId,
   phoneNumberSetRouting,
   phoneUpdateSettings,
 } from './phone';
@@ -102,10 +105,13 @@ import { emailReceive, emailSuppressionRecord } from './email-inbound';
 import {
   callAttachRecording,
   callAttachTranscript,
+  callConnectMe,
   callRecord,
   callStart,
   callUpdateStatus,
 } from './call';
+import { userPhoneRecordCall, userPhoneStartVerification, userPhoneVerify } from './user-phone';
+import { accountDelete, accountNoteDeleted, assistantConsent } from './account';
 import { companyCreate } from './company.create';
 import { companyRestore } from './company.restore';
 import { companyUpdate } from './company.update';
@@ -261,6 +267,7 @@ import { estimateCommands } from './estimate';
 import { invoiceCommands } from './invoice';
 import { paymentCommands } from './payment';
 import { subscriptionCommands } from './subscription';
+import { pushDeviceRegister, pushDeviceRemove } from './push-device';
 
 export {
   conversationAssign,
@@ -272,7 +279,9 @@ export {
   conversationReopen,
   conversationSnooze,
   messageAttachMedia,
+  messageCancelScheduled,
   messageReceive,
+  messageReleaseScheduled,
   messageRetry,
   messageSend,
   messageRecordOptOut,
@@ -283,15 +292,23 @@ export {
   phoneNumberFail,
   phoneNumberMarkReleased,
   phoneNumberRelease,
+  phoneNumberSetCallerId,
   phoneNumberSetRouting,
   phoneUpdateSettings,
   registrationSubmit,
   registrationUpdateStatus,
   callAttachRecording,
   callAttachTranscript,
+  callConnectMe,
   callRecord,
   callStart,
   callUpdateStatus,
+  userPhoneRecordCall,
+  userPhoneStartVerification,
+  userPhoneVerify,
+  accountDelete,
+  accountNoteDeleted,
+  assistantConsent,
   emailAddressCreate,
   emailAddressUpdate,
   emailClaimUnmatched,
@@ -416,6 +433,9 @@ export const commands: readonly CommandDef[] = [
   membershipChangeRole,
   membershipRemove,
   userUpdateProfile,
+  accountDelete,
+  assistantConsent,
+  accountNoteDeleted,
   pipelineCreate,
   pipelineUpdate,
   pipelineArchive,
@@ -460,6 +480,7 @@ export const commands: readonly CommandDef[] = [
   phoneNumberBuy,
   phoneNumberRelease,
   phoneNumberSetRouting,
+  phoneNumberSetCallerId,
   phoneUpdateSettings,
   phoneNumberActivate,
   phoneNumberFail,
@@ -476,6 +497,8 @@ export const commands: readonly CommandDef[] = [
   conversationLinkPerson,
   messageSend,
   messageRetry,
+  messageCancelScheduled,
+  messageReleaseScheduled,
   messageReceive,
   messageUpdateStatus,
   messageAttachMedia,
@@ -486,6 +509,10 @@ export const commands: readonly CommandDef[] = [
   callUpdateStatus,
   callAttachRecording,
   callAttachTranscript,
+  callConnectMe,
+  userPhoneStartVerification,
+  userPhoneRecordCall,
+  userPhoneVerify,
   emailDomainAdd,
   emailDomainVerify,
   emailDomainRemove,
@@ -646,8 +673,11 @@ export const commands: readonly CommandDef[] = [
   ...paymentCommands,
   ...subscriptionCommands,
   moneySaveSettings,
+  pushDeviceRegister,
+  pushDeviceRemove,
 ] as unknown as readonly CommandDef[];
 export { callPreview } from './call';
+export { VERIFY_CALLS_PER_DAY, VERIFY_CALLS_PER_HOUR } from './user-phone';
 export { attendeeFromPerson } from './appointment';
 export { validateIntake } from './appointment-online';
 export { DEPOSIT_HOLD_JOB, depositHoldKey, holdState } from './appointment-online';
@@ -673,3 +703,4 @@ export * from './invoice';
 export * from './payment';
 export * from './subscription';
 export * from './money-shared';
+export * from './push-device';

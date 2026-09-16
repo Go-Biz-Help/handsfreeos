@@ -42,6 +42,7 @@ import type { FastifyInstance } from 'fastify';
 import pino from 'pino';
 import type { z } from 'zod';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { consentToAssistant } from './assistant-consent';
 import { atLabel, rangeLabel } from '../src/assistant/calendar-format';
 import { questionContext, toolsFor } from '../src/assistant/context';
 import { ask as runQuestion } from '../src/assistant/runtime';
@@ -161,6 +162,7 @@ beforeAll(async () => {
     createTestUser('acal-marco', { fullName: 'Marco Member' }),
     createTestUser('acal-priya', { fullName: 'Priya Natarajan' }),
   ]);
+  await consentToAssistant(owner, member, priya);
   const org = await run(
     organizationCreate,
     { businessName: 'Calendar Assistant HVAC', timezone: CHI },

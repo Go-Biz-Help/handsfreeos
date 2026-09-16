@@ -1,4 +1,5 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
+import { consentToAssistant } from './booking-helpers';
 import { createBusiness, PASSWORD, signUpAndConfirm } from './helpers';
 
 const API_URL = (process.env.NEXT_PUBLIC_API_URL ?? 'http://127.0.0.1:4000').replace(/\/+$/, '');
@@ -74,6 +75,7 @@ test('assistant calendar: open times, a tapped time, book on Confirm, audit', as
   test.setTimeout(180_000);
   const owner = await signUpAndConfirm(page, 'assistant-calendar');
   const workspaceId = await createBusiness(page, { name: 'Lone Star HVAC & Roofing' });
+  await consentToAssistant(owner.email);
   const { token, userId } = await signInForApi(owner.email);
   const call = apiAs(token);
 

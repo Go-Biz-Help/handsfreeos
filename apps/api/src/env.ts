@@ -33,8 +33,12 @@ export interface ApiEnv {
 // SQUARE_APPLICATION_ID would sail through every other rule here, and an API process that holds a Connect
 // client id is one env file away from holding the key beside it. All five providers are listed now, including
 // the three that are only on the roadmap, so the guard is already in place when they land.
+//
+// Expo's by prefix too (M10): the worker alone holds EXPO_ACCESS_TOKEN, which every push must carry, and EAS's
+// EXPO_TOKEN can build and publish the app. EXPO_PUBLIC_* names are left alone: Expo writes those into the phone
+// app itself, so they are public by design, and a shell set up for the app may have them.
 const FORBIDDEN =
-  /SECRET|SERVICE_ROLE|SIGNING_KEY|ENCRYPTION_KEY|^TWILIO_|^POSTMARK_|^TURNSTILE_|^(?!CLAUDE_CODE_).*_OAUTH_|^(ANTHROPIC|OPENAI)_|^CHAT_IP_KEY$|^STRIPE_|^SQUARE_|^PAYMENTS_|^PAYPAL_|^NMI_|^AUTHORIZE_NET_/i;
+  /SECRET|SERVICE_ROLE|SIGNING_KEY|ENCRYPTION_KEY|^TWILIO_|^POSTMARK_|^TURNSTILE_|^(?!CLAUDE_CODE_).*_OAUTH_|^(ANTHROPIC|OPENAI)_|^CHAT_IP_KEY$|^STRIPE_|^SQUARE_|^PAYMENTS_|^PAYPAL_|^NMI_|^AUTHORIZE_NET_|^EXPO_(?!PUBLIC_)/i;
 
 /** Reads and validates the API process environment. Refuses to boot with privileged keys present. */
 export function readEnv(env: NodeJS.ProcessEnv = process.env): ApiEnv {

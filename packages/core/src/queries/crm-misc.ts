@@ -241,7 +241,8 @@ export const crmMetrics = defineQuery({
   async handler(ctx, input) {
     const ws = input.workspaceId;
     // Outbound messages that failed never left; a missed call is an inbound one that ended with
-    // nobody answering (voicemails included), the same rule as the call.missed event.
+    // nobody answering (voicemails included), the same rule as the call.missed event. A call through someone's
+    // own cell counts once the customer's phone was dialed (their own cell not answering isn't a call out).
     const [m] = await rows<{
       leads_created: number;
       leads_won: number;
@@ -278,7 +279,8 @@ export const crmMetrics = defineQuery({
         cross join lateral (
           select
             count(*) filter (where c.direction = 'inbound')::int as calls_in,
-            count(*) filter (where c.direction = 'outbound')::int as calls_out,
+            count(*) filter (where c.direction = 'outbound'
+              and (c.answered_via is distinct from 'bridge' or c.answered_by_user_id is not null))::int as calls_out,
             count(*) filter (where c.direction = 'inbound' and c.answered_at is null
               and c.status in ('completed', 'no_answer', 'busy', 'failed', 'canceled'))::int as calls_missed
           from app.calls c

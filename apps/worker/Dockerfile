@@ -6,6 +6,7 @@
 # address providers call), WEB_ORIGINS, TWILIO_ACCOUNT_SID and TWILIO_AUTH_TOKEN, optional
 # TWILIO_PRIMARY_PROFILE_SID (local-number registration), WORKER_ENCRYPTION_KEYS_PREVIOUS, WORKER_HTTP_PORT (4100), WORKER_POLL_MS, WORKER_BATCH_SIZE, LOG_LEVEL.
 # The Assistant, workflow AI steps and the knowledge base: ANTHROPIC_API_KEY, ASSISTANT_MODEL, ASSISTANT_DAILY_TOKENS.
+# Push notifications to the phone app: EXPO_ACCESS_TOKEN (without it, push is off).
 
 FROM node:22-alpine AS base
 RUN npm install -g pnpm@12.3.4

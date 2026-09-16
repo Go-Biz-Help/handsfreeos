@@ -48,6 +48,11 @@ export const MessageSendInput = z
     /** People confirm a text during quiet hours; the system and workflows never can. */
     acknowledgeQuietHours: z.boolean().default(false),
     /**
+     * People's other answer in quiet hours ("Send at 8:00 AM"): the text waits in the conversation, shown as
+     * scheduled and cancellable, and HandsFreeOS sends it when quiet hours end. Outside quiet hours it goes now.
+     */
+    sendAfterQuietHours: z.boolean().default(false),
+    /**
      * HandsFreeOS's own messages (booking confirmations, reminders, workflow follow-ups): the conversation keeps
      * its status, unread count and waiting-for-reply time, and one this message starts begins closed. The
      * system and workflows only.
@@ -83,15 +88,32 @@ export const MessageSendInput = z
   .refine((v) => v.channel !== 'sms' || v.body.length <= 1600, {
     path: ['body'],
     error: 'Keep texts under 1,600 characters.',
+  })
+  .refine((v) => !(v.acknowledgeQuietHours && v.sendAfterQuietHours), {
+    path: ['sendAfterQuietHours'],
+    error: 'Send it now, or when quiet hours end: not both.',
+  })
+  .refine((v) => v.channel === 'sms' || !v.sendAfterQuietHours, {
+    path: ['sendAfterQuietHours'],
+    error: 'Only texts wait for quiet hours to end.',
   });
 export const MessageSendOutput = z.object({
   messageId: uuid,
   conversationId: uuid,
   status: z.string(),
   duplicate: z.boolean(),
+  /** A text held until quiet hours end: when it goes. */
+  scheduledFor: isoDateTime.optional(),
 });
 export const MessageRetryInput = z.object({ workspaceId: uuid, messageId: uuid });
 export const MessageRetryOutput = z.object({ messageId: uuid });
+/** A text waiting for quiet hours to end, cancelled: it never goes. */
+export const MessageCancelScheduledInput = z.object({ workspaceId: uuid, messageId: uuid });
+export const MessageCancelScheduledOutput = z.object({
+  messageId: uuid,
+  /** False when it was cancelled already. */
+  changed: z.boolean(),
+});
 
 // ---------- worker-only (system actor) ----------
 export const MessageReceiveInput = z.object({
@@ -153,6 +175,18 @@ export const MessageAttachMediaInput = z.object({
   media: z.array(MediaRefSchema).min(1).max(10),
 });
 export const MessageAttachMediaOutput = z.object({ messageId: uuid });
+/** Worker: a text held until quiet hours end, when they do. */
+export const MessageReleaseScheduledInput = z.object({ workspaceId: uuid, messageId: uuid });
+export const MessageReleaseScheduledOutput = z.object({
+  messageId: uuid,
+  /**
+   * sent: it went to the worker's sender; waiting: not yet (quiet hours again, or early), try at `retryAt`;
+   * cancelled: someone cancelled it; refused: a check a text passes said no (it failed, with the reason);
+   * gone: nothing is waiting any more.
+   */
+  outcome: z.enum(['sent', 'waiting', 'cancelled', 'refused', 'gone']),
+  retryAt: isoDateTime.nullable(),
+});
 
 // ---------- the thread: messages and calls, newest first ----------
 export const ThreadItem = z.object({
@@ -177,7 +211,10 @@ export const ThreadItem = z.object({
   recordingPath: z.string().nullable(),
   /** The voicemail's length (the call's own length includes the greeting). */
   recordingSeconds: z.number().int().nullable(),
-  answeredVia: z.enum(['browser', 'forwarding']).nullable(),
+  /** 'bridge': a call through the teammate's own cell (answeredBy is who pressed 1 to place it). */
+  answeredVia: z.enum(['browser', 'forwarding', 'bridge']).nullable(),
+  /** A text waiting for quiet hours to end: when it goes (it can still be cancelled). */
+  scheduledFor: isoDateTime.nullable(),
   transcript: z.string().nullable(),
   answeredBy: UserRef,
   /** Email: the sanitized HTML body (received mail), the recipients, and the mailbox it went through. */

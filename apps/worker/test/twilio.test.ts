@@ -813,3 +813,143 @@ describe('browser calls and voicemail recordings', () => {
     });
   });
 });
+
+describe('calls through a cell and their words', () => {
+  it('places the call from the subaccount, with its answer and status addresses and a short ring', async () => {
+    const seen = mockTwilio([
+      [
+        /^POST api\.twilio\.com\/2010-04-01\/Accounts\/ACsubtest\/Calls\.json$/,
+        () => ({ status: 201, json: { sid: 'CAplacedtest' } }),
+      ],
+    ]);
+    const t = createTwilioTelephony(MASTER);
+    expect(
+      await t.placeCall(account, {
+        from: '+18335550100',
+        to: '+15125550142',
+        answerUrl: 'https://hooks.worker.test/webhooks/twilio/voice/bridge?callId=abc',
+        statusCallbackUrl: 'https://hooks.worker.test/webhooks/twilio/voice/status',
+        timeoutSeconds: 25,
+      }),
+    ).toEqual({ sid: 'CAplacedtest' });
+    expect(seen[0]!.auth).toBe('ACsubtest:sub-token');
+    expect(seen[0]!.body.getAll('StatusCallbackEvent')).toEqual([
+      'initiated',
+      'ringing',
+      'answered',
+      'completed',
+    ]);
+    const fields = Object.fromEntries(seen[0]!.body);
+    delete fields['StatusCallbackEvent'];
+    expect(fields).toEqual({
+      To: '+15125550142',
+      From: '+18335550100',
+      Url: 'https://hooks.worker.test/webhooks/twilio/voice/bridge?callId=abc',
+      Method: 'POST',
+      StatusCallback: 'https://hooks.worker.test/webhooks/twilio/voice/status',
+      StatusCallbackMethod: 'POST',
+      Timeout: '25',
+    });
+  });
+
+  it('transcribes in the subaccount’s own Conversational Intelligence service, made once, and reads the words in order', async () => {
+    let services: { sid: string; unique_name: string }[] = [];
+    let sentencesAsked = 0;
+    const seen = mockTwilio([
+      [/^GET intelligence\.twilio\.com\/v2\/Services$/, () => ({ json: { services } })],
+      [
+        /^POST intelligence\.twilio\.com\/v2\/Services$/,
+        () => {
+          services = [{ sid: 'GAservicetest', unique_name: 'hfos-call-transcripts' }];
+          return { status: 201, json: { sid: 'GAservicetest' } };
+        },
+      ],
+      [
+        /^POST intelligence\.twilio\.com\/v2\/Transcripts$/,
+        () => ({ status: 201, json: { sid: 'GTwordstest' } }),
+      ],
+      [
+        /^GET intelligence\.twilio\.com\/v2\/Transcripts\/GTwordstest$/,
+        () => ({ json: { status: sentencesAsked === 0 ? 'queued' : 'completed' } }),
+      ],
+      [
+        /^GET intelligence\.twilio\.com\/v2\/Transcripts\/GTwordstest\/Sentences$/,
+        (s) => {
+          sentencesAsked++;
+          return s.url.includes('Page=1')
+            ? {
+                json: {
+                  sentences: [
+                    { media_channel: 2, sentence_index: 1, transcript: 'Yes, go ahead.' },
+                  ],
+                  meta: { next_page_url: null },
+                },
+              }
+            : {
+                json: {
+                  sentences: [
+                    { media_channel: 1, sentence_index: 2, transcript: 'Thursday at one.' },
+                    { media_channel: 1, sentence_index: 0, transcript: 'Hi, this is the office.' },
+                    { media_channel: 2, sentence_index: 3, transcript: '  ' },
+                  ],
+                  meta: {
+                    next_page_url:
+                      'https://intelligence.twilio.com/v2/Transcripts/GTwordstest/Sentences?PageSize=1000&Page=1',
+                  },
+                },
+              };
+        },
+      ],
+      [/^DELETE intelligence\.twilio\.com\/v2\/Transcripts\/GTwordstest$/, () => ({ status: 204 })],
+    ]);
+    const t = createTwilioTelephony(MASTER);
+    expect(await t.transcribeRecording(account, 'RErecordingtest')).toEqual({
+      transcriptionSid: 'GTwordstest',
+    });
+    // Asked again (another call), the service is found by its name rather than made twice.
+    await t.transcribeRecording(account, 'RErecordingtest2');
+    const made = seen.filter((x) => x.method === 'POST' && x.path === '/v2/Services');
+    expect(made).toHaveLength(1);
+    expect(Object.fromEntries(made[0]!.body)).toEqual({
+      UniqueName: 'hfos-call-transcripts',
+      FriendlyName: 'HandsFreeOS call transcripts',
+      AutoTranscribe: 'false',
+      DataLogging: 'false',
+      LanguageCode: 'en-US',
+    });
+    const asked = seen.find((x) => x.method === 'POST' && x.path === '/v2/Transcripts')!;
+    expect(Object.fromEntries(asked.body)).toEqual({
+      ServiceSid: 'GAservicetest',
+      Channel: JSON.stringify({ media_properties: { source_sid: 'RErecordingtest' } }),
+      CustomerKey: 'RErecordingtest',
+    });
+
+    expect(await t.fetchTranscription(account, 'GTwordstest')).toEqual({ status: 'pending' });
+    sentencesAsked = 1;
+    expect(await t.fetchTranscription(account, 'GTwordstest')).toEqual({
+      status: 'completed',
+      sentences: [
+        { channel: 1, text: 'Hi, this is the office.' },
+        { channel: 2, text: 'Yes, go ahead.' },
+        { channel: 1, text: 'Thursday at one.' },
+      ],
+    });
+    // A GT transcript lives in Conversational Intelligence, not the old voicemail transcriptions.
+    await t.deleteTranscription(account, 'GTwordstest');
+    expect(seen.at(-1)).toMatchObject({ method: 'DELETE', path: '/v2/Transcripts/GTwordstest' });
+    expect(seen.every((x) => x.auth === 'ACsubtest:sub-token')).toBe(true);
+  });
+
+  it('reads a refusal from Conversational Intelligence as one', async () => {
+    mockTwilio([
+      [
+        /^GET intelligence\.twilio\.com\/v2\/Services$/,
+        () => ({ status: 403, json: { code: 20403, message: 'Forbidden' } }),
+      ],
+    ]);
+    const t = createTwilioTelephony(MASTER);
+    const err = await t.transcribeRecording(account, 'RErecordingtest').catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(ProviderError);
+    expect(err).toMatchObject({ httpStatus: 403, permanent: false });
+  });
+});

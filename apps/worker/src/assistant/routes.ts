@@ -1,12 +1,16 @@
 import { randomUUID } from 'node:crypto';
+import { eq } from 'drizzle-orm';
 import {
   AssistantAskInput,
   AssistantDecisionInput,
+  assistantConsentOf,
   assistantToolByName,
   HfosError,
   type AssistantEvent,
   type HumanActor,
 } from '@hfos/core/server';
+import { asUser } from '@hfos/db/client';
+import { users } from '@hfos/db/schema';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { authenticate, parseBody, requirePermission, type HttpDeps } from '../http/common';
 import { openStream } from '../http/sse';
@@ -20,6 +24,25 @@ export interface AssistantServices {
   readonly provider: AiProvider;
   readonly tools: ToolExecutor;
   readonly dailyTokens: number;
+}
+
+/**
+ * The person's OK to send what they ask about to Anthropic's Claude (assistant.consent), read as them. Without it the
+ * question isn't asked: a refusal the panels answer with the consent step (disposition "ask").
+ */
+async function assertConsented(deps: HttpDeps, actor: HumanActor): Promise<void> {
+  const [me] = await asUser(deps.httpDb, actor.claims, (tx) =>
+    tx.select({ settings: users.settings }).from(users).where(eq(users.id, actor.userId)),
+  );
+  const consent = assistantConsentOf(me?.settings);
+  if (consent.needed)
+    throw new HfosError(
+      'rule_violation',
+      409,
+      'The Assistant uses Anthropic’s Claude: what you ask about is sent to Claude to answer you. Say OK once, on the web or your phone, and it won’t ask again.',
+      { version: consent.version, command: 'assistant.consent' },
+      'assistant_consent_required',
+    );
 }
 
 /** Runs in progress on this machine, so Stop can reach them. */
@@ -38,6 +61,7 @@ export function registerAssistantRoutes(
     const input = parseBody(AssistantAskInput, req.body);
     await requirePermission(deps, actor.userId, input.workspaceId, 'assistant.use');
     if (!assistant) throw notConfigured();
+    await assertConsented(deps, actor);
     const context = await questionContext(
       deps.httpDb,
       actor,

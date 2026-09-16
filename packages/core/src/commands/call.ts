@@ -1,10 +1,11 @@
 import { and, eq, lte, or, isNull } from 'drizzle-orm';
-import { sql } from '@hfos/db/client';
+import { rows, sql } from '@hfos/db/client';
 import { activities, calls, conversations, phoneNumbers } from '@hfos/db/schema';
 import { logChannelActivity } from '../crm/activities';
 import { formatPhone } from '../crm/phone';
 import { requirePerson } from '../crm/records';
 import { HfosError } from '../errors';
+import { requireHuman } from '../kernel/actor';
 import { defineCommand } from '../kernel/define';
 import type { CommandContext } from '../kernel/types';
 import {
@@ -16,6 +17,8 @@ import {
 import {
   CallAttachRecordingInput,
   CallAttachTranscriptInput,
+  CallConnectMeInput,
+  CallConnectMeOutput,
   CallRecordInput,
   CallRecordOutput,
   CallRefOutput,
@@ -167,6 +170,172 @@ export const callStart = defineCommand({
   },
 });
 
+/** A call through someone's own cell still under way: asked for, their cell ringing, or connected. */
+const BRIDGE_LIVE_MINUTES = 30;
+/** Pressing Call again within this long, for the same customer while it still rings, is the same call. */
+const BRIDGE_REPEAT_MS = 2 * 60_000;
+
+/** Who a call through the person's own cell goes to: always a number the business already has. */
+async function bridgeTarget(
+  ctx: CommandContext,
+  input: { conversationId?: string | undefined; personId?: string | undefined; toPhone?: string },
+): Promise<{ to: string; personId: string | null; conversationId: string | null }> {
+  const workspaceId = ctx.scope.workspaceId!;
+  if (input.conversationId) {
+    const c = await loadConversation(ctx, input.conversationId);
+    if (c.channel !== 'sms')
+      throw HfosError.rule(
+        'channel_mismatch',
+        400,
+        'This conversation is email. Call the customer from their page.',
+      );
+    return { to: c.counterpart, personId: c.personId, conversationId: c.id };
+  }
+  if (input.personId) {
+    const p = await requirePerson(ctx.tx, workspaceId, input.personId);
+    if (p.archivedAt)
+      throw HfosError.rule('person_archived', 409, 'Restore this customer before calling them.');
+    if (!p.phoneE164)
+      throw HfosError.rule('no_phone', 400, 'Add a phone number to call this customer.');
+    return { to: p.phoneE164, personId: p.id, conversationId: null };
+  }
+  const to = input.toPhone!;
+  const personId = await matchPersonByPhone(ctx.tx, workspaceId, to);
+  if (personId) return { to, personId, conversationId: null };
+  const [c] = await ctx.tx
+    .select({ id: conversations.id, personId: conversations.personId })
+    .from(conversations)
+    .where(
+      and(
+        eq(conversations.workspaceId, workspaceId),
+        eq(conversations.channel, 'sms'),
+        eq(conversations.counterpart, to),
+      ),
+    )
+    .limit(1);
+  if (c) return { to, personId: c.personId, conversationId: c.id };
+  // Never a number typed in: the bridge dials from the business number, so it only reaches people the business knows.
+  throw HfosError.rule(
+    'unknown_number',
+    409,
+    'HandsFreeOS only calls numbers this business already has: a customer’s, or one that texted or called.',
+  );
+}
+
+export const callConnectMe = defineCommand({
+  name: 'call.connect_me',
+  description:
+    'Call a customer through your own cell: HandsFreeOS rings your verified cell from the business number, you press 1, and the customer is connected, seeing the business number. Recorded, and filed in the customer’s conversation.',
+  risk: 2,
+  input: CallConnectMeInput,
+  output: CallConnectMeOutput,
+  permission: 'inbox.use',
+  scope: inWorkspace,
+  emits: ['call.started'],
+  async handler(ctx, input) {
+    const workspaceId = ctx.scope.workspaceId!;
+    const me = requireHuman(ctx).userId;
+    const number = await liveNumber(ctx.tx, workspaceId);
+    if (!number || number.status !== 'active')
+      throw HfosError.rule('no_number', 409, 'Get a business number to call customers.');
+    const [cell] = await rows<{ e164: string }>(
+      ctx.tx,
+      sql`select e164 from app.user_phones where user_id = ${me} and verified_at is not null limit 1`,
+    );
+    if (!cell)
+      throw HfosError.rule(
+        'no_verified_cell',
+        409,
+        'Verify your cell phone first. HandsFreeOS rings it, then connects the customer.',
+      );
+    const target = await bridgeTarget(ctx, input);
+    const { to, personId } = target;
+    if (to === number.e164)
+      throw HfosError.rule('own_number', 400, 'That is the business number itself.');
+    if (to === cell.e164) throw HfosError.rule('own_cell', 400, 'That is your own cell.');
+
+    // One call through a person's cell at a time. Pressing Call twice for the same customer is the same call.
+    const [live] = await rows<{
+      id: string;
+      conversation_id: string | null;
+      to_e164: string | null;
+      status: string;
+      started_at: Date;
+    }>(
+      ctx.tx,
+      sql`select id, conversation_id, to_e164, status::text as status, started_at from app.calls
+          where workspace_id = ${workspaceId} and placed_by = ${me} and answered_via = 'bridge'
+            and status in ('initiated', 'ringing', 'in_progress') and ended_at is null
+            and started_at > now() - make_interval(mins => ${BRIDGE_LIVE_MINUTES})
+          order by started_at desc limit 1`,
+    );
+    if (live) {
+      const repeat =
+        live.to_e164 === to &&
+        live.status !== 'in_progress' &&
+        live.conversation_id !== null &&
+        Date.now() - new Date(live.started_at).getTime() < BRIDGE_REPEAT_MS;
+      if (!repeat)
+        throw HfosError.rule(
+          'bridge_busy',
+          409,
+          'You’re already on a call through your cell. Hang up first, then call again.',
+        );
+      return {
+        callId: live.id,
+        conversationId: live.conversation_id!,
+        to,
+        cell: cell.e164,
+        callerId: number.e164,
+        duplicate: true,
+      };
+    }
+
+    let conversationId = target.conversationId;
+    if (!conversationId) {
+      const { conversation } = await findOrCreateConversation(ctx, {
+        channel: 'sms',
+        counterpart: to,
+        personId,
+        phoneNumberId: number.id,
+      });
+      conversationId = conversation.id;
+    }
+    // Marked as a call through the person's cell from the start; who answers is filled in as it goes.
+    const [row] = await ctx.tx
+      .insert(calls)
+      .values({
+        workspaceId,
+        conversationId,
+        phoneNumberId: number.id,
+        personId,
+        direction: 'outbound',
+        fromE164: number.e164,
+        toE164: to,
+        status: 'initiated',
+        placedBy: me,
+        answeredVia: 'bridge',
+      })
+      .returning({ id: calls.id });
+    if (!row) throw HfosError.forbidden();
+    await ctx.emit({
+      type: 'call.started',
+      entityType: 'call',
+      entityId: row.id,
+      payload: { conversationId, personId, direction: 'outbound', via: 'bridge' },
+      after: { to: formatPhone(to), via: 'bridge' },
+    });
+    return {
+      callId: row.id,
+      conversationId,
+      to,
+      cell: cell.e164,
+      callerId: number.e164,
+      duplicate: false,
+    };
+  },
+});
+
 export const callRecord = defineCommand({
   name: 'call.record',
   description:
@@ -249,6 +418,23 @@ export const callRecord = defineCommand({
 
 /** An ended call lands on the timeline and in the conversation's preview; a missed inbound call waits for a reply. */
 async function settleCall(ctx: CommandContext, c: Call, at: Date): Promise<void> {
+  // A call through someone's own cell that nobody pressed 1 on never reached the customer: nothing happened in
+  // their conversation or on their timeline, and it is no missed call. Its own event says how it ended.
+  if (c.answeredVia === 'bridge' && !c.answeredByUserId) {
+    await ctx.emit({
+      type: 'call.bridge_unanswered',
+      entityType: 'call',
+      entityId: c.id,
+      payload: {
+        conversationId: c.conversationId,
+        personId: c.personId,
+        placedBy: c.placedBy,
+        status: c.status,
+      },
+      after: { with: formatPhone(counterpartOf(c)), status: c.status },
+    });
+    return;
+  }
   const answered = !!c.answeredAt;
   const subtype =
     c.direction === 'outbound'
@@ -336,7 +522,7 @@ export const callUpdateStatus = defineCommand({
   output: CallUpdateStatusOutput,
   permission: 'inbox.use',
   scope: inWorkspace,
-  emits: ['call.completed', 'call.missed'],
+  emits: ['call.completed', 'call.missed', 'call.bridge_unanswered'],
   actors: ['system'],
   async handler(ctx, input) {
     const c = await loadCall(ctx, input);

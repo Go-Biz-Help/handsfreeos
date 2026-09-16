@@ -23,6 +23,7 @@ import {
 } from '@hfos/db/testing';
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { consentToAssistant } from './assistant-consent';
 import { scriptedAssistant } from '../src/assistant/scripted';
 import { createToolExecutor, executorFor } from '../src/assistant/tools-write';
 import { buildHttpServer } from '../src/http/server';
@@ -120,6 +121,7 @@ beforeAll(async () => {
     createTestUser('assistant-member'),
     createTestUser('assistant-outsider'),
   ]);
+  await consentToAssistant(owner, member, outsider);
   const { output } = await executeCommand(
     api(),
     organizationCreate,

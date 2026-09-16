@@ -38,6 +38,7 @@ import { RunData } from './data';
 import { versionDefinition } from './defs';
 import { notifyTeamEmail } from './emails';
 import { enrol } from './enrol';
+import { lateOf, lateSkip } from './late';
 import { stopRuns } from './runs';
 import { sendEmailAction, sendTextAction } from './texting';
 import { isRefusal, refusedFrom, type ExecCtx, type Json, type Outcome } from './types';
@@ -204,6 +205,9 @@ export async function runAction(ec: ExecCtx): Promise<Outcome> {
       ec.data.useBookingCalendar(idOf(step.config.bookingCalendarId));
       const r = await renderAll(ec, { body: step.config.body });
       if (r.missing.length) return missingVariable(r.missing, { body: r.values['body'] });
+      // What started this reached HandsFreeOS long after it happened: a text now could say the wrong thing.
+      const late = lateSkip(ec, { channel: 'sms', body: r.values['body'] });
+      if (late) return late;
       return sendTextAction(ec, r.values['body']!);
     }
 
@@ -211,6 +215,8 @@ export async function runAction(ec: ExecCtx): Promise<Outcome> {
       ec.data.useBookingCalendar(idOf(step.config.bookingCalendarId));
       const r = await renderAll(ec, { subject: step.config.subject, body: step.config.body });
       if (r.missing.length) return missingVariable(r.missing, r.values);
+      const late = lateSkip(ec, { channel: 'email', ...r.values });
+      if (late) return late;
       return sendEmailAction(ec, r.values['subject']!, r.values['body']!);
     }
 
@@ -490,6 +496,8 @@ export async function runAction(ec: ExecCtx): Promise<Outcome> {
         originRunId: run.originRunId ?? run.id,
         context: {
           trigger: { event: 'workflow', fromWorkflowId: run.workflowId, fromRunId: run.id },
+          // A run started late starts the next one as far behind.
+          ...(lateOf(ec.context) ? { _late: lateOf(ec.context) } : {}),
         },
         log: ec.log,
       });
@@ -528,6 +536,14 @@ export async function runAction(ec: ExecCtx): Promise<Outcome> {
       // The teammate takes the conversation and works toward the goal (ai-team/handover.ts).
       const r = await renderAll(ec, { note: step.config.note });
       if (r.missing.length) return missingVariable(r.missing, r.values);
+      // Writing to the customer first is contacting them: not when what started this arrived long after it happened.
+      if (step.config.firstMessage === 'ai_writes') {
+        const late = lateSkip(ec, {
+          goal: step.config.goal,
+          firstMessage: step.config.firstMessage,
+        });
+        if (late) return late;
+      }
       return handToTeammate(ec, {
         goal: step.config.goal,
         firstMessage: step.config.firstMessage,

@@ -35,6 +35,7 @@ import {
 import { and, eq } from 'drizzle-orm';
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { consentToAssistant } from './assistant-consent';
 import { questionContext, toolsFor } from '../src/assistant/context';
 import { contextText } from '../src/assistant/prompt';
 import type { ToolContext } from '../src/assistant/runtime';
@@ -216,6 +217,7 @@ beforeAll(async () => {
     createTestUser('assistant-attn-admin', { fullName: 'Priya Admin' }),
     createTestUser('assistant-attn-member', { fullName: 'Marco Member' }),
   ]);
+  await consentToAssistant(owner, priya, marco);
   const org = await run<{ workspaceId: string; organizationId: string }>(
     organizationCreate,
     { businessName: 'Attention Assistant HVAC', timezone: TZ },

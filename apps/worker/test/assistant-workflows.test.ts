@@ -28,6 +28,7 @@ import {
 import type { FastifyInstance } from 'fastify';
 import pino from 'pino';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { consentToAssistant } from './assistant-consent';
 import { scriptedAi } from '../src/ai/scripted';
 import { questionContext, toolsFor } from '../src/assistant/context';
 import { contextText, SYSTEM } from '../src/assistant/prompt';
@@ -123,6 +124,7 @@ beforeAll(async () => {
     createTestUser('assistant-wf-owner'),
     createTestUser('assistant-wf-member'),
   ]);
+  await consentToAssistant(owner, member);
   const run = <T>(cmd: Parameters<typeof executeCommand>[1], input: unknown) =>
     executeCommand(api(), cmd, input, actor(owner), meta()).then((r) => r.output as T);
   const org = await run<{ workspaceId: string }>(organizationCreate, {

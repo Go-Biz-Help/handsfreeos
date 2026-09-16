@@ -84,6 +84,27 @@ export interface RegistrationRequest {
   readonly replaces: string | null;
 }
 
+/** A call the worker places from a business number: a verification call, or the ring to someone's own cell. */
+export interface PlaceCallRequest {
+  readonly from: string;
+  readonly to: string;
+  /** Where the provider asks what to do once the phone answers (TwiML). */
+  readonly answerUrl: string;
+  /** Where the call reports ringing, answered and how it ended. */
+  readonly statusCallbackUrl: string;
+  /** How long the phone rings before the provider gives up. */
+  readonly timeoutSeconds: number;
+}
+
+/** Where a call recording's words are. Sentences carry the recording's channel: 1 the business's side, 2 the customer's. */
+export type TranscriptionState =
+  | { readonly status: 'pending' }
+  | { readonly status: 'failed' }
+  | {
+      readonly status: 'completed';
+      readonly sentences: readonly { readonly channel: number; readonly text: string }[];
+    };
+
 export type RegistrationOutcome = 'submitted' | 'in_review' | 'approved' | 'rejected' | 'failed';
 
 export interface RegistrationState {
@@ -143,7 +164,22 @@ export interface TelephonyProvider {
   ): Promise<{ data: Buffer; contentType: string }>;
   /** Removes the provider's copy once ours is stored; one that is already gone is fine. */
   deleteRecording(account: ProviderAccount, recordingSid: string): Promise<void>;
+  /** A voicemail's transcription, or a call recording's (transcribeRecording); one already gone is fine. */
   deleteTranscription(account: ProviderAccount, transcriptionSid: string): Promise<void>;
+  /** Places a call from a business number; the provider then asks `answerUrl` what to say. */
+  placeCall(account: ProviderAccount, request: PlaceCallRequest): Promise<{ sid: string }>;
+  /**
+   * Asks for a whole call recording's words (a voicemail gets its own when it is recorded). The worker reads them
+   * with fetchTranscription until they're ready.
+   */
+  transcribeRecording(
+    account: ProviderAccount,
+    recordingSid: string,
+  ): Promise<{ transcriptionSid: string }>;
+  fetchTranscription(
+    account: ProviderAccount,
+    transcriptionSid: string,
+  ): Promise<TranscriptionState>;
   submitRegistration(
     account: ProviderAccount,
     request: RegistrationRequest,

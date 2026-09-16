@@ -14,6 +14,8 @@ import {
   PhoneNumberMarkReleasedInput,
   PhoneNumberReleaseInput,
   PhoneNumberReleaseOutput,
+  PhoneNumberSetCallerIdInput,
+  PhoneNumberSetCallerIdOutput,
   PhoneNumberSetRoutingInput,
   PhoneNumberSetRoutingOutput,
   PhoneNumberSystemOutput,
@@ -139,6 +141,8 @@ export const phoneNumberSetRouting = defineCommand({
       seen.add(f.e164);
     });
     if (issues.length > 0) throw HfosError.validation(issues);
+    // What forwarding phones show stays as it is unless this save names it.
+    const callerId = input.routing.forwardedCallerId ?? n.routing.forwardedCallerId;
     const routing = {
       forwarding: input.routing.forwarding.map((f) => ({
         e164: f.e164,
@@ -148,6 +152,7 @@ export const phoneNumberSetRouting = defineCommand({
       ringSeconds: input.routing.ringSeconds,
       voicemailEnabled: input.routing.voicemailEnabled,
       voicemailGreeting: input.routing.voicemailGreeting || null,
+      ...(callerId ? { forwardedCallerId: callerId } : {}),
     };
     await ctx.tx.update(phoneNumbers).set({ routing }).where(eq(phoneNumbers.id, n.id));
     await ctx.emit({
@@ -159,6 +164,40 @@ export const phoneNumberSetRouting = defineCommand({
       after: { routing },
     });
     return { phoneNumberId: n.id };
+  },
+});
+
+export const phoneNumberSetCallerId = defineCommand({
+  name: 'phone_number.set_caller_id',
+  description:
+    'Choose what forwarding phones show when a customer calls: the customer’s number, or the business number (so a phone that silences unknown callers still rings once the business number is a contact). Either way the phone hears who is calling before pressing 1.',
+  risk: 1,
+  input: PhoneNumberSetCallerIdInput,
+  output: PhoneNumberSetCallerIdOutput,
+  permission: 'channels.manage',
+  scope: inWorkspace,
+  emits: ['phone_number.routing_updated'],
+  async handler(ctx, input) {
+    const n = await loadNumber(ctx, input.phoneNumberId);
+    if (n.status === 'released' || n.status === 'failed')
+      throw HfosError.rule('number_not_active', 409, 'This number is no longer in use.');
+    const was = n.routing.forwardedCallerId ?? 'customer';
+    if (was === input.forwardedCallerId)
+      return { phoneNumberId: n.id, forwardedCallerId: input.forwardedCallerId };
+    const routing = { ...n.routing, forwardedCallerId: input.forwardedCallerId };
+    await ctx.tx.update(phoneNumbers).set({ routing }).where(eq(phoneNumbers.id, n.id));
+    await ctx.emit({
+      type: 'phone_number.routing_updated',
+      entityType: 'phone_number',
+      entityId: n.id,
+      payload: {
+        ringing: n.routing.forwarding.filter((f) => f.enabled).length,
+        forwardedCallerId: input.forwardedCallerId,
+      },
+      before: { forwardedCallerId: was },
+      after: { forwardedCallerId: input.forwardedCallerId },
+    });
+    return { phoneNumberId: n.id, forwardedCallerId: input.forwardedCallerId };
   },
 });
 

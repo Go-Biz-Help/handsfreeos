@@ -95,13 +95,18 @@ describe('readEnv', () => {
       'TURNSTILE_SITE_KEY',
       // The website chat's key for hashing visitors' IP addresses.
       'CHAT_IP_KEY',
+      // Expo: the worker's push access token, and EAS's build token.
+      'EXPO_ACCESS_TOKEN',
+      'EXPO_TOKEN',
     ])
       expect(() => readEnv({ ...base, [name]: 'x' })).toThrow(/privileged/);
-    // Claude Code's own names in a developer's shell, and names that merely end in OAUTH, are fine.
+    // Claude Code's own names in a developer's shell, names that merely end in OAUTH, and the phone app's public
+    // build settings are fine.
     for (const name of [
       'CLAUDE_CODE_OAUTH_SCOPES',
       'CLAUDE_CODE_SDK_HAS_OAUTH_REFRESH',
       'USE_LOCAL_OAUTH',
+      'EXPO_PUBLIC_API_URL',
     ])
       expect(() => readEnv({ ...base, [name]: 'x' })).not.toThrow();
   });

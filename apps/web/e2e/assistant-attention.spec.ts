@@ -1,6 +1,6 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
 import { cardOnHome } from './action-center-helpers';
-import { api, signInOwner } from './booking-helpers';
+import { api, consentToAssistant, signInOwner } from './booking-helpers';
 import { createBusiness, signUpAndConfirm } from './helpers';
 import { setUpTexting } from './telephony';
 
@@ -54,6 +54,7 @@ test('assistant-attention: the same list as Home, and items handled, snoozed and
   test.setTimeout(240_000);
   const owner = await signUpAndConfirm(page, 'assistant-attention');
   const workspaceId = await createBusiness(page, { name: 'Lone Star HVAC & Roofing' });
+  await consentToAssistant(owner.email);
   const { token } = await signInOwner(owner.email);
   // By default a business is open weekdays 8 to 5, and open-hours clocks would flip at night and on weekends.
   await api(token, 'commands', 'workspace.update', {

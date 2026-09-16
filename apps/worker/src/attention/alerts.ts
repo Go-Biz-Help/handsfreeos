@@ -10,6 +10,8 @@
  *   this sender, so today's unanswered-message email and the Action Center's are the same email.
  * - **Lead kinds alert only in open hours:** outside them the job waits for the business to open.
  * - **Who hears:** the assignee, otherwise every owner and admin, each as their "Urgent items" setting allows.
+ * - **On their phones too (M10):** the same people get the push, each as their push switch for it allows (urgent
+ *   for a lead, customer waiting for a conversation), queued with the marks below so it goes once (push/urgent.ts).
  * - **Never about old clocks:** settle.ts's first-sweep guard marks data from before the Action Center as already
  *   alerted, so nothing here ever fires for it.
  */
@@ -33,6 +35,7 @@ import { attentionUrgentEmail, type AttentionUrgentInput } from '../emails/templ
 import { managers } from '../handlers/telephony';
 import type { JobHandler } from '../jobs';
 import { errorMessage } from '../outbox';
+import { queueUrgentPush, urgentPushListeners } from '../push/urgent';
 import { tenantOf, type TenantScope, type WorkerServices } from '../services';
 import { recordSystemEvent } from '../system-event';
 import { ATTENTION_JOBS, alertJobKey } from './constants';
@@ -163,7 +166,14 @@ export async function alertUrgent(
       ? await userById(tx, assigneeId)
       : ((await managers(tx, scope.workspaceId)) as Recipient[]);
     const recipients = candidates.filter(wantsUrgent);
-    if (recipients.length === 0) return skip('nobody_to_email');
+    const kind = item ? alertKindOf(item.kind)! : 'customer_waiting';
+    // Phones follow each person's push switch, not their email one.
+    const listeners = await urgentPushListeners(
+      tx,
+      kind,
+      candidates.map((c) => c.id),
+    );
+    if (recipients.length === 0 && listeners === 0) return skip('nobody_to_email');
 
     const personId = item?.personId ?? conv?.personId ?? null;
     const [person] = personId
@@ -185,7 +195,6 @@ export async function alertUrgent(
               order by occurred_at desc limit 1`,
         )
       : [];
-    const kind = item ? alertKindOf(item.kind)! : 'customer_waiting';
     const value =
       item && !item.valueIsEstimate && Number(item.valueCents ?? 0) > 0
         ? Number(item.valueCents)
@@ -232,6 +241,21 @@ export async function alertUrgent(
     // Nobody could be reached: the job's retries try again rather than marking it alerted.
     if (emailed.length === 0 && failures > 0) throw new Error('could not send the urgent email');
 
+    // The push commits with the marks below: a retry that finds them never pushes again.
+    const pushed =
+      listeners > 0
+        ? await queueUrgentPush(tx, scope, {
+            kind,
+            item,
+            conversation: conv ?? null,
+            waitSince: wait?.guardSince ?? null,
+            userIds: candidates.map((c) => c.id),
+            customer,
+            preview: conv?.lastPreview ?? item?.detail ?? '',
+            valueCents: value,
+            photos: latest?.photos ?? 0,
+          })
+        : 0;
     if (item) await markAlerted(tx, item, o.now);
     if (conv && wait?.guardSince)
       await recordSystemEvent(tx, {
@@ -244,6 +268,7 @@ export async function alertUrgent(
         payload: {
           awaitingSince: wait.guardSince.toISOString(),
           recipients: emailed.length,
+          pushed,
           itemId: item?.id ?? null,
           _broadcast: false,
         },

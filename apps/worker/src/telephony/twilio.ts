@@ -15,6 +15,9 @@ import {
 const API = 'https://api.twilio.com/2010-04-01';
 const MESSAGING = 'https://messaging.twilio.com/v1';
 const TRUST_HUB = 'https://trusthub.twilio.com/v1';
+const INTELLIGENCE = 'https://intelligence.twilio.com/v2';
+/** The Conversational Intelligence service whole calls are transcribed in: one per subaccount, found by this name. */
+const TRANSCRIPT_SERVICE = 'hfos-call-transcripts';
 
 interface Creds {
   readonly sid: string;
@@ -68,6 +71,33 @@ async function call<T>(
 }
 
 const credsOf = (a: ProviderAccount): Creds => ({ sid: a.sid, token: a.authToken });
+
+/** The subaccount's transcript service, made the first time a call is transcribed there. */
+async function transcriptService(creds: Creds): Promise<string> {
+  const list = await call<{ services?: { sid: string; unique_name?: string | null }[] }>(
+    creds,
+    'GET',
+    `${INTELLIGENCE}/Services`,
+    { PageSize: '100' },
+  );
+  const found = list.services?.find((x) => x.unique_name === TRANSCRIPT_SERVICE);
+  if (found) return found.sid;
+  // Two at once: the second is refused (the name is taken) and its job finds the first's next time.
+  const made = await call<{ sid: string }>(creds, 'POST', `${INTELLIGENCE}/Services`, {
+    UniqueName: TRANSCRIPT_SERVICE,
+    FriendlyName: 'HandsFreeOS call transcripts',
+    AutoTranscribe: 'false',
+    DataLogging: 'false',
+    LanguageCode: 'en-US',
+  });
+  return made.sid;
+}
+
+interface IntelligenceSentence {
+  media_channel?: number | null;
+  sentence_index?: number | null;
+  transcript?: string | null;
+}
 const caps = (c: Record<string, boolean | undefined> | undefined): Capabilities => ({
   sms: !!(c?.['sms'] ?? c?.['SMS']),
   mms: !!(c?.['mms'] ?? c?.['MMS']),
@@ -768,15 +798,81 @@ export function createTwilioTelephony(master: {
     },
 
     async deleteTranscription(account, transcriptionSid) {
+      // A whole call's words (GT…) live in Conversational Intelligence; a voicemail's (TR…) with the recording.
+      const url = transcriptionSid.startsWith('GT')
+        ? `${INTELLIGENCE}/Transcripts/${transcriptionSid}`
+        : `${API}/Accounts/${account.sid}/Transcriptions/${transcriptionSid}.json`;
       try {
-        await call(
-          credsOf(account),
-          'DELETE',
-          `${API}/Accounts/${account.sid}/Transcriptions/${transcriptionSid}.json`,
-        );
+        await call(credsOf(account), 'DELETE', url);
       } catch (e) {
         if (!(e instanceof ProviderError && e.httpStatus === 404)) throw e;
       }
+    },
+
+    async placeCall(account, r) {
+      const res = await call<{ sid: string }>(
+        credsOf(account),
+        'POST',
+        `${API}/Accounts/${account.sid}/Calls.json`,
+        {
+          To: r.to,
+          From: r.from,
+          Url: r.answerUrl,
+          Method: 'POST',
+          StatusCallback: r.statusCallbackUrl,
+          StatusCallbackMethod: 'POST',
+          StatusCallbackEvent: ['initiated', 'ringing', 'answered', 'completed'],
+          Timeout: String(r.timeoutSeconds),
+        },
+      );
+      return { sid: res.sid };
+    },
+
+    async transcribeRecording(account, recordingSid) {
+      const creds = credsOf(account);
+      const res = await call<{ sid: string }>(creds, 'POST', `${INTELLIGENCE}/Transcripts`, {
+        ServiceSid: await transcriptService(creds),
+        Channel: JSON.stringify({ media_properties: { source_sid: recordingSid } }),
+        CustomerKey: recordingSid,
+      });
+      return { transcriptionSid: res.sid };
+    },
+
+    async fetchTranscription(account, transcriptionSid) {
+      const creds = credsOf(account);
+      const t = await call<{ status?: string | null }>(
+        creds,
+        'GET',
+        `${INTELLIGENCE}/Transcripts/${transcriptionSid}`,
+      );
+      const status = (t.status ?? '').toLowerCase();
+      if (status === 'failed' || status === 'canceled' || status === 'error')
+        return { status: 'failed' };
+      if (status !== 'completed') return { status: 'pending' };
+      const found: { index: number; channel: number; text: string }[] = [];
+      let url: string | null =
+        `${INTELLIGENCE}/Transcripts/${transcriptionSid}/Sentences?PageSize=1000`;
+      for (let page = 0; url && page < 20; page++) {
+        const res: {
+          sentences?: IntelligenceSentence[];
+          meta?: { next_page_url?: string | null };
+        } = await call(creds, 'GET', url);
+        for (const x of res.sentences ?? []) {
+          const text = x.transcript?.trim();
+          if (text)
+            found.push({
+              index: x.sentence_index ?? found.length,
+              channel: x.media_channel ?? 0,
+              text,
+            });
+        }
+        url = res.meta?.next_page_url ?? null;
+      }
+      found.sort((a, b) => a.index - b.index);
+      return {
+        status: 'completed',
+        sentences: found.map(({ channel, text }) => ({ channel, text })),
+      };
     },
 
     async submitRegistration(account, request) {

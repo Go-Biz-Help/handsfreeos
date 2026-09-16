@@ -1,17 +1,22 @@
-import { and, eq } from 'drizzle-orm';
-import { HfosError } from '@hfos/core/server';
+import { and, eq, isNotNull } from 'drizzle-orm';
+import { callUpdateStatus, executeCommand, HfosError, userPhoneVerify } from '@hfos/core/server';
 import { asWorker, rows, sql } from '@hfos/db/client';
-import { calls, phoneNumbers, telephonyAccounts } from '@hfos/db/schema';
-import type { FastifyInstance, FastifyReply } from 'fastify';
+import { calls, phoneNumbers, telephonyAccounts, userPhones } from '@hfos/db/schema';
+import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
-import type { TenantScope } from '../services';
+import { systemActor, workerMeta, type TenantScope } from '../services';
 import {
+  BRIDGE_NOT_PLACED_TWIML,
+  bridgeDialTwiml,
+  bridgeGateTwiml,
+  bridgeResultTwiml,
   CANNOT_PLACE_TWIML,
   defaultGreeting,
   HANGUP_TWIML,
   identityOf,
   isPhone,
   NOT_IN_SERVICE_TWIML,
+  NOT_VERIFIED_TWIML,
   outboundTwiml,
   ringTwiml,
   routingOf,
@@ -21,6 +26,8 @@ import {
   twiml,
   UNAVAILABLE_TWIML,
   userIdOfIdentity,
+  VERIFIED_TWIML,
+  verifyTwiml,
   voiceAccessToken,
   voicemailTwiml,
   voiceUrls,
@@ -88,6 +95,76 @@ function joinNames(names: readonly string[]): string {
   return `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
 }
 
+/** How long a call HandsFreeOS placed (to someone's cell) stays answerable: long enough to ring and be picked up. */
+const PLACED_CALL_MS = 10 * 60_000;
+const ENDED = new Set(['completed', 'no_answer', 'busy', 'failed', 'canceled']);
+const query = (req: FastifyRequest) => req.query as Record<string, string | undefined>;
+
+/** A call through someone's own cell that Twilio asks about: still waiting, placed by us to that person's verified cell. */
+async function bridgeCall(deps: HttpDeps, v: VerifiedTwilio, callId: string | undefined) {
+  const { workspaceId, organizationId } = v.account;
+  if (!workspaceId || !organizationId || !callId || !UUID.test(callId)) return null;
+  const scope = { workspaceId, organizationId };
+  const found = await asWorker(deps.httpDb, scope, async (tx) => {
+    const [c] = await tx
+      .select()
+      .from(calls)
+      .where(and(eq(calls.id, callId), eq(calls.workspaceId, workspaceId)));
+    if (!c?.placedBy) return null;
+    const [cell] = await tx
+      .select({ e164: userPhones.e164 })
+      .from(userPhones)
+      .where(and(eq(userPhones.userId, c.placedBy), isNotNull(userPhones.verifiedAt)));
+    const [person] = c.personId
+      ? await rows<{ name: string }>(
+          tx,
+          sql`select trim(first_name || ' ' || last_name) as name from app.people where id = ${c.personId}`,
+        )
+      : [];
+    return { call: c, cell: cell?.e164 ?? null, name: person?.name || null };
+  });
+  if (!found) return null;
+  const { call: c, cell, name } = found;
+  const usable =
+    c.answeredVia === 'bridge' &&
+    c.direction === 'outbound' &&
+    !ENDED.has(c.status) &&
+    (!c.providerSid || c.providerSid === v.params['CallSid']) &&
+    !!cell &&
+    v.params['To'] === cell &&
+    !!c.fromE164 &&
+    !!c.toE164 &&
+    Date.now() - c.startedAt.getTime() < PLACED_CALL_MS;
+  if (!usable) {
+    deps.log.warn(
+      { callId, workspaceId },
+      'refused a call to a cell that call.connect_me did not ask for',
+    );
+    return null;
+  }
+  return {
+    scope,
+    call: c,
+    customer: name ?? spokenPhone(c.toE164!),
+  };
+}
+
+/** The cell a verification call is for: set, not verified yet, and the phone Twilio called. */
+async function verificationFor(deps: HttpDeps, v: VerifiedTwilio, userPhoneId: string | undefined) {
+  const { workspaceId, organizationId } = v.account;
+  if (!workspaceId || !organizationId || !userPhoneId || !UUID.test(userPhoneId)) return null;
+  const scope = { workspaceId, organizationId };
+  const [row] = await asWorker(deps.httpDb, scope, (tx) =>
+    tx.select().from(userPhones).where(eq(userPhones.id, userPhoneId)),
+  );
+  const usable =
+    !!row &&
+    !row.verifiedAt &&
+    v.params['To'] === row.e164 &&
+    (!row.lastVerificationAt || Date.now() - row.lastVerificationAt.getTime() < PLACED_CALL_MS);
+  return usable ? { scope, row } : null;
+}
+
 const noAnswerTwiml = (routing: Routing, route: Route, urls: ReturnType<typeof voiceUrls>) =>
   routing.voicemailEnabled
     ? voicemailTwiml(routing.voicemailGreeting ?? defaultGreeting(route.workspace_name), urls)
@@ -137,6 +214,8 @@ export function registerVoiceRoutes(app: FastifyInstance, deps: HttpDeps): void 
           forwarding,
           ringSeconds: routing.ringSeconds,
           line: route.e164,
+          // The business number on forwarded phones, when the number is set to show it.
+          callerId: routing.forwardedCallerId === 'business' ? route.e164 : null,
           params: {
             workspaceId: route.workspace_id,
             callSid: p['CallSid'] ?? '',
@@ -158,9 +237,10 @@ export function registerVoiceRoutes(app: FastifyInstance, deps: HttpDeps): void 
   app.post('/webhooks/twilio/voice/screen', async (req, reply) => {
     const v = await verifiedTwilio(deps, req, reply);
     if (!v) return reply;
-    const route = await routeFor(deps, (req.query as Record<string, string | undefined>)['line']);
+    const route = await routeFor(deps, query(req)['line']);
     if (!route) return xml(reply, HANGUP_TWIML);
-    const from = v.params['From'];
+    // Showing the business number, this leg's own From is the business: the customer comes in the address.
+    const from = isPhone(query(req)['from']) ? query(req)['from'] : v.params['From'];
     const caller = isPhone(from) ? await callerCard(deps, scopeOf(route), from) : null;
     const who = caller?.name ?? (isPhone(from) ? spokenPhone(from) : 'a hidden number');
     return xml(
@@ -254,6 +334,104 @@ export function registerVoiceRoutes(app: FastifyInstance, deps: HttpDeps): void 
     return id && p['TranscriptionStatus']
       ? `${id}:transcription:${p['TranscriptionStatus']}`
       : null;
+  });
+
+  // A call through someone's own cell: their cell answered. "Press 1 to call Mike Johnson."
+  app.post('/webhooks/twilio/voice/bridge', async (req, reply) => {
+    const v = await verifiedTwilio(deps, req, reply);
+    if (!v) return reply;
+    const b = await bridgeCall(deps, v, query(req)['callId']);
+    if (!b) return xml(reply, BRIDGE_NOT_PLACED_TWIML);
+    return xml(reply, bridgeGateTwiml(b.customer, b.call.id, urls));
+  });
+
+  // They pressed a key. Only 1 dials the customer, and it is recorded first, so every report about the customer's
+  // leg finds the person who placed the call.
+  app.post('/webhooks/twilio/voice/bridge-gate', async (req, reply) => {
+    const v = await verifiedTwilio(deps, req, reply);
+    if (!v) return reply;
+    if (v.params['Digits'] !== '1') return xml(reply, BRIDGE_NOT_PLACED_TWIML);
+    const b = await bridgeCall(deps, v, query(req)['callId']);
+    if (!b) return xml(reply, BRIDGE_NOT_PLACED_TWIML);
+    const { output } = await executeCommand(
+      deps.httpDb,
+      callUpdateStatus,
+      {
+        workspaceId: b.scope.workspaceId,
+        callId: b.call.id,
+        status: 'ringing',
+        answeredByUserId: b.call.placedBy,
+      },
+      systemActor(b.scope, b.call.placedBy),
+      workerMeta(),
+    );
+    if (ENDED.has(output.status)) return xml(reply, BRIDGE_NOT_PLACED_TWIML);
+    return xml(
+      reply,
+      bridgeDialTwiml(
+        {
+          callerId: b.call.fromE164!,
+          to: b.call.toE164!,
+          callId: b.call.id,
+          customer: b.customer,
+        },
+        urls,
+      ),
+    );
+  });
+
+  // The customer's phone stopped ringing: say how it went. Their leg's own reports update the call.
+  app.post('/webhooks/twilio/voice/bridge-result', async (req, reply) => {
+    const v = await verifiedTwilio(deps, req, reply);
+    if (!v) return reply;
+    const { workspaceId, organizationId } = v.account;
+    const callId = query(req)['callId'];
+    let customer = 'The customer';
+    if (workspaceId && organizationId && callId && UUID.test(callId)) {
+      const [c] = await asWorker(deps.httpDb, { workspaceId, organizationId }, (tx) =>
+        rows<{ name: string | null; to_e164: string | null }>(
+          tx,
+          sql`select nullif(trim(p.first_name || ' ' || p.last_name), '') as name, c.to_e164
+              from app.calls c left join app.people p on p.id = c.person_id
+              where c.id = ${callId} and c.workspace_id = ${workspaceId}`,
+        ),
+      );
+      customer = c?.name ?? (c?.to_e164 ? spokenPhone(c.to_e164) : customer);
+    }
+    return xml(reply, bridgeResultTwiml(v.params['DialCallStatus'], customer));
+  });
+
+  // The call that confirms someone's cell: it answered. "Press 1."
+  app.post('/webhooks/twilio/voice/verify', async (req, reply) => {
+    const v = await verifiedTwilio(deps, req, reply);
+    if (!v) return reply;
+    const found = await verificationFor(deps, v, query(req)['userPhoneId']);
+    if (!found) return xml(reply, NOT_VERIFIED_TWIML);
+    return xml(reply, verifyTwiml(found.row.id, urls));
+  });
+
+  // They pressed 1: the cell is theirs, marked at once so the app shows it.
+  app.post('/webhooks/twilio/voice/verify-result', async (req, reply) => {
+    const v = await verifiedTwilio(deps, req, reply);
+    if (!v) return reply;
+    if (v.params['Digits'] !== '1') return xml(reply, NOT_VERIFIED_TWIML);
+    const found = await verificationFor(deps, v, query(req)['userPhoneId']);
+    if (!found) return xml(reply, NOT_VERIFIED_TWIML);
+    await executeCommand(
+      deps.httpDb,
+      userPhoneVerify,
+      { workspaceId: found.scope.workspaceId, userPhoneId: found.row.id },
+      systemActor(found.scope, found.row.userId),
+      workerMeta(),
+    );
+    return xml(reply, VERIFIED_TWIML);
+  });
+
+  // How a verification call went: nothing to keep (pressing 1 is what counts).
+  app.post('/webhooks/twilio/voice/verify-status', async (req, reply) => {
+    const v = await verifiedTwilio(deps, req, reply);
+    if (!v) return reply;
+    return reply.code(204).send();
   });
 
   // A browser asks to ring and call: a one-hour token for this teammate in this workspace.

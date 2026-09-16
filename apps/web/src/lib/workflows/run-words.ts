@@ -193,6 +193,8 @@ export function skipReasonText(reason: string | null | undefined): string {
       return 'a detail is missing';
     case 'quiet_hours':
       return 'quiet hours';
+    case 'late_event':
+      return 'what started it reached HandsFreeOS more than 30 minutes after it happened';
     case 'same_workflow':
       return 'a workflow can’t start itself';
     case 'depth_limit':

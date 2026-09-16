@@ -62,7 +62,8 @@ async function setOwnerHours(
   ownerKind: 'service' | 'resource',
   ownerId: string,
   hours: WeeklyHours | null | undefined,
-  actorId: string,
+  /** Null when HandsFreeOS changed it. */
+  actorId: string | null,
 ): Promise<void> {
   if (hours === undefined) return;
   const own = and(
@@ -186,8 +187,10 @@ export const serviceUpdate = defineCommand({
   permission: 'calendars.manage',
   scope: inWorkspace,
   emits: ['service.updated'],
+  // The worker too: deleting an account takes the person off every service's staff list the same way.
+  actors: ['human', 'system'],
   async handler(ctx, input) {
-    const me = requireHuman(ctx).userId;
+    const me = ctx.actor.type === 'human' ? ctx.actor.userId : null;
     const ws = ctx.scope.workspaceId!;
     const [current] = await ctx.tx
       .select()

@@ -3,6 +3,7 @@ import type { AiProvider } from '@hfos/ai';
 import type { RequestMeta, SystemActor } from '@hfos/core/server';
 import type { Db } from '@hfos/db/client';
 import type { Logger } from 'pino';
+import type { AuthAdmin } from './account/auth-admin';
 import type { BookingLinks } from './booking/links';
 import type { CalendarServices } from './calendar/index';
 import type { Sealer } from './crypto';
@@ -12,6 +13,7 @@ import type { MailboxServices } from './mailbox/index';
 import type { Mailer } from './mailer';
 import type { MoneyLinks } from './money/links';
 import type { PaymentServices } from './payments/index';
+import type { PushServices } from './push/index';
 import type { ObjectStore } from './storage';
 import type { TelephonyProvider } from './telephony/provider';
 
@@ -52,6 +54,13 @@ export interface WorkerServices {
    * daily token limit per workspace they share with the Assistant (ai/ask.ts, ai/budget.ts).
    */
   readonly ai: { readonly provider: AiProvider | null; readonly dailyTokens: number };
+  /** Push notifications to the phone app: Expo's service, or the stand-in locally and in tests (push/index.ts). */
+  readonly push: PushServices;
+  /**
+   * Supabase Auth with the worker's secret key: deleting an account ends its sessions and blocks sign-in
+   * (account/auth-admin.ts). Missing without SUPABASE_URL and SUPABASE_SECRET_KEY; that job then waits and retries.
+   */
+  readonly authAdmin?: AuthAdmin;
 }
 
 export interface TenantScope {

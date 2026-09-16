@@ -21,9 +21,14 @@ import { clock, dayShort, timeRange, weekdayShort, zoneName } from './when';
 
 /**
  * Who hears about a booking nobody works: the calendar's owner while they can still reach the workspace (a
- * member, or in its organization), otherwise the workspace's owners and admins.
+ * member, or in its organization), otherwise the workspace's owners and admins. The booking push picks the same
+ * people (push/moments.ts).
  */
-async function standIns(tx: Tx, scope: TenantScope, ownerUserId: string | null): Promise<string[]> {
+export async function standIns(
+  tx: Tx,
+  scope: TenantScope,
+  ownerUserId: string | null,
+): Promise<string[]> {
   if (ownerUserId) {
     const [reach] = await rows<{ ok: boolean }>(
       tx,

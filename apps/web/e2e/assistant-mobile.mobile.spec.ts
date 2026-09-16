@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { consentToAssistant } from './booking-helpers';
 import { createBusiness, signUpAndConfirm } from './helpers';
 
 /**
@@ -8,8 +9,9 @@ import { createBusiness, signUpAndConfirm } from './helpers';
 test('phone: the header button opens the Assistant full screen, a move waits for Confirm, Close returns to the page', async ({
   page,
 }) => {
-  await signUpAndConfirm(page, 'assistant-mobile');
+  const owner = await signUpAndConfirm(page, 'assistant-mobile');
   const workspaceId = await createBusiness(page, { name: 'Bayou Plumbing Co.' });
+  await consentToAssistant(owner.email);
 
   // A customer with a lead, added from the phone.
   await page.goto(`/app/w/${workspaceId}/customers`);
