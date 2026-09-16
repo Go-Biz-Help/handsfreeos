@@ -64,9 +64,32 @@ test('agency area at 390 px, dark', async ({ page }) => {
     name: 'Estimate follow-up',
     from: 'recipe',
     recipeKey: 'estimate_follow_up',
-    mapping: {
-      estimate_stage: pipelines[0]!.stages.find((s) => s.name === 'Estimate sent')!.id,
-    },
+  });
+  // The recipe starts on the estimate going out (M9) and carries no stage of its own, so the trigger is
+  // pointed at one here: the template needs a real id to turn into a placeholder.
+  await api('commands/workflow.save_draft', {
+    workspaceId: lonestar,
+    workflowId,
+    baseRevision: 1,
+    ops: [
+      {
+        op: 'set_trigger',
+        trigger: {
+          kind: 'event',
+          event: 'lead.stage_changed',
+          filters: {
+            match: 'all',
+            conditions: [
+              {
+                field: 'trigger.to_stage_id',
+                op: 'eq',
+                value: pipelines[0]!.stages.find((s) => s.name === 'Estimate sent')!.id,
+              },
+            ],
+          },
+        },
+      },
+    ],
   });
   const { templateId } = await api<{ templateId: string }>(
     'commands/workflow_template.create_from_workflow',

@@ -98,7 +98,27 @@ test('agency templates: save, push with mapping, update available, apply, test, 
     name: 'Estimate follow-up',
     from: 'recipe',
     recipeKey: 'estimate_follow_up',
-    mapping: { estimate_stage: estimateStage },
+  });
+  // The recipe starts on the estimate going out (M9) and names nothing of Lone Star's own. A template's whole
+  // job is swapping a real id for a placeholder and back again, so the source workflow is pointed at one of
+  // their stages here to give it one.
+  await api('commands/workflow.save_draft', {
+    workspaceId: lonestar,
+    workflowId: sourceId,
+    baseRevision: 1,
+    ops: [
+      {
+        op: 'set_trigger',
+        trigger: {
+          kind: 'event',
+          event: 'lead.stage_changed',
+          filters: {
+            match: 'all',
+            conditions: [{ field: 'trigger.to_stage_id', op: 'eq', value: estimateStage }],
+          },
+        },
+      },
+    ],
   });
 
   // The agency area opens from the workspace switcher's group header.

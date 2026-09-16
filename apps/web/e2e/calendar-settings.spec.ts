@@ -80,7 +80,10 @@ test('hours, time off, a Google busy block, services and resources', async ({ pa
   });
   expect(res.ok).toBe(true);
   await page.getByTestId('calendar-sync-now').click();
-  await expect(page.getByText('Checking busy times now.')).toBeVisible();
+  // Inside the toast: the card says the same words while it has never synced, and matching both is a tie.
+  await expect(
+    page.locator('[data-sonner-toast]').getByText('Checking busy times now.'),
+  ).toBeVisible();
 
   // It shows on the team's day as a grey "Busy" block, never with what it is.
   const day = chicagoDate(start);
