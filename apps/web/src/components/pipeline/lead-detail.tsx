@@ -43,6 +43,7 @@ import {
   ContactWorkflowsCard,
 } from '@/components/workflows/contact-workflows';
 import { apiBrowser, errorMessage, unwrap } from '@/lib/api/client';
+import { saveTagChanges } from '@/lib/api/edits';
 import type {
   Appointment,
   FileItem,
@@ -265,12 +266,15 @@ export function LeadDetail({
       toast.error(errorMessage(e));
     }
   }
+  /** One tag on or off at a time, so a teammate tagging this lead at the same moment isn't undone. */
   async function setTags(ids: string[]) {
     try {
-      unwrap(
-        await apiBrowser().POST('/v1/commands/record.set_tags', {
-          body: { workspaceId, recordType: 'lead', recordId: leadId, tagIds: ids },
-        }),
+      await saveTagChanges(
+        workspaceId,
+        'lead',
+        leadId,
+        lead.tags.map((t) => t.id),
+        ids,
       );
       reload();
     } catch (e) {

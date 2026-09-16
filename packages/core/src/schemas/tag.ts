@@ -34,6 +34,21 @@ export const RecordSetTagsInput = z.object({
   mode: tagsMode.default('replace'),
 });
 export const RecordSetTagsOutput = z.object({ tags: z.array(TagRef) });
+/**
+ * One tag on or off a record (M10): what the web and the phone send, so two people tagging the same customer
+ * both land. Adding a tag the record has, or removing one it lacks, changes nothing.
+ */
+export const RecordTagInput = z.object({
+  workspaceId: uuid,
+  recordType,
+  recordId: uuid,
+  tagId: uuid,
+});
+export const RecordTagOutput = z.object({
+  tags: z.array(TagRef),
+  /** False when the record already had (or already lacked) the tag. */
+  changed: z.boolean(),
+});
 export const TagListInput = z.object({ workspaceId: uuid });
 export const TagListOutput = z.object({
   tags: z.array(TagRef.extend({ usage: z.number().int() })),

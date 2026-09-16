@@ -42,7 +42,8 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { apiBrowser, errorMessage, unwrap } from '@/lib/api/client';
+import { errorMessage } from '@/lib/api/client';
+import { saveTagChanges } from '@/lib/api/edits';
 import type {
   Appointment,
   CompanyDetail,
@@ -165,12 +166,15 @@ export function RecordPage(props: RecordPageProps) {
     'appointment',
   ]);
 
+  /** One tag on or off at a time, so a teammate tagging this customer at the same moment isn't undone. */
   async function setTags(ids: string[]) {
     try {
-      unwrap(
-        await apiBrowser().POST('/v1/commands/record.set_tags', {
-          body: { workspaceId, recordType: kind, recordId, tagIds: ids },
-        }),
+      await saveTagChanges(
+        workspaceId,
+        kind,
+        recordId,
+        currentTags.map((t) => t.id),
+        ids,
       );
       router.refresh();
     } catch (e) {

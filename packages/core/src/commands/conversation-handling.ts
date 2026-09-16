@@ -10,6 +10,7 @@ import { conversations, leads, people } from '@hfos/db/schema';
 import { loadTeammate, teammateConfigOf, type TeammateRow } from '../ai-team/load';
 import { notHandledByAi, outsideItsConversation } from '../ai-team/reach';
 import { HfosError } from '../errors';
+import { FRESH_MINUTES } from '../mobile';
 import { aiEmployeeOf, requireHuman } from '../kernel/actor';
 import { defineCommand } from '../kernel/define';
 import type { CommandContext } from '../kernel/types';
@@ -228,6 +229,7 @@ export const conversationTakeOver = defineCommand({
   permission: 'inbox.use',
   scope: inWorkspace,
   emits: ['conversation.taken_over'],
+  offline: 'anytime',
   async handler(ctx, input) {
     const me = requireHuman(ctx).userId;
     const conv = await loadConversation(ctx, input.conversationId);
@@ -251,6 +253,7 @@ export const conversationHandToAi = defineCommand({
   // A person hands a conversation back; a workflow step ("Hand to the AI teammate") hands one over, and the
   // kernel puts its run's loop guard (_workflow) on the event, which the worker passes on to the teammate.
   actors: ['human', 'workflow'],
+  offline: { freshMinutes: FRESH_MINUTES },
   async handler(ctx, input) {
     const conv = await loadConversation(ctx, input.conversationId);
     const teammate = await requireTeammate(ctx);

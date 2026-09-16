@@ -17,6 +17,11 @@ export interface ApiEnv {
   readonly jwksUrl: string;
   readonly databaseUrl: string;
   readonly trustProxy: boolean;
+  /**
+   * The oldest phone app build the API still takes (`MIN_APP_VERSION`, like "1.4.0"): an older one is told to update
+   * (426) and keeps its unsent changes. Unset, every build is taken.
+   */
+  readonly minAppVersion: string | null;
 }
 
 // Secret-looking names anywhere; provider credentials by the prefixes our config uses; any OAuth client setting
@@ -50,6 +55,9 @@ export function readEnv(env: NodeJS.ProcessEnv = process.env): ApiEnv {
     throw new Error('DATABASE_URL must be a postgres:// URL for the hfos_api role');
   if (/\/\/postgres[:@]/.test(databaseUrl))
     throw new Error('DATABASE_URL must not connect as the postgres role');
+  const minAppVersion = env.MIN_APP_VERSION?.trim() || null;
+  if (minAppVersion && !/^\d+(\.\d+){0,2}$/.test(minAppVersion))
+    throw new Error(`MIN_APP_VERSION must be a build number like 1.4.0, not ${minAppVersion}`);
   return {
     port,
     host: env.HOST ?? '127.0.0.1',
@@ -63,5 +71,6 @@ export function readEnv(env: NodeJS.ProcessEnv = process.env): ApiEnv {
     jwksUrl: env.SUPABASE_JWKS_URL ?? `${supabaseUrl}/auth/v1/.well-known/jwks.json`,
     databaseUrl,
     trustProxy: env.TRUST_PROXY === 'true',
+    minAppVersion,
   };
 }

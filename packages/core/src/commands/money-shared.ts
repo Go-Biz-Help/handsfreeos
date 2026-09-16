@@ -906,14 +906,34 @@ export function assertDraft(
     );
 }
 
-/** Someone else saved while this editor was open: their work is kept, and the editor reloads. */
-export function assertRevision(row: { revision: number }, baseRevision: number): void {
+/**
+ * How a refused draft save keeps the person's version (M10): drafts don't merge, since a document's lines and
+ * totals only make sense together, so the phone makes theirs a new draft with this command and input.
+ */
+export interface KeepAsNewDraft {
+  readonly command: 'estimate.create' | 'invoice.create';
+  readonly input: Readonly<Record<string, unknown>>;
+}
+
+/** An input without the keys it left out. */
+export const presentOnly = (input: Record<string, unknown>): Record<string, unknown> =>
+  Object.fromEntries(Object.entries(input).filter(([, v]) => v !== undefined));
+
+/**
+ * Someone else saved while this editor was open: their work is kept, and the editor reloads. The refusal says how
+ * to keep this save's version as a new draft (`keepAsNewDraft`), which the phone does instead of losing it.
+ */
+export function assertRevision(
+  row: { revision: number },
+  baseRevision: number,
+  keep?: KeepAsNewDraft,
+): void {
   if (Math.round(Number(row.revision)) !== Math.round(baseRevision))
     throw new HfosError(
       'conflict',
       409,
       'Someone else saved this while you were editing. Reload to see their changes.',
-      { revision: Math.round(Number(row.revision)) },
+      { revision: Math.round(Number(row.revision)), ...(keep ? { keepAsNewDraft: keep } : {}) },
       'document_conflict',
     );
 }

@@ -5,12 +5,19 @@ import { logSystemActivity } from '../crm/activities';
 import { requireCompany, requirePerson, userRef } from '../crm/records';
 import { HfosError } from '../errors';
 import { defineCommand } from '../kernel/define';
+import {
+  logNotApplied,
+  mergeColumns,
+  mergeFields,
+  type MergeField,
+  type MergeKind,
+} from '../kernel/field-merge';
 import { LeadUpdateInput, LeadUpdateOutput } from '../schemas/lead';
 
 export const leadUpdate = defineCommand({
   name: 'lead.update',
   description:
-    'Change a lead’s title, value, source, people, expected close date, assignee or next action.',
+    'Change a lead’s title, value, source, people, expected close date, assignee or next action: only what was edited, each with what the editor saw, and the newest change to each wins.',
   risk: 1,
   input: LeadUpdateInput,
   output: LeadUpdateOutput,
@@ -18,6 +25,7 @@ export const leadUpdate = defineCommand({
   scope: (i) => ({ kind: 'workspace', workspaceId: i.workspaceId }),
   emits: ['lead.updated', 'lead.assigned'],
   actors: ['human', 'workflow', 'ai_employee'],
+  offline: 'anytime',
   async handler(ctx, input) {
     const workspaceId = ctx.scope.workspaceId!;
     // The AI teammate changes only the next action on its own customer's lead.
@@ -45,35 +53,60 @@ export const leadUpdate = defineCommand({
     const [current] = await ctx.tx
       .select()
       .from(leads)
-      .where(and(eq(leads.id, input.leadId), eq(leads.workspaceId, workspaceId)));
+      .where(and(eq(leads.id, input.leadId), eq(leads.workspaceId, workspaceId)))
+      .for('update');
     if (!current) throw HfosError.notFound('Lead not found.');
     if (input.personId) await requirePerson(ctx.tx, workspaceId, input.personId);
     if (input.companyId) await requireCompany(ctx.tx, workspaceId, input.companyId);
-    const nextPerson = input.personId !== undefined ? input.personId : current.personId;
-    const nextCompany = input.companyId !== undefined ? input.companyId : current.companyId;
+    const seen: NonNullable<typeof input.base> = input.base ?? {};
+    const field = (
+      key: keyof typeof seen,
+      value: unknown,
+      kind: MergeKind,
+      label: string,
+    ): MergeField => ({ key, column: key, value, base: seen[key], kind, label });
+    const merged = mergeFields(
+      current,
+      [
+        field('title', input.title, 'text', 'title'),
+        field('personId', input.personId, 'id', 'person'),
+        field('companyId', input.companyId, 'id', 'company'),
+        field('valueCents', input.valueCents, 'number', 'value'),
+        field('source', input.source, 'text', 'source'),
+        field('assigneeUserId', input.assigneeUserId, 'id', 'assignee'),
+        field('expectedCloseOn', input.expectedCloseOn, 'date', 'expected close date'),
+        field('nextAction', input.nextAction, 'text', 'next action'),
+        field(
+          'nextActionAt',
+          input.nextActionAt === undefined
+            ? undefined
+            : input.nextActionAt
+              ? new Date(input.nextActionAt)
+              : null,
+          'time',
+          'next action time',
+        ),
+      ],
+      mergeColumns(leads),
+      ctx.meta,
+    );
+    const { patch } = merged;
+    const nextPerson = 'personId' in patch ? (patch.personId as string | null) : current.personId;
+    const nextCompany =
+      'companyId' in patch ? (patch.companyId as string | null) : current.companyId;
     if (!nextPerson && !nextCompany)
       throw HfosError.validation([
         { path: 'personId', message: 'A lead needs a person or a company.' },
       ]);
-    const patch: Record<string, unknown> = {};
-    const set = (key: keyof typeof current, value: unknown) => {
-      if (value !== undefined && value !== current[key]) patch[key] = value;
-    };
-    set('title', input.title);
-    set('personId', input.personId);
-    set('companyId', input.companyId);
-    set('valueCents', input.valueCents);
-    set('source', input.source);
-    set('assigneeUserId', input.assigneeUserId);
-    set('expectedCloseOn', input.expectedCloseOn);
-    set('nextAction', input.nextAction);
-    if (input.nextActionAt !== undefined) {
-      const at = input.nextActionAt ? new Date(input.nextActionAt) : null;
-      if ((at?.getTime() ?? null) !== (current.nextActionAt?.getTime() ?? null))
-        patch.nextActionAt = at;
-    }
-    const updated = Object.keys(patch);
-    if (updated.length === 0) return { leadId: current.id, updated: [] };
+    const notApplied = merged.notApplied.map((n) => n.key);
+    await logNotApplied(
+      ctx,
+      merged.notApplied,
+      { type: 'lead', id: current.id },
+      { leadId: current.id, personId: current.personId, companyId: current.companyId },
+    );
+    const updated = [...merged.applied];
+    if (updated.length === 0) return { leadId: current.id, updated: [], notApplied };
     await ctx.tx.update(leads).set(patch).where(eq(leads.id, current.id));
     const before: Record<string, unknown> = {};
     const after: Record<string, unknown> = {};
@@ -117,6 +150,6 @@ export const leadUpdate = defineCommand({
         eventId,
       });
     }
-    return { leadId: current.id, updated };
+    return { leadId: current.id, updated, notApplied };
   },
 });

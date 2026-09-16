@@ -19,6 +19,8 @@ export const ATTACHMENT_MAX_BYTES = 25 * 1024 * 1024;
 
 export const FileBeginUploadInput = z.object({
   workspaceId: uuid,
+  /** The file's id, made by the phone so a photo taken offline has one before it uploads (M10). */
+  id: uuid.optional(),
   recordType,
   recordId: uuid,
   name: z.string().trim().min(1).max(200),

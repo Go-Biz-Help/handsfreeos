@@ -186,6 +186,8 @@ export const paymentConnectionConnect = defineCommand({
   permission: 'money.manage',
   scope: inWorkspace,
   emits: ['payment_connection.connect_started'],
+  // The state is a one-time secret: never kept in a stored answer.
+  shownOnce: ['state'],
   async handler(ctx, input) {
     const me = requireHuman(ctx).userId;
     const state = randomBytes(32).toString('base64url');

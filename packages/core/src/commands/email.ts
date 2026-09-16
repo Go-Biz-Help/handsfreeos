@@ -461,6 +461,8 @@ export const mailboxConnect = defineCommand({
   permission: 'channels.manage',
   scope: inWorkspace,
   emits: ['mailbox.connect_started'],
+  // The state is a one-time secret: never kept in a stored answer.
+  shownOnce: ['state'],
   async handler(ctx, input) {
     const me = requireHuman(ctx);
     const workspaceId = ctx.scope.workspaceId!;

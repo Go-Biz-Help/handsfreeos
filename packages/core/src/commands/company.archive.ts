@@ -16,6 +16,7 @@ export const companyArchive = defineCommand({
   permission: 'records.archive',
   scope: (i) => ({ kind: 'workspace', workspaceId: i.workspaceId }),
   emits: ['company.archived'],
+  offline: 'anytime',
   async handler(ctx, input) {
     const current = await requireCompany(ctx.tx, ctx.scope.workspaceId!, input.companyId);
     if (current.archivedAt) return { companyId: current.id, archivedLeads: 0 };

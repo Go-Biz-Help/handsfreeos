@@ -105,6 +105,17 @@ export const users = app.table('users', {
   avatarUrl: text('avatar_url'),
   settings: jsonb('settings').$type<Json>().notNull().default({}),
   ...timestamps(),
+  // Milestone 10 (0056): where the person belongs directly, kept by triggers on the memberships for the phone's sync.
+  memberWorkspaceIds: uuid('member_workspace_ids')
+    .array()
+    .notNull()
+    .default(sql`'{}'`),
+  memberOrganizationIds: uuid('member_organization_ids')
+    .array()
+    .notNull()
+    .default(sql`'{}'`),
+  /** Milestone 10 (0059): when the person deleted their account; the profile is scrubbed and their records stay. */
+  deletedAt: ts('deleted_at'),
 });
 
 export const organizationMemberships = app.table('organization_memberships', {
@@ -176,6 +187,11 @@ export const events = app.table('events', {
   correlationId: uuid('correlation_id').notNull(),
   causationId: uuid('causation_id'),
   createdAt: ts('created_at').notNull().defaultNow(),
+  /**
+   * Milestone 10: when the change was really made (the phone's moment, corrected for its clock, never later than
+   * now). Defaults to the event's own time; null on events recorded before 0054, which happened at created_at.
+   */
+  occurredAt: ts('occurred_at').defaultNow(),
 });
 
 export const outbox = app.table('outbox', {
@@ -254,6 +270,25 @@ const workspaceRef = () =>
     .notNull()
     .references(() => workspaces.id, { onDelete: 'cascade' });
 const userRef = (name: string) => uuid(name).references(() => users.id, { onDelete: 'set null' });
+/**
+ * Milestone 10 (0055): when each column last changed, by the moment the person made the change
+ * ({column: ISO time}). Written by the update commands in the same statement as the change; no trigger.
+ */
+const fieldTimes = () => jsonb('field_times').$type<Record<string, string>>().notNull().default({});
+/**
+ * Milestone 10 (0056): whether a row is inside a phone's window of recent history. Kept by triggers and the
+ * worker's nightly sweep (private.sync_window_sweep); nobody writes it by hand, and writing it isn't an edit.
+ */
+const syncWindow = () => boolean('sync_window').notNull().default(true);
+/**
+ * Milestone 10 (0056): the members who may see this money (the lead's assignee, or active staff on the booking),
+ * kept by triggers so a member's phone syncs exactly what RLS lets them read.
+ */
+const memberViewerIds = () =>
+  uuid('member_viewer_ids')
+    .array()
+    .notNull()
+    .default(sql`'{}'`);
 const addressColumns = () => ({
   addressLine1: text('address_line1'),
   addressLine2: text('address_line2'),
@@ -341,6 +376,12 @@ export const companies = app.table('companies', {
   searchText: text('search_text').generatedAlwaysAs(
     sql`lower(coalesce(name, '') || ' ' || coalesce(email::text, '') || ' ' || coalesce(phone_e164, '') || ' ' || coalesce(city, '') || ' ' || coalesce(address_line1, ''))`,
   ),
+  // Milestone 10
+  fieldTimes: fieldTimes(),
+  /** A company made with no signal that looked like this one (0059): "Possible duplicate of …". */
+  possibleDuplicateOf: uuid('possible_duplicate_of').references((): AnyPgColumn => companies.id, {
+    onDelete: 'set null',
+  }),
 });
 
 /** Milestone 3: whether a person agreed to texts (declared here because `people` uses it). */
@@ -373,6 +414,12 @@ export const people = app.table('people', {
   smsConsent: smsConsent('sms_consent').notNull().default('unknown'),
   smsConsentAt: ts('sms_consent_at'),
   smsConsentSource: text('sms_consent_source'),
+  // Milestone 10
+  fieldTimes: fieldTimes(),
+  /** A customer made with no signal that looked like this one (0059): "Possible duplicate of …". */
+  possibleDuplicateOf: uuid('possible_duplicate_of').references((): AnyPgColumn => people.id, {
+    onDelete: 'set null',
+  }),
 });
 
 export const tags = app.table('tags', {
@@ -435,6 +482,8 @@ export const leads = app.table('leads', {
   lastContactAt: ts('last_contact_at'),
   /** The business's first reach-out once the lead existed; set once. */
   firstResponseAt: ts('first_response_at'),
+  // Milestone 10
+  fieldTimes: fieldTimes(),
 });
 
 export const tasks = app.table('tasks', {
@@ -452,6 +501,8 @@ export const tasks = app.table('tasks', {
   doneBy: userRef('done_by'),
   createdBy: userRef('created_by'),
   ...timestamps(),
+  // Milestone 10
+  fieldTimes: fieldTimes(),
 });
 
 export const activities = app.table('activities', {
@@ -471,6 +522,8 @@ export const activities = app.table('activities', {
     .references(() => events.id, { onDelete: 'restrict' }),
   meta: jsonb('meta').$type<Json>().notNull().default({}),
   ...timestamps(),
+  // Milestone 10
+  syncWindow: syncWindow(),
 });
 
 export const files = app.table('files', {
@@ -545,7 +598,8 @@ export const callStatus = app.enum('call_status', [
   'failed',
   'canceled',
 ]);
-export const callAnsweredVia = app.enum('call_answered_via', ['browser', 'forwarding']);
+/** bridge (Milestone 10): placed through the person's own cell, which HandsFreeOS rang first. */
+export const callAnsweredVia = app.enum('call_answered_via', ['browser', 'forwarding', 'bridge']);
 export const optOutSource = app.enum('opt_out_source', ['keyword', 'manual', 'carrier_error']);
 export const deliveryStatus = app.enum('delivery_status', ['pending', 'done', 'failed', 'ignored']);
 export const jobStatus = app.enum('job_status', ['pending', 'done', 'failed', 'cancelled']);
@@ -795,6 +849,8 @@ export const messages = app.table('messages', {
     onDelete: 'set null',
   }),
   approvedBy: userRef('approved_by'),
+  // Milestone 10
+  syncWindow: syncWindow(),
 });
 
 export const calls = app.table('calls', {
@@ -828,6 +884,8 @@ export const calls = app.table('calls', {
   transcriptStatus: text('transcript_status'),
   activityId: uuid('activity_id').references(() => activities.id, { onDelete: 'set null' }),
   ...timestamps(),
+  // Milestone 10
+  syncWindow: syncWindow(),
 });
 
 export const optOuts = app.table('opt_outs', {
@@ -1468,6 +1526,9 @@ export const appointments = app.table('appointments', {
   clientId: text('client_id'),
   createdBy: userRef('created_by'),
   ...timestamps(),
+  // Milestone 10
+  fieldTimes: fieldTimes(),
+  syncWindow: syncWindow(),
 });
 
 /** Staff on an appointment; `during`, `blocked` and `active` follow the appointment (trigger). */
@@ -1484,6 +1545,8 @@ export const appointmentStaff = app.table(
     blocked: emptyRange('blocked'),
     active: boolean('active').notNull().default(true),
     createdAt: ts('created_at').notNull().defaultNow(),
+    // Milestone 10: the appointment's, copied by trigger.
+    syncWindow: syncWindow(),
   },
   (t) => [primaryKey({ columns: [t.appointmentId, t.userId] })],
 );
@@ -1543,6 +1606,8 @@ export const appointmentAttendees = app.table('appointment_attendees', {
   confirmedBy: userRef('confirmed_by'),
   /** When HandsFreeOS last asked; the worker's. */
   confirmAskedAt: ts('confirm_asked_at'),
+  // Milestone 10: the appointment's, copied by trigger.
+  syncWindow: syncWindow(),
 });
 
 export const waitlistEntries = app.table('waitlist_entries', {
@@ -2598,6 +2663,9 @@ export const estimates = app.table('estimates', {
   voidReason: text('void_reason'),
   createdBy: userRef('created_by'),
   ...timestamps(),
+  // Milestone 10
+  syncWindow: syncWindow(),
+  memberViewerIds: memberViewerIds(),
 });
 
 /** What a product said at the moment it was added: repricing the catalogue never reprices a document. */
@@ -2621,6 +2689,9 @@ export const estimateLines = app.table('estimate_lines', {
   discountCents: cents('discount_cents').notNull().default(0),
   amountCents: cents('amount_cents').notNull().default(0),
   ...timestamps(),
+  // Milestone 10: the estimate's, copied by trigger.
+  syncWindow: syncWindow(),
+  memberViewerIds: memberViewerIds(),
 });
 
 /**
@@ -2687,6 +2758,9 @@ export const invoices = app.table('invoices', {
   voidReason: text('void_reason'),
   createdBy: userRef('created_by'),
   ...timestamps(),
+  // Milestone 10
+  syncWindow: syncWindow(),
+  memberViewerIds: memberViewerIds(),
 });
 
 export const invoiceLines = app.table('invoice_lines', {
@@ -2708,6 +2782,9 @@ export const invoiceLines = app.table('invoice_lines', {
   discountCents: cents('discount_cents').notNull().default(0),
   amountCents: cents('amount_cents').notNull().default(0),
   ...timestamps(),
+  // Milestone 10: the invoice's, copied by trigger.
+  syncWindow: syncWindow(),
+  memberViewerIds: memberViewerIds(),
 });
 
 /**
@@ -2780,6 +2857,9 @@ export const payments = app.table('payments', {
   /** Written before the provider is called; a unique index behind it makes charging twice impossible. */
   idempotencyKey: text('idempotency_key'),
   ...timestamps(),
+  // Milestone 10: the invoice's, copied by trigger.
+  syncWindow: syncWindow(),
+  memberViewerIds: memberViewerIds(),
 });
 
 export const refunds = app.table('refunds', {
@@ -2806,6 +2886,9 @@ export const refunds = app.table('refunds', {
   requestedBy: userRef('requested_by'),
   idempotencyKey: text('idempotency_key'),
   ...timestamps(),
+  // Milestone 10: the invoice's, copied by trigger.
+  syncWindow: syncWindow(),
+  memberViewerIds: memberViewerIds(),
 });
 
 /** Our mirror of a plan billing at the provider. 'unmanaged' is one whose account was disconnected. */
@@ -2857,7 +2940,100 @@ export const subscriptions = app.table('subscriptions', {
   ...timestamps(),
 });
 
+// ---------- Milestone 10: the phone ----------
+export const commandOutcome = app.enum('command_outcome', ['applied', 'refused']);
+export type CommandOutcome = (typeof commandOutcome.enumValues)[number];
+
+/**
+ * A command the phone sent, claimed by its id as the first statement of its transaction so a repeat gets the first
+ * answer back (0054). Unique per person and command id. The answer is stored at the end of the same transaction (a
+ * constraint trigger refuses to commit one without it), or with a final refusal in a short transaction of its own.
+ * Only the person reads their receipts; a daily job removes those older than 90 days.
+ */
+export const commandReceipts = app.table('command_receipts', {
+  id: id(),
+  userId: uuid('user_id')
+    .notNull()
+    .references(() => users.id, { onDelete: 'cascade' }),
+  /** The id the person's device gave the command. */
+  commandId: uuid('command_id').notNull(),
+  /** Null for a command about the person's own account. */
+  workspaceId: uuid('workspace_id').references(() => workspaces.id, { onDelete: 'cascade' }),
+  /** The command's name, e.g. "person.update". */
+  command: text('command').notNull(),
+  /** A hash of the input: the same id with a different input is refused. */
+  inputHash: text('input_hash').notNull(),
+  outcome: commandOutcome('outcome').notNull(),
+  /** The command's output, or the refusal's body. */
+  answer: jsonb('answer').$type<unknown>(),
+  /** When the person made the change, corrected for their phone's clock. */
+  occurredAt: ts('occurred_at').notNull(),
+  receivedAt: ts('received_at').notNull().defaultNow(),
+});
+
+/**
+ * Each person's effective role in each business they can open, agency roles flattened in (0056): exactly
+ * private.effective_workspace_role(). Kept by triggers on the memberships; the gate every business sync stream
+ * checks. People read their own rows.
+ */
+export const workspaceAccess = app.table(
+  'workspace_access',
+  {
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    workspaceId: workspaceRef(),
+    role: memberRole('role').notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.userId, t.workspaceId] })],
+);
+
+export const pushPlatform = app.enum('push_platform', ['ios', 'android']);
+export type PushPlatform = (typeof pushPlatform.enumValues)[number];
+
+/**
+ * One app install a person signed in on (0058). A token is live for one person at a time: signing in as someone else
+ * takes it over (private.release_push_token). People turn their own off as 'person' or 'signed_out'; the worker
+ * turns off the ones Expo says are gone ('not_registered'). Turned off, never deleted.
+ */
+export const pushDevices = app.table('push_devices', {
+  id: id(),
+  userId: uuid('user_id')
+    .notNull()
+    .references(() => users.id, { onDelete: 'cascade' }),
+  platform: pushPlatform('platform').notNull(),
+  /** ExponentPushToken[…]. */
+  expoPushToken: text('expo_push_token').notNull(),
+  appVersion: text('app_version').notNull(),
+  deviceName: text('device_name'),
+  lastSeenAt: ts('last_seen_at').notNull().defaultNow(),
+  disabledAt: ts('disabled_at'),
+  /** person, signed_out, not_registered, replaced. */
+  disabledReason: text('disabled_reason'),
+  ...timestamps(),
+});
+
+/**
+ * A person's own cell (0059), which "Call" rings to connect them to a customer. HandsFreeOS verifies it with a call;
+ * the verification columns are the worker's. One verified cell per person.
+ */
+export const userPhones = app.table('user_phones', {
+  id: id(),
+  userId: uuid('user_id')
+    .notNull()
+    .references(() => users.id, { onDelete: 'cascade' }),
+  e164: text('e164').notNull(),
+  verifiedAt: ts('verified_at'),
+  verificationCount: integer('verification_count').notNull().default(0),
+  lastVerificationAt: ts('last_verification_at'),
+  ...timestamps(),
+});
+
 export const tables = {
+  commandReceipts,
+  workspaceAccess,
+  pushDevices,
+  userPhones,
   products,
   plans,
   documentCounters,

@@ -1,0 +1,116 @@
+# What each phone keeps, as PowerSync Sync Streams (edition 3). apps/sync/README.md walks through it table by table.
+#
+# Rules this file keeps (packages/db/test/sync-secrets.test.ts checks the first three):
+#   - Every query names its columns, from tables in the `powersync` publication only (migration 0057).
+#   - No generated column is ever selected (search_text, balance_cents): Postgres 17 doesn't replicate them, so
+#     after any update they would arrive empty. The phone works them out instead.
+#   - None of the identifiers a phone never needs is selected (reply tokens, provider ids and card tokens,
+#     idempotency keys, customer-link references).
+#   - The same table always selects the same columns in every query, or a row synced by two streams would lose
+#     the columns one of them leaves out. (A person's own profile is `my_profile` for that reason.)
+#   - Who sees what comes only from rows the database keeps equal to RLS (migration 0056): workspace_access,
+#     member_viewer_ids, sync_window, and the users' membership lists. The parity tests hold them to RLS.
+#   - Stream names carry a version. A change to what a stream sends is a new version beside the old one, so
+#     phones on old builds keep working; and every edit to this file, even a comment, makes PowerSync copy
+#     everything again, so changes are batched.
+#
+# Buckets (one person): me_v1 1 + business_v1 1 per business kept offline (+1 more where they manage money) +
+# agency_v1 1 per agency they belong to. Parameter results: 1 per business kept offline (2 where they manage money)
+# + 1 per agency. An agency owner keeping 12 businesses offline: 26 buckets, 25 results.
+
+config:
+  edition: 3
+
+streams:
+  # Everything that is the person's own: where they work and as what, their profile, what became of the commands
+  # their phone sent, their devices and cells — and the money of the jobs they're on, where they are a member.
+  me_v1:
+    auto_subscribe: true
+    queries:
+      - SELECT user_id || ':' || workspace_id AS id, user_id, workspace_id, role FROM app.workspace_access WHERE user_id = auth.user_id()
+      - SELECT id, email, full_name, avatar_url, settings, deleted_at, created_at, updated_at FROM app.users AS my_profile WHERE id = auth.user_id()
+      - SELECT id, command_id, workspace_id, command, outcome, answer, occurred_at, received_at FROM app.command_receipts WHERE user_id = auth.user_id()
+      - SELECT id, platform, app_version, device_name, last_seen_at, disabled_at, disabled_reason, created_at, updated_at FROM app.push_devices WHERE user_id = auth.user_id()
+      - SELECT id, e164, verified_at, verification_count, last_verification_at, created_at, updated_at FROM app.user_phones WHERE user_id = auth.user_id()
+      # Members' money: the trigger-kept list of members who may see each document (0056).
+      - SELECT id, workspace_id, number, status, person_id, lead_id, assignee_user_id, title, notes, subtotal_cents, discount_cents, discount_percent_bp, taxable_base_cents, tax_cents, total_cents, tax_rate_bp, tax_label, currency, deposit_percent_bp, deposit_cents, expires_on, sent_at, first_viewed_at, last_viewed_at, accepted_at, accepted_via, accepted_by, accepted_name, declined_at, declined_reason, voided_at, voided_by, void_reason, created_by, created_at, updated_at FROM app.estimates WHERE auth.user_id() IN member_viewer_ids AND sync_window = true
+      - SELECT id, workspace_id, estimate_id, position, product_id, name, description, quantity, unit_label, unit_price_cents, taxable, discount_cents, amount_cents, created_at, updated_at FROM app.estimate_lines WHERE auth.user_id() IN member_viewer_ids AND sync_window = true
+      - SELECT id, workspace_id, number, status, person_id, lead_id, assignee_user_id, title, notes, estimate_id, attendee_id, subscription_id, purpose, origin, subtotal_cents, discount_cents, discount_percent_bp, taxable_base_cents, tax_cents, total_cents, tax_rate_bp, tax_label, currency, due_on, terms, amount_paid_cents, amount_refunded_cents, sent_at, first_viewed_at, last_viewed_at, paid_at, voided_at, voided_by, void_reason, created_by, created_at, updated_at FROM app.invoices WHERE auth.user_id() IN member_viewer_ids AND sync_window = true
+      - SELECT id, workspace_id, invoice_id, position, product_id, name, description, quantity, unit_label, unit_price_cents, taxable, discount_cents, amount_cents, created_at, updated_at FROM app.invoice_lines WHERE auth.user_id() IN member_viewer_ids AND sync_window = true
+      - SELECT id, workspace_id, invoice_id, amount_cents, currency, method, provider, status, failure_code, fee_cents, net_cents, received_at, card_brand, card_last4, recorded_by, created_at, updated_at FROM app.payments WHERE auth.user_id() IN member_viewer_ids AND sync_window = true
+      - SELECT id, workspace_id, payment_id, invoice_id, amount_cents, currency, reason, provider, status, failure_code, refunded_at, requested_by, created_at, updated_at FROM app.refunds WHERE auth.user_id() IN member_viewer_ids AND sync_window = true
+
+  # One business kept offline: the app subscribes with {workspace_id} for each (the last one opened by default).
+  # `access` is the person's own workspace_access row for that business, so a business they can't open gives
+  # nothing, and each subscription looks up one row. `managed` is the same row when their role manages money.
+  business_v1:
+    with:
+      access: SELECT workspace_id FROM app.workspace_access WHERE user_id = auth.user_id() AND workspace_id = subscription.parameter('workspace_id')
+      managed: SELECT workspace_id FROM app.workspace_access WHERE user_id = auth.user_id() AND workspace_id = subscription.parameter('workspace_id') AND role != 'member'
+    queries:
+      # The business, its team (direct members: whom everyone in the business may see) and their names.
+      - SELECT id, organization_id, name, slug, timezone, industry, settings, created_at, updated_at FROM app.workspaces WHERE id IN access
+      - SELECT id, workspace_id, user_id, role, team_id, location_id, created_at, updated_at FROM app.workspace_memberships WHERE workspace_id IN access
+      - SELECT users.id, users.email, users.full_name, users.avatar_url FROM app.users INNER JOIN json_each(users.member_workspace_ids) AS member_of INNER JOIN access ON member_of.value = access.workspace_id
+      # Pipelines and tags.
+      - SELECT id, workspace_id, name, position, archived_at, created_at, updated_at FROM app.pipelines WHERE workspace_id IN access
+      - SELECT id, workspace_id, pipeline_id, name, kind, position, created_at, updated_at FROM app.pipeline_stages WHERE workspace_id IN access
+      - SELECT id, workspace_id, name, color, created_at, updated_at FROM app.tags WHERE workspace_id IN access
+      - SELECT tag_id || ':' || record_type || ':' || record_id AS id, workspace_id, tag_id, record_type, record_id, created_by, created_at FROM app.record_tags WHERE workspace_id IN access
+      # Every customer, company, lead and task.
+      - SELECT id, workspace_id, company_id, first_name, last_name, email, phone, phone_e164, phone_alt, address_line1, address_line2, city, state, postal_code, country, notes, source, owner_user_id, archived_at, sms_consent, sms_consent_at, sms_consent_source, possible_duplicate_of, field_times, created_by, created_at, updated_at FROM app.people WHERE workspace_id IN access
+      - SELECT id, workspace_id, name, email, phone, phone_e164, website, address_line1, address_line2, city, state, postal_code, country, notes, source, owner_user_id, archived_at, possible_duplicate_of, field_times, created_by, created_at, updated_at FROM app.companies WHERE workspace_id IN access
+      - SELECT id, workspace_id, pipeline_id, stage_id, person_id, company_id, title, value_cents, source, assignee_user_id, expected_close_on, next_action, next_action_at, status, won_at, lost_at, lost_reason, position, stage_entered_at, archived_at, qualification, last_contact_at, first_response_at, field_times, created_by, created_at, updated_at FROM app.leads WHERE workspace_id IN access
+      - SELECT id, workspace_id, title, notes, due_at, all_day, assignee_user_id, person_id, company_id, lead_id, done_at, done_by, field_times, created_by, created_at, updated_at FROM app.tasks WHERE workspace_id IN access
+      # The timeline from the last 12 months, and files (their details; the file itself is downloaded when opened).
+      - SELECT id, workspace_id, kind, subtype, person_id, company_id, lead_id, body, occurred_at, author_user_id, actor_type, meta, created_at, updated_at FROM app.activities WHERE workspace_id IN access AND sync_window = true
+      - SELECT id, workspace_id, record_type, record_id, bucket, object_path, name, mime_type, size_bytes, status, created_by, created_at, updated_at FROM app.files WHERE workspace_id IN access AND deleted_at IS NULL AND record_type != 'knowledge'
+      # Conversations, and their messages and calls from the last 12 months (all of an open conversation's).
+      - SELECT id, workspace_id, channel, counterpart, phone_number_id, email_address_id, person_id, status, assignee_user_id, snoozed_until, unread_count, last_message_at, last_inbound_at, last_outbound_at, last_preview, last_direction, awaiting_reply_since, closed_at, closed_by, handled_by, ai_teammate_id, needs_person_since, handoff_reason, handoff_note, taken_over_by, ai_disclosed_at, created_by, created_at, updated_at FROM app.conversations WHERE workspace_id IN access
+      - SELECT id, workspace_id, conversation_id, channel, direction, status, from_address, to_addresses, cc_addresses, subject, body_text, media, segments, error_code, error_message, sent_by, sent_by_teammate_id, approved_by, client_id, email_address_id, occurred_at, sent_at, delivered_at, created_at, updated_at FROM app.messages WHERE workspace_id IN access AND sync_window = true
+      - SELECT id, workspace_id, conversation_id, phone_number_id, person_id, direction, from_e164, to_e164, status, answered_via, answered_by_user_id, answered_number, placed_by, started_at, answered_at, ended_at, duration_seconds, is_voicemail, recording_seconds, transcript, transcript_status, created_at, updated_at FROM app.calls WHERE workspace_id IN access AND sync_window = true
+      # Who may be texted or emailed, and from which number and address.
+      - SELECT id, workspace_id, counterpart_e164, opted_out, source, opted_out_at, opted_in_at, created_at, updated_at FROM app.opt_outs WHERE workspace_id IN access
+      - SELECT id, workspace_id, address, reason, created_at, updated_at FROM app.email_suppressions WHERE workspace_id IN access AND released_at IS NULL
+      - SELECT id, workspace_id, e164, number_type, label, capabilities, status, created_at, updated_at FROM app.phone_numbers WHERE workspace_id IN access AND status != 'released'
+      - SELECT id, workspace_id, email_domain_id, local_part, address, display_name, is_default, verified_at, created_at, updated_at FROM app.email_addresses WHERE workspace_id IN access
+      # Home: what needs attention (the phone ranks it with core's scoring), the AI teammate, and what waits for an OK.
+      - SELECT id, workspace_id, kind, subject_type, subject_id, person_id, lead_id, conversation_id, state, opened_at, since_at, urgent_from, due_at, value_cents, value_is_estimate, money_key, probability, confidence, reasons, title, detail, assignee_user_id, snoozed_until, snoozed_at, snoozed_by, dismissed_at, dismissed_by, dismiss_reason, handled_at, handled_by, handled_via, handled_until, auto_state, auto_scheduled_for, auto_done_at, auto_skip_reason, auto_cancelled_by, created_at, updated_at FROM app.attention_items WHERE workspace_id IN access AND state != 'resolved'
+      - SELECT id, workspace_id, name, status, archived_at, created_at, updated_at FROM app.ai_teammates WHERE workspace_id IN access
+      - SELECT id, workspace_id, teammate_id, conversation_id, person_id, lead_id, kind, status, preview, edits, expires_at, client_id, created_at, updated_at FROM app.ai_teammate_drafts WHERE workspace_id IN access AND status = 'pending'
+      - SELECT id, workspace_id, workflow_id, run_id, step_key, status, approvers, preview, edits, expires_at, created_at, updated_at FROM app.workflow_approvals WHERE workspace_id IN access AND status = 'pending'
+      # The calendar: calendars and who is on them, services and who does them, hours, time off and busy times.
+      - SELECT id, workspace_id, name, description, color, slug, status, public, config, config_version, revision, labels, owner_user_id, timezone, created_at, updated_at FROM app.calendars WHERE workspace_id IN access
+      - SELECT calendar_id || ':' || user_id AS id, workspace_id, calendar_id, user_id, weight, priority, required, created_at FROM app.calendar_members WHERE workspace_id IN access
+      - SELECT calendar_id || ':' || service_id AS id, workspace_id, calendar_id, service_id, position, overrides, created_at FROM app.calendar_services WHERE workspace_id IN access
+      - SELECT id, workspace_id, user_id, starts_at, ends_at, created_at FROM app.calendar_busy_blocks WHERE workspace_id IN access
+      - SELECT id, workspace_id, name, description, durations, default_duration, buffer_before, buffer_after, color, price_cents, location_kinds, archived_at, created_at, updated_at FROM app.services WHERE workspace_id IN access
+      - SELECT service_id || ':' || user_id AS id, workspace_id, service_id, user_id, created_at FROM app.service_staff WHERE workspace_id IN access
+      - SELECT id, workspace_id, owner_kind, owner_id, timezone, weekly, created_at, updated_at FROM app.schedules WHERE workspace_id IN access
+      - SELECT id, workspace_id, schedule_id, kind, starts_at, ends_at, all_day, note, created_at, updated_at FROM app.schedule_exceptions WHERE workspace_id IN access
+      # Appointments from 90 days back, with who comes and who works them.
+      - SELECT id, workspace_id, calendar_id, calendar_revision, service_id, kind, title, starts_at, ends_at, buffer_before, buffer_after, capacity, seats_taken, status, location, series_id, occurrence, owner_user_id, lead_id, source, notes, client_id, field_times, created_by, created_at, updated_at FROM app.appointments WHERE workspace_id IN access AND sync_window = true
+      - SELECT id, workspace_id, appointment_id, person_id, status, seats, intake, contact_phone_e164, contact_email, sms_ok, source, reschedule_count, cancelled_at, confirmed_at, confirmed_via, confirmed_by, confirm_asked_at, created_by, created_at, updated_at FROM app.appointment_attendees WHERE workspace_id IN access AND sync_window = true
+      - SELECT appointment_id || ':' || user_id AS id, workspace_id, appointment_id, user_id, role, active, created_at FROM app.appointment_staff WHERE workspace_id IN access AND sync_window = true
+      # The catalogue.
+      - SELECT id, workspace_id, name, description, sku, kind, unit_price_cents, unit_label, taxable, service_id, archived_at, created_at, updated_at FROM app.products WHERE workspace_id IN access
+      - SELECT id, workspace_id, name, description, price_cents, "interval", interval_count, taxable, includes, archived_at, created_at, updated_at FROM app.plans WHERE workspace_id IN access
+      # Money for owners and admins: open documents, and closed ones from the last 12 months; plans that bill.
+      - SELECT id, workspace_id, number, status, person_id, lead_id, assignee_user_id, title, notes, subtotal_cents, discount_cents, discount_percent_bp, taxable_base_cents, tax_cents, total_cents, tax_rate_bp, tax_label, currency, deposit_percent_bp, deposit_cents, expires_on, sent_at, first_viewed_at, last_viewed_at, accepted_at, accepted_via, accepted_by, accepted_name, declined_at, declined_reason, voided_at, voided_by, void_reason, created_by, created_at, updated_at FROM app.estimates WHERE workspace_id IN managed AND sync_window = true
+      - SELECT id, workspace_id, estimate_id, position, product_id, name, description, quantity, unit_label, unit_price_cents, taxable, discount_cents, amount_cents, created_at, updated_at FROM app.estimate_lines WHERE workspace_id IN managed AND sync_window = true
+      - SELECT id, workspace_id, number, status, person_id, lead_id, assignee_user_id, title, notes, estimate_id, attendee_id, subscription_id, purpose, origin, subtotal_cents, discount_cents, discount_percent_bp, taxable_base_cents, tax_cents, total_cents, tax_rate_bp, tax_label, currency, due_on, terms, amount_paid_cents, amount_refunded_cents, sent_at, first_viewed_at, last_viewed_at, paid_at, voided_at, voided_by, void_reason, created_by, created_at, updated_at FROM app.invoices WHERE workspace_id IN managed AND sync_window = true
+      - SELECT id, workspace_id, invoice_id, position, product_id, name, description, quantity, unit_label, unit_price_cents, taxable, discount_cents, amount_cents, created_at, updated_at FROM app.invoice_lines WHERE workspace_id IN managed AND sync_window = true
+      - SELECT id, workspace_id, invoice_id, amount_cents, currency, method, provider, status, failure_code, fee_cents, net_cents, received_at, card_brand, card_last4, recorded_by, created_at, updated_at FROM app.payments WHERE workspace_id IN managed AND sync_window = true
+      - SELECT id, workspace_id, payment_id, invoice_id, amount_cents, currency, reason, provider, status, failure_code, refunded_at, requested_by, created_at, updated_at FROM app.refunds WHERE workspace_id IN managed AND sync_window = true
+      - SELECT id, workspace_id, plan_id, plan_name, price_cents, currency, "interval", interval_count, taxable, includes, person_id, lead_id, provider, status, started_on, current_period_start, current_period_end, next_billing_on, paused_at, cancelled_at, cancel_reason, ended_on, failed_cycles, last_error, card_brand, card_last4, card_expiry_month, card_expiry_year, card_requested_at, created_by, created_at, updated_at FROM app.subscriptions WHERE workspace_id IN managed
+
+  # The agencies a person belongs to: the agency, its people and their roles and names (whom only the agency's own
+  # people may see). Nothing for someone who belongs to none.
+  agency_v1:
+    auto_subscribe: true
+    with:
+      my_agencies: SELECT organization_id FROM app.organization_memberships WHERE user_id = auth.user_id()
+    queries:
+      - SELECT id, name, slug, created_at, updated_at FROM app.organizations WHERE id IN my_agencies
+      - SELECT id, organization_id, user_id, role, created_at, updated_at FROM app.organization_memberships WHERE organization_id IN my_agencies
+      - SELECT users.id, users.email, users.full_name, users.avatar_url FROM app.users INNER JOIN json_each(users.member_organization_ids) AS member_of INNER JOIN my_agencies ON member_of.value = my_agencies.organization_id

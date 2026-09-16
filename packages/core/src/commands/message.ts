@@ -22,6 +22,7 @@ import { logChannelActivity } from '../crm/activities';
 import { formatPhone } from '../crm/phone';
 import { fullName, requirePerson } from '../crm/records';
 import { HfosError } from '../errors';
+import { FRESH_MINUTES } from '../mobile';
 import { aiEmployeeOf } from '../kernel/actor';
 import { defineCommand } from '../kernel/define';
 import type { AiEmployeeActor, CommandContext } from '../kernel/types';
@@ -670,6 +671,7 @@ export const messageSend = defineCommand({
   scope: inWorkspace,
   emits: ['message.queued', 'message.sent', 'conversation.created', 'conversation.taken_over'],
   actors: ['human', 'system', 'workflow', 'ai_employee'],
+  offline: { freshMinutes: FRESH_MINUTES },
   async handler(ctx, input) {
     // Only HandsFreeOS's own messages (the system's, a workflow's) may leave the conversation as it was.
     if (input.keepConversationStatus && ctx.actor.type === 'human')

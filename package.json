@@ -24,6 +24,8 @@
     "supabase:status": "node scripts/supabase.mjs status",
     "db:seed": "pnpm --filter @hfos/worker seed",
     "db:reset": "node scripts/supabase.mjs db reset && pnpm db:seed",
+    "sync:start": "bash apps/sync/scripts/start.sh",
+    "sync:stop": "bash apps/sync/scripts/stop.sh",
     "openapi": "pnpm --filter @hfos/api openapi:export && pnpm --filter @hfos/api-client generate"
   },
   "devDependencies": {

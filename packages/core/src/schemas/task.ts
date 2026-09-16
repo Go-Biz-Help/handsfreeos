@@ -1,12 +1,14 @@
 import { z } from 'zod';
 import { isoDateTime, uuid } from './common';
-import { CompanyRef, ListInput, PersonRef, UserRef } from './crm';
+import { CompanyRef, ListInput, notApplied, PersonRef, seenId, seenText, UserRef } from './crm';
 
 const title = z.string().trim().min(1, 'Enter a task.').max(200);
 const taskNotes = z.string().trim().max(5000).nullable().optional();
 
 export const TaskCreateInput = z.object({
   workspaceId: uuid,
+  /** The id the phone made for it (M10). */
+  id: uuid.optional(),
   title,
   notes: taskNotes,
   dueAt: isoDateTime.nullable().optional(),
@@ -17,6 +19,18 @@ export const TaskCreateInput = z.object({
   leadId: uuid.nullable().optional(),
 });
 export const TaskCreateOutput = z.object({ taskId: uuid });
+/** What the person saw of each detail they edited (see kernel/field-merge). */
+export const TaskSeen = z.object({
+  title: seenText,
+  notes: seenText,
+  dueAt: seenText,
+  allDay: z.boolean().optional(),
+  assigneeUserId: seenId,
+  personId: seenId,
+  companyId: seenId,
+  leadId: seenId,
+});
+/** Only the details that were edited, each merged on its own: newest wins. */
 export const TaskUpdateInput = z.object({
   workspaceId: uuid,
   taskId: uuid,
@@ -28,8 +42,13 @@ export const TaskUpdateInput = z.object({
   personId: uuid.nullable().optional(),
   companyId: uuid.nullable().optional(),
   leadId: uuid.nullable().optional(),
+  base: TaskSeen.optional(),
 });
-export const TaskUpdateOutput = z.object({ taskId: uuid, updated: z.array(z.string()) });
+export const TaskUpdateOutput = z.object({
+  taskId: uuid,
+  updated: z.array(z.string()),
+  notApplied,
+});
 export const TaskCompleteInput = z.object({ workspaceId: uuid, taskId: uuid });
 export const TaskCompleteOutput = z.object({ taskId: uuid, doneAt: isoDateTime });
 export const TaskReopenInput = z.object({ workspaceId: uuid, taskId: uuid });

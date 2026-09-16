@@ -26,6 +26,8 @@ const VIA: Record<RequestChannel, string | null> = {
   workflow: 'via workflow',
   ai_employee: 'via AI teammate',
   chat_widget: 'via website chat',
+  // Someone working in the phone app is working in the app.
+  mobile: null,
 };
 
 /**
@@ -116,6 +118,10 @@ function describeAction(e: AuditEntry): string {
       return `deleted the tag ${s(e.before?.name)}`;
     case 'record.set_tags':
       return `set tags to ${list(e.after?.tags) || 'none'}`;
+    case 'record.add_tag':
+      return `added the tag ${list(tagsBetween(e.after?.tags, e.before?.tags)) || 'a tag'}`;
+    case 'record.remove_tag':
+      return `removed the tag ${list(tagsBetween(e.before?.tags, e.after?.tags)) || 'a tag'}`;
     case 'lead.create':
       return `created the lead ${title(e)} in ${s(e.after?.stage)}`;
     case 'lead.update': {
@@ -1203,6 +1209,11 @@ const fields = (e: AuditEntry) =>
     .filter((k) => k !== 'name')
     .join(', ') || 'details';
 const list = (v: unknown) => (Array.isArray(v) ? v.map(String).join(', ') : '');
+/** The tag names in one list and not the other (what a single add or remove changed). */
+const tagsBetween = (these: unknown, those: unknown): string[] => {
+  const other = new Set(Array.isArray(those) ? those.map(String) : []);
+  return Array.isArray(these) ? these.map(String).filter((t) => !other.has(t)) : [];
+};
 
 export type AuditCategory =
   | 'members'

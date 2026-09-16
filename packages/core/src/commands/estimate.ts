@@ -17,6 +17,7 @@ import { rows, sql } from '@hfos/db/client';
 import { estimates } from '@hfos/db/schema';
 import { requirePerson, workspaceTimezone } from '../crm/records';
 import { HfosError } from '../errors';
+import { FRESH_MINUTES } from '../mobile';
 import { requireHuman } from '../kernel/actor';
 import { defineCommand } from '../kernel/define';
 import { executeCommandWithin } from '../kernel/execute';
@@ -44,6 +45,7 @@ import {
   allocateDocumentNumber,
   assertDraft,
   assertRevision,
+  presentOnly,
   businessToday,
   depositColumns,
   depositOf,
@@ -193,7 +195,21 @@ export const estimateUpdate = defineCommand({
     const ws = ctx.scope.workspaceId!;
     const before = await requireEstimate(ctx, input.estimateId);
     assertDraft(before, 'estimate');
-    assertRevision(before, input.baseRevision);
+    assertRevision(before, input.baseRevision, {
+      command: 'estimate.create',
+      input: presentOnly({
+        workspaceId: input.workspaceId,
+        personId: input.personId,
+        leadId: input.leadId,
+        assigneeUserId: input.assigneeUserId,
+        title: input.title,
+        notes: input.notes,
+        lines: input.lines,
+        discount: input.discount,
+        deposit: input.deposit,
+        expiresOn: input.expiresOn,
+      }),
+    });
     if (input.personId !== before.person_id)
       throw HfosError.rule(
         'money_document_person',
@@ -243,6 +259,7 @@ export const estimateSend = defineCommand({
   permission: 'money.manage',
   scope: inWorkspace,
   emits: ['estimate.sent'],
+  offline: { freshMinutes: FRESH_MINUTES },
   async handler(ctx, input) {
     requireHuman(ctx);
     const ws = ctx.scope.workspaceId!;

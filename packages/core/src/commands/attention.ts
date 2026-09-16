@@ -29,9 +29,11 @@ import { attentionSettingsOf, type AttentionSettings } from '../attention/settin
 import { formatPhone } from '../crm/phone';
 import { userRef } from '../crm/records';
 import { HfosError } from '../errors';
+import { FRESH_MINUTES } from '../mobile';
 import { requireHuman } from '../kernel/actor';
 import { defineCommand } from '../kernel/define';
 import { executeCommandWithin } from '../kernel/execute';
+import { editMoment } from '../kernel/field-merge';
 import type { CommandContext } from '../kernel/types';
 import { workspaceAddresses } from '../messaging/email';
 import { isWorkspaceUser, liveNumber } from '../messaging/store';
@@ -191,19 +193,23 @@ export const attentionSnooze = defineCommand({
   permission: 'records.write',
   scope: inWorkspace,
   emits: ['attention.snoozed'],
+  offline: 'anytime',
   async handler(ctx, input) {
     const me = requireHuman(ctx).userId;
     const row = await loadItem(ctx, input.itemId);
     await assertMay(ctx, row, 'snooze');
     if (row.state !== 'open' && row.state !== 'snoozed') throw notOpen(row);
     const until = new Date(input.until);
-    const now = Date.now();
-    if (until.getTime() < now + MIN)
+    // Measured from when the person snoozed it ("Snooze 1 hour" pressed with no signal counts from the press).
+    const madeAt = editMoment(ctx.meta).getTime();
+    if (until.getTime() < madeAt + MIN)
       throw HfosError.validation([{ path: 'until', message: 'Pick a time in the future.' }]);
-    if (until.getTime() > now + SNOOZE_MAX_DAYS * DAY)
+    if (until.getTime() > madeAt + SNOOZE_MAX_DAYS * DAY)
       throw HfosError.validation([
         { path: 'until', message: `Snooze for ${SNOOZE_MAX_DAYS} days at most.` },
       ]);
+    // A snooze that ran out before it arrived has nothing left to do.
+    if (until.getTime() <= Date.now()) return stateOut(row, false);
     const out = await update(ctx, row, {
       state: 'snoozed',
       snoozedUntil: until,
@@ -241,6 +247,7 @@ export const attentionUnsnooze = defineCommand({
   scope: inWorkspace,
   emits: ['attention.unsnoozed'],
   actors: ['human', 'system'],
+  offline: 'anytime',
   async handler(ctx, input) {
     const row = await loadItem(ctx, input.itemId);
     await assertMay(ctx, row, 'snooze');
@@ -274,6 +281,7 @@ export const attentionDismiss = defineCommand({
   permission: 'records.write',
   scope: inWorkspace,
   emits: ['attention.dismissed'],
+  offline: 'anytime',
   async handler(ctx, input) {
     const me = requireHuman(ctx).userId;
     const row = await loadItem(ctx, input.itemId);
@@ -314,6 +322,7 @@ export const attentionRestore = defineCommand({
   permission: 'records.write',
   scope: inWorkspace,
   emits: ['attention.restored'],
+  offline: 'anytime',
   async handler(ctx, input) {
     requireHuman(ctx);
     const row = await loadItem(ctx, input.itemId);
@@ -351,6 +360,7 @@ export const attentionAssign = defineCommand({
   permission: 'records.write',
   scope: inWorkspace,
   emits: ['attention.assigned'],
+  offline: 'anytime',
   async handler(ctx, input) {
     requireHuman(ctx);
     const ws = ctx.scope.workspaceId!;
@@ -432,6 +442,7 @@ export const attentionLetHandle = defineCommand({
   permission: 'records.write',
   scope: inWorkspace,
   emits: ['attention.handle_requested', 'attention.handled'],
+  offline: { freshMinutes: FRESH_MINUTES },
   async handler(ctx, input) {
     const me = requireHuman(ctx).userId;
     const ws = ctx.scope.workspaceId!;
@@ -601,6 +612,7 @@ export const attentionCancelAuto = defineCommand({
   permission: 'records.write',
   scope: inWorkspace,
   emits: ['attention.auto_cancelled'],
+  offline: 'anytime',
   async handler(ctx, input) {
     const me = requireHuman(ctx).userId;
     const row = await loadItem(ctx, input.itemId);

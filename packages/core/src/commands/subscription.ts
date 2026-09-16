@@ -16,6 +16,7 @@ import { rows, sql } from '@hfos/db/client';
 import { plans, subscriptions } from '@hfos/db/schema';
 import { requirePerson } from '../crm/records';
 import { HfosError } from '../errors';
+import { FRESH_MINUTES } from '../mobile';
 import { requireHuman } from '../kernel/actor';
 import { defineCommand } from '../kernel/define';
 import type { CommandContext } from '../kernel/types';
@@ -255,6 +256,7 @@ export const subscriptionRequestCard = defineCommand({
   permission: 'money.manage',
   scope: inWorkspace,
   emits: ['subscription.card_requested'],
+  offline: { freshMinutes: FRESH_MINUTES },
   async handler(ctx, input) {
     requireHuman(ctx);
     const before = await requireSubscription(ctx, input.subscriptionId);

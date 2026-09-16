@@ -2,6 +2,7 @@ import { and, eq } from 'drizzle-orm';
 import { activities, leads } from '@hfos/db/schema';
 import { assertAiReach } from '../ai-team/reach';
 import { actorMeta } from '../crm/activities';
+import { insertWithId, madeBefore } from '../crm/client-ids';
 import { requireCompany, requirePerson } from '../crm/records';
 import { HfosError } from '../errors';
 import { userIdOf } from '../kernel/actor';
@@ -25,6 +26,7 @@ export const activityLog = defineCommand({
   scope: (i) => ({ kind: 'workspace', workspaceId: i.workspaceId }),
   emits: ['activity.logged'],
   actors: ['human', 'workflow', 'ai_employee'],
+  offline: 'anytime',
   async handler(ctx, input) {
     const workspaceId = ctx.scope.workspaceId!;
     // The AI teammate adds notes to its own customer's timeline, nothing else.
@@ -33,6 +35,8 @@ export const activityLog = defineCommand({
         throw HfosError.validation([{ path: 'kind', message: 'The AI teammate only adds notes.' }]);
       await assertAiReach(ctx, input);
     }
+    const earlier = await madeBefore(ctx.tx, 'activities', input.id, workspaceId);
+    if (earlier) return { activityId: earlier.id };
     if (input.personId) await requirePerson(ctx.tx, workspaceId, input.personId);
     if (input.companyId) await requireCompany(ctx.tx, workspaceId, input.companyId);
     if (input.leadId) {
@@ -42,21 +46,27 @@ export const activityLog = defineCommand({
         .where(and(eq(leads.id, input.leadId), eq(leads.workspaceId, workspaceId)));
       if (!lead) throw HfosError.notFound('Lead not found.');
     }
-    const [row] = await ctx.tx
-      .insert(activities)
-      .values({
-        workspaceId,
-        kind: input.kind,
-        body: input.body,
-        occurredAt: input.occurredAt ? new Date(input.occurredAt) : new Date(),
-        personId: input.personId ?? null,
-        companyId: input.companyId ?? null,
-        leadId: input.leadId ?? null,
-        authorUserId: userIdOf(ctx.actor),
-        actorType: ctx.actor.type,
-        meta: actorMeta(ctx.actor),
-      })
-      .returning({ id: activities.id });
+    const [row] = await insertWithId('activities', input.id, () =>
+      ctx.tx
+        .insert(activities)
+        .values({
+          ...(input.id ? { id: input.id } : {}),
+          workspaceId,
+          kind: input.kind,
+          body: input.body,
+          // A note taken on the phone happened when it was written, not when the phone found signal.
+          occurredAt: input.occurredAt
+            ? new Date(input.occurredAt)
+            : (ctx.meta.occurredAt ?? new Date()),
+          personId: input.personId ?? null,
+          companyId: input.companyId ?? null,
+          leadId: input.leadId ?? null,
+          authorUserId: userIdOf(ctx.actor),
+          actorType: ctx.actor.type,
+          meta: actorMeta(ctx.actor),
+        })
+        .returning({ id: activities.id }),
+    );
     if (!row) throw HfosError.forbidden();
     await ctx.emit({
       type: 'activity.logged',

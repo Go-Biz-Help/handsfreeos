@@ -68,7 +68,7 @@ export interface paths {
         put?: never;
         /**
          * Log a note, call or visit on a person, company or lead.
-         * @description Risk level 1. Requires records.write. Emits activity.logged.
+         * @description Risk level 1. Requires records.write. Emits activity.logged. Can wait on a phone with no signal.
          */
         post: operations["command_activity_log"];
         delete?: never;
@@ -128,7 +128,7 @@ export interface paths {
         put?: never;
         /**
          * Approve (optionally editing the message) or reject one of the AI teammate’s drafts, once. A reply draft counts toward training; an approved draft then goes out as the teammate with your name on it.
-         * @description Risk level 2. Requires inbox.use. Emits ai_teammate.draft_decided, ai_teammate.status_changed.
+         * @description Risk level 2. Requires inbox.use. Emits ai_teammate.draft_decided, ai_teammate.status_changed. Can wait on a phone for 30 minutes, then asks.
          */
         post: operations["command_ai_teammate_decide_draft"];
         delete?: never;
@@ -248,7 +248,7 @@ export interface paths {
         put?: never;
         /**
          * Cancel an appointment for everyone on it, optionally telling the customers.
-         * @description Risk level 2. Requires appointments.write. Emits appointment.cancelled, waitlist.seat_freed.
+         * @description Risk level 2. Requires appointments.write. Emits appointment.cancelled, waitlist.seat_freed. Can wait on a phone for 30 minutes, then asks.
          */
         post: operations["command_appointment_cancel"];
         delete?: never;
@@ -268,7 +268,7 @@ export interface paths {
         put?: never;
         /**
          * Book an appointment on a calendar. Staff hear warnings (buffers, outside hours, busy, time off, in the past) and may book anyway; a real overlap is never allowed.
-         * @description Risk level 2. Requires appointments.write. Emits appointment.booked.
+         * @description Risk level 2. Requires appointments.write. Emits appointment.booked. Can wait on a phone for 30 minutes, then asks.
          */
         post: operations["command_appointment_create"];
         delete?: never;
@@ -328,7 +328,7 @@ export interface paths {
         put?: never;
         /**
          * Move an appointment to a new time (and length), keeping who works it. Warnings can be acknowledged; an overlap can’t.
-         * @description Risk level 2. Requires appointments.write. Emits appointment.rescheduled.
+         * @description Risk level 2. Requires appointments.write. Emits appointment.rescheduled. Can wait on a phone for 30 minutes, then asks.
          */
         post: operations["command_appointment_reschedule"];
         delete?: never;
@@ -348,7 +348,7 @@ export interface paths {
         put?: never;
         /**
          * Mark an appointment done, or a no-show.
-         * @description Risk level 1. Requires appointments.write. Emits appointment.completed, appointment.no_show.
+         * @description Risk level 1. Requires appointments.write. Emits appointment.completed, appointment.no_show. Can wait on a phone with no signal.
          */
         post: operations["command_appointment_set_status"];
         delete?: never;
@@ -367,8 +367,8 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Change an appointment’s title, notes, location or lead.
-         * @description Risk level 1. Requires appointments.write. Emits appointment.updated.
+         * Change an appointment’s title, notes, location or lead: only what was edited, each with what the editor saw, and the newest change to each wins.
+         * @description Risk level 1. Requires appointments.write. Emits appointment.updated. Can wait on a phone with no signal.
          */
         post: operations["command_appointment_update"];
         delete?: never;
@@ -428,7 +428,7 @@ export interface paths {
         put?: never;
         /**
          * Mark a booking confirmed for the customer (they said so on the phone, say), or take back a confirmation someone on the team marked. A customer’s own confirmation stays.
-         * @description Risk level 1. Requires appointments.write. Emits attendee.confirmed, attendee.confirmation_removed.
+         * @description Risk level 1. Requires appointments.write. Emits attendee.confirmed, attendee.confirmation_removed. Can wait on a phone with no signal.
          */
         post: operations["command_attendee_confirm"];
         delete?: never;
@@ -448,7 +448,7 @@ export interface paths {
         put?: never;
         /**
          * Give an attention item to a teammate, or leave it for anyone. For a lead, a conversation or a task it changes who owns that record; an appointment’s or an approval’s item is assigned on its own.
-         * @description Risk level 1. Requires records.write. Emits attention.assigned.
+         * @description Risk level 1. Requires records.write. Emits attention.assigned. Can wait on a phone with no signal.
          */
         post: operations["command_attention_assign"];
         delete?: never;
@@ -468,7 +468,7 @@ export interface paths {
         put?: never;
         /**
          * Stop an automatic message (a confirmation request or a follow-up nudge) that is waiting to go out.
-         * @description Risk level 0. Requires records.write. Emits attention.auto_cancelled.
+         * @description Risk level 0. Requires records.write. Emits attention.auto_cancelled. Can wait on a phone with no signal.
          */
         post: operations["command_attention_cancel_auto"];
         delete?: never;
@@ -488,7 +488,7 @@ export interface paths {
         put?: never;
         /**
          * Say an attention item doesn’t need doing, with an optional reason. It comes back only if its facts change.
-         * @description Risk level 0. Requires records.write. Emits attention.dismissed.
+         * @description Risk level 0. Requires records.write. Emits attention.dismissed. Can wait on a phone with no signal.
          */
         post: operations["command_attention_dismiss"];
         delete?: never;
@@ -508,7 +508,7 @@ export interface paths {
         put?: never;
         /**
          * Let HandsFreeOS handle an attention item. A confirmation request or a follow-up nudge is queued (it goes after a short cancel window); for anything else, pick what to do (hand the conversation to the AI teammate, reply, or set the next action) and it’s done in your name.
-         * @description Risk level 2. Requires records.write. Emits attention.handle_requested, attention.handled.
+         * @description Risk level 2. Requires records.write. Emits attention.handle_requested, attention.handled. Can wait on a phone for 30 minutes, then asks.
          */
         post: operations["command_attention_let_handle"];
         delete?: never;
@@ -528,7 +528,7 @@ export interface paths {
         put?: never;
         /**
          * Undo a snooze or a dismissal: the item is open again.
-         * @description Risk level 0. Requires records.write. Emits attention.restored.
+         * @description Risk level 0. Requires records.write. Emits attention.restored. Can wait on a phone with no signal.
          */
         post: operations["command_attention_restore"];
         delete?: never;
@@ -568,7 +568,7 @@ export interface paths {
         put?: never;
         /**
          * Put an attention item out of sight until a time (up to 30 days). It comes back then, or sooner if its facts change.
-         * @description Risk level 0. Requires records.write. Emits attention.snoozed.
+         * @description Risk level 0. Requires records.write. Emits attention.snoozed. Can wait on a phone with no signal.
          */
         post: operations["command_attention_snooze"];
         delete?: never;
@@ -588,7 +588,7 @@ export interface paths {
         put?: never;
         /**
          * Bring a snoozed attention item back now. The worker runs it when a snooze runs out (and leaves one that was snoozed again for later).
-         * @description Risk level 0. Requires records.write. Emits attention.unsnoozed.
+         * @description Risk level 0. Requires records.write. Emits attention.unsnoozed. Can wait on a phone with no signal.
          */
         post: operations["command_attention_unsnooze"];
         delete?: never;
@@ -948,7 +948,7 @@ export interface paths {
         put?: never;
         /**
          * Archive a company. Refused while it has open leads or tasks unless forced, which archives the leads too.
-         * @description Risk level 3. Requires records.archive. Emits company.archived.
+         * @description Risk level 3. Requires records.archive. Emits company.archived. Can wait on a phone with no signal.
          */
         post: operations["command_company_archive"];
         delete?: never;
@@ -967,8 +967,8 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Add a company. Warns when one with the same email, phone or name already exists.
-         * @description Risk level 1. Requires records.write. Emits company.created.
+         * Add a company. Warns when one with the same email, phone or name already exists; from the phone, adds it anyway and flags the likely duplicate.
+         * @description Risk level 1. Requires records.write. Emits company.created. Can wait on a phone with no signal.
          */
         post: operations["command_company_create"];
         delete?: never;
@@ -988,7 +988,7 @@ export interface paths {
         put?: never;
         /**
          * Bring an archived company back.
-         * @description Risk level 2. Requires records.archive. Emits company.restored.
+         * @description Risk level 2. Requires records.archive. Emits company.restored. Can wait on a phone with no signal.
          */
         post: operations["command_company_restore"];
         delete?: never;
@@ -1007,8 +1007,8 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Change a company’s details.
-         * @description Risk level 1. Requires records.write. Emits company.updated.
+         * Change a company’s details: only the ones edited, each with what the editor saw, and the newest change to each wins.
+         * @description Risk level 1. Requires records.write. Emits company.updated. Can wait on a phone with no signal.
          */
         post: operations["command_company_update"];
         delete?: never;
@@ -1028,7 +1028,7 @@ export interface paths {
         put?: never;
         /**
          * Give a conversation to a teammate, or leave it for anyone.
-         * @description Risk level 1. Requires inbox.use. Emits conversation.assigned.
+         * @description Risk level 1. Requires inbox.use. Emits conversation.assigned. Can wait on a phone with no signal.
          */
         post: operations["command_conversation_assign"];
         delete?: never;
@@ -1048,7 +1048,7 @@ export interface paths {
         put?: never;
         /**
          * Close a conversation that needs nothing more. A new message opens it again.
-         * @description Risk level 0. Requires inbox.use. Emits conversation.closed.
+         * @description Risk level 0. Requires inbox.use. Emits conversation.closed. Can wait on a phone with no signal.
          */
         post: operations["command_conversation_close"];
         delete?: never;
@@ -1068,7 +1068,7 @@ export interface paths {
         put?: never;
         /**
          * Hand a conversation back to the AI teammate. It answers what’s waiting and whatever the customer writes next.
-         * @description Risk level 1. Requires inbox.use. Emits conversation.handed_to_ai.
+         * @description Risk level 1. Requires inbox.use. Emits conversation.handed_to_ai. Can wait on a phone for 30 minutes, then asks.
          */
         post: operations["command_conversation_hand_to_ai"];
         delete?: never;
@@ -1088,7 +1088,7 @@ export interface paths {
         put?: never;
         /**
          * Tie a conversation from an unknown number or address to a customer. Earlier messages and calls join their timeline.
-         * @description Risk level 1. Requires inbox.use. Emits conversation.linked.
+         * @description Risk level 1. Requires inbox.use. Emits conversation.linked. Can wait on a phone with no signal.
          */
         post: operations["command_conversation_link_person"];
         delete?: never;
@@ -1108,7 +1108,7 @@ export interface paths {
         put?: never;
         /**
          * Mark a conversation read for the whole team.
-         * @description Risk level 0. Requires inbox.use. Emits conversation.read.
+         * @description Risk level 0. Requires inbox.use. Emits conversation.read. Can wait on a phone with no signal.
          */
         post: operations["command_conversation_mark_read"];
         delete?: never;
@@ -1128,7 +1128,7 @@ export interface paths {
         put?: never;
         /**
          * Mark a conversation unread so it stands out in the inbox again.
-         * @description Risk level 0. Requires inbox.use. Emits conversation.marked_unread.
+         * @description Risk level 0. Requires inbox.use. Emits conversation.marked_unread. Can wait on a phone with no signal.
          */
         post: operations["command_conversation_mark_unread"];
         delete?: never;
@@ -1148,7 +1148,7 @@ export interface paths {
         put?: never;
         /**
          * Open the text or email conversation with a customer, starting it if needed.
-         * @description Risk level 1. Requires inbox.use. Emits conversation.created, conversation.linked.
+         * @description Risk level 1. Requires inbox.use. Emits conversation.created, conversation.linked. Can wait on a phone with no signal.
          */
         post: operations["command_conversation_open"];
         delete?: never;
@@ -1168,7 +1168,7 @@ export interface paths {
         put?: never;
         /**
          * Bring a closed or snoozed conversation back into the inbox.
-         * @description Risk level 0. Requires inbox.use. Emits conversation.reopened.
+         * @description Risk level 0. Requires inbox.use. Emits conversation.reopened. Can wait on a phone with no signal.
          */
         post: operations["command_conversation_reopen"];
         delete?: never;
@@ -1188,7 +1188,7 @@ export interface paths {
         put?: never;
         /**
          * Hide a conversation until a set time. It comes back then, or sooner if the customer writes again.
-         * @description Risk level 0. Requires inbox.use. Emits conversation.snoozed.
+         * @description Risk level 0. Requires inbox.use. Emits conversation.snoozed. Can wait on a phone with no signal.
          */
         post: operations["command_conversation_snooze"];
         delete?: never;
@@ -1208,7 +1208,7 @@ export interface paths {
         put?: never;
         /**
          * Take a conversation from the AI teammate (or from “Needs a person”): the teammate stays quiet until someone hands it back, and its pending reply is dropped.
-         * @description Risk level 1. Requires inbox.use. Emits conversation.taken_over.
+         * @description Risk level 1. Requires inbox.use. Emits conversation.taken_over. Can wait on a phone with no signal.
          */
         post: operations["command_conversation_take_over"];
         delete?: never;
@@ -1468,7 +1468,7 @@ export interface paths {
         put?: never;
         /**
          * Send an estimate to the customer. It takes the next number, stamps when it went out and freezes: from here its number, its tax, its totals and its lines are what the customer was shown. The worker sends the text or the email with the link.
-         * @description Risk level 2. Requires money.manage. Emits estimate.sent.
+         * @description Risk level 2. Requires money.manage. Emits estimate.sent. Can wait on a phone for 30 minutes, then asks.
          */
         post: operations["command_estimate_send"];
         delete?: never;
@@ -1527,8 +1527,8 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Reserve a place for a file on a record. Upload to the returned path, then confirm.
-         * @description Risk level 1. Requires records.write. Emits .
+         * Reserve a place for a file on a record. Upload to the returned path, then confirm. The phone names the file itself, so asking again for the same one returns the same place.
+         * @description Risk level 1. Requires records.write. Emits . Can wait on a phone with no signal.
          */
         post: operations["command_file_begin_upload"];
         delete?: never;
@@ -1548,7 +1548,7 @@ export interface paths {
         put?: never;
         /**
          * Mark an uploaded file ready once the object exists in storage.
-         * @description Risk level 1. Requires records.write. Emits file.attached.
+         * @description Risk level 1. Requires records.write. Emits file.attached. Can wait on a phone with no signal.
          */
         post: operations["command_file_confirm"];
         delete?: never;
@@ -1728,7 +1728,7 @@ export interface paths {
         put?: never;
         /**
          * Record money taken off the system: cash, a cheque, or another way. It lands as a payment in your name and the invoice recounts itself — nobody marks an invoice paid by hand.
-         * @description Risk level 2. Requires money.manage. Emits payment.recorded, invoice.paid.
+         * @description Risk level 2. Requires money.manage. Emits payment.recorded, invoice.paid. Can wait on a phone with no signal.
          */
         post: operations["command_invoice_record_cash_payment"];
         delete?: never;
@@ -1748,7 +1748,7 @@ export interface paths {
         put?: never;
         /**
          * Send an invoice to the customer. It takes the next number, works out its due date from the business’s terms if it hasn’t got one, stamps when it went out and freezes. The worker sends the text or the email with the link they pay on.
-         * @description Risk level 2. Requires money.manage. Emits invoice.sent.
+         * @description Risk level 2. Requires money.manage. Emits invoice.sent. Can wait on a phone for 30 minutes, then asks.
          */
         post: operations["command_invoice_send"];
         delete?: never;
@@ -2108,7 +2108,7 @@ export interface paths {
         put?: never;
         /**
          * Archive a lead so it leaves the pipeline without losing its history.
-         * @description Risk level 2. Requires records.archive. Emits lead.archived.
+         * @description Risk level 2. Requires records.archive. Emits lead.archived. Can wait on a phone with no signal.
          */
         post: operations["command_lead_archive"];
         delete?: never;
@@ -2128,7 +2128,7 @@ export interface paths {
         put?: never;
         /**
          * Add a lead for a person or company. It starts in the first open stage of the pipeline.
-         * @description Risk level 1. Requires records.write. Emits lead.created.
+         * @description Risk level 1. Requires records.write. Emits lead.created. Can wait on a phone with no signal.
          */
         post: operations["command_lead_create"];
         delete?: never;
@@ -2148,7 +2148,7 @@ export interface paths {
         put?: never;
         /**
          * Move a lead to another stage of its pipeline (and to a spot within it). A lost stage needs a reason.
-         * @description Risk level 1. Requires records.write. Emits lead.stage_changed, lead.won, lead.lost, lead.reopened.
+         * @description Risk level 1. Requires records.write. Emits lead.stage_changed, lead.won, lead.lost, lead.reopened. Can wait on a phone with no signal.
          */
         post: operations["command_lead_move_stage"];
         delete?: never;
@@ -2168,7 +2168,7 @@ export interface paths {
         put?: never;
         /**
          * Record a lead’s answers to the business’s qualifying questions, in the customer’s words. When they qualify the lead, lead.qualified goes out.
-         * @description Risk level 1. Requires records.write. Emits lead.answers_recorded, lead.qualified.
+         * @description Risk level 1. Requires records.write. Emits lead.answers_recorded, lead.qualified. Can wait on a phone with no signal.
          */
         post: operations["command_lead_record_answers"];
         delete?: never;
@@ -2188,7 +2188,7 @@ export interface paths {
         put?: never;
         /**
          * Bring an archived lead back to its stage.
-         * @description Risk level 2. Requires records.archive. Emits lead.restored.
+         * @description Risk level 2. Requires records.archive. Emits lead.restored. Can wait on a phone with no signal.
          */
         post: operations["command_lead_restore"];
         delete?: never;
@@ -2207,8 +2207,8 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Set or clear the one thing to do next on a lead, and when.
-         * @description Risk level 1. Requires records.write. Emits lead.next_action_set, lead.next_action_cleared.
+         * Set or clear the one thing to do next on a lead, and when. One set later than this (from the phone, say) stays.
+         * @description Risk level 1. Requires records.write. Emits lead.next_action_set, lead.next_action_cleared. Can wait on a phone with no signal.
          */
         post: operations["command_lead_set_next_action"];
         delete?: never;
@@ -2227,8 +2227,8 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Change a lead’s title, value, source, people, expected close date, assignee or next action.
-         * @description Risk level 1. Requires records.write. Emits lead.updated, lead.assigned.
+         * Change a lead’s title, value, source, people, expected close date, assignee or next action: only what was edited, each with what the editor saw, and the newest change to each wins.
+         * @description Risk level 1. Requires records.write. Emits lead.updated, lead.assigned. Can wait on a phone with no signal.
          */
         post: operations["command_lead_update"];
         delete?: never;
@@ -2388,7 +2388,7 @@ export interface paths {
         put?: never;
         /**
          * Text, email or chat with a customer: a text from the business number, an email from a workspace address or a connected mailbox, or a reply in a website chat. Texts and emails are queued here and the worker sends them. A person writing in a conversation the AI teammate is answering takes it over.
-         * @description Risk level 2. Requires inbox.use. Emits message.queued, message.sent, conversation.created, conversation.taken_over.
+         * @description Risk level 2. Requires inbox.use. Emits message.queued, message.sent, conversation.created, conversation.taken_over. Can wait on a phone for 30 minutes, then asks.
          */
         post: operations["command_message_send"];
         delete?: never;
@@ -2548,7 +2548,7 @@ export interface paths {
         put?: never;
         /**
          * Archive a person. Refused while they have open leads or tasks unless forced, which archives the leads too.
-         * @description Risk level 3. Requires records.archive. Emits person.archived.
+         * @description Risk level 3. Requires records.archive. Emits person.archived. Can wait on a phone with no signal.
          */
         post: operations["command_person_archive"];
         delete?: never;
@@ -2567,8 +2567,8 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Add a person. Warns when someone with the same email or phone already exists.
-         * @description Risk level 1. Requires records.write. Emits person.created.
+         * Add a person. Warns when someone with the same email or phone already exists; from the phone, adds them anyway and flags the likely duplicate.
+         * @description Risk level 1. Requires records.write. Emits person.created. Can wait on a phone with no signal.
          */
         post: operations["command_person_create"];
         delete?: never;
@@ -2588,7 +2588,7 @@ export interface paths {
         put?: never;
         /**
          * Bring an archived person back.
-         * @description Risk level 2. Requires records.archive. Emits person.restored.
+         * @description Risk level 2. Requires records.archive. Emits person.restored. Can wait on a phone with no signal.
          */
         post: operations["command_person_restore"];
         delete?: never;
@@ -2627,8 +2627,8 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Change a person’s details. Changing the company also moves their open leads to it.
-         * @description Risk level 1. Requires records.write. Emits person.updated.
+         * Change a person’s details: only the ones edited, each with what the editor saw, and the newest change to each wins. Changing the company also moves their open leads to it.
+         * @description Risk level 1. Requires records.write. Emits person.updated. Can wait on a phone with no signal.
          */
         post: operations["command_person_update"];
         delete?: never;
@@ -2897,6 +2897,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/record.add_tag": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Put one tag on a person, company or lead. Already there, nothing changes; the other tags are left alone.
+         * @description Risk level 1. Requires records.write. Emits record.tags_changed. Can wait on a phone with no signal.
+         */
+        post: operations["command_record_add_tag"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/record.remove_tag": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Take one tag off a person, company or lead. Already off, nothing changes; the other tags are left alone.
+         * @description Risk level 1. Requires records.write. Emits record.tags_changed. Can wait on a phone with no signal.
+         */
+        post: operations["command_record_remove_tag"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/record.set_tags": {
         parameters: {
             query?: never;
@@ -2907,7 +2947,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Set the tags on a person, company or lead, or add or remove some and leave the rest (mode).
+         * Set the tags on a person, company or lead, or add or remove some and leave the rest (mode). People’s screens use record.add_tag and record.remove_tag.
          * @description Risk level 1. Requires records.write. Emits record.tags_changed.
          */
         post: operations["command_record_set_tags"];
@@ -3268,7 +3308,7 @@ export interface paths {
         put?: never;
         /**
          * Ask the customer to put a card on their plan, by text, by email, or just to get the link. The plan waits until they do; asking again keeps the same link working.
-         * @description Risk level 2. Requires money.manage. Emits subscription.card_requested.
+         * @description Risk level 2. Requires money.manage. Emits subscription.card_requested. Can wait on a phone for 30 minutes, then asks.
          */
         post: operations["command_subscription_request_card"];
         delete?: never;
@@ -3407,8 +3447,8 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Mark a task done.
-         * @description Risk level 1. Requires records.write. Emits task.completed.
+         * Mark a task done. Already done, nothing changes.
+         * @description Risk level 1. Requires records.write. Emits task.completed. Can wait on a phone with no signal.
          */
         post: operations["command_task_complete"];
         delete?: never;
@@ -3428,7 +3468,7 @@ export interface paths {
         put?: never;
         /**
          * Add a task, optionally tied to a person, company or lead and assigned to someone.
-         * @description Risk level 1. Requires records.write. Emits task.created.
+         * @description Risk level 1. Requires records.write. Emits task.created. Can wait on a phone with no signal.
          */
         post: operations["command_task_create"];
         delete?: never;
@@ -3448,7 +3488,7 @@ export interface paths {
         put?: never;
         /**
          * Delete a task you created (owners and admins can delete any).
-         * @description Risk level 2. Requires records.write. Emits task.deleted.
+         * @description Risk level 2. Requires records.write. Emits task.deleted. Can wait on a phone with no signal.
          */
         post: operations["command_task_delete"];
         delete?: never;
@@ -3467,8 +3507,8 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Reopen a completed task.
-         * @description Risk level 1. Requires records.write. Emits task.reopened.
+         * Reopen a completed task. Already open, nothing changes.
+         * @description Risk level 1. Requires records.write. Emits task.reopened. Can wait on a phone with no signal.
          */
         post: operations["command_task_reopen"];
         delete?: never;
@@ -3487,8 +3527,8 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Change a task’s title, notes, due date, assignee or related records.
-         * @description Risk level 1. Requires records.write. Emits task.updated.
+         * Change a task’s title, notes, due date, assignee or related records: only what was edited, each with what the editor saw, and the newest change to each wins.
+         * @description Risk level 1. Requires records.write. Emits task.updated. Can wait on a phone with no signal.
          */
         post: operations["command_task_update"];
         delete?: never;
@@ -3868,7 +3908,7 @@ export interface paths {
         put?: never;
         /**
          * Approve (optionally editing what goes out) or reject a workflow’s approval step. The people it names, or owners and admins, decide; it can be decided once.
-         * @description Risk level 2. Requires workspace.read. Emits workflow.approval_decided.
+         * @description Risk level 2. Requires workspace.read. Emits workflow.approval_decided. Can wait on a phone for 30 minutes, then asks.
          */
         post: operations["command_workflow_decide_approval"];
         delete?: never;
@@ -5953,6 +5993,8 @@ export interface operations {
                 "application/json": {
                     body: string;
                     companyId?: string | null;
+                    /** Format: uuid */
+                    id?: string;
                     /** @enum {string} */
                     kind: "note" | "call" | "visit";
                     leadId?: string | null;
@@ -6590,6 +6632,14 @@ export interface operations {
                 "application/json": {
                     /** Format: uuid */
                     appointmentId: string;
+                    base?: {
+                        leadId?: string | null;
+                        location?: {
+                            [key: string]: unknown;
+                        } | null;
+                        notes?: string | null;
+                        title?: string | null;
+                    };
                     leadId?: string | null;
                     location?: {
                         /** @default null */
@@ -6618,6 +6668,8 @@ export interface operations {
                     "application/json": {
                         /** Format: uuid */
                         appointmentId: string;
+                        /** @default [] */
+                        notApplied: string[];
                         updated: string[];
                     };
                 };
@@ -8247,6 +8299,8 @@ export interface operations {
                         state?: string | null;
                     };
                     email?: string | null;
+                    /** Format: uuid */
+                    id?: string;
                     /** @default false */
                     ignoreDuplicates?: boolean;
                     /** Format: uuid */
@@ -8329,6 +8383,23 @@ export interface operations {
                         postalCode?: string | null;
                         state?: string | null;
                     };
+                    base?: {
+                        address?: {
+                            city?: string | null;
+                            country?: string | null;
+                            line1?: string | null;
+                            line2?: string | null;
+                            postalCode?: string | null;
+                            state?: string | null;
+                        };
+                        email?: string | null;
+                        name?: string | null;
+                        notes?: string | null;
+                        ownerUserId?: string | null;
+                        phone?: string | null;
+                        source?: string | null;
+                        website?: string | null;
+                    };
                     /** Format: uuid */
                     companyId: string;
                     email?: string | null;
@@ -8353,6 +8424,8 @@ export interface operations {
                     "application/json": {
                         /** Format: uuid */
                         companyId: string;
+                        /** @default [] */
+                        notApplied: string[];
                         updated: string[];
                     };
                 };
@@ -9335,6 +9408,8 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": {
+                    /** Format: uuid */
+                    id?: string;
                     /** @enum {string} */
                     mimeType: "image/jpeg" | "image/png" | "image/webp" | "image/heic" | "image/heif" | "image/gif" | "application/pdf" | "application/vnd.openxmlformats-officedocument.wordprocessingml.document" | "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" | "text/plain" | "text/csv";
                     name: string;
@@ -10660,6 +10735,8 @@ export interface operations {
                     assigneeUserId?: string | null;
                     companyId?: string | null;
                     expectedCloseOn?: string | null;
+                    /** Format: uuid */
+                    id?: string;
                     nextAction?: string | null;
                     nextActionAt?: string | null;
                     personId?: string | null;
@@ -10855,6 +10932,17 @@ export interface operations {
             content: {
                 "application/json": {
                     assigneeUserId?: string | null;
+                    base?: {
+                        assigneeUserId?: string | null;
+                        companyId?: string | null;
+                        expectedCloseOn?: string | null;
+                        nextAction?: string | null;
+                        nextActionAt?: string | null;
+                        personId?: string | null;
+                        source?: string | null;
+                        title?: string | null;
+                        valueCents?: number | null;
+                    };
                     companyId?: string | null;
                     expectedCloseOn?: string | null;
                     /** Format: uuid */
@@ -10880,6 +10968,8 @@ export interface operations {
                     "application/json": {
                         /** Format: uuid */
                         leadId: string;
+                        /** @default [] */
+                        notApplied: string[];
                         updated: string[];
                     };
                 };
@@ -11672,6 +11762,8 @@ export interface operations {
                     email?: string | null;
                     /** @default  */
                     firstName?: string;
+                    /** Format: uuid */
+                    id?: string;
                     /** @default false */
                     ignoreDuplicates?: boolean;
                     /** Format: uuid */
@@ -11791,6 +11883,25 @@ export interface operations {
                         postalCode?: string | null;
                         state?: string | null;
                     };
+                    base?: {
+                        address?: {
+                            city?: string | null;
+                            country?: string | null;
+                            line1?: string | null;
+                            line2?: string | null;
+                            postalCode?: string | null;
+                            state?: string | null;
+                        };
+                        companyId?: string | null;
+                        email?: string | null;
+                        firstName?: string | null;
+                        lastName?: string | null;
+                        notes?: string | null;
+                        ownerUserId?: string | null;
+                        phone?: string | null;
+                        phoneAlt?: string | null;
+                        source?: string | null;
+                    };
                     companyId?: string | null;
                     email?: string | null;
                     firstName?: string;
@@ -11815,6 +11926,8 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        /** @default [] */
+                        notApplied: string[];
                         /** Format: uuid */
                         personId: string;
                         updated: string[];
@@ -12377,6 +12490,88 @@ export interface operations {
                         productId: string;
                         /** @default [] */
                         updated: string[];
+                    };
+                };
+            };
+        };
+    };
+    command_record_add_tag: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    recordId: string;
+                    /** @enum {string} */
+                    recordType: "person" | "company" | "lead";
+                    /** Format: uuid */
+                    tagId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changed: boolean;
+                        tags: {
+                            color: string;
+                            /** Format: uuid */
+                            id: string;
+                            name: string;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    command_record_remove_tag: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    recordId: string;
+                    /** @enum {string} */
+                    recordType: "person" | "company" | "lead";
+                    /** Format: uuid */
+                    tagId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changed: boolean;
+                        tags: {
+                            color: string;
+                            /** Format: uuid */
+                            id: string;
+                            name: string;
+                        }[];
                     };
                 };
             };
@@ -13512,6 +13707,8 @@ export interface operations {
                     assigneeUserId?: string | null;
                     companyId?: string | null;
                     dueAt?: string | null;
+                    /** Format: uuid */
+                    id?: string;
                     leadId?: string | null;
                     notes?: string | null;
                     personId?: string | null;
@@ -13612,6 +13809,16 @@ export interface operations {
                 "application/json": {
                     allDay?: boolean;
                     assigneeUserId?: string | null;
+                    base?: {
+                        allDay?: boolean;
+                        assigneeUserId?: string | null;
+                        companyId?: string | null;
+                        dueAt?: string | null;
+                        leadId?: string | null;
+                        notes?: string | null;
+                        personId?: string | null;
+                        title?: string | null;
+                    };
                     companyId?: string | null;
                     dueAt?: string | null;
                     leadId?: string | null;
@@ -13633,6 +13840,8 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        /** @default [] */
+                        notApplied: string[];
                         /** Format: uuid */
                         taskId: string;
                         updated: string[];
@@ -17057,7 +17266,7 @@ export interface operations {
                     /** Format: date-time */
                     before?: string;
                     /** @enum {string} */
-                    channel?: "web" | "api" | "worker" | "cli" | "sms" | "assistant" | "booking_page" | "workflow" | "ai_employee" | "chat_widget" | "test";
+                    channel?: "web" | "api" | "worker" | "cli" | "sms" | "assistant" | "booking_page" | "workflow" | "ai_employee" | "chat_widget" | "mobile" | "test";
                     /** @default 50 */
                     limit?: number;
                     /** Format: date-time */

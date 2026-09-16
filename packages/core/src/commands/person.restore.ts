@@ -14,6 +14,7 @@ export const personRestore = defineCommand({
   permission: 'records.archive',
   scope: (i) => ({ kind: 'workspace', workspaceId: i.workspaceId }),
   emits: ['person.restored'],
+  offline: 'anytime',
   async handler(ctx, input) {
     const current = await requirePerson(ctx.tx, ctx.scope.workspaceId!, input.personId);
     if (!current.archivedAt) return { personId: current.id };

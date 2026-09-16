@@ -133,6 +133,8 @@ describe('registry', () => {
       'tag.update',
       'tag.delete',
       'record.set_tags',
+      'record.add_tag',
+      'record.remove_tag',
       'lead.create',
       'lead.update',
       'lead.move_stage',

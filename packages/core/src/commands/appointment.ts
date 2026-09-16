@@ -16,6 +16,7 @@ import {
 } from '@hfos/db/schema';
 import {
   appointmentSnapshot,
+  attendeesOf,
   cancelAppointment,
   logAppointmentActivity,
   markCancelled,
@@ -51,6 +52,8 @@ import {
 import { resolveTerms } from '../calendar/terms';
 import { requirePerson } from '../crm/records';
 import { HfosError } from '../errors';
+import { logNotApplied, mergeColumns, mergeFields } from '../kernel/field-merge';
+import { FRESH_MINUTES } from '../mobile';
 import { requireHuman } from '../kernel/actor';
 import { defineCommand } from '../kernel/define';
 import type { CommandContext } from '../kernel/types';
@@ -256,6 +259,7 @@ export const appointmentCreate = defineCommand({
   permission: 'appointments.write',
   scope: inWorkspace,
   emits: ['appointment.booked'],
+  offline: { freshMinutes: FRESH_MINUTES },
   async handler(ctx, input) {
     const ws = ctx.scope.workspaceId!;
     const calendar = await loadCalendar(ctx.tx, ws, input.calendarId);
@@ -300,34 +304,84 @@ export const appointmentCreate = defineCommand({
 
 export const appointmentUpdate = defineCommand({
   name: 'appointment.update',
-  description: 'Change an appointment’s title, notes, location or lead.',
+  description:
+    'Change an appointment’s title, notes, location or lead: only what was edited, each with what the editor saw, and the newest change to each wins.',
   risk: 1,
   input: AppointmentUpdateInput,
   output: AppointmentUpdateOutput,
   permission: 'appointments.write',
   scope: inWorkspace,
   emits: ['appointment.updated'],
+  offline: 'anytime',
   async handler(ctx, input) {
     const ws = ctx.scope.workspaceId!;
-    const appt = await requireAppointment(ctx.tx, ws, input.appointmentId);
+    const [appt] = await ctx.tx
+      .select()
+      .from(appointments)
+      .where(and(eq(appointments.id, input.appointmentId), eq(appointments.workspaceId, ws)))
+      .for('update');
+    if (!appt) throw HfosError.notFound('Appointment not found.');
     if (input.leadId) await requireLead(ctx.tx, ws, input.leadId);
-    const patch: Partial<typeof appointments.$inferInsert> = {};
+    const seen: NonNullable<typeof input.base> = input.base ?? {};
+    const merged = mergeFields(
+      appt,
+      [
+        {
+          key: 'title',
+          column: 'title',
+          value: input.title,
+          base: seen.title,
+          kind: 'text',
+          label: 'title',
+        },
+        {
+          key: 'notes',
+          column: 'notes',
+          value: input.notes === undefined ? undefined : (input.notes ?? null),
+          base: seen.notes,
+          kind: 'text',
+          label: 'notes',
+        },
+        {
+          key: 'location',
+          column: 'location',
+          value: input.location,
+          base: seen.location,
+          kind: 'json',
+          label: 'location',
+        },
+        {
+          key: 'leadId',
+          column: 'leadId',
+          value: input.leadId === undefined ? undefined : (input.leadId ?? null),
+          base: seen.leadId,
+          kind: 'id',
+          label: 'lead',
+        },
+      ],
+      mergeColumns(appointments),
+      ctx.meta,
+    );
+    const { patch } = merged;
+    const notApplied = merged.notApplied.map((n) => n.key);
+    if (merged.notApplied.length) {
+      const [first] = await attendeesOf(ctx.tx, appt.id);
+      await logNotApplied(
+        ctx,
+        merged.notApplied,
+        { type: 'appointment', id: appt.id },
+        { leadId: appt.leadId, personId: first?.personId ?? null },
+      );
+    }
+    const updated = [...merged.applied];
+    if (!updated.length) return { appointmentId: appt.id, updated, notApplied };
+    await ctx.tx.update(appointments).set(patch).where(eq(appointments.id, appt.id));
     const before: Record<string, unknown> = {};
     const after: Record<string, unknown> = {};
-    const set = <K extends 'title' | 'notes' | 'location' | 'leadId'>(key: K, value: unknown) => {
-      if (value === undefined) return;
-      if (JSON.stringify(value ?? null) === JSON.stringify(appt[key] ?? null)) return;
-      (patch as Record<string, unknown>)[key] = value;
-      before[key] = appt[key];
-      after[key] = value;
-    };
-    set('title', input.title);
-    set('notes', input.notes === undefined ? undefined : (input.notes ?? null));
-    set('location', input.location);
-    set('leadId', input.leadId === undefined ? undefined : (input.leadId ?? null));
-    const updated = Object.keys(patch);
-    if (!updated.length) return { appointmentId: appt.id, updated };
-    await ctx.tx.update(appointments).set(patch).where(eq(appointments.id, appt.id));
+    for (const k of updated) {
+      before[k] = (appt as Record<string, unknown>)[k];
+      after[k] = patch[k];
+    }
     const title = (patch.title as string | undefined) ?? appt.title;
     await ctx.emit({
       type: 'appointment.updated',
@@ -337,7 +391,7 @@ export const appointmentUpdate = defineCommand({
       before: { title: appt.title, ...before },
       after: { title, ...after },
     });
-    return { appointmentId: appt.id, updated };
+    return { appointmentId: appt.id, updated, notApplied };
   },
 });
 
@@ -351,6 +405,7 @@ export const appointmentReschedule = defineCommand({
   permission: 'appointments.write',
   scope: inWorkspace,
   emits: ['appointment.rescheduled'],
+  offline: { freshMinutes: FRESH_MINUTES },
   async handler(ctx, input) {
     const ws = ctx.scope.workspaceId!;
     const appt = await requireAppointment(ctx.tx, ws, input.appointmentId);
@@ -450,6 +505,7 @@ export const appointmentCancel = defineCommand({
   permission: 'appointments.write',
   scope: inWorkspace,
   emits: ['appointment.cancelled', 'waitlist.seat_freed'],
+  offline: { freshMinutes: FRESH_MINUTES },
   async handler(ctx, input) {
     const ws = ctx.scope.workspaceId!;
     const appt = await requireAppointment(ctx.tx, ws, input.appointmentId);
@@ -476,6 +532,7 @@ export const appointmentSetStatus = defineCommand({
   permission: 'appointments.write',
   scope: inWorkspace,
   emits: ['appointment.completed', 'appointment.no_show'],
+  offline: 'anytime',
   async handler(ctx, input) {
     const ws = ctx.scope.workspaceId!;
     const appt = await requireAppointment(ctx.tx, ws, input.appointmentId);

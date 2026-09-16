@@ -7,6 +7,8 @@ import { requestMeta } from './context';
 declare module 'fastify' {
   interface FastifyRequest {
     actor: HumanActor | null;
+    /** The JSON body as sent, before the route's schema validated it (and filled in defaults). */
+    sentBody: unknown;
   }
 }
 
@@ -21,23 +23,30 @@ export function registerOperations(app: FastifyInstance, db: Db): void {
   for (const cmd of registry.commands) {
     // Commands only the worker or a workflow runs (the carrier's answers, inbound texts) never become routes.
     if (!(cmd.actors ?? ['human']).includes('human')) continue;
+    const offline =
+      cmd.offline === 'anytime'
+        ? ' Can wait on a phone with no signal.'
+        : cmd.offline === 'online'
+          ? ''
+          : ` Can wait on a phone for ${cmd.offline.freshMinutes} minutes, then asks.`;
     typed.route({
       method: 'POST',
       url: `/v1/commands/${cmd.name}`,
       schema: {
         operationId: `command_${cmd.name.replace(/\./g, '_')}`,
         summary: cmd.description,
-        description: `Risk level ${cmd.risk}.${cmd.permission ? ` Requires ${cmd.permission}.` : ''} Emits ${cmd.emits.join(', ')}.`,
+        description: `Risk level ${cmd.risk}.${cmd.permission ? ` Requires ${cmd.permission}.` : ''} Emits ${cmd.emits.join(', ')}.${offline}`,
         tags: ['commands'],
         body: cmd.input,
         response: { 200: cmd.output },
       },
       config: RATE_LIMITED[cmd.name] ? { rateLimit: RATE_LIMITED[cmd.name] } : {},
       handler: async (req, reply) => {
+        // The kernel validates the body again from what was sent, and hashes that for the command's receipt.
         const { output, eventIds } = await executeCommand(
           db,
           cmd,
-          req.body,
+          req.sentBody ?? req.body,
           req.actor!,
           requestMeta(req),
         );

@@ -99,6 +99,8 @@ export const calendarConnectionConnect = defineCommand({
   permission: 'appointments.write',
   scope: inWorkspace,
   emits: ['calendar_connection.connect_started'],
+  // The state is a one-time secret: never kept in a stored answer.
+  shownOnce: ['state'],
   async handler(ctx, input) {
     const me = requireHuman(ctx);
     const state = randomBytes(32).toString('base64url');

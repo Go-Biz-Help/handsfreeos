@@ -79,3 +79,21 @@ export const UserRef = z.object({ id: uuid, fullName: z.string() }).nullable();
 
 export const notes = optionalText(10000);
 export const source = optionalText(80);
+
+/**
+ * What the person saw of a detail before editing it (an update's `base`, M10): compared with what's stored now,
+ * never validated like a new value, since it may have been saved before today's rules. Absent: not said.
+ */
+export const seenText = z.string().max(20_000).nullable().optional();
+export const seenId = uuid.nullable().optional();
+export const AddressSeen = z.object({
+  line1: seenText,
+  line2: seenText,
+  city: seenText,
+  state: seenText,
+  postalCode: seenText,
+  country: seenText,
+});
+
+/** The details an update didn't change because someone changed them later than it was made (M10). */
+export const notApplied = z.array(z.string()).default([]);

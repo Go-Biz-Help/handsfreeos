@@ -3,11 +3,15 @@ import { isoDateTime, uuid } from './common';
 import {
   AddressInput,
   AddressOut,
+  AddressSeen,
   CompanyRef,
   ListInput,
+  notApplied,
   notes,
   optionalEmail,
   phoneInput,
+  seenId,
+  seenText,
   source,
   tagIds,
   TagRef,
@@ -30,6 +34,8 @@ const personFields = {
 export const PersonCreateInput = z
   .object({
     workspaceId: uuid,
+    /** The id the phone made for them, so what it adds for them offline can point at them (M10). */
+    id: uuid.optional(),
     ...personFields,
     tagIds: tagIds.optional(),
     ignoreDuplicates: z.boolean().default(false),
@@ -43,6 +49,21 @@ export const PersonCreateInput = z
   });
 export const PersonCreateOutput = z.object({ personId: uuid });
 
+/** What the person saw of each detail they edited (see kernel/field-merge). */
+export const PersonSeen = z.object({
+  firstName: seenText,
+  lastName: seenText,
+  email: seenText,
+  phone: seenText,
+  phoneAlt: seenText,
+  companyId: seenId,
+  address: AddressSeen.optional(),
+  notes: seenText,
+  source: seenText,
+  ownerUserId: seenId,
+});
+
+/** Only the details that were edited, each merged on its own: newest wins. */
 export const PersonUpdateInput = z.object({
   workspaceId: uuid,
   personId: uuid,
@@ -56,8 +77,13 @@ export const PersonUpdateInput = z.object({
   notes,
   source,
   ownerUserId: uuid.nullable().optional(),
+  base: PersonSeen.optional(),
 });
-export const PersonUpdateOutput = z.object({ personId: uuid, updated: z.array(z.string()) });
+export const PersonUpdateOutput = z.object({
+  personId: uuid,
+  updated: z.array(z.string()),
+  notApplied,
+});
 
 export const PersonArchiveInput = z.object({
   workspaceId: uuid,

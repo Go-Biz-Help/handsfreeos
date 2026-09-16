@@ -1,5 +1,6 @@
 import { companies } from '@hfos/db/schema';
 import { logSystemActivity } from '../crm/activities';
+import { insertWithId, madeBefore } from '../crm/client-ids';
 import { findMatches } from '../crm/matching';
 import { formatPhone } from '../crm/phone';
 import { addressPatch, setRecordTags } from '../crm/records';
@@ -10,7 +11,8 @@ import { CompanyCreateInput, CompanyCreateOutput } from '../schemas/company';
 
 export const companyCreate = defineCommand({
   name: 'company.create',
-  description: 'Add a company. Warns when one with the same email, phone or name already exists.',
+  description:
+    'Add a company. Warns when one with the same email, phone or name already exists; from the phone, adds it anyway and flags the likely duplicate.',
   risk: 1,
   input: CompanyCreateInput,
   output: CompanyCreateOutput,
@@ -18,19 +20,24 @@ export const companyCreate = defineCommand({
   scope: (i) => ({ kind: 'workspace', workspaceId: i.workspaceId }),
   emits: ['company.created'],
   actors: ['human', 'system'],
+  offline: 'anytime',
   async handler(ctx, input) {
     const workspaceId = ctx.scope.workspaceId!;
     if ((input.importId || input.importRow) && ctx.actor.type !== 'system')
       throw HfosError.validation([
         { path: 'importId', message: 'Only an import can set the import row.' },
       ]);
+    const earlier = await madeBefore(ctx.tx, 'companies', input.id, workspaceId);
+    if (earlier) return { companyId: earlier.id };
+    let duplicateOf: string | null = null;
     if (!input.ignoreDuplicates) {
       const matches = await findMatches(ctx.tx, workspaceId, 'company', {
         email: input.email,
         phoneE164: input.phone,
         name: input.name,
       });
-      if (matches.length > 0)
+      if (matches.length > 0 && ctx.meta.channel === 'mobile') duplicateOf = matches[0]!.id;
+      else if (matches.length > 0)
         throw new HfosError(
           'conflict',
           409,
@@ -39,24 +46,29 @@ export const companyCreate = defineCommand({
           'duplicate',
         );
     }
-    const [row] = await ctx.tx
-      .insert(companies)
-      .values({
-        workspaceId,
-        name: input.name,
-        email: input.email ?? null,
-        phone: input.phone ? formatPhone(input.phone) : null,
-        phoneE164: input.phone ?? null,
-        website: input.website ?? null,
-        ...addressPatch(input.address),
-        notes: input.notes ?? null,
-        source: input.source ?? null,
-        ownerUserId: input.ownerUserId ?? null,
-        createdBy: userIdOf(ctx.actor),
-        importId: input.importId ?? null,
-        importRow: input.importRow ?? null,
-      })
-      .returning();
+    const [row] = await insertWithId('companies', input.id, () =>
+      ctx.tx
+        .insert(companies)
+        .values({
+          ...(input.id ? { id: input.id } : {}),
+          workspaceId,
+          // Made on the phone and looking like one already here: added anyway, and flagged.
+          possibleDuplicateOf: duplicateOf,
+          name: input.name,
+          email: input.email ?? null,
+          phone: input.phone ? formatPhone(input.phone) : null,
+          phoneE164: input.phone ?? null,
+          website: input.website ?? null,
+          ...addressPatch(input.address),
+          notes: input.notes ?? null,
+          source: input.source ?? null,
+          ownerUserId: input.ownerUserId ?? null,
+          createdBy: userIdOf(ctx.actor),
+          importId: input.importId ?? null,
+          importRow: input.importRow ?? null,
+        })
+        .returning(),
+    );
     if (!row) throw HfosError.forbidden();
     if (input.tagIds?.length)
       await setRecordTags(
@@ -71,7 +83,7 @@ export const companyCreate = defineCommand({
       type: 'company.created',
       entityType: 'company',
       entityId: row.id,
-      payload: { name: row.name },
+      payload: { name: row.name, ...(duplicateOf ? { possibleDuplicateOf: duplicateOf } : {}) },
       after: {
         name: row.name,
         email: row.email,

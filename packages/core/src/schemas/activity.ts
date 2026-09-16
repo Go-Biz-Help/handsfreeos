@@ -9,6 +9,8 @@ const body = z.string().trim().min(1, 'Write something.').max(10000);
 export const ActivityLogInput = z
   .object({
     workspaceId: uuid,
+    /** The id the phone made for it (M10). */
+    id: uuid.optional(),
     kind: loggableKind,
     body,
     occurredAt: isoDateTime.optional(),

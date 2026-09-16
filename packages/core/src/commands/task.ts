@@ -2,10 +2,18 @@ import { and, eq } from 'drizzle-orm';
 import { leads, tasks } from '@hfos/db/schema';
 import { assertAiReach } from '../ai-team/reach';
 import { logSystemActivity } from '../crm/activities';
+import { insertWithId, madeBefore } from '../crm/client-ids';
 import { requireCompany, requirePerson } from '../crm/records';
 import { HfosError } from '../errors';
 import { userIdOf } from '../kernel/actor';
 import { defineCommand } from '../kernel/define';
+import {
+  logNotApplied,
+  mergeColumns,
+  mergeFields,
+  type MergeField,
+  type MergeKind,
+} from '../kernel/field-merge';
 import type { CommandContext } from '../kernel/types';
 import {
   TaskCompleteInput,
@@ -36,11 +44,13 @@ async function checkRelated(
   }
 }
 
-async function loadTask(ctx: CommandContext, taskId: string) {
-  const [task] = await ctx.tx
+/** A task in this workspace (locked, for a change that compares against it); a deleted one isn't there. */
+async function loadTask(ctx: CommandContext, taskId: string, opts: { lock?: boolean } = {}) {
+  const query = ctx.tx
     .select()
     .from(tasks)
     .where(and(eq(tasks.id, taskId), eq(tasks.workspaceId, ctx.scope.workspaceId!)));
+  const [task] = opts.lock ? await query.for('update') : await query;
   if (!task) throw HfosError.notFound('Task not found.');
   return task;
 }
@@ -55,24 +65,30 @@ export const taskCreate = defineCommand({
   scope: (i) => ({ kind: 'workspace', workspaceId: i.workspaceId }),
   emits: ['task.created'],
   actors: ['human', 'workflow', 'ai_employee'],
+  offline: 'anytime',
   async handler(ctx, input) {
     await assertAiReach(ctx, input);
+    const earlier = await madeBefore(ctx.tx, 'tasks', input.id, ctx.scope.workspaceId!);
+    if (earlier) return { taskId: earlier.id };
     await checkRelated(ctx, input);
-    const [row] = await ctx.tx
-      .insert(tasks)
-      .values({
-        workspaceId: ctx.scope.workspaceId!,
-        title: input.title,
-        notes: input.notes ?? null,
-        dueAt: input.dueAt ? new Date(input.dueAt) : null,
-        allDay: input.allDay,
-        assigneeUserId: input.assigneeUserId ?? null,
-        personId: input.personId ?? null,
-        companyId: input.companyId ?? null,
-        leadId: input.leadId ?? null,
-        createdBy: userIdOf(ctx.actor),
-      })
-      .returning({ id: tasks.id, title: tasks.title, dueAt: tasks.dueAt });
+    const [row] = await insertWithId('tasks', input.id, () =>
+      ctx.tx
+        .insert(tasks)
+        .values({
+          ...(input.id ? { id: input.id } : {}),
+          workspaceId: ctx.scope.workspaceId!,
+          title: input.title,
+          notes: input.notes ?? null,
+          dueAt: input.dueAt ? new Date(input.dueAt) : null,
+          allDay: input.allDay,
+          assigneeUserId: input.assigneeUserId ?? null,
+          personId: input.personId ?? null,
+          companyId: input.companyId ?? null,
+          leadId: input.leadId ?? null,
+          createdBy: userIdOf(ctx.actor),
+        })
+        .returning({ id: tasks.id, title: tasks.title, dueAt: tasks.dueAt }),
+    );
     if (!row) throw HfosError.forbidden();
     await ctx.emit({
       type: 'task.created',
@@ -91,33 +107,55 @@ export const taskCreate = defineCommand({
 
 export const taskUpdate = defineCommand({
   name: 'task.update',
-  description: 'Change a task’s title, notes, due date, assignee or related records.',
+  description:
+    'Change a task’s title, notes, due date, assignee or related records: only what was edited, each with what the editor saw, and the newest change to each wins.',
   risk: 1,
   input: TaskUpdateInput,
   output: TaskUpdateOutput,
   permission: 'records.write',
   scope: (i) => ({ kind: 'workspace', workspaceId: i.workspaceId }),
   emits: ['task.updated'],
+  offline: 'anytime',
   async handler(ctx, input) {
-    const current = await loadTask(ctx, input.taskId);
+    const current = await loadTask(ctx, input.taskId, { lock: true });
     await checkRelated(ctx, input);
-    const patch: Record<string, unknown> = {};
-    const set = (key: keyof typeof current, value: unknown) => {
-      if (value !== undefined && value !== current[key]) patch[key] = value;
-    };
-    set('title', input.title);
-    set('notes', input.notes);
-    if (input.dueAt !== undefined) {
-      const next = input.dueAt ? new Date(input.dueAt) : null;
-      if ((next?.getTime() ?? null) !== (current.dueAt?.getTime() ?? null)) patch.dueAt = next;
-    }
-    set('allDay', input.allDay);
-    set('assigneeUserId', input.assigneeUserId);
-    set('personId', input.personId);
-    set('companyId', input.companyId);
-    set('leadId', input.leadId);
-    const updated = Object.keys(patch);
-    if (updated.length === 0) return { taskId: current.id, updated: [] };
+    const seen: NonNullable<typeof input.base> = input.base ?? {};
+    const field = (
+      key: keyof typeof seen,
+      value: unknown,
+      kind: MergeKind,
+      label: string,
+    ): MergeField => ({ key, column: key, value, base: seen[key], kind, label });
+    const merged = mergeFields(
+      current,
+      [
+        field('title', input.title, 'text', 'title'),
+        field('notes', input.notes, 'text', 'notes'),
+        field(
+          'dueAt',
+          input.dueAt === undefined ? undefined : input.dueAt ? new Date(input.dueAt) : null,
+          'time',
+          'due date',
+        ),
+        field('allDay', input.allDay, 'flag', 'all-day'),
+        field('assigneeUserId', input.assigneeUserId, 'id', 'assignee'),
+        field('personId', input.personId, 'id', 'person'),
+        field('companyId', input.companyId, 'id', 'company'),
+        field('leadId', input.leadId, 'id', 'lead'),
+      ],
+      mergeColumns(tasks),
+      ctx.meta,
+    );
+    const { patch } = merged;
+    const notApplied = merged.notApplied.map((n) => n.key);
+    await logNotApplied(
+      ctx,
+      merged.notApplied,
+      { type: 'task', id: current.id },
+      { personId: current.personId, companyId: current.companyId, leadId: current.leadId },
+    );
+    const updated = [...merged.applied];
+    if (updated.length === 0) return { taskId: current.id, updated: [], notApplied };
     await ctx.tx.update(tasks).set(patch).where(eq(tasks.id, current.id));
     const before: Record<string, unknown> = {};
     const after: Record<string, unknown> = {};
@@ -136,13 +174,13 @@ export const taskUpdate = defineCommand({
       before: { title: current.title, ...before },
       after: { title, ...after },
     });
-    return { taskId: current.id, updated };
+    return { taskId: current.id, updated, notApplied };
   },
 });
 
 export const taskComplete = defineCommand({
   name: 'task.complete',
-  description: 'Mark a task done.',
+  description: 'Mark a task done. Already done, nothing changes.',
   risk: 1,
   input: TaskCompleteInput,
   output: TaskCompleteOutput,
@@ -150,10 +188,12 @@ export const taskComplete = defineCommand({
   scope: (i) => ({ kind: 'workspace', workspaceId: i.workspaceId }),
   emits: ['task.completed'],
   actors: ['human', 'workflow'],
+  offline: 'anytime',
   async handler(ctx, input) {
-    const current = await loadTask(ctx, input.taskId);
+    const current = await loadTask(ctx, input.taskId, { lock: true });
     if (current.doneAt) return { taskId: current.id, doneAt: current.doneAt.toISOString() };
-    const doneAt = new Date();
+    // Done when the person ticked it, even if the phone only now had signal.
+    const doneAt = ctx.meta.occurredAt ?? new Date();
     await ctx.tx
       .update(tasks)
       .set({ doneAt, doneBy: userIdOf(ctx.actor) })
@@ -175,6 +215,7 @@ export const taskComplete = defineCommand({
         body: current.title,
         meta: { taskId: current.id },
         eventId,
+        occurredAt: doneAt,
       });
     }
     return { taskId: current.id, doneAt: doneAt.toISOString() };
@@ -183,15 +224,16 @@ export const taskComplete = defineCommand({
 
 export const taskReopen = defineCommand({
   name: 'task.reopen',
-  description: 'Reopen a completed task.',
+  description: 'Reopen a completed task. Already open, nothing changes.',
   risk: 1,
   input: TaskReopenInput,
   output: TaskReopenOutput,
   permission: 'records.write',
   scope: (i) => ({ kind: 'workspace', workspaceId: i.workspaceId }),
   emits: ['task.reopened'],
+  offline: 'anytime',
   async handler(ctx, input) {
-    const current = await loadTask(ctx, input.taskId);
+    const current = await loadTask(ctx, input.taskId, { lock: true });
     if (!current.doneAt) return { taskId: current.id };
     await ctx.tx.update(tasks).set({ doneAt: null, doneBy: null }).where(eq(tasks.id, current.id));
     await ctx.emit({
@@ -215,6 +257,7 @@ export const taskDelete = defineCommand({
   permission: 'records.write',
   scope: (i) => ({ kind: 'workspace', workspaceId: i.workspaceId }),
   emits: ['task.deleted'],
+  offline: 'anytime',
   async handler(ctx, input) {
     const current = await loadTask(ctx, input.taskId);
     const deleted = await ctx.tx

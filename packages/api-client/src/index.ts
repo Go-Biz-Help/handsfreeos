@@ -26,6 +26,11 @@ export interface ApiErrorBody {
     readonly message: string;
     readonly rule?: string;
     readonly details?: unknown;
+    /**
+     * What a client keeping a queue of changes does with it: `final` (it never goes through as sent), `retry` (send
+     * it again later, unchanged) or `ask` (a person can answer it, then it goes again).
+     */
+    readonly disposition?: 'final' | 'retry' | 'ask';
   };
 }
 

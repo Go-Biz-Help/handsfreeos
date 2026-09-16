@@ -28,6 +28,7 @@ export const leadRecordAnswers = defineCommand({
   scope: (i) => ({ kind: 'workspace', workspaceId: i.workspaceId }),
   emits: ['lead.answers_recorded', 'lead.qualified'],
   actors: ['human', 'ai_employee'],
+  offline: 'anytime',
   async handler(ctx, input) {
     const ws = ctx.scope.workspaceId!;
     await assertAiReach(ctx, { leadId: input.leadId });

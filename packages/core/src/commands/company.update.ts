@@ -1,14 +1,21 @@
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import { companies } from '@hfos/db/schema';
 import { formatPhone } from '../crm/phone';
-import { addressPatch, requireCompany } from '../crm/records';
 import { HfosError } from '../errors';
 import { defineCommand } from '../kernel/define';
+import {
+  logNotApplied,
+  mergeColumns,
+  mergeFields,
+  type MergeField,
+  type MergeKind,
+} from '../kernel/field-merge';
 import { CompanyUpdateInput, CompanyUpdateOutput } from '../schemas/company';
 
 export const companyUpdate = defineCommand({
   name: 'company.update',
-  description: 'Change a company’s details.',
+  description:
+    'Change a company’s details: only the ones edited, each with what the editor saw, and the newest change to each wins.',
   risk: 1,
   input: CompanyUpdateInput,
   output: CompanyUpdateOutput,
@@ -16,26 +23,70 @@ export const companyUpdate = defineCommand({
   scope: (i) => ({ kind: 'workspace', workspaceId: i.workspaceId }),
   emits: ['company.updated'],
   actors: ['human', 'system'],
+  offline: 'anytime',
   async handler(ctx, input) {
-    const current = await requireCompany(ctx.tx, ctx.scope.workspaceId!, input.companyId);
-    const patch: Record<string, unknown> = {};
-    const set = (key: keyof typeof current, value: unknown) => {
-      if (value !== undefined && value !== current[key]) patch[key] = value;
-    };
-    set('name', input.name);
-    set('email', input.email);
-    if (input.phone !== undefined) {
-      set('phoneE164', input.phone);
-      set('phone', input.phone ? formatPhone(input.phone) : null);
-    }
-    set('website', input.website);
-    set('notes', input.notes);
-    set('source', input.source);
-    set('ownerUserId', input.ownerUserId);
-    for (const [k, v] of Object.entries(addressPatch(input.address)))
-      set(k as keyof typeof current, v);
-    const updated = Object.keys(patch).filter((k) => k !== 'phone');
-    if (Object.keys(patch).length === 0) return { companyId: current.id, updated: [] };
+    const [current] = await ctx.tx
+      .select()
+      .from(companies)
+      .where(
+        and(eq(companies.id, input.companyId), eq(companies.workspaceId, ctx.scope.workspaceId!)),
+      )
+      .for('update');
+    if (!current) throw HfosError.notFound('Company not found.');
+    const seen: NonNullable<typeof input.base> = input.base ?? {};
+    const address: NonNullable<typeof input.address> = input.address ?? {};
+    const seenAddress: NonNullable<typeof seen.address> = seen.address ?? {};
+    const field = (
+      key: string,
+      column: string,
+      value: unknown,
+      base: unknown,
+      kind: MergeKind,
+      label: string,
+    ): MergeField => ({ key, column, value, base, kind, label });
+    const fields: MergeField[] = [
+      field('name', 'name', input.name, seen.name, 'text', 'name'),
+      field('email', 'email', input.email, seen.email, 'email', 'email'),
+      {
+        ...field('phone', 'phoneE164', input.phone, seen.phone, 'phone', 'phone number'),
+        also: { phone: input.phone ? formatPhone(input.phone) : null },
+      },
+      field('website', 'website', input.website, seen.website, 'text', 'website'),
+      field('address.line1', 'addressLine1', address.line1, seenAddress.line1, 'text', 'address'),
+      field(
+        'address.line2',
+        'addressLine2',
+        address.line2,
+        seenAddress.line2,
+        'text',
+        'address line 2',
+      ),
+      field('address.city', 'city', address.city, seenAddress.city, 'text', 'city'),
+      field('address.state', 'state', address.state, seenAddress.state, 'text', 'state'),
+      field(
+        'address.postalCode',
+        'postalCode',
+        address.postalCode,
+        seenAddress.postalCode,
+        'text',
+        'ZIP code',
+      ),
+      field('address.country', 'country', address.country, seenAddress.country, 'text', 'country'),
+      field('notes', 'notes', input.notes, seen.notes, 'text', 'notes'),
+      field('source', 'source', input.source, seen.source, 'text', 'source'),
+      field('ownerUserId', 'ownerUserId', input.ownerUserId, seen.ownerUserId, 'id', 'owner'),
+    ];
+    const merged = mergeFields(current, fields, mergeColumns(companies), ctx.meta);
+    const { patch } = merged;
+    const notApplied = merged.notApplied.map((n) => n.key);
+    await logNotApplied(
+      ctx,
+      merged.notApplied,
+      { type: 'company', id: current.id },
+      { companyId: current.id },
+    );
+    const updated = [...merged.applied];
+    if (updated.length === 0) return { companyId: current.id, updated: [], notApplied };
     const [row] = await ctx.tx
       .update(companies)
       .set(patch)
@@ -57,6 +108,6 @@ export const companyUpdate = defineCommand({
       after: { name: (patch.name as string | undefined) ?? current.name, ...after },
       broadcast: ctx.actor.type === 'human',
     });
-    return { companyId: current.id, updated };
+    return { companyId: current.id, updated, notApplied };
   },
 });

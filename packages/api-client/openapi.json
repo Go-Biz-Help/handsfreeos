@@ -3,7 +3,7 @@
   "info": {
     "title": "HandsFreeOS API",
     "version": "0.1.0",
-    "description": "Every write goes through a command; every read through a query. Same operations for the web app, mobile, the assistant and integrations."
+    "description": "Every write goes through a command; every read through a query. Same operations for the web app, mobile, the assistant and integrations. The phone app sends x-hfos-client: mobile with x-hfos-app-version, and on every command x-hfos-command-id (a repeat gets the first answer back), x-hfos-occurred-at and x-hfos-sent-at (its own clock, corrected here), and x-hfos-confirmed-at after \"Still send?\". Every error body carries a disposition: final, retry or ask."
   },
   "components": {
     "securitySchemes": {
@@ -1323,11 +1323,11 @@
     "/v1/commands/company.create": {
       "post": {
         "operationId": "command_company_create",
-        "summary": "Add a company. Warns when one with the same email, phone or name already exists.",
+        "summary": "Add a company. Warns when one with the same email, phone or name already exists; from the phone, adds it anyway and flags the likely duplicate.",
         "tags": [
           "commands"
         ],
-        "description": "Risk level 1. Requires records.write. Emits company.created.",
+        "description": "Risk level 1. Requires records.write. Emits company.created. Can wait on a phone with no signal.",
         "requestBody": {
           "required": true,
           "content": {
@@ -1336,6 +1336,11 @@
                 "type": "object",
                 "properties": {
                   "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "id": {
                     "type": "string",
                     "format": "uuid",
                     "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
@@ -1537,11 +1542,11 @@
     "/v1/commands/company.update": {
       "post": {
         "operationId": "command_company_update",
-        "summary": "Change a company’s details.",
+        "summary": "Change a company’s details: only the ones edited, each with what the editor saw, and the newest change to each wins.",
         "tags": [
           "commands"
         ],
-        "description": "Risk level 1. Requires records.write. Emits company.updated.",
+        "description": "Risk level 1. Requires records.write. Emits company.updated. Can wait on a phone with no signal.",
         "requestBody": {
           "required": true,
           "content": {
@@ -1695,6 +1700,160 @@
                         "type": "null"
                       }
                     ]
+                  },
+                  "base": {
+                    "type": "object",
+                    "properties": {
+                      "name": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "maxLength": 20000
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "email": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "maxLength": 20000
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "phone": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "maxLength": 20000
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "website": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "maxLength": 20000
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "address": {
+                        "type": "object",
+                        "properties": {
+                          "line1": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "maxLength": 20000
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "line2": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "maxLength": 20000
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "city": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "maxLength": 20000
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "state": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "maxLength": 20000
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "postalCode": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "maxLength": 20000
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "country": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "maxLength": 20000
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          }
+                        }
+                      },
+                      "notes": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "maxLength": 20000
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "source": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "maxLength": 20000
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "ownerUserId": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      }
+                    }
                   }
                 },
                 "required": [
@@ -1723,11 +1882,19 @@
                       "items": {
                         "type": "string"
                       }
+                    },
+                    "notApplied": {
+                      "default": [],
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
                     }
                   },
                   "required": [
                     "companyId",
-                    "updated"
+                    "updated",
+                    "notApplied"
                   ],
                   "additionalProperties": false
                 }
@@ -1744,7 +1911,7 @@
         "tags": [
           "commands"
         ],
-        "description": "Risk level 3. Requires records.archive. Emits company.archived.",
+        "description": "Risk level 3. Requires records.archive. Emits company.archived. Can wait on a phone with no signal.",
         "requestBody": {
           "required": true,
           "content": {
@@ -1813,7 +1980,7 @@
         "tags": [
           "commands"
         ],
-        "description": "Risk level 2. Requires records.archive. Emits company.restored.",
+        "description": "Risk level 2. Requires records.archive. Emits company.restored. Can wait on a phone with no signal.",
         "requestBody": {
           "required": true,
           "content": {
@@ -1868,11 +2035,11 @@
     "/v1/commands/person.create": {
       "post": {
         "operationId": "command_person_create",
-        "summary": "Add a person. Warns when someone with the same email or phone already exists.",
+        "summary": "Add a person. Warns when someone with the same email or phone already exists; from the phone, adds them anyway and flags the likely duplicate.",
         "tags": [
           "commands"
         ],
-        "description": "Risk level 1. Requires records.write. Emits person.created.",
+        "description": "Risk level 1. Requires records.write. Emits person.created. Can wait on a phone with no signal.",
         "requestBody": {
           "required": true,
           "content": {
@@ -1881,6 +2048,11 @@
                 "type": "object",
                 "properties": {
                   "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "id": {
                     "type": "string",
                     "format": "uuid",
                     "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
@@ -2098,11 +2270,11 @@
     "/v1/commands/person.update": {
       "post": {
         "operationId": "command_person_update",
-        "summary": "Change a person’s details. Changing the company also moves their open leads to it.",
+        "summary": "Change a person’s details: only the ones edited, each with what the editor saw, and the newest change to each wins. Changing the company also moves their open leads to it.",
         "tags": [
           "commands"
         ],
-        "description": "Risk level 1. Requires records.write. Emits person.updated.",
+        "description": "Risk level 1. Requires records.write. Emits person.updated. Can wait on a phone with no signal.",
         "requestBody": {
           "required": true,
           "content": {
@@ -2271,6 +2443,183 @@
                         "type": "null"
                       }
                     ]
+                  },
+                  "base": {
+                    "type": "object",
+                    "properties": {
+                      "firstName": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "maxLength": 20000
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "lastName": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "maxLength": 20000
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "email": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "maxLength": 20000
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "phone": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "maxLength": 20000
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "phoneAlt": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "maxLength": 20000
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "companyId": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "address": {
+                        "type": "object",
+                        "properties": {
+                          "line1": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "maxLength": 20000
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "line2": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "maxLength": 20000
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "city": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "maxLength": 20000
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "state": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "maxLength": 20000
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "postalCode": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "maxLength": 20000
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "country": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "maxLength": 20000
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          }
+                        }
+                      },
+                      "notes": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "maxLength": 20000
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "source": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "maxLength": 20000
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "ownerUserId": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      }
+                    }
                   }
                 },
                 "required": [
@@ -2299,11 +2648,19 @@
                       "items": {
                         "type": "string"
                       }
+                    },
+                    "notApplied": {
+                      "default": [],
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
                     }
                   },
                   "required": [
                     "personId",
-                    "updated"
+                    "updated",
+                    "notApplied"
                   ],
                   "additionalProperties": false
                 }
@@ -2320,7 +2677,7 @@
         "tags": [
           "commands"
         ],
-        "description": "Risk level 3. Requires records.archive. Emits person.archived.",
+        "description": "Risk level 3. Requires records.archive. Emits person.archived. Can wait on a phone with no signal.",
         "requestBody": {
           "required": true,
           "content": {
@@ -2389,7 +2746,7 @@
         "tags": [
           "commands"
         ],
-        "description": "Risk level 2. Requires records.archive. Emits person.restored.",
+        "description": "Risk level 2. Requires records.archive. Emits person.restored. Can wait on a phone with no signal.",
         "requestBody": {
           "required": true,
           "content": {
@@ -2648,7 +3005,7 @@
     "/v1/commands/record.set_tags": {
       "post": {
         "operationId": "command_record_set_tags",
-        "summary": "Set the tags on a person, company or lead, or add or remove some and leave the rest (mode).",
+        "summary": "Set the tags on a person, company or lead, or add or remove some and leave the rest (mode). People’s screens use record.add_tag and record.remove_tag.",
         "tags": [
           "commands"
         ],
@@ -2752,14 +3109,14 @@
         }
       }
     },
-    "/v1/commands/lead.create": {
+    "/v1/commands/record.add_tag": {
       "post": {
-        "operationId": "command_lead_create",
-        "summary": "Add a lead for a person or company. It starts in the first open stage of the pipeline.",
+        "operationId": "command_record_add_tag",
+        "summary": "Put one tag on a person, company or lead. Already there, nothing changes; the other tags are left alone.",
         "tags": [
           "commands"
         ],
-        "description": "Risk level 1. Requires records.write. Emits lead.created.",
+        "description": "Risk level 1. Requires records.write. Emits record.tags_changed. Can wait on a phone with no signal.",
         "requestBody": {
           "required": true,
           "content": {
@@ -2768,6 +3125,207 @@
                 "type": "object",
                 "properties": {
                   "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "recordType": {
+                    "type": "string",
+                    "enum": [
+                      "person",
+                      "company",
+                      "lead"
+                    ]
+                  },
+                  "recordId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "tagId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "recordType",
+                  "recordId",
+                  "tagId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "tags": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "color": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "name",
+                          "color"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "changed": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "tags",
+                    "changed"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/commands/record.remove_tag": {
+      "post": {
+        "operationId": "command_record_remove_tag",
+        "summary": "Take one tag off a person, company or lead. Already off, nothing changes; the other tags are left alone.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 1. Requires records.write. Emits record.tags_changed. Can wait on a phone with no signal.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "recordType": {
+                    "type": "string",
+                    "enum": [
+                      "person",
+                      "company",
+                      "lead"
+                    ]
+                  },
+                  "recordId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "tagId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "recordType",
+                  "recordId",
+                  "tagId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "tags": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "color": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "name",
+                          "color"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "changed": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "tags",
+                    "changed"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/commands/lead.create": {
+      "post": {
+        "operationId": "command_lead_create",
+        "summary": "Add a lead for a person or company. It starts in the first open stage of the pipeline.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 1. Requires records.write. Emits lead.created. Can wait on a phone with no signal.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "id": {
                     "type": "string",
                     "format": "uuid",
                     "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
@@ -2927,11 +3485,11 @@
     "/v1/commands/lead.update": {
       "post": {
         "operationId": "command_lead_update",
-        "summary": "Change a lead’s title, value, source, people, expected close date, assignee or next action.",
+        "summary": "Change a lead’s title, value, source, people, expected close date, assignee or next action: only what was edited, each with what the editor saw, and the newest change to each wins.",
         "tags": [
           "commands"
         ],
-        "description": "Risk level 1. Requires records.write. Emits lead.updated, lead.assigned.",
+        "description": "Risk level 1. Requires records.write. Emits lead.updated, lead.assigned. Can wait on a phone with no signal.",
         "requestBody": {
           "required": true,
           "content": {
@@ -3040,6 +3598,108 @@
                         "type": "null"
                       }
                     ]
+                  },
+                  "base": {
+                    "type": "object",
+                    "properties": {
+                      "title": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "maxLength": 20000
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "personId": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "companyId": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "valueCents": {
+                        "type": [
+                          "number",
+                          "null"
+                        ]
+                      },
+                      "source": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "maxLength": 20000
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "assigneeUserId": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "expectedCloseOn": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "maxLength": 20000
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "nextAction": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "maxLength": 20000
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "nextActionAt": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "maxLength": 20000
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      }
+                    }
                   }
                 },
                 "required": [
@@ -3068,11 +3728,19 @@
                       "items": {
                         "type": "string"
                       }
+                    },
+                    "notApplied": {
+                      "default": [],
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
                     }
                   },
                   "required": [
                     "leadId",
-                    "updated"
+                    "updated",
+                    "notApplied"
                   ],
                   "additionalProperties": false
                 }
@@ -3089,7 +3757,7 @@
         "tags": [
           "commands"
         ],
-        "description": "Risk level 1. Requires records.write. Emits lead.stage_changed, lead.won, lead.lost, lead.reopened.",
+        "description": "Risk level 1. Requires records.write. Emits lead.stage_changed, lead.won, lead.lost, lead.reopened. Can wait on a phone with no signal.",
         "requestBody": {
           "required": true,
           "content": {
@@ -3186,11 +3854,11 @@
     "/v1/commands/lead.set_next_action": {
       "post": {
         "operationId": "command_lead_set_next_action",
-        "summary": "Set or clear the one thing to do next on a lead, and when.",
+        "summary": "Set or clear the one thing to do next on a lead, and when. One set later than this (from the phone, say) stays.",
         "tags": [
           "commands"
         ],
-        "description": "Risk level 1. Requires records.write. Emits lead.next_action_set, lead.next_action_cleared.",
+        "description": "Risk level 1. Requires records.write. Emits lead.next_action_set, lead.next_action_cleared. Can wait on a phone with no signal.",
         "requestBody": {
           "required": true,
           "content": {
@@ -3294,7 +3962,7 @@
         "tags": [
           "commands"
         ],
-        "description": "Risk level 2. Requires records.archive. Emits lead.archived.",
+        "description": "Risk level 2. Requires records.archive. Emits lead.archived. Can wait on a phone with no signal.",
         "requestBody": {
           "required": true,
           "content": {
@@ -3353,7 +4021,7 @@
         "tags": [
           "commands"
         ],
-        "description": "Risk level 2. Requires records.archive. Emits lead.restored.",
+        "description": "Risk level 2. Requires records.archive. Emits lead.restored. Can wait on a phone with no signal.",
         "requestBody": {
           "required": true,
           "content": {
@@ -3412,7 +4080,7 @@
         "tags": [
           "commands"
         ],
-        "description": "Risk level 1. Requires records.write. Emits task.created.",
+        "description": "Risk level 1. Requires records.write. Emits task.created. Can wait on a phone with no signal.",
         "requestBody": {
           "required": true,
           "content": {
@@ -3421,6 +4089,11 @@
                 "type": "object",
                 "properties": {
                   "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "id": {
                     "type": "string",
                     "format": "uuid",
                     "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
@@ -3542,11 +4215,11 @@
     "/v1/commands/task.update": {
       "post": {
         "operationId": "command_task_update",
-        "summary": "Change a task’s title, notes, due date, assignee or related records.",
+        "summary": "Change a task’s title, notes, due date, assignee or related records: only what was edited, each with what the editor saw, and the newest change to each wins.",
         "tags": [
           "commands"
         ],
-        "description": "Risk level 1. Requires records.write. Emits task.updated.",
+        "description": "Risk level 1. Requires records.write. Emits task.updated. Can wait on a phone with no signal.",
         "requestBody": {
           "required": true,
           "content": {
@@ -3642,6 +4315,95 @@
                         "type": "null"
                       }
                     ]
+                  },
+                  "base": {
+                    "type": "object",
+                    "properties": {
+                      "title": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "maxLength": 20000
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "notes": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "maxLength": 20000
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "dueAt": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "maxLength": 20000
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "allDay": {
+                        "type": "boolean"
+                      },
+                      "assigneeUserId": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "personId": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "companyId": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "leadId": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      }
+                    }
                   }
                 },
                 "required": [
@@ -3670,11 +4432,19 @@
                       "items": {
                         "type": "string"
                       }
+                    },
+                    "notApplied": {
+                      "default": [],
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
                     }
                   },
                   "required": [
                     "taskId",
-                    "updated"
+                    "updated",
+                    "notApplied"
                   ],
                   "additionalProperties": false
                 }
@@ -3687,11 +4457,11 @@
     "/v1/commands/task.complete": {
       "post": {
         "operationId": "command_task_complete",
-        "summary": "Mark a task done.",
+        "summary": "Mark a task done. Already done, nothing changes.",
         "tags": [
           "commands"
         ],
-        "description": "Risk level 1. Requires records.write. Emits task.completed.",
+        "description": "Risk level 1. Requires records.write. Emits task.completed. Can wait on a phone with no signal.",
         "requestBody": {
           "required": true,
           "content": {
@@ -3752,11 +4522,11 @@
     "/v1/commands/task.reopen": {
       "post": {
         "operationId": "command_task_reopen",
-        "summary": "Reopen a completed task.",
+        "summary": "Reopen a completed task. Already open, nothing changes.",
         "tags": [
           "commands"
         ],
-        "description": "Risk level 1. Requires records.write. Emits task.reopened.",
+        "description": "Risk level 1. Requires records.write. Emits task.reopened. Can wait on a phone with no signal.",
         "requestBody": {
           "required": true,
           "content": {
@@ -3815,7 +4585,7 @@
         "tags": [
           "commands"
         ],
-        "description": "Risk level 2. Requires records.write. Emits task.deleted.",
+        "description": "Risk level 2. Requires records.write. Emits task.deleted. Can wait on a phone with no signal.",
         "requestBody": {
           "required": true,
           "content": {
@@ -3874,7 +4644,7 @@
         "tags": [
           "commands"
         ],
-        "description": "Risk level 1. Requires records.write. Emits activity.logged.",
+        "description": "Risk level 1. Requires records.write. Emits activity.logged. Can wait on a phone with no signal.",
         "requestBody": {
           "required": true,
           "content": {
@@ -3883,6 +4653,11 @@
                 "type": "object",
                 "properties": {
                   "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "id": {
                     "type": "string",
                     "format": "uuid",
                     "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
@@ -4114,11 +4889,11 @@
     "/v1/commands/file.begin_upload": {
       "post": {
         "operationId": "command_file_begin_upload",
-        "summary": "Reserve a place for a file on a record. Upload to the returned path, then confirm.",
+        "summary": "Reserve a place for a file on a record. Upload to the returned path, then confirm. The phone names the file itself, so asking again for the same one returns the same place.",
         "tags": [
           "commands"
         ],
-        "description": "Risk level 1. Requires records.write. Emits .",
+        "description": "Risk level 1. Requires records.write. Emits . Can wait on a phone with no signal.",
         "requestBody": {
           "required": true,
           "content": {
@@ -4127,6 +4902,11 @@
                 "type": "object",
                 "properties": {
                   "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "id": {
                     "type": "string",
                     "format": "uuid",
                     "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
@@ -4223,7 +5003,7 @@
         "tags": [
           "commands"
         ],
-        "description": "Risk level 1. Requires records.write. Emits file.attached.",
+        "description": "Risk level 1. Requires records.write. Emits file.attached. Can wait on a phone with no signal.",
         "requestBody": {
           "required": true,
           "content": {
@@ -5155,7 +5935,7 @@
         "tags": [
           "commands"
         ],
-        "description": "Risk level 1. Requires inbox.use. Emits conversation.created, conversation.linked.",
+        "description": "Risk level 1. Requires inbox.use. Emits conversation.created, conversation.linked. Can wait on a phone with no signal.",
         "requestBody": {
           "required": true,
           "content": {
@@ -5226,7 +6006,7 @@
         "tags": [
           "commands"
         ],
-        "description": "Risk level 0. Requires inbox.use. Emits conversation.read.",
+        "description": "Risk level 0. Requires inbox.use. Emits conversation.read. Can wait on a phone with no signal.",
         "requestBody": {
           "required": true,
           "content": {
@@ -5285,7 +6065,7 @@
         "tags": [
           "commands"
         ],
-        "description": "Risk level 0. Requires inbox.use. Emits conversation.marked_unread.",
+        "description": "Risk level 0. Requires inbox.use. Emits conversation.marked_unread. Can wait on a phone with no signal.",
         "requestBody": {
           "required": true,
           "content": {
@@ -5344,7 +6124,7 @@
         "tags": [
           "commands"
         ],
-        "description": "Risk level 1. Requires inbox.use. Emits conversation.assigned.",
+        "description": "Risk level 1. Requires inbox.use. Emits conversation.assigned. Can wait on a phone with no signal.",
         "requestBody": {
           "required": true,
           "content": {
@@ -5416,7 +6196,7 @@
         "tags": [
           "commands"
         ],
-        "description": "Risk level 0. Requires inbox.use. Emits conversation.snoozed.",
+        "description": "Risk level 0. Requires inbox.use. Emits conversation.snoozed. Can wait on a phone with no signal.",
         "requestBody": {
           "required": true,
           "content": {
@@ -5481,7 +6261,7 @@
         "tags": [
           "commands"
         ],
-        "description": "Risk level 0. Requires inbox.use. Emits conversation.closed.",
+        "description": "Risk level 0. Requires inbox.use. Emits conversation.closed. Can wait on a phone with no signal.",
         "requestBody": {
           "required": true,
           "content": {
@@ -5540,7 +6320,7 @@
         "tags": [
           "commands"
         ],
-        "description": "Risk level 0. Requires inbox.use. Emits conversation.reopened.",
+        "description": "Risk level 0. Requires inbox.use. Emits conversation.reopened. Can wait on a phone with no signal.",
         "requestBody": {
           "required": true,
           "content": {
@@ -5599,7 +6379,7 @@
         "tags": [
           "commands"
         ],
-        "description": "Risk level 1. Requires inbox.use. Emits conversation.linked.",
+        "description": "Risk level 1. Requires inbox.use. Emits conversation.linked. Can wait on a phone with no signal.",
         "requestBody": {
           "required": true,
           "content": {
@@ -5674,7 +6454,7 @@
         "tags": [
           "commands"
         ],
-        "description": "Risk level 2. Requires inbox.use. Emits message.queued, message.sent, conversation.created, conversation.taken_over.",
+        "description": "Risk level 2. Requires inbox.use. Emits message.queued, message.sent, conversation.created, conversation.taken_over. Can wait on a phone for 30 minutes, then asks.",
         "requestBody": {
           "required": true,
           "content": {
@@ -10075,7 +10855,7 @@
         "tags": [
           "commands"
         ],
-        "description": "Risk level 2. Requires appointments.write. Emits appointment.booked.",
+        "description": "Risk level 2. Requires appointments.write. Emits appointment.booked. Can wait on a phone for 30 minutes, then asks.",
         "requestBody": {
           "required": true,
           "content": {
@@ -10359,11 +11139,11 @@
     "/v1/commands/appointment.update": {
       "post": {
         "operationId": "command_appointment_update",
-        "summary": "Change an appointment’s title, notes, location or lead.",
+        "summary": "Change an appointment’s title, notes, location or lead: only what was edited, each with what the editor saw, and the newest change to each wins.",
         "tags": [
           "commands"
         ],
-        "description": "Risk level 1. Requires appointments.write. Emits appointment.updated.",
+        "description": "Risk level 1. Requires appointments.write. Emits appointment.updated. Can wait on a phone with no signal.",
         "requestBody": {
           "required": true,
           "content": {
@@ -10467,6 +11247,59 @@
                         "type": "null"
                       }
                     ]
+                  },
+                  "base": {
+                    "type": "object",
+                    "properties": {
+                      "title": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "maxLength": 20000
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "notes": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "maxLength": 20000
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "location": {
+                        "anyOf": [
+                          {
+                            "type": "object",
+                            "propertyNames": {
+                              "type": "string"
+                            },
+                            "additionalProperties": {}
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "leadId": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      }
+                    }
                   }
                 },
                 "required": [
@@ -10495,11 +11328,19 @@
                       "items": {
                         "type": "string"
                       }
+                    },
+                    "notApplied": {
+                      "default": [],
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
                     }
                   },
                   "required": [
                     "appointmentId",
-                    "updated"
+                    "updated",
+                    "notApplied"
                   ],
                   "additionalProperties": false
                 }
@@ -10516,7 +11357,7 @@
         "tags": [
           "commands"
         ],
-        "description": "Risk level 2. Requires appointments.write. Emits appointment.rescheduled.",
+        "description": "Risk level 2. Requires appointments.write. Emits appointment.rescheduled. Can wait on a phone for 30 minutes, then asks.",
         "requestBody": {
           "required": true,
           "content": {
@@ -10799,7 +11640,7 @@
         "tags": [
           "commands"
         ],
-        "description": "Risk level 2. Requires appointments.write. Emits appointment.cancelled, waitlist.seat_freed.",
+        "description": "Risk level 2. Requires appointments.write. Emits appointment.cancelled, waitlist.seat_freed. Can wait on a phone for 30 minutes, then asks.",
         "requestBody": {
           "required": true,
           "content": {
@@ -10883,7 +11724,7 @@
         "tags": [
           "commands"
         ],
-        "description": "Risk level 1. Requires appointments.write. Emits appointment.completed, appointment.no_show.",
+        "description": "Risk level 1. Requires appointments.write. Emits appointment.completed, appointment.no_show. Can wait on a phone with no signal.",
         "requestBody": {
           "required": true,
           "content": {
@@ -14576,7 +15417,7 @@
         "tags": [
           "commands"
         ],
-        "description": "Risk level 2. Requires workspace.read. Emits workflow.approval_decided.",
+        "description": "Risk level 2. Requires workspace.read. Emits workflow.approval_decided. Can wait on a phone for 30 minutes, then asks.",
         "requestBody": {
           "required": true,
           "content": {
@@ -18605,7 +19446,7 @@
         "tags": [
           "commands"
         ],
-        "description": "Risk level 1. Requires records.write. Emits lead.answers_recorded, lead.qualified.",
+        "description": "Risk level 1. Requires records.write. Emits lead.answers_recorded, lead.qualified. Can wait on a phone with no signal.",
         "requestBody": {
           "required": true,
           "content": {
@@ -18716,7 +19557,7 @@
         "tags": [
           "commands"
         ],
-        "description": "Risk level 1. Requires inbox.use. Emits conversation.taken_over.",
+        "description": "Risk level 1. Requires inbox.use. Emits conversation.taken_over. Can wait on a phone with no signal.",
         "requestBody": {
           "required": true,
           "content": {
@@ -18779,7 +19620,7 @@
         "tags": [
           "commands"
         ],
-        "description": "Risk level 1. Requires inbox.use. Emits conversation.handed_to_ai.",
+        "description": "Risk level 1. Requires inbox.use. Emits conversation.handed_to_ai. Can wait on a phone for 30 minutes, then asks.",
         "requestBody": {
           "required": true,
           "content": {
@@ -19242,7 +20083,7 @@
         "tags": [
           "commands"
         ],
-        "description": "Risk level 2. Requires inbox.use. Emits ai_teammate.draft_decided, ai_teammate.status_changed.",
+        "description": "Risk level 2. Requires inbox.use. Emits ai_teammate.draft_decided, ai_teammate.status_changed. Can wait on a phone for 30 minutes, then asks.",
         "requestBody": {
           "required": true,
           "content": {
@@ -20130,7 +20971,7 @@
         "tags": [
           "commands"
         ],
-        "description": "Risk level 0. Requires records.write. Emits attention.snoozed.",
+        "description": "Risk level 0. Requires records.write. Emits attention.snoozed. Can wait on a phone with no signal.",
         "requestBody": {
           "required": true,
           "content": {
@@ -20223,7 +21064,7 @@
         "tags": [
           "commands"
         ],
-        "description": "Risk level 0. Requires records.write. Emits attention.unsnoozed.",
+        "description": "Risk level 0. Requires records.write. Emits attention.unsnoozed. Can wait on a phone with no signal.",
         "requestBody": {
           "required": true,
           "content": {
@@ -20310,7 +21151,7 @@
         "tags": [
           "commands"
         ],
-        "description": "Risk level 0. Requires records.write. Emits attention.dismissed.",
+        "description": "Risk level 0. Requires records.write. Emits attention.dismissed. Can wait on a phone with no signal.",
         "requestBody": {
           "required": true,
           "content": {
@@ -20408,7 +21249,7 @@
         "tags": [
           "commands"
         ],
-        "description": "Risk level 0. Requires records.write. Emits attention.restored.",
+        "description": "Risk level 0. Requires records.write. Emits attention.restored. Can wait on a phone with no signal.",
         "requestBody": {
           "required": true,
           "content": {
@@ -20495,7 +21336,7 @@
         "tags": [
           "commands"
         ],
-        "description": "Risk level 1. Requires records.write. Emits attention.assigned.",
+        "description": "Risk level 1. Requires records.write. Emits attention.assigned. Can wait on a phone with no signal.",
         "requestBody": {
           "required": true,
           "content": {
@@ -20613,7 +21454,7 @@
         "tags": [
           "commands"
         ],
-        "description": "Risk level 2. Requires records.write. Emits attention.handle_requested, attention.handled.",
+        "description": "Risk level 2. Requires records.write. Emits attention.handle_requested, attention.handled. Can wait on a phone for 30 minutes, then asks.",
         "requestBody": {
           "required": true,
           "content": {
@@ -20796,7 +21637,7 @@
         "tags": [
           "commands"
         ],
-        "description": "Risk level 0. Requires records.write. Emits attention.auto_cancelled.",
+        "description": "Risk level 0. Requires records.write. Emits attention.auto_cancelled. Can wait on a phone with no signal.",
         "requestBody": {
           "required": true,
           "content": {
@@ -21398,7 +22239,7 @@
         "tags": [
           "commands"
         ],
-        "description": "Risk level 1. Requires appointments.write. Emits attendee.confirmed, attendee.confirmation_removed.",
+        "description": "Risk level 1. Requires appointments.write. Emits attendee.confirmed, attendee.confirmation_removed. Can wait on a phone with no signal.",
         "requestBody": {
           "required": true,
           "content": {
@@ -23316,7 +24157,7 @@
         "tags": [
           "commands"
         ],
-        "description": "Risk level 2. Requires money.manage. Emits estimate.sent.",
+        "description": "Risk level 2. Requires money.manage. Emits estimate.sent. Can wait on a phone for 30 minutes, then asks.",
         "requestBody": {
           "required": true,
           "content": {
@@ -24412,7 +25253,7 @@
         "tags": [
           "commands"
         ],
-        "description": "Risk level 2. Requires money.manage. Emits invoice.sent.",
+        "description": "Risk level 2. Requires money.manage. Emits invoice.sent. Can wait on a phone for 30 minutes, then asks.",
         "requestBody": {
           "required": true,
           "content": {
@@ -24667,7 +25508,7 @@
         "tags": [
           "commands"
         ],
-        "description": "Risk level 2. Requires money.manage. Emits payment.recorded, invoice.paid.",
+        "description": "Risk level 2. Requires money.manage. Emits payment.recorded, invoice.paid. Can wait on a phone with no signal.",
         "requestBody": {
           "required": true,
           "content": {
@@ -25253,7 +26094,7 @@
         "tags": [
           "commands"
         ],
-        "description": "Risk level 2. Requires money.manage. Emits subscription.card_requested.",
+        "description": "Risk level 2. Requires money.manage. Emits subscription.card_requested. Can wait on a phone for 30 minutes, then asks.",
         "requestBody": {
           "required": true,
           "content": {
@@ -26786,6 +27627,7 @@
                       "workflow",
                       "ai_employee",
                       "chat_widget",
+                      "mobile",
                       "test"
                     ]
                   }

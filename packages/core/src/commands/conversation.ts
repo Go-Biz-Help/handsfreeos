@@ -5,6 +5,7 @@ import { fullName, requirePerson, userRef } from '../crm/records';
 import { HfosError } from '../errors';
 import { userIdOf } from '../kernel/actor';
 import { defineCommand } from '../kernel/define';
+import { editMoment, stampSql } from '../kernel/field-merge';
 import type { CommandContext } from '../kernel/types';
 import {
   findOrCreateConversation,
@@ -56,6 +57,7 @@ export const conversationOpen = defineCommand({
   permission: 'inbox.use',
   scope: inWorkspace,
   emits: ['conversation.created', 'conversation.linked'],
+  offline: 'anytime',
   async handler(ctx, input) {
     const workspaceId = ctx.scope.workspaceId!;
     const person = await requirePerson(ctx.tx, workspaceId, input.personId);
@@ -109,6 +111,7 @@ export const conversationMarkRead = defineCommand({
   permission: 'inbox.use',
   scope: inWorkspace,
   emits: ['conversation.read'],
+  offline: 'anytime',
   async handler(ctx, input) {
     const c = await loadConversation(ctx, input.conversationId);
     if (c.unreadCount === 0) return { conversationId: c.id };
@@ -134,6 +137,7 @@ export const conversationMarkUnread = defineCommand({
   permission: 'inbox.use',
   scope: inWorkspace,
   emits: ['conversation.marked_unread'],
+  offline: 'anytime',
   async handler(ctx, input) {
     const c = await loadConversation(ctx, input.conversationId);
     if (c.unreadCount > 0) return { conversationId: c.id };
@@ -160,6 +164,7 @@ export const conversationAssign = defineCommand({
   scope: inWorkspace,
   emits: ['conversation.assigned'],
   actors: ['human', 'workflow'],
+  offline: 'anytime',
   async handler(ctx, input) {
     const workspaceId = ctx.scope.workspaceId!;
     const c = await loadConversation(ctx, input.conversationId);
@@ -198,14 +203,18 @@ export const conversationSnooze = defineCommand({
   permission: 'inbox.use',
   scope: inWorkspace,
   emits: ['conversation.snoozed'],
+  offline: 'anytime',
   async handler(ctx, input) {
     const c = await loadConversation(ctx, input.conversationId);
     const until = new Date(input.until);
-    const now = Date.now();
-    if (until.getTime() < now + 60_000)
+    // Measured from when the person snoozed it (on the phone, perhaps a while before it had signal).
+    const madeAt = editMoment(ctx.meta).getTime();
+    if (until.getTime() < madeAt + 60_000)
       throw HfosError.validation([{ path: 'until', message: 'Pick a time in the future.' }]);
-    if (until.getTime() > now + 90 * DAY)
+    if (until.getTime() > madeAt + 90 * DAY)
       throw HfosError.validation([{ path: 'until', message: 'Snooze for 90 days at most.' }]);
+    // A snooze that ran out before it arrived has nothing left to do.
+    if (until.getTime() <= Date.now()) return { conversationId: c.id };
     await ctx.tx
       .update(conversations)
       .set({ status: 'snoozed', snoozedUntil: until })
@@ -232,6 +241,7 @@ export const conversationClose = defineCommand({
   scope: inWorkspace,
   emits: ['conversation.closed'],
   actors: ['human', 'workflow'],
+  offline: 'anytime',
   async handler(ctx, input) {
     const c = await loadConversation(ctx, input.conversationId);
     if (c.status === 'closed') return { conversationId: c.id };
@@ -268,6 +278,7 @@ export const conversationReopen = defineCommand({
   emits: ['conversation.reopened'],
   // The worker brings snoozed conversations back when their time comes.
   actors: ['human', 'system'],
+  offline: 'anytime',
   async handler(ctx, input) {
     const c = await loadConversation(ctx, input.conversationId);
     if (c.status === 'open') return { conversationId: c.id };
@@ -297,6 +308,7 @@ export const conversationLinkPerson = defineCommand({
   permission: 'inbox.use',
   scope: inWorkspace,
   emits: ['conversation.linked'],
+  offline: 'anytime',
   async handler(ctx, input) {
     const workspaceId = ctx.scope.workspaceId!;
     const c = await loadConversation(ctx, input.conversationId);
@@ -309,11 +321,18 @@ export const conversationLinkPerson = defineCommand({
     if (c.channel === 'sms' && !person.phoneE164) {
       await ctx.tx
         .update(people)
-        .set({ phoneE164: c.counterpart, phone: formatPhone(c.counterpart) })
+        .set({
+          phoneE164: c.counterpart,
+          phone: formatPhone(c.counterpart),
+          fieldTimes: stampSql(['phone_e164'], editMoment(ctx.meta)),
+        })
         .where(eq(people.id, person.id));
       phoneAdded = true;
     } else if (c.channel === 'email' && !person.email) {
-      await ctx.tx.update(people).set({ email: c.counterpart }).where(eq(people.id, person.id));
+      await ctx.tx
+        .update(people)
+        .set({ email: c.counterpart, fieldTimes: stampSql(['email'], editMoment(ctx.meta)) })
+        .where(eq(people.id, person.id));
       phoneAdded = true;
     }
     await ctx.tx

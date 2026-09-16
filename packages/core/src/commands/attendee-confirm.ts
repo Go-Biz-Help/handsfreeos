@@ -85,6 +85,7 @@ export const attendeeConfirm = defineCommand({
   permission: 'appointments.write',
   scope: inWorkspace,
   emits: ['attendee.confirmed', 'attendee.confirmation_removed'],
+  offline: 'anytime',
   async handler(ctx, input) {
     const me = requireHuman(ctx).userId;
     const ws = ctx.scope.workspaceId!;

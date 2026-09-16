@@ -7,6 +7,7 @@ import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Field } from '@/components/ui/field';
 import { Input, Select } from '@/components/ui/input';
 import { apiBrowser, errorMessage, unwrap } from '@/lib/api/client';
+import { editedOnly, orNull } from '@/lib/api/edits';
 import { fieldErrors } from '@/lib/api/field-errors';
 import type { LeadCard } from '@/lib/api/types';
 import { formatMoney, parseMoney } from '@/lib/format';
@@ -56,19 +57,29 @@ export function LeadEditDialog({
     setBusy(true);
     setErrors({});
     try {
-      unwrap(
-        await apiBrowser().POST('/v1/commands/lead.update', {
-          body: {
-            workspaceId,
-            leadId: lead.id,
-            title: title.trim(),
-            valueCents: cents,
-            assigneeUserId: assignee || null,
-            expectedCloseOn: closeOn || null,
-            source: source.trim() || null,
-          },
-        }),
+      // Only what was edited, each with what the dialog opened with: anyone else's change meanwhile stays.
+      const edit = editedOnly(
+        {
+          title: lead.title,
+          valueCents: lead.valueCents,
+          assigneeUserId: lead.assignee?.id ?? null,
+          expectedCloseOn: lead.expectedCloseOn ?? null,
+          source: lead.source ?? null,
+        },
+        {
+          title: title.trim(),
+          valueCents: cents,
+          assigneeUserId: assignee || null,
+          expectedCloseOn: closeOn || null,
+          source: orNull(source),
+        },
       );
+      if (edit.any)
+        unwrap(
+          await apiBrowser().POST('/v1/commands/lead.update', {
+            body: { workspaceId, leadId: lead.id, ...edit.changes, base: edit.base },
+          }),
+        );
       toast.success('Lead saved.');
       onOpenChange(false);
       onSaved?.();

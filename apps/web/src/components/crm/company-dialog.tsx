@@ -8,6 +8,7 @@ import { Field, Label } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { apiBrowser, ApiError, errorMessage, unwrap } from '@/lib/api/client';
+import { editedOnly, orNull, saveTagChanges } from '@/lib/api/edits';
 import { fieldErrors } from '@/lib/api/field-errors';
 import type { CompanyDetail, Match, Tag } from '@/lib/api/types';
 import { DuplicateWarning } from './duplicate-warning';
@@ -39,6 +40,22 @@ const empty = (): Form => ({
   notes: '',
   tagIds: [],
 });
+/** A company's details as the dialog saves them. */
+const saveable = (f: Form) => ({
+  name: f.name.trim(),
+  email: orNull(f.email),
+  phone: orNull(f.phone),
+  website: orNull(f.website),
+  source: orNull(f.source),
+  notes: orNull(f.notes),
+});
+const addressOf = (f: Form) => ({
+  line1: orNull(f.line1),
+  city: orNull(f.city),
+  state: orNull(f.state),
+  postalCode: orNull(f.postalCode),
+});
+
 const fromCompany = (c: CompanyDetail): Form => ({
   name: c.name,
   phone: c.phone ?? '',
@@ -137,26 +154,33 @@ export function CompanyDialog({
         notes: form.notes.trim() || null,
       };
       if (initial) {
-        unwrap(
-          await apiBrowser().POST('/v1/commands/company.update', {
-            body: { workspaceId, companyId: initial.id, ...fields },
-          }),
-        );
-        const before = initial.tags
-          .map((t) => t.id)
-          .sort()
-          .join(',');
-        if (before !== [...form.tagIds].sort().join(','))
+        // Only what was edited, each with what the dialog opened with (the number as stored, not as shown):
+        // anyone else's change meanwhile stays, and the newest change to a detail wins.
+        const opened = fromCompany(initial);
+        const details = editedOnly(saveable(opened), saveable(form), {
+          ...saveable(opened),
+          phone: initial.phoneE164 ?? orNull(opened.phone),
+        });
+        const address = editedOnly(addressOf(opened), addressOf(form));
+        if (details.any || address.any)
           unwrap(
-            await apiBrowser().POST('/v1/commands/record.set_tags', {
+            await apiBrowser().POST('/v1/commands/company.update', {
               body: {
                 workspaceId,
-                recordType: 'company',
-                recordId: initial.id,
-                tagIds: form.tagIds,
+                companyId: initial.id,
+                ...details.changes,
+                ...(address.any ? { address: address.changes } : {}),
+                base: { ...details.base, ...(address.any ? { address: address.base } : {}) },
               },
             }),
           );
+        await saveTagChanges(
+          workspaceId,
+          'company',
+          initial.id,
+          initial.tags.map((t) => t.id),
+          form.tagIds,
+        );
         toast.success('Saved.');
         onOpenChange(false);
         onSaved?.(initial.id);

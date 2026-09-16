@@ -7,6 +7,7 @@ import { and, eq, inArray, sql as dsql } from 'drizzle-orm';
 import { workflowApprovals, workflowRuns, workflowRunSteps, workflows } from '@hfos/db/schema';
 import { requirePerson } from '../crm/records';
 import { HfosError } from '../errors';
+import { FRESH_MINUTES } from '../mobile';
 import { requireHuman } from '../kernel/actor';
 import { defineCommand } from '../kernel/define';
 import type { CommandContext } from '../kernel/types';
@@ -211,6 +212,7 @@ export const workflowDecideApproval = defineCommand({
   permission: 'workspace.read',
   scope: inWorkspace,
   emits: ['workflow.approval_decided'],
+  offline: { freshMinutes: FRESH_MINUTES },
   async handler(ctx, input) {
     const me = requireHuman(ctx).userId;
     const [a] = await ctx.tx

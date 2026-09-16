@@ -14,6 +14,7 @@ export const leadArchive = defineCommand({
   permission: 'records.archive',
   scope: (i) => ({ kind: 'workspace', workspaceId: i.workspaceId }),
   emits: ['lead.archived'],
+  offline: 'anytime',
   async handler(ctx, input) {
     const [current] = await ctx.tx
       .select()
@@ -51,6 +52,7 @@ export const leadRestore = defineCommand({
   permission: 'records.archive',
   scope: (i) => ({ kind: 'workspace', workspaceId: i.workspaceId }),
   emits: ['lead.restored'],
+  offline: 'anytime',
   async handler(ctx, input) {
     const [current] = await ctx.tx
       .select()

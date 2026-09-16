@@ -3,10 +3,14 @@ import { isoDateTime, uuid } from './common';
 import {
   AddressInput,
   AddressOut,
+  AddressSeen,
   ListInput,
+  notApplied,
   notes,
   optionalEmail,
   phoneInput,
+  seenId,
+  seenText,
   source,
   tagIds,
   TagRef,
@@ -26,6 +30,8 @@ const companyFields = {
 
 export const CompanyCreateInput = z.object({
   workspaceId: uuid,
+  /** The id the phone made for it, so what it adds for the company offline can point at it (M10). */
+  id: uuid.optional(),
   ...companyFields,
   tagIds: tagIds.optional(),
   /** Save even when an existing company matches the email, phone or name. */
@@ -36,16 +42,34 @@ export const CompanyCreateInput = z.object({
 });
 export const CompanyCreateOutput = z.object({ companyId: uuid });
 
+/** What the person saw of each detail they edited (see kernel/field-merge). */
+export const CompanySeen = z.object({
+  name: seenText,
+  email: seenText,
+  phone: seenText,
+  website: seenText,
+  address: AddressSeen.optional(),
+  notes: seenText,
+  source: seenText,
+  ownerUserId: seenId,
+});
+
+/** Only the details that were edited, each merged on its own: newest wins. */
 export const CompanyUpdateInput = z.object({
   workspaceId: uuid,
   companyId: uuid,
   ...Object.fromEntries(Object.entries(companyFields).map(([k, v]) => [k, v.optional()])),
+  base: CompanySeen.optional(),
 }) as z.ZodObject<
   { workspaceId: typeof uuid; companyId: typeof uuid } & {
     [K in keyof typeof companyFields]: z.ZodOptional<(typeof companyFields)[K]>;
-  }
+  } & { base: z.ZodOptional<typeof CompanySeen> }
 >;
-export const CompanyUpdateOutput = z.object({ companyId: uuid, updated: z.array(z.string()) });
+export const CompanyUpdateOutput = z.object({
+  companyId: uuid,
+  updated: z.array(z.string()),
+  notApplied,
+});
 
 export const CompanyArchiveInput = z.object({
   workspaceId: uuid,

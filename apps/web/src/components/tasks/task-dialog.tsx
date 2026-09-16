@@ -9,6 +9,7 @@ import { Field } from '@/components/ui/field';
 import { Input, Select } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { apiBrowser, errorMessage, unwrap } from '@/lib/api/client';
+import { editedOnly } from '@/lib/api/edits';
 import { fieldErrors } from '@/lib/api/field-errors';
 import type { Task } from '@/lib/api/types';
 import { toLocalDateValue, toLocalInputValue } from '@/lib/format';
@@ -85,11 +86,24 @@ export function TaskDialog({
         leadId: leadId || null,
       };
       if (initial) {
-        unwrap(
-          await apiBrowser().POST('/v1/commands/task.update', {
-            body: { workspaceId, taskId: initial.id, ...fields },
-          }),
+        // Only what was edited, each with what the dialog opened with: anyone else's change meanwhile stays.
+        const edit = editedOnly(
+          {
+            title: initial.title,
+            notes: initial.notes ?? null,
+            dueAt: initial.dueAt ? new Date(initial.dueAt).toISOString() : null,
+            allDay: initial.allDay,
+            assigneeUserId: initial.assignee?.id ?? null,
+            leadId: initial.lead?.id ?? null,
+          },
+          fields,
         );
+        if (edit.any)
+          unwrap(
+            await apiBrowser().POST('/v1/commands/task.update', {
+              body: { workspaceId, taskId: initial.id, ...edit.changes, base: edit.base },
+            }),
+          );
         toast.success('Task saved.');
       } else {
         unwrap(

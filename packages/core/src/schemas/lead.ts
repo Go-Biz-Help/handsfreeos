@@ -1,7 +1,18 @@
 import { z } from 'zod';
 import { LeadQualification } from './ai-team';
 import { isoDateTime, uuid } from './common';
-import { CompanyRef, ListInput, PersonRef, source, tagIds, TagRef, UserRef } from './crm';
+import {
+  CompanyRef,
+  ListInput,
+  notApplied,
+  PersonRef,
+  seenId,
+  seenText,
+  source,
+  tagIds,
+  TagRef,
+  UserRef,
+} from './crm';
 import { stageKind } from './pipeline';
 
 export const leadStatus = z.enum(['open', 'won', 'lost']);
@@ -13,6 +24,8 @@ const lostReason = z.string().trim().min(1, 'Add a reason.').max(300);
 export const LeadCreateInput = z
   .object({
     workspaceId: uuid,
+    /** The id the phone made for it (M10). */
+    id: uuid.optional(),
     title,
     personId: uuid.nullable().optional(),
     companyId: uuid.nullable().optional(),
@@ -32,6 +45,20 @@ export const LeadCreateInput = z
   });
 export const LeadCreateOutput = z.object({ leadId: uuid, stageId: uuid });
 
+/** What the person saw of each detail they edited (see kernel/field-merge). */
+export const LeadSeen = z.object({
+  title: seenText,
+  personId: seenId,
+  companyId: seenId,
+  valueCents: z.number().nullable().optional(),
+  source: seenText,
+  assigneeUserId: seenId,
+  expectedCloseOn: seenText,
+  nextAction: seenText,
+  nextActionAt: seenText,
+});
+
+/** Only the details that were edited, each merged on its own: newest wins. */
 export const LeadUpdateInput = z.object({
   workspaceId: uuid,
   leadId: uuid,
@@ -45,8 +72,13 @@ export const LeadUpdateInput = z.object({
   /** The one thing to do next, and when (the AI teammate may change only these two). */
   nextAction,
   nextActionAt: isoDateTime.nullable().optional(),
+  base: LeadSeen.optional(),
 });
-export const LeadUpdateOutput = z.object({ leadId: uuid, updated: z.array(z.string()) });
+export const LeadUpdateOutput = z.object({
+  leadId: uuid,
+  updated: z.array(z.string()),
+  notApplied,
+});
 
 export const LeadMoveStageInput = z.object({
   workspaceId: uuid,

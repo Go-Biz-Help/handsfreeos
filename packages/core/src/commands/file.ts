@@ -3,6 +3,7 @@ import { and, eq } from 'drizzle-orm';
 import { rows, sql } from '@hfos/db/client';
 import { companies, files, leads, people } from '@hfos/db/schema';
 import { logSystemActivity } from '../crm/activities';
+import { insertWithId, madeBefore } from '../crm/client-ids';
 import { safeFileName } from '../crm/records';
 import { HfosError } from '../errors';
 import { requireHuman } from '../kernel/actor';
@@ -42,33 +43,41 @@ function requireKnowledgeManager(ctx: CommandContext): void {
 
 export const fileBeginUpload = defineCommand({
   name: 'file.begin_upload',
-  description: 'Reserve a place for a file on a record. Upload to the returned path, then confirm.',
+  description:
+    'Reserve a place for a file on a record. Upload to the returned path, then confirm. The phone names the file itself, so asking again for the same one returns the same place.',
   risk: 1,
   input: FileBeginUploadInput,
   output: FileBeginUploadOutput,
   permission: 'records.write',
   scope: (i) => ({ kind: 'workspace', workspaceId: i.workspaceId }),
   emits: [],
+  offline: 'anytime',
   async handler(ctx, input) {
     const workspaceId = ctx.scope.workspaceId!;
+    const earlier = await madeBefore(ctx.tx, 'files', input.id, workspaceId);
+    if (earlier && !earlier.deletedAt && earlier.recordType !== 'knowledge')
+      return { fileId: earlier.id, bucket: earlier.bucket, objectPath: earlier.objectPath };
+    if (earlier) throw HfosError.notFound('File not found.');
     await requireRecord(ctx, input.recordType, input.recordId);
-    const fileId = randomUUID();
+    const fileId = input.id ?? randomUUID();
     const objectPath = `${workspaceId}/${input.recordType}/${input.recordId}/${fileId}/${safeFileName(input.name)}`;
-    const [row] = await ctx.tx
-      .insert(files)
-      .values({
-        id: fileId,
-        workspaceId,
-        recordType: input.recordType,
-        recordId: input.recordId,
-        bucket: 'attachments',
-        objectPath,
-        name: input.name,
-        mimeType: input.mimeType,
-        sizeBytes: input.sizeBytes,
-        createdBy: requireHuman(ctx).userId,
-      })
-      .returning({ id: files.id });
+    const [row] = await insertWithId('files', input.id, () =>
+      ctx.tx
+        .insert(files)
+        .values({
+          id: fileId,
+          workspaceId,
+          recordType: input.recordType,
+          recordId: input.recordId,
+          bucket: 'attachments',
+          objectPath,
+          name: input.name,
+          mimeType: input.mimeType,
+          sizeBytes: input.sizeBytes,
+          createdBy: requireHuman(ctx).userId,
+        })
+        .returning({ id: files.id }),
+    );
     if (!row) throw HfosError.forbidden();
     return { fileId, bucket: 'attachments', objectPath };
   },
@@ -83,6 +92,7 @@ export const fileConfirm = defineCommand({
   permission: 'records.write',
   scope: (i) => ({ kind: 'workspace', workspaceId: i.workspaceId }),
   emits: ['file.attached'],
+  offline: 'anytime',
   async handler(ctx, input) {
     const [current] = await ctx.tx
       .select()

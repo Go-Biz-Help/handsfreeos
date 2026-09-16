@@ -20,6 +20,7 @@ import { rows, sql } from '@hfos/db/client';
 import { invoices, payments, paymentConnections } from '@hfos/db/schema';
 import { requirePerson, workspaceTimezone } from '../crm/records';
 import { HfosError } from '../errors';
+import { FRESH_MINUTES } from '../mobile';
 import { requireHuman } from '../kernel/actor';
 import { defineCommand } from '../kernel/define';
 import type { CommandContext } from '../kernel/types';
@@ -54,6 +55,7 @@ import {
   assertDraft,
   assertRevision,
   businessToday,
+  presentOnly,
   draftOf,
   isoAt,
   moneyIso,
@@ -267,7 +269,22 @@ export const invoiceUpdate = defineCommand({
     requireHuman(ctx);
     const before = await requireInvoice(ctx, input.invoiceId);
     assertDraft(before, 'invoice');
-    assertRevision(before, input.baseRevision);
+    assertRevision(before, input.baseRevision, {
+      command: 'invoice.create',
+      input: presentOnly({
+        workspaceId: input.workspaceId,
+        personId: input.personId,
+        leadId: input.leadId,
+        assigneeUserId: input.assigneeUserId,
+        title: input.title,
+        notes: input.notes,
+        lines: input.lines,
+        discount: input.discount,
+        connectionId: input.connectionId,
+        dueOn: input.dueOn,
+        terms: input.terms,
+      }),
+    });
     if (input.personId !== before.person_id)
       throw HfosError.rule(
         'money_document_person',
@@ -314,6 +331,7 @@ export const invoiceSend = defineCommand({
   scope: inWorkspace,
   emits: ['invoice.sent'],
   actors: ['human', 'system'],
+  offline: { freshMinutes: FRESH_MINUTES },
   async handler(ctx, input) {
     const ws = ctx.scope.workspaceId!;
     const before = await requireInvoice(ctx, input.invoiceId);
@@ -450,6 +468,7 @@ export const invoiceRecordCashPayment = defineCommand({
   permission: 'money.manage',
   scope: inWorkspace,
   emits: ['payment.recorded', 'invoice.paid'],
+  offline: 'anytime',
   async handler(ctx, input) {
     const me = requireHuman(ctx).userId;
     const before = await requireInvoice(ctx, input.invoiceId);

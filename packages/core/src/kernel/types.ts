@@ -1,13 +1,16 @@
 import type { Tx, UserClaims } from '@hfos/db/client';
 import type { z } from 'zod';
+import type { OfflineClass } from '../mobile';
 import type { OrgRole, Permission, WorkspaceRole } from '../permissions';
 import type { requestChannel } from '../schemas/audit';
+
+export type { OfflineClass } from '../mobile';
 
 /** Blueprint action levels: 0 read, 1 safe, 2 external, 3 sensitive, 4 admin. Used by the assistant in M4. */
 export type RiskLevel = 0 | 1 | 2 | 3 | 4;
 /**
  * 'web' | 'api' | 'worker' | 'cli' | 'sms' | 'assistant' | 'booking_page' | 'workflow' | 'ai_employee' |
- * 'chat_widget' | 'test' (one list, shared with the audit filter).
+ * 'chat_widget' | 'mobile' | 'test' (one list, shared with the audit filter).
  */
 export type Channel = z.infer<typeof requestChannel>;
 
@@ -108,6 +111,22 @@ export interface RequestMeta {
   readonly ip?: string | null;
   readonly userAgent?: string | null;
   readonly reason?: string | null;
+  /**
+   * The app's own id for this command (M10): the phone makes it when the person acts, and a repeat of it gets
+   * the first answer back. Every command from the app has one; the web's have none.
+   */
+  readonly commandId?: string | null;
+  /**
+   * When the person really did it, already on the server's clock (`onServerClock`: corrected for the phone's own
+   * clock, never later than now). Every command from the app has one; for everything else it is now.
+   */
+  readonly occurredAt?: Date | null;
+  /** When the app sent the request, by the phone's own clock, as it said. */
+  readonly sentAt?: Date | null;
+  /** When the person answered "Still send?" yes, on the server's clock like `occurredAt`. */
+  readonly confirmedAt?: Date | null;
+  /** The app build that sent it. */
+  readonly appVersion?: string | null;
 }
 
 export type ScopeRef =
@@ -167,6 +186,17 @@ export interface CommandDef<I extends z.ZodType = z.ZodType, O extends z.ZodType
    * system actor, and the actions workflow steps take opt in to 'workflow'.
    */
   readonly actors?: readonly ActorKind[];
+  /**
+   * How long it may wait on a phone with no signal (see OfflineClass). `defineCommand` makes it `online` unless
+   * the definition says otherwise, so nothing is queued by accident.
+   */
+  readonly offline: OfflineClass;
+  /**
+   * Output keys a person is shown once and that are never kept (a one-time OAuth state): a command's stored
+   * answer (command receipts, which reach the person's phone) leaves them out, as it does anything that looks
+   * like a credential.
+   */
+  readonly shownOnce?: readonly string[];
   readonly handler: (ctx: CommandContext, input: z.output<I>) => Promise<z.input<O>>;
 }
 

@@ -12,7 +12,9 @@ import {
   type WorkspaceRole,
 } from '../permissions';
 import { aiEmployeeMayRun, isMachine } from './actor';
+import { assertAppRequest, assertOnTime } from './app-request';
 import { translateDbError } from './pg-errors';
+import { claimReceipt, receiptClaim, recordRefusal, storeAnswer } from './receipts';
 import { redact } from './redact';
 import type {
   Actor,
@@ -246,6 +248,8 @@ async function recordEvent(
     payload,
     correlationId: meta.correlationId,
     causationId: meta.causationId ?? null,
+    // When the person really did it (a change from the phone, corrected for its clock); otherwise now.
+    ...(meta.occurredAt ? { occurredAt: meta.occurredAt } : {}),
   });
   await tx.insert(outbox).values({ eventId, organizationId, workspaceId, eventType: e.type });
   await tx.insert(auditLogs).values({
@@ -300,6 +304,13 @@ async function runCommand<I extends z.ZodType, O extends z.ZodType>(
  * The pipeline every actor shares: validate → one transaction, as the user (RLS on) or, for the system and
  * workflows, as the service actor bound to their workspace → resolve scope → permission (people only) →
  * handler → event + outbox + audit rows in the same transaction → validated output.
+ *
+ * A person's command from the phone also carries its own id and the moment it was done (M10). Once the person is
+ * known to work in the business, its receipt is claimed as the transaction's first write: a repeat gets the first
+ * answer (or final refusal) back without running again, before any other check. Then the moment rules (a stale
+ * customer-facing change waits for "Still send?"; an online-only one that waited is refused), then the command, and
+ * its answer is stored before the transaction ends. A final refusal is stored afterwards on its own. The input is
+ * validated first, as the API's route already did: the receipt names the business the input is for.
  */
 export async function executeCommand<I extends z.ZodType, O extends z.ZodType>(
   db: Db,
@@ -310,25 +321,56 @@ export async function executeCommand<I extends z.ZodType, O extends z.ZodType>(
 ): Promise<ExecuteResult<z.output<O>>> {
   assertActorAllowed(cmd, actor);
   assertNotTestRun(actor);
+  assertAppRequest(meta);
   const input = parseInput(cmd.input, rawInput);
   const scopeRef = cmd.scope(input);
-  try {
-    if (isMachine(actor)) {
+  if (isMachine(actor)) {
+    try {
       // Root within its tenant (no permission check), bound by the service_actor policies.
       const scope = resolveMachineScope(actor, scopeRef);
       return await asWorker(
         db,
         { workspaceId: actor.workspaceId, organizationId: actor.organizationId },
-        (tx) => runCommand(tx, cmd, input, actor, scope, meta),
+        (tx) => {
+          assertOnTime(cmd, meta, new Date());
+          return runCommand(tx, cmd, input, actor, scope, meta);
+        },
       );
+    } catch (e) {
+      throw translateDbError(e);
     }
-    return await asUser(db, actor.claims, async (tx) => {
+  }
+  const claim = receiptClaim(cmd, rawInput, actor, meta);
+  // The business the receipt names: set once the person is found to work in it.
+  let receiptWorkspace: string | null = null;
+  let replayed: HfosError | null = null;
+  try {
+    const outcome = await asUser(db, actor.claims, async (tx) => {
       const scope = await resolveScope(tx, scopeRef);
+      let receiptId: string | null = null;
+      if (claim) {
+        receiptWorkspace = scope.workspaceId;
+        const claimed = await claimReceipt<z.output<O>>(tx, cmd, claim, scope.workspaceId);
+        if (claimed.kind === 'answered') return claimed.result;
+        if (claimed.kind === 'refused') return claimed.error;
+        receiptId = claimed.receiptId;
+      }
+      assertOnTime(cmd, meta, new Date());
       if (cmd.permission) assertPermission(scope, cmd.permission);
-      return runCommand(tx, cmd, input, actor, scope, meta);
+      const result = await runCommand(tx, cmd, input, actor, scope, meta);
+      if (receiptId) await storeAnswer(tx, cmd, receiptId, result);
+      return result;
     });
+    if (outcome instanceof HfosError) {
+      replayed = outcome;
+      throw outcome;
+    }
+    return outcome;
   } catch (e) {
-    throw translateDbError(e);
+    const error = translateDbError(e);
+    if (claim && error !== replayed && error instanceof HfosError && error.disposition === 'final')
+      await recordRefusal(db, actor, claim, receiptWorkspace, error);
+    throw error;
   }
 }
 

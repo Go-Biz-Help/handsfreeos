@@ -18,6 +18,7 @@ export const leadMoveStage = defineCommand({
   scope: (i) => ({ kind: 'workspace', workspaceId: i.workspaceId }),
   emits: ['lead.stage_changed', 'lead.won', 'lead.lost', 'lead.reopened'],
   actors: ['human', 'workflow', 'ai_employee'],
+  offline: 'anytime',
   async handler(ctx, input) {
     const workspaceId = ctx.scope.workspaceId!;
     const [current] = await ctx.tx
@@ -51,6 +52,15 @@ export const leadMoveStage = defineCommand({
         );
       await assertAiReach(ctx, { leadId: current.id });
     }
+    // A phone moves a lead between stages, never within one: already there (moved twice, or on two phones),
+    // nothing changes. On the web, leaving out the place still means the bottom of the stage.
+    if (ctx.meta.channel === 'mobile' && from.id === to.id && input.afterLeadId === undefined)
+      return {
+        leadId: current.id,
+        stageId: to.id,
+        status: current.status,
+        position: Number(current.position),
+      };
     if (to.kind === 'lost' && !input.lostReason)
       throw HfosError.validation([
         { path: 'lostReason', message: 'Add a reason to mark this lead lost.' },

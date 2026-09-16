@@ -2,6 +2,7 @@ import { and, asc, eq, isNull } from 'drizzle-orm';
 import { leads, pipelines, pipelineStages } from '@hfos/db/schema';
 import { AI_TEAMMATE_SOURCE, assertAiReach } from '../ai-team/reach';
 import { logSystemActivity } from '../crm/activities';
+import { insertWithId, madeBefore } from '../crm/client-ids';
 import { placeInStage } from '../crm/positions';
 import { requireCompany, requirePerson, setRecordTags } from '../crm/records';
 import { HfosError } from '../errors';
@@ -22,9 +23,12 @@ export const leadCreate = defineCommand({
   // A booking can open a lead (a calendar's CRM settings): the worker runs this as the system actor. So can
   // a workflow step, and the AI teammate for the customer it's talking to.
   actors: ['human', 'system', 'workflow', 'ai_employee'],
+  offline: 'anytime',
   async handler(ctx, input) {
     const workspaceId = ctx.scope.workspaceId!;
     await assertAiReach(ctx, { personId: input.personId, companyId: input.companyId });
+    const earlier = await madeBefore(ctx.tx, 'leads', input.id, workspaceId);
+    if (earlier) return { leadId: earlier.id, stageId: earlier.stageId };
     // The AI teammate opens a plain lead in an open stage: no owner, value or tags. (A lead its booking opens
     // follows the calendar's settings, which the business chose.)
     const aiDirect = ctx.actor.type === 'ai_employee' && ctx.commandName === 'lead.create';
@@ -83,26 +87,29 @@ export const leadCreate = defineCommand({
         'The AI teammate adds leads to open stages only. Someone on the team can win or lose a lead.',
       );
     const position = await placeInStage(ctx.tx, stage.id, undefined, null);
-    const [row] = await ctx.tx
-      .insert(leads)
-      .values({
-        workspaceId,
-        pipelineId: pipeline.id,
-        stageId: stage.id,
-        personId: input.personId ?? null,
-        companyId: input.companyId ?? null,
-        title: input.title,
-        valueCents: input.valueCents,
-        source: input.source ?? (ctx.actor.type === 'ai_employee' ? AI_TEAMMATE_SOURCE : null),
-        assigneeUserId: input.assigneeUserId ?? null,
-        expectedCloseOn: input.expectedCloseOn ?? null,
-        nextAction: input.nextAction ?? null,
-        nextActionAt: input.nextActionAt ? new Date(input.nextActionAt) : null,
-        lostReason: stage.kind === 'lost' ? 'Created as lost' : null,
-        position,
-        createdBy: userIdOf(ctx.actor),
-      })
-      .returning();
+    const [row] = await insertWithId('leads', input.id, () =>
+      ctx.tx
+        .insert(leads)
+        .values({
+          ...(input.id ? { id: input.id } : {}),
+          workspaceId,
+          pipelineId: pipeline.id,
+          stageId: stage.id,
+          personId: input.personId ?? null,
+          companyId: input.companyId ?? null,
+          title: input.title,
+          valueCents: input.valueCents,
+          source: input.source ?? (ctx.actor.type === 'ai_employee' ? AI_TEAMMATE_SOURCE : null),
+          assigneeUserId: input.assigneeUserId ?? null,
+          expectedCloseOn: input.expectedCloseOn ?? null,
+          nextAction: input.nextAction ?? null,
+          nextActionAt: input.nextActionAt ? new Date(input.nextActionAt) : null,
+          lostReason: stage.kind === 'lost' ? 'Created as lost' : null,
+          position,
+          createdBy: userIdOf(ctx.actor),
+        })
+        .returning(),
+    );
     if (!row) throw HfosError.forbidden();
     if (input.tagIds?.length)
       await setRecordTags(ctx.tx, workspaceId, 'lead', row.id, input.tagIds, userIdOf(ctx.actor));

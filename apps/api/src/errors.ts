@@ -5,6 +5,7 @@ import {
   isResponseSerializationError,
 } from 'fastify-type-provider-zod';
 
+/** Every error body says what a client keeping a queue should do with it (`disposition`, see core's errors). */
 export function errorHandler(error: FastifyError, req: FastifyRequest, reply: FastifyReply): void {
   if (isHfosError(error)) {
     void reply.status(error.status).send(error.toBody());
@@ -27,8 +28,19 @@ export function errorHandler(error: FastifyError, req: FastifyRequest, reply: Fa
   }
   if (error.statusCode === 429) {
     void reply.status(429).send({
-      error: { code: 'rate_limited', message: 'Too many attempts. Try again in a minute.' },
+      error: {
+        code: 'rate_limited',
+        message: 'Too many attempts. Try again in a minute.',
+        disposition: 'retry',
+      },
     });
+    return;
+  }
+  // A body over the limit can never be taken as it is, so it isn't one to send again.
+  if (error.statusCode === 413) {
+    void reply
+      .status(413)
+      .send(new HfosError('validation', 413, 'That’s too much to send at once.').toBody());
     return;
   }
   if (error.statusCode === 415 || error.statusCode === 400) {

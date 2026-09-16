@@ -9,7 +9,7 @@ import { isLocalDate } from '../calendar/engine/zoned';
 import { IMPACT_DECISIONS } from '../calendar/impact';
 import { PRESET_KEYS } from '../calendar/presets';
 import { displayName, isoDateTime, timezone, uuid } from './common';
-import { optionalEmail, phoneInput, UserRef } from './crm';
+import { notApplied, optionalEmail, phoneInput, seenId, seenText, UserRef } from './crm';
 
 const hexColor = z.string().regex(/^#[0-9a-fA-F]{6}$/, 'Use a color like #2d69d8.');
 const linkName = z
@@ -596,6 +596,14 @@ export const AppointmentCreateOutput = z.object({
   /** The same clientId booked already; nothing new was written. */
   duplicate: z.boolean(),
 });
+/** What the person saw of each detail they edited (see kernel/field-merge). */
+export const AppointmentSeen = z.object({
+  title: seenText,
+  notes: seenText,
+  location: z.record(z.string(), z.unknown()).nullable().optional(),
+  leadId: seenId,
+});
+/** Only the details that were edited, each merged on its own: newest wins. */
 export const AppointmentUpdateInput = z.object({
   workspaceId: uuid,
   appointmentId: uuid,
@@ -603,10 +611,12 @@ export const AppointmentUpdateInput = z.object({
   notes: notesText,
   location: AppointmentLocation.optional(),
   leadId: uuid.nullable().optional(),
+  base: AppointmentSeen.optional(),
 });
 export const AppointmentUpdateOutput = z.object({
   appointmentId: uuid,
   updated: z.array(z.string()),
+  notApplied,
 });
 export const AppointmentRescheduleInput = z.object({
   workspaceId: uuid,

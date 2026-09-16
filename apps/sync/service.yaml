@@ -1,0 +1,47 @@
+# yaml-language-server: $schema=https://unpkg.com/@powersync/service-schema@1.26.1/json-schema/powersync-config.json
+#
+# The PowerSync Service (Open Edition 1.26.1) that keeps phones' copies of the database in step. It reads the
+# database through the `powersync` publication as hfos_sync (migration 0057), keeps its own working data in a
+# separate small Postgres (spike 1b: in the same database every full copy wrote ~7x the data in WAL), and
+# checks phones' Supabase access tokens against Auth's ES256 keys. Everything that differs between a laptop and
+# Fly comes from the environment; `pnpm sync:start` sets the local values (apps/sync/scripts/start.sh).
+
+telemetry:
+  disable_telemetry_sharing: true
+
+replication:
+  connections:
+    - type: postgresql
+      uri: !env PS_DATA_SOURCE_URI
+      # Local Docker network: disable. Hosted Supabase: verify-full.
+      sslmode: !env PS_DATA_SOURCE_SSLMODE
+      # Slots are named hfos_sync_<n>_<hash>, so they are easy to find, watch and drop.
+      slot_name_prefix: hfos_sync_
+
+storage:
+  type: postgresql
+  uri: !env PS_STORAGE_URI
+  sslmode: !env PS_STORAGE_SSLMODE
+
+port: 8080
+
+sync_config:
+  path: /config/sync-config.yaml
+
+client_auth:
+  # Supabase Auth's public keys. Tokens older than an hour aren't accepted, so Auth's JWT expiry stays at 3600 s.
+  jwks_uri: !env PS_JWKS_URI
+  audience: ['authenticated']
+
+api:
+  tokens:
+    - !env PS_ADMIN_TOKEN
+
+healthcheck:
+  probes:
+    use_http: true
+
+system:
+  logging:
+    level: info
+    format: text

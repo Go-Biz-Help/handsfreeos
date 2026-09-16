@@ -131,9 +131,29 @@ export function describeTimeline(
       return 'uploaded a file';
     case 'lead_qualified':
       return `marked ${title || e.body || 'the lead'} qualified: every answer is in, and none rules them out`;
+    case 'edit_not_applied':
+      return describeNotApplied(e);
     default:
       return e.subtype?.replace(/_/g, ' ') ?? 'made a change';
   }
+}
+
+/**
+ * An edit made earlier than someone's later change to the same detail (M10: a phone offline, a dialog left open):
+ * "tried to change the phone number to “…”, but Sam’s later change to “…” was kept". Values are shown for names,
+ * contact details and notes; `null` when a detail has no words to show (a company, a date).
+ */
+function describeNotApplied(e: TimelineEntry): string {
+  const label = str(e.meta.label) || 'a detail';
+  const later = str(e.meta.keptBy) ? `${str(e.meta.keptBy)}’s later change` : 'a later change';
+  const wanted = e.meta.wanted;
+  const stays = e.meta.stays;
+  if (typeof wanted !== 'string' || typeof stays !== 'string')
+    return `tried to change the ${label}, but ${later} was kept`;
+  const tried = wanted
+    ? `tried to change the ${label} to “${wanted}”`
+    : `tried to clear the ${label}`;
+  return `${tried}, but ${later}${stays ? ` to “${stays}”` : ', which cleared it,'} was kept`;
 }
 
 /**

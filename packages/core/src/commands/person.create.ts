@@ -1,6 +1,7 @@
 import { people } from '@hfos/db/schema';
 import { AI_TEAMMATE_SOURCE, outsideItsConversation } from '../ai-team/reach';
 import { logSystemActivity } from '../crm/activities';
+import { insertWithId, madeBefore } from '../crm/client-ids';
 import { findMatches } from '../crm/matching';
 import { formatPhone } from '../crm/phone';
 import { addressPatch, fullName, requireCompany, setRecordTags } from '../crm/records';
@@ -11,7 +12,8 @@ import { PersonCreateInput, PersonCreateOutput } from '../schemas/person';
 
 export const personCreate = defineCommand({
   name: 'person.create',
-  description: 'Add a person. Warns when someone with the same email or phone already exists.',
+  description:
+    'Add a person. Warns when someone with the same email or phone already exists; from the phone, adds them anyway and flags the likely duplicate.',
   risk: 1,
   input: PersonCreateInput,
   output: PersonCreateOutput,
@@ -19,6 +21,7 @@ export const personCreate = defineCommand({
   scope: (i) => ({ kind: 'workspace', workspaceId: i.workspaceId }),
   emits: ['person.created'],
   actors: ['human', 'system', 'ai_employee'],
+  offline: 'anytime',
   async handler(ctx, input) {
     const workspaceId = ctx.scope.workspaceId!;
     if ((input.importId || input.importRow) && ctx.actor.type !== 'system')
@@ -34,13 +37,17 @@ export const personCreate = defineCommand({
       });
       if (match) return { personId: match.id };
     }
+    const earlier = await madeBefore(ctx.tx, 'people', input.id, workspaceId);
+    if (earlier) return { personId: earlier.id };
     if (input.companyId) await requireCompany(ctx.tx, workspaceId, input.companyId);
+    let duplicateOf: string | null = null;
     if (!input.ignoreDuplicates) {
       const matches = await findMatches(ctx.tx, workspaceId, 'person', {
         email: input.email,
         phoneE164: input.phone,
       });
-      if (matches.length > 0)
+      if (matches.length > 0 && ctx.meta.channel === 'mobile') duplicateOf = matches[0]!.id;
+      else if (matches.length > 0)
         throw new HfosError(
           'conflict',
           409,
@@ -49,26 +56,31 @@ export const personCreate = defineCommand({
           'duplicate',
         );
     }
-    const [row] = await ctx.tx
-      .insert(people)
-      .values({
-        workspaceId,
-        companyId: input.companyId ?? null,
-        firstName: input.firstName,
-        lastName: input.lastName,
-        email: input.email ?? null,
-        phone: input.phone ? formatPhone(input.phone) : null,
-        phoneE164: input.phone ?? null,
-        phoneAlt: input.phoneAlt ? formatPhone(input.phoneAlt) : null,
-        ...addressPatch(input.address),
-        notes: input.notes ?? null,
-        source: input.source ?? (ctx.actor.type === 'ai_employee' ? AI_TEAMMATE_SOURCE : null),
-        ownerUserId: input.ownerUserId ?? null,
-        createdBy: userIdOf(ctx.actor),
-        importId: input.importId ?? null,
-        importRow: input.importRow ?? null,
-      })
-      .returning();
+    const [row] = await insertWithId('people', input.id, () =>
+      ctx.tx
+        .insert(people)
+        .values({
+          ...(input.id ? { id: input.id } : {}),
+          workspaceId,
+          // Made on the phone and looking like one already here: added anyway, and flagged.
+          possibleDuplicateOf: duplicateOf,
+          companyId: input.companyId ?? null,
+          firstName: input.firstName,
+          lastName: input.lastName,
+          email: input.email ?? null,
+          phone: input.phone ? formatPhone(input.phone) : null,
+          phoneE164: input.phone ?? null,
+          phoneAlt: input.phoneAlt ? formatPhone(input.phoneAlt) : null,
+          ...addressPatch(input.address),
+          notes: input.notes ?? null,
+          source: input.source ?? (ctx.actor.type === 'ai_employee' ? AI_TEAMMATE_SOURCE : null),
+          ownerUserId: input.ownerUserId ?? null,
+          createdBy: userIdOf(ctx.actor),
+          importId: input.importId ?? null,
+          importRow: input.importRow ?? null,
+        })
+        .returning(),
+    );
     if (!row) throw HfosError.forbidden();
     if (input.tagIds?.length)
       await setRecordTags(ctx.tx, workspaceId, 'person', row.id, input.tagIds, userIdOf(ctx.actor));
@@ -77,7 +89,7 @@ export const personCreate = defineCommand({
       type: 'person.created',
       entityType: 'person',
       entityId: row.id,
-      payload: { name },
+      payload: { name, ...(duplicateOf ? { possibleDuplicateOf: duplicateOf } : {}) },
       after: {
         name,
         email: row.email,

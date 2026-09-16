@@ -39,6 +39,7 @@ import {
 import { TEAMMATE_PRESETS, teammateConfigFromPreset } from '../ai-team/presets';
 import { hasBlockingTeammateIssues, validateTeammate } from '../ai-team/rules';
 import { HfosError } from '../errors';
+import { FRESH_MINUTES } from '../mobile';
 import { requireHuman } from '../kernel/actor';
 import { defineCommand } from '../kernel/define';
 import { executeCommandIn } from '../kernel/execute';
@@ -397,6 +398,7 @@ export const aiTeammateDecideDraft = defineCommand({
   permission: 'inbox.use',
   scope: inWorkspace,
   emits: ['ai_teammate.draft_decided', 'ai_teammate.status_changed'],
+  offline: { freshMinutes: FRESH_MINUTES },
   async handler(ctx, input) {
     const me = requireHuman(ctx).userId;
     const ws = ctx.scope.workspaceId!;
@@ -595,6 +597,7 @@ export const aiTeammateSendDraft = defineCommand({
   scope: inWorkspace,
   emits: ['ai_teammate.draft_sent'],
   actors: ['system'],
+  offline: { freshMinutes: FRESH_MINUTES },
   async handler(ctx, input) {
     const ws = ctx.scope.workspaceId!;
     // Locked, so a second delivery of the approval waits here and then finds it sent.
