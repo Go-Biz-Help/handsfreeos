@@ -1,4 +1,5 @@
 /** The emails the worker sends the team (Mailpit locally, the production provider elsewhere). Plain and short. */
+import { moneyLabel } from '@hfos/core/server';
 
 export interface EmailContent {
   readonly subject: string;
@@ -33,6 +34,11 @@ const waited = (minutes: number) => {
   const m = minutes % 60;
   return `${h} hour${h === 1 ? '' : 's'}${m ? ` ${m} minute${m === 1 ? '' : 's'}` : ''}`;
 };
+
+/** "1 approval", "3 approvals", "2 businesses". */
+const count = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
+
+const STOP_THESE = 'To stop these emails, open HandsFreeOS and go to Settings, then Account.';
 
 /** One reminder when a customer's message sits without a reply. */
 export function unansweredEmail(input: {
@@ -86,6 +92,206 @@ export function unansweredEmail(input: {
       button(input.link, `Reply to ${input.firstName}`) +
       small(escapeHtml(why)) +
       small('To stop these emails, open HandsFreeOS and go to Settings, then Account.'),
+  );
+  return { subject, text, html };
+}
+
+// ---- The Action Center (M8) ----
+
+/** What one urgent email is about: a lead nobody has got to, or a customer waiting for a reply. */
+export interface AttentionUrgentInput {
+  /** The item's kind: hot_lead, unanswered_lead, or customer_waiting (today's unanswered-message email). */
+  readonly kind: 'hot_lead' | 'unanswered_lead' | 'customer_waiting';
+  readonly customer: string;
+  readonly firstName: string;
+  readonly business: string;
+  readonly minutesWaiting: number;
+  /** The lead's own value in cents, never an estimate; null leaves the amount out. */
+  readonly valueCents: number | null;
+  /** Up to three reason chips in their own words ("ready to book", "qualified"). */
+  readonly chips: readonly string[];
+  /** The customer's last message, when there is one. */
+  readonly preview: string;
+  /** When they wrote, where the business is ("9:14 AM"). */
+  readonly receivedAt: string;
+  /** How to reach them: a number, an address, or "Website visitor". */
+  readonly contact: string;
+  readonly link: string;
+  /** The button ("Reply to Maria", "Open in HandsFreeOS"). */
+  readonly action: string;
+  readonly assignedToYou: boolean;
+  readonly photos?: number;
+  readonly channel?: string;
+}
+
+/**
+ * One email when something urgent is waiting: a hot lead, a new lead nobody answered, or (today's wording,
+ * unchanged) a customer waiting for a reply. At most one per item.
+ */
+export function attentionUrgentEmail(input: AttentionUrgentInput): EmailContent {
+  if (input.kind === 'customer_waiting')
+    return unansweredEmail({
+      customer: input.customer,
+      firstName: input.firstName,
+      business: input.business,
+      minutesWaiting: input.minutesWaiting,
+      preview: input.preview,
+      receivedAt: input.receivedAt,
+      contact: input.contact,
+      link: input.link,
+      assignedToYou: input.assignedToYou,
+      photos: input.photos ?? 0,
+      channel: input.channel,
+    });
+  const hot = input.kind === 'hot_lead';
+  const subject = hot
+    ? `Hot lead: ${input.customer} is waiting`
+    : `New lead: ${input.customer} hasn’t heard back`;
+  const worth = input.valueCents !== null ? `, a ${moneyLabel(input.valueCents)} lead,` : '';
+  const opening = `${input.customer}${worth} has been waiting ${waited(input.minutesWaiting)}${
+    hot ? ' and looks ready to go' : ' and nobody has reached out'
+  }.`;
+  const why = input.assignedToYou
+    ? 'You’re getting this because the lead is assigned to you. We send one email per item.'
+    : 'You’re getting this because you’re an owner or admin and nobody is assigned to it. We send one email per item.';
+  const photos = input.photos ?? 0;
+  const meta = [
+    input.receivedAt,
+    input.contact,
+    photos > 0 ? `with ${photos === 1 ? '1 photo' : `${photos} photos`}` : '',
+  ]
+    .filter(Boolean)
+    .join(' · ');
+  const chips = input.chips.join(' · ');
+  const text = [
+    opening,
+    '',
+    chips,
+    input.preview ? `“${input.preview}”` : '',
+    meta,
+    '',
+    `${input.action}: ${input.link}`,
+    '',
+    why,
+    STOP_THESE,
+  ]
+    .filter((l, i, all) => l !== '' || all[i - 1] !== '')
+    .join('\n');
+  const html = shell(
+    preheader(chips || input.preview) +
+      wordmark +
+      `<p style="display: inline-block; margin: 0 0 12px; padding: 2px 8px; border-radius: 6px; background: #fde8e8; color: #b42318; font-size: 12px; font-weight: 700;">Urgent</p>` +
+      `<p style="font-size: 15px; line-height: 1.5; margin: 0 0 12px;"><strong>${escapeHtml(input.customer)}</strong>${escapeHtml(
+        worth,
+      )} has been waiting ${escapeHtml(waited(input.minutesWaiting))}${escapeHtml(
+        hot ? ' and looks ready to go' : ' and nobody has reached out',
+      )}.</p>` +
+      (chips
+        ? `<p style="font-size: 12.5px; color: #5b616a; margin: 0 0 12px;">${escapeHtml(chips)}</p>`
+        : '') +
+      (input.preview
+        ? `<div style="background: #f2f4f8; border-radius: 10px; padding: 14px 16px; font-size: 14px; line-height: 1.5; margin-bottom: 8px;">${escapeHtml(input.preview)}</div>`
+        : '') +
+      (meta
+        ? `<p style="font-size: 12.5px; color: #5b616a; margin: 0 0 22px;">${escapeHtml(meta)}</p>`
+        : '') +
+      button(input.link, input.action) +
+      small(escapeHtml(why)) +
+      small(STOP_THESE),
+  );
+  return { subject, text, html };
+}
+
+/** One item in the morning summary. */
+export interface MorningItem {
+  /** Its kind in plain words ("Hot lead", "Not confirmed"). */
+  readonly kind: string;
+  /** "Maria Lopez · AC replacement". */
+  readonly title: string;
+  /** Up to three reason chips ("$18,500", "waiting 11 min", "qualified"). */
+  readonly chips: readonly string[];
+  readonly link: string;
+}
+
+/**
+ * Once a day, at 7 AM where the business is: what needs this person's attention, urgent first. Only sent to
+ * someone who has something waiting.
+ */
+export function attentionMorningEmail(input: {
+  readonly business: string;
+  readonly firstName: string;
+  /** "$18,500 affected", in cents; 0 leaves the amount out. */
+  readonly affectedCents: number;
+  readonly urgent: readonly MorningItem[];
+  /** The rest, ranked; the email lists the top few. */
+  readonly rest: readonly MorningItem[];
+  /** Everything open for this person, however many are listed. */
+  readonly total: number;
+  readonly homeLink: string;
+  /** They see everyone's items (an owner or admin), not just their own. */
+  readonly everyone: boolean;
+}): EmailContent {
+  const n = input.total;
+  const urgent = input.urgent.length;
+  const subject = `${count(n, 'thing')} need${n === 1 ? 's' : ''} your attention today${
+    urgent > 0 ? `, ${urgent} urgent` : ''
+  }`;
+  const tally = [
+    input.affectedCents > 0 ? `${moneyLabel(input.affectedCents)} affected` : '',
+    `${count(n, 'thing')} to look at`,
+    urgent > 0 ? `${urgent} urgent` : '',
+  ]
+    .filter(Boolean)
+    .join(' · ');
+  const hello = `Good morning${input.firstName ? `, ${input.firstName}` : ''}.`;
+  const scope = input.everyone
+    ? `Here’s what needs attention at ${input.business}.`
+    : `Here’s what needs you at ${input.business}, plus anything nobody has taken.`;
+  const line = (i: MorningItem) =>
+    `${i.kind}: ${i.title}${i.chips.length ? ` (${i.chips.join(' · ')})` : ''}`;
+  const why = `You’re getting this because Morning summary is on for your account.`;
+  const section = (heading: string, items: readonly MorningItem[]) =>
+    items.length ? [heading, ...items.map((i) => `- ${line(i)}: ${i.link}`), ''] : [];
+  const text = [
+    `${hello} ${scope}`,
+    '',
+    tally,
+    '',
+    ...section('Urgent', input.urgent),
+    ...section(input.urgent.length ? 'Also today' : 'Today', input.rest),
+    `Open the Action Center: ${input.homeLink}`,
+    '',
+    why,
+    STOP_THESE,
+  ].join('\n');
+  const htmlItems = (items: readonly MorningItem[]) =>
+    items
+      .map(
+        (i) =>
+          `<li style="margin-bottom: 6px;"><a href="${escapeHtml(i.link)}" style="color: #2d69d8; text-decoration: none;">${escapeHtml(
+            `${i.kind}: ${i.title}`,
+          )}</a>${
+            i.chips.length
+              ? `<br /><span style="font-size: 12.5px; color: #5b616a;">${escapeHtml(i.chips.join(' · '))}</span>`
+              : ''
+          }</li>`,
+      )
+      .join('');
+  const htmlSection = (heading: string, items: readonly MorningItem[]) =>
+    items.length
+      ? `<p style="font-size: 12.5px; font-weight: 600; color: #5b616a; margin: 18px 0 6px;">${escapeHtml(heading)}</p>` +
+        `<ul style="margin: 0; padding-left: 18px; font-size: 14px; line-height: 1.5;">${htmlItems(items)}</ul>`
+      : '';
+  const html = shell(
+    preheader(tally) +
+      wordmark +
+      para(`${escapeHtml(hello)} ${escapeHtml(scope)}`) +
+      `<p style="font-size: 12.5px; color: #5b616a; margin: 0 0 4px;">${escapeHtml(tally)}</p>` +
+      htmlSection('Urgent', input.urgent) +
+      htmlSection(input.urgent.length ? 'Also today' : 'Today', input.rest) +
+      button(input.homeLink, 'Open the Action Center') +
+      small(escapeHtml(why)) +
+      small(STOP_THESE),
   );
   return { subject, text, html };
 }
@@ -290,8 +496,6 @@ export interface DigestBusiness {
   readonly suggestions: { readonly count: number; readonly link: string } | null;
 }
 
-const count = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
-
 /** "25 minutes", "5 hours", "3 days". */
 const waitedFor = (minutes: number) => {
   if (minutes < 60) return count(Math.max(1, minutes), 'minute');
@@ -405,8 +609,6 @@ const CONVERSATION_NOUN: Readonly<Record<string, string>> = {
 const quoted = (label: string, body: string) =>
   `<p style="font-size: 12.5px; font-weight: 600; color: #5b616a; margin: 18px 0 6px;">${escapeHtml(label)}</p>` +
   `<div style="background: #f2f4f8; border-radius: 10px; padding: 14px 16px; font-size: 14px; line-height: 1.5; white-space: pre-wrap;">${escapeHtml(body)}</div>`;
-
-const STOP_THESE = 'To stop these emails, open HandsFreeOS and go to Settings, then Account.';
 
 /**
  * The AI teammate (or a workflow) handed a conversation to a person: to its assignee, or to the teammate's

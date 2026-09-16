@@ -27,6 +27,7 @@ export default async function SettingsPage({
     me.user.settings as {
       notifications?: {
         unansweredEmail?: boolean;
+        attentionDigest?: boolean;
         aiHandoff?: boolean;
         bookingEmail?: boolean;
         agencyDigest?: boolean;
@@ -53,6 +54,7 @@ export default async function SettingsPage({
               agency={agency}
               initial={{
                 unansweredEmail: notifications?.unansweredEmail !== false,
+                attentionDigest: notifications?.attentionDigest !== false,
                 aiHandoff: notifications?.aiHandoff !== false,
                 bookingEmail: notifications?.bookingEmail !== false,
                 agencyDigest: notifications?.agencyDigest !== false,

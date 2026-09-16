@@ -9,6 +9,12 @@ export const ATTENTION_JOBS = {
   recheck: 'attention.recheck',
   /** One per snoozed item, at its snooze time. */
   unsnooze: 'attention.unsnooze',
+  /** One per item with an automatic action waiting: it goes out when the cancel window ends (auto.ts). */
+  autoHandle: 'attention.auto_handle',
+  /** One per item that turned urgent: the urgent email (alerts.ts). */
+  urgentAlert: 'attention.urgent_alert',
+  /** One per business, daily at 7 AM where it is: the morning summary (digest.ts). */
+  digest: 'attention_digest.send',
 } as const;
 
 export const ATTENTION_PLAN_KEY = 'plan:attention';
@@ -17,6 +23,9 @@ export const sweepJobKey = (workspaceId: string): string => `attention-sweep:${w
 export const recheckJobKey = (subjectType: string, subjectId: string): string =>
   `attention-recheck:${subjectType}:${subjectId}`;
 export const unsnoozeJobKey = (itemId: string): string => `attention-unsnooze:${itemId}`;
+export const autoJobKey = (itemId: string): string => `attention-auto:${itemId}`;
+export const alertJobKey = (itemId: string): string => `attention-alert:${itemId}`;
+export const digestJobKey = (workspaceId: string): string => `attention-digest:${workspaceId}`;
 
 const MINUTE = 60_000;
 export const HOUR = 60 * MINUTE;
@@ -34,6 +43,13 @@ export const RETRY_RECHECK_MS = MINUTE;
  * "becoming urgent", so no urgent email goes out about it.
  */
 export const STALE_URGENCY_MS = DAY;
+
+/** The morning summary's local time, worked out again each run so it follows daylight saving. */
+export const DIGEST_SEND_AT = '07:00';
+/** A text held for quiet hours goes out up to this long after they end, so many don't land at once. */
+export const QUIET_JITTER_MS = 5 * MINUTE;
+/** A sent confirmation request keeps its item handled until this long before the appointment starts. */
+export const CONFIRM_HANDLED_UNTIL_MS = 12 * HOUR;
 
 /** The worker's notes on real transitions, as event types (also the audit log's actions). */
 export const ITEM_EVENTS = {

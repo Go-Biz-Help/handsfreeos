@@ -145,10 +145,11 @@ describe('the first sweep over data from before the Action Center', () => {
       expect(was.alertFingerprint).toBe(was.fingerprint);
       expect(was.alertedAt).not.toBeNull();
       expect(await itemEvents(was.id)).toEqual(['opened']);
-      // Twenty minutes waiting: it did become urgent just now.
+      // Twenty minutes waiting: it did become urgent just now, so step 6's urgent email went out for it and
+      // marked those facts alerted. The old one was marked without ever becoming urgent, so nothing was sent.
       const now = await itemOf(x, recent, 'unanswered_lead');
-      expect(now.alertFingerprint).toBeNull();
       expect(await itemEvents(now.id)).toEqual(['became_urgent', 'opened']);
+      expect(now.alertFingerprint).toBe(now.fingerprint);
 
       // And the next sweep stays quiet about both.
       await runSweep(x);

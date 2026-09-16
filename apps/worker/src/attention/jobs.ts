@@ -16,6 +16,8 @@ import { asWorker, rows, sql, type Tx } from '@hfos/db/client';
 import { attentionItems } from '@hfos/db/schema';
 import type { JobHandler, JobMap } from '../jobs';
 import { tenantOf, type TenantScope } from '../services';
+import { urgentAlertJob } from './alerts';
+import { autoHandleJob } from './auto';
 import {
   ATTENTION_JOBS,
   HOUR,
@@ -23,6 +25,7 @@ import {
   SWEEP_HORIZON_MARGIN_MS,
   sweepJobKey,
 } from './constants';
+import { ensureDigests, sendAttentionDigest } from './digest';
 import { settle, type SettleCause, type SettleOutcome } from './settle';
 import { isUuid, subjectRefOf } from './subjects';
 
@@ -70,8 +73,8 @@ export async function ensureSweeps(
   }
 }
 
-/** What every business needs waiting. Step 6 adds its morning email (`attention_digest.send`) here. */
-export const BUSINESS_PLANNERS: readonly BusinessPlanner[] = [ensureSweeps];
+/** What every business needs waiting: its hourly sweep, and its morning summary at 7 AM where it is. */
+export const BUSINESS_PLANNERS: readonly BusinessPlanner[] = [ensureSweeps, ensureDigests];
 
 /** Hourly: every business has its sweep (new ones get theirs within the next hour). */
 export const planAttention: JobHandler = async (ctx) => {
@@ -177,4 +180,8 @@ export const attentionJobs: JobMap = {
   [ATTENTION_JOBS.sweep]: sweepAttention,
   [ATTENTION_JOBS.recheck]: recheckAttention,
   [ATTENTION_JOBS.unsnooze]: unsnoozeAttention,
+  // What HandsFreeOS does on its own, the urgent email, and the morning summary (auto.ts, alerts.ts, digest.ts).
+  [ATTENTION_JOBS.autoHandle]: autoHandleJob,
+  [ATTENTION_JOBS.urgentAlert]: urgentAlertJob,
+  [ATTENTION_JOBS.digest]: sendAttentionDigest,
 };

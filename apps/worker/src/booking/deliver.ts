@@ -20,6 +20,7 @@ import {
   readiness,
   type QuietHoursWindow,
   type RequestMeta,
+  type SystemActor,
 } from '@hfos/core/server';
 import { rows, sql, type Tx } from '@hfos/db/client';
 import { systemActor, type TenantScope, type WorkerServices } from '../services';
@@ -129,6 +130,8 @@ export async function sendText(
   body: string,
   clientId: string,
   meta: RequestMeta,
+  /** Who it goes out as: the system, or the system tagged as the Action Center (M8's automatic messages). */
+  actor: SystemActor = systemActor(scope),
 ): Promise<Sent> {
   try {
     const { output } = await executeCommand(
@@ -142,7 +145,7 @@ export async function sendText(
         clientId,
         keepConversationStatus: true,
       },
-      systemActor(scope),
+      actor,
       meta,
     );
     return { messageId: output.messageId };
@@ -161,6 +164,8 @@ export async function sendEmail(
   content: EmailText,
   clientId: string,
   meta: RequestMeta,
+  /** Who it goes out as: the system, or the system tagged as the Action Center (M8's automatic messages). */
+  actor: SystemActor = systemActor(scope),
 ): Promise<Sent> {
   try {
     const { output } = await executeCommand(
@@ -175,7 +180,7 @@ export async function sendEmail(
         clientId,
         keepConversationStatus: true,
       },
-      systemActor(scope),
+      actor,
       meta,
     );
     return { messageId: output.messageId };

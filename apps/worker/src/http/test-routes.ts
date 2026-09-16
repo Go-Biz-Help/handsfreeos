@@ -51,8 +51,9 @@ export function registerTestRoutes(app: FastifyInstance, deps: HttpDeps, test: T
   if (process.env.NODE_ENV === 'production') return;
   // The AI teammate's: run its due work now, use up its AI share, expire a draft (ai-team/test-routes.ts).
   registerTeammateTestRoutes(app, deps, test.jobs);
-  // The Action Center's: reconcile a business now or as of a time (attention/test-routes.ts).
-  registerAttentionTestRoutes(app, deps);
+  // The Action Center's: reconcile a business, run its due work, send now, the morning summary
+  // (attention/test-routes.ts).
+  registerAttentionTestRoutes(app, deps, test.jobs);
 
   app.post('/test/scheduled-jobs/run-due', async (req) => {
     const body = parseBody(RunDue, req.body ?? {});

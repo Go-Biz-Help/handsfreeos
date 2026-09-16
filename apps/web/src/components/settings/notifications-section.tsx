@@ -6,8 +6,10 @@ import { apiBrowser, errorMessage, unwrap } from '@/lib/api/client';
 import { SetRow } from './set-row';
 
 export interface NotificationPrefs {
-  /** A customer waited on a conversation (the worker's unanswered check). */
+  /** Something urgent is waiting: a hot lead, a lead nobody answered, or a customer waiting for a reply. */
   readonly unansweredEmail: boolean;
+  /** The Action Center's morning summary, at 7 AM where the business is. */
+  readonly attentionDigest: boolean;
   /** The AI teammate handed a conversation to you, or to its list when nobody is assigned. */
   readonly aiHandoff: boolean;
   /** Online bookings and cancellations on your appointments (the calendar's team email). */
@@ -28,12 +30,21 @@ const ROWS: readonly {
 }[] = [
   {
     key: 'unansweredEmail',
-    title: 'Email me when a customer is waiting',
+    title: 'Urgent items',
     description:
-      'When a conversation assigned to you has no reply after 10 minutes. Owners and admins also get it for conversations nobody is assigned to.',
+      'One email as soon as something can’t wait: a hot lead, a new lead nobody has answered, or a customer waiting for a reply. Owners and admins also get the ones nobody is assigned to.',
     testId: 'notify-unanswered',
-    on: 'You’ll get an email when a customer waits',
+    on: 'You’ll get an email when something is urgent',
     off: 'You won’t get these emails',
+  },
+  {
+    key: 'attentionDigest',
+    title: 'Morning summary',
+    description:
+      'One email at 7 AM with what needs your attention that day, urgent first. Nothing comes on a day when nothing does.',
+    testId: 'notify-attention-digest',
+    on: 'You’ll get the morning summary',
+    off: 'You won’t get the morning summary',
   },
   {
     key: 'aiHandoff',

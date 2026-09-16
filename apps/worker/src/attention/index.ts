@@ -6,11 +6,21 @@
 import { scheduleJob } from '@hfos/core/server';
 import { handlersFor, type EventHandler, type HandlerMap } from '../handlers/types';
 import { errorMessage } from '../outbox';
+import { onHandleRequested } from './auto';
 import { ATTENTION_JOBS, RETRY_RECHECK_MS, unsnoozeJobKey } from './constants';
 import { scheduleRechecks, settle } from './settle';
 import { ATTENTION_EVENTS, isUuid, subjectsOf } from './subjects';
 
 export * from './constants';
+export {
+  actionCenterActor,
+  armAutoAction,
+  autoHandleJob,
+  autoSwitchOn,
+  SKIP_REASONS,
+} from './auto';
+export { alertUrgent, urgentAlertJob, waitOf, type AlertResult } from './alerts';
+export { armDigestNow, ensureDigests, nextAttentionDigestAt, sendAttentionDigest } from './digest';
 export {
   attentionJobs,
   BUSINESS_PLANNERS,
@@ -85,5 +95,10 @@ export function withAttention(handlers: HandlerMap): HandlerMap {
   for (const type of ATTENTION_EVENTS)
     out[type] = [...handlersFor(handlers, type), onAttentionEvent];
   out['attention.snoozed'] = [...handlersFor(handlers, 'attention.snoozed'), onItemSnoozed];
+  // A person asked HandsFreeOS to handle a safe item: the worker alone schedules and sends it (auto.ts).
+  out['attention.handle_requested'] = [
+    ...handlersFor(handlers, 'attention.handle_requested'),
+    onHandleRequested,
+  ];
   return out;
 }

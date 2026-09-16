@@ -68,6 +68,11 @@ export interface SettleOutcome {
   /** The moment reconciled as of. */
   readonly now: Date;
   readonly cause: SettleCause;
+  /**
+   * The whole business was reconciled (the hourly sweep, the seed, the test route), not just some subjects. Step
+   * 6 looks for items an automatic switch was turned on for later only then: those have no transition.
+   */
+  readonly all: boolean;
   /** Every real transition, in reconcile's order. */
   readonly transitions: readonly AttentionTransition[];
   /** Items refreshed quietly (no event). */
@@ -103,6 +108,7 @@ export async function settle(
     scope,
     now,
     cause: opts.cause,
+    all: subjects === 'all',
     transitions: result.transitions,
     updated: result.updated,
     becameUrgent: urgent.became,

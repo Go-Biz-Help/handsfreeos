@@ -1,5 +1,4 @@
-import { randomUUID } from 'node:crypto';
-import { eq, inArray } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 import {
   carrierHasDetails,
   conversationReopen,
@@ -11,26 +10,19 @@ import {
   workspaceMessaging,
 } from '@hfos/core/server';
 import { asWorker, rows, sql } from '@hfos/db/client';
-import {
-  conversations,
-  emailDomains,
-  people,
-  telephonyRegistrations,
-  users,
-} from '@hfos/db/schema';
+import { conversations, emailDomains, telephonyRegistrations } from '@hfos/db/schema';
 import { DIGEST_JOBS, DIGEST_PLAN_KEY, digestJobs } from './agency-digest';
 import { handoffAlertDue } from './ai-team/escalation';
 import { teammateJobs } from './ai-team/index';
+import { alertUrgent, waitOf } from './attention/alerts';
 import { ATTENTION_JOBS, ATTENTION_PLAN_KEY, attentionJobs } from './attention/index';
 import { appointmentNotice } from './booking/notices';
 import { appointmentReminder } from './booking/reminders';
 import { waitlistOfferExpire, waitlistOfferJob } from './booking/waitlist';
 import { appointmentCalendarSync, calendarRefresh } from './calendar/sync';
 import { CHAT_JOBS, chatUnreadFollowUp } from './chat/followup';
-import { conversationContact } from './chat/store';
-import { unansweredEmail } from './emails/templates';
 import { domainRecordInput, lapsedMessage, sharedAddress } from './handlers/email';
-import { advanceRegistrations, managers } from './handlers/telephony';
+import { advanceRegistrations } from './handlers/telephony';
 import type { JobHandler, JobMap } from './jobs';
 import { knowledgeDocumentJob } from './knowledge/document';
 import { knowledgeScanJob } from './knowledge/scan';
@@ -43,33 +35,31 @@ import {
   type TenantScope,
   type WorkerServices,
 } from './services';
-import { recordSystemEvent } from './system-event';
 import { loadAccount } from './telephony/accounts';
 import type { RegistrationKind } from './telephony/provider';
 import { workflowJobs } from './workflows/index';
 import { templateJobs } from './workflows/templates';
 
-const localClock = (d: Date, timeZone: string) =>
-  new Intl.DateTimeFormat('en-US', { timeZone, hour: 'numeric', minute: '2-digit' }).format(d);
-
 /**
- * One email when a customer's message waits too long: to the assignee, or every owner and admin. A conversation
- * the AI teammate handed to a person waits 15 minutes of open hours from the hand-off instead (ai-team/escalation.ts
- * keeps this job pending for it), once per hand-off; its customer's own waiting time doesn't count.
+ * When a customer's message has waited too long. It keeps its own timing — the business's reply threshold, and 15
+ * minutes of open hours from a hand-off the AI teammate made instead (ai-team/escalation.ts keeps this job pending
+ * for it, once per hand-off; its customer's own waiting time doesn't count) — and then hands over to the Action
+ * Center's one urgent sender (attention/alerts.ts), which picks the recipients, writes the email and records
+ * `conversation.unanswered_alerted`. So a wait that is also an attention item never brings two emails.
  */
 export const unansweredCheck: JobHandler = async (ctx) => {
   const scope = tenantOf(ctx.scope);
   const conversationId = String(ctx.job.payload['conversationId'] ?? '');
-  return asWorker(ctx.db, scope, async (tx) => {
+  const due = await asWorker(ctx.db, scope, async (tx) => {
     const [c] = await tx.select().from(conversations).where(eq(conversations.id, conversationId));
-    if (!c || c.status !== 'open') return;
+    if (!c || c.status !== 'open') return null;
     const handedOff = c.handledBy === 'person' && c.needsPersonSince !== null && !c.takenOverBy;
-    const waitingSince = c.awaitingReplySince ?? (handedOff ? c.needsPersonSince : null);
-    if (!waitingSince) return;
+    const { waitingSince } = waitOf(c);
+    if (!waitingSince) return null;
     const m = await workspaceMessaging(tx, scope.workspaceId);
     const delayMs = ctx.reminderOverrideMs ?? m.settings.unansweredReminderMinutes * 60_000;
-    if (delayMs <= 0) return;
-    const dueAt = handedOff
+    if (delayMs <= 0) return null;
+    return handedOff
       ? new Date(
           handoffAlertDue(
             c.needsPersonSince!,
@@ -79,75 +69,16 @@ export const unansweredCheck: JobHandler = async (ctx) => {
           ),
         )
       : new Date(waitingSince.getTime() + delayMs);
-    if (dueAt.getTime() > Date.now() + 250) return { rescheduleAt: dueAt };
-    // One alert per message waiting, or per hand-off.
-    const since = (handedOff ? c.needsPersonSince! : waitingSince).toISOString();
-    const already = await rows(
-      tx,
-      sql`select 1 from app.events
-          where entity_type = 'conversation' and entity_id = ${c.id}
-            and event_type = 'conversation.unanswered_alerted' and payload ->> 'awaitingSince' = ${since}
-          limit 1`,
-    );
-    if (already.length > 0) return;
-
-    const candidates = c.assigneeUserId
-      ? await tx
-          .select({
-            id: users.id,
-            email: users.email,
-            full_name: users.fullName,
-            settings: users.settings,
-          })
-          .from(users)
-          .where(inArray(users.id, [c.assigneeUserId]))
-      : await managers(tx, scope.workspaceId);
-    const recipients = candidates.filter((u) => {
-      const prefs = (u.settings as { notifications?: { unansweredEmail?: boolean } }).notifications;
-      return prefs?.unansweredEmail !== false;
-    });
-    const [person] = c.personId
-      ? await tx
-          .select({ firstName: people.firstName, lastName: people.lastName })
-          .from(people)
-          .where(eq(people.id, c.personId))
-      : [];
-    const contact = await conversationContact(tx, c);
-    const customer = person ? `${person.firstName} ${person.lastName}`.trim() : contact;
-    const firstName = person?.firstName || customer;
-    const [latest] = await rows<{ photos: number }>(
-      tx,
-      sql`select coalesce(jsonb_array_length(media), 0)::int as photos from app.messages
-          where conversation_id = ${c.id} and direction = 'inbound'
-          order by occurred_at desc limit 1`,
-    );
-    const mail = unansweredEmail({
-      customer,
-      firstName,
-      business: m.name,
-      minutesWaiting: Math.max(1, Math.round((Date.now() - waitingSince.getTime()) / 60_000)),
-      preview: c.lastPreview ?? '',
-      receivedAt: localClock(waitingSince, m.timezone),
-      contact,
-      link: `${ctx.webUrl}/app/w/${scope.workspaceId}/inbox/${c.id}`,
-      assignedToYou: !!c.assigneeUserId,
-      photos: latest?.photos ?? 0,
-      channel: c.channel,
-    });
-    for (const r of recipients) await ctx.mailer.send({ to: r.email, ...mail });
-    await recordSystemEvent(tx, {
-      type: 'conversation.unanswered_alerted',
-      action: 'conversation.unanswered_check',
-      organizationId: scope.organizationId,
-      workspaceId: scope.workspaceId,
-      entityType: 'conversation',
-      entityId: c.id,
-      payload: { awaitingSince: since, recipients: recipients.length, _broadcast: false },
-      after: { with: customer, emailed: recipients.map((r) => r.full_name || r.email) },
-      correlationId: randomUUID(),
-      causationId: ctx.job.id,
-    });
   });
+  if (!due) return;
+  if (due.getTime() > Date.now() + 250) return { rescheduleAt: due };
+  const result = await alertUrgent(
+    ctx,
+    scope,
+    { conversationId },
+    { now: Date.now(), causationId: ctx.job.id },
+  );
+  if (result.status === 'wait') return { rescheduleAt: new Date(result.at) };
 };
 
 /** Asks the carrier where a registration stands; moves the chain on once a step is approved. */
