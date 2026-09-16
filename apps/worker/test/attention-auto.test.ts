@@ -159,7 +159,10 @@ describe('a confirmation request', () => {
     expect((await seatOf(attendeeId)).confirm_asked_at).not.toBeNull();
     const done = await reread(item, 'unconfirmed_appointment');
     expect(done).toMatchObject({ state: 'handled', autoState: 'sent', handledVia: 'auto' });
-    expect(done.handledUntil!.getTime()).toBe(startsAt - 12 * 3_600_000);
+    // Handled until twelve hours before the start — or not held at all when that moment has already
+    // passed, which is what happens when the suite runs late in the evening for a visit tomorrow morning.
+    const until = startsAt - 12 * 3_600_000;
+    expect(done.handledUntil?.getTime() ?? null).toBe(until > Date.now() ? until : null);
     expect(done.autoSkipReason).toBeNull();
 
     // Run it again, as a retry would: the same message never goes twice.

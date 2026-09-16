@@ -199,7 +199,7 @@ describe('Assistant Action Center tools', () => {
       scope: 'everyone',
       kind: 'hot_lead',
     });
-    expect(what.input.safeParse({ kind: 'invoice_overdue' }).success).toBe(false);
+    expect(what.input.safeParse({ kind: 'not_a_kind' }).success).toBe(false);
     expect(tool('handle_attention_item').input.parse({ itemId: id })).toEqual({ itemId: id });
     expect(
       tool('handle_attention_item').input.parse({
