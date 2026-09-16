@@ -1,4 +1,5 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
+import { cardOnHome } from './action-center-helpers';
 import { api, signInOwner } from './booking-helpers';
 import { createBusiness, signUpAndConfirm } from './helpers';
 import { setUpTexting } from './telephony';
@@ -90,8 +91,9 @@ test('assistant-attention: the same list as Home, and items handled, snoozed and
 
   // Home lists all three as the worker files them.
   await page.goto(`/app/w/${workspaceId}`);
+  await cardOnHome(page, workspaceId, 'Furnace repair');
   const cards = page.getByTestId('attention-card');
-  await expect(cards).toHaveCount(3, { timeout: 30_000 });
+  await expect(cards).toHaveCount(3);
   const homeOrder = await itemIds(cards);
   await expect(cards.first()).toContainText('Maria Lopez');
 

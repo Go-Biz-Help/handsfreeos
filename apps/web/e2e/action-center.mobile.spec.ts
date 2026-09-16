@@ -2,6 +2,7 @@ import { expect, test } from '@playwright/test';
 import {
   actionCenterOwner,
   addLead,
+  attentionList,
   cardOf,
   itemsFor,
   pageWidth,
@@ -9,6 +10,7 @@ import {
   twoDaysAgo,
 } from './action-center-helpers';
 import { api } from './booking-helpers';
+import { setUpTexting, textFromCustomer } from './telephony';
 
 /**
  * Home on a 390 × 844 phone, in light and dark: the header is a band with "$ affected" and the Mine / Everyone
@@ -98,4 +100,70 @@ test('on a phone: the Action Center in light and dark', async ({ page }) => {
   expect(await pageWidth(page)).toBeLessThanOrEqual(390);
   await handle.getByRole('button', { name: 'Cancel' }).click();
   await expect(handle).toHaveCount(0);
+});
+
+/**
+ * The Action Center's other screens on a 390 × 844 phone: Settings → Action Center in one column with the wording
+ * box and its live preview, the lead page's banner with 44 px buttons, and the inbox header's waiting chip.
+ * Home has its own test above; these three had none.
+ */
+test('on a phone: Action Center settings, the lead banner and the inbox chip', async ({ page }) => {
+  test.setTimeout(240_000);
+  const o = await actionCenterOwner(page, 'ac-phone-2');
+  const tom = await addLead(o, 'Tom', 'Reyes', 'Rooftop unit replacement', 1_240_000);
+  await sweep(o.workspaceId);
+  await itemsFor(o, ['Rooftop unit replacement']);
+
+  // Settings → Action Center: one column, nothing sideways, and the follow-up wording off until it's read.
+  await page.goto(`/app/w/${o.workspaceId}/settings/action-center`);
+  const settings = page.getByTestId('action-center-settings');
+  await expect(settings).toBeVisible();
+  const panel = (await settings.boundingBox())!;
+  expect(panel.x).toBeGreaterThanOrEqual(0);
+  expect(panel.x + panel.width).toBeLessThanOrEqual(390);
+  // Each kind is a row you can hit with a thumb.
+  expect((await page.getByTestId('ac-kind-hot_lead').boundingBox())!.height).toBeGreaterThanOrEqual(
+    44,
+  );
+  await expect(page.getByTestId('ac-nudge-badge')).toContainText(/Off until an owner/);
+  const template = page.getByTestId('ac-template');
+  const box = (await template.boundingBox())!;
+  expect(box.x + box.width).toBeLessThanOrEqual(390);
+  await expect(page.getByTestId('ac-preview')).toBeVisible();
+  expect(await pageWidth(page)).toBeLessThanOrEqual(390);
+
+  // The lead page's banner: full width inside the gutters, with 44 px Handle and ⋯.
+  await page.goto(`/app/w/${o.workspaceId}/leads/${tom.leadId}`);
+  const banner = page.getByTestId('attention-banner');
+  await expect(banner).toBeVisible({ timeout: 30_000 });
+  const bar = (await banner.boundingBox())!;
+  expect(bar.x).toBeGreaterThanOrEqual(0);
+  expect(bar.x + bar.width).toBeLessThanOrEqual(390);
+  expect(
+    (await banner.getByTestId('attention-banner-handle').boundingBox())!.height,
+  ).toBeGreaterThanOrEqual(44);
+  expect(
+    (await banner.getByTestId('attention-banner-more').boundingBox())!.height,
+  ).toBeGreaterThanOrEqual(44);
+  expect(await pageWidth(page)).toBeLessThanOrEqual(390);
+
+  // The inbox header's waiting chip: the phone header's own, with a reply time of zero so it opens at once.
+  const number = await setUpTexting(page, o.workspaceId);
+  await api(o.token, 'commands', 'phone.update_settings', {
+    workspaceId: o.workspaceId,
+    quietHours: { enabled: false, start: '20:00', end: '08:00' },
+    unansweredReminderMinutes: 0,
+  });
+  const from = `+1713555${String(Math.floor(Math.random() * 9000) + 1000)}`;
+  await textFromCustomer({ from, to: number, body: 'Hi, I have a question about my bill.' });
+  const waitingIn = async () =>
+    (await attentionList(o)).items.find((i) => i.kind === 'customer_waiting')?.conversationId ??
+    null;
+  await expect.poll(waitingIn, { timeout: 60_000 }).not.toBeNull();
+  await page.goto(`/app/w/${o.workspaceId}/inbox/${(await waitingIn())!}`);
+  const chip = page.locator('[data-testid="attention-chip"]:visible').first();
+  await expect(chip).toBeVisible({ timeout: 30_000 });
+  await expect(chip).toHaveAttribute('data-kind', 'customer_waiting');
+  await expect(chip).toHaveAttribute('href', `/app/w/${o.workspaceId}`);
+  expect(await pageWidth(page)).toBeLessThanOrEqual(390);
 });

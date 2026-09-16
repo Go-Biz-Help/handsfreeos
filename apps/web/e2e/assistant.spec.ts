@@ -1,4 +1,5 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
+import { cardOnHome } from './action-center-helpers';
 import { createBusiness, signIn, signUpAndConfirm } from './helpers';
 import { setUpTexting } from './telephony';
 
@@ -51,9 +52,7 @@ test('assistant: ask, act at once, confirm before contacting or changing, audit 
   // The shortcut (⌘J on a Mac, Ctrl+J elsewhere) opens and closes it; so does the sidebar button. Home lists
   // Mike's lead first (the worker files it as it comes in, with no next action).
   await page.goto(`/app/w/${workspaceId}`);
-  await expect(
-    page.getByTestId('attention-card').filter({ hasText: 'Roof replacement' }),
-  ).toBeVisible({ timeout: 30_000 });
+  await cardOnHome(page, workspaceId, 'Roof replacement');
   const button = page.getByTestId('ask-assistant');
   await expect(button).toHaveAttribute('aria-keyshortcuts', /^(Meta|Control)\+J$/);
   const keys = (await button.getAttribute('aria-keyshortcuts'))!.replace(/J$/, 'j');

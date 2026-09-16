@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { cardOnHome } from './action-center-helpers';
 import { createBusiness, signUpAndConfirm } from './helpers';
 
 /** Pipeline and workspace settings, the tasks page, and Home's Action Center once customers exist. */
@@ -78,12 +79,10 @@ test('owner edits pipelines and the workspace; tasks and the Action Center refle
 
   // Home is the Action Center: the lead with no next action waits there with its value; the done task doesn't.
   await page.goto(`/app/w/${workspaceId}`);
-  const hail = page.getByTestId('attention-card').filter({ hasText: 'Hail damage repair' });
-  await expect(hail).toContainText('No next action', { timeout: 30_000 });
+  const hail = await cardOnHome(page, workspaceId, 'Hail damage repair');
+  await expect(hail).toContainText('No next action');
   await expect(page.getByTestId('attention-affected')).toHaveText('$4,100 affected');
-  await expect(
-    page.getByTestId('attention-card').filter({ hasText: 'Send the roof photos' }),
-  ).toHaveCount(0);
+  await cardOnHome(page, workspaceId, 'Send the roof photos', { gone: true });
 
   // Members see the settings sub-nav without the workspace pages.
   await page.goto(`/app/w/${workspaceId}/settings`);

@@ -525,7 +525,6 @@ export async function registerChatRoutes(app: FastifyInstance, deps: HttpDeps): 
           ...(reminderAfterMs ? { reminderAfterMs } : {}),
           aiReply: verdict !== 'unavailable',
         });
-        const passedAt = verdict === 'pass' ? new Date() : v.visitor.turnstilePassedAt;
         if (verdict === 'pass')
           await run(v.scope, chatVisitorRecordSeen, {
             workspaceId: ws,
@@ -533,6 +532,21 @@ export async function registerChatRoutes(app: FastifyInstance, deps: HttpDeps): 
             turnstilePassed: true,
             ipHmac: v.ip,
           });
+        // The database stamps the pass, and the token's own time came from the same clock, so the pass is read
+        // back rather than stamped here: this process's clock runs a little behind, and a pass it stamped could
+        // look older than the token it belongs to, asking the visitor to prove themselves all over again.
+        const stamped =
+          verdict === 'pass'
+            ? (
+                await worker(v.scope, (tx) =>
+                  rows<{ at: Date | string | null }>(
+                    tx,
+                    sql`select turnstile_passed_at as at from app.chat_visitors where id = ${v.visitor.id}`,
+                  ),
+                )
+              )[0]?.at
+            : null;
+        const passedAt = stamped ? new Date(stamped) : v.visitor.turnstilePassedAt;
         const view = await worker(v.scope, (tx) => messageView(tx, received.messageId));
         return {
           message: view?.message ?? null,

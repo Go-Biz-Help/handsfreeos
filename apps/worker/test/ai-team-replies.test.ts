@@ -254,9 +254,12 @@ describe('quiet hours', () => {
       const [r] = await runsOf(late.conversationId);
       expect(r).toMatchObject({ status: 'done', outcome: 'no_reply' });
       expect(r!.summary).toMatch(/^Quiet hours/);
-      // It answers again once quiet hours end (at least an hour from now).
+      // It answers again once quiet hours end (at least an hour from now). A job that was still running when the
+      // new time was set keeps its `runAt` and carries the new time as `_wakeAt`, which processJobs then uses.
       const job = await pendingReply(late.conversationId);
-      expect(job!.runAt).toBeGreaterThan(Date.now() + 50 * 60_000);
+      const wake = job!.payload['_wakeAt'];
+      const answersAt = Math.max(job!.runAt, typeof wake === 'string' ? Date.parse(wake) : 0);
+      expect(answersAt).toBeGreaterThan(Date.now() + 50 * 60_000);
       expect((await conversationOf(late.conversationId)).ai_answered_through).toBeNull();
     } finally {
       await setQuietHours(auto, null);

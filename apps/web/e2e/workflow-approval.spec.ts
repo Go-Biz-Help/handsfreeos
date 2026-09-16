@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { cardOnHome } from './action-center-helpers';
 import { createBusiness, signUpAndConfirm } from './helpers';
 import { setUpTexting, textFromCustomer, WORKER_URL } from './telephony';
 import {
@@ -155,8 +156,8 @@ test('workflow approval: an AI text approved with an edit, one rejected, one exp
     .poll(() => runState(api, workspaceId, workflowId, mike), { timeout: 30_000 })
     .toBe('awaiting_approval');
   await page.goto(`/app/w/${workspaceId}`);
-  const home = page.getByTestId('attention-card').filter({ hasText: 'Mike Johnson' });
-  await expect(home).toContainText('Approval', { timeout: 30_000 });
+  const home = await cardOnHome(page, workspaceId, 'Mike Johnson');
+  await expect(home).toContainText('Approval');
   await expect(home.getByTestId('attention-handle')).toHaveText('Review');
   await home.getByTestId('attention-handle').click();
   await expect(page).toHaveURL(/\/workflows\/approvals$/);

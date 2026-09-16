@@ -3,7 +3,7 @@
  * hour), people and leads through the API, and waiting for the worker to open their items (its detection runs on
  * each lead's events).
  */
-import { expect, type Page } from '@playwright/test';
+import { expect, type Locator, type Page } from '@playwright/test';
 import { api, signInOwner, WORKER } from './booking-helpers';
 import { createBusiness, signUpAndConfirm } from './helpers';
 
@@ -34,6 +34,7 @@ export interface AcItem {
   readonly state: string;
   readonly valueCents: number;
   readonly subject: { readonly type: string; readonly id: string };
+  readonly conversationId: string | null;
   readonly assignee: { readonly id: string; readonly fullName: string } | null;
 }
 
@@ -136,6 +137,39 @@ export async function runDue(workspaceId: string, dedupeKeys: readonly string[] 
 /** A card on Home by the words on it. */
 export const cardOf = (page: Page, text: string) =>
   page.getByTestId('attention-card').filter({ hasText: text });
+
+/**
+ * Home's card for `text`, once it's really there (or, with `gone`, once it has gone.)
+ *
+ * Home follows item changes live, but the item itself is opened and cleared by the worker, which in a full run
+ * can be several seconds behind its events. So each try nudges the business through the sweep route — the hourly
+ * sweep, on demand — and reads the page again, instead of waiting on the worker's own pace.
+ */
+export async function cardOnHome(
+  page: Page,
+  workspaceId: string,
+  text: string,
+  opts: { gone?: boolean; tries?: number } = {},
+): Promise<Locator> {
+  const card = cardOf(page, text);
+  const tries = opts.tries ?? 8;
+  for (let attempt = 1; attempt <= tries; attempt++) {
+    await expect(page.getByTestId('action-center')).toBeVisible();
+    try {
+      if (opts.gone) await expect(card).toHaveCount(0, { timeout: 4_000 });
+      else await expect(card.first()).toBeVisible({ timeout: 4_000 });
+      return card;
+    } catch {
+      if (attempt === tries) break;
+    }
+    await sweep(workspaceId);
+    await page.reload();
+  }
+  // Out of tries: let the assertion itself report what's on the page.
+  if (opts.gone) await expect(card).toHaveCount(0);
+  else await expect(card.first()).toBeVisible();
+  return card;
+}
 
 /** The day before yesterday, as an ISO instant (an all-day task due then is overdue today anywhere). */
 export const twoDaysAgo = () => new Date(Date.now() - 2 * 86_400_000).toISOString();

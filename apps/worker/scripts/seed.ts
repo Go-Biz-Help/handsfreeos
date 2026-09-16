@@ -40,6 +40,7 @@ import { createFakeTelephony } from '../src/telephony/fake';
 import { createWorkflowAi } from '../src/workflows/ai-runner';
 import { seedAiTeam } from './seed-ai-team';
 import { seedAssistant } from './seed-assistant';
+import { seedAttention } from './seed-attention';
 import { seedCalendar } from './seed-calendar';
 import { seedCrm } from './seed-crm';
 import { seedGlow } from './seed-glow';
@@ -363,6 +364,12 @@ async function main(): Promise<void> {
     { id: lonestar, organizationId: org.organizationId, dale, priya },
   );
 
+  // Milestone 8: what needs Dale's attention, as the Action Center lists it, and the sweep that opens it all.
+  const attention = await seedAttention(
+    { api: api.db, admin: admin.db, worker: flow, actor, meta, step, since },
+    { id: lonestar, organizationId: org.organizationId, dale, priya },
+  );
+
   step('Northstar Electric: a separate organization that sees none of the above');
   await executeCommand(
     api.db,
@@ -403,6 +410,10 @@ Its AI teammate ${ava.name} (${ava.seconds.toFixed(1)}s) answers texts and the w
 ${ava.answered} conversations she answered, Tom Reyes waiting in Needs a person with her note, Kendra Lee's reply waiting for an OK
 (it waits a day after the seed ran before a person gets it), and Angela Brooks's website chat, where her Attic insulation lead qualified. The
 chat widget shows on ${ava.site}; try it at ${deps.webUrl}/chat-preview/${ava.widgetKey}?w=${lonestar}
+Dale's Action Center (${attention.seconds.toFixed(1)}s) opens on ${attention.hotLead}: waiting about 11 minutes, ready to book, and
+nobody has answered. Under it, a website lead from three days ago nobody answered, leads gone quiet, leads with no
+next action, overdue tasks, customers waiting and Ava's reply to approve. ${attention.unconfirmed} visits aren't confirmed (they fold
+into one card), ${attention.confirmed} customers have confirmed theirs, and ${attention.handled} are under "Handled by HandsFreeOS".
 Emails the stack sent, including the pending invitation for ${PENDING_INVITEE}: ${env.mailpitUrl}
 `);
 }

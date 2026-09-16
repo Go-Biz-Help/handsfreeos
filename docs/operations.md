@@ -6407,6 +6407,128 @@ The customer wrote again before anyone decided it, and the next reply answers ev
 
 The chat's limits per address, visitor, site and business stopped a burst. It clears within a minute. Lots of new visitors from one network, or the widget's **Daily limit**, stop new chats until the hour or the business's day is over.
 
+## The Action Center
+
+Home is the Action Center: one ranked list of what needs attention in a business right now, with the money affected at the top. HandsFreeOS watches for the things that matter, puts them in order, handles the safe ones itself, and emails the right person when something can't wait. The Assistant (⌘J) answers "What needs my attention?" from the same list, in the same order.
+
+Nothing here needs a new account, key or setting. It uses the business number, email address and calendars that are already set up, and its own settings live in **Settings** → **Action Center** (owners and admins). The tables come from the migrations `20260919000100_attention_items.sql` to `20260919000500_attention_grants.sql`. If the hosted project doesn't have them yet, push them with "Apply new migrations" in "The database: Supabase (hosted)".
+
+### What the list holds
+
+Eight kinds of item. Each one opens when its facts hold, and clears itself when they stop.
+
+| Kind                 | It opens when                                                                                                                                                                                                                                               |
+| -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Hot lead**         | A lead is waiting on the business and shows it's serious: qualified by the AI teammate, or words like book, schedule, how soon, today, ASAP or quote; or two softer signs (worth $5,000 or more, a repeat customer, came in today). Urgent after 10 minutes |
+| **Unanswered lead**  | A lead that came in on its own (a form, a text, a call) that nobody has reached, after 15 minutes of open hours. Leads someone typed in and imported leads never count                                                                                      |
+| **Gone quiet**       | An open lead with no contact either way for 7 days (each stage can have its own number of days)                                                                                                                                                             |
+| **No next action**   | An open lead with nothing planned next, or a next action whose date has passed                                                                                                                                                                              |
+| **Not confirmed**    | A one-on-one visit in the next 48 hours the customer hasn't confirmed                                                                                                                                                                                       |
+| **Approval**         | The AI teammate's draft, or a workflow approval, waiting for a decision                                                                                                                                                                                     |
+| **Customer waiting** | A customer's message has gone unanswered past the business's reply time (**Settings** → **Texting & calls**), including conversations the teammate handed to a person                                                                                       |
+| **Overdue task**     | A task whose due date has passed                                                                                                                                                                                                                            |
+
+The thresholds in that table are the defaults; **Settings** → **Action Center** changes them, and can switch any kind off.
+
+**One card per lead.** If several of the lead kinds hold for the same lead, only the most pressing opens a card (hot, then unanswered, then gone quiet, then no next action). The others show as reason chips on it, so no lead appears twice and no money is counted twice. A waiting conversation joins its customer's lead card the same way.
+
+**The order.** Each item is scored on what it's worth, how long it's been waiting, how likely it is to close, and how sure HandsFreeOS is about the rule. Urgent items come first, then the rest by score. Waiting time is worked out as the page is read, so the order stays honest while a page is open, and each card's chips say why it ranks where it does.
+
+**"$ affected"** at the top adds up the value of the leads on the list, counting each lead once. A lead with no value of its own stands in at the typical job value (the middle of the leads won in the last year, or $500), which is marked as a guess and left out of the total. With nothing but guesses, the headline shows the count instead.
+
+**Mine and Everyone.** Members see **Mine** first: their own items plus anything nobody has. Owners and admins see **Everyone**. Anyone can switch. Approvals only show to people who may decide them.
+
+**Every card offers** Handle (the right thing for that item: Call, Reply, Set next action, Approve, Open task), **Let HandsFreeOS Handle**, and a **⋯** menu with Assign, Snooze and Dismiss. Assign passes the real record on too: the lead's owner, the conversation, or the task. Snooze is 1 hour, this evening, tomorrow morning, next week, or a time you pick up to 30 days out; it ends early if the facts change. Dismiss asks for an optional reason and keeps the item off the list until something changes, such as a new message. All three can be undone from the toast. Three or more similar items of one kind fold into one card, such as "Unconfirmed appointments · 4 customers".
+
+### What HandsFreeOS does on its own
+
+Only two things, and each can be switched off in **Settings** → **Action Center**:
+
+- **A confirmation request** for a visit that isn't confirmed. **On** to begin with.
+- **A follow-up nudge** for a lead that has gone quiet or an overdue follow-up, in the business's own words. **Off** until an owner reads the wording and chooses **Looks good, turn on**.
+
+Everything else asks first. A hot lead, an unanswered lead or a lead with no next action offers choices (hand it to the AI teammate, write a reply, set a next action) that run as the person who chose them. Approvals and tasks are never automatic.
+
+Before anything goes out, every one of these has to pass:
+
+| Guard                 | What it means                                                                                                                                                                                |
+| --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **The switch**        | That kind is on. A nudge also needs the wording reviewed                                                                                                                                     |
+| **Consent**           | A text needs their opt-in, or their own text or call in the last 24 hours. STOP always wins. Otherwise it goes by email, and with no address it doesn't go                                   |
+| **Quiet hours**       | A text due in quiet hours waits until they end (**Settings** → **Texting & calls**). Email doesn't wait                                                                                      |
+| **A 60-minute wait**  | Each message shows on the card as "Goes out at 10:40 · Cancel" for an hour first, and in "Coming up from HandsFreeOS" beside the list                                                        |
+| **Once per item**     | One message per item, per set of facts. A retry never sends twice                                                                                                                            |
+| **A 14-day cooldown** | No second automatic message to the same lead within 14 days (nudges)                                                                                                                         |
+| **Leave people be**   | It skips anyone the AI teammate or a person is talking with, anyone waiting on a reply, anyone with a draft waiting or a workflow running, and anyone a person messaged in the last 72 hours |
+| **Still true**        | The item is still open and its facts haven't changed. A snooze or a dismissal cancels a message that was waiting                                                                             |
+
+Every skip is recorded on the item, so the card says why nothing went out ("Kendra is waiting on a reply", "HandsFreeOS followed up Tue, Sep 15; the next one can go Tue, Sep 29"), and the audit log says the same. **Let HandsFreeOS Handle** shows the exact words, the channel, the checks it just ran and when it would go, before anything happens.
+
+Automatic messages are sent as HandsFreeOS itself. The timeline and audit log say "HandsFreeOS sent a confirmation request" or "sent a follow-up"; a message a person asked for says so too. What it did today sits under **Handled by HandsFreeOS**, collapsed under the list.
+
+### Confirming visits
+
+Only one-on-one visits are ever asked. Group times and classes never are.
+
+- **By text.** The day-before reminder, and the confirmation request, end with "Reply C to confirm." **C**, **CONFIRM** and **CONFIRMED** all confirm. **YES** confirms too while an ask is open, and still opts the customer in to texts as it always has. The customer gets a short thank-you text back, skipped in quiet hours.
+- **By button.** The reminder email and the confirmation email carry a link to the customer's own booking page, where **Confirm** is a button. It is never a plain link, because email scanners open links on their own and would confirm the visit without the customer.
+- **By your team.** **Mark confirmed** on the appointment, in the calendar, for a customer who confirmed on the phone. Only a mark your team made can be taken back; a customer's own confirmation stays.
+- **CANCEL is never used.** For the carriers CANCEL means STOP, so HandsFreeOS never asks a customer to reply CANCEL for anything. To change or cancel a visit, customers use the link on their booking page.
+
+Confirming clears the item, shows **Confirmed by text 4:12 PM** on the appointment and **Confirmed** in Today, and is undone automatically if the visit is moved: a new time needs a new confirmation. **Reply C to confirm** can be switched off in **Settings** → **Action Center**; the email button stays.
+
+### The emails it sends
+
+| Email                | When                                                                                                                                           | Who gets it                                                                                                           |
+| -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| **Morning summary**  | 7:00 in the business's time zone, only when that person has something waiting                                                                  | Each person, their own items only. **Settings** → **Notifications** → **Morning summary**, on unless they turn it off |
+| **Something urgent** | A hot lead waiting 10 minutes, a new lead nobody answered after 15 minutes of open hours, or a customer waiting past the business's reply time | Whoever the item is assigned to, otherwise the owners and admins                                                      |
+
+At most one urgent email per item, and a new one only if the facts change. It replaces the old "unanswered customer" email, so nobody gets two. A lead's urgent email waits for the business to open. The first time the Action Center looks at a business, nothing older than a day gets an email, so switching it on never sends a pile of old news.
+
+### Settings and secrets
+
+The Action Center adds no environment variables, secrets or provider accounts. Everything it needs is in the app:
+
+| Where                                          | What                                                                                                                                                                                                         |
+| ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Settings** → **Action Center**               | Which kinds are on and their thresholds, the typical job value, quiet days per stage, the automatic switches, the follow-up wording with its preview and **Looks good, turn on**, and **Reply C to confirm** |
+| **Settings** → **Texting & calls**             | Quiet hours, and the reply time behind "Customer waiting"                                                                                                                                                    |
+| **Settings** → **Notifications** (each person) | **Morning summary** and **Urgent items**                                                                                                                                                                     |
+| **Settings** → **My hours** (the business)     | Open hours, which the 15-minute and urgent-email clocks count                                                                                                                                                |
+
+Locally, `UNANSWERED_ALERT_MS` in `apps/worker/.env` shortens the reply time for testing, as it always has. Nothing else changes.
+
+### The Action Center on your laptop
+
+`pnpm db:reset` fills Lone Star's Action Center: Maria Lopez's hot lead waiting about 11 minutes with nobody on it, a website lead from three days ago nobody answered, four visits tomorrow that aren't confirmed, leads that have gone quiet, leads with no next action, overdue tasks, customers waiting, and Ava's reply waiting for an OK. HandsFreeOS has already asked Quincy Adams to confirm Thursday's visit and he replied C, which is the row under **Handled by HandsFreeOS**; Priya marked two more confirmed, and one customer confirmed on their own booking page. Mike Johnson's card shows the other side of it: HandsFreeOS won't ask him while he's waiting on a reply, and says so.
+
+The worker looks at every business once an hour, so the browser tests and a laptop demo can push it along instead of waiting. These routes exist only outside production, with the stand-ins:
+
+```bash
+curl -s -X POST http://127.0.0.1:4100/test/attention/sweep \
+  -H 'content-type: application/json' -d '{"workspaceId":"<workspace id>"}'
+```
+
+| Route                      | What it does                                                                                                                         |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| `/test/attention/sweep`    | Looks at the whole business now, or as of a time you pass (`"at": "2026-09-24T15:00:00Z"`), which is how a spec sees a lead go quiet |
+| `/test/attention/run-jobs` | Runs everything the business has waiting: sweeps, rechecks, snoozes ending, automatic messages and urgent emails                     |
+| `/test/attention/send-now` | Skips one item's 60-minute wait (`"itemId"`), so its message goes now                                                                |
+| `/test/attention/digest`   | Sends the morning summary now                                                                                                        |
+
+Each answers with what it moved and ran. A record and the job behind it are committed separately, so call again while `moved` is `0` rather than reading once and assuming.
+
+### Before turning it on for a client
+
+1. Read the follow-up wording in **Settings** → **Action Center** with the owner and agree it, then have an owner choose **Looks good, turn on**. Until they do, no nudge goes out, however the switches are set.
+2. Agree the thresholds with them: a hot lead at $5,000 or 10 minutes waiting, a new lead unanswered after 15 minutes, a lead gone quiet after 7 days, and visits asked to confirm 48 hours ahead.
+3. Check their open hours and quiet hours are right. The 15-minute clock and the urgent emails count open hours, and texts wait for quiet hours to end.
+4. Tell them that leads from a website form who never agreed to texts are followed up **by email**, and that a lead with no email address and no consent gets nothing automatic. If they want texts, the form has to ask for permission to text.
+5. In the Twilio console, check that **Advanced Opt-Out** for the client's messaging service does not answer "C" (its keywords are the STOP, START and HELP words; "C" must not be among them). If it does, customers' confirmations would be swallowed by an automatic carrier reply.
+6. Make sure the people who should hear have **Morning summary** and **Urgent items** on in their own **Settings** → **Notifications**, and that the business has someone to send email as ("Email: Postmark").
+7. Watch the first morning: **Handled by HandsFreeOS** should show the confirmation requests that went out, and every card that couldn't send should say why.
+
 ## Local development
 
 This section runs all of HandsFreeOS on your Mac: the web app, the API, the worker, and a private copy of Supabase in Docker. It never touches the hosted Supabase project. By default nothing reaches Twilio, Postmark, Microsoft or Google either. The worker uses stand-ins for all of them, so nothing costs money and no phone is needed. The last part of this section explains how to swap one stand-in for the real provider when you need to.

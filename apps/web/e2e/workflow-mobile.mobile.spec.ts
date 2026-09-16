@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { cardOnHome } from './action-center-helpers';
 import { createBusiness, signUpAndConfirm } from './helpers';
 import {
   apiAs,
@@ -168,8 +169,8 @@ test('on a phone: an AI-written text approved with an edit', async ({ page }) =>
   await page.emulateMedia({ colorScheme: 'dark' });
   await page.goto(`/app/w/${workspaceId}`);
   // Home's Action Center has the approval: Review opens it on the Approvals page.
-  const home = page.getByTestId('attention-card').filter({ hasText: 'Pat Nguyen' });
-  await expect(home).toContainText('Approval', { timeout: 30_000 });
+  const home = await cardOnHome(page, workspaceId, 'Pat Nguyen');
+  await expect(home).toContainText('Approval');
   const homeBox = (await home.boundingBox())!;
   expect(homeBox.x + homeBox.width).toBeLessThanOrEqual(390);
   await expect(home.getByTestId('attention-handle')).toHaveText('Review');
