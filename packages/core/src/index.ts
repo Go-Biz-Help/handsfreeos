@@ -26,3 +26,5 @@ export * from './ai-team/index';
 export * from './chat/index';
 export * from './attention/index';
 export * from './money/index';
+export * from './inbox/index';
+export * from './migrations/index';

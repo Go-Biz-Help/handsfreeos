@@ -1,0 +1,216 @@
+/**
+ * The CRM-neutral shape everything passes through.
+ *
+ * An adapter reads its own system and produces these. The importers here read only these. That one rule is
+ * what makes the second adapter cheap and the tenth adapter possible — and it is the rule a reviewer should
+ * check first, because the temptation to "just pass the raw record through, it's only one field" is what turns
+ * a migration platform back into an importer with extra steps.
+ *
+ * Two things every envelope carries no matter what:
+ *   - where it came from, in enough detail to find it again and to never write it twice;
+ *   - what could not be mapped, so nothing is lost silently. A field with no home here goes into
+ *     `extensions`, and the adapter raises a finding about it. `extensions` is a safety net, not an answer:
+ *     a category is not "Ready" for general release while the thing people actually use lives in there.
+ */
+import { z } from 'zod';
+
+export const CANONICAL_SCHEMA_VERSION = 1;
+
+/** Where a record came from. Enough to find it again, and to never bring it twice. */
+export const CanonicalSource = z.object({
+  system: z.string().min(1).max(40),
+  adapterVersion: z.string().min(1).max(40),
+  installationId: z.uuid(),
+  /** The sub-account, as the source names it. */
+  locationId: z.string().min(1).max(200),
+  objectType: z.string().min(1).max(60),
+  objectId: z.string().min(1).max(300),
+  parentObjectId: z.string().min(1).max(300).nullish(),
+  /** The old system's own times. These become the record's history here; ours never replace them. */
+  sourceCreatedAt: z.iso.datetime({ offset: true }).nullish(),
+  sourceUpdatedAt: z.iso.datetime({ offset: true }).nullish(),
+  sourceDeletedAt: z.iso.datetime({ offset: true }).nullish(),
+  retrievedAt: z.iso.datetime({ offset: true }),
+  payloadChecksum: z.string().min(8).max(128),
+  payloadVersion: z.number().int().min(1).max(100000),
+});
+export type CanonicalSource = z.infer<typeof CanonicalSource>;
+
+/** A pointer at another record, by the source's id for it. Resolved here through the source mappings. */
+export const CanonicalRef = z.object({
+  /** The category the other record belongs to, so the resolver knows where to look. */
+  category: z.string().min(1).max(60),
+  objectType: z.string().min(1).max(60),
+  objectId: z.string().min(1).max(300),
+  /** How this record relates to it: 'owner', 'contact', 'company', 'conversation', 'assignee'. */
+  role: z.string().min(1).max(40),
+  /** false when the record is worth importing without it (the links pass attaches it later). */
+  required: z.boolean().default(false),
+});
+export type CanonicalRef = z.infer<typeof CanonicalRef>;
+
+/** Something the adapter could not map exactly, raised where it happened. */
+export const CanonicalWarning = z.object({
+  code: z.string().min(1).max(80),
+  field: z.string().max(200).nullish(),
+  message: z.string().min(1).max(300),
+});
+export type CanonicalWarning = z.infer<typeof CanonicalWarning>;
+
+/**
+ * Every normalized record, whatever it is. `data` is the canonical object for its type; `extensions` is
+ * everything real that had nowhere to go, namespaced by source so it can be remapped when the home is built.
+ */
+export const CanonicalEnvelope = z.object({
+  canonicalType: z.string().min(1).max(60),
+  canonicalSchemaVersion: z.number().int().min(1).max(1000),
+  category: z.string().min(1).max(60),
+  source: CanonicalSource,
+  relationships: z.array(CanonicalRef).max(200).default([]),
+  data: z.record(z.string(), z.unknown()),
+  extensions: z.record(z.string(), z.unknown()).default({}),
+  warnings: z.array(CanonicalWarning).max(100).default([]),
+});
+export type CanonicalEnvelope = z.infer<typeof CanonicalEnvelope>;
+
+/** How a field fared. Every mapped field ends as exactly one of these; silence is not allowed. */
+export const MAPPING_OUTCOMES = [
+  'mapped',
+  'transformed',
+  'kept_in_extensions',
+  'skipped',
+  'blocked',
+] as const;
+export type MappingOutcome = (typeof MAPPING_OUTCOMES)[number];
+
+// ---------- the canonical objects ----------
+// Only the ones the importers read today. Each is the HandsFreeOS idea of the thing, not any source's.
+
+/** A phone number or email address a person can be reached on. */
+export const CanonicalEndpoint = z.object({
+  kind: z.enum(['phone', 'email']),
+  value: z.string().min(1).max(320),
+  primary: z.boolean().default(false),
+  label: z.string().max(60).nullish(),
+});
+
+export const CanonicalConsent = z.object({
+  channel: z.enum(['sms', 'email', 'call', 'whatsapp', 'all']),
+  state: z.enum(['unknown', 'opted_in', 'opted_out']),
+  at: z.iso.datetime({ offset: true }).nullish(),
+  reason: z.string().max(200).nullish(),
+});
+
+export const CanonicalAddress = z.object({
+  line1: z.string().max(200).nullish(),
+  line2: z.string().max(200).nullish(),
+  city: z.string().max(120).nullish(),
+  state: z.string().max(120).nullish(),
+  postalCode: z.string().max(40).nullish(),
+  country: z.string().max(2).nullish(),
+});
+
+export const CanonicalContact = z.object({
+  firstName: z.string().max(120).nullish(),
+  lastName: z.string().max(120).nullish(),
+  /** Used only when the source has no first/last split. Never guessed at beyond one space. */
+  fullName: z.string().max(240).nullish(),
+  email: z.string().max(320).nullish(),
+  phone: z.string().max(40).nullish(),
+  endpoints: z.array(CanonicalEndpoint).max(50).default([]),
+  address: CanonicalAddress.nullish(),
+  timezone: z.string().max(60).nullish(),
+  /** What the old system called the way this customer found the business. */
+  source: z.string().max(200).nullish(),
+  tags: z.array(z.string().min(1).max(60)).max(200).default([]),
+  customFields: z.record(z.string(), z.unknown()).default({}),
+  consent: z.array(CanonicalConsent).max(10).default([]),
+  notes: z.string().max(4000).nullish(),
+});
+export type CanonicalContact = z.infer<typeof CanonicalContact>;
+
+export const CanonicalCompany = z.object({
+  name: z.string().min(1).max(200),
+  email: z.string().max(320).nullish(),
+  phone: z.string().max(40).nullish(),
+  website: z.string().max(400).nullish(),
+  address: CanonicalAddress.nullish(),
+  tags: z.array(z.string().min(1).max(60)).max(200).default([]),
+  customFields: z.record(z.string(), z.unknown()).default({}),
+});
+export type CanonicalCompany = z.infer<typeof CanonicalCompany>;
+
+/**
+ * A person who worked in the old system. Brought across as an identity so their name stays on what they did,
+ * whether or not anybody ever invites them here. Inviting is a separate, deliberate act.
+ */
+export const CanonicalUserIdentity = z.object({
+  firstName: z.string().max(120).nullish(),
+  lastName: z.string().max(120).nullish(),
+  email: z.string().max(320).nullish(),
+  phone: z.string().max(40).nullish(),
+  /** What the old system called their role; mapped to the nearest here, never upwards. */
+  roleName: z.string().max(120).nullish(),
+  active: z.boolean().default(true),
+});
+export type CanonicalUserIdentity = z.infer<typeof CanonicalUserIdentity>;
+
+export const CanonicalTag = z.object({
+  name: z.string().min(1).max(60),
+  color: z.string().max(20).nullish(),
+});
+
+/** The shape of an extra field, brought before any value that uses it. */
+export const CanonicalCustomField = z.object({
+  name: z.string().min(1).max(120),
+  key: z.string().min(1).max(120),
+  /** The canonical types. Anything else becomes a finding rather than a silently stringified value. */
+  type: z.enum([
+    'text',
+    'long_text',
+    'number',
+    'money',
+    'date',
+    'datetime',
+    'boolean',
+    'choice',
+    'multi_choice',
+    'phone',
+    'email',
+    'url',
+    'file',
+  ]),
+  options: z.array(z.string().max(200)).max(500).default([]),
+  required: z.boolean().default(false),
+  position: z.number().int().min(0).max(10000).default(0),
+  appliesTo: z.enum(['contact', 'company', 'lead', 'appointment']).default('contact'),
+});
+export type CanonicalCustomField = z.infer<typeof CanonicalCustomField>;
+
+export const CANONICAL_TYPES = {
+  contact: CanonicalContact,
+  company: CanonicalCompany,
+  user_identity: CanonicalUserIdentity,
+  tag: CanonicalTag,
+  custom_field: CanonicalCustomField,
+} as const;
+export type CanonicalTypeName = keyof typeof CANONICAL_TYPES;
+
+/** Validates an envelope's `data` against the schema for its type. Unknown types are refused, not guessed. */
+export function parseCanonical(envelope: CanonicalEnvelope): {
+  readonly ok: boolean;
+  readonly issues: readonly string[];
+  readonly data: Record<string, unknown>;
+} {
+  const schema = CANONICAL_TYPES[envelope.canonicalType as CanonicalTypeName];
+  if (!schema)
+    return { ok: false, issues: [`Unknown canonical type ${envelope.canonicalType}.`], data: {} };
+  const parsed = schema.safeParse(envelope.data);
+  if (!parsed.success)
+    return {
+      ok: false,
+      issues: parsed.error.issues.map((i) => `${i.path.join('.') || 'record'}: ${i.message}`),
+      data: {},
+    };
+  return { ok: true, issues: [], data: parsed.data as Record<string, unknown> };
+}
