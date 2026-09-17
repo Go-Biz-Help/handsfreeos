@@ -1,9 +1,9 @@
-import * as Linking from 'expo-linking';
 import { router } from 'expo-router';
 import * as React from 'react';
 import { View } from 'react-native';
 
 import {
+  Bell,
   CloudCheck,
   Fingerprint,
   Layers,
@@ -27,9 +27,10 @@ import { toast } from '@/components/ui/toast';
 import { APPEARANCE_LABELS, setAppearance, useAppearance, type Appearance } from '@/lib/appearance';
 import { biometrics, unlockLabel, type BiometricInfo } from '@/lib/biometrics';
 import { isKept, useKeepChoices } from '@/lib/businesses';
-import { config, testToolsEnabled } from '@/lib/config';
+import { testToolsEnabled } from '@/lib/config';
 import { lockEnabledFor, setLockEnabledFor } from '@/lib/lock';
 import { isTestOffline, setTestOffline, useNetwork } from '@/lib/network';
+import { openWeb } from '@/lib/open-web';
 import { expireSavedSignIn } from '@/lib/test-tools';
 import { useWorksOffline } from '@/sync/hooks';
 
@@ -121,11 +122,18 @@ export default function Settings() {
       <ListLabel>You</ListLabel>
       <List>
         <ListRow
+          icon={Bell}
+          label="Notifications"
+          detail="Push and email"
+          onPress={() => router.push(businessHref(business.id, 'settings/notifications'))}
+          testID="setting-notifications"
+        />
+        <ListRow
           icon={User}
           label="Profile and sign-in"
           detail={me.user.email}
           external
-          onPress={() => void Linking.openURL(`${config.webUrl}/app/w/${business.id}/settings`)}
+          onPress={() => void openWeb(`/app/w/${business.id}/settings`)}
           testID="setting-profile"
         />
         <ListRow
@@ -215,6 +223,12 @@ function TestTools() {
           detail="Make changes the screens will make, with no signal or late at night"
           onPress={() => router.push(businessHref(business.id, 'test-changes'))}
           testID="test-changes"
+        />
+        <ListRow
+          label="Test notifications"
+          detail="What the worker’s stand-in sent this phone, shown as a real push is"
+          onPress={() => router.push(businessHref(business.id, 'test-notifications'))}
+          testID="test-notifications"
         />
         <ListRow
           label="No signal"

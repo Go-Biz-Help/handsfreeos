@@ -11,6 +11,7 @@ const recent: string[] = [];
 const redact = (text: string) =>
   text
     .replace(/\beyJ[\w-]+\.[\w-]+\.[\w-]+/g, '[token]')
+    .replace(/Expo(nent)?PushToken\[[^\]]*\]/g, '[push token]')
     .replace(/x'[0-9a-fA-F]+'/g, "x'[key]'")
     .replace(/\b[0-9a-f]{64}\b/g, '[key]');
 

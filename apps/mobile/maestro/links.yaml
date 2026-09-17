@@ -1,0 +1,168 @@
+appId: com.gobizhelp.handsfreeos
+name: Links open the app's screens, and never a customer's page
+tags:
+  - ci
+# An email's https://app.handsfreeos.com/app/… link opens the business's screen (the conversation's tab until the
+# conversation screen exists), and so does the app's own handsfreeos:// scheme. A customer's invoice link (/i/…) isn't
+# the app's: nothing opens. A link to a business Dale isn't part of says so. A link opened while signed out opens once
+# he signs in. On Android the links come from outside the app, as a tapped link does. A test build can't prove it may
+# open app.handsfreeos.com (a store build does, with its signing fingerprint), so the run first tells Android it may:
+# `adb shell pm set-app-links --package com.gobizhelp.handsfreeos 2 app.handsfreeos.com` after installing (without it
+# the https link opens the browser). The iOS simulator asks before it opens a link from outside, which a flow can't
+# answer, so there the links go through Test notifications' Links, the same way in. Seed accounts
+# (apps/worker/scripts/seed.ts); the password is the seed's, for local stacks only.
+env:
+  EMAIL: dale@lonestarhvac.test
+  PASSWORD: HandsFree-Demo-2026
+---
+- runFlow: subflows/start-signed-out.yaml
+- runFlow: subflows/sign-in-with-password.yaml
+- runFlow: subflows/open-test-notifications.yaml
+- tapOn:
+    id: 'tn-part-links'
+- copyTextFrom:
+    id: 'tn-business-id'
+- evalScript: ${output.business = maestro.copiedText}
+- tapOn:
+    id: 'back'
+- tapOn:
+    id: 'tab-home'
+
+# An email's link to a conversation opens Inbox.
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - openLink:
+          link: https://app.handsfreeos.com/app/w/${output.business}/inbox/00000000-0000-4000-8000-00000000abcd
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - runFlow:
+          file: subflows/open-link-in-app.yaml
+          env:
+            LINK: https://app.handsfreeos.com/app/w/${output.business}/inbox/00000000-0000-4000-8000-00000000abcd
+- extendedWaitUntil:
+    visible:
+      id: 'inbox'
+    timeout: 30000
+
+# The app's own scheme: Pipeline.
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - openLink:
+          link: handsfreeos://app/w/${output.business}/pipeline
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - runFlow:
+          file: subflows/open-link-in-app.yaml
+          env:
+            LINK: handsfreeos://app/w/${output.business}/pipeline
+- extendedWaitUntil:
+    visible:
+      id: 'pipeline'
+    timeout: 30000
+
+# A customer's invoice link isn't the app's: nothing opens, and the app stays on Pipeline.
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - openLink:
+          link: handsfreeos://i/test-invoice-code
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - runFlow:
+          file: subflows/open-link-in-app.yaml
+          env:
+            LINK: https://app.handsfreeos.com/i/test-invoice-code
+      - tapOn:
+          id: 'back'
+      - tapOn:
+          id: 'tab-pipeline'
+- assertVisible:
+    id: 'pipeline'
+- assertNotVisible:
+    id: 'toast'
+
+# A business Dale isn't part of: said plainly.
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - openLink:
+          link: handsfreeos://app/w/00000000-0000-4000-8000-000000000001/inbox
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - runFlow:
+          file: subflows/open-link-in-app.yaml
+          env:
+            LINK: handsfreeos://app/w/00000000-0000-4000-8000-000000000001/inbox
+- extendedWaitUntil:
+    visible: 'That link is for a business you aren’t part of on HandsFreeOS.'
+    timeout: 20000
+
+# Signed out: the link waits for signing in, then opens.
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - tapOn:
+          id: 'tab-more'
+      # More was left on Settings: pressed again, it goes back to its first screen.
+      - runFlow:
+          when:
+            notVisible:
+              id: 'more-settings'
+          commands:
+            - tapOn:
+                id: 'tab-more'
+      - tapOn:
+          id: 'more-settings'
+      - scrollUntilVisible:
+          element:
+            id: 'setting-sign-out'
+          centerElement: true
+      - tapOn:
+          id: 'setting-sign-out'
+      - tapOn:
+          id: 'confirm-sign-out'
+      - extendedWaitUntil:
+          visible:
+            id: 'sign-in'
+          timeout: 20000
+      - openLink:
+          link: handsfreeos://app/w/${output.business}/calendar
+      # Signing in as subflows/sign-in-with-password.yaml does, except that the app opens on the link's Calendar
+      # rather than Home.
+      - tapOn:
+          id: 'email'
+      - eraseText: 60
+      - inputText: ${EMAIL}
+      - tapOn:
+          id: 'use-my-password'
+      - extendedWaitUntil:
+          visible: 'Enter your password'
+          timeout: 10000
+      - tapOn:
+          id: 'password'
+      - eraseText: 40
+      - inputText: ${PASSWORD}
+      - tapOn:
+          id: 'sign-in-button'
+      - extendedWaitUntil:
+          visible:
+            id: 'calendar'
+          timeout: 60000
+      - runFlow: subflows/allow-notifications.yaml
+      - assertVisible:
+          id: 'calendar'

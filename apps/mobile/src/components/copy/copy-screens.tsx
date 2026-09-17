@@ -1,5 +1,4 @@
 import type { LucideIcon } from 'lucide-react-native';
-import * as Linking from 'expo-linking';
 import { router } from 'expo-router';
 import * as React from 'react';
 import { ActivityIndicator, View } from 'react-native';
@@ -13,6 +12,7 @@ import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
 import { config, testToolsEnabled } from '@/lib/config';
+import { openWeb } from '@/lib/open-web';
 import { cn } from '@/lib/utils';
 import { phoneCopy } from '@/sync';
 import { useColors } from '@/theme';
@@ -102,9 +102,7 @@ export function CantProtectCopy() {
       testID="copy-refused"
       actions={
         <>
-          <Button onPress={() => void Linking.openURL(`${config.webUrl}/app`)}>
-            Open HandsFreeOS on the web
-          </Button>
+          <Button onPress={() => void openWeb('/app')}>Open HandsFreeOS on the web</Button>
           <SignOutButton />
         </>
       }

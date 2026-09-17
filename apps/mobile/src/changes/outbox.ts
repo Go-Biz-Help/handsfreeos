@@ -64,6 +64,11 @@ export interface NewChange {
   readonly madeAt: string;
   readonly dependsOn: readonly string[];
   readonly track: Track;
+  /**
+   * The command id it's sent under, when it isn't the change's own: a notification's button carries one, the same on
+   * every phone the push reached.
+   */
+  readonly commandId?: string;
 }
 
 export interface Settle {
@@ -104,7 +109,7 @@ export class Outbox {
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'waiting', 0, 0, ?, ?, ?)`,
       [
         change.id,
-        change.id,
+        change.commandId ?? change.id,
         change.name,
         change.workspaceId,
         change.input,
@@ -122,6 +127,14 @@ export class Outbox {
 
   get(id: string, runner: SqlRunner = this.db): Promise<OutboxRow | null> {
     return runner.getOptional<OutboxRow>('SELECT * FROM outbox WHERE id = ?', [id]);
+  }
+
+  /** The change sent under a command id, if this phone has one: a notification's button pressed again. */
+  byCommandId(commandId: string, runner: SqlRunner = this.db): Promise<OutboxRow | null> {
+    return runner.getOptional<OutboxRow>(
+      'SELECT * FROM outbox WHERE command_id = ? ORDER BY seq LIMIT 1',
+      [commandId],
+    );
   }
 
   /** The changes with these ids, as they stand. */

@@ -1,0 +1,72 @@
+appId: com.gobizhelp.handsfreeos
+name: The notification switches save through HandsFreeOS
+tags:
+  - ci
+# Settings → Notifications: a push switch beside each email switch, as on the web. Turning "Urgent items" push off saves
+# all six push switches through the API; it stays off when the screen opens again (from Dale's profile, synced back);
+# turning it on again saves again. This phone says whether it gets notifications. Seed accounts
+# (apps/worker/scripts/seed.ts); the password is the seed's, for local stacks only.
+env:
+  EMAIL: dale@lonestarhvac.test
+  PASSWORD: HandsFree-Demo-2026
+---
+- runFlow: subflows/start-signed-out.yaml
+- runFlow: subflows/sign-in-with-password.yaml
+- tapOn:
+    id: 'tab-more'
+- tapOn:
+    id: 'more-settings'
+- tapOn:
+    id: 'setting-notifications'
+- extendedWaitUntil:
+    visible:
+      id: 'notification-grid'
+    timeout: 15000
+- extendedWaitUntil:
+    visible:
+      id: 'this-phone-notifications'
+      text: 'On'
+    timeout: 60000
+- assertVisible: 'A customer waiting on a reply'
+- assertVisible: 'Always'
+- assertVisible:
+    id: 'notification-phones'
+# A run that stopped halfway may have left it off: on first.
+- runFlow:
+    when:
+      visible:
+        id: 'push-urgent'
+        checked: false
+    commands:
+      - tapOn:
+          id: 'push-urgent'
+      - extendedWaitUntil:
+          visible: 'Urgent items: push on'
+          timeout: 20000
+- assertVisible:
+    id: 'push-payment'
+    checked: false
+- tapOn:
+    id: 'push-urgent'
+- extendedWaitUntil:
+    visible: 'Urgent items: push off'
+    timeout: 20000
+- tapOn:
+    id: 'back'
+- tapOn:
+    id: 'setting-notifications'
+- extendedWaitUntil:
+    visible:
+      id: 'push-urgent'
+      checked: false
+    timeout: 20000
+- tapOn:
+    id: 'push-urgent'
+- extendedWaitUntil:
+    visible: 'Urgent items: push on'
+    timeout: 20000
+- extendedWaitUntil:
+    visible:
+      id: 'push-urgent'
+      checked: true
+    timeout: 20000

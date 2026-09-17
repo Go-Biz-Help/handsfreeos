@@ -9,7 +9,11 @@
     "userInterfaceStyle": "automatic",
     "ios": {
       "icon": "./assets/expo.icon",
-      "bundleIdentifier": "com.gobizhelp.handsfreeos"
+      "bundleIdentifier": "com.gobizhelp.handsfreeos",
+      "associatedDomains": ["applinks:app.handsfreeos.com"],
+      "entitlements": {
+        "com.apple.developer.usernotifications.time-sensitive": true
+      }
     },
     "android": {
       "package": "com.gobizhelp.handsfreeos",
@@ -24,6 +28,20 @@
       "blockedPermissions": [
         "android.permission.READ_EXTERNAL_STORAGE",
         "android.permission.WRITE_EXTERNAL_STORAGE"
+      ],
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "data": [
+            {
+              "scheme": "https",
+              "host": "app.handsfreeos.com",
+              "pathPrefix": "/app/"
+            }
+          ],
+          "category": ["BROWSABLE", "DEFAULT"]
+        }
       ]
     },
     "plugins": [
@@ -102,8 +120,19 @@
           "cameraPermission": "HandsFreeOS uses the camera to take photos for your customers’ records.",
           "microphonePermission": false
         }
+      ],
+      [
+        "expo-notifications",
+        {
+          "defaultChannel": "hfos"
+        }
       ]
     ],
+    "extra": {
+      "eas": {
+        "projectId": ""
+      }
+    },
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true

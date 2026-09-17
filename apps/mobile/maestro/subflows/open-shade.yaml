@@ -1,0 +1,21 @@
+# Android: pulls the notification shade down over the app, and waits for TEXT in it. A swipe that lands while a
+# heads-up notification is still pinned at the top moves the heads-up instead of opening the shade, so it swipes again
+# until the shade's own buttons (Manage, Clear all) show.
+appId: com.gobizhelp.handsfreeos
+---
+- repeat:
+    times: 6
+    while:
+      notVisible: 'Clear all|Manage'
+    commands:
+      - swipe:
+          start: 50%, 1%
+          end: 50%, 75%
+          duration: 400
+      - extendedWaitUntil:
+          visible: 'Clear all|Manage'
+          timeout: 4000
+          optional: true
+- extendedWaitUntil:
+    visible: ${TEXT}
+    timeout: 15000

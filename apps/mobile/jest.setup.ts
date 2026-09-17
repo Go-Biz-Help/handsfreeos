@@ -1,7 +1,7 @@
 /**
  * Stand-ins for the native parts the unit tests reach: Uniwind (styles come from Metro, which Jest doesn't run), secure
  * storage, the documents folder, signal, Face ID, safe areas, random bytes, taking and shrinking photos, the backups
- * module, and op-sqlite and PowerSync's React Native module (the copy's rules are tested through `PhoneCopy` with a
+ * and phone modules, notifications and the background task manager, and op-sqlite and PowerSync's React Native module (the copy's rules are tested through `PhoneCopy` with a
  * stand-in database, and the queue's on Node's own SQLite; PowerSync's own `@powersync/common` is real). Each keeps state
  * in memory so a test can read what the app wrote.
  */
@@ -95,6 +95,58 @@ jest.mock('./modules/hfos-backup', () => ({
     isKeptOutOfBackups: jest.fn(() => true),
     appBackupAllowed: jest.fn(() => false),
   },
+}));
+
+jest.mock('./modules/hfos-phone', () => ({
+  __esModule: true,
+  default: {
+    isDeviceLocked: jest.fn(() => false),
+    openInBrowser: jest.fn(async () => true),
+  },
+}));
+
+jest.mock('expo-notifications', () => {
+  const presented: { identifier: string; content: unknown; trigger: unknown }[] = [];
+  const categories = new Map<string, unknown[]>();
+  return {
+    AndroidImportance: { MAX: 7, HIGH: 6, DEFAULT: 5 },
+    DEFAULT_ACTION_IDENTIFIER: 'expo.modules.notifications.actions.DEFAULT',
+    setNotificationHandler: jest.fn(),
+    setNotificationChannelAsync: jest.fn(async () => null),
+    setNotificationCategoryAsync: jest.fn(async (id: string, actions: unknown[]) => {
+      categories.set(id, actions);
+      return { identifier: id, actions };
+    }),
+    getNotificationCategoriesAsync: jest.fn(async () =>
+      [...categories].map(([identifier, actions]) => ({ identifier, actions })),
+    ),
+    getPermissionsAsync: jest.fn(async () => ({ status: 'granted', canAskAgain: true })),
+    requestPermissionsAsync: jest.fn(async () => ({ status: 'granted', canAskAgain: true })),
+    getExpoPushTokenAsync: jest.fn(async () => ({ type: 'expo', data: 'ExponentPushToken[test]' })),
+    addPushTokenListener: jest.fn(() => ({ remove: jest.fn() })),
+    addNotificationReceivedListener: jest.fn(() => ({ remove: jest.fn() })),
+    addNotificationResponseReceivedListener: jest.fn(() => ({ remove: jest.fn() })),
+    getLastNotificationResponse: jest.fn(() => null),
+    clearLastNotificationResponse: jest.fn(),
+    registerTaskAsync: jest.fn(async () => null),
+    scheduleNotificationAsync: jest.fn(
+      async (request: { identifier: string; content: unknown; trigger: unknown }) => {
+        presented.push(request);
+        return request.identifier;
+      },
+    ),
+    getPresentedNotificationsAsync: jest.fn(async () =>
+      presented.map((request) => ({ date: 0, request })),
+    ),
+    dismissNotificationAsync: jest.fn(async () => undefined),
+    dismissAllNotificationsAsync: jest.fn(async () => undefined),
+    __presented: presented,
+  };
+});
+
+jest.mock('expo-task-manager', () => ({
+  defineTask: jest.fn(),
+  isTaskDefined: jest.fn(() => false),
 }));
 
 jest.mock('expo-network', () => ({

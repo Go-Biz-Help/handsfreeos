@@ -1,4 +1,3 @@
-import * as Linking from 'expo-linking';
 import { router } from 'expo-router';
 import { View } from 'react-native';
 
@@ -20,7 +19,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Text } from '@/components/ui/text';
 import { ROLE_LABELS } from '@/lib/businesses';
-import { config } from '@/lib/config';
+import { openWeb } from '@/lib/open-web';
 
 /** More: Customers, Tasks, Money, Approvals and Settings, then Open on the web for the desk work. */
 export default function More() {
@@ -90,7 +89,7 @@ export default function More() {
           label="Open on the web"
           detail="Workflows, the AI teammate, business settings, members and more"
           external
-          onPress={() => void Linking.openURL(`${config.webUrl}/app/w/${business.id}`)}
+          onPress={() => void openWeb(`/app/w/${business.id}`)}
           testID="more-open-on-web"
         />
       </List>

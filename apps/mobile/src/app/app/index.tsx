@@ -1,4 +1,3 @@
-import * as Linking from 'expo-linking';
 import { Redirect } from 'expo-router';
 import * as React from 'react';
 import { ActivityIndicator, View } from 'react-native';
@@ -10,7 +9,7 @@ import { Text } from '@/components/ui/text';
 import { errorMessage } from '@/lib/api';
 import { useSession } from '@/lib/auth';
 import { chooseBusiness, lastOpenedBusiness, useMe } from '@/lib/businesses';
-import { config } from '@/lib/config';
+import { openWeb } from '@/lib/open-web';
 import { useColors } from '@/theme';
 
 /** Opens the business the person had open last (or their first), once the phone knows their businesses. */
@@ -54,10 +53,7 @@ function Chooser({ userId }: { userId: string }) {
               : errorMessage(error)}
           </Text>
           {noBusiness ? (
-            <Button
-              variant="secondary"
-              onPress={() => void Linking.openURL(`${config.webUrl}/app`)}
-            >
+            <Button variant="secondary" onPress={() => void openWeb('/app')}>
               Open HandsFreeOS on the web
             </Button>
           ) : (

@@ -53,6 +53,14 @@ export interface ChangeOptions {
   readonly optimistic?: (tx: ChangeTransaction) => Promise<unknown>;
   /** Changes and photos this one waits for: a lead for a customer made a minute ago, a note about a photo. */
   readonly dependsOn?: readonly string[];
+  /**
+   * The command id to send it under, instead of a new one: a notification's button carries its own, the same on every
+   * phone the push reached. A change already on this phone under that id isn't made again, and the API answers a
+   * repeat with the first answer, so pressing a button twice, or on two phones, does it once.
+   */
+  readonly commandId?: string;
+  /** When the person did it, when that wasn't just now (a notification's button pressed before the phone was unlocked). */
+  readonly madeAt?: number;
 }
 
 export type ChangeResult<N extends CommandName> = [N] extends [OnlineCommand]
@@ -404,9 +412,14 @@ export class Changes {
     const workspaceId = (input as { workspaceId?: unknown }).workspaceId;
     if (typeof workspaceId !== 'string')
       throw new ChangeError('failed', 'This change doesn’t say which business it’s for.');
-    const id = this.deps.newId();
-    const madeAt = new Date(this.now()).toISOString();
-    await attached.db.writeTransaction(async (tx) => {
+    const madeAt = new Date(Math.min(options.madeAt ?? this.now(), this.now())).toISOString();
+    const made = await attached.db.writeTransaction(async (tx) => {
+      if (options.commandId) {
+        // Already on this phone under that command id: a button pressed again does nothing more.
+        const existing = await attached.outbox.byCommandId(options.commandId, tx);
+        if (existing) return existing.id;
+      }
+      const id = this.deps.newId();
       await options.optimistic?.(tx);
       await attached.outbox.add(tx, {
         id,
@@ -416,10 +429,28 @@ export class Changes {
         madeAt,
         dependsOn: options.dependsOn ?? [],
         track: 'queue',
+        commandId: options.commandId,
       });
+      return id;
     });
     void this.refresh();
-    return { id, queued: true } as ChangeResult<N>;
+    return { id: made, queued: true } as ChangeResult<N>;
+  }
+
+  /**
+   * Sends a queued change straight away instead of waiting for the sync service's upload queue: a notification's
+   * button, pressed while the app is locked or closed. The queue's own rules still apply, and one that can't go now
+   * stays in the queue. Resolves with the change as it stands afterwards (null once it's gone from the phone).
+   */
+  async sendQueuedNow(id: string): Promise<OutboxRow | null> {
+    const attached = this.attached;
+    if (!attached) return null;
+    if (this.deps.network.online()) {
+      await attached.uploader
+        .sendNow(id)
+        .catch((error: unknown) => this.log('Sending a change straight away', error));
+    }
+    return this.attached === attached ? attached.outbox.get(id) : null;
   }
 
   private async sendNow(name: CommandName, body: string, options: ChangeOptions) {
@@ -436,9 +467,9 @@ export class Changes {
     }
     const request: CommandRequest = {
       name,
-      commandId: this.deps.newId(),
+      commandId: options.commandId ?? this.deps.newId(),
       input: body,
-      madeAt: new Date(this.now()).toISOString(),
+      madeAt: new Date(Math.min(options.madeAt ?? this.now(), this.now())).toISOString(),
       confirmedAt: null,
     };
     let answer = await this.deps.send(request);

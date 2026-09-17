@@ -1,5 +1,4 @@
 import type { LucideIcon } from 'lucide-react-native';
-import * as Linking from 'expo-linking';
 import { View } from 'react-native';
 
 import { ExternalLink } from '@/components/icons';
@@ -7,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
-import { config } from '@/lib/config';
+import { openWeb } from '@/lib/open-web';
 
 /**
  * An honest stand-in for a screen a later step builds: what will be here, and the same page on the web until then.
@@ -40,7 +39,7 @@ export function Placeholder({
           variant="secondary"
           icon={ExternalLink}
           className="mt-1 self-stretch"
-          onPress={() => void Linking.openURL(`${config.webUrl}${webPath}`)}
+          onPress={() => void openWeb(webPath)}
         >
           {webLabel ?? 'Open on the web'}
         </Button>

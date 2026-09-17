@@ -19,3 +19,6 @@ executionOrder:
     - A refused customer holds their lead while other changes go
     - A photo taken with no signal uploads when signal is back, and a closed app resumes its upload
     - The self-test passes on this phone
+    - The notification switches save through HandsFreeOS
+    - Links open the app's screens, and never a customer's page
+    - A customer's text arrives as a notification, and Reply from the shade sends once

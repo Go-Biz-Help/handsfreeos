@@ -1,0 +1,153 @@
+appId: com.gobizhelp.handsfreeos
+name: A customer's text arrives as a notification, and Reply from the shade sends once
+tags:
+  - ci
+  - android-only
+# Maria Lopez texts Lone Star through the fake carrier. The worker pushes it to Dale (her texts are his, answered by a
+# person), and Test notifications shows the stand-in's push through the same code a real Android push goes through:
+# in the notification shade with Reply, Call and Let AI handle. Reply typed in the shade sends one text, and the
+# notification says so; showing the notification again and replying again sends nothing more. With the phone treated
+# as locked, Reply waits and asks to unlock first, and runs once the app lets Dale in. Quiet hours are off on
+# HandsFreeOS while it runs. Android only: the iOS simulator's notifications can't be driven this way (the report has
+# its own check). Seed accounts (apps/worker/scripts/seed.ts); the password is the seed's, for local stacks only.
+env:
+  EMAIL: dale@lonestarhvac.test
+  PASSWORD: HandsFree-Demo-2026
+---
+- runFlow: subflows/start-signed-out.yaml
+- runFlow: subflows/sign-in-with-password.yaml
+- runFlow: subflows/open-test-changes.yaml
+- runFlow:
+    file: subflows/quiet-hours.yaml
+    env:
+      QUIET: 'off'
+- tapOn:
+    id: 'back'
+- runFlow: subflows/open-test-notifications.yaml
+- extendedWaitUntil:
+    visible:
+      id: 'tn-registration'
+      text: 'This phone: registered · granted'
+    timeout: 60000
+- runFlow:
+    when:
+      visible:
+        id: 'tn-locked'
+        checked: true
+    commands:
+      - tapOn:
+          id: 'tn-locked'
+
+# 1. A customer's text becomes a push for Dale, shown with its buttons.
+- evalScript: ${output.body = 'Is Marco still coming ' + String(Date.now()).slice(-6)}
+- runFlow:
+    file: subflows/customer-text.yaml
+    env:
+      BODY: ${output.body}
+- assertVisible:
+    id: 'tn-sent-0-category'
+    text: 'customer_message ·.*'
+- tapOn:
+    id: 'tn-show-0'
+- extendedWaitUntil:
+    visible:
+      id: 'tn-result'
+      text: 'Showing “Maria Lopez”.'
+    timeout: 15000
+- runFlow:
+    file: subflows/open-shade.yaml
+    env:
+      TEXT: ${output.body}
+- assertVisible: 'Reply'
+- assertVisible: 'Call'
+- assertVisible: 'Let AI handle'
+- takeScreenshot: push-reply-shade
+- tapOn: 'Reply'
+- inputText: 'Marco can be there at 11. Does that work?'
+- takeScreenshot: push-reply-typed
+- tapOn:
+    id: 'com.android.systemui:id/remote_input_send'
+# Android keeps a notification replied to from the shade: it says the reply went, and its buttons are gone.
+- extendedWaitUntil:
+    visible: 'Your reply was sent.'
+    timeout: 30000
+- assertNotVisible: 'Let AI handle'
+- takeScreenshot: push-reply-sent
+- runFlow: subflows/close-shade.yaml
+- extendedWaitUntil:
+    visible:
+      id: 'tn-last-press'
+      text: 'Reply · sent · Your reply was sent.'
+    timeout: 30000
+
+# 2. The same notification shown again, and Reply pressed again: nothing more is sent.
+- tapOn:
+    id: 'tn-show-0'
+- runFlow:
+    file: subflows/open-shade.yaml
+    env:
+      TEXT: ${output.body}
+- tapOn: 'Reply'
+- inputText: 'Pressed twice.'
+- tapOn:
+    id: 'com.android.systemui:id/remote_input_send'
+- extendedWaitUntil:
+    visible: 'That was already done.'
+    timeout: 30000
+- runFlow: subflows/close-shade.yaml
+- extendedWaitUntil:
+    visible:
+      id: 'tn-last-press'
+      text: 'Reply · already · That was already done.'
+    timeout: 30000
+
+# 3. Treated as locked, Reply waits and asks to unlock first; the unlock runs it.
+- tapOn:
+    id: 'tn-locked'
+- evalScript: ${output.body = 'Still coming at 11 ' + String(Date.now()).slice(-6)}
+- runFlow:
+    file: subflows/customer-text.yaml
+    env:
+      BODY: ${output.body}
+- tapOn:
+    id: 'tn-show-0'
+- runFlow:
+    file: subflows/open-shade.yaml
+    env:
+      TEXT: ${output.body}
+- tapOn: 'Reply'
+- inputText: 'See you at 11.'
+- tapOn:
+    id: 'com.android.systemui:id/remote_input_send'
+- extendedWaitUntil:
+    visible: 'Unlock your phone to send your reply.'
+    timeout: 30000
+- takeScreenshot: push-unlock-first
+- tapOn: 'Unlock your phone to send your reply.'
+- extendedWaitUntil:
+    visible:
+      id: 'test-unlock-prompt'
+    timeout: 30000
+- tapOn:
+    id: 'test-unlock-match'
+- extendedWaitUntil:
+    visible: 'Your reply was sent.'
+    timeout: 30000
+# The conversation's link opened on its tab.
+- assertVisible:
+    id: 'inbox'
+
+# Back as it was: the phone not pretending, quiet hours on.
+- runFlow: subflows/open-test-notifications.yaml
+- tapOn:
+    id: 'tn-locked'
+- assertVisible:
+    id: 'tn-last-press'
+    text: 'Reply · sent · Your reply was sent.'
+- tapOn:
+    id: 'back'
+- runFlow: subflows/open-test-changes.yaml
+- runFlow:
+    file: subflows/quiet-hours.yaml
+    env:
+      QUIET: 'on'

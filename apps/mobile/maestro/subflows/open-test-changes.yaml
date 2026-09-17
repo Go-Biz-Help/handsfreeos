@@ -3,6 +3,15 @@ appId: com.gobizhelp.handsfreeos
 ---
 - tapOn:
     id: 'tab-more'
+# The More tab keeps the screen it was left on (a link or a notification may have opened another tab since): pressed
+# again, it goes back to its first screen.
+- runFlow:
+    when:
+      notVisible:
+        id: 'more-settings'
+    commands:
+      - tapOn:
+          id: 'tab-more'
 - tapOn:
     id: 'more-settings'
 - scrollUntilVisible:

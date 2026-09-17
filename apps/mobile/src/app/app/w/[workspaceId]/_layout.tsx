@@ -1,6 +1,7 @@
 import { Redirect, Stack, useLocalSearchParams } from 'expo-router';
 import * as React from 'react';
 
+import { AskFromNotification } from '@/components/changes/ask-from-notification';
 import { OpenBusiness } from '@/components/copy/copy-gate';
 import { BusinessProvider } from '@/components/shell/business-context';
 import { BusinessSwitcher } from '@/components/shell/business-switcher';
@@ -48,6 +49,7 @@ function Business({ userId }: { userId: string }) {
         <Stack.Screen name="changes" options={{ presentation: 'fullScreenModal' }} />
         <Stack.Screen name="phone-copy" options={{ presentation: 'fullScreenModal' }} />
       </Stack>
+      <AskFromNotification />
       <BusinessSwitcher
         open={switcher}
         onClose={() => setSwitcher(false)}

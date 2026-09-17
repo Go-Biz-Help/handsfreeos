@@ -1,0 +1,39 @@
+# Screenshots of Settings → Notifications (design/m10 canvas) in one theme: this phone's notifications, push beside
+# email for each moment, and the email-only ones. Not run in CI:
+#   maestro test -e THEME=dark -e PREFIX=ios apps/mobile/maestro/screens/notifications.yaml --test-output-dir <dir>
+appId: com.gobizhelp.handsfreeos
+name: The notification switches' screen
+tags:
+  - screens
+env:
+  EMAIL: dale@lonestarhvac.test
+  PASSWORD: HandsFree-Demo-2026
+---
+- runFlow: ../subflows/start-signed-out.yaml
+- runFlow: ../subflows/sign-in-with-password.yaml
+- tapOn:
+    id: 'tab-more'
+- tapOn:
+    id: 'more-settings'
+- tapOn:
+    id: 'setting-appearance'
+- tapOn:
+    id: 'appearance-${THEME}'
+- tapOn:
+    id: 'appearance-done'
+- waitForAnimationToEnd
+- tapOn:
+    id: 'setting-notifications'
+- extendedWaitUntil:
+    visible:
+      id: 'this-phone-notifications'
+      text: 'On'
+    timeout: 60000
+- waitForAnimationToEnd
+- takeScreenshot: ${PREFIX}-notifications-${THEME}
+- scrollUntilVisible:
+    element:
+      id: 'notification-email-only'
+    centerElement: true
+- waitForAnimationToEnd
+- takeScreenshot: ${PREFIX}-notifications-email-only-${THEME}

@@ -1,0 +1,11 @@
+# Android: closes the notification shade while it's open. Back only while the shade's own buttons (Manage, Clear all)
+# show, so it never leaves the app's screen; a second Back when the first only put the reply's keyboard away.
+appId: com.gobizhelp.handsfreeos
+---
+- repeat:
+    times: 3
+    while:
+      visible: 'Clear all|Manage'
+    commands:
+      - pressKey: back
+      - waitForAnimationToEnd

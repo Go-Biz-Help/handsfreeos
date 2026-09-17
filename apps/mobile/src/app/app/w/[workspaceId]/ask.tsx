@@ -1,4 +1,3 @@
-import * as Linking from 'expo-linking';
 import { View } from 'react-native';
 
 import { CloudOff, ExternalLink } from '@/components/icons';
@@ -8,8 +7,8 @@ import { Screen } from '@/components/shell/screen';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
-import { config } from '@/lib/config';
 import { useNetwork } from '@/lib/network';
+import { openWeb } from '@/lib/open-web';
 
 /** Ask HandsFreeOS, full screen. The Assistant itself arrives in M10 step 17; it always needs signal. */
 export default function Ask() {
@@ -44,7 +43,7 @@ export default function Ask() {
             variant="secondary"
             icon={ExternalLink}
             className="mt-1 self-stretch"
-            onPress={() => void Linking.openURL(`${config.webUrl}/app/w/${business.id}`)}
+            onPress={() => void openWeb(`/app/w/${business.id}`)}
           >
             Ask on the web
           </Button>

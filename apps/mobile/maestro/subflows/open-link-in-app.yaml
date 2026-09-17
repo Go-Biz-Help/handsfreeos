@@ -1,0 +1,17 @@
+# iOS simulator: opens LINK through Test notifications' Links, the way a link from outside the app goes in (the
+# simulator asks before it opens one from outside, which a flow can't answer). Starts from any of a business's tabs.
+# The link field is empty (it empties itself once a link is opened), so the whole link is typed in.
+appId: com.gobizhelp.handsfreeos
+---
+- runFlow: open-test-notifications.yaml
+- tapOn:
+    id: 'tn-part-links'
+- tapOn:
+    id: 'tn-link'
+- inputText: ${LINK}
+- runFlow:
+    file: keyboard-away.yaml
+    env:
+      FIELD: tn-link
+- tapOn:
+    id: 'tn-open-link'

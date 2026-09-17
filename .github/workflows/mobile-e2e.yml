@@ -3,8 +3,10 @@ name: Phone app on Android
 # The phone app's Maestro flows (apps/mobile/maestro, tagged `ci`) on an Android emulator: signing in with a
 # password and with an emailed code (read from the local stack's Mailpit), Home and the tabs, switching business,
 # locking and unlocking, no signal with the access token run out (airplane mode, which only Android emulators have),
-# the phone's encrypted copy of the business coming down from PowerSync and staying readable with no signal, and
-# another person signing in deleting the last one's copy. Its own workflow, so the 45-minute CI job keeps its room.
+# the phone's encrypted copy of the business coming down from PowerSync and staying readable with no signal, another
+# person signing in deleting the last one's copy, the queue of changes, a customer's text arriving as a notification
+# whose Reply is pressed in the notification shade, links opening the app's screens, and the notification switches.
+# Its own workflow, so the 45-minute CI job keeps its room.
 # A run takes about 46 minutes of Actions time, so it runs only when started by hand, about once per step:
 # `gh workflow run "Phone app on Android" --repo gobizhelp/handsfreeos --ref main`.
 on:
@@ -109,6 +111,7 @@ jobs:
             echo "EXPO_PUBLIC_API_URL=http://localhost:4000"
             echo "EXPO_PUBLIC_WEB_URL=http://localhost:3000"
             echo "EXPO_PUBLIC_SYNC_URL=http://localhost:54430"
+            echo "EXPO_PUBLIC_WORKER_URL=http://localhost:4100"
           } > .env.local
 
       # The build needs the memory: a run with the stack beside it stopped halfway, with no error, and hung until the
@@ -180,6 +183,19 @@ jobs:
           cat api.log
           exit 1
 
+      # The worker with its stand-ins: the fake carrier files a customer's text, and the push stand-in (PUSH_PROVIDER's
+      # default outside production) keeps the pushes it was handed, which the app's Test notifications reads back
+      # from its test routes and shows. A short poll, as Playwright's worker has, so a push is queued within a second.
+      - name: Start the worker
+        run: |
+          WORKER_POLL_MS=500 pnpm --filter @hfos/worker exec tsx src/main.ts > worker.log 2>&1 &
+          for i in $(seq 1 90); do
+            if curl -sf http://127.0.0.1:4100/healthz > /dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat worker.log
+          exit 1
+
       # PowerSync beside the stack, as the Sync service workflow starts it: its own storage Postgres, and the step
       # ends once its first copy of the database is done. Its two images take a few GB of the runner's disk. It starts
       # only after the stack is back up: a stack stopped under it would break its replication.
@@ -209,14 +225,18 @@ jobs:
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -no-snapshot-save
           # The system keeps starting for a while after it reports booted: let it settle, and close any "isn't
-          # responding" dialog it left over the screen, before the first flow.
+          # responding" dialog it left over the screen, before the first flow. A test build can't prove it may open
+          # https://app.handsfreeos.com links (a store build does, with its signing fingerprint), so Android is told
+          # it may, for the links flow.
           script: |
             sleep 45
             adb shell am broadcast -a android.intent.action.CLOSE_SYSTEM_DIALOGS
             adb reverse tcp:54421 tcp:54421
             adb reverse tcp:4000 tcp:4000
+            adb reverse tcp:4100 tcp:4100
             adb reverse tcp:54430 tcp:54430
             adb install -r "$RUNNER_TEMP/app-release.apk"
+            adb shell pm set-app-links --package com.gobizhelp.handsfreeos 2 app.handsfreeos.com
             maestro test apps/mobile/maestro --include-tags ci --format junit --output maestro-report.xml --test-output-dir maestro-artifacts
 
       - name: PowerSync's log
@@ -241,6 +261,7 @@ jobs:
             maestro-report.xml
             maestro-artifacts.tar.gz
             api.log
+            worker.log
             memory.log
             sync.log
             apps/mobile/gradle.log

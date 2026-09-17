@@ -1,14 +1,18 @@
-# Puts the keyboard away after typing in a field: Android's hideKeyboard, and on iOS the return key, which ends editing
-# (hideKeyboard is unreliable there). LABEL is kept for callers but no longer needed.
+# Puts the keyboard away after typing in the one-line field FIELD (its id): the return key, which ends editing on both
+# phones. Not Android's hideKeyboard: that presses Back, and when the keyboard has already gone (CI's test-device image
+# may not show one, and a slow emulator can hide it before the press lands) Back leaves the screen. On Android, a field
+# the keyboard isn't covering is tapped first, so it's the one being edited whatever the keyboard did in the meantime
+# (with nothing being edited, the return key would press whatever button Android had moved to). The calling flow sets
+# FIELD.
 appId: com.gobizhelp.handsfreeos
 ---
 - runFlow:
     when:
       platform: Android
+      visible:
+        id: ${FIELD}
     commands:
-      - hideKeyboard
-- runFlow:
-    when:
-      platform: iOS
-    commands:
-      - pressKey: Enter
+      - tapOn:
+          id: ${FIELD}
+- pressKey: Enter
+- waitForAnimationToEnd

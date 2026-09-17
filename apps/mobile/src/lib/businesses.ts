@@ -23,6 +23,12 @@ export {
 export interface Me {
   readonly user: { readonly id: string; readonly email: string; readonly fullName: string };
   readonly businesses: readonly Business[];
+  /** The organizations the person is in, with their role in each (a phone's older copy may not have them). */
+  readonly organizations?: readonly {
+    readonly id: string;
+    readonly name: string;
+    readonly role: 'owner' | 'admin';
+  }[];
   /** When it came from the API. */
   readonly fetchedAt: number;
 }
@@ -55,6 +61,7 @@ export function loadMe(userId: string): Promise<Me> {
           role: w.role,
           timezone: w.timezone,
         })),
+        organizations: data.organizations.map((o) => ({ id: o.id, name: o.name, role: o.role })),
         fetchedAt: Date.now(),
       };
       if (me.user.id === userId) deviceStore.set(meKey(userId), me);

@@ -1,0 +1,21 @@
+# The phone asks once, the first time a business's screens show after signing in, whether HandsFreeOS may send
+# notifications (Android 13 and later, and iPhones). Allows it when the prompt comes; does nothing when it doesn't.
+appId: com.gobizhelp.handsfreeos
+---
+- extendedWaitUntil:
+    visible: 'Allow|Allow notifications'
+    timeout: 6000
+    optional: true
+- runFlow:
+    when:
+      visible:
+        id: 'com.android.permissioncontroller:id/permission_allow_button'
+    commands:
+      - tapOn:
+          id: 'com.android.permissioncontroller:id/permission_allow_button'
+- runFlow:
+    when:
+      platform: iOS
+      visible: 'Allow'
+    commands:
+      - tapOn: 'Allow'

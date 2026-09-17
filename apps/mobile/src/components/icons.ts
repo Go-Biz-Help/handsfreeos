@@ -2,6 +2,7 @@
 export { default as ArrowUpRight } from 'lucide-react-native/icons/arrow-up-right';
 export { default as Ban } from 'lucide-react-native/icons/ban';
 export { default as Bell } from 'lucide-react-native/icons/bell';
+export { default as BellRing } from 'lucide-react-native/icons/bell-ring';
 export { default as Building } from 'lucide-react-native/icons/building';
 export { default as CalendarDays } from 'lucide-react-native/icons/calendar-days';
 export { default as Camera } from 'lucide-react-native/icons/camera';

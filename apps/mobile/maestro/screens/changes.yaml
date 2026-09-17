@@ -77,7 +77,7 @@ env:
 - runFlow:
     file: ../subflows/keyboard-away.yaml
     env:
-      LABEL: New customer’s email
+      FIELD: tc-email
 - runFlow:
     file: ../subflows/test-change.yaml
     env:

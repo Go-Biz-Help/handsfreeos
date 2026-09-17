@@ -92,6 +92,8 @@ export function staleWords(madeAt: number, now: number): string {
 export class Uploader {
   /** When each change was first tried since signal last came back: its minute of tries in place. */
   private readonly firstTried = new Map<string, number>();
+  /** Changes on their way now, from the queue or sent straight away, so one is never sent twice at once. */
+  private readonly inFlight = new Map<string, Promise<void>>();
 
   constructor(private readonly deps: UploaderDeps) {}
 
@@ -108,13 +110,41 @@ export class Uploader {
       // again in place throws, and the transaction comes back: those already handled are skipped then.
       for (const entry of tx.crud) {
         if (entry.table !== 'commands') continue;
-        const row = await this.deps.outbox.get(entry.id);
-        // A change discarded meanwhile, or one already handled: nothing for the server.
-        if (row && (row.state === 'waiting' || row.state === 'sending')) await this.handle(row);
+        // A change sent straight away (a notification's button) finishes first; then it's read again.
+        await this.inFlight.get(entry.id)?.catch(() => undefined);
+        await this.track(entry.id, () => this.handleIfWaiting(entry.id));
       }
       await tx.complete();
     }
   };
+
+  /**
+   * Sends one change straight away, outside PowerSync's queue: a button pressed on a notification, when the app may be
+   * locked or woken in the background and so not connected to the sync service. The same rules apply as in the queue
+   * (held, too old, "Still send?", quiet hours, the API's answers). One that can't get through now stays waiting in the
+   * queue, which sends it once the copy is connected. Resolves once it's been handled or left for the queue.
+   */
+  async sendNow(id: string): Promise<void> {
+    const running = this.inFlight.get(id);
+    if (running) return running.catch(() => undefined);
+    await this.track(id, () => this.handleIfWaiting(id)).catch((error: unknown) => {
+      if (!(error instanceof TryAgainInPlace)) throw error;
+    });
+  }
+
+  private track(id: string, work: () => Promise<void>): Promise<void> {
+    const run: Promise<void> = work().finally(() => {
+      if (this.inFlight.get(id) === run) this.inFlight.delete(id);
+    });
+    this.inFlight.set(id, run);
+    return run;
+  }
+
+  private async handleIfWaiting(id: string): Promise<void> {
+    const row = await this.deps.outbox.get(id);
+    // A change discarded meanwhile, or one already handled: nothing for the server.
+    if (row && (row.state === 'waiting' || row.state === 'sending')) await this.handle(row);
+  }
 
   private emit(event: Settled) {
     this.deps.settled?.(event);

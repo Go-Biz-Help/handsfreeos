@@ -38,3 +38,4 @@ env:
     visible:
       id: 'home'
     timeout: 60000
+- runFlow: subflows/allow-notifications.yaml

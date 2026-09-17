@@ -3398,6 +3398,24 @@ Each looks like 32 pairs of letters and digits joined by colons, for example `14
 
 Passkeys in the phone app need a different site: `handsfreeos.com` itself, which isn't this web app.
 
+#### What the phone app claims, and what it does with a link
+
+- **The app's side** is in `apps/mobile/app.json`: on iPhones the associated domain `applinks:app.handsfreeos.com`, and on Android one intent filter, verified (`autoVerify`), for `https://app.handsfreeos.com` with the path prefix `/app/`. Android never sees a customer's page (`/i/`, `/e/`, `/p/`, `/book/`, `/m/`, `/hold/`, `/w/`, `/chat/`, `/embed/`, `/invite/`, or anything else outside `/app/`) as the app's; iPhones follow the web's file above, which excludes them first.
+- **One map** turns a web address into the app's screen (`apps/mobile/src/links/route-map.ts`), for a notification's tap, an email's link and the app's own `handsfreeos://` scheme alike. A page the app has opens there; one a later part of the app builds opens its tab or list for now; the desk work the app leaves out (workflow editors, the AI teammate's setup, knowledge, imports, the audit log, business settings and setup pages, members, agency pages) opens in the browser.
+- **A link to a business the person isn't part of** says "That link is for a business you aren’t part of on HandsFreeOS." A link opened while signed out, or while the app is locked, opens once they sign in or unlock.
+
+**Try it on an Android emulator or phone** with a build installed (no fingerprints needed): tell Android the app may open the domain, open a link, then check a customer's page isn't the app's.
+
+```bash
+adb shell pm set-app-links --package com.gobizhelp.handsfreeos 2 app.handsfreeos.com
+adb shell am start -a android.intent.action.VIEW -d 'https://app.handsfreeos.com/app/w/<workspace id>/inbox'
+adb shell pm query-activities -a android.intent.action.VIEW -d 'https://app.handsfreeos.com/i/test'
+```
+
+You should see the app open on Inbox, and `com.gobizhelp.handsfreeos` missing from the last command's list. Once the real file is live with the release fingerprints, `adb shell pm verify-app-links --re-verify com.gobizhelp.handsfreeos` then `adb shell pm get-app-links com.gobizhelp.handsfreeos` should show `app.handsfreeos.com: verified`.
+
+**On an iPhone**, Apple's servers fetch the file for the app's build signed by team `8246H5FJ42`. Tap a link to `https://app.handsfreeos.com/app/…` in Notes or Messages (typed into Safari, it stays in Safari by design). The simulator can't check the domain; links there go through the scheme, and the simulator asks before opening one.
+
 ### Keep the web address the same everywhere
 
 `https://app.handsfreeos.com` is written in several places besides Vercel. They must all match exactly: `https://`, the host name, and nothing after it. The API and the worker compare the browser's address letter for letter, so `https://app.handsfreeos.com/` with a trailing slash never matches.
@@ -7570,6 +7588,47 @@ With enhanced security on, Expo refuses any push that doesn't carry one of your 
 
 You should see the notification on the phone within a few seconds, and no `Expo refused some pushes` line in `fly logs --app handsfreeos-worker`.
 
+### Expo Part 4: The phone app's side
+
+A phone only gets a push token from Expo once the app knows its Expo project, and Apple and Google only deliver once EAS holds their keys. Until then the app registers nothing: Settings → Notifications on the phone says **Not in this build**, and nothing is sent to it. Test builds (`EXPO_PUBLIC_E2E=1`) register a stand-in token instead, for the worker's stand-in (see "The push stand-in" in "Local development"). Do these parts when the app's first EAS builds start, with the Expo organization from "Before you start".
+
+1. **The project id.** In Terminal, in `apps/mobile`, run `eas init` while signed in to the Go Biz Help organization, and let it create the project `handsfreeos`. It prints the project's id. The app keeps it in one place: `expo.extra.eas.projectId` in `apps/mobile/app.json`, empty until now. Because the app also has `app.config.ts`, `eas init` asks you to paste the id there yourself. Paste it between the quotes and commit.
+
+   You should see, on a build made after the commit, Settings → Notifications → **This phone** say **On**, and the web's Settings → Account say **On 1 phone**.
+
+2. **Apple's push key.** Run `eas credentials --platform ios`, choose the production profile, then **Push Notifications** → **Set up a push key**, and let EAS create the key in the Apple Developer account of Go Biz Help LLC (team `8246H5FJ42`), never a personal team. EAS keeps the key; it never goes in this repository or on Fly.
+
+   You should see **Push key** with a key id under the iOS credentials. If Apple refuses because the account already has two push keys, choose **Use an existing key** and give EAS one you keep in your password manager as a `.p8`.
+
+3. **Firebase for Android.** Android pushes go through Firebase Cloud Messaging.
+   1. At console.firebase.google.com, create a project named `HandsFreeOS` (Analytics off), then **Add app** → Android, with the package `com.gobizhelp.handsfreeos`. Download `google-services.json` into `apps/mobile/`.
+   2. In `apps/mobile/app.json`, under `expo.android`, add `"googleServicesFile": "./google-services.json"`, and commit both. The file holds the Firebase project's public client settings, not a secret.
+   3. In Firebase, open **Project settings** → **Service accounts** → **Generate new private key**. It downloads a JSON key: that one is secret. Run `eas credentials --platform android`, choose the production profile, then **Google Service Account** → **Manage your Google Service Account Key for Push Notifications (FCM V1)** → **Set up** → upload the file. Then delete the downloaded file (move it to the Trash and empty it).
+
+   You should see **FCM V1 service account key** set under the Android credentials.
+
+4. **Time-sensitive notifications.** The urgent kinds are sent as time-sensitive, so they break through an iPhone's Focus. The app already asks for the `com.apple.developer.usernotifications.time-sensitive` entitlement in `app.json`, and EAS turns the capability on for the app's identifier when it builds.
+
+   You should see, at developer.apple.com → **Certificates, Identifiers & Profiles** → **Identifiers** → `com.gobizhelp.handsfreeos`, **Time Sensitive Notifications** and **Push Notifications** ticked, and **Associated Domains** too (for links).
+
+5. **Links' fingerprints.** Links in emails open the app on Android only once `assetlinks.json` names the app's signing certificates. See "Links that open the phone app".
+
+6. **Try it on real phones.** Sign in on an iPhone and an Android phone from store or internal builds. Have a customer text the business number (or text it yourself from a phone that isn't on your team): the notification shows on both, with **Reply**, **Call** and **Let AI handle** when the AI teammate could take the conversation. Reply from the lock screen: the iPhone asks for Face ID first, the Android phone for its unlock. The customer gets exactly one text.
+
+### What the buttons do
+
+| Button                 | What happens                                                                          | Asks for the phone's unlock first |
+| ---------------------- | ------------------------------------------------------------------------------------- | --------------------------------- |
+| Reply                  | Typed in the notification, sent as a text, email or chat message in that conversation | Yes                               |
+| Call                   | Opens the app at the conversation or lead                                             | No (the app opens)                |
+| Let AI handle          | Hands the conversation to the AI teammate                                             | Yes                               |
+| Let HandsFreeOS handle | Hands the Home item to HandsFreeOS                                                    | Yes                               |
+| Snooze 1 hour          | Snoozes the Home item for an hour from the press                                      | No                                |
+| Approve                | Approves the AI teammate's draft or the workflow step                                 | Yes                               |
+| Review, Open           | Opens the app on the page the notification is about                                   | No (the app opens)                |
+
+A button pressed twice, or on two of the person's phones, does it once. What the button did replaces the notification: it goes away once done (a reply typed in an Android phone's notification shade stays, saying "Your reply was sent.", because Android keeps a notification someone replied to until they clear it); with no signal it says the change goes as soon as HandsFreeOS can be reached; a refusal says why, and a tap opens Changes on this phone; a reply in the business's quiet hours asks, when tapped, whether to send now or when quiet hours end. On an Android phone that is locked, a button that needs the unlock waits: the notification says "Unlock your phone to send your reply.", and tapping it opens the app, which asks for Face ID or a fingerprint, then sends. A reply that waited more than 30 minutes asks "Still send?" first.
+
 ### What people get
 
 | Kind                          | When                                                                                                                                                                  | Who                                                     | Its switch           |
@@ -7581,7 +7640,7 @@ You should see the notification on the phone within a few seconds, and no `Expo 
 | Assigned to you               | A lead, a conversation, a task or a Home item                                                                                                                         | The new assignee                                        | On unless turned off |
 | A customer pays               | An invoice is paid in full                                                                                                                                            | The owners and admins, and whoever the invoice is on    | Off until turned on  |
 
-Each person sets these beside their email switches. Whoever did something never gets a push about it. A conversation has one notification on a phone: several messages within 2 minutes update it without buzzing again, and the urgent push for a customer still waiting takes its place. A push goes to every phone the person is signed in on, once: a retried job never sends it twice. `apps/worker/src/push/README.md` is the full contract the app is built on, with every button and what it does.
+Each person sets these beside their email switches, on the web (Settings → Account) or in the app (Settings → Notifications): they're the same switches. Whoever did something never gets a push about it. A conversation has one notification on a phone: several messages within 2 minutes update it without buzzing again, and the urgent push for a customer still waiting takes its place. A push goes to every phone the person is signed in on, once: a retried job never sends it twice. `apps/worker/src/push/README.md` is the full contract the app is built on, with every button and what it does.
 
 ### Phones that are gone
 
@@ -7950,6 +8009,7 @@ While `PUSH_PROVIDER` is `fake` or not set, which `pnpm env:local` leaves it, no
   ```
 
 - **A token with `Gone` in it** (like `ExponentPushToken[Gone-1]`) is a phone the app was removed from: its receipt turns the phone off. A token with `Dead` in it is refused on the spot.
+- **The phone app's test builds** register a stand-in token (`ExponentPushToken[e2e-…]`), so a moment's push for the person signed in on the simulator or emulator lands in this list. **Settings** → **Test tools** → **Test notifications** reads it back and shows it as a real push is shown (see "The phone app" under "Running the tests").
 - **Real pushes to a real phone** from your laptop need `PUSH_PROVIDER=expo` and `EXPO_ACCESS_TOKEN` in `apps/worker/.env`, under "Rules for real keys on a laptop".
 
 ### Trying the Assistant
@@ -8225,6 +8285,38 @@ The app in `apps/mobile` has its own checks, and its Maestro flows run on an And
    ```
 
    You should see "This version of HandsFreeOS is too old. Update it to keep going." on Changes on this phone, with every change kept. Turn the switch off and they go, in order.
+
+7. The notification flows (`push-reply`, `links` and `notification-switches`) also need the worker, for its stand-in carrier and push service. Start it on its own port while no browser tests run (they start their own worker on 4100), and build the app with its address:
+
+   ```bash
+   WORKER_HTTP_PORT=4110 WORKER_POLL_MS=500 pnpm --filter @hfos/worker exec tsx src/main.ts
+   ```
+
+   In the build's shell, `export EXPO_PUBLIC_WORKER_URL=http://localhost:4110` before building (CI's workflow writes `http://localhost:4100` into `apps/mobile/.env.local`). The Android emulator reaches it with `adb reverse tcp:4110 tcp:4110`. Pass the same address to the flows, which send a customer's text through the fake carrier. The worker still calls its own public address `http://127.0.0.1:4100` on another port, and the fake carrier signs that address, so pass it too (its delivery callbacks go there as well, so texts sent during such a run stay "sending"):
+
+   ```bash
+   maestro test apps/mobile/maestro/push-reply.yaml -e WORKER_URL=http://127.0.0.1:4110 -e SIGNED_URL=http://127.0.0.1:4100
+   ```
+
+   `push-reply` is Android only: it presses Reply in the notification shade. It turns Maria Lopez's text conversation into Dale's (answered by a person, not the AI teammate), so her texts reach his phone.
+
+   The `links` flow opens `https://app.handsfreeos.com/app/…` from outside the app. A test build can't prove it may open that domain (a store build does, with its signing fingerprint), so tell the emulator it may after installing the app, as CI's workflow does: `adb shell pm set-app-links --package com.gobizhelp.handsfreeos 2 app.handsfreeos.com`. Without it, the link opens the browser and the flow fails on Inbox.
+
+8. Try notifications by hand from **Settings** → **Test tools** → **Test notifications**. The top says whether this phone is registered, what the last press on a notification did, and has **Phone locked** (the app treats the phone as locked, for the rule that Reply, Let AI handle, Let HandsFreeOS handle and Approve wait for the unlock) and **Refresh**. The screen has three parts:
+   - **Sent here**: **Answer Maria Lopez’s texts yourself** (her conversation assigned to you and taken from the AI teammate, with her number), then the pushes the worker's stand-in sent this phone, newest first, each with **Show it**, which shows it exactly as a real push is shown: in the notification shade with its buttons on Android, and as a notification on the iPhone simulator.
+   - **Buttons**: the categories this phone registered, with each button and whether it needs the unlock or opens the app.
+   - **Links**: open any address through the app's route map, the way a link from outside does: an email's link, the `handsfreeos://` scheme, another business's link, a customer's invoice link.
+
+   To see an iPhone push arrive from outside the app, take an iPhone push from `GET /test/push/sent` (its `title`, `subtitle`, `body`, `categoryId` and `data`) and hand it to the simulator in the shape Apple sends:
+
+   ```bash
+   cat > push.json <<'JSON'
+   {"aps": {"alert": {"title": "Maria Lopez", "subtitle": "Text · Lone Star HVAC & Roofing", "body": "Is Marco still coming?"}, "category": "customer_message", "sound": "default"}, "body": {"v": 1, "notificationId": "…", "category": "customer_message", "workspaceId": "…", "business": "Lone Star HVAC & Roofing", "path": "/app/w/…/inbox/…", "sentAt": "…", "refs": {"conversationId": "…", "channel": "sms"}, "commandIds": {"reply": "…", "let_ai_handle": "…"}}}
+   JSON
+   xcrun simctl push booted com.gobizhelp.handsfreeos push.json
+   ```
+
+   Expo's service puts a push's `data` under `body`, as here. To see its buttons on the simulator, open Notification Center, swipe the notification left and tap **View** (pressing and holding doesn't expand it there).
 
 #### Browser tests (Playwright)
 

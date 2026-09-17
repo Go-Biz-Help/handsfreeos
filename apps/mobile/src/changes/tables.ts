@@ -18,7 +18,10 @@ export const commandsTable = new Table({ name: column.text }, { insertOnly: true
 
 export const outboxTable = new Table(
   {
-    /** The id the API sees (`x-hfos-command-id`): the change's own id, unless a fixed version needed a new one. */
+    /**
+     * The id the API sees (`x-hfos-command-id`): the change's own id, unless a fixed version needed a new one, or the
+     * one a notification's button carries (the same on every phone the push reached).
+     */
     command_id: column.text,
     name: column.text,
     workspace_id: column.text,

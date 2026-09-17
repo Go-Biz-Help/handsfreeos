@@ -1,0 +1,41 @@
+# On Test notifications: Maria Lopez texts the business through the fake carrier (scripts/text-from-customer.js) with
+# BODY, and the flow waits for the push the worker's stand-in sent this phone about it, newest first. Her texts come
+# to the signed-in person first (answered by a person, not the AI teammate). The calling flow sets BODY; a local run
+# passes WORKER_URL.
+appId: com.gobizhelp.handsfreeos
+---
+- tapOn:
+    id: 'tn-part-sent'
+- tapOn:
+    id: 'tn-ready-customer'
+- extendedWaitUntil:
+    visible:
+      id: 'tn-result'
+      text: 'Maria Lopez’s texts come to you.'
+    timeout: 60000
+- copyTextFrom:
+    id: 'tn-customer-phone'
+- runScript:
+    file: ../scripts/text-from-customer.js
+    env:
+      FROM: ${maestro.copiedText}
+      BODY: ${BODY}
+# The worker files the text, then queues and sends its push on its own loop: refresh until the stand-in has it.
+- repeat:
+    times: 20
+    while:
+      notVisible:
+        id: 'tn-sent-0-body'
+        text: ${BODY}
+    commands:
+      - tapOn:
+          id: 'tn-refresh'
+      - extendedWaitUntil:
+          visible:
+            id: 'tn-sent-0-body'
+            text: ${BODY}
+          timeout: 3000
+          optional: true
+- assertVisible:
+    id: 'tn-sent-0-title'
+    text: 'Maria Lopez'

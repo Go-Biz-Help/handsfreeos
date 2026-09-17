@@ -26,7 +26,7 @@ env:
 - runFlow:
     file: subflows/keyboard-away.yaml
     env:
-      LABEL: New customer’s email
+      FIELD: tc-email
 - runFlow:
     file: subflows/test-change.yaml
     env:
@@ -73,7 +73,7 @@ env:
 - runFlow:
     file: subflows/keyboard-away.yaml
     env:
-      LABEL: Email
+      FIELD: fix-email
 - tapOn:
     id: 'fix-try-again'
 - extendedWaitUntil:
