@@ -38,6 +38,21 @@ jobs:
             /usr/local/share/boost /usr/local/share/powershell /opt/az
           df -h /
 
+      # A private repository's runner has 2 cores and about 7 GB of memory, which the stack, the build and the
+      # emulator take turns with. The memory log is printed when the job fails.
+      - name: Log memory for the whole job
+        run: |
+          nproc
+          free -m
+          cat > "$RUNNER_TEMP/log-memory.sh" <<'EOF'
+          while true; do
+            printf '%s ' "$(date -u +%H:%M:%S)"
+            free -m | awk '/Mem:/ {printf "used %s MB, available %s MB", $3, $7} /Swap:/ {printf ", swap used %s MB\n", $3}'
+            sleep 30
+          done
+          EOF
+          nohup bash "$RUNNER_TEMP/log-memory.sh" > "$RUNNER_TEMP/memory.log" 2>&1 &
+
       - uses: actions/checkout@v4
 
       - uses: pnpm/action-setup@v4
@@ -84,6 +99,63 @@ jobs:
       - name: Start the local Supabase stack
         run: node scripts/supabase.mjs start -x imgproxy,studio,edge-runtime,logflare,vector
 
+      # The emulator reaches this machine's Supabase and API through `adb reverse`, as localhost. The publishable key
+      # is the local stack's, and public.
+      - name: Point the app at the local stack
+        working-directory: apps/mobile
+        run: |
+          KEY=$(node ../../scripts/supabase.mjs status -o env | sed -n 's/^PUBLISHABLE_KEY="\{0,1\}\([^"]*\)"\{0,1\}$/\1/p')
+          test -n "$KEY"
+          {
+            echo "EXPO_PUBLIC_SUPABASE_URL=http://localhost:54421"
+            echo "EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY=$KEY"
+            echo "EXPO_PUBLIC_API_URL=http://localhost:4000"
+            echo "EXPO_PUBLIC_WEB_URL=http://localhost:3000"
+          } > .env.local
+
+      # The build needs the memory: a run with the stack beside it stopped halfway, with no error, and hung until the
+      # job's time ran out. The stack keeps its data and starts again after the build.
+      - name: Stop the stack while the app builds
+        run: node scripts/supabase.mjs stop
+
+      # A release build carries its JavaScript, so no Metro. EXPO_PUBLIC_E2E=1 swaps Face ID for a test prompt,
+      # shows the test switches, and lets the build use plain http to the emulator's host (app.config.ts). The build
+      # must say op-sqlite is using SQLCipher: with the switch in the wrong package.json it quietly isn't (spike 1a).
+      #
+      # Gradle writes to a file rather than a pipe: a helper process it leaves behind can hold a pipe open, and the
+      # step then never ends. Lint's release checks are for store builds and are skipped here, and the Gradle and
+      # Kotlin daemons get fixed heaps and are stopped afterwards, so the emulator has the memory back.
+      - name: Build the test app (release, x86_64)
+        working-directory: apps/mobile
+        timeout-minutes: 50
+        env:
+          EXPO_PUBLIC_E2E: '1'
+        run: |
+          npx expo prebuild --platform android --no-install
+          cd android
+          cat > "$RUNNER_TEMP/skip-lint-vital.gradle" <<'EOF'
+          allprojects {
+            tasks.configureEach { if (name.startsWith('lintVital')) enabled = false }
+          }
+          EOF
+          set +e
+          ./gradlew assembleRelease -PreactNativeArchitectures=x86_64 --init-script "$RUNNER_TEMP/skip-lint-vital.gradle" \
+            -Dorg.gradle.jvmargs="-Xmx3g -XX:MaxMetaspaceSize=1g" -Pkotlin.daemon.jvmargs=-Xmx1536m > ../gradle.log 2>&1
+          code=$?
+          set -e
+          ./gradlew --stop > /dev/null 2>&1 || true
+          pkill -f KotlinCompileDaemon || true
+          tail -n 80 ../gradle.log
+          if [ "$code" -ne 0 ]; then
+            tail -n 40 "$RUNNER_TEMP/memory.log"
+            sudo dmesg | grep -i -E "out of memory|killed process" || true
+            exit "$code"
+          fi
+          grep -q "using sqlcipher" ../gradle.log
+
+      - name: Start the local Supabase stack again
+        run: node scripts/supabase.mjs start -x imgproxy,studio,edge-runtime,logflare,vector
+
       - name: Write local env files
         run: pnpm env:local
 
@@ -99,34 +171,6 @@ jobs:
           done
           cat api.log
           exit 1
-
-      # The emulator reaches this machine's Supabase and API through `adb reverse`, as localhost. The publishable key
-      # is the local stack's, and public.
-      - name: Point the app at the local stack
-        working-directory: apps/mobile
-        run: |
-          KEY=$(node ../../scripts/supabase.mjs status -o env | sed -n 's/^PUBLISHABLE_KEY="\{0,1\}\([^"]*\)"\{0,1\}$/\1/p')
-          test -n "$KEY"
-          {
-            echo "EXPO_PUBLIC_SUPABASE_URL=http://localhost:54421"
-            echo "EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY=$KEY"
-            echo "EXPO_PUBLIC_API_URL=http://localhost:4000"
-            echo "EXPO_PUBLIC_WEB_URL=http://localhost:3000"
-          } > .env.local
-
-      # A release build carries its JavaScript, so no Metro. EXPO_PUBLIC_E2E=1 swaps Face ID for a test prompt,
-      # shows the test switches, and lets the build use plain http to the emulator's host (app.config.ts). The build
-      # must say op-sqlite is using SQLCipher: with the switch in the wrong package.json it quietly isn't (spike 1a).
-      - name: Build the test app (release, x86_64)
-        working-directory: apps/mobile
-        env:
-          EXPO_PUBLIC_E2E: '1'
-        run: |
-          set -o pipefail
-          npx expo prebuild --platform android --no-install
-          cd android
-          ./gradlew assembleRelease -PreactNativeArchitectures=x86_64 --no-daemon | tee ../gradle.log
-          grep -q "using sqlcipher" ../gradle.log
 
       - name: Install Maestro
         run: |
@@ -150,6 +194,10 @@ jobs:
             adb install -r apps/mobile/android/app/build/outputs/apk/release/app-release.apk
             maestro test apps/mobile/maestro --include-tags ci --format junit --output maestro-report.xml --test-output-dir maestro-artifacts
 
+      - name: Memory while it ran
+        if: failure()
+        run: cp "$RUNNER_TEMP/memory.log" memory.log && tail -n 60 memory.log
+
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
@@ -158,6 +206,7 @@ jobs:
             maestro-report.xml
             maestro-artifacts
             api.log
+            memory.log
             apps/mobile/gradle.log
           retention-days: 7
 
