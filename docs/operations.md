@@ -2864,7 +2864,7 @@ The **Sync health** workflow (`.github/workflows/sync-health.yml`) runs the stat
 - the service can't reach the database, reports a fatal error, or doesn't answer;
 - a new sync config has been copying for more than 10 minutes.
 
-Until Fly and the sync service are set up, it only notes that it skipped. Each run takes about a minute of GitHub Actions time, so about 12 hours a month.
+Its hourly runs start only once the repository variable `HFOS_SYNC_HEALTH` is `on` (step 3), so until then it costs no GitHub Actions time. After that, each run takes about a minute, so about 12 hours a month. Run by hand before Fly and the sync service are set up, it only notes that it skipped.
 
 1. Run it once now:
 
@@ -2880,7 +2880,15 @@ Until Fly and the sync service are set up, it only notes that it skipped. Each r
 
    You should see the run end successfully, and `Healthy.` at the end of its step **Ask the sync service how it is**.
 
-3. Make sure its failures reach you. GitHub emails a scheduled workflow's failures to the person who last changed its `cron:` line, which is the account that committed the file. On GitHub, click your profile picture, then **Settings** → **Notifications**. Under **System**, set **Actions** to email you, for failed workflows only. If the page has moved, search GitHub's settings for "Actions notifications".
+3. Turn on the hourly runs.
+
+   ```bash
+   gh variable set HFOS_SYNC_HEALTH --body on --repo gobizhelp/handsfreeos
+   ```
+
+   You should see `✓ Created variable HFOS_SYNC_HEALTH for gobizhelp/handsfreeos`. The next run starts at 23 minutes past the hour. To stop them again, `gh variable delete HFOS_SYNC_HEALTH --repo gobizhelp/handsfreeos`.
+
+4. Make sure its failures reach you. GitHub emails a scheduled workflow's failures to the person who last changed its `cron:` line, which is the account that committed the file. On GitHub, click your profile picture, then **Settings** → **Notifications**. Under **System**, set **Actions** to email you, for failed workflows only. If the page has moved, search GitHub's settings for "Actions notifications".
 
 ### Every sync config change copies everything
 

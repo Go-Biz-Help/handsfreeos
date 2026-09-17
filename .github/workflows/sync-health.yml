@@ -19,6 +19,9 @@ concurrency:
 jobs:
   health:
     name: Sync service health
+    # A job that starts costs at least a minute of Actions time, even when it only skips: the hourly runs start only
+    # once the repository variable HFOS_SYNC_HEALTH is "on" (Sync Part 9). Running it by hand always starts it.
+    if: vars.HFOS_SYNC_HEALTH == 'on' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     env:
