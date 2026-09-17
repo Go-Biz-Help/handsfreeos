@@ -109,6 +109,8 @@ import {
   TaskUpdateOutput,
   UserPhoneStartVerificationInput,
   UserPhoneStartVerificationOutput,
+  UserUpdateProfileInput,
+  UserUpdateProfileOutput,
   WorkflowDecideApprovalInput,
   WorkflowDecideApprovalOutput,
   type OfflineClass,
@@ -229,6 +231,7 @@ export const PHONE_COMMANDS = {
     UserPhoneStartVerificationInput,
     UserPhoneStartVerificationOutput,
   ),
+  'user.update_profile': command(ONLINE, UserUpdateProfileInput, UserUpdateProfileOutput),
   'workflow.decide_approval': command(
     FRESH,
     WorkflowDecideApprovalInput,
