@@ -15,6 +15,11 @@
  *               and recommend the native thing instead.
  *   deferred  — websites and funnels: detected and counted so the boundary is visible and the demand is
  *               measurable, not imported in this release.
+ *   unsupported — HandsFreeOS has nowhere to put it at all. This is the honest one, and the uncomfortable
+ *               one: custom fields are the first. We count them, keep every value with the record they
+ *               belonged to, and say so — and the count of businesses hitting this is what decides whether
+ *               we build it. A category here must never be described as "coming soon" when the truth is
+ *               that nobody has built it.
  */
 
 /** The nine passes of an import, in the order they run. Lower goes first; a pass may run in parallel inside itself. */
@@ -40,7 +45,7 @@ export const MIGRATION_PASSES = {
 } as const;
 export type MigrationPass = (typeof MIGRATION_PASSES)[keyof typeof MIGRATION_PASSES];
 
-export type CategoryRelease = 'ready' | 'next' | 'excluded' | 'deferred';
+export type CategoryRelease = 'ready' | 'next' | 'excluded' | 'deferred' | 'unsupported';
 
 export interface MigrationCategory {
   readonly id: string;
@@ -91,9 +96,12 @@ export const MIGRATION_CATEGORIES: readonly MigrationCategory[] = [
     blurb: 'The extra fields the old system kept on customers, and what type each one is.',
     pass: MIGRATION_PASSES.definitions,
     dependsOn: ['locations'],
-    targetType: 'custom_field',
+    targetType: null,
     selection: 'category',
-    release: 'ready',
+    release: 'unsupported',
+    releaseNote:
+      'HandsFreeOS has no custom fields yet. We count yours, keep every value with the customer it ' +
+      'belonged to, and list them here — so when we build custom fields, nothing has to be typed in again.',
   }),
   c({
     id: 'tags',
@@ -422,4 +430,21 @@ export function categoriesInOrder(ids: readonly string[]): MigrationCategory[] {
     }
   }
   return out.sort((a, b) => a.pass - b.pass || a.id.localeCompare(b.id));
+}
+
+/** The capability status a category's release implies, before any sign-in or account is looked at. */
+export function releaseCapability(
+  release: CategoryRelease,
+): 'ready' | 'not_in_release' | 'not_imported' | 'not_supported' {
+  switch (release) {
+    case 'ready':
+      return 'ready';
+    case 'excluded':
+      return 'not_imported';
+    case 'unsupported':
+      return 'not_supported';
+    case 'next':
+    case 'deferred':
+      return 'not_in_release';
+  }
 }

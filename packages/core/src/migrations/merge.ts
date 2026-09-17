@@ -23,6 +23,7 @@ export type MatchRule =
   | 'extra_phone' // one of their other numbers
   | 'extra_email' // one of their other addresses
   | 'corroborating' // two weaker signals agreeing (company and address, say)
+  | 'name_disagrees' // the number matches, but these are plainly two different people
   | 'conflict'; // the email says one person, the phone says another
 
 export interface IncomingContact {
@@ -40,6 +41,8 @@ export interface IncomingContact {
 /** A person already in the business that might be the same one. */
 export interface ExistingContact {
   readonly id: string;
+  readonly firstName?: string | null;
+  readonly lastName?: string | null;
   readonly email?: string | null;
   readonly phoneE164?: string | null;
   readonly extraEmails?: readonly string[];
@@ -85,8 +88,52 @@ const SCORES: Record<MatchRule, number> = {
   extra_phone: 80,
   extra_email: 78,
   corroborating: 60,
+  name_disagrees: 40,
   conflict: 0,
 };
+
+/**
+ * Whether two names could be the same person.
+ *
+ * A household shares a landline. A shop's number is on every one of its people. So an exact phone match is
+ * strong evidence and still not a licence to weld "Dave Smith" onto "Chris Doyle" — when the numbers agree
+ * and the names plainly do not, a person decides. Generous on purpose in the other direction: a missing
+ * name, a shared surname, or a first name that is a shortening of the other all read as agreement, because
+ * the cost of an unnecessary review is a minute of somebody's time and the cost of a wrong merge is two
+ * customers' histories fused for good.
+ */
+export function namesAgree(
+  a: { firstName?: string | null; lastName?: string | null },
+  b: { firstName?: string | null; lastName?: string | null },
+): boolean {
+  const clean = (v: string | null | undefined) =>
+    (v ?? '')
+      .toLowerCase()
+      .replace(/[^a-z\s'-]/g, '')
+      .trim();
+  const aFirst = clean(a.firstName);
+  const aLast = clean(a.lastName);
+  const bFirst = clean(b.firstName);
+  const bLast = clean(b.lastName);
+  // Nothing to disagree with.
+  if (!aFirst && !aLast) return true;
+  if (!bFirst && !bLast) return true;
+  if (aLast && bLast && aLast === bLast) return true;
+  if (!aLast || !bLast) {
+    // Only first names to go on.
+    if (aFirst && bFirst) return shortForm(aFirst, bFirst);
+    return true;
+  }
+  // Surnames differ: the same person only if the first names match exactly (somebody married, say).
+  return !!aFirst && aFirst === bFirst;
+}
+
+/** "dave" and "david", "kim" and "kimberly": one is the start of the other, and three letters in. */
+function shortForm(a: string, b: string): boolean {
+  if (a === b) return true;
+  const [short, long] = a.length <= b.length ? [a, b] : [b, a];
+  return short.length >= 3 && long.startsWith(short);
+}
 
 /** At or above this, a match is made without asking. Below it, a person decides. */
 export const AUTO_MERGE_SCORE = 90;
@@ -180,6 +227,20 @@ export function decideMerge(
       };
     }
     const target = hits[0]!;
+    // Strong evidence, two plainly different people: a shared line, not a shared person.
+    if (score >= AUTO_MERGE_SCORE && !namesAgree(incoming, target))
+      return {
+        kind: 'review',
+        targetIds: [target.id],
+        rule: 'name_disagrees',
+        score: SCORES.name_disagrees,
+        evidence: {
+          ...evidence,
+          reason:
+            'The number or address matches a customer here, but the names are different people. A shared line does not make one customer.',
+          matchedBy: rule,
+        },
+      };
     return score >= AUTO_MERGE_SCORE
       ? { kind: 'merge', targetId: target.id, rule, score, evidence }
       : { kind: 'review', targetIds: [target.id], rule, score, evidence };

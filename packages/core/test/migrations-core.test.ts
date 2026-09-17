@@ -11,6 +11,7 @@ import {
   IMPORTABLE_CATEGORIES,
   isImportable,
   messageFingerprint,
+  namesAgree,
   MIGRATION_CATEGORIES,
   migrationCategory,
   mergeScalarFields,
@@ -183,6 +184,55 @@ describe('is this the same person', () => {
       { id: 'here-2', phoneE164: '+15125551212' },
     ]);
     expect(d.kind).toBe('review');
+  });
+
+  it('will not weld two different people onto one shared phone line', () => {
+    const d = decideMerge({ firstName: 'Dave', lastName: 'Smith', phone: '+15125551212' }, [
+      { id: 'here-1', firstName: 'Chris', lastName: 'Doyle', phoneE164: '+15125551212' },
+    ]);
+    expect(d.kind).toBe('review');
+    expect(d.kind === 'review' && d.rule).toBe('name_disagrees');
+  });
+
+  it('still merges when the name is only spelled shorter, or is missing', () => {
+    expect(
+      decideMerge({ firstName: 'Dave', lastName: 'Smith', phone: '+15125551212' }, [
+        { id: 'here-1', firstName: 'David', lastName: 'Smith', phoneE164: '+15125551212' },
+      ]).kind,
+    ).toBe('merge');
+    expect(
+      decideMerge({ phone: '+15125551212' }, [
+        { id: 'here-1', firstName: 'Chris', lastName: 'Doyle', phoneE164: '+15125551212' },
+      ]).kind,
+    ).toBe('merge');
+  });
+
+  it('knows when two names could be one person', () => {
+    expect(
+      namesAgree(
+        { firstName: 'Dave', lastName: 'Smith' },
+        { firstName: 'Dave', lastName: 'Smith' },
+      ),
+    ).toBe(true);
+    // Somebody married and changed their surname: the first name still matches exactly, so it agrees.
+    expect(
+      namesAgree(
+        { firstName: 'Ana', lastName: 'Ruiz' },
+        { firstName: 'Ana', lastName: 'Ruiz-Bao' },
+      ),
+    ).toBe(true);
+    // Different first name and different surname: two people.
+    expect(
+      namesAgree(
+        { firstName: 'Dave', lastName: 'Smith' },
+        { firstName: 'Chris', lastName: 'Doyle' },
+      ),
+    ).toBe(false);
+    expect(
+      namesAgree({ firstName: 'Kim', lastName: 'Bao' }, { firstName: 'Kimberly', lastName: 'Bao' }),
+    ).toBe(true);
+    expect(namesAgree({ lastName: 'Smith' }, { firstName: 'Chris', lastName: 'Smith' })).toBe(true);
+    expect(namesAgree({}, { firstName: 'Chris', lastName: 'Doyle' })).toBe(true);
   });
 
   it('a second number is a hint, not a decision', () => {

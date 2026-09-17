@@ -270,6 +270,7 @@ import { invoiceCommands } from './invoice';
 import { paymentCommands } from './payment';
 import { subscriptionCommands } from './subscription';
 import { pushDeviceRegister, pushDeviceRemove } from './push-device';
+import { migrationCommands } from './migration';
 
 export {
   conversationAssign,
@@ -681,6 +682,7 @@ export const commands: readonly CommandDef[] = [
   moneySaveSettings,
   pushDeviceRegister,
   pushDeviceRemove,
+  ...migrationCommands,
 ] as unknown as readonly CommandDef[];
 export { callPreview } from './call';
 export { VERIFY_CALLS_PER_DAY, VERIFY_CALLS_PER_HOUR } from './user-phone';
@@ -710,3 +712,4 @@ export * from './payment';
 export * from './subscription';
 export * from './money-shared';
 export * from './push-device';
+export * from './migration';

@@ -382,8 +382,10 @@ create trigger migration_media_check_refs before insert on app.migration_media
   for each row execute function private.check_migration_engine_refs();
 create trigger migration_jobs_check_refs before insert on app.migration_jobs
   for each row execute function private.check_migration_engine_refs();
+-- Checkpoints name no business (a category's place-marker belongs to the sub-account), so they use the
+-- child check rather than the engine one, which asks about a workspace column they do not have.
 create trigger migration_checkpoints_check_refs before insert on app.migration_checkpoints
-  for each row execute function private.check_migration_engine_refs();
+  for each row execute function private.check_migration_child_refs();
 
 -- A mapping's business belongs to the migration's organization.
 create or replace function private.check_migration_mapping_refs()
