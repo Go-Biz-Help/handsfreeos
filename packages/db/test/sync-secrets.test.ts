@@ -83,6 +83,7 @@ const SECRET_TABLES = [
   'chat_visitors',
   'invitations',
   'mailbox_connections',
+  'migration_connections',
   'payment_connections',
   'telephony_accounts',
   'workflow_webhooks',

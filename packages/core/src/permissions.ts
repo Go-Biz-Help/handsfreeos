@@ -84,8 +84,15 @@ export const ROLE_PERMISSIONS = {
     'workspace.create',
     'org.audit.read',
     'org.templates.manage',
+    'org.migrations.manage',
   ],
-  org_admin: ['org.read', 'workspace.create', 'org.audit.read', 'org.templates.manage'],
+  org_admin: [
+    'org.read',
+    'workspace.create',
+    'org.audit.read',
+    'org.templates.manage',
+    'org.migrations.manage',
+  ],
 } as const satisfies Record<string, readonly string[]>;
 
 export type RoleKey = keyof typeof ROLE_PERMISSIONS;
