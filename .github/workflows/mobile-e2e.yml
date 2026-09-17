@@ -5,12 +5,10 @@ name: Phone app on Android
 # locking and unlocking, no signal with the access token run out (airplane mode, which only Android emulators have),
 # the phone's encrypted copy of the business coming down from PowerSync and staying readable with no signal, and
 # another person signing in deleting the last one's copy. Its own workflow, so the 45-minute CI job keeps its room.
+# A run takes about 46 minutes of Actions time, so it runs on each push to main (or by hand), not nightly.
 on:
   push:
     branches: [main]
-  schedule:
-    # Nightly, 2:17 AM in Houston.
-    - cron: '17 7 * * *'
   workflow_dispatch:
 
 concurrency:
