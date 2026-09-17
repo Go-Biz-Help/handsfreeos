@@ -1,7 +1,7 @@
 import { hasOrgPermission } from '@hfos/core';
 import type { Me } from '@/lib/api/types';
 
-export type AgencySection = 'templates' | 'businesses' | 'packs';
+export type AgencySection = 'templates' | 'businesses' | 'packs' | 'migrations';
 
 /** Organizations whose agency area this person runs: their owners and admins (org.templates.manage). */
 export function agencyOrganizations(me: Me): Me['organizations'] {

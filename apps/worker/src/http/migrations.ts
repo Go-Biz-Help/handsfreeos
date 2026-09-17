@@ -167,8 +167,7 @@ export function registerMigrationRoutes(
       );
       // What was asked for and not granted: the difference the scan turns into "we were not allowed to look".
       const granted = new Set(connection.scopes);
-      const wanted = await wantedScopes(adapter.system);
-      const missing = wanted.filter((s) => !granted.has(s));
+      const missing = adapter.requestedScopes.filter((x) => !granted.has(x));
       await asWorker(deps.httpDb, { organizationId: row.organization_id }, async (tx) => {
         await activateConnection(tx, {
           connectionId: row.connection_id,
@@ -216,11 +215,4 @@ export function registerMigrationRoutes(
       return reply.redirect(backTo(row.organization_id, '?connect=failed'), 302);
     }
   });
-
-  /** What the sign-in asked for, so the difference from what was granted is a real list. */
-  async function wantedScopes(system: string): Promise<string[]> {
-    if (system !== 'gohighlevel') return [];
-    const { GHL_ALL_SCOPES } = await import('../migrations/adapters/gohighlevel');
-    return [...GHL_ALL_SCOPES];
-  }
 }

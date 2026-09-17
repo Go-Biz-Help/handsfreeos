@@ -24,7 +24,8 @@ export type ConnectionRow = {
   scopes: string[];
   token_enc: string | null;
   token_key_id: string | null;
-  token_expires_at: Date | null;
+  /** Raw SQL hands timestamps back as strings, so this is parsed rather than trusted. */
+  token_expires_at: string | Date | null;
 };
 
 export class SourceAuthError extends Error {
@@ -97,7 +98,7 @@ export async function openConnection(
     scopes: row.scopes ?? [],
     accessToken: tokens.accessToken,
     refreshToken: tokens.refreshToken,
-    expiresAt: row.token_expires_at,
+    expiresAt: row.token_expires_at ? new Date(row.token_expires_at) : null,
   };
 
   const expiring =

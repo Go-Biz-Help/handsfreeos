@@ -11,7 +11,9 @@
  *   - **A customer whose email points at one person here and whose phone points at another**, which is the
  *     conflict that must always go to a human.
  *   - **A custom field of a type we have no home for**, so the "kept, not dropped" promise is under test.
- *   - **A category the sign-in cannot reach**, so "we were not allowed to look" never renders as zero.
+ *   - **A category the sign-in cannot reach** (companies, from the start), so "we were not allowed to look"
+ *     never renders as zero — and a second one it *can* read but this system has nowhere to put (custom
+ *     fields), so the two are visibly different answers rather than one shrug.
  *   - **A page boundary**: more contacts than one page holds, so resuming and the cursor are exercised.
  *
  * Nothing here looks like a secret: its tokens say they are fake.
@@ -285,7 +287,10 @@ const SCOPE_NAMES: Record<string, readonly string[]> = {
 
 export function createFakeSourceAdapter(): FakeSource {
   const calls: { category: string; scope: string; cursor: unknown }[] = [];
-  const denied = new Set<string>();
+  // Companies are out of reach from the start, on purpose: every run of the stand-in then has one category
+  // the sign-in was not allowed to read, so "we were not allowed to look" is exercised rather than assumed.
+  // Custom fields are the other half of the pair — readable, and with nowhere here to put them.
+  const denied = new Set<string>(['companies.readonly']);
 
   const supportOf = (category: string): CategorySupport => {
     const required = SCOPE_NAMES[category] ?? [];
@@ -312,6 +317,7 @@ export function createFakeSourceAdapter(): FakeSource {
   const adapter: CrmSourceAdapter = {
     system: 'gohighlevel',
     adapterVersion: FAKE_ADAPTER_VERSION,
+    requestedScopes: [...new Set(Object.values(SCOPE_NAMES).flat())].sort(),
 
     authorizeUrl: ({ state, redirectUri }) =>
       `${redirectUri}?code=fake-code&state=${encodeURIComponent(state)}`,
@@ -599,6 +605,7 @@ export function createFakeSourceAdapter(): FakeSource {
     reset: () => {
       calls.length = 0;
       denied.clear();
+      denied.add('companies.readonly');
     },
   };
 }

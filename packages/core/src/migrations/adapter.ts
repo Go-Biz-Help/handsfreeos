@@ -168,6 +168,11 @@ export interface MappingContext {
 export interface CrmSourceAdapter {
   readonly system: string;
   readonly adapterVersion: string;
+  /**
+   * Every scope the sign-in asks for. What comes back granted, subtracted from this, is the honest list of
+   * what this connection cannot read — which is what the scan turns into "we were not allowed to look".
+   */
+  readonly requestedScopes: readonly string[];
 
   /** Where to send someone to sign in, and what comes back. */
   authorizeUrl(input: {

@@ -4,6 +4,7 @@ import {
   ArrowUpRight,
   Building2,
   ChevronsUpDown,
+  Import,
   LayoutTemplate,
   Menu,
   Package,
@@ -33,6 +34,7 @@ const SECTIONS: readonly { key: AgencySection; label: string; icon: LucideIcon }
   { key: 'businesses', label: 'Client businesses', icon: Building2 },
   { key: 'templates', label: 'Templates', icon: LayoutTemplate },
   { key: 'packs', label: 'Knowledge packs', icon: Package },
+  { key: 'migrations', label: 'Migrations', icon: Import },
 ];
 
 function AgencyNav({ orgId, onNavigate }: { orgId: string; onNavigate?: () => void }) {

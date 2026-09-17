@@ -433,6 +433,7 @@ export function createGoHighLevelAdapter(config: GoHighLevelConfig): CrmSourceAd
   return {
     system: 'gohighlevel',
     adapterVersion: GHL_ADAPTER_VERSION,
+    requestedScopes: GHL_ALL_SCOPES,
 
     authorizeUrl({ state, redirectUri }) {
       if (!config.configured)
