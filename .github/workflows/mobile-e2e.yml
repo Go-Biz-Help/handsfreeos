@@ -28,6 +28,16 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 90
     steps:
+      # The runner's disk is mostly toolchains this job never uses, and the Supabase images, both NDKs, Gradle's
+      # native builds and the emulator's system image don't fit beside them: the first run stopped mid-build with
+      # "No space left on device". The biggest unused ones go first.
+      - name: Make room on the runner's disk
+        run: |
+          df -h /
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/.ghcup /opt/hostedtoolcache/CodeQL /usr/share/swift \
+            /usr/local/share/boost /usr/local/share/powershell /opt/az
+          df -h /
+
       - uses: actions/checkout@v4
 
       - uses: pnpm/action-setup@v4
