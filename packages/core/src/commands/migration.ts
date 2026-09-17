@@ -871,18 +871,29 @@ export const migrationResume = defineCommand({
           where migration_id = ${m.id} and state in ('pending', 'retry', 'leased')`,
     );
     const count = pending?.count ?? 0;
+    // Nothing left to fetch: the checks are what is missing, so they are queued rather than the migration
+    // declaring itself finished. Whether it is finished is the engine's answer, never a button's.
+    if (count === 0)
+      await ctx.tx.insert(migrationJobs).values({
+        migrationId: m.id,
+        organizationId: m.organizationId,
+        kind: 'verify',
+        category: 'locations',
+        pass: 9,
+        input: {},
+      });
     await ctx.tx
       .update(migrations)
-      .set({ status: count > 0 ? 'importing' : 'imported', lastError: null })
+      .set({ status: 'importing', lastError: null })
       .where(eq(migrations.id, m.id));
     await ctx.emit({
       type: 'migration.resumed',
       entityType: 'migration',
       entityId: m.id,
       payload: { pending: count },
-      after: { migration: m.name, status: count > 0 ? 'importing' : 'imported' },
+      after: { migration: m.name, carryingOn: count > 0 ? `${count} batches` : 'the checks' },
     });
-    return migrationState(m.id, count > 0 ? 'importing' : 'imported', true);
+    return migrationState(m.id, 'importing', true);
   },
 });
 

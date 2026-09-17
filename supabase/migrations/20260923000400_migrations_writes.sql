@@ -50,9 +50,13 @@ begin
   if coalesce(private.system_scope_organization() = new.organization_id, false) then
     return new;
   end if;
+  -- `needs_attention` is here because a person can genuinely cause it: disconnecting the old system strands
+  -- a migration that was still catching up, and it should say so rather than sit there looking healthy.
+  -- Everything left out — imported, verifying, completed, rolled_back — is the engine's answer about what
+  -- actually happened, and a browser may not simply declare it.
   if new.status is distinct from old.status
      and new.status not in ('scanning', 'ready', 'importing', 'paused', 'finalizing', 'cancelling',
-                            'rolling_back', 'transition') then
+                            'rolling_back', 'transition', 'needs_attention') then
     raise exception 'A migration reaches that state on its own'
       using errcode = '42501', detail = 'migration_status_transition';
   end if;

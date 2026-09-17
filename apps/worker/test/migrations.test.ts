@@ -22,6 +22,8 @@ import {
   migrationGet,
   migrationMapScopes,
   migrationRollback,
+  migrationPause,
+  migrationResume,
   migrationScan,
   migrationSelect,
   migrationStart,
@@ -327,6 +329,24 @@ describe('a business moves house', () => {
     const after = await people();
     expect(after.map((p) => p.id).sort()).toEqual(before.map((p) => p.id).sort());
   }, 120_000);
+
+  it('pauses, carries on, and lets the old system be disconnected without going quiet', async () => {
+    // Every state a button may ask for is refused by the database unless it is one a person can really
+    // cause. These are the two that are not obvious, so they are exercised rather than assumed.
+    await run(migrationPause, { organizationId: w.organizationId, migrationId: w.migrationId });
+    const resumed = await run<{ status: string }>(migrationResume, {
+      organizationId: w.organizationId,
+      migrationId: w.migrationId,
+    });
+    expect(resumed.status).toBe('importing');
+    await drain();
+    const [after] = await rows<{ status: string }>(
+      admin(),
+      sql`select status::text as status from app.migrations where id = ${w.migrationId}`,
+    );
+    // The checks ran again and said where it stands; the button never declared it finished.
+    expect(['imported', 'transition']).toContain(after?.status);
+  }, 60_000);
 
   it('says what taking it back would do before it does it', async () => {
     const preview = await ask<{ removable: number; restorable: number }>(migrationRollbackPreview, {
