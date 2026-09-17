@@ -8174,7 +8174,7 @@ These play phones with PowerSync's Node client against a local PowerSync Service
 
 #### The phone app
 
-The app in `apps/mobile` has its own checks, and CI runs its Maestro flows on an Android emulator in the Phone app on Android workflow, on each push to `main` (about 46 minutes). Run it by hand with `gh workflow run "Phone app on Android" --repo gobizhelp/handsfreeos --ref main`.
+The app in `apps/mobile` has its own checks, and its Maestro flows run on an Android emulator in the Phone app on Android workflow, which runs only when started by hand (about 46 minutes of GitHub Actions time a run). Run it with `gh workflow run "Phone app on Android" --repo gobizhelp/handsfreeos --ref main`.
 
 1. Run the app's checks.
 
