@@ -1,0 +1,75 @@
+appId: com.gobizhelp.handsfreeos
+name: Changes made with no signal go once signal is back
+tags:
+  - ci
+# With no signal, Dale adds a note for Maria Lopez, changes her phone number and email, moves her lead to Won and
+# writes her a text: the strip says 4 are waiting. Signal comes back well within 30 minutes and all four go. Quiet hours
+# are off on HandsFreeOS while it runs, so the text goes at any hour, and back on at the end. Seed accounts
+# (apps/worker/scripts/seed.ts); the password is the seed's, for local stacks only.
+env:
+  EMAIL: dale@lonestarhvac.test
+  PASSWORD: HandsFree-Demo-2026
+---
+- runFlow: subflows/start-signed-out.yaml
+- runFlow: subflows/sign-in-with-password.yaml
+- runFlow: subflows/open-test-changes.yaml
+- runFlow: subflows/nothing-waiting.yaml
+- runFlow:
+    file: subflows/quiet-hours.yaml
+    env:
+      QUIET: 'off'
+- runFlow: subflows/no-signal.yaml
+- runFlow:
+    file: subflows/test-change.yaml
+    env:
+      BUTTON: tc-note
+      RESULT: Added a note.
+- runFlow:
+    file: subflows/test-change.yaml
+    env:
+      BUTTON: tc-phone-email
+      RESULT: Changed the phone number and email.
+- runFlow:
+    file: subflows/test-change.yaml
+    env:
+      BUTTON: tc-won
+      RESULT: Moved the lead to Won.
+- runFlow:
+    file: subflows/test-change.yaml
+    env:
+      BUTTON: tc-text
+      RESULT: Wrote a text.
+- assertVisible:
+    id: 'status-strip-text'
+    text: 'Offline — 4 changes waiting'
+- assertVisible:
+    id: 'tc-counts'
+    text: '4 waiting · 0 need you'
+# Signal back: all four go, and nothing is left waiting.
+- runFlow: subflows/signal-back.yaml
+- extendedWaitUntil:
+    visible:
+      id: 'tc-counts'
+      text: '0 waiting · 0 need you'
+    timeout: 90000
+- extendedWaitUntil:
+    notVisible:
+      id: 'status-strip'
+    timeout: 30000
+- runFlow: subflows/open-changes.yaml
+- assertVisible:
+    id: 'changes-title'
+    text: 'Up to date'
+# Grouped for Maria (a run that stopped halfway may have left one more change, which went when Dale signed back in).
+- assertVisible:
+    id: 'sent-title'
+    text: '\d changes for Maria Lopez'
+- assertVisible:
+    id: 'sent-line'
+    text: '.*number and email · moved to Won · a text'
+- tapOn:
+    id: 'close'
+- runFlow:
+    file: subflows/quiet-hours.yaml
+    env:
+      QUIET: 'on'

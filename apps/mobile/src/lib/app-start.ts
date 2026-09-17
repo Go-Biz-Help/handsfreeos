@@ -1,6 +1,9 @@
 import { AppState } from 'react-native';
 
+import { changes } from '@/changes';
+import { registerTestFixers } from '@/changes/test-actions';
 import { phoneCopy } from '@/sync';
+import { prepareCopiesFolder } from '@/sync/device-files';
 
 import { applyAppearance } from './appearance';
 import { session } from './auth';
@@ -21,8 +24,9 @@ export async function lockIfEnabled(): Promise<void> {
 
 /**
  * Everything the app does once, before the first screen: the appearance, watching for signal, the saved sign-in, the
- * lock, and then the person's copy of their businesses (opened now, connected once unlocked). The splash screen stays
- * up until it's done, so a locked app never shows a customer's name first.
+ * lock, the copies' folder (kept out of backups), and then the person's copy of their businesses (opened now, connected
+ * once unlocked) with the queue of changes made on it. The splash screen stays up until it's done, so a locked app
+ * never shows a customer's name first.
  */
 export function startApp(): Promise<void> {
   starting ??= (async () => {
@@ -31,6 +35,9 @@ export function startApp(): Promise<void> {
     await forgetSignInFromEarlierInstall();
     await session.start();
     await lockIfEnabled();
+    prepareCopiesFolder();
+    registerTestFixers();
+    changes.start();
     phoneCopy.start();
 
     // supabase-js can't tell when a phone app is in front: refresh the sign-in only while it is.

@@ -19,6 +19,7 @@ export type Leading = 'business' | 'back' | 'close' | 'none';
  */
 export function AppBar({
   title,
+  subtitle,
   leading = 'business',
   back,
   trailing,
@@ -26,6 +27,8 @@ export function AppBar({
   testID,
 }: {
   title?: string;
+  /** A second line under the title: "New customer · made 9:51 AM". */
+  subtitle?: string;
   leading?: Leading;
   /** Where Back goes when there's no screen to go back to (opened from a link). */
   back?: Href;
@@ -76,14 +79,21 @@ export function AppBar({
             <Icon as={leading === 'back' ? ChevronLeft : X} className="size-[22px] text-text-2" />
           </Pressable>
         ) : null}
-        <Text
-          role="heading"
-          numberOfLines={1}
-          className="flex-1 text-[17px] font-semibold tracking-[-0.17px]"
-          testID="app-bar-title"
-        >
-          {title ?? ''}
-        </Text>
+        <View className="min-w-0 flex-1">
+          <Text
+            role="heading"
+            numberOfLines={1}
+            className="text-[17px] font-semibold tracking-[-0.17px]"
+            testID="app-bar-title"
+          >
+            {title ?? ''}
+          </Text>
+          {subtitle ? (
+            <Text numberOfLines={1} className="text-xs text-text-3" testID="app-bar-subtitle">
+              {subtitle}
+            </Text>
+          ) : null}
+        </View>
         {trailing}
         {ask && ctx ? (
           <Pressable

@@ -136,6 +136,11 @@ function phone(options: { sqlcipher?: boolean } = {}) {
   const kept = new Map<string, string[]>();
   let waiting = 0;
   let registry: string[] = [];
+  const queue = {
+    opened: [] as string[],
+    closed: [] as { userId: string; hadCopy: boolean }[],
+    connected: 0,
+  };
 
   const copy = new PhoneCopy({
     keys: new CopyKeys(store, (n) => new Uint8Array(randomBytes(n))),
@@ -153,7 +158,16 @@ function phone(options: { sqlcipher?: boolean } = {}) {
     appActive: { subscribe: appActive.subscribe },
     choices,
     keptBusinesses: (userId) => kept.get(userId) ?? [],
-    waiting: () => waiting,
+    changes: {
+      opened: (_db, userId) => void queue.opened.push(userId),
+      // The queue counts from the open copy; a copy that never opened gives the last count.
+      closing: async (db, userId) => {
+        queue.closed.push({ userId, hadCopy: db !== null });
+        return waiting;
+      },
+      upload: async () => undefined,
+      connected: () => void (queue.connected += 1),
+    },
     syncUrl: 'http://sync.test',
     appVersion: '1.0.0',
   });
@@ -204,6 +218,7 @@ function phone(options: { sqlcipher?: boolean } = {}) {
       await settle();
     },
     setWaiting: (n: number) => void (waiting = n),
+    queue,
     returnToApp: async () => {
       appActive.fire();
       await settle();
@@ -281,12 +296,18 @@ describe('wiping', () => {
     await p.signOut();
     expect(p.onDisk.has(file(DALE))).toBe(true);
     expect(p.secrets.get(keyName(DALE))).toBe(key);
+    // The queue ran on Dale's copy, and counted what's waiting from it before it closed.
+    expect(p.queue.opened).toEqual([DALE]);
+    expect(p.queue.closed).toEqual([{ userId: DALE, hadCopy: true }]);
+    expect(p.log.indexOf(`close ${file(DALE)}`)).toBeGreaterThan(-1);
     await p.signIn(DALE);
     expect(p.copy.getSnapshot().state).toMatchObject({
       status: 'open',
       report: { newKey: false, othersDeleted: 0 },
     });
     expect(p.secrets.get(keyName(DALE))).toBe(key);
+    // Signing in again opens the same queue, which sends what waited.
+    expect(p.queue.opened).toEqual([DALE, DALE]);
   });
 
   it('deletes everyone else’s copy and replaces their key before another person’s copy opens', async () => {

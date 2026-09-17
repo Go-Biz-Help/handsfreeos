@@ -8,7 +8,7 @@ import { config } from '@/lib/config';
 import { deviceStore } from '@/lib/device-store';
 import { lock } from '@/lib/lock';
 import { networkSnapshot, subscribeNetwork } from '@/lib/network';
-import { waitingCount } from '@/lib/changes-waiting';
+import { changes } from '@/changes';
 
 import { deviceFiles } from './device-files';
 import { CopyKeys } from './keys';
@@ -53,7 +53,7 @@ export const phoneCopy = new PhoneCopy({
   },
   choices: deviceStore,
   keptBusinesses: (userId) => keptBusinessIds(userId, cachedMe(userId)?.businesses ?? []),
-  waiting: waitingCount,
+  changes,
   syncUrl: config.syncUrl,
   appVersion: config.appVersion,
   logger: copyLogger,

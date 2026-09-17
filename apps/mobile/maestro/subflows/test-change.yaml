@@ -1,0 +1,14 @@
+# Taps BUTTON on Test changes and waits for RESULT in the screen's result line. The calling flow sets both.
+appId: com.gobizhelp.handsfreeos
+---
+- runFlow:
+    file: test-find.yaml
+    env:
+      ELEMENT: ${BUTTON}
+- tapOn:
+    id: ${BUTTON}
+- extendedWaitUntil:
+    visible:
+      id: 'tc-result'
+      text: ${RESULT}
+    timeout: 20000

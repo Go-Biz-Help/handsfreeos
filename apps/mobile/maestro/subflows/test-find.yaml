@@ -1,0 +1,12 @@
+# Brings ELEMENT on Test changes into view: opens the part of the screen it's in, then scrolls to it if the screen is
+# short. The calling flow sets ELEMENT. Each part fits on a phone without scrolling, because on the iOS simulator a
+# button scrolled under the screen's fixed top still counts as visible and a tap would land on the top.
+appId: com.gobizhelp.handsfreeos
+---
+- evalScript: '${output.tcPart = /^tc-(photo|slow)/.test(ELEMENT) ? "photos" : /^tc-(age|evening|old-version|quiet|discard|retry)/.test(ELEMENT) ? "pretend" : "make"}'
+- tapOn:
+    id: 'tc-part-${output.tcPart}'
+- scrollUntilVisible:
+    element:
+      id: ${ELEMENT}
+- waitForAnimationToEnd

@@ -1,0 +1,64 @@
+appId: com.gobizhelp.handsfreeos
+name: A text written 45 minutes ago asks Still send?
+tags:
+  - ci
+# With no signal, Dale writes Maria a text, and the test tool makes it look 45 minutes old. Signal back: it doesn't go,
+# it asks "Still send?", and Send now sends it. Quiet hours are off on HandsFreeOS while it runs. Seed accounts
+# (apps/worker/scripts/seed.ts); the password is the seed's, for local stacks only.
+env:
+  EMAIL: dale@lonestarhvac.test
+  PASSWORD: HandsFree-Demo-2026
+---
+- runFlow: subflows/start-signed-out.yaml
+- runFlow: subflows/sign-in-with-password.yaml
+- runFlow: subflows/open-test-changes.yaml
+- runFlow: subflows/nothing-waiting.yaml
+- runFlow:
+    file: subflows/quiet-hours.yaml
+    env:
+      QUIET: 'off'
+- runFlow: subflows/no-signal.yaml
+- runFlow:
+    file: subflows/test-change.yaml
+    env:
+      BUTTON: tc-text
+      RESULT: Wrote a text.
+- runFlow:
+    file: subflows/test-change.yaml
+    env:
+      BUTTON: tc-age
+      RESULT: The newest change waiting is now 45 minutes old.
+- runFlow: subflows/signal-back.yaml
+- runFlow: subflows/open-changes.yaml
+# The uploader reached it and asked, rather than sending it.
+- extendedWaitUntil:
+    visible:
+      id: 'change-ask'
+    timeout: 90000
+- assertVisible: 'Still send?'
+- assertVisible: 'Text to Maria Lopez'
+- tapOn:
+    id: 'change-decide'
+- extendedWaitUntil:
+    visible:
+      id: 'still-send-now'
+    timeout: 10000
+- assertVisible:
+    id: 'still-send-description'
+    text: 'You wrote this to Maria Lopez 4[5-9] minutes ago, with no signal. A text that waits more than 30 minutes checks with you first.'
+- tapOn:
+    id: 'still-send-now'
+- extendedWaitUntil:
+    visible:
+      id: 'changes-title'
+      text: 'Up to date'
+    timeout: 90000
+- assertVisible:
+    id: 'sent-title'
+    text: 'Text to Maria Lopez'
+- tapOn:
+    id: 'close'
+- runFlow:
+    file: subflows/quiet-hours.yaml
+    env:
+      QUIET: 'on'

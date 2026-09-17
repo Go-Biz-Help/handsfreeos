@@ -13,7 +13,7 @@ import { Text } from '@/components/ui/text';
 import { Toaster } from '@/components/ui/toast';
 import { startApp } from '@/lib/app-start';
 import { useSession } from '@/lib/auth';
-import { config, isConfigured } from '@/lib/config';
+import { config, isConfigured, testToolsEnabled } from '@/lib/config';
 import { NAV_THEME, colors, useThemeName } from '@/theme';
 
 void SplashScreen.preventAutoHideAsync();
@@ -52,7 +52,7 @@ export default function RootLayout() {
           <Stack.Protected guard={signedIn}>
             <Stack.Screen name="app" />
           </Stack.Protected>
-          <Stack.Protected guard={__DEV__}>
+          <Stack.Protected guard={testToolsEnabled}>
             <Stack.Screen name="self-test" options={{ headerShown: true, title: 'Self-test' }} />
           </Stack.Protected>
         </Stack>

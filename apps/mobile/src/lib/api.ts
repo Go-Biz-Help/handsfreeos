@@ -1,13 +1,14 @@
 import { createApiClient, isApiErrorBody, type ApiClient } from '@hfos/api-client';
 import { APP_CLIENT, APP_HEADERS } from '@hfos/core';
 
+import { appVersion } from './app-version';
 import { session } from './auth';
 import { config } from './config';
 import { appFetch } from './network';
 
 /**
- * Every request says it's the app and which build (core's `APP_HEADERS`, M10 step 4); commands from the queue
- * (step 10) add their id and the moments they were done and sent.
+ * Every request says it's the app and which build (core's `APP_HEADERS`, M10 step 4); the queue of changes sends its
+ * commands itself (`src/changes/send.ts`), with their ids and the moments they were done and sent.
  */
 export { APP_CLIENT, APP_HEADERS };
 
@@ -19,7 +20,7 @@ export function createAppApi(
   client.use({
     onRequest({ request }) {
       request.headers.set(APP_HEADERS.client, APP_CLIENT);
-      request.headers.set(APP_HEADERS.appVersion, config.appVersion);
+      request.headers.set(APP_HEADERS.appVersion, appVersion());
       return request;
     },
   });

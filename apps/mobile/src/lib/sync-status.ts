@@ -9,12 +9,11 @@ import { changesWord, useWaitingCount } from './changes-waiting';
 import { deviceStore } from './device-store';
 import { useNetwork } from './network';
 
-export { changesWord, setTestWaiting, useWaitingCount, waitingCount } from './changes-waiting';
+export { changesWord, useWaitingCount } from './changes-waiting';
 
 /**
- * What the status line says: "Up to date", "As of 8:58 AM", "Offline — 4 changes waiting". It reads the phone's signal
- * and PowerSync's own status for this person's copy; the waiting count is a stand-in until the queue of changes
- * arrives (M10 step 10).
+ * What the status line says: "Up to date", "As of 8:58 AM", "Offline — 4 changes waiting". It reads the phone's signal,
+ * PowerSync's own status for this person's copy, and the queue of changes on the phone.
  */
 
 /**

@@ -7,6 +7,9 @@
 /** The database file of a person's copy. */
 export const copyFileName = (userId: string) => `hfos-${userId}.db`;
 
+/** The folder with a person's photos waiting to upload (where it is: `device-files.ts`). */
+export const photosFolderName = (userId: string) => `hfos-${userId}-photos`;
+
 const COPY_FILE =
   /^hfos-([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\.db(-wal|-shm|-journal)?$/;
 
@@ -34,6 +37,8 @@ export interface CopyFiles {
   list(): string[];
   /** Deletes a file if it's there. */
   remove(name: string): void;
+  /** Deletes a person's photos folder and everything in it, if it's there. */
+  removeFolder?(name: string): void;
   /** A file's first 16 bytes, or null when it doesn't exist or is shorter. */
   header(name: string): Uint8Array | null;
 }
@@ -54,9 +59,10 @@ export function hasCopy(files: CopyFiles, userId: string): boolean {
   return files.list().includes(copyFileName(userId));
 }
 
-/** Deletes a person's copy: the database and SQLite's files beside it. */
+/** Deletes a person's copy: the database, SQLite's files beside it, and their photos waiting to upload. */
 export function removeCopy(files: CopyFiles, userId: string): number {
   const own = files.list().filter((name) => personOfFile(name) === userId);
   for (const name of own) files.remove(name);
+  files.removeFolder?.(photosFolderName(userId));
   return own.length;
 }

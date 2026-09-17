@@ -16,6 +16,8 @@ export interface CaseResult {
   readonly ok: boolean;
   readonly checks: number;
   readonly failures: readonly Failure[];
+  /** What the case found worth knowing that isn't a failure, such as the zone fallbacks this phone needed. */
+  readonly notes: readonly string[];
   readonly error: string | null;
   readonly ms: number;
 }
@@ -27,6 +29,8 @@ export interface Tester {
   equal(actual: unknown, expected: unknown, label?: string): void;
   /** Every key in `expected` matches, like `toMatchObject`. */
   match(actual: unknown, expected: Record<string, unknown>, label?: string): void;
+  /** Records something worth knowing that isn't a check. */
+  note(text: string): void;
 }
 
 export interface Case {
@@ -65,6 +69,7 @@ function deepEqual(a: unknown, b: unknown): boolean {
 
 export function runCase(c: Case): CaseResult {
   const failures: Failure[] = [];
+  const notes: string[] = [];
   let checks = 0;
   const record = (ok: boolean, label: string | undefined, expected: unknown, actual: unknown) => {
     checks += 1;
@@ -89,6 +94,9 @@ export function runCase(c: Case): CaseResult {
           : actual;
       record(deepEqual(picked, expected), label, expected, picked);
     },
+    note: (text) => {
+      notes.push(text);
+    },
   };
   const started = Date.now();
   let error: string | null = null;
@@ -104,6 +112,7 @@ export function runCase(c: Case): CaseResult {
     ok: error === null && failures.length === 0,
     checks,
     failures,
+    notes,
     error,
     ms: Date.now() - started,
   };

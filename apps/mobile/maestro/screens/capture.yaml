@@ -41,18 +41,19 @@ env:
     id: 'tab-home'
 - waitForAnimationToEnd
 - takeScreenshot: ${PREFIX}-05-home-${THEME}
-# Three changes waiting (the stand-in until the queue arrives), then signing out warns.
+# Three changes waiting (notes made with no signal), then signing out warns and lists them.
+- runFlow: ../subflows/open-test-changes.yaml
+- runFlow: ../subflows/no-signal.yaml
+- repeat:
+    times: 3
+    commands:
+      - runFlow:
+          file: ../subflows/test-change.yaml
+          env:
+            BUTTON: tc-note
+            RESULT: Added a note.
 - tapOn:
-    id: 'tab-more'
-- tapOn:
-    id: 'more-settings'
-- scrollUntilVisible:
-    element:
-      id: 'test-waiting-3'
-    centerElement: true
-- waitForAnimationToEnd
-- tapOn:
-    id: 'test-waiting-3'
+    id: 'back'
 - scrollUntilVisible:
     element:
       id: 'setting-sign-out'
@@ -67,13 +68,6 @@ env:
     id: 'stay-signed-in'
 - waitForAnimationToEnd
 # No signal: Home with the strip and "As of".
-- scrollUntilVisible:
-    element:
-      id: 'test-no-signal'
-    centerElement: true
-- waitForAnimationToEnd
-- tapOn:
-    id: 'test-no-signal'
 - tapOn:
     id: 'tab-home'
 - waitForAnimationToEnd
@@ -106,15 +100,22 @@ env:
     id: 'tab-more'
 - tapOn:
     id: 'more-settings'
-- scrollUntilVisible:
-    element:
-      id: 'test-no-signal'
-    centerElement: true
-- waitForAnimationToEnd
-- tapOn:
-    id: 'test-no-signal'
-- tapOn:
-    id: 'test-waiting-0'
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - setAirplaneMode: disabled
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - scrollUntilVisible:
+          element:
+            id: 'test-no-signal'
+          centerElement: true
+      - waitForAnimationToEnd
+      - tapOn:
+          id: 'test-no-signal'
 # Signing in: email first, then the password, then the 6-digit code screen.
 - scrollUntilVisible:
     element:

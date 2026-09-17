@@ -1,14 +1,18 @@
 import { Schema } from '@powersync/common';
 
+import { LOCAL_TABLES } from '@/changes/tables';
+
 import { syncedTables } from './schema';
 
 /**
- * The phone's database: every table the Sync Streams fill (generated in `schema.ts`). The app's own local tables go
- * here beside them: the insert-only `commands` the uploader sends and the local-only `outbox` that knows what's held,
- * refused or waiting (M10 step 10). The generator refuses a synced table with either name.
+ * The phone's database: every table the Sync Streams fill (generated in `schema.ts`), and beside them the app's own
+ * tables for the changes made on the phone (`src/changes/tables.ts`): the insert-only `commands` the uploader sends,
+ * the local-only `outbox` that knows where every change stands, and `photo_uploads` for the photo track. The generator
+ * refuses a synced table named `commands` or `outbox`, and a test refuses one named like any local table.
  */
 export const AppSchema = new Schema({
   ...syncedTables,
+  ...LOCAL_TABLES,
 });
 
 /*

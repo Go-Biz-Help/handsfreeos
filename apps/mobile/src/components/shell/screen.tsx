@@ -13,6 +13,7 @@ import { StatusStrip } from './status-strip';
  */
 export function Screen({
   title,
+  subtitle,
   leading,
   back,
   trailing,
@@ -24,6 +25,7 @@ export function Screen({
   testID,
 }: {
   title?: string;
+  subtitle?: string;
   leading?: Leading;
   back?: Href;
   trailing?: React.ReactNode;
@@ -37,7 +39,14 @@ export function Screen({
 }) {
   return (
     <View className="flex-1 bg-bg" testID={testID}>
-      <AppBar title={title} leading={leading} back={back} trailing={trailing} ask={ask} />
+      <AppBar
+        title={title}
+        subtitle={subtitle}
+        leading={leading}
+        back={back}
+        trailing={trailing}
+        ask={ask}
+      />
       <StatusStrip />
       {scroll ? (
         <ScrollView

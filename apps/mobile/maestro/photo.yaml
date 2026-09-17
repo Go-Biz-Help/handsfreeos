@@ -1,0 +1,114 @@
+appId: com.gobizhelp.handsfreeos
+name: A photo taken with no signal uploads when signal is back, and a closed app resumes its upload
+tags:
+  - ci
+# The simulator's photo library gets a photo of an old unit. With no signal, Dale adds it to Maria Lopez from the
+# library, with a note that waits for it. Signal back: the photo uploads on its own track and is confirmed, then the
+# note goes. Then a 13 MB file uploads in 6 MB pieces, slowed down between pieces; the app is closed once the first
+# piece is in, and opened again it carries on from there (Storage's log shows the next piece from byte 6,291,456).
+# Seed accounts (apps/worker/scripts/seed.ts); the password is the seed's, for local stacks only.
+env:
+  EMAIL: dale@lonestarhvac.test
+  PASSWORD: HandsFree-Demo-2026
+---
+- addMedia:
+    - assets/old-unit.jpg
+- runFlow: subflows/start-signed-out.yaml
+- runFlow: subflows/sign-in-with-password.yaml
+- runFlow: subflows/open-test-changes.yaml
+- runFlow: subflows/nothing-waiting.yaml
+- runFlow: subflows/no-signal.yaml
+- runFlow:
+    file: subflows/test-find.yaml
+    env:
+      ELEMENT: tc-photo-library
+- waitForAnimationToEnd
+- tapOn:
+    id: 'tc-photo-library'
+- runFlow: subflows/pick-first-photo.yaml
+- extendedWaitUntil:
+    visible:
+      id: 'tc-result'
+      text: 'Added a photo.'
+    timeout: 30000
+- assertVisible:
+    id: 'tc-counts'
+    text: '2 waiting · 0 need you'
+- runFlow: subflows/signal-back.yaml
+# Both go, and the strip under the top bar goes with them (before any tap: the screen moves up when it does).
+- extendedWaitUntil:
+    visible:
+      id: 'tc-counts'
+      text: '0 waiting · 0 need you'
+    timeout: 90000
+- extendedWaitUntil:
+    notVisible:
+      id: 'status-strip'
+    timeout: 30000
+- runFlow: subflows/open-changes.yaml
+- assertVisible:
+    id: 'changes-title'
+    text: 'Up to date'
+- assertVisible:
+    id: 'sent-title'
+    text: '2 changes for Maria Lopez'
+- assertVisible:
+    id: 'sent-line'
+    text: 'A photo · a note'
+# Closing the app halfway through a large upload.
+- tapOn:
+    id: 'close'
+- runFlow:
+    file: subflows/test-find.yaml
+    env:
+      ELEMENT: tc-slow-uploads
+- tapOn:
+    id: 'tc-slow-uploads'
+- runFlow:
+    file: subflows/test-change.yaml
+    env:
+      BUTTON: tc-photo-large
+      RESULT: Added a photo.
+- extendedWaitUntil:
+    visible:
+      id: 'status-strip'
+    timeout: 10000
+- waitForAnimationToEnd
+- runFlow: subflows/open-changes.yaml
+- extendedWaitUntil:
+    visible: '.*6\.3 of 13\.0 MB.*'
+    timeout: 60000
+- stopApp
+- launchApp:
+    stopApp: false
+- extendedWaitUntil:
+    visible:
+      id: 'test-unlock-prompt'
+    timeout: 45000
+- tapOn:
+    id: 'test-unlock-match'
+- extendedWaitUntil:
+    visible:
+      id: 'home'
+    timeout: 20000
+# The upload carries on by itself, and the strip goes once the file and its note are through.
+- extendedWaitUntil:
+    visible:
+      id: 'status-strip'
+    timeout: 30000
+- extendedWaitUntil:
+    notVisible:
+      id: 'status-strip'
+    timeout: 120000
+- runFlow: subflows/open-test-changes.yaml
+- runFlow: subflows/open-changes.yaml
+- assertVisible:
+    id: 'changes-title'
+    text: 'Up to date'
+- assertVisible:
+    id: 'sent-title'
+    text: '\d+ changes for Maria Lopez'
+# Slow uploads off again.
+- tapOn:
+    id: 'close'
+- runFlow: subflows/nothing-waiting.yaml

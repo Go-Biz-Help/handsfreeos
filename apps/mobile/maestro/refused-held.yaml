@@ -1,0 +1,84 @@
+appId: com.gobizhelp.handsfreeos
+name: A refused customer holds their lead while other changes go
+tags:
+  - ci
+# With no signal, Dale adds Rosa Delgado with an email that isn't complete and a lead for her, then a note for Maria.
+# Signal back: Rosa is refused with the API's words, her lead is held, and the note goes. Fix and try again with the
+# whole address: Rosa goes, and her lead follows. Seed accounts (apps/worker/scripts/seed.ts); the password is the
+# seed's, for local stacks only.
+env:
+  EMAIL: dale@lonestarhvac.test
+  PASSWORD: HandsFree-Demo-2026
+---
+- runFlow: subflows/start-signed-out.yaml
+- runFlow: subflows/sign-in-with-password.yaml
+- runFlow: subflows/open-test-changes.yaml
+- runFlow: subflows/nothing-waiting.yaml
+- runFlow: subflows/no-signal.yaml
+- runFlow:
+    file: subflows/test-find.yaml
+    env:
+      ELEMENT: tc-email
+- tapOn:
+    id: 'tc-email'
+- eraseText: 60
+- inputText: 'rosa.delgado@gmail'
+- runFlow:
+    file: subflows/keyboard-away.yaml
+    env:
+      LABEL: New customer’s email
+- runFlow:
+    file: subflows/test-change.yaml
+    env:
+      BUTTON: tc-new-customer
+      RESULT: Added Rosa Delgado and a lead for her.
+- runFlow:
+    file: subflows/test-change.yaml
+    env:
+      BUTTON: tc-note
+      RESULT: Added a note.
+- runFlow: subflows/signal-back.yaml
+- runFlow: subflows/open-changes.yaml
+- extendedWaitUntil:
+    visible:
+      id: 'change-refused'
+    timeout: 90000
+- extendedWaitUntil:
+    visible:
+      id: 'sent-title'
+      text: 'Note for Maria Lopez'
+    timeout: 60000
+- assertVisible: 'New customer · Rosa Delgado'
+- assertVisible: 'Not saved. Email: Enter a valid email address.'
+- assertVisible: 'AC tune-up lead for Rosa'
+- assertVisible: 'Held until Rosa Delgado is saved, then it goes.'
+- assertVisible:
+    id: 'changes-title'
+    text: '2 changes waiting to send'
+# Fix and try again.
+- tapOn:
+    id: 'change-fix'
+- extendedWaitUntil:
+    visible:
+      id: 'fix-change'
+    timeout: 10000
+- assertVisible:
+    id: 'fix-email-error'
+    text: 'Enter a valid email address.'
+- assertVisible: 'The AC tune-up lead for Rosa is held until Rosa is saved, then it goes right after.'
+- tapOn:
+    id: 'fix-email'
+- eraseText: 60
+- inputText: 'rosa.delgado@gmail.com'
+- runFlow:
+    file: subflows/keyboard-away.yaml
+    env:
+      LABEL: Email
+- tapOn:
+    id: 'fix-try-again'
+- extendedWaitUntil:
+    visible:
+      id: 'changes-title'
+      text: 'Up to date'
+    timeout: 90000
+- assertVisible: '2 changes for Rosa Delgado'

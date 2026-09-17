@@ -100,6 +100,21 @@ interface Watchable {
   subscribe(listener: () => void): () => void;
 }
 
+/** The queue of changes made on the phone (`src/changes`), which lives in the person's copy. */
+export interface CopyChanges {
+  /** The person's copy opened: their queue runs on it. */
+  opened(db: AbstractPowerSyncDatabase, userId: string): void;
+  /**
+   * The copy is closing: how many changes haven't reached HandsFreeOS, counted from it before it closes (or the last
+   * count, when it never opened), and the queue stops.
+   */
+  closing(db: AbstractPowerSyncDatabase | null, userId: string): Promise<number>;
+  /** PowerSync's `uploadData`: sends what's in the upload queue. */
+  upload(db: AbstractPowerSyncDatabase): Promise<void>;
+  /** The copy connected to the sync service. */
+  connected(): void;
+}
+
 export interface PhoneCopyDeps {
   readonly keys: CopyKeys;
   readonly files: CopyFiles;
@@ -114,8 +129,8 @@ export interface PhoneCopyDeps {
   /** Changes to the keep switches or the person's list of businesses. */
   readonly choices: Watchable;
   readonly keptBusinesses: (userId: string) => string[];
-  /** Changes made on the phone that haven't reached HandsFreeOS. */
-  readonly waiting: () => number;
+  /** Changes made on the phone, kept in the copy until they reach HandsFreeOS. */
+  readonly changes: CopyChanges;
   readonly syncUrl: string;
   readonly appVersion: string;
   readonly logger?: PowerSyncLogger;
@@ -282,6 +297,7 @@ export class PhoneCopy {
       return;
     }
     const { db } = opened;
+    this.deps.changes.opened(db, userId);
     this.subscriptions = new BusinessSubscriptions(this.streamsOf(db), this.now);
     this.stopListening = db.registerListener({
       statusChanged: (status) => this.onStatus(status),
@@ -323,12 +339,21 @@ export class PhoneCopy {
     if (previous?.connected && previous.hasSynced && !previous.downloading && !status.connected)
       inStepAt = this.now();
     this.update({ sync: status, inStepAt });
+    if (status.connected && !previous?.connected) this.deps.changes.connected();
   }
 
   /** Closes the open copy; after signing out, deletes it and its key unless changes are waiting. */
   private async close(signedOut: boolean): Promise<void> {
     const state = this.snapshot.state;
     if (state.status === 'closed') return;
+    // Counted from the copy itself before it closes: changes waiting keep it at sign-out.
+    const waiting = await this.deps.changes
+      .closing(state.status === 'open' ? state.db : null, state.userId)
+      .catch((error: unknown) => {
+        this.log('Counting the changes waiting', error);
+        // Unsure: keep the copy rather than lose someone's work.
+        return 1;
+      });
     this.subscriptions?.releaseAll();
     this.subscriptions = null;
     this.stopListening?.();
@@ -339,7 +364,7 @@ export class PhoneCopy {
       await state.db.close().catch((error: unknown) => this.log('Closing the copy', error));
     }
     this.update({ state: { status: 'closed' }, sync: null, inStepAt: null, heldOffline: false });
-    if (signedOut && onSignOut(this.deps.waiting()) === 'delete') {
+    if (signedOut && onSignOut(waiting) === 'delete') {
       removeCopy(this.deps.files, state.userId);
       await this.deps.keys.remove(state.userId);
       this.deps.keyRegistry.write(this.deps.keyRegistry.read().filter((id) => id !== state.userId));
@@ -380,7 +405,11 @@ export class PhoneCopy {
   }
 
   private connector(): CopyConnector {
-    return new CopyConnector({ endpoint: this.deps.syncUrl, session: this.deps.session });
+    return new CopyConnector({
+      endpoint: this.deps.syncUrl,
+      session: this.deps.session,
+      upload: (db) => this.deps.changes.upload(db),
+    });
   }
 
   private syncOptions(): SyncOptions {

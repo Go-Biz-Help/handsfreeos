@@ -1,6 +1,12 @@
 # Opens the app on the sign-in screen, whatever state it was left in.
 appId: com.gobizhelp.handsfreeos
 ---
+# A flow before this one may have stopped with airplane mode on (Android).
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - setAirplaneMode: disabled
 - launchApp:
     stopApp: true
 # Wait for the app itself (a locked app asks at once, in front of the lock screen; a business's copy may still be

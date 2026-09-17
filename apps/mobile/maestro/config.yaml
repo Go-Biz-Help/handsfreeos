@@ -14,3 +14,8 @@ executionOrder:
     - No signal, with the access token run out
     - The phone's copy, with no signal
     - Signing in as someone else deletes the last person's copy
+    - Changes made with no signal go once signal is back
+    - A text written 45 minutes ago asks Still send?
+    - A refused customer holds their lead while other changes go
+    - A photo taken with no signal uploads when signal is back, and a closed app resumes its upload
+    - The self-test passes on this phone

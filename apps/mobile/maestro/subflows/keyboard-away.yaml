@@ -1,0 +1,14 @@
+# Puts the keyboard away after typing in a field: Android's hideKeyboard, and on iOS the return key, which ends editing
+# (hideKeyboard is unreliable there). LABEL is kept for callers but no longer needed.
+appId: com.gobizhelp.handsfreeos
+---
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - hideKeyboard
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - pressKey: Enter

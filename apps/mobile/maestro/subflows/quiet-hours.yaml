@@ -1,0 +1,33 @@
+# Sets the business's quiet hours on HandsFreeOS from Test changes, QUIET=off (texts go at any hour) or QUIET=on (8 PM
+# to 8 AM, the seed's), which the calling flow sets, and waits for the setting to reach this phone's copy: the phone
+# asks about quiet hours from it.
+appId: com.gobizhelp.handsfreeos
+---
+- runFlow:
+    when:
+      true: ${QUIET == 'off'}
+    commands:
+      - runFlow:
+          file: test-change.yaml
+          env:
+            BUTTON: tc-quiet-off
+            RESULT: Quiet hours are off.
+      - extendedWaitUntil:
+          visible:
+            id: 'tc-quiet-state'
+            text: 'On this phone: off'
+          timeout: 30000
+- runFlow:
+    when:
+      true: ${QUIET == 'on'}
+    commands:
+      - runFlow:
+          file: test-change.yaml
+          env:
+            BUTTON: tc-quiet-on
+            RESULT: Quiet hours are 8 PM to 8 AM.
+      - extendedWaitUntil:
+          visible:
+            id: 'tc-quiet-state'
+            text: 'On this phone: 8:00 PM to 8:00 AM'
+          timeout: 30000

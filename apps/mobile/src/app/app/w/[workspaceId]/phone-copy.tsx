@@ -15,7 +15,7 @@ import { isTestOffline, setTestOffline } from '@/lib/network';
 import { asOfText, lineText, useSyncStatus } from '@/lib/sync-status';
 import { phoneCopy } from '@/sync';
 import { AppSchema } from '@/sync/app-schema';
-import { deviceFiles } from '@/sync/device-files';
+import { copiesKeptOutOfBackups, deviceFiles } from '@/sync/device-files';
 import { peopleWithCopies } from '@/sync/files';
 import { businessCopyOf, usePhoneCopy } from '@/sync/hooks';
 import { copyLogger } from '@/sync/logger';
@@ -99,6 +99,15 @@ export default function PhoneCopyScreen() {
           }
         />
         <ListRow label="Opened in" end={<Value id="copy-open-ms">{`${report.openMs} ms`}</Value>} />
+        <ListRow
+          label="Backups"
+          detail="The copy and photos waiting to upload stay on this phone"
+          end={
+            <Value id="copy-backups">
+              {copiesKeptOutOfBackups() ? 'Kept out of backups' : 'In backups'}
+            </Value>
+          }
+        />
         <ListRow
           label="When you signed in"
           detail={

@@ -8209,7 +8209,22 @@ The app in `apps/mobile` has its own checks, and CI runs its Maestro flows on an
    maestro test apps/mobile/maestro --include-tags ci --exclude-tags android-only
    ```
 
-   Test builds have **Settings** → **Test tools** → **This phone’s copy**: each business kept on the phone with its rows per table, the last sync, the SQLCipher version, the key's form and how long the copy took to open, and buttons to disconnect, to make the last sync 31 days old (the copy then locks until it syncs), to try opening the file without its key, and to time both key forms.
+   Test builds have **Settings** → **Test tools** → **This phone’s copy**: each business kept on the phone with its rows per table, the last sync, the SQLCipher version, the key's form, how long the copy took to open and whether it's kept out of backups, and buttons to disconnect, to make the last sync 31 days old (the copy then locks until it syncs), to try opening the file without its key, and to time both key forms.
+
+   The flows that make changes (`changes-offline`, `still-send`, `refused-held` and `photo`) change seeded Maria Lopez at Lone Star, and `changes-offline` moves her lead to Won, so on a local stack run them against a fresh seed, or move her lead back to its first stage on the web between runs. They turn Lone Star's quiet hours off while they text and back on at the end. The photo flow puts a photo in the simulator's or emulator's library first (`maestro/assets/old-unit.jpg`) and picks it in the system's photo picker, then closes the app halfway through a 13 MB upload and checks it carries on.
+
+6. Try the queue of changes by hand from **Settings** → **Test tools** → **Test changes**, on one customer (Maria Lopez in a seeded business). **No signal** at the top keeps changes waiting, and **Changes** opens the list. The screen has three parts:
+   - **Make a change**: add a note, change the phone number and email, move the lead to Won, text them, and add a customer (with any email, so a bad one is refused) and a lead that waits for them.
+   - **Photos**: add a photo from the library, from the camera, or a 13 MB file that uploads in pieces, each with a note that waits for it. **Slow uploads** pauses between the pieces, so you can close the app halfway.
+   - **Pretend**: make the newest change 45 minutes old ("Still send?"), say it's 9:40 PM where the business is (the quiet-hours question), say the app is older than the API's minimum, and turn the business's quiet hours on HandsFreeOS off or back to 8 PM to 8 AM. It also clears the list of changes and stops pretending (the flows start there), and sends set-aside changes now.
+
+   **Changes on this phone** (from the strip under the top bar, or **More**) lists what needs you, what's waiting and what went. To see the app stop sending when it's too old, stop the API, start it again with a minimum, then turn on **App version below the minimum**:
+
+   ```bash
+   cd apps/api && MIN_APP_VERSION=1.0.0 pnpm exec tsx src/server.ts
+   ```
+
+   You should see "This version of HandsFreeOS is too old. Update it to keep going." on Changes on this phone, with every change kept. Turn the switch off and they go, in order.
 
 #### Browser tests (Playwright)
 

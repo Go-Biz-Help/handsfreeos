@@ -1,0 +1,188 @@
+# Screenshots of the queue's canvas screens (design/m10 Offline board) in one theme: Changes on this phone, Still send?,
+# the quiet-hours question and Fix and try again. Not run in CI:
+#   maestro test -e THEME=dark -e PREFIX=ios apps/mobile/maestro/screens/changes.yaml --test-output-dir <dir>
+# Maria Lopez needs an open lead (a fresh seed has one). Quiet hours are off on HandsFreeOS while it makes the first
+# changes, and on again for the quiet-hours question.
+appId: com.gobizhelp.handsfreeos
+name: The queue's screens
+tags:
+  - screens
+env:
+  EMAIL: dale@lonestarhvac.test
+  PASSWORD: HandsFree-Demo-2026
+---
+- runFlow: ../subflows/start-signed-out.yaml
+- runFlow: ../subflows/sign-in-with-password.yaml
+- tapOn:
+    id: 'tab-more'
+- tapOn:
+    id: 'more-settings'
+- tapOn:
+    id: 'setting-appearance'
+- tapOn:
+    id: 'appearance-${THEME}'
+- tapOn:
+    id: 'appearance-done'
+- waitForAnimationToEnd
+- runFlow: ../subflows/open-test-changes.yaml
+- runFlow: ../subflows/nothing-waiting.yaml
+- runFlow:
+    file: ../subflows/quiet-hours.yaml
+    env:
+      QUIET: 'off'
+# Three changes for Maria made with no signal, then sent.
+- runFlow: ../subflows/no-signal.yaml
+- runFlow:
+    file: ../subflows/test-change.yaml
+    env:
+      BUTTON: tc-phone-email
+      RESULT: Changed the phone number and email.
+- runFlow:
+    file: ../subflows/test-change.yaml
+    env:
+      BUTTON: tc-note
+      RESULT: Added a note.
+- runFlow:
+    file: ../subflows/test-change.yaml
+    env:
+      BUTTON: tc-won
+      RESULT: Moved the lead to Won.
+- runFlow: ../subflows/signal-back.yaml
+- extendedWaitUntil:
+    visible:
+      id: 'tc-counts'
+      text: '0 waiting · 0 need you'
+    timeout: 90000
+# With no signal again: a text that turns 45 minutes old, Rosa with an email that isn't complete and a lead for her,
+# and a large file that uploads slowly.
+- runFlow: ../subflows/no-signal.yaml
+- runFlow:
+    file: ../subflows/test-change.yaml
+    env:
+      BUTTON: tc-text
+      RESULT: Wrote a text.
+- runFlow:
+    file: ../subflows/test-change.yaml
+    env:
+      BUTTON: tc-age
+      RESULT: The newest change waiting is now 45 minutes old.
+- runFlow:
+    file: ../subflows/test-find.yaml
+    env:
+      ELEMENT: tc-email
+- tapOn:
+    id: 'tc-email'
+- eraseText: 60
+- inputText: 'rosa.delgado@gmail'
+- runFlow:
+    file: ../subflows/keyboard-away.yaml
+    env:
+      LABEL: New customer’s email
+- runFlow:
+    file: ../subflows/test-change.yaml
+    env:
+      BUTTON: tc-new-customer
+      RESULT: Added Rosa Delgado and a lead for her.
+- runFlow:
+    file: ../subflows/test-find.yaml
+    env:
+      ELEMENT: tc-photo-note
+- tapOn:
+    id: 'tc-photo-note'
+- runFlow:
+    file: ../subflows/test-find.yaml
+    env:
+      ELEMENT: tc-slow-uploads
+- tapOn:
+    id: 'tc-slow-uploads'
+- runFlow:
+    file: ../subflows/test-change.yaml
+    env:
+      BUTTON: tc-photo-large
+      RESULT: Added a photo.
+- runFlow: ../subflows/signal-back.yaml
+- runFlow: ../subflows/open-changes.yaml
+- extendedWaitUntil:
+    visible:
+      id: 'change-refused'
+    timeout: 60000
+- extendedWaitUntil:
+    visible:
+      id: 'change-ask'
+    timeout: 30000
+- extendedWaitUntil:
+    visible: 'Uploading'
+    timeout: 30000
+- waitForAnimationToEnd
+- takeScreenshot: ${PREFIX}-changes-${THEME}
+# Still send?
+- tapOn:
+    id: 'change-decide'
+- extendedWaitUntil:
+    visible:
+      id: 'still-send-now'
+    timeout: 10000
+- waitForAnimationToEnd
+- takeScreenshot: ${PREFIX}-still-send-${THEME}
+# Above the sheet, on the scrim (iOS keeps the scrim out of the accessibility tree, so it has no id there).
+- tapOn:
+    point: '50%,12%'
+- extendedWaitUntil:
+    notVisible:
+      id: 'still-send-sheet'
+    timeout: 10000
+- waitForAnimationToEnd
+# Fix and try again.
+- tapOn:
+    id: 'change-fix'
+- extendedWaitUntil:
+    visible:
+      id: 'fix-try-again'
+    timeout: 10000
+- waitForAnimationToEnd
+- takeScreenshot: ${PREFIX}-fix-${THEME}
+- tapOn:
+    id: 'close'
+- tapOn:
+    id: 'close'
+# The quiet-hours question: quiet hours on, and 9:40 PM where the business is.
+- runFlow:
+    file: ../subflows/quiet-hours.yaml
+    env:
+      QUIET: 'on'
+- runFlow:
+    file: ../subflows/test-find.yaml
+    env:
+      ELEMENT: tc-evening
+- tapOn:
+    id: 'tc-evening'
+# The screen's own text: on Android a tap lands in the middle of a long text, so erasing it leaves the end behind.
+- runFlow:
+    file: ../subflows/test-change.yaml
+    env:
+      BUTTON: tc-text
+      RESULT: Wrote a text.
+- runFlow: ../subflows/open-changes.yaml
+- extendedWaitUntil:
+    visible: 'Quiet hours'
+    timeout: 60000
+- tapOn:
+    id: 'change-decide'
+    index: 1
+- extendedWaitUntil:
+    visible:
+      id: 'quiet-hours-later'
+    timeout: 10000
+- waitForAnimationToEnd
+- takeScreenshot: ${PREFIX}-quiet-hours-${THEME}
+# Above the sheet, on the scrim (iOS keeps the scrim out of the accessibility tree, so it has no id there).
+- tapOn:
+    point: '50%,12%'
+- extendedWaitUntil:
+    notVisible:
+      id: 'quiet-hours-sheet'
+    timeout: 10000
+- tapOn:
+    id: 'close'
+# Clears what it made and stops pretending (9:40 PM, slow uploads).
+- runFlow: ../subflows/nothing-waiting.yaml

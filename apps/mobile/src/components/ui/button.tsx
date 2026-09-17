@@ -21,6 +21,8 @@ const buttonVariants = cva('flex-row items-center justify-center gap-2 border bo
       danger: 'bg-danger active:opacity-90',
       /** Sign out and Delete my account in a list of choices: a secondary button with the danger colour. */
       dangerOutline: 'bg-card border-border-strong active:bg-card-2',
+      /** Discard, "Don't add Rosa": the last, quietest choice in a sheet, in the danger colour. */
+      ghostDanger: 'active:bg-card-2',
     },
     size: {
       sm: 'h-9 px-3 rounded-control',
@@ -39,6 +41,7 @@ const buttonTextVariants = cva('font-sans font-medium', {
       ghost: 'text-text-2',
       danger: 'text-on-solid',
       dangerOutline: 'text-danger-text',
+      ghostDanger: 'text-danger-text',
     },
     size: {
       sm: 'text-[13px]',

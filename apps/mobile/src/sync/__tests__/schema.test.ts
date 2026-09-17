@@ -4,7 +4,10 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 
+import { LOCAL_TABLES } from '@/changes/tables';
+
 import { AppSchema } from '../app-schema';
+import { syncedTables } from '../schema';
 
 /**
  * The phone's schema is generated from the sync streams and the types the phone's contract records
@@ -87,14 +90,28 @@ describe('the phone’s schema', () => {
     );
   });
 
-  it('types each column as PowerSync does, and leaves room for the app’s own tables', () => {
+  it('keeps the app’s own tables beside the synced ones, never uploaded but for commands', () => {
+    expect(() => AppSchema.validate()).not.toThrow();
+    const table = (name: string) => AppSchema.tables.find((t) => t.name === name)!;
+    // No stream fills a table with any of the local tables' names.
+    for (const name of Object.keys(LOCAL_TABLES))
+      expect(Object.keys(syncedTables)).not.toContain(name);
+    expect(table('commands').insertOnly).toBe(true);
+    expect(table('outbox').localOnly).toBe(true);
+    expect(table('photo_uploads').localOnly).toBe(true);
+    expect(
+      table('outbox')
+        .indexes.map((i) => i.name)
+        .sort(),
+    ).toEqual(['seq', 'state']);
+  });
+
+  it('types each column as PowerSync does', () => {
     expect(() => AppSchema.validate()).not.toThrow();
     const names = AppSchema.tables.map((t) => t.name);
     expect(names).toEqual(
       expect.arrayContaining(['people', 'workspace_access', 'invoices', 'users']),
     );
-    expect(names).not.toContain('commands');
-    expect(names).not.toContain('outbox');
     const people = typesOf('people');
     expect(people).toMatchObject({
       phone_e164: 'TEXT',

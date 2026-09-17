@@ -2,7 +2,7 @@ appId: com.gobizhelp.handsfreeos
 name: Signing in as someone else deletes the last person's copy
 tags:
   - ci
-# Dale signs out with changes waiting, so his copy stays on the phone for him; Marco signs in on the same phone, and
+# Dale signs out with a change waiting, so his copy stays on the phone for him; Marco signs in on the same phone, and
 # Dale's copy and key are deleted before Marco's opens. Seed accounts (apps/worker/scripts/seed.ts); the password is
 # the seed's, for local stacks only.
 env:
@@ -31,13 +31,25 @@ env:
     text: 'None'
 - tapOn:
     id: 'close'
-# Three changes waiting (the stand-in until the queue of changes arrives): signing out keeps Dale's copy.
+# A change waiting (a note made with no signal): signing out keeps Dale's copy.
 - scrollUntilVisible:
     element:
-      id: 'test-waiting-3'
+      id: 'test-changes'
 - scroll
 - tapOn:
-    id: 'test-waiting-3'
+    id: 'test-changes'
+- extendedWaitUntil:
+    visible:
+      id: 'tc-counts'
+    timeout: 10000
+- runFlow: subflows/no-signal.yaml
+- runFlow:
+    file: subflows/test-change.yaml
+    env:
+      BUTTON: tc-note
+      RESULT: Added a note.
+- tapOn:
+    id: 'back'
 - scrollUntilVisible:
     element:
       id: 'setting-sign-out'
@@ -45,13 +57,27 @@ env:
     centerElement: true
 - tapOn:
     id: 'setting-sign-out'
-- assertVisible: '3 changes haven’t been sent. They stay safely on this phone for you.'
+- assertVisible: '1 change hasn’t been sent. They stay safely on this phone for you.'
+- assertVisible: 'Note for Maria Lopez'
 - tapOn:
     id: 'confirm-sign-out'
 - extendedWaitUntil:
     visible:
       id: 'sign-in'
     timeout: 20000
+# Signal back for Marco (on the iPhone, the test switch is on the sign-in screen).
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - setAirplaneMode: disabled
+- runFlow:
+    when:
+      visible:
+        id: 'test-signal-off'
+    commands:
+      - tapOn:
+          id: 'test-signal-off'
 # Marco signs in here: Dale's copy goes, and Marco's opens with a new key.
 - runFlow:
     file: subflows/sign-in-with-password.yaml
@@ -79,10 +105,3 @@ env:
     text: 'None'
 - tapOn:
     id: 'close'
-# Nothing waiting again.
-- scrollUntilVisible:
-    element:
-      id: 'test-waiting-0'
-- scroll
-- tapOn:
-    id: 'test-waiting-0'

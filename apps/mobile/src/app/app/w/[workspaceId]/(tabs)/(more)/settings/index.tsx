@@ -30,7 +30,6 @@ import { isKept, useKeepChoices } from '@/lib/businesses';
 import { config, testToolsEnabled } from '@/lib/config';
 import { lockEnabledFor, setLockEnabledFor } from '@/lib/lock';
 import { isTestOffline, setTestOffline, useNetwork } from '@/lib/network';
-import { setTestWaiting, useWaitingCount } from '@/lib/sync-status';
 import { expireSavedSignIn } from '@/lib/test-tools';
 import { useWorksOffline } from '@/sync/hooks';
 
@@ -194,13 +193,12 @@ export default function Settings() {
 }
 
 /**
- * Development and test builds: pretend there's no signal, or changes waiting, to see the strip and the warnings; and
- * This phone's copy, for what's kept here.
+ * Development and test builds: pretend there's no signal, make changes to see the queue work, and This phone's copy,
+ * for what's kept here.
  */
 function TestTools() {
   const { business } = useBusiness();
   const { online } = useNetwork();
-  const waiting = useWaitingCount();
   const [offline, setOffline] = React.useState(isTestOffline());
   return (
     <>
@@ -211,6 +209,12 @@ function TestTools() {
           detail="What’s kept here, the key and the last sync"
           onPress={() => router.push(businessHref(business.id, 'phone-copy'))}
           testID="test-phone-copy"
+        />
+        <ListRow
+          label="Test changes"
+          detail="Make changes the screens will make, with no signal or late at night"
+          onPress={() => router.push(businessHref(business.id, 'test-changes'))}
+          testID="test-changes"
         />
         <ListRow
           label="No signal"
@@ -227,19 +231,6 @@ function TestTools() {
             />
           }
         />
-        <View className="gap-2 px-4 py-3">
-          <Text className="text-base">Changes waiting</Text>
-          <Segmented<string>
-            label="Changes waiting"
-            value={String([0, 1, 3, 7].includes(waiting) ? waiting : 0)}
-            onChange={(v) => setTestWaiting(Number(v))}
-            options={['0', '1', '3', '7'].map((v) => ({
-              value: v,
-              label: v,
-              testID: `test-waiting-${v}`,
-            }))}
-          />
-        </View>
         <ListRow
           label="Access token expired"
           detail="As after an hour with no signal"
@@ -250,13 +241,12 @@ function TestTools() {
           }
           testID="test-expire-sign-in"
         />
-        {__DEV__ ? (
-          <ListRow
-            label="Self-test"
-            detail="Time zones and dates on this phone"
-            onPress={() => router.push('/self-test')}
-          />
-        ) : null}
+        <ListRow
+          label="Self-test"
+          detail="Time zones and dates on this phone"
+          onPress={() => router.push('/self-test')}
+          testID="test-self-test"
+        />
       </List>
     </>
   );

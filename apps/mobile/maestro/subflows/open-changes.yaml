@@ -1,0 +1,9 @@
+# Opens Changes on this phone from the top of Test changes.
+appId: com.gobizhelp.handsfreeos
+---
+- tapOn:
+    id: 'tc-open-changes'
+- extendedWaitUntil:
+    visible:
+      id: 'changes-title'
+    timeout: 10000

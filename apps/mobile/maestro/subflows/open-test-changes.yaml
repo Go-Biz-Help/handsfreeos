@@ -1,0 +1,19 @@
+# Opens Settings → Test changes (test builds) from any of a business's tabs.
+appId: com.gobizhelp.handsfreeos
+---
+- tapOn:
+    id: 'tab-more'
+- tapOn:
+    id: 'more-settings'
+- scrollUntilVisible:
+    element:
+      id: 'test-changes'
+# Once more to the end: the iOS simulator counts a row behind the tab bar as on screen, and the tap would land on
+# the tab bar.
+- scroll
+- tapOn:
+    id: 'test-changes'
+- extendedWaitUntil:
+    visible:
+      id: 'tc-counts'
+    timeout: 10000

@@ -12,23 +12,7 @@ env:
 ---
 - runFlow: subflows/start-signed-out.yaml
 - runFlow: subflows/sign-in-with-password.yaml
-# Nothing waiting (the stand-in count a run before may have left), then This phone's copy.
-- tapOn:
-    id: 'tab-more'
-- tapOn:
-    id: 'more-settings'
-- scrollUntilVisible:
-    element:
-      id: 'test-waiting-0'
-- scroll
-- tapOn:
-    id: 'test-waiting-0'
-- tapOn:
-    id: 'test-phone-copy'
-- extendedWaitUntil:
-    visible:
-      id: 'phone-copy'
-    timeout: 10000
+- runFlow: subflows/open-phone-copy.yaml
 - scrollUntilVisible:
     element:
       id: 'copy-open-complete'

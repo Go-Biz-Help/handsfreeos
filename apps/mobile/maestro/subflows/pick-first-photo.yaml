@@ -1,0 +1,25 @@
+# Picks the newest photo in the system's photo picker (the simulator's or emulator's library, seeded with addMedia).
+appId: com.gobizhelp.handsfreeos
+---
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - extendedWaitUntil:
+          visible:
+            id: 'PXGGridLayout-Info'
+          timeout: 15000
+      - tapOn:
+          id: 'PXGGridLayout-Info'
+          index: 0
+# Android's picker names each photo "Photo taken on …": the Android 16 picker gives photos no id.
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - extendedWaitUntil:
+          visible: 'Photo taken on .*'
+          timeout: 15000
+      - tapOn:
+          text: 'Photo taken on .*'
+          index: 0

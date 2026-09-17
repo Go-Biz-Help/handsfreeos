@@ -3,9 +3,7 @@ import {
   changesWord,
   connectionOf,
   lineText,
-  setTestWaiting,
   stripText,
-  waitingCount,
   type CopyState,
 } from '../sync-status';
 
@@ -74,13 +72,5 @@ describe('the status line', () => {
     expect(stripText({ connection: 'inStep', waiting: 0 })).toBeNull();
     expect(stripText({ connection: 'updating', waiting: 0 })).toBeNull();
     expect(changesWord(7)).toBe('7 changes');
-  });
-
-  it('keeps the stand-in count until the queue arrives', () => {
-    expect(waitingCount()).toBe(0);
-    setTestWaiting(3);
-    expect(waitingCount()).toBe(3);
-    setTestWaiting(0);
-    expect(waitingCount()).toBe(0);
   });
 });

@@ -1,0 +1,20 @@
+# No signal, on Test changes: airplane mode on Android; the test switch at the top of the screen on the iOS simulator,
+# which has no airplane mode.
+appId: com.gobizhelp.handsfreeos
+---
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - setAirplaneMode: enabled
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - tapOn:
+          id: 'tc-no-signal'
+- extendedWaitUntil:
+    visible:
+      id: 'status-strip-text'
+      text: 'Offline.*'
+    timeout: 20000

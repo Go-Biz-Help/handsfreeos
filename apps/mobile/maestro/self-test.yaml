@@ -1,0 +1,41 @@
+appId: com.gobizhelp.handsfreeos
+name: The self-test passes on this phone
+tags:
+  - ci
+# Runs @hfos/core's time-zone, date and quiet-hours cases on the phone's own JavaScript engine (Hermes), from Settings →
+# Test tools → Self-test, and checks every case passed. Seed accounts (apps/worker/scripts/seed.ts); the password is
+# the seed's, for local stacks only.
+env:
+  EMAIL: dale@lonestarhvac.test
+  PASSWORD: HandsFree-Demo-2026
+---
+- runFlow: subflows/start-signed-out.yaml
+- runFlow: subflows/sign-in-with-password.yaml
+- tapOn:
+    id: 'tab-more'
+- tapOn:
+    id: 'more-settings'
+- scrollUntilVisible:
+    element:
+      id: 'test-self-test'
+- scroll
+- tapOn:
+    id: 'test-self-test'
+- extendedWaitUntil:
+    visible:
+      id: 'self-test-summary'
+      text: '\d+ of \d+ cases passed'
+    timeout: 60000
+- copyTextFrom:
+    id: 'self-test-summary'
+- evalScript: ${output.passed = maestro.copiedText.split(' ')[0]}
+- evalScript: ${output.cases = maestro.copiedText.split(' ')[2]}
+- assertTrue: ${Number(output.cases) > 0 && output.passed === output.cases}
+# Into the run's log: the zone fallbacks this phone needed (core shows America/Coyhaique through America/Punta_Arenas
+# where the phone's data has no Coyhaique, as on the Android 16 emulator).
+- scrollUntilVisible:
+    element:
+      id: 'self-test-note'
+- copyTextFrom:
+    id: 'self-test-note'
+- evalScript: "${console.log('Self-test note: ' + maestro.copiedText)}"

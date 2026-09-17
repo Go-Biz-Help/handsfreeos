@@ -1,0 +1,14 @@
+# Signal back, on Test changes: the reverse of no-signal.yaml.
+appId: com.gobizhelp.handsfreeos
+---
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - setAirplaneMode: disabled
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - tapOn:
+          id: 'tc-no-signal'

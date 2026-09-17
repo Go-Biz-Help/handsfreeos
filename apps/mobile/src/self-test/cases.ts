@@ -12,6 +12,7 @@ import {
   expandRecurrence,
   expandWeeklyHours,
   formatClock,
+  intlTimeZone,
   isValidTimeZone,
   localDateOf,
   localInstant,
@@ -22,6 +23,7 @@ import {
   RecurrenceRule,
   render,
   TIME_ZONE_ALIASES,
+  TIME_ZONE_FALLBACKS,
   TIME_ZONES,
   TZDB_VERSION,
   whenLabel,
@@ -510,18 +512,36 @@ export const CASES: readonly Case[] = [
     source: PROBE,
     run: (t) => {
       // Old systems' zone data can predate names tzdb uses now (Europe/Kyiv, America/Nuuk, America/Ciudad_Juarez,
-      // Pacific/Kanton, America/Coyhaique): stored zones use them, so a zone that throws here needs a fallback in core.
+      // Pacific/Kanton, America/Coyhaique). Core hands Intl the zone, else an older name or a zone with the same clock
+      // (intlTimeZone), so only a zone this phone can show in UTC alone fails. The fallbacks it needed are noted.
       const at = Date.parse('2026-09-16T12:00:00Z');
-      const throwing: string[] = [];
+      const onUtc: string[] = [];
+      const substituted: string[] = [];
       for (const zone of TIME_ZONES) {
-        try {
-          new Intl.DateTimeFormat('en-US', { timeZone: zone }).format(at);
-          if (zonedParts(at, zone).year !== 2026) throwing.push(`${zone} (wrong year)`);
-        } catch {
-          throwing.push(zone);
+        const used = intlTimeZone(zone);
+        if (used === 'UTC' && zone !== 'UTC') onUtc.push(zone);
+        else if (used !== zone) substituted.push(`${zone} → ${used}`);
+        if (zonedParts(at, zone).year !== 2026) onUtc.push(`${zone} (wrong year)`);
+      }
+      t.equal(onUtc, [], 'zones this phone can only show in UTC');
+      t.note(
+        substituted.length > 0
+          ? `Zone fallbacks this phone needed: ${substituted.join(', ')}`
+          : 'This phone knows every zone on core’s list.',
+      );
+      // Each fallback keeps its zone's clock on this phone's own data, weekly for a year. Only where the phone knows
+      // both names: without the zone, zoneOffsetMinutes(zone) already reads the fallback.
+      const weeks = Array.from({ length: 53 }, (_, week) => at + week * 7 * 86_400_000);
+      const offClock: string[] = [];
+      for (const [zone, names] of Object.entries(TIME_ZONE_FALLBACKS)) {
+        if (intlTimeZone(zone) !== zone) continue;
+        for (const name of names) {
+          if (intlTimeZone(name) !== name) continue;
+          const off = weeks.find((w) => zoneOffsetMinutes(w, name) !== zoneOffsetMinutes(w, zone));
+          if (off !== undefined) offClock.push(`${name} for ${zone} at ${iso(off)}`);
         }
       }
-      t.equal(throwing, [], 'zones this phone refuses');
+      t.equal(offClock, [], 'fallbacks off their zone’s clock on this phone');
       // tzdb merged some zones recently; older ICU keeps them apart.
       const instants = ['2026-01-15T12:00:00Z', '2026-07-15T12:00:00Z'].map((d) => Date.parse(d));
       const drifting: string[] = [];

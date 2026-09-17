@@ -1,8 +1,9 @@
 /**
  * Stand-ins for the native parts the unit tests reach: Uniwind (styles come from Metro, which Jest doesn't run), secure
- * storage, the documents folder, signal, Face ID, safe areas, random bytes, and op-sqlite and PowerSync's React Native
- * module (the copy's rules are tested through `PhoneCopy` with a stand-in database; PowerSync's own `@powersync/common`
- * is real). Each keeps state in memory so a test can read what the app wrote.
+ * storage, the documents folder, signal, Face ID, safe areas, random bytes, taking and shrinking photos, the backups
+ * module, and op-sqlite and PowerSync's React Native module (the copy's rules are tested through `PhoneCopy` with a
+ * stand-in database, and the queue's on Node's own SQLite; PowerSync's own `@powersync/common` is real). Each keeps state
+ * in memory so a test can read what the app wrote.
  */
 
 // Where a test build points (the tests never reach them).
@@ -53,8 +54,48 @@ jest.mock('expo-file-system', () => {
       files.delete(this.uri);
     }
   }
-  return { File, Paths: { document: { uri: 'file:///documents' } }, __files: files };
+  class Directory {
+    readonly uri: string;
+    constructor(...parts: (string | { uri: string })[]) {
+      this.uri = parts.map((p) => (typeof p === 'string' ? p : p.uri)).join('/');
+    }
+    get exists() {
+      return false;
+    }
+    create() {}
+    list() {
+      return [];
+    }
+    delete() {}
+  }
+  return {
+    File,
+    Directory,
+    UploadType: { BINARY_CONTENT: 0, MULTIPART: 1 },
+    Paths: { document: { uri: 'file:///documents' } },
+    __files: files,
+  };
 });
+
+jest.mock('expo-image-picker', () => ({
+  requestCameraPermissionsAsync: jest.fn(async () => ({ granted: true })),
+  launchCameraAsync: jest.fn(async () => ({ canceled: true, assets: null })),
+  launchImageLibraryAsync: jest.fn(async () => ({ canceled: true, assets: null })),
+}));
+
+jest.mock('expo-image-manipulator', () => ({
+  ImageManipulator: { manipulate: jest.fn() },
+  SaveFormat: { JPEG: 'jpeg', PNG: 'png', WEBP: 'webp' },
+}));
+
+jest.mock('./modules/hfos-backup', () => ({
+  __esModule: true,
+  default: {
+    keepOutOfBackups: jest.fn(() => true),
+    isKeptOutOfBackups: jest.fn(() => true),
+    appBackupAllowed: jest.fn(() => false),
+  },
+}));
 
 jest.mock('expo-network', () => ({
   addNetworkStateListener: jest.fn(() => ({ remove: jest.fn() })),
@@ -73,7 +114,8 @@ jest.mock('expo-crypto', () => {
   const { randomBytes } = jest.requireActual('node:crypto') as {
     randomBytes: (count: number) => Uint8Array;
   };
-  return { getRandomBytes: (count: number) => new Uint8Array(randomBytes(count)) };
+  const { randomUUID } = jest.requireActual('node:crypto') as { randomUUID: () => string };
+  return { getRandomBytes: (count: number) => new Uint8Array(randomBytes(count)), randomUUID };
 });
 
 jest.mock('@op-engineering/op-sqlite', () => ({

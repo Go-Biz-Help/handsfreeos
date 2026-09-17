@@ -1,0 +1,21 @@
+# Starts a flow from Test changes with an empty list of changes and nothing pretended: a run that stopped halfway on a
+# local phone leaves its changes behind (the ones waiting would go when Dale signs back in, and the ones that went stay
+# listed a while), and its switches on.
+appId: com.gobizhelp.handsfreeos
+---
+- runFlow:
+    file: test-find.yaml
+    env:
+      ELEMENT: tc-discard-all
+- tapOn:
+    id: 'tc-discard-all'
+- extendedWaitUntil:
+    visible:
+      id: 'tc-result'
+      text: 'The list was empty\.|Cleared \d+\.'
+    timeout: 20000
+- extendedWaitUntil:
+    visible:
+      id: 'tc-counts'
+      text: '0 waiting · 0 need you'
+    timeout: 20000
