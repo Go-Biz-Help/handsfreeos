@@ -20,10 +20,11 @@ env:
 - assertVisible: 'Bayou Plumbing Co.'
 - assertVisible: 'Summit Roofing'
 - tapOn: 'Summit Roofing'
+# Its copy comes down first.
 - extendedWaitUntil:
     visible:
       id: 'home'
-    timeout: 15000
+    timeout: 45000
 - assertVisible:
     id: 'home-business'
     text: 'Summit Roofing'
@@ -49,7 +50,7 @@ env:
 - extendedWaitUntil:
     visible:
       id: 'home'
-    timeout: 15000
+    timeout: 45000
 - assertVisible:
     id: 'home-business'
     text: 'Bayou Plumbing Co.'

@@ -8172,6 +8172,45 @@ These play phones with PowerSync's Node client against a local PowerSync Service
 
    You should see `PowerSync stopped; its storage and replication slot are gone.` Always stop it this way: a stopped service's replication slot would keep the local database's WAL.
 
+#### The phone app
+
+The app in `apps/mobile` has its own checks, and CI runs its Maestro flows on an Android emulator in the Phone app on Android workflow, on `main` and nightly.
+
+1. Run the app's checks.
+
+   ```bash
+   pnpm --filter @hfos/mobile lint && pnpm --filter @hfos/mobile typecheck && pnpm --filter @hfos/mobile test
+   ```
+
+   The lint checks that the app's design tokens match the web's and that its database schema, `apps/mobile/src/sync/schema.ts`, matches the sync streams and the phone's contract; both need no database. You should see `The phone app’s schema matches the sync streams and the contract.` and every Jest suite pass.
+
+2. Only after a change to `apps/sync/sync-config.yaml`: record the phone's contract (see `packages/core/test/mobile-contract.test.ts`), then regenerate the schema and commit it.
+
+   ```bash
+   pnpm --filter @hfos/mobile schema
+   ```
+
+   A stream table or column the contract hasn't recorded stops it with `… isn't in the phone's contract yet`.
+
+3. To run the app on a simulator or emulator against your laptop, start the stack, PowerSync (`pnpm sync:start`) and the API, and give `apps/mobile/.env.local` the addresses, the local publishable key and `EXPO_PUBLIC_SYNC_URL=http://localhost:54430`, the way the workflow's "Point the app at the local stack" step writes them. The Android emulator reaches your laptop through `adb reverse` for each port (54421, the API's, and 54430). A build without `EXPO_PUBLIC_SYNC_URL` says "This build isn’t connected".
+
+4. After `npx expo prebuild --platform ios`, check the iPhone build really encrypts its database. It runs `pod install`.
+
+   ```bash
+   pnpm --filter @hfos/mobile check:sqlcipher ios
+   ```
+
+   You should see `The iPhone build uses SQLCipher: op-sqlite says so, and it depends on OpenSSL-Universal.` If it says op-sqlite didn't mention SQLCipher, the `"op-sqlite": { "sqlcipher": true }` switch is missing from the root `package.json`, which is where iOS reads it (Android reads `apps/mobile/package.json`). For an Android build, pass its Gradle log: `pnpm --filter @hfos/mobile check:sqlcipher android <log>`. The app refuses to keep a copy of anyone's business on a build without SQLCipher either way.
+
+5. Build a test build (`EXPO_PUBLIC_E2E=1`, release configuration), then run the flows. On the iOS simulator, leave out the Android-only one.
+
+   ```bash
+   maestro test apps/mobile/maestro --include-tags ci
+   maestro test apps/mobile/maestro --include-tags ci --exclude-tags android-only
+   ```
+
+   Test builds have **Settings** → **Test tools** → **This phone’s copy**: each business kept on the phone with its rows per table, the last sync, the SQLCipher version, the key's form and how long the copy took to open, and buttons to disconnect, to make the last sync 31 days old (the copy then locks until it syncs), to try opening the file without its key, and to time both key forms.
+
 #### Browser tests (Playwright)
 
 1. Stop `pnpm dev` with Control-C. The browser tests start their own worker on port 4100 with an 8-second reply reminder. If the dev worker still holds the port, it answers instead and the reminder test fails. Playwright starts the API and the web app itself when they are not running.

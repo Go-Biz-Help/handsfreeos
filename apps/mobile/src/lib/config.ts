@@ -10,6 +10,8 @@ export const config = {
   supabaseUrl: (process.env.EXPO_PUBLIC_SUPABASE_URL ?? '').replace(/\/+$/, ''),
   supabasePublishableKey: process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? '',
   apiUrl: (process.env.EXPO_PUBLIC_API_URL ?? '').replace(/\/+$/, ''),
+  /** The sync service (PowerSync) that keeps the phone's copy of each business in step. */
+  syncUrl: (process.env.EXPO_PUBLIC_SYNC_URL ?? '').replace(/\/+$/, ''),
   /** The web app, for the pages the phone links out to (resetting a password, desk work). */
   webUrl: (process.env.EXPO_PUBLIC_WEB_URL || 'https://app.handsfreeos.com').replace(/\/+$/, ''),
   /**
@@ -26,7 +28,9 @@ export const config = {
 /** Development and test builds show the test switches (no signal, changes waiting) in Settings. */
 export const testToolsEnabled = __DEV__ || config.e2e;
 
-/** Whether this build knows where Supabase and the API are. */
+/** Whether this build knows where Supabase, the API and the sync service are. */
 export function isConfigured(): boolean {
-  return Boolean(config.supabaseUrl && config.supabasePublishableKey && config.apiUrl);
+  return Boolean(
+    config.supabaseUrl && config.supabasePublishableKey && config.apiUrl && config.syncUrl,
+  );
 }

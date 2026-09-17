@@ -32,6 +32,7 @@ import { lockEnabledFor, setLockEnabledFor } from '@/lib/lock';
 import { isTestOffline, setTestOffline, useNetwork } from '@/lib/network';
 import { setTestWaiting, useWaitingCount } from '@/lib/sync-status';
 import { expireSavedSignIn } from '@/lib/test-tools';
+import { useWorksOffline } from '@/sync/hooks';
 
 /**
  * Settings on the phone are about you and this phone: Face ID, the businesses kept here, the changes waiting, how it
@@ -41,6 +42,7 @@ export default function Settings() {
   const { me, business, userId } = useBusiness();
   const appearance = useAppearance();
   const choices = useKeepChoices(userId);
+  const worksOffline = useWorksOffline(userId);
   const [info, setInfo] = React.useState<BiometricInfo | null>(null);
   const [lockOn, setLockOn] = React.useState(() => lockEnabledFor(userId));
   const [appearanceOpen, setAppearanceOpen] = React.useState(false);
@@ -51,12 +53,15 @@ export default function Settings() {
   }, []);
 
   const kept = me.businesses.filter((b) => isKept(choices, b.id));
+  const coming = kept.filter((b) => !worksOffline(b.id)).length;
   const keptDetail =
     kept.length === 0
       ? 'None: every business opens only with signal'
-      : kept.length === 1
-        ? `${kept[0]!.name} · works with no signal`
-        : `${kept.length} businesses · work with no signal`;
+      : coming > 0
+        ? `Getting ${coming === 1 ? 'one' : coming} onto this phone…`
+        : kept.length === 1
+          ? `${kept[0]!.name} · works with no signal`
+          : `${kept.length} businesses · work with no signal`;
 
   const toggleLock = async (next: boolean) => {
     // Turning the lock on or off asks first, so it can't be switched off by whoever picks the phone up.
@@ -188,8 +193,12 @@ export default function Settings() {
   );
 }
 
-/** Development and test builds: pretend there's no signal, or changes waiting, to see the strip and the warnings. */
+/**
+ * Development and test builds: pretend there's no signal, or changes waiting, to see the strip and the warnings; and
+ * This phone's copy, for what's kept here.
+ */
 function TestTools() {
+  const { business } = useBusiness();
   const { online } = useNetwork();
   const waiting = useWaitingCount();
   const [offline, setOffline] = React.useState(isTestOffline());
@@ -197,6 +206,12 @@ function TestTools() {
     <>
       <ListLabel>Test tools</ListLabel>
       <List testID="test-tools">
+        <ListRow
+          label="This phone’s copy"
+          detail="What’s kept here, the key and the last sync"
+          onPress={() => router.push(businessHref(business.id, 'phone-copy'))}
+          testID="test-phone-copy"
+        />
         <ListRow
           label="No signal"
           detail={online ? 'Every request fails, as in a dead zone' : 'The phone has no signal now'}

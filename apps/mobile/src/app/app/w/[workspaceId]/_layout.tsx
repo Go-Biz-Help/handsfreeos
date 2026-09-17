@@ -1,13 +1,17 @@
 import { Redirect, Stack, useLocalSearchParams } from 'expo-router';
 import * as React from 'react';
 
+import { OpenBusiness } from '@/components/copy/copy-gate';
 import { BusinessProvider } from '@/components/shell/business-context';
 import { BusinessSwitcher } from '@/components/shell/business-switcher';
 import { useSession } from '@/lib/auth';
 import { rememberOpened, useMe } from '@/lib/businesses';
 import { colors, useThemeName } from '@/theme';
 
-/** One business, as /app/w/<business> on the web: its tabs, Ask HandsFreeOS, and Changes on this phone. */
+/**
+ * One business, as /app/w/<business> on the web: its tabs, Ask HandsFreeOS, Changes on this phone, and (test builds)
+ * This phone's copy.
+ */
 export default function BusinessLayout() {
   const state = useSession();
   if (state.status !== 'signedIn') return null;
@@ -35,12 +39,14 @@ function Business({ userId }: { userId: string }) {
 
   return (
     <BusinessProvider value={value}>
+      <OpenBusiness businessId={business.id} />
       <Stack
         screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors[theme].bg } }}
       >
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="ask" options={{ presentation: 'fullScreenModal' }} />
         <Stack.Screen name="changes" options={{ presentation: 'fullScreenModal' }} />
+        <Stack.Screen name="phone-copy" options={{ presentation: 'fullScreenModal' }} />
       </Stack>
       <BusinessSwitcher
         open={switcher}

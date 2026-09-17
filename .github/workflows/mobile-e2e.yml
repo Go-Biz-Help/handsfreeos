@@ -2,8 +2,9 @@ name: Phone app on Android
 
 # The phone app's Maestro flows (apps/mobile/maestro, tagged `ci`) on an Android emulator: signing in with a
 # password and with an emailed code (read from the local stack's Mailpit), Home and the tabs, switching business,
-# locking and unlocking, and no signal with the access token run out (airplane mode, which only Android emulators
-# have). Its own workflow, so the 45-minute CI job keeps its room.
+# locking and unlocking, no signal with the access token run out (airplane mode, which only Android emulators have),
+# the phone's encrypted copy of the business coming down from PowerSync and staying readable with no signal, and
+# another person signing in deleting the last one's copy. Its own workflow, so the 45-minute CI job keeps its room.
 on:
   push:
     branches: [main]
@@ -98,8 +99,8 @@ jobs:
       - name: Start the local Supabase stack
         run: node scripts/supabase.mjs start -x imgproxy,studio,edge-runtime,logflare,vector
 
-      # The emulator reaches this machine's Supabase and API through `adb reverse`, as localhost. The publishable key
-      # is the local stack's, and public.
+      # The emulator reaches this machine's Supabase, API and PowerSync through `adb reverse`, as localhost. The
+      # publishable key is the local stack's, and public.
       - name: Point the app at the local stack
         working-directory: apps/mobile
         run: |
@@ -110,6 +111,7 @@ jobs:
             echo "EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY=$KEY"
             echo "EXPO_PUBLIC_API_URL=http://localhost:4000"
             echo "EXPO_PUBLIC_WEB_URL=http://localhost:3000"
+            echo "EXPO_PUBLIC_SYNC_URL=http://localhost:54430"
           } > .env.local
 
       # The build needs the memory: a run with the stack beside it stopped halfway, with no error, and hung until the
@@ -150,7 +152,7 @@ jobs:
             sudo dmesg | grep -i -E "out of memory|killed process" || true
             exit "$code"
           fi
-          grep -q "using sqlcipher" ../gradle.log
+          bash ../scripts/check-sqlcipher.sh android ../gradle.log
 
       # React Native builds with NDK 27.1 and expo-updates asks for 27.0 (spike 1a), and Gradle downloads whichever
       # the runner lacks. Once the app is built, only its APK is needed: the native build folders go, so the
@@ -181,6 +183,12 @@ jobs:
           cat api.log
           exit 1
 
+      # PowerSync beside the stack, as the Sync service workflow starts it: its own storage Postgres, and the step
+      # ends once its first copy of the database is done. Its two images take a few GB of the runner's disk. It starts
+      # only after the stack is back up: a stack stopped under it would break its replication.
+      - name: Start PowerSync
+        run: pnpm sync:start
+
       - name: Install Maestro
         run: |
           curl -Ls "https://get.maestro.mobile.dev" | bash
@@ -202,8 +210,13 @@ jobs:
           script: |
             adb reverse tcp:54421 tcp:54421
             adb reverse tcp:4000 tcp:4000
+            adb reverse tcp:54430 tcp:54430
             adb install -r "$RUNNER_TEMP/app-release.apk"
             maestro test apps/mobile/maestro --include-tags ci --format junit --output maestro-report.xml --test-output-dir maestro-artifacts
+
+      - name: PowerSync's log
+        if: failure()
+        run: docker logs --tail 400 hfos-sync > sync.log 2>&1 || true
 
       - name: Memory while it ran
         if: failure()
@@ -218,8 +231,13 @@ jobs:
             maestro-artifacts
             api.log
             memory.log
+            sync.log
             apps/mobile/gradle.log
           retention-days: 7
+
+      - name: Stop PowerSync and drop its replication slot
+        if: always()
+        run: pnpm sync:stop
 
       - name: Stop the local stack
         if: always()

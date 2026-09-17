@@ -10,16 +10,16 @@ import { cn } from '@/lib/utils';
 import { businessHref, useOptionalBusiness } from './business-context';
 
 /**
- * The strip under the top bar while the phone has no signal or changes are still to go: "Offline — 4 changes
- * waiting" in amber, or "4 changes waiting to send" in blue once signal is back. It opens Changes on this phone.
- * With signal and nothing waiting there's no strip; Home and More say "Up to date" instead.
+ * The strip under the top bar while the phone has no signal, can't connect, or has changes still to go: "Offline — 4
+ * changes waiting" or "Can’t connect to HandsFreeOS" in amber, or "4 changes waiting to send" in blue once it's
+ * connected. It opens Changes on this phone. Otherwise there's no strip; Home and More say "Up to date" instead.
  */
 export function StatusStrip() {
   const status = useSyncStatus();
   const ctx = useOptionalBusiness();
   const text = stripText(status);
   if (!text) return null;
-  const offline = !status.online;
+  const offline = status.connection === 'offline' || status.connection === 'unreachable';
   return (
     <Pressable
       role="button"

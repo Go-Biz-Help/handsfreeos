@@ -6,6 +6,7 @@
  */
 import {
   applyPatch,
+  canonicalTimeZone,
   computeSlots,
   defaultConfig,
   expandRecurrence,
@@ -20,6 +21,9 @@ import {
   recurrenceDates,
   RecurrenceRule,
   render,
+  TIME_ZONE_ALIASES,
+  TIME_ZONES,
+  TZDB_VERSION,
   whenLabel,
   zonedInstants,
   zonedParts,
@@ -478,19 +482,59 @@ export const CASES: readonly Case[] = [
   },
   {
     group: 'Probes',
-    name: 'time-zone names the web accepts and refuses',
+    name: 'time-zone names: core’s own list decides, never Intl',
     source: PROBE,
     run: (t) => {
       t.is(isValidTimeZone('America/Chicago'), true, 'America/Chicago');
       t.is(isValidTimeZone('UTC'), true, 'UTC');
-      t.is(isValidTimeZone('Etc/GMT+6'), true, 'Etc/GMT+6');
-      t.is(isValidTimeZone('US/Central'), true, 'US/Central (IANA link)');
-      t.is(isValidTimeZone('EST'), true, 'EST (IANA link)');
-      t.is(isValidTimeZone('CST'), true, 'CST (V8 accepts it)');
+      t.is(isValidTimeZone('US/Central'), true, 'US/Central (an older name)');
+      t.is(isValidTimeZone('Etc/GMT+6'), false, 'Etc/GMT+6 (a fixed offset)');
+      t.is(isValidTimeZone('EST'), false, 'EST (an abbreviation)');
+      t.is(isValidTimeZone('CST'), false, 'CST (V8 read it as Chicago)');
       t.is(isValidTimeZone('GMT+5'), false, 'GMT+5');
       t.is(isValidTimeZone('America/Chicgo'), false, 'misspelt');
       t.is(isValidTimeZone('Mars/Olympus'), false, 'made up');
       t.is(isValidTimeZone(''), false, 'empty');
+      t.is(canonicalTimeZone('US/Central'), 'America/Chicago', 'US/Central is stored as');
+      t.is(canonicalTimeZone('Asia/Calcutta'), 'Asia/Kolkata', 'Asia/Calcutta is stored as');
+      t.is(canonicalTimeZone('america/chicago'), 'America/Chicago', 'letter case');
+      t.is(canonicalTimeZone('Etc/UTC'), 'UTC', 'Etc/UTC is stored as');
+      // The list ships in the app's bundle.
+      t.is(TZDB_VERSION, '2026d', 'tzdb version');
+      t.is(TIME_ZONES.length, 419, 'zones on the list');
+    },
+  },
+  {
+    group: 'Probes',
+    name: 'every zone on core’s list formats on this phone, and older names keep their zone’s clock',
+    source: PROBE,
+    run: (t) => {
+      // Old systems' zone data can predate names tzdb uses now (Europe/Kyiv, America/Nuuk, America/Ciudad_Juarez,
+      // Pacific/Kanton, America/Coyhaique): stored zones use them, so a zone that throws here needs a fallback in core.
+      const at = Date.parse('2026-09-16T12:00:00Z');
+      const throwing: string[] = [];
+      for (const zone of TIME_ZONES) {
+        try {
+          new Intl.DateTimeFormat('en-US', { timeZone: zone }).format(at);
+          if (zonedParts(at, zone).year !== 2026) throwing.push(`${zone} (wrong year)`);
+        } catch {
+          throwing.push(zone);
+        }
+      }
+      t.equal(throwing, [], 'zones this phone refuses');
+      // tzdb merged some zones recently; older ICU keeps them apart.
+      const instants = ['2026-01-15T12:00:00Z', '2026-07-15T12:00:00Z'].map((d) => Date.parse(d));
+      const drifting: string[] = [];
+      for (const [alias, zone] of Object.entries(TIME_ZONE_ALIASES)) {
+        try {
+          for (const instant of instants)
+            if (zoneOffsetMinutes(instant, alias) !== zoneOffsetMinutes(instant, zone))
+              drifting.push(`${alias} → ${zone} at ${iso(instant)}`);
+        } catch {
+          drifting.push(`${alias} (refused)`);
+        }
+      }
+      t.equal(drifting, [], 'older names off their zone’s clock');
     },
   },
   {

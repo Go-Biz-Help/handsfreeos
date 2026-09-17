@@ -1,83 +1,14 @@
 /// <reference types="node" />
 import { createClient, type AuthChangeEvent, type Session } from '@supabase/supabase-js';
 
-import { withRefreshGuard } from '../refresh-fetch';
-import { SessionStore, nextState, readSaved, refreshIsDue, type SessionState } from '../session';
+import { nextState, readSaved, refreshIsDue, type SessionState } from '../session';
+import { KEY, USER, json, noSignal, nowSeconds, savedSession, setup } from './fake-auth';
 
 /**
  * The offline sign-in rules, against a real supabase-js client with its network and storage replaced: a saved sign-in
  * counts while offline even after its access token runs out, it refreshes when signal returns, and only a real
  * refusal from Supabase Auth signs the person out.
  */
-
-const KEY = 'hfos.session';
-const USER = {
-  id: '11111111-1111-4111-8111-111111111111',
-  aud: 'authenticated',
-  email: 'dale@lonestarhvac.test',
-  user_metadata: { full_name: 'Dale Ramsey' },
-  app_metadata: {},
-  created_at: '2026-09-01T00:00:00Z',
-};
-
-function jwt(expSeconds: number): string {
-  const part = (o: object) => Buffer.from(JSON.stringify(o)).toString('base64url');
-  return `${part({ alg: 'ES256', typ: 'JWT' })}.${part({ sub: USER.id, exp: expSeconds, role: 'authenticated' })}.sig`;
-}
-
-function savedSession(expiresAt: number, refreshToken = 'refresh-1') {
-  return {
-    access_token: jwt(expiresAt),
-    refresh_token: refreshToken,
-    token_type: 'bearer',
-    expires_in: 3600,
-    expires_at: expiresAt,
-    user: USER,
-  };
-}
-
-const nowSeconds = () => Math.floor(Date.now() / 1000);
-
-type Responder = (url: string) => Promise<Response> | Response;
-
-function setup(respond: Responder, stored: object | null) {
-  const values = new Map<string, string>();
-  if (stored) values.set(KEY, JSON.stringify(stored));
-  const storage = {
-    getItem: async (k: string) => values.get(k) ?? null,
-    setItem: async (k: string, v: string) => void values.set(k, v),
-    removeItem: async (k: string) => void values.delete(k),
-  };
-  const requests: string[] = [];
-  const fakeFetch = (async (input: RequestInfo | URL) => {
-    const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
-    requests.push(url);
-    return respond(url);
-  }) as typeof fetch;
-  const client = createClient('http://auth.test', 'sb_publishable_test', {
-    auth: {
-      storage,
-      storageKey: KEY,
-      autoRefreshToken: false,
-      persistSession: true,
-      detectSessionInUrl: false,
-    },
-    global: { fetch: withRefreshGuard(fakeFetch) },
-  });
-  const store = new SessionStore(client, {
-    read: () => storage.getItem(KEY),
-    clear: async () => {
-      await storage.removeItem(KEY);
-      await storage.removeItem(`${KEY}-user`);
-    },
-  });
-  return { client, store, values, requests };
-}
-
-const json = (status: number, body: object) =>
-  new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
-
-const noSignal: Responder = () => Promise.reject(new TypeError('Network request failed'));
 
 /** Lets supabase-js's retries and our deferred event handling run on fake timers. */
 async function settle(promise?: Promise<unknown>) {

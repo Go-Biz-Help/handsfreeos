@@ -7,6 +7,7 @@ import { Text } from '@/components/ui/text';
 import { toast } from '@/components/ui/toast';
 import { isKept, keepChoices, rememberOpened, type Business, type Me } from '@/lib/businesses';
 import { useNetwork } from '@/lib/network';
+import { useWorksOffline } from '@/sync/hooks';
 
 import { BusinessList, KeepNote } from './business-list';
 import { businessHref } from './business-context';
@@ -26,10 +27,15 @@ export function BusinessSwitcher({
   currentId: string;
 }) {
   const { online } = useNetwork();
+  const worksOffline = useWorksOffline(userId);
   const openBusiness = (business: Business) => {
     if (business.id === currentId) return onClose();
-    if (!online && !isKept(keepChoices(userId), business.id)) {
-      toast.show(`${business.name} opens only with signal.`);
+    if (!online && !worksOffline(business.id)) {
+      toast.show(
+        isKept(keepChoices(userId), business.id)
+          ? `${business.name} isn’t on this phone yet.`
+          : `${business.name} opens only with signal.`,
+      );
       return;
     }
     rememberOpened(userId, business.id);

@@ -12,3 +12,5 @@ executionOrder:
     - Switch business and keep businesses on the phone
     - Lock with Face ID and unlock
     - No signal, with the access token run out
+    - The phone's copy, with no signal
+    - Signing in as someone else deletes the last person's copy

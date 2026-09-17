@@ -1,0 +1,87 @@
+# Screenshots of the phone's copy, in one theme (THEME=light or dark). Not run in CI:
+#   maestro test -e THEME=dark -e PREFIX=ios apps/mobile/maestro/screens/copy.yaml --test-output-dir <dir>
+# This phone's copy and the 30-day lock, as Dale. A first copy coming down ("Getting … onto this phone… 40%") passes
+# too quickly on a local stack for a flow to catch: capture it in a loop (`xcrun simctl io booted screenshot`, or
+# `adb exec-out screencap -p`) while signing in as the owner of a large business.
+appId: com.gobizhelp.handsfreeos
+name: The phone's copy screens
+tags:
+  - screens
+env:
+  PASSWORD: HandsFree-Demo-2026
+---
+- runFlow: ../subflows/start-signed-out.yaml
+- runFlow:
+    file: ../subflows/sign-in-with-password.yaml
+    env:
+      EMAIL: dale@lonestarhvac.test
+- tapOn:
+    id: 'tab-more'
+- tapOn:
+    id: 'more-settings'
+- tapOn:
+    id: 'setting-appearance'
+- tapOn:
+    id: 'appearance-${THEME}'
+- tapOn:
+    id: 'appearance-done'
+- waitForAnimationToEnd
+- scrollUntilVisible:
+    element:
+      id: 'test-phone-copy'
+# Once more to the end, so the row isn't behind the iOS tab bar (see subflows/open-phone-copy.yaml).
+- scroll
+- tapOn:
+    id: 'test-phone-copy'
+- scrollUntilVisible:
+    element:
+      id: 'copy-open-complete'
+- extendedWaitUntil:
+    visible:
+      id: 'copy-open-complete'
+      text: 'Complete'
+    timeout: 60000
+- waitForAnimationToEnd
+- takeScreenshot: ${PREFIX}-copy-1-${THEME}
+- scrollUntilVisible:
+    element:
+      id: 'copy-compare-keys'
+    centerElement: true
+- waitForAnimationToEnd
+- takeScreenshot: ${PREFIX}-copy-2-${THEME}
+# Thirty days without a sync: the copy locks until it connects. The lock replaces the business's tabs at once.
+- scrollUntilVisible:
+    element:
+      id: 'copy-age'
+    centerElement: true
+- waitForAnimationToEnd
+- tapOn:
+    id: 'copy-age'
+- scrollUntilVisible:
+    element:
+      id: 'copy-result-age'
+    timeout: 20000
+- tapOn:
+    id: 'close'
+- extendedWaitUntil:
+    visible:
+      id: 'copy-locked'
+    timeout: 20000
+- waitForAnimationToEnd
+- takeScreenshot: ${PREFIX}-lock-${THEME}
+# Connect again from This phone's copy: the copy is brought up to date and unlocks.
+- tapOn:
+    id: 'copy-open-tools'
+- scrollUntilVisible:
+    element:
+      id: 'copy-connect'
+    centerElement: true
+- waitForAnimationToEnd
+- tapOn:
+    id: 'copy-connect'
+- tapOn:
+    id: 'close'
+- extendedWaitUntil:
+    visible:
+      id: 'home'
+    timeout: 60000

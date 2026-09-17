@@ -1,9 +1,10 @@
 /**
  * What each synced table looks like to a phone: the client tables every stream in sync-config.yaml fills, their
- * columns, and each column's type in the database. Two things read it:
+ * columns, and each column's type in the database. Three things read it:
  *   - the phone's contract (packages/core/test/mobile-contract.test.ts), which records every stream's tables so an
  *     old app build never finds a column gone or changed: a change like that means a new stream version instead;
- *   - the sync scenarios (apps/sync/test), whose Node client declares exactly these tables, as the app will.
+ *   - the sync scenarios (apps/sync/test), whose Node client declares exactly these tables, as the app does;
+ *   - the app's schema generator (scripts/mobile-schema.mjs), which types the same tables from the contract's record.
  *
  * The config is read by the DB suite's own reader (packages/db/test/sync-config.ts), so both agree on every query.
  */
@@ -119,6 +120,60 @@ export function sqliteTypeOf(type: string): 'text' | 'integer' | 'real' {
   if (['smallint', 'integer', 'bigint', 'boolean'].includes(type)) return 'integer';
   if (['real', 'double precision'].includes(type)) return 'real';
   return 'text';
+}
+
+export interface ClientColumn {
+  readonly name: string;
+  /** Its type in the database, as the contract records it. */
+  readonly databaseType: string;
+  /** The SQLite type PowerSync gives it on the phone. */
+  readonly type: 'text' | 'integer' | 'real';
+}
+
+export interface ClientTable {
+  /** The client table on the phone. */
+  readonly name: string;
+  /** The streams that fill it. */
+  readonly streams: readonly string[];
+  /** Its columns apart from id, in the order the queries name them. */
+  readonly columns: readonly ClientColumn[];
+}
+
+/**
+ * The same client tables as `clientTables`, typed from the types the phone's contract records
+ * (packages/core/test/contract/mobile-contract.json) instead of a live database, with each column's database type and
+ * the streams that fill each table. The phone app's schema is generated from this (scripts/mobile-schema.mjs), so it
+ * needs no database; the contract test holds the record to the database. Throws for a stream table or column the
+ * contract hasn't recorded yet.
+ */
+export function clientTablesFromContract(
+  recorded: Readonly<Record<string, TableContract>>,
+  configText?: string,
+): ClientTable[] {
+  const out = new Map<string, { streams: string[]; columns: Map<string, ClientColumn> }>();
+  for (const t of syncedTableShapes(configText)) {
+    const key = `${t.stream}.${t.table}`;
+    const contract = recorded[key];
+    if (!contract)
+      throw new Error(
+        `${key} isn't in the phone's contract yet. Record it first (UPDATE_CONTRACT=1, see packages/core/test/mobile-contract.test.ts).`,
+      );
+    const entry = out.get(t.table) ?? { streams: [], columns: new Map<string, ClientColumn>() };
+    entry.streams.push(t.stream);
+    for (const c of t.columns) {
+      if (c.name === 'id' || entry.columns.has(c.name)) continue;
+      const databaseType = contract.columns[c.name];
+      if (!databaseType)
+        throw new Error(
+          `${key}.${c.name} isn't in the phone's contract yet. Record it first (UPDATE_CONTRACT=1, see packages/core/test/mobile-contract.test.ts).`,
+        );
+      entry.columns.set(c.name, { name: c.name, databaseType, type: sqliteTypeOf(databaseType) });
+    }
+    out.set(t.table, entry);
+  }
+  return [...out]
+    .map(([name, t]) => ({ name, streams: t.streams, columns: [...t.columns.values()] }))
+    .sort((a, b) => a.name.localeCompare(b.name));
 }
 
 /** Every client table a phone declares, across all streams: its columns (apart from id) and their SQLite types. */

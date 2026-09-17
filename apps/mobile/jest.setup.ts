@@ -1,13 +1,15 @@
 /**
  * Stand-ins for the native parts the unit tests reach: Uniwind (styles come from Metro, which Jest doesn't run), secure
- * storage, the documents folder, signal, Face ID and safe areas. Each keeps state in memory so a test can read what
- * the app wrote.
+ * storage, the documents folder, signal, Face ID, safe areas, random bytes, and op-sqlite and PowerSync's React Native
+ * module (the copy's rules are tested through `PhoneCopy` with a stand-in database; PowerSync's own `@powersync/common`
+ * is real). Each keeps state in memory so a test can read what the app wrote.
  */
 
 // Where a test build points (the tests never reach them).
 process.env.EXPO_PUBLIC_SUPABASE_URL = 'http://supabase.test';
 process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_test';
 process.env.EXPO_PUBLIC_API_URL = 'http://api.test';
+process.env.EXPO_PUBLIC_SYNC_URL = 'http://sync.test';
 
 jest.mock('uniwind', () => ({
   Uniwind: { setTheme: jest.fn(), currentTheme: 'light' },
@@ -66,6 +68,34 @@ jest.mock('expo-local-authentication', () => ({
   supportedAuthenticationTypesAsync: jest.fn(async () => [2]),
   authenticateAsync: jest.fn(async () => ({ success: true })),
 }));
+
+jest.mock('expo-crypto', () => {
+  const { randomBytes } = jest.requireActual('node:crypto') as {
+    randomBytes: (count: number) => Uint8Array;
+  };
+  return { getRandomBytes: (count: number) => new Uint8Array(randomBytes(count)) };
+});
+
+jest.mock('@op-engineering/op-sqlite', () => ({
+  open: jest.fn(() => {
+    throw new Error('op-sqlite is native: tests use a stand-in database');
+  }),
+  isSQLCipher: () => true,
+  IOS_LIBRARY_PATH: '/library',
+  ANDROID_DATABASE_PATH: '/databases/',
+}));
+
+jest.mock('@powersync/react-native', () => {
+  const React = jest.requireActual('react') as { createContext: (value: unknown) => unknown };
+  return {
+    ...(jest.requireActual('@powersync/common') as object),
+    PowerSyncDatabase: jest.fn(() => {
+      throw new Error('PowerSync is native: tests use a stand-in database');
+    }),
+    PowerSyncContext: React.createContext(null),
+    useQuery: jest.fn(() => ({ data: [], isLoading: false, isFetching: false })),
+  };
+});
 
 jest.mock(
   'react-native-safe-area-context',

@@ -1,0 +1,88 @@
+appId: com.gobizhelp.handsfreeos
+name: Signing in as someone else deletes the last person's copy
+tags:
+  - ci
+# Dale signs out with changes waiting, so his copy stays on the phone for him; Marco signs in on the same phone, and
+# Dale's copy and key are deleted before Marco's opens. Seed accounts (apps/worker/scripts/seed.ts); the password is
+# the seed's, for local stacks only.
+env:
+  PASSWORD: HandsFree-Demo-2026
+---
+- runFlow: subflows/start-signed-out.yaml
+- runFlow:
+    file: subflows/sign-in-with-password.yaml
+    env:
+      EMAIL: dale@lonestarhvac.test
+- runFlow: subflows/open-phone-copy.yaml
+- scrollUntilVisible:
+    element:
+      id: 'copy-open-complete'
+- extendedWaitUntil:
+    visible:
+      id: 'copy-open-complete'
+      text: 'Complete'
+    timeout: 60000
+- scrollUntilVisible:
+    element:
+      id: 'copy-others'
+    direction: UP
+- assertVisible:
+    id: 'copy-others'
+    text: 'None'
+- tapOn:
+    id: 'close'
+# Three changes waiting (the stand-in until the queue of changes arrives): signing out keeps Dale's copy.
+- scrollUntilVisible:
+    element:
+      id: 'test-waiting-3'
+- scroll
+- tapOn:
+    id: 'test-waiting-3'
+- scrollUntilVisible:
+    element:
+      id: 'setting-sign-out'
+    direction: UP
+    centerElement: true
+- tapOn:
+    id: 'setting-sign-out'
+- assertVisible: '3 changes haven’t been sent. They stay safely on this phone for you.'
+- tapOn:
+    id: 'confirm-sign-out'
+- extendedWaitUntil:
+    visible:
+      id: 'sign-in'
+    timeout: 20000
+# Marco signs in here: Dale's copy goes, and Marco's opens with a new key.
+- runFlow:
+    file: subflows/sign-in-with-password.yaml
+    env:
+      EMAIL: marco@lonestarhvac.test
+- runFlow: subflows/open-phone-copy.yaml
+- scrollUntilVisible:
+    element:
+      id: 'copy-open-complete'
+- extendedWaitUntil:
+    visible:
+      id: 'copy-open-complete'
+      text: 'Complete'
+    timeout: 60000
+- scrollUntilVisible:
+    element:
+      id: 'copy-signed-in'
+    direction: UP
+- assertVisible:
+    id: 'copy-signed-in'
+    text: 'New key'
+- assertVisible: 'Deleted another person’s copy and replaced their keys'
+- assertVisible:
+    id: 'copy-others'
+    text: 'None'
+- tapOn:
+    id: 'close'
+# Nothing waiting again.
+- scrollUntilVisible:
+    element:
+      id: 'test-waiting-0'
+- scroll
+- tapOn:
+    id: 'test-waiting-0'

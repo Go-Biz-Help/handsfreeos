@@ -9,8 +9,10 @@ export { default as CircleDollarSign } from 'lucide-react-native/icons/circle-do
 export { default as Building } from 'lucide-react-native/icons/building';
 export { default as ClipboardList } from 'lucide-react-native/icons/clipboard-list';
 export { default as CloudCheck } from 'lucide-react-native/icons/cloud-check';
+export { default as CloudDownload } from 'lucide-react-native/icons/cloud-download';
 export { default as CloudOff } from 'lucide-react-native/icons/cloud-off';
 export { default as CloudUpload } from 'lucide-react-native/icons/cloud-upload';
+export { default as Database } from 'lucide-react-native/icons/database';
 export { default as Ellipsis } from 'lucide-react-native/icons/ellipsis';
 export { default as ExternalLink } from 'lucide-react-native/icons/external-link';
 export { default as Eye } from 'lucide-react-native/icons/eye';
@@ -28,6 +30,7 @@ export { default as Mail } from 'lucide-react-native/icons/mail';
 export { default as Moon } from 'lucide-react-native/icons/moon';
 export { default as ScanFace } from 'lucide-react-native/icons/scan-face';
 export { default as Settings2 } from 'lucide-react-native/icons/settings-2';
+export { default as ShieldAlert } from 'lucide-react-native/icons/shield-alert';
 export { default as Smartphone } from 'lucide-react-native/icons/smartphone';
 export { default as Sparkles } from 'lucide-react-native/icons/sparkles';
 export { default as SquareKanban } from 'lucide-react-native/icons/square-kanban';

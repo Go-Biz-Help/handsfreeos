@@ -17,17 +17,26 @@ export default function Changes() {
     : status.waiting > 0
       ? [
           `${changesWord(status.waiting)} waiting to send`,
-          status.online
-            ? 'They’re going now.'
-            : 'No signal: they go on their own when the phone is back online.',
+          status.connection === 'offline'
+            ? 'No signal: they go on their own when the phone is back online.'
+            : status.connection === 'unreachable'
+              ? 'HandsFreeOS can’t be reached right now: they go on their own once it can.'
+              : 'They’re going now.',
         ]
-      : ['No signal', 'Anything you change waits on this phone and goes when there’s signal.'];
+      : status.connection === 'offline'
+        ? ['No signal', 'Anything you change waits on this phone and goes when there’s signal.']
+        : status.connection === 'unreachable'
+          ? [
+              'Can’t connect to HandsFreeOS',
+              'This phone has signal but can’t reach HandsFreeOS. It keeps trying, and anything you change waits here.',
+            ]
+          : ['Updating…', 'This phone is catching up with HandsFreeOS.'];
   return (
     <Screen title="Changes on this phone" leading="close" testID="changes">
       <View className="gap-1 px-1 pb-1 pt-1.5">
         <View className="flex-row items-center gap-2">
           <Icon
-            as={status.online ? CloudCheck : CloudOff}
+            as={status.connection === 'offline' ? CloudOff : CloudCheck}
             className={status.upToDate ? 'size-6 text-success-text' : 'size-6 text-warning-text'}
           />
           <Text className="text-2xl font-semibold tracking-[-0.36px]" testID="changes-title">

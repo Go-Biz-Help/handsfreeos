@@ -12,7 +12,7 @@ module.exports = {
   testTimeout: 30_000,
   testMatch: ['<rootDir>/src/**/__tests__/**/*.test.ts?(x)'],
   transformIgnorePatterns: [
-    '/node_modules/(?!(\\.pnpm|react-native|@react-native|@react-native-community|expo|@expo|@expo-google-fonts|react-navigation|@react-navigation|standard-navigation|@rn-primitives|lucide-react-native|uniwind|culori|@supabase|openapi-fetch|zustand))',
+    '/node_modules/(?!(\\.pnpm|react-native|@react-native|@react-native-community|expo|@expo|@expo-google-fonts|react-navigation|@react-navigation|standard-navigation|@rn-primitives|lucide-react-native|uniwind|culori|@supabase|@powersync|openapi-fetch|zustand))',
     '/node_modules/react-native-reanimated/plugin/',
     '/node_modules/@react-native/babel-preset/',
   ],

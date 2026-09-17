@@ -64,7 +64,7 @@ export default function RootLayout() {
   );
 }
 
-/** A build made without EXPO_PUBLIC_SUPABASE_URL, EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY or EXPO_PUBLIC_API_URL. */
+/** A build made without EXPO_PUBLIC_SUPABASE_URL, EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY, EXPO_PUBLIC_API_URL or EXPO_PUBLIC_SYNC_URL. */
 function NotConfigured() {
   React.useEffect(() => {
     void SplashScreen.hideAsync();

@@ -6,6 +6,7 @@ import { Switch } from '@/components/ui/switch';
 import { Text } from '@/components/ui/text';
 import { ROLE_LABELS, isKept, setKept, useKeepChoices, type Business } from '@/lib/businesses';
 import { businessMark, cn } from '@/lib/utils';
+import { useWorksOffline } from '@/sync/hooks';
 
 /** Soft backgrounds for business marks other than the open one (the open one is always the accent). */
 const MARK_TONES = [
@@ -35,8 +36,8 @@ export function BusinessMarkTile({ business, current }: { business: Business; cu
 
 /**
  * Each business with its "Keep on this phone" switch, as the switcher and Settings → Businesses on this phone show
- * them. A kept business is stored on the phone and works with no signal; the one opened last is kept unless its switch
- * is turned off.
+ * them. A kept business is stored on the phone and works with no signal once its copy has come down; the one opened
+ * last is kept unless its switch is turned off.
  */
 export function BusinessList({
   userId,
@@ -53,6 +54,7 @@ export function BusinessList({
   offline: boolean;
 }) {
   const choices = useKeepChoices(userId);
+  const worksOffline = useWorksOffline(userId);
   return (
     <View
       className="overflow-hidden rounded-card border border-border bg-card"
@@ -61,7 +63,8 @@ export function BusinessList({
       {businesses.map((business, i) => {
         const current = business.id === currentId;
         const kept = isKept(choices, business.id);
-        const unreachable = offline && !kept && !current;
+        const ready = worksOffline(business.id);
+        const unreachable = offline && !ready && !current;
         return (
           <View key={business.id} className={cn(i > 0 && 'border-t border-border')}>
             <Pressable
@@ -100,8 +103,14 @@ export function BusinessList({
             <View className="flex-row items-center gap-2.5 border-t border-border py-2.5 pl-[66px] pr-3.5">
               <View className="min-w-0 flex-1">
                 <Text className="text-[13.5px] font-medium">Keep on this phone</Text>
-                <Text className="text-xs text-text-3">
-                  {kept ? 'Works with no signal' : 'Opens only with signal'}
+                <Text className="text-xs text-text-3" testID={`keep-detail-${business.id}`}>
+                  {!kept
+                    ? 'Opens only with signal'
+                    : ready
+                      ? 'Works with no signal'
+                      : offline
+                        ? 'Not on this phone yet'
+                        : 'Getting it onto this phone…'}
                 </Text>
               </View>
               <Switch

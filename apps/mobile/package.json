@@ -7,10 +7,12 @@
     "start": "expo start",
     "ios": "expo run:ios",
     "android": "expo run:android",
-    "lint": "node ../../scripts/mobile-tokens.mjs --check && eslint .",
+    "lint": "node ../../scripts/mobile-tokens.mjs --check && node ../../scripts/mobile-schema.mjs --check && eslint .",
     "typecheck": "tsc --noEmit",
     "test": "jest",
-    "tokens": "node ../../scripts/mobile-tokens.mjs"
+    "tokens": "node ../../scripts/mobile-tokens.mjs",
+    "schema": "node ../../scripts/mobile-schema.mjs",
+    "check:sqlcipher": "bash scripts/check-sqlcipher.sh"
   },
   "dependencies": {
     "@expo-google-fonts/hanken-grotesk": "0.4.3",
@@ -18,7 +20,7 @@
     "@expo/ui": "57.0.18",
     "@hfos/api-client": "workspace:*",
     "@hfos/core": "workspace:*",
-    "@op-engineering/op-sqlite": "18.2.1",
+    "@op-engineering/op-sqlite": "18.2.3",
     "@powersync/common": "2.2.1",
     "@powersync/react-native": "2.2.1",
     "@rn-primitives/avatar": "1.5.2",

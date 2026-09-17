@@ -182,6 +182,15 @@ export class SessionStore {
     await this.client.auth.getSession();
   }
 
+  /**
+   * Refreshes the sign-in now, whatever its token's age: the sync service refused the token. A refusal from Supabase
+   * Auth then signs out (SIGNED_OUT, as above); no signal or any other answer changes nothing.
+   */
+  async refreshNow(): Promise<void> {
+    if (this.state.status !== 'signedIn') return;
+    await this.client.auth.refreshSession();
+  }
+
   /** Sign out on this phone. Works with no signal: the saved sign-in is deleted either way. */
   async signOut(): Promise<void> {
     this.signingOut = true;

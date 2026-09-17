@@ -3,10 +3,11 @@ appId: com.gobizhelp.handsfreeos
 ---
 - launchApp:
     stopApp: true
-# Wait for the app itself (a locked app asks at once, in front of the lock screen).
+# Wait for the app itself (a locked app asks at once, in front of the lock screen; a business's copy may still be
+# coming down, or locked after 30 days without a sync).
 - extendedWaitUntil:
     visible:
-      id: 'sign-in|lock-screen|home|test-unlock-prompt|more|settings'
+      id: 'sign-in|lock-screen|home|test-unlock-prompt|more|settings|copy-progress|copy-locked|phone-copy'
     timeout: 45000
 - runFlow:
     when:
@@ -24,6 +25,31 @@ appId: com.gobizhelp.handsfreeos
           id: 'lock-sign-out'
       - tapOn:
           id: 'confirm-sign-out'
+- runFlow:
+    when:
+      visible:
+        id: 'copy-locked'
+    commands:
+      - tapOn:
+          id: 'copy-sign-out'
+      - tapOn:
+          id: 'confirm-sign-out'
+- runFlow:
+    when:
+      visible:
+        id: 'copy-progress'
+    commands:
+      - extendedWaitUntil:
+          notVisible:
+            id: 'copy-progress'
+          timeout: 120000
+- runFlow:
+    when:
+      visible:
+        id: 'phone-copy'
+    commands:
+      - tapOn:
+          id: 'close'
 - runFlow:
     when:
       notVisible:

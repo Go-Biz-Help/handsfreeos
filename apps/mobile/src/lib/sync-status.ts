@@ -1,58 +1,140 @@
+import { plainSpaces } from '@hfos/core';
 import { useSyncExternalStore } from 'react';
 
+import { BUSINESS_STREAM, businessParameters } from '@/sync/subscriptions';
+import { usePhoneCopy } from '@/sync/hooks';
+
+import { cachedMe, keptBusinessIds } from './businesses';
+import { changesWord, useWaitingCount } from './changes-waiting';
 import { deviceStore } from './device-store';
 import { useNetwork } from './network';
 
+export { changesWord, setTestWaiting, useWaitingCount, waitingCount } from './changes-waiting';
+
 /**
- * What the status line says: "Up to date", or "Offline — 4 changes waiting". The count is a stand-in until the queue
- * of changes arrives (M10 step 10); development and test builds can set it in Settings to see the strip and the
- * sign-out warning.
+ * What the status line says: "Up to date", "As of 8:58 AM", "Offline — 4 changes waiting". It reads the phone's signal
+ * and PowerSync's own status for this person's copy; the waiting count is a stand-in until the queue of changes
+ * arrives (M10 step 10).
  */
+
+/**
+ * - `offline`: no signal (or the test build's No signal switch);
+ * - `unreachable`: signal, but the copy can't connect to the sync service;
+ * - `updating`: connecting, or a download still to finish (a first copy, or a kept business's);
+ * - `inStep`: connected, and every download finished.
+ */
+export type Connection = 'offline' | 'unreachable' | 'updating' | 'inStep';
+
 export interface SyncStatus {
   readonly online: boolean;
+  readonly connection: Connection;
   /** Changes made on this phone that haven't reached HandsFreeOS. */
   readonly waiting: number;
-  /** Every change has gone and the phone has signal. */
+  /** In step with HandsFreeOS, and every change has gone. */
   readonly upToDate: boolean;
-  /** When the phone last had signal: what "As of 8:58 AM" shows while offline. */
-  readonly asOf: number;
+  /** The last moment this phone's copy was known to be up to date: what "As of 8:58 AM" shows. */
+  readonly asOf: number | null;
 }
 
-const WAITING_KEY = 'test.waiting';
-
-export function waitingCount(): number {
-  const n = deviceStore.get<number>(WAITING_KEY);
-  return typeof n === 'number' && n > 0 ? Math.floor(n) : 0;
+export interface CopyState {
+  readonly connected: boolean;
+  readonly downloading: boolean;
+  /** The first sync of this person's copy finished at some point. */
+  readonly hasSynced: boolean;
+  /** The last attempt to connect or download failed, and nothing has synced since. */
+  readonly failing: boolean;
+  /** Every business kept on the phone has its first copy. */
+  readonly keptComplete: boolean;
 }
 
-export function setTestWaiting(n: number): void {
-  if (n > 0) deviceStore.set(WAITING_KEY, n);
-  else deviceStore.remove(WAITING_KEY);
-}
-
-export function useWaitingCount(): number {
-  return useSyncExternalStore(deviceStore.subscribe, waitingCount, waitingCount);
+export function connectionOf(online: boolean, copy: CopyState | null): Connection {
+  if (!online) return 'offline';
+  if (!copy) return 'updating';
+  if (!copy.connected && copy.failing) return 'unreachable';
+  if (!copy.connected || copy.downloading || !copy.hasSynced || !copy.keptComplete)
+    return 'updating';
+  return 'inStep';
 }
 
 export function useSyncStatus(): SyncStatus {
   const network = useNetwork();
   const waiting = useWaitingCount();
+  const copy = usePhoneCopy();
+  const userId = copy.state.status === 'open' ? copy.state.userId : null;
+  // Kept businesses change with the keep switches and the person's list, both in the device store.
+  const kept = useSyncExternalStore(deviceStore.subscribe, () =>
+    userId ? keptBusinessIds(userId, cachedMe(userId)?.businesses ?? []).join(',') : '',
+  );
+  const sync = copy.sync;
+  const online = network.online && !copy.heldOffline;
+  const connection = connectionOf(
+    online,
+    sync
+      ? {
+          connected: sync.connected,
+          downloading: sync.downloading,
+          hasSynced: sync.hasSynced === true,
+          failing: sync.downloadError !== undefined,
+          keptComplete: kept
+            .split(',')
+            .filter(Boolean)
+            .every(
+              (id) =>
+                sync.forStream({ name: BUSINESS_STREAM, parameters: businessParameters(id) })
+                  ?.subscription.hasSynced === true,
+            ),
+        }
+      : null,
+  );
   return {
-    online: network.online,
+    online,
+    connection,
     waiting,
-    upToDate: network.online && waiting === 0,
-    asOf: network.lastOnlineAt,
+    upToDate: connection === 'inStep' && waiting === 0,
+    asOf: copy.inStepAt,
   };
 }
 
-/** "4 changes", "1 change". */
-export function changesWord(n: number): string {
-  return `${n} ${n === 1 ? 'change' : 'changes'}`;
+/** The strip under the top bar, or null when there's nothing to say. */
+export function stripText(status: Pick<SyncStatus, 'connection' | 'waiting'>): string | null {
+  const { connection, waiting } = status;
+  if (connection === 'offline')
+    return waiting > 0 ? `Offline — ${changesWord(waiting)} waiting` : 'Offline';
+  if (connection === 'unreachable')
+    return waiting > 0
+      ? `Can’t connect — ${changesWord(waiting)} waiting`
+      : 'Can’t connect to HandsFreeOS';
+  return waiting > 0 ? `${changesWord(waiting)} waiting to send` : null;
 }
 
-/** The strip under the top bar, or null when there's nothing to say. */
-export function stripText(status: Pick<SyncStatus, 'online' | 'waiting'>): string | null {
-  if (!status.online)
-    return status.waiting > 0 ? `Offline — ${changesWord(status.waiting)} waiting` : 'Offline';
-  return status.waiting > 0 ? `${changesWord(status.waiting)} waiting to send` : null;
+/** "8:58 AM", in the phone's own time and with plain spaces (iPhones and Android write U+202F before "AM"). */
+export function clockTime(ms: number): string {
+  return plainSpaces(
+    new Date(ms).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }),
+  );
+}
+
+/** "As of 8:58 AM" today, "As of Sep 14, 8:58 AM" before. */
+export function asOfText(asOf: number | null, nowMs: number): string {
+  if (asOf === null) return 'Not updated yet';
+  const then = new Date(asOf);
+  const sameDay = then.toDateString() === new Date(nowMs).toDateString();
+  const day = then.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  return `As of ${sameDay ? '' : `${day}, `}${clockTime(asOf)}`;
+}
+
+/**
+ * The quiet line on Home and in More: "Up to date"; "As of 8:58 AM" with no signal or no connection; "Updating…"; or
+ * how many changes are still to go (`compact` for the end of a list row: "3 to send").
+ */
+export function lineText(
+  status: Pick<SyncStatus, 'connection' | 'waiting' | 'asOf'>,
+  nowMs: number,
+  compact = false,
+): string {
+  if (status.connection === 'offline' || status.connection === 'unreachable')
+    return asOfText(status.asOf, nowMs);
+  if (status.waiting > 0)
+    return compact ? `${status.waiting} to send` : `${changesWord(status.waiting)} to send`;
+  return status.connection === 'updating' ? 'Updating…' : 'Up to date';
 }

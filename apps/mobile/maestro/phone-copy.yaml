@@ -1,0 +1,144 @@
+appId: com.gobizhelp.handsfreeos
+name: The phone's copy, with no signal
+tags:
+  - ci
+# Dale's copy of Lone Star comes down encrypted, stays readable with no signal after the app is closed and opened
+# again, and is up to date once signal is back. No signal is airplane mode on Android and the test switch on the iOS
+# simulator, which has no airplane mode. Seed accounts (apps/worker/scripts/seed.ts); the password is the seed's, for
+# local stacks only.
+env:
+  EMAIL: dale@lonestarhvac.test
+  PASSWORD: HandsFree-Demo-2026
+---
+- runFlow: subflows/start-signed-out.yaml
+- runFlow: subflows/sign-in-with-password.yaml
+# Nothing waiting (the stand-in count a run before may have left), then This phone's copy.
+- tapOn:
+    id: 'tab-more'
+- tapOn:
+    id: 'more-settings'
+- scrollUntilVisible:
+    element:
+      id: 'test-waiting-0'
+- scroll
+- tapOn:
+    id: 'test-waiting-0'
+- tapOn:
+    id: 'test-phone-copy'
+- extendedWaitUntil:
+    visible:
+      id: 'phone-copy'
+    timeout: 10000
+- scrollUntilVisible:
+    element:
+      id: 'copy-open-complete'
+- extendedWaitUntil:
+    visible:
+      id: 'copy-open-complete'
+      text: 'Complete'
+    timeout: 60000
+- scrollUntilVisible:
+    element:
+      id: 'copy-status'
+    direction: UP
+- assertVisible:
+    id: 'copy-status'
+    text: 'Up to date'
+- assertVisible:
+    id: 'copy-cipher'
+    text: '4\..+'
+- assertVisible:
+    id: 'copy-key-form'
+    text: 'Raw 256-bit'
+- scrollUntilVisible:
+    element:
+      id: 'copy-open-total'
+- copyTextFrom:
+    id: 'copy-open-total'
+- evalScript: ${output.total = maestro.copiedText}
+- scrollUntilVisible:
+    element:
+      id: 'copy-open-people'
+- copyTextFrom:
+    id: 'copy-open-people'
+- evalScript: ${output.people = maestro.copiedText}
+- assertTrue: ${Number(output.people) > 0}
+# No signal, and the app closed and opened again.
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - setAirplaneMode: enabled
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      # Centred: scrolling up stops as soon as the switch clears the top edge, which is still under the header.
+      - scrollUntilVisible:
+          element:
+            id: 'copy-no-signal'
+          direction: UP
+          centerElement: true
+      - waitForAnimationToEnd
+      - tapOn:
+          id: 'copy-no-signal'
+- stopApp
+- launchApp:
+    stopApp: false
+- extendedWaitUntil:
+    visible:
+      id: 'test-unlock-prompt'
+    timeout: 45000
+- tapOn:
+    id: 'test-unlock-match'
+- extendedWaitUntil:
+    visible:
+      id: 'home'
+    timeout: 20000
+- assertVisible:
+    id: 'status-strip-text'
+    text: 'Offline'
+# Every row is still there to read.
+- runFlow: subflows/open-phone-copy.yaml
+- assertVisible:
+    id: 'copy-connection'
+    text: 'Not connected'
+- scrollUntilVisible:
+    element:
+      id: 'copy-open-total'
+- assertVisible:
+    id: 'copy-open-total'
+    text: ${output.total}
+- scrollUntilVisible:
+    element:
+      id: 'copy-open-people'
+- assertVisible:
+    id: 'copy-open-people'
+    text: ${output.people}
+# Signal back: up to date again.
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - setAirplaneMode: disabled
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - scrollUntilVisible:
+          element:
+            id: 'copy-no-signal'
+          direction: UP
+          centerElement: true
+      - waitForAnimationToEnd
+      - tapOn:
+          id: 'copy-no-signal'
+- scrollUntilVisible:
+    element:
+      id: 'copy-status'
+    direction: UP
+- extendedWaitUntil:
+    visible:
+      id: 'copy-status'
+      text: 'Up to date'
+    timeout: 60000
