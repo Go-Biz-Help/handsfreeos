@@ -2497,6 +2497,326 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/migration_connection.disconnect": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Disconnect the old system. Everything already brought across stays; any migration still catching up stops catching up. The old account itself is never touched.
+         * @description Risk level 3. Requires org.migrations.manage. Emits migration_connection.disconnected, migration.needs_attention.
+         */
+        post: operations["command_migration_connection_disconnect"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/migration_connection.rename": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Rename a connected source, so an agency tells two of them apart.
+         * @description Risk level 1. Requires org.migrations.manage. Emits migration_connection.renamed.
+         */
+        post: operations["command_migration_connection_rename"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/migration.connect": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start connecting the CRM a business is leaving. Returns a one-time state; the browser signs in at that system through the worker. The scan that follows only ever reads.
+         * @description Risk level 2. Requires org.migrations.manage. Emits migration_connection.connect_started.
+         */
+        post: operations["command_migration_connect"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/migration.create": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start a migration from a connected source. Nothing is read or written until it is scanned and somebody chooses what to bring.
+         * @description Risk level 1. Requires org.migrations.manage. Emits migration.created.
+         */
+        post: operations["command_migration_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/migration.extend_transition": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Keep catching up with the old system for longer. It never stops quietly: when the time runs out the migration asks.
+         * @description Risk level 2. Requires org.migrations.manage. Emits migration.transition_extended.
+         */
+        post: operations["command_migration_extend_transition"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/migration.finalize": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Finish the move: one last catch-up, the checks, and then the old system stops being asked. It never cancels the old account for you.
+         * @description Risk level 3. Requires org.migrations.manage. Emits migration.finalize_requested.
+         */
+        post: operations["command_migration_finalize"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/migration.map_scopes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Say where each sub-account of the old system lands: a new business here, one that already exists, or nowhere. Several may land in the same business, and the plan says what that mixes.
+         * @description Risk level 3. Requires org.migrations.manage. Emits migration.scopes_mapped.
+         */
+        post: operations["command_migration_map_scopes"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/migration.pause": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Stop after the batch that is running. Nothing already brought across is undone, and resuming carries on from the same place.
+         * @description Risk level 2. Requires org.migrations.manage. Emits migration.paused.
+         */
+        post: operations["command_migration_pause"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/migration.resolve_merge": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Say whether somebody arriving from the old system is somebody already here, or a different person.
+         * @description Risk level 2. Requires org.migrations.manage. Emits migration.merge_resolved.
+         */
+        post: operations["command_migration_resolve_merge"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/migration.resume": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Carry on from the last place that was safely saved.
+         * @description Risk level 2. Requires org.migrations.manage. Emits migration.resumed.
+         */
+        post: operations["command_migration_resume"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/migration.retry": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Try the failures again. Records that already came across are not brought twice — the source identity sees to that.
+         * @description Risk level 2. Requires org.migrations.manage. Emits migration.retry_requested.
+         */
+        post: operations["command_migration_retry"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/migration.rollback": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Take back what this migration put here. Customers who were already here are never deleted, and anything somebody has changed since is left exactly as they left it.
+         * @description Risk level 4. Requires org.migrations.manage. Emits migration.rollback_requested.
+         */
+        post: operations["command_migration_rollback"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/migration.scan": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Look at the old system and count what is there. Read-only, and safe to run again: nothing it does can change a customer record.
+         * @description Risk level 1. Requires org.migrations.manage. Emits migration.scan_requested.
+         */
+        post: operations["command_migration_scan"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/migration.select": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Choose what to bring across. Anything a choice needs is added automatically and locked, with a line saying which choice asked for it.
+         * @description Risk level 1. Requires org.migrations.manage. Emits migration.selection_changed.
+         */
+        post: operations["command_migration_select"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/migration.start": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Bring it across. Queues the work in dependency order; nothing outside this business is ever contacted, and no message, invoice or reminder goes out because of it.
+         * @description Risk level 4. Requires org.migrations.manage. Emits migration.started.
+         */
+        post: operations["command_migration_start"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/migration.task_done": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Tick off a setup step, such as reconnecting Stripe or changing a DNS record.
+         * @description Risk level 1. Requires org.migrations.manage. Emits migration.task_changed.
+         */
+        post: operations["command_migration_task_done"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/money.save_settings": {
         parameters: {
             query?: never;
@@ -5471,6 +5791,106 @@ export interface paths {
          * @description Requires inbox.use.
          */
         post: operations["query_message_get"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/migration.get": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Everything one migration knows about itself: where each business lands, what was found, what was chosen, what will not fit, what is left to do, and how far it has got.
+         * @description Requires org.migrations.manage.
+         */
+        post: operations["query_migration_get"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/migration.list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The migrations this organization has run or is running, and the sources it has connected.
+         * @description Requires org.migrations.manage.
+         */
+        post: operations["query_migration_list"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/migration.report": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The completion report: what came across, what was checked, what will not fit, and what is left for a person to do.
+         * @description Requires org.migrations.manage.
+         */
+        post: operations["query_migration_report"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/migration.review_queue": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The customers a migration is not sure about: somebody arriving who might be somebody already here.
+         * @description Requires org.migrations.manage.
+         */
+        post: operations["query_migration_review_queue"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/migration.rollback_preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * What taking this migration back would do: what goes, what is put back, and what is left alone because somebody has changed it here since.
+         * @description Requires org.migrations.manage.
+         */
+        post: operations["query_migration_rollback_preview"];
         delete?: never;
         options?: never;
         head?: never;
@@ -11735,6 +12155,611 @@ export interface operations {
                         /** Format: date-time */
                         scheduledFor?: string;
                         status: string;
+                    };
+                };
+            };
+        };
+    };
+    command_migration_connection_disconnect: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    connectionId: string;
+                    /** Format: uuid */
+                    organizationId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changed: boolean;
+                        /** Format: uuid */
+                        connectionId: string;
+                        /** @enum {string} */
+                        status: "pending" | "active" | "reauth_required" | "error" | "disconnected";
+                    };
+                };
+            };
+        };
+    };
+    command_migration_connection_rename: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    connectionId: string;
+                    displayName: string | null;
+                    /** Format: uuid */
+                    organizationId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changed: boolean;
+                        /** Format: uuid */
+                        connectionId: string;
+                        /** @enum {string} */
+                        status: "pending" | "active" | "reauth_required" | "error" | "disconnected";
+                    };
+                };
+            };
+        };
+    };
+    command_migration_connect: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /**
+                     * @default agency
+                     * @enum {string}
+                     */
+                    installKind?: "agency" | "location";
+                    /** Format: uuid */
+                    organizationId: string;
+                    /** @enum {string} */
+                    source: "gohighlevel" | "hubspot" | "salesforce" | "jobber" | "housecall_pro" | "servicetitan" | "follow_up_boss";
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        connectionId: string;
+                        startPath: string;
+                        state: string;
+                    };
+                };
+            };
+        };
+    };
+    command_migration_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    connectionId: string;
+                    /** @default false */
+                    includeDeleted?: boolean;
+                    name: string;
+                    /** Format: uuid */
+                    organizationId: string;
+                    /** @default true */
+                    transition?: boolean;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        migrationId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_migration_extend_transition: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    days: number;
+                    /** Format: uuid */
+                    migrationId: string;
+                    /** Format: uuid */
+                    organizationId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        migrationId: string;
+                        /** Format: date-time */
+                        transitionEndsAt: string;
+                    };
+                };
+            };
+        };
+    };
+    command_migration_finalize: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @default false */
+                    acknowledgeOpenTasks?: boolean;
+                    /** Format: uuid */
+                    migrationId: string;
+                    /** Format: uuid */
+                    organizationId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changed: boolean;
+                        /** Format: uuid */
+                        migrationId: string;
+                        /** @enum {string} */
+                        status: "draft" | "connected" | "scanning" | "scanned" | "ready" | "importing" | "paused" | "verifying" | "imported" | "transition" | "finalizing" | "completed" | "needs_attention" | "failed" | "cancelling" | "cancelled" | "rolling_back" | "rolled_back";
+                    };
+                };
+            };
+        };
+    };
+    command_migration_map_scopes: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    migrationId: string;
+                    /** Format: uuid */
+                    organizationId: string;
+                    scopes: {
+                        createWorkspace?: {
+                            name: string;
+                            timezone?: string | null;
+                        } | null;
+                        /** Format: uuid */
+                        scopeId: string;
+                        /** @default false */
+                        skip?: boolean;
+                        workspaceId?: string | null;
+                    }[];
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        mapped: number;
+                        /** Format: uuid */
+                        migrationId: string;
+                        /** @default [] */
+                        shared: {
+                            scopeNames: string[];
+                            workspaceName: string;
+                        }[];
+                        skipped: number;
+                    };
+                };
+            };
+        };
+    };
+    command_migration_pause: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    migrationId: string;
+                    /** Format: uuid */
+                    organizationId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changed: boolean;
+                        /** Format: uuid */
+                        migrationId: string;
+                        /** @enum {string} */
+                        status: "draft" | "connected" | "scanning" | "scanned" | "ready" | "importing" | "paused" | "verifying" | "imported" | "transition" | "finalizing" | "completed" | "needs_attention" | "failed" | "cancelling" | "cancelled" | "rolling_back" | "rolled_back";
+                    };
+                };
+            };
+        };
+    };
+    command_migration_resolve_merge: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    candidateId: string;
+                    /** @enum {string} */
+                    decision: "merge" | "separate" | "remap";
+                    /** Format: uuid */
+                    organizationId: string;
+                    targetId?: string | null;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        candidateId: string;
+                        resolution: string;
+                    };
+                };
+            };
+        };
+    };
+    command_migration_resume: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    migrationId: string;
+                    /** Format: uuid */
+                    organizationId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changed: boolean;
+                        /** Format: uuid */
+                        migrationId: string;
+                        /** @enum {string} */
+                        status: "draft" | "connected" | "scanning" | "scanned" | "ready" | "importing" | "paused" | "verifying" | "imported" | "transition" | "finalizing" | "completed" | "needs_attention" | "failed" | "cancelling" | "cancelled" | "rolling_back" | "rolled_back";
+                    };
+                };
+            };
+        };
+    };
+    command_migration_retry: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    category?: string | null;
+                    /** Format: uuid */
+                    migrationId: string;
+                    /** Format: uuid */
+                    organizationId: string;
+                    scopeId?: string | null;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        migrationId: string;
+                        requeued: number;
+                    };
+                };
+            };
+        };
+    };
+    command_migration_rollback: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {boolean} */
+                    confirm: true;
+                    /** Format: uuid */
+                    migrationId: string;
+                    /** Format: uuid */
+                    organizationId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changed: boolean;
+                        /** Format: uuid */
+                        migrationId: string;
+                        /** @enum {string} */
+                        status: "draft" | "connected" | "scanning" | "scanned" | "ready" | "importing" | "paused" | "verifying" | "imported" | "transition" | "finalizing" | "completed" | "needs_attention" | "failed" | "cancelling" | "cancelled" | "rolling_back" | "rolled_back";
+                    };
+                };
+            };
+        };
+    };
+    command_migration_scan: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    migrationId: string;
+                    /** Format: uuid */
+                    organizationId: string;
+                    scopeId?: string | null;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        migrationId: string;
+                        /** Format: uuid */
+                        scanId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_migration_select: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    choices: {
+                        category: string;
+                        resourceId?: string | null;
+                        selected: boolean;
+                    }[];
+                    /** Format: uuid */
+                    migrationId: string;
+                    /** Format: uuid */
+                    organizationId: string;
+                    scopeId?: string | null;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @default [] */
+                        added: {
+                            category: string;
+                            reason: string;
+                            requiredBy: string[];
+                        }[];
+                        /** @default [] */
+                        blocked: {
+                            category: string;
+                            missing: string[];
+                        }[];
+                        /** Format: uuid */
+                        migrationId: string;
+                        /** @default [] */
+                        selectedCategories: string[];
+                    };
+                };
+            };
+        };
+    };
+    command_migration_start: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @default [] */
+                    acknowledgedFindingIds?: string[];
+                    /** Format: uuid */
+                    migrationId: string;
+                    /** Format: uuid */
+                    organizationId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changed: boolean;
+                        /** Format: uuid */
+                        migrationId: string;
+                        /** @enum {string} */
+                        status: "draft" | "connected" | "scanning" | "scanned" | "ready" | "importing" | "paused" | "verifying" | "imported" | "transition" | "finalizing" | "completed" | "needs_attention" | "failed" | "cancelling" | "cancelled" | "rolling_back" | "rolled_back";
+                    };
+                };
+            };
+        };
+    };
+    command_migration_task_done: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @default true */
+                    done?: boolean;
+                    /** Format: uuid */
+                    organizationId: string;
+                    /** Format: uuid */
+                    taskId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        state: string;
+                        /** Format: uuid */
+                        taskId: string;
                     };
                 };
             };
@@ -21191,6 +22216,378 @@ export interface operations {
                             type: "message" | "call";
                             via: ("microsoft" | "google") | null;
                         };
+                    };
+                };
+            };
+        };
+    };
+    query_migration_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    migrationId: string;
+                    /** Format: uuid */
+                    organizationId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        connection: {
+                            displayName: string | null;
+                            /** Format: uuid */
+                            id: string;
+                            /** @enum {string} */
+                            installKind: "agency" | "location";
+                            missingScopes: string[];
+                            /** @enum {string} */
+                            status: "pending" | "active" | "reauth_required" | "error" | "disconnected";
+                        };
+                        findings: {
+                            acknowledged: boolean;
+                            affectedCount: number;
+                            blocksImport: boolean;
+                            /** @enum {string} */
+                            capability: "ready" | "needs_review" | "action_required" | "port_required" | "not_available" | "not_supported" | "not_imported" | "not_in_release";
+                            category: string | null;
+                            code: string;
+                            group: string;
+                            groupTitle: string;
+                            /** Format: uuid */
+                            id: string;
+                            recommendedAction: string | null;
+                            scopeName: string | null;
+                            /** @enum {string} */
+                            severity: "info" | "review" | "action" | "blocking";
+                            summary: string;
+                            whatChanges: string | null;
+                            whatImports: string | null;
+                        }[];
+                        inventory: {
+                            autoAdded: boolean;
+                            blurb: string;
+                            /** @enum {string} */
+                            capability: "ready" | "needs_review" | "action_required" | "port_required" | "not_available" | "not_supported" | "not_imported" | "not_in_release";
+                            capabilityLabel: string;
+                            category: string;
+                            categoryLabel: string;
+                            countLabel: string;
+                            /** @enum {string} */
+                            countQuality: "complete" | "estimated" | "permission_limited" | "not_enumerable" | "unknown";
+                            dependsOn: string[];
+                            estimatedBytes: number;
+                            found: number;
+                            locked: boolean;
+                            notes: string | null;
+                            requiredBy: string[];
+                            resourceId: string | null;
+                            resourceName: string | null;
+                            selected: boolean;
+                        }[];
+                        migration: {
+                            finalizedAt: string | null;
+                            /** Format: uuid */
+                            id: string;
+                            importedAt: string | null;
+                            includeDeleted: boolean;
+                            lastError: string | null;
+                            name: string;
+                            /** @enum {string} */
+                            source: "gohighlevel" | "hubspot" | "salesforce" | "jobber" | "housecall_pro" | "servicetitan" | "follow_up_boss";
+                            sourceLabel: string;
+                            startedAt: string | null;
+                            /** @enum {string} */
+                            status: "draft" | "connected" | "scanning" | "scanned" | "ready" | "importing" | "paused" | "verifying" | "imported" | "transition" | "finalizing" | "completed" | "needs_attention" | "failed" | "cancelling" | "cancelled" | "rolling_back" | "rolled_back";
+                            totals: {
+                                [key: string]: unknown;
+                            };
+                            transitionEnabled: boolean;
+                            transitionEndsAt: string | null;
+                        };
+                        needsReview: number;
+                        progress: {
+                            category: string;
+                            categoryLabel: string;
+                            complete: boolean;
+                            failed: number;
+                            found: number;
+                            imported: number;
+                            merged: number;
+                            scopeId: string | null;
+                            skipped: number;
+                        }[];
+                        retryable: number;
+                        scopes: {
+                            createsWorkspace: boolean;
+                            externalScopeId: string;
+                            /** Format: uuid */
+                            id: string;
+                            lastError: string | null;
+                            name: string;
+                            selected: boolean;
+                            /** @default [] */
+                            sharesWorkspaceWith: string[];
+                            /** @enum {string} */
+                            status: "discovered" | "skipped" | "mapped" | "scanning" | "scanned" | "ready" | "importing" | "paused" | "verifying" | "imported" | "transition" | "completed" | "needs_attention" | "failed" | "rolling_back" | "rolled_back";
+                            timezone: string | null;
+                            totals: {
+                                [key: string]: unknown;
+                            };
+                            workspaceId: string | null;
+                            workspaceName: string | null;
+                        }[];
+                        tasks: {
+                            blocksLiveUse: boolean;
+                            /** Format: uuid */
+                            id: string;
+                            instructions: string | null;
+                            kind: string;
+                            label: string;
+                            provider: string;
+                            settingsPath: string | null;
+                            state: string;
+                            workspaceId: string | null;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    query_migration_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    organizationId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        connections: {
+                            connectedAt: string | null;
+                            displayName: string | null;
+                            /** Format: uuid */
+                            id: string;
+                            /** @enum {string} */
+                            installKind: "agency" | "location";
+                            missingScopes: string[];
+                            /** @enum {string} */
+                            source: "gohighlevel" | "hubspot" | "salesforce" | "jobber" | "housecall_pro" | "servicetitan" | "follow_up_boss";
+                            sourceLabel: string;
+                            /** @enum {string} */
+                            status: "pending" | "active" | "reauth_required" | "error" | "disconnected";
+                        }[];
+                        migrations: {
+                            /** Format: date-time */
+                            createdAt: string;
+                            /** Format: uuid */
+                            id: string;
+                            importedAt: string | null;
+                            name: string;
+                            scopes: number;
+                            /** @enum {string} */
+                            source: "gohighlevel" | "hubspot" | "salesforce" | "jobber" | "housecall_pro" | "servicetitan" | "follow_up_boss";
+                            sourceLabel: string;
+                            startedAt: string | null;
+                            /** @enum {string} */
+                            status: "draft" | "connected" | "scanning" | "scanned" | "ready" | "importing" | "paused" | "verifying" | "imported" | "transition" | "finalizing" | "completed" | "needs_attention" | "failed" | "cancelling" | "cancelled" | "rolling_back" | "rolled_back";
+                            transitionEndsAt: string | null;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    query_migration_report: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    migrationId: string;
+                    /** Format: uuid */
+                    organizationId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        byCategory: {
+                            category: string;
+                            categoryLabel: string;
+                            failed: number;
+                            found: number;
+                            imported: number;
+                            merged: number;
+                            skipped: number;
+                            verified: boolean;
+                        }[];
+                        checks: {
+                            actual: number | null;
+                            category: string | null;
+                            expected: number | null;
+                            kind: string;
+                            result: string;
+                            summary: string | null;
+                        }[];
+                        failedItems: number;
+                        findings: {
+                            acknowledged: boolean;
+                            affectedCount: number;
+                            blocksImport: boolean;
+                            /** @enum {string} */
+                            capability: "ready" | "needs_review" | "action_required" | "port_required" | "not_available" | "not_supported" | "not_imported" | "not_in_release";
+                            category: string | null;
+                            code: string;
+                            group: string;
+                            groupTitle: string;
+                            /** Format: uuid */
+                            id: string;
+                            recommendedAction: string | null;
+                            scopeName: string | null;
+                            /** @enum {string} */
+                            severity: "info" | "review" | "action" | "blocking";
+                            summary: string;
+                            whatChanges: string | null;
+                            whatImports: string | null;
+                        }[];
+                        /** Format: uuid */
+                        migrationId: string;
+                        name: string;
+                        openTasks: number;
+                        recordsMigrated: number;
+                        reportPath: string | null;
+                        sourceLabel: string;
+                        /** @enum {string} */
+                        status: "draft" | "connected" | "scanning" | "scanned" | "ready" | "importing" | "paused" | "verifying" | "imported" | "transition" | "finalizing" | "completed" | "needs_attention" | "failed" | "cancelling" | "cancelled" | "rolling_back" | "rolled_back";
+                    };
+                };
+            };
+        };
+    };
+    query_migration_review_queue: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @default 25 */
+                    limit?: number;
+                    /** Format: uuid */
+                    migrationId: string;
+                    /** Format: uuid */
+                    organizationId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        candidates: {
+                            /** @default [] */
+                            here: {
+                                email: string | null;
+                                /** Format: uuid */
+                                id: string;
+                                name: string;
+                                phone: string | null;
+                            }[];
+                            /** Format: uuid */
+                            id: string;
+                            incoming: {
+                                email: string | null;
+                                name: string;
+                                phone: string | null;
+                            };
+                            matchRule: string;
+                            reason: string;
+                            scopeName: string;
+                            score: number;
+                        }[];
+                        remaining: number;
+                    };
+                };
+            };
+        };
+    };
+    query_migration_rollback_preview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    migrationId: string;
+                    /** Format: uuid */
+                    organizationId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @default [] */
+                        external: string[];
+                        /** Format: uuid */
+                        migrationId: string;
+                        protected: number;
+                        removable: number;
+                        restorable: number;
                     };
                 };
             };

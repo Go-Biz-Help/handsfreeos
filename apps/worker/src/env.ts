@@ -88,6 +88,15 @@ export interface WorkerEnv {
   readonly squareWebhookSignatureKeys: readonly string[];
   /** Which Square to talk to: its sandbox has its own application and its own hosts. */
   readonly squareEnvironment: 'live' | 'test';
+  /**
+   * Moving a business here from another CRM (M11). `real` talks to GoHighLevel; `fake` is the stand-in agency
+   * the tests and local development migrate from, so nothing ever reaches a real account by accident.
+   * Production refuses the stand-in, exactly as payments and telephony do.
+   */
+  readonly migrationSource: 'real' | 'fake';
+  /** The GoHighLevel marketplace app: its client id and secret. Both, or neither. */
+  readonly goHighLevelClientId: string | null;
+  readonly goHighLevelClientSecret: string | null;
   /** How long the stand-in takes to settle a bank transfer; null (the default) means only when asked. */
   readonly paymentsFakeSettleMs: number | null;
   /** The Assistant: Claude, a scripted stand-in for tests, or none (the panel says it isn't set up). */
@@ -233,6 +242,19 @@ export function readEnv(env: NodeJS.ProcessEnv = process.env): WorkerEnv {
   if (fakeSettleMs !== null && (!Number.isFinite(fakeSettleMs) || fakeSettleMs < 0))
     throw new Error('PAYMENTS_FAKE_SETTLE_MS must be a whole number of milliseconds');
 
+  // Moving a business here from another CRM. Local development gets the stand-in agency unless a real
+  // GoHighLevel app is configured, so a spec can migrate end to end with no account anywhere.
+  const goHighLevelClientId = env.GOHIGHLEVEL_CLIENT_ID || null;
+  const goHighLevelClientSecret = env.GOHIGHLEVEL_CLIENT_SECRET || null;
+  const migrationSource = (env.MIGRATION_SOURCE ??
+    (production || goHighLevelClientId ? 'real' : 'fake')) as string;
+  if (migrationSource !== 'real' && migrationSource !== 'fake')
+    throw new Error('MIGRATION_SOURCE must be real or fake');
+  if (production && migrationSource === 'fake')
+    throw new Error('MIGRATION_SOURCE=fake is for development and tests only');
+  if (goHighLevelClientId && !goHighLevelClientSecret)
+    throw new Error('GOHIGHLEVEL_CLIENT_SECRET is required with GOHIGHLEVEL_CLIENT_ID');
+
   const anthropicApiKey = env.ANTHROPIC_API_KEY || null;
   const assistantProvider = (env.ASSISTANT_PROVIDER ??
     (anthropicApiKey ? 'anthropic' : 'none')) as string;
@@ -313,6 +335,9 @@ export function readEnv(env: NodeJS.ProcessEnv = process.env): WorkerEnv {
       env.SUPABASE_JWKS_URL ??
       (supabaseUrl ? `${supabaseUrl}/auth/v1/.well-known/jwks.json` : null),
     jwtIssuer: env.SUPABASE_JWT_ISSUER ?? (supabaseUrl ? `${supabaseUrl}/auth/v1` : null),
+    migrationSource: migrationSource as 'real' | 'fake',
+    goHighLevelClientId,
+    goHighLevelClientSecret,
     telephonyProvider,
     twilioAccountSid,
     twilioAuthToken,

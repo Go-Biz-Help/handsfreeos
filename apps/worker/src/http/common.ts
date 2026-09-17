@@ -3,6 +3,7 @@ import { asWorker, rows, sql, type Db } from '@hfos/db/client';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import type { z } from 'zod';
 import type { AssistantServices } from '../assistant/routes';
+import type { MigrationAdapters } from '../migrations/adapters/registry';
 import type { WorkerServices } from '../services';
 import { verifyTwilioSignature, type WebhookParams } from '../telephony/signature';
 import type { BookingHttpOptions } from './booking';
@@ -28,6 +29,8 @@ export interface HttpDeps extends WorkerServices {
   readonly money?: MoneyHttpOptions;
   /** Playwright's routes (http/test-routes.ts): only with the fake providers, never in production. */
   readonly testRoutes?: TestRoutes | null;
+  /** Reading the CRM a business is leaving (M11): the sign-in routes need the adapter to build its URL. */
+  readonly migrationAdapters?: MigrationAdapters | null;
 }
 
 export const header = (req: FastifyRequest, name: string): string | undefined => {

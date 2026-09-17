@@ -29,6 +29,7 @@ A plain "step 5" means step 5 of the list you are reading, or of the part named 
 - [Workflows, the knowledge base and agency templates](#workflows-the-knowledge-base-and-agency-templates)
 - [The AI teammate and website chat](#the-ai-teammate-and-website-chat)
 - [Money: Stripe and Square](#money-stripe-and-square)
+- [Moving a business here from another CRM](#moving-a-business-here-from-another-crm)
 - [Push notifications: Expo](#push-notifications-expo)
 - [Local development](#local-development)
 - [Going live, and when something goes wrong](#going-live-and-when-something-goes-wrong)
@@ -7523,6 +7524,62 @@ Two more things worth saying to a client in the same breath:
 - **A payment succeeded at the provider but the invoice here still says unpaid:** a webhook did not arrive or did not verify. Check the provider's own webhook page for failed deliveries, and check the signing secret. Nothing is lost — both providers retry for days, and the payment lands the moment a delivery verifies.
 - **A business says they were charged twice:** they weren't. A payment carries the customer's own press as its idempotency key, and a payment's status only ever moves forward, so a retried or doubled submit takes the money once. Show them **Money** → **Payments**, which lists every payment the business has taken, with what it was paid on, where it stands and which invoice it belongs to; the provider's own dashboard will show one charge against it.
 - **An account says Reconnect:** its token lapsed (Square) or the provider refused it. Nothing is taken until the business presses Reconnect and signs in again. Refunds on payments taken through the old sign-in still work once the same account is reconnected, because the credentials are found by the provider's account id rather than by the connection row.
+
+## Moving a business here from another CRM
+
+A business you take on is almost never starting from nothing. It has five years of customers, texts, calls, appointments and invoices in whatever it uses today, and it will not move until it believes none of that will be lost. **Migrations** is the part of HandsFreeOS that moves it, and the promise it makes is stricter than "the data is in there somewhere": the history has to feel as though the business had been using HandsFreeOS all along. A customer added in 2019 says 2019. A text sent on a Tuesday afternoon sits where a Tuesday afternoon belongs.
+
+GoHighLevel is the first system we can read. Everything past the reading is source-neutral, so HubSpot, Jobber or Housecall Pro is a new adapter rather than a new migration platform.
+
+Migrations need the migrations `20260923000100_migrations_core.sql` to `20260923000400_migrations_writes.sql`. See "Apply new migrations".
+
+Without any of this, everything else in HandsFreeOS works. **Migrations** in the agency area simply says GoHighLevel is not set up.
+
+### What it does, in order
+
+1. **Connect.** The agency signs into GoHighLevel and approves the sub-accounts we may reach. We ask for read access only.
+2. **Look.** Read-only, and safe to run again. It counts what is there, says how sure it is of each count, and writes down every place the old system holds something HandsFreeOS cannot hold the same way.
+3. **Say where each one lands.** Every sub-account becomes a business here, or joins one you already have. Several may share one business; the page says what that mixes before anything moves.
+4. **Choose and check.** Everything we can bring is ticked already. Untick what you do not want, read the plan, press the button.
+5. **It arrives.** In small batches that can be paused, resumed and retried. Nothing goes out to a customer because of it: no text, no email, no invoice, no reminder.
+6. **Check and finish.** Counts, duplicates, orphans and dates are all checked. Setup steps that are left — reconnect Stripe, change a DNS record, port a number — are listed as work to do, never as failures.
+
+### What it will not do
+
+- **It never touches the GoHighLevel account.** Nothing is changed there and nothing is cancelled. The business cancels when it is ready, and we tell them not to cancel a phone line before the carrier confirms the port.
+- **It never rebuilds their automations.** HandsFreeOS answers, follows up, reminds and asks for reviews itself. We read their workflows to check nothing they rely on is missing, and recommend the setting that replaces each one.
+- **It never brings websites or funnels.** Those are counted so the boundary is visible, and they keep working where they are.
+- **It never copies a credential.** No payment keys, no OAuth tokens, no API keys. Anything that has to be live again is reconnected through the normal HandsFreeOS screens.
+
+### Setting up the GoHighLevel app
+
+1. Sign in at `https://marketplace.gohighlevel.com` as Go Biz Help and create a **marketplace app**.
+2. Give it the read scopes the adapter asks for. The list is in `apps/worker/src/migrations/adapters/gohighlevel.ts` (`GHL_SCOPES`); it is read-only throughout.
+3. Set the redirect URL to `https://hooks.handsfreeos.com/migrations/gohighlevel/callback`.
+4. Copy the client id and client secret into your password manager.
+5. On `handsfreeos-worker`, set `GOHIGHLEVEL_CLIENT_ID` and `GOHIGHLEVEL_CLIENT_SECRET`. Both, or neither — the worker refuses to start with one of them. Neither value goes in Vercel or GitHub.
+6. `MIGRATION_SOURCE` picks itself: `real` in production or whenever a client id is set, `fake` otherwise. Production refuses `fake`.
+
+### Before the first real migration
+
+**The adapter has not been run against a live GoHighLevel agency from this repository.** Its endpoints, its token exchange and its location-token exchange follow HighLevel's published v2 API, and the whole thing is built to find out rather than to assume — it probes each category with a one-record read and reports what actually came back, and every field it did not understand is kept rather than dropped. That is not the same as having done it. Before the first client:
+
+1. Connect a **test** GoHighLevel account, or a sub-account you own.
+2. Run the scan and read the inventory. Counts that look wrong, or categories marked "the old system will not give it", are what you are looking for.
+3. Bring it into a **throwaway** business here, not a client's.
+4. Read the report, then take it back with **Take it back** and check the business is as it was.
+5. Write down what the field coverage actually was, category by category. That list is the thing that decides which categories can be called ready.
+
+### The stand-in, for local work
+
+Locally and in tests, migrations read a stand-in agency instead of GoHighLevel: two sub-accounts of a fictional HVAC company, deliberately awkward. The same customer appears in both on one mobile number. Two different Dave Smiths have different numbers. One customer's email points at one person here and their phone at another. Companies are out of reach, so "we were not allowed to look" is exercised; custom fields are readable and have nowhere here to go, so the other kind of gap is exercised too. It lives in `apps/worker/src/migrations/adapters/fake.ts`, and nothing in it can reach a real account.
+
+### When something goes wrong
+
+- **"The old system needs signing in to again."** The token expired or was revoked. Connect it again from **Migrations**; the migration picks up where it stopped.
+- **A batch keeps failing.** `app.migration_errors` holds a sanitized reason per record, and **Try N again** requeues them. Records that already came across are not brought twice — the source identity sees to that.
+- **A customer is waiting on a decision.** The engine never guesses between two people. Those sit in the review queue and the rest of the import carries on around them.
+- **The counts do not add up.** A source that is still being used while it is read is normal, and the check says so rather than failing. A *duplicate* is not normal: the identity check would fail, and that is worth stopping for.
 
 ## Push notifications: Expo
 

@@ -17,6 +17,8 @@ import { handlers } from './handlers/index';
 import { createCalendars } from './calendar/index';
 import { createMailboxes } from './mailbox/index';
 import { createMoneyLinks } from './money/links';
+import { createMigrationAdapters } from './migrations/adapters/registry';
+import { processMigrationJobs } from './migrations/engine/run';
 import { createPayments } from './payments/index';
 import { createPush } from './push/index';
 import { createSafeFetch } from './http/safe-fetch';
@@ -86,6 +88,18 @@ const services: EngineServices = {
   // Workflow AI steps and AI-sorted branches answer from that model, grounded in the knowledge base.
   workflowAi: createWorkflowAi({ db: handle.db, ai, log }),
 };
+/**
+ * Reading the CRM a business is leaving (M11). `fake` is the stand-in agency the specs migrate from, so an end
+ * to end migration can be proved with no account anywhere; production refuses it.
+ */
+const migrationAdapters = createMigrationAdapters({
+  live: env.migrationSource === 'real',
+  goHighLevel: {
+    clientId: env.goHighLevelClientId ?? '',
+    clientSecret: env.goHighLevelClientSecret ?? '',
+    configured: !!env.goHighLevelClientId && !!env.goHighLevelClientSecret,
+  },
+});
 const workerId = `${hostname()}:${process.pid}`;
 const loopDeps = { ...services, workerId, batchSize: env.batchSize };
 
@@ -128,6 +142,7 @@ const app = await buildHttpServer({
         dailyTokens: env.assistantDailyTokens,
       }
     : null,
+  migrationAdapters,
 });
 await app.listen({ port: env.httpPort, host: env.httpHost });
 await ensureRecurringJobs(services);
@@ -142,6 +157,7 @@ log.info(
     mailboxes: env.mailboxProvider,
     calendars: env.calendarProvider,
     payments: env.paymentsProvider,
+    migrations: env.migrationSource,
     push: env.pushProvider,
     assistant: env.assistantProvider,
     handlers: Object.keys(handlers),
@@ -167,6 +183,10 @@ const tick = async () => {
     if (deliveries.claimed > 0) log.info(deliveries, 'webhook pass');
     const due = await processJobs({ ...loopDeps, jobs });
     if (due.claimed > 0) log.info(due, 'jobs pass');
+    // Moving a business here from another CRM: its own leased batches, so a long import never holds up
+    // a text going out.
+    const moving = await processMigrationJobs({ ...loopDeps, adapters: migrationAdapters });
+    if (moving.claimed > 0) log.info(moving, 'migration pass');
   } catch (e) {
     log.error({ err: e }, 'worker pass crashed');
   }

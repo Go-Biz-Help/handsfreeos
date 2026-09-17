@@ -3051,7 +3051,796 @@ export const userPhones = app.table('user_phones', {
   ...timestamps(),
 });
 
+// ---------- Milestone 11: moving a business here from another CRM (0064-0066) ----------
+export const migrationSource = app.enum('migration_source', [
+  'gohighlevel',
+  'hubspot',
+  'salesforce',
+  'jobber',
+  'housecall_pro',
+  'servicetitan',
+  'follow_up_boss',
+]);
+export const migrationInstallKind = app.enum('migration_install_kind', ['agency', 'location']);
+export const migrationConnectionStatus = app.enum('migration_connection_status', [
+  'pending',
+  'active',
+  'reauth_required',
+  'error',
+  'disconnected',
+]);
+export const migrationStatus = app.enum('migration_status', [
+  'draft',
+  'connected',
+  'scanning',
+  'scanned',
+  'ready',
+  'importing',
+  'paused',
+  'verifying',
+  'imported',
+  'transition',
+  'finalizing',
+  'completed',
+  'needs_attention',
+  'failed',
+  'cancelling',
+  'cancelled',
+  'rolling_back',
+  'rolled_back',
+]);
+export const migrationScopeStatus = app.enum('migration_scope_status', [
+  'discovered',
+  'skipped',
+  'mapped',
+  'scanning',
+  'scanned',
+  'ready',
+  'importing',
+  'paused',
+  'verifying',
+  'imported',
+  'transition',
+  'completed',
+  'needs_attention',
+  'failed',
+  'rolling_back',
+  'rolled_back',
+]);
+export const migrationCountQuality = app.enum('migration_count_quality', [
+  'complete',
+  'estimated',
+  'permission_limited',
+  'not_enumerable',
+  'unknown',
+]);
+export const migrationCapability = app.enum('migration_capability', [
+  'ready',
+  'needs_review',
+  'action_required',
+  'port_required',
+  'not_available',
+  'not_supported',
+  'not_imported',
+  'not_in_release',
+]);
+export const migrationFindingSeverity = app.enum('migration_finding_severity', [
+  'info',
+  'review',
+  'action',
+  'blocking',
+]);
+export const migrationJobState = app.enum('migration_job_state', [
+  'pending',
+  'leased',
+  'done',
+  'retry',
+  'quarantined',
+  'failed',
+  'cancelled',
+]);
+export const migrationJobKind = app.enum('migration_job_kind', [
+  'discover',
+  'scan',
+  'fetch',
+  'normalize',
+  'import',
+  'media',
+  'link',
+  'verify',
+  'reconcile',
+  'rollback',
+]);
+export const migrationItemState = app.enum('migration_item_state', [
+  'discovered',
+  'staged',
+  'normalized',
+  'matched',
+  'imported',
+  'verified',
+  'skipped',
+  'waiting',
+  'needs_review',
+  'failed',
+  'rolled_back',
+]);
+export const migrationErrorKind = app.enum('migration_error_kind', [
+  'transient',
+  'permission',
+  'mapping',
+  'dependency',
+  'conflict',
+  'source_gone',
+  'policy',
+  'target',
+]);
+export const migrationMediaState = app.enum('migration_media_state', [
+  'pending',
+  'copying',
+  'stored',
+  'missing',
+  'failed',
+  'skipped',
+]);
+export const mergeResolution = app.enum('merge_resolution', [
+  'pending',
+  'merged',
+  'separate',
+  'remapped',
+  'dismissed',
+]);
+export const migrationCheckKind = app.enum('migration_check_kind', [
+  'counts',
+  'identity',
+  'references',
+  'fields',
+  'history',
+  'media',
+  'financial',
+  'structure',
+  'transition',
+  'rollback',
+]);
+export const migrationCheckResult = app.enum('migration_check_result', [
+  'passed',
+  'warned',
+  'failed',
+  'skipped',
+]);
+export const reconnectKind = app.enum('reconnect_kind', [
+  'payments',
+  'calendar',
+  'mailbox',
+  'social',
+  'messaging',
+  'accounting',
+  'meetings',
+  'reviews',
+  'dns',
+  'other',
+]);
+export const reconnectState = app.enum('reconnect_state', [
+  'todo',
+  'in_progress',
+  'done',
+  'not_needed',
+  'blocked',
+]);
+export const portState = app.enum('port_state', [
+  'not_started',
+  'information_required',
+  'documents_required',
+  'ready_to_submit',
+  'submitted',
+  'carrier_review',
+  'scheduled',
+  'complete',
+  'rejected',
+  'cancelled',
+  'needs_attention',
+]);
+
+export type MigrationSource = (typeof migrationSource.enumValues)[number];
+export type MigrationStatus = (typeof migrationStatus.enumValues)[number];
+export type MigrationScopeStatus = (typeof migrationScopeStatus.enumValues)[number];
+export type MigrationCountQuality = (typeof migrationCountQuality.enumValues)[number];
+export type MigrationCapability = (typeof migrationCapability.enumValues)[number];
+export type MigrationFindingSeverity = (typeof migrationFindingSeverity.enumValues)[number];
+export type MigrationJobState = (typeof migrationJobState.enumValues)[number];
+export type MigrationJobKind = (typeof migrationJobKind.enumValues)[number];
+export type MigrationItemState = (typeof migrationItemState.enumValues)[number];
+export type MigrationErrorKind = (typeof migrationErrorKind.enumValues)[number];
+export type MigrationMediaState = (typeof migrationMediaState.enumValues)[number];
+export type MergeResolution = (typeof mergeResolution.enumValues)[number];
+export type MigrationCheckKind = (typeof migrationCheckKind.enumValues)[number];
+export type MigrationCheckResult = (typeof migrationCheckResult.enumValues)[number];
+export type ReconnectKind = (typeof reconnectKind.enumValues)[number];
+export type ReconnectState = (typeof reconnectState.enumValues)[number];
+export type PortState = (typeof portState.enumValues)[number];
+
+const orgRef = () =>
+  uuid('organization_id')
+    .notNull()
+    .references(() => organizations.id, { onDelete: 'cascade' });
+
+/**
+ * One authorized sign-in to the CRM a business is leaving (0064). Tokens and the sign-in's one-time secrets are
+ * sealed by the worker and never granted to `authenticated`, exactly like mailboxes, calendars and payment
+ * accounts. People rename a source or disconnect it; everything else is the worker's.
+ */
+export const migrationConnections = app.table('migration_connections', {
+  id: id(),
+  organizationId: orgRef(),
+  sourceSystem: migrationSource('source_system').notNull(),
+  installKind: migrationInstallKind('install_kind').notNull().default('location'),
+  status: migrationConnectionStatus('status').notNull().default('pending'),
+  /** The source's own id for the agency or sub-account this reaches. */
+  externalAccountId: text('external_account_id'),
+  displayName: text('display_name'),
+  /** What the sign-in was granted, and what a whole import would have wanted. */
+  scopes: text('scopes')
+    .array()
+    .notNull()
+    .default(sql`'{}'`),
+  missingScopes: text('missing_scopes')
+    .array()
+    .notNull()
+    .default(sql`'{}'`),
+  oauthStateHash: text('oauth_state_hash'),
+  oauthStateExpiresAt: ts('oauth_state_expires_at'),
+  pkceVerifierEnc: text('pkce_verifier_enc'),
+  tokenEnc: text('token_enc'),
+  tokenKeyId: text('token_key_id'),
+  tokenExpiresAt: ts('token_expires_at'),
+  nextRefreshAt: ts('next_refresh_at'),
+  adapterVersion: text('adapter_version'),
+  failures: integer('failures').notNull().default(0),
+  lastError: text('last_error'),
+  /** person, revoked, failed, replaced, finalized. */
+  disconnectedReason: text('disconnected_reason'),
+  connectedAt: ts('connected_at'),
+  disconnectedAt: ts('disconnected_at'),
+  createdBy: userRef('created_by'),
+  ...timestamps(),
+});
+
+/** One move from one source into one or more businesses here (0064). */
+export const migrations = app.table('migrations', {
+  id: id(),
+  organizationId: orgRef(),
+  connectionId: uuid('connection_id')
+    .notNull()
+    .references(() => migrationConnections.id, { onDelete: 'cascade' }),
+  sourceSystem: migrationSource('source_system').notNull(),
+  status: migrationStatus('status').notNull().default('draft'),
+  name: text('name').notNull(),
+  transitionEnabled: boolean('transition_enabled').notNull().default(true),
+  /** Chris chose 30 days, extendable, with a reminder at seven left. Null until the first import finishes. */
+  transitionEndsAt: ts('transition_ends_at'),
+  transitionExtendedCount: integer('transition_extended_count').notNull().default(0),
+  includeDeleted: boolean('include_deleted').notNull().default(false),
+  totals: jsonb('totals').$type<Json>().notNull().default({}),
+  adapterVersion: text('adapter_version'),
+  mappingVersion: integer('mapping_version').notNull().default(1),
+  lastError: text('last_error'),
+  startedAt: ts('started_at'),
+  importedAt: ts('imported_at'),
+  finalizedAt: ts('finalized_at'),
+  cancelledAt: ts('cancelled_at'),
+  createdBy: userRef('created_by'),
+  ...timestamps(),
+});
+
+/**
+ * One sub-account of the old system and the business here it lands in (0064). Several scopes may share one
+ * business: Chris chose that, and the merge rules are what keep one person from arriving twice.
+ */
+export const migrationScopes = app.table('migration_scopes', {
+  id: id(),
+  migrationId: uuid('migration_id')
+    .notNull()
+    .references(() => migrations.id, { onDelete: 'cascade' }),
+  organizationId: orgRef(),
+  /** Null until the sub-account is mapped, or when it is skipped. */
+  workspaceId: uuid('workspace_id').references(() => workspaces.id, { onDelete: 'cascade' }),
+  externalScopeId: text('external_scope_id').notNull(),
+  name: text('name').notNull(),
+  timezone: text('timezone'),
+  descriptor: jsonb('descriptor').$type<Json>().notNull().default({}),
+  status: migrationScopeStatus('status').notNull().default('discovered'),
+  createsWorkspace: boolean('creates_workspace').notNull().default(false),
+  selected: boolean('selected').notNull().default(true),
+  totals: jsonb('totals').$type<Json>().notNull().default({}),
+  lastError: text('last_error'),
+  scannedAt: ts('scanned_at'),
+  startedAt: ts('started_at'),
+  importedAt: ts('imported_at'),
+  ...timestamps(),
+});
+
+/** One read-only pass over the source (0064). Safe to run again; each run is its own row. */
+export const migrationScans = app.table('migration_scans', {
+  id: id(),
+  migrationId: uuid('migration_id')
+    .notNull()
+    .references(() => migrations.id, { onDelete: 'cascade' }),
+  organizationId: orgRef(),
+  scopeId: uuid('scope_id').references(() => migrationScopes.id, { onDelete: 'cascade' }),
+  status: migrationScopeStatus('status').notNull().default('scanning'),
+  adapterVersion: text('adapter_version'),
+  /** The moment the source was read as of: the first import runs up to it, the catch-up starts from it. */
+  watermarkAt: ts('watermark_at'),
+  manifest: jsonb('manifest').$type<Json>().notNull().default({}),
+  estimatedBytes: bigint('estimated_bytes', { mode: 'number' }).notNull().default(0),
+  estimatedMinutes: integer('estimated_minutes'),
+  lastError: text('last_error'),
+  startedAt: ts('started_at').notNull().defaultNow(),
+  finishedAt: ts('finished_at'),
+  requestedBy: userRef('requested_by'),
+  ...timestamps(),
+});
+
+/** What the scan found, per category and per resource a person may pick through (0064). */
+export const migrationInventory = app.table('migration_inventory', {
+  id: id(),
+  migrationId: uuid('migration_id')
+    .notNull()
+    .references(() => migrations.id, { onDelete: 'cascade' }),
+  organizationId: orgRef(),
+  scopeId: uuid('scope_id')
+    .notNull()
+    .references(() => migrationScopes.id, { onDelete: 'cascade' }),
+  category: text('category').notNull(),
+  resourceId: text('resource_id'),
+  resourceName: text('resource_name'),
+  foundCount: bigint('found_count', { mode: 'number' }).notNull().default(0),
+  countQuality: migrationCountQuality('count_quality').notNull().default('unknown'),
+  capability: migrationCapability('capability').notNull().default('ready'),
+  estimatedBytes: bigint('estimated_bytes', { mode: 'number' }).notNull().default(0),
+  dependsOn: text('depends_on')
+    .array()
+    .notNull()
+    .default(sql`'{}'`),
+  notes: text('notes'),
+  scannedAt: ts('scanned_at').notNull().defaultNow(),
+  ...timestamps(),
+});
+
+/** What a person chose to bring over, saved as they choose it (0064). */
+export const migrationSelections = app.table('migration_selections', {
+  id: id(),
+  migrationId: uuid('migration_id')
+    .notNull()
+    .references(() => migrations.id, { onDelete: 'cascade' }),
+  organizationId: orgRef(),
+  scopeId: uuid('scope_id')
+    .notNull()
+    .references(() => migrationScopes.id, { onDelete: 'cascade' }),
+  category: text('category').notNull(),
+  resourceId: text('resource_id'),
+  selected: boolean('selected').notNull().default(true),
+  /** True when the engine added this because something chosen needs it; the screen says what asked. */
+  autoAdded: boolean('auto_added').notNull().default(false),
+  requiredBy: text('required_by')
+    .array()
+    .notNull()
+    .default(sql`'{}'`),
+  chosenBy: userRef('chosen_by'),
+  ...timestamps(),
+});
+
+/** Every place the old system holds something this one cannot hold the same way (0064). */
+export const migrationFindings = app.table('migration_findings', {
+  id: id(),
+  migrationId: uuid('migration_id')
+    .notNull()
+    .references(() => migrations.id, { onDelete: 'cascade' }),
+  organizationId: orgRef(),
+  scopeId: uuid('scope_id').references(() => migrationScopes.id, { onDelete: 'cascade' }),
+  category: text('category'),
+  code: text('code').notNull(),
+  capability: migrationCapability('capability').notNull(),
+  severity: migrationFindingSeverity('severity').notNull().default('info'),
+  sourceCapability: text('source_capability'),
+  targetCapability: text('target_capability'),
+  summary: text('summary').notNull(),
+  whatImports: text('what_imports'),
+  whatChanges: text('what_changes'),
+  recommendedAction: text('recommended_action'),
+  blocksImport: boolean('blocks_import').notNull().default(false),
+  affectedCount: bigint('affected_count', { mode: 'number' }).notNull().default(0),
+  detail: jsonb('detail').$type<Json>().notNull().default({}),
+  adapterVersion: text('adapter_version'),
+  mappingVersion: integer('mapping_version').notNull().default(1),
+  acknowledgedAt: ts('acknowledged_at'),
+  acknowledgedBy: userRef('acknowledged_by'),
+  firstSeenAt: ts('first_seen_at').notNull().defaultNow(),
+  lastSeenAt: ts('last_seen_at').notNull().defaultNow(),
+  ...timestamps(),
+});
+
+/** The payload as the old system gave it, checksummed, so a mapping can be corrected later (0065). */
+export const migrationSourceObjects = app.table('migration_source_objects', {
+  id: id(),
+  migrationId: uuid('migration_id')
+    .notNull()
+    .references(() => migrations.id, { onDelete: 'cascade' }),
+  organizationId: orgRef(),
+  scopeId: uuid('scope_id')
+    .notNull()
+    .references(() => migrationScopes.id, { onDelete: 'cascade' }),
+  workspaceId: workspaceRef(),
+  sourceObjectType: text('source_object_type').notNull(),
+  sourceObjectId: text('source_object_id').notNull(),
+  sourceParentObjectId: text('source_parent_object_id'),
+  category: text('category').notNull(),
+  /** The old system's own times. History keeps its dates. */
+  sourceCreatedAt: ts('source_created_at'),
+  sourceUpdatedAt: ts('source_updated_at'),
+  sourceDeletedAt: ts('source_deleted_at'),
+  retrievedAt: ts('retrieved_at').notNull().defaultNow(),
+  payload: jsonb('payload').$type<Json>().notNull().default({}),
+  payloadChecksum: text('payload_checksum').notNull(),
+  payloadVersion: integer('payload_version').notNull().default(1),
+  adapterVersion: text('adapter_version'),
+  state: migrationItemState('state').notNull().default('staged'),
+  expiresAt: ts('expires_at'),
+  ...timestamps(),
+});
+
+/**
+ * One source record, one record here (0065). The unique index on
+ * (workspace, system, installation, location, object type, object id) is the idempotency boundary the whole
+ * platform rests on: replaying a page, retrying a batch or a catch-up sync months later all land on this row.
+ */
+export const migrationSourceMappings = app.table('migration_source_mappings', {
+  id: id(),
+  workspaceId: workspaceRef(),
+  organizationId: orgRef(),
+  sourceSystem: migrationSource('source_system').notNull(),
+  installationId: uuid('installation_id')
+    .notNull()
+    .references(() => migrationConnections.id, { onDelete: 'cascade' }),
+  sourceLocationId: text('source_location_id').notNull(),
+  sourceObjectType: text('source_object_type').notNull(),
+  sourceObjectId: text('source_object_id').notNull(),
+  targetType: text('target_type').notNull(),
+  targetId: uuid('target_id').notNull(),
+  /** Whether this migration made the record or joined one already here. Rollback reads only this. */
+  createdHere: boolean('created_here').notNull().default(true),
+  firstMigrationId: uuid('first_migration_id')
+    .notNull()
+    .references(() => migrations.id, { onDelete: 'cascade' }),
+  lastMigrationId: uuid('last_migration_id')
+    .notNull()
+    .references(() => migrations.id, { onDelete: 'cascade' }),
+  canonicalSchemaVersion: integer('canonical_schema_version').notNull().default(1),
+  mappingVersion: integer('mapping_version').notNull().default(1),
+  sourceChecksum: text('source_checksum'),
+  lastSyncedAt: ts('last_synced_at'),
+  ...timestamps(),
+});
+
+/** Two records that may be one person, with the evidence that said so (0065). Never a name alone. */
+export const migrationMergeCandidates = app.table('migration_merge_candidates', {
+  id: id(),
+  migrationId: uuid('migration_id')
+    .notNull()
+    .references(() => migrations.id, { onDelete: 'cascade' }),
+  organizationId: orgRef(),
+  scopeId: uuid('scope_id')
+    .notNull()
+    .references(() => migrationScopes.id, { onDelete: 'cascade' }),
+  workspaceId: workspaceRef(),
+  sourceObjectType: text('source_object_type').notNull(),
+  sourceObjectId: text('source_object_id').notNull(),
+  targetType: text('target_type').notNull(),
+  targetId: uuid('target_id'),
+  /** Which rung of core's hierarchy matched: phone, email, extra_phone, extra_email, corroborating, conflict. */
+  matchRule: text('match_rule').notNull(),
+  score: integer('score').notNull().default(0),
+  evidence: jsonb('evidence').$type<Json>().notNull().default({}),
+  resolution: mergeResolution('resolution').notNull().default('pending'),
+  autoResolved: boolean('auto_resolved').notNull().default(false),
+  resolvedAt: ts('resolved_at'),
+  resolvedBy: userRef('resolved_by'),
+  ...timestamps(),
+});
+
+/** Everything this migration wrote, so rollback can take back exactly that and nothing else (0065). */
+export const migrationChangeJournal = app.table('migration_change_journal', {
+  id: bigint('id', { mode: 'number' }).primaryKey().generatedAlwaysAsIdentity(),
+  migrationId: uuid('migration_id')
+    .notNull()
+    .references(() => migrations.id, { onDelete: 'cascade' }),
+  organizationId: orgRef(),
+  scopeId: uuid('scope_id')
+    .notNull()
+    .references(() => migrationScopes.id, { onDelete: 'cascade' }),
+  workspaceId: workspaceRef(),
+  /** create, update, link, merge. */
+  action: text('action').notNull(),
+  targetType: text('target_type').notNull(),
+  targetId: uuid('target_id').notNull(),
+  sourceObjectType: text('source_object_type'),
+  sourceObjectId: text('source_object_id'),
+  /** {field: {before, after}}. Rollback puts back only what is still the value it wrote. */
+  changedFields: jsonb('changed_fields')
+    .$type<Record<string, { before: unknown; after: unknown }>>()
+    .notNull()
+    .default({}),
+  revertedAt: ts('reverted_at'),
+  /** changed_since, depended_on, external. */
+  revertSkippedReason: text('revert_skipped_reason'),
+  createdAt: ts('created_at').notNull().defaultNow(),
+});
+
+/** What stopped and whether it can be tried again (0065). Sanitized: no tokens, no URLs, no bodies. */
+export const migrationErrors = app.table('migration_errors', {
+  id: bigint('id', { mode: 'number' }).primaryKey().generatedAlwaysAsIdentity(),
+  migrationId: uuid('migration_id')
+    .notNull()
+    .references(() => migrations.id, { onDelete: 'cascade' }),
+  organizationId: orgRef(),
+  scopeId: uuid('scope_id').references(() => migrationScopes.id, { onDelete: 'cascade' }),
+  workspaceId: uuid('workspace_id').references(() => workspaces.id, { onDelete: 'cascade' }),
+  category: text('category'),
+  sourceObjectType: text('source_object_type'),
+  sourceObjectId: text('source_object_id'),
+  kind: migrationErrorKind('kind').notNull(),
+  code: text('code').notNull(),
+  message: text('message').notNull(),
+  retryable: boolean('retryable').notNull().default(true),
+  attempts: integer('attempts').notNull().default(1),
+  detail: jsonb('detail').$type<Json>().notNull().default({}),
+  resolvedAt: ts('resolved_at'),
+  firstSeenAt: ts('first_seen_at').notNull().defaultNow(),
+  lastSeenAt: ts('last_seen_at').notNull().defaultNow(),
+});
+
+/** A file copied into storage here, so the history still plays after the old system is cancelled (0065). */
+export const migrationMedia = app.table('migration_media', {
+  id: id(),
+  migrationId: uuid('migration_id')
+    .notNull()
+    .references(() => migrations.id, { onDelete: 'cascade' }),
+  organizationId: orgRef(),
+  scopeId: uuid('scope_id')
+    .notNull()
+    .references(() => migrationScopes.id, { onDelete: 'cascade' }),
+  workspaceId: workspaceRef(),
+  sourceObjectType: text('source_object_type').notNull(),
+  sourceObjectId: text('source_object_id').notNull(),
+  /** Where it was. Kept only to ask again while the connection lives; never shown to a person. */
+  sourceLocator: text('source_locator').notNull(),
+  state: migrationMediaState('state').notNull().default('pending'),
+  bucket: text('bucket'),
+  objectPath: text('object_path'),
+  fileId: uuid('file_id').references(() => files.id, { onDelete: 'set null' }),
+  fileName: text('file_name'),
+  declaredMime: text('declared_mime'),
+  detectedMime: text('detected_mime'),
+  sizeBytes: bigint('size_bytes', { mode: 'number' }),
+  checksum: text('checksum'),
+  attempts: integer('attempts').notNull().default(0),
+  lastError: text('last_error'),
+  storedAt: ts('stored_at'),
+  ...timestamps(),
+});
+
+/** A leased batch of work (0065). A worker that dies loses a lease, not a migration. */
+export const migrationJobs = app.table('migration_jobs', {
+  id: id(),
+  migrationId: uuid('migration_id')
+    .notNull()
+    .references(() => migrations.id, { onDelete: 'cascade' }),
+  organizationId: orgRef(),
+  scopeId: uuid('scope_id').references(() => migrationScopes.id, { onDelete: 'cascade' }),
+  workspaceId: uuid('workspace_id').references(() => workspaces.id, { onDelete: 'cascade' }),
+  kind: migrationJobKind('kind').notNull(),
+  category: text('category').notNull(),
+  state: migrationJobState('state').notNull().default('pending'),
+  /** Lower runs first: the pass number from core's dependency graph. */
+  pass: integer('pass').notNull().default(0),
+  input: jsonb('input').$type<Json>().notNull().default({}),
+  result: jsonb('result').$type<Json>().notNull().default({}),
+  runAt: ts('run_at').notNull().defaultNow(),
+  leasedBy: text('leased_by'),
+  leasedUntil: ts('leased_until'),
+  attempts: integer('attempts').notNull().default(0),
+  lastError: text('last_error'),
+  finishedAt: ts('finished_at'),
+  ...timestamps(),
+});
+
+/** Where to start again (0065). Saved only after the rows a page produced are safely stored. */
+export const migrationCheckpoints = app.table('migration_checkpoints', {
+  id: id(),
+  migrationId: uuid('migration_id')
+    .notNull()
+    .references(() => migrations.id, { onDelete: 'cascade' }),
+  organizationId: orgRef(),
+  scopeId: uuid('scope_id')
+    .notNull()
+    .references(() => migrationScopes.id, { onDelete: 'cascade' }),
+  category: text('category').notNull(),
+  cursor: jsonb('cursor').$type<Json>().notNull().default({}),
+  highWaterAt: ts('high_water_at'),
+  overlapSeconds: integer('overlap_seconds').notNull().default(300),
+  lastSourceObjectId: text('last_source_object_id'),
+  counts: jsonb('counts').$type<Json>().notNull().default({}),
+  adapterVersion: text('adapter_version'),
+  mappingVersion: integer('mapping_version').notNull().default(1),
+  complete: boolean('complete').notNull().default(false),
+  ...timestamps(),
+});
+
+/** One check that the move worked, kept apart from the others because each asks a different question (0066). */
+export const migrationVerifications = app.table('migration_verifications', {
+  id: id(),
+  migrationId: uuid('migration_id')
+    .notNull()
+    .references(() => migrations.id, { onDelete: 'cascade' }),
+  organizationId: orgRef(),
+  scopeId: uuid('scope_id').references(() => migrationScopes.id, { onDelete: 'cascade' }),
+  category: text('category'),
+  kind: migrationCheckKind('kind').notNull(),
+  result: migrationCheckResult('result').notNull().default('skipped'),
+  expectedCount: bigint('expected_count', { mode: 'number' }),
+  actualCount: bigint('actual_count', { mode: 'number' }),
+  discrepancy: bigint('discrepancy', { mode: 'number' }).notNull().default(0),
+  tolerance: bigint('tolerance', { mode: 'number' }).notNull().default(0),
+  summary: text('summary'),
+  samples: jsonb('samples').$type<unknown[]>().notNull().default([]),
+  ranAt: ts('ran_at').notNull().defaultNow(),
+  createdAt: ts('created_at').notNull().defaultNow(),
+});
+
+/**
+ * Something a person has to go and do — reconnect Stripe, change a DNS record (0066). Not a failure of the
+ * import, which is why it lives here and not in the errors.
+ */
+export const migrationReconnectTasks = app.table('migration_reconnect_tasks', {
+  id: id(),
+  migrationId: uuid('migration_id')
+    .notNull()
+    .references(() => migrations.id, { onDelete: 'cascade' }),
+  organizationId: orgRef(),
+  scopeId: uuid('scope_id').references(() => migrationScopes.id, { onDelete: 'cascade' }),
+  workspaceId: uuid('workspace_id').references(() => workspaces.id, { onDelete: 'cascade' }),
+  kind: reconnectKind('kind').notNull(),
+  provider: text('provider').notNull(),
+  label: text('label').notNull(),
+  state: reconnectState('state').notNull().default('todo'),
+  instructions: text('instructions'),
+  /** Where in HandsFreeOS this is done, so the item is a link and not a treasure hunt. */
+  settingsPath: text('settings_path'),
+  descriptor: jsonb('descriptor').$type<Json>().notNull().default({}),
+  blocksLiveUse: boolean('blocks_live_use').notNull().default(false),
+  completedAt: ts('completed_at'),
+  completedBy: userRef('completed_by'),
+  ...timestamps(),
+});
+
+/** Moving a phone number: the carrier's process, tracked (0066). Submitting it is always an explicit act. */
+export const migrationPortRequests = app.table('migration_port_requests', {
+  id: id(),
+  migrationId: uuid('migration_id')
+    .notNull()
+    .references(() => migrations.id, { onDelete: 'cascade' }),
+  organizationId: orgRef(),
+  scopeId: uuid('scope_id').references(() => migrationScopes.id, { onDelete: 'cascade' }),
+  workspaceId: uuid('workspace_id').references(() => workspaces.id, { onDelete: 'cascade' }),
+  e164: text('e164').notNull(),
+  friendlyName: text('friendly_name'),
+  capabilities: jsonb('capabilities').$type<Json>().notNull().default({}),
+  state: portState('state').notNull().default('not_started'),
+  selected: boolean('selected').notNull().default(false),
+  externalReference: text('external_reference'),
+  carrierStatus: text('carrier_status'),
+  documents: jsonb('documents').$type<Json>().notNull().default({}),
+  scheduledFor: ts('scheduled_for'),
+  submittedAt: ts('submitted_at'),
+  completedAt: ts('completed_at'),
+  lastError: text('last_error'),
+  phoneNumberId: uuid('phone_number_id').references(() => phoneNumbers.id, { onDelete: 'set null' }),
+  ...timestamps(),
+});
+
+/** How one category keeps up with the old system until cutover (0066). */
+export const migrationTransitionCursors = app.table('migration_transition_cursors', {
+  id: id(),
+  migrationId: uuid('migration_id')
+    .notNull()
+    .references(() => migrations.id, { onDelete: 'cascade' }),
+  organizationId: orgRef(),
+  scopeId: uuid('scope_id')
+    .notNull()
+    .references(() => migrationScopes.id, { onDelete: 'cascade' }),
+  category: text('category').notNull(),
+  /** webhook, poll, both, none — and when it is none the screen says so rather than pretending. */
+  mode: text('mode').notNull().default('poll'),
+  cursor: jsonb('cursor').$type<Json>().notNull().default({}),
+  syncedThroughAt: ts('synced_through_at'),
+  lastRunAt: ts('last_run_at'),
+  nextRunAt: ts('next_run_at'),
+  intervalSeconds: integer('interval_seconds').notNull().default(900),
+  lagSeconds: integer('lag_seconds').notNull().default(0),
+  drift: bigint('drift', { mode: 'number' }).notNull().default(0),
+  failures: integer('failures').notNull().default(0),
+  lastError: text('last_error'),
+  ...timestamps(),
+});
+
+/** A change the old system told us about (0066). Its own row, so a repeat or an out-of-order notice is free. */
+export const migrationTransitionEvents = app.table('migration_transition_events', {
+  id: bigint('id', { mode: 'number' }).primaryKey().generatedAlwaysAsIdentity(),
+  migrationId: uuid('migration_id')
+    .notNull()
+    .references(() => migrations.id, { onDelete: 'cascade' }),
+  organizationId: orgRef(),
+  scopeId: uuid('scope_id')
+    .notNull()
+    .references(() => migrationScopes.id, { onDelete: 'cascade' }),
+  sourceEventId: text('source_event_id'),
+  sourceObjectType: text('source_object_type').notNull(),
+  sourceObjectId: text('source_object_id').notNull(),
+  category: text('category').notNull(),
+  /** created, updated, deleted. */
+  action: text('action').notNull(),
+  occurredAt: ts('occurred_at'),
+  receivedAt: ts('received_at').notNull().defaultNow(),
+  state: migrationItemState('state').notNull().default('discovered'),
+  attempts: integer('attempts').notNull().default(0),
+  lastError: text('last_error'),
+  processedAt: ts('processed_at'),
+});
+
+/** A record the old system deleted while we were catching up (0066). Never acted on straight away. */
+export const migrationTombstones = app.table('migration_tombstones', {
+  id: bigint('id', { mode: 'number' }).primaryKey().generatedAlwaysAsIdentity(),
+  migrationId: uuid('migration_id')
+    .notNull()
+    .references(() => migrations.id, { onDelete: 'cascade' }),
+  organizationId: orgRef(),
+  scopeId: uuid('scope_id')
+    .notNull()
+    .references(() => migrationScopes.id, { onDelete: 'cascade' }),
+  workspaceId: workspaceRef(),
+  sourceObjectType: text('source_object_type').notNull(),
+  sourceObjectId: text('source_object_id').notNull(),
+  targetType: text('target_type'),
+  targetId: uuid('target_id'),
+  sourceDeletedAt: ts('source_deleted_at'),
+  /** pending, archived, kept, ignored. */
+  applied: text('applied').notNull().default('pending'),
+  reason: text('reason'),
+  createdAt: ts('created_at').notNull().defaultNow(),
+  appliedAt: ts('applied_at'),
+});
+
 export const tables = {
+  migrationConnections,
+  migrations,
+  migrationScopes,
+  migrationScans,
+  migrationInventory,
+  migrationSelections,
+  migrationFindings,
+  migrationSourceObjects,
+  migrationSourceMappings,
+  migrationMergeCandidates,
+  migrationChangeJournal,
+  migrationErrors,
+  migrationMedia,
+  migrationJobs,
+  migrationCheckpoints,
+  migrationVerifications,
+  migrationReconnectTasks,
+  migrationPortRequests,
+  migrationTransitionCursors,
+  migrationTransitionEvents,
+  migrationTombstones,
   commandReceipts,
   workspaceAccess,
   pushDevices,

@@ -48,6 +48,7 @@ import { timelineList } from './timeline.list';
 import { workspaceGet } from './workspace.get';
 import { workspaceInvitations } from './workspace.invitations';
 import { workspaceMembers } from './workspace.members';
+import { migrationQueries } from './migration';
 import {
   workflowApprovalList,
   workflowCatalogs,
@@ -140,6 +141,7 @@ export {
 export { emailComposeOptions };
 
 export const queries: readonly QueryDef[] = [
+  ...migrationQueries,
   me,
   accountDeletionCheck,
   pushDeviceList,
@@ -275,3 +277,5 @@ export {
   aiTeammateDraftList,
   aiTeammateActivity,
 };
+
+export * from './migration';

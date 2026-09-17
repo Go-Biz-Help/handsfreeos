@@ -30,3 +30,4 @@ export * from './chat';
 export * from './attention';
 export * from './money';
 export * from './push';
+export * from './migration';

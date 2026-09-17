@@ -25,6 +25,7 @@ import { registerBookingRoutes } from './booking';
 import { registerChatRoutes } from './chat';
 import { registerEmailRoutes } from './email';
 import { registerMoneyRoutes } from './money';
+import { registerMigrationRoutes } from './migrations';
 import { registerOAuthRoutes } from './oauth';
 import { registerTestRoutes } from './test-routes';
 import { registerVoiceRoutes } from './voice';
@@ -154,6 +155,8 @@ export async function buildHttpServer(deps: HttpDeps): Promise<FastifyInstance> 
   registerVoiceRoutes(app, deps);
   registerEmailRoutes(app, deps);
   registerOAuthRoutes(app, deps);
+  // Signing in to the CRM a business is leaving (M11).
+  if (deps.migrationAdapters) registerMigrationRoutes(app, deps, deps.migrationAdapters);
   // The stand-in provider's own payment page; it registers nothing when the real providers are configured.
   registerFakePaymentRoutes(app, deps);
   registerAssistantRoutes(app, deps, deps.assistant ?? null);
