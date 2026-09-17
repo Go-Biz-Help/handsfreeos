@@ -407,7 +407,6 @@ export function createFakeSourceAdapter(): FakeSource {
           count: scaled,
           countQuality: 'complete',
           capability: cat ? releaseCapability(cat.release) : 'not_in_release',
-          notes: cat?.releaseNote ?? null,
         } satisfies InventoryResult;
       }
     },

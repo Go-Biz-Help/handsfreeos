@@ -95,7 +95,9 @@ function Progress({ detail, step }: { detail: MigrationDetail; step: string }) {
         <span className="text-[13px] text-text-3">
           from {detail.migration.sourceLabel}
           {detail.connection.missingScopes.length > 0
-            ? ` · ${detail.connection.missingScopes.length} things this sign-in cannot read`
+            ? ` · ${detail.connection.missingScopes.length} ${
+                detail.connection.missingScopes.length === 1 ? 'thing' : 'things'
+              } this sign-in cannot read`
             : ''}
         </span>
       </div>
@@ -349,7 +351,11 @@ function InventoryRow({
   return (
     <div className="flex items-start gap-3 py-3" data-testid={`migration-row-${row.category}`}>
       <div className="pt-0.5">
-        {readOnly || row.locked || !bringable ? (
+        {/* Nothing is tickable while the businesses are still being decided, so the row simply has no
+            control — a padlock there would read as "locked forever", which is a different thing. */}
+        {readOnly ? (
+          <span className="block h-[18px] w-[18px]" aria-hidden />
+        ) : row.locked || !bringable ? (
           <Lock className="h-4 w-4 text-text-3" strokeWidth={1.5} aria-hidden />
         ) : (
           <Checkbox

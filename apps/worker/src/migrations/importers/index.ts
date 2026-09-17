@@ -118,6 +118,9 @@ export const importUser: Importer = async (tx, scope, envelope) => {
       summary: `${name} has no email in the old system, so they cannot be matched to an account here.`,
       whatImports: 'Their customers still come across; nobody owns them yet.',
       recommendedAction: 'Assign those customers once the person has an account here.',
+      // One finding per person. Findings are counted up by their key, and without this every one of them
+      // would land on the same row — with the last person's name and the first person's email beside it.
+      sourceCapability: envelope.source.objectId,
       affected: 1,
     });
     return { counts: { skipped: 1 } };
@@ -143,6 +146,8 @@ export const importUser: Importer = async (tx, scope, envelope) => {
       whatChanges:
         'Their customers arrive with nobody assigned, because an owner has to be a real account.',
       recommendedAction: `Invite ${name} (${email}), then assign their customers.`,
+      // One finding per person, for the same reason as above.
+      sourceCapability: envelope.source.objectId,
       affected: 1,
       detail: { email, sourceUserId: envelope.source.objectId },
     });

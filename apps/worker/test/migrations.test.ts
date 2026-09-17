@@ -291,6 +291,21 @@ describe('a business moves house', () => {
     );
   });
 
+  it('names the right person in every "no account here" note', async () => {
+    // These are counted up by their key, so without a person of their own every one of them would land on
+    // the same row — with the last person's name and the first person's email beside it.
+    const notes = await rows<{ summary: string; recommended_action: string }>(
+      admin(),
+      sql`select summary, recommended_action from app.migration_findings
+          where migration_id = ${w.migrationId} and code = 'users.not_here'`,
+    );
+    expect(notes.length).toBeGreaterThanOrEqual(2);
+    for (const n of notes) {
+      const who = n.summary.split(' worked in')[0]!;
+      expect(n.recommended_action).toContain(who);
+    }
+  });
+
   it('keeps what it has nowhere to put, and says so', async () => {
     const list = await people();
     const withExtras = list.find((p) => p.notes?.includes('From the old system'));

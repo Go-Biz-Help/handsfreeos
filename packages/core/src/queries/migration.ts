@@ -353,7 +353,7 @@ export const migrationGet = defineQuery({
         return {
           category: i.category,
           categoryLabel: cat?.label ?? i.category,
-          blurb: cat?.releaseNote ?? cat?.blurb ?? '',
+          blurb: cat?.blurb ?? '',
           resourceId: i.resource_id,
           resourceName: i.resource_name,
           found: Number(i.found ?? 0),
@@ -367,7 +367,8 @@ export const migrationGet = defineQuery({
           autoAdded: i.auto_added ?? false,
           requiredBy: i.required_by ? i.required_by.split(',') : [],
           locked: (i.auto_added ?? false) || cat?.release !== 'ready',
-          notes: i.notes,
+          // Why it is not coming (or not coming yet) is said once, under the blurb — never twice.
+          notes: i.notes ?? cat?.releaseNote ?? null,
         };
       }),
       findings: findings.map((f) => {
