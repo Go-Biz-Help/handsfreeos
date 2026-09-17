@@ -228,13 +228,19 @@ jobs:
         if: failure()
         run: cp "$RUNNER_TEMP/memory.log" memory.log && tail -n 60 memory.log
 
+      # Maestro names each flow's folder after the flow, and GitHub refuses artifact paths with characters like "?"
+      # ("…asks Still send?"), so its output goes up as one archive.
+      - name: Pack Maestro's output
+        if: failure()
+        run: if [ -d maestro-artifacts ]; then tar -czf maestro-artifacts.tar.gz maestro-artifacts; fi
+
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
           name: maestro-android
           path: |
             maestro-report.xml
-            maestro-artifacts
+            maestro-artifacts.tar.gz
             api.log
             memory.log
             sync.log
