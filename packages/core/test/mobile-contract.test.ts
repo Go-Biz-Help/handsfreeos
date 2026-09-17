@@ -47,6 +47,7 @@ const ONLINE_COMMANDS = [
   'assistant.consent',
   'push_device.register',
   'push_device.remove',
+  'user.update_profile',
 ];
 /** What the phone asks the server for that its own copy can't answer. */
 const QUERIES = [

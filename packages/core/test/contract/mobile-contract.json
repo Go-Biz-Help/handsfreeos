@@ -4099,6 +4099,38 @@
         "required": ["workspaceId", "phone"]
       }
     },
+    "user.update_profile": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "fullName": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120
+          },
+          "avatarUrl": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2048,
+                "format": "uri"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "settings": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {}
+          }
+        }
+      }
+    },
     "workflow.decide_approval": {
       "offline": {
         "freshMinutes": 30
