@@ -194,20 +194,28 @@ jobs:
           curl -Ls "https://get.maestro.mobile.dev" | bash
           echo "$HOME/.maestro/bin" >> "$GITHUB_PATH"
 
+      # Android 14's automated-test-device image (fewer system apps and services, made for CI), not the full Android 16
+      # image the local runs use: on this runner's two cores, with the stack and the API beside it, the full image's
+      # System UI stopped responding over the app and its low-memory killer ran.
       - name: Run the flows
         uses: reactivecircus/android-emulator-runner@v2.38.0
         with:
-          api-level: 36
+          api-level: 34
           arch: x86_64
-          target: google_apis
+          target: google_atd
+          # Automated-test-device images come from the canary channel.
+          channel: canary
           profile: pixel_6
-          # Android 16 swaps in 2 GB, and then System UI stops responding and Maestro stalls.
-          ram-size: 4096M
+          ram-size: 3072M
           # The default data partition is over 7 GB; the app, its copy of a business and Maestro need far less.
           disk-size: 3072M
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -no-snapshot-save
+          # The system keeps starting for a while after it reports booted: let it settle, and close any "isn't
+          # responding" dialog it left over the screen, before the first flow.
           script: |
+            sleep 45
+            adb shell am broadcast -a android.intent.action.CLOSE_SYSTEM_DIALOGS
             adb reverse tcp:54421 tcp:54421
             adb reverse tcp:4000 tcp:4000
             adb reverse tcp:54430 tcp:54430
