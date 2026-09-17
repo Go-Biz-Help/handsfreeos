@@ -101,6 +101,10 @@ export function assertAppRequest(meta: RequestMeta): void {
     );
 }
 
+/** Where a person decided a draft or an approval, as its `via` says: in the Assistant, on the phone, or on the web. */
+export const decidedVia = (meta: RequestMeta): 'assistant' | 'mobile' | 'web' =>
+  meta.channel === 'assistant' ? 'assistant' : meta.channel === 'mobile' ? 'mobile' : 'web';
+
 /**
  * The moment rules, in executeCommand once a repeat has been answered and before the command runs:
  * - a customer-facing command done longer ago than its fresh minutes waits for the person's OK (`stale_action`,

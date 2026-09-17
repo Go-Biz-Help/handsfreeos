@@ -34,6 +34,34 @@ export function lateOfEvent(e: Pick<EventRow, 'createdAt' | 'occurredAt'>): Late
     : null;
 }
 
+/**
+ * A date trigger ("30 minutes after the lead is won") whose time passed only because the change that set its date reached
+ * HandsFreeOS late, so its run starts now and knows how far behind it is; null otherwise. Told apart by the change's own
+ * moment and its arrival (the event that set the date):
+ * - the change arrived late at all (`lateOfEvent`);
+ * - the trigger's time hadn't already passed (by more than `tooLateMs`) when the change was made, so on time it would
+ *   have started;
+ * - and the worker took the change up as it arrived. A trigger that passed while the worker was down, or backed up,
+ *   doesn't start, late change or not.
+ * The run is as far behind as its time (`fire`) is past.
+ */
+export function lateDateStart(
+  e: Pick<EventRow, 'createdAt' | 'occurredAt'>,
+  fire: number,
+  now: number,
+  tooLateMs: number,
+): Late | null {
+  const late = lateOfEvent(e);
+  if (!late) return null;
+  if (fire < Date.parse(late.happenedAt) - tooLateMs) return null;
+  if (now - Date.parse(late.arrivedAt) > tooLateMs) return null;
+  return {
+    ms: Math.max(0, now - fire),
+    happenedAt: new Date(fire).toISOString(),
+    arrivedAt: late.arrivedAt,
+  };
+}
+
 /** How far behind a run is, from its context. */
 export function lateOf(context: Json): Late | null {
   const late = context['_late'];

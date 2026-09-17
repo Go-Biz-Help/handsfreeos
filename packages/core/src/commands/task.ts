@@ -14,6 +14,7 @@ import {
   type MergeField,
   type MergeKind,
 } from '../kernel/field-merge';
+import { changedSince, logLaterChange, whoChangedIt } from '../kernel/later-change';
 import { changeMoment } from '../kernel/moment';
 import type { CommandContext } from '../kernel/types';
 import {
@@ -54,6 +55,45 @@ async function loadTask(ctx: CommandContext, taskId: string, opts: { lock?: bool
   const [task] = opts.lock ? await query.for('update') : await query;
   if (!task) throw HfosError.notFound('Task not found.');
   return task;
+}
+
+type TaskRow = Awaited<ReturnType<typeof loadTask>>;
+
+/**
+ * When the task was last ticked or reopened: `field_times.done_at`, which both write. A task ticked before they wrote it
+ * has only its `done_at` to say when.
+ */
+const doneChangedAt = (task: TaskRow): string | Date | null =>
+  task.fieldTimes['done_at'] ?? task.doneAt;
+
+/**
+ * A tick or a reopen someone overtook: they reopened or ticked the task after this change was made (on a phone, perhaps
+ * long before it had signal), and theirs stands. Written on the task's customer, company or lead.
+ */
+async function overtaken(
+  ctx: CommandContext,
+  task: TaskRow,
+  tried: string,
+  did: { readonly by: string; readonly was: string },
+) {
+  const at = doneChangedAt(task);
+  const who = await whoChangedIt(
+    ctx.tx,
+    { type: 'task', id: task.id },
+    ['task.completed', 'task.reopened'],
+    at,
+  );
+  await logLaterChange(
+    ctx,
+    {
+      key: 'done',
+      tried,
+      because: `${who ? `${who} ${did.by}` : `it was ${did.was}`} after that`,
+      changedAt: at,
+    },
+    { type: 'task', id: task.id },
+    { personId: task.personId, companyId: task.companyId, leadId: task.leadId },
+  );
 }
 
 export const taskCreate = defineCommand({
@@ -193,11 +233,22 @@ export const taskComplete = defineCommand({
   async handler(ctx, input) {
     const current = await loadTask(ctx, input.taskId, { lock: true });
     if (current.doneAt) return { taskId: current.id, doneAt: current.doneAt.toISOString() };
+    if (changedSince(ctx.meta, doneChangedAt(current))) {
+      await overtaken(ctx, current, `mark the task “${current.title}” done`, {
+        by: 'reopened it',
+        was: 'reopened',
+      });
+      return { taskId: current.id, doneAt: null, notApplied: ['done'] };
+    }
     // Done when the person ticked it, even if the phone only now had signal.
     const doneAt = changeMoment(ctx.meta);
     await ctx.tx
       .update(tasks)
-      .set({ doneAt, doneBy: userIdOf(ctx.actor) })
+      .set({
+        doneAt,
+        doneBy: userIdOf(ctx.actor),
+        fieldTimes: { ...current.fieldTimes, done_at: doneAt.toISOString() },
+      })
       .where(eq(tasks.id, current.id));
     const eventId = await ctx.emit({
       type: 'task.completed',
@@ -236,7 +287,21 @@ export const taskReopen = defineCommand({
   async handler(ctx, input) {
     const current = await loadTask(ctx, input.taskId, { lock: true });
     if (!current.doneAt) return { taskId: current.id };
-    await ctx.tx.update(tasks).set({ doneAt: null, doneBy: null }).where(eq(tasks.id, current.id));
+    if (changedSince(ctx.meta, doneChangedAt(current))) {
+      await overtaken(ctx, current, `reopen the task “${current.title}”`, {
+        by: 'marked it done',
+        was: 'marked done',
+      });
+      return { taskId: current.id, notApplied: ['done'] };
+    }
+    await ctx.tx
+      .update(tasks)
+      .set({
+        doneAt: null,
+        doneBy: null,
+        fieldTimes: { ...current.fieldTimes, done_at: changeMoment(ctx.meta).toISOString() },
+      })
+      .where(eq(tasks.id, current.id));
     await ctx.emit({
       type: 'task.reopened',
       entityType: 'task',

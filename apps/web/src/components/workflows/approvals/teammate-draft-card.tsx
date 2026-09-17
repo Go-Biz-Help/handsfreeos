@@ -438,12 +438,14 @@ export function TeammateDraftCard({
   );
 }
 
-/** "Approved by Dale with an edit", "Rejected by Dale: “…”", "Expired: nobody decided in time". */
+/** "Approved by Dale with an edit" (on the phone), "Rejected by Dale: “…”", "Expired: nobody decided in time". */
 export function draftDecidedLine(d: TeammateDraft): string {
   const by = d.decidedBy ? ` by ${firstNameOf(d.decidedBy.fullName)}` : '';
+  const where =
+    d.via === 'assistant' ? ' in the Assistant' : d.via === 'mobile' ? ' on the phone' : '';
   switch (d.status) {
     case 'approved':
-      return `Approved${by}${d.edits ? ' with an edit' : ''}${d.via === 'assistant' ? ' in the Assistant' : ''}`;
+      return `Approved${by}${d.edits ? ' with an edit' : ''}${where}`;
     case 'rejected':
       return `Rejected${by}${d.reason ? `: “${d.reason}”` : ''}`;
     case 'expired':

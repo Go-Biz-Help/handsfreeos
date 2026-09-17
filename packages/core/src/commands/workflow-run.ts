@@ -9,6 +9,7 @@ import { requirePerson } from '../crm/records';
 import { HfosError } from '../errors';
 import { FRESH_MINUTES } from '../mobile';
 import { requireHuman } from '../kernel/actor';
+import { decidedVia } from '../kernel/app-request';
 import { defineCommand } from '../kernel/define';
 import { changeMoment } from '../kernel/moment';
 import type { CommandContext } from '../kernel/types';
@@ -250,7 +251,7 @@ export const workflowDecideApproval = defineCommand({
         decidedBy: me,
         // Decided when the person pressed it, even if the phone only now had signal.
         decidedAt: changeMoment(ctx.meta),
-        via: ctx.meta.channel === 'assistant' ? 'assistant' : 'web',
+        via: decidedVia(ctx.meta),
       })
       .where(and(eq(workflowApprovals.id, a.id), eq(workflowApprovals.status, 'pending')))
       .returning({ id: workflowApprovals.id });

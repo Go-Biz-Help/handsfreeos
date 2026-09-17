@@ -6,6 +6,7 @@
 import { and, eq, sql as dsql } from 'drizzle-orm';
 import { aiTeammateDrafts, conversations } from '@hfos/db/schema';
 import { requireHuman } from '../kernel/actor';
+import { decidedVia } from '../kernel/app-request';
 import type { CommandContext } from '../kernel/types';
 
 type Conversation = typeof conversations.$inferSelect;
@@ -23,7 +24,7 @@ export async function cancelPendingReplyDraft(
       status: 'cancelled',
       decidedBy: person,
       decidedAt: dsql`now()`,
-      via: person ? (ctx.meta.channel === 'assistant' ? 'assistant' : 'web') : 'system',
+      via: person ? decidedVia(ctx.meta) : 'system',
       reason,
     })
     .where(

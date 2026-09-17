@@ -669,7 +669,7 @@ describe('people and runs', () => {
     expect(pending.items.some((a) => a.id === adminsOnly)).toBe(false);
   });
 
-  it('decides an approval made on the phone when it was pressed', async () => {
+  it('decides an approval made on the phone when it was pressed, and says it was on the phone', async () => {
     const approvalId = await insertApproval(approvalRun, liveId, 's_appr0004#1', [member.id]);
     // Pressed two hours ago with no signal, and sent once they said "Still send".
     const pressedAt = new Date(Date.now() - 2 * 3_600_000);
@@ -688,10 +688,10 @@ describe('people and runs', () => {
         appVersion: '1.0.0',
       },
     );
-    const decidedAt = async (id: string) =>
-      (await admin().select().from(workflowApprovals).where(eq(workflowApprovals.id, id)))[0]!
-        .decidedAt!;
-    expect((await decidedAt(approvalId)).toISOString()).toBe(pressedAt.toISOString());
+    const decided = async (id: string) =>
+      (await admin().select().from(workflowApprovals).where(eq(workflowApprovals.id, id)))[0]!;
+    expect((await decided(approvalId)).decidedAt!.toISOString()).toBe(pressedAt.toISOString());
+    expect((await decided(approvalId)).via).toBe('mobile');
     // From the web, now.
     const fromWeb = await insertApproval(approvalRun, liveId, 's_appr0005#1', []);
     await run(
@@ -699,7 +699,9 @@ describe('people and runs', () => {
       { workspaceId: wsId, approvalId: fromWeb, decision: 'reject' },
       owner,
     );
-    expect(Math.abs(Date.now() - (await decidedAt(fromWeb)).getTime())).toBeLessThan(60_000);
+    const onWeb = await decided(fromWeb);
+    expect(Math.abs(Date.now() - onWeb.decidedAt!.getTime())).toBeLessThan(60_000);
+    expect(onWeb.via).toBe('web');
   });
 
   it('lets members read and add people, but not create, edit, publish or pause', async () => {

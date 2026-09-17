@@ -1,4 +1,4 @@
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import { conversations, people } from '@hfos/db/schema';
 import { formatPhone } from '../crm/phone';
 import { fullName, requirePerson, userRef } from '../crm/records';
@@ -6,6 +6,7 @@ import { HfosError } from '../errors';
 import { userIdOf } from '../kernel/actor';
 import { defineCommand } from '../kernel/define';
 import { stampSql } from '../kernel/field-merge';
+import { changedSince, logLaterChange, whoChangedIt } from '../kernel/later-change';
 import { changeMoment } from '../kernel/moment';
 import type { CommandContext } from '../kernel/types';
 import {
@@ -194,6 +195,64 @@ export const conversationAssign = defineCommand({
 
 const DAY = 86_400_000;
 
+type Conversation = Awaited<ReturnType<typeof loadConversation>>;
+
+/** The conversation, locked, for a change that checks what happened in it since it was made. */
+async function lockConversation(
+  ctx: CommandContext,
+  conversationId: string,
+): Promise<Conversation> {
+  const [c] = await ctx.tx
+    .select()
+    .from(conversations)
+    .where(
+      and(
+        eq(conversations.id, conversationId),
+        eq(conversations.workspaceId, ctx.scope.workspaceId!),
+      ),
+    )
+    .for('update');
+  if (!c) throw HfosError.notFound('Conversation not found.');
+  return c;
+}
+
+/**
+ * A close or a snooze someone overtook: the customer wrote, or someone reopened, snoozed or closed the conversation, after
+ * this change was made (on a phone, perhaps long before it had signal). What happened since stands, and the customer's
+ * timeline says so. True when it was overtaken.
+ */
+async function overtaken(ctx: CommandContext, c: Conversation, tried: string): Promise<boolean> {
+  const wrote = changedSince(ctx.meta, c.lastInboundAt);
+  if (!wrote && !changedSince(ctx.meta, c.statusChangedAt)) return false;
+  let because: string;
+  if (wrote) {
+    const [p] = c.personId
+      ? await ctx.tx
+          .select({ firstName: people.firstName, lastName: people.lastName })
+          .from(people)
+          .where(eq(people.id, c.personId))
+      : [];
+    const name = p ? p.firstName.trim() || fullName(p.firstName, p.lastName) : '';
+    because = `${name || 'the customer'} wrote again after that`;
+  } else {
+    const did = c.status === 'open' ? 'reopened' : c.status === 'snoozed' ? 'snoozed' : 'closed';
+    const who = await whoChangedIt(
+      ctx.tx,
+      { type: 'conversation', id: c.id },
+      [`conversation.${did}`],
+      c.statusChangedAt,
+    );
+    because = `${who ? `${who} ${did} it` : `it was ${did}`} after that`;
+  }
+  await logLaterChange(
+    ctx,
+    { key: 'status', tried, because, changedAt: wrote ? c.lastInboundAt : c.statusChangedAt },
+    { type: 'conversation', id: c.id },
+    { personId: c.personId },
+  );
+  return true;
+}
+
 export const conversationSnooze = defineCommand({
   name: 'conversation.snooze',
   description:
@@ -206,7 +265,7 @@ export const conversationSnooze = defineCommand({
   emits: ['conversation.snoozed'],
   offline: 'anytime',
   async handler(ctx, input) {
-    const c = await loadConversation(ctx, input.conversationId);
+    const c = await lockConversation(ctx, input.conversationId);
     const until = new Date(input.until);
     // Measured from when the person snoozed it (on the phone, perhaps a while before it had signal).
     const madeAt = changeMoment(ctx.meta).getTime();
@@ -216,6 +275,8 @@ export const conversationSnooze = defineCommand({
       throw HfosError.validation([{ path: 'until', message: 'Snooze for 90 days at most.' }]);
     // A snooze that ran out before it arrived has nothing left to do.
     if (until.getTime() <= Date.now()) return { conversationId: c.id };
+    if (await overtaken(ctx, c, 'snooze the conversation'))
+      return { conversationId: c.id, notApplied: ['status'] };
     await ctx.tx
       .update(conversations)
       .set({ status: 'snoozed', snoozedUntil: until })
@@ -244,8 +305,10 @@ export const conversationClose = defineCommand({
   actors: ['human', 'workflow'],
   offline: 'anytime',
   async handler(ctx, input) {
-    const c = await loadConversation(ctx, input.conversationId);
+    const c = await lockConversation(ctx, input.conversationId);
     if (c.status === 'closed') return { conversationId: c.id };
+    if (await overtaken(ctx, c, 'close the conversation'))
+      return { conversationId: c.id, notApplied: ['status'] };
     await ctx.tx
       .update(conversations)
       .set({

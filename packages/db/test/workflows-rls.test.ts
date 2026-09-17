@@ -275,13 +275,19 @@ describe('workflows: who reads and who writes', () => {
   it('an approval is decided once, by a named approver or an owner or admin', async () => {
     const wf = await published(wsA, orgA);
     const runId = await enrol(wf);
-    const decide = (user: TestUser, id: string, status = 'approved', decidedBy = user.id) =>
+    const decide = (
+      user: TestUser,
+      id: string,
+      status = 'approved',
+      decidedBy = user.id,
+      via = 'web',
+    ) =>
       as(user)((tx) =>
         rows(
           tx,
           sql`update app.workflow_approvals
               set status = ${status}::app.workflow_approval_status, decided_by = ${decidedBy}, decided_at = now(),
-                via = 'web', edits = '{"text": "Thanks, Mike!"}'
+                via = ${via}, edits = '{"text": "Thanks, Mike!"}'
               where id = ${id} and status = 'pending' returning id`,
         ),
       );
@@ -301,6 +307,12 @@ describe('workflows: who reads and who writes', () => {
     expect((await failure(() => decide(bizOwner, third, 'approved', member.id))).code).toBe(
       '42501',
     );
+    // Decided on the phone says so (0063); nothing else a person names is taken.
+    const onPhone = await approval(wf, runId, [member.id]);
+    expect(
+      (await failure(() => decide(member, onPhone, 'approved', member.id, 'system'))).code,
+    ).toBe('42501');
+    expect(await decide(member, onPhone, 'approved', member.id, 'mobile')).toHaveLength(1);
     // Approvers work in the workspace.
     expect(await failure(() => approval(wf, runId, [outsider.id]))).toEqual({
       code: '23514',

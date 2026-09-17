@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { uuid } from './common';
-import { recordType, tagIds, TagRef } from './crm';
+import { notApplied, recordType, tagIds, TagRef } from './crm';
 
 const color = z.string().regex(/^#[0-9a-fA-F]{6}$/, 'Pick a color.');
 const tagName = z.string().trim().min(1, 'Enter a name.').max(40);
@@ -46,8 +46,10 @@ export const RecordTagInput = z.object({
 });
 export const RecordTagOutput = z.object({
   tags: z.array(TagRef),
-  /** False when the record already had (or already lacked) the tag. */
+  /** False when the record already had (or already lacked) the tag, or someone changed it later. */
   changed: z.boolean(),
+  /** ['tagId'] when someone put the tag on or took it off later than this change was made (M10). */
+  notApplied,
 });
 export const TagListInput = z.object({ workspaceId: uuid });
 export const TagListOutput = z.object({

@@ -14,9 +14,11 @@ import {
   requireScheduled,
   type AppointmentRow,
 } from '../calendar/appointments';
+import { userRef } from '../crm/records';
 import { HfosError } from '../errors';
 import { requireHuman } from '../kernel/actor';
 import { defineCommand } from '../kernel/define';
+import { changedSince, logLaterChange, whoChangedIt } from '../kernel/later-change';
 import { changeMoment } from '../kernel/moment';
 import type { CommandContext } from '../kernel/types';
 import {
@@ -102,11 +104,34 @@ export const attendeeConfirm = defineCommand({
       .for('update');
     if (!seat) throw HfosError.notFound('Booking not found.');
     const appt = await requireAppointment(ctx.tx, ws, seat.appointmentId);
+    const on = { personId: seat.personId, leadId: appt.leadId };
     if (input.confirmed) {
       if (seat.confirmedAt) return confirmation(appt, seat, false);
       if (seat.status === 'cancelled')
         throw HfosError.rule('booking_cancelled', 409, 'This booking was cancelled.');
       requireScheduled(appt);
+      // Moved to another time after this was marked (on a phone, perhaps long before it had signal): the customer
+      // said yes to the old time, so it stays unconfirmed.
+      if (changedSince(ctx.meta, appt.rescheduledAt)) {
+        const who = await whoChangedIt(
+          ctx.tx,
+          { type: 'appointment', id: appt.id },
+          ['appointment.rescheduled'],
+          appt.rescheduledAt,
+        );
+        await logLaterChange(
+          ctx,
+          {
+            key: 'confirmed',
+            tried: 'mark the visit confirmed',
+            because: `${who ? `${who} moved it` : 'it was moved'} to another time after that`,
+            changedAt: appt.rescheduledAt,
+          },
+          { type: 'appointment', id: appt.id },
+          on,
+        );
+        return { ...confirmation(appt, seat, false), notApplied: ['confirmed'] };
+      }
       // The database stamps the time, at the moment the person marked it (0062); the mark is in this person's name.
       const [row] = await ctx.tx
         .update(appointmentAttendees)
@@ -117,6 +142,25 @@ export const attendeeConfirm = defineCommand({
       return confirmation(appt, row!, true);
     }
     if (!seat.confirmedAt) return confirmation(appt, seat, false);
+    // Confirmed again after this was taken back (on a phone, perhaps long before it had signal): that stands.
+    if (changedSince(ctx.meta, seat.confirmedAt)) {
+      const who =
+        seat.confirmedVia === 'staff'
+          ? (await userRef(ctx.tx, seat.confirmedBy))?.fullName
+          : 'the customer';
+      await logLaterChange(
+        ctx,
+        {
+          key: 'confirmed',
+          tried: 'take back the visit’s confirmation',
+          because: `${who ? `${who} confirmed it` : 'it was confirmed'} again after that`,
+          changedAt: seat.confirmedAt,
+        },
+        { type: 'appointment', id: appt.id },
+        on,
+      );
+      return { ...confirmation(appt, seat, false), notApplied: ['confirmed'] };
+    }
     if (seat.confirmedVia !== 'staff')
       throw HfosError.rule(
         'confirmation_not_staff',

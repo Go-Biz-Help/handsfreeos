@@ -1034,8 +1034,13 @@ export const AttendeeConfirmOutput = z.object({
   attendeeId: uuid,
   confirmedAt: isoDateTime.nullable(),
   confirmedVia: confirmedVia.nullable(),
-  /** False when it was already that way. */
+  /** False when it was already that way, or a later change stood. */
   changed: z.boolean(),
+  /**
+   * ['confirmed'] when a later change stood (M10): the visit was moved, or confirmed again, later than this was
+   * marked.
+   */
+  notApplied,
 });
 /** attendee.confirm_online: the Confirm button on the customer's manage link. */
 export const AttendeeConfirmOnlineInput = z.object({

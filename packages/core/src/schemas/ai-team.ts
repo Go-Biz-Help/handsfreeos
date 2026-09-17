@@ -15,7 +15,7 @@ import {
   AttendeeRescheduleOnlineOutput,
 } from './calendar';
 import { isoDateTime, uuid, workspaceRole } from './common';
-import { ListInput, UserRef } from './crm';
+import { ListInput, notApplied, UserRef } from './crm';
 
 export const teammateStatus = z.enum(['off', 'training', 'automatic']);
 export type TeammateStatus = z.infer<typeof teammateStatus>;
@@ -260,6 +260,8 @@ export const LeadRecordAnswersOutput = z.object({
   notAFit: z.array(z.string()),
   /** It qualified just now (`lead.qualified` went out). */
   qualified: z.boolean(),
+  /** `answers.<questionId>` for each answer a newer one to the same question beat (M10). */
+  notApplied,
 });
 
 // ---------- conversations: who answers ----------

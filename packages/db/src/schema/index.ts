@@ -446,6 +446,21 @@ export const recordTags = app.table(
   (t) => [primaryKey({ columns: [t.tagId, t.recordType, t.recordId] })],
 );
 
+/** Milestone 10: when a tag last came off a record, at the moment the change was made (0063, a trigger's). */
+export const recordTagRemovals = app.table(
+  'record_tag_removals',
+  {
+    workspaceId: workspaceRef(),
+    tagId: uuid('tag_id')
+      .notNull()
+      .references(() => tags.id, { onDelete: 'cascade' }),
+    recordType: recordType('record_type').notNull(),
+    recordId: uuid('record_id').notNull(),
+    removedAt: ts('removed_at').notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.tagId, t.recordType, t.recordId] })],
+);
+
 export const leads = app.table('leads', {
   id: id(),
   workspaceId: workspaceRef(),
@@ -791,6 +806,9 @@ export const conversations = app.table('conversations', {
   /** The newest customer message the teammate has answered. */
   aiAnsweredThrough: ts('ai_answered_through'),
   aiDisclosedAt: ts('ai_disclosed_at'),
+  // Milestone 10
+  /** When it was last opened, closed or snoozed, or its snooze moved, at the moment the change was made (0063). */
+  statusChangedAt: ts('status_changed_at'),
 });
 
 export const messages = app.table('messages', {
@@ -1531,6 +1549,8 @@ export const appointments = app.table('appointments', {
   // Milestone 10
   fieldTimes: fieldTimes(),
   syncWindow: syncWindow(),
+  /** When its start last moved, at the moment the change was made (0063, a trigger's). */
+  rescheduledAt: ts('rescheduled_at'),
 });
 
 /** Staff on an appointment; `during`, `blocked` and `active` follow the appointment (trigger). */
@@ -3128,6 +3148,7 @@ export const tables = {
   people,
   tags,
   recordTags,
+  recordTagRemovals,
   leads,
   tasks,
   activities,

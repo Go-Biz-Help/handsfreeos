@@ -537,6 +537,19 @@ describe('drafts', () => {
       sql`select status, decided_by, via from app.ai_teammate_drafts where id = ${reply}`,
     );
     expect(decided).toEqual({ status: 'approved', decided_by: member.id, via: 'web' });
+    // Decided on the phone says so (0063); nothing else a person names is taken.
+    const conv2 = await conversation(A);
+    const onPhone = await makeDraft(
+      A,
+      teammateA,
+      await startRun(A, teammateA, conv2),
+      conv2,
+      'reply',
+    );
+    expect(await code(() => decide(member, onPhone, 'approved', member.id, 'pigeon'))).toBe(
+      '42501',
+    );
+    expect(await decide(member, onPhone, 'rejected', member.id, 'mobile')).toHaveLength(1);
 
     // Only the worker makes drafts, and people change nothing about one but the decision.
     expect(

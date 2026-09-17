@@ -7097,6 +7097,8 @@ export interface operations {
                         changed: boolean;
                         confirmedAt: string | null;
                         confirmedVia: ("sms" | "link" | "staff" | "ai") | null;
+                        /** @default [] */
+                        notApplied: string[];
                     };
                 };
             };
@@ -7202,6 +7204,8 @@ export interface operations {
                         changed: boolean;
                         /** Format: uuid */
                         itemId: string;
+                        /** @default [] */
+                        notApplied: string[];
                         snoozedUntil: string | null;
                         /** @enum {string} */
                         state: "open" | "snoozed" | "dismissed" | "handled" | "resolved";
@@ -7291,6 +7295,8 @@ export interface operations {
                         changed: boolean;
                         /** Format: uuid */
                         itemId: string;
+                        /** @default [] */
+                        notApplied: string[];
                         snoozedUntil: string | null;
                         /** @enum {string} */
                         state: "open" | "snoozed" | "dismissed" | "handled" | "resolved";
@@ -7512,6 +7518,8 @@ export interface operations {
                         changed: boolean;
                         /** Format: uuid */
                         itemId: string;
+                        /** @default [] */
+                        notApplied: string[];
                         snoozedUntil: string | null;
                         /** @enum {string} */
                         state: "open" | "snoozed" | "dismissed" | "handled" | "resolved";
@@ -7548,6 +7556,8 @@ export interface operations {
                         changed: boolean;
                         /** Format: uuid */
                         itemId: string;
+                        /** @default [] */
+                        notApplied: string[];
                         snoozedUntil: string | null;
                         /** @enum {string} */
                         state: "open" | "snoozed" | "dismissed" | "handled" | "resolved";
@@ -8856,6 +8866,8 @@ export interface operations {
                     "application/json": {
                         /** Format: uuid */
                         conversationId: string;
+                        /** @default [] */
+                        notApplied: string[];
                     };
                 };
             };
@@ -8888,6 +8900,8 @@ export interface operations {
                     "application/json": {
                         /** Format: uuid */
                         conversationId: string;
+                        /** @default [] */
+                        notApplied: string[];
                     };
                 };
             };
@@ -8991,6 +9005,8 @@ export interface operations {
                     "application/json": {
                         /** Format: uuid */
                         conversationId: string;
+                        /** @default [] */
+                        notApplied: string[];
                     };
                 };
             };
@@ -9023,6 +9039,8 @@ export interface operations {
                     "application/json": {
                         /** Format: uuid */
                         conversationId: string;
+                        /** @default [] */
+                        notApplied: string[];
                     };
                 };
             };
@@ -9093,6 +9111,8 @@ export interface operations {
                     "application/json": {
                         /** Format: uuid */
                         conversationId: string;
+                        /** @default [] */
+                        notApplied: string[];
                     };
                 };
             };
@@ -9127,6 +9147,8 @@ export interface operations {
                     "application/json": {
                         /** Format: uuid */
                         conversationId: string;
+                        /** @default [] */
+                        notApplied: string[];
                     };
                 };
             };
@@ -11198,6 +11220,8 @@ export interface operations {
                     "application/json": {
                         /** Format: uuid */
                         leadId: string;
+                        /** @default [] */
+                        notApplied: string[];
                         position: number;
                         /** Format: uuid */
                         stageId: string;
@@ -11241,6 +11265,8 @@ export interface operations {
                         leadId: string;
                         missing: string[];
                         notAFit: string[];
+                        /** @default [] */
+                        notApplied: string[];
                         qualified: boolean;
                         /** @enum {string} */
                         status: "qualified" | "not_a_fit" | "incomplete";
@@ -13103,6 +13129,8 @@ export interface operations {
                 content: {
                     "application/json": {
                         changed: boolean;
+                        /** @default [] */
+                        notApplied: string[];
                         tags: {
                             color: string;
                             /** Format: uuid */
@@ -13144,6 +13172,8 @@ export interface operations {
                 content: {
                     "application/json": {
                         changed: boolean;
+                        /** @default [] */
+                        notApplied: string[];
                         tags: {
                             color: string;
                             /** Format: uuid */
@@ -14261,8 +14291,9 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
-                        /** Format: date-time */
-                        doneAt: string;
+                        doneAt: string | null;
+                        /** @default [] */
+                        notApplied: string[];
                         /** Format: uuid */
                         taskId: string;
                     };
@@ -14368,6 +14399,8 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        /** @default [] */
+                        notApplied: string[];
                         /** Format: uuid */
                         taskId: string;
                     };

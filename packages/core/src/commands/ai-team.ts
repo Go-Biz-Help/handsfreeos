@@ -41,6 +41,7 @@ import { hasBlockingTeammateIssues, validateTeammate } from '../ai-team/rules';
 import { HfosError } from '../errors';
 import { FRESH_MINUTES } from '../mobile';
 import { requireHuman } from '../kernel/actor';
+import { decidedVia } from '../kernel/app-request';
 import { defineCommand } from '../kernel/define';
 import { executeCommandIn } from '../kernel/execute';
 import { changeMoment } from '../kernel/moment';
@@ -452,7 +453,7 @@ export const aiTeammateDecideDraft = defineCommand({
         decidedBy: me,
         // Decided when the person pressed it, even if the phone only now had signal.
         decidedAt: changeMoment(ctx.meta),
-        via: ctx.meta.channel === 'assistant' ? 'assistant' : 'web',
+        via: decidedVia(ctx.meta),
       })
       .where(and(eq(aiTeammateDrafts.id, d.id), eq(aiTeammateDrafts.status, 'pending')))
       .returning({ id: aiTeammateDrafts.id });

@@ -33,6 +33,7 @@ import { FRESH_MINUTES } from '../mobile';
 import { requireHuman } from '../kernel/actor';
 import { defineCommand } from '../kernel/define';
 import { executeCommandWithin } from '../kernel/execute';
+import { changedSince, logLaterChange } from '../kernel/later-change';
 import { changeMoment } from '../kernel/moment';
 import type { CommandContext } from '../kernel/types';
 import { workspaceAddresses } from '../messaging/email';
@@ -135,6 +136,39 @@ const stateOut = (row: AttentionItemRow, changed: boolean) => ({
   changed,
 });
 
+/**
+ * A snooze or a dismissal a later change overtook: after it was made (on a phone, perhaps long before it had signal),
+ * the item came back with something new, or someone snoozed or dismissed it. That stands, and the timeline says so.
+ * True when it was overtaken.
+ */
+async function overtaken(ctx: CommandContext, row: AttentionItemRow, verb: 'snooze' | 'dismiss') {
+  const later = [
+    { at: row.openedAt, did: null, by: null },
+    ...(row.state === 'snoozed' ? [{ at: row.snoozedAt, did: 'snoozed', by: row.snoozedBy }] : []),
+    ...(row.state === 'dismissed'
+      ? [{ at: row.dismissedAt, did: 'dismissed', by: row.dismissedBy }]
+      : []),
+  ]
+    .filter((c) => changedSince(ctx.meta, c.at))
+    .sort((a, b) => b.at!.getTime() - a.at!.getTime())[0];
+  if (!later) return false;
+  const who = later.by ? (await userRef(ctx.tx, later.by))?.fullName : null;
+  await logLaterChange(
+    ctx,
+    {
+      key: 'state',
+      tried: `${verb} the “${ATTENTION_KIND_LABELS[row.kind as AttentionKind]}” card`,
+      because: later.did
+        ? `${who ? `${who} ${later.did} it` : `it was ${later.did}`} after that`
+        : 'it came back with something new after that',
+      changedAt: later.at,
+    },
+    { type: 'attention_item', id: row.id },
+    { personId: row.personId, leadId: row.leadId },
+  );
+  return true;
+}
+
 /** An event on the item, carrying what it's about (the worker and the audit log read these). */
 function emitItem(
   ctx: CommandContext,
@@ -198,6 +232,8 @@ export const attentionSnooze = defineCommand({
     const me = requireHuman(ctx).userId;
     const row = await loadItem(ctx, input.itemId);
     await assertMay(ctx, row, 'snooze');
+    if (row.state === 'dismissed' && (await overtaken(ctx, row, 'snooze')))
+      return { ...stateOut(row, false), notApplied: ['state'] };
     if (row.state !== 'open' && row.state !== 'snoozed') throw notOpen(row);
     const until = new Date(input.until);
     // Measured from when the person snoozed it ("Snooze 1 hour" pressed with no signal counts from the press).
@@ -211,6 +247,8 @@ export const attentionSnooze = defineCommand({
       ]);
     // A snooze that ran out before it arrived has nothing left to do.
     if (until.getTime() <= Date.now()) return stateOut(row, false);
+    if (await overtaken(ctx, row, 'snooze'))
+      return { ...stateOut(row, false), notApplied: ['state'] };
     const out = await update(ctx, row, {
       state: 'snoozed',
       snoozedUntil: until,
@@ -289,6 +327,8 @@ export const attentionDismiss = defineCommand({
     await assertMay(ctx, row, 'dismiss');
     if (row.state === 'dismissed') return stateOut(row, false);
     if (row.state !== 'open' && row.state !== 'snoozed') throw notOpen(row);
+    if (await overtaken(ctx, row, 'dismiss'))
+      return { ...stateOut(row, false), notApplied: ['state'] };
     const reason = input.reason?.trim() || null;
     const at = changeMoment(ctx.meta);
     const out = await update(ctx, row, {

@@ -27,6 +27,7 @@ import {
   suggestedQuestions,
   type TeammatePatch,
 } from '../src/ai-team/index';
+import { notAppliedWords } from '../src/crm/not-applied';
 import { HfosError } from '../src/errors';
 import { AI_EMPLOYEE_COMMANDS, AI_EMPLOYEE_QUERIES, userIdOf } from '../src/kernel/actor';
 import { defineCommand } from '../src/kernel/define';
@@ -947,6 +948,65 @@ describe('qualifying answers', () => {
       .where(and(eq(activities.leadId, leadId), eq(activities.subtype, 'lead_qualified')));
     expect(entry!.occurredAt.toISOString()).toBe(givenAt);
   });
+
+  it('a newer answer to the same question stands over one recorded earlier on the phone', async () => {
+    const fay = await customer(a, 'Fay');
+    const { leadId } = await run(
+      leadCreate,
+      { workspaceId: a.wsId, title: 'Boiler', personId: fay.personId },
+      a.member,
+    );
+    // Answered on the web just now; the phone's answers, given two hours ago, arrive after.
+    await run(
+      leadRecordAnswers,
+      { workspaceId: a.wsId, leadId, answers: [{ questionId: 'need', answer: 'New system' }] },
+      a.owner,
+    );
+    const onPhone = twoHoursAgoOnPhone();
+    const recorded = await executeCommand(
+      api(),
+      leadRecordAnswers,
+      {
+        workspaceId: a.wsId,
+        leadId,
+        answers: [
+          { questionId: 'need', answer: 'Tune-up' },
+          { questionId: 'zip', answer: '77008' },
+        ],
+      },
+      human(a.member),
+      onPhone,
+    );
+    expect(recorded.output).toMatchObject({ qualified: false, notApplied: ['answers.need'] });
+    const [row] = await admin()
+      .select({ q: leads.qualification })
+      .from(leads)
+      .where(eq(leads.id, leadId));
+    const stored = row!.q as { answers: Record<string, { answer: string; answeredAt: string }> };
+    expect(stored.answers['need']!.answer).toBe('New system');
+    expect(stored.answers['zip']).toMatchObject({
+      answer: '77008',
+      answeredAt: onPhone.occurredAt!.toISOString(),
+    });
+    const [entry] = await admin()
+      .select()
+      .from(activities)
+      .where(and(eq(activities.leadId, leadId), eq(activities.subtype, 'edit_not_applied')));
+    expect(notAppliedWords(entry!.meta as Record<string, unknown>)).toBe(
+      'tried to answer “What do you need help with?” with “Tune-up”, but a newer answer, “New system”, was kept',
+    );
+    expect(entry!.occurredAt.toISOString()).toBe(onPhone.occurredAt!.toISOString());
+    // Everything the phone sent already newer here: nothing changes, and nothing more is said.
+    const again = await executeCommand(
+      api(),
+      leadRecordAnswers,
+      { workspaceId: a.wsId, leadId, answers: [{ questionId: 'need', answer: 'New system' }] },
+      human(a.member),
+      twoHoursAgoOnPhone(),
+    );
+    expect(again.output).toMatchObject({ notApplied: [] });
+    expect(again.eventIds).toEqual([]);
+  });
 });
 
 describe('booking for the customer in the conversation', () => {
@@ -1540,7 +1600,7 @@ describe('trying a rejected draft again', () => {
     await expectHfos(() => retry(mo.draftId, r.owner), 'rule_violation', 'not_a_rejected_reply');
   });
 
-  it('decides a draft on the phone when it was pressed', async () => {
+  it('decides a draft on the phone when it was pressed, and says it was on the phone', async () => {
     const pat = await drafted('Pat');
     const onPhone = twoHoursAgoOnPhone();
     await executeCommand(
@@ -1550,14 +1610,26 @@ describe('trying a rejected draft again', () => {
       human(r.member),
       onPhone,
     );
-    expect((await draftRow(pat.draftId)).decidedAt!.toISOString()).toBe(
-      onPhone.occurredAt!.toISOString(),
+    expect(await draftRow(pat.draftId)).toMatchObject({
+      decidedAt: onPhone.occurredAt,
+      via: 'mobile',
+    });
+    // Taking a conversation over on the phone drops its pending reply, on the phone too.
+    const ray = await drafted('Ray');
+    await executeCommand(
+      api(),
+      conversationTakeOver,
+      { workspaceId: r.wsId, conversationId: ray.conversationId },
+      human(r.member),
+      twoHoursAgoOnPhone(),
     );
+    expect(await draftRow(ray.draftId)).toMatchObject({ status: 'cancelled', via: 'mobile' });
     // From the web, now.
     const quinn = await drafted('Quinn');
     await reject(quinn.draftId, r.member);
-    const decidedAt = (await draftRow(quinn.draftId)).decidedAt!;
-    expect(Math.abs(Date.now() - decidedAt.getTime())).toBeLessThan(60_000);
+    const onWeb = await draftRow(quinn.draftId);
+    expect(Math.abs(Date.now() - onWeb.decidedAt!.getTime())).toBeLessThan(60_000);
+    expect(onWeb.via).toBe('web');
   });
 });
 

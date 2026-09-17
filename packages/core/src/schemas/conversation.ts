@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { conversationHandoffReason } from './ai-team';
 import { isoDateTime, uuid } from './common';
-import { AddressOut, ListInput, TagRef, UserRef } from './crm';
+import { AddressOut, ListInput, notApplied, TagRef, UserRef } from './crm';
 import { QuietState } from './telephony';
 
 /** What a person can open a conversation on (conversation.open): a text or an email. */
@@ -166,7 +166,14 @@ export const ConversationOpenInput = z.object({
 });
 export const ConversationOpenOutput = z.object({ conversationId: uuid, created: z.boolean() });
 export const ConversationRefInput = z.object(conversationRef);
-export const ConversationRefOutput = z.object({ conversationId: uuid });
+export const ConversationRefOutput = z.object({
+  conversationId: uuid,
+  /**
+   * ['status'] when a close or snooze was overtaken (M10): the customer wrote, or someone reopened, closed or snoozed
+   * it, later than it was made.
+   */
+  notApplied,
+});
 /** conversation.pick_up: the teammate that answers it now, and the conversation's new ai_epoch. */
 export const ConversationPickUpOutput = z.object({
   conversationId: uuid,

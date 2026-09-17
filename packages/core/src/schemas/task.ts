@@ -50,9 +50,19 @@ export const TaskUpdateOutput = z.object({
   notApplied,
 });
 export const TaskCompleteInput = z.object({ workspaceId: uuid, taskId: uuid });
-export const TaskCompleteOutput = z.object({ taskId: uuid, doneAt: isoDateTime });
+export const TaskCompleteOutput = z.object({
+  taskId: uuid,
+  /** Null when it stays open: someone reopened it later than it was ticked. */
+  doneAt: isoDateTime.nullable(),
+  /** ['done'] when someone reopened it later than it was ticked (M10). */
+  notApplied,
+});
 export const TaskReopenInput = z.object({ workspaceId: uuid, taskId: uuid });
-export const TaskReopenOutput = z.object({ taskId: uuid });
+export const TaskReopenOutput = z.object({
+  taskId: uuid,
+  /** ['done'] when someone marked it done later than it was reopened (M10). */
+  notApplied,
+});
 export const TaskDeleteInput = z.object({ workspaceId: uuid, taskId: uuid });
 export const TaskDeleteOutput = z.object({ taskId: uuid });
 

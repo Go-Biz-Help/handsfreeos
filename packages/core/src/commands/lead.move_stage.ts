@@ -5,6 +5,7 @@ import { logSystemActivity } from '../crm/activities';
 import { placeInStage } from '../crm/positions';
 import { HfosError } from '../errors';
 import { defineCommand } from '../kernel/define';
+import { changedSince, logLaterChange, whoChangedIt } from '../kernel/later-change';
 import { LeadMoveStageInput, LeadMoveStageOutput } from '../schemas/lead';
 
 export const leadMoveStage = defineCommand({
@@ -24,7 +25,8 @@ export const leadMoveStage = defineCommand({
     const [current] = await ctx.tx
       .select()
       .from(leads)
-      .where(and(eq(leads.id, input.leadId), eq(leads.workspaceId, workspaceId)));
+      .where(and(eq(leads.id, input.leadId), eq(leads.workspaceId, workspaceId)))
+      .for('update');
     if (!current) throw HfosError.notFound('Lead not found.');
     if (current.archivedAt)
       throw HfosError.rule('lead_archived', 409, 'Restore the lead before moving it.');
@@ -65,6 +67,30 @@ export const leadMoveStage = defineCommand({
       throw HfosError.validation([
         { path: 'lostReason', message: 'Add a reason to mark this lead lost.' },
       ]);
+    // Someone moved the lead after this move was made (on a phone, perhaps long before it had signal): their move
+    // stands, and the timeline says so.
+    if (from.id !== to.id && changedSince(ctx.meta, current.stageEnteredAt)) {
+      const lead = { type: 'lead', id: current.id };
+      const who = await whoChangedIt(ctx.tx, lead, ['lead.stage_changed'], current.stageEnteredAt);
+      await logLaterChange(
+        ctx,
+        {
+          key: 'stageId',
+          tried: `move ${current.title} to ${to.name}`,
+          because: `${who ? `${who} moved it` : 'it was moved'} to ${from.name} after that`,
+          changedAt: current.stageEnteredAt,
+        },
+        lead,
+        { leadId: current.id, personId: current.personId, companyId: current.companyId },
+      );
+      return {
+        leadId: current.id,
+        stageId: from.id,
+        status: current.status,
+        position: Number(current.position),
+        notApplied: ['stageId'],
+      };
+    }
     const position = await placeInStage(ctx.tx, to.id, input.afterLeadId, current.id);
     const [row] = await ctx.tx
       .update(leads)

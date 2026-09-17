@@ -9,6 +9,10 @@
  * A date trigger ("2 hours after the appointment ends") arms one `workflow.date` job per record whenever an
  * event sets or moves its anchor. When the job runs it reads the anchor again: moved later, it waits again;
  * gone or cancelled, it's dropped; otherwise it enrols the record's people, once per anchor time.
+ *
+ * A trigger whose time already passed when its anchor was set doesn't start, unless it passed only because the change
+ * that set the anchor reached HandsFreeOS late (made on a phone with no signal, late.ts): then it starts at once,
+ * marked late, so its steps that would contact the customer wait while it's more than 30 minutes behind.
  */
 import {
   nextOccurrence,
@@ -28,11 +32,15 @@ import { BATCH, dateJobKey, EARLY_MS, JOB, scheduleJobKey, SPREAD_MS } from './c
 import { RunData } from './data';
 import { versionDefinition } from './defs';
 import { enrol } from './enrol';
+import { lateDateStart, lateOf } from './late';
 import { dateOffsetInstant } from './waits';
 
-/** A date trigger whose time passed this long before its anchor was set doesn't fire. */
+/** A date trigger whose time passed this long before its anchor was set doesn't fire (late changes aside). */
 const TOO_LATE_MS = 5 * 60_000;
 const iso = (ms: number) => new Date(ms).toISOString();
+/** A late start's own job, beside the record's usual one: the enrolment is once per anchor time either way. */
+const lateDateJobKey = (workflowId: string, recordId: string, at: number): string =>
+  `${dateJobKey(workflowId, recordId)}:late:${iso(at)}`;
 const isRecord = (v: unknown): v is Record<string, unknown> =>
   typeof v === 'object' && v !== null && !Array.isArray(v);
 
@@ -112,7 +120,20 @@ export async function armDateTriggers(
     const at = await readAnchor(tx, scope.workspaceId, t.anchor, recordId);
     if (!recordId || at === null) continue;
     const fire = dateOffsetInstant(at, t.offset, t.at, tz);
-    if (fire < now - TOO_LATE_MS) continue;
+    if (fire < now - TOO_LATE_MS) {
+      // Passed only because the change that set the date arrived late: it starts now, and knows how far behind.
+      const late = lateDateStart(e, fire, now, TOO_LATE_MS);
+      if (!late) continue;
+      await scheduleJob(tx, {
+        kind: JOB.date,
+        dedupeKey: lateDateJobKey(f.id, recordId, at),
+        runAt: new Date(now),
+        payload: { workflowId: f.id, recordId, late },
+        workspaceId: scope.workspaceId,
+        organizationId: scope.organizationId,
+      });
+      continue;
+    }
     await scheduleJob(
       tx,
       {
@@ -149,6 +170,8 @@ export const workflowDateJob: JobHandler = async (ctx) => {
   const scope = tenantOf(ctx.scope);
   const workflowId = String(ctx.job.payload['workflowId'] ?? '');
   const recordId = String(ctx.job.payload['recordId'] ?? '');
+  // Armed late, because the change that set the date reached HandsFreeOS late (armDateTriggers).
+  const lateFrom = ctx.job.payload['late'];
   return asWorker(ctx.db, scope, async (tx) => {
     const wf = await flow(tx, scope.workspaceId, workflowId);
     // Paused or archived: ignored, not queued for later.
@@ -161,6 +184,10 @@ export const workflowDateJob: JobHandler = async (ctx) => {
     if (at === null) return;
     const fire = dateOffsetInstant(at, t.offset, t.at, tz);
     if (fire > ctx.now + EARLY_MS) return { rescheduleAt: new Date(fire) };
+    // How far behind a late start is now; a run that's caught up (the date moved on since) isn't late.
+    const late = isRecord(lateFrom)
+      ? lateOf({ _late: { ...lateFrom, ms: ctx.now - fire, happenedAt: iso(fire) } })
+      : null;
     for (const sub of await subjectsForRecord(
       tx,
       scope.workspaceId,
@@ -180,7 +207,10 @@ export const workflowDateJob: JobHandler = async (ctx) => {
         def,
         ...sub,
         dedupeKey: `date:${t.anchor}:${recordId}:${iso(at)}:${sub.personId}`,
-        context: { trigger: { event: 'date', anchor: t.anchor, anchorAt: iso(at) } },
+        context: {
+          trigger: { event: 'date', anchor: t.anchor, anchorAt: iso(at) },
+          ...(late ? { _late: late } : {}),
+        },
         log: ctx.log,
       });
     }

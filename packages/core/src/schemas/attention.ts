@@ -7,6 +7,7 @@ import { ATTENTION_KINDS, AUTO_ACTIONS } from '../attention/kinds';
 import { AttentionSettings } from '../attention/settings';
 import { REASON_CODES } from '../attention/types';
 import { isoDateTime, uuid } from './common';
+import { notApplied } from './crm';
 
 export const ATTENTION_STATES = ['open', 'snoozed', 'dismissed', 'handled', 'resolved'] as const;
 export const attentionKind = z.enum(ATTENTION_KINDS);
@@ -254,8 +255,13 @@ export const AttentionItemStateOutput = z.object({
   itemId: uuid,
   state: attentionState,
   snoozedUntil: isoDateTime.nullable(),
-  /** False when it was already that way. */
+  /** False when it was already that way, or a later change stood. */
   changed: z.boolean(),
+  /**
+   * ['state'] when a snooze or dismissal was overtaken (M10): the card came back with something new, or someone
+   * snoozed or dismissed it, later than it was made.
+   */
+  notApplied,
 });
 export const AttentionSnoozeInput = z.object({ ...itemRef, until: isoDateTime });
 export const AttentionDismissInput = z.object({

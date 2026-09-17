@@ -90,9 +90,12 @@ export const LeadMoveStageInput = z.object({
 });
 export const LeadMoveStageOutput = z.object({
   leadId: uuid,
+  /** The stage it's in: another one when someone moved it later than this move was made. */
   stageId: uuid,
   status: leadStatus,
   position: z.number(),
+  /** ['stageId'] when someone moved it later than this move was made (M10), so it stays where they put it. */
+  notApplied,
 });
 
 export const LeadSetNextActionInput = z.object({

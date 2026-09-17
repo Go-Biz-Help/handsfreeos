@@ -2,9 +2,9 @@
  * M10 on the local database: a change made on a phone with no signal records when the person made it, not when it
  * reached the server. Each change below is sent from the phone with the moment it was made, hours ago, and stamps
  * that moment; the same change from the web stamps now, as before.
- * - **Leads:** a move enters its stage, is won and goes on the timeline when it was made, unless someone else moved
- *   the lead since (then it counts from when it arrived); a lead made offline enters its first stage then, with its
- *   tags; archiving, restoring, an assignment and a next action go on the timeline when they were done.
+ * - **Leads:** a move enters its stage, is won and goes on the timeline when it was made; a lead made offline enters
+ *   its first stage then, with its tags; archiving, restoring, an assignment and a next action go on the timeline when
+ *   they were done. (A move someone else's later move overtook isn't applied: mobile-later-changes.test.ts.)
  * - **Customers and companies** are made, archived (their open leads with them) and restored when it was done.
  * - **Tags and files:** a tag goes on, and a photo is added, when it was done, and a file is never added before it was
  *   reserved.
@@ -127,7 +127,6 @@ let calendarId: string;
 let day: string;
 /** The default pipeline's stages, in order: New, Contacted and Estimate sent are open, then Won and Lost. */
 const stage = { new: '', contacted: '', estimate: '', won: '' };
-const stageName = { new: 'New', contacted: 'Contacted', estimate: 'Estimate sent' };
 
 beforeAll(async () => {
   t = await setupTeam('moments');
@@ -200,7 +199,10 @@ const itemOn = async (subjectId: string, kind: string) =>
       .from(attentionItems)
       .where(and(eq(attentionItems.subjectId, subjectId), eq(attentionItems.kind, kind)))
   )[0];
-/** A lead someone on the team typed in ten days ago, next action well ahead, nobody in touch since: stale. */
+/**
+ * A lead someone on the team typed in ten days ago, next action well ahead, nobody in touch since: stale. Its card
+ * opened five hours ago, before anything the phone does to it here (a card that opened later overtakes those).
+ */
 async function staleLead(firstName: string) {
   const personId = await customer(firstName);
   const { leadId } = await web(
@@ -221,7 +223,12 @@ async function staleLead(firstName: string) {
   );
   const opened = await settle([{ type: 'lead', id: leadId }]);
   expect(opened.transitions).toMatchObject([{ type: 'opened', kind: 'stale_opportunity' }]);
-  return { leadId, itemId: opened.transitions[0]!.itemId };
+  const itemId = opened.transitions[0]!.itemId;
+  await rows(
+    admin(),
+    sql`update app.attention_items set opened_at = now() - interval '5 hours' where id = ${itemId}`,
+  );
+  return { leadId, itemId };
 }
 let clock = 8;
 /** A booking on the next weekday, an hour after the last one. */
@@ -261,34 +268,6 @@ describe('leads', () => {
     expect(recent(fromWeb.stageEnteredAt)).toBe(true);
     const [changed] = await entries('stage_changed', { leadId: other });
     expect(changed!.occurredAt.getTime()).toBe(fromWeb.stageEnteredAt.getTime());
-  });
-
-  it('a move made before someone else’s later move counts from when it arrived', async () => {
-    const personId = await customer('Ola');
-    const leadId = await phoneLead(personId, ago(5 * HOUR));
-    await web(leadMoveStage, { workspaceId: t.wsId, leadId, stageId: stage.contacted }, t.owner);
-    const webMove = await leadRow(leadId);
-    // Moved on a phone two hours ago, before the web's move, and only now arriving.
-    await phone(
-      leadMoveStage,
-      { workspaceId: t.wsId, leadId, stageId: stage.estimate },
-      t.member,
-      ago(2 * HOUR),
-    );
-    const lead = await leadRow(leadId);
-    expect(lead.stageId).toBe(stage.estimate);
-    expect(recent(lead.stageEnteredAt)).toBe(true);
-    expect(lead.stageEnteredAt.getTime()).toBeGreaterThan(webMove.stageEnteredAt.getTime());
-    // So the timeline reads in the order the lead really moved.
-    const { items } = await ask(
-      timelineList,
-      { workspaceId: t.wsId, recordType: 'lead', recordId: leadId },
-      t.owner,
-    );
-    expect(items.filter((i) => i.subtype === 'stage_changed').map((i) => i.body)).toEqual([
-      `${stageName.contacted} → ${stageName.estimate}`,
-      `${stageName.new} → ${stageName.contacted}`,
-    ]);
   });
 
   it('a lead made offline starts in its stage, with its tags, when it was made', async () => {

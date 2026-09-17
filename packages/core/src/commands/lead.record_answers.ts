@@ -11,6 +11,7 @@ import { assertAiReach } from '../ai-team/reach';
 import { logSystemActivity } from '../crm/activities';
 import { HfosError } from '../errors';
 import { defineCommand } from '../kernel/define';
+import { changedSince, logLaterChange } from '../kernel/later-change';
 import { changeMoment } from '../kernel/moment';
 import {
   LeadQualification,
@@ -63,12 +64,40 @@ export const leadRecordAnswers = defineCommand({
     const at = changeMoment(ctx.meta).toISOString();
     const by = ctx.actor.type === 'ai_employee' ? ('ai' as const) : ('person' as const);
     const answers = { ...before.answers };
-    for (const a of input.answers)
-      answers[a.questionId] = {
-        question: byId.get(a.questionId)!.question,
-        answer: a.answer,
-        answeredAt: at,
-        by,
+    const notApplied: string[] = [];
+    let newer = 0;
+    for (const a of input.answers) {
+      const stored = answers[a.questionId];
+      const question = byId.get(a.questionId)!.question;
+      // A newer answer to the same question (recorded after this one was, on a phone perhaps long before it had
+      // signal) stands.
+      if (stored && changedSince(ctx.meta, stored.answeredAt)) {
+        newer += 1;
+        if (stored.answer === a.answer) continue;
+        notApplied.push(`answers.${a.questionId}`);
+        await logLaterChange(
+          ctx,
+          {
+            key: `answers.${a.questionId}`,
+            tried: `answer “${question}” with “${a.answer}”`,
+            because: `a newer answer, “${stored.answer}”, was kept`,
+            changedAt: stored.answeredAt,
+          },
+          { type: 'lead', id: lead.id },
+          { leadId: lead.id, personId: lead.personId, companyId: lead.companyId },
+        );
+        continue;
+      }
+      answers[a.questionId] = { question, answer: a.answer, answeredAt: at, by };
+    }
+    if (newer === input.answers.length)
+      return {
+        leadId: lead.id,
+        status: before.status,
+        missing: [...before.missing],
+        notAFit: [...before.notAFit],
+        qualified: false,
+        notApplied,
       };
     const result = qualificationOf(
       questions,
@@ -122,6 +151,7 @@ export const leadRecordAnswers = defineCommand({
       missing: [...result.missing],
       notAFit: [...result.notAFit],
       qualified,
+      notApplied,
     };
   },
 });

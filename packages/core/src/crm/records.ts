@@ -1,4 +1,4 @@
-import { and, eq } from 'drizzle-orm';
+import { and, eq, notInArray } from 'drizzle-orm';
 import { companies, people, tags, recordTags, users, workspaces } from '@hfos/db/schema';
 import type { Tx } from '@hfos/db/client';
 import { HfosError } from '../errors';
@@ -133,7 +133,8 @@ export async function tagsByRecord(
 
 /**
  * Replaces a record's tags with the given set; tags must belong to the workspace (RLS enforces it too). `at` is when
- * they were put on (the change's moment), now when left out.
+ * they were put on (the change's moment), now when left out. A tag it keeps keeps its row, and so when it went on; one
+ * it takes off is remembered as taken off then (0063).
  */
 export async function setRecordTags(
   tx: Tx,
@@ -144,6 +145,7 @@ export async function setRecordTags(
   createdBy: string | null,
   at?: Date,
 ) {
+  const unique = [...new Set(tagIds)];
   await tx
     .delete(recordTags)
     .where(
@@ -151,20 +153,23 @@ export async function setRecordTags(
         eq(recordTags.workspaceId, workspaceId),
         eq(recordTags.recordType, recordType),
         eq(recordTags.recordId, recordId),
+        ...(unique.length > 0 ? [notInArray(recordTags.tagId, unique)] : []),
       ),
     );
-  const unique = [...new Set(tagIds)];
   if (unique.length > 0) {
-    await tx.insert(recordTags).values(
-      unique.map((tagId) => ({
-        workspaceId,
-        tagId,
-        recordType,
-        recordId,
-        createdBy,
-        ...(at ? { createdAt: at } : {}),
-      })),
-    );
+    await tx
+      .insert(recordTags)
+      .values(
+        unique.map((tagId) => ({
+          workspaceId,
+          tagId,
+          recordType,
+          recordId,
+          createdBy,
+          ...(at ? { createdAt: at } : {}),
+        })),
+      )
+      .onConflictDoNothing();
   }
   return tagsOf(tx, workspaceId, recordType, recordId);
 }
