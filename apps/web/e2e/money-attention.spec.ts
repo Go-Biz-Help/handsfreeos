@@ -262,7 +262,8 @@ test('Money on Home: an overdue invoice and a waiting estimate, and what each ca
   await kindCard(page, 'estimate_waiting', 'Tom Reyes').getByTestId('attention-more').click();
   await page.getByTestId('snooze-hour').click();
   await expect(kindCard(page, 'estimate_waiting', 'Tom Reyes')).toHaveCount(0);
-  await expect(page.getByText(/^Snoozed until \d{1,2}:\d{2} [AP]M$/)).toBeVisible();
+  // An hour from late evening is tomorrow: "Snoozed until tomorrow at 12:47 AM".
+  await expect(page.getByText(/^Snoozed until (tomorrow at )?\d{1,2}:\d{2} [AP]M$/)).toBeVisible();
   const snoozed = await listOf(o);
   expect(snoozed.items.some((i) => i.subject.id === tomEstimate.estimateId)).toBe(false);
   expect(snoozed.counts.snoozed).toBe(1);

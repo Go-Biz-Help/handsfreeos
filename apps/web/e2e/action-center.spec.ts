@@ -135,7 +135,8 @@ test('the Action Center: snooze, dismiss and assign with Undo, and an ask-first 
   await expect(page.getByTestId('attention-menu')).toContainText('Tomorrow morning');
   await page.getByTestId('snooze-hour').click();
   await expect(tom).toHaveCount(0);
-  await expect(page.getByText(/^Snoozed until \d{1,2}:\d{2} [AP]M$/)).toBeVisible();
+  // An hour from late evening is tomorrow: "Snoozed until tomorrow at 12:47 AM".
+  await expect(page.getByText(/^Snoozed until (tomorrow at )?\d{1,2}:\d{2} [AP]M$/)).toBeVisible();
   await undo.click();
   await expect(tom).toBeVisible();
   await expect
