@@ -4,6 +4,7 @@ import { logSystemActivity } from '../crm/activities';
 import { fullName, requirePerson } from '../crm/records';
 import { HfosError } from '../errors';
 import { defineCommand } from '../kernel/define';
+import { changeMoment } from '../kernel/moment';
 import { PersonArchiveInput, PersonArchiveOutput } from '../schemas/person';
 
 export const personArchive = defineCommand({
@@ -39,18 +40,20 @@ export const personArchive = defineCommand({
         { openLeads: open, openTasks: Number(openTasks?.n ?? 0) },
         'has_open_work',
       );
+    // Archived when the person did it (on a phone, perhaps before it had signal), and their open leads with them.
+    const at = changeMoment(ctx.meta);
     let archivedLeads = 0;
     if (open > 0) {
       const rows = await ctx.tx
         .update(leads)
-        .set({ archivedAt: new Date() })
+        .set({ archivedAt: at })
         .where(
           and(eq(leads.personId, current.id), eq(leads.status, 'open'), isNull(leads.archivedAt)),
         )
         .returning({ id: leads.id });
       archivedLeads = rows.length;
     }
-    await ctx.tx.update(people).set({ archivedAt: new Date() }).where(eq(people.id, current.id));
+    await ctx.tx.update(people).set({ archivedAt: at }).where(eq(people.id, current.id));
     const name = fullName(current.firstName, current.lastName);
     const eventId = await ctx.emit({
       type: 'person.archived',

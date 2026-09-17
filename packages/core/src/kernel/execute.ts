@@ -13,6 +13,7 @@ import {
 } from '../permissions';
 import { aiEmployeeMayRun, isMachine } from './actor';
 import { assertAppRequest, assertOnTime } from './app-request';
+import { shareChangeMoment } from './moment';
 import { translateDbError } from './pg-errors';
 import { claimReceipt, receiptClaim, recordRefusal, storeAnswer } from './receipts';
 import { redact } from './redact';
@@ -308,8 +309,9 @@ async function runCommand<I extends z.ZodType, O extends z.ZodType>(
  * A person's command from the phone also carries its own id and the moment it was done (M10). Once the person is
  * known to work in the business, its receipt is claimed as the transaction's first write: a repeat gets the first
  * answer (or final refusal) back without running again, before any other check. Then the moment rules (a stale
- * customer-facing change waits for "Still send?"; an online-only one that waited is refused), then the command, and
- * its answer is stored before the transaction ends. A final refusal is stored afterwards on its own. The input is
+ * customer-facing change waits for "Still send?"; an online-only one that waited is refused), then the command, with
+ * the database told the change's moment for the times it stamps itself, and its answer is stored before the
+ * transaction ends. A final refusal is stored afterwards on its own. The input is
  * validated first, as the API's route already did: the receipt names the business the input is for.
  */
 export async function executeCommand<I extends z.ZodType, O extends z.ZodType>(
@@ -331,8 +333,9 @@ export async function executeCommand<I extends z.ZodType, O extends z.ZodType>(
       return await asWorker(
         db,
         { workspaceId: actor.workspaceId, organizationId: actor.organizationId },
-        (tx) => {
+        async (tx) => {
           assertOnTime(cmd, meta, new Date());
+          await shareChangeMoment(tx, meta);
           return runCommand(tx, cmd, input, actor, scope, meta);
         },
       );
@@ -357,6 +360,7 @@ export async function executeCommand<I extends z.ZodType, O extends z.ZodType>(
       }
       assertOnTime(cmd, meta, new Date());
       if (cmd.permission) assertPermission(scope, cmd.permission);
+      await shareChangeMoment(tx, meta);
       const result = await runCommand(tx, cmd, input, actor, scope, meta);
       if (receiptId) await storeAnswer(tx, cmd, receiptId, result);
       return result;

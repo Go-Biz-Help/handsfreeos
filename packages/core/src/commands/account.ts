@@ -31,6 +31,7 @@ import { ASSISTANT_CONSENT_KEY, assistantConsentOf } from '../assistant/consent'
 import { HfosError } from '../errors';
 import { requireHuman } from '../kernel/actor';
 import { defineCommand } from '../kernel/define';
+import { changeMoment } from '../kernel/moment';
 import {
   AccountDeleteInput,
   AccountDeleteOutput,
@@ -151,7 +152,7 @@ export const assistantConsent = defineCommand({
         consentedAt: current.consentedAt!,
         changed: false,
       };
-    const at = (ctx.meta.occurredAt ?? new Date()).toISOString();
+    const at = changeMoment(ctx.meta).toISOString();
     const kept = { [ASSISTANT_CONSENT_KEY]: { version: input.version, at } };
     await ctx.tx
       .update(users)

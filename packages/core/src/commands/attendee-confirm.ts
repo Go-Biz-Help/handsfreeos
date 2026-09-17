@@ -17,6 +17,7 @@ import {
 import { HfosError } from '../errors';
 import { requireHuman } from '../kernel/actor';
 import { defineCommand } from '../kernel/define';
+import { changeMoment } from '../kernel/moment';
 import type { CommandContext } from '../kernel/types';
 import {
   AttendeeConfirmInput,
@@ -106,10 +107,10 @@ export const attendeeConfirm = defineCommand({
       if (seat.status === 'cancelled')
         throw HfosError.rule('booking_cancelled', 409, 'This booking was cancelled.');
       requireScheduled(appt);
-      // The database stamps the time; the mark is in this person's name.
+      // The database stamps the time, at the moment the person marked it (0062); the mark is in this person's name.
       const [row] = await ctx.tx
         .update(appointmentAttendees)
-        .set({ confirmedAt: new Date(), confirmedVia: 'staff', confirmedBy: me })
+        .set({ confirmedAt: changeMoment(ctx.meta), confirmedVia: 'staff', confirmedBy: me })
         .where(eq(appointmentAttendees.id, seat.id))
         .returning();
       await announceConfirmed(ctx, appt, seat, 'staff', { confirmedBy: me });

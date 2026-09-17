@@ -77,6 +77,7 @@ export const leadMoveStage = defineCommand({
       .returning({
         status: leads.status,
         position: leads.position,
+        stageEnteredAt: leads.stageEnteredAt,
         wonAt: leads.wonAt,
         lostAt: leads.lostAt,
         lostReason: leads.lostReason,
@@ -134,6 +135,9 @@ export const leadMoveStage = defineCommand({
         body: row.status === 'lost' ? `Lost: ${row.lostReason ?? ''}` : `${from.name} → ${to.name}`,
         meta: { from: from.name, to: to.name, status: row.status, title: current.title },
         eventId,
+        // When the lead entered the stage, as the database stamped it: when the person moved it (on a phone, perhaps
+        // well before it had signal), or when the move arrived if someone else moved the lead in the meantime.
+        occurredAt: row.stageEnteredAt,
       });
     }
     return {

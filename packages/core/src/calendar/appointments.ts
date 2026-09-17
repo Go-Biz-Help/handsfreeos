@@ -15,6 +15,7 @@ import {
 } from '@hfos/db/schema';
 import { logSystemActivity } from '../crm/activities';
 import { HfosError } from '../errors';
+import { changeMoment } from '../kernel/moment';
 import type { CommandContext } from '../kernel/types';
 import { parseConfig, type CalendarConfig } from './config';
 import { userNames, type LoadedCalendar } from './load';
@@ -172,15 +173,22 @@ export async function logAppointmentActivity(
   }
 }
 
-/** Cancels the appointment and everyone booked on it, without events (callers emit their own). */
-export async function markCancelled(tx: Tx, appointmentId: string): Promise<void> {
+/**
+ * Cancels the appointment and everyone booked on it, without events (callers emit their own). `at` is when it was
+ * cancelled, now when left out.
+ */
+export async function markCancelled(
+  tx: Tx,
+  appointmentId: string,
+  at: Date = new Date(),
+): Promise<void> {
   await tx
     .update(appointments)
     .set({ status: 'cancelled' })
     .where(eq(appointments.id, appointmentId));
   await tx
     .update(appointmentAttendees)
-    .set({ status: 'cancelled', cancelledAt: new Date() })
+    .set({ status: 'cancelled', cancelledAt: at })
     .where(
       and(
         eq(appointmentAttendees.appointmentId, appointmentId),
@@ -202,7 +210,8 @@ export async function cancelAppointment(
     .filter((a) => a.status === 'booked')
     .map((a) => a.personId);
   const snapshot = await appointmentSnapshot(ctx.tx, appt);
-  await markCancelled(ctx.tx, appt.id);
+  // Cancelled when the change was made: from a phone, perhaps before it had signal.
+  await markCancelled(ctx.tx, appt.id, changeMoment(ctx.meta));
   const eventId = await ctx.emit({
     type: 'appointment.cancelled',
     entityType: 'appointment',

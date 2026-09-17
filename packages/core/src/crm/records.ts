@@ -131,7 +131,10 @@ export async function tagsByRecord(
   return map;
 }
 
-/** Replaces a record's tags with the given set; tags must belong to the workspace (RLS enforces it too). */
+/**
+ * Replaces a record's tags with the given set; tags must belong to the workspace (RLS enforces it too). `at` is when
+ * they were put on (the change's moment), now when left out.
+ */
 export async function setRecordTags(
   tx: Tx,
   workspaceId: string,
@@ -139,6 +142,7 @@ export async function setRecordTags(
   recordId: string,
   tagIds: string[],
   createdBy: string | null,
+  at?: Date,
 ) {
   await tx
     .delete(recordTags)
@@ -151,9 +155,16 @@ export async function setRecordTags(
     );
   const unique = [...new Set(tagIds)];
   if (unique.length > 0) {
-    await tx
-      .insert(recordTags)
-      .values(unique.map((tagId) => ({ workspaceId, tagId, recordType, recordId, createdBy })));
+    await tx.insert(recordTags).values(
+      unique.map((tagId) => ({
+        workspaceId,
+        tagId,
+        recordType,
+        recordId,
+        createdBy,
+        ...(at ? { createdAt: at } : {}),
+      })),
+    );
   }
   return tagsOf(tx, workspaceId, recordType, recordId);
 }

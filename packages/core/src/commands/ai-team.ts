@@ -43,6 +43,7 @@ import { FRESH_MINUTES } from '../mobile';
 import { requireHuman } from '../kernel/actor';
 import { defineCommand } from '../kernel/define';
 import { executeCommandIn } from '../kernel/execute';
+import { changeMoment } from '../kernel/moment';
 import { isUniqueViolation } from '../kernel/pg-errors';
 import type { AiEmployeeActor, CommandContext } from '../kernel/types';
 import { workspaceAddresses } from '../messaging/email';
@@ -449,7 +450,8 @@ export const aiTeammateDecideDraft = defineCommand({
         edits,
         reason: input.reason ?? null,
         decidedBy: me,
-        decidedAt: dsql`now()`,
+        // Decided when the person pressed it, even if the phone only now had signal.
+        decidedAt: changeMoment(ctx.meta),
         via: ctx.meta.channel === 'assistant' ? 'assistant' : 'web',
       })
       .where(and(eq(aiTeammateDrafts.id, d.id), eq(aiTeammateDrafts.status, 'pending')))

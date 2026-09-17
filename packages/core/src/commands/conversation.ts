@@ -5,7 +5,8 @@ import { fullName, requirePerson, userRef } from '../crm/records';
 import { HfosError } from '../errors';
 import { userIdOf } from '../kernel/actor';
 import { defineCommand } from '../kernel/define';
-import { editMoment, stampSql } from '../kernel/field-merge';
+import { stampSql } from '../kernel/field-merge';
+import { changeMoment } from '../kernel/moment';
 import type { CommandContext } from '../kernel/types';
 import {
   findOrCreateConversation,
@@ -208,7 +209,7 @@ export const conversationSnooze = defineCommand({
     const c = await loadConversation(ctx, input.conversationId);
     const until = new Date(input.until);
     // Measured from when the person snoozed it (on the phone, perhaps a while before it had signal).
-    const madeAt = editMoment(ctx.meta).getTime();
+    const madeAt = changeMoment(ctx.meta).getTime();
     if (until.getTime() < madeAt + 60_000)
       throw HfosError.validation([{ path: 'until', message: 'Pick a time in the future.' }]);
     if (until.getTime() > madeAt + 90 * DAY)
@@ -249,7 +250,8 @@ export const conversationClose = defineCommand({
       .update(conversations)
       .set({
         status: 'closed',
-        closedAt: new Date(),
+        // Closed when the person closed it, even if the phone only now had signal.
+        closedAt: changeMoment(ctx.meta),
         closedBy: userIdOf(ctx.actor),
         snoozedUntil: null,
         awaitingReplySince: null,
@@ -324,14 +326,14 @@ export const conversationLinkPerson = defineCommand({
         .set({
           phoneE164: c.counterpart,
           phone: formatPhone(c.counterpart),
-          fieldTimes: stampSql(['phone_e164'], editMoment(ctx.meta)),
+          fieldTimes: stampSql(['phone_e164'], changeMoment(ctx.meta)),
         })
         .where(eq(people.id, person.id));
       phoneAdded = true;
     } else if (c.channel === 'email' && !person.email) {
       await ctx.tx
         .update(people)
-        .set({ email: c.counterpart, fieldTimes: stampSql(['email'], editMoment(ctx.meta)) })
+        .set({ email: c.counterpart, fieldTimes: stampSql(['email'], changeMoment(ctx.meta)) })
         .where(eq(people.id, person.id));
       phoneAdded = true;
     }

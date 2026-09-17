@@ -1,6 +1,7 @@
 import { activities } from '@hfos/db/schema';
 import type { Actor, CommandContext } from '../kernel/types';
 import { userIdOf } from '../kernel/actor';
+import { changeMoment } from '../kernel/moment';
 
 export interface SystemActivityInput {
   readonly subtype: string;
@@ -11,6 +12,7 @@ export interface SystemActivityInput {
   readonly meta?: Record<string, unknown>;
   /** The event this entry mirrors (unique per activity). */
   readonly eventId?: string | null;
+  /** Left out, when the change was made (a phone's moment, or now). */
   readonly occurredAt?: Date;
 }
 
@@ -92,7 +94,10 @@ export async function logChannelActivity(
   return row?.id ?? null;
 }
 
-/** Writes the timeline entry for a change, in the same transaction as the change and its event. */
+/**
+ * Writes the timeline entry for a change, in the same transaction as the change and its event. It happened when the
+ * change was made: on a phone with no signal, that can be well before it arrived.
+ */
 export async function logSystemActivity(
   ctx: CommandContext,
   input: SystemActivityInput,
@@ -107,7 +112,7 @@ export async function logSystemActivity(
       companyId: input.companyId ?? null,
       leadId: input.leadId ?? null,
       body: input.body ?? null,
-      occurredAt: input.occurredAt ?? new Date(),
+      occurredAt: input.occurredAt ?? changeMoment(ctx.meta),
       authorUserId: ctx.actor.type === 'human' ? ctx.actor.userId : null,
       actorType: ctx.actor.type,
       eventId: input.eventId ?? null,

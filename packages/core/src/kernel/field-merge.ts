@@ -17,6 +17,7 @@ import { events } from '@hfos/db/schema';
 import { logSystemActivity } from '../crm/activities';
 import { formatPhone, normalizePhone } from '../crm/phone';
 import { userRef } from '../crm/records';
+import { changeMoment } from './moment';
 import { canonicalJson } from './receipts';
 import type { CommandContext, RequestMeta } from './types';
 
@@ -61,9 +62,6 @@ export interface Merged {
   readonly applied: readonly string[];
   readonly notApplied: readonly NotApplied[];
 }
-
-/** When an edit was made: the phone's corrected moment, or now. */
-export const editMoment = (meta: RequestMeta): Date => meta.occurredAt ?? new Date();
 
 function comparable(kind: MergeKind, v: unknown): string | number | boolean | null {
   if (v === undefined || v === null) return null;
@@ -112,7 +110,7 @@ export function mergeFields(
   columns: Readonly<Record<string, { readonly name: string }>>,
   meta: RequestMeta,
 ): Merged {
-  const at = editMoment(meta);
+  const at = changeMoment(meta);
   const madeNow = !meta.occurredAt;
   const patch: Record<string, unknown> = {};
   const stamps: Record<string, string> = {};
@@ -235,7 +233,7 @@ export async function logNotApplied(
         stays,
         staysSince: n.staysSince,
         keptBy: by,
-        madeAt: editMoment(ctx.meta).toISOString(),
+        madeAt: changeMoment(ctx.meta).toISOString(),
       },
     });
   }

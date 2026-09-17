@@ -8,6 +8,7 @@ import { requireCompany, requirePerson, setRecordTags } from '../crm/records';
 import { HfosError } from '../errors';
 import { userIdOf } from '../kernel/actor';
 import { defineCommand } from '../kernel/define';
+import { changeMoment } from '../kernel/moment';
 import { LeadCreateInput, LeadCreateOutput } from '../schemas/lead';
 
 export const leadCreate = defineCommand({
@@ -112,7 +113,15 @@ export const leadCreate = defineCommand({
     );
     if (!row) throw HfosError.forbidden();
     if (input.tagIds?.length)
-      await setRecordTags(ctx.tx, workspaceId, 'lead', row.id, input.tagIds, userIdOf(ctx.actor));
+      await setRecordTags(
+        ctx.tx,
+        workspaceId,
+        'lead',
+        row.id,
+        input.tagIds,
+        userIdOf(ctx.actor),
+        changeMoment(ctx.meta),
+      );
     const eventId = await ctx.emit({
       type: 'lead.created',
       entityType: 'lead',

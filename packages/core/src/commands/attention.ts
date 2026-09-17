@@ -33,7 +33,7 @@ import { FRESH_MINUTES } from '../mobile';
 import { requireHuman } from '../kernel/actor';
 import { defineCommand } from '../kernel/define';
 import { executeCommandWithin } from '../kernel/execute';
-import { editMoment } from '../kernel/field-merge';
+import { changeMoment } from '../kernel/moment';
 import type { CommandContext } from '../kernel/types';
 import { workspaceAddresses } from '../messaging/email';
 import { isWorkspaceUser, liveNumber } from '../messaging/store';
@@ -167,9 +167,9 @@ function emitItem(
 }
 
 /** A person's snooze or dismissal also stops the automatic action waiting to go out. */
-const cancelWaiting = (row: AttentionItemRow, me: string) =>
+const cancelWaiting = (row: AttentionItemRow, me: string, at: Date) =>
   row.autoState === 'scheduled'
-    ? { autoState: 'cancelled', autoCancelledBy: me, autoDoneAt: new Date() }
+    ? { autoState: 'cancelled', autoCancelledBy: me, autoDoneAt: at }
     : {};
 
 async function update(ctx: CommandContext, row: AttentionItemRow, patch: Record<string, unknown>) {
@@ -201,7 +201,8 @@ export const attentionSnooze = defineCommand({
     if (row.state !== 'open' && row.state !== 'snoozed') throw notOpen(row);
     const until = new Date(input.until);
     // Measured from when the person snoozed it ("Snooze 1 hour" pressed with no signal counts from the press).
-    const madeAt = editMoment(ctx.meta).getTime();
+    const at = changeMoment(ctx.meta);
+    const madeAt = at.getTime();
     if (until.getTime() < madeAt + MIN)
       throw HfosError.validation([{ path: 'until', message: 'Pick a time in the future.' }]);
     if (until.getTime() > madeAt + SNOOZE_MAX_DAYS * DAY)
@@ -213,9 +214,9 @@ export const attentionSnooze = defineCommand({
     const out = await update(ctx, row, {
       state: 'snoozed',
       snoozedUntil: until,
-      snoozedAt: new Date(),
+      snoozedAt: at,
       snoozedBy: me,
-      ...cancelWaiting(row, me),
+      ...cancelWaiting(row, me, at),
     });
     await emitItem(
       ctx,
@@ -289,13 +290,14 @@ export const attentionDismiss = defineCommand({
     if (row.state === 'dismissed') return stateOut(row, false);
     if (row.state !== 'open' && row.state !== 'snoozed') throw notOpen(row);
     const reason = input.reason?.trim() || null;
+    const at = changeMoment(ctx.meta);
     const out = await update(ctx, row, {
       state: 'dismissed',
-      dismissedAt: new Date(),
+      dismissedAt: at,
       dismissedBy: me,
       dismissReason: reason,
       ...CLEAR_SNOOZE,
-      ...cancelWaiting(row, me),
+      ...cancelWaiting(row, me, at),
     });
     await emitItem(
       ctx,
@@ -574,7 +576,7 @@ export const attentionLetHandle = defineCommand({
     }
     const out = await update(ctx, row, {
       state: 'handled',
-      handledAt: new Date(),
+      handledAt: changeMoment(ctx.meta),
       handledBy: me,
       handledVia: 'let_handle',
       // Money is the one kind a follow-up doesn't settle: the invoice is still owed and the estimate still
@@ -626,7 +628,7 @@ export const attentionCancelAuto = defineCommand({
     const out = await update(ctx, row, {
       autoState: 'cancelled',
       autoCancelledBy: me,
-      autoDoneAt: new Date(),
+      autoDoneAt: changeMoment(ctx.meta),
     });
     await emitItem(
       ctx,

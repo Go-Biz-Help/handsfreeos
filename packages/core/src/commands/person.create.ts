@@ -8,6 +8,7 @@ import { addressPatch, fullName, requireCompany, setRecordTags } from '../crm/re
 import { HfosError } from '../errors';
 import { userIdOf } from '../kernel/actor';
 import { defineCommand } from '../kernel/define';
+import { changeMoment } from '../kernel/moment';
 import { PersonCreateInput, PersonCreateOutput } from '../schemas/person';
 
 export const personCreate = defineCommand({
@@ -83,7 +84,15 @@ export const personCreate = defineCommand({
     );
     if (!row) throw HfosError.forbidden();
     if (input.tagIds?.length)
-      await setRecordTags(ctx.tx, workspaceId, 'person', row.id, input.tagIds, userIdOf(ctx.actor));
+      await setRecordTags(
+        ctx.tx,
+        workspaceId,
+        'person',
+        row.id,
+        input.tagIds,
+        userIdOf(ctx.actor),
+        changeMoment(ctx.meta),
+      );
     const name = fullName(row.firstName, row.lastName);
     const eventId = await ctx.emit({
       type: 'person.created',

@@ -103,6 +103,16 @@ const meta = (channel: RequestMeta['channel'] = 'test'): RequestMeta => ({
   correlationId: randomUUID(),
   channel,
 });
+/** A change made on the phone two hours ago, sent now (after "Still send", for one that asks). */
+const twoHoursAgoOnPhone = (): RequestMeta => ({
+  correlationId: randomUUID(),
+  channel: 'mobile',
+  commandId: randomUUID(),
+  occurredAt: new Date(Date.now() - 2 * 3_600_000),
+  sentAt: new Date(),
+  confirmedAt: new Date(),
+  appVersion: '1.0.0',
+});
 
 /** A business with texting ready and an AI teammate named Ava. */
 interface Biz {
@@ -894,6 +904,49 @@ describe('qualifying answers', () => {
     expect((await eventsOf(again.eventIds)).map((e) => e.type)).toEqual(['lead.answers_recorded']);
     await expectHfos(() => answer([{ questionId: 'budget', answer: '$5k' }]), 'validation');
   });
+
+  it('recorded on the phone, are answered when they were given, and the lead qualifies then', async () => {
+    const eli = await customer(a, 'Eli');
+    const { leadId } = await run(
+      leadCreate,
+      { workspaceId: a.wsId, title: 'Tune-up', personId: eli.personId },
+      a.member,
+    );
+    const onPhone = twoHoursAgoOnPhone();
+    const recorded = await executeCommand(
+      api(),
+      leadRecordAnswers,
+      {
+        workspaceId: a.wsId,
+        leadId,
+        answers: [
+          { questionId: 'need', answer: 'Tune-up' },
+          { questionId: 'timeline', answer: 'This month' },
+          { questionId: 'owner', answer: 'Yes' },
+          { questionId: 'zip', answer: '77008' },
+        ],
+      },
+      human(a.member),
+      onPhone,
+    );
+    expect(recorded.output.qualified).toBe(true);
+    const givenAt = onPhone.occurredAt!.toISOString();
+    const [row] = await admin()
+      .select({ q: leads.qualification })
+      .from(leads)
+      .where(eq(leads.id, leadId));
+    const stored = row!.q as {
+      qualifiedAt: string;
+      answers: Record<string, { answeredAt: string }>;
+    };
+    expect(stored.answers['zip']!.answeredAt).toBe(givenAt);
+    expect(stored.qualifiedAt).toBe(givenAt);
+    const [entry] = await admin()
+      .select()
+      .from(activities)
+      .where(and(eq(activities.leadId, leadId), eq(activities.subtype, 'lead_qualified')));
+    expect(entry!.occurredAt.toISOString()).toBe(givenAt);
+  });
 });
 
 describe('booking for the customer in the conversation', () => {
@@ -1485,6 +1538,26 @@ describe('trying a rejected draft again', () => {
     const mo = await drafted('Mo', 'approval');
     await reject(mo.draftId, r.owner);
     await expectHfos(() => retry(mo.draftId, r.owner), 'rule_violation', 'not_a_rejected_reply');
+  });
+
+  it('decides a draft on the phone when it was pressed', async () => {
+    const pat = await drafted('Pat');
+    const onPhone = twoHoursAgoOnPhone();
+    await executeCommand(
+      api(),
+      aiTeammateDecideDraft,
+      { workspaceId: r.wsId, draftId: pat.draftId, decision: 'reject', reason: 'Wrong day' },
+      human(r.member),
+      onPhone,
+    );
+    expect((await draftRow(pat.draftId)).decidedAt!.toISOString()).toBe(
+      onPhone.occurredAt!.toISOString(),
+    );
+    // From the web, now.
+    const quinn = await drafted('Quinn');
+    await reject(quinn.draftId, r.member);
+    const decidedAt = (await draftRow(quinn.draftId)).decidedAt!;
+    expect(Math.abs(Date.now() - decidedAt.getTime())).toBeLessThan(60_000);
   });
 });
 

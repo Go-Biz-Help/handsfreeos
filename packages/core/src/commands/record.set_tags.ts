@@ -5,6 +5,7 @@ import { setRecordTags, tagsOf } from '../crm/records';
 import { HfosError } from '../errors';
 import { userIdOf } from '../kernel/actor';
 import { defineCommand } from '../kernel/define';
+import { changeMoment } from '../kernel/moment';
 import type { CommandContext } from '../kernel/types';
 import type { RecordType } from '../schemas/crm';
 import {
@@ -36,10 +37,14 @@ async function changeTags(
   const before = await tagsOf(ctx.tx, workspaceId, recordType, recordId);
   const tagIds = [...new Set(input.tagIds)];
   const createdBy = userIdOf(ctx.actor);
+  // Put on when the person did it (on a phone, perhaps before it had signal); a tag already there keeps its time.
+  const createdAt = changeMoment(ctx.meta);
   if (mode === 'add' && tagIds.length > 0)
     await ctx.tx
       .insert(recordTags)
-      .values(tagIds.map((tagId) => ({ workspaceId, tagId, recordType, recordId, createdBy })))
+      .values(
+        tagIds.map((tagId) => ({ workspaceId, tagId, recordType, recordId, createdBy, createdAt })),
+      )
       .onConflictDoNothing();
   if (mode === 'remove' && tagIds.length > 0)
     await ctx.tx
@@ -54,7 +59,7 @@ async function changeTags(
       );
   const after =
     mode === 'replace'
-      ? await setRecordTags(ctx.tx, workspaceId, recordType, recordId, tagIds, createdBy)
+      ? await setRecordTags(ctx.tx, workspaceId, recordType, recordId, tagIds, createdBy, createdAt)
       : await tagsOf(ctx.tx, workspaceId, recordType, recordId);
   const had = new Set(before.map((t) => t.id));
   const has = new Set(after.map((t) => t.id));

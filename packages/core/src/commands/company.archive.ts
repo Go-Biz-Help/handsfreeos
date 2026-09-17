@@ -4,6 +4,7 @@ import { logSystemActivity } from '../crm/activities';
 import { requireCompany } from '../crm/records';
 import { HfosError } from '../errors';
 import { defineCommand } from '../kernel/define';
+import { changeMoment } from '../kernel/moment';
 import { CompanyArchiveInput, CompanyArchiveOutput } from '../schemas/company';
 
 export const companyArchive = defineCommand({
@@ -39,21 +40,20 @@ export const companyArchive = defineCommand({
         { openLeads: open, openTasks: Number(openTasks?.n ?? 0) },
         'has_open_work',
       );
+    // Archived when the person did it (on a phone, perhaps before it had signal), and its open leads with it.
+    const at = changeMoment(ctx.meta);
     let archivedLeads = 0;
     if (open > 0) {
       const rows = await ctx.tx
         .update(leads)
-        .set({ archivedAt: new Date() })
+        .set({ archivedAt: at })
         .where(
           and(eq(leads.companyId, current.id), eq(leads.status, 'open'), isNull(leads.archivedAt)),
         )
         .returning({ id: leads.id });
       archivedLeads = rows.length;
     }
-    await ctx.tx
-      .update(companies)
-      .set({ archivedAt: new Date() })
-      .where(eq(companies.id, current.id));
+    await ctx.tx.update(companies).set({ archivedAt: at }).where(eq(companies.id, current.id));
     const eventId = await ctx.emit({
       type: 'company.archived',
       entityType: 'company',

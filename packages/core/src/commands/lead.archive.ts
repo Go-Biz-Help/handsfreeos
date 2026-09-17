@@ -3,6 +3,7 @@ import { leads } from '@hfos/db/schema';
 import { logSystemActivity } from '../crm/activities';
 import { HfosError } from '../errors';
 import { defineCommand } from '../kernel/define';
+import { changeMoment } from '../kernel/moment';
 import { LeadArchiveInput, LeadArchiveOutput } from '../schemas/lead';
 
 export const leadArchive = defineCommand({
@@ -22,7 +23,10 @@ export const leadArchive = defineCommand({
       .where(and(eq(leads.id, input.leadId), eq(leads.workspaceId, ctx.scope.workspaceId!)));
     if (!current) throw HfosError.notFound('Lead not found.');
     if (current.archivedAt) return { leadId: current.id };
-    await ctx.tx.update(leads).set({ archivedAt: new Date() }).where(eq(leads.id, current.id));
+    await ctx.tx
+      .update(leads)
+      .set({ archivedAt: changeMoment(ctx.meta) })
+      .where(eq(leads.id, current.id));
     const eventId = await ctx.emit({
       type: 'lead.archived',
       entityType: 'lead',

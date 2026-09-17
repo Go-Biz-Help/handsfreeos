@@ -14,6 +14,7 @@ import {
   type MergeField,
   type MergeKind,
 } from '../kernel/field-merge';
+import { changeMoment } from '../kernel/moment';
 import type { CommandContext } from '../kernel/types';
 import {
   TaskCompleteInput,
@@ -193,7 +194,7 @@ export const taskComplete = defineCommand({
     const current = await loadTask(ctx, input.taskId, { lock: true });
     if (current.doneAt) return { taskId: current.id, doneAt: current.doneAt.toISOString() };
     // Done when the person ticked it, even if the phone only now had signal.
-    const doneAt = ctx.meta.occurredAt ?? new Date();
+    const doneAt = changeMoment(ctx.meta);
     await ctx.tx
       .update(tasks)
       .set({ doneAt, doneBy: userIdOf(ctx.actor) })

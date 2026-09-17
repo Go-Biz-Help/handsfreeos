@@ -700,6 +700,41 @@ describe('an invoice', () => {
     expect(paidEvents.map((e) => e.type)).toContain('invoice.paid');
   });
 
+  it('takes cash recorded on the phone when it was recorded, unless they said when', async () => {
+    const receivedAt = async (paymentId: string) =>
+      (
+        await rows<{ received_at: string }>(
+          admin(),
+          sql`select received_at from app.payments where id = ${paymentId}`,
+        )
+      )[0]!.received_at;
+    const sent = await sentInvoice();
+    const input = { workspaceId: w.wsId, invoiceId: sent.invoiceId, amountCents: 20_000 };
+    // Taken two hours ago with no signal.
+    const takenAt = new Date(Date.now() - 2 * 3_600_000);
+    const onPhone = (extra: Record<string, unknown> = {}) =>
+      executeCommand(api(), invoiceRecordCashPayment, { ...input, ...extra }, human(w.owner), {
+        correlationId: randomUUID(),
+        channel: 'mobile',
+        commandId: randomUUID(),
+        occurredAt: takenAt,
+        sentAt: new Date(),
+        confirmedAt: null,
+        appVersion: '1.0.0',
+      }).then((r) => r.output);
+    const cash = await onPhone();
+    expect(new Date(await receivedAt(cash.paymentId)).toISOString()).toBe(takenAt.toISOString());
+    // A time they gave stays.
+    const yesterday = new Date(Date.now() - DAY);
+    const cheque = await onPhone({ method: 'check', receivedAt: yesterday.toISOString() });
+    expect(new Date(await receivedAt(cheque.paymentId)).toISOString()).toBe(
+      yesterday.toISOString(),
+    );
+    // From the web, now.
+    const web = await run(invoiceRecordCashPayment, input, w.owner);
+    expect(Math.abs(Date.now() - Date.parse(await receivedAt(web.paymentId)))).toBeLessThan(60_000);
+  });
+
   it('a provider payment moves it too, and its status only goes forward', async () => {
     const sent = await sentInvoice();
     const key = `idem-${randomUUID()}`;

@@ -15,9 +15,16 @@ import {
   workflowTemplateInstalls,
   workflowVersions,
 } from '@hfos/db/schema';
-import { closeTestDbs, createTestUser, expectPgError, type TestUser } from '@hfos/db/testing';
+import {
+  closeTestDbs,
+  createTestUser,
+  expectPgError,
+  testDbs,
+  type TestUser,
+} from '@hfos/db/testing';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { uuidArray } from '../src/calendar/load';
+import { executeCommand } from '../src/kernel/execute';
 import {
   calendarCreate,
   knowledgePackCreate,
@@ -56,7 +63,7 @@ import {
   workflowTest,
   workflowVersionGet,
 } from '../src/server';
-import { admin, ask, expectHfos, run, runSystem } from './calendar-helpers';
+import { admin, ask, expectHfos, human, run, runSystem } from './calendar-helpers';
 
 let owner: TestUser, member: TestUser, outsider: TestUser;
 let wsId: string, orgId: string, otherWsId: string, otherOrgId: string;
@@ -660,6 +667,39 @@ describe('people and runs', () => {
       person: { id: dale },
     });
     expect(pending.items.some((a) => a.id === adminsOnly)).toBe(false);
+  });
+
+  it('decides an approval made on the phone when it was pressed', async () => {
+    const approvalId = await insertApproval(approvalRun, liveId, 's_appr0004#1', [member.id]);
+    // Pressed two hours ago with no signal, and sent once they said "Still send".
+    const pressedAt = new Date(Date.now() - 2 * 3_600_000);
+    await executeCommand(
+      testDbs().api.db,
+      workflowDecideApproval,
+      { workspaceId: wsId, approvalId, decision: 'approve' },
+      human(member),
+      {
+        correlationId: randomUUID(),
+        channel: 'mobile',
+        commandId: randomUUID(),
+        occurredAt: pressedAt,
+        sentAt: new Date(),
+        confirmedAt: new Date(),
+        appVersion: '1.0.0',
+      },
+    );
+    const decidedAt = async (id: string) =>
+      (await admin().select().from(workflowApprovals).where(eq(workflowApprovals.id, id)))[0]!
+        .decidedAt!;
+    expect((await decidedAt(approvalId)).toISOString()).toBe(pressedAt.toISOString());
+    // From the web, now.
+    const fromWeb = await insertApproval(approvalRun, liveId, 's_appr0005#1', []);
+    await run(
+      workflowDecideApproval,
+      { workspaceId: wsId, approvalId: fromWeb, decision: 'reject' },
+      owner,
+    );
+    expect(Math.abs(Date.now() - (await decidedAt(fromWeb)).getTime())).toBeLessThan(60_000);
   });
 
   it('lets members read and add people, but not create, edit, publish or pause', async () => {

@@ -23,6 +23,7 @@ import { HfosError } from '../errors';
 import { FRESH_MINUTES } from '../mobile';
 import { requireHuman } from '../kernel/actor';
 import { defineCommand } from '../kernel/define';
+import { changeMoment } from '../kernel/moment';
 import type { CommandContext } from '../kernel/types';
 import {
   TERMS_WORDS,
@@ -489,7 +490,8 @@ export const invoiceRecordCashPayment = defineCommand({
         amountCents: input.amountCents,
         method: input.method,
         status: 'succeeded',
-        receivedAt: input.receivedAt ? new Date(input.receivedAt) : new Date(),
+        // Taken when the person recorded it (on a phone, perhaps before it had signal), unless they said when.
+        receivedAt: input.receivedAt ? new Date(input.receivedAt) : changeMoment(ctx.meta),
         recordedBy: me,
       })
       .returning({ id: payments.id });

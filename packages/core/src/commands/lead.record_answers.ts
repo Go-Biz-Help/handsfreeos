@@ -11,6 +11,7 @@ import { assertAiReach } from '../ai-team/reach';
 import { logSystemActivity } from '../crm/activities';
 import { HfosError } from '../errors';
 import { defineCommand } from '../kernel/define';
+import { changeMoment } from '../kernel/moment';
 import {
   LeadQualification,
   LeadRecordAnswersInput,
@@ -58,14 +59,15 @@ export const leadRecordAnswers = defineCommand({
       );
     const stored = LeadQualification.safeParse(lead.qualification);
     const before = stored.success ? stored.data : LeadQualification.parse({});
-    const now = new Date().toISOString();
+    // Answered when they were recorded: on a phone, perhaps well before it had signal.
+    const at = changeMoment(ctx.meta).toISOString();
     const by = ctx.actor.type === 'ai_employee' ? ('ai' as const) : ('person' as const);
     const answers = { ...before.answers };
     for (const a of input.answers)
       answers[a.questionId] = {
         question: byId.get(a.questionId)!.question,
         answer: a.answer,
-        answeredAt: now,
+        answeredAt: at,
         by,
       };
     const result = qualificationOf(
@@ -78,8 +80,8 @@ export const leadRecordAnswers = defineCommand({
       status: result.status,
       missing: [...result.missing],
       notAFit: [...result.notAFit],
-      qualifiedAt: qualified ? now : before.qualifiedAt,
-      updatedAt: now,
+      qualifiedAt: qualified ? at : before.qualifiedAt,
+      updatedAt: at,
     };
     await ctx.tx.update(leads).set({ qualification: next }).where(eq(leads.id, lead.id));
     await ctx.emit({

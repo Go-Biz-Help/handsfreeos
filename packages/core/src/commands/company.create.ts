@@ -7,6 +7,7 @@ import { addressPatch, setRecordTags } from '../crm/records';
 import { HfosError } from '../errors';
 import { userIdOf } from '../kernel/actor';
 import { defineCommand } from '../kernel/define';
+import { changeMoment } from '../kernel/moment';
 import { CompanyCreateInput, CompanyCreateOutput } from '../schemas/company';
 
 export const companyCreate = defineCommand({
@@ -78,6 +79,7 @@ export const companyCreate = defineCommand({
         row.id,
         input.tagIds,
         userIdOf(ctx.actor),
+        changeMoment(ctx.meta),
       );
     const eventId = await ctx.emit({
       type: 'company.created',

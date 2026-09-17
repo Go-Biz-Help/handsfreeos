@@ -10,6 +10,7 @@ import { HfosError } from '../errors';
 import { FRESH_MINUTES } from '../mobile';
 import { requireHuman } from '../kernel/actor';
 import { defineCommand } from '../kernel/define';
+import { changeMoment } from '../kernel/moment';
 import type { CommandContext } from '../kernel/types';
 import { hasWorkspacePermission } from '../permissions';
 import {
@@ -247,7 +248,8 @@ export const workflowDecideApproval = defineCommand({
         edits,
         reason: input.reason ?? null,
         decidedBy: me,
-        decidedAt: dsql`now()`,
+        // Decided when the person pressed it, even if the phone only now had signal.
+        decidedAt: changeMoment(ctx.meta),
         via: ctx.meta.channel === 'assistant' ? 'assistant' : 'web',
       })
       .where(and(eq(workflowApprovals.id, a.id), eq(workflowApprovals.status, 'pending')))

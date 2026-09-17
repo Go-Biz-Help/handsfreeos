@@ -6,13 +6,13 @@ import { fullName, requireCompany } from '../crm/records';
 import { HfosError } from '../errors';
 import { defineCommand } from '../kernel/define';
 import {
-  editMoment,
   logNotApplied,
   mergeColumns,
   mergeFields,
   stampSql,
   type MergeField,
 } from '../kernel/field-merge';
+import { changeMoment } from '../kernel/moment';
 import { PersonUpdateInput, PersonUpdateOutput } from '../schemas/person';
 
 export const personUpdate = defineCommand({
@@ -211,7 +211,7 @@ export const personUpdate = defineCommand({
         .update(leads)
         .set({
           companyId: (patch.companyId as string | null) ?? null,
-          fieldTimes: stampSql(['company_id'], editMoment(ctx.meta)),
+          fieldTimes: stampSql(['company_id'], changeMoment(ctx.meta)),
         })
         .where(
           and(eq(leads.personId, current.id), eq(leads.status, 'open'), isNull(leads.archivedAt)),

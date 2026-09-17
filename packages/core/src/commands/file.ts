@@ -8,6 +8,7 @@ import { safeFileName } from '../crm/records';
 import { HfosError } from '../errors';
 import { requireHuman } from '../kernel/actor';
 import { defineCommand } from '../kernel/define';
+import { changeMoment } from '../kernel/moment';
 import type { CommandContext } from '../kernel/types';
 import { hasWorkspacePermission } from '../permissions';
 import {
@@ -75,6 +76,8 @@ export const fileBeginUpload = defineCommand({
           mimeType: input.mimeType,
           sizeBytes: input.sizeBytes,
           createdBy: requireHuman(ctx).userId,
+          // Added when the person picked or took it: on a phone, perhaps well before it had signal.
+          createdAt: changeMoment(ctx.meta),
         })
         .returning({ id: files.id }),
     );
@@ -129,6 +132,9 @@ export const fileConfirm = defineCommand({
       after: { name: current.name, mimeType, sizeBytes },
     });
     if (knowledge) return { fileId: current.id, sizeBytes, mimeType };
+    // On the timeline when the file was added: the confirmation's moment (a phone sends when the photo was taken),
+    // never before the file was reserved.
+    const madeAt = changeMoment(ctx.meta);
     await logSystemActivity(ctx, {
       subtype: 'file_added',
       personId: current.recordType === 'person' ? current.recordId : null,
@@ -137,6 +143,7 @@ export const fileConfirm = defineCommand({
       body: current.name,
       meta: { fileId: current.id, mimeType, sizeBytes },
       eventId,
+      occurredAt: madeAt < current.createdAt ? current.createdAt : madeAt,
     });
     return { fileId: current.id, sizeBytes, mimeType };
   },

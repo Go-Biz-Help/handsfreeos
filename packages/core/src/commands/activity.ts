@@ -7,6 +7,7 @@ import { requireCompany, requirePerson } from '../crm/records';
 import { HfosError } from '../errors';
 import { userIdOf } from '../kernel/actor';
 import { defineCommand } from '../kernel/define';
+import { changeMoment } from '../kernel/moment';
 import {
   ActivityDeleteInput,
   ActivityDeleteOutput,
@@ -55,9 +56,7 @@ export const activityLog = defineCommand({
           kind: input.kind,
           body: input.body,
           // A note taken on the phone happened when it was written, not when the phone found signal.
-          occurredAt: input.occurredAt
-            ? new Date(input.occurredAt)
-            : (ctx.meta.occurredAt ?? new Date()),
+          occurredAt: input.occurredAt ? new Date(input.occurredAt) : changeMoment(ctx.meta),
           personId: input.personId ?? null,
           companyId: input.companyId ?? null,
           leadId: input.leadId ?? null,
