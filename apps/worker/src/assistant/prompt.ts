@@ -1,4 +1,4 @@
-import { formatDuration } from '@hfos/core';
+import { formatDuration, plainSpaces } from '@hfos/core';
 
 /**
  * What the model is told. The fixed part is the same for every question (cached by the provider);
@@ -157,16 +157,18 @@ function pageLines(page: NonNullable<PromptContext['page']>): string[] {
 }
 
 export function contextText(c: PromptContext): string {
-  const local = new Intl.DateTimeFormat('en-US', {
-    timeZone: c.timezone,
-    weekday: 'long',
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-    timeZoneName: 'short',
-  }).format(c.now);
+  const local = plainSpaces(
+    new Intl.DateTimeFormat('en-US', {
+      timeZone: c.timezone,
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+      timeZoneName: 'short',
+    }).format(c.now),
+  );
   const lines = [
     `Business: ${c.businessName}.`,
     `You are helping ${c.personName} (${c.role}).`,

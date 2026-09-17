@@ -1,4 +1,4 @@
-import { executeCommand, registry, type AssistantCard } from '@hfos/core/server';
+import { executeCommand, plainSpaces, registry, type AssistantCard } from '@hfos/core/server';
 import type { Db } from '@hfos/db/client';
 import { personQuery } from './context';
 import type { ToolContext, ToolOutcome } from './runtime';
@@ -30,14 +30,16 @@ export const money = (cents: number): string =>
 /** A due time as people say it, in the business's time zone. */
 export const when = (iso: string | null, timezone: string): string =>
   iso
-    ? new Intl.DateTimeFormat('en-US', {
-        timeZone: timezone,
-        weekday: 'short',
-        month: 'short',
-        day: 'numeric',
-        hour: 'numeric',
-        minute: '2-digit',
-      }).format(new Date(iso))
+    ? plainSpaces(
+        new Intl.DateTimeFormat('en-US', {
+          timeZone: timezone,
+          weekday: 'short',
+          month: 'short',
+          day: 'numeric',
+          hour: 'numeric',
+          minute: '2-digit',
+        }).format(new Date(iso)),
+      )
     : 'No due date';
 
 /** Anything a customer wrote, marked so the model reads it as their words and nothing more. */

@@ -3,6 +3,7 @@
  * `{{links.booking}}`, `{{ai.message}}`. Variables and filters only, no logic. A variable with no value and
  * no default is reported as missing, and the engine skips the step as `missing_variable`. Browser-safe.
  */
+import { plainSpaces } from '../intl/spaces';
 
 export const TEMPLATE_FILTERS = ['default', 'time', 'date', 'first', 'upper', 'lower'] as const;
 export type TemplateFilterName = (typeof TEMPLATE_FILTERS)[number];
@@ -143,12 +144,15 @@ function applyFilter(value: unknown, filter: TemplateFilter, timeZone: string): 
     case 'date': {
       const d = instant(value);
       if (!d) return value;
-      return new Intl.DateTimeFormat(
-        'en-US',
-        filter.name === 'time'
-          ? { timeZone, hour: 'numeric', minute: '2-digit' }
-          : { timeZone, weekday: 'short', month: 'short', day: 'numeric' },
-      ).format(d);
+      // Plain spaces, as the server's texts have them: a phone's Intl writes "2:30 PM" with U+202F.
+      return plainSpaces(
+        new Intl.DateTimeFormat(
+          'en-US',
+          filter.name === 'time'
+            ? { timeZone, hour: 'numeric', minute: '2-digit' }
+            : { timeZone, weekday: 'short', month: 'short', day: 'numeric' },
+        ).format(d),
+      );
     }
     default:
       return value;

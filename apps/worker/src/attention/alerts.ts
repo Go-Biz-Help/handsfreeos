@@ -22,6 +22,7 @@ import {
   chipText,
   isLeadKind,
   openHoursOf,
+  plainSpaces,
   scheduleJob,
   sortChips,
   workspaceMessaging,
@@ -55,8 +56,10 @@ const alertKindOf = (kind: string): AttentionUrgentInput['kind'] | null =>
   ALERT_KINDS[kind] ?? null;
 
 const localClock = (at: number, timeZone: string) =>
-  new Intl.DateTimeFormat('en-US', { timeZone, hour: 'numeric', minute: '2-digit' }).format(
-    new Date(at),
+  plainSpaces(
+    new Intl.DateTimeFormat('en-US', { timeZone, hour: 'numeric', minute: '2-digit' }).format(
+      new Date(at),
+    ),
   );
 
 /** The wait a conversation is in: the customer's unanswered message, or a hand-off nobody has taken. */

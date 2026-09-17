@@ -1,8 +1,9 @@
-import { localDateOf, zoneOffsetMinutes } from '@hfos/core/server';
+import { localDateOf, plainSpaces, zoneOffsetMinutes } from '@hfos/core/server';
 
 /**
  * Appointment times as people say them, in the calendar's time zone ("Fri, Sep 18, 10:00–11:00 AM", "Central
  * Time"), and as the model writes them (with the zone's offset). Pure, so the context and the tools share it.
+ * ICU puts a narrow no-break space before AM and PM; the cards and the model get a plain one.
  */
 
 const formatters = new Map<string, Intl.DateTimeFormat>();
@@ -12,8 +13,6 @@ function fmt(timeZone: string, key: string, opts: Intl.DateTimeFormatOptions): I
   if (!f) formatters.set(id, (f = new Intl.DateTimeFormat('en-US', { timeZone, ...opts })));
   return f;
 }
-/** ICU puts a narrow no-break space before AM and PM; the cards and the model get a plain one. */
-const plain = (s: string) => s.replace(/\s/g, ' ');
 
 /** "Central Time". */
 export function zoneLabel(timeZone: string, at: number = Date.now()): string {
@@ -25,15 +24,17 @@ export function zoneLabel(timeZone: string, at: number = Date.now()): string {
 
 /** "Thu, Sep 24". */
 export const dayLabel = (at: number, timeZone: string): string =>
-  plain(fmt(timeZone, 'day', { weekday: 'short', month: 'short', day: 'numeric' }).format(at));
+  plainSpaces(
+    fmt(timeZone, 'day', { weekday: 'short', month: 'short', day: 'numeric' }).format(at),
+  );
 
 /** "Thursday, September 24". */
 export const longDayLabel = (at: number, timeZone: string): string =>
-  plain(fmt(timeZone, 'long', { weekday: 'long', month: 'long', day: 'numeric' }).format(at));
+  plainSpaces(fmt(timeZone, 'long', { weekday: 'long', month: 'long', day: 'numeric' }).format(at));
 
 /** "10:00 AM". */
 export const clockLabel = (at: number, timeZone: string): string =>
-  plain(fmt(timeZone, 'clock', { hour: 'numeric', minute: '2-digit' }).format(at));
+  plainSpaces(fmt(timeZone, 'clock', { hour: 'numeric', minute: '2-digit' }).format(at));
 
 /** "10:00–11:00 AM", "11:30 AM–12:30 PM". */
 export function clockRange(start: number, end: number, timeZone: string): string {

@@ -36,6 +36,7 @@ import {
   offerStillOpen,
   parseConfig,
   parseWaitlistOffer,
+  plainSpaces,
   slotOut,
   userNames,
   waitlistClaimOnline,
@@ -288,7 +289,7 @@ export function whenText(startsAt: string, timeZone: string): string {
       hour: 'numeric',
       minute: '2-digit',
     }).format(at);
-    return `${day} at ${clock}`;
+    return plainSpaces(`${day} at ${clock}`);
   } catch {
     return at.toISOString();
   }

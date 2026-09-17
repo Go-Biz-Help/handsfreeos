@@ -10,6 +10,7 @@
  *
  * The public routes deliberately don't hand out the business's time zone, so there is nothing else to use.
  */
+import { plainSpaces, timeZoneOr } from '@hfos/core';
 import { dateLong, dateShort } from '@/components/booking/format';
 
 export { dateLong, dateShort };
@@ -33,7 +34,7 @@ export const momentShort = (iso: string): string => SHORT.format(new Date(iso));
 export function momentLong(iso: string): string {
   const at = new Date(iso);
   // Some browsers put a narrow no-break space before AM/PM; the rest of the app prints a plain one.
-  return `${LONG.format(at)} at ${TIME.format(at).replace(/\u202f/g, ' ')}`;
+  return plainSpaces(`${LONG.format(at)} at ${TIME.format(at)}`);
 }
 
 /** "Wed, Sep 30" for a business-local day, or null when there isn't one. */
@@ -49,6 +50,9 @@ export const joinParts = (...parts: (string | null | undefined)[]): string =>
 /**
  * The zone the reader's browser is in. Core's `dueWording` and `expiryPhrase` count days in a zone, and the
  * public routes deliberately hand out no business zone, so the reader's own is the only clock this page has:
- * "Due today" then means today where they are, which is what the words say to them.
+ * "Due today" then means today where they are, which is what the words say to them. An older name is read as its
+ * current zone; one that isn't on core's list (a browser that can't tell, "Etc/Unknown") reads days in UTC rather
+ * than failing the page.
  */
-export const viewerZone = (): string => Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+export const viewerZone = (): string =>
+  timeZoneOr(Intl.DateTimeFormat().resolvedOptions().timeZone, 'UTC');

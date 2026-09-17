@@ -6,7 +6,7 @@
  * dots outside the texting alphabet, times without ranges, and "Reply STOP to opt out." on the first text to
  * a number. Emails go through message.send as plain text, which the worker renders with clickable links.
  */
-import type { Reminder } from '@hfos/core/server';
+import { plainSpaces, type Reminder } from '@hfos/core/server';
 import {
   clock,
   dayLong,
@@ -63,13 +63,14 @@ export const confirmLink = (manageUrl: string): string => `${manageUrl}?confirm=
 
 /** Plain characters for a text: straight quotes, plain dashes and spaces. */
 export function plainSms(text: string): string {
-  return text
-    .replace(/[\u2018\u2019\u201a\u02bc\u2032]/g, "'")
-    .replace(/[\u201c\u201d\u201e\u2033]/g, '"')
-    .replace(/[\u2013\u2014\u2212]/g, '-')
-    .replace(/\u2026/g, '...')
-    .replace(/\u00b7/g, '-')
-    .replace(/[\u00a0\u2007\u2009\u202f]/g, ' ');
+  return plainSpaces(
+    text
+      .replace(/[\u2018\u2019\u201a\u02bc\u2032]/g, "'")
+      .replace(/[\u201c\u201d\u201e\u2033]/g, '"')
+      .replace(/[\u2013\u2014\u2212]/g, '-')
+      .replace(/\u2026/g, '...')
+      .replace(/\u00b7/g, '-'),
+  );
 }
 
 const text = (parts: readonly (string | null | false | undefined)[], first: boolean): string =>

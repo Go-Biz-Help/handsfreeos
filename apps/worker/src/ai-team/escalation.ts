@@ -18,6 +18,7 @@ import {
   loadTeammate,
   localDateOf,
   openHoursOf,
+  plainSpaces,
   scheduleJob,
   workspaceMessaging,
   type EmergencyKind,
@@ -50,10 +51,8 @@ const isRecord = (v: unknown): v is Record<string, unknown> =>
 const str = (v: unknown): string | null => (typeof v === 'string' && v ? v : null);
 
 /** Intl's clock uses a narrow no-break space before AM/PM; mail reads better with a plain one. */
-const ODD_SPACES = new RegExp(`[${String.fromCodePoint(0x202f, 0x00a0)}]`, 'g');
-const plain = (s: string) => s.replace(ODD_SPACES, ' ');
 const clock = (at: number, timeZone: string) =>
-  plain(
+  plainSpaces(
     new Intl.DateTimeFormat('en-US', { timeZone, hour: 'numeric', minute: '2-digit' }).format(at),
   );
 const weekday = (at: number, timeZone: string) =>

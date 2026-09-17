@@ -572,6 +572,32 @@ describe('workspace.create / workspace.update', () => {
     expect(audit?.after).toEqual({ timezone: 'America/Denver' });
     await run(workspaceUpdate, { workspaceId: wsId, timezone: 'America/Chicago' }, owner);
   });
+
+  it('stores an older zone name as its current one, and refuses abbreviations and offsets', async () => {
+    const stored = async () =>
+      (await ask(workspaceGet, { workspaceId: wsId }, owner)).workspace.timezone;
+    const { output } = await run(
+      workspaceUpdate,
+      { workspaceId: wsId, timezone: 'US/Mountain' },
+      owner,
+    );
+    expect(output.updated).toEqual(['timezone']);
+    expect(await stored()).toBe('America/Denver');
+    // Chicago's older name is the zone it already has: nothing changes.
+    await run(workspaceUpdate, { workspaceId: wsId, timezone: 'America/Chicago' }, owner);
+    expect(
+      (await run(workspaceUpdate, { workspaceId: wsId, timezone: 'US/Central' }, owner)).output
+        .updated,
+    ).toEqual([]);
+    for (const timezone of ['CST', 'GMT+5', 'Etc/GMT+6']) {
+      const err = await expectHfos(
+        () => run(workspaceUpdate, { workspaceId: wsId, timezone }, owner),
+        'validation',
+      );
+      expect((err.details as { path: string }[]).map((d) => d.path)).toEqual(['timezone']);
+    }
+    expect(await stored()).toBe('America/Chicago');
+  });
 });
 
 describe('invitations', () => {

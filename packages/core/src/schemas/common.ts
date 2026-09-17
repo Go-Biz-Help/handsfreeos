@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { canonicalTimeZone, isValidTimeZone } from '../intl/time-zones';
 
 export const uuid = z.uuid();
 export const email = z
@@ -16,19 +17,16 @@ export const displayName = z
 export const industry = z.enum(['home_services', 'other']);
 export const isoDateTime = z.iso.datetime();
 
-export function isValidTimeZone(tz: string): boolean {
-  try {
-    new Intl.DateTimeFormat('en-US', { timeZone: tz });
-    return true;
-  } catch {
-    return false;
-  }
-}
+/**
+ * A time zone on core's list (intl/time-zones.ts), never whatever this engine's Intl accepts. An older name
+ * ("US/Central") is stored as its current zone ("America/Chicago").
+ */
 export const timezone = z
   .string()
   .trim()
   .min(1)
   .max(64)
-  .refine(isValidTimeZone, { error: 'Unknown time zone.' });
+  .refine(isValidTimeZone, { error: 'Unknown time zone.' })
+  .overwrite((tz) => canonicalTimeZone(tz) ?? tz);
 
 export const settings = z.record(z.string(), z.unknown());

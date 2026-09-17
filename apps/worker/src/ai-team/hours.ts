@@ -12,6 +12,7 @@ import {
   localDateOf,
   localInstant,
   localMinutes,
+  plainSpaces,
   weekdayOf,
   type TeammateConfig,
   type WeeklyHours,
@@ -91,10 +92,9 @@ export function nextWorkingAt(
 
 /** "8 AM", "8:30 AM", "1 PM". */
 function shortClock(at: number, timeZone: string): string {
-  return new Intl.DateTimeFormat('en-US', { timeZone, hour: 'numeric', minute: '2-digit' })
-    .format(at)
-    .replace(':00', '')
-    .replace(/\s/g, ' ');
+  return plainSpaces(
+    new Intl.DateTimeFormat('en-US', { timeZone, hour: 'numeric', minute: '2-digit' }).format(at),
+  ).replace(':00', '');
 }
 
 const daysBetween = (from: string, to: string): number =>

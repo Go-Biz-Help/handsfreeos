@@ -16,6 +16,7 @@ import {
   findStep,
   isWorkspaceUser,
   OUTPUT_KEY_RE,
+  plainSpaces,
   type ApprovalStep,
 } from '@hfos/core/server';
 import { rows, sql } from '@hfos/db/client';
@@ -30,14 +31,16 @@ const isRecord = (v: unknown): v is Record<string, unknown> =>
   typeof v === 'object' && v !== null && !Array.isArray(v);
 
 function when(ms: number, timeZone: string): string {
-  return new Intl.DateTimeFormat('en-US', {
-    timeZone,
-    weekday: 'short',
-    month: 'short',
-    day: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-  }).format(ms);
+  return plainSpaces(
+    new Intl.DateTimeFormat('en-US', {
+      timeZone,
+      weekday: 'short',
+      month: 'short',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+    }).format(ms),
+  );
 }
 
 interface ApprovalRow {
