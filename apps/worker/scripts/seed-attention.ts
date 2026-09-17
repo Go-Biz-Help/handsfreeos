@@ -27,6 +27,7 @@
 import { randomUUID } from 'node:crypto';
 import {
   addDays,
+  AUTO_CANCEL_WINDOW_MINUTES,
   appointmentCreate,
   attendeeConfirm,
   attendeeConfirmOnline,
@@ -217,37 +218,6 @@ export async function seedAttention(
       acknowledgeWarnings: true,
       notify: false,
     });
-
-  /**
-   * The visit HandsFreeOS asks about is booked here, **tomorrow**, rather than borrowed from the seeded week.
-   * A confirmation request needs an open "Not confirmed" item, and that opens only inside the Action Center's
-   * appointment window (`attention.appointments.windowHours`, 48 hours by default). The seeded week counts in
-   * business days, so its "two days out at 1 PM" visit is 48 hours away only from 1 PM onwards — and 72 to 108
-   * hours away when the seed runs on a Friday, Saturday or Sunday, because business days skip the weekend. A
-   * visit tomorrow is 15 to 38 hours out whatever the hour and whatever the day, so it is always inside the
-   * window and never so close that the request would be too late to send.
-   */
-  d.step(
-    'Lone Star: Quincy Adams is booked for tomorrow too — the visit HandsFreeOS will ask about',
-  );
-  const quincy = await one<{ id: string }>(
-    sql`select id from app.people where workspace_id = ${workspaceId}
-        and first_name = 'Quincy' and last_name = 'Adams'`,
-  );
-  if (calendar && quincy)
-    await as(ws.dale, appointmentCreate, {
-      workspaceId,
-      calendarId: calendar.id,
-      // 8 AM: Dale's morning is free tomorrow whichever day it is (Bill Hayes is at 10:30, his own
-      // calendar's busy hour at noon, Rachel's estimate visit at 3).
-      startsAt: new Date(localInstant(addDays(today, 1), '08:00', tz)).toISOString(),
-      durationMinutes: 60,
-      personId: quincy.id,
-      title: 'Duct cleaning',
-      notes: 'Before the shop opens. The bays fill up by nine.',
-      acknowledgeWarnings: true,
-      notify: false,
-    });
   await settle(w);
 
   // ---------- Thursday's visits, each settled its own way ----------
@@ -316,17 +286,26 @@ export async function seedAttention(
     await settle(w);
   };
 
-  // A text waits for quiet hours to end, so at night the seed opens texting hours for a moment — as the workflow
-  // seed does for its runs — and puts them back afterwards.
+  // A text waits for quiet hours to end, so the seed opens texting hours for a moment — as the workflow seed does
+  // for its runs — and puts them back afterwards. It does that before Quincy's visit is booked, whenever quiet
+  // hours start before his request's cancel window ends: the request is planned the moment his "Not confirmed"
+  // item opens, and a request held until quiet hours end at 8 AM would be too late for a visit at 8 (from 7 PM
+  // to midnight, the seed used to stop here).
   const phone = await one<{ timezone: string; quiet: QuietHoursWindow | null }>(
     sql`select timezone, settings -> 'telephony' -> 'quietHours' as quiet
         from app.workspaces where id = ${workspaceId}`,
   );
   const window: QuietHoursWindow = phone?.quiet ?? { enabled: true, start: '20:00', end: '08:00' };
   const quiet = quietHoursState(window, phone?.timezone ?? tz);
-  if (quiet.quiet) {
+  // A few minutes past the window, for the time the seed takes to book and ask.
+  const windowEnds = new Date(Date.now() + (AUTO_CANCEL_WINDOW_MINUTES + 5) * 60_000);
+  const openTexting =
+    quiet.quiet || quietHoursState(window, phone?.timezone ?? tz, windowEnds).quiet;
+  if (openTexting) {
     d.step(
-      `It’s ${quiet.localTime} in Houston, in Lone Star’s quiet hours: texting hours open while HandsFreeOS asks`,
+      quiet.quiet
+        ? `It’s ${quiet.localTime} in Houston, in Lone Star’s quiet hours: texting hours open while HandsFreeOS asks`
+        : `It’s ${quiet.localTime} in Houston, and Lone Star’s quiet hours start within the hour: texting hours open while HandsFreeOS asks`,
     );
     await as(ws.dale, phoneUpdateSettings, {
       workspaceId,
@@ -336,6 +315,38 @@ export async function seedAttention(
   let asked: string | null = null;
   let confirmedByText = false;
   try {
+    /**
+     * The visit HandsFreeOS asks about is booked here, **tomorrow**, rather than borrowed from the seeded week.
+     * A confirmation request needs an open "Not confirmed" item, and that opens only inside the Action Center's
+     * appointment window (`attention.appointments.windowHours`, 48 hours by default). The seeded week counts in
+     * business days, so its "two days out at 1 PM" visit is 48 hours away only from 1 PM onwards — and 72 to
+     * 108 hours away when the seed runs on a Friday, Saturday or Sunday, because business days skip the weekend.
+     * A visit tomorrow is 8 to 32 hours out whatever the hour and whatever the day, so it is always inside the
+     * window, and with texting hours open (above) the request is never too late to send.
+     */
+    d.step(
+      'Lone Star: Quincy Adams is booked for tomorrow too — the visit HandsFreeOS will ask about',
+    );
+    const quincy = await one<{ id: string }>(
+      sql`select id from app.people where workspace_id = ${workspaceId}
+          and first_name = 'Quincy' and last_name = 'Adams'`,
+    );
+    if (calendar && quincy)
+      await as(ws.dale, appointmentCreate, {
+        workspaceId,
+        calendarId: calendar.id,
+        // 8 AM: Dale's morning is free tomorrow whichever day it is (Bill Hayes is at 10:30, his own
+        // calendar's busy hour at noon, Rachel's estimate visit at 3).
+        startsAt: new Date(localInstant(addDays(today, 1), '08:00', tz)).toISOString(),
+        durationMinutes: 60,
+        personId: quincy.id,
+        title: 'Duct cleaning',
+        notes: 'Before the shop opens. The bays fill up by nine.',
+        acknowledgeWarnings: true,
+        notify: false,
+      });
+    await settle(w);
+
     d.step('Lone Star: HandsFreeOS asks Quincy Adams to confirm tomorrow’s visit');
     const seat = await seatOf('Quincy Adams');
     asked = await askNow('Quincy Adams');
@@ -351,7 +362,7 @@ export async function seedAttention(
       confirmedByText = !!confirmed?.at;
     }
   } finally {
-    if (quiet.quiet) {
+    if (openTexting) {
       await as(ws.dale, phoneUpdateSettings, { workspaceId, quietHours: window });
       d.step('Lone Star: quiet hours back on');
     }
