@@ -7,7 +7,10 @@
  *   with the offset from before the change, so it lands an hour later on the clock: 3:30 AM CDT.
  * - A wall time that happens twice (fall back, 1:30 AM on 2026-11-01 in America/Chicago) is read with the
  *   offset from after the change: the second 1:30, in CST. `zonedInstants` returns both.
+ *
+ * Intl gets each zone through `intlTimeZone`, so a phone whose time-zone data predates a zone reads the same clock.
  */
+import { intlTimeZone } from '../../intl/engine-zones';
 
 const MINUTE = 60_000;
 const DAY = 86_400_000;
@@ -29,7 +32,7 @@ function formatter(timeZone: string): Intl.DateTimeFormat {
   let f = formatters.get(timeZone);
   if (!f) {
     f = new Intl.DateTimeFormat('en-US', {
-      timeZone,
+      timeZone: intlTimeZone(timeZone),
       hourCycle: 'h23',
       year: 'numeric',
       month: '2-digit',

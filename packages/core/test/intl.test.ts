@@ -2,21 +2,28 @@
  * Times written as text, and which time zones are valid, the same on every engine (M10, spike 1a). The phones'
  * Hermes writes "2:30 PM" with a narrow no-break space where V8's format() writes a plain one, and the engines
  * disagree about zone names ("GMT+5" is valid only on iPhones, "CST" is refused only on Android). Core turns Intl's
- * spaces into plain ones, and checks zones against its own list from tzdb.
+ * spaces into plain ones, and checks zones against its own list from tzdb. A phone's own time-zone data can also be
+ * older than that list (an Android 16 emulator image has no America/Coyhaique), so core hands Intl a name the engine
+ * has, with the same clock.
  */
+import { readdirSync, readFileSync } from 'node:fs';
 import { rows, sql } from '@hfos/db/client';
 import { closeTestDbs, testDbs } from '@hfos/db/testing';
-import { afterAll, describe, expect, it } from 'vitest';
+import { afterAll, describe, expect, it, vi } from 'vitest';
 import { zonedParts, zoneOffsetMinutes } from '../src/calendar/engine/zoned';
 import {
   canonicalTimeZone,
+  intlTimeZone,
   isValidTimeZone,
   plainSpaces,
   TIME_ZONE_ALIASES,
+  TIME_ZONE_FALLBACKS,
   TIME_ZONES,
   timeZoneOr,
+  TZDB_BASELINE,
   TZDB_VERSION,
 } from '../src/intl/index';
+import { localMinutes } from '../src/messaging/quiet-hours';
 import { smsSegments } from '../src/messaging/sms';
 import { dueWording, expiryPhrase } from '../src/money/index';
 import { timezone } from '../src/schemas/common';
@@ -314,9 +321,249 @@ describe('a visitor’s own zone on a public page', () => {
 
   it('keeps an invoice’s due words and an estimate’s expiry working where Intl refuses the zone', () => {
     // "Etc/Unknown" is ICU's name when a browser can't tell the computer's zone, and V8 refuses to format in it.
-    expect(() => dueWording('2026-09-18', NOW, 'Etc/Unknown')).toThrow(RangeError);
+    expect(() => new Intl.DateTimeFormat('en-US', { timeZone: 'Etc/Unknown' })).toThrow(RangeError);
     const zone = timeZoneOr('Etc/Unknown', 'UTC');
     expect(dueWording('2026-09-18', NOW, zone)).toBe('Due Fri');
     expect(expiryPhrase('2026-09-30', NOW, zone)).toBe('good until Wed, Sep 30');
+  });
+});
+
+// ---- A zone the engine's time-zone data doesn't have ----
+
+const DAY_MS = 86_400_000;
+
+/** A zone's UTC offset in minutes, straight from Node's Intl (not through core). */
+function nodeOffset(zone: string): (at: number) => number {
+  const f = new Intl.DateTimeFormat('en-US', { timeZone: zone, timeZoneName: 'longOffset' });
+  return (at) => {
+    const name = f.formatToParts(at).find((p) => p.type === 'timeZoneName')?.value ?? '';
+    const m = /^GMT(?:([+-])(\d{2}):(\d{2}))?$/.exec(name);
+    if (!m) throw new Error(`Not an offset: ${name}`);
+    const minutes = m[1] ? Number(m[2]) * 60 + Number(m[3]) : 0;
+    return m[1] === '-' ? -minutes : minutes;
+  };
+}
+
+/**
+ * Runs `fn` on an engine whose time-zone data lacks the zones `lacks` picks: Intl.DateTimeFormat throws RangeError
+ * for them, as Hermes does on a phone. Core's modules are loaded afresh inside, so nothing is remembered from Node.
+ */
+async function onOlderEngine<T>(
+  lacks: (zone: string) => boolean,
+  fn: (core: {
+    intlTimeZone: typeof intlTimeZone;
+    zonedParts: typeof zonedParts;
+    localMinutes: typeof localMinutes;
+    render: typeof render;
+    probes: () => number;
+  }) => Promise<T> | T,
+): Promise<T> {
+  const Real = Intl.DateTimeFormat;
+  let probes = 0;
+  class OlderEngineDateTimeFormat extends Real {
+    constructor(locales?: string | string[], options?: Intl.DateTimeFormatOptions) {
+      const zone = options?.timeZone;
+      if (zone !== undefined && Object.keys(options ?? {}).length === 1) probes++;
+      if (zone !== undefined && lacks(zone))
+        throw new RangeError(`Invalid time zone specified: ${zone}`);
+      super(locales, options);
+    }
+  }
+  const put = (value: unknown) =>
+    Object.defineProperty(Intl, 'DateTimeFormat', { value, configurable: true, writable: true });
+  vi.resetModules();
+  put(OlderEngineDateTimeFormat);
+  try {
+    const engine = await import('../src/intl/engine-zones');
+    const zoned = await import('../src/calendar/engine/zoned');
+    const quiet = await import('../src/messaging/quiet-hours');
+    const templates = await import('../src/workflows/templates');
+    return await fn({
+      intlTimeZone: engine.intlTimeZone,
+      zonedParts: zoned.zonedParts,
+      localMinutes: quiet.localMinutes,
+      render: templates.render,
+      probes: () => probes,
+    });
+  } finally {
+    put(Real);
+    vi.resetModules();
+  }
+}
+
+/** Where core hands Intl a zone without `intlTimeZone`: "file:line" for each such call in `text`. */
+function intlCallsSkippingEngineZone(file: string, text: string): string[] {
+  const out: string[] = [];
+  for (const m of text.matchAll(/Intl\.DateTimeFormat\s*\(|\.toLocale(?:Date|Time)?String\s*\(/g)) {
+    let depth = 1;
+    let end = m.index + m[0].length;
+    for (; end < text.length && depth > 0; end++) {
+      if (text[end] === '(') depth++;
+      else if (text[end] === ')') depth--;
+    }
+    const args = text.slice(m.index + m[0].length, end);
+    const dateFormat = m[0].startsWith('Intl');
+    const skips = dateFormat
+      ? !/timeZone:\s*intlTimeZone\(/.test(args)
+      : /timeZone/.test(args) && !/timeZone:\s*intlTimeZone\(/.test(args);
+    if (skips) out.push(`${file}:${text.slice(0, m.index).split('\n').length}`);
+  }
+  return out;
+}
+
+describe('a zone this engine’s time-zone data doesn’t have', () => {
+  it('has fallbacks for the zones tzdb 2016a didn’t have, each an older name or a zone on the list', () => {
+    expect(TZDB_BASELINE).toBe('2016a');
+    expect(Object.keys(TIME_ZONE_FALLBACKS)).toEqual([
+      'America/Ciudad_Juarez',
+      'America/Coyhaique',
+      'America/Nuuk',
+      'America/Punta_Arenas',
+      'Asia/Atyrau',
+      'Asia/Barnaul',
+      'Asia/Famagusta',
+      'Asia/Qostanay',
+      'Asia/Tomsk',
+      'Asia/Yangon',
+      'Europe/Astrakhan',
+      'Europe/Kirov',
+      'Europe/Kyiv',
+      'Europe/Saratov',
+      'Europe/Ulyanovsk',
+      'Pacific/Kanton',
+    ]);
+    const zones = new Set(TIME_ZONES);
+    const odd = Object.entries(TIME_ZONE_FALLBACKS).flatMap(([zone, names]) => [
+      ...(zones.has(zone) ? [] : [zone]),
+      ...names.filter((name) => !zones.has(name) && TIME_ZONE_ALIASES[name] !== zone),
+    ]);
+    expect(odd).toEqual([]);
+    expect(TIME_ZONE_FALLBACKS['America/Coyhaique']).toEqual([
+      'America/Punta_Arenas',
+      'America/Cayenne',
+    ]);
+    expect(TIME_ZONE_FALLBACKS['Europe/Kyiv']).toEqual(['Europe/Kiev']);
+  });
+
+  it('keeps each fallback on its zone’s clock on Node, daily from two years ago to five years ahead', () => {
+    const today = Math.floor(Date.now() / DAY_MS) * DAY_MS + DAY_MS / 2;
+    const drift: string[] = [];
+    for (const [zone, names] of Object.entries(TIME_ZONE_FALLBACKS)) {
+      const expected = nodeOffset(zone);
+      for (const name of names) {
+        const actual = nodeOffset(name);
+        for (let at = today - 2 * 365 * DAY_MS; at <= today + 5 * 365 * DAY_MS; at += DAY_MS)
+          if (actual(at) !== expected(at)) {
+            drift.push(`${name} for ${zone} on ${new Date(at).toISOString().slice(0, 10)}`);
+            break;
+          }
+      }
+    }
+    expect(drift).toEqual([]);
+  });
+
+  it('hands Intl the zone itself where the engine has it', () => {
+    expect(intlTimeZone('America/Coyhaique')).toBe('America/Coyhaique');
+    expect(intlTimeZone(CHI)).toBe(CHI);
+    expect(intlTimeZone('US/Central')).toBe('US/Central');
+  });
+
+  it('tries the zone’s older names, then zones with its clock, and asks the engine once per zone', async () => {
+    const missing = new Set([
+      'America/Coyhaique',
+      'America/Punta_Arenas',
+      'Europe/Kyiv',
+      'US/Central',
+    ]);
+    await onOlderEngine(
+      (zone) => missing.has(zone),
+      (core) => {
+        expect(core.intlTimeZone('America/Coyhaique')).toBe('America/Cayenne');
+        expect(core.probes()).toBe(3);
+        expect(core.intlTimeZone('America/Coyhaique')).toBe('America/Cayenne');
+        expect(core.probes()).toBe(3);
+        expect(core.intlTimeZone('Europe/Kyiv')).toBe('Europe/Kiev');
+        expect(core.intlTimeZone('US/Central')).toBe(CHI);
+      },
+    );
+    await onOlderEngine(
+      (zone) => zone === 'America/Coyhaique',
+      (core) => expect(core.intlTimeZone('America/Coyhaique')).toBe('America/Punta_Arenas'),
+    );
+  });
+
+  it('shows the zone’s clock through core’s calendar, quiet hours and templates on that engine', async () => {
+    const instants = ['2026-01-15T12:00:00Z', '2026-07-15T03:30:00Z', '2029-11-02T23:59:00Z'].map(
+      (iso) => Date.parse(iso),
+    );
+    const zone = 'America/Coyhaique';
+    const expected = instants.map((at) => ({
+      parts: zonedParts(at, zone),
+      minutes: localMinutes(new Date(at), zone),
+      text: render('{{at | date}} {{at | time}}', { at: new Date(at) }, { timeZone: zone }).text,
+    }));
+    const actual = await onOlderEngine(
+      (name) => name === zone || name === 'America/Punta_Arenas',
+      (core) =>
+        instants.map((at) => ({
+          parts: core.zonedParts(at, zone),
+          minutes: core.localMinutes(new Date(at), zone),
+          text: core.render('{{at | date}} {{at | time}}', { at: new Date(at) }, { timeZone: zone })
+            .text,
+        })),
+    );
+    expect(actual).toEqual(expected);
+  });
+
+  it('falls back to UTC, and says so once, where the engine knows none of them', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      await onOlderEngine(
+        (zone) => zone !== 'UTC',
+        (core) => {
+          expect(core.intlTimeZone('America/Coyhaique')).toBe('UTC');
+          expect(core.intlTimeZone('America/Coyhaique')).toBe('UTC');
+          expect(
+            core.zonedParts(Date.parse('2026-09-16T23:30:00Z'), 'America/Coyhaique'),
+          ).toMatchObject({ day: 16, hour: 23, minute: 30 });
+        },
+      );
+      expect(warn).toHaveBeenCalledTimes(1);
+      expect(String(warn.mock.calls[0]?.[0])).toContain('America/Coyhaique');
+      // Names that aren't zones at all never throw either.
+      expect(intlTimeZone('__proto__')).toBe('UTC');
+      expect(intlTimeZone('Etc/Unknown')).toBe('UTC');
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
+  it('hands every Intl call in core its zone through intlTimeZone', () => {
+    const src = new URL('../src/', import.meta.url);
+    const files = readdirSync(src, { recursive: true, encoding: 'utf8' })
+      .map((file) => file.replaceAll('\\', '/'))
+      .filter((file) => file.endsWith('.ts') && file !== 'intl/engine-zones.ts');
+    const calling: string[] = [];
+    const skipping: string[] = [];
+    for (const file of files) {
+      const text = readFileSync(new URL(file, src), 'utf8');
+      if (/Intl\.DateTimeFormat\s*\(/.test(text)) calling.push(file);
+      skipping.push(...intlCallsSkippingEngineZone(file, text));
+    }
+    expect(skipping).toEqual([]);
+    expect(calling.sort()).toEqual([
+      'calendar/engine/zoned.ts',
+      'messaging/quiet-hours.ts',
+      'workflows/templates.ts',
+    ]);
+    // The scan catches a call that skips it.
+    expect(
+      intlCallsSkippingEngineZone(
+        'new.ts',
+        "const a = new Intl.DateTimeFormat('en-US', { timeZone, hour: 'numeric' });\n" +
+          "const b = at.toLocaleTimeString('en-US', { timeZone: zone });\n" +
+          "const c = (1234).toLocaleString('en-US');",
+      ),
+    ).toEqual(['new.ts:1', 'new.ts:2']);
   });
 });

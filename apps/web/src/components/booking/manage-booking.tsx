@@ -4,7 +4,7 @@
  * worker's per-address limits count per customer. Shows the canvas's states: booked (Reschedule, Cancel
  * it, and the rules in plain words), cancelled, past, a link that is out of date, and one that doesn't work.
  */
-import { addDays, localDateOf, shortBusinessName } from '@hfos/core';
+import { addDays, intlTimeZone, localDateOf, shortBusinessName } from '@hfos/core';
 import {
   CalendarCheck,
   CalendarClock,
@@ -92,7 +92,7 @@ function seeYouAt(startsAt: string, tz: string): string {
       ? 'today'
       : day === addDays(today, 1)
         ? 'tomorrow'
-        : new Intl.DateTimeFormat('en-US', { weekday: 'long', timeZone: tz }).format(
+        : new Intl.DateTimeFormat('en-US', { weekday: 'long', timeZone: intlTimeZone(tz) }).format(
             new Date(startsAt),
           );
   return `${when} at ${timeOf(startsAt, tz)}`;

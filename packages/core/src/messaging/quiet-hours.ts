@@ -1,5 +1,6 @@
 /** Quiet hours in the workspace's time zone. Browser-safe: the composer shows the same answer the server enforces. */
 import { addDays, localDateOf, localInstant } from '../calendar/engine/zoned';
+import { intlTimeZone } from '../intl/engine-zones';
 
 export interface QuietHoursWindow {
   readonly enabled: boolean;
@@ -26,7 +27,7 @@ const hhmm = (minutes: number): string =>
 /** Minutes past local midnight in a time zone. */
 export function localMinutes(now: Date, timeZone: string): number {
   const parts = new Intl.DateTimeFormat('en-US', {
-    timeZone,
+    timeZone: intlTimeZone(timeZone),
     hour: '2-digit',
     minute: '2-digit',
     hourCycle: 'h23',
