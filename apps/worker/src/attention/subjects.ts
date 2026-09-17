@@ -10,9 +10,11 @@ import type { EventRow } from '../handlers/types';
 /**
  * The events reconciled at once (withAttention). Beyond the plan's list: `message.queued`, because a person's (or
  * the AI teammate's, or a workflow's) text or email is queued, not "sent", and it is the lead's contact;
- * `conversation.linked`, because a conversation that finds its customer folds into their lead card; the seat's
- * `attendee.reminder_recorded` (a confirmation asked for); and a person's `attention.restored` and
- * `attention.unsnoozed`, so an item brought back whose facts are gone clears at once.
+ * `message.media_attached`, because a picture message's photos are copied in after the message itself, and a card
+ * quoting the customer says "Sent a photo." once they are; `conversation.linked`, because a conversation that
+ * finds its customer folds into their lead card; the seat's `attendee.reminder_recorded` (a confirmation asked
+ * for); and a person's `attention.restored` and `attention.unsnoozed`, so an item brought back whose facts are
+ * gone clears at once.
  */
 export const ATTENTION_EVENTS: readonly string[] = [
   // Leads: every change to one.
@@ -33,6 +35,7 @@ export const ATTENTION_EVENTS: readonly string[] = [
   'message.received',
   'message.sent',
   'message.queued',
+  'message.media_attached',
   'call.started',
   'call.received',
   'call.completed',

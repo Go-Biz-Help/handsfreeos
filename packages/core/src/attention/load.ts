@@ -17,6 +17,7 @@ import { rows, sql, type Tx } from '@hfos/db/client';
 import { attentionItems } from '@hfos/db/schema';
 import { localInstant } from '../calendar/engine/zoned';
 import { uuidArray } from '../calendar/load';
+import { callPreview } from '../commands/call';
 import { formatPhone } from '../crm/phone';
 import type { QuietHoursWindow } from '../messaging/quiet-hours';
 import { workspaceMessaging } from '../messaging/store';
@@ -31,7 +32,14 @@ import { ATTENTION_SUBJECT_OF, type AttentionKind, type AttentionSubjectType } f
 import { attentionWakeAt, detectAttention, type AttentionFacts } from './registry';
 import { attentionSettingsOf, type AttentionSettings } from './settings';
 import type { AttentionCandidate, AttentionChip, Detection } from './types';
-import { clipLine, dayLabel, DETAIL_MAX, itemTitle, whenLabel } from './wording';
+import {
+  clipLine,
+  customerMessageLine,
+  dayLabel,
+  DETAIL_MAX,
+  itemTitle,
+  whenLabel,
+} from './wording';
 
 export type AttentionItemRow = typeof attentionItems.$inferSelect;
 export type AttentionState = AttentionItemRow['state'];
@@ -443,10 +451,106 @@ interface ConversationInfo {
   readonly handledBy: 'none' | 'ai' | 'person';
   readonly needsPersonSince: string | null;
   readonly takenOverBy: string | null;
-  readonly lastPreview: string | null;
   readonly lastMessageAt: string | null;
   readonly counterpart: string;
   readonly personName: string | null;
+  /** What the customer said last in it; null when they haven't written or called. */
+  readonly said: CustomerSaid | null;
+}
+
+/** What a customer said last in a conversation, for a card, the urgent email and a push. */
+export interface CustomerSaid {
+  /** Their message in one line (customerMessageLine), or a call of theirs nobody answered ("Missed call"). */
+  readonly words: string;
+  /** Photos in that message. */
+  readonly photos: number;
+  readonly at: string;
+}
+
+/**
+ * What each conversation's customer said last: their newest message, or a call of theirs nobody answered when it
+ * came after it. Never the business's own words, however recent (an automatic receipt, the AI teammate's reply),
+ * which is what the conversation's `last_preview` holds. A conversation they never wrote or called in is left out.
+ */
+export async function loadCustomerSaid(
+  tx: Tx,
+  conversationIds: readonly string[],
+): Promise<Map<string, CustomerSaid>> {
+  const out = new Map<string, CustomerSaid>();
+  if (!conversationIds.length) return out;
+  const list = await rows<{
+    id: string;
+    channel: string | null;
+    subject: string | null;
+    body: string | null;
+    photos: number | null;
+    message_at: Date | null;
+    voicemail: boolean | null;
+    recording_seconds: number | null;
+    transcript: string | null;
+    call_at: Date | null;
+  }>(
+    tx,
+    sql`select c.id, m.channel, m.subject, m.body, m.photos, m.occurred_at as message_at,
+          k.is_voicemail as voicemail, k.recording_seconds, k.transcript, k.started_at as call_at
+        from unnest(${uuidArray(conversationIds)}) as c(id)
+        left join lateral (
+          select m.channel::text as channel, m.subject, m.body_text as body,
+            coalesce(jsonb_array_length(m.media), 0)::int as photos, m.occurred_at
+          from app.messages m
+          where m.conversation_id = c.id and m.direction = 'inbound'
+          order by m.occurred_at desc, m.id desc
+          limit 1
+        ) m on true
+        left join lateral (
+          select k.is_voicemail, k.recording_seconds, k.transcript, k.started_at
+          from app.calls k
+          where k.conversation_id = c.id and k.direction = 'inbound' and k.answered_at is null
+            and k.ended_at is not null
+            -- As the thread shows calls: one through someone's own cell only once it reached the customer.
+            and (k.answered_via is distinct from 'bridge' or k.answered_by_user_id is not null)
+          order by k.started_at desc, k.id desc
+          limit 1
+        ) k on true`,
+  );
+  for (const r of list) {
+    const messageAt = timeOf(r.message_at);
+    const callAt = timeOf(r.call_at);
+    if (callAt !== null && (messageAt === null || callAt > messageAt)) {
+      const words = callPreview({
+        direction: 'inbound',
+        answeredAt: null,
+        durationSeconds: null,
+        isVoicemail: !!r.voicemail,
+        recordingSeconds: r.recording_seconds,
+        transcript: r.transcript,
+      });
+      out.set(r.id, { words, photos: 0, at: iso(r.call_at)! });
+    } else if (messageAt !== null) {
+      const photos = r.photos ?? 0;
+      const words = customerMessageLine({
+        channel: r.channel ?? 'sms',
+        subject: r.subject,
+        body: r.body,
+        photos,
+      });
+      if (words) out.set(r.id, { words, photos, at: iso(r.message_at)! });
+    }
+  }
+  return out;
+}
+
+/**
+ * From when a lead's card quotes its customer: since they began waiting for a reply, or else since a day before the
+ * lead came in (a message can arrive just before its lead). Older words aren't about this lead.
+ */
+export function leadWordsSince(
+  lead: { readonly createdAt: Date | string },
+  awaitingReplySince: Date | string | null,
+): number {
+  return awaitingReplySince !== null
+    ? new Date(awaitingReplySince).getTime()
+    : new Date(lead.createdAt).getTime() - DAY;
 }
 
 /** Conversations by id or customer, and in a sweep every one waiting on the business. */
@@ -467,7 +571,6 @@ async function loadConversations(
     handled_by: 'none' | 'ai' | 'person';
     needs_person_since: Date | null;
     taken_over_by: string | null;
-    last_preview: string | null;
     last_message_at: Date | null;
     counterpart: string;
     first_name: string | null;
@@ -476,7 +579,7 @@ async function loadConversations(
     tx,
     sql`select c.id, c.person_id, c.channel::text as channel, c.status::text as status, c.assignee_user_id,
           c.awaiting_reply_since, c.handled_by::text as handled_by, c.needs_person_since, c.taken_over_by,
-          c.last_preview, c.last_message_at, c.counterpart, p.first_name, p.last_name
+          c.last_message_at, c.counterpart, p.first_name, p.last_name
         from app.conversations c left join app.people p on p.id = c.person_id
         where c.workspace_id = ${workspaceId}
           and (c.id = any(${uuidArray(ids)}) or c.person_id = any(${uuidArray(personIds)})
@@ -486,6 +589,10 @@ async function loadConversations(
                     or (c.handled_by = 'person' and c.needs_person_since is not null and c.taken_over_by is null)))`
                 : sql``
             })`,
+  );
+  const said = await loadCustomerSaid(
+    tx,
+    list.map((r) => r.id),
   );
   return new Map(
     list.map((r) => [
@@ -500,10 +607,10 @@ async function loadConversations(
         handledBy: r.handled_by,
         needsPersonSince: iso(r.needs_person_since),
         takenOverBy: r.taken_over_by,
-        lastPreview: r.last_preview,
         lastMessageAt: iso(r.last_message_at),
         counterpart: r.counterpart,
         personName: nameOf(r.first_name, r.last_name),
+        said: said.get(r.id) ?? null,
       },
     ]),
   );
@@ -1369,19 +1476,19 @@ export async function reconcile(
       (a, b) => (timeOf(b.lastMessageAt) ?? 0) - (timeOf(a.lastMessageAt) ?? 0),
     )[0];
     const awaitingReplySince = waiting?.awaitingReplySince ?? null;
-    // Their words since they began waiting, or since the lead came in (a message can arrive just before it).
-    const from = awaitingReplySince
-      ? Date.parse(awaitingReplySince)
-      : Date.parse(lead.createdAt) - DAY;
+    const from = leadWordsSince(lead, awaitingReplySince);
     const said = (lead.personId ? (words.get(lead.personId) ?? []) : [])
       .filter((w) => w.at >= from)
       .slice(0, 10);
     const extras = hot.get(lead.id);
     const name = l.personName ?? l.companyName ?? 'Customer';
+    const card = waiting ?? latest;
+    // What they said last in the card's conversation, when it's about this lead.
+    const heard = card?.said && Date.parse(card.said.at) >= from ? card.said : null;
     const base = {
       subjectType: 'lead' as const,
       title: itemTitle(name, l.title),
-      conversationId: waiting?.id ?? latest?.id ?? null,
+      conversationId: card?.id ?? null,
     };
     const link = { leadId: lead.id, personId: lead.personId };
     run(
@@ -1399,7 +1506,7 @@ export async function reconcile(
       },
       lead.id,
       link,
-      { ...base, detail: detailOf(said[0]?.body) },
+      { ...base, detail: detailOf(heard?.words) },
     );
     run('unanswered_lead', { business, lead }, lead.id, link, {
       ...base,
@@ -1439,7 +1546,7 @@ export async function reconcile(
       {
         subjectType: 'conversation',
         title: itemTitle(c.personName ?? counterpartLabel(c)),
-        detail: detailOf(c.lastPreview),
+        detail: detailOf(c.said?.words),
         conversationId: c.id,
       },
     );

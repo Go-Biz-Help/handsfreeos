@@ -19,6 +19,7 @@
 import {
   ATTENTION_KIND_LABELS,
   dayLabel,
+  loadCustomerSaid,
   money,
   PAYMENT_METHOD_WORDS,
   TeammateDraftPreview,
@@ -305,21 +306,22 @@ export const onAssignedPush = pushMoment('assigned', async (ctx, scope) => {
         channel: 'sms' | 'email' | 'chat';
         counterpart: string;
         person_id: string | null;
-        last_preview: string | null;
       }>(
         ctx.tx,
-        sql`select channel::text as channel, counterpart, person_id, last_preview from app.conversations
+        sql`select channel::text as channel, counterpart, person_id from app.conversations
             where id = ${id} and workspace_id = ${ws}`,
       );
       if (!assignee || !conv) return;
       const customer =
         (await personName(ctx.tx, conv.person_id)) ?? (await conversationContact(ctx.tx, conv));
+      // What the customer said last, never the business's own words however recent.
+      const said = (await loadCustomerSaid(ctx.tx, [id])).get(id);
       await queuePush(ctx.tx, scope, {
         ...base,
         userIds: [assignee],
         title: `Assigned to you · ${customer}`,
         about: CHANNEL_WORD[conv.channel] ?? null,
-        body: `${conv.last_preview ? quoted(conv.last_preview) : 'A conversation'}${by}`,
+        body: `${said ? quoted(said.words) : 'A conversation'}${by}`,
         path: `/app/w/${ws}/inbox/${id}`,
         refs: {
           conversationId: id,

@@ -21,6 +21,8 @@ import {
   chipsOf,
   chipText,
   isLeadKind,
+  leadWordsSince,
+  loadCustomerSaid,
   openHoursOf,
   plainSpaces,
   scheduleJob,
@@ -28,6 +30,7 @@ import {
   workspaceMessaging,
   type AttentionItemRow,
   type AttentionKind,
+  type CustomerSaid,
 } from '@hfos/core/server';
 import { asWorker, rows, sql, type Tx } from '@hfos/db/client';
 import { attentionItems, conversations } from '@hfos/db/schema';
@@ -114,6 +117,28 @@ export type AlertResult =
   /** The business is shut: the job waits until it opens. */
   | { readonly status: 'wait'; readonly at: number };
 
+/**
+ * What the customer said last, as the item's card quotes it (attention/load.ts): never the business's own words,
+ * however recent (an automatic receipt, the AI teammate's reply), and for a lead only what they said about it.
+ */
+async function customerSaidAbout(
+  tx: Tx,
+  item: AttentionItemRow | null,
+  conv: Conversation | undefined,
+): Promise<CustomerSaid | null> {
+  if (!conv) return null;
+  const said = (await loadCustomerSaid(tx, [conv.id])).get(conv.id) ?? null;
+  if (!said || !item?.leadId || !isLeadKind(item.kind as AttentionKind)) return said;
+  const [lead] = await rows<{ created_at: Date }>(
+    tx,
+    sql`select created_at from app.leads where id = ${item.leadId}`,
+  );
+  const waiting = conv.status === 'open' ? conv.awaitingReplySince : null;
+  return !lead || Date.parse(said.at) >= leadWordsSince({ createdAt: lead.created_at }, waiting)
+    ? said
+    : null;
+}
+
 /** Marks the item as alerted for these facts, so nothing sends a second email about them. */
 async function markAlerted(tx: Tx, item: AttentionItemRow, now: number): Promise<void> {
   await tx
@@ -190,14 +215,9 @@ export async function alertUrgent(
     const customer = name || contact || item?.title || 'A customer';
     const firstName = person?.first_name?.trim() || customer;
     const waitingSince = wait?.waitingSince ?? item?.sinceAt ?? null;
-    const [latest] = conv
-      ? await rows<{ photos: number }>(
-          tx,
-          sql`select coalesce(jsonb_array_length(media), 0)::int as photos from app.messages
-              where conversation_id = ${conv.id} and direction = 'inbound'
-              order by occurred_at desc limit 1`,
-        )
-      : [];
+    const said = await customerSaidAbout(tx, item, conv);
+    // Nothing of theirs to quote: the item's own line ("From Website").
+    const preview = said?.words ?? item?.detail ?? '';
     const value =
       item && !item.valueIsEstimate && Number(item.valueCents ?? 0) > 0
         ? Number(item.valueCents)
@@ -222,13 +242,13 @@ export async function alertUrgent(
             .slice(0, 3)
             .map((c) => chipText(c, o.now))
         : [],
-      preview: conv?.lastPreview ?? item?.detail ?? '',
+      preview,
       receivedAt: localClock(waitingSince?.getTime() ?? o.now, tz),
       contact: contact ?? '',
       link,
       action: conv && conv.status !== 'closed' ? `Reply to ${firstName}` : 'Open in HandsFreeOS',
       assignedToYou: !!assigneeId,
-      photos: latest?.photos ?? 0,
+      photos: said?.photos ?? 0,
       channel: conv?.channel,
     });
     let failures = 0;
@@ -254,9 +274,8 @@ export async function alertUrgent(
             waitSince: wait?.guardSince ?? null,
             userIds: candidates.map((c) => c.id),
             customer,
-            preview: conv?.lastPreview ?? item?.detail ?? '',
+            preview,
             valueCents: value,
-            photos: latest?.photos ?? 0,
           })
         : 0;
     if (item) await markAlerted(tx, item, o.now);

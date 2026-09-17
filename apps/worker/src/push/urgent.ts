@@ -86,10 +86,12 @@ export interface UrgentPush {
   readonly waitSince: Date | null;
   readonly userIds: readonly string[];
   readonly customer: string;
-  /** What they said last (or the item's detail). */
+  /**
+   * What the customer said last, never the business's own words ("Sent a photo." when it had only photos), or the
+   * item's own line when they haven't said anything (alerts.ts).
+   */
   readonly preview: string;
   readonly valueCents: number | null;
-  readonly photos: number;
 }
 
 /** Queues the urgent alert's push; answers how many people it is for. */
@@ -107,7 +109,7 @@ export async function queueUrgentPush(tx: Tx, scope: TenantScope, u: UrgentPush)
     ...(personId ? { personId } : {}),
     ...(conv ? { conversationId: conv.id, channel: conv.channel } : {}),
   };
-  const said = u.preview.trim() || (u.photos > 0 ? 'Sent a photo.' : '');
+  const said = u.preview.trim();
 
   const ai = await aiCanTake(tx, ws, conv ?? null);
   if (u.kind === 'customer_waiting' && conv) {

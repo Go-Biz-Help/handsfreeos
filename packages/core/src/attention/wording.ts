@@ -1,8 +1,8 @@
 /**
- * The Action Center's words: item titles, a time as a card or a text says it, the confirmation request HandsFreeOS
- * sends on its own, and the next action it suggests. Browser-safe, so the preview on Home shows exactly what the
- * worker sends. Texts are plain (straight apostrophes, no dashes outside the texting alphabet); a confirmation
- * request never asks anyone to reply CANCEL (that's STOP) or YES (that's START).
+ * The Action Center's words: item titles, what a customer said, a time as a card or a text says it, the confirmation
+ * request HandsFreeOS sends on its own, and the next action it suggests. Browser-safe, so the preview on Home shows
+ * exactly what the worker sends. Texts are plain (straight apostrophes, no dashes outside the texting alphabet); a
+ * confirmation request never asks anyone to reply CANCEL (that's STOP) or YES (that's START).
  */
 import { plainSmsText } from '../ai-team/guardrails';
 import type { WeeklyHours } from '../calendar/config';
@@ -13,6 +13,7 @@ import {
   weekdayOf,
   zonedParts,
 } from '../calendar/engine/zoned';
+import { messagePreview } from '../messaging/sms';
 
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -32,6 +33,28 @@ export function clipLine(text: string, max: number): string {
 export function itemTitle(...parts: readonly (string | null | undefined)[]): string {
   const title = clipLine(parts.filter((p): p is string => !!p?.trim()).join(' · '), TITLE_MAX);
   return title || 'Needs attention';
+}
+
+/**
+ * A customer's own message in one line, as a card, the urgent email and a push quote it: a text's or chat's words,
+ * an email's subject and first line, or "Sent a photo." when it had only photos. The business's messages are never
+ * quoted as theirs (loadCustomerSaid picks the message).
+ */
+export function customerMessageLine(m: {
+  readonly channel: string;
+  readonly subject?: string | null;
+  readonly body: string | null;
+  readonly photos: number;
+}): string {
+  const firstLine = (m.body ?? '').split('\n').find((l) => l.trim()) ?? '';
+  const words = messagePreview(
+    m.channel === 'email'
+      ? [m.subject?.trim(), firstLine.trim()].filter(Boolean).join(' · ')
+      : m.body,
+  );
+  if (words) return words;
+  if (m.photos > 1) return `Sent ${m.photos} photos.`;
+  return m.photos === 1 ? 'Sent a photo.' : '';
 }
 
 /** "10:40 AM". */
