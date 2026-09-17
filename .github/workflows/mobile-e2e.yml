@@ -29,13 +29,22 @@ jobs:
     timeout-minutes: 90
     steps:
       # The runner's disk is mostly toolchains this job never uses, and the Supabase images, both NDKs, Gradle's
-      # native builds and the emulator's system image don't fit beside them: the first run stopped mid-build with
-      # "No space left on device". The biggest unused ones go first.
+      # native builds and the emulator's system image don't fit beside them: one run stopped mid-build with "No space
+      # left on device", and another left the emulator 25 MB short of its data partition. The unused ones go first,
+      # including every preinstalled NDK but the two React Native and expo-updates build with.
       - name: Make room on the runner's disk
         run: |
           df -h /
           sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/.ghcup /opt/hostedtoolcache/CodeQL /usr/share/swift \
-            /usr/local/share/boost /usr/local/share/powershell /opt/az
+            /usr/local/share/boost /usr/local/share/powershell /opt/az /opt/hostedtoolcache/go \
+            /opt/hostedtoolcache/PyPy /opt/hostedtoolcache/Ruby /usr/local/share/chromium /opt/google/chrome \
+            /opt/microsoft/msedge
+          for ndk in /usr/local/lib/android/sdk/ndk/*; do
+            case "$(basename "$ndk")" in
+              27.1.12297006 | 27.0.12077973) ;;
+              *) sudo rm -rf "$ndk" ;;
+            esac
+          done
           df -h /
 
       # A private repository's runner has 2 cores and about 7 GB of memory, which the stack, the build and the
@@ -70,16 +79,6 @@ jobs:
           java-version: '17'
 
       - uses: gradle/actions/setup-gradle@v4
-
-      # React Native builds with NDK 27.1 and expo-updates asks for 27.0 (spike 1a): about 4.8 GB between them.
-      # Gradle downloads a missing one during the build; the cache saves both when the job ends.
-      - name: Cache the Android NDKs
-        uses: actions/cache@v4
-        with:
-          path: |
-            /usr/local/lib/android/sdk/ndk/27.1.12297006
-            /usr/local/lib/android/sdk/ndk/27.0.12077973
-          key: android-ndk-27.1.12297006-27.0.12077973
 
       # Without hardware acceleration the emulator crawls for the whole time limit, so a runner without KVM fails
       # here. The runner images no longer have a udev rules folder, so the device is opened up directly.
@@ -153,6 +152,16 @@ jobs:
           fi
           grep -q "using sqlcipher" ../gradle.log
 
+      # React Native builds with NDK 27.1 and expo-updates asks for 27.0 (spike 1a), and Gradle downloads whichever
+      # the runner lacks. Once the app is built, only its APK is needed: the native build folders go, so the
+      # emulator's system image and data partition fit.
+      - name: Keep the APK, and clear the build folders
+        run: |
+          cp apps/mobile/android/app/build/outputs/apk/release/app-release.apk "$RUNNER_TEMP/app-release.apk"
+          rm -rf apps/mobile/android
+          find node_modules/.pnpm -type d \( -path '*/android/build' -o -path '*/android/.cxx' \) -prune -exec rm -rf {} +
+          df -h /
+
       - name: Start the local Supabase stack again
         run: node scripts/supabase.mjs start -x imgproxy,studio,edge-runtime,logflare,vector
 
@@ -186,12 +195,14 @@ jobs:
           profile: pixel_6
           # Android 16 swaps in 2 GB, and then System UI stops responding and Maestro stalls.
           ram-size: 4096M
+          # The default data partition is over 7 GB; the app, its copy of a business and Maestro need far less.
+          disk-size: 3072M
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -no-snapshot-save
           script: |
             adb reverse tcp:54421 tcp:54421
             adb reverse tcp:4000 tcp:4000
-            adb install -r apps/mobile/android/app/build/outputs/apk/release/app-release.apk
+            adb install -r "$RUNNER_TEMP/app-release.apk"
             maestro test apps/mobile/maestro --include-tags ci --format junit --output maestro-report.xml --test-output-dir maestro-artifacts
 
       - name: Memory while it ran
