@@ -22,7 +22,6 @@ import {
   migrationGet,
   migrationMapScopes,
   migrationRollback,
-  migrationPause,
   migrationResume,
   migrationScan,
   migrationSelect,
@@ -330,10 +329,13 @@ describe('a business moves house', () => {
     expect(after.map((p) => p.id).sort()).toEqual(before.map((p) => p.id).sort());
   }, 120_000);
 
-  it('pauses, carries on, and lets the old system be disconnected without going quiet', async () => {
+  it('carrying on never declares a migration finished: the checks say', async () => {
     // Every state a button may ask for is refused by the database unless it is one a person can really
-    // cause. These are the two that are not obvious, so they are exercised rather than assumed.
-    await run(migrationPause, { organizationId: w.organizationId, migrationId: w.migrationId });
+    // cause, and "it worked" is not one of them. So: a paused migration with nothing left in the queue,
+    // which is exactly the case where declaring it finished would be tempting and wrong.
+    await asWorker(worker(), { organizationId: w.organizationId }, (tx) =>
+      tx.execute(sql`update app.migrations set status = 'paused' where id = ${w.migrationId}`),
+    );
     const resumed = await run<{ status: string }>(migrationResume, {
       organizationId: w.organizationId,
       migrationId: w.migrationId,
@@ -344,7 +346,7 @@ describe('a business moves house', () => {
       admin(),
       sql`select status::text as status from app.migrations where id = ${w.migrationId}`,
     );
-    // The checks ran again and said where it stands; the button never declared it finished.
+    // The checks ran again and said where it stands; the button never said it itself.
     expect(['imported', 'transition']).toContain(after?.status);
   }, 60_000);
 
