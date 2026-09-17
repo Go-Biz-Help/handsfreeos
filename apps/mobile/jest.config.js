@@ -7,6 +7,9 @@
 module.exports = {
   preset: 'jest-expo',
   setupFiles: ['<rootDir>/jest.setup.ts'],
+  // CI runs every package's tests at once on two cores, and a suite's first render loads the whole kit: the Sheet
+  // test once needed more than Jest's 5 seconds there.
+  testTimeout: 30_000,
   testMatch: ['<rootDir>/src/**/__tests__/**/*.test.ts?(x)'],
   transformIgnorePatterns: [
     '/node_modules/(?!(\\.pnpm|react-native|@react-native|@react-native-community|expo|@expo|@expo-google-fonts|react-navigation|@react-navigation|standard-navigation|@rn-primitives|lucide-react-native|uniwind|culori|@supabase|openapi-fetch|zustand))',
