@@ -1,8 +1,8 @@
 'use client';
+import { CONVERSATION_DONE, type InboxBoxKey } from '@hfos/core';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { apiBrowser, errorMessage, unwrap } from '@/lib/api/client';
-import type { InboxBoxKey } from '@/lib/ai-team/inbox-types';
 import type {
   ConversationStatus,
   ConversationSummary,
@@ -291,7 +291,7 @@ export function useConversationActions(
       attempt(
         async () =>
           unwrap(await apiBrowser().POST('/v1/commands/conversation.mark_unread', { body: ref })),
-        'Marked as unread',
+        CONVERSATION_DONE.markedUnread,
       ),
     assign: (assigneeUserId: string | null, success: string) =>
       attempt(
@@ -323,7 +323,7 @@ export function useConversationActions(
       attempt(
         async () =>
           unwrap(await apiBrowser().POST('/v1/commands/conversation.reopen', { body: ref })),
-        'Back in the inbox',
+        CONVERSATION_DONE.reopened,
       ),
   };
 }

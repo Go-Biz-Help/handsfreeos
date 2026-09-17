@@ -1,9 +1,9 @@
 'use client';
+import { NEEDS_PERSON, unreadLabel, type InboxBoxKey } from '@hfos/core';
 import { Globe, Sparkles, UserRound } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { AI_FILL } from '@/components/ai-team/mark';
 import { AI_SOFT, AI_TEXT } from '@/components/workflows/chips';
-import type { InboxBoxKey } from '@/lib/ai-team/inbox-types';
 import { cn } from '@/lib/utils';
 
 const TAG =
@@ -27,7 +27,7 @@ export function NeedTag({ className }: { className?: string }) {
       data-testid="needs-person-tag"
     >
       <UserRound className="h-3 w-3" strokeWidth={1.75} />
-      Needs a person
+      {NEEDS_PERSON}
     </span>
   );
 }
@@ -81,7 +81,7 @@ export function TeammateBoxes({
   onPick: (box: InboxBoxKey) => void;
 }) {
   const items: { key: InboxBoxKey; label: string; count: number; icon: typeof Sparkles }[] = [
-    { key: 'needs_person', label: 'Needs a person', count: needsPerson, icon: UserRound },
+    { key: 'needs_person', label: NEEDS_PERSON, count: needsPerson, icon: UserRound },
     ...(name ? [{ key: 'ai' as const, label: name, count: ai, icon: Sparkles }] : []),
   ];
   return (
@@ -113,7 +113,7 @@ export function TeammateBoxes({
                   b.key === 'ai' ? AI_FILL : 'bg-warning',
                 )}
               >
-                {b.count > 99 ? '99+' : b.count}
+                {unreadLabel(b.count)}
               </span>
             ) : null}
           </button>

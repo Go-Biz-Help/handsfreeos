@@ -1,0 +1,99 @@
+appId: com.gobizhelp.handsfreeos
+name: Home ranks what needs attention, with its sheets and Approvals
+tags:
+  - ci
+# Dale's Home, from the phone's copy: the band ($ affected, the counts, Mine / Everyone), the cards with their buttons,
+# the ⋯ sheet (Snooze, Assign, Dismiss), Let HandsFreeOS Handle with its preview, and Approvals from More. Nothing is
+# changed. Seed accounts (apps/worker/scripts/seed.ts); the password is the seed's, for local stacks only.
+env:
+  EMAIL: dale@lonestarhvac.test
+  PASSWORD: HandsFree-Demo-2026
+---
+- runFlow: subflows/start-signed-out.yaml
+- runFlow: subflows/sign-in-with-password.yaml
+- extendedWaitUntil:
+    visible:
+      id: 'attention-card'
+    timeout: 30000
+- assertVisible:
+    id: 'attention-affected'
+    text: '.*(affected|need attention|needs attention|Nothing needs you right now).*'
+- assertVisible:
+    id: 'attention-counts'
+    text: '.*handled today'
+- assertVisible:
+    id: 'scope-everyone'
+# Mine and back to Everyone.
+- tapOn:
+    id: 'scope-mine'
+- assertVisible:
+    id: 'attention-header'
+- tapOn:
+    id: 'scope-everyone'
+# ⋯ on the first card: Snooze first, then Assign (the team) and Dismiss. Nothing is chosen.
+- tapOn:
+    id: 'attention-more'
+    index: 0
+- extendedWaitUntil:
+    visible:
+      id: 'snooze-hour'
+    timeout: 5000
+- assertVisible:
+    id: 'snooze-tomorrow'
+- assertVisible:
+    id: 'snooze-pick'
+- assertVisible:
+    id: 'attention-dismiss'
+- tapOn:
+    id: 'attention-assign'
+- assertVisible:
+    id: 'assign-menu'
+- tapOn: 'Back'
+- tapOn:
+    id: 'attention-sheet-close'
+- waitForAnimationToEnd
+# Let HandsFreeOS Handle on the first card that offers it: what it would do, from HandsFreeOS.
+- tapOn:
+    id: 'attention-let-handle'
+    enabled: true
+    index: 0
+- extendedWaitUntil:
+    visible:
+      id: 'let-handle-title'
+    timeout: 10000
+- assertVisible:
+    id: 'let-handle-mode'
+- extendedWaitUntil:
+    notVisible: 'Working out what HandsFreeOS would do…'
+    timeout: 20000
+- tapOn:
+    id: 'let-handle-close'
+- waitForAnimationToEnd
+# Approvals, from More: Waiting, then Decided (with signal).
+- tapOn:
+    id: 'tab-more'
+- runFlow:
+    when:
+      notVisible:
+        id: 'more-approvals'
+    commands:
+      - tapOn:
+          id: 'tab-more'
+- tapOn:
+    id: 'more-approvals'
+- extendedWaitUntil:
+    visible:
+      id: 'approvals-tab-waiting'
+    timeout: 10000
+- assertVisible: 'Waiting for you'
+- tapOn:
+    id: 'approvals-tab-decided'
+- extendedWaitUntil:
+    visible: 'Decided lately'
+    timeout: 10000
+- tapOn:
+    id: 'back'
+- tapOn:
+    id: 'tab-home'
+- assertVisible:
+    id: 'home'

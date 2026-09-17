@@ -1,5 +1,5 @@
 'use client';
-import { addDays, localDateOf, localInstant } from '@hfos/core';
+import { addDays, ATTENTION_WORDS, localDateOf, localInstant, snoozePickError } from '@hfos/core';
 import { AlarmClock, CalendarClock, CalendarDays, Moon, Sun, type LucideIcon } from 'lucide-react';
 import { useState, type FormEvent } from 'react';
 import { Button } from '@/components/ui/button';
@@ -49,8 +49,8 @@ export function SnoozeMenuItems({ item }: { item: AttentionItem }) {
       })}
       <DropdownMenuItem data-testid="snooze-pick" onSelect={() => env.act.pickTime(item)}>
         <CalendarClock className="h-4 w-4 text-text-2" strokeWidth={1.5} />
-        <span>Pick a time…</span>
-        <span className="ml-auto pl-3 text-xs text-text-3">Up to 30 days</span>
+        <span>{ATTENTION_WORDS.pickTime}</span>
+        <span className="ml-auto pl-3 text-xs text-text-3">{ATTENTION_WORDS.upTo30Days}</span>
       </DropdownMenuItem>
     </>
   );
@@ -79,8 +79,8 @@ export function SnoozeRows({
       ))}
       <SheetRow
         icon={CalendarClock}
-        label="Pick a time…"
-        hint="Up to 30 days"
+        label={ATTENTION_WORDS.pickTime}
+        hint={ATTENTION_WORDS.upTo30Days}
         onClick={onPickTime}
         testId="snooze-pick"
       />
@@ -109,11 +109,9 @@ export function PickTimeDialog({
 
   function submit(e: FormEvent) {
     e.preventDefault();
-    if (!date || !time) return setError('Pick a day and a time.');
-    const until = localInstant(date, time, env.timeZone);
-    const now = Date.now();
-    if (!(until > now)) return setError('Pick a time later than now.');
-    if (until > now + SNOOZE_MAX_DAYS * 86_400_000) return setError('Snooze for 30 days at most.');
+    const until = date && time ? localInstant(date, time, env.timeZone) : null;
+    const problem = snoozePickError(until, Date.now());
+    if (problem || until === null) return setError(problem);
     onOpenChange(false);
     env.act.snooze(item, until);
   }
@@ -121,13 +119,13 @@ export function PickTimeDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        title="Snooze until"
+        title={ATTENTION_WORDS.snoozeUntil}
         description={item.title}
         className="w-[min(360px,calc(100vw-32px))] p-5"
       >
         <form onSubmit={submit} noValidate data-testid="snooze-pick-form">
           <div className="mt-3.5 grid grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)] gap-2.5">
-            <Field label="Day" htmlFor="snooze-day">
+            <Field label={ATTENTION_WORDS.day} htmlFor="snooze-day">
               <Input
                 id="snooze-day"
                 type="date"
@@ -137,7 +135,7 @@ export function PickTimeDialog({
                 onChange={(e) => setDate(e.target.value)}
               />
             </Field>
-            <Field label="Time" htmlFor="snooze-time">
+            <Field label={ATTENTION_WORDS.time} htmlFor="snooze-time">
               <Input
                 id="snooze-time"
                 type="time"
@@ -152,15 +150,15 @@ export function PickTimeDialog({
             </p>
           ) : (
             <p className="mt-1.5 text-[12.5px] text-text-3">
-              Up to 30 days, {zoneLabel(env.timeZone)}.
+              {ATTENTION_WORDS.pickZone(zoneLabel(env.timeZone))}
             </p>
           )}
           <div className="mt-4 flex justify-end gap-2">
             <Button variant="ghost" size="sm" onClick={() => onOpenChange(false)}>
-              Cancel
+              {ATTENTION_WORDS.cancel}
             </Button>
             <Button type="submit" size="sm" data-testid="snooze-pick-save">
-              Snooze
+              {ATTENTION_WORDS.snooze}
             </Button>
           </div>
         </form>

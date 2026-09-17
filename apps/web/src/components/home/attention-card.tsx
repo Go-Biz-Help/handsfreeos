@@ -1,5 +1,5 @@
 'use client';
-import { clockLabel } from '@hfos/core';
+import { ATTENTION_WORDS, goesStripWords } from '@hfos/core';
 import { Zap } from 'lucide-react';
 import { AI_TEXT } from '@/components/workflows/chips';
 import type { AttentionItem } from '@/lib/api/types';
@@ -7,15 +7,7 @@ import { cn } from '@/lib/utils';
 import { HandleButton, ItemMenu, LetHandleButton } from './attention-actions';
 import { AssigneeMark, Chips, KIND_LABEL_TONE, KindTile } from './attention-bits';
 import { useAttentionEnv } from './attention-context';
-import {
-  autoAt,
-  chipsOf,
-  customerOf,
-  firstNameOf,
-  isDraft,
-  KIND_LABEL,
-  splitTitle,
-} from './attention-words';
+import { autoAt, chipsOf, customerOf, isDraft, KIND_LABEL, splitTitle } from './attention-words';
 
 export const CARD =
   'relative flex flex-col gap-[3px] rounded-card border border-border bg-card p-3.5 shadow-1 md:px-3.5 md:py-3';
@@ -31,8 +23,7 @@ export const FOOT_BUTTON = 'h-11 text-[14.5px] md:h-8 md:text-[13px]';
 function GoesStrip({ item, at }: { item: AttentionItem; at: number }) {
   const env = useAttentionEnv();
   const name = customerOf(item);
-  const when = clockLabel(at, env.timeZone);
-  const confirm = item.auto.action === 'confirm_request';
+  const words = goesStripWords(item, at, env.timeZone);
   return (
     <div
       data-testid="attention-goes"
@@ -40,12 +31,8 @@ function GoesStrip({ item, at }: { item: AttentionItem; at: number }) {
     >
       <Zap className="h-4 w-4 flex-none" strokeWidth={1.75} />
       <span className="min-w-0 flex-1">
-        <b className="font-semibold">
-          {confirm
-            ? `HandsFreeOS will ask ${firstNameOf(name)} to confirm at ${when}.`
-            : `HandsFreeOS will follow up at ${when}.`}
-        </b>
-        {confirm ? null : ' One message, in your words.'}
+        <b className="font-semibold">{words.strong}</b>
+        {words.rest}
       </span>
       <button
         type="button"
@@ -54,7 +41,7 @@ function GoesStrip({ item, at }: { item: AttentionItem; at: number }) {
         onClick={() => env.act.cancelAuto({ itemId: item.id, name, action: item.auto.action })}
         className="flex-none font-semibold underline disabled:opacity-50"
       >
-        Cancel
+        {ATTENTION_WORDS.cancel}
       </button>
     </div>
   );

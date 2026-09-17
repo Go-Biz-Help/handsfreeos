@@ -1,4 +1,10 @@
 'use client';
+import {
+  approvalAsked,
+  approvalDecidedToast,
+  approvalFieldLabel,
+  APPROVALS_WORDS,
+} from '@hfos/core';
 import { BookOpen, Check, Clock, FileText, Info, Lock, LockOpen, ShieldCheck } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -26,10 +32,8 @@ import {
   customerOf,
   decidedLine,
   expiresIn,
-  nameList,
   previewOf,
   segmentLabel,
-  type ApprovalPreview,
 } from './words';
 
 type View = 'waiting' | 'decided';
@@ -114,14 +118,14 @@ export function ApprovalsBoard({
   const decidedCount = decided.length + decidedDrafts.length;
   const name = teammateName ?? (drafts[0] ?? decidedDrafts[0])?.teammate.name ?? null;
   const tabs: readonly { id: View; label: string }[] = [
-    { id: 'waiting', label: `Waiting · ${all.length}` },
-    { id: 'decided', label: `Decided · ${decidedCount}` },
+    { id: 'waiting', label: APPROVALS_WORDS.waitingTab(all.length) },
+    { id: 'decided', label: APPROVALS_WORDS.decidedTab(decidedCount) },
   ];
   const filters: readonly { id: ApprovalsFilter; label: string }[] = name
     ? [
-        { id: 'all', label: `All · ${all.length}` },
-        { id: 'workflows', label: `Workflows · ${openFlows.length}` },
-        { id: 'ai', label: `${name} · ${openDrafts.length}` },
+        { id: 'all', label: APPROVALS_WORDS.filterAll(all.length) },
+        { id: 'workflows', label: APPROVALS_WORDS.filterWorkflows(openFlows.length) },
+        { id: 'ai', label: APPROVALS_WORDS.filterTeammate(name, openDrafts.length) },
       ]
     : [];
   const training = progress?.status === 'training' ? progressShort(progress) : null;
@@ -130,7 +134,9 @@ export function ApprovalsBoard({
     <div data-testid="approvals-board">
       <div className="mb-2.5 flex flex-wrap items-center justify-between gap-2">
         <div className="flex flex-wrap items-center gap-2.5">
-          <h2 className={SECTION}>{view === 'waiting' ? 'Waiting for you' : 'Decided lately'}</h2>
+          <h2 className={SECTION}>
+            {view === 'waiting' ? APPROVALS_WORDS.waitingForYou : APPROVALS_WORDS.decidedLately}
+          </h2>
           {view === 'waiting' && filters.length ? (
             <div role="group" aria-label="Show" className="flex flex-wrap gap-1.5">
               {filters.map((f) => (
@@ -180,8 +186,7 @@ export function ApprovalsBoard({
           data-testid="approvals-training"
         >
           <Info className="mt-px h-3.5 w-3.5 flex-none" strokeWidth={1.75} />
-          {name}’s drafts show here and inline in the inbox. Every approval counts toward its
-          training wheels: {training}.
+          {APPROVALS_WORDS.training(name, training)}
         </p>
       ) : null}
       {view === 'decided' ? (
@@ -214,10 +219,8 @@ export function ApprovalsBoard({
         </div>
       ) : (
         <Card data-testid="approvals-empty">
-          <EmptyState title="Nothing waiting here">
-            {name
-              ? `New drafts from ${name} and workflow approvals show up here, on Home and by email.`
-              : 'When a workflow’s approval step needs you, it shows up here, on Home and by email.'}
+          <EmptyState title={APPROVALS_WORDS.emptyTitle}>
+            {APPROVALS_WORDS.emptyBody(name)}
           </EmptyState>
         </Card>
       )}
@@ -225,11 +228,7 @@ export function ApprovalsBoard({
   );
 }
 
-function fieldLabel(p: ApprovalPreview, key: string): string {
-  if (p.channel === 'sms') return 'The text that will go';
-  if (p.channel === 'email') return 'The email that will go';
-  return `The AI’s words (${key})`;
-}
+const fieldLabel = approvalFieldLabel;
 
 function ApprovalCard({
   a,
@@ -260,7 +259,7 @@ function ApprovalCard({
   const textOf = (key: string, original: string) => drafts[key] ?? original;
   const blank = p.fields.some(([k, v]) => !textOf(k, v).trim());
   const sends = p.fields.length > 0 && p.channel !== null;
-  const asked = a.approvers.length ? `asked ${nameList(a.approvers)}` : 'for owners and admins';
+  const asked = approvalAsked(a.approvers);
   const byline = `${a.workflow.name} · ${asked} · ${waitingFor(minutesSince(a.createdAt, now))}`;
   const hasContext = !!(p.note || p.asked || p.items.length || (sends && allowPrices !== null));
 
@@ -281,13 +280,7 @@ function ApprovalCard({
           },
         }),
       );
-      toast.success(
-        decision === 'reject'
-          ? 'Rejected. The workflow takes its rejected path.'
-          : sends
-            ? 'Approved. It goes out now.'
-            : 'Approved. The workflow carries on.',
-      );
+      toast.success(approvalDecidedToast(decision, sends));
       setRejecting(false);
       onDone();
       approvalsChanged();
@@ -317,7 +310,7 @@ function ApprovalCard({
           onClick={() => setOpen(true)}
           data-testid="approval-review"
         >
-          Review
+          {APPROVALS_WORDS.review}
         </Button>
       </Card>
     );
@@ -365,7 +358,7 @@ function ApprovalCard({
             ) : null}
             {p.asked ? (
               <>
-                <span className={SECTION}>{first}’s latest message</span>
+                <span className={SECTION}>{APPROVALS_WORDS.latestMessage(first)}</span>
                 <div
                   className="max-w-full whitespace-pre-wrap break-words rounded-[14px] rounded-bl-[4px] bg-card-2 px-3 py-2 text-[13.5px] leading-[1.45]"
                   data-testid="approval-asked"
@@ -377,7 +370,7 @@ function ApprovalCard({
             {p.items.length || (sends && allowPrices !== null) ? (
               <div className="flex flex-wrap items-center gap-1.5" data-testid="approval-knowledge">
                 <span className="text-xs text-text-3">
-                  {p.items.length ? 'Knowledge used:' : 'No knowledge items used.'}
+                  {p.items.length ? APPROVALS_WORDS.knowledgeUsed : APPROVALS_WORDS.noKnowledge}
                 </span>
                 {p.items.map((i) => (
                   <span key={i.id} className={CHIP} title={i.title}>
@@ -396,7 +389,7 @@ function ApprovalCard({
                     ) : (
                       <Lock className="h-3.5 w-3.5" strokeWidth={1.5} />
                     )}
-                    {allowPrices ? 'Prices allowed' : 'Prices are off'}
+                    {allowPrices ? APPROVALS_WORDS.pricesAllowed : APPROVALS_WORDS.pricesOff}
                   </span>
                 ) : null}
               </div>
@@ -412,7 +405,7 @@ function ApprovalCard({
               return (
                 <div key={key} className="flex flex-col gap-1.5">
                   <Label htmlFor={id} className={SECTION}>
-                    {fieldLabel(p, key)} · you can edit it
+                    {fieldLabel(p, key)} · {APPROVALS_WORDS.youCanEdit}
                   </Label>
                   <Textarea
                     id={id}
@@ -426,9 +419,7 @@ function ApprovalCard({
                   />
                   <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-xs text-text-3">
                     <span data-testid="approval-edited">
-                      {value !== original
-                        ? 'Edited: your version is what goes out.'
-                        : 'Written by the AI.'}
+                      {value !== original ? APPROVALS_WORDS.edited : APPROVALS_WORDS.writtenByAi}
                     </span>
                     {p.channel === 'sms' ? (
                       <span className="tabular-nums" data-testid="approval-segments">
@@ -436,20 +427,18 @@ function ApprovalCard({
                       </span>
                     ) : null}
                   </div>
-                  {!value.trim() ? <FieldError>Write the text, or reject it.</FieldError> : null}
+                  {!value.trim() ? <FieldError>{APPROVALS_WORDS.writeOrReject}</FieldError> : null}
                 </div>
               );
             })
           ) : (
             <p className="text-[13.5px] text-text-2">
-              Approving lets {a.workflow.name} carry on for {who}.
+              {APPROVALS_WORDS.carriesOn(a.workflow.name, who)}
             </p>
           )}
           <p className="flex items-start gap-2 rounded-[9px] bg-card-2 px-[11px] py-[9px] text-[12.5px] leading-[1.45] text-text-2">
             <Info className="mt-px h-3.5 w-3.5 flex-none" strokeWidth={1.75} />
-            {expired
-              ? 'This expired. The workflow goes on as its approval step says.'
-              : 'If nobody decides in time, the workflow goes on as its approval step says.'}
+            {expired ? APPROVALS_WORDS.expiredInfo : APPROVALS_WORDS.expiryInfo}
           </p>
         </div>
       </div>
@@ -462,7 +451,11 @@ function ApprovalCard({
           data-testid="approval-approve"
         >
           <Check className="h-4 w-4" strokeWidth={1.75} />
-          {busy === 'approve' ? 'Approving…' : sends ? 'Approve and send' : 'Approve'}
+          {busy === 'approve'
+            ? APPROVALS_WORDS.approving
+            : sends
+              ? APPROVALS_WORDS.approveAndSend
+              : APPROVALS_WORDS.approve}
         </Button>
         <Button
           variant="secondary"
@@ -470,7 +463,7 @@ function ApprovalCard({
           disabled={busy !== null || expired}
           data-testid="approval-reject"
         >
-          Reject…
+          {APPROVALS_WORDS.reject}
         </Button>
         <span className="flex-1" />
         <Link
@@ -478,7 +471,7 @@ function ApprovalCard({
           className="text-[13px] font-medium text-accent-text hover:underline"
           data-testid="approval-run"
         >
-          Open the run
+          {APPROVALS_WORDS.openRun}
         </Link>
       </div>
 
@@ -489,18 +482,18 @@ function ApprovalCard({
         }}
       >
         <DialogContent
-          title="Reject it?"
-          description={`${a.workflow.name} takes its “If it’s rejected” steps for ${who}, then the run ends.`}
+          title={APPROVALS_WORDS.rejectTitle}
+          description={APPROVALS_WORDS.rejectBody(a.workflow.name, who)}
         >
           <div className="mt-4 flex flex-col gap-1.5">
-            <Label htmlFor={`reject-${a.id}`}>Why (optional)</Label>
+            <Label htmlFor={`reject-${a.id}`}>{APPROVALS_WORDS.rejectWhy}</Label>
             <Textarea
               id={`reject-${a.id}`}
               data-testid="reject-reason"
               className="min-h-[72px] text-[14px]"
               value={reason}
               maxLength={1000}
-              placeholder="I’ll call them myself."
+              placeholder={APPROVALS_WORDS.rejectPlaceholder}
               onChange={(e) => setReason(e.target.value)}
             />
           </div>
@@ -510,7 +503,7 @@ function ApprovalCard({
               onClick={() => setRejecting(false)}
               disabled={busy !== null}
             >
-              Keep it
+              {APPROVALS_WORDS.keepIt}
             </Button>
             <Button
               variant="danger"
@@ -518,7 +511,7 @@ function ApprovalCard({
               disabled={busy !== null}
               data-testid="reject-confirm"
             >
-              {busy === 'reject' ? 'Rejecting…' : 'Reject'}
+              {busy === 'reject' ? APPROVALS_WORDS.rejecting : APPROVALS_WORDS.rejectConfirm}
             </Button>
           </div>
         </DialogContent>
@@ -541,8 +534,8 @@ function DecidedList({
   if (!items.length && !drafts.length)
     return (
       <Card data-testid="approvals-decided-empty">
-        <EmptyState title="Nothing decided lately">
-          Approved, rejected and expired approvals show here.
+        <EmptyState title={APPROVALS_WORDS.decidedEmptyTitle}>
+          {APPROVALS_WORDS.decidedEmptyBody}
         </EmptyState>
       </Card>
     );
@@ -596,7 +589,7 @@ function DecidedList({
                   href={`/app/w/${workspaceId}/workflows/runs/${a.runId}`}
                   className="text-xs font-medium text-accent-text hover:underline"
                 >
-                  Run
+                  {APPROVALS_WORDS.run}
                 </Link>
               </span>
             </li>

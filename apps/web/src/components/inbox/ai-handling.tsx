@@ -1,4 +1,20 @@
 'use client';
+import {
+  aiName,
+  CONVERSATION_ACTIONS,
+  firstNameOf,
+  handBackQuestion,
+  handBackToast,
+  handedLine,
+  handlingHow,
+  handlingTitle,
+  handoffWhy,
+  NEEDS_A_PERSON,
+  progressShort,
+  takeOverToast,
+  whoTookOver,
+  type HandlingView,
+} from '@hfos/core';
 import { Sparkles, UserRound, UserRoundPlus } from 'lucide-react';
 import Link from 'next/link';
 import { useState, type ReactNode } from 'react';
@@ -10,24 +26,12 @@ import { AI_SOFT, AI_TEXT } from '@/components/workflows/chips';
 import { errorMessage } from '@/lib/api/client';
 import type { ConversationGet } from '@/lib/api/types';
 import type { ConversationHandling } from '@/lib/ai-team/inbox-types';
-import { aiName, firstNameOf, handoffWhy, progressShort } from '@/lib/ai-team/inbox-words';
 import { teammateCommands, type TeammateBrief } from '@/lib/ai-team/use-inbox';
 import { zonedWhen } from '@/lib/inbox';
 import { useUnread } from '@/lib/realtime/unread-provider';
 import { cn } from '@/lib/utils';
 
 const STRIP = 'flex gap-2.5 rounded-[10px] text-[13px] leading-[1.4]';
-
-/** The state the banner shows: the teammate has it, a person took it, or it waits for a person. */
-export type HandlingView = 'ai' | 'person' | 'needs_person' | null;
-
-export function handlingView(h: ConversationHandling | null): HandlingView {
-  if (!h) return null;
-  if (h.needsPersonSince) return 'needs_person';
-  if (h.handledBy === 'ai') return 'ai';
-  if (h.handledBy === 'person') return 'person';
-  return null;
-}
 
 /** Take over and hand back, with the toasts the design words for them. */
 export function useHandlingActions(opts: {
@@ -48,11 +52,7 @@ export function useHandlingActions(opts: {
       setBusy('take');
       try {
         const out = await cmd.takeOver(opts.conversationId);
-        toast.success(
-          out.draftCancelled
-            ? `You took over. ${opts.name}’s draft was dropped, and it stays quiet until you hand it back.`
-            : `It’s yours. ${opts.name} stays quiet until you hand it back.`,
-        );
+        toast.success(takeOverToast(opts.name, out.draftCancelled));
         opts.after();
         unread.refresh();
         return true;
@@ -67,7 +67,7 @@ export function useHandlingActions(opts: {
       setBusy('back');
       try {
         await cmd.handToAi(opts.conversationId);
-        toast.success(`Handed back to ${opts.name}. It answers ${opts.who}’s next message.`);
+        toast.success(handBackToast(opts.name, opts.who));
         opts.after();
         unread.refresh();
         return true;
@@ -97,19 +97,17 @@ export function HandBackDialog({
   busy: boolean;
   onConfirm: () => void;
 }) {
+  const question = handBackQuestion(name, who);
   return (
     <Dialog open={open} onOpenChange={(o) => !busy && onOpenChange(o)}>
-      <DialogContent
-        title={`Hand ${who} back to ${name}?`}
-        description={`${name} answers ${who}’s next message. It reads what was written here and won’t repeat it.`}
-      >
+      <DialogContent title={question.title} description={question.body}>
         <div className="mt-5 flex justify-end gap-2">
           <Button variant="ghost" onClick={() => onOpenChange(false)} disabled={busy}>
-            Keep it
+            {CONVERSATION_ACTIONS.keepIt}
           </Button>
           <Button onClick={onConfirm} loading={busy} data-testid="hand-back-confirm">
             {busy ? null : <Sparkles className="h-3.5 w-3.5" strokeWidth={1.5} />}
-            Hand back
+            {CONVERSATION_ACTIONS.handBack}
           </Button>
         </div>
       </DialogContent>
@@ -147,14 +145,8 @@ export function HandlingBanner({
   className?: string;
 }) {
   const name = handling?.teammate?.name ?? teammate?.name ?? 'The AI teammate';
-  const at = (iso: string | null | undefined) => (iso ? zonedWhen(new Date(iso), timezone) : null);
   if (view === 'ai') {
-    const how =
-      teammate?.status === 'automatic'
-        ? 'It replies on its own.'
-        : teammate?.status === 'off'
-          ? 'It’s off right now, so it isn’t answering.'
-          : 'Each reply waits for an OK.';
+    const how = handlingHow(teammate?.status);
     return (
       <div
         role="status"
@@ -164,7 +156,8 @@ export function HandlingBanner({
         <Sparkles className="h-4 w-4 flex-none" strokeWidth={1.5} />
         <span className="min-w-0 flex-1">
           <strong className="font-semibold">
-            {aiName(name)} is handling this{compact ? '' : '.'}
+            {handlingTitle(name, 'web')}
+            {compact ? '' : '.'}
           </strong>
           {compact ? null : <> {how}</>}
         </span>
@@ -176,14 +169,13 @@ export function HandlingBanner({
           onClick={onTakeOver}
           data-testid="take-over"
         >
-          Take over
+          {CONVERSATION_ACTIONS.takeOver}
         </Button>
       </div>
     );
   }
   if (view === 'person') {
-    const by = handling?.takenOverBy;
-    const whoTook = !by ? 'Someone' : by.id === myUserId ? 'You' : firstNameOf(by.fullName);
+    const whoTook = whoTookOver(handling?.takenOverBy ?? null, myUserId);
     return (
       <div
         role="status"
@@ -204,19 +196,13 @@ export function HandlingBanner({
           data-testid="hand-back"
         >
           {busy === 'back' ? null : <Sparkles className="h-3.5 w-3.5" strokeWidth={1.5} />}
-          {compact ? 'Hand back' : `Hand back to ${name}`}
+          {compact ? CONVERSATION_ACTIONS.handBack : CONVERSATION_ACTIONS.handBackTo(name)}
         </Button>
       </div>
     );
   }
   if (view === 'needs_person') {
-    const to = !assignee
-      ? 'a person'
-      : assignee.id === myUserId
-        ? 'you'
-        : firstNameOf(assignee.fullName);
     const why = handoffWhy(handling?.handoffReason ?? null, name);
-    const when = at(handling?.needsPersonSince);
     return (
       <div
         role="status"
@@ -231,12 +217,14 @@ export function HandlingBanner({
         <UserRound className="mt-px h-4 w-4 flex-none" strokeWidth={1.5} />
         <div className="min-w-0 flex-1">
           <div>
-            <strong className="font-semibold">Needs a person{compact ? '' : '.'}</strong>
+            <strong className="font-semibold">
+              {NEEDS_A_PERSON}
+              {compact ? '' : '.'}
+            </strong>
             {compact ? null : (
               <>
                 {' '}
-                {name} handed this to {to}
-                {when ? ` at ${when}` : ''}.
+                {handedLine(name, assignee, myUserId, handling?.needsPersonSince ?? null, timezone)}
               </>
             )}
           </div>
@@ -264,7 +252,7 @@ export function HandlingBanner({
           onClick={onTakeOver}
           data-testid="take-it"
         >
-          Take it
+          {CONVERSATION_ACTIONS.takeIt}
         </Button>
       </div>
     );

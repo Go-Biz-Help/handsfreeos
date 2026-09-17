@@ -1,15 +1,14 @@
 'use client';
+import { firstName, minutesWaiting } from '@hfos/core';
 import { Globe, Mail, MessageCircle } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { apiBrowser, unwrap } from '@/lib/api/client';
 import type { ConversationSummary } from '@/lib/api/types';
-import { minutesWaiting } from '@/lib/inbox';
 import { useLiveVersion } from '@/lib/realtime/live-provider';
 import { useUnread } from '@/lib/realtime/unread-provider';
 import { ChannelIcon, WaitChip } from './bits';
-import { firstName } from './conversation-row';
 
 /**
  * On the customer's page: their conversations, one per channel. A text or email opens the message sheet in

@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
+import android.provider.ContactsContract
 import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
 
@@ -39,6 +40,32 @@ class HfosPhoneModule : Module() {
         true
       } catch (e: Exception) {
         false
+      }
+    }
+
+    /**
+     * Opens the contacts app's New Contact screen with the business's name and number filled in; the contacts app
+     * saves it, so HandsFreeOS needs no contacts permission. "opened", or "unavailable" with no contacts app. Android
+     * doesn't say whether it was saved.
+     */
+    AsyncFunction("addContact") { name: String, phone: String ->
+      val activity = appContext.currentActivity ?: return@AsyncFunction "unavailable"
+      val intent = Intent(Intent.ACTION_INSERT).apply {
+        type = ContactsContract.Contacts.CONTENT_TYPE
+        // The business's name as the company only: as a person's name, Contacts splits it into first, middle and last.
+        putExtra(ContactsContract.Intents.Insert.COMPANY, name)
+        putExtra(ContactsContract.Intents.Insert.PHONE, phone)
+        putExtra(
+          ContactsContract.Intents.Insert.PHONE_TYPE,
+          ContactsContract.CommonDataKinds.Phone.TYPE_WORK,
+        )
+        putExtra("finishActivityOnSaveCompleted", true)
+      }
+      try {
+        activity.startActivity(intent)
+        "opened"
+      } catch (e: Exception) {
+        "unavailable"
       }
     }
   }

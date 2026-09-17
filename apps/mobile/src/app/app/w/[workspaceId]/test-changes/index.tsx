@@ -25,6 +25,7 @@ import {
   moveLeadToWon,
   newCustomerAndLead,
   setOldVersion,
+  quietWindowCoveringNow,
   setQuietHours,
   testCustomer,
   textCustomer,
@@ -397,6 +398,20 @@ export default function TestChanges() {
                   </Button>
                 ))}
               </View>
+              <Button
+                variant="secondary"
+                loading={busy === 'quiet-now'}
+                onPress={() =>
+                  act('quiet-now', async () => {
+                    const window = quietWindowCoveringNow(business.timezone);
+                    await setQuietHours(business.id, true, window);
+                    return `Quiet hours are ${formatClock(window.start)} to ${formatClock(window.end)}.`;
+                  })
+                }
+                testID="tc-quiet-now"
+              >
+                Quiet hours from now until the morning
+              </Button>
             </View>
             <Button
               variant="secondary"

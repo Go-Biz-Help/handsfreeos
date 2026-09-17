@@ -1,0 +1,112 @@
+# Screenshots of the Inbox and Calls canvas screens in one theme: the list, a thread with a photo reply, the composer
+# with no signal, the call sheet, My cell phone with its contacts card, and the phone's own New Contact screen that
+# Add to Contacts opens. Not run in CI:
+#   maestro test -e THEME=dark -e PREFIX=ios apps/mobile/maestro/screens/inbox.yaml --test-output-dir <dir>
+# Starts from a fresh install's state (so the contacts card shows), and needs the worker for the call. Run
+# inbox-photo-reply.yaml first so Mike Johnson's thread has a photo reply.
+appId: com.gobizhelp.handsfreeos
+name: The inbox's screens
+tags:
+  - screens
+env:
+  EMAIL: dale@lonestarhvac.test
+  PASSWORD: HandsFree-Demo-2026
+---
+- launchApp:
+    clearState: true
+- runFlow: ../subflows/start-signed-out.yaml
+- runFlow: ../subflows/sign-in-with-password.yaml
+- tapOn:
+    id: 'tab-more'
+- tapOn:
+    id: 'more-settings'
+- tapOn:
+    id: 'setting-appearance'
+- tapOn:
+    id: 'appearance-${THEME}'
+- tapOn:
+    id: 'appearance-done'
+- waitForAnimationToEnd
+# My cell phone and the contacts card.
+- tapOn:
+    id: 'setting-my-cell'
+- extendedWaitUntil:
+    visible:
+      id: 'contact-card'
+    timeout: 30000
+- takeScreenshot: ${PREFIX}-my-cell-contact-card-${THEME}
+- tapOn:
+    id: 'contact-add'
+- extendedWaitUntil:
+    notVisible:
+      id: 'my-cell'
+    timeout: 10000
+- takeScreenshot: ${PREFIX}-add-to-contacts-native-${THEME}
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      # The New Contact screen's close button (it has no label Maestro can find), then Discard Changes.
+      - tapOn:
+          point: '9%,11%'
+      - tapOn: 'Discard Changes'
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - back
+- extendedWaitUntil:
+    visible:
+      id: 'my-cell'
+    timeout: 10000
+- tapOn:
+    id: 'back'
+# The list.
+- tapOn:
+    id: 'tab-inbox'
+- extendedWaitUntil:
+    visible:
+      id: 'conversation-row-name'
+    timeout: 30000
+- takeScreenshot: ${PREFIX}-inbox-list-${THEME}
+# A thread with a photo reply, and the call sheet.
+- runFlow:
+    file: ../subflows/open-conversation.yaml
+    env:
+      NAME: Mike Johnson
+- waitForAnimationToEnd
+- takeScreenshot: ${PREFIX}-thread-photo-reply-${THEME}
+- tapOn:
+    id: 'thread-call'
+- extendedWaitUntil:
+    visible:
+      id: 'call-sheet-status'
+      text: 'Calling your cell…'
+    timeout: 10000
+- takeScreenshot: ${PREFIX}-call-sheet-${THEME}
+- extendedWaitUntil:
+    visible:
+      id: 'call-sheet-close'
+    timeout: 60000
+- tapOn:
+    id: 'call-sheet-close'
+- tapOn:
+    id: 'back'
+# The composer with no signal.
+- runFlow: ../subflows/open-test-changes.yaml
+- runFlow: ../subflows/no-signal.yaml
+- tapOn:
+    id: 'back'
+- runFlow:
+    file: ../subflows/open-conversation.yaml
+    env:
+      NAME: Mike Johnson
+- tapOn:
+    id: 'composer-body'
+- inputText: 'Marco is on his way'
+- takeScreenshot: ${PREFIX}-composer-offline-${THEME}
+- eraseText: 30
+- tapOn:
+    id: 'back'
+- runFlow: ../subflows/open-test-changes.yaml
+- runFlow: ../subflows/signal-back.yaml

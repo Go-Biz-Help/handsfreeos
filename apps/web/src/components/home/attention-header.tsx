@@ -1,9 +1,9 @@
 'use client';
+import { ATTENTION_WORDS, attentionHeaderWords } from '@hfos/core';
 import { Plus } from 'lucide-react';
 import { ButtonLink } from '@/components/ui/button';
 import { Segmented } from '@/components/ui/segmented';
 import type { AttentionScope } from '@/lib/api/types';
-import { formatMoney } from '@/lib/format';
 import { useMatches } from '@/lib/use-media';
 
 /**
@@ -34,10 +34,8 @@ export function AttentionHeader({
   newLeadHref: string;
 }) {
   const phone = useMatches('(max-width: 767px)');
-  const nothing = total === 0;
   // With no real dollars behind the items (typical values are left out), the count is the headline instead.
-  const countFirst = !nothing && affectedCents === 0;
-  const need = total === 1 ? 'needs attention' : 'need attention';
+  const words = attentionHeaderWords({ total, urgent, handledToday, affectedCents });
   return (
     <header
       data-testid="attention-header"
@@ -49,39 +47,33 @@ export function AttentionHeader({
         </p>
         <h1
           data-testid="attention-affected"
-          title={
-            nothing || countFirst
-              ? undefined
-              : 'Lead values and overdue invoices, each job counted once. An estimate counts once it’s approved.'
-          }
+          title={words.title ?? undefined}
           className="text-[26px] font-semibold leading-[1.2] tracking-[-0.015em] tabular-nums"
         >
-          {nothing ? (
-            'Nothing needs you right now'
-          ) : countFirst ? (
-            <>
-              {total}{' '}
-              <span className="text-xl font-medium tracking-[-0.005em] text-text-2">{need}</span>
-            </>
+          {words.headline.words === null ? (
+            words.headline.figure
           ) : (
             <>
-              {formatMoney(affectedCents)}{' '}
-              <span className="text-xl font-medium tracking-[-0.005em] text-text-2">affected</span>
+              {words.headline.figure}{' '}
+              <span className="text-xl font-medium tracking-[-0.005em] text-text-2">
+                {words.headline.words}
+              </span>
             </>
           )}
         </h1>
         <p data-testid="attention-counts" className="mt-0.5 text-[13.5px] text-text-2 md:text-sm">
-          {countFirst ? null : (
+          {words.need ? (
             <>
-              <b className="font-semibold text-text">{total}</b> {need} ·{' '}
-            </>
-          )}
-          {urgent ? (
-            <>
-              <span className="font-semibold text-danger-text">{urgent} urgent</span> ·{' '}
+              <b className="font-semibold text-text">{words.need.count}</b> {words.need.words}{' '}
+              ·{' '}
             </>
           ) : null}
-          {handledToday} handled today
+          {words.urgent ? (
+            <>
+              <span className="font-semibold text-danger-text">{words.urgent}</span> ·{' '}
+            </>
+          ) : null}
+          {words.handled}
         </p>
       </div>
       <div className="mt-2.5 flex items-center gap-2.5 md:mt-0">
@@ -93,8 +85,8 @@ export function AttentionHeader({
           className={phone ? 'w-full' : undefined}
           ariaLabel="Whose items"
           options={[
-            { value: 'mine', label: 'Mine', testId: 'scope-mine' },
-            { value: 'everyone', label: 'Everyone', testId: 'scope-everyone' },
+            { value: 'mine', label: ATTENTION_WORDS.mine, testId: 'scope-mine' },
+            { value: 'everyone', label: ATTENTION_WORDS.everyone, testId: 'scope-everyone' },
           ]}
         />
         <ButtonLink

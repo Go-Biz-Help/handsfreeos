@@ -1,0 +1,88 @@
+appId: com.gobizhelp.handsfreeos
+name: Inbox - a close made with no signal doesn't stand when the customer wrote again
+tags:
+  - ci
+  - android-only
+# Maria Lopez texts the business (the fake carrier, through the worker). With no signal (airplane mode), Dale closes her
+# conversation, which shows closed on the phone at once. Before signal comes back she texts again. Signal back: the
+# close reaches HandsFreeOS after her newer text, so it doesn't stand, and the phone shows the conversation open with the
+# new text. Android only: it needs airplane mode and the worker. A local run passes WORKER_URL.
+env:
+  EMAIL: dale@lonestarhvac.test
+  PASSWORD: HandsFree-Demo-2026
+---
+- runFlow: subflows/start-signed-out.yaml
+- runFlow: subflows/sign-in-with-password.yaml
+- runFlow: subflows/allow-notifications.yaml
+- runFlow: subflows/open-test-notifications.yaml
+- tapOn:
+    id: 'tn-part-sent'
+- tapOn:
+    id: 'tn-ready-customer'
+- extendedWaitUntil:
+    visible:
+      id: 'tn-result'
+      text: 'Maria Lopez’s texts come to you.'
+    timeout: 60000
+- copyTextFrom:
+    id: 'tn-customer-phone'
+- evalScript: ${output.first = 'Is the tech still coming today? ' + Date.now()}
+- runScript:
+    file: scripts/text-from-customer.js
+    env:
+      FROM: ${maestro.copiedText}
+      BODY: ${output.first}
+- tapOn:
+    id: 'back'
+- tapOn:
+    id: 'tab-inbox'
+- tapOn:
+    id: 'status-open'
+- tapOn:
+    id: 'box-all'
+- extendedWaitUntil:
+    visible:
+      id: 'conversation-row-preview'
+      text: ${output.first}
+    timeout: 60000
+- tapOn:
+    id: 'conversation-row-preview'
+    text: ${output.first}
+- extendedWaitUntil:
+    visible:
+      text: ${output.first}
+    timeout: 30000
+- setAirplaneMode: enabled
+- tapOn:
+    id: 'thread-details'
+- tapOn:
+    id: 'sheet-close'
+# Back on the list, showing Closed; then Maria writes again while the phone has no signal.
+- extendedWaitUntil:
+    visible:
+      id: 'inbox-search'
+    timeout: 20000
+- evalScript: ${output.second = 'Actually, can he come at 3 instead? ' + Date.now()}
+- runScript:
+    file: scripts/text-from-customer.js
+    env:
+      FROM: ${maestro.copiedText}
+      BODY: ${output.second}
+- setAirplaneMode: disabled
+- tapOn:
+    id: 'status-open'
+- extendedWaitUntil:
+    visible:
+      id: 'conversation-row-preview'
+      text: ${output.second}
+    timeout: 90000
+- tapOn:
+    id: 'conversation-row-preview'
+    text: ${output.second}
+- extendedWaitUntil:
+    visible:
+      text: ${output.second}
+    timeout: 30000
+- assertNotVisible:
+    id: 'closed-banner'
+- takeScreenshot: inbox-close-overtaken

@@ -1,5 +1,5 @@
 'use client';
-import { formatPhone, normalizePhone } from '@hfos/core';
+import { cellVerifiedOn, formatPhone, MY_CELL_WORDS, normalizePhone } from '@hfos/core';
 import { Check, PhoneCall, Smartphone } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
@@ -15,9 +15,6 @@ import type { CellPhone } from '@/lib/api/types';
 /** How long the page keeps looking for the press of 1 after a verification call goes out. */
 const WATCH_MS = 3 * 60_000;
 const POLL_MS = 2_000;
-
-const verifiedOn = (iso: string) =>
-  new Date(iso).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
 
 /**
  * My cell phone (M10): the number HandsFreeOS rings first when someone presses Call in the app, then connects the
@@ -61,7 +58,7 @@ export function MyCellSection({
           if (got.phone?.e164 === calling && got.phone.verifiedAt) {
             setPhone(got.phone);
             setCalling(null);
-            toast.success(`${formatPhone(calling)} is verified`);
+            toast.success(MY_CELL_WORDS.isVerified(calling));
             router.refresh();
             return;
           }
@@ -82,7 +79,7 @@ export function MyCellSection({
     setError(null);
     const e164 = normalizePhone(typed);
     if (!typed.trim()) {
-      setError('Enter your cell number.');
+      setError(MY_CELL_WORDS.enterNumber);
       return;
     }
     setBusy(true);
@@ -100,7 +97,7 @@ export function MyCellSection({
           verifiedAt: p?.e164 === out.e164 ? (p.verifiedAt ?? now) : now,
           lastVerificationAt: p?.lastVerificationAt ?? null,
         }));
-        toast.success(`${formatPhone(out.e164)} is already verified`);
+        toast.success(MY_CELL_WORDS.alreadyVerified(out.e164));
       } else {
         setPhone({
           id: out.userPhoneId,
@@ -127,21 +124,18 @@ export function MyCellSection({
 
   return (
     <div data-testid="my-cell">
-      <h2 className="text-lg font-semibold tracking-tight">My cell phone</h2>
-      <p className="mt-1 text-[13px] text-text-2">
-        When you press Call in the app, HandsFreeOS rings this phone first, then connects the
-        customer from the business number.
-      </p>
+      <h2 className="text-lg font-semibold tracking-tight">{MY_CELL_WORDS.title}</h2>
+      <p className="mt-1 text-[13px] text-text-2">{MY_CELL_WORDS.intro.web}</p>
 
       {editing ? (
         <form onSubmit={(e) => void verify(e)} noValidate className="mt-4 flex flex-col gap-3">
-          <Field label="Your cell number" htmlFor="my-cell-number" error={error}>
+          <Field label={MY_CELL_WORDS.numberLabel} htmlFor="my-cell-number" error={error}>
             <Input
               id="my-cell-number"
               type="tel"
               inputMode="tel"
               autoComplete="tel"
-              placeholder="(512) 555-0142"
+              placeholder={MY_CELL_WORDS.placeholder}
               value={typed}
               invalid={!!error}
               onChange={(e) => setTyped(e.target.value)}
@@ -150,13 +144,12 @@ export function MyCellSection({
           </Field>
           {noNumber ? (
             <Callout tone="neutral" icon={PhoneCall}>
-              {businessName} needs a business number before HandsFreeOS can call your cell. An owner
-              or admin sets it up in Settings → Texting &amp; calls.
+              {MY_CELL_WORDS.noNumber(businessName)}
             </Callout>
           ) : null}
           <div className="flex flex-wrap items-center gap-2">
             <Button type="submit" loading={busy} disabled={noNumber} data-testid="verify-my-cell">
-              Verify my cell
+              {MY_CELL_WORDS.verify}
             </Button>
             {phone ? (
               <Button
@@ -167,7 +160,7 @@ export function MyCellSection({
                   setTyped(formatPhone(phone.e164));
                 }}
               >
-                Cancel
+                {MY_CELL_WORDS.cancel}
               </Button>
             ) : null}
           </div>
@@ -182,16 +175,16 @@ export function MyCellSection({
               </span>
               <span className="text-xs text-text-3">
                 {phone.verifiedAt
-                  ? `Verified ${verifiedOn(phone.verifiedAt)}`
+                  ? cellVerifiedOn(phone.verifiedAt)
                   : calling
-                    ? 'Waiting for you to press 1…'
-                    : 'Not verified yet'}
+                    ? MY_CELL_WORDS.waiting
+                    : MY_CELL_WORDS.notVerified}
               </span>
             </span>
             {phone.verifiedAt ? (
               <Badge variant="ok" className="h-6 px-2.5 text-[12.5px] font-semibold">
                 <Check className="h-[13px] w-[13px]" strokeWidth={2} />
-                Verified
+                {MY_CELL_WORDS.verified}
               </Badge>
             ) : calling ? null : (
               <Button
@@ -204,7 +197,7 @@ export function MyCellSection({
                 }}
                 data-testid="verify-again"
               >
-                Verify my cell
+                {MY_CELL_WORDS.verify}
               </Button>
             )}
             <Button
@@ -215,25 +208,21 @@ export function MyCellSection({
                 setEditing(true);
               }}
             >
-              Change
+              {MY_CELL_WORDS.change}
             </Button>
           </div>
           {calling ? (
             <Callout tone="info" icon={PhoneCall} className="mt-3" data-testid="verify-calling">
-              <span className="block font-medium">
-                We’ll call {formatPhone(calling)}. Press 1 when you answer.
-              </span>
-              {business ? (
+              <span className="block font-medium">{MY_CELL_WORDS.calling(calling)}</span>
+              {business && businessNumber ? (
                 <span className="block">
-                  The call comes from {businessName}’s number, {business}. It only proves the phone
-                  is yours.
+                  {MY_CELL_WORDS.callsFrom(businessName, businessNumber)}
                 </span>
               ) : null}
             </Callout>
-          ) : phone.verifiedAt && business ? (
+          ) : phone.verifiedAt && business && businessNumber ? (
             <p className="mt-3 text-[12.5px] text-text-3">
-              Save {business}, {businessName}’s number, as a contact on this phone. If your phone
-              silences unknown callers, calls that connect you to customers could go to voicemail.
+              {MY_CELL_WORDS.saveContact(businessName, businessNumber)}
             </p>
           ) : error ? (
             <p role="alert" className="mt-2 text-[12.5px] text-danger-text">

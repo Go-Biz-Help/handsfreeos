@@ -1,4 +1,5 @@
 'use client';
+import { APPROVALS_WORDS, draftDecidedLine } from '@hfos/core';
 import { Check, Clock, Info, Sparkles } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -438,24 +439,8 @@ export function TeammateDraftCard({
   );
 }
 
-/** "Approved by Dale with an edit" (on the phone), "Rejected by Dale: “…”", "Expired: nobody decided in time". */
-export function draftDecidedLine(d: TeammateDraft): string {
-  const by = d.decidedBy ? ` by ${firstNameOf(d.decidedBy.fullName)}` : '';
-  const where =
-    d.via === 'assistant' ? ' in the Assistant' : d.via === 'mobile' ? ' on the phone' : '';
-  switch (d.status) {
-    case 'approved':
-      return `Approved${by}${d.edits ? ' with an edit' : ''}${where}`;
-    case 'rejected':
-      return `Rejected${by}${d.reason ? `: “${d.reason}”` : ''}`;
-    case 'expired':
-      return 'Expired: nobody decided in time';
-    case 'cancelled':
-      return d.reason ? `Dropped: ${d.reason.replace(/\.$/, '').toLowerCase()}` : 'Dropped';
-    default:
-      return 'Waiting';
-  }
-}
+/** "Approved by Dale with an edit" (on the phone), "Rejected by Dale: “…”" (core's words). */
+export { draftDecidedLine } from '@hfos/core';
 
 /** One decided draft in the Decided list. */
 export function DecidedDraftRow({
@@ -493,7 +478,7 @@ export function DecidedDraftRow({
             href={`/app/w/${workspaceId}/inbox/${d.conversationId}`}
             className="text-xs font-medium text-accent-text hover:underline"
           >
-            Conversation
+            {APPROVALS_WORDS.conversation}
           </Link>
         ) : null}
       </span>

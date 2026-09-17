@@ -1,4 +1,5 @@
 import { clsx, type ClassValue } from 'clsx';
+import { relativeTimeAgo } from '@hfos/core';
 import { twMerge } from 'tailwind-merge';
 
 export function cn(...inputs: ClassValue[]): string {
@@ -20,14 +21,5 @@ export function safeNext(value: string | null | undefined, fallback = '/app'): s
   return value;
 }
 
-export function relativeTime(iso: string, now = Date.now()): string {
-  const diff = now - new Date(iso).getTime();
-  const m = Math.round(diff / 60_000);
-  if (m < 1) return 'just now';
-  if (m < 60) return `${m} min ago`;
-  const h = Math.round(m / 60);
-  if (h < 24) return `${h} h ago`;
-  const d = Math.round(h / 24);
-  if (d < 7) return `${d} d ago`;
-  return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-}
+/** "just now", "12 min ago", "3 h ago", "2 d ago", then the day (core's words, so the phone says the same). */
+export const relativeTime = relativeTimeAgo;

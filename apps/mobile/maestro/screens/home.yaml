@@ -1,0 +1,90 @@
+# Screenshots of Home and Approvals (design/m10 Main board) in one theme: Home's top, further down, the Let
+# HandsFreeOS Handle sheet, the ⋯ sheet, and Approvals. Not run in CI:
+#   maestro test -e THEME=dark -e PREFIX=ios apps/mobile/maestro/screens/home.yaml --test-output-dir <dir>
+appId: com.gobizhelp.handsfreeos
+name: Home's screens
+tags:
+  - screens
+env:
+  EMAIL: dale@lonestarhvac.test
+  PASSWORD: HandsFree-Demo-2026
+---
+- runFlow: ../subflows/start-signed-out.yaml
+- runFlow: ../subflows/sign-in-with-password.yaml
+- tapOn:
+    id: 'tab-more'
+- tapOn:
+    id: 'more-settings'
+- tapOn:
+    id: 'setting-appearance'
+- tapOn:
+    id: 'appearance-${THEME}'
+- tapOn:
+    id: 'appearance-done'
+- waitForAnimationToEnd
+- tapOn:
+    id: 'back'
+- waitForAnimationToEnd
+- takeScreenshot: ${PREFIX}-more-${THEME}
+- tapOn:
+    id: 'tab-home'
+- extendedWaitUntil:
+    visible:
+      id: 'attention-card'
+    timeout: 30000
+- waitForAnimationToEnd
+- takeScreenshot: ${PREFIX}-home-top-${THEME}
+# The ⋯ sheet and the Let HandsFreeOS Handle sheet, from the first card.
+- tapOn:
+    id: 'attention-more'
+    index: 0
+- waitForAnimationToEnd
+- takeScreenshot: ${PREFIX}-home-sheet-${THEME}
+- tapOn:
+    id: 'attention-sheet-close'
+- waitForAnimationToEnd
+- tapOn:
+    id: 'attention-let-handle'
+    enabled: true
+    index: 0
+- extendedWaitUntil:
+    notVisible: 'Working out what HandsFreeOS would do…'
+    timeout: 20000
+- waitForAnimationToEnd
+- takeScreenshot: ${PREFIX}-let-handle-${THEME}
+- tapOn:
+    id: 'let-handle-close'
+- waitForAnimationToEnd
+# Further down the list, and a folded group.
+- scroll
+- scroll
+- waitForAnimationToEnd
+- takeScreenshot: ${PREFIX}-home-further-${THEME}
+- scrollUntilVisible:
+    element:
+      id: 'attention-group'
+    direction: DOWN
+    timeout: 30000
+    optional: true
+- takeScreenshot: ${PREFIX}-home-group-${THEME}
+- tapOn:
+    id: 'tab-more'
+- tapOn:
+    id: 'more-approvals'
+- extendedWaitUntil:
+    visible:
+      id: 'approvals-tab-waiting'
+    timeout: 10000
+- waitForAnimationToEnd
+- takeScreenshot: ${PREFIX}-approvals-${THEME}
+- tapOn:
+    id: 'approvals-tab-decided'
+- extendedWaitUntil:
+    visible: 'Decided lately'
+    timeout: 10000
+- waitForAnimationToEnd
+- takeScreenshot: ${PREFIX}-approvals-decided-${THEME}
+- tapOn:
+    id: 'approvals-tab-waiting'
+- tapOn:
+    id: 'back'

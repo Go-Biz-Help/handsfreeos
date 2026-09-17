@@ -1,54 +1,33 @@
 'use client';
-import { smsKeyword } from '@hfos/core';
+import {
+  clockTime,
+  dayDivider,
+  dayKey,
+  deliveryStateOf,
+  deliveryWords,
+  FAILED_STATUSES,
+  heldLine,
+  keywordLine,
+  mediaOnlyLine,
+  senderOf,
+  textFailureHelp,
+  THREAD_WORDS,
+  weekdayClock,
+} from '@hfos/core';
 import { CheckCheck, CircleAlert, Moon, Sparkles } from 'lucide-react';
 import { Fragment, type ReactNode } from 'react';
 import { CallCard } from '@/components/calls/call-card';
 import { Button } from '@/components/ui/button';
 import { AI_TEXT } from '@/components/workflows/chips';
-import { teammateMessageOf } from '@/lib/ai-team/inbox-types';
-import { teammateLabel } from '@/lib/ai-team/inbox-words';
 import type { ThreadItem } from '@/lib/api/types';
-import { clockTime, dayDivider } from '@/lib/inbox';
 import { cn } from '@/lib/utils';
 import { DayDivider, MediaThumb, SystemEntry } from './bits';
-import { firstName } from './conversation-row';
 import { MailCard, PendingMailCard } from './mail-card';
 import type { PendingText } from './hooks';
 
-const FAILED = new Set(['failed', 'undelivered']);
-
-/** Why a text didn't arrive, in words a person can act on (carrier codes are the common ones). */
-function failureHelp(item: ThreadItem): string {
-  switch (item.errorCode) {
-    case '30003':
-    case '30005':
-    case '30006':
-      return 'This number can’t receive texts. It may be a landline.';
-    case '21610':
-      return 'This customer texted STOP, so the carrier blocked it.';
-    case '30007':
-      return 'The carrier filtered this text. Try wording it differently.';
-    case '30032':
-    case '30034':
-      return 'Texting isn’t approved for this number yet.';
-    default:
-      return item.errorMessage || 'The carrier didn’t deliver this text.';
-  }
-}
-
 /** The time under an entry; the record page's sheet adds the weekday. */
 function entryTime(iso: string, compact?: boolean): string {
-  return compact
-    ? new Date(iso).toLocaleString('en-US', {
-        weekday: 'short',
-        hour: 'numeric',
-        minute: '2-digit',
-      })
-    : clockTime(iso);
-}
-
-function dayKey(iso: string): string {
-  return new Date(iso).toDateString();
+  return compact ? weekdayClock(iso) : clockTime(iso);
 }
 
 /**
@@ -108,14 +87,12 @@ export function MessageLog({
         {hasEarlier ? (
           <div className="flex justify-center pt-1">
             <Button variant="ghost" size="sm" loading={loadingEarlier} onClick={onLoadEarlier}>
-              Show earlier messages
+              {THREAD_WORDS.showEarlier}
             </Button>
           </div>
         ) : null}
         {items.length === 0 && pending.length === 0 && !tail ? (
-          <div className="py-10 text-center text-[13px] text-text-3">
-            No messages yet. Say hello below.
-          </div>
+          <div className="py-10 text-center text-[13px] text-text-3">{THREAD_WORDS.empty}</div>
         ) : null}
         {items.map((item) => (
           <Fragment key={item.id}>
@@ -159,7 +136,7 @@ export function MessageLog({
                   {p.body}
                 </div>
                 <div className="flex items-center gap-[5px] whitespace-nowrap px-1 text-[11.5px] text-text-3">
-                  You · now · Sending…
+                  {THREAD_WORDS.sendingNow}
                 </div>
               </div>
             )}
@@ -171,17 +148,6 @@ export function MessageLog({
   );
 }
 
-/** When a held text goes, as this browser reads the moment: "at 8:00 AM", "tomorrow at 8:00 AM", "Monday at 8:00 AM". */
-export function heldWhen(iso: string, now = new Date()): string {
-  const d = new Date(iso);
-  const time = clockTime(iso);
-  if (d.toDateString() === now.toDateString()) return `at ${time}`;
-  const tomorrow = new Date(now);
-  tomorrow.setDate(now.getDate() + 1);
-  if (d.toDateString() === tomorrow.toDateString()) return `tomorrow at ${time}`;
-  return `${d.toLocaleDateString('en-US', { weekday: 'long' })} at ${time}`;
-}
-
 /** A text held for quiet hours (M10): it waits in the thread with when it goes, and Cancel keeps it from going. */
 function HeldEntry({
   item,
@@ -190,7 +156,6 @@ function HeldEntry({
   item: ThreadItem & { scheduledFor: string };
   onCancel?: (messageId: string) => void;
 }) {
-  const sender = item.sentBy ? firstName(item.sentBy.fullName) : 'HandsFreeOS';
   return (
     <div
       data-testid={`message-${item.id}`}
@@ -214,9 +179,7 @@ function HeldEntry({
       ) : null}
       <div className="flex flex-wrap items-center justify-end gap-x-[5px] px-1 text-[11.5px] text-text-3">
         <Moon className="h-3 w-3 text-warning-text" strokeWidth={1.75} />
-        <span data-testid={`held-${item.id}`}>
-          {sender} · Sends {heldWhen(item.scheduledFor)}, when quiet hours end
-        </span>
+        <span data-testid={`held-${item.id}`}>{heldLine(item, item.scheduledFor)}</span>
         {onCancel ? (
           <Button
             variant="ghost"
@@ -224,7 +187,7 @@ function HeldEntry({
             onClick={() => onCancel(item.id)}
             data-testid={`cancel-held-${item.id}`}
           >
-            Cancel
+            {THREAD_WORDS.cancel}
           </Button>
         ) : null}
       </div>
@@ -246,13 +209,11 @@ function MessageEntry({
   compact?: boolean;
 }) {
   const out = item.direction === 'outbound';
-  const failed = out && FAILED.has(item.status);
+  const failed = out && FAILED_STATUSES.has(item.status);
   const time = entryTime(item.occurredAt, compact);
-  const keyword = !out && item.body ? smsKeyword(item.body) : null;
+  const keyword = keywordLine(item, customerFirstName);
   // The AI teammate's reply reads "Ava (AI)", with "approved by Chris" when a person's OK sent it.
-  const ai = out ? teammateMessageOf(item) : null;
-  const sender = item.sentBy ? firstName(item.sentBy.fullName) : 'HandsFreeOS';
-  const mediaNames = item.media.map((m) => m.name).join(', ');
+  const { ai, label: sender } = senderOf(item);
   if (out && item.scheduledFor)
     return (
       <HeldEntry item={{ ...item, scheduledFor: item.scheduledFor }} onCancel={onCancelScheduled} />
@@ -301,7 +262,7 @@ function MessageEntry({
                     data-testid="ai-label"
                   >
                     <Sparkles className="h-3 w-3" strokeWidth={1.75} />
-                    {teammateLabel(ai)}
+                    {sender}
                   </span>
                   <span>· {time}</span>
                 </>
@@ -318,25 +279,23 @@ function MessageEntry({
                   onClick={() => onRetry(item.id)}
                   data-testid={`retry-${item.id}`}
                 >
-                  Retry
+                  {THREAD_WORDS.retry}
                 </Button>
               ) : null}
             </>
           ) : (
-            <span>{!item.body && mediaNames ? `${mediaNames} · ${time}` : time}</span>
+            <span>{mediaOnlyLine(item, time)}</span>
           )}
         </div>
         {failed ? (
-          <div className="max-w-full px-1 text-right text-xs text-text-2">{failureHelp(item)}</div>
+          <div className="max-w-full px-1 text-right text-xs text-text-2">
+            {textFailureHelp(item)}
+          </div>
         ) : null}
       </div>
-      {keyword === 'stop' ? (
-        <SystemEntry icon={CircleAlert}>
-          {customerFirstName ?? 'This number'} opted out of texts
-        </SystemEntry>
-      ) : keyword === 'start' ? (
-        <SystemEntry icon={CheckCheck}>
-          {customerFirstName ?? 'This number'} opted back in to texts
+      {keyword ? (
+        <SystemEntry icon={keyword.kind === 'stop' ? CircleAlert : CheckCheck}>
+          {keyword.text}
         </SystemEntry>
       ) : null}
     </>
@@ -345,20 +304,21 @@ function MessageEntry({
 
 /** Where a reply is. A website chat's is "Seen" once the visitor's chat window read it. */
 function DeliveryStatus({ status, chat }: { status: string; chat?: boolean }) {
-  if (status === 'queued' || status === 'sending') return <span>· Sending…</span>;
-  if (status === 'sent') return <span>· Sent</span>;
-  if (status === 'delivered')
+  const state = deliveryStateOf(status);
+  const words = deliveryWords(state, chat);
+  if (state === 'sending' || state === 'sent') return <span>· {words}</span>;
+  if (state === 'delivered')
     return (
       <span className="inline-flex items-center gap-[3px] text-success-text">
         <CheckCheck className="h-3.5 w-3.5" strokeWidth={1.75} />
-        {chat ? 'Seen' : 'Delivered'}
+        {words}
       </span>
     );
-  if (FAILED.has(status))
+  if (state === 'failed')
     return (
       <span className="inline-flex items-center gap-[3px] font-medium text-danger-text">
         <CircleAlert className="h-3.5 w-3.5" strokeWidth={1.75} />
-        Not delivered
+        {words}
       </span>
     );
   return null;

@@ -130,14 +130,17 @@ env:
     timeout: 30000
 - tapOn:
     id: 'test-unlock-match'
+# The conversation's link opened the conversation itself (step 14). What the reply left to say is read on Test
+# notifications below: tapping the "Unlock your phone…" notification takes it away, and a reply's "Your reply was sent."
+# only replaces a notification still in the shade (`followUp` in src/push/device.ts).
 - extendedWaitUntil:
-    visible: 'Your reply was sent.'
+    visible:
+      id: 'conversation'
     timeout: 30000
-# The conversation's link opened on its tab.
-- assertVisible:
-    id: 'inbox'
 
 # Back as it was: the phone not pretending, quiet hours on.
+- tapOn:
+    id: 'back'
 - runFlow: subflows/open-test-notifications.yaml
 - tapOn:
     id: 'tn-locked'

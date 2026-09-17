@@ -1,5 +1,20 @@
 'use client';
-import { smsSegments } from '@hfos/core';
+import {
+  aiName,
+  approvedToast as approvedWords,
+  decideRefusal,
+  DRAFT_AFTER,
+  DRAFT_WORDS,
+  draftActionLine,
+  draftSegmentsLabel,
+  expiresLine,
+  firstNameOf,
+  knowledgeUsedLine,
+  progressShort,
+  rejectedToast,
+  rejectReasonLabel,
+  THREAD_WORDS,
+} from '@hfos/core';
 import {
   CalendarCheck,
   CalendarClock,
@@ -28,13 +43,6 @@ import type {
   TeammateDraft,
   TeammateGetOut,
 } from '@/lib/ai-team/inbox-types';
-import {
-  decideRefusal,
-  draftActionLine,
-  expiresLine,
-  firstNameOf,
-  progressShort,
-} from '@/lib/ai-team/inbox-words';
 import { knowledgeOf } from '@/lib/ai-team/describe';
 import { teammateCommands } from '@/lib/ai-team/use-inbox';
 import { cn } from '@/lib/utils';
@@ -47,14 +55,6 @@ const ACTION_ICON: Record<DraftAction['kind'], LucideIcon> = {
   cancel: CalendarX,
 };
 
-/** "132 of 160 · 1 text". */
-function segmentsLabel(text: string): string {
-  const s = smsSegments(text);
-  const single = s.encoding === 'gsm7' ? 160 : 70;
-  const parts = Math.max(1, s.segments);
-  return `${s.units} of ${parts === 1 ? single : parts * s.perSegment} · ${parts} ${parts === 1 ? 'text' : 'texts'}`;
-}
-
 /** What approving did, for the toast: "Approved. Ava makes the change and texts Mike now. 18 of 20 approved." */
 export function approvedToast(
   d: TeammateDraft,
@@ -62,21 +62,7 @@ export function approvedToast(
   edited: boolean,
   who: string,
 ): string {
-  const name = d.teammate.name;
-  const p = out.progress;
-  if (p.becameAutomatic)
-    return `Approved. That’s ${p.approvedCount}: ${name} replies on its own from now on.`;
-  const sent = d.preview.message
-    ? d.channel === 'email'
-      ? `emails ${who}`
-      : d.channel === 'chat'
-        ? `answers ${who} in the chat`
-        : `texts ${who}`
-    : null;
-  const does = [d.preview.actions.length ? 'makes the change' : null, sent].filter(Boolean);
-  const what = does.length ? `${name} ${does.join(' and ')} now.` : 'It goes out now.';
-  const count = d.kind === 'reply' && p.status === 'training' ? ` ${progressShort(p)}.` : '';
-  return `${edited ? 'Sent with your edit.' : 'Approved.'} ${what}${count}`;
+  return approvedWords(d, out.progress, edited, who);
 }
 
 /**
@@ -137,9 +123,7 @@ export function useDraftDecision({
         ...(decision === 'reject' && reason.trim() ? { reason: reason.trim() } : {}),
       });
       toast.success(
-        decision === 'approve'
-          ? approvedToast(draft, out, edited, who)
-          : `Rejected. Nothing went to ${who}${draft.preview.actions.length ? ', and nothing changed on the calendar' : ''}.`,
+        decision === 'approve' ? approvedToast(draft, out, edited, who) : rejectedToast(draft, who),
       );
       setMode('view');
       onDecided(draft, out, edited ? edits : null);
@@ -168,7 +152,7 @@ export function useDraftDecision({
     approve: () => void decide('approve', false),
     sendEdit: () => {
       if (!body.trim()) {
-        toast.error('Write the message, or reject it.');
+        toast.error(DRAFT_WORDS.writeIt);
         return;
       }
       void decide('approve', true);
@@ -250,7 +234,7 @@ export function DraftButtons({
           data-testid="draft-send-edit"
         >
           {d.busy === 'approve' ? null : <Send className="h-3.5 w-3.5" strokeWidth={1.5} />}
-          Send my version
+          {DRAFT_WORDS.sendMyVersion}
         </Button>
         <Button
           variant="ghost"
@@ -258,7 +242,7 @@ export function DraftButtons({
           disabled={d.busy !== null}
           onClick={d.cancelEdit}
         >
-          Cancel
+          {DRAFT_WORDS.cancel}
         </Button>
       </div>
     );
@@ -273,7 +257,7 @@ export function DraftButtons({
           onClick={d.reject}
           data-testid="draft-reject-confirm"
         >
-          Reject
+          {DRAFT_WORDS.rejectConfirm}
         </Button>
         <Button
           variant="ghost"
@@ -281,10 +265,10 @@ export function DraftButtons({
           disabled={d.busy !== null}
           onClick={() => d.setMode('view')}
         >
-          Keep it
+          {DRAFT_WORDS.keepIt}
         </Button>
         <span className={cn('text-xs text-text-3', phone ? 'text-center' : 'ml-auto')}>
-          Nothing is sent, and nothing is booked.
+          {DRAFT_WORDS.nothingSent}
         </span>
       </div>
     );
@@ -300,7 +284,7 @@ export function DraftButtons({
         data-testid="draft-approve"
       >
         {d.busy === 'approve' ? null : <Check className="h-3.5 w-3.5" strokeWidth={1.75} />}
-        {sends ? 'Approve and send' : 'Approve'}
+        {sends ? DRAFT_WORDS.approveAndSend : DRAFT_WORDS.approve}
       </Button>
       <div className={cn('flex gap-1.5', phone && 'w-full')}>
         {sends ? (
@@ -313,7 +297,7 @@ export function DraftButtons({
             data-testid="draft-edit"
           >
             <Pencil className="h-3.5 w-3.5" strokeWidth={1.5} />
-            Edit
+            {DRAFT_WORDS.edit}
           </Button>
         ) : null}
         <Button
@@ -324,7 +308,7 @@ export function DraftButtons({
           onClick={() => d.setMode('rejecting')}
           data-testid="draft-reject"
         >
-          Reject…
+          {DRAFT_WORDS.reject}
         </Button>
       </div>
       {approvedLine && !phone ? (
@@ -380,7 +364,7 @@ export function DraftCard({
       >
         <Sparkles className="h-[13px] w-[13px] flex-none" strokeWidth={1.75} />
         <span className="truncate">
-          {name}’s draft{phone ? '' : ' · waiting for your OK'}
+          {name}’s draft{phone ? '' : DRAFT_WORDS.waiting}
         </span>
         {expires ? (
           <span
@@ -416,8 +400,8 @@ export function DraftCard({
               data-testid="draft-input"
             />
             <div className="flex flex-wrap justify-between gap-x-3 text-xs text-text-3">
-              <span>Your version is what goes out. It still counts toward training.</span>
-              {sms ? <span className="tabular-nums">{segmentsLabel(d.body)}</span> : null}
+              <span>{DRAFT_WORDS.editNote}</span>
+              {sms ? <span className="tabular-nums">{draftSegmentsLabel(d.body)}</span> : null}
             </div>
           </div>
         ) : (
@@ -440,7 +424,7 @@ export function DraftCard({
       <div className="flex flex-wrap items-center gap-1.5">
         <span className="inline-flex h-5 items-center gap-1 whitespace-nowrap rounded-[6px] bg-success-soft px-[7px] text-[11.5px] font-medium text-success-text">
           <Check className="h-3 w-3" strokeWidth={2.2} />
-          Safety check passed
+          {DRAFT_WORDS.safetyPassed}
         </span>
         {used.length ? (
           <span
@@ -448,32 +432,32 @@ export function DraftCard({
             title={used.map((k) => k.title).join(', ')}
             data-testid="draft-knowledge"
           >
-            Used {used.length === 1 ? used[0]!.title : `${used.length} knowledge items`}
+            {knowledgeUsedLine(used.map((k) => k.title))}
           </span>
         ) : null}
         {readOnly ? (
           <span className="inline-flex h-5 items-center gap-1 whitespace-nowrap rounded-[6px] bg-card-2 px-[7px] text-[11.5px] font-medium text-text-2">
             <Minus className="h-3 w-3" strokeWidth={2.2} />
-            Owners and admins decide this one
+            {DRAFT_WORDS.ownersDecide}
           </span>
         ) : null}
         {message && sms && d.mode !== 'editing' ? (
           <span className="ml-auto text-xs tabular-nums text-text-3">
-            {segmentsLabel(message.body).split(' · ')[1]}
+            {draftSegmentsLabel(message.body).split(' · ')[1]}
           </span>
         ) : null}
       </div>
       {d.mode === 'rejecting' ? (
         <div className="flex flex-col gap-1.5">
           <label className="text-[13px] font-medium" htmlFor={`reject-${draft.id}`}>
-            Why? It helps {name} next time (optional)
+            {rejectReasonLabel(name)}
           </label>
           <Input
             id={`reject-${draft.id}`}
             inputSize="sm"
             value={d.reason}
             maxLength={1000}
-            placeholder="Ask which system first. I’ll call him."
+            placeholder={DRAFT_WORDS.rejectPlaceholder}
             onChange={(e) => d.setReason(e.target.value)}
             data-testid="draft-reject-reason"
           />
@@ -508,7 +492,8 @@ export function PhoneDraftBar({
       <DraftButtons d={d} progress={progress} size="phone" />
       {d.mode === 'view' ? (
         <span className="text-center text-xs text-text-3">
-          {line ? `${line} · ` : ''}typing below takes it over
+          {line ? `${line} · ` : ''}
+          {DRAFT_WORDS.typingTakesOver}
         </span>
       ) : null}
     </div>
@@ -540,7 +525,7 @@ export function TeammateLine({
 export function SendingDraft({ draft }: { draft: TeammateDraft }) {
   const body = draft.edits?.body ?? draft.preview.message?.body ?? '';
   if (!body) return null;
-  const by = draft.decidedBy ? ` · approved by ${firstNameOf(draft.decidedBy.fullName)}` : '';
+  const by = DRAFT_AFTER.sendingBy(draft.decidedBy);
   return (
     <div
       className="mt-2 flex max-w-[84%] flex-col items-end gap-[3px] self-end md:max-w-[76%]"
@@ -552,10 +537,11 @@ export function SendingDraft({ draft }: { draft: TeammateDraft }) {
       <div className="flex items-center gap-[5px] whitespace-nowrap px-1 text-[11.5px] text-text-3">
         <span className={cn('inline-flex items-center gap-[3px] font-semibold', AI_TEXT)}>
           <Sparkles className="h-3 w-3" strokeWidth={1.75} />
-          {draft.teammate.name} (AI){by}
+          {aiName(draft.teammate.name)}
+          {by}
         </span>
         <span className="inline-flex items-center gap-1">
-          · <Loader2 className="h-3 w-3 animate-spin" strokeWidth={1.75} /> Sending…
+          · <Loader2 className="h-3 w-3 animate-spin" strokeWidth={1.75} /> {DRAFT_WORDS.sending}
         </span>
       </div>
     </div>
@@ -591,10 +577,8 @@ export function RejectedNext({
       data-testid="draft-rejected"
     >
       <div className="text-[13px]">
-        <strong className="font-semibold">
-          {by} rejected {name}’s draft.
-        </strong>{' '}
-        Nothing went to {who}. What next?
+        <strong className="font-semibold">{DRAFT_AFTER.rejectedBy(by, name)}</strong>{' '}
+        {DRAFT_AFTER.rejectedNext(who)}
       </div>
       <div className="flex gap-1.5">
         <Button size="sm" loading={taking} onClick={onReply} data-testid="draft-ill-reply">
@@ -608,12 +592,10 @@ export function RejectedNext({
           data-testid="draft-try-again"
         >
           {retrying ? null : <RotateCw className="h-3.5 w-3.5" strokeWidth={1.5} />}
-          Try again
+          {THREAD_WORDS.tryAgain}
         </Button>
       </div>
-      <span className="text-xs text-text-3">
-        Try again asks {name} for a new draft{draft.reason ? ', with your reason' : ''}.
-      </span>
+      <span className="text-xs text-text-3">{DRAFT_AFTER.tryAgainNote(name, !!draft.reason)}</span>
     </div>
   );
 }

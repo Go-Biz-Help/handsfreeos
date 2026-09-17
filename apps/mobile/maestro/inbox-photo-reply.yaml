@@ -1,0 +1,104 @@
+appId: com.gobizhelp.handsfreeos
+name: Inbox - a reply with a photo written with no signal goes once, when signal is back
+tags:
+  - ci
+# The Inbox canvas's "Replying to Mike with a photo" and "A text written with no signal": with no signal, Dale opens
+# Mike Johnson's texts, picks a photo from the library and writes a reply. The thread shows it with "Waiting for signal
+# — sends by …" and the composer says texts go on their own within 30 minutes. Signal back: the photo uploads to Mike's
+# files, then exactly one text goes with it, and the thread shows HandsFreeOS's copy with the photo. Quiet hours are off
+# on HandsFreeOS while it runs. Seed accounts (apps/worker/scripts/seed.ts); the password is the seed's, for local
+# stacks only.
+env:
+  EMAIL: dale@lonestarhvac.test
+  PASSWORD: HandsFree-Demo-2026
+---
+- addMedia:
+    - assets/old-unit.jpg
+- runFlow: subflows/start-signed-out.yaml
+- runFlow: subflows/sign-in-with-password.yaml
+# The list, as the canvas draws it.
+- tapOn:
+    id: 'tab-inbox'
+- extendedWaitUntil:
+    visible:
+      id: 'box-all'
+      text: 'All · \d+'
+    timeout: 30000
+- assertVisible:
+    id: 'box-mine'
+    text: 'Mine · \d+'
+- assertVisible:
+    id: 'box-unassigned'
+    text: 'Unassigned · \d+'
+- assertVisible:
+    id: 'status-snoozed'
+- runFlow: subflows/open-test-changes.yaml
+- runFlow: subflows/nothing-waiting.yaml
+- runFlow:
+    file: subflows/quiet-hours.yaml
+    env:
+      QUIET: 'off'
+- runFlow: subflows/no-signal.yaml
+- tapOn:
+    id: 'back'
+- runFlow:
+    file: subflows/open-conversation.yaml
+    env:
+      NAME: Mike Johnson
+- tapOn:
+    id: 'composer-attach'
+- tapOn:
+    id: 'photo-library'
+- runFlow: subflows/pick-first-photo.yaml
+- extendedWaitUntil:
+    visible:
+      id: 'photos-saved'
+      text: 'Photos you send are saved to Mike’s files too.'
+    timeout: 30000
+- evalScript: ${output.reply = 'This is the old unit, Mike. Marco brings the new one Thursday. ' + Date.now()}
+- tapOn:
+    id: 'composer-body'
+- inputText: ${output.reply}
+- assertVisible:
+    id: 'composer-offline'
+    text: 'Texts written with no signal go out on their own within 30 minutes. After that, the phone asks first.'
+- tapOn:
+    id: 'composer-send'
+- extendedWaitUntil:
+    visible:
+      id: 'pending-line'
+      text: 'Waiting for signal — sends by \d{1,2}:\d{2} [AP]M'
+    timeout: 20000
+- assertVisible:
+    text: ${output.reply}
+- takeScreenshot: inbox-photo-reply-offline
+- runFlow: subflows/back-to-test-changes.yaml
+- runFlow: subflows/signal-back.yaml
+- extendedWaitUntil:
+    visible:
+      id: 'tc-counts'
+      text: '0 waiting · 0 need you'
+    timeout: 120000
+- tapOn:
+    id: 'back'
+- runFlow:
+    file: subflows/open-conversation.yaml
+    env:
+      NAME: Mike Johnson
+# HandsFreeOS's copy of the text, with its photo, replaces the one written here.
+- extendedWaitUntil:
+    visible:
+      text: ${output.reply}
+    timeout: 60000
+- extendedWaitUntil:
+    notVisible:
+      id: 'pending-line'
+    timeout: 60000
+- assertVisible:
+    id: 'media-thumb'
+- takeScreenshot: inbox-photo-reply-sent
+- runFlow: subflows/back-to-test-changes.yaml
+- runFlow:
+    file: subflows/quiet-hours.yaml
+    env:
+      QUIET: 'on'

@@ -28,7 +28,7 @@ env:
 - tapOn:
     id: 'tab-home'
 
-# An email's link to a conversation opens Inbox.
+# An email's link to a conversation opens the conversation (one this phone doesn't have says so, with Back to Inbox).
 - runFlow:
     when:
       platform: Android
@@ -45,8 +45,10 @@ env:
             LINK: https://app.handsfreeos.com/app/w/${output.business}/inbox/00000000-0000-4000-8000-00000000abcd
 - extendedWaitUntil:
     visible:
-      id: 'inbox'
+      id: 'conversation-missing'
     timeout: 30000
+- tapOn:
+    id: 'back'
 
 # The app's own scheme: Pipeline.
 - runFlow:

@@ -1,6 +1,22 @@
 # Opens Settings → Test changes (test builds) from any of a business's tabs.
 appId: com.gobizhelp.handsfreeos
 ---
+# Back to the tabs first: a link or a notification may have opened a screen over them (step 14's conversation), and
+# the tab bar is under it.
+- repeat:
+    times: 4
+    while:
+      notVisible:
+        id: 'tab-more'
+    commands:
+      - runFlow:
+          when:
+            visible:
+              id: 'back'
+          commands:
+            - tapOn:
+                id: 'back'
+            - waitForAnimationToEnd
 - tapOn:
     id: 'tab-more'
 # The More tab keeps the screen it was left on (a link or a notification may have opened another tab since): pressed

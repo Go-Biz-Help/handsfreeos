@@ -1,5 +1,24 @@
 'use client';
-import { formatClock } from '@hfos/core';
+import {
+  CHAT_BLOCKED_NOTE,
+  COMPOSER_WORDS,
+  composerPlaceholder,
+  crossChannelCanText,
+  crossChannelLine,
+  emailFromLabel,
+  emailNote as emailNoteWords,
+  emailSubjectOf,
+  photosSavedLine,
+  quietLine as quietLineOf,
+  quietQuestion,
+  SENT_WORDS,
+  sendLabel,
+  switchRefusal,
+  TEXTING_STATUS_LINK,
+  textFromLine,
+  textNote as textNoteWords,
+  type ComposerNote,
+} from '@hfos/core';
 import {
   AlertTriangle,
   CircleAlert,
@@ -31,9 +50,8 @@ import { formatDate } from '@/lib/format';
 import { useLiveVersion } from '@/lib/realtime/live-provider';
 import { cn } from '@/lib/utils';
 import { AttachmentChip } from './attachment-chip';
-import { ChannelIcon, QuietStrip, SegmentCounter } from './bits';
+import { ChannelIcon, QuietStrip, SegmentCounter, Words } from './bits';
 import type { PendingText } from './hooks';
-import { heldWhen } from './message-log';
 
 /** A text in quiet hours: ask first, send now anyway, or hold it until quiet hours end. */
 type QuietChoice = 'ask' | 'now' | 'later';
@@ -80,7 +98,16 @@ export interface ComposerTarget {
   readonly chatBlocked?: boolean;
 }
 
+const NOTE_ICON: Record<ComposerNote['icon'], LucideIcon> = {
+  alert: CircleAlert,
+  clock: Clock,
+  phone: Phone,
+  mail: Mail,
+};
+
 interface Note {
+  /** Core's words for the note. */
+  readonly words: ComposerNote;
   readonly tone: 'danger' | 'info' | 'warning';
   readonly icon: LucideIcon;
   readonly body: ReactNode;
@@ -96,6 +123,54 @@ interface FromChoice {
   readonly mailboxConnectionId?: string;
 }
 
+/** Core's note as the composer shows it: its icon, its words with the bold parts, a link and a button. */
+function noteOf(
+  words: ComposerNote | null,
+  workspaceId: string,
+  actions: { email?: () => void; editPerson?: () => void },
+): Note | null {
+  if (!words) return null;
+  const onAction =
+    words.action?.kind === 'email'
+      ? actions.email
+      : words.action?.kind === 'edit_person'
+        ? actions.editPerson
+        : undefined;
+  return {
+    words,
+    tone: words.tone,
+    icon: NOTE_ICON[words.icon],
+    body: (
+      <>
+        <Words parts={words.parts} />
+        {words.link === 'texting_status' ? (
+          <>
+            {' '}
+            <Link href={`/app/w/${workspaceId}/settings/texting`} className="font-medium underline">
+              {TEXTING_STATUS_LINK}
+            </Link>
+          </>
+        ) : null}
+      </>
+    ),
+    placeholder: words.placeholder,
+    action:
+      words.action && onAction ? (
+        <Button
+          variant="secondary"
+          size="sm"
+          onClick={onAction}
+          data-testid={words.action.kind === 'email' ? 'note-email' : 'note-edit-person'}
+        >
+          {words.action.kind === 'email' ? (
+            <Mail className="h-3.5 w-3.5" strokeWidth={1.5} />
+          ) : null}
+          {words.action.label}
+        </Button>
+      ) : undefined,
+  };
+}
+
 /** The note that replaces the box when texting can't happen, and the box's placeholder then. */
 function textNote(
   target: ComposerTarget,
@@ -103,72 +178,19 @@ function textNote(
   setup: PhoneSetupStatus | null,
   onEmail?: () => void,
 ): Note | null {
-  const who = target.firstName ?? 'this number';
-  switch (reason) {
-    case 'opted_out':
-      return {
-        tone: 'danger',
-        icon: CircleAlert,
-        body: (
-          <>
-            Texting is off for {who}. They can text <strong>START</strong> to turn it back on.
-          </>
-        ),
-        placeholder: `You can’t text ${who} right now`,
-        action: onEmail ? (
-          <Button variant="secondary" size="sm" onClick={onEmail} data-testid="note-email">
-            <Mail className="h-3.5 w-3.5" strokeWidth={1.5} />
-            Email
-          </Button>
-        ) : undefined,
-      };
-    case 'not_ready': {
-      const reg = setup?.registrations.find(
-        (r) => r.status === 'submitted' || r.status === 'in_review',
-      );
-      const tollFree = setup?.number?.numberType !== 'local';
-      return {
-        tone: 'info',
-        icon: Clock,
-        body: (
-          <>
-            Texting turns on when the carriers approve your registration.
-            {reg?.submittedAt ? ` In review since ${formatDate(reg.submittedAt)},` : ''}
-            {reg?.submittedAt ? ` usually ${tollFree ? 'a few days' : '1 to 3 weeks'}.` : ''} Calls
-            already work.{' '}
-            <Link
-              href={`/app/w/${target.workspaceId}/settings/texting`}
-              className="font-medium underline"
-            >
-              See status
-            </Link>
-          </>
-        ),
-        placeholder: 'Texting isn’t on yet',
-      };
-    }
-    case 'no_phone':
-      return {
-        tone: 'warning',
-        icon: CircleAlert,
-        body: <>Add a mobile number to text {who}.</>,
-        placeholder: `No mobile number for ${who}`,
-      };
-    case 'no_number':
-      return {
-        tone: 'info',
-        icon: Phone,
-        body: (
-          <>
-            Texting starts once the business has a number. An owner or admin sets it up in Settings
-            → Texting &amp; calls.
-          </>
-        ),
-        placeholder: 'Texting isn’t set up yet',
-      };
-    default:
-      return null;
-  }
+  const reg = setup?.registrations.find(
+    (r) => r.status === 'submitted' || r.status === 'in_review',
+  );
+  return noteOf(
+    textNoteWords(reason, {
+      firstName: target.firstName,
+      inReviewSince: reg?.submittedAt ? formatDate(reg.submittedAt) : null,
+      tollFree: setup?.number?.numberType !== 'local',
+      offerEmail: !!onEmail,
+    }),
+    target.workspaceId,
+    { email: onEmail },
+  );
 }
 
 /** Why email to this customer can't go out: no address, or the address is stopped (bounced, spam, by hand). */
@@ -177,42 +199,17 @@ function emailNote(
   target: ComposerTarget,
   onEditPerson?: () => void,
 ): Note | null {
-  if (!opts || opts.canEmail.ok) return null;
-  const first = target.firstName;
-  const who = first ?? 'them';
-  if (opts.canEmail.reason === 'no_email')
-    return {
-      tone: 'warning',
-      icon: Mail,
-      body: <>Add an email address to email {who}.</>,
-      placeholder: `No email address for ${who}`,
-    };
-  const address = <strong>{opts.to}</strong>;
-  const why = opts.suppressed?.reason;
-  return {
-    tone: 'danger',
-    icon: Mail,
-    body:
-      why === 'spam_complaint' ? (
-        <>{address} marked an email as spam, so we stopped sending to it.</>
-      ) : why === 'manual' ? (
-        <>Email to {address} is stopped. An owner or admin can unblock it in Settings → Email.</>
-      ) : (
-        <>
-          {address} bounced, so we stopped sending to it.{' '}
-          {first
-            ? `Fix the address on ${first}’s record and send again.`
-            : 'Fix the address and send again.'}
-        </>
-      ),
-    placeholder: `Email to ${who} is stopped`,
-    action:
-      onEditPerson && first && why !== 'manual' ? (
-        <Button variant="secondary" size="sm" onClick={onEditPerson} data-testid="note-edit-person">
-          Edit {first}’s details
-        </Button>
-      ) : undefined,
-  };
+  if (!opts) return null;
+  return noteOf(
+    emailNoteWords(opts.canEmail, {
+      to: opts.to,
+      suppressedReason: opts.suppressed?.reason ?? null,
+      firstName: target.firstName,
+      canEditPerson: !!onEditPerson,
+    }),
+    target.workspaceId,
+    { editPerson: onEditPerson },
+  );
 }
 
 /**
@@ -267,14 +264,12 @@ export function Composer({
   const chat = mode === 'chat';
   const cross = mode !== channel;
   // Texting from an email thread goes to the customer's text thread; the server has the last word there.
-  const canText: ConversationGet['canText'] =
-    channel === 'sms'
-      ? target.canText
-      : !target.phoneDisplay
-        ? { ok: false, reason: 'no_phone' }
-        : !target.fromNumber
-          ? { ok: false, reason: 'no_number' }
-          : { ok: true, reason: null };
+  const canText = crossChannelCanText(
+    channel,
+    target.canText,
+    target.phoneDisplay,
+    target.fromNumber,
+  );
   const reason = canText.reason;
   const who = target.firstName ?? target.phoneDisplay;
   const emailLive = useLiveVersion(
@@ -345,7 +340,7 @@ export function Composer({
           )
           .map((a) => ({
             key: `a:${a.id}`,
-            label: `From ${a.address}`,
+            label: emailFromLabel(a.address),
             address: a.address,
             emailAddressId: a.id,
           })),
@@ -353,7 +348,7 @@ export function Composer({
           .filter((m) => m.accountEmail)
           .map((m) => ({
             key: `m:${m.id}`,
-            label: `From ${m.accountEmail} (${providerName(m.provider)})`,
+            label: emailFromLabel(m.accountEmail!, providerName(m.provider)),
             address: m.accountEmail!,
             mailboxConnectionId: m.id,
           })),
@@ -363,12 +358,7 @@ export function Composer({
   const subjectValue = subject ?? opts?.replySubject ?? '';
   const note: Note | null = chat
     ? target.chatBlocked
-      ? {
-          tone: 'warning',
-          icon: CircleAlert,
-          body: <>This visitor is blocked from the website chat, so replies can’t reach them.</>,
-          placeholder: 'This visitor is blocked',
-        }
+      ? noteOf(CHAT_BLOCKED_NOTE, target.workspaceId, {})
       : null
     : email
       ? emailNote(opts, target, onEditPerson)
@@ -385,14 +375,17 @@ export function Composer({
     if (next === mode) return;
     if (next === 'email' && !target.email) {
       toast(
-        target.personId
-          ? `There’s no email address for ${target.firstName ?? 'them'} yet`
-          : 'There’s no email address for this number yet',
+        switchRefusal('email', {
+          personId: target.personId ?? null,
+          firstName: target.firstName,
+        }),
       );
       return;
     }
     if (next === 'sms' && !target.phoneDisplay) {
-      toast(`There’s no mobile number for ${target.firstName ?? 'them'} yet`);
+      toast(
+        switchRefusal('sms', { personId: target.personId ?? null, firstName: target.firstName }),
+      );
       return;
     }
     setMode(next);
@@ -457,14 +450,8 @@ export function Composer({
       if (!cross) onSettled?.(clientId, { messageId: out.messageId });
       setFiles([]);
       setConfirmQuiet(false);
-      if (out.scheduledFor)
-        toast.success(
-          `Held. It goes to ${who} ${heldWhen(out.scheduledFor)}, when quiet hours end. You can cancel it in the thread.`,
-        );
-      else if (cross)
-        toast.success(
-          `Text sent to ${target.phoneDisplay}. Texts have their own thread in the inbox.`,
-        );
+      if (out.scheduledFor) toast.success(SENT_WORDS.held(who, out.scheduledFor));
+      else if (cross) toast.success(SENT_WORDS.textElsewhere(target.phoneDisplay));
       onSent?.({
         messageId: out.messageId,
         conversationId: out.conversationId,
@@ -483,11 +470,10 @@ export function Composer({
   async function sendEmail(body: string) {
     if (!opts || !from) return;
     // A new email with no subject goes out under the business name.
-    const subj =
-      subjectValue.trim() ||
-      opts.addresses.find((a) => a.isDefault)?.displayName ||
-      target.businessName ||
-      'A message for you';
+    const subj = emailSubjectOf(subjectValue, {
+      defaultDisplayName: opts.addresses.find((a) => a.isDefault)?.displayName,
+      businessName: target.businessName,
+    });
     const copies = cc.split(/[\s,;]+/).filter(Boolean);
     const clientId = crypto.randomUUID();
     if (!cross)
@@ -529,7 +515,7 @@ export function Composer({
       setCcOpen(false);
       setSubject(null);
       setOptsNonce((n) => n + 1);
-      if (cross) toast.success(`Email sent to ${opts.to}. Email has its own thread in the inbox.`);
+      if (cross) toast.success(SENT_WORDS.emailElsewhere(opts.to ?? ''));
       onSent?.({
         messageId: out.messageId,
         conversationId: out.conversationId,
@@ -590,18 +576,17 @@ export function Composer({
       send();
     }
   }
-  /** "8:00 AM", when quiet hours end where the business is. */
-  const quietEnds = target.quiet.endsAt ? formatClock(target.quiet.endsAt) : null;
+  /** Quiet hours' question: send now, or when they end where the business is. */
+  const ask = quietQuestion(target.quiet, who);
 
-  const placeholder = off
-    ? (note?.placeholder ?? (email ? 'Email isn’t available' : 'Texting isn’t available'))
-    : chat
-      ? `Reply to ${target.firstName ?? 'them'} in the chat…`
-      : email
-        ? variant === 'phone'
-          ? 'Reply by email…'
-          : 'Write your email…'
-        : `Text ${target.firstName ?? target.phoneDisplay}…`;
+  const placeholder = composerPlaceholder({
+    mode,
+    off,
+    note: note?.words ?? null,
+    firstName: target.firstName,
+    phoneDisplay: target.phoneDisplay,
+    compact: variant === 'phone',
+  });
   const handover = target.handoverNote ? (
     <div
       className={cn(
@@ -650,10 +635,7 @@ export function Composer({
             </button>
           </div>
         ))}
-        <span className="flex-1 text-xs text-text-3">
-          Photos you send are saved to {target.firstName ? `${target.firstName}’s` : 'their'} files
-          too.
-        </span>
+        <span className="flex-1 text-xs text-text-3">{photosSavedLine(target.firstName)}</span>
       </div>
     ) : null;
   const chips =
@@ -666,9 +648,7 @@ export function Composer({
           />
         ))
       : null;
-  const quietLine = `It’s ${formatClock(target.quiet.localTime)} where the business is.${
-    target.quiet.endsAt ? ` Quiet hours end at ${formatClock(target.quiet.endsAt)}.` : ''
-  }`;
+  const quietLine = quietLineOf(target.quiet);
   const noteBox = note ? (
     <Callout
       tone={note.tone}
@@ -702,8 +682,8 @@ export function Composer({
           {chat ? null : (
             <button
               type="button"
-              title="Attach a photo"
-              aria-label="Attach a photo"
+              title={COMPOSER_WORDS.attachPhoto}
+              aria-label={COMPOSER_WORDS.attachPhoto}
               disabled={off || uploading || !target.personId}
               onClick={() => fileInput.current?.click()}
               className="flex h-11 w-11 flex-none items-center justify-center rounded-full text-text-2 disabled:opacity-45"
@@ -740,18 +720,13 @@ export function Composer({
             <div className="flex items-start gap-3">
               <ChannelIcon icon={Moon} tone="warning" size={40} />
               <div className="flex flex-col gap-1">
-                <h3 className="text-[15px] font-semibold">
-                  It’s {formatClock(target.quiet.localTime)}, inside quiet hours
-                </h3>
-                <p className="text-[13px] text-text-2">
-                  Send this text to {who} now, or {quietEnds ? `at ${quietEnds} ` : ''}when quiet
-                  hours end?
-                </p>
+                <h3 className="text-[15px] font-semibold">{ask.title}</h3>
+                <p className="text-[13px] text-text-2">{ask.body}</p>
               </div>
             </div>
             <div className="mt-[18px] flex flex-col gap-2">
               <Button size="lg" onClick={() => send('later')} data-testid="quiet-send-later">
-                {quietEnds ? `Send at ${quietEnds}` : 'Send when quiet hours end'}
+                {ask.later}
               </Button>
               <Button
                 size="lg"
@@ -759,10 +734,10 @@ export function Composer({
                 onClick={() => send('now')}
                 data-testid="quiet-send-now"
               >
-                Send now
+                {ask.now}
               </Button>
               <Button size="lg" variant="ghost" onClick={() => setConfirmQuiet(false)}>
-                Keep it as a draft
+                {ask.keep}
               </Button>
             </div>
           </SheetContent>
@@ -788,14 +763,14 @@ export function Composer({
       </Select>
     ) : from ? (
       <span className="truncate text-xs text-text-3" data-testid="composer-from">
-        From {from.address}
+        {emailFromLabel(from.address)}
       </span>
     ) : null;
   const subjectInput = (
     <Input
       inputSize="sm"
-      aria-label="Subject"
-      placeholder="Subject"
+      aria-label={COMPOSER_WORDS.subject}
+      placeholder={COMPOSER_WORDS.subject}
       maxLength={200}
       value={subjectValue}
       onChange={(e) => setSubject(e.target.value)}
@@ -819,9 +794,9 @@ export function Composer({
             data-testid="composer-mode-chat"
           >
             <Globe className="h-3.5 w-3.5" strokeWidth={1.5} />
-            Website chat
+            {COMPOSER_WORDS.websiteChat}
           </span>
-          <span className="truncate text-xs text-text-3">Replies show in their chat window</span>
+          <span className="truncate text-xs text-text-3">{COMPOSER_WORDS.chatReplies}</span>
         </div>
       ) : null}
       {variant === 'desktop' && !chat ? (
@@ -833,13 +808,13 @@ export function Composer({
             options={[
               {
                 value: 'sms',
-                label: 'Text',
+                label: COMPOSER_WORDS.text,
                 icon: <MessageCircle className="h-3.5 w-3.5" strokeWidth={1.5} />,
                 testId: 'composer-mode-text',
               },
               {
                 value: 'email',
-                label: 'Email',
+                label: COMPOSER_WORDS.email,
                 icon: <Mail className="h-3.5 w-3.5" strokeWidth={1.5} />,
                 testId: 'composer-mode-email',
               },
@@ -849,8 +824,7 @@ export function Composer({
             fromControl
           ) : target.fromNumber ? (
             <span className="truncate text-xs text-text-3">
-              From {target.businessName ? `${target.businessName} · ` : ''}
-              {target.fromNumber}
+              {textFromLine(target.fromNumber, target.businessName)}
             </span>
           ) : null}
         </div>
@@ -858,8 +832,8 @@ export function Composer({
       {variant === 'desktop' && cross ? (
         <p className="text-xs text-text-2" data-testid="composer-cross">
           {email
-            ? `Emails go to ${opts?.to ?? target.email} and get their own thread in the inbox.`
-            : `Texts go to ${target.phoneDisplay} and get their own thread in the inbox.`}
+            ? crossChannelLine('email', opts?.to ?? target.email ?? '')
+            : crossChannelLine('sms', target.phoneDisplay)}
         </p>
       ) : null}
       {handover}
@@ -868,7 +842,7 @@ export function Composer({
       {email && !off && variant === 'desktop' ? (
         <div className="flex flex-col gap-1.5">
           <div className="flex items-center gap-2 text-[13px]">
-            <span className="w-[52px] flex-none text-text-3">To</span>
+            <span className="w-[52px] flex-none text-text-3">{COMPOSER_WORDS.to}</span>
             <span className="min-w-0 flex-1 truncate font-medium" data-testid="composer-to">
               {opts?.to ?? target.email}
             </span>
@@ -879,14 +853,14 @@ export function Composer({
                 className="text-xs font-medium text-accent-text hover:underline"
                 data-testid="composer-add-cc"
               >
-                Cc
+                {COMPOSER_WORDS.cc}
               </button>
             )}
           </div>
           {ccOpen ? (
             <div className="flex items-center gap-2 text-[13px]">
               <label htmlFor={ccId} className="w-[52px] flex-none text-text-3">
-                Cc
+                {COMPOSER_WORDS.cc}
               </label>
               <Input
                 id={ccId}
@@ -932,14 +906,14 @@ export function Composer({
               size="icon"
               title={
                 !target.personId
-                  ? 'Add them as a customer to send photos'
+                  ? COMPOSER_WORDS.addCustomerForPhotos
                   : email
                     ? variant === 'sheet'
-                      ? 'Attach'
-                      : 'Attach a photo or file'
-                    : 'Attach a photo'
+                      ? COMPOSER_WORDS.attach
+                      : COMPOSER_WORDS.attachPhotoOrFile
+                    : COMPOSER_WORDS.attachPhoto
               }
-              aria-label={email ? 'Attach a file' : 'Attach a photo'}
+              aria-label={email ? COMPOSER_WORDS.attachFile : COMPOSER_WORDS.attachPhoto}
               disabled={off || uploading || !target.personId}
               loading={uploading}
               onClick={() => fileInput.current?.click()}
@@ -949,7 +923,7 @@ export function Composer({
           )}
           {variant === 'desktop' ? (
             <span className="hidden pl-0.5 text-xs text-text-3 lg:inline">
-              Enter sends · Shift+Enter adds a line
+              {COMPOSER_WORDS.enterSends}
             </span>
           ) : null}
           <span className="flex-1" />
@@ -962,13 +936,7 @@ export function Composer({
             data-testid="composer-send"
           >
             {busy ? null : <Send className="h-3.5 w-3.5" strokeWidth={1.5} />}
-            {email
-              ? 'Send email'
-              : chat
-                ? 'Send'
-                : target.quiet.quiet && !off
-                  ? 'Send…'
-                  : 'Send text'}
+            {sendLabel(mode, target.quiet.quiet, off)}
           </Button>
         </div>
       </div>
@@ -976,18 +944,15 @@ export function Composer({
         <div className="flex flex-wrap items-center gap-1.5" data-testid="email-attachments">
           {chips}
           {variant === 'desktop' && !cross && !off ? (
-            <span className="text-xs text-text-3">Replies come back to this thread.</span>
+            <span className="text-xs text-text-3">{COMPOSER_WORDS.repliesHere}</span>
           ) : null}
         </div>
       ) : null}
       {confirmQuiet ? (
         <div className="flex flex-wrap items-center justify-end gap-2" data-testid="quiet-confirm">
-          <span className="min-w-[160px] flex-1 text-xs text-text-2">
-            It’s {formatClock(target.quiet.localTime)}, inside quiet hours. Send now, or
-            {quietEnds ? ` at ${quietEnds}` : ''} when quiet hours end?
-          </span>
+          <span className="min-w-[160px] flex-1 text-xs text-text-2">{ask.inline}</span>
           <Button variant="ghost" size="sm" onClick={() => setConfirmQuiet(false)}>
-            Keep as draft
+            {ask.keepShort}
           </Button>
           <Button
             variant="secondary"
@@ -995,17 +960,17 @@ export function Composer({
             onClick={() => send('now')}
             data-testid="quiet-send-now"
           >
-            Send now
+            {ask.now}
           </Button>
           <Button size="sm" onClick={() => send('later')} data-testid="quiet-send-later">
-            {quietEnds ? `Send at ${quietEnds} when quiet hours end` : 'Send when quiet hours end'}
+            {ask.laterLong}
           </Button>
         </div>
       ) : null}
       {files.length === 0 && uploading ? (
         <span className="inline-flex items-center gap-1.5 text-xs text-text-3">
           <ImageIcon className="h-3.5 w-3.5" strokeWidth={1.5} />
-          {email ? 'Adding the file…' : 'Adding the photo…'}
+          {email ? COMPOSER_WORDS.addingFile : COMPOSER_WORDS.addingPhoto}
         </span>
       ) : null}
     </div>

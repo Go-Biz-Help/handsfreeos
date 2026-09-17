@@ -6,10 +6,12 @@ import { cn } from '@/lib/utils';
 
 import { AppBar, type Leading } from './app-bar';
 import { StatusStrip } from './status-strip';
+import { touches } from './touches';
 
 /**
  * One screen of the signed-in app: the top bar, the status strip when there's something to say, then the content on
- * the page colour. Scrolls unless `scroll={false}`.
+ * the page colour. Scrolls unless `scroll={false}`. It tells the strip when a finger is on the screen, so the strip
+ * opens and closes only once the finger lifts.
  */
 export function Screen({
   title,
@@ -38,7 +40,13 @@ export function Screen({
   testID?: string;
 }) {
   return (
-    <View className="flex-1 bg-bg" testID={testID}>
+    <View
+      className="flex-1 bg-bg"
+      testID={testID}
+      onTouchStart={touches.start}
+      onTouchEnd={touches.end}
+      onTouchCancel={touches.end}
+    >
       <AppBar
         title={title}
         subtitle={subtitle}

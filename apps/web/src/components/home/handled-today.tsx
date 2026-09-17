@@ -1,5 +1,5 @@
 'use client';
-import { clockLabel } from '@hfos/core';
+import { ATTENTION_WORDS, clockLabel, handledLineOf } from '@hfos/core';
 import { CalendarCheck, ChevronDown, CircleCheck, MessageCircle } from 'lucide-react';
 import Link from 'next/link';
 import { useState, type ReactNode } from 'react';
@@ -12,62 +12,26 @@ import { useMatches } from '@/lib/use-media';
 import { cn } from '@/lib/utils';
 import { FoldButton } from './attention-bits';
 import { useAttentionEnv } from './attention-context';
-import {
-  byHandsFree,
-  customerOf,
-  firstNameOf,
-  handledSummary,
-  inSentence,
-  sentence,
-  splitTitle,
-  targetOf,
-} from './attention-words';
+import { byHandsFree, handledSummary, targetOf } from './attention-words';
 
-/** What was done, in a sentence, and the line under it. */
+/** What was done, in a sentence with the customer in bold (core's words), and the line under it. */
 function lineOf(item: AttentionItem, myUserId: string): { text: ReactNode; sub: string | null } {
-  const name = customerOf(item) ?? item.title;
-  const rest = splitTitle(item.title).rest;
-  const h = item.handled;
-  const by = h?.by ? (h.by.id === myUserId ? 'you' : firstNameOf(h.by.fullName)) : null;
-  const who = <strong className="font-semibold">{name}</strong>;
-  if (byHandsFree(item)) {
-    const how = h?.via === 'let_handle' && by ? `${sentence(by)} asked HandsFreeOS` : 'On its own';
-    if (item.auto.action === 'confirm_request')
-      return {
-        text: (
-          <>
-            Asked {who} to confirm{rest ? ` the ${inSentence(rest)}` : ''}
-          </>
-        ),
-        sub: [item.detail, how].filter(Boolean).join(' · '),
-      };
-    if (item.auto.action === 'nudge')
-      return {
-        text: (
-          <>
-            Followed up with {who}
-            {rest ? ` about the ${inSentence(rest)}` : ''}
-          </>
-        ),
-        sub: how,
-      };
-    return {
-      text: (
-        <>
-          Took care of {who}
-          {rest ? ` · ${rest}` : ''}
-        </>
-      ),
-      sub: how,
-    };
-  }
+  const { text, sub } = handledLineOf(item, myUserId);
   return {
     text: (
       <>
-        {by ? sentence(by) : 'Someone'} took care of {who}
+        {text.map((part, i) =>
+          typeof part === 'string' ? (
+            part
+          ) : (
+            <strong key={i} className="font-semibold">
+              {part.strong}
+            </strong>
+          ),
+        )}
       </>
     ),
-    sub: rest ?? item.detail,
+    sub,
   };
 }
 
@@ -101,7 +65,7 @@ function HandledRow({ item }: { item: AttentionItem }) {
         href={target.href}
         className="flex-none text-[13px] font-medium text-accent-text hover:underline"
       >
-        Open
+        {ATTENTION_WORDS.open}
       </Link>
     </li>
   );
@@ -119,7 +83,7 @@ export function HandledByHandsFree({ items }: { items: readonly AttentionItem[] 
   const summary = handledSummary(done);
   const badge = (
     <Badge variant="ok" className="flex-none">
-      {done.length} today
+      {ATTENTION_WORDS.handledCount(done.length)}
     </Badge>
   );
   return (
@@ -129,7 +93,7 @@ export function HandledByHandsFree({ items }: { items: readonly AttentionItem[] 
           open={open}
           onToggle={() => setOpen(!open)}
           icon={<BrandMark size={20} />}
-          title="Handled by HandsFreeOS"
+          title={ATTENTION_WORDS.handledByHandsFree}
           sub={summary}
           badge={badge}
           testId="handled-toggle"
@@ -146,7 +110,7 @@ export function HandledByHandsFree({ items }: { items: readonly AttentionItem[] 
           )}
         >
           <BrandMark size={20} />
-          <span className="font-medium text-text">Handled by HandsFreeOS</span>
+          <span className="font-medium text-text">{ATTENTION_WORDS.handledByHandsFree}</span>
           {badge}
           <span className="min-w-0 flex-1 truncate text-[13px] text-text-3">{summary}</span>
           <ChevronDown
@@ -204,16 +168,13 @@ export function CaughtUp({ items, count }: { items: readonly AttentionItem[]; co
         <span className="inline-flex h-11 w-11 items-center justify-center rounded-full bg-success-soft text-success-text">
           <CircleCheck className="h-[22px] w-[22px]" strokeWidth={1.75} />
         </span>
-        <h2 className="mt-1 text-base font-semibold">You’re all caught up</h2>
-        <p className="max-w-[420px] text-[13px] text-text-2">
-          When something needs you, it shows up here first. HandsFreeOS keeps watching for new
-          leads, replies and tomorrow’s visits.
-        </p>
+        <h2 className="mt-1 text-base font-semibold">{ATTENTION_WORDS.caughtUpTitle}</h2>
+        <p className="max-w-[420px] text-[13px] text-text-2">{ATTENTION_WORDS.caughtUpBody}</p>
       </Card>
       {items.length ? (
         <Card className="mt-4 overflow-hidden" data-testid="handled-today">
           <div className="flex items-center gap-2 px-4 pb-[9px] pt-[13px]">
-            <h3 className="flex-1 text-[15px] font-semibold">Handled today</h3>
+            <h3 className="flex-1 text-[15px] font-semibold">{ATTENTION_WORDS.handledToday}</h3>
             <Badge variant="ok">{Math.max(count, items.length)}</Badge>
           </div>
           <ul>
@@ -229,12 +190,12 @@ export function CaughtUp({ items, count }: { items: readonly AttentionItem[]; co
                   onClick={() => setAll(true)}
                   className="font-medium text-accent-text hover:underline"
                 >
-                  Show {items.length - shown.length} more
+                  {ATTENTION_WORDS.showMore(items.length - shown.length)}
                 </button>{' '}
                 ·{' '}
               </>
             ) : null}
-            {items.length - hf} by your team, {hf} by HandsFreeOS
+            {ATTENTION_WORDS.handledSplit(items.length - hf, hf)}
           </div>
         </Card>
       ) : null}

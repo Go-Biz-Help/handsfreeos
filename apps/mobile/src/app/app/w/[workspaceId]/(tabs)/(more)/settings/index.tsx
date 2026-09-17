@@ -1,3 +1,4 @@
+import { formatPhone, MY_CELL_WORDS } from '@hfos/core';
 import { router } from 'expo-router';
 import * as React from 'react';
 import { View } from 'react-native';
@@ -10,6 +11,7 @@ import {
   LogOut,
   Moon,
   ScanFace,
+  Smartphone,
   User,
   UserX,
 } from '@/components/icons';
@@ -26,6 +28,7 @@ import { Text } from '@/components/ui/text';
 import { toast } from '@/components/ui/toast';
 import { APPEARANCE_LABELS, setAppearance, useAppearance, type Appearance } from '@/lib/appearance';
 import { biometrics, unlockLabel, type BiometricInfo } from '@/lib/biometrics';
+import { useMyCell } from '@/inbox/cell';
 import { isKept, useKeepChoices } from '@/lib/businesses';
 import { testToolsEnabled } from '@/lib/config';
 import { lockEnabledFor, setLockEnabledFor } from '@/lib/lock';
@@ -43,6 +46,7 @@ export default function Settings() {
   const appearance = useAppearance();
   const choices = useKeepChoices(userId);
   const worksOffline = useWorksOffline(userId);
+  const { cell } = useMyCell();
   const [info, setInfo] = React.useState<BiometricInfo | null>(null);
   const [lockOn, setLockOn] = React.useState(() => lockEnabledFor(userId));
   const [appearanceOpen, setAppearanceOpen] = React.useState(false);
@@ -127,6 +131,19 @@ export default function Settings() {
           detail="Push and email"
           onPress={() => router.push(businessHref(business.id, 'settings/notifications'))}
           testID="setting-notifications"
+        />
+        <ListRow
+          icon={Smartphone}
+          label={MY_CELL_WORDS.title}
+          detail={
+            cell?.verifiedAt
+              ? `${formatPhone(cell.e164)} · ${MY_CELL_WORDS.verified}`
+              : cell
+                ? `${formatPhone(cell.e164)} · ${MY_CELL_WORDS.notVerified}`
+                : 'Where Call rings you first'
+          }
+          onPress={() => router.push(businessHref(business.id, 'settings/my-cell'))}
+          testID="setting-my-cell"
         />
         <ListRow
           icon={User}

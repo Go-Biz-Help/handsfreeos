@@ -1,0 +1,102 @@
+appId: com.gobizhelp.handsfreeos
+name: A snooze and a dismissal made with no signal leave Home at once and go once signal is back
+tags:
+  - ci
+# With no signal, Dale snoozes one card for an hour and dismisses another: both leave Home at once and wait ("2
+# changes waiting to send", and the strip). Signal comes back and both go; then the flow puts both items back
+# (attention.restore, Home's test tool), so the seed stays as it was. Seed accounts (apps/worker/scripts/seed.ts); the
+# password is the seed's, for local stacks only.
+env:
+  EMAIL: dale@lonestarhvac.test
+  PASSWORD: HandsFree-Demo-2026
+---
+- runFlow: subflows/start-signed-out.yaml
+- runFlow: subflows/sign-in-with-password.yaml
+- runFlow: subflows/open-test-changes.yaml
+- runFlow: subflows/nothing-waiting.yaml
+- runFlow: subflows/no-signal.yaml
+# Test changes sits over the tabs: back to them.
+- tapOn:
+    id: 'back'
+- runFlow:
+    when:
+      notVisible:
+        id: 'tab-home'
+    commands:
+      - tapOn:
+          id: 'back'
+- tapOn:
+    id: 'tab-home'
+- extendedWaitUntil:
+    visible:
+      id: 'attention-card'
+    timeout: 20000
+# Snooze the first card for an hour.
+- tapOn:
+    id: 'attention-more'
+    index: 0
+- tapOn:
+    id: 'snooze-hour'
+- extendedWaitUntil:
+    visible:
+      id: 'home-waiting-title'
+      text: '1 change waiting to send'
+    timeout: 10000
+# Dismiss the next.
+- waitForAnimationToEnd
+- tapOn:
+    id: 'attention-more'
+    index: 0
+- tapOn:
+    id: 'attention-dismiss'
+- extendedWaitUntil:
+    visible:
+      id: 'dismiss-confirm'
+    timeout: 5000
+- tapOn: 'Already taken care of'
+- tapOn:
+    id: 'dismiss-confirm'
+- extendedWaitUntil:
+    visible:
+      id: 'home-waiting-title'
+      text: '2 changes waiting to send'
+    timeout: 10000
+- assertVisible:
+    id: 'status-strip-text'
+    text: 'Offline — 2 changes waiting'
+- takeScreenshot: home-offline-waiting
+# Signal back (the iOS simulator's switch is on Test changes): both go.
+- runFlow: subflows/open-test-changes.yaml
+- runFlow: subflows/signal-back.yaml
+- extendedWaitUntil:
+    visible:
+      id: 'tc-counts'
+      text: '0 waiting · 0 need you'
+    timeout: 90000
+- tapOn:
+    id: 'back'
+- runFlow:
+    when:
+      notVisible:
+        id: 'tab-home'
+    commands:
+      - tapOn:
+          id: 'back'
+- tapOn:
+    id: 'tab-home'
+- extendedWaitUntil:
+    notVisible:
+      id: 'home-waiting'
+    timeout: 30000
+# Put both back for the next run.
+- scrollUntilVisible:
+    element:
+      id: 'home-test-put-back'
+    direction: DOWN
+    timeout: 60000
+- tapOn:
+    id: 'home-test-put-back'
+- extendedWaitUntil:
+    notVisible:
+      id: 'status-strip'
+    timeout: 60000

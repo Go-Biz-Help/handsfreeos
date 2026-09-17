@@ -1,30 +1,18 @@
 'use client';
 import * as Menu from '@radix-ui/react-dropdown-menu';
+import { assigneeShortOf, assignHeadingOf, assignNoteOf, ATTENTION_WORDS } from '@hfos/core';
 import { ArrowLeft, Check, Info, UserRound } from 'lucide-react';
 import { Avatar } from '@/components/ui/avatar';
 import type { AttentionItem } from '@/lib/api/types';
 import { cn } from '@/lib/utils';
 import { useAttentionEnv } from './attention-context';
-import { customerOf, firstNameOf, LEAD_KINDS } from './attention-words';
 
 const ROLE = { owner: 'Owner', admin: 'Admin', member: 'Member' } as const;
 const ITEM =
   'flex h-[34px] cursor-pointer select-none items-center gap-2.5 rounded-[6px] px-2.5 text-sm text-text outline-none data-[highlighted]:bg-card-2 data-[state=open]:bg-card-2';
 
-/** What assigning changes, under the list. */
-export function assignNote(item: AttentionItem): string {
-  if (LEAD_KINDS.has(item.kind)) return 'This makes them the lead’s owner too.';
-  if (item.kind === 'customer_waiting') return 'This assigns them the conversation too.';
-  if (item.kind === 'overdue_task') return 'This makes it their task too.';
-  return 'For appointments and approvals, this assigns only the item.';
-}
-
-function heading(item: AttentionItem): string {
-  const name = customerOf(item);
-  return !name || item.kind === 'unconfirmed_appointment' || item.kind === 'ai_approval'
-    ? 'Assign this item to'
-    : `Assign ${name} to`;
-}
+/** What assigning changes, under the list (core's words). */
+export const assignNote = assignNoteOf;
 
 /** Assign… in the ⋯ menu: the team, with a tick on whoever has it now. */
 export function AssignSubmenu({ item }: { item: AttentionItem }) {
@@ -34,13 +22,9 @@ export function AssignSubmenu({ item }: { item: AttentionItem }) {
     <Menu.Sub>
       <Menu.SubTrigger className={ITEM} data-testid="attention-assign">
         <UserRound className="h-4 w-4 text-text-2" strokeWidth={1.5} />
-        <span>Assign…</span>
+        <span>{ATTENTION_WORDS.assign}</span>
         <span className="ml-auto pl-3 text-xs text-text-3">
-          {current
-            ? current.id === env.myUserId
-              ? 'You'
-              : firstNameOf(current.fullName)
-            : 'Nobody'}
+          {assigneeShortOf(item, env.myUserId)}
         </span>
       </Menu.SubTrigger>
       <Menu.Portal>
@@ -51,7 +35,7 @@ export function AssignSubmenu({ item }: { item: AttentionItem }) {
           data-testid="assign-menu"
         >
           <div className="px-2 pb-1 pt-1.5 text-[11px] font-semibold uppercase tracking-[0.04em] text-text-3">
-            {heading(item)}
+            {assignHeadingOf(item)}
           </div>
           {env.members.map((m) => (
             <Menu.Item
@@ -100,10 +84,10 @@ export function AssignList({
         className="flex min-h-11 items-center gap-2 px-1 text-[13px] font-medium text-accent-text"
       >
         <ArrowLeft className="h-4 w-4" strokeWidth={1.75} />
-        Back
+        {ATTENTION_WORDS.back}
       </button>
       <div className="px-1 pb-0.5 pt-1 text-[11.5px] font-semibold uppercase tracking-[0.04em] text-text-3">
-        {heading(item)}
+        {assignHeadingOf(item)}
       </div>
       {env.members.map((m) => (
         <button

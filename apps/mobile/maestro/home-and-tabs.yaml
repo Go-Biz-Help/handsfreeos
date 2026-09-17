@@ -9,8 +9,9 @@ env:
 ---
 - runFlow: subflows/start-signed-out.yaml
 - runFlow: subflows/sign-in-with-password.yaml
-# Home: the business, the greeting, "Up to date", Ask HandsFreeOS at the top right.
-- assertVisible: 'Lone Star HVAC & Roofing'
+# Home: the Action Center's band (the greeting, "Up to date"), the business's mark, Ask HandsFreeOS at the top right.
+- assertVisible:
+    id: 'attention-header'
 - assertVisible: 'Up to date'
 - assertVisible:
     id: 'ask-handsfreeos'
@@ -18,7 +19,10 @@ env:
     id: 'business-mark'
 - tapOn:
     id: 'tab-inbox'
-- assertVisible: 'Conversations show here'
+- extendedWaitUntil:
+    visible:
+      id: 'inbox-search'
+    timeout: 20000
 - tapOn:
     id: 'tab-pipeline'
 - assertVisible: 'Your leads, stage by stage'

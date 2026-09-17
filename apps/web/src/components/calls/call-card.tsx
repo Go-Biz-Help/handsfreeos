@@ -1,18 +1,17 @@
 'use client';
+import { callCardWords, THREAD_WORDS } from '@hfos/core';
 import { Phone, PhoneMissed, PhoneOutgoing, Voicemail } from 'lucide-react';
 import { ChannelIcon } from '@/components/inbox/bits';
 import type { ThreadItem } from '@/lib/api/types';
-import { clock } from '@/lib/calls/format';
 import { cn } from '@/lib/utils';
 import { VoicemailPlayer } from './voicemail-player';
 
-const LIVE = new Set(['initiated', 'ringing', 'in_progress']);
-
-function answeredLine(item: ThreadItem): string | null {
-  if (item.answeredVia === 'forwarding') return 'answered on a forwarding phone';
-  if (item.answeredBy) return `${item.answeredBy.fullName} answered`;
-  return null;
-}
+const CALL_ICON = {
+  voicemail: Voicemail,
+  missed: PhoneMissed,
+  incoming: Phone,
+  outgoing: PhoneOutgoing,
+} as const;
 
 /**
  * A call in the conversation: a voicemail with its player and words, or a plain call with its length.
@@ -27,8 +26,8 @@ export function CallCard({
   time: string;
   compact?: boolean;
 }) {
-  const inbound = item.direction === 'inbound';
-  if (item.isVoicemail)
+  const words = callCardWords(item);
+  if (words.kind === 'voicemail')
     return (
       <div
         data-testid={`call-${item.id}`}
@@ -41,7 +40,7 @@ export function CallCard({
         <div className="flex items-center gap-2.5">
           <ChannelIcon icon={Voicemail} tone="warning" />
           <div className="min-w-0 flex-1">
-            <div className="text-[13px] font-medium">Missed call · left a voicemail</div>
+            <div className="text-[13px] font-medium">{words.title}</div>
             <div className="text-xs text-text-3">{time}</div>
           </div>
         </div>
@@ -57,52 +56,13 @@ export function CallCard({
           <>
             <p className="text-[13px] leading-[1.5]">“{item.transcript}”</p>
             {compact ? null : (
-              <p className="text-xs text-text-3 max-md:hidden">
-                Transcribed automatically, so it may contain mistakes.
-              </p>
+              <p className="text-xs text-text-3 max-md:hidden">{THREAD_WORDS.transcribed}</p>
             )}
           </>
         ) : null}
       </div>
     );
 
-  const live = LIVE.has(item.status);
-  const answered = inbound ? !!item.answeredVia : item.status === 'completed';
-  const missed = !live && !answered;
-  // A call a teammate placed through their own cell (M10): "Dale called · from their cell".
-  const bridge = !inbound && item.answeredVia === 'bridge';
-  const caller = item.sentBy ?? item.answeredBy;
-  const callerFirst = caller?.fullName.trim().split(/\s+/)[0] || null;
-  const title = live
-    ? inbound
-      ? 'Incoming call'
-      : 'Calling…'
-    : answered
-      ? inbound
-        ? 'Incoming call'
-        : bridge && callerFirst
-          ? `${callerFirst} called`
-          : 'Outgoing call'
-      : inbound
-        ? 'Missed call'
-        : 'Call not answered';
-  const detail = live
-    ? item.status === 'in_progress'
-      ? 'in progress'
-      : 'ringing'
-    : inbound
-      ? answered
-        ? answeredLine(item)
-        : null
-      : bridge
-        ? answered
-          ? 'from their cell, showing the business number'
-          : caller
-            ? `${caller.fullName} called from their cell`
-            : 'called from a cell'
-        : item.sentBy
-          ? `${item.sentBy.fullName} called`
-          : null;
   return (
     <div
       data-testid={`call-${item.id}`}
@@ -112,19 +72,14 @@ export function CallCard({
         compact ? 'w-full' : 'w-[360px] max-w-[80%]',
       )}
     >
-      <ChannelIcon
-        icon={missed ? PhoneMissed : inbound ? Phone : PhoneOutgoing}
-        tone={missed ? 'warning' : inbound ? 'success' : 'accent'}
-      />
+      <ChannelIcon icon={CALL_ICON[words.icon]} tone={words.tone} />
       <div className="min-w-0 flex-1">
-        <div className="text-[13px] font-medium">{title}</div>
+        <div className="text-[13px] font-medium">{words.title}</div>
         <div className="truncate text-xs text-text-3">
-          {[time, detail].filter(Boolean).join(' · ')}
+          {[time, words.detail].filter(Boolean).join(' · ')}
         </div>
       </div>
-      {answered && !live ? (
-        <span className="font-mono text-xs text-text-3">{clock(item.durationSeconds)}</span>
-      ) : null}
+      {words.length ? <span className="font-mono text-xs text-text-3">{words.length}</span> : null}
     </div>
   );
 }

@@ -1,4 +1,5 @@
 'use client';
+import { ATTENTION_WORDS } from '@hfos/core';
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { NextActionDialog } from '@/components/crm/next-action-dialog';
 import { MessageSheet } from '@/components/inbox/message-sheet';
@@ -258,7 +259,7 @@ export function ActionCenter({
                 className="px-5 py-8 text-center text-[13px] text-text-3"
                 data-testid="attention-loading"
               >
-                {list.error ?? 'Loading what needs attention…'}
+                {list.error ?? ATTENTION_WORDS.loading}
               </Card>
             ) : items.length === 0 ? (
               <CaughtUp items={data.handled} count={data.handledToday} />
@@ -266,7 +267,7 @@ export function ActionCenter({
               <>
                 {urgent.length ? (
                   <section data-testid="attention-urgent" aria-label="Urgent" className="mb-[18px]">
-                    <SectionHead label="Urgent" count={urgent.length} urgent />
+                    <SectionHead label={ATTENTION_WORDS.urgent} count={urgent.length} urgent />
                     <div className="flex flex-col gap-2.5">
                       {urgent.map((i) => (
                         <AttentionCard key={i.id} item={i} />
@@ -276,7 +277,7 @@ export function ActionCenter({
                 ) : null}
                 {upNext.length ? (
                   <section data-testid="attention-next" aria-label="Up next">
-                    <SectionHead label="Up next" count={upNext.length} />
+                    <SectionHead label={ATTENTION_WORDS.upNext} count={upNext.length} />
                     <div className="flex flex-col gap-2.5">
                       {rows.map((r) =>
                         r.type === 'item' ? (

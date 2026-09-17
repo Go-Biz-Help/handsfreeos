@@ -10,6 +10,7 @@ import {
   Sparkles,
   Users,
 } from '@/components/icons';
+import { ApprovalsCount } from '@/components/home/approvals-count';
 import { businessHref, useBusiness } from '@/components/shell/business-context';
 import { List, ListRow } from '@/components/shell/list';
 import { Screen } from '@/components/shell/screen';
@@ -73,6 +74,7 @@ export default function More() {
         <ListRow
           icon={Sparkles}
           label="Approvals"
+          end={<ApprovalsCount />}
           onPress={() => go('approvals')}
           testID="more-approvals"
         />

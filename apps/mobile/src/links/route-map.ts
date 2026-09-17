@@ -45,12 +45,17 @@ export type LinkTarget =
 interface Rule {
   /** The web's path under /app/w/:ws, with `:name` for a part that varies. */
   readonly web: string;
-  /** The phone's screen under /app/w/<business> ('' is Home), or 'web'. */
+  /**
+   * The phone's screen under /app/w/<business> ('' is Home), or 'web'. A `:name` in it is filled with the part of the
+   * web path of the same name (`inbox/:conversationId`).
+   */
   readonly phone: string | 'web';
   /** The screen a later step builds for this link. */
   readonly later?: string;
   /** Matches deeper paths too (a whole web-only area). */
   readonly deeper?: boolean;
+  /** Query parameters the phone's screen reads too (Home's `?item=`), kept on its address. */
+  readonly query?: readonly string[];
 }
 
 /**
@@ -58,9 +63,9 @@ interface Rule {
  * a page the web gains later opens the web until it's added.
  */
 export const ROUTES: readonly Rule[] = [
-  { web: '', phone: '', later: 'An item on Home (?item=), step 13' },
+  { web: '', phone: '', query: ['item'] },
   { web: 'inbox', phone: 'inbox' },
-  { web: 'inbox/:conversationId', phone: 'inbox', later: 'The conversation, step 14' },
+  { web: 'inbox/:conversationId', phone: 'inbox/:conversationId' },
   { web: 'pipeline', phone: 'pipeline' },
   { web: 'leads/:leadId', phone: 'pipeline', later: 'The lead, step 15' },
   { web: 'customers', phone: 'customers' },
@@ -78,7 +83,7 @@ export const ROUTES: readonly Rule[] = [
   { web: 'money/payments', phone: 'money', later: 'Payments, step 16' },
   { web: 'money/plans', phone: 'money', later: 'Plans, step 16' },
   { web: 'money/plans/:subscriptionId', phone: 'money', later: 'The plan, step 16' },
-  { web: 'workflows/approvals', phone: 'approvals', later: 'Approvals (?filter=ai), step 13' },
+  { web: 'workflows/approvals', phone: 'approvals', query: ['filter'] },
   // Settings → Account on the web is you and your notifications: the phone's own Settings.
   { web: 'settings', phone: 'settings' },
   // The desk work the phone leaves to the web.
@@ -145,6 +150,13 @@ export function webPathOf(link: string, webOrigins: readonly string[] = []): str
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+/** A rule's phone path with each `:name` filled from what the web path named (`inbox/:conversationId` → `inbox/<id>`). */
+export function phonePathOf(phone: string, params: Readonly<Record<string, string>>): string {
+  return segments(phone)
+    .map((part) => (part.startsWith(':') ? encodeURIComponent(params[part.slice(1)] ?? '') : part))
+    .join('/');
+}
+
 /** Where a web path opens on the phone. */
 export function routeFor(pathAndQuery: string): LinkTarget {
   const { path, query } = splitQuery(pathAndQuery);
@@ -171,9 +183,14 @@ export function routeFor(pathAndQuery: string): LinkTarget {
       });
       if (!matched) continue;
       if (rule.phone === 'web') return { kind: 'web', path: pathAndQuery, businessId };
+      const screen = phonePathOf(rule.phone, params);
+      const kept = (rule.query ?? [])
+        .filter((key) => query[key])
+        .map((key) => `${key}=${encodeURIComponent(query[key]!)}`)
+        .join('&');
       return {
         kind: 'screen',
-        href: `/app/w/${businessId}${rule.phone ? `/${rule.phone}` : ''}`,
+        href: `/app/w/${businessId}${screen ? `/${screen}` : ''}${kept ? `?${kept}` : ''}`,
         businessId,
         later: rule.later ?? null,
         params,

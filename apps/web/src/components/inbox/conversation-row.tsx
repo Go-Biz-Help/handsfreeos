@@ -1,23 +1,48 @@
 'use client';
+import {
+  assignedToLabel,
+  conversationChips,
+  listTime,
+  previewLine,
+  rowName,
+  type RowChip,
+} from '@hfos/core';
 import { AlarmClock, Mail, MessageCircle } from 'lucide-react';
 import Link from 'next/link';
 import { StageBadge } from '@/components/crm/chips';
 import { Avatar } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import type { ConversationSummary } from '@/lib/api/types';
-import { listTime, minutesWaiting, zonedWhen } from '@/lib/inbox';
 import { cn } from '@/lib/utils';
 import { AiTag, NeedTag, SiteTag, WebsiteIcon } from './ai-bits';
 import { ContactAvatar, CountBadge, Pill, WaitChip } from './bits';
 
-export const firstName = (full: string): string => full.trim().split(/\s+/)[0] || full;
-
-/** "You: …" and "Marco: …" for what the business sent; the customer's words as they are. */
-export function previewLine(c: ConversationSummary, myUserId: string): string {
-  if (!c.lastMessageAt) return 'No messages yet';
-  const text = c.lastPreview ?? '';
-  if (c.lastDirection !== 'outbound' || !c.lastSentBy) return text;
-  return `${c.lastSentBy.id === myUserId ? 'You' : firstName(c.lastSentBy.fullName)}: ${text}`;
+/** One chip under a row, as core words it. */
+function Chip({ chip }: { chip: RowChip }) {
+  switch (chip.kind) {
+    case 'needs_person':
+      return <NeedTag />;
+    case 'wait':
+      return <WaitChip minutes={chip.minutes} />;
+    case 'ai':
+      return <AiTag>{chip.label}</AiTag>;
+    case 'on_site':
+      return <SiteTag testId="row-on-site-now" />;
+    case 'stage':
+      return (
+        <StageBadge
+          name={chip.label}
+          kind="open"
+          className="hidden h-5 text-[11.5px] md:inline-flex"
+        />
+      );
+    case 'new_number':
+      return <Pill>{chip.label}</Pill>;
+    case 'snoozed':
+      return <Pill icon={AlarmClock}>{chip.label}</Pill>;
+    case 'closed':
+      return <Badge variant="ok">{chip.label}</Badge>;
+  }
 }
 
 /**
@@ -45,11 +70,7 @@ export function ConversationRow({
   draftWaiting?: boolean;
 }) {
   const unread = c.unreadCount > 0;
-  const name = c.person?.fullName ?? c.counterpartDisplay;
-  const needsPerson = c.status === 'open' && !!c.needsPersonSince;
-  const aiName = c.handledBy === 'ai' ? (c.teammate?.name ?? null) : null;
-  const handedFor = needsPerson ? minutesWaiting(c.needsPersonSince) : null;
-  const waited = c.status === 'open' ? minutesWaiting(c.awaitingReplySince) : null;
+  const chips = conversationChips(c, { waitThreshold, draftWaiting, timeZone: timezone });
   return (
     <Link
       href={href}
@@ -65,7 +86,7 @@ export function ConversationRow({
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-1.5">
           <span className={cn('truncate text-sm', unread ? 'font-semibold' : 'font-medium')}>
-            {name}
+            {rowName(c)}
           </span>
           {c.channel === 'email' ? (
             <Mail
@@ -100,35 +121,12 @@ export function ConversationRow({
           {previewLine(c, myUserId)}
         </p>
         <div className="mt-[7px] flex min-h-5 items-center gap-1.5">
-          {needsPerson ? (
-            <>
-              <NeedTag />
-              {handedFor !== null ? <WaitChip minutes={handedFor} /> : null}
-            </>
-          ) : aiName ? (
-            <AiTag>{draftWaiting ? `${aiName} · draft waiting` : aiName}</AiTag>
-          ) : null}
-          {c.onSiteNow ? <SiteTag testId="row-on-site-now" /> : null}
-          {!needsPerson && waited !== null && waited >= waitThreshold ? (
-            <WaitChip minutes={waited} />
-          ) : null}
-          {c.openLead ? (
-            <StageBadge
-              name={c.openLead.stageName}
-              kind="open"
-              className="hidden h-5 text-[11.5px] md:inline-flex"
-            />
-          ) : null}
-          {c.person || c.channel === 'chat' ? null : <Pill>New number</Pill>}
-          {c.status === 'snoozed' && c.snoozedUntil ? (
-            <Pill icon={AlarmClock}>
-              Snoozed until {zonedWhen(new Date(c.snoozedUntil), timezone)}
-            </Pill>
-          ) : null}
-          {c.status === 'closed' ? <Badge variant="ok">Closed</Badge> : null}
+          {chips.map((chip, i) => (
+            <Chip key={i} chip={chip} />
+          ))}
           <span className="flex-1" />
           {c.assignee ? (
-            <span title={`Assigned to ${c.assignee.fullName}`}>
+            <span title={assignedToLabel(c.assignee.fullName)}>
               <Avatar name={c.assignee.fullName} seed={c.assignee.id} size="sm" />
             </span>
           ) : null}

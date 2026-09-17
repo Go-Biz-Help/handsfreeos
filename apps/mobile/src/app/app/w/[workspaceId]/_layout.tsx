@@ -3,6 +3,7 @@ import * as React from 'react';
 
 import { AskFromNotification } from '@/components/changes/ask-from-notification';
 import { OpenBusiness } from '@/components/copy/copy-gate';
+import { CallSheetHost } from '@/components/inbox/call-sheet';
 import { BusinessProvider } from '@/components/shell/business-context';
 import { BusinessSwitcher } from '@/components/shell/business-switcher';
 import { useSession } from '@/lib/auth';
@@ -11,7 +12,7 @@ import { colors, useThemeName } from '@/theme';
 
 /**
  * One business, as /app/w/<business> on the web: its tabs, Ask HandsFreeOS, Changes on this phone, and (test builds)
- * This phone's copy.
+ * This phone's copy. The call sheet sits over all of them (`startCall`).
  */
 export default function BusinessLayout() {
   const state = useSession();
@@ -50,6 +51,7 @@ function Business({ userId }: { userId: string }) {
         <Stack.Screen name="phone-copy" options={{ presentation: 'fullScreenModal' }} />
       </Stack>
       <AskFromNotification />
+      <CallSheetHost />
       <BusinessSwitcher
         open={switcher}
         onClose={() => setSwitcher(false)}

@@ -173,12 +173,8 @@ export async function threadHeaders(
   };
 }
 
-/** "Re: Your quote" (once, however long the thread). */
-export function replySubject(subject: string | null | undefined): string | null {
-  const s = subject?.trim();
-  if (!s) return null;
-  return /^re:/i.test(s) ? s : `Re: ${s}`;
-}
+/** "Re: Your quote" (once, however long the thread): core's browser-safe `replySubject`, which the phone uses too. */
+export { replySubject } from '../inbox/composer';
 
 /** Our own Message-ID, so the customer's reply points back at this message. */
 export const newMessageIdHeader = (domain: string): string => `<${randomUUID()}@${domain}>`;

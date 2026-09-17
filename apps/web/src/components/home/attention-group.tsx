@@ -1,5 +1,5 @@
 'use client';
-import { moneyLabel, type AttentionKind } from '@hfos/core';
+import { groupRowMore, groupToggleLabel, moneyLabel, type AttentionKind } from '@hfos/core';
 import { ChevronDown } from 'lucide-react';
 import { useState } from 'react';
 import { Avatar } from '@/components/ui/avatar';
@@ -14,10 +14,8 @@ import {
   andList,
   customerOf,
   daysSpan,
-  firstNameOf,
   groupTitle,
   KIND_LABEL,
-  splitTitle,
   valueOf,
   type ShownChip,
 } from './attention-words';
@@ -26,18 +24,7 @@ import {
 function GroupRow({ item }: { item: AttentionItem }) {
   const env = useAttentionEnv();
   const name = customerOf(item) ?? item.title;
-  const who = item.assignee
-    ? item.assignee.id === env.myUserId
-      ? 'you'
-      : firstNameOf(item.assignee.fullName)
-    : null;
-  const more = [
-    splitTitle(item.title).rest,
-    item.kind === 'unconfirmed_appointment' ? item.detail : null,
-    who,
-  ]
-    .filter(Boolean)
-    .join(' · ');
+  const more = groupRowMore(item, env.myUserId);
   return (
     <div
       data-testid="attention-group-row"
@@ -130,7 +117,7 @@ export function AttentionGroup({
           data-testid="attention-group-toggle"
           className={cn(FOOT_BUTTON, 'mt-0.5 w-full md:mt-0 md:w-auto')}
         >
-          {open ? 'Hide' : `Show all ${items.length}`}
+          {groupToggleLabel(open, items.length)}
           <ChevronDown
             className={cn('h-4 w-4 transition-transform', open && 'rotate-180')}
             strokeWidth={1.75}

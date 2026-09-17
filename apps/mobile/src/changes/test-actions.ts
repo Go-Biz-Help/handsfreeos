@@ -1,3 +1,4 @@
+import { zonedParts } from '@hfos/core';
 import * as Crypto from 'expo-crypto';
 import { router } from 'expo-router';
 
@@ -274,7 +275,11 @@ export async function setOldVersion(old: boolean): Promise<void> {
  * The business's quiet hours on HandsFreeOS itself, so a flow can text at any hour or ask about quiet hours: an
  * online-only settings command, sent as the app sends one (not a change the phone's contract has).
  */
-export async function setQuietHours(workspaceId: string, enabled: boolean): Promise<void> {
+export async function setQuietHours(
+  workspaceId: string,
+  enabled: boolean,
+  window: { readonly start: string; readonly end: string } = { start: '20:00', end: '08:00' },
+): Promise<void> {
   const token = await session.accessToken();
   const now = nowIso();
   const response = await appFetch(`${config.apiUrl}/v1/commands/phone.update_settings`, {
@@ -284,7 +289,7 @@ export async function setQuietHours(workspaceId: string, enabled: boolean): Prom
       { commandId: Crypto.randomUUID(), madeAt: now, confirmedAt: null },
       token,
     ),
-    body: JSON.stringify({ workspaceId, quietHours: { enabled, start: '20:00', end: '08:00' } }),
+    body: JSON.stringify({ workspaceId, quietHours: { enabled, ...window } }),
   });
   if (!response.ok) {
     const body = (await response.json().catch(() => null)) as {
@@ -303,4 +308,17 @@ export function registerTestFixers(): void {
   setFixer('message.send', (row) =>
     router.push(`/app/w/${row.workspace_id}/test-changes/text/${row.id}`),
   );
+}
+
+/**
+ * Quiet hours that have already begun where the business is and end at 8:00 AM (9:00 AM between 8 and 9), so a text
+ * sent now really waits for the morning on HandsFreeOS too, whatever the hour a flow runs at (step 14's held texts).
+ */
+export function quietWindowCoveringNow(
+  timeZone: string,
+  now = new Date(),
+): { readonly start: string; readonly end: string } {
+  const hour = zonedParts(now, timeZone).hour;
+  const two = (n: number) => String(n).padStart(2, '0');
+  return { start: `${two(hour)}:00`, end: hour === 8 ? '09:00' : '08:00' };
 }

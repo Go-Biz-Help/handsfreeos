@@ -103,20 +103,8 @@ export interface ReconcileResult {
   readonly rechecks: readonly AttentionRecheck[];
 }
 
-/** Resolutions that mean someone (or HandsFreeOS) dealt with it: they count as handled today. */
-export const DONE_RESOLUTIONS = [
-  'contacted',
-  'replied',
-  'confirmed',
-  'decided',
-  'done',
-  'next_action_set',
-  'closed',
-  // Money: the customer answered the estimate, or the invoice was paid. An estimate that expired and an
-  // invoice that was withdrawn are not wins, so they stay out.
-  'answered',
-  'paid',
-] as const;
+/** Resolutions that mean someone (or HandsFreeOS) dealt with it (browser-safe, in `view.ts`). */
+export { DONE_RESOLUTIONS } from './view';
 
 /**
  * Kinds whose assignee is the item's own (for the rest it follows the lead, conversation or task). A money

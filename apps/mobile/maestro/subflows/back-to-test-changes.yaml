@@ -1,0 +1,11 @@
+# From a conversation, back to Settings → Test changes (the no-signal switch the iOS simulator needs is there).
+appId: com.gobizhelp.handsfreeos
+---
+- runFlow:
+    when:
+      visible:
+        id: 'conversation'
+    commands:
+      - tapOn:
+          id: 'back'
+- runFlow: open-test-changes.yaml

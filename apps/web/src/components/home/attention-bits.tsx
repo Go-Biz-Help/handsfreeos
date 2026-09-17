@@ -1,4 +1,4 @@
-import type { AttentionKind } from '@hfos/core';
+import { LET_HANDLE_MODE_LABELS, type AttentionKind } from '@hfos/core';
 import {
   CalendarClock,
   Check,
@@ -152,9 +152,13 @@ export function AssigneeMark({ assignee }: { assignee: { id: string; fullName: s
 }
 
 const MODE = {
-  auto: { label: 'Handled on its own', icon: Zap, tone: 'bg-accent-soft text-accent-text' },
-  ask: { label: 'Asks first', icon: ShieldCheck, tone: 'bg-warning-soft text-warning-text' },
-  none: { label: 'Always a person', icon: UserRound, tone: 'bg-card-2 text-text-2' },
+  auto: { label: LET_HANDLE_MODE_LABELS.auto, icon: Zap, tone: 'bg-accent-soft text-accent-text' },
+  ask: {
+    label: LET_HANDLE_MODE_LABELS.ask,
+    icon: ShieldCheck,
+    tone: 'bg-warning-soft text-warning-text',
+  },
+  none: { label: LET_HANDLE_MODE_LABELS.none, icon: UserRound, tone: 'bg-card-2 text-text-2' },
 } as const;
 
 /** How Let HandsFreeOS Handle works for an item: on its own, asks first, or always a person. */

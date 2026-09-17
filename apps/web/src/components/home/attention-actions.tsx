@@ -1,5 +1,16 @@
 'use client';
-import { clockLabel } from '@hfos/core';
+import {
+  assignedToOf,
+  assignedToast,
+  assigneeShortOf,
+  ATTENTION_WORDS,
+  attentionReachOf,
+  clockLabel,
+  handleButtonOf,
+  letHandleAutoToast,
+  letHandleOffReason,
+  type HandleIcon,
+} from '@hfos/core';
 import {
   ArchiveX,
   ArrowUpRight,
@@ -46,12 +57,7 @@ import { useMatches } from '@/lib/use-media';
 import { cn } from '@/lib/utils';
 import { AssignList, AssignSubmenu } from './assign-menu';
 import { KindTile, SheetRow } from './attention-bits';
-import {
-  useAttentionEnv,
-  type AttentionEnv,
-  type ItemActions,
-  type MemberOption,
-} from './attention-context';
+import { useAttentionEnv, type ItemActions, type MemberOption } from './attention-context';
 import {
   customerOf,
   firstNameOf,
@@ -84,26 +90,6 @@ export interface AttentionDialog {
 }
 
 const UNDO_MS = 6000;
-
-function assignedWords(
-  passedTo: 'lead' | 'conversation' | 'task' | null,
-  self: boolean,
-  first: string | null,
-): string {
-  if (!self && !first) return 'Unassigned.';
-  const who = self ? 'you' : first;
-  const theirs = self ? 'yours' : `${first}’s`;
-  switch (passedTo) {
-    case 'lead':
-      return `Assigned to ${who}. ${self ? 'You’re' : `${first} is`} now the lead’s owner.`;
-    case 'conversation':
-      return `Assigned to ${who}. The conversation is ${theirs} too.`;
-    case 'task':
-      return `Assigned to ${who}. The task is ${theirs} too.`;
-    default:
-      return `Assigned to ${who}.`;
-  }
-}
 
 /**
  * What each card's buttons do, with their toasts, Undo and reloads (this tab's own changes don't come back over
@@ -168,10 +154,7 @@ export function useItemActions(o: {
     }
     const firstOf = (item: AttentionItem) => firstNameOf(customerOf(item));
     /** The conversation to answer in, or the record itself. */
-    const reachOf = (item: AttentionItem) =>
-      item.conversationId
-        ? `${base}/inbox/${item.conversationId}`
-        : targetOf(item, workspaceId).href;
+    const reachOf = (item: AttentionItem) => attentionReachOf(item, workspaceId);
     const undo = (item: AttentionItem) => {
       cmd
         .restore(item.id)
@@ -190,7 +173,7 @@ export function useItemActions(o: {
         }),
       );
       if (!person.phoneE164) {
-        toast.error(`There’s no phone number for ${firstNameOf(person.fullName)}.`);
+        toast.error(ATTENTION_WORDS.noPhoneToast(firstNameOf(person.fullName)));
         return router.push(reachOf(item));
       }
       openDialer({ name: person.fullName, phone: person.phoneE164, personId: person.id });
@@ -204,16 +187,19 @@ export function useItemActions(o: {
         return open({ type: 'let_handle', item });
       if (plan.scheduledFor) {
         toast(
-          `HandsFreeOS asks ${first} to confirm at ${clockLabel(Date.parse(plan.scheduledFor), timeZone)}.`,
+          ATTENTION_WORDS.asksAtToast(first, clockLabel(Date.parse(plan.scheduledFor), timeZone)),
         );
         return;
       }
       const out = await cmd.letHandle({ itemId: item.id });
       const at = out.scheduledFor ?? plan.sendAt;
       toast.success(
-        `HandsFreeOS will ${plan.channel === 'email' ? 'email' : 'text'} ${first} to confirm${
-          at ? ` at ${clockLabel(Date.parse(at), timeZone)}` : ''
-        }. You can cancel until then.`,
+        letHandleAutoToast({
+          confirm: true,
+          channel: plan.channel,
+          first,
+          at: at ? clockLabel(Date.parse(at), timeZone) : null,
+        }),
       );
       settle();
     }
@@ -267,9 +253,7 @@ export function useItemActions(o: {
         throw e;
       }
       approvalsChanged();
-      toast.success(
-        `Approved. ${teammateName ?? 'The AI teammate'}’s message went to ${firstOf(item)}.`,
-      );
+      toast.success(ATTENTION_WORDS.approvedToast(teammateName, firstOf(item)));
       settle();
     }
 
@@ -316,8 +300,8 @@ export function useItemActions(o: {
             unhide([item.id]);
             throw e;
           }
-          toast(`Snoozed until ${snoozedUntil(until, timeZone, Date.now())}`, {
-            action: { label: 'Undo', onClick: () => undo(item) },
+          toast(ATTENTION_WORDS.snoozedToast(snoozedUntil(until, timeZone, Date.now())), {
+            action: { label: ATTENTION_WORDS.undo, onClick: () => undo(item) },
             duration: UNDO_MS,
           });
           settle();
@@ -338,8 +322,8 @@ export function useItemActions(o: {
             unhide([item.id]);
             throw e;
           }
-          toast('Dismissed. It comes back if something changes.', {
-            action: { label: 'Undo', onClick: () => undo(item) },
+          toast(ATTENTION_WORDS.dismissedToast, {
+            action: { label: ATTENTION_WORDS.undo, onClick: () => undo(item) },
             duration: UNDO_MS,
           });
           settle();
@@ -351,14 +335,14 @@ export function useItemActions(o: {
           const out = await cmd.assign(item.id, userId);
           const who = members.find((m) => m.id === userId);
           toast(
-            assignedWords(
+            assignedToast(
               out.passedTo,
               userId === myUserId,
               who ? firstNameOf(who.fullName) : null,
             ),
             {
               action: {
-                label: 'Undo',
+                label: ATTENTION_WORDS.undo,
                 onClick: () => {
                   cmd
                     .assign(item.id, out.previousAssigneeUserId)
@@ -376,11 +360,7 @@ export function useItemActions(o: {
         void withBusy(ref.itemId, async () => {
           await cmd.cancelAuto(ref.itemId);
           const first = firstNameOf(ref.name);
-          toast(
-            ref.action === 'confirm_request'
-              ? `Cancelled. ${first} won’t get a confirmation request.`
-              : `Cancelled. ${first} won’t get a follow-up.`,
-          );
+          toast(ATTENTION_WORDS.cancelledAutoToast(ref.action === 'confirm_request', first));
           settle();
         });
       },
@@ -407,51 +387,25 @@ export function useItemActions(o: {
   ]);
 }
 
-/** The main button's words and icon for an item; `reach` says the channel it would really use. */
+const HANDLE_ICONS: Readonly<Record<HandleIcon, LucideIcon>> = {
+  phone: Phone,
+  mail: Mail,
+  send: Send,
+  message: MessageCircle,
+  'calendar-plus': CalendarPlus,
+  check: Check,
+  'list-checks': ListChecks,
+  receipt: Receipt,
+  'file-text': FileText,
+};
+
+/** The main button's words and icon for an item (core's words); `reach` says the channel it would really use. */
 export function handleLook(
   item: AttentionItem,
   callsAvailable: boolean,
 ): { label: string; icon: LucideIcon } {
-  const first = firstNameOf(customerOf(item));
-  const email = item.reach === 'email';
-  switch (item.kind) {
-    case 'hot_lead':
-      return callsAvailable && item.personId
-        ? { label: `Call ${first}`, icon: Phone }
-        : { label: 'Reply', icon: email ? Mail : Send };
-    case 'unanswered_lead':
-    case 'customer_waiting':
-      return { label: 'Reply', icon: email ? Mail : Send };
-    case 'stale_opportunity':
-      if (email) return { label: `Email ${first}`, icon: Mail };
-      return item.conversationId || item.reach === 'sms'
-        ? { label: `Text ${first}`, icon: MessageCircle }
-        : { label: 'Follow up', icon: MessageCircle };
-    case 'missing_next_action':
-      return { label: 'Set next action', icon: CalendarPlus };
-    case 'unconfirmed_appointment':
-      if (email) return { label: 'Confirm by email', icon: Mail };
-      return item.reach === 'sms'
-        ? { label: 'Confirm by text', icon: MessageCircle }
-        : { label: 'Ask to confirm', icon: MessageCircle };
-    case 'ai_approval':
-      return isDraft(item) ? { label: 'Approve', icon: Check } : { label: 'Review', icon: Check };
-    case 'overdue_task':
-      return { label: 'Open task', icon: ListChecks };
-    // Money reaches the customer like every other kind: a call while the business is open, otherwise a text
-    // or an email with the follow-up already written.
-    case 'estimate_waiting':
-    case 'invoice_overdue':
-      if (callsAvailable && item.callable && item.personId)
-        return { label: `Call ${first}`, icon: Phone };
-      if (email) return { label: `Email ${first}`, icon: Mail };
-      if (item.reach === 'sms') return { label: `Text ${first}`, icon: MessageCircle };
-      // Nothing can reach them: the card falls back to the document it is about.
-      return {
-        label: item.kind === 'invoice_overdue' ? 'Open the invoice' : 'Open the estimate',
-        icon: item.kind === 'invoice_overdue' ? Receipt : FileText,
-      };
-  }
+  const look = handleButtonOf(item, callsAvailable);
+  return { label: look.label, icon: HANDLE_ICONS[look.icon] };
 }
 
 /** The main button: it fits the item (Call Maria, Reply, Set next action, Confirm by text, Approve, Open task). */
@@ -483,18 +437,9 @@ export function HandleButton({
   );
 }
 
-/** Why Let HandsFreeOS Handle is off for an item, or null when it's on. */
-function letHandleOff(item: AttentionItem): string | null {
-  if (item.kind === 'ai_approval') return 'Approvals always need a person';
-  if (item.kind === 'overdue_task') return 'HandsFreeOS can’t do your tasks';
-  if (item.letHandleMode === 'none') return 'HandsFreeOS can’t handle this one';
-  if (!item.actions.letHandle) return 'You can’t hand this one off';
-  return null;
-}
-
 export function LetHandleButton({ item, className }: { item: AttentionItem; className?: string }) {
   const env = useAttentionEnv();
-  const off = letHandleOff(item);
+  const off = letHandleOffReason(item);
   return (
     <button
       type="button"
@@ -509,7 +454,7 @@ export function LetHandleButton({ item, className }: { item: AttentionItem; clas
       )}
     >
       <BrandMark size={16} />
-      Let HandsFreeOS Handle
+      {ATTENTION_WORDS.letHandle}
     </button>
   );
 }
@@ -552,7 +497,7 @@ export function ItemMenu({ item }: { item: AttentionItem }) {
         {a.snooze ? (
           <>
             {a.assign ? <DropdownMenuSeparator /> : null}
-            <DropdownMenuLabel className={MENU_HEAD}>Snooze</DropdownMenuLabel>
+            <DropdownMenuLabel className={MENU_HEAD}>{ATTENTION_WORDS.snooze}</DropdownMenuLabel>
             <SnoozeMenuItems item={item} />
           </>
         ) : null}
@@ -565,7 +510,7 @@ export function ItemMenu({ item }: { item: AttentionItem }) {
               onSelect={() => env.act.dismiss(item)}
             >
               <ArchiveX className="h-4 w-4" strokeWidth={1.5} />
-              Dismiss…
+              {ATTENTION_WORDS.dismiss}
             </DropdownMenuItem>
           </>
         ) : null}
@@ -582,11 +527,6 @@ export function ItemMenu({ item }: { item: AttentionItem }) {
 }
 
 const FL = 'px-1 pb-0.5 pt-2.5 text-[11.5px] font-semibold uppercase tracking-[0.04em] text-text-3';
-
-function assignedTo(item: AttentionItem, env: AttentionEnv): string {
-  if (!item.assignee) return 'unassigned';
-  return `assigned to ${item.assignee.id === env.myUserId ? 'you' : firstNameOf(item.assignee.fullName)}`;
-}
 
 /** A phone's ⋯: snooze first (it's used most), then Assign, Dismiss and the record, as a bottom sheet. */
 export function ItemSheet({
@@ -612,7 +552,7 @@ export function ItemSheet({
             <span className="flex min-w-0 flex-1 flex-col">
               <span className="truncate text-base font-medium">{item.title}</span>
               <span className="text-xs text-text-3">
-                {KIND_LABEL[item.kind]} · {assignedTo(item, env)}
+                {KIND_LABEL[item.kind]} · {assignedToOf(item, env.myUserId)}
               </span>
             </span>
           </div>
@@ -629,7 +569,7 @@ export function ItemSheet({
             <>
               {a.snooze ? (
                 <>
-                  <div className={FL}>Snooze</div>
+                  <div className={FL}>{ATTENTION_WORDS.snooze}</div>
                   <SnoozeRows
                     onPick={(until) => {
                       close();
@@ -642,18 +582,12 @@ export function ItemSheet({
                   />
                 </>
               ) : null}
-              <div className={cn(FL, 'pt-3')}>More</div>
+              <div className={cn(FL, 'pt-3')}>{ATTENTION_WORDS.more}</div>
               {a.assign ? (
                 <SheetRow
                   icon={UserRound}
-                  label="Assign…"
-                  hint={
-                    item.assignee
-                      ? item.assignee.id === env.myUserId
-                        ? 'You'
-                        : firstNameOf(item.assignee.fullName)
-                      : 'Nobody'
-                  }
+                  label={ATTENTION_WORDS.assign}
+                  hint={assigneeShortOf(item, env.myUserId)}
                   onClick={() => setView('assign')}
                   testId="attention-assign"
                 />
@@ -661,7 +595,7 @@ export function ItemSheet({
               {a.dismiss ? (
                 <SheetRow
                   icon={ArchiveX}
-                  label="Dismiss…"
+                  label={ATTENTION_WORDS.dismiss}
                   danger
                   onClick={() => {
                     close();
@@ -674,7 +608,7 @@ export function ItemSheet({
             </>
           )}
           <Button variant="secondary" size="lg" className="mt-3 w-full" onClick={close}>
-            Close
+            {ATTENTION_WORDS.close}
           </Button>
         </div>
       </SheetContent>

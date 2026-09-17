@@ -1,23 +1,17 @@
 'use client';
+import {
+  deliveryWords,
+  emailSender,
+  emailStatusLine,
+  FAILED_STATUSES,
+  THREAD_WORDS,
+} from '@hfos/core';
 import { CheckCheck, CircleAlert } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { teammateMessageOf } from '@/lib/ai-team/inbox-types';
-import { teammateLabel } from '@/lib/ai-team/inbox-words';
 import type { ThreadItem } from '@/lib/api/types';
 import { cn } from '@/lib/utils';
 import { AttachmentChip } from './attachment-chip';
 import { MailBody } from './mail-body';
-
-const STOPPED = new Set(['bounced', 'complained']);
-const FAILED = new Set(['failed', 'undelivered']);
-
-/** Why an email didn't arrive, after "Bounced:" or "Not sent:". */
-function problem(item: ThreadItem): string {
-  if (item.status === 'complained') return 'Marked as spam';
-  if (item.status === 'bounced')
-    return `Bounced: ${item.errorMessage || 'it could not be delivered'}`;
-  return `Not sent: ${item.errorMessage || 'the mail service refused it'}`;
-}
 
 /**
  * An email in the conversation: subject, who and from which address, the body (received HTML in a sandboxed
@@ -38,16 +32,11 @@ export function MailCard({
   onRetry?: (messageId: string) => void;
 }) {
   const out = item.direction === 'outbound';
-  const stopped = out && STOPPED.has(item.status);
-  const failed = out && FAILED.has(item.status);
-  const bad = stopped || failed;
+  const state = out ? emailStatusLine(item) : null;
+  const failed = out && FAILED_STATUSES.has(item.status);
+  const bad = !!state?.bad;
   // The AI teammate's email reads "Ava (AI)", with "approved by Chris" when a person's OK sent it.
-  const ai = out ? teammateMessageOf(item) : null;
-  const sender = out
-    ? ai
-      ? teammateLabel(ai)
-      : (item.sentBy?.fullName ?? 'HandsFreeOS')
-    : (customerName ?? item.fromAddress ?? 'Someone');
+  const sender = emailSender(item, customerName);
   const fromLine = [
     sender,
     item.fromAddress,
@@ -55,7 +44,7 @@ export function MailCard({
   ]
     .filter(Boolean)
     .join(' · ');
-  const subject = item.subject || '(no subject)';
+  const subject = item.subject || THREAD_WORDS.noSubject;
   return (
     <div
       data-testid={`message-${item.id}`}
@@ -124,17 +113,15 @@ export function MailCard({
           {bad ? (
             <span className="inline-flex items-center gap-[3px] font-medium text-danger-text">
               <CircleAlert className="h-3.5 w-3.5" strokeWidth={1.75} />
-              {problem(item)}
+              {state?.text}
             </span>
           ) : item.status === 'delivered' ? (
             <span className="inline-flex items-center gap-[3px] text-success-text">
               <CheckCheck className="h-3.5 w-3.5" strokeWidth={1.75} />
-              Delivered
+              {state?.text}
             </span>
-          ) : item.status === 'sent' ? (
-            <span>Sent</span>
           ) : (
-            <span>Sending…</span>
+            <span>{state?.text}</span>
           )}
           {/* A soft failure can go again; a bounce or a complaint can't (the address is stopped). */}
           {failed && onRetry ? (
@@ -144,7 +131,7 @@ export function MailCard({
               onClick={() => onRetry(item.id)}
               data-testid={`retry-${item.id}`}
             >
-              Try again
+              {THREAD_WORDS.tryAgain}
             </Button>
           ) : null}
         </div>
@@ -191,7 +178,9 @@ export function PendingMailCard({
         </div>
       </article>
       {compact ? null : (
-        <div className="px-1 text-[11.5px] text-text-3 max-md:hidden">Sending…</div>
+        <div className="px-1 text-[11.5px] text-text-3 max-md:hidden">
+          {deliveryWords('sending')}
+        </div>
       )}
     </div>
   );

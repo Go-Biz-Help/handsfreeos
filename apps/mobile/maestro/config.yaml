@@ -22,3 +22,10 @@ executionOrder:
     - The notification switches save through HandsFreeOS
     - Links open the app's screens, and never a customer's page
     - A customer's text arrives as a notification, and Reply from the shade sends once
+    - Inbox - a reply with a photo written with no signal goes once, when signal is back
+    - Inbox - a text inside quiet hours asks, waits for the morning with Cancel, and Cancel takes it back
+    - Inbox - take a conversation over from the AI teammate, and hand it back
+    - Inbox - a close made with no signal doesn't stand when the customer wrote again
+    - Calls - verify my cell, call a customer through it, and cancel while it rings
+    - Home ranks what needs attention, with its sheets and Approvals
+    - A snooze and a dismissal made with no signal leave Home at once and go once signal is back

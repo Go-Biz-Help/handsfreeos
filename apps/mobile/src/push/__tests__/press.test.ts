@@ -343,6 +343,37 @@ describe('what a press leaves behind', () => {
     expect(p.api.sent()).toEqual([]);
   });
 
+  it('opens the conversation for Call and asks for the call there, which a tap never does', async () => {
+    const p = phone();
+    const calls: unknown[] = [];
+    const { r, opened } = runner(p, {
+      startCall: (target, workspaceId) => void calls.push({ target, workspaceId }),
+    });
+    await r.handle({ data: customerMessage(), actionId: TAP, typed: null, identifier });
+    expect(calls).toEqual([]);
+    await r.handle({ data: customerMessage(), actionId: 'call', typed: null, identifier });
+    expect(opened).toEqual([customerMessage().path, customerMessage().path]);
+    expect(calls).toEqual([{ target: { conversationId: CONVERSATION }, workspaceId: LONE_STAR }]);
+    // An urgent lead's Call: the customer, when the push names them; with neither, nothing to call.
+    const person = '30000000-0000-4000-8000-000000000001';
+    const lead = urgentLead();
+    await r.handle({
+      data: {
+        ...lead,
+        notificationId: '20000000-0000-4000-8000-0000000000aa',
+        refs: { ...lead.refs, personId: person },
+      },
+      actionId: 'call',
+      typed: null,
+      identifier: 'lead-with-person',
+    });
+    expect(calls[1]).toEqual({ target: { personId: person }, workspaceId: LONE_STAR });
+    await r.handle({ data: lead, actionId: 'call', typed: null, identifier: 'lead' });
+    expect(calls).toHaveLength(2);
+    // The call itself isn't a change the press makes: the call sheet runs it, with signal.
+    expect(p.api.sent()).toEqual([]);
+  });
+
   it('does nothing for a business the person isn’t part of', async () => {
     const p = phone();
     const { r } = runner(p, { ready: async () => ({ userId: DALE, businessIds: [] }) });

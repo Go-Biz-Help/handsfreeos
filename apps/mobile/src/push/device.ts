@@ -5,6 +5,7 @@ import * as Notifications from 'expo-notifications';
 import { AppState, Platform } from 'react-native';
 
 import { changes } from '@/changes';
+import { startCall } from '@/inbox/calls';
 import { appVersion } from '@/lib/app-version';
 import { session } from '@/lib/auth';
 import { cachedMe } from '@/lib/businesses';
@@ -183,6 +184,7 @@ export const pressRunner = new PressRunner({
   change: (name, input, options) => changes.change(name, input, options),
   sendNow: (id) => changes.sendQueuedNow(id),
   openLink: (path) => pendingLinks.open(path),
+  startCall: (target, workspaceId) => startCall(target, { workspaceId }),
   appInFront: () => AppState.currentState === 'active',
   askAbout: (changeId) => pendingLinks.ask(changeId),
   unlockToRun: () => pendingLinks.unlockToRun(),

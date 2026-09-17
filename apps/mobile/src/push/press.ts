@@ -93,6 +93,14 @@ export interface PressDeps {
   readonly sendNow: (id: string) => Promise<OutboxRow | null>;
   /** Opens a web path through the route map, once the app can show it. */
   readonly openLink: (path: string) => void;
+  /**
+   * Call: the app opens on the conversation (or the customer) and calls them through the person's own cell, once it's
+   * unlocked. Only a press asks for it this way, never a link, so no address can ring anyone's cell.
+   */
+  readonly startCall?: (
+    target: { conversationId: string } | { personId: string },
+    workspaceId: string,
+  ) => void;
   /** The app is in front: a question opens the conversation and asks at once, instead of in a notification. */
   readonly appInFront: () => boolean;
   /** Opens a change's question ("Still send?", quiet hours) over the screen the link opened. */
@@ -222,6 +230,11 @@ export class PressRunner {
       return { kind: 'opened', path: `/app/w/${press.data.workspaceId}/changes` };
     }
     this.deps.openLink(path);
+    if (press.actionId === 'call') {
+      const { conversationId, personId } = press.data.refs;
+      if (conversationId) this.deps.startCall?.({ conversationId }, press.data.workspaceId);
+      else if (personId) this.deps.startCall?.({ personId }, press.data.workspaceId);
+    }
     if (about?.kind === 'ask' && about.changeId) this.deps.askAbout(about.changeId);
     if (about?.kind === 'unlock' && this.pending()) this.deps.unlockToRun();
     return { kind: 'opened', path };

@@ -1,9 +1,8 @@
 'use client';
-import { smsSegments } from '@hfos/core';
+import { segmentCounterLabel, unreadLabel, waitingFor, type WordPart } from '@hfos/core';
 import { Clock, Globe, Image as ImageIcon, Moon, Phone } from 'lucide-react';
-import { useEffect, useState, type ComponentType, type ReactNode } from 'react';
+import { Fragment, useEffect, useState, type ComponentType, type ReactNode } from 'react';
 import { Avatar } from '@/components/ui/avatar';
-import { waitingFor } from '@/lib/format';
 import { supabaseBrowser } from '@/lib/supabase/client';
 import { cn } from '@/lib/utils';
 
@@ -19,7 +18,7 @@ export function CountBadge({ count, className }: { count: number; className?: st
         className,
       )}
     >
-      <span aria-hidden>{count > 99 ? '99+' : count}</span>
+      <span aria-hidden>{unreadLabel(count)}</span>
       <span className="sr-only">{count} unread</span>
     </span>
   );
@@ -235,22 +234,27 @@ export function MediaThumb({
 
 /** Characters, the per-text limit and how many texts it becomes (carrier math from core). */
 export function SegmentCounter({ text, photos = 0 }: { text: string; photos?: number }) {
-  let label: string;
-  if (photos > 0) label = `${photos === 1 ? '1 photo' : `${photos} photos`} · 1 picture message`;
-  else if (!text) label = '160 characters per text';
-  else {
-    const s = smsSegments(text);
-    const single = s.encoding === 'gsm7' ? 160 : 70;
-    const parts = Math.max(1, s.segments);
-    const limit = parts === 1 ? single : parts * s.perSegment;
-    label = `${s.units} / ${limit} · ${parts} ${parts === 1 ? 'text' : 'texts'}`;
-  }
   return (
     <span
       className="whitespace-nowrap px-1.5 text-xs tabular-nums text-text-3"
       data-testid="segment-counter"
     >
-      {label}
+      {segmentCounterLabel(text, photos)}
     </span>
+  );
+}
+
+/** A sentence from core's words, with its bold parts in <strong>. */
+export function Words({ parts }: { parts: readonly WordPart[] }) {
+  return (
+    <>
+      {parts.map((p, i) =>
+        typeof p === 'string' ? (
+          <Fragment key={i}>{p}</Fragment>
+        ) : (
+          <strong key={i}>{p.strong}</strong>
+        ),
+      )}
+    </>
   );
 }

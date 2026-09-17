@@ -1,5 +1,27 @@
 'use client';
-import { formatClock } from '@hfos/core';
+import {
+  assigneeShort,
+  closedBanner,
+  CONVERSATION_ACTIONS,
+  CONVERSATION_DONE,
+  customerFirstName,
+  customerSinceLine,
+  DRAFT_AFTER,
+  handlingView,
+  handoverNote,
+  memberLabel,
+  NO_NUMBER_WORDS,
+  notCustomerBanner,
+  quietStrip,
+  rowName,
+  SENT_WORDS,
+  snoozedBanner,
+  snoozeOptions,
+  threadChannelLine,
+  whoOf,
+  zonedClock,
+  zonedWhen,
+} from '@hfos/core';
 import {
   AlarmClock,
   ArrowLeft,
@@ -53,7 +75,6 @@ import type {
 import { dropDraft, useComposerDraft } from '@/lib/assistant/drafts';
 import { useCalls } from '@/lib/calls/call-provider';
 import { formatMoney } from '@/lib/format';
-import { snoozeOptions, zonedWhen } from '@/lib/inbox';
 import { useLiveRefresh } from '@/lib/realtime/live-provider';
 import { useMediaQuery } from '@/lib/use-media';
 import { SiteTag, WebsiteIcon } from './ai-bits';
@@ -61,14 +82,12 @@ import {
   ChatVisitorStrip,
   HandBackDialog,
   HandlingBanner,
-  handlingView,
   TeammateContext,
   useHandlingActions,
 } from './ai-handling';
-import { ChannelIcon, ContactAvatar, QuietStrip } from './bits';
+import { ChannelIcon, ContactAvatar, QuietStrip, Words } from './bits';
 import { Composer, type ComposerTarget } from './composer';
 import { ContextPanel } from './context-panel';
-import { firstName } from './conversation-row';
 import {
   DraftCard,
   PhoneDraftBar,
@@ -150,13 +169,9 @@ export function ConversationView({
   const c = data.conversation;
   const person = data.person;
   const chat = c.channel === 'chat';
-  const first = person
-    ? firstName(person.fullName)
-    : chat && data.chat?.name
-      ? firstName(data.chat.name)
-      : null;
-  const who = first ?? (chat ? 'this visitor' : 'this number');
-  const name = person?.fullName ?? c.counterpartDisplay;
+  const first = customerFirstName(person, chat ? data.chat?.name : null);
+  const who = whoOf(first, c.channel);
+  const name = rowName({ person, counterpartDisplay: c.counterpartDisplay });
   const listHref = `/app/w/${workspaceId}/inbox${listQuery}`;
   const customerHref = person ? `/app/w/${workspaceId}/customers/people/${person.id}` : null;
   const canManage = role === 'owner' || role === 'admin';
@@ -256,27 +271,12 @@ export function ConversationView({
     void actions.markRead();
   }, [c.id, c.unreadCount, c.lastMessageAt, patchRow, actions]);
 
-  const assigneeName = c.assignee
-    ? c.assignee.id === myUserId
-      ? 'You'
-      : firstName(c.assignee.fullName)
-    : null;
+  const assigneeName = assigneeShort(c.assignee, myUserId);
   const assign = (userId: string | null, fullName?: string) =>
-    actions.assign(
-      userId,
-      userId === null
-        ? 'Unassigned'
-        : userId === myUserId
-          ? 'Assigned to you'
-          : `Assigned to ${firstName(fullName ?? '')}`,
-    );
-  const close = () => actions.close(`Closed. A new message from ${who} opens it again.`);
+    actions.assign(userId, CONVERSATION_DONE.assigned(userId, myUserId, fullName));
+  const close = () => actions.close(CONVERSATION_DONE.closed(who));
   const tomorrow = snoozeOptions(timezone).find((o) => o.key === 'tomorrow')!;
-  const tomorrowTime = new Intl.DateTimeFormat('en-US', {
-    timeZone: timezone,
-    hour: 'numeric',
-    minute: '2-digit',
-  }).format(tomorrow.until);
+  const tomorrowTime = zonedClock(tomorrow.until, timezone);
 
   async function copyCounterpart() {
     const value = email ? c.counterpart : c.counterpartDisplay;
@@ -293,7 +293,7 @@ export function ConversationView({
       unwrap(
         await apiBrowser().POST('/v1/commands/message.retry', { body: { workspaceId, messageId } }),
       );
-      toast.success('Sending it again');
+      toast.success(CONVERSATION_DONE.retrying);
       t.refresh();
     } catch (e) {
       toast.error(errorMessage(e));
@@ -309,7 +309,7 @@ export function ConversationView({
         }),
       );
       t.forget(messageId);
-      toast.success('Cancelled. That text won’t go.');
+      toast.success(CONVERSATION_DONE.heldCancelled);
     } catch (e) {
       toast.error(errorMessage(e));
       t.refresh();
@@ -337,7 +337,7 @@ export function ConversationView({
           body: { workspaceId, conversationId: c.id, personId },
         }),
       );
-      toast.success('Added to Customers and linked');
+      toast.success(CONVERSATION_DONE.linked);
       after();
     } catch (e) {
       toast.error(errorMessage(e));
@@ -378,14 +378,7 @@ export function ConversationView({
     fromNumber: data.fromNumber,
     businessName,
     // A person's message takes the conversation from the teammate (the phone's draft bar says so itself).
-    handoverNote:
-      phone && waiting
-        ? null
-        : view === 'ai'
-          ? `Sending takes this conversation over from ${aiName}. It stays quiet until someone hands it back.`
-          : view === 'needs_person'
-            ? `Replying takes it. ${aiName} stays quiet until someone hands it back.`
-            : null,
+    handoverNote: phone && waiting ? null : handoverNote(view, aiName),
     chatBlocked: data.chat?.blocked ?? false,
   };
   const composer = (
@@ -400,8 +393,7 @@ export function ConversationView({
       initialText={handedDraft?.text}
       initialSubject={handedDraft?.subject}
       onSent={(out) => {
-        if (!out.crossChannel && c.status !== 'open')
-          toast.success('Sent. The conversation is open again.');
+        if (!out.crossChannel && c.status !== 'open') toast.success(SENT_WORDS.reopened);
         if (handedDraft) {
           handedDraft.onSent?.();
           dropDraft(c.id);
@@ -436,9 +428,7 @@ export function ConversationView({
     />
   );
   const bannerClass = 'mx-3 mt-2.5 items-center md:mx-5 md:mt-3';
-  const channelLine = chat
-    ? `Website chat${data.chat?.pagePath ? ` · ${data.chat.onSiteNow ? 'on' : 'was on'} ${data.chat.pagePath}` : data.chat?.site ? ` · ${data.chat.site}` : ''}`
-    : null;
+  const notCustomer = notCustomerBanner(c.counterpartDisplay, c.channel);
   // Handing a conversation to the teammate: back from a person, or one nobody is handling yet.
   const canHandToAi =
     !!tm && tm.status !== 'off' && view !== 'ai' && view !== 'needs_person' && view !== 'person';
@@ -473,12 +463,11 @@ export function ConversationView({
         retry?.id === latest.id ? (
           now - retry.at < RETRY_FOR_MS ? (
             <TeammateLine icon={Loader2} testId="draft-retrying">
-              {latest.teammate.name} is writing a new draft…
+              {DRAFT_AFTER.retrying(latest.teammate.name)}
             </TeammateLine>
           ) : (
             <TeammateLine testId="draft-retry-later">
-              No new draft yet. {latest.teammate.name} answers {first ?? 'their'}
-              {first ? '’s' : ''} next message.
+              {DRAFT_AFTER.retryLater(latest.teammate.name, first)}
             </TeammateLine>
           )
         ) : (
@@ -499,9 +488,10 @@ export function ConversationView({
     else if (latest.status === 'expired' && since(latest.decidedAt))
       tail = (
         <TeammateLine testId="draft-expired">
-          {latest.teammate.name}’s draft expired
-          {latest.decidedAt ? ` at ${zonedWhen(new Date(latest.decidedAt), timezone)}` : ''} before
-          anyone approved it, so this went to a person.
+          {DRAFT_AFTER.expired(
+            latest.teammate.name,
+            latest.decidedAt ? zonedWhen(new Date(latest.decidedAt), timezone) : null,
+          )}
         </TeammateLine>
       );
     else if (
@@ -511,8 +501,7 @@ export function ConversationView({
     )
       tail = (
         <TeammateLine testId="draft-dropped">
-          {first ?? 'They'} wrote again, so {latest.teammate.name} dropped its draft and answers the
-          new message instead.
+          {DRAFT_AFTER.dropped(latest.teammate.name, first)}
         </TeammateLine>
       );
   }
@@ -530,13 +519,7 @@ export function ConversationView({
             <div className="flex items-center gap-1.5 truncate text-xs text-text-3">
               {chat ? <WebsiteIcon className="h-3 w-3" /> : null}
               <span className="truncate" data-testid="thread-channel">
-                {chat
-                  ? channelLine
-                  : email
-                    ? `${c.counterpart} · Email`
-                    : person
-                      ? `${person.phone ?? c.counterpartDisplay} · Texts`
-                      : 'Texts · not in Customers yet'}
+                {threadChannelLine(c, person, { chat: data.chat })}
               </span>
             </div>
           </div>
@@ -562,12 +545,12 @@ export function ConversationView({
                 ) : (
                   <UserPlus className="h-3.5 w-3.5" strokeWidth={1.5} />
                 )}
-                {assigneeName ?? 'Assign'}
+                {assigneeName ?? CONVERSATION_ACTIONS.assign}
                 <ChevronDown className="h-3.5 w-3.5" strokeWidth={1.5} />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent className="min-w-[220px]">
-              <DropdownMenuLabel>Assign to</DropdownMenuLabel>
+              <DropdownMenuLabel>{CONVERSATION_ACTIONS.assignTo}</DropdownMenuLabel>
               {members.map((m) => (
                 <DropdownMenuItem
                   key={m.id}
@@ -575,9 +558,7 @@ export function ConversationView({
                   data-testid={`assign-to-${m.id}`}
                 >
                   <Avatar name={m.fullName} seed={m.id} size="sm" />
-                  <span className="flex-1 truncate">
-                    {m.id === myUserId ? `${m.fullName} (you)` : m.fullName}
-                  </span>
+                  <span className="flex-1 truncate">{memberLabel(m, myUserId)}</span>
                   {c.assignee?.id === m.id ? (
                     <Check className="h-3.5 w-3.5 text-accent-text" strokeWidth={2} />
                   ) : null}
@@ -586,7 +567,7 @@ export function ConversationView({
               <DropdownMenuSeparator className="my-1.5" />
               <DropdownMenuItem onSelect={() => void assign(null)} data-testid="assign-nobody">
                 <X className="h-3.5 w-3.5" strokeWidth={1.5} />
-                Nobody
+                {CONVERSATION_ACTIONS.nobody}
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -596,14 +577,16 @@ export function ConversationView({
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" size="sm" data-testid="snooze-menu">
                     <AlarmClock className="h-3.5 w-3.5" strokeWidth={1.5} />
-                    Snooze
+                    {CONVERSATION_ACTIONS.snooze}
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent className="min-w-[250px]">
                   {snoozeOptions(timezone).map((o) => (
                     <DropdownMenuItem
                       key={o.key}
-                      onSelect={() => void actions.snooze(o.until, `Snoozed until ${o.when}`)}
+                      onSelect={() =>
+                        void actions.snooze(o.until, CONVERSATION_DONE.snoozed(o.when))
+                      }
                       data-testid={`snooze-${o.key}`}
                     >
                       <span className="flex-1">{o.label}</span>
@@ -619,7 +602,7 @@ export function ConversationView({
                 data-testid="close-conversation"
               >
                 <CircleCheck className="h-3.5 w-3.5" strokeWidth={1.5} />
-                Close
+                {CONVERSATION_ACTIONS.close}
               </Button>
             </>
           ) : (
@@ -630,15 +613,15 @@ export function ConversationView({
               data-testid="reopen-conversation"
             >
               <Undo2 className="h-3.5 w-3.5" strokeWidth={1.5} />
-              Reopen
+              {CONVERSATION_ACTIONS.reopen}
             </Button>
           )}
           <Button
             variant="ghost"
             size="icon"
             className={assistantDocked ? undefined : 'min-[1440px]:hidden'}
-            title="Customer details"
-            aria-label="Customer details"
+            title={CONVERSATION_ACTIONS.customerDetails}
+            aria-label={CONVERSATION_ACTIONS.customerDetails}
             onClick={() => setContextSheet(true)}
           >
             <Info className="h-[18px] w-[18px]" strokeWidth={1.5} />
@@ -656,24 +639,24 @@ export function ConversationView({
                   data-testid="thread-call"
                 >
                   <Phone className="h-3.5 w-3.5" strokeWidth={1.5} />
-                  Call
+                  {CONVERSATION_ACTIONS.call}
                 </DropdownMenuItem>
               ) : null}
               {customerHref ? (
                 <DropdownMenuItem onSelect={() => router.push(customerHref)}>
                   <UserRound className="h-3.5 w-3.5" strokeWidth={1.5} />
-                  Open customer
+                  {CONVERSATION_ACTIONS.openCustomer}
                 </DropdownMenuItem>
               ) : (
                 <DropdownMenuItem onSelect={() => setAddPerson(true)}>
                   <UserPlus className="h-3.5 w-3.5" strokeWidth={1.5} />
-                  Add as a new person
+                  {CONVERSATION_ACTIONS.addPerson}
                 </DropdownMenuItem>
               )}
               {canHandToAi ? (
                 <DropdownMenuItem onSelect={() => setHandBackOpen(true)} data-testid="hand-to-ai">
                   <Sparkles className="h-3.5 w-3.5" strokeWidth={1.5} />
-                  Hand to {aiName}
+                  {CONVERSATION_ACTIONS.handTo(aiName)}
                 </DropdownMenuItem>
               ) : null}
               <DropdownMenuItem
@@ -681,12 +664,12 @@ export function ConversationView({
                 data-testid="mark-unread"
               >
                 <Mail className="h-3.5 w-3.5" strokeWidth={1.5} />
-                Mark as unread
+                {CONVERSATION_ACTIONS.markUnread}
               </DropdownMenuItem>
               {chat ? null : (
                 <DropdownMenuItem onSelect={() => void copyCounterpart()} data-testid="thread-copy">
                   <Copy className="h-3.5 w-3.5" strokeWidth={1.5} />
-                  {email ? 'Copy email address' : 'Copy phone number'}
+                  {email ? CONVERSATION_ACTIONS.copyEmail : CONVERSATION_ACTIONS.copyPhone}
                 </DropdownMenuItem>
               )}
             </DropdownMenuContent>
@@ -697,8 +680,8 @@ export function ConversationView({
         <header className="flex h-14 flex-none items-center gap-1 border-b border-border bg-card px-1 md:hidden">
           <Link
             href={listHref}
-            aria-label="Back to the inbox"
-            title="Back to the inbox"
+            aria-label={CONVERSATION_ACTIONS.back}
+            title={CONVERSATION_ACTIONS.back}
             className="flex h-11 w-11 flex-none items-center justify-center rounded-full text-text-2"
           >
             <ArrowLeft className="h-[18px] w-[18px]" strokeWidth={1.5} />
@@ -707,13 +690,7 @@ export function ConversationView({
           <div className="ml-1.5 min-w-0 flex-1">
             <div className="truncate text-[15px] font-semibold">{name}</div>
             <div className="truncate text-xs text-text-3">
-              {chat
-                ? channelLine
-                : email
-                  ? `${c.counterpart} · Email`
-                  : person
-                    ? `${person.phone ?? c.counterpartDisplay} · Texts`
-                    : 'Texts'}
+              {threadChannelLine(c, person, { chat: data.chat, short: true })}
             </div>
           </div>
           {onHome ? (
@@ -727,8 +704,8 @@ export function ConversationView({
           {canCall ? (
             <button
               type="button"
-              aria-label="Call"
-              title="Call"
+              aria-label={CONVERSATION_ACTIONS.call}
+              title={CONVERSATION_ACTIONS.call}
               data-testid="thread-call-phone"
               onClick={() => calls.openDialer(callTarget)}
               className="flex h-11 w-11 flex-none items-center justify-center rounded-full text-text-2"
@@ -738,8 +715,8 @@ export function ConversationView({
           ) : null}
           <button
             type="button"
-            aria-label="Details and actions"
-            title="Details and actions"
+            aria-label={CONVERSATION_ACTIONS.details}
+            title={CONVERSATION_ACTIONS.details}
             data-testid="thread-details"
             onClick={() => setDetails(true)}
             className="flex h-11 w-11 flex-none items-center justify-center rounded-full text-text-2"
@@ -761,15 +738,14 @@ export function ConversationView({
                 onClick={() => setAddPerson(true)}
                 data-testid="banner-add-person"
               >
-                Add person
+                {notCustomer.action}
               </Button>
             }
           >
             <span className="hidden md:inline">
-              <strong>{c.counterpartDisplay} isn’t a customer yet.</strong> Add them, or link the{' '}
-              {chat ? 'chat' : 'number'} to someone you already have.
+              <Words parts={notCustomer.parts} />
             </span>
-            <span className="md:hidden">Not in Customers yet.</span>
+            <span className="md:hidden">{notCustomer.short}</span>
           </Callout>
         )}
         <HandlingBanner
@@ -801,12 +777,11 @@ export function ConversationView({
             data-testid="snoozed-banner"
             action={
               <Button variant="secondary" size="sm" onClick={() => void actions.reopen()}>
-                Unsnooze
+                {snoozedBanner(c.snoozedUntil, who, timezone).action}
               </Button>
             }
           >
-            Snoozed until <strong>{zonedWhen(new Date(c.snoozedUntil), timezone)}</strong>. It comes
-            back sooner if {who} writes again.
+            <Words parts={snoozedBanner(c.snoozedUntil, who, timezone).parts} />
           </Callout>
         ) : null}
         {c.status === 'closed' ? (
@@ -817,17 +792,15 @@ export function ConversationView({
             data-testid="closed-banner"
             action={
               <Button variant="secondary" size="sm" onClick={() => void actions.reopen()}>
-                Reopen
+                {closedBanner(who).action}
               </Button>
             }
           >
-            Closed. A new message from {who} opens it again.
+            {closedBanner(who).text}
           </Callout>
         ) : null}
         {phone && data.quiet.quiet && data.canText.ok ? (
-          <QuietStrip className="mx-3 mt-2.5">
-            Quiet hours{data.quiet.endsAt ? ` until ${formatClock(data.quiet.endsAt)}` : ' are on'}
-          </QuietStrip>
+          <QuietStrip className="mx-3 mt-2.5">{quietStrip(data.quiet)}</QuietStrip>
         ) : null}
 
         {data.canText.reason === 'no_number' ? (
@@ -836,10 +809,8 @@ export function ConversationView({
             data-testid="no-number"
           >
             <ChannelIcon icon={Phone} size={44} />
-            <h3 className="text-[15px] font-semibold">Text customers from HandsFreeOS</h3>
-            <p className="max-w-[360px] text-[13px] text-text-2">
-              Get a business number first. It takes about two minutes, and calls work right away.
-            </p>
+            <h3 className="text-[15px] font-semibold">{NO_NUMBER_WORDS.title}</h3>
+            <p className="max-w-[360px] text-[13px] text-text-2">{NO_NUMBER_WORDS.body}</p>
             {canManage ? (
               <ButtonLink
                 href={`/app/w/${workspaceId}/settings/texting`}
@@ -847,10 +818,10 @@ export function ConversationView({
                 size="sm"
                 className="mt-1"
               >
-                Set up texting
+                {NO_NUMBER_WORDS.setUp}
               </ButtonLink>
             ) : (
-              <p className="text-xs text-text-3">Ask an owner or admin to set up texting.</p>
+              <p className="text-xs text-text-3">{NO_NUMBER_WORDS.askAdmin}</p>
             )}
           </div>
         ) : (
@@ -887,20 +858,16 @@ export function ConversationView({
       </aside>
 
       <Sheet open={contextSheet} onOpenChange={setContextSheet}>
-        <SheetContent title="Customer details">{context}</SheetContent>
+        <SheetContent title={CONVERSATION_ACTIONS.customerDetails}>{context}</SheetContent>
       </Sheet>
 
       <Sheet open={details} onOpenChange={setDetails}>
-        <SheetContent title="Details and actions" hideHeader>
+        <SheetContent title={CONVERSATION_ACTIONS.details} hideHeader>
           <div className="flex items-center gap-3">
             <ContactAvatar person={person} size="panel" />
             <div className="min-w-0">
               <h2 className="truncate text-lg font-semibold tracking-tight">{name}</h2>
-              <div className="text-[13px] text-text-3">
-                {person
-                  ? `${email ? c.counterpart : (person.phone ?? c.counterpartDisplay)} · Customer since ${new Date(person.customerSince).getFullYear()}`
-                  : 'Not in Customers yet'}
-              </div>
+              <div className="text-[13px] text-text-3">{customerSinceLine(person, c)}</div>
             </div>
           </div>
           {c.openLead ? (
@@ -922,12 +889,12 @@ export function ConversationView({
                   calls.openDialer(callTarget);
                 }}
               >
-                Call
+                {CONVERSATION_ACTIONS.call}
               </SheetAction>
             ) : null}
             {customerHref ? (
               <SheetAction icon={UserRound} onClick={() => router.push(customerHref)}>
-                Open customer
+                {CONVERSATION_ACTIONS.openCustomer}
               </SheetAction>
             ) : (
               <SheetAction
@@ -937,19 +904,19 @@ export function ConversationView({
                   setAddPerson(true);
                 }}
               >
-                Add as a new person
+                {CONVERSATION_ACTIONS.addPerson}
               </SheetAction>
             )}
             <SheetAction
               icon={Users}
-              detail={assigneeName ?? 'Nobody'}
+              detail={assigneeName ?? CONVERSATION_ACTIONS.nobody}
               testId="sheet-assign"
               onClick={() => {
                 setDetails(false);
                 setAssignSheet(true);
               }}
             >
-              Assign
+              {CONVERSATION_ACTIONS.assign}
             </SheetAction>
             {canHandToAi ? (
               <SheetAction
@@ -960,7 +927,7 @@ export function ConversationView({
                   setHandBackOpen(true);
                 }}
               >
-                Hand to {aiName}
+                {CONVERSATION_ACTIONS.handTo(aiName)}
               </SheetAction>
             ) : null}
             {c.status === 'open' ? (
@@ -971,22 +938,22 @@ export function ConversationView({
                   testId="sheet-snooze"
                   onClick={() =>
                     void actions
-                      .snooze(tomorrow.until, `Snoozed until tomorrow ${tomorrowTime}`)
+                      .snooze(tomorrow.until, CONVERSATION_DONE.snoozedTomorrow(tomorrowTime))
                       .then((ok) => ok && router.push(listHref))
                   }
                 >
-                  Snooze
+                  {CONVERSATION_ACTIONS.snooze}
                 </SheetAction>
                 <SheetAction
                   icon={CircleCheck}
                   testId="sheet-close"
                   onClick={() =>
                     void actions
-                      .close('Closed. A new message opens it again.')
+                      .close(CONVERSATION_DONE.closedShort)
                       .then((ok) => ok && router.push(listHref))
                   }
                 >
-                  Close conversation
+                  {CONVERSATION_ACTIONS.closeConversation}
                 </SheetAction>
               </>
             ) : (
@@ -997,7 +964,7 @@ export function ConversationView({
                   void actions.reopen();
                 }}
               >
-                Reopen
+                {CONVERSATION_ACTIONS.reopen}
               </SheetAction>
             )}
           </div>
@@ -1005,8 +972,8 @@ export function ConversationView({
       </Sheet>
 
       <Sheet open={assignSheet} onOpenChange={setAssignSheet}>
-        <SheetContent title="Assign to" hideHeader>
-          <h3 className="mb-2 text-[15px] font-semibold">Assign to</h3>
+        <SheetContent title={CONVERSATION_ACTIONS.assignTo} hideHeader>
+          <h3 className="mb-2 text-[15px] font-semibold">{CONVERSATION_ACTIONS.assignTo}</h3>
           {members.map((m) => (
             <button
               key={m.id}
@@ -1018,9 +985,7 @@ export function ConversationView({
               className="flex min-h-11 w-full items-center gap-2.5 rounded-[6px] px-2.5 text-left text-sm hover:bg-card-2"
             >
               <Avatar name={m.fullName} seed={m.id} size="sm" />
-              <span className="flex-1 truncate">
-                {m.id === myUserId ? `${m.fullName} (you)` : m.fullName}
-              </span>
+              <span className="flex-1 truncate">{memberLabel(m, myUserId)}</span>
               {c.assignee?.id === m.id ? (
                 <Check className="h-[18px] w-[18px] text-accent-text" strokeWidth={2} />
               ) : null}
@@ -1035,7 +1000,7 @@ export function ConversationView({
             className="flex min-h-11 w-full items-center gap-2.5 rounded-[6px] px-2.5 text-left text-sm hover:bg-card-2"
           >
             <X className="h-[18px] w-[18px]" strokeWidth={1.5} />
-            Nobody
+            {CONVERSATION_ACTIONS.nobody}
           </button>
         </SheetContent>
       </Sheet>

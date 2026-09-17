@@ -1,4 +1,12 @@
 'use client';
+import {
+  boxLabel,
+  CONVERSATION_STATUSES,
+  INBOX_BOXES,
+  inboxEmptyWords,
+  STATUS_LABELS,
+  type InboxBoxKey,
+} from '@hfos/core';
 import { Search, SquarePen } from 'lucide-react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import {
@@ -14,7 +22,6 @@ import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Input, Select } from '@/components/ui/input';
 import { Segmented } from '@/components/ui/segmented';
-import { INBOX_BOXES, type InboxBoxKey } from '@/lib/ai-team/inbox-types';
 import {
   useConversationsWithDrafts,
   useTeammateBrief,
@@ -51,34 +58,6 @@ export function useInbox(): InboxContextValue {
   return value;
 }
 
-const STATUSES: readonly ConversationStatus[] = ['open', 'snoozed', 'closed'];
-
-function emptyCopy(box: InboxBoxKey, status: ConversationStatus, q: string, name: string) {
-  if (q)
-    return {
-      title: `Nothing matches “${q}”`,
-      body: 'Try a name, a number or words from a message.',
-    };
-  if (box === 'needs_person')
-    return {
-      title: 'Nobody is waiting for a person',
-      body: `Conversations ${name} hands to a person land here. They leave the box once someone replies.`,
-    };
-  if (box === 'ai')
-    return {
-      title: `${name} isn’t handling anything right now`,
-      body: `Conversations ${name} answers show here, until someone takes one over.`,
-    };
-  if (status === 'snoozed')
-    return { title: 'Nothing snoozed', body: 'Conversations you snooze or close show up here.' };
-  if (status === 'closed')
-    return { title: 'Nothing closed yet', body: 'Conversations you snooze or close show up here.' };
-  return {
-    title: box === 'mine' ? 'Nothing waiting on you' : 'All caught up',
-    body: 'New texts, calls and emails land here as they arrive.',
-  };
-}
-
 /**
  * The inbox frame: the conversation list on the left (the whole screen on a phone) and the open conversation
  * beside it. Filters live in the URL so they survive moving between conversations and reloads.
@@ -110,7 +89,9 @@ export function InboxShell({
   const box: InboxBoxKey = (INBOX_BOXES as readonly string[]).includes(boxParam)
     ? (boxParam as InboxBoxKey)
     : 'all';
-  const status: ConversationStatus = (STATUSES as readonly string[]).includes(statusParam)
+  const status: ConversationStatus = (CONVERSATION_STATUSES as readonly string[]).includes(
+    statusParam,
+  )
     ? (statusParam as ConversationStatus)
     : 'open';
   const q = params.get('q') ?? '';
@@ -183,7 +164,7 @@ export function InboxShell({
     }),
     [workspaceId, myUserId, role, members, timezone, list.reload, list.patch, listQuery, teammate],
   );
-  const empty = emptyCopy(box, status, q, teammate?.name ?? 'The AI teammate');
+  const empty = inboxEmptyWords(box, status, q, teammate?.name ?? 'The AI teammate');
 
   return (
     <InboxContext.Provider value={value}>
@@ -218,13 +199,13 @@ export function InboxShell({
               value={box}
               onChange={(v) => setFilter({ box: v === 'all' ? null : v })}
               options={[
-                { value: 'mine', label: `Mine · ${counts.mine}`, testId: 'box-mine' },
+                { value: 'mine', label: boxLabel('mine', counts.mine), testId: 'box-mine' },
                 {
                   value: 'unassigned',
-                  label: `Unassigned · ${counts.unassigned}`,
+                  label: boxLabel('unassigned', counts.unassigned),
                   testId: 'box-unassigned',
                 },
-                { value: 'all', label: `All · ${counts.all}`, testId: 'box-all' },
+                { value: 'all', label: boxLabel('all', counts.all), testId: 'box-all' },
               ]}
             />
             {showBoxes ? (
@@ -262,9 +243,11 @@ export function InboxShell({
                   setFilter({ status: e.target.value === 'open' ? null : e.target.value })
                 }
               >
-                <option value="open">Open</option>
-                <option value="snoozed">Snoozed</option>
-                <option value="closed">Closed</option>
+                {CONVERSATION_STATUSES.map((s) => (
+                  <option key={s} value={s}>
+                    {STATUS_LABELS[s]}
+                  </option>
+                ))}
               </Select>
             </div>
             {q ? (

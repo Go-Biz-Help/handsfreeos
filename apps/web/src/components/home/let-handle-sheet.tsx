@@ -1,5 +1,20 @@
 'use client';
-import { clockLabel } from '@hfos/core';
+import {
+  ATTENTION_WORDS,
+  clockLabel,
+  handToAiBullets,
+  handToAiStays,
+  letHandleAskButton,
+  letHandleAutoButton,
+  letHandleAutoToast,
+  letHandleFootnote,
+  letHandleNoneFallback,
+  letHandleReplyBy,
+  letHandleStops,
+  letHandleSubOf,
+  letHandleTitleOf,
+  letHandleTo,
+} from '@hfos/core';
 import {
   CalendarPlus,
   Check,
@@ -34,7 +49,7 @@ import { cn } from '@/lib/utils';
 import { handleLook } from './attention-actions';
 import { KindTile, ModeChip } from './attention-bits';
 import { useAttentionEnv } from './attention-context';
-import { chipsOf, customerOf, firstNameOf, KIND_LABEL, splitTitle } from './attention-words';
+import { customerOf, firstNameOf } from './attention-words';
 import { attentionCommands } from './use-attention';
 
 type Ask = AttentionAskOption['action'];
@@ -106,7 +121,7 @@ function Goes({ at, onCancel, busy }: { at: string; onCancel: () => void; busy: 
     >
       <Zap className="h-4 w-4 flex-none" strokeWidth={1.75} />
       <span className="flex-1">
-        <b className="font-semibold">Goes out at {at}</b> ·{' '}
+        <b className="font-semibold">{ATTENTION_WORDS.goesOutAt(at)}</b> ·{' '}
         <button
           type="button"
           disabled={busy}
@@ -114,7 +129,7 @@ function Goes({ at, onCancel, busy }: { at: string; onCancel: () => void; busy: 
           className="font-semibold underline disabled:opacity-50"
           data-testid="let-handle-cancel"
         >
-          Cancel
+          {ATTENTION_WORDS.cancel}
         </button>
       </span>
     </div>
@@ -180,43 +195,20 @@ export function LetHandleSheet({
   const cmd = attentionCommands(env.workspaceId);
   const name = customerOf(item) ?? item.title;
   const first = firstNameOf(name);
-  const ai = env.teammateName ?? 'your AI teammate';
   const mode = preview?.mode ?? item.letHandleMode;
   const plan = preview?.auto ?? null;
   const option = preview?.options.find((o) => o.action === choice) ?? null;
   const confirm = (plan?.action ?? item.auto.action) === 'confirm_request';
-  /** A money card: its one choice is the follow-up about the document, already written. */
-  const money = item.kind === 'estimate_waiting' || item.kind === 'invoice_overdue';
   const clock = (iso: string) => clockLabel(Date.parse(iso), env.timeZone);
 
-  const title =
-    mode === 'auto'
-      ? confirm
-        ? `Ask ${name} to confirm`
-        : `Follow up with ${name}`
-      : mode === 'ask'
-        ? choice === 'hand_to_ai'
-          ? `Hand ${name} to ${ai}?`
-          : choice === 'reply'
-            ? money
-              ? `Follow up with ${name}`
-              : `Reply to ${name}`
-            : choice === 'set_next_action'
-              ? `Set a next action for ${name}`
-              : name
-        : `${KIND_LABEL[item.kind]}: ${name}`;
-  const sub = [
-    splitTitle(item.title).rest,
-    ...chipsOf(item, env.now, env.timeZone)
-      .slice(0, 2)
-      .map((c) =>
-        c.tone === 'money' || c.tone === 'est'
-          ? c.text
-          : c.text.charAt(0).toLowerCase() + c.text.slice(1),
-      ),
-  ]
-    .filter(Boolean)
-    .join(' · ');
+  const title = letHandleTitleOf({
+    item,
+    mode,
+    choice,
+    confirm,
+    teammateName: env.teammateName,
+  });
+  const sub = letHandleSubOf(item, env.now, env.timeZone);
 
   async function run(fn: () => Promise<void>) {
     setBusy(true);
@@ -233,13 +225,8 @@ export function LetHandleSheet({
       const out = await cmd.letHandle({ itemId: item.id });
       const at = out.scheduledFor ?? plan?.sendAt ?? null;
       setScheduledFor(at);
-      const what = confirm
-        ? `${plan?.channel === 'email' ? 'email' : 'text'} ${first} to confirm`
-        : `follow up with ${first}`;
       toast.success(
-        at
-          ? `HandsFreeOS will ${what} at ${clock(at)}. You can cancel until then.`
-          : `HandsFreeOS will ${what}.`,
+        letHandleAutoToast({ confirm, channel: plan?.channel, first, at: at ? clock(at) : null }),
       );
       onDone('auto');
     });
@@ -247,7 +234,7 @@ export function LetHandleSheet({
     run(async () => {
       await cmd.cancelAuto(item.id);
       setScheduledFor(null);
-      toast(`Cancelled. ${first} won’t get ${confirm ? 'a confirmation request' : 'a follow-up'}.`);
+      toast(ATTENTION_WORDS.cancelledAutoToast(confirm, first));
       onDone('auto');
     });
   const runAsk = () =>
@@ -255,7 +242,7 @@ export function LetHandleSheet({
       if (!option?.available) return;
       setFormError(null);
       if (option.action === 'reply') {
-        if (!body.trim()) return setFormError('Write a message.');
+        if (!body.trim()) return setFormError(ATTENTION_WORDS.writeMessage);
         await cmd.letHandle({
           itemId: item.id,
           action: 'reply',
@@ -263,19 +250,19 @@ export function LetHandleSheet({
           ...(option.channel ? { channel: option.channel } : {}),
           ...(option.channel === 'email' && subject.trim() ? { subject: subject.trim() } : {}),
         });
-        toast.success(`Sent to ${first}.`);
+        toast.success(ATTENTION_WORDS.sentToast(first));
       } else if (option.action === 'set_next_action') {
-        if (!nextText.trim()) return setFormError('Say what to do next.');
+        if (!nextText.trim()) return setFormError(ATTENTION_WORDS.sayNext);
         await cmd.letHandle({
           itemId: item.id,
           action: 'set_next_action',
           text: nextText.trim(),
           dueAt: nextAt ? new Date(nextAt).toISOString() : null,
         });
-        toast.success('Next action set.');
+        toast.success(ATTENTION_WORDS.nextActionSetToast);
       } else {
         await cmd.letHandle({ itemId: item.id, action: 'hand_to_ai' });
-        toast.success(`Handed to ${ai}. ${ai} answers ${first} now.`);
+        toast.success(ATTENTION_WORDS.handedToast(env.teammateName, first));
       }
       onOpenChange(false);
       onDone('ask');
@@ -294,7 +281,7 @@ export function LetHandleSheet({
       </p>
     );
   } else if (!preview) {
-    content = <p className="text-[13px] text-text-3">Working out what HandsFreeOS would do…</p>;
+    content = <p className="text-[13px] text-text-3">{ATTENTION_WORDS.workingOut}</p>;
   } else if (mode === 'auto' && plan) {
     content = (
       <>
@@ -305,7 +292,7 @@ export function LetHandleSheet({
         {plan.text ? (
           <section className="flex flex-col gap-2">
             <div className="flex items-center gap-2">
-              <span className={cn(SECL, 'flex-1')}>What it sends</span>
+              <span className={cn(SECL, 'flex-1')}>{ATTENTION_WORDS.whatItSends}</span>
               {plan.to ? (
                 <span className="inline-flex min-w-0 items-center gap-1.5 text-xs text-text-3">
                   {plan.channel === 'email' ? (
@@ -313,9 +300,7 @@ export function LetHandleSheet({
                   ) : (
                     <MessageCircle className="h-3.5 w-3.5 flex-none" strokeWidth={1.5} />
                   )}
-                  <span className="truncate">
-                    {plan.channel === 'email' ? `Email to ${plan.to}` : `Text to ${plan.to}`}
-                  </span>
+                  <span className="truncate">{letHandleTo(plan.channel, plan.to)}</span>
                 </span>
               ) : null}
             </div>
@@ -324,18 +309,12 @@ export function LetHandleSheet({
             ) : (
               <TextPreview text={plan.text} />
             )}
-            <span className="text-xs text-text-3">
-              {confirm
-                ? plan.channel === 'email'
-                  ? 'Confirm is a button on their booking page, so email scanners can’t confirm by accident.'
-                  : 'A reply of C, or the Confirm button on their booking page, confirms it.'
-                : 'Your wording from Settings, Action Center. It never adds prices or links.'}
-            </span>
+            <span className="text-xs text-text-3">{letHandleFootnote(confirm, plan.channel)}</span>
           </section>
         ) : null}
         {plan.checks.length ? (
           <div className="flex flex-col gap-1.5">
-            <span className={SECL}>Checked just now</span>
+            <span className={SECL}>{ATTENTION_WORDS.checkedJustNow}</span>
             <ul className="flex flex-col gap-1.5" data-testid="let-handle-checks">
               {plan.checks.map((c) => (
                 <li key={c.code} className="flex items-start gap-2 text-[13px] text-text-2">
@@ -355,25 +334,21 @@ export function LetHandleSheet({
         ) : null}
         {scheduledFor ? <Goes at={clock(scheduledFor)} onCancel={cancelAuto} busy={busy} /> : null}
         {plan.blocked ? null : (
-          <span className="text-xs text-text-3">
-            It stops on its own if {first} writes first
-            {plan.channel === 'sms' ? ', or replies STOP' : ''}.
-          </span>
+          <span className="text-xs text-text-3">{letHandleStops(first, plan.channel)}</span>
         )}
       </>
     );
     const myself = confirm
       ? env.callsAvailable && item.personId
-        ? `Call ${first} instead`
+        ? ATTENTION_WORDS.callInstead(first)
         : null
-      : `${handleLook(item, env.callsAvailable).label} myself`;
+      : ATTENTION_WORDS.myself(handleLook(item, env.callsAvailable).label);
     footer = (
       <>
         {!plan.blocked && !scheduledFor ? (
           <Button size="sm" loading={busy} onClick={sendAuto} data-testid="let-handle-confirm">
             {busy ? null : <Zap className="h-4 w-4" strokeWidth={1.75} />}
-            {confirm ? 'Ask to confirm' : 'Follow up'}
-            {plan.sendAt ? ` at ${clock(plan.sendAt)}` : ''}
+            {letHandleAutoButton(confirm, plan.sendAt ? clock(plan.sendAt) : null)}
           </Button>
         ) : null}
         {myself ? (
@@ -389,14 +364,6 @@ export function LetHandleSheet({
     );
   } else if (mode === 'ask') {
     const options = preview.options;
-    const channelVerb =
-      option?.channel === 'email'
-        ? `Emails ${first} now`
-        : option?.channel === 'chat'
-          ? `Answers ${first} in the chat now`
-          : option?.channel === 'sms'
-            ? `Texts ${first} now`
-            : `Writes to ${first} now`;
     content = (
       <>
         {options.length > 1 && choice ? (
@@ -430,16 +397,14 @@ export function LetHandleSheet({
                 <Sparkles className="h-[15px] w-[15px]" strokeWidth={1.75} />
               </span>
               <span className="flex flex-col">
-                <span className="text-[13px] font-medium">{ai} (AI) will</span>
-                <span className="text-xs text-text-3">As it’s set up in AI teammate</span>
+                <span className="text-[13px] font-medium">
+                  {ATTENTION_WORDS.aiWill(env.teammateName)}
+                </span>
+                <span className="text-xs text-text-3">{ATTENTION_WORDS.asSetUp}</span>
               </span>
             </div>
             <ul className="flex flex-col gap-2 pl-1">
-              {[
-                `${channelVerb} and answers their questions from your Knowledge`,
-                'Offers times on your calendar if they want a visit',
-                'Hands them to a person if they ask for one, or if it can’t help',
-              ].map((b) => (
+              {handToAiBullets(option.channel, first).map((b) => (
                 <li key={b} className="flex items-start gap-2 text-[13px]">
                   <ChevronRight
                     className="mt-0.5 h-4 w-4 flex-none text-text-3"
@@ -449,23 +414,13 @@ export function LetHandleSheet({
                 </li>
               ))}
             </ul>
-            <InfoRow>
-              {first} stays{' '}
-              {item.assignee ? `with ${firstNameOf(item.assignee.fullName)}` : 'unassigned'}. If
-              they need a person, {ai} hands them over, like any hand-off.
-            </InfoRow>
+            <InfoRow>{handToAiStays(first, item.assignee, env.teammateName)}</InfoRow>
           </>
         ) : option?.action === 'reply' ? (
           <div className="flex flex-col gap-2.5">
-            <span className="text-xs text-text-3">
-              {option.channel === 'email'
-                ? 'By email'
-                : option.channel === 'chat'
-                  ? 'In the website chat'
-                  : 'By text'}
-            </span>
+            <span className="text-xs text-text-3">{letHandleReplyBy(option.channel)}</span>
             {option.channel === 'email' ? (
-              <Field label="Subject" htmlFor="lh-subject">
+              <Field label={ATTENTION_WORDS.subject} htmlFor="lh-subject">
                 <Input
                   id="lh-subject"
                   value={subject}
@@ -473,21 +428,21 @@ export function LetHandleSheet({
                 />
               </Field>
             ) : null}
-            <Field label="Message" htmlFor="lh-body" error={formError}>
+            <Field label={ATTENTION_WORDS.message} htmlFor="lh-body" error={formError}>
               <Textarea
                 id="lh-body"
                 value={body}
                 rows={4}
                 autoFocus
                 invalid={!!formError}
-                placeholder={`Hi ${first}, …`}
+                placeholder={ATTENTION_WORDS.replyPlaceholder(first)}
                 onChange={(e) => setBody(e.target.value)}
               />
             </Field>
           </div>
         ) : option?.action === 'set_next_action' ? (
           <div className="flex flex-col gap-2.5">
-            <Field label="Next action" htmlFor="lh-next" error={formError}>
+            <Field label={ATTENTION_WORDS.nextAction} htmlFor="lh-next" error={formError}>
               <Input
                 id="lh-next"
                 value={nextText}
@@ -495,7 +450,7 @@ export function LetHandleSheet({
                 onChange={(e) => setNextText(e.target.value)}
               />
             </Field>
-            <Field label="When" htmlFor="lh-when" hint="Optional.">
+            <Field label={ATTENTION_WORDS.when} htmlFor="lh-when" hint="Optional.">
               <Input
                 id="lh-when"
                 type="datetime-local"
@@ -537,30 +492,19 @@ export function LetHandleSheet({
           data-testid="let-handle-confirm"
         >
           {busy ? null : <PrimaryIcon className="h-4 w-4" strokeWidth={1.75} />}
-          {option?.action === 'reply'
-            ? 'Send'
-            : option?.action === 'set_next_action'
-              ? 'Add next action'
-              : `Hand to ${ai}`}
+          {letHandleAskButton(option?.action ?? null, env.teammateName)}
         </Button>
         {option?.action === 'hand_to_ai' && item.actions.handle ? (
           <Button variant="secondary" size="sm" onClick={doItMyself}>
             {item.kind === 'hot_lead' && env.callsAvailable
-              ? `Call ${first} myself`
-              : 'I’ll reply myself'}
+              ? ATTENTION_WORDS.callMyself(first)
+              : ATTENTION_WORDS.replyMyself}
           </Button>
         ) : null}
       </>
     );
   } else {
-    content = (
-      <InfoRow>
-        {preview.reason ??
-          (item.kind === 'ai_approval'
-            ? 'Approvals always need a person.'
-            : 'HandsFreeOS can’t do a task for you. Snooze moves it to later.')}
-      </InfoRow>
-    );
+    content = <InfoRow>{preview.reason ?? letHandleNoneFallback(item.kind)}</InfoRow>;
   }
 
   return (
@@ -574,7 +518,7 @@ export function LetHandleSheet({
           <div className="flex items-start gap-3 border-b border-border px-5 pb-3.5 pt-[18px] max-sm:pt-1">
             <KindTile kind={item.kind} size="lg" />
             <div className="flex min-w-0 flex-1 flex-col gap-[3px]">
-              <span className={SECL}>Let HandsFreeOS Handle</span>
+              <span className={SECL}>{ATTENTION_WORDS.letHandle}</span>
               <h2
                 className="text-[17px] font-semibold leading-[1.3]"
                 data-testid="let-handle-title"
@@ -599,7 +543,7 @@ export function LetHandleSheet({
             <span className="flex-1" />
             <SheetClose asChild>
               <Button variant="ghost" size="sm">
-                {mode === 'ask' ? 'Cancel' : 'Close'}
+                {mode === 'ask' ? ATTENTION_WORDS.cancel : ATTENTION_WORDS.close}
               </Button>
             </SheetClose>
           </div>

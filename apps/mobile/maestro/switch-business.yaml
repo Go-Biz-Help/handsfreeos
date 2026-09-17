@@ -25,9 +25,10 @@ env:
     visible:
       id: 'home'
     timeout: 45000
+# Home shows that business: its mark at the top left says which.
 - assertVisible:
-    id: 'home-business'
-    text: 'Summit Roofing'
+    id: 'business-mark'
+    text: 'Switch business. Now: Summit Roofing'
 # The one opened last is kept on the phone by default; another can be kept too.
 - tapOn:
     id: 'tab-more'
@@ -51,6 +52,7 @@ env:
     visible:
       id: 'home'
     timeout: 45000
+# Home shows that business: its mark at the top left says which.
 - assertVisible:
-    id: 'home-business'
-    text: 'Bayou Plumbing Co.'
+    id: 'business-mark'
+    text: 'Switch business. Now: Bayou Plumbing Co.'

@@ -18,28 +18,23 @@ import {
   visibleTo,
   type AttentionViewer,
 } from '../attention/items';
-import {
-  autoActionOf,
-  letHandleModeOf,
-  letHandleRefusal,
-  type AttentionKind,
-} from '../attention/kinds';
-import {
-  DONE_RESOLUTIONS,
-  loadAttentionContext,
-  medianWonCents,
-  type AttentionItemRow,
-} from '../attention/load';
-import { affectedCents, isUrgent, rankItems } from '../attention/score';
+import { letHandleModeOf, letHandleRefusal, type AttentionKind } from '../attention/kinds';
+import { loadAttentionContext, medianWonCents, type AttentionItemRow } from '../attention/load';
+import { isUrgent, rankItems } from '../attention/score';
 import { attentionSettingsOf, typicalJobValueCents } from '../attention/settings';
-import { localDateOf, startOfLocalDay } from '../calendar/engine/zoned';
+import {
+  attentionIsMine,
+  attentionListOut,
+  attentionListView,
+  attentionToday,
+  defaultAttentionScope,
+} from '../attention/view';
 import { userNames, uuidArray } from '../calendar/load';
 import { workspaceTimezone } from '../crm/records';
 import { HfosError } from '../errors';
 import { requireHuman } from '../kernel/actor';
 import { defineQuery } from '../kernel/define';
 import type { QueryContext } from '../kernel/types';
-import type { WorkspaceRole } from '../permissions';
 import {
   AttentionForRecordInput,
   AttentionForRecordOutput,
@@ -59,11 +54,8 @@ const inWorkspace = (i: { workspaceId: string }) => ({
 });
 
 /** Members see Mine (theirs and unassigned) by default; owners and admins see Everyone. */
-const defaultScope = (role: WorkspaceRole | null): 'mine' | 'everyone' =>
-  role === 'member' ? 'mine' : 'everyone';
-const isMine = (row: AttentionItemRow, me: string) =>
-  row.assigneeUserId === null || row.assigneeUserId === me;
-const DONE: ReadonlySet<string> = new Set(DONE_RESOLUTIONS);
+const defaultScope = defaultAttentionScope;
+const isMine = attentionIsMine;
 
 /** Items in some states (plus today's handled and cleared ones), and who is looking. */
 async function loadView(
@@ -93,7 +85,7 @@ export const attentionList = defineQuery({
     const now = new Date();
     const at = now.getTime();
     const tz = await workspaceTimezone(ctx.tx, ws);
-    const today = new Date(startOfLocalDay(localDateOf(at, tz), tz));
+    const today = new Date(attentionToday(at, tz));
     const { list, viewer, me } = await loadView(
       ctx,
       or(
@@ -102,66 +94,26 @@ export const attentionList = defineQuery({
         and(eq(attentionItems.state, 'resolved'), gte(attentionItems.resolvedAt, today)),
       )!,
     );
-    const kinds = input.kinds ? new Set<string>(input.kinds) : null;
-    const wanted = kinds ? list.filter((r) => kinds.has(r.kind)) : list;
-    const scope = input.scope ?? defaultScope(ctx.scope.workspaceRole);
-    const inScope = wanted.filter((r) => scope === 'everyone' || isMine(r, me));
-    const open = inScope.filter((r) => r.state === 'open');
-    const ranked = rankItems(
-      open.map((r) => ({ ...scorableOf(r), row: r })),
-      at,
-    ).map((x) => x.row);
-    const handled = inScope
-      .filter((r) => r.state === 'handled')
-      .sort((a, b) => (b.handledAt?.getTime() ?? 0) - (a.handledAt?.getTime() ?? 0));
-    const names = await userNames(ctx.tx, userIdsOf(inScope));
+    // The same list the phone builds from its copy (view.ts): sorted, then named and hinted, then shaped.
+    const view = attentionListView(list, {
+      me,
+      role: ctx.scope.workspaceRole,
+      now: at,
+      scope: input.scope ?? null,
+      kinds: input.kinds ?? null,
+    });
+    const names = await userNames(ctx.tx, userIdsOf(view.inScope));
     const hints = await loadItemHints(ctx.tx, ws, [
-      ...ranked,
-      ...(input.includeHandled ? handled : []),
-    ]);
-    const out = (r: AttentionItemRow) => itemOut(r, viewer, names, at, hints.get(r.id));
-    const scheduled = open
-      .flatMap((r) => {
-        const action = autoActionOf(r.kind as AttentionKind, chipsOf(r));
-        return r.autoState === 'scheduled' && r.autoScheduledFor && action
-          ? [
-              {
-                itemId: r.id,
-                kind: r.kind as AttentionKind,
-                title: r.title,
-                action,
-                scheduledFor: r.autoScheduledFor.toISOString(),
-              },
-            ]
-          : [];
-      })
-      .sort((a, b) => Date.parse(a.scheduledFor) - Date.parse(b.scheduledFor));
-    const openVisible = wanted.filter((r) => r.state === 'open');
-    return {
-      now: now.toISOString(),
-      scope,
-      items: ranked.map(out),
-      handled: input.includeHandled ? handled.map(out) : [],
-      scheduled,
-      affectedCents: affectedCents(
-        open.map((r) => ({
-          value: Number(r.valueCents ?? 0),
-          valueIsEstimate: r.valueIsEstimate,
-          moneyKey: r.moneyKey,
-          leadId: r.leadId,
-        })),
-      ),
-      counts: {
-        total: open.length,
-        urgent: open.filter((r) => isUrgent(scorableOf(r), at)).length,
-        snoozed: inScope.filter((r) => r.state === 'snoozed').length,
-        mine: openVisible.filter((r) => isMine(r, me)).length,
-        everyone: openVisible.length,
-      },
-      handledToday: inScope.filter(
-        (r) => r.state === 'handled' || (r.state === 'resolved' && DONE.has(r.resolution ?? '')),
-      ).length,
-    };
+      ...view.ranked,
+      ...(input.includeHandled ? view.handled : []),
+    ] as AttentionItemRow[]);
+    return attentionListOut(view, {
+      viewer,
+      names,
+      hints,
+      now: at,
+      includeHandled: input.includeHandled,
+    });
   },
 });
 

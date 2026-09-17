@@ -1,0 +1,70 @@
+appId: com.gobizhelp.handsfreeos
+name: Inbox - a text inside quiet hours asks, waits for the morning with Cancel, and Cancel takes it back
+tags:
+  - ci
+# Quiet hours on HandsFreeOS start now and end in the morning. Dale texts Maria Lopez: before anything goes, the phone
+# asks "Send now, or at 8:00 AM when quiet hours end?". Send at 8:00 AM: HandsFreeOS holds the text, and the thread
+# shows it with "Sends … when quiet hours end" and Cancel. Cancel takes it out of the thread (and the web's). Quiet
+# hours go back to 8 PM to 8 AM at the end.
+env:
+  EMAIL: dale@lonestarhvac.test
+  PASSWORD: HandsFree-Demo-2026
+---
+- runFlow: subflows/start-signed-out.yaml
+- runFlow: subflows/sign-in-with-password.yaml
+- runFlow: subflows/open-test-changes.yaml
+- runFlow: subflows/nothing-waiting.yaml
+- runFlow:
+    file: subflows/test-change.yaml
+    env:
+      BUTTON: tc-quiet-now
+      RESULT: 'Quiet hours are .* to (8|9):00 AM\.'
+- extendedWaitUntil:
+    visible:
+      id: 'tc-quiet-state'
+      text: 'On this phone: .* to (8|9):00 AM'
+    timeout: 30000
+- tapOn:
+    id: 'back'
+- runFlow:
+    file: subflows/open-conversation.yaml
+    env:
+      NAME: Maria Lopez
+- evalScript: ${output.held = 'Tomorrow morning works for the tune-up. ' + Date.now()}
+- tapOn:
+    id: 'composer-body'
+- inputText: ${output.held}
+- tapOn:
+    id: 'composer-send'
+- extendedWaitUntil:
+    visible:
+      id: 'quiet-hours-later'
+      text: 'Send at (8|9):00 AM'
+    timeout: 30000
+- assertVisible:
+    id: 'quiet-hours-title'
+    text: 'It’s .*, inside quiet hours\.'
+- takeScreenshot: inbox-quiet-hours-question
+- tapOn:
+    id: 'quiet-hours-later'
+- extendedWaitUntil:
+    visible:
+      id: 'held-line'
+      text: 'Dale · Sends .*(8|9):00 AM, when quiet hours end'
+    timeout: 60000
+- assertVisible:
+    text: ${output.held}
+- takeScreenshot: inbox-held-text
+- tapOn:
+    id: 'cancel-held'
+- extendedWaitUntil:
+    notVisible:
+      id: 'held-line'
+    timeout: 30000
+- assertNotVisible:
+    text: ${output.held}
+- runFlow: subflows/back-to-test-changes.yaml
+- runFlow:
+    file: subflows/quiet-hours.yaml
+    env:
+      QUIET: 'on'

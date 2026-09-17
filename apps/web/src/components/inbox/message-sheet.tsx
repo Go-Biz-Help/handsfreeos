@@ -1,4 +1,5 @@
 'use client';
+import { CONVERSATION_DONE, firstName } from '@hfos/core';
 import { X } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -9,7 +10,6 @@ import { Sheet, SheetClose, SheetContent } from '@/components/ui/sheet';
 import { apiBrowser, errorMessage, unwrap } from '@/lib/api/client';
 import type { ConversationGet, ConversationThread, EmailComposeOptions } from '@/lib/api/types';
 import { Composer } from './composer';
-import { firstName } from './conversation-row';
 import { useThread } from './hooks';
 import { MessageLog } from './message-log';
 
@@ -164,7 +164,7 @@ function SheetThread({
         }),
       );
       t.forget(messageId);
-      toast.success('Cancelled. That text won’t go.');
+      toast.success(CONVERSATION_DONE.heldCancelled);
     } catch (e) {
       toast.error(errorMessage(e));
       t.refresh();

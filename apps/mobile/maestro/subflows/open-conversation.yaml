@@ -1,0 +1,35 @@
+# Opens the newest conversation with NAME from the Inbox tab: searches for it and taps the first row with that name.
+# The calling flow sets NAME.
+appId: com.gobizhelp.handsfreeos
+---
+- tapOn:
+    id: 'tab-inbox'
+- extendedWaitUntil:
+    visible:
+      id: 'inbox-search'
+    timeout: 20000
+- tapOn:
+    id: 'status-open'
+- tapOn:
+    id: 'box-all'
+- tapOn:
+    id: 'inbox-search'
+- eraseText: 40
+- inputText: ${NAME}
+- runFlow:
+    file: keyboard-away.yaml
+    env:
+      FIELD: inbox-search
+- extendedWaitUntil:
+    visible:
+      id: 'conversation-row-name'
+      text: ${NAME}
+    timeout: 30000
+- tapOn:
+    id: 'conversation-row-name'
+    text: ${NAME}
+    index: 0
+- extendedWaitUntil:
+    visible:
+      id: 'composer'
+    timeout: 20000

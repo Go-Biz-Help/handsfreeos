@@ -1,0 +1,114 @@
+appId: com.gobizhelp.handsfreeos
+name: Calls - verify my cell, call a customer through it, and cancel while it rings
+tags:
+  - ci
+# The Calls canvas: Settings → My cell phone, Verify my cell (the worker's fake carrier answers and presses 1), then the
+# contacts card. Then Call on Mike Johnson's texts: the sheet says "Calling your cell…", follows the call's own row to
+# how it ended, and the call lands in the thread. A second Call is cancelled while the phone rings. Needs the worker
+# (a local run passes WORKER_URL to the app build and the flow).
+env:
+  EMAIL: dale@lonestarhvac.test
+  PASSWORD: HandsFree-Demo-2026
+  CELL: '5125550142'
+---
+- runFlow: subflows/start-signed-out.yaml
+- runFlow: subflows/sign-in-with-password.yaml
+- tapOn:
+    id: 'tab-more'
+- runFlow:
+    when:
+      notVisible:
+        id: 'more-settings'
+    commands:
+      - tapOn:
+          id: 'tab-more'
+- tapOn:
+    id: 'more-settings'
+- tapOn:
+    id: 'setting-my-cell'
+- extendedWaitUntil:
+    visible:
+      id: 'my-cell'
+    timeout: 10000
+# A cell verified by an earlier run: change it, and verify it again (the same number is verified at once).
+- runFlow:
+    when:
+      visible:
+        id: 'my-cell-change'
+    commands:
+      - tapOn:
+          id: 'my-cell-change'
+- tapOn:
+    id: 'my-cell-input'
+- eraseText: 20
+- inputText: ${CELL}
+- extendedWaitUntil:
+    visible:
+      id: 'my-cell-hint'
+      text: 'We’ll call \(512\) 555-0142\. Press 1 when you answer\.'
+    timeout: 10000
+- takeScreenshot: calls-my-cell
+- tapOn:
+    id: 'verify-my-cell'
+- extendedWaitUntil:
+    visible:
+      id: 'my-cell-verified'
+    timeout: 60000
+- assertVisible:
+    id: 'my-cell-status'
+    text: 'Verified \w{3}, \w{3} \d{1,2}'
+- runFlow:
+    when:
+      visible:
+        id: 'contact-card'
+    commands:
+      - takeScreenshot: calls-contact-card
+      - tapOn:
+          id: 'contact-not-now'
+      - assertNotVisible:
+          id: 'contact-card'
+- tapOn:
+    id: 'back'
+- runFlow:
+    file: subflows/open-conversation.yaml
+    env:
+      NAME: Mike Johnson
+- tapOn:
+    id: 'thread-call'
+- extendedWaitUntil:
+    visible:
+      id: 'call-sheet-status'
+      text: 'Calling your cell…'
+    timeout: 10000
+- takeScreenshot: calls-sheet
+- extendedWaitUntil:
+    visible:
+      id: 'call-sheet-status'
+      text: 'Call ended'
+    timeout: 60000
+- tapOn:
+    id: 'call-sheet-close'
+- extendedWaitUntil:
+    visible:
+      text: 'Dale called · \d:\d{2}'
+    timeout: 60000
+# Cancel while a phone is still ringing. The fake carrier answers, presses 1 and connects within about three seconds, so
+# the tap can land after Mike picked up: then HandsFreeOS refuses the cancel and the call simply ends.
+- tapOn:
+    id: 'thread-call'
+- extendedWaitUntil:
+    visible:
+      id: 'call-sheet-cancel'
+    timeout: 10000
+- tapOn:
+    id: 'call-sheet-cancel'
+- extendedWaitUntil:
+    visible:
+      id: 'call-sheet-close'
+    timeout: 30000
+- assertVisible:
+    id: 'call-sheet-status'
+    text: 'Call cancelled|Call ended'
+- takeScreenshot: calls-cancelled
+- tapOn:
+    id: 'call-sheet-close'

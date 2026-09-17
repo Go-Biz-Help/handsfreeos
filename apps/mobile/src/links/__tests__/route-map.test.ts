@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 
 import { decideLink, NOT_YOURS } from '../decide';
-import { ROUTES, routeFor, targetOfLink, webPathOf } from '../route-map';
+import { phonePathOf, ROUTES, routeFor, targetOfLink, webPathOf } from '../route-map';
 
 /**
  * The one map from the web's addresses to the phone's screens: every route in it, the web-only areas, the three ways a
@@ -22,9 +22,9 @@ const exampleOf = (web: string) => `/app/w/${WS}${web ? `/${web.replace(/:[A-Za-
 describe('the route map', () => {
   it('opens each of the web’s pages the phone has on its screen, or its tab until a later step builds it', () => {
     const expected: Record<string, { href: string; later: boolean }> = {
-      '': { href: '', later: true },
+      '': { href: '', later: false },
       inbox: { href: 'inbox', later: false },
-      'inbox/:conversationId': { href: 'inbox', later: true },
+      'inbox/:conversationId': { href: `inbox/${ID}`, later: false },
       pipeline: { href: 'pipeline', later: false },
       'leads/:leadId': { href: 'pipeline', later: true },
       customers: { href: 'customers', later: false },
@@ -42,7 +42,7 @@ describe('the route map', () => {
       'money/payments': { href: 'money', later: true },
       'money/plans': { href: 'money', later: true },
       'money/plans/:subscriptionId': { href: 'money', later: true },
-      'workflows/approvals': { href: 'approvals', later: true },
+      'workflows/approvals': { href: 'approvals', later: false },
       settings: { href: 'settings', later: false },
     };
     const screens = ROUTES.filter((r) => r.phone !== 'web');
@@ -64,10 +64,13 @@ describe('the route map', () => {
 
   it('keeps what a path names and its query for the screen a later step opens', () => {
     expect(routeFor(`/app/w/${WS}/inbox/${ID}`)).toMatchObject({
+      href: `/app/w/${WS}/inbox/${ID}`,
       params: { conversationId: ID },
     });
+    // Home opens on the item, and Approvals on the AI teammate's drafts: the query stays on their addresses.
     expect(routeFor(`/app/w/${WS}?item=${ID}`)).toMatchObject({
-      href: `/app/w/${WS}`,
+      href: `/app/w/${WS}?item=${ID}`,
+      later: null,
       params: { item: ID },
     });
     expect(routeFor(`/app/w/${WS}/calendar?appt=${ID}`)).toMatchObject({
@@ -75,17 +78,22 @@ describe('the route map', () => {
       params: { appt: ID },
     });
     expect(routeFor(`/app/w/${WS}/workflows/approvals?filter=ai`)).toMatchObject({
-      href: `/app/w/${WS}/approvals`,
+      href: `/app/w/${WS}/approvals?filter=ai`,
+      later: null,
       params: { filter: 'ai' },
+    });
+    // Only the query a screen reads is kept.
+    expect(routeFor(`/app/w/${WS}?item=${ID}&utm=email`)).toMatchObject({
+      href: `/app/w/${WS}?item=${ID}`,
     });
   });
 
   it('opens every page a notification links to', () => {
     // apps/worker/src/push/README.md, "Kinds of push": each kind's Opens.
     const opens: [string, string][] = [
-      [`/app/w/${WS}/inbox/${ID}`, `/app/w/${WS}/inbox`],
-      [`/app/w/${WS}?item=${ID}`, `/app/w/${WS}`],
-      [`/app/w/${WS}/workflows/approvals?filter=ai`, `/app/w/${WS}/approvals`],
+      [`/app/w/${WS}/inbox/${ID}`, `/app/w/${WS}/inbox/${ID}`],
+      [`/app/w/${WS}?item=${ID}`, `/app/w/${WS}?item=${ID}`],
+      [`/app/w/${WS}/workflows/approvals?filter=ai`, `/app/w/${WS}/approvals?filter=ai`],
       [`/app/w/${WS}/workflows/approvals`, `/app/w/${WS}/approvals`],
       [`/app/w/${WS}/calendar?appt=${ID}`, `/app/w/${WS}/calendar`],
       [`/app/w/${WS}/leads/${ID}`, `/app/w/${WS}/pipeline`],
@@ -139,6 +147,22 @@ describe('the route map', () => {
     });
     // Every web-only rule is a whole area of the web.
     for (const rule of ROUTES.filter((r) => r.phone === 'web')) expect(rule.deeper).toBe(true);
+  });
+
+  it('fills a phone path’s parts from what the web path named', () => {
+    expect(phonePathOf('inbox/:conversationId', { conversationId: ID })).toBe(`inbox/${ID}`);
+    expect(phonePathOf('inbox', { conversationId: ID })).toBe('inbox');
+    expect(phonePathOf('', { item: ID })).toBe('');
+    // Every part a phone path fills is one its web path names.
+    for (const rule of ROUTES.filter((r) => r.phone !== 'web')) {
+      const named = rule.web.split('/').filter((p) => p.startsWith(':'));
+      for (const part of rule.phone.split('/').filter((p) => p.startsWith(':')))
+        expect({ rule: rule.web, part, named: named.includes(part) }).toEqual({
+          rule: rule.web,
+          part,
+          named: true,
+        });
+    }
   });
 
   it('opens /app itself on the phone’s own choice of business', () => {
@@ -205,8 +229,8 @@ describe('the route map', () => {
     });
     expect(decideLink(link, { businessIds: [WS, OTHER] })).toEqual({
       kind: 'screen',
-      href: `/app/w/${OTHER}/inbox`,
-      later: expect.any(String),
+      href: `/app/w/${OTHER}/inbox/${ID}`,
+      later: null,
     });
     expect(decideLink(`handsfreeos://app/w/${WS}/audit`, { businessIds: [WS] })).toEqual({
       kind: 'web',

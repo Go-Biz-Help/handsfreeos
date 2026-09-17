@@ -1,5 +1,12 @@
 'use client';
-import { moneyLabel } from '@hfos/core';
+import {
+  ATTENTION_WORDS,
+  DISMISS_REASON_MAX,
+  dismissAboutOf,
+  dismissNoteOf,
+  dismissReasonsOf,
+  dismissSaid,
+} from '@hfos/core';
 import { Info } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
@@ -7,16 +14,8 @@ import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import type { AttentionItem } from '@/lib/api/types';
 import { cn } from '@/lib/utils';
-import { customerOf, firstNameOf, LEAD_KINDS } from './attention-words';
 
-const LEAD_REASONS = [
-  'Already taken care of',
-  'Not a real lead',
-  'They’re not interested',
-  'Something else',
-] as const;
-const OTHER_REASONS = ['Already taken care of', 'Not needed', 'Something else'] as const;
-const MAX = 500;
+const MAX = DISMISS_REASON_MAX;
 
 /**
  * "Dismiss this?": it asks why, but the reason is optional. The item stays off the list until something changes,
@@ -35,23 +34,17 @@ export function DismissDialog({
 }) {
   const [reason, setReason] = useState<string | null>(null);
   const [note, setNote] = useState('');
-  const lead = LEAD_KINDS.has(item.kind);
-  const reasons = lead ? LEAD_REASONS : OTHER_REASONS;
-  const first = firstNameOf(customerOf(item), 'them');
-  const about = [
-    item.title,
-    item.valueCents > 0 && !item.valueIsEstimate ? moneyLabel(item.valueCents) : null,
-  ]
-    .filter(Boolean)
-    .join(' · ');
-  const said = [reason, note.trim()].filter(Boolean).join(': ').slice(0, MAX);
+  const reasons = dismissReasonsOf(item);
+  const about = dismissAboutOf(item);
+  const said = dismissSaid(reason, note);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent title="Dismiss this?" description={about}>
+      <DialogContent title={ATTENTION_WORDS.dismissTitle} description={about}>
         <div data-testid="dismiss-dialog">
           <div className="mb-1.5 mt-4 text-[13px] font-medium">
-            Why? <span className="font-normal text-text-3">Optional</span>
+            {ATTENTION_WORDS.why}{' '}
+            <span className="font-normal text-text-3">{ATTENTION_WORDS.optional}</span>
           </div>
           <div role="radiogroup" aria-label="Why" className="flex flex-col gap-1.5">
             {reasons.map((r) => {
@@ -86,7 +79,7 @@ export function DismissDialog({
           </div>
           <Textarea
             aria-label="A note for your team"
-            placeholder="Add a note for your team (optional)"
+            placeholder={ATTENTION_WORDS.dismissNotePlaceholder}
             value={note}
             maxLength={MAX - 40}
             onChange={(e) => setNote(e.target.value)}
@@ -94,17 +87,14 @@ export function DismissDialog({
           />
           <div className="mt-3 flex items-start gap-2 rounded-[9px] bg-card-2 px-[11px] py-[9px] text-[12.5px] leading-[1.45] text-text-2">
             <Info className="mt-px h-4 w-4 flex-none" strokeWidth={1.5} />
-            <span>
-              It stays off the list until something changes, like a new message from {first}.
-              {lead ? ' The lead itself doesn’t change.' : ''}
-            </span>
+            <span>{dismissNoteOf(item)}</span>
           </div>
           <div className="mt-[18px] flex justify-end gap-2">
             <Button variant="ghost" onClick={() => onOpenChange(false)}>
-              Keep it
+              {ATTENTION_WORDS.keepIt}
             </Button>
-            <Button data-testid="dismiss-confirm" onClick={() => onDismiss(said || null)}>
-              Dismiss
+            <Button data-testid="dismiss-confirm" onClick={() => onDismiss(said)}>
+              {ATTENTION_WORDS.dismissConfirm}
             </Button>
           </div>
         </div>

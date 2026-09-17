@@ -1,0 +1,409 @@
+/**
+ * The inbox from a phone's own copy (M10): synced rows turned into what the inbox's words take, the list's boxes,
+ * order and counts as `inbox.list` and `inbox.summary` work them out, what phones hide from a thread, drafts, and
+ * where a call's recording is kept.
+ */
+import { describe, expect, it } from 'vitest';
+import {
+  bridgeOver,
+  CALL_SHEET_WORDS,
+  callRecordingFolder,
+  callRecordingPath,
+  callSheetWords,
+  cellVerifiedOn,
+  CONTACT_CARD_WORDS,
+  conversationOf,
+  hiddenCall,
+  hiddenMessage,
+  inboxCounts,
+  inboxOrder,
+  inInbox,
+  MY_CELL_WORDS,
+  recordingFileIn,
+  teammateDraftOf,
+  telephonySettingsOf,
+  threadItemsOf,
+  type CallThreadRow,
+  type ConversationListRow,
+  type MessageThreadRow,
+} from '../src/index';
+
+const ME = 'u-dale';
+
+const conv = (over: Partial<ConversationListRow> = {}): ConversationListRow => ({
+  id: 'c-mike',
+  channel: 'sms',
+  counterpart: '+17135550142',
+  status: 'open',
+  person_id: 'p-mike',
+  first_name: 'Mike',
+  last_name: 'Johnson',
+  assignee_user_id: null,
+  assignee_name: null,
+  unread_count: 0,
+  last_message_at: '2026-09-17 12:30:00.000Z',
+  last_preview: 'Is Marco still coming? It’s 84 in the house.',
+  last_direction: 'inbound',
+  last_sender_id: null,
+  last_sender_name: null,
+  awaiting_reply_since: null,
+  snoozed_until: null,
+  created_at: '2026-09-01T10:00:00Z',
+  handled_by: 'none',
+  ai_teammate_id: null,
+  teammate_name: null,
+  needs_person_since: null,
+  handoff_reason: null,
+  handoff_note: null,
+  taken_over_by: null,
+  taken_over_name: null,
+  ...over,
+});
+
+describe('conversations from the copy', () => {
+  it('turns a synced row into the list’s shape', () => {
+    const c = conversationOf(
+      conv({
+        assignee_user_id: ME,
+        assignee_name: 'Dale Porter',
+        last_direction: 'outbound',
+        last_sender_id: ME,
+        last_sender_name: 'Dale Porter',
+        lead_id: 'l1',
+        lead_title: 'AC replacement',
+        lead_stage_name: 'Quoted',
+        lead_value_cents: '850000',
+      }),
+    );
+    expect(c).toMatchObject({
+      counterpartDisplay: '(713) 555-0142',
+      person: { id: 'p-mike', fullName: 'Mike Johnson' },
+      assignee: { id: ME, fullName: 'Dale Porter' },
+      lastMessageAt: '2026-09-17T12:30:00.000Z',
+      lastSentBy: { id: ME, fullName: 'Dale Porter' },
+      openLead: { id: 'l1', title: 'AC replacement', stageName: 'Quoted', valueCents: 850000 },
+      onSiteNow: false,
+    });
+    expect(conversationOf(conv({ channel: 'chat', person_id: null })).counterpartDisplay).toBe(
+      'Website visitor',
+    );
+    expect(
+      conversationOf(conv({ assignee_user_id: 'u-gone', assignee_name: null })).assignee,
+    ).toEqual({ id: 'u-gone', fullName: 'Former member' });
+  });
+
+  it('keeps each box to its conversations, and searches names, numbers and messages', () => {
+    const all = [
+      conv({ id: 'a', assignee_user_id: ME }),
+      conv({ id: 'b', assignee_user_id: 'u-marco' }),
+      conv({
+        id: 'c',
+        person_id: null,
+        first_name: null,
+        last_name: null,
+        counterpart: '+17135550168',
+        handled_by: 'ai',
+        ai_teammate_id: 't1',
+        teammate_name: 'Ava',
+      }),
+      conv({ id: 'd', status: 'snoozed', snoozed_until: '2026-09-18T13:00:00Z' }),
+      conv({ id: 'e', needs_person_since: '2026-09-17T12:00:00Z' }),
+      conv({ id: 'f', last_message_at: null }),
+    ].map(conversationOf);
+    const ids = (
+      box: Parameters<typeof inInbox>[1]['box'],
+      status: 'open' | 'snoozed' = 'open',
+      q?: string,
+    ) => all.filter((c) => inInbox(c, { box, status, q }, ME)).map((c) => c.id);
+    expect(ids('all')).toEqual(['a', 'b', 'c', 'e']);
+    expect(ids('mine')).toEqual(['a']);
+    expect(ids('unassigned')).toEqual(['c', 'e']);
+    expect(ids('ai')).toEqual(['c']);
+    expect(ids('needs_person')).toEqual(['e']);
+    expect(ids('all', 'snoozed')).toEqual(['d']);
+    expect(ids('all', 'open', 'JOHNSON')).toEqual(['a', 'b', 'e']);
+    expect(ids('all', 'open', '555-0168')).toEqual(['c']);
+    expect(ids('all', 'open', '84 in the')).toEqual(['a', 'b', 'c', 'e']);
+  });
+
+  it('orders newest first, and "Needs a person" by who waited longest', () => {
+    const list = [
+      conv({
+        id: 'x1',
+        last_message_at: '2026-09-17T11:00:00Z',
+        needs_person_since: '2026-09-17T09:00:00Z',
+      }),
+      conv({
+        id: 'x2',
+        last_message_at: '2026-09-17T12:00:00Z',
+        needs_person_since: '2026-09-17T08:00:00Z',
+      }),
+      conv({
+        id: 'x3',
+        last_message_at: '2026-09-17T12:00:00Z',
+        needs_person_since: '2026-09-17T10:00:00Z',
+      }),
+    ].map(conversationOf);
+    expect([...list].sort(inboxOrder('all')).map((c) => c.id)).toEqual(['x3', 'x2', 'x1']);
+    expect([...list].sort(inboxOrder('needs_person')).map((c) => c.id)).toEqual(['x2', 'x1', 'x3']);
+  });
+
+  it('counts the boxes as the web’s badges do', () => {
+    const now = Date.parse('2026-09-17T12:40:00Z');
+    const counts = inboxCounts(
+      [
+        conv({
+          id: 'a',
+          assignee_user_id: ME,
+          unread_count: 2,
+          awaiting_reply_since: '2026-09-17T12:20:00Z',
+        }),
+        conv({ id: 'b', assignee_user_id: 'u-marco' }),
+        conv({
+          id: 'c',
+          handled_by: 'ai',
+          unread_count: 1,
+          awaiting_reply_since: '2026-09-17T12:35:00Z',
+        }),
+        conv({ id: 'd', needs_person_since: '2026-09-17T12:00:00Z' }),
+        conv({ id: 'e', status: 'closed', unread_count: 4 }),
+        conv({ id: 'f', last_message_at: null }),
+      ].map(conversationOf),
+      ME,
+      10,
+      now,
+    );
+    expect(counts).toEqual({
+      open: { mine: 1, unassigned: 2, all: 4 },
+      unread: { mine: 1, unassigned: 1, all: 2 },
+      waiting: 1,
+      waitingThresholdMinutes: 10,
+      needsPerson: 1,
+      ai: 1,
+    });
+  });
+
+  it('reads the business’s texting settings, with the defaults for what isn’t set', () => {
+    expect(telephonySettingsOf(null)).toEqual({
+      quietHours: { enabled: true, start: '20:00', end: '08:00' },
+      unansweredReminderMinutes: 10,
+    });
+    expect(
+      telephonySettingsOf(JSON.stringify({ telephony: { unansweredReminderMinutes: 15 } }))
+        .unansweredReminderMinutes,
+    ).toBe(15);
+  });
+});
+
+const message = (over: Partial<MessageThreadRow> = {}): MessageThreadRow => ({
+  id: 'm1',
+  conversation_id: 'c-mike',
+  channel: 'sms',
+  direction: 'outbound',
+  status: 'delivered',
+  from_address: null,
+  to_addresses: null,
+  cc_addresses: null,
+  subject: null,
+  body_text: 'Marco can be there at 9:00.',
+  media: null,
+  error_code: null,
+  error_message: null,
+  sent_by: 'u-priya',
+  sent_by_name: 'Priya Shah',
+  sent_by_teammate_id: null,
+  approved_by: null,
+  client_id: null,
+  occurred_at: '2026-09-17T12:12:00Z',
+  delivered_at: '2026-09-17T12:12:03Z',
+  ...over,
+});
+
+const call = (over: Partial<CallThreadRow> = {}): CallThreadRow => ({
+  id: 'k1',
+  conversation_id: 'c-mike',
+  direction: 'inbound',
+  from_e164: '+17135550142',
+  to_e164: '+17135550100',
+  status: 'completed',
+  answered_via: null,
+  answered_by_user_id: null,
+  placed_by: null,
+  started_at: '2026-09-17T10:05:00Z',
+  answered_at: null,
+  ended_at: '2026-09-17T10:06:00Z',
+  duration_seconds: 40,
+  is_voicemail: 1,
+  recording_seconds: 18,
+  transcript: 'Hi, this is Mike Johnson on Oak Hollow.',
+  ...over,
+});
+
+describe('a thread from the copy', () => {
+  it('hides what the web’s thread hides: a cancelled held text, and a call through a cell nobody pressed 1 on', () => {
+    expect(hiddenMessage({ error_code: 'cancelled' })).toBe(true);
+    expect(hiddenMessage({ error_code: 'scheduled' })).toBe(false);
+    expect(hiddenCall({ answered_via: 'bridge', answered_by_user_id: null })).toBe(true);
+    expect(hiddenCall({ answered_via: 'bridge', answered_by_user_id: ME })).toBe(false);
+    expect(hiddenCall({ answered_via: null, answered_by_user_id: null })).toBe(false);
+  });
+
+  it('puts messages and calls in order, with a held text’s time and a voicemail’s words', () => {
+    const items = threadItemsOf(
+      [
+        message(),
+        message({
+          id: 'm0',
+          direction: 'inbound',
+          sent_by: null,
+          sent_by_name: null,
+          body_text: 'Is Marco still coming?',
+          occurred_at: '2026-09-17T12:10:00Z',
+        }),
+        message({
+          id: 'm2',
+          status: 'queued',
+          error_code: 'scheduled',
+          occurred_at: '2026-09-18T13:00:00Z',
+        }),
+        message({ id: 'm3', error_code: 'cancelled', status: 'failed' }),
+        message({
+          id: 'm4',
+          sent_by: null,
+          sent_by_teammate_id: 't1',
+          teammate_name: 'Ava',
+          approved_by: 'u-priya',
+          approved_name: 'Priya Shah',
+          client_id: 'handoff:abc',
+          media: JSON.stringify([
+            {
+              bucket: 'attachments',
+              objectPath: 'ws/p/photo.jpg',
+              contentType: 'image/jpeg',
+              sizeBytes: 1200,
+              name: 'photo.jpg',
+            },
+          ]),
+          occurred_at: '2026-09-17T12:20:00Z',
+        }),
+      ],
+      [call(), call({ id: 'k2', answered_via: 'bridge', direction: 'outbound', is_voicemail: 0 })],
+    );
+    expect(items.map((i) => i.id)).toEqual(['k1', 'm0', 'm1', 'm4', 'm2']);
+    expect(items[0]).toMatchObject({
+      type: 'call',
+      isVoicemail: true,
+      hasRecording: true,
+      recordingSeconds: 18,
+    });
+    expect(items.find((i) => i.id === 'm2')?.scheduledFor).toBe('2026-09-18T13:00:00.000Z');
+    expect(items.find((i) => i.id === 'm4')).toMatchObject({
+      teammate: { id: 't1', name: 'Ava' },
+      approvedBy: { id: 'u-priya', fullName: 'Priya Shah' },
+      handoffLine: true,
+      media: [{ name: 'photo.jpg', bucket: 'attachments' }],
+    });
+  });
+});
+
+describe('drafts from the copy', () => {
+  it('reads a waiting draft’s preview, and who may decide it', () => {
+    const row = {
+      id: 'd1',
+      teammate_id: 't1',
+      teammate_name: 'Ava',
+      conversation_id: 'c1',
+      channel: 'sms',
+      person_id: 'p1',
+      first_name: 'Angela',
+      last_name: 'Brooks',
+      lead_id: null,
+      kind: 'reply',
+      status: 'pending',
+      preview: JSON.stringify({
+        message: { channel: 'sms', body: 'Thursday works.', subject: null },
+        actions: [
+          {
+            kind: 'reschedule',
+            appointmentId: 'a1',
+            startsAt: '2026-09-24T19:00:00Z',
+            summary: 'Move Thu tune-up to 2:00 PM',
+          },
+          { kind: 'mystery' },
+        ],
+        discount: null,
+      }),
+      edits: null,
+      expires_at: '2026-09-17T13:00:00Z',
+      created_at: '2026-09-17T12:48:00Z',
+    };
+    expect(teammateDraftOf(row, { canManage: false })).toMatchObject({
+      kind: 'reply',
+      teammate: { name: 'Ava' },
+      person: { fullName: 'Angela Brooks' },
+      preview: {
+        message: { body: 'Thursday works.', subject: null },
+        actions: [{ kind: 'reschedule', summary: 'Move Thu tune-up to 2:00 PM' }],
+      },
+      canDecide: true,
+    });
+    expect(teammateDraftOf({ ...row, kind: 'approval' }, { canManage: false }).canDecide).toBe(
+      false,
+    );
+    expect(teammateDraftOf({ ...row, kind: 'approval' }, { canManage: true }).canDecide).toBe(true);
+  });
+});
+
+describe('calls', () => {
+  it('keeps a call’s recording where the worker stores it', () => {
+    expect(callRecordingFolder('ws1', 'k1')).toBe('ws1/calls/k1');
+    expect(callRecordingPath('ws1', 'k1', 'voicemail', 'mp3')).toBe('ws1/calls/k1/voicemail.mp3');
+    expect(recordingFileIn(['voicemail.wav'], true)).toBe('voicemail.wav');
+    expect(recordingFileIn(['recording.mp3'], true)).toBeNull();
+    expect(recordingFileIn(['recording.mp3', 'x.txt'], false)).toBe('recording.mp3');
+  });
+
+  it('words the call sheet', () => {
+    const words = callSheetWords({
+      status: 'calling_cell',
+      customerName: 'Mike Johnson',
+      cell: '+15125550142',
+      callerId: '+17135550100',
+      businessName: 'Lone Star HVAC & Roofing',
+    });
+    expect(words).toEqual({
+      hint: 'Answer to be connected to Mike Johnson.',
+      cellLabel: 'Your cell',
+      cell: '(512) 555-0142',
+      seesLabel: 'Mike sees',
+      sees: 'Lone Star HVAC & Roofing’s number, (713) 555-0100',
+    });
+    expect(
+      callSheetWords({
+        status: 'cell_unanswered',
+        customerName: '(713) 555-0168',
+        cell: null,
+        callerId: null,
+        businessName: 'X',
+      }).seesLabel,
+    ).toBe('They see');
+    expect(bridgeOver('calling_customer')).toBe(false);
+    expect(bridgeOver('customer_busy')).toBe(true);
+    expect(CALL_SHEET_WORDS.needsSignal).toBe('This needs signal.');
+  });
+
+  it('words My cell phone and the contacts card', () => {
+    expect(cellVerifiedOn(new Date(2026, 8, 21, 16, 10).toISOString())).toBe(
+      'Verified Mon, Sep 21',
+    );
+    expect(MY_CELL_WORDS.calling('+15125550142')).toBe(
+      'We’ll call (512) 555-0142. Press 1 when you answer.',
+    );
+    expect(MY_CELL_WORDS.callsFrom('Lone Star HVAC & Roofing', '+17135550100')).toBe(
+      'The call comes from Lone Star HVAC & Roofing’s number, (713) 555-0100. It only proves the phone is yours.',
+    );
+    expect(CONTACT_CARD_WORDS.contactLine('+17135550100')).toBe(
+      '(713) 555-0100 · the contact it adds',
+    );
+  });
+});

@@ -1,0 +1,561 @@
+/**
+ * The inbox from a phone's own copy (M10): its synced conversations, messages, calls and drafts turned into the shapes
+ * the inbox's words take (the API's ConversationSummary and ThreadItem), the list's boxes and counts worked out as
+ * `inbox.list` and `inbox.summary` do, and what phones hide, as `conversation.thread` does. Rows are as the copy holds
+ * them: snake_case, times as ISO text, booleans as 1 or 0, JSON as text. Browser-safe.
+ */
+import { CHAT_VISITOR_NAME } from '../chat/limits';
+import { formatPhone } from '../crm/phone';
+import { CANCELLED_TEXT, scheduledForOf } from '../messaging/quiet-hours';
+import type { ConversationHandoffReason } from '../schemas/ai-team';
+import {
+  DEFAULT_TELEPHONY_SETTINGS,
+  TelephonySettings,
+  type TelephonySettings as TelephonySettingsType,
+} from '../schemas/telephony';
+import type { InboxBoxKey, ConversationStatus, RowFacts } from './list';
+import type { DraftActionFacts, DraftFacts } from './teammate';
+import type { ThreadItemFacts } from './thread';
+
+type Text = string | null;
+type UserRef = { readonly id: string; readonly fullName: string };
+
+const iso = (v: Text | undefined): string | null => (v ? new Date(v).toISOString() : null);
+const bool = (v: unknown): boolean => v === true || v === 1 || v === '1' || v === 'true';
+const nameOf = (first: Text | undefined, last: Text | undefined) =>
+  `${first ?? ''} ${last ?? ''}`.trim();
+const userRef = (id: Text | undefined, name: Text | undefined): UserRef | null =>
+  id ? { id, fullName: name || 'Former member' } : null;
+
+function json<T>(value: unknown, fallback: T): T {
+  if (value === null || value === undefined || value === '') return fallback;
+  if (typeof value !== 'string') return value as T;
+  try {
+    return JSON.parse(value) as T;
+  } catch {
+    return fallback;
+  }
+}
+
+// --------------------------------------------------------------------------------------------- conversations
+
+/** A synced conversation with what the phone's list query joins in: names, the open lead, the last sender. */
+export interface ConversationListRow {
+  readonly id: string;
+  readonly channel: string;
+  readonly counterpart: string;
+  readonly status: string;
+  readonly person_id: Text;
+  readonly first_name?: Text;
+  readonly last_name?: Text;
+  readonly assignee_user_id: Text;
+  readonly assignee_name?: Text;
+  readonly unread_count: number | null;
+  readonly last_message_at: Text;
+  readonly last_preview: Text;
+  readonly last_direction: Text;
+  readonly last_sender_id?: Text;
+  readonly last_sender_name?: Text;
+  readonly awaiting_reply_since: Text;
+  readonly snoozed_until: Text;
+  readonly created_at: Text;
+  readonly handled_by: Text;
+  readonly ai_teammate_id: Text;
+  readonly teammate_name?: Text;
+  readonly needs_person_since: Text;
+  readonly handoff_reason: Text;
+  readonly handoff_note: Text;
+  readonly taken_over_by: Text;
+  readonly taken_over_name?: Text;
+  readonly lead_id?: Text;
+  readonly lead_title?: Text;
+  readonly lead_stage_name?: Text;
+  readonly lead_value_cents?: number | string | null;
+  readonly lead_next_action?: Text;
+  readonly lead_next_action_at?: Text;
+}
+
+/** A conversation as the inbox's words take it (the API's ConversationSummary, as far as a phone's copy knows it). */
+export interface ConversationShape extends RowFacts {
+  readonly id: string;
+  readonly counterpart: string;
+  readonly assignee: UserRef | null;
+  readonly createdAt: string;
+  readonly teammate: { readonly id: string; readonly name: string } | null;
+  readonly handoffReason: ConversationHandoffReason | null;
+  readonly handoffNote: string | null;
+  readonly takenOverBy: UserRef | null;
+  readonly openLead: {
+    readonly id: string;
+    readonly title: string;
+    readonly stageName: string;
+    readonly valueCents: number;
+    readonly nextAction: string | null;
+    readonly nextActionAt: string | null;
+  } | null;
+}
+
+const CHANNELS = new Set(['sms', 'email', 'chat']);
+const STATUSES = new Set(['open', 'snoozed', 'closed']);
+
+export function conversationOf(r: ConversationListRow): ConversationShape {
+  const channel = (CHANNELS.has(r.channel) ? r.channel : 'sms') as 'sms' | 'email' | 'chat';
+  const lastDirection =
+    r.last_direction === 'inbound' || r.last_direction === 'outbound' ? r.last_direction : null;
+  return {
+    id: r.id,
+    channel,
+    counterpart: r.counterpart,
+    // A website chat's visitor's name isn't on the phone: the chat shows as a visitor until they're a customer.
+    counterpartDisplay:
+      channel === 'sms'
+        ? formatPhone(r.counterpart)
+        : channel === 'chat'
+          ? CHAT_VISITOR_NAME
+          : r.counterpart,
+    status: (STATUSES.has(r.status) ? r.status : 'open') as ConversationStatus,
+    person: r.person_id ? { id: r.person_id, fullName: nameOf(r.first_name, r.last_name) } : null,
+    assignee: userRef(r.assignee_user_id, r.assignee_name),
+    unreadCount: Number(r.unread_count ?? 0),
+    lastMessageAt: iso(r.last_message_at),
+    lastPreview: r.last_preview,
+    lastDirection,
+    lastSentBy: lastDirection === 'outbound' ? userRef(r.last_sender_id, r.last_sender_name) : null,
+    awaitingReplySince: iso(r.awaiting_reply_since),
+    snoozedUntil: iso(r.snoozed_until),
+    openLead:
+      r.lead_id && r.lead_title
+        ? {
+            id: r.lead_id,
+            title: r.lead_title,
+            stageName: r.lead_stage_name ?? '',
+            valueCents: Number(r.lead_value_cents ?? 0),
+            nextAction: r.lead_next_action ?? null,
+            nextActionAt: iso(r.lead_next_action_at),
+          }
+        : null,
+    createdAt: iso(r.created_at) ?? new Date(0).toISOString(),
+    handledBy: r.handled_by === 'ai' || r.handled_by === 'person' ? r.handled_by : 'none',
+    teammate:
+      r.ai_teammate_id && r.teammate_name ? { id: r.ai_teammate_id, name: r.teammate_name } : null,
+    needsPersonSince: iso(r.needs_person_since),
+    handoffReason: (r.handoff_reason as ConversationHandoffReason | null) ?? null,
+    handoffNote: r.handoff_note,
+    takenOverBy: userRef(r.taken_over_by, r.taken_over_name),
+    // Whether a chat visitor still has the page open isn't on the phone.
+    onSiteNow: false,
+  };
+}
+
+export interface InboxFilter {
+  readonly box: InboxBoxKey;
+  readonly status: ConversationStatus;
+  readonly channel?: 'sms' | 'email' | 'chat';
+  /** Search: a name, the number or address, words from the latest message. */
+  readonly q?: string;
+}
+
+/**
+ * Whether a conversation is in the list, as `inbox.list` decides: its box and status, one that has had a message, and
+ * the search (a name, the number or address, the latest message; three digits or more match inside the number).
+ */
+export function inInbox(c: ConversationShape, filter: InboxFilter, myUserId: string): boolean {
+  if (!c.lastMessageAt || c.status !== filter.status) return false;
+  if (filter.channel && c.channel !== filter.channel) return false;
+  switch (filter.box) {
+    case 'mine':
+      if (c.assignee?.id !== myUserId) return false;
+      break;
+    case 'unassigned':
+      if (c.assignee) return false;
+      break;
+    case 'needs_person':
+      if (!c.needsPersonSince) return false;
+      break;
+    case 'ai':
+      if (c.handledBy !== 'ai') return false;
+      break;
+    default:
+      break;
+  }
+  const q = filter.q?.trim().toLowerCase() ?? '';
+  if (!q) return true;
+  const digits = q.replace(/[^0-9]/g, '');
+  const name = c.person ? c.person.fullName.toLowerCase() : '';
+  return (
+    name.includes(q) ||
+    c.counterpart.toLowerCase().includes(q) ||
+    (c.lastPreview ?? '').toLowerCase().includes(q) ||
+    (digits.length >= 3 && c.counterpart.includes(digits))
+  );
+}
+
+/**
+ * The list's order: newest first by the latest message (or when it was made), ties by id, as `inbox.list` sorts; the
+ * "Needs a person" box by who has waited longest.
+ */
+export function inboxOrder(box: InboxBoxKey) {
+  return (a: ConversationShape, b: ConversationShape): number => {
+    if (box === 'needs_person') {
+      const x = a.needsPersonSince ?? '';
+      const y = b.needsPersonSince ?? '';
+      return x === y ? a.id.localeCompare(b.id) : x < y ? -1 : 1;
+    }
+    const x = a.lastMessageAt ?? a.createdAt;
+    const y = b.lastMessageAt ?? b.createdAt;
+    return x === y ? b.id.localeCompare(a.id) : x > y ? -1 : 1;
+  };
+}
+
+/** The badges' counts, as `inbox.summary` counts them: open conversations that have had a message. */
+export interface InboxCounts {
+  readonly open: { readonly mine: number; readonly unassigned: number; readonly all: number };
+  readonly unread: { readonly mine: number; readonly unassigned: number; readonly all: number };
+  /** Open conversations whose customer has waited past the reminder threshold. */
+  readonly waiting: number;
+  readonly waitingThresholdMinutes: number;
+  readonly needsPerson: number;
+  readonly ai: number;
+}
+
+export function inboxCounts(
+  conversations: readonly ConversationShape[],
+  myUserId: string,
+  waitingThresholdMinutes: number,
+  now = Date.now(),
+): InboxCounts {
+  const open = { mine: 0, unassigned: 0, all: 0 };
+  const unread = { mine: 0, unassigned: 0, all: 0 };
+  let waiting = 0;
+  let needsPerson = 0;
+  let ai = 0;
+  const threshold = waitingThresholdMinutes || 10;
+  for (const c of conversations) {
+    if (c.status !== 'open' || !c.lastMessageAt) continue;
+    const mine = c.assignee?.id === myUserId;
+    const unassigned = !c.assignee;
+    open.all += 1;
+    if (mine) open.mine += 1;
+    if (unassigned) open.unassigned += 1;
+    if (c.unreadCount > 0) {
+      unread.all += 1;
+      if (mine) unread.mine += 1;
+      if (unassigned) unread.unassigned += 1;
+    }
+    if (c.awaitingReplySince && Date.parse(c.awaitingReplySince) <= now - threshold * 60_000)
+      waiting += 1;
+    if (c.needsPersonSince) needsPerson += 1;
+    if (c.handledBy === 'ai') ai += 1;
+  }
+  return { open, unread, waiting, waitingThresholdMinutes: threshold, needsPerson, ai };
+}
+
+/** The business's texting settings from its synced `settings`, as the server reads them. */
+export function telephonySettingsOf(settings: unknown): TelephonySettingsType {
+  const raw = json<Record<string, unknown> | null>(settings, null) ?? {};
+  const parsed = TelephonySettings.partial().safeParse(raw['telephony'] ?? {});
+  const stored = parsed.success ? parsed.data : {};
+  return {
+    quietHours: stored.quietHours ?? DEFAULT_TELEPHONY_SETTINGS.quietHours,
+    unansweredReminderMinutes:
+      stored.unansweredReminderMinutes ?? DEFAULT_TELEPHONY_SETTINGS.unansweredReminderMinutes,
+  };
+}
+
+// ------------------------------------------------------------------------------------------------ the thread
+
+/** A synced message, with its sender's, teammate's and approver's names joined in. */
+export interface MessageThreadRow {
+  readonly id: string;
+  readonly conversation_id: Text;
+  readonly channel: Text;
+  readonly direction: string;
+  readonly status: string;
+  readonly from_address: Text;
+  readonly to_addresses: Text;
+  readonly cc_addresses: Text;
+  readonly subject: Text;
+  readonly body_text: Text;
+  readonly media: Text;
+  readonly error_code: Text;
+  readonly error_message: Text;
+  readonly sent_by: Text;
+  readonly sent_by_name?: Text;
+  readonly sent_by_teammate_id: Text;
+  readonly teammate_name?: Text;
+  readonly approved_by: Text;
+  readonly approved_name?: Text;
+  readonly client_id: Text;
+  readonly occurred_at: string;
+  readonly delivered_at: Text;
+}
+
+/** A synced call, with who placed it and who answered it. */
+export interface CallThreadRow {
+  readonly id: string;
+  readonly conversation_id: Text;
+  readonly direction: string;
+  readonly from_e164: Text;
+  readonly to_e164: Text;
+  readonly status: string;
+  readonly answered_via: Text;
+  readonly answered_by_user_id: Text;
+  readonly answered_name?: Text;
+  readonly placed_by: Text;
+  readonly placed_name?: Text;
+  readonly started_at: string;
+  readonly answered_at: Text;
+  readonly ended_at: Text;
+  readonly duration_seconds: number | null;
+  readonly is_voicemail: number | boolean | null;
+  readonly recording_seconds: number | null;
+  readonly transcript: Text;
+}
+
+/** A stored photo or file on a message. */
+export interface MediaShape {
+  readonly bucket: string;
+  readonly objectPath: string;
+  readonly contentType: string;
+  readonly sizeBytes: number;
+  readonly name: string;
+  readonly fileId?: string;
+}
+
+/** A thread item from a phone's copy: the API's ThreadItem, less what the copy doesn't hold (an email's HTML). */
+export interface ThreadItemShape extends ThreadItemFacts {
+  readonly media: readonly MediaShape[];
+  readonly deliveredAt: string | null;
+  readonly hasRecording: boolean;
+  readonly recordingSeconds: number | null;
+  readonly transcript: string | null;
+  readonly toAddresses: readonly string[];
+  readonly ccAddresses: readonly string[];
+  /** The phone's copy doesn't hold received emails' HTML; the plain text shows instead. */
+  readonly bodyHtml: null;
+  readonly via: null;
+  /** The message's own client id: what a reply made on the phone is matched by once the server's copy arrives. */
+  readonly clientId: string | null;
+  /** When a call through someone's cell was picked up by the customer, and ended. */
+  readonly answeredAt: string | null;
+  readonly endedAt: string | null;
+  readonly fromE164: string | null;
+  readonly toE164: string | null;
+}
+
+/**
+ * What phones don't show, as the web's thread doesn't: a held text someone cancelled (it never goes), and a call
+ * through someone's own cell that never dialed the customer (nobody pressed 1).
+ */
+export function hiddenMessage(r: Pick<MessageThreadRow, 'error_code'>): boolean {
+  return r.error_code === CANCELLED_TEXT;
+}
+export function hiddenCall(
+  r: Pick<CallThreadRow, 'answered_via' | 'answered_by_user_id'>,
+): boolean {
+  return r.answered_via === 'bridge' && !r.answered_by_user_id;
+}
+
+const HANDOFF_PREFIX = 'handoff:';
+
+export function messageItemOf(r: MessageThreadRow): ThreadItemShape {
+  const channel =
+    r.channel === 'sms' || r.channel === 'email' || r.channel === 'chat' ? r.channel : null;
+  const media = json<MediaShape[]>(r.media, []);
+  return {
+    type: 'message',
+    id: r.id,
+    occurredAt: new Date(r.occurred_at).toISOString(),
+    direction: r.direction === 'outbound' ? 'outbound' : 'inbound',
+    status: r.status,
+    channel,
+    body: r.body_text,
+    subject: r.subject,
+    fromAddress: r.from_address,
+    media: Array.isArray(media) ? media : [],
+    sentBy: userRef(r.sent_by, r.sent_by_name),
+    errorCode: r.error_code,
+    errorMessage: r.error_message,
+    deliveredAt: iso(r.delivered_at),
+    durationSeconds: null,
+    isVoicemail: false,
+    hasRecording: false,
+    recordingSeconds: null,
+    answeredVia: null,
+    transcript: null,
+    answeredBy: null,
+    bodyHtml: null,
+    toAddresses: json<string[]>(r.to_addresses, []),
+    ccAddresses: json<string[]>(r.cc_addresses, []),
+    via: null,
+    teammate:
+      r.sent_by_teammate_id && r.teammate_name
+        ? { id: r.sent_by_teammate_id, name: r.teammate_name }
+        : null,
+    approvedBy: userRef(r.approved_by, r.approved_name),
+    // The draft a message came from isn't on the phone.
+    aiDraftId: null,
+    handoffLine: (r.client_id ?? '').startsWith(HANDOFF_PREFIX),
+    scheduledFor: scheduledForOf({
+      status: r.status,
+      errorCode: r.error_code,
+      occurredAt: r.occurred_at,
+    }),
+    clientId: r.client_id,
+    answeredAt: null,
+    endedAt: null,
+    fromE164: null,
+    toE164: null,
+  };
+}
+
+export function callItemOf(r: CallThreadRow): ThreadItemShape {
+  const via = r.answered_via;
+  return {
+    type: 'call',
+    id: r.id,
+    occurredAt: new Date(r.started_at).toISOString(),
+    direction: r.direction === 'outbound' ? 'outbound' : 'inbound',
+    status: r.status,
+    channel: null,
+    body: null,
+    subject: null,
+    fromAddress: r.from_e164,
+    media: [],
+    sentBy: userRef(r.placed_by, r.placed_name),
+    errorCode: null,
+    errorMessage: null,
+    deliveredAt: null,
+    durationSeconds: r.duration_seconds,
+    isVoicemail: bool(r.is_voicemail),
+    hasRecording: (r.recording_seconds ?? 0) > 0,
+    recordingSeconds: r.recording_seconds,
+    answeredVia: via === 'browser' || via === 'forwarding' || via === 'bridge' ? via : null,
+    transcript: r.transcript,
+    answeredBy: userRef(r.answered_by_user_id, r.answered_name),
+    bodyHtml: null,
+    toAddresses: [],
+    ccAddresses: [],
+    via: null,
+    teammate: null,
+    approvedBy: null,
+    aiDraftId: null,
+    handoffLine: false,
+    scheduledFor: null,
+    clientId: null,
+    answeredAt: iso(r.answered_at),
+    endedAt: iso(r.ended_at),
+    fromE164: r.from_e164,
+    toE164: r.to_e164,
+  };
+}
+
+/** A conversation's thread from the copy, oldest first, without what phones hide. */
+export function threadItemsOf(
+  messages: readonly MessageThreadRow[],
+  calls: readonly CallThreadRow[],
+): ThreadItemShape[] {
+  const items = [
+    ...messages.filter((m) => !hiddenMessage(m)).map(messageItemOf),
+    ...calls.filter((c) => !hiddenCall(c)).map(callItemOf),
+  ];
+  return items.sort((a, b) =>
+    a.occurredAt === b.occurredAt ? a.id.localeCompare(b.id) : a.occurredAt < b.occurredAt ? -1 : 1,
+  );
+}
+
+// ----------------------------------------------------------------------------------------------------- drafts
+
+/** A synced draft (only waiting ones reach phones), with its teammate's and customer's names joined in. */
+export interface TeammateDraftRow {
+  readonly id: string;
+  readonly teammate_id: string;
+  readonly teammate_name?: Text;
+  readonly conversation_id: Text;
+  readonly channel?: Text;
+  readonly person_id: Text;
+  readonly first_name?: Text;
+  readonly last_name?: Text;
+  readonly lead_id: Text;
+  readonly kind: string;
+  readonly status: string;
+  readonly preview: Text;
+  readonly edits: Text;
+  readonly expires_at: Text;
+  readonly created_at: Text;
+}
+
+/** A draft as its card and words take it. */
+export interface TeammateDraftShape extends DraftFacts {
+  readonly id: string;
+  readonly status: string;
+  readonly conversationId: string | null;
+  readonly personId: string | null;
+  readonly leadId: string | null;
+  readonly expiresAt: string | null;
+  readonly createdAt: string;
+  readonly edits: { readonly body?: string; readonly subject?: string } | null;
+  /** Reply drafts: anyone who works the inbox. Approval drafts: owners and admins. */
+  readonly canDecide: boolean;
+  readonly preview: DraftFacts['preview'] & {
+    readonly message: { readonly body: string; readonly subject: string | null } | null;
+  };
+}
+
+interface PreviewJson {
+  message?: { body?: unknown; subject?: unknown; channel?: unknown } | null;
+  actions?: unknown[];
+  discount?: { percent?: unknown; reason?: unknown } | null;
+}
+
+export function teammateDraftOf(
+  r: TeammateDraftRow,
+  opts: { readonly canManage: boolean },
+): TeammateDraftShape {
+  const preview = json<PreviewJson>(r.preview, {});
+  const message =
+    preview.message && typeof preview.message.body === 'string'
+      ? {
+          body: preview.message.body,
+          subject: typeof preview.message.subject === 'string' ? preview.message.subject : null,
+        }
+      : null;
+  const actions: DraftActionFacts[] = [];
+  for (const a of Array.isArray(preview.actions) ? preview.actions : []) {
+    const action = a as { kind?: unknown; startsAt?: unknown; summary?: unknown };
+    const summary = typeof action.summary === 'string' ? action.summary : '';
+    if (action.kind === 'cancel') actions.push({ kind: 'cancel', summary });
+    else if (
+      (action.kind === 'book' || action.kind === 'reschedule') &&
+      typeof action.startsAt === 'string'
+    )
+      actions.push({ kind: action.kind, startsAt: action.startsAt, summary });
+  }
+  const discount =
+    preview.discount && typeof preview.discount.percent === 'number'
+      ? {
+          percent: preview.discount.percent,
+          reason: typeof preview.discount.reason === 'string' ? preview.discount.reason : '',
+        }
+      : null;
+  const edits = json<{ body?: string; subject?: string } | null>(r.edits, null);
+  const messageChannel =
+    typeof preview.message?.channel === 'string' ? preview.message.channel : null;
+  const kind = r.kind === 'approval' ? 'approval' : 'reply';
+  return {
+    id: r.id,
+    kind,
+    status: r.status,
+    channel: r.channel ?? messageChannel,
+    teammate: { id: r.teammate_id, name: r.teammate_name || 'The AI teammate' },
+    person: r.person_id ? { fullName: nameOf(r.first_name, r.last_name) || 'Customer' } : null,
+    preview: { message, actions, discount },
+    conversationId: r.conversation_id,
+    personId: r.person_id,
+    leadId: r.lead_id,
+    expiresAt: iso(r.expires_at),
+    createdAt: iso(r.created_at) ?? new Date(0).toISOString(),
+    edits,
+    canDecide: r.status === 'pending' && (kind === 'reply' || opts.canManage),
+  };
+}

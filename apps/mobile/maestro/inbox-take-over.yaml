@@ -1,0 +1,67 @@
+appId: com.gobizhelp.handsfreeos
+name: Inbox - take a conversation over from the AI teammate, and hand it back
+tags:
+  - ci
+# Ava box, then Hannah Nguyen's texts, which Ava is handling with no draft waiting. Take over makes it Dale's ("You took over"), and Hand back asks first
+# then gives it back to Ava ("Ava is handling this"). Both go to HandsFreeOS at once with signal.
+env:
+  EMAIL: dale@lonestarhvac.test
+  PASSWORD: HandsFree-Demo-2026
+---
+- runFlow: subflows/start-signed-out.yaml
+- runFlow: subflows/sign-in-with-password.yaml
+- tapOn:
+    id: 'tab-inbox'
+- extendedWaitUntil:
+    visible:
+      id: 'box-ai'
+    timeout: 30000
+- tapOn:
+    id: 'box-ai'
+- extendedWaitUntil:
+    visible:
+      id: 'ai-tag'
+    timeout: 20000
+- takeScreenshot: inbox-ava-box
+- runFlow:
+    file: subflows/open-conversation.yaml
+    env:
+      NAME: Hannah Nguyen
+- extendedWaitUntil:
+    visible:
+      id: 'handling-ai'
+    timeout: 20000
+- tapOn:
+    id: 'take-over'
+- extendedWaitUntil:
+    visible:
+      id: 'handling-person'
+    timeout: 20000
+- assertVisible: '.*You took over.*'
+- takeScreenshot: inbox-taken-over
+- tapOn:
+    id: 'hand-back'
+- extendedWaitUntil:
+    visible:
+      id: 'hand-back-confirm'
+    timeout: 5000
+    optional: true
+# Pressed while the take-over was still settling, Hand back can miss: press it again.
+- runFlow:
+    when:
+      notVisible:
+        id: 'hand-back-confirm'
+    commands:
+      - tapOn:
+          id: 'hand-back'
+- tapOn:
+    id: 'hand-back-confirm'
+- extendedWaitUntil:
+    visible:
+      id: 'handling-ai'
+    timeout: 20000
+- assertVisible: '.*Ava is handling this.*'
+- tapOn:
+    id: 'back'
+- tapOn:
+    id: 'box-all'
