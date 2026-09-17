@@ -6,7 +6,7 @@
 # The API refuses to boot if it is handed a Supabase secret key or any provider credential.
 
 app = "handsfreeos-api"
-primary_region = "dfw"
+primary_region = "iad"
 kill_signal = "SIGTERM"
 kill_timeout = "15s"
 

@@ -16,7 +16,7 @@
 # Save WORKER_ENCRYPTION_KEY in the password manager before setting it: without it sealed tokens can't be opened.
 
 app = "handsfreeos-worker"
-primary_region = "dfw"
+primary_region = "iad"
 kill_signal = "SIGTERM"
 # The worker closes its listener, then finishes the pass it is in.
 kill_timeout = "30s"
