@@ -42,6 +42,7 @@ const dayOrWhen = z.union([
   when,
 ]);
 const minutes = z.int().min(5).max(720).describe('Length in minutes');
+const clock = z.string().regex(/^([01][0-9]|2[0-3]):[0-5][0-9]$/, 'Use a 24-hour time like 08:00.');
 /** Working hours as the model writes them: a day (0 = Sunday), and 24-hour times. */
 const WeeklyHoursInput = z
   .array(
@@ -545,6 +546,143 @@ export const assistantTools = [
     }),
     autonomy: 'confirm',
     permission: 'knowledge.manage',
+  }),
+
+  define({
+    name: 'update_texting_settings',
+    description:
+      'Change how texts and calls behave: quiet hours, how long a customer waits before the team is reminded, which phones ring and for how long, voicemail, and what the customer sees when a call is forwarded. Read it with get_settings first and pass only what changes.',
+    input: z.object({
+      quietHoursEnabled: z.boolean().optional(),
+      quietHoursStart: clock.optional().describe('When quiet hours start, like 20:00'),
+      quietHoursEnd: clock.optional().describe('When they end, like 08:00'),
+      remindTeamAfterMinutes: z
+        .int()
+        .min(0)
+        .max(240)
+        .optional()
+        .describe('How long a customer waits before the team is reminded; 0 turns it off'),
+      ringPhones: z
+        .array(
+          z.object({
+            number: text(20).describe('The phone to ring, like +17135551212'),
+            label: text(40).describe('Whose phone it is'),
+            enabled: z.boolean().default(true),
+          }),
+        )
+        .max(3)
+        .optional()
+        .describe('Up to three phones that ring with the browsers'),
+      ringSeconds: z.int().min(10).max(25).optional(),
+      voicemailEnabled: z.boolean().optional(),
+      voicemailGreeting: text(500).nullable().optional(),
+      showCustomerNumber: z
+        .boolean()
+        .optional()
+        .describe('On a forwarded call, show the customer’s number rather than the business’s'),
+    }),
+    autonomy: 'confirm',
+    permission: 'channels.manage',
+  }),
+  define({
+    name: 'manage_phone_number',
+    description:
+      'Get a business number, or give one up. Getting one costs money every month; giving one up loses it for good and customers texting or calling it reach nobody. The person picks the number itself on Settings → Texting & calls, so only use this when they give you the number.',
+    input: z.object({
+      action: z.enum(['get', 'give_up']),
+      number: text(20).describe('The number, like +17135551212'),
+      numberType: z.enum(['local', 'toll_free']).optional(),
+      phoneNumberId: uuid.optional().describe('The number to give up'),
+    }),
+    autonomy: 'confirm',
+    permission: 'channels.manage',
+  }),
+  define({
+    name: 'submit_carrier_registration',
+    description:
+      'Send the carrier registration that turns texting on. Ask for every part in plain words, a question or two at a time, and read back what you have before sending. Local numbers need at least two example texts. Approval is the carriers’ and takes a few days.',
+    input: z.object({
+      kind: z
+        .enum(['a2p_10dlc', 'toll_free_verification'])
+        .describe('a2p_10dlc for a local number'),
+      legalName: text(120).describe('The business name as it is registered'),
+      businessType: z.enum(['llc', 'corporation', 'sole_proprietor', 'partnership', 'non_profit']),
+      ein: text(10)
+        .nullable()
+        .optional()
+        .describe('The 9-digit EIN; not needed for a sole proprietor'),
+      website: z.url().max(200),
+      addressLine1: text(200),
+      city: text(100),
+      state: text(2).describe('The two-letter state'),
+      postalCode: text(10),
+      contactFirstName: text(60),
+      contactLastName: text(60),
+      contactEmail: z.email().max(254),
+      contactPhone: text(20),
+      useCase: z.enum(['customer_care', 'mixed', 'marketing']),
+      messageSamples: z
+        .array(text(320))
+        .min(1)
+        .max(5)
+        .describe('Real examples of texts you send customers'),
+      optInDescription: text(1000).describe('How customers agree to get texts from you'),
+      monthlyVolume: z.enum(['under_1000', '1000_10000', '10000_100000', 'over_100000']),
+    }),
+    autonomy: 'confirm',
+    permission: 'channels.manage',
+  }),
+  define({
+    name: 'manage_email_settings',
+    description:
+      'Change how email is sent: add or change a sending address, add your own sending domain (which gives back records to put in with whoever sold you the domain), check a domain once those records are in, remove one, or unblock an address that bounced.',
+    input: z.object({
+      action: z.enum([
+        'add_address',
+        'change_address',
+        'add_domain',
+        'check_domain',
+        'remove_domain',
+        'unblock',
+      ]),
+      localPart: text(64).optional().describe('The part before the @, like hello'),
+      displayName: text(120).optional().describe('The name customers see it from'),
+      isDefault: z.boolean().optional(),
+      emailAddressId: uuid.optional(),
+      domain: text(255).optional().describe('A domain you own, like lonestarhvac.com'),
+      emailDomainId: uuid.optional(),
+      suppressionId: uuid.optional().describe('The blocked address to release'),
+    }),
+    autonomy: 'confirm',
+    permission: 'channels.manage',
+  }),
+  define({
+    name: 'manage_website_chat',
+    description:
+      'Set up or change the chat box on the business’s website: which sites it may show on, its greeting, button label and colour, whether the AI teammate answers it, and turning it on or off. The snippet still has to be pasted into their site, so say so.',
+    input: z.object({
+      action: z.enum(['create', 'change', 'turn_on', 'turn_off']),
+      widgetId: uuid.optional(),
+      websites: z
+        .array(text(300))
+        .max(10)
+        .optional()
+        .describe('The sites it may show on, like https://lonestarhvac.com'),
+      greeting: text(300).optional(),
+      buttonLabel: text(40).optional(),
+      color: z
+        .string()
+        .regex(/^#[0-9a-fA-F]{6}$/)
+        .optional()
+        .describe('A hex colour like #2d69d8'),
+      answeredByAi: z.boolean().optional().describe('Whether the AI teammate answers it'),
+      askForSmsConsent: z
+        .boolean()
+        .optional()
+        .describe('Offer visitors a box agreeing to get texts'),
+    }),
+    autonomy: 'confirm',
+    permission: 'channels.manage',
   }),
 
   // ---------- tasks and notes (auto, with Undo) ----------

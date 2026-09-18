@@ -51,6 +51,9 @@ const run = async <I extends z.ZodType, O extends z.ZodType>(
 let owner: TestUser;
 let workspaceId: string;
 let organizationId: string;
+/** Booking-site addresses are unique across every business, so this run gets its own name. */
+const suffix = randomUUID().slice(0, 8);
+const businessName = `Settings HVAC ${suffix}`;
 
 const ctxFor = (u: TestUser): ToolContext => ({
   actor: actor(u),
@@ -69,11 +72,10 @@ const readTool = async (name: 'get_settings' | 'settings_help', area: string, u:
 
 beforeAll(async () => {
   owner = await createTestUser('aset-dale', { fullName: 'Dale Owner' });
-  const org = (await run(
-    organizationCreate,
-    { businessName: 'Settings HVAC', timezone: CHI },
-    owner,
-  )) as { workspaceId: string; organizationId: string };
+  const org = (await run(organizationCreate, { businessName, timezone: CHI }, owner)) as {
+    workspaceId: string;
+    organizationId: string;
+  };
   workspaceId = org.workspaceId;
   organizationId = org.organizationId;
   const service = (await run(
@@ -131,7 +133,7 @@ describe('get_settings', () => {
   it('reads the business as it really is, and says where it is changed', async () => {
     const { result } = await readTool('get_settings', 'business', owner);
     expect(result['where']).toBe('Settings → Workspace');
-    expect(JSON.stringify(result['business'])).toContain('Settings HVAC');
+    expect(JSON.stringify(result['business'])).toContain(businessName);
     expect(result['canChange']).toContain('open hours');
   });
 
@@ -335,13 +337,15 @@ describe('the booking page', () => {
     expect(await site()).toBeNull();
     const { card, parsed, tool } = await prepare('update_booking_site', { enabled: false }, owner);
     expect(card.title).toBe('Set up your booking page');
-    expect(card.fields.find((f) => f.label === 'Name')!.value).toBe('Settings HVAC');
-    expect(card.fields.find((f) => f.label === 'Address')!.value).toBe('/book/settings-hvac');
+    expect(card.fields.find((f) => f.label === 'Name')!.value).toBe(businessName);
+    expect(card.fields.find((f) => f.label === 'Address')!.value).toBe(
+      `/book/settings-hvac-${suffix}`,
+    );
     expect(card.warnings[0]!.text).toContain('book themselves');
     await confirm(tool!, parsed, owner);
     const now = await site();
     expect(now!.enabled).toBe(false);
-    expect(now!.name).toBe('Settings HVAC');
+    expect(now!.name).toBe(businessName);
   });
 });
 
@@ -357,7 +361,7 @@ describe('the business itself', () => {
     const { card, parsed, tool } = await prepare(
       'update_business',
       {
-        name: 'Settings HVAC & Plumbing',
+        name: `${businessName} & Plumbing`,
         website: 'https://settingshvac.example',
         openHours: [
           { day: 1, start: '07:00', end: '18:00' },
@@ -366,8 +370,8 @@ describe('the business itself', () => {
       },
       owner,
     );
-    expect(card.title).toBe('Change Settings HVAC');
-    expect(card.fields.find((f) => f.label === 'Was')!.value).toBe('Settings HVAC');
+    expect(card.title).toBe(`Change ${businessName}`);
+    expect(card.fields.find((f) => f.label === 'Was')!.value).toBe(businessName);
     expect(card.fields.find((f) => f.label === 'Open hours')!.value).toBe(
       'Mon 07:00–18:00, Tue 07:00–18:00',
     );
@@ -376,7 +380,7 @@ describe('the business itself', () => {
     const after = await q<{ workspace: { name: string; settings: Record<string, unknown> } }>(
       'workspace.get',
     );
-    expect(after.workspace.name).toBe('Settings HVAC & Plumbing');
+    expect(after.workspace.name).toBe(`${businessName} & Plumbing`);
     expect(after.workspace.settings['website']).toBe('https://settingshvac.example');
     expect((after.workspace.settings['openHours'] as unknown[]).length).toBe(2);
     // A settings save replaces only its own keys.
@@ -479,5 +483,117 @@ describe('what the AI knows about the business', () => {
     expect(profile['allowPrices']).toBe(true);
     expect(profile['description']).toBe('Residential heating and cooling in Houston.');
     expect(profile['tone']).toBe('Plain and friendly.');
+  });
+});
+
+describe('texting and calls', () => {
+  it('keeps the parts of quiet hours nobody mentioned, and warns when they are turned off', async () => {
+    const before = await q<{
+      settings: { quietHours: { enabled: boolean; start: string; end: string } };
+    }>('phone.setup_status');
+    const { card, parsed, tool } = await prepare(
+      'update_texting_settings',
+      { quietHoursStart: '21:00', remindTeamAfterMinutes: 15 },
+      owner,
+    );
+    expect(card.fields.find((f) => f.label === 'Quiet hours')!.value).toBe(
+      `21:00–${before.settings.quietHours.end}`,
+    );
+    expect(card.fields.find((f) => f.label === 'Remind the team')!.value).toBe(
+      'After 15 min waiting',
+    );
+    await confirm(tool!, parsed, owner);
+
+    const after = await q<{
+      settings: {
+        quietHours: { enabled: boolean; start: string; end: string };
+        unansweredReminderMinutes: number;
+      };
+    }>('phone.setup_status');
+    expect(after.settings.quietHours.start).toBe('21:00');
+    expect(after.settings.quietHours.end).toBe(before.settings.quietHours.end);
+    expect(after.settings.quietHours.enabled).toBe(before.settings.quietHours.enabled);
+    expect(after.settings.unansweredReminderMinutes).toBe(15);
+
+    const off = await prepare('update_texting_settings', { quietHoursEnabled: false }, owner);
+    expect(off.card.warnings[0]!.text).toContain('any hour');
+  });
+});
+
+describe('the business number', () => {
+  it('says a number costs money, and that giving one up cannot be undone', async () => {
+    const getting = await prepare(
+      'manage_phone_number',
+      { action: 'get', number: '+17135550188', numberType: 'local' },
+      owner,
+    );
+    expect(getting.card.title).toBe('Get (713) 555-0188');
+    expect(getting.card.fields.find((f) => f.label === 'Number')!.value).toBe('(713) 555-0188');
+    expect(getting.card.warnings[0]!.text).toContain('costs money every month');
+
+    const giving = await prepare(
+      'manage_phone_number',
+      { action: 'give_up', number: '+17135550188' },
+      owner,
+    );
+    expect(giving.card.warnings[0]!.kind).toBe('blocked');
+    expect(giving.card.warnings[0]!.text).toContain('reaches nobody');
+  });
+});
+
+describe('the carrier registration', () => {
+  it('reads the whole form back before it goes, and says the carriers decide', async () => {
+    const { card } = await prepare(
+      'submit_carrier_registration',
+      {
+        kind: 'a2p_10dlc',
+        legalName: 'Settings HVAC LLC',
+        businessType: 'llc',
+        ein: '12-3456789',
+        website: 'https://settingshvac.example',
+        addressLine1: '400 Main St',
+        city: 'Houston',
+        state: 'TX',
+        postalCode: '77002',
+        contactFirstName: 'Dale',
+        contactLastName: 'Owner',
+        contactEmail: 'dale@settingshvac.example',
+        contactPhone: '+17135550100',
+        useCase: 'customer_care',
+        messageSamples: [
+          'Hi Mike, this is Dale at Settings HVAC confirming your visit tomorrow at 9 AM.',
+          'Your technician is on the way and should arrive in about 20 minutes.',
+        ],
+        optInDescription:
+          'Customers give us their number on our booking page and tick a box agreeing to get texts about their visit.',
+        monthlyVolume: 'under_1000',
+      },
+      owner,
+    );
+    expect(card.title).toBe('Send your texting registration');
+    expect(card.fields.find((f) => f.label === 'Business')!.value).toBe('Settings HVAC LLC');
+    expect(card.fields.find((f) => f.label === 'Address')!.value).toBe(
+      '400 Main St, Houston, TX, 77002',
+    );
+    expect(card.fields.find((f) => f.label === 'Texts are for')!.value).toBe('Answering customers');
+    expect(card.fields.find((f) => f.label === 'Examples')!.value).toBe('2 example texts');
+    expect(card.warnings[0]!.text).toContain('few days');
+    expect(AssistantCard.safeParse(card).success).toBe(true);
+  });
+});
+
+describe('email', () => {
+  it('adds a sending address on the shared domain', async () => {
+    const { card, parsed, tool } = await prepare(
+      'manage_email_settings',
+      { action: 'add_address', localPart: `desk-${suffix}`, displayName: businessName },
+      owner,
+    );
+    expect(card.title).toBe('Add a sending address');
+    expect(card.fields.find((f) => f.label === 'Address')!.value).toContain(`desk-${suffix}@`);
+    const done = await confirm(tool!, parsed, owner);
+    expect(done.command).toBe('email_address.create');
+    const { addresses } = await q<{ addresses: { address: string }[] }>('email.setup_status');
+    expect(addresses.some((a) => a.address.startsWith(`desk-${suffix}@`))).toBe(true);
   });
 });
