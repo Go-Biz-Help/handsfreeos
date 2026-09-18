@@ -3,14 +3,51 @@ import { Plus } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useState, type FormEvent } from 'react';
 import { toast } from 'sonner';
-import { LIVE_SOURCES, SOURCE_LABELS, type MigrationSourceSystem } from '@hfos/core';
+import {
+  LIVE_SOURCES,
+  PRIVATE_TOKEN_SOURCES,
+  SOURCE_LABELS,
+  type MigrationAuthKind,
+  type MigrationSourceSystem,
+} from '@hfos/core';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
-import { Field, FieldError } from '@/components/ui/field';
+import { Field, FieldError, Hint } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 import { RadioCard } from '@/components/ui/radio-card';
 import { apiBrowser, errorMessage, unwrap } from '@/lib/api/client';
 import { publicEnv } from '@/lib/env';
+
+/**
+ * Pasting a private token goes straight to the worker, never through the API (0069). The worker is the only
+ * process here that can seal a credential, so it is the only one that should ever hold one — and a POST
+ * rather than a link, because a token in a URL is a token in a log.
+ */
+async function pasteToken(input: {
+  state: string;
+  token: string;
+  accountId: string;
+}): Promise<{ displayName: string | null }> {
+  let res: Response;
+  try {
+    res = await fetch(`${publicEnv.workerUrl}/migrations/token`, {
+      method: 'POST',
+      cache: 'no-store',
+      referrerPolicy: 'no-referrer',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(input),
+    });
+  } catch {
+    throw new Error('We couldn’t reach HandsFreeOS. Check your connection and try again.');
+  }
+  const json = (await res.json().catch(() => null)) as {
+    error?: { message?: string };
+    displayName?: string | null;
+  } | null;
+  if (!res.ok)
+    throw new Error(json?.error?.message ?? 'That token was not accepted. Check it and try again.');
+  return { displayName: json?.displayName ?? null };
+}
 
 /**
  * Connecting the CRM a business is leaving. Two things are said before anybody signs in, because both are
@@ -51,22 +88,53 @@ function ConnectDialog({
   workspaceId?: string;
   onOpenChange: (open: boolean) => void;
 }) {
+  const router = useRouter();
   const [source, setSource] = useState<MigrationSourceSystem>('gohighlevel');
+  const [how, setHow] = useState<MigrationAuthKind>('oauth');
   const [reach, setReach] = useState<'agency' | 'location'>(workspaceId ? 'location' : 'agency');
+  const [token, setToken] = useState('');
+  const [accountId, setAccountId] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const label = SOURCE_LABELS[source];
+  const canPaste = PRIVATE_TOKEN_SOURCES.includes(source);
+  const pasting = canPaste && how === 'private_token';
 
   async function submit(e: FormEvent) {
     e.preventDefault();
     setBusy(true);
+    setError(null);
     try {
       const out = unwrap(
         await apiBrowser().POST('/v1/commands/migration.connect', {
-          body: { organizationId, workspaceId, source, installKind: reach },
+          body: {
+            organizationId,
+            workspaceId,
+            source,
+            installKind: reach,
+            authKind: pasting ? 'private_token' : 'oauth',
+          },
         }),
       );
-      // Off to the old system's own sign-in, through the worker.
-      window.location.href = `${publicEnv.workerUrl}${out.startPath}`;
+      if (!pasting) {
+        // Off to the old system's own sign-in, through the worker.
+        window.location.href = `${publicEnv.workerUrl}${out.startPath}`;
+        return;
+      }
+      // The token never goes through the API: it is posted straight to the worker, which seals it.
+      const { displayName } = await pasteToken({
+        state: out.state,
+        token,
+        accountId,
+      });
+      setToken('');
+      toast.success(
+        displayName
+          ? `Connected to ${displayName}. Nothing there has been changed.`
+          : `Connected to ${label}. Nothing there has been changed.`,
+      );
+      onOpenChange(false);
+      router.refresh();
     } catch (err) {
       setError(errorMessage(err));
       setBusy(false);
@@ -99,7 +167,79 @@ function ConnectDialog({
               ))}
             </div>
           </Field>
-          {workspaceId ? null : (
+          {canPaste ? (
+            <Field label="How to connect" htmlFor="migration-how">
+              <div className="flex flex-col gap-2" id="migration-how">
+                <RadioCard
+                  selected={how === 'oauth'}
+                  onSelect={() => setHow('oauth')}
+                  testId="migration-how-oauth"
+                  title={`Sign in to ${label}`}
+                  description="The usual way. You approve what we may see, and nobody handles a password or a key."
+                />
+                <RadioCard
+                  selected={how === 'private_token'}
+                  onSelect={() => setHow('private_token')}
+                  testId="migration-how-token"
+                  title="Paste a private token"
+                  description="For an account that can't add an app. You make a read-only token in GoHighLevel and paste it here, with the sub-account's Location ID. One business at a time."
+                />
+              </div>
+            </Field>
+          ) : null}
+          {pasting ? (
+            <>
+              <Field
+                label="Private integration token"
+                htmlFor="migration-token"
+                hint={
+                  <>
+                    In {label}: <strong>Settings</strong> → <strong>Private Integrations</strong> →
+                    create one, tick the <strong>read</strong> access (View Contacts, and whatever
+                    else you want brought across), and copy the token. It is shown once.
+                  </>
+                }
+              >
+                <Input
+                  id="migration-token"
+                  type="password"
+                  value={token}
+                  maxLength={4000}
+                  autoComplete="off"
+                  spellCheck={false}
+                  placeholder="pit-…"
+                  onChange={(e) => setToken(e.target.value)}
+                  data-testid="migration-token"
+                />
+              </Field>
+              <Field
+                label="Location ID"
+                htmlFor="migration-location"
+                hint={
+                  <>
+                    The sub-account this token belongs to: <strong>Settings</strong> →{' '}
+                    <strong>Business Profile</strong>, or the long code in the address bar after{' '}
+                    <code>/location/</code>.
+                  </>
+                }
+                error={error}
+              >
+                <Input
+                  id="migration-location"
+                  value={accountId}
+                  maxLength={200}
+                  autoComplete="off"
+                  spellCheck={false}
+                  onChange={(e) => setAccountId(e.target.value)}
+                  data-testid="migration-location"
+                />
+              </Field>
+              <Hint>
+                We only ever read with it, and it never leaves HandsFreeOS. Delete the private
+                integration in {label} whenever you like — after the move is the usual time.
+              </Hint>
+            </>
+          ) : workspaceId ? null : (
             <Field label="What it reaches" htmlFor="migration-reach" error={error}>
               <div className="flex flex-col gap-2" id="migration-reach">
                 <RadioCard
@@ -119,13 +259,18 @@ function ConnectDialog({
               </div>
             </Field>
           )}
-          {workspaceId ? <FieldError>{error}</FieldError> : null}
+          {workspaceId && !pasting ? <FieldError>{error}</FieldError> : null}
           <div className="flex justify-end gap-2">
             <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
-            <Button type="submit" loading={busy} data-testid="migration-connect-go">
-              Sign in to {SOURCE_LABELS[source]}
+            <Button
+              type="submit"
+              loading={busy}
+              disabled={pasting && (!token.trim() || !accountId.trim())}
+              data-testid="migration-connect-go"
+            >
+              {pasting ? 'Connect with the token' : `Sign in to ${label}`}
             </Button>
           </div>
         </form>

@@ -19,6 +19,7 @@ export type ConnectionRow = {
   organization_id: string;
   source_system: string;
   install_kind: 'agency' | 'location';
+  auth_kind: 'oauth' | 'private_token';
   status: string;
   external_account_id: string | null;
   scopes: string[];
@@ -76,8 +77,8 @@ export async function openConnection(
     rows<ConnectionRow>(
       tx,
       sql`select id, organization_id, source_system::text as source_system,
-            install_kind::text as install_kind, status::text as status, external_account_id, scopes,
-            token_enc, token_key_id, token_expires_at
+            install_kind::text as install_kind, auth_kind::text as auth_kind, status::text as status,
+            external_account_id, scopes, token_enc, token_key_id, token_expires_at
           from app.migration_connections where id = ${connectionId}`,
     ),
   );
@@ -94,6 +95,9 @@ export async function openConnection(
     id: row.id,
     system: row.source_system,
     installKind: row.install_kind,
+    // A pasted private token has no scope list and nothing to refresh with, so the adapter is told which
+    // door this was and finds out what it may read by asking (0069).
+    authKind: row.auth_kind ?? 'oauth',
     externalAccountId: row.external_account_id,
     scopes: row.scopes ?? [],
     accessToken: tokens.accessToken,
@@ -101,8 +105,12 @@ export async function openConnection(
     expiresAt: row.token_expires_at ? new Date(row.token_expires_at) : null,
   };
 
+  // A private token does not expire and cannot be refreshed: when one stops working it is replaced, which
+  // is what `reauth_required` asks for on the screen.
   const expiring =
-    connection.expiresAt && connection.expiresAt.getTime() - Date.now() < REFRESH_MARGIN_MS;
+    connection.authKind !== 'private_token' &&
+    connection.expiresAt &&
+    connection.expiresAt.getTime() - Date.now() < REFRESH_MARGIN_MS;
   if (expiring && connection.refreshToken) {
     try {
       connection = await adapter.refresh(connection);

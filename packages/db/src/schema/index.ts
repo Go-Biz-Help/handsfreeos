@@ -3062,6 +3062,12 @@ export const migrationSource = app.enum('migration_source', [
   'follow_up_boss',
 ]);
 export const migrationInstallKind = app.enum('migration_install_kind', ['agency', 'location']);
+/**
+ * How a source was connected (0069). `oauth` is a sign-in the person approved, and the source said what it
+ * granted. `private_token` is a token the business made in its own sub-account and pasted here: it reaches
+ * one sub-account, it never says what it may read, and it cannot be refreshed.
+ */
+export const migrationAuthKind = app.enum('migration_auth_kind', ['oauth', 'private_token']);
 export const migrationConnectionStatus = app.enum('migration_connection_status', [
   'pending',
   'active',
@@ -3279,11 +3285,16 @@ export const migrationConnections = app.table('migration_connections', {
   workspaceId: uuid('workspace_id').references(() => workspaces.id, { onDelete: 'set null' }),
   sourceSystem: migrationSource('source_system').notNull(),
   installKind: migrationInstallKind('install_kind').notNull().default('location'),
+  /** Which door this came in through (0069). A private token is always one sub-account. */
+  authKind: migrationAuthKind('auth_kind').notNull().default('oauth'),
   status: migrationConnectionStatus('status').notNull().default('pending'),
   /** The source's own id for the agency or sub-account this reaches. */
   externalAccountId: text('external_account_id'),
   displayName: text('display_name'),
-  /** What the sign-in was granted, and what a whole import would have wanted. */
+  /**
+   * What the sign-in was granted, and what a whole import would have wanted. Both are empty for a private
+   * token, which says nothing about its own access: what it can read is found out by asking (0069).
+   */
   scopes: text('scopes')
     .array()
     .notNull()

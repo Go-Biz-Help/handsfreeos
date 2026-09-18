@@ -108,6 +108,7 @@ export const migrationList = defineQuery({
       id: string;
       source: string;
       install_kind: string;
+      auth_kind: string;
       status: string;
       display_name: string | null;
       missing_scopes: string[];
@@ -115,7 +116,8 @@ export const migrationList = defineQuery({
     }>(
       ctx.tx,
       sql`select c.id, c.source_system::text as source, c.install_kind::text as install_kind,
-            c.status::text as status, c.display_name, c.missing_scopes, c.connected_at
+            c.auth_kind::text as auth_kind, c.status::text as status, c.display_name, c.missing_scopes,
+            c.connected_at
           from app.migration_connections c
           where c.organization_id = ${org} and c.status <> 'disconnected'
             and (${mine}::uuid is null or c.workspace_id = ${mine}::uuid or exists (
@@ -143,6 +145,7 @@ export const migrationList = defineQuery({
         source: c.source as MigrationSourceSystem,
         sourceLabel: sourceLabel(c.source),
         installKind: c.install_kind as never,
+        authKind: c.auth_kind as never,
         status: c.status as never,
         displayName: c.display_name,
         missingScopes: c.missing_scopes ?? [],

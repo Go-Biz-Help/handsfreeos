@@ -244,6 +244,8 @@ export function readEnv(env: NodeJS.ProcessEnv = process.env): WorkerEnv {
 
   // Moving a business here from another CRM. Local development gets the stand-in agency unless a real
   // GoHighLevel app is configured, so a spec can migrate end to end with no account anywhere.
+  // A server that only ever uses pasted private tokens (0069) has no client id to set, so it says
+  // MIGRATION_SOURCE=real itself; production is real either way.
   const goHighLevelClientId = env.GOHIGHLEVEL_CLIENT_ID || null;
   const goHighLevelClientSecret = env.GOHIGHLEVEL_CLIENT_SECRET || null;
   const migrationSource = (env.MIGRATION_SOURCE ??

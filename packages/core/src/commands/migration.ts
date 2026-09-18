@@ -77,6 +77,7 @@ import {
   MigrationTaskDoneInput,
   MigrationTaskDoneOutput,
   LIVE_SOURCES,
+  PRIVATE_TOKEN_SOURCES,
   SOURCE_LABELS,
   type MigrationLifecycle,
   type MigrationSourceSystem,
@@ -238,7 +239,7 @@ const migrationState = (migrationId: string, status: MigrationLifecycle, changed
 export const migrationConnect = defineCommand({
   name: 'migration.connect',
   description:
-    'Start connecting the CRM a business is leaving. Returns a one-time state; the browser signs in at that system through the worker. The scan that follows only ever reads.',
+    'Start connecting the CRM a business is leaving. Returns a one-time state; the browser either signs in at that system through the worker, or posts a private token to the worker. No token ever passes through here. The scan that follows only ever reads.',
   risk: 2,
   input: MigrationConnectInput,
   output: MigrationConnectOutput,
@@ -254,6 +255,16 @@ export const migrationConnect = defineCommand({
         409,
         `${sourceLabel(input.source)} isn’t ready to migrate from yet.`,
       );
+    const token = input.authKind === 'private_token';
+    if (token && !PRIVATE_TOKEN_SOURCES.includes(input.source))
+      throw HfosError.rule(
+        'migration_token_unavailable',
+        409,
+        `${sourceLabel(input.source)} has no private token to paste — sign in to it instead.`,
+      );
+    // A private integration token reaches one sub-account and cannot be asked for the others, so the reach
+    // is not the person's to choose here. 0069 holds the same line in the database.
+    const installKind = token ? 'location' : input.installKind;
     const access = requireAccess(ctx);
     const state = randomBytes(32).toString('base64url');
     const [row] = await ctx.tx
@@ -264,7 +275,8 @@ export const migrationConnect = defineCommand({
         // this sign-in reaches, and nobody else's.
         workspaceId: access.onlyWorkspaceId,
         sourceSystem: input.source,
-        installKind: input.installKind,
+        installKind,
+        authKind: input.authKind,
         status: 'pending',
         oauthStateHash: sha256Hex(state),
         oauthStateExpiresAt: new Date(Date.now() + STATE_TTL_MS),
@@ -276,16 +288,24 @@ export const migrationConnect = defineCommand({
       type: 'migration_connection.connect_started',
       entityType: 'migration_connection',
       entityId: row.id,
-      payload: { source: input.source, installKind: input.installKind },
-      after: { source: sourceLabel(input.source), reaches: input.installKind },
+      payload: { source: input.source, installKind, authKind: input.authKind },
+      after: {
+        source: sourceLabel(input.source),
+        reaches: installKind,
+        how: token ? 'a private token' : 'signing in',
+      },
       broadcast: false,
     });
     return {
       connectionId: row.id,
       state,
+      authKind: input.authKind,
       // The source is not in the address: the one-time state already says which system this is, and a name
-      // in two places is a name that can disagree with itself.
-      startPath: `/migrations/start?state=${encodeURIComponent(state)}`,
+      // in two places is a name that can disagree with itself. The token door is posted to rather than
+      // followed, because a token in a URL is a token in a log.
+      startPath: token
+        ? '/migrations/token'
+        : `/migrations/start?state=${encodeURIComponent(state)}`,
     };
   },
 });

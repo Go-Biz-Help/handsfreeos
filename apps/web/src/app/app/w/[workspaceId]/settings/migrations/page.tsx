@@ -67,11 +67,13 @@ export default async function WorkspaceMigrationsPage({
                 <div className="min-w-0 flex-1">
                   <div className="text-sm font-medium">{c.displayName ?? c.sourceLabel}</div>
                   <div className="text-xs text-text-3">
-                    {c.missingScopes.length > 0
-                      ? `${c.missingScopes.length} ${
-                          c.missingScopes.length === 1 ? 'thing' : 'things'
-                        } this sign-in cannot read`
-                      : 'Ready to look at'}
+                    {c.authKind === 'private_token'
+                      ? 'Connected with a private token'
+                      : c.missingScopes.length > 0
+                        ? `${c.missingScopes.length} ${
+                            c.missingScopes.length === 1 ? 'thing' : 'things'
+                          } this sign-in cannot read`
+                        : 'Ready to look at'}
                   </div>
                 </div>
                 <StartMigrationButton

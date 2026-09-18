@@ -40,6 +40,20 @@ export const LIVE_SOURCES: readonly MigrationSourceSystem[] = ['gohighlevel'];
 export const MIGRATION_INSTALL_KINDS = ['agency', 'location'] as const;
 export const migrationInstallKind = z.enum(MIGRATION_INSTALL_KINDS);
 
+/**
+ * The two doors onto a source (0069). `oauth` is a sign-in: the person approves what we may reach and the
+ * source tells us what it granted. `private_token` is a token the business made inside one sub-account and
+ * pasted here — it reaches that sub-account only, it says nothing about what it may read, and it does not
+ * expire. The second door exists because a marketplace app has to be approved and installable, and neither
+ * is true of every account.
+ */
+export const MIGRATION_AUTH_KINDS = ['oauth', 'private_token'] as const;
+export type MigrationAuthKind = (typeof MIGRATION_AUTH_KINDS)[number];
+export const migrationAuthKind = z.enum(MIGRATION_AUTH_KINDS);
+
+/** The sources a private token can be pasted for. GoHighLevel calls its own "private integrations". */
+export const PRIVATE_TOKEN_SOURCES: readonly MigrationSourceSystem[] = ['gohighlevel'];
+
 export const MIGRATION_CONNECTION_STATUSES = [
   'pending',
   'active',
@@ -119,12 +133,22 @@ export const MigrationConnectInput = z.object({
    * depends on what the source supports, and the wrong choice is caught at the callback rather than guessed.
    */
   installKind: migrationInstallKind.default('agency'),
+  /**
+   * Which door (0069). A private token is always one sub-account, so `installKind` is ignored for it rather
+   * than argued with. No token is ever sent to this command: it is pasted straight to the worker, which is
+   * the only place that can seal one.
+   */
+  authKind: migrationAuthKind.default('oauth'),
 });
 export const MigrationConnectOutput = z.object({
   connectionId: uuid,
   /** A one-time state. Shown once, never stored in a command's answer. */
   state: z.string().min(16).max(200),
-  /** Where the browser goes next. */
+  authKind: migrationAuthKind,
+  /**
+   * Where the browser goes next, on the worker. A sign-in is followed (`GET`); a private token is posted to
+   * it with the state, the token and the sub-account's id, and never passes through this API.
+   */
   startPath: z.string().min(1).max(400),
 });
 
@@ -338,8 +362,10 @@ export const MigrationListOutput = z.object({
       source: migrationSource,
       sourceLabel: z.string(),
       installKind: migrationInstallKind,
+      authKind: migrationAuthKind,
       status: migrationConnectionStatus,
       displayName: z.string().nullable(),
+      /** Always empty for a private token, which never says what it may read. */
       missingScopes: z.array(z.string()),
       connectedAt: isoDateTime.nullable(),
     }),

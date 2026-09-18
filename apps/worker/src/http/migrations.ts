@@ -9,26 +9,46 @@
  * (`http/oauth.ts`), separately because a migration belongs to the agency rather than to one business, and
  * because the callback has a different place to send somebody afterwards.
  *
+ * `/migrations/token` is the second door (0069): a private integration token the business made in its own
+ * sub-account, posted here with that sub-account's id. It is posted straight from the screen to the worker
+ * and never through the API, for one reason — the seal lives here, so this is the only process that can hold
+ * a credential at all. It is a POST, not a link, because a token in a URL is a token in a log.
+ *
  * Every token that arrives here is sealed before it touches the database and is never logged, never returned
- * and never shown. The state is random, hashed at rest, single use and good for ten minutes.
+ * and never shown. The state is random, hashed at rest, single use and good for ten minutes, whichever door
+ * it belongs to — and a state made for one door is refused at the other.
  */
 import { createHash, timingSafeEqual } from 'node:crypto';
 import { asWorker, rows, sql } from '@hfos/db/client';
+import { HfosError } from '@hfos/core';
 import type { FastifyInstance, FastifyReply } from 'fastify';
+import { z } from 'zod';
 import { escapeHtml } from '../emails/templates';
 import { recordSystemEvent } from '../system-event';
 import type { MigrationAdapters } from '../migrations/adapters/registry';
 import { activateConnection, sealTokens } from '../migrations/engine/connection';
-import type { HttpDeps } from './common';
+import { parseBody, type HttpDeps } from './common';
 
 type StateRow = {
   connection_id: string;
   organization_id: string;
   source_system: string;
   install_kind: string;
+  auth_kind: 'oauth' | 'private_token';
   status: string;
   state_expires_at: Date | string | null;
 };
+
+/**
+ * What the paste-a-token screen sends. The token is bounded rather than trusted: GoHighLevel's own are short,
+ * and a megabyte of "token" is not a typo anybody made.
+ */
+const TokenBody = z.object({
+  state: z.string().trim().min(16).max(200),
+  token: z.string().trim().min(8, 'Paste the token.').max(4000),
+  /** The sub-account the token belongs to — GoHighLevel calls it the Location ID. */
+  accountId: z.string().trim().min(1, 'Paste the Location ID.').max(200),
+});
 
 const sha256Hex = (v: string) => createHash('sha256').update(v).digest('hex');
 
@@ -69,7 +89,8 @@ export function registerMigrationRoutes(
     const [row] = await asWorker(deps.httpDb, {}, (tx) =>
       rows<StateRow>(
         tx,
-        sql`select connection_id, organization_id, source_system, install_kind, status, state_expires_at
+        sql`select connection_id, organization_id, source_system, install_kind, auth_kind, status,
+              state_expires_at
             from private.migration_connection_by_state(${hash})`,
       ),
     );
@@ -114,6 +135,14 @@ export function registerMigrationRoutes(
         'That link is for a different system',
         'Start again from Migrations.',
       );
+    // A state belongs to one door. This one signs in; the other is pasted to.
+    if (row.auth_kind !== 'oauth')
+      return deadEnd(
+        reply,
+        400,
+        'That link is for a different way in',
+        'That connection was started as a pasted token. Start again from Migrations.',
+      );
     const adapter = adapters.get(row.source_system);
     if (!adapter)
       return deadEnd(
@@ -152,7 +181,7 @@ export function registerMigrationRoutes(
     reply: FastifyReply,
   ) => {
     const row = await stateRow(req.query.state);
-    if (!row)
+    if (!row || row.auth_kind !== 'oauth')
       return deadEnd(
         reply,
         410,
@@ -251,4 +280,112 @@ export function registerMigrationRoutes(
     Params: { source: string };
     Querystring: { state?: string; code?: string; error?: string };
   }>('/migrations/:source/callback', handleCallback);
+
+  /**
+   * The second door: a private integration token, pasted.
+   *
+   * It answers JSON rather than redirecting, because the screen that posted it is still open and can say what
+   * went wrong in place — which matters here in a way it does not for a sign-in, since the two things most
+   * likely to be wrong are a mistyped Location ID and access nobody ticked when the token was made.
+   *
+   * A rejected token leaves the one-time state alive so the same dialog can correct a typo and try again,
+   * until the ten minutes are up or ten tries have been used. Nothing is stored until GoHighLevel has
+   * actually answered with it: a token nobody has tried is a connection that fails in the middle of an
+   * import a week later.
+   */
+  app.post('/migrations/token', async (req, reply) => {
+    const body = parseBody(TokenBody, req.body);
+    const row = await stateRow(body.state);
+    if (!row || row.auth_kind !== 'private_token')
+      throw HfosError.rule(
+        'migration_state_expired',
+        410,
+        'That form has expired. Start connecting the old system again from Migrations.',
+      );
+    const adapter = adapters.get(row.source_system);
+    if (!adapter?.connectWithToken)
+      throw HfosError.rule(
+        'migration_token_unavailable',
+        501,
+        'A pasted token is not a way in to that system here.',
+      );
+
+    let connection;
+    try {
+      connection = await adapter.connectWithToken({
+        token: body.token,
+        accountId: body.accountId,
+      });
+    } catch (e) {
+      // Never the body of the answer, and never a log line: what was posted here is a live credential.
+      deps.log.warn({ connectionId: row.connection_id }, 'a pasted source token was not accepted');
+      const why = (e as Error).message.slice(0, 300);
+      const [state] = await asWorker(deps.httpDb, { organizationId: row.organization_id }, (tx) =>
+        rows<{ failures: number }>(
+          tx,
+          sql`update app.migration_connections
+                   set failures = failures + 1, last_error = ${why}
+                 where id = ${row.connection_id}
+             returning failures`,
+        ),
+      );
+      // Enough wrong tries and the door closes rather than staying open for the rest of its ten minutes.
+      if ((state?.failures ?? 0) >= 10)
+        await asWorker(deps.httpDb, { organizationId: row.organization_id }, (tx) =>
+          tx.execute(sql`
+            update app.migration_connections
+               set status = 'error', oauth_state_hash = null, oauth_state_expires_at = null
+             where id = ${row.connection_id}`),
+        );
+      throw HfosError.rule('migration_token_rejected', 400, why);
+    }
+
+    await asWorker(deps.httpDb, { organizationId: row.organization_id }, async (tx) => {
+      // Sealed before it touches the database, exactly like a sign-in's. No refresh token and no expiry:
+      // a private token has neither.
+      await tx.execute(sql`
+        update app.migration_connections
+           set token_enc = ${sealTokens(deps.sealer, {
+             accessToken: connection.accessToken,
+             refreshToken: null,
+           })},
+               token_key_id = ${deps.sealer.keyId}, token_expires_at = null
+         where id = ${row.connection_id}`);
+      await activateConnection(tx, {
+        connectionId: row.connection_id,
+        organizationId: row.organization_id,
+        sourceSystem: row.source_system,
+        externalAccountId: connection.externalAccountId ?? body.accountId,
+        displayName: connection.displayName ?? null,
+        installKind: 'location',
+        // A private token never says what it may read, so there is nothing honest to write here. The scan
+        // asks each category and reports what came back.
+        scopes: [],
+        missingScopes: [],
+        adapterVersion: adapter.adapterVersion,
+      });
+      await recordSystemEvent(tx, {
+        type: 'migration_connection.connected',
+        action: 'migration_connection.connect',
+        organizationId: row.organization_id,
+        workspaceId: null,
+        entityType: 'migration_connection',
+        entityId: row.connection_id,
+        payload: { source: row.source_system, installKind: 'location', authKind: 'private_token' },
+        after: {
+          source: row.source_system,
+          reaches: 'one business',
+          how: 'a private token',
+        },
+        correlationId: row.connection_id,
+        causationId: row.connection_id,
+      });
+    });
+
+    return reply.header('cache-control', 'no-store').send({
+      connectionId: row.connection_id,
+      status: 'active',
+      displayName: connection.displayName ?? null,
+    });
+  });
 }

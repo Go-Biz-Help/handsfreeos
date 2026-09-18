@@ -27791,7 +27791,7 @@
     "/v1/commands/migration.connect": {
       "post": {
         "operationId": "command_migration_connect",
-        "summary": "Start connecting the CRM a business is leaving. Returns a one-time state; the browser signs in at that system through the worker. The scan that follows only ever reads.",
+        "summary": "Start connecting the CRM a business is leaving. Returns a one-time state; the browser either signs in at that system through the worker, or posts a private token to the worker. No token ever passes through here. The scan that follows only ever reads.",
         "tags": [
           "commands"
         ],
@@ -27839,6 +27839,14 @@
                       "agency",
                       "location"
                     ]
+                  },
+                  "authKind": {
+                    "default": "oauth",
+                    "type": "string",
+                    "enum": [
+                      "oauth",
+                      "private_token"
+                    ]
                   }
                 },
                 "required": [
@@ -27867,6 +27875,13 @@
                       "minLength": 16,
                       "maxLength": 200
                     },
+                    "authKind": {
+                      "type": "string",
+                      "enum": [
+                        "oauth",
+                        "private_token"
+                      ]
+                    },
                     "startPath": {
                       "type": "string",
                       "minLength": 1,
@@ -27876,6 +27891,7 @@
                   "required": [
                     "connectionId",
                     "state",
+                    "authKind",
                     "startPath"
                   ],
                   "additionalProperties": false
@@ -29621,6 +29637,13 @@
                               "location"
                             ]
                           },
+                          "authKind": {
+                            "type": "string",
+                            "enum": [
+                              "oauth",
+                              "private_token"
+                            ]
+                          },
                           "status": {
                             "type": "string",
                             "enum": [
@@ -29661,6 +29684,7 @@
                           "source",
                           "sourceLabel",
                           "installKind",
+                          "authKind",
                           "status",
                           "displayName",
                           "missingScopes",

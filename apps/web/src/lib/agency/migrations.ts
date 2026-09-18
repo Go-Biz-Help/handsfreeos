@@ -12,7 +12,7 @@ import { unwrap } from '@/lib/api/server';
 type Api = Awaited<ReturnType<typeof apiServer>>['api'];
 
 export type { MigrationDetail, MigrationList, MigrationReviewQueue } from './migration-words';
-export { stepOf, STATUS_WORDS, type MigrationStep } from './migration-words';
+export { connectionWords, stepOf, STATUS_WORDS, type MigrationStep } from './migration-words';
 
 /**
  * `workspaceId` is the business's own door (M11, 2026-09-18). Given, the answer is that business's part of

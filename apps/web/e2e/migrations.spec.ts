@@ -126,6 +126,42 @@ test('migrations: connect, look, map two sub-accounts into one business, choose,
   await expect(page.getByRole('link', { name: 'Maria Alvarez' }).first()).toBeVisible();
 });
 
+/**
+ * The second door (0069), through the same dialog: a private integration token and the sub-account's id,
+ * typed and posted straight to the worker.
+ *
+ * What this is really checking is that the token leaves the browser for the worker and nowhere else, and that
+ * the screen afterwards says which door it came in through — the paste is not a sign-in and should not claim
+ * to be one.
+ */
+test('migrations: connect with a private token and its Location ID', async ({ page }) => {
+  test.setTimeout(180_000);
+  const owner = await signUpAndConfirm(page, 'migrate-token');
+  const lonestar = await createBusiness(page, {
+    name: 'Lone Star HVAC',
+    agencyName: 'Go Biz Help',
+  });
+  const api = apiAs(await signInForApi(owner.email));
+  const me = await api<{ workspaces: { id: string; organizationId: string }[] }>(
+    'queries/account.me',
+    {},
+  );
+  const orgId = me.workspaces.find((w) => w.id === lonestar)!.organizationId;
+
+  await page.goto(`/app/org/${orgId}/migrations`);
+  await page.getByTestId('migration-connect').click();
+  await page.getByTestId('migration-how-token').click();
+  await page.getByTestId('migration-token').fill('pit-not-a-real-token');
+  await page.getByTestId('migration-location').fill('loc_austin');
+  await page.getByTestId('migration-connect-go').click();
+
+  // No round trip through anybody's sign-in: the dialog closes and the source is connected in place.
+  const connected = page.getByTestId('migration-connection-gohighlevel');
+  await expect(connected).toBeVisible({ timeout: 30_000 });
+  await expect(connected).toContainText('Lone Star HVAC — Austin');
+  await expect(connected).toContainText('A private token · one business');
+});
+
 test.beforeAll(() => {
   if (!WORKER_URL) throw new Error('The worker URL is needed for the source sign-in round trip.');
 });

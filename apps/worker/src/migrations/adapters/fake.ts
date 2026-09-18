@@ -335,11 +335,49 @@ export function createFakeSourceAdapter(): FakeSource {
       } satisfies SourceConnection;
     },
 
+    /**
+     * The token door (0069), so the paste-a-token screen can be walked end to end with no account anywhere.
+     * It behaves like the real one where it matters: one sub-account, no scope list, nothing to refresh, and
+     * an id it does not recognise is refused rather than quietly accepted.
+     */
+    async connectWithToken({ token, accountId }) {
+      const id = accountId.trim();
+      if (!token.trim()) throw new Error('Paste the private integration token.');
+      if (!FAKE_SCOPES.some((s) => s.id === id))
+        throw new Error(`The stand-in agency has no sub-account ${id || '(none given)'}.`);
+      return {
+        id: '',
+        system: 'gohighlevel',
+        installKind: 'location',
+        authKind: 'private_token',
+        externalAccountId: id,
+        displayName: FAKE_SCOPES.find((s) => s.id === id)?.name ?? null,
+        scopes: [],
+        accessToken: 'fake-not-a-real-private-token',
+        refreshToken: null,
+        expiresAt: null,
+      } satisfies SourceConnection;
+    },
+
     async refresh(connection) {
       return { ...connection, expiresAt: new Date(Date.now() + 86_400_000) };
     },
 
-    async discoverScopes() {
+    async discoverScopes(connection) {
+      // A private token reaches the one sub-account it was made in, exactly as GoHighLevel's does.
+      if (connection.installKind === 'location') {
+        const one = FAKE_SCOPES.find((s) => s.id === connection.externalAccountId);
+        return one
+          ? [
+              {
+                externalScopeId: one.id,
+                name: one.name,
+                timezone: one.timezone,
+                descriptor: { country: 'US' },
+              },
+            ]
+          : [];
+      }
       return FAKE_SCOPES.map((s) => ({
         externalScopeId: s.id,
         name: s.name,

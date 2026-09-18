@@ -17,7 +17,16 @@ export interface SourceConnection {
   readonly id: string;
   readonly system: string;
   readonly installKind: 'agency' | 'location';
+  /**
+   * Which door it came in through. A sign-in (`oauth`) hands back the scopes it was granted, so a category
+   * it cannot reach is known before anything is read. A pasted private token (`private_token`) hands back
+   * nothing, so `scopes` is empty and an adapter must find out by asking instead of assuming either way.
+   * Absent means `oauth`: every source that existed before the second door had only the first.
+   */
+  readonly authKind?: 'oauth' | 'private_token';
   readonly externalAccountId: string | null;
+  /** What the source itself says this account is called, when the adapter learned it while connecting. */
+  readonly displayName?: string | null;
   readonly scopes: readonly string[];
   readonly accessToken: string;
   readonly refreshToken?: string | null;
@@ -184,6 +193,17 @@ export interface CrmSourceAdapter {
     readonly code: string;
     readonly redirectUri: string;
     readonly codeVerifier?: string;
+  }): Promise<SourceConnection>;
+  /**
+   * The second door, for the sources that have one: a token the business made inside its own account and
+   * pasted, with the id of the account it belongs to. The adapter's job is to prove the pair really works —
+   * by reading something with it — and to refuse plainly rather than storing a token nobody has tried.
+   *
+   * Absent when a source has no such thing, and the screen then offers only the sign-in.
+   */
+  connectWithToken?(input: {
+    readonly token: string;
+    readonly accountId: string;
   }): Promise<SourceConnection>;
   refresh(connection: SourceConnection): Promise<SourceConnection>;
   revoke?(connection: SourceConnection): Promise<void>;

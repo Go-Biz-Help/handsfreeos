@@ -6,7 +6,7 @@ import { PageHeader } from '@/components/shell/page-header';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { EmptyState } from '@/components/ui/empty-state';
-import { loadMigrations, STATUS_WORDS } from '@/lib/agency/migrations';
+import { connectionWords, loadMigrations, STATUS_WORDS } from '@/lib/agency/migrations';
 import { agencyOrganizations } from '@/lib/agency/org';
 import { apiServer, fetchMe } from '@/lib/api/server';
 
@@ -41,14 +41,7 @@ export default async function MigrationsPage({ params }: { params: Promise<{ org
               >
                 <div className="min-w-0 flex-1">
                   <div className="text-sm font-medium">{c.displayName ?? c.sourceLabel}</div>
-                  <div className="text-xs text-text-3">
-                    {c.installKind === 'agency' ? 'Your whole agency' : 'One business'}
-                    {c.missingScopes.length > 0
-                      ? ` · ${c.missingScopes.length} ${
-                          c.missingScopes.length === 1 ? 'thing' : 'things'
-                        } this sign-in cannot read`
-                      : ''}
-                  </div>
+                  <div className="text-xs text-text-3">{connectionWords(c)}</div>
                 </div>
                 <StartMigrationButton
                   organizationId={orgId}

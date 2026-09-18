@@ -2547,7 +2547,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Start connecting the CRM a business is leaving. Returns a one-time state; the browser signs in at that system through the worker. The scan that follows only ever reads.
+         * Start connecting the CRM a business is leaving. Returns a one-time state; the browser either signs in at that system through the worker, or posts a private token to the worker. No token ever passes through here. The scan that follows only ever reads.
          * @description Risk level 2. Emits migration_connection.connect_started.
          */
         post: operations["command_migration_connect"];
@@ -12242,6 +12242,11 @@ export interface operations {
             content: {
                 "application/json": {
                     /**
+                     * @default oauth
+                     * @enum {string}
+                     */
+                    authKind?: "oauth" | "private_token";
+                    /**
                      * @default agency
                      * @enum {string}
                      */
@@ -12262,6 +12267,8 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        /** @enum {string} */
+                        authKind: "oauth" | "private_token";
                         /** Format: uuid */
                         connectionId: string;
                         startPath: string;
@@ -22404,6 +22411,8 @@ export interface operations {
                 content: {
                     "application/json": {
                         connections: {
+                            /** @enum {string} */
+                            authKind: "oauth" | "private_token";
                             connectedAt: string | null;
                             displayName: string | null;
                             /** Format: uuid */

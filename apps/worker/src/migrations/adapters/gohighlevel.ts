@@ -16,6 +16,14 @@
  *     field we guessed wrong about is visible in the findings rather than lost;
  *   - nothing here writes to GoHighLevel, ever. There is no code path in this file that is not a GET.
  *
+ * **Two doors (0069).** A marketplace sign-in is the first, and the one to prefer: HighLevel says what it
+ * granted, an agency reaches every sub-account it approved, and nobody handles a credential. The second is a
+ * **private integration token**, made by the business inside one sub-account and pasted here with that
+ * sub-account's Location ID. It exists because a marketplace app has to be approved and installable, and
+ * neither is true of every account. What it costs: one sub-account only — HighLevel will neither list an
+ * agency's locations for a private token nor mint a location token from one — and no scope list at all, so
+ * every category is probed and a refusal is reported as a refusal rather than as an empty account.
+ *
  * Phase 0 of the plan — running this against a real agency and a real sub-account and writing down the field
  * coverage — is still owed before any of it is called finished. `docs/migrations.md` says so too.
  */
@@ -276,6 +284,17 @@ export function createGoHighLevelAdapter(config: GoHighLevelConfig): CrmSourceAd
   const tokenOf = (connection: SourceConnection, scope?: SourceScope) =>
     scope?.accessToken ?? connection.accessToken;
 
+  /**
+   * What this connection is known to be allowed to read, or null when nothing is known.
+   *
+   * A sign-in hands back its granted scopes, so a category it cannot reach is known before a single request
+   * goes out. A private integration token hands back nothing — its access was ticked inside HighLevel and is
+   * never reported — so the honest answer is "we do not know", and every category is probed instead. Null is
+   * that answer, and the difference between the two doors lives here and nowhere else.
+   */
+  const grantedScopes = (connection: SourceConnection): ReadonlySet<string> | null =>
+    connection.authKind === 'private_token' ? null : new Set(connection.scopes);
+
   /** One page, in whichever way this endpoint pages. */
   const page = async (
     token: string,
@@ -402,12 +421,14 @@ export function createGoHighLevelAdapter(config: GoHighLevelConfig): CrmSourceAd
 
   const supportOf = (
     category: string,
-    granted: ReadonlySet<string>,
+    granted: ReadonlySet<string> | null,
     capability: MigrationCapability,
     quality: CountQuality,
   ): CategorySupport => {
     const required = GHL_SCOPES[category] ?? [];
-    const missing = required.filter((s) => !granted.has(s));
+    // Nothing is missing that we know of when we know nothing: a private token's access is found out by
+    // asking, and what comes back is already in `capability` by the time this is called.
+    const missing = granted ? required.filter((s) => !granted.has(s)) : [];
     const endpoint = ENDPOINTS[category];
     return {
       category,
@@ -495,7 +516,101 @@ export function createGoHighLevelAdapter(config: GoHighLevelConfig): CrmSourceAd
       };
     },
 
+    /**
+     * The second door: a private integration token, made in GoHighLevel under Settings → Private
+     * Integrations, with the sub-account's Location ID beside it.
+     *
+     * Nothing is stored until the pair has been proved against the real account, because a token that was
+     * never tried is a connection that fails days later in the middle of an import. Proving it takes two
+     * tries on purpose: the location itself, which also tells us what the sub-account is called, and then
+     * one contact — because a token whose "View Locations" access was left unticked is perfectly usable for
+     * everything else, and refusing it would be us being wrong rather than the token.
+     */
+    async connectWithToken({ token, accountId }) {
+      const secret = token.trim();
+      const locationId = accountId.trim();
+      if (!secret)
+        throw new GhlError(
+          'Paste the private integration token from GoHighLevel.',
+          400,
+          'token_missing',
+        );
+      if (/\s/.test(secret))
+        throw new GhlError(
+          'That looks like more than one value. Paste just the token.',
+          400,
+          'token_malformed',
+        );
+      if (!locationId)
+        throw new GhlError(
+          'Paste the sub-account’s Location ID as well, from Settings → Business Profile.',
+          400,
+          'location_missing',
+        );
+
+      const refused = (status: number) =>
+        new GhlError(
+          'GoHighLevel would not let that token read this sub-account. Check the Location ID, and that the private integration has its read access ticked.',
+          status,
+          'token_rejected',
+        );
+
+      let displayName: string | null = null;
+      try {
+        const body = await call<{ location?: { name?: string } }>(
+          secret,
+          `/locations/${encodeURIComponent(locationId)}`,
+        );
+        displayName = asString(body.location?.name);
+      } catch (e) {
+        const err = e as GhlError;
+        if (err.code === 'unauthorized')
+          throw new GhlError(
+            'GoHighLevel did not accept that token. Copy it again from Settings → Private Integrations; it is shown once, when it is made.',
+            401,
+            'token_rejected',
+          );
+        // Refused or not found: either the token cannot see locations, or the Location ID is wrong. One
+        // contact tells the two apart.
+        try {
+          await call(secret, `/contacts/?locationId=${encodeURIComponent(locationId)}&limit=1`, {
+            timeoutMs: 15_000,
+          });
+        } catch (e2) {
+          const err2 = e2 as GhlError;
+          if (
+            err2.code === 'unauthorized' ||
+            err2.code === 'forbidden' ||
+            err2.code === 'not_found'
+          )
+            throw refused(err2.status);
+          throw e2;
+        }
+      }
+
+      return {
+        id: '',
+        system: 'gohighlevel',
+        installKind: 'location',
+        authKind: 'private_token',
+        externalAccountId: locationId,
+        displayName,
+        // A private token never says what it may read. Empty here is the honest answer, and the scan finds
+        // out by asking rather than by claiming.
+        scopes: [],
+        accessToken: secret,
+        refreshToken: null,
+        expiresAt: null,
+      } satisfies SourceConnection;
+    },
+
     async refresh(connection) {
+      if (connection.authKind === 'private_token')
+        throw new GhlError(
+          'A private integration token does not expire. If it has stopped working, make a new one in GoHighLevel and paste it again.',
+          400,
+          'reauth_required',
+        );
       if (!connection.refreshToken)
         throw new GhlError('This connection has nothing to refresh with.', 400, 'no_refresh_token');
       const res = await fetch(`${API_BASE}/oauth/token`, {
@@ -531,13 +646,27 @@ export function createGoHighLevelAdapter(config: GoHighLevelConfig): CrmSourceAd
     },
 
     async discoverScopes(connection) {
-      if (connection.installKind === 'location')
-        return [
-          {
-            externalScopeId: connection.externalAccountId ?? '',
-            name: 'This business',
-          },
-        ];
+      if (connection.installKind === 'location') {
+        const id = connection.externalAccountId ?? '';
+        // What GoHighLevel calls it beats "This business" on every screen after this one. A token that was
+        // not given access to locations still works for everything else, so being refused here is not worth
+        // failing over.
+        try {
+          const body = await call<{ location?: { name?: string; timezone?: string } }>(
+            connection.accessToken,
+            `/locations/${encodeURIComponent(id)}`,
+          );
+          return [
+            {
+              externalScopeId: id,
+              name: asString(body.location?.name) ?? 'This business',
+              timezone: asString(body.location?.timezone),
+            },
+          ];
+        } catch {
+          return [{ externalScopeId: id, name: 'This business' }];
+        }
+      }
       // An agency sign-in reaches the sub-accounts the person approved, and only those.
       const body = await call<{
         locations?: {
@@ -588,12 +717,12 @@ export function createGoHighLevelAdapter(config: GoHighLevelConfig): CrmSourceAd
     },
 
     async inspectCapabilities(connection, scope) {
-      const granted = new Set(connection.scopes);
+      const granted = grantedScopes(connection);
       const token = tokenOf(connection, scope);
       const categories: CategorySupport[] = [];
       for (const category of Object.keys(ENDPOINTS)) {
         const required = GHL_SCOPES[category] ?? [];
-        if (required.some((s) => !granted.has(s))) {
+        if (granted && required.some((s) => !granted.has(s))) {
           categories.push(supportOf(category, granted, 'not_available', 'permission_limited'));
           continue;
         }
@@ -623,13 +752,14 @@ export function createGoHighLevelAdapter(config: GoHighLevelConfig): CrmSourceAd
     },
 
     async *scan(connection, scope) {
-      const granted = new Set(connection.scopes);
+      const granted = grantedScopes(connection);
       const token = tokenOf(connection, scope);
       for (const category of [...Object.keys(ENDPOINTS), ...COUNT_ONLY]) {
         const cat = migrationCategory(category);
         if (!cat) continue;
         const required = GHL_SCOPES[category] ?? [];
-        const missing = required.filter((s) => !granted.has(s));
+        // A private token never said what it was given, so nothing is missing until GoHighLevel refuses it.
+        const missing = granted ? required.filter((s) => !granted.has(s)) : [];
         const findings: SourceFinding[] = [];
         if (missing.length > 0) {
           yield {
@@ -662,6 +792,24 @@ export function createGoHighLevelAdapter(config: GoHighLevelConfig): CrmSourceAd
           count = p.count;
           quality = p.quality;
           if (p.capability === 'not_available') capability = 'not_available';
+          // We asked and were refused. For a sign-in this is a scope somebody unticked; for a private token
+          // it is access that was never ticked when the token was made. Either way it is said out loud here,
+          // because a refusal that only shows as a capability is a refusal nobody reads.
+          if (p.quality === 'permission_limited')
+            findings.push({
+              code: 'access.scope_missing',
+              capability: 'not_available',
+              severity: 'action',
+              summary: `GoHighLevel would not let us read ${cat.label.toLowerCase()}.`,
+              whatImports: 'Nothing from this category.',
+              whatChanges:
+                'The count is unknown, not zero: we asked and were refused, so we will not pretend there is nothing there.',
+              recommendedAction:
+                connection.authKind === 'private_token'
+                  ? 'In GoHighLevel, edit the private integration, tick the read access for this, then scan again.'
+                  : 'Sign in again and allow the extra access, then scan once more.',
+              detail: { requiredScopes: required },
+            });
         } catch (e) {
           quality = 'unknown';
           findings.push({
