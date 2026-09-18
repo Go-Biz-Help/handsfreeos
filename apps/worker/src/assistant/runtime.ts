@@ -122,6 +122,11 @@ const STEP_LABEL: Record<string, string> = {
   estimates_waiting: 'Looking at estimates out',
   get_settings: 'Looking at how this is set up',
   settings_help: 'Finding where that lives',
+  manage_calendar: 'Setting up the calendar',
+  manage_service: 'Setting up the service',
+  manage_resource: 'Setting up the resource',
+  manage_territory: 'Setting up the territory',
+  update_booking_site: 'Setting up your booking page',
 };
 const stepLabel = (tool: string) => STEP_LABEL[tool] ?? 'Preparing it for your OK';
 

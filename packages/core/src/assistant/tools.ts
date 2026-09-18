@@ -42,6 +42,22 @@ const dayOrWhen = z.union([
   when,
 ]);
 const minutes = z.int().min(5).max(720).describe('Length in minutes');
+/** Working hours as the model writes them: a day (0 = Sunday), and 24-hour times. */
+const WeeklyHoursInput = z
+  .array(
+    z.object({
+      day: z.int().min(0).max(6).describe('0 = Sunday … 6 = Saturday'),
+      start: z
+        .string()
+        .regex(/^\d{2}:\d{2}$/)
+        .describe('24-hour, like 08:00'),
+      end: z
+        .string()
+        .regex(/^\d{2}:\d{2}$/)
+        .describe('24-hour, like 17:00'),
+    }),
+  )
+  .max(50);
 
 export const assistantTools = [
   // ---------- looking things up (auto) ----------
@@ -323,6 +339,115 @@ export const assistantTools = [
     }),
     autonomy: 'auto',
     permission: 'workspace.read',
+  }),
+
+  // ---------- setting the business up (confirm) ----------
+  define({
+    name: 'manage_calendar',
+    description:
+      'Set up or change a calendar people book on: create one, change its name, colour, time zone, who works it, what it offers, its hours, buffers, how far ahead and how much notice, its booking link and whether customers see it, or turn it on or off. Read it with get_settings first and pass only what changes. Names must be real ids: teammates from list_team, services and resources from get_settings.',
+    input: z.object({
+      action: z
+        .enum(['create', 'change', 'turn_on', 'turn_off'])
+        .describe('turn_on makes it bookable; turn_off pauses it'),
+      calendarId: uuid.optional().describe('The calendar to change; leave out to create one'),
+      name: text(80).optional(),
+      description: text(500).optional(),
+      timezone: text(60).optional().describe('An IANA zone like America/Chicago'),
+      teammates: z.array(uuid).max(50).optional().describe('Who works it, by user id'),
+      services: z.array(uuid).max(50).optional().describe('What it offers, by service id'),
+      resources: z.array(uuid).max(20).optional().describe('What it needs, by resource id'),
+      hours: WeeklyHoursInput.nullable()
+        .optional()
+        .describe('The calendar’s own hours; null to use each person’s own'),
+      bufferBeforeMinutes: z.int().min(0).max(240).optional(),
+      bufferAfterMinutes: z.int().min(0).max(240).optional(),
+      minNoticeHours: z.int().min(0).max(2160).optional().describe('How much notice to book'),
+      maxDaysAhead: z.int().min(1).max(365).optional().describe('How far ahead customers may book'),
+      bookingLink: z
+        .string()
+        .trim()
+        .min(1)
+        .max(60)
+        .optional()
+        .describe('The last part of its booking address, like ac-tune-up'),
+      listedOnBookingSite: z.boolean().optional(),
+    }),
+    autonomy: 'confirm',
+    permission: 'calendars.manage',
+  }),
+  define({
+    name: 'manage_service',
+    description:
+      'Add, change or archive something you book: its name, how long it takes, what it costs, its buffers, and who can do it. Prices are in dollars.',
+    input: z.object({
+      action: z.enum(['create', 'change', 'archive']),
+      serviceId: uuid.optional().describe('The service to change or archive'),
+      name: text(80).optional(),
+      description: text(500).optional(),
+      durationsMinutes: z
+        .array(minutes)
+        .min(1)
+        .max(6)
+        .optional()
+        .describe('The lengths it can be booked for'),
+      priceDollars: dollars.nullable().optional(),
+      bufferBeforeMinutes: z.int().min(0).max(240).optional(),
+      bufferAfterMinutes: z.int().min(0).max(240).optional(),
+      staffUserIds: z.array(uuid).max(50).optional().describe('Who can do it'),
+    }),
+    autonomy: 'confirm',
+    permission: 'calendars.manage',
+  }),
+  define({
+    name: 'manage_resource',
+    description:
+      'Add, change or archive something a job needs as well as a person — a truck, a bay, a piece of equipment — including how many there are.',
+    input: z.object({
+      action: z.enum(['create', 'change', 'archive']),
+      resourceId: uuid.optional(),
+      name: text(80).optional(),
+      kind: z.enum(['vehicle', 'room', 'equipment', 'other']).optional(),
+      quantity: z.int().min(1).max(100).optional(),
+      location: text(200).nullable().optional(),
+    }),
+    autonomy: 'confirm',
+    permission: 'calendars.manage',
+  }),
+  define({
+    name: 'manage_territory',
+    description:
+      'Add, change or delete a territory: the ZIP codes an area covers and who covers them.',
+    input: z.object({
+      action: z.enum(['create', 'change', 'delete']),
+      territoryId: uuid.optional(),
+      name: text(80).optional(),
+      postalCodes: z
+        .array(
+          z
+            .string()
+            .trim()
+            .regex(/^\d{5}$/, 'Five-digit ZIP codes.'),
+        )
+        .max(500)
+        .optional(),
+      userIds: z.array(uuid).max(50).optional().describe('Who covers it'),
+    }),
+    autonomy: 'confirm',
+    permission: 'calendars.manage',
+  }),
+  define({
+    name: 'update_booking_site',
+    description:
+      'Change the page customers book on: its web address, the name and intro they see, and whether it is on at all.',
+    input: z.object({
+      slug: z.string().trim().min(1).max(60).optional().describe('The last part of its address'),
+      name: text(120).optional(),
+      intro: text(500).nullable().optional(),
+      enabled: z.boolean().optional(),
+    }),
+    autonomy: 'confirm',
+    permission: 'calendars.manage',
   }),
 
   // ---------- tasks and notes (auto, with Undo) ----------
