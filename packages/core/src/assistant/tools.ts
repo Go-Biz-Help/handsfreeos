@@ -4,6 +4,7 @@ import { isLocalDate } from '../calendar/engine/zoned';
 import type { Permission } from '../permissions';
 import { ATTENTION_ASK_ACTIONS } from '../schemas/attention';
 import { uuid } from '../schemas/common';
+import { SETTINGS_AREAS } from './settings-map';
 
 /**
  * The Assistant's tools: each one maps to commands and queries people already use, so the Assistant
@@ -41,6 +42,23 @@ const dayOrWhen = z.union([
   when,
 ]);
 const minutes = z.int().min(5).max(720).describe('Length in minutes');
+const clock = z.string().regex(/^([01][0-9]|2[0-3]):[0-5][0-9]$/, 'Use a 24-hour time like 08:00.');
+/** Working hours as the model writes them: a day (0 = Sunday), and 24-hour times. */
+const WeeklyHoursInput = z
+  .array(
+    z.object({
+      day: z.int().min(0).max(6).describe('0 = Sunday … 6 = Saturday'),
+      start: z
+        .string()
+        .regex(/^\d{2}:\d{2}$/)
+        .describe('24-hour, like 08:00'),
+      end: z
+        .string()
+        .regex(/^\d{2}:\d{2}$/)
+        .describe('24-hour, like 17:00'),
+    }),
+  )
+  .max(50);
 
 export const assistantTools = [
   // ---------- looking things up (auto) ----------
@@ -300,6 +318,544 @@ export const assistantTools = [
     input: z.object({ query: text(500) }),
     autonomy: 'auto',
     permission: 'workspace.read',
+  }),
+
+  // ---------- how the business is set up (auto) ----------
+  define({
+    name: 'get_settings',
+    description:
+      'How one part of the business is set up right now: its calendars, services, pipelines, team, texting, email, website chat, payments, Action Center, AI teammate, knowledge base, or the person’s own account and hours. Call it before proposing any change to settings, so what you propose is a change to what is really there, and to answer "what are my…" questions about the setup.',
+    input: z.object({
+      area: z.enum(SETTINGS_AREAS).describe('Which part of the setup to read'),
+    }),
+    autonomy: 'auto',
+    permission: 'workspace.read',
+  }),
+  define({
+    name: 'settings_help',
+    description:
+      'The steps for something only the person can do themselves: connecting Google, Outlook, Stripe or Square, connecting a mailbox, the DNS records for their own email domain, putting the website-chat snippet on their site, passwords and passkeys, confirming their cell, importing a spreadsheet, moving in from another system, or deleting their account. Returns where it lives and what to do, as a card. Use it instead of guessing, and offer to do the parts you can.',
+    input: z.object({
+      area: z.enum(SETTINGS_AREAS).describe('Which part of the setup they are asking about'),
+    }),
+    autonomy: 'auto',
+    permission: 'workspace.read',
+  }),
+
+  // ---------- setting the business up (confirm) ----------
+  define({
+    name: 'manage_calendar',
+    description:
+      'Set up or change a calendar people book on: create one, change its name, colour, time zone, who works it, what it offers, its hours, buffers, how far ahead and how much notice, its booking link and whether customers see it, or turn it on or off. Read it with get_settings first and pass only what changes. Names must be real ids: teammates from list_team, services and resources from get_settings.',
+    input: z.object({
+      action: z
+        .enum(['create', 'change', 'turn_on', 'turn_off'])
+        .describe('turn_on makes it bookable; turn_off pauses it'),
+      calendarId: uuid.optional().describe('The calendar to change; leave out to create one'),
+      name: text(80).optional(),
+      description: text(500).optional(),
+      timezone: text(60).optional().describe('An IANA zone like America/Chicago'),
+      teammates: z.array(uuid).max(50).optional().describe('Who works it, by user id'),
+      services: z.array(uuid).max(50).optional().describe('What it offers, by service id'),
+      resources: z.array(uuid).max(20).optional().describe('What it needs, by resource id'),
+      hours: WeeklyHoursInput.nullable()
+        .optional()
+        .describe('The calendar’s own hours; null to use each person’s own'),
+      bufferBeforeMinutes: z.int().min(0).max(240).optional(),
+      bufferAfterMinutes: z.int().min(0).max(240).optional(),
+      minNoticeHours: z.int().min(0).max(2160).optional().describe('How much notice to book'),
+      maxDaysAhead: z.int().min(1).max(365).optional().describe('How far ahead customers may book'),
+      bookingLink: z
+        .string()
+        .trim()
+        .min(1)
+        .max(60)
+        .optional()
+        .describe('The last part of its booking address, like ac-tune-up'),
+      listedOnBookingSite: z.boolean().optional(),
+    }),
+    autonomy: 'confirm',
+    permission: 'calendars.manage',
+  }),
+  define({
+    name: 'manage_service',
+    description:
+      'Add, change or archive something you book: its name, how long it takes, what it costs, its buffers, and who can do it. Prices are in dollars.',
+    input: z.object({
+      action: z.enum(['create', 'change', 'archive']),
+      serviceId: uuid.optional().describe('The service to change or archive'),
+      name: text(80).optional(),
+      description: text(500).optional(),
+      durationsMinutes: z
+        .array(minutes)
+        .min(1)
+        .max(6)
+        .optional()
+        .describe('The lengths it can be booked for'),
+      priceDollars: dollars.nullable().optional(),
+      bufferBeforeMinutes: z.int().min(0).max(240).optional(),
+      bufferAfterMinutes: z.int().min(0).max(240).optional(),
+      staffUserIds: z.array(uuid).max(50).optional().describe('Who can do it'),
+    }),
+    autonomy: 'confirm',
+    permission: 'calendars.manage',
+  }),
+  define({
+    name: 'manage_resource',
+    description:
+      'Add, change or archive something a job needs as well as a person — a truck, a bay, a piece of equipment — including how many there are.',
+    input: z.object({
+      action: z.enum(['create', 'change', 'archive']),
+      resourceId: uuid.optional(),
+      name: text(80).optional(),
+      kind: z.enum(['vehicle', 'room', 'equipment', 'other']).optional(),
+      quantity: z.int().min(1).max(100).optional(),
+      location: text(200).nullable().optional(),
+    }),
+    autonomy: 'confirm',
+    permission: 'calendars.manage',
+  }),
+  define({
+    name: 'manage_territory',
+    description:
+      'Add, change or delete a territory: the ZIP codes an area covers and who covers them.',
+    input: z.object({
+      action: z.enum(['create', 'change', 'delete']),
+      territoryId: uuid.optional(),
+      name: text(80).optional(),
+      postalCodes: z
+        .array(
+          z
+            .string()
+            .trim()
+            .regex(/^\d{5}$/, 'Five-digit ZIP codes.'),
+        )
+        .max(500)
+        .optional(),
+      userIds: z.array(uuid).max(50).optional().describe('Who covers it'),
+    }),
+    autonomy: 'confirm',
+    permission: 'calendars.manage',
+  }),
+  define({
+    name: 'update_booking_site',
+    description:
+      'Change the page customers book on: its web address, the name and intro they see, and whether it is on at all.',
+    input: z.object({
+      slug: z.string().trim().min(1).max(60).optional().describe('The last part of its address'),
+      name: text(120).optional(),
+      intro: text(500).nullable().optional(),
+      enabled: z.boolean().optional(),
+    }),
+    autonomy: 'confirm',
+    permission: 'calendars.manage',
+  }),
+
+  define({
+    name: 'update_business',
+    description:
+      'Change the business itself: its name, time zone, industry, website, the link customers leave reviews on, and the hours it is open. Read it with get_settings first and pass only what changes.',
+    input: z.object({
+      name: text(120).optional(),
+      timezone: text(60).optional().describe('An IANA zone like America/Chicago'),
+      industry: text(80).optional(),
+      website: z.url().max(500).optional(),
+      reviewLink: z.url().max(500).optional().describe('Where customers leave a review'),
+      openHours: WeeklyHoursInput.nullable()
+        .optional()
+        .describe('When the business is open; null puts it back to weekdays 8–5'),
+    }),
+    autonomy: 'confirm',
+    permission: 'workspace.update',
+  }),
+  define({
+    name: 'manage_pipeline',
+    description:
+      'Change the pipelines leads move through: add, rename or archive a pipeline, and add, rename, reorder or delete a stage. Stage kinds are open, won or lost. Deleting a stage moves its leads to another one, so say which.',
+    input: z.object({
+      action: z.enum([
+        'create_pipeline',
+        'rename_pipeline',
+        'archive_pipeline',
+        'add_stage',
+        'rename_stage',
+        'delete_stage',
+        'reorder_stages',
+      ]),
+      pipelineId: uuid.optional(),
+      stageId: uuid.optional(),
+      name: text(80).optional(),
+      stageKind: z.enum(['open', 'won', 'lost']).optional(),
+      afterStageId: uuid.nullable().optional().describe('Put a new stage after this one'),
+      stageIds: z
+        .array(uuid)
+        .min(3)
+        .max(20)
+        .optional()
+        .describe('Every stage of the pipeline, in the order they should be'),
+      moveLeadsToStageId: uuid
+        .optional()
+        .describe('Where the leads in a stage being deleted should go'),
+    }),
+    autonomy: 'confirm',
+    permission: 'pipelines.manage',
+  }),
+  define({
+    name: 'manage_team',
+    description:
+      'Invite someone to the business, change what a teammate may do, take someone off, or resend or cancel an invitation that has not been accepted. Owners and admins can change settings; members work customers, leads and the inbox.',
+    input: z.object({
+      action: z.enum(['invite', 'change_role', 'remove', 'resend_invitation', 'cancel_invitation']),
+      email: z.email().max(320).optional().describe('Who to invite'),
+      userId: uuid.optional().describe('The teammate, from list_team'),
+      invitationId: uuid.optional(),
+      role: z.enum(['owner', 'admin', 'member']).optional(),
+    }),
+    autonomy: 'confirm',
+    permission: 'members.invite',
+  }),
+  define({
+    name: 'manage_tag',
+    description:
+      'Add, rename, recolour or delete one of the labels you put on customers and leads.',
+    input: z.object({
+      action: z.enum(['create', 'change', 'delete']),
+      tagId: uuid.optional(),
+      name: text(40).optional(),
+      color: z
+        .string()
+        .regex(/^#[0-9a-fA-F]{6}$/)
+        .optional()
+        .describe('A hex colour like #2d69d8'),
+    }),
+    autonomy: 'confirm',
+    permission: 'tags.manage',
+  }),
+  define({
+    name: 'update_knowledge_profile',
+    description:
+      'Change what your AI knows about the business: what you do, the area you cover, your hours, your policies, how it should sound, how it signs off, and whether it may quote prices. Read it with get_settings first and pass only what changes; each field replaces what is there.',
+    input: z.object({
+      description: text(2000).optional().describe('What the business does'),
+      serviceArea: text(500).optional(),
+      hours: text(500).optional().describe('In words, as a customer would be told'),
+      policies: text(3000).optional(),
+      tone: text(300).optional().describe('How messages should sound'),
+      signature: text(200).optional().describe('How texts and emails sign off'),
+      allowPrices: z.boolean().optional().describe('May the AI quote prices from what it knows'),
+    }),
+    autonomy: 'confirm',
+    permission: 'knowledge.manage',
+  }),
+
+  define({
+    name: 'update_texting_settings',
+    description:
+      'Change how texts and calls behave: quiet hours, how long a customer waits before the team is reminded, which phones ring and for how long, voicemail, and what the customer sees when a call is forwarded. Read it with get_settings first and pass only what changes.',
+    input: z.object({
+      quietHoursEnabled: z.boolean().optional(),
+      quietHoursStart: clock.optional().describe('When quiet hours start, like 20:00'),
+      quietHoursEnd: clock.optional().describe('When they end, like 08:00'),
+      remindTeamAfterMinutes: z
+        .int()
+        .min(0)
+        .max(240)
+        .optional()
+        .describe('How long a customer waits before the team is reminded; 0 turns it off'),
+      ringPhones: z
+        .array(
+          z.object({
+            number: text(20).describe('The phone to ring, like +17135551212'),
+            label: text(40).describe('Whose phone it is'),
+            enabled: z.boolean().default(true),
+          }),
+        )
+        .max(3)
+        .optional()
+        .describe('Up to three phones that ring with the browsers'),
+      ringSeconds: z.int().min(10).max(25).optional(),
+      voicemailEnabled: z.boolean().optional(),
+      voicemailGreeting: text(500).nullable().optional(),
+      showCustomerNumber: z
+        .boolean()
+        .optional()
+        .describe('On a forwarded call, show the customer’s number rather than the business’s'),
+    }),
+    autonomy: 'confirm',
+    permission: 'channels.manage',
+  }),
+  define({
+    name: 'manage_phone_number',
+    description:
+      'Get a business number, or give one up. Getting one costs money every month; giving one up loses it for good and customers texting or calling it reach nobody. The person picks the number itself on Settings → Texting & calls, so only use this when they give you the number.',
+    input: z.object({
+      action: z.enum(['get', 'give_up']),
+      number: text(20).describe('The number, like +17135551212'),
+      numberType: z.enum(['local', 'toll_free']).optional(),
+      phoneNumberId: uuid.optional().describe('The number to give up'),
+    }),
+    autonomy: 'confirm',
+    permission: 'channels.manage',
+  }),
+  define({
+    name: 'submit_carrier_registration',
+    description:
+      'Send the carrier registration that turns texting on. Ask for every part in plain words, a question or two at a time, and read back what you have before sending. Local numbers need at least two example texts. Approval is the carriers’ and takes a few days.',
+    input: z.object({
+      kind: z
+        .enum(['a2p_10dlc', 'toll_free_verification'])
+        .describe('a2p_10dlc for a local number'),
+      legalName: text(120).describe('The business name as it is registered'),
+      businessType: z.enum(['llc', 'corporation', 'sole_proprietor', 'partnership', 'non_profit']),
+      ein: text(10)
+        .nullable()
+        .optional()
+        .describe('The 9-digit EIN; not needed for a sole proprietor'),
+      website: z.url().max(200),
+      addressLine1: text(200),
+      city: text(100),
+      state: text(2).describe('The two-letter state'),
+      postalCode: text(10),
+      contactFirstName: text(60),
+      contactLastName: text(60),
+      contactEmail: z.email().max(254),
+      contactPhone: text(20),
+      useCase: z.enum(['customer_care', 'mixed', 'marketing']),
+      messageSamples: z
+        .array(text(320))
+        .min(1)
+        .max(5)
+        .describe('Real examples of texts you send customers'),
+      optInDescription: text(1000).describe('How customers agree to get texts from you'),
+      monthlyVolume: z.enum(['under_1000', '1000_10000', '10000_100000', 'over_100000']),
+    }),
+    autonomy: 'confirm',
+    permission: 'channels.manage',
+  }),
+  define({
+    name: 'manage_email_settings',
+    description:
+      'Change how email is sent: add or change a sending address, add your own sending domain (which gives back records to put in with whoever sold you the domain), check a domain once those records are in, remove one, or unblock an address that bounced.',
+    input: z.object({
+      action: z.enum([
+        'add_address',
+        'change_address',
+        'add_domain',
+        'check_domain',
+        'remove_domain',
+        'unblock',
+      ]),
+      localPart: text(64).optional().describe('The part before the @, like hello'),
+      displayName: text(120).optional().describe('The name customers see it from'),
+      isDefault: z.boolean().optional(),
+      emailAddressId: uuid.optional(),
+      domain: text(255).optional().describe('A domain you own, like lonestarhvac.com'),
+      emailDomainId: uuid.optional(),
+      suppressionId: uuid.optional().describe('The blocked address to release'),
+    }),
+    autonomy: 'confirm',
+    permission: 'channels.manage',
+  }),
+  define({
+    name: 'manage_website_chat',
+    description:
+      'Set up or change the chat box on the business’s website: which sites it may show on, its greeting, button label and colour, whether the AI teammate answers it, and turning it on or off. The snippet still has to be pasted into their site, so say so.',
+    input: z.object({
+      action: z.enum(['create', 'change', 'turn_on', 'turn_off']),
+      widgetId: uuid.optional(),
+      websites: z
+        .array(text(300))
+        .max(10)
+        .optional()
+        .describe('The sites it may show on, like https://lonestarhvac.com'),
+      greeting: text(300).optional(),
+      buttonLabel: text(40).optional(),
+      color: z
+        .string()
+        .regex(/^#[0-9a-fA-F]{6}$/)
+        .optional()
+        .describe('A hex colour like #2d69d8'),
+      answeredByAi: z.boolean().optional().describe('Whether the AI teammate answers it'),
+      askForSmsConsent: z
+        .boolean()
+        .optional()
+        .describe('Offer visitors a box agreeing to get texts'),
+    }),
+    autonomy: 'confirm',
+    permission: 'channels.manage',
+  }),
+
+  define({
+    name: 'update_money_settings',
+    description:
+      'Change how the business gets paid: sales tax, when invoices are due, your address on documents, the notes on estimates and invoices, how long an estimate is good for, deposits, whether bank transfer is offered, and the reminders that chase an unpaid invoice or an unanswered estimate. Read it with get_settings first and pass only what changes.',
+    input: z.object({
+      taxRatePercent: z.number().min(0).max(20).optional().describe('Like 8.25'),
+      taxName: text(40).optional().describe('What it is called on a document'),
+      newItemsTaxable: z.boolean().optional(),
+      businessAddress: text(300)
+        .optional()
+        .describe('As it should read on a document, up to 5 lines'),
+      terms: z
+        .enum(['due_on_receipt', 'net_7', 'net_14', 'net_30'])
+        .optional()
+        .describe('When an invoice is due'),
+      estimateNote: text(2000).optional(),
+      invoiceNote: text(2000).optional(),
+      estimateGoodForDays: z.int().min(1).max(365).optional(),
+      depositKind: z.enum(['none', 'percent', 'amount']).optional(),
+      depositPercent: z.number().min(0).max(100).optional(),
+      depositDollars: dollars.optional(),
+      offerBankTransfer: z.boolean().optional(),
+      remindBeforeDueDays: z.array(z.int().min(1).max(90)).max(3).optional(),
+      remindOnDueDay: z.boolean().optional(),
+      remindAfterDueDays: z.array(z.int().min(1).max(90)).max(4).optional(),
+      nudgeEstimateAfterDays: z.int().min(1).max(90).nullable().optional(),
+    }),
+    autonomy: 'confirm',
+    permission: 'money.manage',
+  }),
+  define({
+    name: 'manage_product',
+    description:
+      'Add, change or archive something that goes on an estimate or an invoice: its name, price, unit and whether it is taxed.',
+    input: z.object({
+      action: z.enum(['create', 'change', 'archive']),
+      productId: uuid.optional(),
+      name: text(120).optional(),
+      description: text(1000).optional(),
+      priceDollars: dollars.optional(),
+      unitLabel: text(40).optional().describe('each, hour, visit'),
+      taxable: z.boolean().optional(),
+      serviceId: uuid.nullable().optional().describe('The bookable service it matches'),
+    }),
+    autonomy: 'confirm',
+    permission: 'money.manage',
+  }),
+  define({
+    name: 'manage_payment_account',
+    description:
+      'Change a payout account that is already connected: rename it, make it the one used by default, or disconnect it. Connecting a new one means signing in to Stripe or Square, which only the person can do — use settings_help for that.',
+    input: z.object({
+      action: z.enum(['rename', 'make_default', 'disconnect']),
+      connectionId: uuid,
+      label: text(60).optional(),
+    }),
+    autonomy: 'confirm',
+    permission: 'money.manage',
+  }),
+  define({
+    name: 'update_action_center_settings',
+    description:
+      'Change what Home watches for and what HandsFreeOS does on its own: which kinds of thing show up, how fast a new lead counts as waiting, what a big job is worth, how long before a lead has gone quiet, when an estimate or an unpaid invoice asks for attention, and whether HandsFreeOS confirms visits and follows up by itself. Read it with get_settings first.',
+    input: z.object({
+      kindsOn: z.array(z.enum(ATTENTION_KINDS)).max(10).optional().describe('Kinds to turn on'),
+      kindsOff: z.array(z.enum(ATTENTION_KINDS)).max(10).optional().describe('Kinds to turn off'),
+      bigJobDollars: dollars.optional().describe('A lead worth at least this counts as big'),
+      hotLeadUrgentAfterMinutes: z.int().min(1).max(240).optional(),
+      newLeadWaitingAfterMinutes: z.int().min(1).max(480).optional(),
+      goneQuietAfterDays: z.int().min(1).max(365).optional(),
+      unconfirmedVisitWindowHours: z.int().min(1).max(168).optional(),
+      estimateWaitingDays: z.int().min(1).max(60).optional(),
+      invoiceOverdueDays: z.int().min(0).max(60).optional(),
+      typicalJobValueDollars: dollars
+        .nullable()
+        .optional()
+        .describe('null works it out from won leads'),
+      askCustomersToConfirmVisits: z.boolean().optional(),
+      replyCToConfirm: z.boolean().optional(),
+      followUpOnQuietLeads: z
+        .boolean()
+        .optional()
+        .describe('Only turns on after the follow-up wording has been read and agreed'),
+      followUpMessage: text(480).optional(),
+      followUpCooldownDays: z.int().min(1).max(90).optional(),
+    }),
+    autonomy: 'confirm',
+    permission: 'workspace.update',
+  }),
+  define({
+    name: 'manage_ai_teammate',
+    description:
+      'Set up or change the AI teammate: its name, how it says it is AI, whether it is off, on training wheels (every message waits for a person) or automatic, which channels it answers, its hours, what it may do (reply, answer questions, qualify, book, follow up) and its limits. Read it with get_settings first.',
+    input: z.object({
+      action: z.enum(['create', 'change', 'set_status']),
+      preset: z
+        .enum(['lead_responder', 'lead_qualifier', 'appointment_coordinator', 'blank'])
+        .optional()
+        .describe('What it starts out doing'),
+      name: text(40).optional(),
+      disclosure: z
+        .enum(['first_message', 'when_asked'])
+        .optional()
+        .describe('When it says it is AI'),
+      status: z
+        .enum(['off', 'training', 'automatic'])
+        .optional()
+        .describe('training: every message waits for a person'),
+      answersTexts: z.boolean().optional(),
+      answersEmail: z.boolean().optional(),
+      answersWebsiteChat: z.boolean().optional(),
+      repliesToLeads: z.boolean().optional(),
+      answersQuestions: z.boolean().optional(),
+      booksVisits: z.boolean().optional(),
+      bookableCalendarIds: z.array(uuid).max(20).optional(),
+      followsUp: z.boolean().optional(),
+      maxFollowUps: z.int().min(1).max(5).optional(),
+      hoursMode: z
+        .enum(['always', 'after_hours', 'custom'])
+        .optional()
+        .describe('When it answers at all'),
+      handOffWhenUnsure: z
+        .boolean()
+        .optional()
+        .describe(
+          'Hand to a person when the knowledge base has no answer, rather than taking a message',
+        ),
+    }),
+    autonomy: 'confirm',
+    permission: 'ai_team.manage',
+  }),
+
+  define({
+    name: 'update_my_account',
+    description:
+      'Change the person’s own account: their name, whether the app is light or dark, and which emails they get from HandsFreeOS. Theirs alone — never another teammate’s.',
+    input: z.object({
+      fullName: text(120).optional(),
+      appearance: z.enum(['light', 'dark', 'system']).optional(),
+      emailWhenCustomerWaiting: z.boolean().optional(),
+      morningEmail: z.boolean().optional().describe('The morning list of what needs attention'),
+      emailWhenAiHandsOver: z.boolean().optional(),
+      emailWhenBooked: z.boolean().optional(),
+      emailWhenPaid: z.boolean().optional(),
+    }),
+    autonomy: 'confirm',
+    permission: 'assistant.use',
+  }),
+  define({
+    name: 'update_my_hours',
+    description:
+      'Change the person’s own working hours, or put time off in the calendar (a day, a run of days, or part of a day). Theirs alone. Use a local date like 2026-09-24 for whole days.',
+    input: z.object({
+      action: z.enum(['set_hours', 'add_time_off', 'remove_time_off']),
+      weekly: WeeklyHoursInput.optional().describe('The working week, for set_hours'),
+      startDate: z
+        .string()
+        .refine(isLocalDate, { error: 'Use a date like 2026-09-24.' })
+        .optional(),
+      endDate: z
+        .string()
+        .refine(isLocalDate, { error: 'Use a date like 2026-09-26.' })
+        .optional()
+        .describe('The last day off, for a run of days'),
+      startsAt: when.optional().describe('For part of a day'),
+      endsAt: when.optional(),
+      note: text(500).optional().describe('What it is: "Vacation", "Doctor"'),
+      exceptionId: uuid.optional().describe('The time off to take back out'),
+    }),
+    autonomy: 'confirm',
+    permission: 'assistant.use',
   }),
 
   // ---------- tasks and notes (auto, with Undo) ----------

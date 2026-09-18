@@ -3,6 +3,7 @@ import { addDays, localDateOf, localInstant, weekdayOf } from '@hfos/core/server
 import { isoWithOffset } from './calendar-format';
 import { attentionRules } from './scripted-attention';
 import { moneyRules } from './scripted-money';
+import { settingsRules } from './scripted-settings';
 import { workflowRules } from './scripted-workflows';
 
 /**
@@ -106,6 +107,7 @@ const MOVE =
 const rules: ScriptRule[] = [
   ...attentionRules,
   ...moneyRules,
+  ...settingsRules,
   ...workflowRules,
   {
     when: /how many (new )?leads/i,

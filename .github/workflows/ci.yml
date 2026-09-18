@@ -91,6 +91,11 @@ jobs:
     name: Secret scan
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    # On a pull request the scanner asks GitHub which commits it covers, which the default token may not read.
+    # Without this it crashes with a 403 before it scans anything, and the job fails as if it had found a secret.
+    permissions:
+      contents: read
+      pull-requests: read
     steps:
       - uses: actions/checkout@v4
         with:
