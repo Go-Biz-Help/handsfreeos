@@ -13,8 +13,8 @@ Copy into Play Console. Character limits are Google's.
 | Tags                 | Business, Productivity, Communication                             |
 | Contact email        | `support@gobizhelp.com`                                           |
 | Contact phone        | Optional — leave empty unless Chris wants a number in the listing |
-| Contact website      | `https://handsfreeos.com` — **site doesn't exist yet**            |
-| Privacy policy       | `https://handsfreeos.com/privacy` — **page doesn't exist yet**    |
+| Contact website      | `https://handsfreeos.com` — built (`apps/site`), live with it     |
+| Privacy policy       | `https://handsfreeos.com/privacy` — built (`apps/site`)           |
 | Ads                  | No — the app has none, and nothing in it is advertising           |
 | In-app purchases     | No                                                                |
 | Price                | Free                                                              |

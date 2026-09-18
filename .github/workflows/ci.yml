@@ -68,6 +68,9 @@ jobs:
             echo "A provider secret or its name is in the web assets"; exit 1
           fi
 
+      - name: Build the public website
+        run: pnpm --filter @hfos/site build
+
       - name: Install the Playwright browser
         run: pnpm --filter @hfos/web exec playwright install --with-deps chromium
 

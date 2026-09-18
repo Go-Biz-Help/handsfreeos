@@ -80,12 +80,12 @@ HandsFreeOS is for businesses that already use HandsFreeOS. Sign in with the ema
 
 ## URLs
 
-| Field              | Value                                        | State                                      |
-| ------------------ | -------------------------------------------- | ------------------------------------------ |
-| Support URL        | `https://handsfreeos.com/support`            | **Page doesn't exist yet** — Chris owes it |
-| Marketing URL      | `https://handsfreeos.com`                    | **Site doesn't exist yet** — Chris owes it |
-| Privacy Policy URL | `https://handsfreeos.com/privacy`            | **Page doesn't exist yet** — Chris owes it |
-| Account deletion   | `https://app.handsfreeos.com/delete-account` | Built (step 7), live with the web app      |
+| Field              | Value                                        | State                                                                    |
+| ------------------ | -------------------------------------------- | ------------------------------------------------------------------------ |
+| Support URL        | `https://handsfreeos.com/support`            | Built (`apps/site`), live once the site is deployed — Stage 0 of go-live |
+| Marketing URL      | `https://handsfreeos.com/app`                | Built (`apps/site`), the phone-app page, live with the site              |
+| Privacy Policy URL | `https://handsfreeos.com/privacy`            | Built (`apps/site`), live with the site                                  |
+| Account deletion   | `https://app.handsfreeos.com/delete-account` | Built (step 7), live with the web app                                    |
 
 Apple wants the account-deletion URL in App Review Information when an app makes accounts. The page is public: it
 explains what deleting removes, and signs you in first if you aren't.

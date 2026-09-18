@@ -23,12 +23,13 @@ In order, because most steps need the one before it.
    in `apps/mobile` prints it; paste it in by hand, because `app.config.ts` means `eas init` can't write it. Without
    it, a build registers no push token and Settings → Notifications says "Not in this build".
 8. **`expo.owner`** in `app.json`, once the Expo organization's account name exists. Not set, so that nobody guesses it.
-9. **Three web pages that don't exist yet**, each of which a store listing asks for by URL:
-   - `https://handsfreeos.com/privacy` — a privacy policy. Both stores require one, and it has to match
-     [`privacy-app-store.md`](privacy-app-store.md) and [`privacy-play.md`](privacy-play.md).
-   - `https://handsfreeos.com/support` — somewhere to ask for help. Apple requires a support URL.
-   - `https://handsfreeos.com` — a marketing page. Apple's is optional, Google's contact website is not.
-     (`https://app.handsfreeos.com/delete-account` already exists and covers both stores' deletion requirement.)
+9. **The public website, deployed.** The three pages each store asks for by URL are built, in `apps/site`, but they
+   are not live until that second Vercel project is deployed on `handsfreeos.com` — Stage 0 of the go-live checklist
+   in `docs/operations.md`. They are `https://handsfreeos.com/privacy` (which has to keep matching
+   [`privacy-app-store.md`](privacy-app-store.md) and [`privacy-play.md`](privacy-play.md)),
+   `https://handsfreeos.com/support`, and `https://handsfreeos.com/app` for the marketing URL.
+   (`https://app.handsfreeos.com/delete-account` already exists and covers both stores' deletion requirement.)
+   The governing state, the mailing address and the legal review are all done; what is left is the deploy itself.
 10. **A password for the demo business**, given to the seed as `HFOS_DEMO_PASSWORD` and typed into both consoles'
     review sign-in fields. See [`reviewer-demo.md`](reviewer-demo.md).
 11. **A real mailbox at `app-review@handsfreeos.com`**, and a phone number for the demo business (a dollar or two a

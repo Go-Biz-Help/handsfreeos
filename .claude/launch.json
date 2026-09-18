@@ -4,14 +4,33 @@
     {
       "name": "web",
       "runtimeExecutable": "pnpm",
-      "runtimeArgs": ["dev"],
+      "runtimeArgs": [
+        "dev"
+      ],
       "port": 3000,
+      "autoPort": false
+    },
+    {
+      "name": "site",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": [
+        "--filter",
+        "@hfos/site",
+        "dev"
+      ],
+      "port": 3001,
       "autoPort": false
     },
     {
       "name": "design-preview",
       "runtimeExecutable": "python3",
-      "runtimeArgs": ["-m", "http.server", "8765", "--directory", "design/m1/preview"],
+      "runtimeArgs": [
+        "-m",
+        "http.server",
+        "8765",
+        "--directory",
+        "design/m1/preview"
+      ],
       "port": 8765
     }
   ]

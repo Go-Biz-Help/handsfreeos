@@ -21,6 +21,7 @@ A plain "step 5" means step 5 of the list you are reading, or of the part named 
 - [Hosting: the API and the worker on Fly.io](#hosting-the-api-and-the-worker-on-flyio)
 - [Sync service: PowerSync on Fly](#sync-service-powersync-on-fly)
 - [The web app on Vercel](#the-web-app-on-vercel)
+- [The public website on Vercel](#the-public-website-on-vercel)
 - [The phone carrier: Twilio](#the-phone-carrier-twilio)
 - [Email: Postmark](#email-postmark)
 - [Connected mailboxes: Outlook and Gmail](#connected-mailboxes-outlook-and-gmail)
@@ -40,19 +41,19 @@ A plain "step 5" means step 5 of the list you are reading, or of the part named 
 
 Go Biz Help (or the company that owns HandsFreeOS, if it has its own) holds and pays for every account below. Client businesses never get accounts of their own: their phone lines live in Twilio subaccounts under your master account, and their email goes through your one Postmark server. Prices were checked in September 2026 and will change.
 
-| Account                                                             | What HandsFreeOS uses it for                                                                                  | Rough cost                                                                                                                                                                                                                         | More in                                     |
-| ------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------- |
-| Supabase, organization `Go Biz Help` (already exists)               | The database, sign-in, file storage and live updates                                                          | Pro plan from $25 a month for the whole organization, plus about $10 a month for this project's Micro compute. Point-in-time recovery is optional, about $105 a month more.                                                        | "The database: Supabase (hosted)"           |
-| Fly.io (a new organization, with a card)                            | Runs the API, the worker and the sync service for the phone app                                               | About $8 a month in `dfw` with one worker machine (about $6.40 in `iad`), or about $12 with two, plus about $13 to $15 for the sync service                                                                                        | "Hosting: the API and the worker on Fly.io" |
-| Vercel (a Pro team)                                                 | Runs the web app at `https://app.handsfreeos.com`                                                             | $20 a month, including one seat that can deploy and $20 of usage credit. 14-day trial.                                                                                                                                             | "The web app on Vercel"                     |
-| Twilio (one master account, upgraded to paid)                       | Phone numbers, texts and calls for every client                                                               | A starting balance of about $50. Then $1.15 a month per local number, $2.15 per toll-free number, texts and minutes, and carrier registration fees for local numbers. All client subaccounts draw on the master account's balance. | "The phone carrier: Twilio"                 |
-| Postmark (Platform plan recommended)                                | Business email, customers' replies, platform mail and sign-in email                                           | $18 a month for 10,000 emails on Platform ($16.50 on Pro, which allows only 10 domains)                                                                                                                                            | "Email: Postmark"                           |
-| Microsoft Entra tenant, plus the Microsoft AI Cloud Partner Program | The Outlook app registration and publisher verification                                                       | Free (an Azure sign-up may ask for a card to confirm who you are)                                                                                                                                                                  | "Connected mailboxes: Outlook and Gmail"    |
-| Google Cloud                                                        | The Gmail client, the Google Calendar client (its own project) and the Google sign-in client                  | Free from Google. The CASA security assessment is paid to an authorized lab: for example $675 to $855 one time for the lowest level, or $4,500 to $5,400 a year on a lab's yearly plan.                                            | "Connected mailboxes: Outlook and Gmail"    |
-| Anthropic (a Claude Console organization, with prepaid credits)     | Claude, the model behind the Assistant                                                                        | Pay as you go from prepaid credits. With Claude Sonnet 5, $2 per million tokens sent and $10 per million tokens written back. HandsFreeOS caps each workspace at 2,000,000 tokens a day, so at most about $20 a day per workspace. | "The Assistant: Anthropic"                  |
-| GitHub, account `gobizhelp` (already exists)                        | The repository `gobizhelp/handsfreeos`, CI and the Deploy workflow                                            | No new cost                                                                                                                                                                                                                        | "Hosting: the API and the worker on Fly.io" |
-| Cloudflare (already holds the DNS for `handsfreeos.com`)            | DNS records, optionally a tunnel for laptop testing, and Turnstile for the booking pages and the website chat | DNS: no new cost. Zero Trust Free plan for the tunnel. Turnstile is free.                                                                                                                                                          | Several sections                            |
-| A website host for `handsfreeos.com`                                | Public home page, `/privacy` and `/terms` pages. Google and Microsoft check them.                             | Depends on the host                                                                                                                                                                                                                | "Connected mailboxes: Outlook and Gmail"    |
+| Account                                                             | What HandsFreeOS uses it for                                                                                                                                                                            | Rough cost                                                                                                                                                                                                                         | More in                                     |
+| ------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------- |
+| Supabase, organization `Go Biz Help` (already exists)               | The database, sign-in, file storage and live updates                                                                                                                                                    | Pro plan from $25 a month for the whole organization, plus about $10 a month for this project's Micro compute. Point-in-time recovery is optional, about $105 a month more.                                                        | "The database: Supabase (hosted)"           |
+| Fly.io (a new organization, with a card)                            | Runs the API, the worker and the sync service for the phone app                                                                                                                                         | About $8 a month in `dfw` with one worker machine (about $6.40 in `iad`), or about $12 with two, plus about $13 to $15 for the sync service                                                                                        | "Hosting: the API and the worker on Fly.io" |
+| Vercel (a Pro team)                                                 | Runs the web app at `https://app.handsfreeos.com`                                                                                                                                                       | $20 a month, including one seat that can deploy and $20 of usage credit. 14-day trial.                                                                                                                                             | "The web app on Vercel"                     |
+| Twilio (one master account, upgraded to paid)                       | Phone numbers, texts and calls for every client                                                                                                                                                         | A starting balance of about $50. Then $1.15 a month per local number, $2.15 per toll-free number, texts and minutes, and carrier registration fees for local numbers. All client subaccounts draw on the master account's balance. | "The phone carrier: Twilio"                 |
+| Postmark (Platform plan recommended)                                | Business email, customers' replies, platform mail and sign-in email                                                                                                                                     | $18 a month for 10,000 emails on Platform ($16.50 on Pro, which allows only 10 domains)                                                                                                                                            | "Email: Postmark"                           |
+| Microsoft Entra tenant, plus the Microsoft AI Cloud Partner Program | The Outlook app registration and publisher verification                                                                                                                                                 | Free (an Azure sign-up may ask for a card to confirm who you are)                                                                                                                                                                  | "Connected mailboxes: Outlook and Gmail"    |
+| Google Cloud                                                        | The Gmail client, the Google Calendar client (its own project) and the Google sign-in client                                                                                                            | Free from Google. The CASA security assessment is paid to an authorized lab: for example $675 to $855 one time for the lowest level, or $4,500 to $5,400 a year on a lab's yearly plan.                                            | "Connected mailboxes: Outlook and Gmail"    |
+| Anthropic (a Claude Console organization, with prepaid credits)     | Claude, the model behind the Assistant                                                                                                                                                                  | Pay as you go from prepaid credits. With Claude Sonnet 5, $2 per million tokens sent and $10 per million tokens written back. HandsFreeOS caps each workspace at 2,000,000 tokens a day, so at most about $20 a day per workspace. | "The Assistant: Anthropic"                  |
+| GitHub, account `gobizhelp` (already exists)                        | The repository `gobizhelp/handsfreeos`, CI and the Deploy workflow                                                                                                                                      | No new cost                                                                                                                                                                                                                        | "Hosting: the API and the worker on Fly.io" |
+| Cloudflare (already holds the DNS for `handsfreeos.com`)            | DNS records, optionally a tunnel for laptop testing, and Turnstile for the booking pages and the website chat                                                                                           | DNS: no new cost. Zero Trust Free plan for the tunnel. Turnstile is free.                                                                                                                                                          | Several sections                            |
+| Vercel, a second project for `handsfreeos.com`                      | The public website: home page, pricing, the phone app page, `/privacy`, `/terms` and `/support`. It is `apps/site` in this repository. Google, Microsoft, Twilio and both app stores check those pages. | No new cost on the same Vercel plan                                                                                                                                                                                                | "The public website on Vercel"              |
 
 ### Tools on your Mac
 
@@ -3579,6 +3580,49 @@ Production builds are still created, but they only get `app.handsfreeos.com` onc
 - **New web settings.** The build may run through Turborepo, which hides every setting not listed for builds in `turbo.json`. That file already lists `NEXT_PUBLIC_*`. A future web setting with any other name must be added there too.
 - **Your laptop is separate.** `pnpm env:local` writes local addresses into `apps/web/.env.local` for `pnpm dev`. Never copy that file into Vercel.
 
+## The public website on Vercel
+
+`https://handsfreeos.com` — the public website people read before they sign up — is `apps/site` in this repository, and it is a **second Vercel project**, separate from the web app. The web app keeps `app.handsfreeos.com`; the website keeps the bare domain and `www`.
+
+Two projects rather than one, because:
+
+- A change to the marketing copy never rebuilds or redeploys the product, and a broken product build never takes the public pages down.
+- The website needs **no environment variables at all**, so there is nothing on it to leak and nothing to keep in step.
+- The privacy policy and the terms keep a history in git, which is what you want the day a reviewer asks when a sentence changed.
+
+**Deploying it the first time is Stage 0 of the go-live checklist**, in "Going live, and when something goes wrong". After that, every push to `main` that touches `apps/site` goes live on its own.
+
+### What is on it
+
+| Address    | What it is                           | Who checks it                                                      |
+| ---------- | ------------------------------------ | ------------------------------------------------------------------ |
+| `/`        | The home page                        | Twilio's A2P review, Google's consent screen, Apple, Google Play   |
+| `/pricing` | The plans and what is in them        | Nobody official; it is where people decide                         |
+| `/app`     | The phone app, with real screenshots | The marketing URL on the app store listings                        |
+| `/support` | How to get help                      | Apple requires a support URL                                       |
+| `/privacy` | The privacy policy                   | Google's OAuth review, Microsoft, Apple, Google Play, the carriers |
+| `/terms`   | The terms of service                 | Microsoft's branding page                                          |
+
+`https://app.handsfreeos.com/delete-account` stays on the web app, and both store listings point at it there.
+
+### Changing it
+
+- **Prices, the company name, the support address and the plan contents** are all in `apps/site/src/content/site.ts`. Change them there and every page follows.
+- **Two fields must be filled in before the domain points at the site**: `company.governingState` and `company.mailingAddress`. While the state is empty, the terms page prints a visible placeholder in public.
+- **Do not trim these three parts of the legal pages.** Somebody reviews each of them:
+  - The "Google user data" section of `/privacy` carries the Limited Use wording Google's OAuth review reads. Without it the review fails.
+  - The "Texting, calling and consent" section carries the opt-in sentence the carriers and Twilio's A2P review read.
+  - The footer names `Go Biz Help LLC`. Twilio checks that the site names the legal company.
+- **Never put a made-up review, logo or customer number on it.** There are no customers yet. When there are real ones, the home page has a marked place for them.
+- The screenshots on `/app` are copies of the store screenshots, in `apps/site/public/screenshots/`. When the app's screens change, copy the new ones over from `apps/mobile/store/assets/screenshots/`.
+
+### Good to know
+
+- **It is entirely static.** Every page is prerendered at build time, so there is no server to watch and nothing to pay for beyond the Vercel plan you already have.
+- **It has no access to the database, the API or Supabase**, by design. If a page ever seems to need one, it probably belongs in `apps/web` instead.
+- **Rolling back** works the same as the web app: **Instant Rollback** on the project's overview page.
+- **The design tokens are copied** from `apps/web/src/app/globals.css`. If the accent colour or the fonts change in the product, change them in `apps/site/src/app/globals.css` too, or the two will drift apart.
+
 ## The phone carrier: Twilio
 
 HandsFreeOS has one Twilio account, the master account. When a client business buys its first number in HandsFreeOS, the worker creates a Twilio subaccount for that business and buys the number inside it, along with everything else the business needs. You set up the master account once. There is nothing to set up per client in the Twilio console.
@@ -4877,7 +4921,7 @@ How a sign-in travels, so the steps below make sense: **Connect Outlook** or **C
 
      You should see the invitation arrive from `alerts@handsfreeos.com`. If it doesn't, check that Postmark has approved the account, and that `handsfreeos.com` is a verified sending domain in Postmark (Postmark Part D).
 
-- Three public pages on `handsfreeos.com`. This guide uses `https://handsfreeos.com` (a home page that describes HandsFreeOS), `https://handsfreeos.com/privacy` and `https://handsfreeos.com/terms`. If yours differ, use yours everywhere below. Microsoft's branding and Google's consent screen link to them, and Google's review checks them. Nothing in this repository serves those pages (the web app lives at `app.handsfreeos.com` on Vercel), so publish them first on any website host, and point `handsfreeos.com` at that host at your DNS provider. Stage 0 of the go-live checklist in "Going live, and when something goes wrong" walks through it. The privacy policy must say how Google user data is accessed, used, stored and shared. It must also say HandsFreeOS follows Google's Limited Use requirements: the data is used only for features people see in HandsFreeOS, and is never used for ads or sold.
+- Three public pages on `handsfreeos.com`: `https://handsfreeos.com` (a home page that describes HandsFreeOS), `https://handsfreeos.com/privacy` and `https://handsfreeos.com/terms`. Microsoft's branding and Google's consent screen link to them, and Google's review checks them. **This repository serves them**: they are `apps/site`, deployed as a second Vercel project on the bare domain, while the web app stays at `app.handsfreeos.com`. Stage 0 of the go-live checklist in "Going live, and when something goes wrong" deploys it. The privacy policy already says how Google user data is accessed, used, stored and shared, and that HandsFreeOS follows Google's Limited Use requirements — that is the "Google user data" section of `apps/site/src/app/privacy/page.tsx`. Do not delete or water down that section: Google's review reads it.
 
   ```bash
   curl -sI https://handsfreeos.com/privacy
@@ -9184,7 +9228,7 @@ You need:
 - Admin rights on the HandsFreeOS GitHub repository, `gobizhelp/handsfreeos`.
 - Your password manager, with the `HandsFreeOS` folder. Every secret goes there first, then only into the place named in "Your password manager folder" at the top of this guide. None of these values ever goes into the repository, a commit, a chat or a support ticket.
 - Access to the DNS settings for `handsfreeos.com` at Cloudflare.
-- A website host for `handsfreeos.com`. Stage 0 below publishes a home page, a privacy policy and terms there. Google's consent screen needs the privacy policy and terms, Microsoft's publisher verification needs the domain, and Twilio checks that the site names the legal company.
+- A second Vercel project for `handsfreeos.com`. Stage 0 below deploys `apps/site` there, which is the home page, the pricing and phone-app pages, the privacy policy, the terms and the support page. Google's consent screen needs the privacy policy and terms, Microsoft's publisher verification needs the domain, Twilio checks that the site names the legal company, and Apple needs the support page.
 - A mobile phone to play the customer.
 - A second phone for the call and forwarding checks.
 - A personal email address that is not on `handsfreeos.com` (a Gmail or iCloud address is fine) to play the customer.
@@ -9204,39 +9248,52 @@ Work from top to bottom. Some steps wait on a provider's review, so start those 
 
 #### Stage 0: the public website
 
-Twilio's Trust Hub business profile, Microsoft's branding and publisher domain, and Google's consent screen all look at `https://handsfreeos.com`. Nothing in this repository serves that address (the web app lives at `app.handsfreeos.com` on Vercel), so publish it first, on any website host.
+Twilio's Trust Hub business profile, Microsoft's branding and publisher domain, Google's consent screen and both app stores all look at `https://handsfreeos.com`. That website is in this repository, at `apps/site`, and it is deployed as a **second Vercel project** — separate from the web app, so a change to the marketing copy never rebuilds the product, and the site needs no environment variables at all.
 
-1. On your website host, publish a home page for `https://handsfreeos.com` that describes HandsFreeOS.
-2. Publish a privacy policy at `https://handsfreeos.com/privacy`. It must say how Google user data is accessed, used, stored and shared. It must also say HandsFreeOS follows Google's Limited Use requirements: the data is used only for features people see in HandsFreeOS, and is never used for ads or sold.
-3. Publish the terms at `https://handsfreeos.com/terms`.
-4. Put the legal company's name in the footer of every page, spelled exactly as on the IRS EIN letter. Twilio checks that the site names the legal company.
-5. Sign in to Cloudflare and open the DNS records for `handsfreeos.com`.
-6. Add only the records your website host asks for, on the bare domain (`@`) and on `www`. If an old A, AAAA or CNAME record on `@` or `www` points somewhere else, change only that record. If the host asks for DNS only (grey cloud), set that. Leave every other record alone: the same zone holds the MX and TXT records for your mail, and later the Postmark, Microsoft, Google, `api`, `hooks` and `app` records.
-7. Check the home page.
+Everything the site needs is already in `apps/site/src/content/site.ts`: the company's legal name and address, the state whose law the terms run under (Colorado), the support address and the three plans. Two things to know about that file:
 
-   ```bash
-   curl -sI https://handsfreeos.com
-   ```
+- `company.governingState` must never be emptied. While it is empty the terms page prints `[STATE — to be confirmed before launch]` where the state should be, in public.
+- `company.mailingAddress` is the address the privacy policy and terms print. Twilio's A2P registration and Stripe's platform profile ask for an address too, and theirs must match the business registration — check which address that is rather than assuming it is this one.
 
-   You should see `200` on the first line (for example `HTTP/2 200`). New records can take a while to appear.
+1. Sign in to Vercel and click **Add New** → **Project**.
+2. Import `gobizhelp/handsfreeos` again. The same repository can back several projects.
+3. Name the project `handsfreeos-site`.
+4. Set **Root Directory** to `apps/site`, and turn on **Include source files outside of the Root Directory**. The site is part of the pnpm workspace, so the build needs the repository root.
+5. Leave **Framework Preset** as **Next.js** with every override off, and add no environment variables. The site has none, and never should.
+6. Under **Settings** → **General**, set the Node.js version to **22.x** and turn on **Skip deployment** (Vercel's ignored build step), so a change that only touches the app does not rebuild the site.
+7. Deploy, and open the `*.vercel.app` address Vercel gives you. Click through the home page, `/pricing`, `/app`, `/support`, `/privacy` and `/terms` before you point the domain at it.
+8. Under **Settings** → **Domains**, add `handsfreeos.com` and `www.handsfreeos.com`, and set `www` to redirect to the bare domain. Vercel then shows the exact DNS records it wants.
+9. Sign in to Cloudflare and open the DNS records for `handsfreeos.com`.
+10. Add exactly the records Vercel showed you, on the bare domain (`@`) and on `www`, each set to **DNS only** (grey cloud). If an old A, AAAA or CNAME record on `@` or `www` points somewhere else, change only that record. Leave every other record alone: the same zone holds the MX and TXT records for your mail, and later the Postmark, Microsoft, Google, `api`, `hooks` and `app` records.
+11. Check the home page.
 
-8. Check the privacy policy.
+    ```bash
+    curl -sI https://handsfreeos.com
+    ```
 
-   ```bash
-   curl -sI https://handsfreeos.com/privacy
-   ```
+    You should see `200` on the first line (for example `HTTP/2 200`). New records can take a while to appear.
 
-   You should see `200` on the first line.
+12. Check the privacy policy.
 
-9. Check the terms.
+    ```bash
+    curl -sI https://handsfreeos.com/privacy
+    ```
 
-   ```bash
-   curl -sI https://handsfreeos.com/terms
-   ```
+    You should see `200` on the first line.
 
-   You should see `200` on the first line.
+13. Check the terms and the support page.
 
-If a check fails with a certificate error, run `dig caa handsfreeos.com +short`. If it prints records, they must allow the certificate authority your website host uses. Ask the host which one that is.
+    ```bash
+    curl -sI https://handsfreeos.com/terms && curl -sI https://handsfreeos.com/support
+    ```
+
+    You should see `200` on the first line of each.
+
+14. Read the footer on the live site. It must name `Go Biz Help LLC`, spelled exactly as on the IRS EIN letter. Twilio checks that the site names the legal company.
+
+If a check fails with a certificate error, run `dig caa handsfreeos.com +short`. If it prints records, they must allow Let's Encrypt, which is what Vercel uses.
+
+Microsoft's publisher verification can also be done from here, if the DNS route in "Connected mailboxes: Outlook and Gmail" gives you trouble: put the `microsoft-identity-association.json` file in `apps/site/public/.well-known/` and push. It is then served at `https://handsfreeos.com/.well-known/microsoft-identity-association.json` with the right content type.
 
 #### Stage 1: start the slow reviews
 
