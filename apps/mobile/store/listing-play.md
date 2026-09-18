@@ -11,7 +11,7 @@ Copy into Play Console. Character limits are Google's.
 | Developer name       | Go Biz Help LLC                                                   |
 | App category         | Business                                                          |
 | Tags                 | Business, Productivity, Communication                             |
-| Contact email        | `support@gobizhelp.com`                                           |
+| Contact email        | `support@handsfreeos.com`                                         |
 | Contact phone        | Optional — leave empty unless Chris wants a number in the listing |
 | Contact website      | `https://handsfreeos.com` — built (`apps/site`), live with it     |
 | Privacy policy       | `https://handsfreeos.com/privacy` — built (`apps/site`)           |

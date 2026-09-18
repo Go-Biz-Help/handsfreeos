@@ -1,6 +1,13 @@
 import Link from 'next/link';
+import {
+  FaqJsonLd,
+  OrganizationJsonLd,
+  SoftwareApplicationJsonLd,
+  WebSiteJsonLd,
+} from '@/components/json-ld';
 import { ProductMock } from '@/components/product-mock';
 import { Button, Card, Check, Container, Eyebrow, Section, SectionHeading } from '@/components/ui';
+import { homeFaqs } from '@/content/faqs';
 import { plans, urls } from '@/content/site';
 
 /*
@@ -13,6 +20,10 @@ import { plans, urls } from '@/content/site';
 export default function HomePage() {
   return (
     <>
+      <OrganizationJsonLd />
+      <WebSiteJsonLd />
+      <SoftwareApplicationJsonLd />
+      <FaqJsonLd faqs={homeFaqs} id={`${urls.site}/#faq`} />
       <Hero />
       <TheProblem />
       <HowItWorks />
@@ -222,6 +233,12 @@ function Features() {
           </Card>
         ))}
       </div>
+
+      <div className="mt-10">
+        <Button href="/features" variant="secondary" size="lg">
+          Everything it does, in full
+        </Button>
+      </div>
     </Section>
   );
 }
@@ -300,33 +317,6 @@ function PlansStrip() {
 }
 
 function Questions() {
-  const questions = [
-    {
-      q: 'Will my customers know they are talking to an AI?',
-      a: 'You decide, and you write the wording. Most businesses have it say something like "this is Ava, Lone Star’s assistant" on the first message. It never claims to be you, and it hands over to a person the moment somebody asks for one or sounds unhappy.',
-    },
-    {
-      q: 'What happens if it says something wrong?',
-      a: 'For the first weeks it cannot say anything without you pressing send. After that it only sends on its own for the kinds of messages you have approved over and over. Prices stay locked until you turn them on, and then it can only quote a number exactly as you wrote it.',
-    },
-    {
-      q: 'Do I have to give up my phone number?',
-      a: 'No. You can bring the number your customers already have, or start with a new one and forward the old one. Calls still ring your actual cell phone — this is not a system that makes you answer calls in an app.',
-    },
-    {
-      q: 'I am not technical. How long does setup take?',
-      a: 'An afternoon, and you do not do it on your own. Most of it is answering questions in plain English — the Assistant sets up your hours, services, reminders and the rest from what you tell it. Carrier registration for texting takes a few business days in the background.',
-    },
-    {
-      q: 'What about the customers and history I already have?',
-      a: 'They come across. A spreadsheet imports in a few minutes. From another CRM, everything is counted before anything moves, the same customer arriving twice is joined without guessing, old conversations keep the dates they really happened on, and the whole thing can be undone. The migration is proven on GoHighLevel first, with more systems following — tell us what you are on and we will tell you where it stands.',
-    },
-    {
-      q: 'Can my crew use it out in the field?',
-      a: 'That is what the phone app is for. Everything works with no signal and catches up later, photos and notes attach to the job, and payment links go out from the driveway.',
-    },
-  ];
-
   return (
     <Section>
       <SectionHeading sub="The things people actually ask before they sign up.">
@@ -334,7 +324,7 @@ function Questions() {
       </SectionHeading>
       {/* Left open rather than hidden in accordions: what gets collapsed does not get read. */}
       <div className="mt-12 grid gap-8 md:grid-cols-2">
-        {questions.map((item) => (
+        {homeFaqs.map((item) => (
           <div key={item.q}>
             <h3 className="text-lg font-semibold">{item.q}</h3>
             <p className="text-text-2 mt-2.5">{item.a}</p>

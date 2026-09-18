@@ -9,7 +9,11 @@ export const company = {
   /** Twilio, Stripe, Square and both app stores check the site names the legal company. */
   legalName: 'Go Biz Help LLC',
   product: 'HandsFreeOS',
-  supportEmail: 'support@gobizhelp.com',
+  /**
+   * Mail here becomes a ticket inside HandsFreeOS (M13) rather than landing in a mailbox anybody signs
+   * into. Postmark receives it on the bare domain; the businesses' own mail keeps mail.handsfreeos.com.
+   */
+  supportEmail: 'support@handsfreeos.com',
   /**
    * The postal address, one line per line as it should print. Twilio's A2P registration and
    * Stripe's platform profile ask for the same address, so keep all three in step.
@@ -104,6 +108,10 @@ export const plans = [
     missing: [],
   },
 ] as const;
+
+/** The cheapest and dearest plan, for the pricing page's title in a search result. */
+export const lowestPrice = Math.min(...plans.map((plan) => plan.price));
+export const highestPrice = Math.max(...plans.map((plan) => plan.price));
 
 /** What sits on top of a plan, at cost. Texts, calls and AI are metered by the companies behind them. */
 export const usageNote =

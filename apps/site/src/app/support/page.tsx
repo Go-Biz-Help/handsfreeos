@@ -4,16 +4,20 @@ import { Button, Card, Container, Section, SectionHeading } from '@/components/u
 import { company, urls } from '@/content/site';
 
 export const metadata: Metadata = {
-  title: 'Support',
+  title: 'Support and help',
   description:
-    'How to get help with HandsFreeOS: email us, what we need from you, and where to find the things people most often ask for.',
+    'Get help with HandsFreeOS: how to reach a person, what to tell us so it is fixed faster, and how to delete an account, export your data or fix texts not arriving.',
+  alternates: { canonical: '/support' },
 };
 
 export default function SupportPage() {
   return (
     <>
       <Container className="py-16 sm:py-20">
-        <SectionHeading sub="A real person reads these. Email is the fastest way in, whether you use HandsFreeOS on the web or on your phone.">
+        <SectionHeading
+          sub="A real person reads these. Email is the fastest way in, whether you use HandsFreeOS on the web or on your phone."
+          as="h1"
+        >
           Something not working? Tell us.
         </SectionHeading>
 
@@ -38,7 +42,9 @@ export default function SupportPage() {
             <p className="text-text-2 mt-2.5">
               The Assistant panel (the button on every screen, or ⌘J on a keyboard) answers most
               &ldquo;how do I&rdquo; questions on the spot, and it can make the change for you once
-              you say yes.
+              you say yes. When you need a person instead, <strong>Get help</strong> at the bottom
+              of the menu opens a ticket with your business and the screen you were on already
+              attached.
             </p>
             <Button href={urls.signIn} variant="secondary" className="mt-4">
               Sign in

@@ -7,7 +7,7 @@ import { urls } from '@/content/site';
 import { Button, Container } from './ui';
 
 const links = [
-  { href: '/#how', label: 'How it works' },
+  { href: '/features', label: 'What it does' },
   { href: '/pricing', label: 'Pricing' },
   { href: '/app', label: 'Phone app' },
   { href: '/support', label: 'Support' },

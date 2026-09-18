@@ -6,6 +6,7 @@ const nextConfig: NextConfig = {
     return [
       // The store listings and older notes point at /app; keep every spelling working.
       { source: '/mobile', destination: '/app', permanent: true },
+      { source: '/what-it-does', destination: '/features', permanent: true },
       { source: '/privacy-policy', destination: '/privacy', permanent: true },
       { source: '/terms-of-service', destination: '/terms', permanent: true },
       { source: '/contact', destination: '/support', permanent: true },

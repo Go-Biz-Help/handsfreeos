@@ -31,6 +31,7 @@ A plain "step 5" means step 5 of the list you are reading, or of the part named 
 - [The AI teammate and website chat](#the-ai-teammate-and-website-chat)
 - [Money: Stripe and Square](#money-stripe-and-square)
 - [Moving a business here from another CRM](#moving-a-business-here-from-another-crm)
+- [Support and the admin side](#support-and-the-admin-side)
 - [Push notifications: Expo](#push-notifications-expo)
 - [Local development](#local-development)
 - [Going live, and when something goes wrong](#going-live-and-when-something-goes-wrong)
@@ -1416,6 +1417,10 @@ The defaults are right in production. Setting some of these changes real behavio
 | `POSTMARK_WEBHOOK_USER`                    | `postmark`                                                                 | The user name in Postmark's webhook addresses.                                                                                                                                |
 | `POSTMARK_MESSAGE_STREAM`                  | `outbound`                                                                 | Postmark's default stream for customer email.                                                                                                                                 |
 | `MAIL_DOMAIN`                              | `mail.handsfreeos.com`                                                     | Must match the shared mail domain the database uses.                                                                                                                          |
+| `SUPPORT_MAIL_DOMAIN`                      | `handsfreeos.com`                                                          | Where HandsFreeOS's own support mail arrives (M13). The bare domain, kept apart from the businesses' subdomain above. Changing it means changing the MX record to match.      |
+| `SUPPORT_ADDRESSES`                        | `support,help`                                                             | The local parts that open a ticket. The first one is also the address replies are sent from. Anything else sent to the bare domain is accepted and dropped.                   |
+| `SUPPORT_FROM_NAME`                        | `HandsFreeOS Support`                                                      | The name customers see beside the support address.                                                                                                                            |
+| `PLATFORM_OWNER_EMAILS`                    | Not set                                                                    | Comma-separated addresses that are made support admins at every worker start. Set it to your own address: it is the way back in if the last admin row is ever lost.           |
 | `SUPABASE_JWKS_URL`, `SUPABASE_JWT_ISSUER` | Worked out from `SUPABASE_URL`                                             | Nothing to change.                                                                                                                                                            |
 | `WORKER_POLL_MS`                           | `1000` (one second between loop passes)                                    | Tuning only.                                                                                                                                                                  |
 | `WORKER_BATCH_SIZE`                        | `20`                                                                       | Tuning only.                                                                                                                                                                  |
@@ -3616,6 +3621,24 @@ Two projects rather than one, because:
 - **Never put a made-up review, logo or customer number on it.** There are no customers yet. When there are real ones, the home page has a marked place for them.
 - The screenshots on `/app` are copies of the store screenshots, in `apps/site/public/screenshots/`. When the app's screens change, copy the new ones over from `apps/mobile/store/assets/screenshots/`.
 
+### Being found
+
+The site is built to be read by search engines and by the assistants people now shop for software in — half of business software buyers start in a chatbot rather than a search box, so both matter.
+
+What is already done, and should not be undone:
+
+- One `<h1>` per page, a canonical address on every page, titles under about 60 characters and descriptions under about 160.
+- Structured data in JSON-LD: who the company is, what the product is, what each plan costs, and the questions and answers from the home and pricing pages — all generated from the same files the pages render, so they cannot disagree. **There is no rating or review in it, and none may be added until real ones exist.** Invented reviews are a manual penalty from Google as well as a lie.
+- A share picture (`/opengraph-image`) so a link pasted into a text or Slack looks like something.
+- `robots.txt` allows everything, including the assistants that answer questions, because a page they cannot read is a page they never cite.
+
+After the domain is live, two things are worth twenty minutes:
+
+1. Add the site to [Google Search Console](https://search.google.com/search-console) and to [Bing Webmaster Tools](https://www.bing.com/webmasters), verifying by DNS at Cloudflare (a TXT record, which does not touch mail), and submit `https://handsfreeos.com/sitemap.xml` in both.
+2. Paste the home page into [Google's Rich Results Test](https://search.google.com/test/rich-results) to confirm the structured data parses.
+
+Watch which searches bring people in, but keep an eye on what the assistants say too: ask ChatGPT, Claude and Perplexity what HandsFreeOS is every so often, because for this audience that answer is now part of the shop window.
+
 ### Good to know
 
 - **It is entirely static.** Every page is prerendered at build time, so there is no server to watch and nothing to pay for beyond the Vercel plan you already have.
@@ -4831,6 +4854,69 @@ You should see a reset email arrive from `HandsFreeOS <no-reply@handsfreeos.com>
 Optional bounce test: email a made-up address at a domain whose mail you control. You should see **Bounced:** and a reason under the email, and the address in **Settings** → **Email** → **Blocked addresses**. Postmark then refuses that address for every business, so use one nobody will need.
 
 To test a business's own domain, see "Check 8 (optional): the business's own domain" in "Going live, and when something goes wrong".
+
+### Postmark Part K: Support email, with no mailbox to sign into
+
+`support@handsfreeos.com` is not a Google account and not a mailbox anybody opens. Postmark receives it, the
+worker files it as a ticket, and you answer it at `app.handsfreeos.com/admin/tickets`. Replies go back out
+from the same address, so the customer sees an ordinary email conversation with a ticket number on it.
+
+One thing to know before you start: **a Postmark server has exactly one inbound stream, and an inbound stream
+takes exactly one domain.** The production server's inbound stream already holds `mail.handsfreeos.com`, which
+is where customers' replies to a business arrive. So support mail gets a server of its own. It sends nothing —
+the production server keeps doing all the sending — it only receives.
+
+1. In Postmark, click **Servers**, then **Create server**.
+2. Name it `HandsFreeOS Support`, colour it however you like, and create it.
+3. Open the new server, click its inbound stream (Stream ID `inbound`), then **Settings**.
+4. In **Inbound Domain**, type `handsfreeos.com` — the bare domain, no `mail.` in front.
+5. In **Webhook**, paste this, with the same webhook password the production server uses:
+
+   `https://postmark:<webhook password>@hooks.handsfreeos.com/webhooks/postmark/inbound`
+
+   It is the same address and the same password: the worker tells support mail from a business's mail by the
+   domain it was sent to, not by which Postmark server delivered it.
+
+6. Leave **Include raw email content in JSON payload** unticked, and save.
+7. Add the MX record at your DNS provider, on the bare domain:
+
+   | Type | Name                    | Value                     | Priority |
+   | ---- | ----------------------- | ------------------------- | -------- |
+   | MX   | `@` (the domain itself) | `inbound.postmarkapp.com` | 10       |
+
+   On Cloudflare the **Name** is `handsfreeos.com` and the record is never proxied. If your provider already
+   has an MX record on the bare domain, this replaces it — which is the point: nothing else is receiving mail
+   there.
+
+8. Give the worker its settings (Fly Part 5's optional table has all four):
+
+   ```bash
+   fly secrets set --app handsfreeos-worker \
+     PLATFORM_OWNER_EMAILS=<your own email address>
+   ```
+
+   `SUPPORT_MAIL_DOMAIN`, `SUPPORT_ADDRESSES` and `SUPPORT_FROM_NAME` already default to the right values.
+   `PLATFORM_OWNER_EMAILS` is the one to set: it makes you a support admin at every worker start, so there is
+   always a way back in.
+
+9. Send yourself a test. From your personal email, write to `support@handsfreeos.com`.
+   - Within a minute you should get a reply saying "We have your message", with a ticket number.
+   - Sign in at `https://app.handsfreeos.com/admin/tickets` and the ticket is at the top of the queue.
+   - Answer it there. The answer arrives in your personal email, from `support@handsfreeos.com`.
+   - Reply to that, and your reply lands on the same ticket rather than starting a new one.
+
+Worth knowing:
+
+- **Every address on the bare domain now arrives here.** Mail to `hello@handsfreeos.com` or
+  `chris@handsfreeos.com` is accepted by Postmark and then dropped by the worker, because only the addresses
+  in `SUPPORT_ADDRESSES` open a ticket. To catch another one, add it there — for example
+  `SUPPORT_ADDRESSES=support,help,hello`.
+- **Sending is unchanged.** Support replies go out through the production server, which already sends for
+  `handsfreeos.com` (Postmark Part D). The support server has no sending to do.
+- **Out-of-office replies and mailer daemons are dropped**, the same way they are for a business's inbox.
+  Nothing here ever answers something that answers back.
+- **Bounces of support mail do not show against a business**, because the ticket belongs to no business. They
+  show in Postmark's own activity for the production server.
 
 ### Where to look in Postmark
 
@@ -7673,6 +7759,91 @@ Locally and in tests, migrations read a stand-in agency instead of GoHighLevel: 
 - **A customer is waiting on a decision.** The engine never guesses between two people. Those sit in the review queue and the rest of the import carries on around them.
 - **The counts do not add up.** A source that is still being used while it is read is normal, and the check says so rather than failing. A _duplicate_ is not normal: the identity check would fail, and that is worth stopping for.
 
+## Support and the admin side
+
+Everything above is about the businesses. This is about you: the tickets customers send in, and the screens
+that tell you how HandsFreeOS itself is doing. It lives at `app.handsfreeos.com/admin`, in the same app, and
+it does not exist for anyone who does not work here — a customer who guesses the address gets the 404 page.
+
+Setting up the email side is [Postmark Part K](#postmark-part-k-support-email-with-no-mailbox-to-sign-into).
+
+### Getting in the first time
+
+`PLATFORM_OWNER_EMAILS` on the worker (Fly Part 5) names the people who are support admins whatever the
+database says. The worker confirms them every time it starts, so:
+
+- Set it to your own email address before you look for `/admin`.
+- If you ever lose every admin — nobody left to invite anybody — restart the worker and you are one again.
+
+Everyone else joins by invitation: **Support people** → **Invite someone**. They get a link that works once,
+only for the address it was sent to, and only after they have a HandsFreeOS sign-in with that same address.
+
+### What each role may do
+
+|                                           | Agent | Lead | Admin |
+| ----------------------------------------- | ----- | ---- | ----- |
+| Answer tickets, leave internal notes      | Yes   | Yes  | Yes   |
+| Look at a business, read-only             | Yes   | Yes  | Yes   |
+| See every business in the directory       | Yes   | Yes  | Yes   |
+| Assign tickets, keep the saved replies    |       | Yes  | Yes   |
+| The health page                           |       | Yes  | Yes   |
+| Invite, suspend and remove support people |       |      | Yes   |
+
+Nobody changes their own role, and the last admin cannot be removed or demoted — the database refuses both,
+the same way it refuses removing a business's last owner.
+
+### The day
+
+- **Tickets** is the queue. "Needs an answer" is the one that matters; the rest are there for looking things
+  up. A reply goes out from `support@handsfreeos.com` and the customer's answer comes back to the same
+  ticket, so nobody has to match anything up by hand.
+- **Ask the AI for a draft** writes a suggested answer from the saved replies and from tickets like this one
+  that were answered before. It never sends anything: a person edits it and presses send. If it had nothing
+  solid to go on it says so, and what it writes is the questions to ask instead.
+- **Saved replies** are the answers worth writing once. They are also what the AI reads before it drafts, so
+  a good one there improves every draft after it.
+- **Businesses** is the directory: who signed up, who works there, when they last did anything. Their actual
+  data — customers, messages, money — is not readable from here.
+- **Health** is what has failed lately across every business: jobs, webhooks, bounced email, failed texts,
+  failed payments, and work still queued. Look here before a customer has to tell you.
+
+### Looking at a business
+
+A support person can open a business read-only to see what the customer sees, from the ticket or from the
+business's page. It needs a reason, it ends by itself (15 minutes, an hour, or four), and:
+
+- **Nothing can be changed while it is open.** The database gives no write rule to someone with no role in
+  that business, and the API refuses every command outright.
+- **The business is told.** Their own audit log gets an entry naming the person, the reason, and how long it
+  lasted. That is deliberate: it is the thing that makes this safe to have.
+
+The banner across the top says which business it is and how long is left. **Stop looking** ends it at once.
+
+### Chat on handsfreeos.com
+
+The website's chat button is the same widget a business puts on its own site, pointed at us. To turn it on:
+
+1. In HandsFreeOS, open a business you own (Go Biz Help's own workspace is the natural one), then
+   **Settings** → **Website chat**, and set it up as a business would: who it is for, what it may say, and
+   when a person takes over.
+2. Copy its key — the `wk_…` part of the snippet it shows you.
+3. In Vercel, on the **handsfreeos-site** project, add `NEXT_PUBLIC_CHAT_WIDGET_KEY` with that value, and
+   redeploy.
+
+With no key set the site simply has no chat button, and the support page's email address and the in-app
+**Get help** still work. Nothing on the site breaks if the key is wrong: the widget answers 404 and the
+button never appears.
+
+### If support mail stops arriving
+
+1. In Postmark, open the **HandsFreeOS Support** server's inbound stream → **Activity**. If nothing is there,
+   the mail never reached Postmark: check the MX record on `handsfreeos.com`.
+2. If Postmark shows it but no ticket appears, the webhook is failing. `fly logs --app handsfreeos-worker`
+   will show it. A `403` means the webhook password is wrong; Postmark stops retrying after a `403`.
+3. Mail to an address that is not in `SUPPORT_ADDRESSES` is accepted and dropped on purpose. Add the address
+   there if it should open a ticket.
+4. An out-of-office reply is dropped on purpose too, and says so in the worker's log.
+
 ## Push notifications: Expo
 
 The phone app gets notifications people can act on from the lock screen: a customer waiting on a reply, urgent Action Center items, approvals, bookings and changes on their appointments, things assigned to them, and, for those who turn it on, a customer paying. They go through **Expo's push service**, which is free and hands each one to Apple or Google. Push is a second channel beside the emails, and the emails don't change.
@@ -9290,6 +9461,7 @@ Everything the site needs is already in `apps/site/src/content/site.ts`: the com
     You should see `200` on the first line of each.
 
 14. Read the footer on the live site. It must name `Go Biz Help LLC`, spelled exactly as on the IRS EIN letter. Twilio checks that the site names the legal company.
+15. Add the site to Google Search Console and Bing Webmaster Tools and submit the sitemap — see "Being found" in "The public website on Vercel".
 
 If a check fails with a certificate error, run `dig caa handsfreeos.com +short`. If it prints records, they must allow Let's Encrypt, which is what Vercel uses.
 

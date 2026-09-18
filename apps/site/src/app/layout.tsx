@@ -16,27 +16,38 @@ const jetbrains = JetBrains_Mono({
 export const metadata: Metadata = {
   metadataBase: new URL(urls.site),
   title: {
-    default: 'HandsFreeOS — your business keeps answering while you are on the job',
+    // Titles lead with what somebody would actually search for, and end with the name. The
+    // headline on the page itself is still the human one; these are for the result list.
+    default: 'AI receptionist and CRM for service businesses · HandsFreeOS',
     template: '%s · HandsFreeOS',
   },
   description:
-    'One place for the calls, texts, email, calendar, quotes and invoices of a small service business, with an AI teammate that answers new leads in seconds and books them in.',
+    'HandsFreeOS answers your calls and texts, books the job, sends the quote and chases the invoice — one system for small service businesses, from $99 a month.',
   applicationName: 'HandsFreeOS',
+  alternates: { canonical: '/' },
   openGraph: {
     type: 'website',
     siteName: 'HandsFreeOS',
     url: urls.site,
-    title: 'Your business keeps answering while you are on the job',
+    title: 'Your business keeps answering while you’re on the job',
     description:
       'Calls, texts, email, calendar, quotes and invoices in one place — with an AI teammate that answers new leads in seconds.',
+    locale: 'en_US',
   },
   twitter: { card: 'summary_large_image' },
   authors: [{ name: company.legalName }],
+  creator: company.legalName,
+  publisher: company.legalName,
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: { index: true, follow: true, 'max-image-preview': 'large', 'max-snippet': -1 },
+  },
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="en" className={`${hanken.variable} ${jetbrains.variable}`}>
+    <html lang="en-US" className={`${hanken.variable} ${jetbrains.variable}`}>
       <body className="font-sans">
         <a
           href="#main"

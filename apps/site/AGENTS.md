@@ -19,3 +19,28 @@ They are deployed as **two separate Vercel projects** so a copy change never reb
 
 Microsoft publisher verification can be done from here if the DNS route ever fails: drop the
 `microsoft-identity-association.json` file into `public/.well-known/`.
+
+## How it is set up to be found
+
+Searched-for wording lives in the `<title>` and the meta description; the headline on the page stays
+the human one. Keep it that way — a page that reads like a keyword list converts worse and ranks no
+better.
+
+- **One `<h1>` per page**, and it is the page's own opening heading (`<SectionHeading as="h1">`).
+  Every heading below it is an `h2`.
+- **Every page sets `alternates.canonical`.** `www` redirects to the bare domain at Vercel, so there
+  is one address per page and one canonical pointing at it.
+- **Titles stay under about 60 characters** including the ` · HandsFreeOS` suffix, descriptions under
+  about 160. Longer than that and a search result cuts them off mid-sentence.
+- **Structured data is in `src/components/json-ld.tsx`**: Organization and WebSite and
+  SoftwareApplication on the home page, FAQPage on the home and pricing pages, built from the same
+  `src/content` files the pages render. Never add an `aggregateRating` or a `review` until real ones
+  exist — invented ones are a manual penalty, and a lie.
+- **The share picture is drawn in `src/app/opengraph-image.tsx`** with the system font, so no build
+  ever fails fetching a typeface. `twitter-image.tsx` re-exports it.
+- **`robots.ts` allows everything, including the assistants that answer questions** (OAI-SearchBot,
+  PerplexityBot, ClaudeBot and the rest). People now shop for software inside chatbots, and a page
+  they cannot read is a page that is never cited.
+- **There is deliberately no `llms.txt`.** Measurement across hundreds of millions of AI crawler
+  visits found it essentially never fetched, and Google has said it does not support it. The crawlers
+  read the HTML, which is why the pages are written in self-contained sections.

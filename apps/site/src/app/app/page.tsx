@@ -4,9 +4,10 @@ import { Button, Card, Container, Eyebrow, Section, SectionHeading } from '@/com
 import { urls } from '@/content/site';
 
 export const metadata: Metadata = {
-  title: 'The phone app',
+  title: 'iPhone and Android app that works offline',
   description:
-    'The HandsFreeOS app for iPhone and Android: your whole business in your pocket, working with no signal, with calls that ring through your own phone.',
+    'Customers, jobs, photos, calendar and invoices on iPhone and Android — all working with no signal, syncing when you are back, with calls through your own phone.',
+  alternates: { canonical: '/app' },
 };
 
 const shots = [

@@ -14,7 +14,8 @@ const LAST_UPDATED = 'September 18, 2026';
 export const metadata: Metadata = {
   title: 'Terms of service',
   description:
-    'The agreement between your business and Go Biz Help LLC for using HandsFreeOS: what we do, what you are responsible for, and how either of us can stop.',
+    'The agreement between your business and Go Biz Help LLC: what we provide, what you pay, who is responsible for the texts you send, and how either of us stops.',
+  alternates: { canonical: '/terms' },
 };
 
 export default function TermsPage() {

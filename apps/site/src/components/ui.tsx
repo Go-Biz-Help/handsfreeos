@@ -40,16 +40,20 @@ export function SectionHeading({
   children,
   sub,
   className = '',
+  as = 'h2',
 }: {
   children: ReactNode;
   sub?: ReactNode;
   className?: string;
+  /** The page's own opening heading is an h1; every heading below it is an h2. */
+  as?: 'h1' | 'h2';
 }) {
+  const Heading = as;
   return (
     <div className={`max-w-3xl ${className}`}>
-      <h2 className="text-3xl leading-[1.12] font-bold sm:text-4xl md:text-[2.75rem]">
+      <Heading className="text-3xl leading-[1.12] font-bold sm:text-4xl md:text-[2.75rem]">
         {children}
-      </h2>
+      </Heading>
       {sub ? <p className="text-text-2 mt-5 text-lg sm:text-xl">{sub}</p> : null}
     </div>
   );

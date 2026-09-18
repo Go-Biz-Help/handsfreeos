@@ -18,7 +18,9 @@ const LAST_UPDATED = 'September 18, 2026';
 
 export const metadata: Metadata = {
   title: 'Privacy policy',
-  description: 'What HandsFreeOS collects, why, who it is shared with, and how to get it deleted.',
+  description:
+    'What HandsFreeOS collects, why, who else sees it, how Google user data is handled under the Limited Use requirements, and how to get everything deleted.',
+  alternates: { canonical: '/privacy' },
 };
 
 export default function PrivacyPage() {
