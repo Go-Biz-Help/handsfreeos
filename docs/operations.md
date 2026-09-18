@@ -8950,7 +8950,7 @@ Do not use a bare `supabase db reset`: `supabase/seed.sql` is empty on purpose, 
 
 **A git worktree is not an isolated copy.** It has its own files and its own `node_modules`, which makes it feel
 like one, and then it shares the things it does not own: the local Supabase, the ports, and the seed. Three
-separate sessions learned this the same night, none of them carelessly. Three lines are worth knowing before you
+separate sessions learned this the same night, none of them carelessly. Four lines are worth knowing before you
 work beside somebody:
 
 - **`pnpm db:reset` in a worktree resets everybody's database**, including the one another session is testing
@@ -8960,6 +8960,14 @@ work beside somebody:
 - **A worker on the shared database claims every session's jobs.** `private.claim_migration_jobs` has no tenant
   filter, deliberately — in production one fleet serves every business — so any worker anyone starts picks up
   anyone's migration batches, fails the ones whose tokens it cannot open, and spends their attempts.
+- **If you take a lock before a suite, take it properly — and there is no `flock` on a Mac.** Sessions working
+  beside each other agree on a lock file before anything that touches the database. Two ways of writing one both
+  fail, and they failed the same night: `exec 9>lock` (or any `>`) truncates the file before it writes, so a
+  claimer that dies in between leaves a held lock with no holder in it, and `flock` — the obvious way to hold it
+  for a whole run — is not installed, so the line fails after the redirection has already emptied the file.
+  Claim atomically and write the content atomically: `set -o noclobber` or `mkdir` for the claim, so a second
+  claimer fails instead of erasing the first, and a temp file renamed into place for the name inside it. A lock
+  whose holder cannot be read is worse than no lock, because the only safe response to it is to wait.
 - **The dev ports are shared too, and Playwright reuses them without saying so.** `pnpm test:e2e` keeps whatever
   is already listening on 3000 (the web app), 4000 (the API) and 4100 (the worker), whichever checkout started
   them. A run in your worktree then tests somebody else's code, and nothing in the output says whose: the specs
