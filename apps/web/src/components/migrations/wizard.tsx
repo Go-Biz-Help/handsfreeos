@@ -35,10 +35,17 @@ const SEVERITY: Record<string, { tone: 'neutral' | 'warning' | 'danger'; icon: t
 
 export function MigrationWizard({
   organizationId,
+  workspaceId,
   detail,
   businesses,
 }: {
   organizationId: string;
+  /**
+   * Set when this is a business's own Settings page. Every command then goes through the workspace door and
+   * reaches that business's part of the migration and no other's. Left out on the agency's page, where the
+   * whole migration is in view.
+   */
+  workspaceId?: string;
   detail: MigrationDetail;
   businesses: readonly { id: string; name: string }[];
 }) {
@@ -58,20 +65,34 @@ export function MigrationWizard({
       <Progress detail={detail} step={step} />
       {step === 'map' ? (
         <>
-          <MapScopes organizationId={organizationId} detail={detail} businesses={businesses} />
+          <MapScopes
+            organizationId={organizationId}
+            workspaceId={workspaceId}
+            detail={detail}
+            businesses={businesses}
+          />
           {/* What was found, while somebody is still deciding where it lands. Reading it is half of
               deciding, so it is on this step too — just not editable until the businesses are settled. */}
-          <ChooseWhat organizationId={organizationId} detail={detail} readOnly />
+          <ChooseWhat
+            organizationId={organizationId}
+            workspaceId={workspaceId}
+            detail={detail}
+            readOnly
+          />
         </>
       ) : null}
       {step === 'review' ? (
         <>
-          <ChooseWhat organizationId={organizationId} detail={detail} />
-          <ReviewPlan organizationId={organizationId} detail={detail} />
+          <ChooseWhat organizationId={organizationId} workspaceId={workspaceId} detail={detail} />
+          <ReviewPlan organizationId={organizationId} workspaceId={workspaceId} detail={detail} />
         </>
       ) : null}
-      {step === 'importing' ? <Running organizationId={organizationId} detail={detail} /> : null}
-      {step === 'done' ? <Finished organizationId={organizationId} detail={detail} /> : null}
+      {step === 'importing' ? (
+        <Running organizationId={organizationId} workspaceId={workspaceId} detail={detail} />
+      ) : null}
+      {step === 'done' ? (
+        <Finished organizationId={organizationId} workspaceId={workspaceId} detail={detail} />
+      ) : null}
       <Findings findings={detail.findings} />
     </div>
   );
@@ -129,10 +150,12 @@ function Progress({ detail, step }: { detail: MigrationDetail; step: string }) {
 /** Step one: which business each sub-account of the old system becomes. */
 function MapScopes({
   organizationId,
+  workspaceId,
   detail,
   businesses,
 }: {
   organizationId: string;
+  workspaceId?: string;
   detail: MigrationDetail;
   businesses: readonly { id: string; name: string }[];
 }) {
@@ -157,6 +180,7 @@ function MapScopes({
         await apiBrowser().POST('/v1/commands/migration.map_scopes', {
           body: {
             organizationId,
+            workspaceId,
             migrationId: detail.migration.id,
             scopes: detail.scopes.map((s) => {
               const target = choices[s.id];
@@ -262,10 +286,12 @@ function ScopeRow({
 /** Step two: what to bring. Everything importable starts ticked; requirements are added and locked. */
 function ChooseWhat({
   organizationId,
+  workspaceId,
   detail,
   readOnly,
 }: {
   organizationId: string;
+  workspaceId?: string;
   detail: MigrationDetail;
   readOnly?: boolean;
 }) {
@@ -282,6 +308,7 @@ function ChooseWhat({
         await apiBrowser().POST('/v1/commands/migration.select', {
           body: {
             organizationId,
+            workspaceId,
             migrationId: detail.migration.id,
             choices: detail.inventory
               .filter((i) => !i.locked && i.resourceId === null)
@@ -394,9 +421,11 @@ function InventoryRow({
 /** Step three: the plan, and the button that starts it. */
 function ReviewPlan({
   organizationId,
+  workspaceId,
   detail,
 }: {
   organizationId: string;
+  workspaceId?: string;
   detail: MigrationDetail;
 }) {
   const router = useRouter();
@@ -411,6 +440,7 @@ function ReviewPlan({
       await apiBrowser().POST('/v1/commands/migration.start', {
         body: {
           organizationId,
+          workspaceId,
           migrationId: detail.migration.id,
           acknowledgedFindingIds: blocking.map((f) => f.id),
         },
@@ -464,12 +494,20 @@ function ReviewPlan({
 }
 
 /** While it runs: what is done, what needs a person, and the controls. */
-function Running({ organizationId, detail }: { organizationId: string; detail: MigrationDetail }) {
+function Running({
+  organizationId,
+  workspaceId,
+  detail,
+}: {
+  organizationId: string;
+  workspaceId?: string;
+  detail: MigrationDetail;
+}) {
   const router = useRouter();
   const act = async (command: string, extra: Record<string, unknown> = {}) => {
     try {
       await apiBrowser().POST(`/v1/commands/${command}` as '/v1/commands/migration.pause', {
-        body: { organizationId, migrationId: detail.migration.id, ...extra },
+        body: { organizationId, workspaceId, migrationId: detail.migration.id, ...extra },
       });
       router.refresh();
     } catch (err) {
@@ -536,7 +574,15 @@ function Running({ organizationId, detail }: { organizationId: string; detail: M
 }
 
 /** Afterwards: what came across, what is left for a person, and the way back. */
-function Finished({ organizationId, detail }: { organizationId: string; detail: MigrationDetail }) {
+function Finished({
+  organizationId,
+  workspaceId,
+  detail,
+}: {
+  organizationId: string;
+  workspaceId?: string;
+  detail: MigrationDetail;
+}) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const total = detail.progress.reduce((t, p) => t + p.imported + p.merged, 0);
@@ -552,7 +598,7 @@ function Finished({ organizationId, detail }: { organizationId: string; detail: 
     setBusy(true);
     try {
       await apiBrowser().POST('/v1/commands/migration.rollback', {
-        body: { organizationId, migrationId: detail.migration.id, confirm: true },
+        body: { organizationId, workspaceId, migrationId: detail.migration.id, confirm: true },
       });
       toast.success('Taking it back. Anything you changed since is left as it is.');
       router.refresh();

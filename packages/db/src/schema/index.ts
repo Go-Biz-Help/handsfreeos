@@ -3271,6 +3271,12 @@ const orgRef = () =>
 export const migrationConnections = app.table('migration_connections', {
   id: id(),
   organizationId: orgRef(),
+  /**
+   * The business that connected this source, when a business connected its own rather than its agency
+   * (0068). Null for an agency's connection. It is what lets that business claim the sub-accounts this
+   * sign-in reaches, and nobody else's.
+   */
+  workspaceId: uuid('workspace_id').references(() => workspaces.id, { onDelete: 'set null' }),
   sourceSystem: migrationSource('source_system').notNull(),
   installKind: migrationInstallKind('install_kind').notNull().default('location'),
   status: migrationConnectionStatus('status').notNull().default('pending'),

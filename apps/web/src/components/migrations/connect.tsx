@@ -6,7 +6,7 @@ import { toast } from 'sonner';
 import { LIVE_SOURCES, SOURCE_LABELS, type MigrationSourceSystem } from '@hfos/core';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
-import { Field } from '@/components/ui/field';
+import { Field, FieldError } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 import { RadioCard } from '@/components/ui/radio-card';
 import { apiBrowser, errorMessage, unwrap } from '@/lib/api/client';
@@ -16,7 +16,14 @@ import { publicEnv } from '@/lib/env';
  * Connecting the CRM a business is leaving. Two things are said before anybody signs in, because both are
  * true and neither is obvious: the look that follows only reads, and the old account is never touched.
  */
-export function ConnectSourceButton({ organizationId }: { organizationId: string }) {
+export function ConnectSourceButton({
+  organizationId,
+  workspaceId,
+}: {
+  organizationId: string;
+  /** Set on a business's own Settings page: the connection is then recorded as that business's. */
+  workspaceId?: string;
+}) {
   const [open, setOpen] = useState(false);
   return (
     <>
@@ -24,20 +31,28 @@ export function ConnectSourceButton({ organizationId }: { organizationId: string
         <Plus className="h-4 w-4" strokeWidth={1.75} />
         Connect a CRM
       </Button>
-      {open ? <ConnectDialog organizationId={organizationId} onOpenChange={setOpen} /> : null}
+      {open ? (
+        <ConnectDialog
+          organizationId={organizationId}
+          workspaceId={workspaceId}
+          onOpenChange={setOpen}
+        />
+      ) : null}
     </>
   );
 }
 
 function ConnectDialog({
   organizationId,
+  workspaceId,
   onOpenChange,
 }: {
   organizationId: string;
+  workspaceId?: string;
   onOpenChange: (open: boolean) => void;
 }) {
   const [source, setSource] = useState<MigrationSourceSystem>('gohighlevel');
-  const [reach, setReach] = useState<'agency' | 'location'>('agency');
+  const [reach, setReach] = useState<'agency' | 'location'>(workspaceId ? 'location' : 'agency');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -47,7 +62,7 @@ function ConnectDialog({
     try {
       const out = unwrap(
         await apiBrowser().POST('/v1/commands/migration.connect', {
-          body: { organizationId, source, installKind: reach },
+          body: { organizationId, workspaceId, source, installKind: reach },
         }),
       );
       // Off to the old system's own sign-in, through the worker.
@@ -84,24 +99,27 @@ function ConnectDialog({
               ))}
             </div>
           </Field>
-          <Field label="What it reaches" htmlFor="migration-reach" error={error}>
-            <div className="flex flex-col gap-2" id="migration-reach">
-              <RadioCard
-                selected={reach === 'agency'}
-                onSelect={() => setReach('agency')}
-                testId="migration-reach-agency"
-                title="My whole agency"
-                description="Every sub-account you approve. You choose which ones to bring, and where each one lands."
-              />
-              <RadioCard
-                selected={reach === 'location'}
-                onSelect={() => setReach('location')}
-                testId="migration-reach-location"
-                title="One business"
-                description="A single sub-account."
-              />
-            </div>
-          </Field>
+          {workspaceId ? null : (
+            <Field label="What it reaches" htmlFor="migration-reach" error={error}>
+              <div className="flex flex-col gap-2" id="migration-reach">
+                <RadioCard
+                  selected={reach === 'agency'}
+                  onSelect={() => setReach('agency')}
+                  testId="migration-reach-agency"
+                  title="My whole agency"
+                  description="Every sub-account you approve. You choose which ones to bring, and where each one lands."
+                />
+                <RadioCard
+                  selected={reach === 'location'}
+                  onSelect={() => setReach('location')}
+                  testId="migration-reach-location"
+                  title="One business"
+                  description="A single sub-account."
+                />
+              </div>
+            </Field>
+          )}
+          {workspaceId ? <FieldError>{error}</FieldError> : null}
           <div className="flex justify-end gap-2">
             <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
               Cancel
@@ -119,10 +137,12 @@ function ConnectDialog({
 /** Starting a migration on a source that is already connected. */
 export function StartMigrationButton({
   organizationId,
+  workspaceId,
   connectionId,
   sourceLabel,
 }: {
   organizationId: string;
+  workspaceId?: string;
   connectionId: string;
   sourceLabel: string;
 }) {
@@ -138,14 +158,23 @@ export function StartMigrationButton({
     try {
       const created = unwrap(
         await apiBrowser().POST('/v1/commands/migration.create', {
-          body: { organizationId, connectionId, name: name.trim() || `Off ${sourceLabel}` },
+          body: {
+            organizationId,
+            workspaceId,
+            connectionId,
+            name: name.trim() || `Off ${sourceLabel}`,
+          },
         }),
       );
       await apiBrowser().POST('/v1/commands/migration.scan', {
-        body: { organizationId, migrationId: created.migrationId },
+        body: { organizationId, workspaceId, migrationId: created.migrationId },
       });
       toast.success('Looking at the old system. This only reads — nothing moves yet.');
-      router.push(`/app/org/${organizationId}/migrations/${created.migrationId}`);
+      router.push(
+        workspaceId
+          ? `/app/w/${workspaceId}/settings/migrations/${created.migrationId}`
+          : `/app/org/${organizationId}/migrations/${created.migrationId}`,
+      );
     } catch (err) {
       setError(errorMessage(err));
       setBusy(false);

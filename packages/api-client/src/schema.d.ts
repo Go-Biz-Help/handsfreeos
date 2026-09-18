@@ -2548,7 +2548,7 @@ export interface paths {
         put?: never;
         /**
          * Start connecting the CRM a business is leaving. Returns a one-time state; the browser signs in at that system through the worker. The scan that follows only ever reads.
-         * @description Risk level 2. Requires org.migrations.manage. Emits migration_connection.connect_started.
+         * @description Risk level 2. Emits migration_connection.connect_started.
          */
         post: operations["command_migration_connect"];
         delete?: never;
@@ -2568,7 +2568,7 @@ export interface paths {
         put?: never;
         /**
          * Start a migration from a connected source. Nothing is read or written until it is scanned and somebody chooses what to bring.
-         * @description Risk level 1. Requires org.migrations.manage. Emits migration.created.
+         * @description Risk level 1. Emits migration.created.
          */
         post: operations["command_migration_create"];
         delete?: never;
@@ -2628,7 +2628,7 @@ export interface paths {
         put?: never;
         /**
          * Say where each sub-account of the old system lands: a new business here, one that already exists, or nowhere. Several may land in the same business, and the plan says what that mixes.
-         * @description Risk level 3. Requires org.migrations.manage. Emits migration.scopes_mapped.
+         * @description Risk level 3. Emits migration.scopes_mapped.
          */
         post: operations["command_migration_map_scopes"];
         delete?: never;
@@ -2648,7 +2648,7 @@ export interface paths {
         put?: never;
         /**
          * Stop after the batch that is running. Nothing already brought across is undone, and resuming carries on from the same place.
-         * @description Risk level 2. Requires org.migrations.manage. Emits migration.paused.
+         * @description Risk level 2. Emits migration.paused.
          */
         post: operations["command_migration_pause"];
         delete?: never;
@@ -2668,7 +2668,7 @@ export interface paths {
         put?: never;
         /**
          * Say whether somebody arriving from the old system is somebody already here, or a different person.
-         * @description Risk level 2. Requires org.migrations.manage. Emits migration.merge_resolved.
+         * @description Risk level 2. Emits migration.merge_resolved.
          */
         post: operations["command_migration_resolve_merge"];
         delete?: never;
@@ -2688,7 +2688,7 @@ export interface paths {
         put?: never;
         /**
          * Carry on from the last place that was safely saved.
-         * @description Risk level 2. Requires org.migrations.manage. Emits migration.resumed.
+         * @description Risk level 2. Emits migration.resumed.
          */
         post: operations["command_migration_resume"];
         delete?: never;
@@ -2708,7 +2708,7 @@ export interface paths {
         put?: never;
         /**
          * Try the failures again. Records that already came across are not brought twice — the source identity sees to that.
-         * @description Risk level 2. Requires org.migrations.manage. Emits migration.retry_requested.
+         * @description Risk level 2. Emits migration.retry_requested.
          */
         post: operations["command_migration_retry"];
         delete?: never;
@@ -2728,7 +2728,7 @@ export interface paths {
         put?: never;
         /**
          * Take back what this migration put here. Customers who were already here are never deleted, and anything somebody has changed since is left exactly as they left it.
-         * @description Risk level 4. Requires org.migrations.manage. Emits migration.rollback_requested.
+         * @description Risk level 4. Emits migration.rollback_requested.
          */
         post: operations["command_migration_rollback"];
         delete?: never;
@@ -2748,7 +2748,7 @@ export interface paths {
         put?: never;
         /**
          * Look at the old system and count what is there. Read-only, and safe to run again: nothing it does can change a customer record.
-         * @description Risk level 1. Requires org.migrations.manage. Emits migration.scan_requested.
+         * @description Risk level 1. Emits migration.scan_requested.
          */
         post: operations["command_migration_scan"];
         delete?: never;
@@ -2768,7 +2768,7 @@ export interface paths {
         put?: never;
         /**
          * Choose what to bring across. Anything a choice needs is added automatically and locked, with a line saying which choice asked for it.
-         * @description Risk level 1. Requires org.migrations.manage. Emits migration.selection_changed.
+         * @description Risk level 1. Emits migration.selection_changed.
          */
         post: operations["command_migration_select"];
         delete?: never;
@@ -2788,7 +2788,7 @@ export interface paths {
         put?: never;
         /**
          * Bring it across. Queues the work in dependency order; nothing outside this business is ever contacted, and no message, invoice or reminder goes out because of it.
-         * @description Risk level 4. Requires org.migrations.manage. Emits migration.started.
+         * @description Risk level 4. Emits migration.started.
          */
         post: operations["command_migration_start"];
         delete?: never;
@@ -2808,7 +2808,7 @@ export interface paths {
         put?: never;
         /**
          * Tick off a setup step, such as reconnecting Stripe or changing a DNS record.
-         * @description Risk level 1. Requires org.migrations.manage. Emits migration.task_changed.
+         * @description Risk level 1. Emits migration.task_changed.
          */
         post: operations["command_migration_task_done"];
         delete?: never;
@@ -5808,7 +5808,7 @@ export interface paths {
         put?: never;
         /**
          * Everything one migration knows about itself: where each business lands, what was found, what was chosen, what will not fit, what is left to do, and how far it has got.
-         * @description Requires org.migrations.manage.
+         * @description Any signed-in user.
          */
         post: operations["query_migration_get"];
         delete?: never;
@@ -5828,7 +5828,7 @@ export interface paths {
         put?: never;
         /**
          * The migrations this organization has run or is running, and the sources it has connected.
-         * @description Requires org.migrations.manage.
+         * @description Any signed-in user.
          */
         post: operations["query_migration_list"];
         delete?: never;
@@ -5848,7 +5848,7 @@ export interface paths {
         put?: never;
         /**
          * The completion report: what came across, what was checked, what will not fit, and what is left for a person to do.
-         * @description Requires org.migrations.manage.
+         * @description Any signed-in user.
          */
         post: operations["query_migration_report"];
         delete?: never;
@@ -5868,7 +5868,7 @@ export interface paths {
         put?: never;
         /**
          * The customers a migration is not sure about: somebody arriving who might be somebody already here.
-         * @description Requires org.migrations.manage.
+         * @description Any signed-in user.
          */
         post: operations["query_migration_review_queue"];
         delete?: never;
@@ -5888,7 +5888,7 @@ export interface paths {
         put?: never;
         /**
          * What taking this migration back would do: what goes, what is put back, and what is left alone because somebody has changed it here since.
-         * @description Requires org.migrations.manage.
+         * @description Any signed-in user.
          */
         post: operations["query_migration_rollback_preview"];
         delete?: never;
@@ -12250,6 +12250,7 @@ export interface operations {
                     organizationId: string;
                     /** @enum {string} */
                     source: "gohighlevel" | "hubspot" | "salesforce" | "jobber" | "housecall_pro" | "servicetitan" | "follow_up_boss";
+                    workspaceId?: string | null;
                 };
             };
         };
@@ -12289,6 +12290,7 @@ export interface operations {
                     organizationId: string;
                     /** @default true */
                     transition?: boolean;
+                    workspaceId?: string | null;
                 };
             };
         };
@@ -12404,6 +12406,7 @@ export interface operations {
                         skip?: boolean;
                         workspaceId?: string | null;
                     }[];
+                    workspaceId?: string | null;
                 };
             };
         };
@@ -12443,6 +12446,7 @@ export interface operations {
                     migrationId: string;
                     /** Format: uuid */
                     organizationId: string;
+                    workspaceId?: string | null;
                 };
             };
         };
@@ -12481,6 +12485,7 @@ export interface operations {
                     /** Format: uuid */
                     organizationId: string;
                     targetId?: string | null;
+                    workspaceId?: string | null;
                 };
             };
         };
@@ -12514,6 +12519,7 @@ export interface operations {
                     migrationId: string;
                     /** Format: uuid */
                     organizationId: string;
+                    workspaceId?: string | null;
                 };
             };
         };
@@ -12551,6 +12557,7 @@ export interface operations {
                     /** Format: uuid */
                     organizationId: string;
                     scopeId?: string | null;
+                    workspaceId?: string | null;
                 };
             };
         };
@@ -12586,6 +12593,7 @@ export interface operations {
                     migrationId: string;
                     /** Format: uuid */
                     organizationId: string;
+                    workspaceId?: string | null;
                 };
             };
         };
@@ -12622,6 +12630,7 @@ export interface operations {
                     /** Format: uuid */
                     organizationId: string;
                     scopeId?: string | null;
+                    workspaceId?: string | null;
                 };
             };
         };
@@ -12662,6 +12671,7 @@ export interface operations {
                     /** Format: uuid */
                     organizationId: string;
                     scopeId?: string | null;
+                    workspaceId?: string | null;
                 };
             };
         };
@@ -12709,6 +12719,7 @@ export interface operations {
                     migrationId: string;
                     /** Format: uuid */
                     organizationId: string;
+                    workspaceId?: string | null;
                 };
             };
         };
@@ -12746,6 +12757,7 @@ export interface operations {
                     organizationId: string;
                     /** Format: uuid */
                     taskId: string;
+                    workspaceId?: string | null;
                 };
             };
         };
@@ -22235,6 +22247,7 @@ export interface operations {
                     migrationId: string;
                     /** Format: uuid */
                     organizationId: string;
+                    workspaceId?: string | null;
                 };
             };
         };
@@ -22378,6 +22391,7 @@ export interface operations {
                 "application/json": {
                     /** Format: uuid */
                     organizationId: string;
+                    workspaceId?: string | null;
                 };
             };
         };
@@ -22438,6 +22452,7 @@ export interface operations {
                     migrationId: string;
                     /** Format: uuid */
                     organizationId: string;
+                    workspaceId?: string | null;
                 };
             };
         };
@@ -22518,6 +22533,7 @@ export interface operations {
                     migrationId: string;
                     /** Format: uuid */
                     organizationId: string;
+                    workspaceId?: string | null;
                 };
             };
         };
@@ -22570,6 +22586,7 @@ export interface operations {
                     migrationId: string;
                     /** Format: uuid */
                     organizationId: string;
+                    workspaceId?: string | null;
                 };
             };
         };

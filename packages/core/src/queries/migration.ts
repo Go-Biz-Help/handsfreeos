@@ -7,10 +7,15 @@
  * the screen shows that rather than the number.
  */
 import { rows, sql } from '@hfos/db/client';
+import { HfosError } from '../errors';
 import { defineQuery } from '../kernel/define';
+import type { QueryContext } from '../kernel/types';
 import {
   CAPABILITY_WORDS,
   countWords,
+  migrationAccess,
+  MIGRATION_NOT_YOURS,
+  type MigrationAccess,
   FINDING_GROUPS,
   findingGroupOf,
   migrationCategory,
@@ -32,10 +37,29 @@ import {
   type MigrationSourceSystem,
 } from '../schemas/migration';
 
-const inOrganization = (i: { organizationId: string }) => ({
-  kind: 'organization' as const,
-  organizationId: i.organizationId,
-});
+/**
+ * Either door (M11, 2026-09-18). Naming a business reads the migration as that business: the row policies in
+ * 0068 then show it its own sub-account, its own counts and its own findings, and none of the other
+ * businesses a migration may carry. Naming none reads it as the agency, which sees all of them.
+ *
+ * The organization is taken off the resolved scope either way, so the `organization_id = …` filters below
+ * hold for both — a workspace resolves to the organization it belongs to.
+ */
+const eitherDoor = (i: { organizationId: string; workspaceId?: string | null }) =>
+  i.workspaceId
+    ? { kind: 'workspace' as const, workspaceId: i.workspaceId }
+    : { kind: 'organization' as const, organizationId: i.organizationId };
+
+/** The same guard the commands use, and the same refusal. */
+function readerAccess(ctx: QueryContext): MigrationAccess {
+  const access = migrationAccess({
+    orgRole: ctx.scope.orgRole,
+    workspaceRole: ctx.scope.workspaceRole,
+    workspaceId: ctx.scope.workspaceId,
+  });
+  if (!access) throw HfosError.notFound(MIGRATION_NOT_YOURS);
+  return access;
+}
 
 const sourceLabel = (s: string) => SOURCE_LABELS[s as MigrationSourceSystem] ?? s;
 const iso = (v: Date | string | null | undefined): string | null =>
@@ -48,10 +72,14 @@ export const migrationList = defineQuery({
     'The migrations this organization has run or is running, and the sources it has connected.',
   input: MigrationListInput,
   output: MigrationListOutput,
-  permission: 'org.migrations.manage',
-  scope: inOrganization,
+  permission: null,
+  scope: eitherDoor,
   async handler(ctx) {
+    const access = readerAccess(ctx);
     const org = ctx.scope.organizationId!;
+    // Row policies would hide the rest anyway; saying it in the query keeps the list honest about what it
+    // is — a business's own moves, not a filtered view of its agency's.
+    const mine = access.onlyWorkspaceId;
     const list = await rows<{
       id: string;
       name: string;
@@ -70,6 +98,9 @@ export const migrationList = defineQuery({
             m.started_at, m.imported_at, m.transition_ends_at, m.created_at
           from app.migrations m
           where m.organization_id = ${org}
+            and (${mine}::uuid is null or exists (
+              select 1 from app.migration_scopes s
+              where s.migration_id = m.id and s.workspace_id = ${mine}::uuid))
           order by m.created_at desc
           limit 100`,
     );
@@ -83,11 +114,15 @@ export const migrationList = defineQuery({
       connected_at: Date | null;
     }>(
       ctx.tx,
-      sql`select id, source_system::text as source, install_kind::text as install_kind,
-            status::text as status, display_name, missing_scopes, connected_at
-          from app.migration_connections
-          where organization_id = ${org} and status <> 'disconnected'
-          order by created_at desc
+      sql`select c.id, c.source_system::text as source, c.install_kind::text as install_kind,
+            c.status::text as status, c.display_name, c.missing_scopes, c.connected_at
+          from app.migration_connections c
+          where c.organization_id = ${org} and c.status <> 'disconnected'
+            and (${mine}::uuid is null or c.workspace_id = ${mine}::uuid or exists (
+              select 1 from app.migrations m
+              join app.migration_scopes s on s.migration_id = m.id
+              where m.connection_id = c.id and s.workspace_id = ${mine}::uuid))
+          order by c.created_at desc
           limit 50`,
     );
     return {
@@ -123,9 +158,10 @@ export const migrationGet = defineQuery({
     'Everything one migration knows about itself: where each business lands, what was found, what was chosen, what will not fit, what is left to do, and how far it has got.',
   input: MigrationGetInput,
   output: MigrationGetOutput,
-  permission: 'org.migrations.manage',
-  scope: inOrganization,
+  permission: null,
+  scope: eitherDoor,
   async handler(ctx, input) {
+    readerAccess(ctx);
     const org = ctx.scope.organizationId!;
     const [m] = await rows<{
       id: string;
@@ -426,9 +462,10 @@ export const migrationReviewQueue = defineQuery({
     'The customers a migration is not sure about: somebody arriving who might be somebody already here.',
   input: MigrationReviewQueueInput,
   output: MigrationReviewQueueOutput,
-  permission: 'org.migrations.manage',
-  scope: inOrganization,
+  permission: null,
+  scope: eitherDoor,
   async handler(ctx, input) {
+    readerAccess(ctx);
     const org = ctx.scope.organizationId!;
     const list = await rows<{
       id: string;
@@ -511,9 +548,10 @@ export const migrationRollbackPreview = defineQuery({
     'What taking this migration back would do: what goes, what is put back, and what is left alone because somebody has changed it here since.',
   input: MigrationRollbackPreviewInput,
   output: MigrationRollbackPreviewOutput,
-  permission: 'org.migrations.manage',
-  scope: inOrganization,
+  permission: null,
+  scope: eitherDoor,
   async handler(ctx, input) {
+    readerAccess(ctx);
     const org = ctx.scope.organizationId!;
     const [row] = await rows<{ removable: number; restorable: number; guarded: number }>(
       ctx.tx,
@@ -557,9 +595,10 @@ export const migrationReport = defineQuery({
     'The completion report: what came across, what was checked, what will not fit, and what is left for a person to do.',
   input: MigrationReportInput,
   output: MigrationReportOutput,
-  permission: 'org.migrations.manage',
-  scope: inOrganization,
+  permission: null,
+  scope: eitherDoor,
   async handler(ctx, input) {
+    readerAccess(ctx);
     const org = ctx.scope.organizationId!;
     const [m] = await rows<{
       id: string;

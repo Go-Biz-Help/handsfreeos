@@ -40,6 +40,10 @@ import { slugify } from '../slug';
 import {
   FINDING_CODES,
   isImportable,
+  mayActForWorkspace,
+  migrationAccess,
+  MIGRATION_NOT_YOURS,
+  type MigrationAccess,
   migrationCategory,
   resolveSelection,
   sharedWorkspaceFinding,
@@ -85,6 +89,57 @@ const inOrganization = (i: { organizationId: string }) => ({
   kind: 'organization' as const,
   organizationId: i.organizationId,
 });
+
+/**
+ * Either door (M11, 2026-09-18). Naming a business addresses the migration as that business and reaches only
+ * its own part; naming none addresses it as the agency and reaches all of it. The organization is read off
+ * the resolved scope afterwards, never off the input, so naming somebody else's organization gets nobody
+ * anywhere.
+ */
+const eitherDoor = (i: { organizationId: string; workspaceId?: string | null }) =>
+  i.workspaceId
+    ? { kind: 'workspace' as const, workspaceId: i.workspaceId }
+    : { kind: 'organization' as const, organizationId: i.organizationId };
+
+/**
+ * Which door this person came in through, or a refusal.
+ *
+ * These commands declare no permission and ask here instead, because the kernel picks the role to test from
+ * the permission's name and these genuinely take either an organization permission or a workspace one. The
+ * refusal is the same sentence both ways: that a migration exists but is not yours is not a fact anybody
+ * needs.
+ */
+function requireAccess(ctx: CommandContext): MigrationAccess {
+  requireHuman(ctx);
+  const access = migrationAccess({
+    orgRole: ctx.scope.orgRole,
+    workspaceRole: ctx.scope.workspaceRole,
+    workspaceId: ctx.scope.workspaceId,
+  });
+  if (!access) throw HfosError.notFound(MIGRATION_NOT_YOURS);
+  return access;
+}
+
+/**
+ * The migration, as this person may see it. A business's door opens only onto migrations that actually reach
+ * its own business — the database says the same thing row by row, and this says it in a sentence.
+ */
+async function loadMigrationFor(
+  ctx: CommandContext,
+  migrationId: string,
+  access: MigrationAccess,
+): Promise<LoadedMigration> {
+  const m = await loadMigration(ctx, migrationId);
+  if (access.onlyWorkspaceId) {
+    const [reaches] = await rows<{ ok: boolean }>(
+      ctx.tx,
+      sql`select true as ok from app.migration_scopes
+          where migration_id = ${m.id} and workspace_id = ${access.onlyWorkspaceId} limit 1`,
+    );
+    if (!reaches) throw HfosError.notFound(MIGRATION_NOT_YOURS);
+  }
+  return m;
+}
 
 /** How long a sign-in state stays good, as mailboxes, calendars and payment accounts use. */
 const STATE_TTL_MS = 10 * 60_000;
@@ -187,8 +242,8 @@ export const migrationConnect = defineCommand({
   risk: 2,
   input: MigrationConnectInput,
   output: MigrationConnectOutput,
-  permission: 'org.migrations.manage',
-  scope: inOrganization,
+  permission: null,
+  scope: eitherDoor,
   emits: ['migration_connection.connect_started'],
   // A one-time secret: never kept in a stored answer.
   shownOnce: ['state'],
@@ -199,11 +254,15 @@ export const migrationConnect = defineCommand({
         409,
         `${sourceLabel(input.source)} isn’t ready to migrate from yet.`,
       );
+    const access = requireAccess(ctx);
     const state = randomBytes(32).toString('base64url');
     const [row] = await ctx.tx
       .insert(migrationConnections)
       .values({
         organizationId: ctx.scope.organizationId!,
+        // Set when a business connected its own source. That is what later lets it claim the sub-accounts
+        // this sign-in reaches, and nobody else's.
+        workspaceId: access.onlyWorkspaceId,
         sourceSystem: input.source,
         installKind: input.installKind,
         status: 'pending',
@@ -332,10 +391,11 @@ export const migrationCreate = defineCommand({
   risk: 1,
   input: MigrationCreateInput,
   output: MigrationCreateOutput,
-  permission: 'org.migrations.manage',
-  scope: inOrganization,
+  permission: null,
+  scope: eitherDoor,
   emits: ['migration.created'],
   async handler(ctx, input) {
+    requireAccess(ctx);
     const c = await loadConnection(ctx, input.connectionId);
     if (c.status !== 'active')
       throw HfosError.rule('migration_connection_not_active', 409, 'Connect the old system first.');
@@ -377,11 +437,12 @@ export const migrationScan = defineCommand({
   risk: 1,
   input: MigrationScanInput,
   output: MigrationScanOutput,
-  permission: 'org.migrations.manage',
-  scope: inOrganization,
+  permission: null,
+  scope: eitherDoor,
   emits: ['migration.scan_requested'],
   async handler(ctx, input) {
-    const m = await loadMigration(ctx, input.migrationId);
+    const access = requireAccess(ctx);
+    const m = await loadMigrationFor(ctx, input.migrationId, access);
     requireStatus(
       m,
       ['connected', 'scanned', 'ready', 'needs_attention', 'imported', 'transition'],
@@ -429,8 +490,8 @@ export const migrationMapScopes = defineCommand({
   risk: 3,
   input: MigrationMapScopesInput,
   output: MigrationMapScopesOutput,
-  permission: 'org.migrations.manage',
-  scope: inOrganization,
+  permission: null,
+  scope: eitherDoor,
   emits: ['migration.scopes_mapped'],
   async handler(ctx, input) {
     const me = requireHuman(ctx).userId;
@@ -582,12 +643,13 @@ export const migrationSelect = defineCommand({
   risk: 1,
   input: MigrationSelectInput,
   output: MigrationSelectOutput,
-  permission: 'org.migrations.manage',
-  scope: inOrganization,
+  permission: null,
+  scope: eitherDoor,
   emits: ['migration.selection_changed'],
   async handler(ctx, input) {
     const me = requireHuman(ctx).userId;
-    const m = await loadMigration(ctx, input.migrationId);
+    const access = requireAccess(ctx);
+    const m = await loadMigrationFor(ctx, input.migrationId, access);
     requireStatus(
       m,
       ['connected', 'scanned', 'ready', 'needs_attention'],
@@ -601,6 +663,11 @@ export const migrationSelect = defineCommand({
           eq(migrationScopes.migrationId, m.id),
           eq(migrationScopes.selected, true),
           input.scopeId ? eq(migrationScopes.id, input.scopeId) : dsql`true`,
+          // A business chooses for its own businesses. An agency's choice, made with no business named,
+          // covers every one in the migration.
+          access.onlyWorkspaceId
+            ? eq(migrationScopes.workspaceId, access.onlyWorkspaceId)
+            : dsql`true`,
         ),
       );
     if (scopes.length === 0)
@@ -708,12 +775,13 @@ export const migrationStart = defineCommand({
   risk: 4,
   input: MigrationStartInput,
   output: MigrationStateOutput,
-  permission: 'org.migrations.manage',
-  scope: inOrganization,
+  permission: null,
+  scope: eitherDoor,
   emits: ['migration.started'],
   async handler(ctx, input) {
     const me = requireHuman(ctx).userId;
-    const m = await loadMigration(ctx, input.migrationId);
+    const access = requireAccess(ctx);
+    const m = await loadMigrationFor(ctx, input.migrationId, access);
     requireStatus(
       m,
       ['connected', 'scanned', 'ready', 'paused', 'needs_attention'],
@@ -758,6 +826,11 @@ export const migrationStart = defineCommand({
           eq(migrationScopes.migrationId, m.id),
           eq(migrationScopes.selected, true),
           isNotNull(migrationScopes.workspaceId),
+          // Pressing the button on one business's page brings that business across, not the other
+          // nineteen sharing the migration.
+          access.onlyWorkspaceId
+            ? eq(migrationScopes.workspaceId, access.onlyWorkspaceId)
+            : dsql`true`,
         ),
       )
       .orderBy(asc(migrationScopes.name), asc(migrationScopes.id));
@@ -832,8 +905,8 @@ export const migrationPause = defineCommand({
   risk: 2,
   input: MigrationRefInput,
   output: MigrationStateOutput,
-  permission: 'org.migrations.manage',
-  scope: inOrganization,
+  permission: null,
+  scope: eitherDoor,
   emits: ['migration.paused'],
   async handler(ctx, input) {
     requireHuman(ctx);
@@ -859,8 +932,8 @@ export const migrationResume = defineCommand({
   risk: 2,
   input: MigrationRefInput,
   output: MigrationStateOutput,
-  permission: 'org.migrations.manage',
-  scope: inOrganization,
+  permission: null,
+  scope: eitherDoor,
   emits: ['migration.resumed'],
   async handler(ctx, input) {
     requireHuman(ctx);
@@ -906,12 +979,12 @@ export const migrationRetry = defineCommand({
   risk: 2,
   input: MigrationRetryInput,
   output: MigrationRetryOutput,
-  permission: 'org.migrations.manage',
-  scope: inOrganization,
+  permission: null,
+  scope: eitherDoor,
   emits: ['migration.retry_requested'],
   async handler(ctx, input) {
-    requireHuman(ctx);
-    const m = await loadMigration(ctx, input.migrationId);
+    const access = requireAccess(ctx);
+    const m = await loadMigrationFor(ctx, input.migrationId, access);
     const requeued = await ctx.tx
       .update(migrationJobs)
       .set({
@@ -927,6 +1000,10 @@ export const migrationRetry = defineCommand({
           inArray(migrationJobs.state, ['failed', 'quarantined']),
           input.category ? eq(migrationJobs.category, input.category) : dsql`true`,
           input.scopeId ? eq(migrationJobs.scopeId, input.scopeId) : dsql`true`,
+          // Trying again from one business's page tries that business's failures again.
+          access.onlyWorkspaceId
+            ? eq(migrationJobs.workspaceId, access.onlyWorkspaceId)
+            : dsql`true`,
         ),
       )
       .returning({ id: migrationJobs.id });
@@ -1048,12 +1125,27 @@ export const migrationRollback = defineCommand({
   risk: 4,
   input: MigrationRollbackInput,
   output: MigrationStateOutput,
-  permission: 'org.migrations.manage',
-  scope: inOrganization,
+  permission: null,
+  scope: eitherDoor,
   emits: ['migration.rollback_requested'],
   async handler(ctx, input) {
-    requireHuman(ctx);
-    const m = await loadMigration(ctx, input.migrationId);
+    const access = requireAccess(ctx);
+    const m = await loadMigrationFor(ctx, input.migrationId, access);
+    if (access.onlyWorkspaceId) {
+      // Rolling back is all or nothing across a migration: the journal is unwound in one pass. So a business
+      // may take back a move that is only its own, and a move carrying other businesses stays the agency's —
+      // otherwise one client's change of mind would undo nineteen others' imports.
+      const [others] = await rows<{ count: number }>(
+        ctx.tx,
+        sql`select count(*)::int as count from app.migration_scopes
+            where migration_id = ${m.id} and selected and workspace_id is not null
+              and workspace_id <> ${access.onlyWorkspaceId}`,
+      );
+      if ((others?.count ?? 0) > 0)
+        throw HfosError.forbidden(
+          'This move brought other businesses across as well, so only your agency can take it back.',
+        );
+    }
     if (m.status === 'rolling_back' || m.status === 'rolled_back')
       return migrationState(m.id, m.status as MigrationLifecycle, false);
     requireStatus(
@@ -1102,11 +1194,12 @@ export const migrationResolveMerge = defineCommand({
   risk: 2,
   input: MigrationMergeResolveInput,
   output: MigrationMergeResolveOutput,
-  permission: 'org.migrations.manage',
-  scope: inOrganization,
+  permission: null,
+  scope: eitherDoor,
   emits: ['migration.merge_resolved'],
   async handler(ctx, input) {
     const me = requireHuman(ctx).userId;
+    const access = requireAccess(ctx);
     const [c] = await ctx.tx
       .select()
       .from(migrationMergeCandidates)
@@ -1117,6 +1210,7 @@ export const migrationResolveMerge = defineCommand({
         ),
       );
     if (!c) throw HfosError.notFound('That one has already been decided.');
+    if (!mayActForWorkspace(access, c.workspaceId)) throw HfosError.notFound(MIGRATION_NOT_YOURS);
     if (c.resolution !== 'pending') return { candidateId: c.id, resolution: c.resolution };
     if (input.decision === 'remap' && !input.targetId)
       throw HfosError.validation([{ path: 'targetId', message: 'Choose who it is.' }]);
@@ -1170,11 +1264,12 @@ export const migrationTaskDone = defineCommand({
   risk: 1,
   input: MigrationTaskDoneInput,
   output: MigrationTaskDoneOutput,
-  permission: 'org.migrations.manage',
-  scope: inOrganization,
+  permission: null,
+  scope: eitherDoor,
   emits: ['migration.task_changed'],
   async handler(ctx, input) {
     const me = requireHuman(ctx).userId;
+    const access = requireAccess(ctx);
     const [t] = await ctx.tx
       .select()
       .from(migrationReconnectTasks)
@@ -1185,6 +1280,10 @@ export const migrationTaskDone = defineCommand({
         ),
       );
     if (!t) throw HfosError.notFound('That setup step isn’t there.');
+    // A step with no business named belongs to the move as a whole — reconnecting the source itself, say —
+    // so it stays the agency's to tick off. A business ticks off its own.
+    if (access.onlyWorkspaceId && (!t.workspaceId || !mayActForWorkspace(access, t.workspaceId)))
+      throw HfosError.notFound('That setup step isn’t there.');
     const state = input.done ? 'done' : 'todo';
     if (t.state === state) return { taskId: t.id, state };
     await ctx.tx

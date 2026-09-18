@@ -37,6 +37,7 @@ export const ROLE_PERMISSIONS = {
     'ai_team.manage',
     'money.read',
     'money.manage',
+    'migrations.manage',
   ],
   admin: [
     'workspace.read',
@@ -65,6 +66,7 @@ export const ROLE_PERMISSIONS = {
     'ai_team.manage',
     'money.read',
     'money.manage',
+    'migrations.manage',
   ],
   member: [
     'workspace.read',

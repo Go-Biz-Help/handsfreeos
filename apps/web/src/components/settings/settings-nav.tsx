@@ -22,6 +22,9 @@ export function SettingsNav({
           { href: `${base}/pipelines`, label: 'Pipelines' },
           { href: `${base}/calendars`, label: 'Calendars' },
           { href: `${base}/imports`, label: 'Imports' },
+          // Its own page, not a tab inside Imports: that page lists spreadsheets, and this moves a whole
+          // business across from another system.
+          { href: `${base}/migrations`, label: 'Migrations' },
           { href: `${base}/texting`, label: 'Texting & calls' },
           { href: `${base}/email`, label: 'Email' },
           { href: `${base}/website-chat`, label: 'Website chat' },

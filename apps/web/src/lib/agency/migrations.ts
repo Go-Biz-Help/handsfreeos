@@ -14,13 +14,26 @@ type Api = Awaited<ReturnType<typeof apiServer>>['api'];
 export type { MigrationDetail, MigrationList, MigrationReviewQueue } from './migration-words';
 export { stepOf, STATUS_WORDS, type MigrationStep } from './migration-words';
 
-export async function loadMigrations(api: Api, organizationId: string) {
-  return unwrap(await api.POST('/v1/queries/migration.list', { body: { organizationId } }));
+/**
+ * `workspaceId` is the business's own door (M11, 2026-09-18). Given, the answer is that business's part of
+ * the migration; left out, it is the agency's view of all of it.
+ */
+export async function loadMigrations(api: Api, organizationId: string, workspaceId?: string) {
+  return unwrap(
+    await api.POST('/v1/queries/migration.list', { body: { organizationId, workspaceId } }),
+  );
 }
 
-export async function loadMigration(api: Api, organizationId: string, migrationId: string) {
+export async function loadMigration(
+  api: Api,
+  organizationId: string,
+  migrationId: string,
+  workspaceId?: string,
+) {
   return unwrap(
-    await api.POST('/v1/queries/migration.get', { body: { organizationId, migrationId } }),
+    await api.POST('/v1/queries/migration.get', {
+      body: { organizationId, migrationId, workspaceId },
+    }),
   );
 }
 

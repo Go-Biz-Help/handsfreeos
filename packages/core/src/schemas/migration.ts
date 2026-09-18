@@ -101,11 +101,18 @@ const resourceId = z.string().trim().min(1).max(200);
 const migrationName = z.string().trim().min(1).max(120);
 
 const inOrg = { organizationId: uuid };
+/**
+ * Either door onto a migration (M11, 2026-09-18). An agency addresses one by its organization; a business
+ * addresses it by itself, and then reaches only its own part. `organizationId` stays required because the
+ * screens always know it, but a handler reads the organization off the resolved scope rather than off the
+ * input — naming a workspace is what decides which door was used.
+ */
+const inOrgOrWorkspace = { organizationId: uuid, workspaceId: uuid.nullish() };
 
 // ---------- connecting ----------
 
 export const MigrationConnectInput = z.object({
-  ...inOrg,
+  ...inOrgOrWorkspace,
   source: migrationSource,
   /**
    * An agency sign-in reaches every sub-account; a single-business sign-in reaches one. Which one is offered
@@ -149,7 +156,7 @@ export const MigrationConnectionActivateInput = z.object({
 // ---------- the migration ----------
 
 export const MigrationCreateInput = z.object({
-  ...inOrg,
+  ...inOrgOrWorkspace,
   connectionId: uuid,
   name: migrationName,
   /** Keep catching up with the old system until cutover, or bring the history once and stop. */
@@ -159,7 +166,8 @@ export const MigrationCreateInput = z.object({
 });
 export const MigrationCreateOutput = z.object({ migrationId: uuid });
 
-export const MigrationRefInput = z.object({ ...inOrg, migrationId: uuid });
+/** Naming one migration. Either door: pause, carry on, the report and the rollback preview all take both. */
+export const MigrationRefInput = z.object({ ...inOrgOrWorkspace, migrationId: uuid });
 
 export const MigrationStateOutput = z.object({
   migrationId: uuid,
@@ -169,7 +177,7 @@ export const MigrationStateOutput = z.object({
 
 /** Where each sub-account lands. Several may name one business: the review step says what that mixes. */
 export const MigrationMapScopesInput = z.object({
-  ...inOrg,
+  ...inOrgOrWorkspace,
   migrationId: uuid,
   scopes: z
     .array(
@@ -199,7 +207,7 @@ export const MigrationMapScopesOutput = z.object({
 });
 
 export const MigrationScanInput = z.object({
-  ...inOrg,
+  ...inOrgOrWorkspace,
   migrationId: uuid,
   /** Scan one sub-account again rather than all of them. */
   scopeId: uuid.nullish(),
@@ -207,7 +215,7 @@ export const MigrationScanInput = z.object({
 export const MigrationScanOutput = z.object({ migrationId: uuid, scanId: uuid });
 
 export const MigrationSelectInput = z.object({
-  ...inOrg,
+  ...inOrgOrWorkspace,
   migrationId: uuid,
   /** Left out, the choice applies to every sub-account that is coming across. */
   scopeId: uuid.nullish(),
@@ -234,14 +242,14 @@ export const MigrationSelectOutput = z.object({
 });
 
 export const MigrationStartInput = z.object({
-  ...inOrg,
+  ...inOrgOrWorkspace,
   migrationId: uuid,
   /** Findings that block have to be seen before anything is written. */
   acknowledgedFindingIds: z.array(uuid).max(200).default([]),
 });
 
 export const MigrationRetryInput = z.object({
-  ...inOrg,
+  ...inOrgOrWorkspace,
   migrationId: uuid,
   /** One category, or everything that failed. */
   category: category.nullish(),
@@ -284,14 +292,14 @@ export const MigrationRollbackPreviewOutput = z.object({
 });
 
 export const MigrationRollbackInput = z.object({
-  ...inOrg,
+  ...inOrgOrWorkspace,
   migrationId: uuid,
   /** Typed to confirm, because this removes records. */
   confirm: z.literal(true),
 });
 
 export const MigrationMergeResolveInput = z.object({
-  ...inOrg,
+  ...inOrgOrWorkspace,
   candidateId: uuid,
   decision: z.enum(['merge', 'separate', 'remap']),
   /** For 'remap': the customer here it should point at instead. */
@@ -300,7 +308,7 @@ export const MigrationMergeResolveInput = z.object({
 export const MigrationMergeResolveOutput = z.object({ candidateId: uuid, resolution: z.string() });
 
 export const MigrationTaskDoneInput = z.object({
-  ...inOrg,
+  ...inOrgOrWorkspace,
   taskId: uuid,
   done: z.boolean().default(true),
 });
@@ -308,7 +316,7 @@ export const MigrationTaskDoneOutput = z.object({ taskId: uuid, state: z.string(
 
 // ---------- reading ----------
 
-export const MigrationListInput = z.object({ ...inOrg });
+export const MigrationListInput = z.object({ ...inOrgOrWorkspace });
 export const MigrationListOutput = z.object({
   migrations: z.array(
     z.object({
@@ -455,7 +463,7 @@ export const MigrationGetOutput = z.object({
 });
 
 export const MigrationReviewQueueInput = z.object({
-  ...inOrg,
+  ...inOrgOrWorkspace,
   migrationId: uuid,
   limit: z.number().int().min(1).max(100).default(25),
 });

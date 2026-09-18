@@ -13,3 +13,4 @@ export * from './merge';
 export * from './canonical';
 export * from './adapter';
 export * from './findings';
+export * from './access';
