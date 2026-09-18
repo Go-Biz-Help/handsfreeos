@@ -3743,7 +3743,9 @@ export const migrationPortRequests = app.table('migration_port_requests', {
   submittedAt: ts('submitted_at'),
   completedAt: ts('completed_at'),
   lastError: text('last_error'),
-  phoneNumberId: uuid('phone_number_id').references(() => phoneNumbers.id, { onDelete: 'set null' }),
+  phoneNumberId: uuid('phone_number_id').references(() => phoneNumbers.id, {
+    onDelete: 'set null',
+  }),
   ...timestamps(),
 });
 

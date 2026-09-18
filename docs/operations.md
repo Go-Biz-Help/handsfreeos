@@ -7582,7 +7582,7 @@ Locally and in tests, migrations read a stand-in agency instead of GoHighLevel: 
 - **"The old system needs signing in to again."** The token expired or was revoked. Connect it again from **Migrations**; the migration picks up where it stopped.
 - **A batch keeps failing.** `app.migration_errors` holds a sanitized reason per record, and **Try N again** requeues them. Records that already came across are not brought twice — the source identity sees to that.
 - **A customer is waiting on a decision.** The engine never guesses between two people. Those sit in the review queue and the rest of the import carries on around them.
-- **The counts do not add up.** A source that is still being used while it is read is normal, and the check says so rather than failing. A *duplicate* is not normal: the identity check would fail, and that is worth stopping for.
+- **The counts do not add up.** A source that is still being used while it is read is normal, and the check says so rather than failing. A _duplicate_ is not normal: the identity check would fail, and that is worth stopping for.
 
 ## Push notifications: Expo
 
