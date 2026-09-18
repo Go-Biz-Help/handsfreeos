@@ -11,6 +11,7 @@ import {
   serviceCreate,
   SETTINGS_AREAS,
   settingsArea,
+  TEAMMATE_TOOL_NAMES,
   settingsMapText,
   type CommandDef,
   type HumanActor,
@@ -20,6 +21,12 @@ import type { z } from 'zod';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { toolsFor } from '../src/assistant/context';
 import type { ToolContext } from '../src/assistant/runtime';
+import { settingsReadTools } from '../src/assistant/tools-settings';
+import { settingsBusinessConfirmTools } from '../src/assistant/tools-settings-business';
+import { settingsCalendarConfirmTools } from '../src/assistant/tools-settings-calendar';
+import { settingsChannelConfirmTools } from '../src/assistant/tools-settings-channels';
+import { settingsMeConfirmTools } from '../src/assistant/tools-settings-me';
+import { settingsMoneyConfirmTools } from '../src/assistant/tools-settings-money';
 import { createToolExecutor, executorFor } from '../src/assistant/tools-write';
 
 /**
@@ -115,6 +122,22 @@ describe('the settings map', () => {
     // The things people are told to do elsewhere are in the fixed prompt, so it never invents steps.
     expect(text).toContain('connect Stripe or Square');
     expect(text).toContain('put the chat box on your website');
+  });
+
+  it('is never handed to the AI teammate: it answers customers, it does not set the business up', () => {
+    // The tools themselves, not a guess from their names: update_customer is the teammate's, and rightly.
+    const settingsTools = [
+      ...Object.keys(settingsReadTools),
+      ...Object.keys(settingsCalendarConfirmTools),
+      ...Object.keys(settingsBusinessConfirmTools),
+      ...Object.keys(settingsChannelConfirmTools),
+      ...Object.keys(settingsMoneyConfirmTools),
+      ...Object.keys(settingsMeConfirmTools),
+    ];
+    expect(settingsTools.length).toBe(24);
+    for (const name of settingsTools) expect(assistantToolByName.get(name), name).toBeTruthy();
+    for (const name of settingsTools)
+      expect(TEAMMATE_TOOL_NAMES as readonly string[], name).not.toContain(name);
   });
 
   it('is offered to anyone who may use the Assistant, and changes nothing on its own', () => {
