@@ -450,6 +450,103 @@ export const assistantTools = [
     permission: 'calendars.manage',
   }),
 
+  define({
+    name: 'update_business',
+    description:
+      'Change the business itself: its name, time zone, industry, website, the link customers leave reviews on, and the hours it is open. Read it with get_settings first and pass only what changes.',
+    input: z.object({
+      name: text(120).optional(),
+      timezone: text(60).optional().describe('An IANA zone like America/Chicago'),
+      industry: text(80).optional(),
+      website: z.url().max(500).optional(),
+      reviewLink: z.url().max(500).optional().describe('Where customers leave a review'),
+      openHours: WeeklyHoursInput.nullable()
+        .optional()
+        .describe('When the business is open; null puts it back to weekdays 8–5'),
+    }),
+    autonomy: 'confirm',
+    permission: 'workspace.update',
+  }),
+  define({
+    name: 'manage_pipeline',
+    description:
+      'Change the pipelines leads move through: add, rename or archive a pipeline, and add, rename, reorder or delete a stage. Stage kinds are open, won or lost. Deleting a stage moves its leads to another one, so say which.',
+    input: z.object({
+      action: z.enum([
+        'create_pipeline',
+        'rename_pipeline',
+        'archive_pipeline',
+        'add_stage',
+        'rename_stage',
+        'delete_stage',
+        'reorder_stages',
+      ]),
+      pipelineId: uuid.optional(),
+      stageId: uuid.optional(),
+      name: text(80).optional(),
+      stageKind: z.enum(['open', 'won', 'lost']).optional(),
+      afterStageId: uuid.nullable().optional().describe('Put a new stage after this one'),
+      stageIds: z
+        .array(uuid)
+        .min(3)
+        .max(20)
+        .optional()
+        .describe('Every stage of the pipeline, in the order they should be'),
+      moveLeadsToStageId: uuid
+        .optional()
+        .describe('Where the leads in a stage being deleted should go'),
+    }),
+    autonomy: 'confirm',
+    permission: 'pipelines.manage',
+  }),
+  define({
+    name: 'manage_team',
+    description:
+      'Invite someone to the business, change what a teammate may do, take someone off, or resend or cancel an invitation that has not been accepted. Owners and admins can change settings; members work customers, leads and the inbox.',
+    input: z.object({
+      action: z.enum(['invite', 'change_role', 'remove', 'resend_invitation', 'cancel_invitation']),
+      email: z.email().max(320).optional().describe('Who to invite'),
+      userId: uuid.optional().describe('The teammate, from list_team'),
+      invitationId: uuid.optional(),
+      role: z.enum(['owner', 'admin', 'member']).optional(),
+    }),
+    autonomy: 'confirm',
+    permission: 'members.invite',
+  }),
+  define({
+    name: 'manage_tag',
+    description:
+      'Add, rename, recolour or delete one of the labels you put on customers and leads.',
+    input: z.object({
+      action: z.enum(['create', 'change', 'delete']),
+      tagId: uuid.optional(),
+      name: text(40).optional(),
+      color: z
+        .string()
+        .regex(/^#[0-9a-fA-F]{6}$/)
+        .optional()
+        .describe('A hex colour like #2d69d8'),
+    }),
+    autonomy: 'confirm',
+    permission: 'tags.manage',
+  }),
+  define({
+    name: 'update_knowledge_profile',
+    description:
+      'Change what your AI knows about the business: what you do, the area you cover, your hours, your policies, how it should sound, how it signs off, and whether it may quote prices. Read it with get_settings first and pass only what changes; each field replaces what is there.',
+    input: z.object({
+      description: text(2000).optional().describe('What the business does'),
+      serviceArea: text(500).optional(),
+      hours: text(500).optional().describe('In words, as a customer would be told'),
+      policies: text(3000).optional(),
+      tone: text(300).optional().describe('How messages should sound'),
+      signature: text(200).optional().describe('How texts and emails sign off'),
+      allowPrices: z.boolean().optional().describe('May the AI quote prices from what it knows'),
+    }),
+    autonomy: 'confirm',
+    permission: 'knowledge.manage',
+  }),
+
   // ---------- tasks and notes (auto, with Undo) ----------
   define({
     name: 'create_task',

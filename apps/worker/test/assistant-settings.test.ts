@@ -344,3 +344,140 @@ describe('the booking page', () => {
     expect(now!.name).toBe('Settings HVAC');
   });
 });
+
+const q = async <T>(name: string, input: Record<string, unknown> = {}) =>
+  (await executeQuery(api(), registry.query(name)!, { workspaceId, ...input }, actor(owner), {
+    correlationId: randomUUID(),
+    channel: 'test' as const,
+  })) as T;
+
+describe('the business itself', () => {
+  it('changes the name and the open hours, and leaves the rest of the settings alone', async () => {
+    const before = await q<{ workspace: { settings: Record<string, unknown> } }>('workspace.get');
+    const { card, parsed, tool } = await prepare(
+      'update_business',
+      {
+        name: 'Settings HVAC & Plumbing',
+        website: 'https://settingshvac.example',
+        openHours: [
+          { day: 1, start: '07:00', end: '18:00' },
+          { day: 2, start: '07:00', end: '18:00' },
+        ],
+      },
+      owner,
+    );
+    expect(card.title).toBe('Change Settings HVAC');
+    expect(card.fields.find((f) => f.label === 'Was')!.value).toBe('Settings HVAC');
+    expect(card.fields.find((f) => f.label === 'Open hours')!.value).toBe(
+      'Mon 07:00–18:00, Tue 07:00–18:00',
+    );
+    await confirm(tool!, parsed, owner);
+
+    const after = await q<{ workspace: { name: string; settings: Record<string, unknown> } }>(
+      'workspace.get',
+    );
+    expect(after.workspace.name).toBe('Settings HVAC & Plumbing');
+    expect(after.workspace.settings['website']).toBe('https://settingshvac.example');
+    expect((after.workspace.settings['openHours'] as unknown[]).length).toBe(2);
+    // A settings save replaces only its own keys.
+    for (const key of Object.keys(before.workspace.settings))
+      if (key !== 'website' && key !== 'openHours')
+        expect(after.workspace.settings[key], key).toEqual(before.workspace.settings[key]);
+  });
+});
+
+describe('pipelines and stages', () => {
+  it('adds a stage where it was asked for, and says what a deleted stage does with its leads', async () => {
+    const { pipelines } = await q<{
+      pipelines: { id: string; name: string; stages: { id: string; name: string }[] }[];
+    }>('pipeline.list');
+    const pipeline = pipelines[0]!;
+    const contacted = pipeline.stages.find((s) => s.name === 'Contacted')!;
+
+    const added = await prepare(
+      'manage_pipeline',
+      {
+        action: 'add_stage',
+        pipelineId: pipeline.id,
+        name: 'Quoted',
+        stageKind: 'open',
+        afterStageId: contacted.id,
+      },
+      owner,
+    );
+    expect(added.card.title).toBe('Add the Quoted stage');
+    expect(added.card.fields.find((f) => f.label === 'Counts as')!.value).toBe('open');
+    await confirm(added.tool!, added.parsed, owner);
+
+    const after = await q<{ pipelines: { id: string; stages: { id: string; name: string }[] }[] }>(
+      'pipeline.list',
+    );
+    const stages = after.pipelines.find((p) => p.id === pipeline.id)!.stages.map((s) => s.name);
+    expect(stages).toContain('Quoted');
+    expect(stages.indexOf('Quoted')).toBe(stages.indexOf('Contacted') + 1);
+
+    const quoted = after.pipelines
+      .find((p) => p.id === pipeline.id)!
+      .stages.find((s) => s.name === 'Quoted')!;
+    const deleted = await prepare(
+      'manage_pipeline',
+      {
+        action: 'delete_stage',
+        stageId: quoted.id,
+        moveLeadsToStageId: contacted.id,
+      },
+      owner,
+    );
+    expect(deleted.card.fields.find((f) => f.label === 'Leads in it go to')!.value).toBe(
+      'Contacted',
+    );
+    await confirm(deleted.tool!, deleted.parsed, owner);
+    const end = await q<{ pipelines: { id: string; stages: { name: string }[] }[] }>(
+      'pipeline.list',
+    );
+    expect(
+      end.pipelines.find((p) => p.id === pipeline.id)!.stages.map((s) => s.name),
+    ).not.toContain('Quoted');
+  });
+});
+
+describe('the team', () => {
+  it('says an invitation is an email to a person, and what losing a teammate means', async () => {
+    const invite = await prepare(
+      'manage_team',
+      { action: 'invite', email: 'marco@settingshvac.example', role: 'member' },
+      owner,
+    );
+    expect(invite.card.title).toBe('Invite marco@settingshvac.example');
+    expect(invite.card.fields.find((f) => f.label === 'Role')!.value).toContain('Member');
+    expect(invite.card.warnings[0]!.text).toContain('email');
+    await confirm(invite.tool!, invite.parsed, owner);
+    const { invitations } = await q<{ invitations: { email: string; role: string }[] }>(
+      'workspace.invitations',
+    );
+    expect(invitations.map((i) => i.email)).toContain('marco@settingshvac.example');
+
+    const removal = await prepare('manage_team', { action: 'remove', userId: owner.id }, owner);
+    expect(removal.card.warnings[0]!.text).toContain('way in');
+  });
+});
+
+describe('what the AI knows about the business', () => {
+  it('keeps the parts nobody mentioned, and warns before letting it quote prices', async () => {
+    const first = await prepare(
+      'update_knowledge_profile',
+      { description: 'Residential heating and cooling in Houston.', tone: 'Plain and friendly.' },
+      owner,
+    );
+    await confirm(first.tool!, first.parsed, owner);
+
+    const second = await prepare('update_knowledge_profile', { allowPrices: true }, owner);
+    expect(second.card.warnings[0]!.text).toContain('quote the prices');
+    await confirm(second.tool!, second.parsed, owner);
+
+    const { profile } = await q<{ profile: Record<string, unknown> }>('knowledge.profile');
+    expect(profile['allowPrices']).toBe(true);
+    expect(profile['description']).toBe('Residential heating and cooling in Houston.');
+    expect(profile['tone']).toBe('Plain and friendly.');
+  });
+});
