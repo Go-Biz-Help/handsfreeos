@@ -149,8 +149,8 @@ export const AssistantCard = z.discriminatedUnion('type', [
     personId: uuid.nullable(),
     conversationId: uuid.nullable(),
     title: z.string(),
-    /** Label and value pairs: To, From, Subject, Name, Phone; Customer, What, When, With… */
-    fields: z.array(z.object({ label: z.string(), value: z.string() })).max(6),
+    /** Label and value pairs: To, From, Subject, Name, Phone; Customer, What, When, With; a settings change's own lines. */
+    fields: z.array(z.object({ label: z.string(), value: z.string() })).max(10),
     body: z.string().nullable(),
     stageFrom: z.string().nullable(),
     stageTo: z.string().nullable(),

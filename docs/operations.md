@@ -5757,11 +5757,23 @@ If the panel says "Something went wrong" instead, see "When a question fails" be
 
 ### Each person's OK
 
-Before someone's first question, on the web or in the phone app, the Assistant asks for their OK, because what they ask about is sent to Claude. One OK covers every app and every business they belong to. HandsFreeOS keeps it in the person's own settings with the time and the version of the wording (`assistant.consent`). If the wording ever changes enough to need a new version, everyone is asked again. **Not now** asks again next time.
+Before someone's first question, on the web or in the phone app, the Assistant asks for their OK, because what they ask about is sent to an AI service. Nothing anyone reads names the vendor or the model — HandsFreeOS may change which AI answers, and a sentence naming one would go on being shown after it stopped being true. The provider is named here, in the code and in the environment variables, and nowhere a business owner sees. One OK covers every app and every business they belong to. HandsFreeOS keeps it in the person's own settings with the time and the version of the wording (`assistant.consent`). If the wording ever changes enough to need a new version, everyone is asked again. **Not now** asks again next time.
 
-Until someone says OK, the worker answers their questions with "The Assistant uses Anthropic’s Claude: what you ask about is sent to Claude to answer you. Say OK once, on the web or your phone, and it won’t ask again." and sends nothing to Anthropic.
+Until someone says OK, the worker answers their questions with "The Assistant sends what you ask about to an AI service to answer you. Say OK once, on the web or your phone, and it won’t ask again." and sends nothing to Anthropic.
 
-On the web, the panel shows the consent step ("The Assistant uses Anthropic’s Claude") instead of the chat until the person presses **OK, continue**. **Not now** closes the panel. An OK given on the phone while a web page was open counts as soon as the panel opens, and if the worker refuses a question for want of an OK, the step shows and the question is asked once they say OK.
+On the web, the panel shows the consent step ("How the Assistant answers you") instead of the chat until the person presses **OK, continue**. **Not now** closes the panel. An OK given on the phone while a web page was open counts as soon as the panel opens, and if the worker refuses a question for want of an OK, the step shows and the question is asked once they say OK.
+
+### Setting the business up by asking
+
+The Assistant can set up and change anything in Settings that the person's own role allows: calendars, services, resources, territories and the booking page; the business itself, its pipelines, its team, its tags and what its AI knows; texting, the business number, the carrier registration, email and the website chat; how the business gets paid, the items on a document, what Home watches for and the AI teammate; and each person's own account and hours.
+
+Every one of those runs the same command the settings screen runs, as the person asking, so the permissions, the events and the audit log are unchanged — each shows as their own doing, "via Assistant". Nothing is saved until they press **Confirm** on a card that says what will change.
+
+Some things it cannot do, and says so with the steps instead: signing in to Google, Outlook, Stripe or Square; the DNS records for a business's own email domain; pasting the website-chat snippet into a website; passwords, Google sign-in and passkeys; confirming a cell by phone; importing a spreadsheet; moving a business over from another CRM; and deleting an account. Carrier approval for texting is the carriers' to give — the Assistant can fill in and send the registration, but not make it pass.
+
+Three it can do that are worth knowing about, because they cost money or cannot be undone. Each carries a warning on its card: getting a business number (a monthly cost), giving one up (gone for good), and disconnecting a payout account (anything paying on a plan stops). Taking a teammate off the business is the fourth.
+
+One deliberate speed bump is kept rather than worked around: automatic follow-ups to quiet leads stay off until an owner has read the wording on **Settings** → **Action Center** and agreed to it. Asked to turn them on, the Assistant answers with a card that has no Confirm button and says where to go.
 
 ### When a question fails
 
@@ -8248,7 +8260,9 @@ lsof -ti :4000,:4100,:4110,:4120
 ```
 
 Nothing should answer except what you started deliberately. This matters most when more than one person, or more
-than one session, is working on the same machine.
+than one session, is working on the same machine. The browser tests do not fail when something is already there:
+they reuse it silently, whichever checkout started it. See "A git worktree is not an isolated copy" under
+"Stopping and resetting".
 
 **Kill the watcher, not just the worker, and do it before you pull.** `pnpm dev` runs the worker under
 `tsx watch`, so stopping the worker leaves the watcher, which makes a new one the moment a tracked file changes —
@@ -8969,7 +8983,7 @@ Do not use a bare `supabase db reset`: `supabase/seed.sql` is empty on purpose, 
 
 **A git worktree is not an isolated copy.** It has its own files and its own `node_modules`, which makes it feel
 like one, and then it shares the things it does not own: the local Supabase, the ports, and the seed. Three
-separate sessions learned this the same night, none of them carelessly. Two lines are worth knowing before you
+separate sessions learned this the same night, none of them carelessly. Four lines are worth knowing before you
 work beside somebody:
 
 - **`pnpm db:reset` in a worktree resets everybody's database**, including the one another session is testing
@@ -8979,6 +8993,22 @@ work beside somebody:
 - **A worker on the shared database claims every session's jobs.** `private.claim_migration_jobs` has no tenant
   filter, deliberately — in production one fleet serves every business — so any worker anyone starts picks up
   anyone's migration batches, fails the ones whose tokens it cannot open, and spends their attempts.
+- **If you take a lock before a suite, take it properly — and there is no `flock` on a Mac.** Sessions working
+  beside each other agree on a lock file before anything that touches the database. Two ways of writing one both
+  fail, and they failed the same night: `exec 9>lock` (or any `>`) truncates the file before it writes, so a
+  claimer that dies in between leaves a held lock with no holder in it, and `flock` — the obvious way to hold it
+  for a whole run — is not installed, so the line fails after the redirection has already emptied the file.
+  Claim atomically and write the content atomically: `set -o noclobber` or `mkdir` for the claim, so a second
+  claimer fails instead of erasing the first, and a temp file renamed into place for the name inside it. A lock
+  whose holder cannot be read is worse than no lock, because the only safe response to it is to wait.
+- **The dev ports are shared too, and Playwright reuses them without saying so.** `pnpm test:e2e` keeps whatever
+  is already listening on 3000 (the web app), 4000 (the API) and 4100 (the worker), whichever checkout started
+  them. A run in your worktree then tests somebody else's code, and nothing in the output says whose: the specs
+  simply fail in ways your branch cannot explain. The Assistant specs show it first, because the worker the
+  global setup would have started is the one carrying `ASSISTANT_PROVIDER=scripted` — a reused dev worker has a
+  real provider or none, so the panel answers "The Assistant isn't reachable right now". Either stop the other
+  servers (with their session's agreement — a spec is a bad reason to kill somebody's test run) or push and let
+  CI decide, which starts all of it fresh and is the verdict that counts anyway.
 
 The reset itself also cannot drop the database while a worker holds a connection to it. It half-builds instead,
 which reads like a broken migration. Stop every worker and API first, and tell the other sessions before you
