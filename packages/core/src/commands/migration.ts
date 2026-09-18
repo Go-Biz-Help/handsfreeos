@@ -224,7 +224,9 @@ export const migrationConnect = defineCommand({
     return {
       connectionId: row.id,
       state,
-      startPath: `/migrations/${input.source}/start?state=${encodeURIComponent(state)}`,
+      // The source is not in the address: the one-time state already says which system this is, and a name
+      // in two places is a name that can disagree with itself.
+      startPath: `/migrations/start?state=${encodeURIComponent(state)}`,
     };
   },
 });

@@ -1,11 +1,13 @@
 /**
  * Signing in to the CRM a business is leaving, and hearing about changes while it is still being used.
  *
- * `/migrations/:source/start` sends the browser on with a one-time state; `/migrations/callback` takes it
- * back, seals the tokens and connects the source. The callback names no source: the state already says which
- * one it is, and GoHighLevel's marketplace form refuses a redirect URL that mentions HighLevel. The same shape as mailboxes, calendars and
- * payment accounts (`http/oauth.ts`), separately because a migration belongs to the agency rather than to one
- * business, and because the callback has a different place to send somebody afterwards.
+ * `/migrations/start` sends the browser on with a one-time state; `/migrations/callback` takes it back,
+ * seals the tokens and connects the source. Neither address names the source: the state already says which
+ * one it is, and GoHighLevel's marketplace form refuses a redirect URL that mentions HighLevel. Both older
+ * `/migrations/:source/…` addresses stay as aliases, so a link in flight and an app registered against the
+ * old callback both keep working. The same shape as mailboxes, calendars and payment accounts
+ * (`http/oauth.ts`), separately because a migration belongs to the agency rather than to one business, and
+ * because the callback has a different place to send somebody afterwards.
  *
  * Every token that arrives here is sealed before it touches the database and is never logged, never returned
  * and never shown. The state is random, hashed at rest, single use and good for ten minutes.
@@ -81,48 +83,66 @@ export function registerMigrationRoutes(
     return row;
   };
 
+  /**
+   * Sends the browser on to the old system's own sign-in.
+   *
+   * The source is not in the path, for the same reason it is not in the callback: the one-time state already
+   * says which system this sign-in belongs to, and a name in two places is a name that can disagree with
+   * itself. `/migrations/:source/start` stays as an alias so a link already in flight still works, and when
+   * it is used the name is checked against the state rather than trusted — a hand-edited or stale link gets
+   * told plainly rather than being signed into the wrong system.
+   */
+  const handleStart = async (
+    // Both addresses share this, so `params` is whatever the route it came in on had: the alias carries a
+    // source, the plain address carries nothing.
+    req: { query: { state?: string }; params: unknown },
+    reply: FastifyReply,
+  ) => {
+    const fromPath = (req.params as { source?: string } | null | undefined)?.source;
+    const row = await stateRow(req.query.state);
+    if (!row)
+      return deadEnd(
+        reply,
+        410,
+        'That link has expired',
+        'Start connecting the old system again from Migrations.',
+      );
+    if (fromPath && row.source_system !== fromPath)
+      return deadEnd(
+        reply,
+        400,
+        'That link is for a different system',
+        'Start again from Migrations.',
+      );
+    const adapter = adapters.get(row.source_system);
+    if (!adapter)
+      return deadEnd(
+        reply,
+        501,
+        'Not set up on this server',
+        `Nothing here knows how to read ${row.source_system} yet.`,
+      );
+    let url: string;
+    try {
+      url = adapter.authorizeUrl({
+        state: req.query.state!,
+        redirectUri: callbackUrl(),
+      });
+    } catch {
+      return deadEnd(
+        reply,
+        501,
+        'Not set up on this server',
+        'The app for that system has not been configured here yet.',
+      );
+    }
+    return reply.header('cache-control', 'no-store').redirect(url, 302);
+  };
+
+  app.get<{ Querystring: { state?: string } }>('/migrations/start', handleStart);
   app.get<{ Params: { source: string }; Querystring: { state?: string } }>(
     '/migrations/:source/start',
-    async (req, reply) => {
-      const row = await stateRow(req.query.state);
-      if (!row)
-        return deadEnd(
-          reply,
-          410,
-          'That link has expired',
-          'Start connecting the old system again from Migrations.',
-        );
-      if (row.source_system !== req.params.source)
-        return deadEnd(
-          reply,
-          400,
-          'That link is for a different system',
-          'Start again from Migrations.',
-        );
-      const adapter = adapters.get(row.source_system);
-      if (!adapter)
-        return deadEnd(
-          reply,
-          501,
-          'Not set up on this server',
-          `Nothing here knows how to read ${row.source_system} yet.`,
-        );
-      let url: string;
-      try {
-        url = adapter.authorizeUrl({
-          state: req.query.state!,
-          redirectUri: callbackUrl(),
-        });
-      } catch {
-        return deadEnd(
-          reply,
-          501,
-          'Not set up on this server',
-          'The app for that system has not been configured here yet.',
-        );
-      }
-      return reply.header('cache-control', 'no-store').redirect(url, 302);
-    },
+    handleStart,
   );
 
   const handleCallback = async (

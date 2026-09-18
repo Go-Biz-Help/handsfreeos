@@ -65,7 +65,7 @@ test('migrations: connect, look, map two sub-accounts into one business, choose,
   const orgId = me.workspaces.find((w) => w.id === lonestar)!.organizationId;
 
   // Connect the old system. The stand-in's sign-in page is the worker's own, so this is the real round trip
-  // through /migrations/:source/start and back to the callback.
+  // through /migrations/start and back to /migrations/callback.
   await page.goto(`/app/org/${orgId}/migrations`);
   await expect(page.getByRole('heading', { name: 'Migrations' })).toBeVisible();
   await page.getByTestId('migration-connect').click();

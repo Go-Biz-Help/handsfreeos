@@ -72,13 +72,41 @@ const run = <T>(cmd: unknown, input: unknown): Promise<T> =>
 const ask = <T>(q: unknown, input: unknown): Promise<T> =>
   executeQuery(api(), q as never, input, actorOf(w.owner), meta()) as Promise<T>;
 
-/** Runs the migration loop until it has nothing left to do. */
-async function drain(limit = 200): Promise<void> {
+/**
+ * Runs the migration loop until **this migration** has nothing left to do.
+ *
+ * Deliberately not "until the loop claims nothing". Claiming is global, which is right in production — one
+ * worker serves every business — but it means a leftover batch from an earlier run, or from another session
+ * sharing this database, is claimed by this loop too. Waiting on the global queue therefore lets the loop go
+ * quiet while this migration's own work is still outstanding, and because these tests share one migration in
+ * sequence, one early return fails every assertion after it. Asking about our own rows instead makes the run
+ * the same whatever else the database happens to be holding.
+ */
+async function drain(limit = 400): Promise<void> {
   for (let i = 0; i < limit; i++) {
-    const stats = await processMigrationJobs(w.deps);
-    if (stats.claimed === 0) return;
+    const [mine] = await rows<{ count: number }>(
+      admin(),
+      sql`select count(*)::int as count from app.migration_jobs
+          where migration_id = ${w.migrationId}
+            and (state = 'leased'
+              or (state in ('pending', 'retry') and run_at <= now()))`,
+    );
+    if ((mine?.count ?? 0) === 0) return;
+    await processMigrationJobs(w.deps);
   }
-  throw new Error('the migration loop never went quiet');
+  // Loud, and with the reason: a silent timeout here would look exactly like a product bug.
+  const stuck = await rows<{
+    kind: string;
+    category: string;
+    state: string;
+    last_error: string | null;
+  }>(
+    admin(),
+    sql`select kind::text as kind, category, state::text as state, last_error
+        from app.migration_jobs where migration_id = ${w.migrationId}
+          and state in ('pending', 'retry', 'leased')`,
+  );
+  throw new Error(`this migration never went quiet: ${JSON.stringify(stuck)}`);
 }
 
 const people = () =>
