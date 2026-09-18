@@ -14,6 +14,7 @@ import { command, money, paths, query, readTools, when } from './tools-read';
 import { settingsReadTools } from './tools-settings';
 import { settingsBusinessConfirmTools } from './tools-settings-business';
 import { settingsChannelConfirmTools } from './tools-settings-channels';
+import { settingsMoneyConfirmTools } from './tools-settings-money';
 import { settingsCalendarConfirmTools } from './tools-settings-calendar';
 import { workflowAutoTools, workflowConfirmTools, type WorkflowToolDeps } from './tools-workflow';
 
@@ -797,6 +798,7 @@ const confirmTools: Record<string, ConfirmTool> = {
   ...settingsCalendarConfirmTools,
   ...settingsBusinessConfirmTools,
   ...settingsChannelConfirmTools,
+  ...settingsMoneyConfirmTools,
 };
 
 /** Every tool the Assistant can call has one of these; worker tests check none is missing. */

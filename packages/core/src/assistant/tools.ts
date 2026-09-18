@@ -685,6 +685,138 @@ export const assistantTools = [
     permission: 'channels.manage',
   }),
 
+  define({
+    name: 'update_money_settings',
+    description:
+      'Change how the business gets paid: sales tax, when invoices are due, your address on documents, the notes on estimates and invoices, how long an estimate is good for, deposits, whether bank transfer is offered, and the reminders that chase an unpaid invoice or an unanswered estimate. Read it with get_settings first and pass only what changes.',
+    input: z.object({
+      taxRatePercent: z.number().min(0).max(20).optional().describe('Like 8.25'),
+      taxName: text(40).optional().describe('What it is called on a document'),
+      newItemsTaxable: z.boolean().optional(),
+      businessAddress: text(300)
+        .optional()
+        .describe('As it should read on a document, up to 5 lines'),
+      terms: z
+        .enum(['due_on_receipt', 'net_7', 'net_14', 'net_30'])
+        .optional()
+        .describe('When an invoice is due'),
+      estimateNote: text(2000).optional(),
+      invoiceNote: text(2000).optional(),
+      estimateGoodForDays: z.int().min(1).max(365).optional(),
+      depositKind: z.enum(['none', 'percent', 'amount']).optional(),
+      depositPercent: z.number().min(0).max(100).optional(),
+      depositDollars: dollars.optional(),
+      offerBankTransfer: z.boolean().optional(),
+      remindBeforeDueDays: z.array(z.int().min(1).max(90)).max(3).optional(),
+      remindOnDueDay: z.boolean().optional(),
+      remindAfterDueDays: z.array(z.int().min(1).max(90)).max(4).optional(),
+      nudgeEstimateAfterDays: z.int().min(1).max(90).nullable().optional(),
+    }),
+    autonomy: 'confirm',
+    permission: 'money.manage',
+  }),
+  define({
+    name: 'manage_product',
+    description:
+      'Add, change or archive something that goes on an estimate or an invoice: its name, price, unit and whether it is taxed.',
+    input: z.object({
+      action: z.enum(['create', 'change', 'archive']),
+      productId: uuid.optional(),
+      name: text(120).optional(),
+      description: text(1000).optional(),
+      priceDollars: dollars.optional(),
+      unitLabel: text(40).optional().describe('each, hour, visit'),
+      taxable: z.boolean().optional(),
+      serviceId: uuid.nullable().optional().describe('The bookable service it matches'),
+    }),
+    autonomy: 'confirm',
+    permission: 'money.manage',
+  }),
+  define({
+    name: 'manage_payment_account',
+    description:
+      'Change a payout account that is already connected: rename it, make it the one used by default, or disconnect it. Connecting a new one means signing in to Stripe or Square, which only the person can do — use settings_help for that.',
+    input: z.object({
+      action: z.enum(['rename', 'make_default', 'disconnect']),
+      connectionId: uuid,
+      label: text(60).optional(),
+    }),
+    autonomy: 'confirm',
+    permission: 'money.manage',
+  }),
+  define({
+    name: 'update_action_center_settings',
+    description:
+      'Change what Home watches for and what HandsFreeOS does on its own: which kinds of thing show up, how fast a new lead counts as waiting, what a big job is worth, how long before a lead has gone quiet, when an estimate or an unpaid invoice asks for attention, and whether HandsFreeOS confirms visits and follows up by itself. Read it with get_settings first.',
+    input: z.object({
+      kindsOn: z.array(z.enum(ATTENTION_KINDS)).max(10).optional().describe('Kinds to turn on'),
+      kindsOff: z.array(z.enum(ATTENTION_KINDS)).max(10).optional().describe('Kinds to turn off'),
+      bigJobDollars: dollars.optional().describe('A lead worth at least this counts as big'),
+      hotLeadUrgentAfterMinutes: z.int().min(1).max(240).optional(),
+      newLeadWaitingAfterMinutes: z.int().min(1).max(480).optional(),
+      goneQuietAfterDays: z.int().min(1).max(365).optional(),
+      unconfirmedVisitWindowHours: z.int().min(1).max(168).optional(),
+      estimateWaitingDays: z.int().min(1).max(60).optional(),
+      invoiceOverdueDays: z.int().min(0).max(60).optional(),
+      typicalJobValueDollars: dollars
+        .nullable()
+        .optional()
+        .describe('null works it out from won leads'),
+      askCustomersToConfirmVisits: z.boolean().optional(),
+      replyCToConfirm: z.boolean().optional(),
+      followUpOnQuietLeads: z
+        .boolean()
+        .optional()
+        .describe('Only turns on after the follow-up wording has been read and agreed'),
+      followUpMessage: text(480).optional(),
+      followUpCooldownDays: z.int().min(1).max(90).optional(),
+    }),
+    autonomy: 'confirm',
+    permission: 'workspace.update',
+  }),
+  define({
+    name: 'manage_ai_teammate',
+    description:
+      'Set up or change the AI teammate: its name, how it says it is AI, whether it is off, on training wheels (every message waits for a person) or automatic, which channels it answers, its hours, what it may do (reply, answer questions, qualify, book, follow up) and its limits. Read it with get_settings first.',
+    input: z.object({
+      action: z.enum(['create', 'change', 'set_status']),
+      preset: z
+        .enum(['lead_responder', 'lead_qualifier', 'appointment_coordinator', 'blank'])
+        .optional()
+        .describe('What it starts out doing'),
+      name: text(40).optional(),
+      disclosure: z
+        .enum(['first_message', 'when_asked'])
+        .optional()
+        .describe('When it says it is AI'),
+      status: z
+        .enum(['off', 'training', 'automatic'])
+        .optional()
+        .describe('training: every message waits for a person'),
+      answersTexts: z.boolean().optional(),
+      answersEmail: z.boolean().optional(),
+      answersWebsiteChat: z.boolean().optional(),
+      repliesToLeads: z.boolean().optional(),
+      answersQuestions: z.boolean().optional(),
+      booksVisits: z.boolean().optional(),
+      bookableCalendarIds: z.array(uuid).max(20).optional(),
+      followsUp: z.boolean().optional(),
+      maxFollowUps: z.int().min(1).max(5).optional(),
+      hoursMode: z
+        .enum(['always', 'after_hours', 'custom'])
+        .optional()
+        .describe('When it answers at all'),
+      handOffWhenUnsure: z
+        .boolean()
+        .optional()
+        .describe(
+          'Hand to a person when the knowledge base has no answer, rather than taking a message',
+        ),
+    }),
+    autonomy: 'confirm',
+    permission: 'ai_team.manage',
+  }),
+
   // ---------- tasks and notes (auto, with Undo) ----------
   define({
     name: 'create_task',

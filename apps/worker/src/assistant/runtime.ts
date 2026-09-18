@@ -137,6 +137,11 @@ const STEP_LABEL: Record<string, string> = {
   submit_carrier_registration: 'Filling in the registration',
   manage_email_settings: 'Setting up email',
   manage_website_chat: 'Setting up the website chat',
+  update_money_settings: 'Changing how you get paid',
+  manage_product: 'Setting up the item',
+  manage_payment_account: 'Changing where money lands',
+  update_action_center_settings: 'Changing what Home watches for',
+  manage_ai_teammate: 'Setting up your AI teammate',
 };
 const stepLabel = (tool: string) => STEP_LABEL[tool] ?? 'Preparing it for your OK';
 

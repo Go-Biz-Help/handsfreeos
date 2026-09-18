@@ -597,3 +597,115 @@ describe('email', () => {
     expect(addresses.some((a) => a.address.startsWith(`desk-${suffix}@`))).toBe(true);
   });
 });
+
+describe('how you get paid', () => {
+  it('changes the tax and keeps every reminder, and says when a reminder would land too early', async () => {
+    const before = await q<{ settings: { reminders: { afterDueDays: number[] } } }>(
+      'money.settings',
+    );
+    const { card, parsed, tool } = await prepare(
+      'update_money_settings',
+      { taxRatePercent: 8.25, taxName: 'Sales tax', estimateGoodForDays: 30 },
+      owner,
+    );
+    expect(card.fields.find((f) => f.label === 'Sales tax')!.value).toBe('8.25%');
+    expect(card.fields.find((f) => f.label === 'Estimates good for')!.value).toBe('30 days');
+    await confirm(tool!, parsed, owner);
+
+    const after = await q<{
+      settings: {
+        tax: { rateBp: number };
+        estimateGoodForDays: number;
+        reminders: { afterDueDays: number[] };
+      };
+    }>('money.settings');
+    expect(after.settings.tax.rateBp).toBe(825);
+    expect(after.settings.estimateGoodForDays).toBe(30);
+    expect(after.settings.reminders.afterDueDays).toEqual(before.settings.reminders.afterDueDays);
+
+    const early = await prepare('update_money_settings', { terms: 'due_on_receipt' }, owner);
+    expect(early.card.warnings[0]!.text).toContain('before the invoice');
+  });
+});
+
+describe('what Home watches for', () => {
+  it('turns a kind off without touching the others, and refuses automatic follow-ups it cannot turn on', async () => {
+    const { card, parsed, tool } = await prepare(
+      'update_action_center_settings',
+      { kindsOff: ['overdue_task'], bigJobDollars: 7500 },
+      owner,
+    );
+    expect(card.fields.find((f) => f.label === 'A big job is')!.value).toBe('$7,500.00 or more');
+    await confirm(tool!, parsed, owner);
+    const after = await q<{
+      settings: { kinds: Record<string, boolean>; hot: { minValueCents: number } };
+    }>('attention.settings');
+    expect(after.settings.kinds['overdue_task']).toBe(false);
+    expect(after.settings.kinds['hot_lead']).toBe(true);
+    expect(after.settings.hot.minValueCents).toBe(750_000);
+
+    // Follow-ups stay off until someone has read the wording, so the card offers no Confirm at all.
+    const nudges = await prepare(
+      'update_action_center_settings',
+      { followUpOnQuietLeads: true },
+      owner,
+    );
+    expect(nudges.card.confirmLabel).toBe('');
+    expect(nudges.card.warnings[0]!.text).toContain('read and agreed');
+  });
+});
+
+describe('the AI teammate', () => {
+  it('sets one up switched off, then puts it on training wheels', async () => {
+    const setup = await prepare(
+      'manage_ai_teammate',
+      { action: 'create', name: 'Ava', preset: 'lead_responder', answersTexts: true },
+      owner,
+    );
+    expect(setup.card.title).toBe('Set up your AI teammate');
+    expect(setup.card.warnings[0]!.text).toContain('training wheels');
+    const done = await confirm(setup.tool!, setup.parsed, owner);
+    expect(done.outcome).toContain('off until you turn it on');
+    const made = await q<{ teammate: { name: string; status: string } | null }>('ai_teammate.get');
+    expect(made.teammate!.name).toBe('Ava');
+    expect(made.teammate!.status).toBe('off');
+
+    const training = await prepare(
+      'manage_ai_teammate',
+      { action: 'set_status', status: 'training' },
+      owner,
+    );
+    expect(training.card.fields.find((f) => f.label === 'Now')!.value).toContain('waits for you');
+    await confirm(training.tool!, training.parsed, owner);
+    const now = await q<{ teammate: { status: string } | null }>('ai_teammate.get');
+    expect(now.teammate!.status).toBe('training');
+
+    const auto = await prepare(
+      'manage_ai_teammate',
+      { action: 'set_status', status: 'automatic' },
+      owner,
+    );
+    expect(auto.card.warnings[0]!.text).toContain('without waiting for you');
+  });
+
+  it('changes one thing about it and leaves its name and the rest alone', async () => {
+    const before = await q<{
+      teammate: { name: string; config: { answer: { enabled: boolean } } };
+    }>('ai_teammate.get');
+    const { parsed, tool } = await prepare(
+      'manage_ai_teammate',
+      { action: 'change', booksVisits: false },
+      owner,
+    );
+    await confirm(tool!, parsed, owner);
+    const after = await q<{
+      teammate: {
+        name: string;
+        config: { answer: { enabled: boolean }; book: { enabled: boolean } };
+      };
+    }>('ai_teammate.get');
+    expect(after.teammate.config.book.enabled).toBe(false);
+    expect(after.teammate.name).toBe(before.teammate.name);
+    expect(after.teammate.config.answer.enabled).toBe(before.teammate.config.answer.enabled);
+  });
+});
