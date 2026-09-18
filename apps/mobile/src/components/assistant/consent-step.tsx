@@ -53,7 +53,6 @@ export function ConsentStep({
           </View>
         ))}
       </View>
-      <Text className="text-xs text-text-3">{WORDS.footnote}</Text>
       <View className="gap-2 pt-2">
         <Button
           loading={busy}

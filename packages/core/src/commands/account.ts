@@ -131,7 +131,7 @@ export const accountDelete = defineCommand({
 export const assistantConsent = defineCommand({
   name: 'assistant.consent',
   description:
-    'Say OK to what the Assistant does with your questions: what you ask about is sent to Anthropic’s Claude to answer you. One OK covers the web and the phone.',
+    'Say OK to what the Assistant does with your questions: what you ask about is sent to an AI service to answer you. One OK covers the web and the phone.',
   risk: 1,
   input: AssistantConsentInput,
   output: AssistantConsentOutput,

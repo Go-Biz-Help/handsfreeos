@@ -16,8 +16,8 @@ const ICONS: Record<ConsentPointIcon, LucideIcon> = {
 };
 
 /**
- * The Assistant's consent step (M10), before the first question: what someone asks about goes to Anthropic's
- * Claude. OK, continue keeps the OK with their account (one OK covers the web and the phone) and asks any
+ * The Assistant's consent step (M10), before the first question: what someone asks about goes to an AI service.
+ * OK, continue keeps the OK with their account (one OK covers the web and the phone) and asks any
  * question that was waiting; Not now closes the panel and asks again next time.
  */
 export function ConsentStep({ phone }: { phone: boolean }) {
@@ -47,7 +47,6 @@ export function ConsentStep({ phone }: { phone: boolean }) {
           );
         })}
       </ul>
-      <p className="text-xs text-text-3">{WORDS.footnote}</p>
       <span className="min-h-2 flex-1" />
       <div className="flex gap-2">
         <Button

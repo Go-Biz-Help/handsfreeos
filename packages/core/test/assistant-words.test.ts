@@ -84,10 +84,8 @@ describe('the notice cards', () => {
 describe('the consent step', () => {
   it('says what is sent, that nothing reaches a customer without an OK, and where the OK is kept', () => {
     const web = assistantConsentWords('web');
-    expect(web.title).toBe('The Assistant uses Anthropic’s Claude');
-    expect(web.lead).toBe('What you ask about is sent to Anthropic’s Claude to answer you.');
-    // The processor is named on purpose: it is what makes the consent informed.
-    expect(web.footnote).toBe('Anthropic is the company that makes Claude.');
+    expect(web.title).toBe('How the Assistant answers you');
+    expect(web.lead).toBe('What you ask about is sent to an AI service to answer you.');
     expect(web.points[1]!.text).toBe(
       'Nothing goes to a customer, and nothing is booked or changed, until you say OK.',
     );

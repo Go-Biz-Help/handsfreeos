@@ -85,7 +85,7 @@ function describeAction(e: AuditEntry): string {
     case 'account.note_deleted':
       return 'finished deleting a teammate’s account: what they worked on stays, shown as from a former teammate';
     case 'assistant.consent':
-      return 'said OK to the Assistant sending what they ask about to Anthropic’s Claude';
+      return 'said OK to the Assistant sending what they ask about to an AI service';
     case 'user_phone.start_verification':
       return 'asked HandsFreeOS to call their cell phone to confirm it';
     case 'user_phone.verify':

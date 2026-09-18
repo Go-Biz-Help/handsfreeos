@@ -132,8 +132,6 @@ export interface ConsentWords {
   readonly title: string;
   readonly lead: string;
   readonly points: readonly { readonly icon: ConsentPointIcon; readonly text: string }[];
-  /** Who Anthropic are, for anyone who doesn't know the name. */
-  readonly footnote: string;
   readonly ok: string;
   readonly notNow: string;
 }
@@ -145,8 +143,8 @@ export interface ConsentWords {
  */
 export function assistantConsentWords(place: 'web' | 'phone'): ConsentWords {
   return {
-    title: 'The Assistant uses Anthropic’s Claude',
-    lead: 'What you ask about is sent to Anthropic’s Claude to answer you.',
+    title: 'How the Assistant answers you',
+    lead: 'What you ask about is sent to an AI service to answer you.',
     points: [
       {
         icon: 'chat',
@@ -164,7 +162,6 @@ export function assistantConsentWords(place: 'web' | 'phone'): ConsentWords {
             : 'Your OK is kept with your account, so you won’t be asked again here or on your phone.',
       },
     ],
-    footnote: 'Anthropic is the company that makes Claude.',
     ok: 'OK, continue',
     notNow: 'Not now',
   };

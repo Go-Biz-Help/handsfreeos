@@ -1,6 +1,6 @@
 /**
  * The Assistant's consent step (M10): before the first question, on the phone or the web, the person is told that
- * what they ask about goes to Anthropic's Claude, and their OK is kept with their account (`users.settings`, under
+ * what they ask about goes to an AI service, and their OK is kept with their account (`users.settings`, under
  * `assistantConsent`: the wording's version and when they said it). One OK covers every app; "Not now" keeps
  * nothing, so it asks again next time. Browser-safe: the panels read the same answer the worker enforces.
  */
@@ -9,7 +9,7 @@
  * The version of the consent wording people are asked to OK. Raise it when the wording changes in a way that
  * matters (what is sent, or to whom), and everyone is asked again.
  */
-export const ASSISTANT_CONSENT_VERSION = 1;
+export const ASSISTANT_CONSENT_VERSION = 2;
 
 /** Where the OK is kept in a person's settings. */
 export const ASSISTANT_CONSENT_KEY = 'assistantConsent';

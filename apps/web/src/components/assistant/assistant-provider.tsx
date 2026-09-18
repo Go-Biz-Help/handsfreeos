@@ -98,7 +98,7 @@ export interface AssistantValue {
   readonly enabled: boolean;
   /**
    * The consent step shows before any question: the person hasn't said OK yet to what they ask about going to
-   * Anthropic's Claude (account.me's assistantConsent, or the worker's assistant_consent_required refusal).
+   * an AI service (account.me's assistantConsent, or the worker's assistant_consent_required refusal).
    */
   readonly consentNeeded: boolean;
   /** "OK, continue": keeps the OK with the account, then asks the question that was waiting, if any. */
@@ -362,7 +362,7 @@ export function AssistantProvider({
     (raw: string) => {
       const text = raw.trim();
       if (!text || !enabled || streamRef.current) return;
-      // Nothing goes to Claude before the person's OK: the question waits for it.
+      // Nothing goes to the AI service before the person's OK: the question waits for it.
       if (consentNeeded) {
         waitingQuestionRef.current = text;
         setView('chat');
@@ -479,7 +479,7 @@ export function AssistantProvider({
             return;
           }
           // No OK on file after all (given on another device and taken back, or a newer wording): the consent
-          // step shows, and the question waits for it. Nothing reached Claude.
+          // step shows, and the question waits for it. Nothing reached the AI service.
           if (e instanceof ApiError && e.rule === 'assistant_consent_required') {
             setMessages((all) => all.filter((m) => m.key !== userKey && m.key !== answerKey));
             waitingQuestionRef.current = text;

@@ -100,7 +100,7 @@ export const AccountDeletionCheckOutput = z.object({
   ),
 });
 
-/** The person's OK to send what they ask the Assistant about to Anthropic's Claude. One OK covers every app. */
+/** The person's OK to send what they ask the Assistant about to an AI service. One OK covers every app. */
 export const AssistantConsentInput = z.object({
   /** The wording version they were shown (ASSISTANT_CONSENT_VERSION). */
   version: z.number().int().min(1).max(1000),

@@ -32,15 +32,14 @@ test('asks for the OK before the first question; Not now asks again; OK keeps it
 
   await page.getByTestId('ask-assistant').click();
   await expect(
-    step(page).getByRole('heading', { name: 'The Assistant uses Anthropic’s Claude' }),
+    step(page).getByRole('heading', { name: 'How the Assistant answers you' }),
   ).toBeVisible();
   await expect(step(page)).toContainText(
-    'What you ask about is sent to Anthropic’s Claude to answer you.',
+    'What you ask about is sent to an AI service to answer you.',
   );
   await expect(step(page)).toContainText(
     'Nothing goes to a customer, and nothing is booked or changed, until you say OK.',
   );
-  await expect(step(page)).toContainText('Anthropic is the company that makes Claude.');
   await expect(panel(page).getByRole('textbox', { name: 'Message the Assistant' })).toHaveCount(0);
 
   await step(page).getByRole('button', { name: 'Not now' }).click();

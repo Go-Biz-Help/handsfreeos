@@ -108,7 +108,7 @@ describe('the Assistant’s consent', () => {
         code: 'rule_violation',
         rule: 'assistant_consent_required',
         message:
-          'The Assistant uses Anthropic’s Claude: what you ask about is sent to Claude to answer you. Say OK once, on the web or your phone, and it won’t ask again.',
+          'The Assistant sends what you ask about to an AI service to answer you. Say OK once, on the web or your phone, and it won’t ask again.',
         details: { version: ASSISTANT_CONSENT_VERSION, command: 'assistant.consent' },
         disposition: 'ask',
       },

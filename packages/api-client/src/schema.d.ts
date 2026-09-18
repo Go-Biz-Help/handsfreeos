@@ -447,7 +447,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Say OK to what the Assistant does with your questions: what you ask about is sent to Anthropic’s Claude to answer you. One OK covers the web and the phone.
+         * Say OK to what the Assistant does with your questions: what you ask about is sent to an AI service to answer you. One OK covers the web and the phone.
          * @description Risk level 1. Emits assistant.consented.
          */
         post: operations["command_assistant_consent"];

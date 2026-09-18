@@ -918,7 +918,7 @@
     "/v1/commands/assistant.consent": {
       "post": {
         "operationId": "command_assistant_consent",
-        "summary": "Say OK to what the Assistant does with your questions: what you ask about is sent to Anthropic’s Claude to answer you. One OK covers the web and the phone.",
+        "summary": "Say OK to what the Assistant does with your questions: what you ask about is sent to an AI service to answer you. One OK covers the web and the phone.",
         "tags": [
           "commands"
         ],

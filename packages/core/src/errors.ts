@@ -32,7 +32,7 @@ const ASK_RULES: ReadonlySet<string> = new Set([
   'has_open_work',
   // Disconnecting a payment account that plans still bill through (acknowledgeSubscriptions).
   'payment_connection_has_plans',
-  // The Assistant before the person's OK to send what they ask about to Anthropic's Claude (assistant.consent).
+  // The Assistant before the person's OK to send what they ask about to an AI service (assistant.consent).
   'assistant_consent_required',
 ]);
 

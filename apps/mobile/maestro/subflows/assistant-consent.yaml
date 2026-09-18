@@ -7,7 +7,7 @@ appId: com.gobizhelp.handsfreeos
       visible:
         id: 'assistant-consent'
     commands:
-      - assertVisible: 'The Assistant uses Anthropic’s Claude'
+      - assertVisible: 'How the Assistant answers you'
       - assertVisible: 'Nothing goes to a customer, and nothing is booked or changed, until you say OK.'
       - tapOn:
           id: 'assistant-consent-ok'

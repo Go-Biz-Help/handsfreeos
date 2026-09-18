@@ -3,7 +3,7 @@ name: Ask HandsFreeOS - an answer with its card, and your chats
 tags:
   - ci
 # The mark at the top of every screen opens Ask HandsFreeOS full screen. The first time it asks for the OK to send
-# what you ask about to Anthropic’s Claude (the OK is kept with the account, so later runs go straight in). Then a
+# what you ask about to an AI service (the OK is kept with the account, so later runs go straight in). Then a
 # question with a card: every figure on it comes from Money, not from the model. Finally the chats list, which is
 # where the answer was saved, and a new chat.
 env:

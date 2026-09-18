@@ -27,7 +27,7 @@ export interface AssistantServices {
 }
 
 /**
- * The person's OK to send what they ask about to Anthropic's Claude (assistant.consent), read as them. Without it the
+ * The person's OK to send what they ask about to an AI service (assistant.consent), read as them. Without it the
  * question isn't asked: a refusal the panels answer with the consent step (disposition "ask").
  */
 async function assertConsented(deps: HttpDeps, actor: HumanActor): Promise<void> {
@@ -39,7 +39,7 @@ async function assertConsented(deps: HttpDeps, actor: HumanActor): Promise<void>
     throw new HfosError(
       'rule_violation',
       409,
-      'The Assistant uses Anthropic’s Claude: what you ask about is sent to Claude to answer you. Say OK once, on the web or your phone, and it won’t ask again.',
+      'The Assistant sends what you ask about to an AI service to answer you. Say OK once, on the web or your phone, and it won’t ask again.',
       { version: consent.version, command: 'assistant.consent' },
       'assistant_consent_required',
     );

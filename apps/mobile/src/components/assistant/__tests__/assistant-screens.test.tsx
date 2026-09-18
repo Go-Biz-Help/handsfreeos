@@ -66,9 +66,9 @@ beforeEach(() => {
 describe('the consent step', () => {
   it('asks before the first question, in the canvas’s words', async () => {
     await render(<ConsentStep onAccept={jest.fn(async () => undefined)} onDecline={jest.fn()} />);
-    expect(screen.getByText('The Assistant uses Anthropic’s Claude')).toBeTruthy();
+    expect(screen.getByText('How the Assistant answers you')).toBeTruthy();
     expect(
-      screen.getByText('What you ask about is sent to Anthropic’s Claude to answer you.'),
+      screen.getByText('What you ask about is sent to an AI service to answer you.'),
     ).toBeTruthy();
     expect(
       screen.getByText(
