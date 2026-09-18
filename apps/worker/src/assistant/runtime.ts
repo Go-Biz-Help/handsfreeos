@@ -120,6 +120,8 @@ const STEP_LABEL: Record<string, string> = {
   money_collected: 'Adding up what has come in',
   customer_money: 'Looking at their money',
   estimates_waiting: 'Looking at estimates out',
+  get_settings: 'Looking at how this is set up',
+  settings_help: 'Finding where that lives',
 };
 const stepLabel = (tool: string) => STEP_LABEL[tool] ?? 'Preparing it for your OK';
 

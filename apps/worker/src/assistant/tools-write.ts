@@ -11,6 +11,7 @@ import { attentionAutoTools, attentionConfirmTools } from './tools-attention';
 import { calendarConfirmTools } from './tools-calendar';
 import { moneyConfirmTools, moneyReadTools } from './tools-money';
 import { command, money, paths, query, readTools, when } from './tools-read';
+import { settingsReadTools } from './tools-settings';
 import { workflowAutoTools, workflowConfirmTools, type WorkflowToolDeps } from './tools-workflow';
 
 /** The same choices as the pipeline's lost-reason dialog (apps/web/src/components/pipeline/lost-reason-dialog.tsx). */
@@ -795,6 +796,7 @@ const confirmTools: Record<string, ConfirmTool> = {
 /** Every tool the Assistant can call has one of these; worker tests check none is missing. */
 export const executorFor = (name: string) =>
   readTools[name] ??
+  settingsReadTools[name] ??
   autoWrites[name] ??
   attentionAutoTools[name] ??
   moneyReadTools[name] ??
@@ -810,6 +812,7 @@ export function createToolExecutor(
     async run(tool: AssistantTool, args: Args, ctx: ToolContext) {
       const run =
         readTools[tool.name] ??
+        settingsReadTools[tool.name] ??
         autoWrites[tool.name] ??
         attentionAutoTools[tool.name] ??
         moneyReadTools[tool.name];

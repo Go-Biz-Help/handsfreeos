@@ -4,6 +4,7 @@ import { isLocalDate } from '../calendar/engine/zoned';
 import type { Permission } from '../permissions';
 import { ATTENTION_ASK_ACTIONS } from '../schemas/attention';
 import { uuid } from '../schemas/common';
+import { SETTINGS_AREAS } from './settings-map';
 
 /**
  * The Assistant's tools: each one maps to commands and queries people already use, so the Assistant
@@ -298,6 +299,28 @@ export const assistantTools = [
     description:
       'Search the business’s knowledge base (published FAQs, facts, articles and documents) for what to say about the business: services, prices, policies, hours. Answer only from what it returns.',
     input: z.object({ query: text(500) }),
+    autonomy: 'auto',
+    permission: 'workspace.read',
+  }),
+
+  // ---------- how the business is set up (auto) ----------
+  define({
+    name: 'get_settings',
+    description:
+      'How one part of the business is set up right now: its calendars, services, pipelines, team, texting, email, website chat, payments, Action Center, AI teammate, knowledge base, or the person’s own account and hours. Call it before proposing any change to settings, so what you propose is a change to what is really there, and to answer "what are my…" questions about the setup.',
+    input: z.object({
+      area: z.enum(SETTINGS_AREAS).describe('Which part of the setup to read'),
+    }),
+    autonomy: 'auto',
+    permission: 'workspace.read',
+  }),
+  define({
+    name: 'settings_help',
+    description:
+      'The steps for something only the person can do themselves: connecting Google, Outlook, Stripe or Square, connecting a mailbox, the DNS records for their own email domain, putting the website-chat snippet on their site, passwords and passkeys, confirming their cell, importing a spreadsheet, moving in from another system, or deleting their account. Returns where it lives and what to do, as a card. Use it instead of guessing, and offer to do the parts you can.',
+    input: z.object({
+      area: z.enum(SETTINGS_AREAS).describe('Which part of the setup they are asking about'),
+    }),
     autonomy: 'auto',
     permission: 'workspace.read',
   }),
