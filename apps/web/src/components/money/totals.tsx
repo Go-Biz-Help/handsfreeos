@@ -1,12 +1,9 @@
-import { money, refundShares } from '@hfos/core';
+import { percentLabel, totalsRows } from '@hfos/core';
 import type { ReactNode } from 'react';
 import { cn } from '@/lib/utils';
 
-/** Basis points as people write them: 825 → "8.25%", 1000 → "10%". */
-export function percentLabel(bp: number): string {
-  const value = (bp ?? 0) / 100;
-  return `${Number.isInteger(value) ? value : Number(value.toFixed(2))}%`;
-}
+/** Core's, so the phone's document screen reads the same percentages. */
+export { percentLabel };
 
 export function TotalRow({
   label,
@@ -77,68 +74,25 @@ export function Totals({
   paidCents?: number;
   balanceCents?: number;
   refundedCents?: number;
-  paidLabel?: ReactNode;
+  paidLabel?: string;
   children?: ReactNode;
   className?: string;
   testId?: string;
 }) {
-  const discounted = totals.discountCents > 0;
-  const owes = balanceCents !== undefined;
-  const refund = refundShares(totals.totalCents, paidCents ?? 0, refundedCents ?? 0);
+  // The rows, their labels and their order are core's (`money/document-words.ts`), so the phone adds up the same.
+  const rows = totalsRows(totals, { paidCents, balanceCents, refundedCents, paidLabel });
   return (
     <div className={className} data-testid={testId}>
-      <TotalRow
-        label="Subtotal"
-        value={money(totals.subtotalCents + totals.discountCents)}
-        testId="totals-subtotal"
-      />
-      {discounted ? (
+      {rows.map((row) => (
         <TotalRow
-          label={
-            totals.discountPercentBp
-              ? `${percentLabel(totals.discountPercentBp)} off, before tax`
-              : 'Off the whole job, before tax'
-          }
-          value={`−${money(totals.discountCents)}`}
-          credit
-          testId="totals-discount"
+          key={row.key}
+          label={row.label}
+          value={row.value}
+          big={row.big}
+          credit={row.credit}
+          testId={`totals-${row.key}`}
         />
-      ) : null}
-      {totals.taxRateBp > 0 ? (
-        <TotalRow
-          label={`${totals.taxLabel ?? 'Sales tax'} · ${percentLabel(totals.taxRateBp)} on ${money(totals.taxableBaseCents)}`}
-          value={money(totals.taxCents)}
-          testId="totals-tax"
-        />
-      ) : null}
-      <TotalRow label="Total" value={money(totals.totalCents)} big={!owes} testId="totals-total" />
-      {owes ? (
-        <>
-          {paidCents ? (
-            <TotalRow
-              label={paidLabel}
-              value={`−${money(paidCents)}`}
-              credit
-              testId="totals-paid"
-            />
-          ) : null}
-          {refund.fromOverpaymentCents ? (
-            <TotalRow
-              label="Overpayment given back"
-              value={money(refund.fromOverpaymentCents)}
-              testId="totals-overpayment"
-            />
-          ) : null}
-          <TotalRow label="Amount due" value={money(balanceCents)} big testId="totals-balance" />
-          {refund.givenBackCents ? (
-            <TotalRow
-              label="Refunded to the customer"
-              value={money(refund.givenBackCents)}
-              testId="totals-refunded"
-            />
-          ) : null}
-        </>
-      ) : null}
+      ))}
       {children}
     </div>
   );

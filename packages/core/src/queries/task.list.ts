@@ -1,9 +1,10 @@
 import { rows, sql } from '@hfos/db/client';
 import { workspaceTimezone } from '../crm/records';
+import { taskDueBucket } from '../crm/task-words';
 import { requireHuman } from '../kernel/actor';
 import { defineQuery } from '../kernel/define';
 import { decodeCursor, page } from '../kernel/pagination';
-import { TaskListInput, TaskListOutput, type TaskOut } from '../schemas/task';
+import { TaskListInput, TaskListOutput } from '../schemas/task';
 
 type Row = {
   id: string;
@@ -11,7 +12,6 @@ type Row = {
   notes: string | null;
   due_at: Date | null;
   all_day: boolean;
-  bucket: TaskOut['dueBucket'];
   assignee_id: string | null;
   assignee_name: string | null;
   person_id: string | null;
@@ -44,18 +44,12 @@ export const taskList = defineQuery({
     const tz = await workspaceTimezone(ctx.tx, input.workspaceId);
     const me = requireHuman(ctx).userId;
     const cursor = decodeCursor(input.cursor);
+    const now = new Date();
     const doneOrder = input.status === 'done';
     const list = await rows<Row>(
       ctx.tx,
       sql`select * from (
           select t.id, t.title, t.notes, t.due_at, t.all_day,
-            case
-              when t.due_at is null then 'none'
-              when t.done_at is not null then 'none'
-              when (t.all_day and (t.due_at at time zone ${tz})::date < (now() at time zone ${tz})::date) or (not t.all_day and t.due_at < now()) then 'overdue'
-              when (t.due_at at time zone ${tz})::date = (now() at time zone ${tz})::date then 'today'
-              when (t.due_at at time zone ${tz})::date < (now() at time zone ${tz})::date + 7 then 'week'
-              else 'later' end as bucket,
             t.assignee_user_id as assignee_id, coalesce(nullif(a.full_name, ''), a.email::text) as assignee_name,
             t.person_id, btrim(p.first_name || ' ' || p.last_name) as person_name, p.archived_at as person_archived,
             t.company_id, c.name as company_name, c.archived_at as company_archived,
@@ -98,7 +92,12 @@ export const taskList = defineQuery({
         notes: r.notes,
         dueAt: iso(r.due_at),
         allDay: r.all_day,
-        dueBucket: r.bucket,
+        // The rule is core's, so a phone working it out from its own copy lands on the same group.
+        dueBucket: taskDueBucket(
+          { dueAt: r.due_at, allDay: r.all_day, doneAt: r.done_at },
+          tz,
+          now,
+        ),
         assignee: r.assignee_id
           ? { id: r.assignee_id, fullName: r.assignee_name ?? 'Former member' }
           : null,

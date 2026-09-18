@@ -137,6 +137,7 @@ export function ListNote({ children }: { children: ReactNode }) {
 
 /**
  * The Status column answers "where is this document", so an opened one still reads Sent — the canvas keeps
- * "opened" in the sentence beside it. The document's own page shows the fuller state.
+ * "opened" in the sentence beside it. The document's own page shows the fuller state. Core's, so the phone's
+ * Money list says the same (`money/lists.ts`).
  */
-export const listState = (state: string): string => (state === 'viewed' ? 'sent' : state);
+export { listState } from '@hfos/core';

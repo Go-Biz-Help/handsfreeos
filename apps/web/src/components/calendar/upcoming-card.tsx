@@ -4,8 +4,16 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import type { Appointment } from '@/lib/api/types';
-import { dateOf, fmtMonthDay, fmtRange, todayIn, weekdayShort } from '@/lib/calendar/time';
-import { firstName, holdOf, holdWords, namesText, useNow } from './appt';
+import {
+  NOT_BOOKED_YET,
+  sourceLabel,
+  upcomingDetail,
+  UPCOMING_EMPTY,
+  UPCOMING_TITLE,
+  type AgendaAppointment,
+} from '@hfos/core';
+import { dateOf, fmtMonthDay, todayIn, weekdayShort } from '@/lib/calendar/time';
+import { holdOf, holdWords, useNow } from './appt';
 
 /** One appointment as a row: a date tile, the calendar's color, what and when, who and what's reserved. */
 export function AppointmentRow({
@@ -21,13 +29,8 @@ export function AppointmentRow({
   const d = dateOf(a.startsAt, timeZone);
   const sameMonth = d.slice(0, 7) === todayIn(timeZone).slice(0, 7);
   const hold = holdOf(a, now);
-  const detail = [
-    fmtRange(a.startsAt, a.endsAt, timeZone),
-    namesText(a.staff.map((s) => firstName(s.fullName))),
-    ...a.resources.map((r) => r.name),
-  ]
-    .filter(Boolean)
-    .join(' · ');
+  // The same line core gives the phone's Upcoming card.
+  const detail = upcomingDetail(a as unknown as AgendaAppointment, timeZone);
   return (
     <button
       type="button"
@@ -52,12 +55,12 @@ export function AppointmentRow({
           <span className="truncate text-[13px] font-medium">{a.title}</span>
           {a.source === 'booking_page' || a.source === 'ai_teammate' ? (
             <Badge variant="gray" className="h-5 text-[11.5px]">
-              {a.source === 'ai_teammate' ? 'Booked by AI' : 'Booked online'}
+              {sourceLabel(a.source)}
             </Badge>
           ) : null}
           {hold ? (
             <Badge variant="pending" className="h-5 text-[11.5px]">
-              Not booked yet
+              {NOT_BOOKED_YET}
             </Badge>
           ) : a.status === 'completed' ? (
             <Badge variant="ok" className="h-5 text-[11.5px]">
@@ -92,7 +95,7 @@ export function UpcomingAppointments({
   return (
     <Card className="px-4 pb-2 pt-4 md:px-[18px]" data-testid="upcoming-appointments">
       <div className="mb-1 flex items-center justify-between">
-        <h3 className="text-[15px] font-semibold">Upcoming appointments</h3>
+        <h3 className="text-[15px] font-semibold">{UPCOMING_TITLE}</h3>
         {onBook ? (
           <Button variant="ghost" size="sm" onClick={onBook}>
             <CalendarPlus className="h-4 w-4" strokeWidth={1.5} />
@@ -101,7 +104,7 @@ export function UpcomingAppointments({
         ) : null}
       </div>
       {items.length === 0 ? (
-        <p className="border-t border-border py-3 text-[13px] text-text-2">Nothing booked.</p>
+        <p className="border-t border-border py-3 text-[13px] text-text-2">{UPCOMING_EMPTY}</p>
       ) : (
         items.map((a) => <AppointmentRow key={a.id} appt={a} timeZone={timeZone} onOpen={onOpen} />)
       )}

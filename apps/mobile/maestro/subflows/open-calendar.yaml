@@ -1,0 +1,23 @@
+# Opens the Calendar tab from anywhere in a business, closing whatever was opened over the tabs first.
+appId: com.gobizhelp.handsfreeos
+---
+- repeat:
+    times: 4
+    while:
+      notVisible:
+        id: 'tab-calendar'
+    commands:
+      - runFlow:
+          when:
+            visible:
+              id: 'back'
+          commands:
+            - tapOn:
+                id: 'back'
+            - waitForAnimationToEnd
+- tapOn:
+    id: 'tab-calendar'
+- extendedWaitUntil:
+    visible:
+      id: 'calendar-day-heading'
+    timeout: 30000

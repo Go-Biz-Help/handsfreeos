@@ -1,4 +1,5 @@
 'use client';
+import { APPEARANCE_OPTIONS, APPEARANCE_WORDS } from '@hfos/core';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { applyTheme } from '@/components/shell/theme-sync';
@@ -6,11 +7,8 @@ import { apiBrowser, errorMessage, unwrap } from '@/lib/api/client';
 import type { ThemeChoice } from '@/lib/theme';
 import { cn } from '@/lib/utils';
 
-const OPTIONS: { value: ThemeChoice; label: string; desc: string }[] = [
-  { value: 'light', label: 'Light', desc: 'Always light' },
-  { value: 'dark', label: 'Dark', desc: 'Always dark' },
-  { value: 'system', label: 'System', desc: 'Follows this device' },
-];
+/** The choices and their words are core's (M10 step 17), so the phone's Appearance sheet reads the same. */
+const OPTIONS = APPEARANCE_OPTIONS;
 
 export function AppearanceSection({ initial }: { initial: ThemeChoice }) {
   const [theme, setTheme] = useState<ThemeChoice>(initial);
@@ -31,10 +29,8 @@ export function AppearanceSection({ initial }: { initial: ThemeChoice }) {
 
   return (
     <div>
-      <h2 className="text-lg font-semibold tracking-tight">Appearance</h2>
-      <p className="mt-1 text-[13px] text-text-2">
-        Saved to your account, so every device you sign in on follows it.
-      </p>
+      <h2 className="text-lg font-semibold tracking-tight">{APPEARANCE_WORDS.title}</h2>
+      <p className="mt-1 text-[13px] text-text-2">{APPEARANCE_WORDS.web}</p>
       <div className="mt-4 grid grid-cols-3 gap-2" role="radiogroup" aria-label="Theme">
         {OPTIONS.map((o) => (
           <button
@@ -43,7 +39,7 @@ export function AppearanceSection({ initial }: { initial: ThemeChoice }) {
             role="radio"
             aria-checked={theme === o.value}
             data-testid={`theme-${o.value}`}
-            onClick={() => void choose(o.value)}
+            onClick={() => void choose(o.value as ThemeChoice)}
             className={cn(
               'flex flex-col items-start gap-2 rounded-menu border border-border-strong bg-card p-3 text-left',
               theme === o.value && 'border-accent bg-accent-soft ring-1 ring-accent',

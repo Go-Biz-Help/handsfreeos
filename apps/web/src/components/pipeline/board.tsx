@@ -25,6 +25,7 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { Select } from '@/components/ui/input';
 import { Segmented } from '@/components/ui/segmented';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
+import { boardStages, moveToast, PIPELINE_WORDS, pipelineSummary, RECORD_WORDS } from '@hfos/core';
 import { apiBrowser, errorMessage, unwrap } from '@/lib/api/client';
 import type { LeadBoard, LeadCard, Pipeline, Role, Stage, Tag } from '@/lib/api/types';
 import { formatMoney } from '@/lib/format';
@@ -120,36 +121,26 @@ export function PipelineBoard({
     leadCount: s.count,
   }));
 
+  /**
+   * The move on screen before the command answers. The cards are re-dealt here and the counts and totals come from
+   * core's `boardStages`, the very function `lead.board` uses, so the optimistic board and the reloaded one agree.
+   */
   function applyLocal(leadId: string, stageId: string, index: number): LeadBoard {
     const lead = leadsById.get(leadId)!;
     const target = board.stages.find((s) => s.id === stageId)!;
-    const next: LeadBoard = {
-      ...board,
-      stages: board.stages.map((s) => {
-        const without = s.leads.filter((l) => l.id !== leadId);
-        if (s.id !== stageId)
-          return {
-            ...s,
-            leads: without,
-            count: without.length,
-            valueCents: without.reduce((a, l) => a + l.valueCents, 0),
-          };
-        const moved: LeadCard = {
-          ...lead,
-          stageId,
-          stageName: target.name,
-          stageKind: target.kind,
-          status: target.kind === 'open' ? 'open' : target.kind,
-        };
-        const leads = [...without.slice(0, index), moved, ...without.slice(index)];
-        return {
-          ...s,
-          leads,
-          count: leads.length,
-          valueCents: leads.reduce((a, l) => a + l.valueCents, 0),
-        };
-      }),
+    const moved: LeadCard = {
+      ...lead,
+      stageId,
+      stageName: target.name,
+      stageKind: target.kind,
+      status: target.kind === 'open' ? 'open' : target.kind,
     };
+    const dealt = board.stages.flatMap((s) => {
+      const without = s.leads.filter((l) => l.id !== leadId);
+      if (s.id !== stageId) return without;
+      return [...without.slice(0, index), moved, ...without.slice(index)];
+    });
+    const next: LeadBoard = { ...board, stages: boardStages(board.stages, dealt) };
     setBoard(next);
     return next;
   }
@@ -169,13 +160,7 @@ export function PipelineBoard({
         }),
       );
       if (move.stage.kind !== move.lead.stageKind || move.stage.id !== move.lead.stageId)
-        toast.success(
-          move.stage.kind === 'won'
-            ? `${move.lead.title} won.`
-            : move.stage.kind === 'lost'
-              ? `${move.lead.title} marked lost.`
-              : `${move.lead.title} moved to ${move.stage.name}.`,
-        );
+        toast.success(moveToast(move.lead.title, move.stage));
       setPendingLost(null);
     } catch (e) {
       toast.error(errorMessage(e));
@@ -250,10 +235,10 @@ export function PipelineBoard({
       <div className="mb-4 flex flex-wrap items-start justify-between gap-3 md:mb-5">
         <div>
           <h1 className="text-[22px] font-semibold leading-tight tracking-[-0.01em] md:text-2xl">
-            Pipeline
+            {PIPELINE_WORDS.title}
           </h1>
           <p className="mt-1 text-text-2" data-testid="pipeline-summary">
-            {openCount} open lead{openCount === 1 ? '' : 's'} · {formatMoney(openValue)}
+            {pipelineSummary(openCount, openValue)}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -282,7 +267,7 @@ export function PipelineBoard({
           />
           <Button onClick={() => setNewLead(true)} data-testid="pipeline-new-lead">
             <Plus className="h-[18px] w-[18px]" strokeWidth={1.5} />
-            New lead
+            {PIPELINE_WORDS.newLead}
           </Button>
         </div>
       </div>
@@ -290,16 +275,15 @@ export function PipelineBoard({
       {total === 0 ? (
         <Card>
           <EmptyState
-            title="No leads yet"
+            title={PIPELINE_WORDS.noLeadsTitle}
             actions={
               <Button size="sm" onClick={() => setNewLead(true)}>
                 <Plus className="h-4 w-4" strokeWidth={1.75} />
-                New lead
+                {PIPELINE_WORDS.newLead}
               </Button>
             }
           >
-            A lead is a job you might win. Add one for a person or company and move it across the
-            stages.
+            {PIPELINE_WORDS.noLeadsBody}
           </EmptyState>
         </Card>
       ) : view === 'board' ? (
@@ -440,7 +424,7 @@ function BoardList({
                   {l.assignee ? (
                     <Avatar name={l.assignee.fullName} seed={l.assignee.id} size="sm" />
                   ) : null}
-                  {l.assignee?.fullName ?? 'Unassigned'}
+                  {l.assignee?.fullName ?? RECORD_WORDS.unassigned}
                 </span>
               </td>
               <td className="px-3 py-2.5">

@@ -24,7 +24,7 @@ export default async function globalSetup(): Promise<() => Promise<void>> {
         WORKER_POLL_MS: '500',
         // The unanswered-message email after 8 seconds instead of the workspace's 10 minutes.
         UNANSWERED_ALERT_MS: '8000',
-        // The Assistant answers from the scripted stand-in model, never Anthropic. The empty key also wins
+        // The Assistant answers from the scripted stand-in model, never a real provider. The empty key also wins
         // over any key in apps/worker/.env: the worker's .env never replaces what is already set.
         ASSISTANT_PROVIDER: 'scripted',
         ANTHROPIC_API_KEY: '',

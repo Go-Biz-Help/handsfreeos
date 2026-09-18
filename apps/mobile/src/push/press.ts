@@ -336,8 +336,11 @@ export class PressRunner {
       return { kind: 'sent', button, changeId };
     }
     if (row.state === 'refused') {
-      // The API kept an earlier press of this button with other words (a second reply): it's already done.
-      if (row.rule === 'command_id_reused') {
+      // Already done, not refused. Either the API kept an earlier press of this button with other words (a second
+      // reply, `command_id_reused`), or the same thing was decided somewhere else first — on Home, on the web, or on
+      // another phone — and the approval commands answer `approval_decided` / `draft_decided`. Nothing was sent
+      // twice either way, so the notification says so kindly instead of "It wasn't approved."
+      if (row.rule !== null && ALREADY_DONE_RULES.has(row.rule)) {
         await this.finished(data, press, identifier, ALREADY_WORDS);
         return { kind: 'already', button };
       }
@@ -392,6 +395,20 @@ export const SENT_WORDS: Readonly<Record<PushButton, string>> = {
 
 /** A press that was already done, on this phone or another. */
 const ALREADY_WORDS = 'That was already done.';
+
+/**
+ * Refusals that mean "this was already done", not "this didn't work":
+ * - `command_id_reused` — the API already kept a change under this button's id;
+ * - `approval_decided` — a workflow approval someone decided first (Home, the web, another phone);
+ * - `draft_decided` — the AI teammate's draft, likewise.
+ *
+ * Each is a conflict, so nothing ran twice; the press just arrived second.
+ */
+const ALREADY_DONE_RULES: ReadonlySet<string> = new Set([
+  'command_id_reused',
+  'approval_decided',
+  'draft_decided',
+]);
 
 /** A press's outcome in words, for a toast or the test tools. */
 export function outcomeWords(outcome: PressOutcome): string {

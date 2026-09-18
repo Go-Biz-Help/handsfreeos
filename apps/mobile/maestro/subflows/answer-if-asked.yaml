@@ -1,0 +1,55 @@
+# Answers a change that is waiting on the person, then waits for everything to go. A booking's confirmation reaches a
+# customer, so the API asks before it texts one inside the business's quiet hours ("Send now, or at 8:00 AM?"); a
+# change made more than half an hour ago asks "Still send?". Either way the flow says yes, and then nothing is waiting.
+appId: com.gobizhelp.handsfreeos
+---
+- runFlow: open-test-changes.yaml
+- runFlow:
+    when:
+      visible:
+        id: 'tc-counts'
+        text: '.*[1-9] need you'
+    commands:
+      - runFlow: open-changes.yaml
+      # The change may have gone between the count being read and this running, so the button may not be there.
+      - tapOn:
+          id: 'change-decide'
+          optional: true
+      - extendedWaitUntil:
+          visible:
+            id: 'quiet-hours-sheet'
+          timeout: 5000
+          optional: true
+      - runFlow:
+          when:
+            visible:
+              id: 'quiet-hours-now'
+          commands:
+            - tapOn:
+                id: 'quiet-hours-now'
+      - runFlow:
+          when:
+            visible:
+              id: 'still-send-now'
+          commands:
+            - tapOn:
+                id: 'still-send-now'
+      - runFlow:
+          when:
+            visible:
+              id: 'ask-anyway'
+          commands:
+            - tapOn:
+                id: 'ask-anyway'
+      # Changes on this phone is a screen over the tabs: close it before anything looks for them again. `all-sent`
+      # below is what actually waits for everything to have gone.
+      - extendedWaitUntil:
+          visible:
+            id: 'changes-title'
+            text: 'Up to date'
+          timeout: 90000
+          optional: true
+      - tapOn:
+          id: 'close'
+      - waitForAnimationToEnd
+- runFlow: all-sent.yaml

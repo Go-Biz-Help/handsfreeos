@@ -1,5 +1,11 @@
 'use client';
-import { dayLabel, money, PAYMENT_METHOD_LABELS, type PaymentMethod } from '@hfos/core';
+import {
+  dayLabel,
+  money,
+  PAYMENT_METHOD_LABELS,
+  paymentsEmpty,
+  type PaymentMethod,
+} from '@hfos/core';
 import { Banknote, CreditCard, HandCoins, Receipt } from 'lucide-react';
 import Link from 'next/link';
 import { Card } from '@/components/ui/card';
@@ -69,12 +75,8 @@ export function PaymentsList({
   if (items.length === 0)
     return (
       <Card>
-        <EmptyState
-          title={filters.status || filters.method ? 'No payments match' : 'No payments yet'}
-        >
-          {filters.status || filters.method
-            ? 'Try a different filter.'
-            : 'Money lands here the moment a customer pays, and when you record cash or a cheque.'}
+        <EmptyState title={paymentsEmpty(!!(filters.status || filters.method)).title}>
+          {filters.status || filters.method ? paymentsEmpty(true).body : paymentsEmpty(false).body}
         </EmptyState>
       </Card>
     );

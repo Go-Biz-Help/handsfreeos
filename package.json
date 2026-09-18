@@ -23,6 +23,7 @@
     "supabase:stop": "node scripts/supabase.mjs stop",
     "supabase:status": "node scripts/supabase.mjs status",
     "db:seed": "pnpm --filter @hfos/worker seed",
+    "db:seed:demo": "pnpm --filter @hfos/worker seed:demo",
     "db:reset": "node scripts/supabase.mjs db reset && pnpm db:seed",
     "sync:start": "bash apps/sync/scripts/start.sh",
     "sync:stop": "bash apps/sync/scripts/stop.sh",

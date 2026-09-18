@@ -553,6 +553,7 @@ describe('a zone this engine’s time-zone data doesn’t have', () => {
     expect(skipping).toEqual([]);
     expect(calling.sort()).toEqual([
       'calendar/engine/zoned.ts',
+      'calendar/when.ts',
       'messaging/quiet-hours.ts',
       'workflows/templates.ts',
     ]);

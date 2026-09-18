@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { toast } from 'sonner';
+import { TIMELINE_WORDS } from '@hfos/core';
 import { VoicemailPlayer } from '@/components/calls/voicemail-player';
 import { AttachmentChip } from '@/components/inbox/attachment-chip';
 import { Button } from '@/components/ui/button';
@@ -20,20 +21,13 @@ import { formatDate } from '@/lib/format';
 import { cn, relativeTime } from '@/lib/utils';
 import {
   describeTimeline,
-  isChannelEntry,
   timelineActor,
   timelineApproval,
   timelineBody,
   timelineDotClass,
+  timelineEditable,
+  timelineRunId as workflowRunOf,
 } from './describe';
-
-/** The run a workflow's entry came from (`meta.workflow.runId`), for "See the run". */
-function workflowRunOf(e: TimelineEntry): string | null {
-  if (e.actorType !== 'workflow') return null;
-  const w = e.meta.workflow;
-  const runId = w && typeof w === 'object' ? (w as Record<string, unknown>).runId : null;
-  return typeof runId === 'string' && runId ? runId : null;
-}
 
 export function Timeline({
   workspaceId,
@@ -87,14 +81,14 @@ export function Timeline({
     }
   }
   async function remove(entry: TimelineEntry) {
-    if (!confirm('Delete this entry from the timeline? This is recorded in the audit log.')) return;
+    if (!confirm(TIMELINE_WORDS.deleteConfirm)) return;
     try {
       unwrap(
         await apiBrowser().POST('/v1/commands/activity.delete', {
           body: { workspaceId, activityId: entry.id },
         }),
       );
-      toast.success('Deleted.');
+      toast.success(TIMELINE_WORDS.deleted);
       router.refresh();
     } catch (e) {
       toast.error(errorMessage(e));
@@ -102,18 +96,14 @@ export function Timeline({
   }
 
   if (items.length === 0)
-    return (
-      <EmptyState title="Nothing here yet">
-        Notes, calls, texts, tasks and files show up here as they happen.
-      </EmptyState>
-    );
+    return <EmptyState title={TIMELINE_WORDS.emptyTitle}>{TIMELINE_WORDS.emptyBody}</EmptyState>;
   return (
     <div className="px-5 pb-2 pt-5 md:px-6" data-testid="timeline">
       <ol className="relative ml-2 border-l border-border">
         {items.map((e) => {
           const body = timelineBody(e);
           // Texts and emails mirror the conversation, so they are never deleted from here.
-          const editable = e.kind !== 'system' && !isChannelEntry(e);
+          const editable = timelineEditable(e);
           const mine = editable && e.actor?.id === myUserId;
           const at = new Date(e.occurredAt);
           const recent = Date.now() - at.getTime() < 6 * 86_400_000;
@@ -143,7 +133,7 @@ export function Timeline({
                         className="text-accent-text hover:underline"
                         data-testid="timeline-run-link"
                       >
-                        See the run
+                        {TIMELINE_WORDS.seeRun}
                       </Link>
                     </>
                   ) : null}
@@ -172,7 +162,7 @@ export function Timeline({
                       <DropdownMenuContent>
                         <DropdownMenuItem danger onSelect={() => void remove(e)}>
                           <Trash2 className="h-4 w-4" strokeWidth={1.5} />
-                          Delete entry
+                          {TIMELINE_WORDS.deleteEntry}
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
@@ -220,7 +210,7 @@ export function Timeline({
       {current.cursor ? (
         <div className="flex justify-center pb-2">
           <Button variant="ghost" size="sm" loading={busy} onClick={loadMore}>
-            Show older
+            {TIMELINE_WORDS.older}
           </Button>
         </div>
       ) : null}

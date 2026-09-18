@@ -1,8 +1,12 @@
 'use client';
 import {
   closedStretches,
+  HELD_CHIP_LONG,
+  NOT_BOOKED_YET,
   overlapLanes,
   placeOnDay,
+  seatsLabel,
+  sourceLabel,
   wallMinutes,
   type MinuteSpan,
 } from '@hfos/core';
@@ -446,7 +450,7 @@ function EventBlock({
     chips.push(
       <span key="seats" className="cal-mini">
         <Users className="h-3 w-3" strokeWidth={1.5} />
-        {a.seatsTaken}/{a.capacity} seats
+        {seatsLabel(a.seatsTaken, a.capacity)}
       </span>,
     );
   for (const r of a.resources)
@@ -543,13 +547,13 @@ function EventBlock({
         {/* Above everything the block might drop for want of room: a time nobody paid for must never read as booked. */}
         {hold ? (
           <span className="cal-held-chip cal-mini mt-0.5 self-start" data-testid="appt-held">
-            {minutes >= 40 ? 'Not booked · waiting on a deposit' : 'Not booked yet'}
+            {minutes >= 40 ? HELD_CHIP_LONG : NOT_BOOKED_YET}
           </span>
         ) : null}
         {a.source === 'booking_page' || a.source === 'ai_teammate' ? (
           <span
             className="absolute right-1.5 top-[5px] text-text-2"
-            title={a.source === 'ai_teammate' ? 'Booked by AI' : 'Booked online'}
+            title={sourceLabel(a.source) ?? ''}
           >
             <Globe className="h-3 w-3" strokeWidth={1.5} />
           </span>

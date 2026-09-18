@@ -1,0 +1,28 @@
+# Opens the Pipeline tab from anywhere in a business.
+appId: com.gobizhelp.handsfreeos
+---
+- repeat:
+    times: 4
+    while:
+      notVisible:
+        id: 'tab-pipeline'
+    commands:
+      - runFlow:
+          when:
+            visible:
+              id: 'back'
+          commands:
+            - tapOn:
+                id: 'back'
+            - waitForAnimationToEnd
+- tapOn:
+    id: 'tab-pipeline'
+- extendedWaitUntil:
+    visible:
+      id: 'pipeline-summary'
+    timeout: 30000
+# The stages and their leads arrive with the business's copy, which a fresh install is still downloading.
+- extendedWaitUntil:
+    visible:
+      id: 'stage-chips'
+    timeout: 90000

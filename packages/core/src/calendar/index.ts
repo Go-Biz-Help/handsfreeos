@@ -1,4 +1,8 @@
-/** The universal calendar: settings, rules, labels, presets, diffs, impact and the scheduling engine. Browser-safe. */
+/**
+ * The universal calendar: settings, rules, labels, presets, diffs, impact and the scheduling engine, plus the way a
+ * day, a week and one appointment read on screen (`when`, `agenda`, `reminder-words`, shared by the web and the
+ * phone). Browser-safe.
+ */
 export * from './config';
 export * from './catalogs';
 export * from './terms';
@@ -11,3 +15,6 @@ export * from './diff';
 export * from './impact';
 export * from './engine/index';
 export * from './layout';
+export * from './when';
+export * from './agenda';
+export * from './reminder-words';

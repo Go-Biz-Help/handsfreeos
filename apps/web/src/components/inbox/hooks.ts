@@ -1,5 +1,5 @@
 'use client';
-import { CONVERSATION_DONE, type InboxBoxKey } from '@hfos/core';
+import { CONVERSATION_DONE, type InboxBoxKey, type NoteEntry } from '@hfos/core';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { apiBrowser, errorMessage, unwrap } from '@/lib/api/client';
@@ -252,6 +252,47 @@ export function useThread(
       [],
     ),
   };
+}
+
+/**
+ * The notes the business wrote about this customer, for the thread (M10 step 15). The phone has shown them in the
+ * thread since step 14; Chris decided on 2026-09-17 to keep them there and let the web catch up. They come from the
+ * customer's own timeline, so a note added anywhere shows in every conversation of theirs.
+ */
+export function useCustomerNotes(workspaceId: string, personId: string | null): NoteEntry[] {
+  const [notes, setNotes] = useState<NoteEntry[]>([]);
+  const live = useLiveVersion(['activity'], 200);
+  useEffect(() => {
+    if (!personId) {
+      setNotes([]);
+      return;
+    }
+    let cancelled = false;
+    apiBrowser()
+      .POST('/v1/queries/timeline.list', {
+        body: { workspaceId, recordType: 'person', recordId: personId, limit: 50 },
+      })
+      .then((r) => {
+        if (cancelled) return;
+        const items = unwrap(r).items.filter((e) => e.kind === 'note');
+        setNotes(
+          items.map((e) => ({
+            id: e.id,
+            body: e.body ?? '',
+            occurredAt: e.occurredAt,
+            author: e.actor?.fullName ?? null,
+            waiting: false,
+          })),
+        );
+      })
+      .catch(() => {
+        if (!cancelled) setNotes([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [workspaceId, personId, live]);
+  return notes;
 }
 
 /**

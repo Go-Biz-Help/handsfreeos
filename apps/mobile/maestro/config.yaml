@@ -29,3 +29,16 @@ executionOrder:
     - Calls - verify my cell, call a customer through it, and cancel while it rings
     - Home ranks what needs attention, with its sheets and Approvals
     - A snooze and a dismissal made with no signal leave Home at once and go once signal is back
+    - Calendar - your day and week, an appointment, and confirming a customer with no signal
+    - Calendar - a customer marked confirmed with no signal, on the visit a link names
+    - Calendar - a time asked for with no signal shows as Not booked yet, and is booked once signal is back
+    - Money - the list, an invoice, and cash recorded at the door with no signal
+    - A customer's own screen - the head, the timeline, tags, files and a note
+    - The pipeline one stage at a time, and moving a lead from its own page
+    - Tasks - the web's groups and due words, and completing one
+    - A customer's number, a note, a tag and a task changed with no signal all go once signal is back
+    - A lead moved with no signal moves at once, and stands when signal is back
+    - More and the settings a phone needs
+    - Ask HandsFreeOS - an answer with its card, and your chats
+    - Ask HandsFreeOS - a text asks first, and only sends on the button
+    - Ask HandsFreeOS - with no signal it says so, and queues nothing

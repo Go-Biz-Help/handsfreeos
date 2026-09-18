@@ -1,0 +1,105 @@
+appId: com.gobizhelp.handsfreeos
+name: Money - the list, an invoice, and cash recorded at the door with no signal
+tags:
+  - ci
+# What is outstanding, what is late and what has come in, then one invoice. Recording cash or a check is money already
+# taken off the system, so it works with no signal: the invoice shows it at once and it reaches HandsFreeOS later.
+env:
+  EMAIL: dale@lonestarhvac.test
+  PASSWORD: HandsFree-Demo-2026
+---
+- runFlow: subflows/start-signed-out.yaml
+- runFlow: subflows/sign-in-with-password.yaml
+- runFlow: subflows/open-test-changes.yaml
+- runFlow: subflows/nothing-waiting.yaml
+- runFlow: subflows/open-money.yaml
+- assertVisible:
+    id: 'money-outstanding'
+- assertVisible:
+    id: 'money-overdue'
+- assertVisible:
+    id: 'money-collected'
+- assertVisible:
+    id: 'money-tab-plans'
+- takeScreenshot: money-list
+- tapOn:
+    id: 'money-tab-estimates'
+- extendedWaitUntil:
+    visible:
+      id: 'estimates-list'
+    timeout: 60000
+- takeScreenshot: money-estimates
+- tapOn:
+    id: 'money-tab-invoices'
+- extendedWaitUntil:
+    visible:
+      id: 'invoices-list'
+    timeout: 60000
+# No signal, then record what the customer handed over. The row is picked by what it says — a row that still owes
+# reads "Due …" or "… overdue" — so the flow never lands on a paid one and quietly proves nothing.
+- runFlow: subflows/open-test-changes.yaml
+- runFlow: subflows/no-signal.yaml
+- runFlow: subflows/open-money.yaml
+- scrollUntilVisible:
+    element:
+      id: 'invoice-row-.*'
+      text: '.*(Due |overdue).*'
+- tapOn:
+    id: 'invoice-row-.*'
+    text: '.*(Due |overdue).*'
+- extendedWaitUntil:
+    visible:
+      id: 'invoice-amount'
+    timeout: 30000
+- takeScreenshot: money-invoice
+- assertVisible:
+    id: 'record-cash-open'
+- runFlow:
+    when:
+      visible:
+        id: 'record-cash-open'
+    commands:
+      - tapOn:
+          id: 'record-cash-open'
+      - extendedWaitUntil:
+          visible:
+            id: 'record-cash'
+          timeout: 15000
+      - assertVisible: 'Money taken off the system.*is owed.'
+      - takeScreenshot: money-record-cash
+      - tapOn:
+          id: 'record-cash-check'
+      # Part of what is owed, so the invoice reads "Partly paid". The box opens with the whole balance in it, and the
+      # reference is left out on purpose: two boxes typed into in a row is what first scrambled this on Android.
+      - tapOn:
+          id: 'record-cash-amount'
+      - eraseText: 24
+      - inputText: '20'
+      - runFlow:
+          file: subflows/keyboard-away.yaml
+          env:
+            FIELD: record-cash-amount
+      - assertVisible:
+          id: 'record-cash-amount'
+          text: '^20$'
+      - takeScreenshot: money-record-cash-typed
+      - tapOn:
+          id: 'record-cash-confirm'
+      - extendedWaitUntil:
+          visible:
+            id: 'invoice-waiting'
+          timeout: 20000
+      - assertVisible: 'Recorded on this phone.*'
+      # The badge's own words. Maestro wants the id and the text on one node, and the badge's text is its child;
+      # $20 of a big balance leaves it partly paid, and of a small one pays it off.
+      - assertVisible: 'Partly paid|Paid'
+      - assertVisible:
+          id: 'totals-paid'
+      - takeScreenshot: money-part-paid-offline
+# The block above is the whole point of the flow, so it must have run.
+- assertVisible:
+    id: 'invoice-waiting'
+# Signal back: it goes once, and HandsFreeOS's own row agrees.
+- runFlow: subflows/open-test-changes.yaml
+- runFlow: subflows/signal-back.yaml
+- runFlow: subflows/answer-if-asked.yaml

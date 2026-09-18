@@ -1,0 +1,10 @@
+# Waits on Test changes until every change this phone made has gone through — without discarding anything, which is
+# what `nothing-waiting.yaml` does and why that one belongs at the start of a flow, never at the end.
+appId: com.gobizhelp.handsfreeos
+---
+- runFlow: open-test-changes.yaml
+- extendedWaitUntil:
+    visible:
+      id: 'tc-counts'
+      text: '0 waiting · 0 need you'
+    timeout: 60000

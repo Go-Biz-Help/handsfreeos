@@ -3,8 +3,8 @@ import {
   acceptedWording,
   dayLabel,
   declinedWording,
-  dueWording,
   expiryPhrase,
+  invoiceStanding,
   invoiceVoidBlock,
   money,
   PAYMENT_METHOD_LABELS,
@@ -363,14 +363,8 @@ export function EstimateDocument({
  * The line beside an invoice's customer: when it is due while something is owed, and otherwise how it ended.
  * A refund never reopens an invoice, so a refunded one says what went back rather than a due date.
  */
-function invoiceSub(inv: InvoiceDetail, now: number, timeZone: string): string {
-  if (inv.voidedAt) return `Voided ${dayLabel(Date.parse(inv.voidedAt), timeZone)}`;
-  if (inv.state === 'refunded') return 'Refunded in full';
-  if (inv.state === 'partly_refunded')
-    return `Paid in full · ${money(inv.amountRefundedCents)} refunded`;
-  if (inv.status === 'paid') return 'Paid in full';
-  return dueWording(inv.dueOn, now, timeZone);
-}
+const invoiceSub = (inv: InvoiceDetail, now: number, timeZone: string): string =>
+  invoiceStanding(inv, now, timeZone);
 
 /** An invoice that has gone out: what is owed, what has been paid, and what can still be given back. */
 export function InvoiceDocument({

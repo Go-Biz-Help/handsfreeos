@@ -6,7 +6,7 @@
  * from a chat saved before M9 has no `money` type at all, and everything past the headline is optional, so an
  * older card that only ever carried a total still draws.
  */
-import type { AssistantCard } from '@hfos/core';
+import { assistantMoneyOpenLabel, type AssistantCard } from '@hfos/core';
 import { cn } from '@/lib/utils';
 import { cardHead, cardRow, cardShell, Dot, RowLink } from './card-parts';
 
@@ -20,17 +20,6 @@ const VALUE_TONE: Readonly<Record<string, string>> = {
   muted: 'text-text-2',
   accent: 'text-text',
 };
-
-const openLabel = (href: string) =>
-  /\/money\/estimates(\?|$)/.test(href)
-    ? 'Open estimates'
-    : /\/money\/payments(\?|$)/.test(href)
-      ? 'Open payments'
-      : /\/money\/plans(\?|$)/.test(href)
-        ? 'Open plans'
-        : /\/money(\?|$)/.test(href)
-          ? 'Open invoices'
-          : 'Open';
 
 export function MoneyCard({ card }: { card: MoneyCardData }) {
   const stats = card.stats ?? [];
@@ -90,7 +79,7 @@ export function MoneyCard({ card }: { card: MoneyCardData }) {
       {card.href ? (
         <RowLink href={card.href}>
           <span className="min-w-0 flex-1 truncate font-medium text-accent-text">
-            {openLabel(card.href)}
+            {assistantMoneyOpenLabel(card.href)}
           </span>
         </RowLink>
       ) : null}

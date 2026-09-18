@@ -78,8 +78,14 @@ test('a signed-out customer books, reschedules and cancels', async ({ page, brow
   await expect(c.getByTestId('manage-booked')).toBeVisible();
   await expect(c.getByTestId('manage-rules')).toContainText('You can move or cancel until');
   await c.getByRole('button', { name: 'Reschedule' }).click();
-  const other = c.getByTestId('slot').nth(1);
-  await expect(other).toBeVisible();
+  // Any time but the one already booked. Late in the day only one may be left, so this can't ask for the
+  // second: at 11 PM the page offered a single slot and the test failed for the hour, not the code.
+  const slots = c.getByTestId('slot');
+  await expect(slots.first()).toBeVisible();
+  const times = await slots.allTextContents();
+  const free = times.findIndex((t) => t.trim() !== picked);
+  expect(free, `no time to move to besides ${picked}`).toBeGreaterThan(-1);
+  const other = slots.nth(free);
   await other.click();
   await c.getByRole('button', { name: /^Move to / }).click();
   await expect(c.getByRole('status')).toContainText('Moved to');

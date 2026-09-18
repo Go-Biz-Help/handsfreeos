@@ -14,6 +14,9 @@ coverage/
 playwright-report/
 test-results/
 
+# store credentials this machine holds: the Play service-account key eas.json points at, and anything beside it
+/secrets/
+
 # local supabase
 supabase/.branches/
 supabase/.temp/

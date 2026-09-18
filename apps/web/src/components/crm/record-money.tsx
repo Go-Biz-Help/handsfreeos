@@ -7,7 +7,7 @@
  * is on neither gets an empty answer. So an empty answer means **render nothing**: a member who may not see a
  * customer's money should find no card at all, not an empty one, and never an error where one would be.
  */
-import { money } from '@hfos/core';
+import { money, owesWords } from '@hfos/core';
 import { ArrowRight, FilePlus2, Receipt } from 'lucide-react';
 import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
@@ -91,10 +91,11 @@ export function useRecordMoney(
 
 /** "Owes $2,551.88" beside a customer's name. Nothing at all when they owe nothing. */
 export function OwesBadge({ found }: { found: RecordMoney | null }) {
-  if (!found || found.balanceCents <= 0) return null;
+  const words = found ? owesWords(found.balanceCents) : null;
+  if (!words) return null;
   return (
     <Badge variant="pending" data-testid="record-owes">
-      Owes {money(found.balanceCents)}
+      {words}
     </Badge>
   );
 }

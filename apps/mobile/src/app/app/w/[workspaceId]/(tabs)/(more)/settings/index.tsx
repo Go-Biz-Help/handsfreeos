@@ -1,4 +1,10 @@
-import { formatPhone, MY_CELL_WORDS } from '@hfos/core';
+import {
+  APPEARANCE_WORDS,
+  formatPhone,
+  keptBusinessesLine,
+  MY_CELL_WORDS,
+  PHONE_SETTINGS_WORDS,
+} from '@hfos/core';
 import { router } from 'expo-router';
 import * as React from 'react';
 import { View } from 'react-native';
@@ -58,20 +64,15 @@ export default function Settings() {
 
   const kept = me.businesses.filter((b) => isKept(choices, b.id));
   const coming = kept.filter((b) => !worksOffline(b.id)).length;
-  const keptDetail =
-    kept.length === 0
-      ? 'None: every business opens only with signal'
-      : coming > 0
-        ? `Getting ${coming === 1 ? 'one' : coming} onto this phone…`
-        : kept.length === 1
-          ? `${kept[0]!.name} · works with no signal`
-          : `${kept.length} businesses · work with no signal`;
+  const keptDetail = keptBusinessesLine(kept, coming);
 
   const toggleLock = async (next: boolean) => {
     // Turning the lock on or off asks first, so it can't be switched off by whoever picks the phone up.
-    const result = await biometrics.authenticate(next ? 'Turn on the lock' : 'Turn off the lock');
+    const result = await biometrics.authenticate(
+      next ? PHONE_SETTINGS_WORDS.lockOn : PHONE_SETTINGS_WORDS.lockOff,
+    );
     if (result !== 'unlocked') {
-      if (result === 'failed') toast.error('That didn’t match, so nothing changed.');
+      if (result === 'failed') toast.error(PHONE_SETTINGS_WORDS.lockRefused);
       return;
     }
     setLockEnabledFor(userId, next);
@@ -81,21 +82,34 @@ export default function Settings() {
   const method = info?.method ?? 'Face ID';
   return (
     <Screen
-      title="Settings"
+      title={PHONE_SETTINGS_WORDS.title}
       leading="back"
       back={businessHref(business.id, 'more')}
       testID="settings"
       contentClassName="gap-2"
     >
-      <ListLabel>This phone</ListLabel>
+      <ListLabel>{PHONE_SETTINGS_WORDS.thisPhone}</ListLabel>
       <List>
+        <ListRow
+          icon={Smartphone}
+          label={MY_CELL_WORDS.title}
+          detail={
+            cell?.verifiedAt
+              ? `${formatPhone(cell.e164)} · ${MY_CELL_WORDS.verified}`
+              : cell
+                ? `${formatPhone(cell.e164)} · ${MY_CELL_WORDS.notVerified}`
+                : PHONE_SETTINGS_WORDS.myCellDetail
+          }
+          onPress={() => router.push(businessHref(business.id, 'settings/my-cell'))}
+          testID="setting-my-cell"
+        />
         <ListRow
           icon={method === 'fingerprint' || method === 'Touch ID' ? Fingerprint : ScanFace}
           label={unlockLabel(method)}
           detail={
             info && !info.available
-              ? 'Set up Face ID, a fingerprint or a passcode on this phone first'
-              : 'Asks when you open the app'
+              ? PHONE_SETTINGS_WORDS.lockUnavailable
+              : PHONE_SETTINGS_WORDS.lockDetail
           }
           end={
             <Switch
@@ -109,45 +123,32 @@ export default function Settings() {
         />
         <ListRow
           icon={Layers}
-          label="Businesses on this phone"
+          label={PHONE_SETTINGS_WORDS.businesses}
           detail={keptDetail}
           onPress={() => router.push(businessHref(business.id, 'settings/businesses'))}
           testID="setting-businesses"
         />
         <ListRow
           icon={CloudCheck}
-          label="Changes on this phone"
+          label={PHONE_SETTINGS_WORDS.changes}
           end={<UpToDate compact />}
           onPress={() => router.push(businessHref(business.id, 'changes'))}
           testID="setting-changes"
         />
       </List>
 
-      <ListLabel>You</ListLabel>
+      <ListLabel>{PHONE_SETTINGS_WORDS.you}</ListLabel>
       <List>
         <ListRow
           icon={Bell}
-          label="Notifications"
-          detail="Push and email"
+          label={PHONE_SETTINGS_WORDS.notifications}
+          detail={PHONE_SETTINGS_WORDS.notificationsDetail}
           onPress={() => router.push(businessHref(business.id, 'settings/notifications'))}
           testID="setting-notifications"
         />
         <ListRow
-          icon={Smartphone}
-          label={MY_CELL_WORDS.title}
-          detail={
-            cell?.verifiedAt
-              ? `${formatPhone(cell.e164)} · ${MY_CELL_WORDS.verified}`
-              : cell
-                ? `${formatPhone(cell.e164)} · ${MY_CELL_WORDS.notVerified}`
-                : 'Where Call rings you first'
-          }
-          onPress={() => router.push(businessHref(business.id, 'settings/my-cell'))}
-          testID="setting-my-cell"
-        />
-        <ListRow
           icon={User}
-          label="Profile and sign-in"
+          label={PHONE_SETTINGS_WORDS.profile}
           detail={me.user.email}
           external
           onPress={() => void openWeb(`/app/w/${business.id}/settings`)}
@@ -155,7 +156,7 @@ export default function Settings() {
         />
         <ListRow
           icon={Moon}
-          label="Appearance"
+          label={APPEARANCE_WORDS.title}
           end={APPEARANCE_LABELS[appearance]}
           onPress={() => setAppearanceOpen(true)}
           testID="setting-appearance"
@@ -166,20 +167,20 @@ export default function Settings() {
       <List>
         <ListRow
           icon={LogOut}
-          label="Sign out"
+          label={PHONE_SETTINGS_WORDS.signOut}
           onPress={() => setSigningOut(true)}
           testID="setting-sign-out"
         />
         <ListRow
           icon={UserX}
-          label="Delete my account"
+          label={PHONE_SETTINGS_WORDS.deleteAccount}
           danger
           onPress={() => router.push(businessHref(business.id, 'settings/delete-account'))}
           testID="setting-delete-account"
         />
       </List>
       <Text className="px-1 text-[12.5px] leading-[18px] text-text-3">
-        Business settings, texting, payments and members are on the web.
+        {PHONE_SETTINGS_WORDS.footnote}
       </Text>
 
       {testToolsEnabled ? <TestTools /> : null}
@@ -187,12 +188,10 @@ export default function Settings() {
       <Sheet
         open={appearanceOpen}
         onClose={() => setAppearanceOpen(false)}
-        title="Appearance"
+        title={APPEARANCE_WORDS.title}
         testID="appearance-sheet"
       >
-        <Text className="mb-3 mt-1 text-sm text-text-2">
-          System follows this phone’s own light or dark setting.
-        </Text>
+        <Text className="mb-3 mt-1 text-sm text-text-2">{APPEARANCE_WORDS.phone}</Text>
         <Segmented<Appearance>
           label="Appearance"
           value={appearance}
@@ -209,7 +208,7 @@ export default function Settings() {
           onPress={() => setAppearanceOpen(false)}
           testID="appearance-done"
         >
-          Done
+          {APPEARANCE_WORDS.done}
         </Button>
       </Sheet>
       <SignOutSheet open={signingOut} onClose={() => setSigningOut(false)} />

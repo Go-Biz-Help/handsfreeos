@@ -2,7 +2,12 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import type { ConfigContext, ExpoConfig } from 'expo/config';
-import { withAndroidManifest, withDangerousMod, type ConfigPlugin } from 'expo/config-plugins';
+import {
+  AndroidConfig,
+  withAndroidManifest,
+  withDangerousMod,
+  type ConfigPlugin,
+} from 'expo/config-plugins';
 
 /**
  * Test builds for the Maestro flows (EXPO_PUBLIC_E2E=1) are release builds that talk to Supabase and the API on the
@@ -67,7 +72,57 @@ const withNoBackups: ConfigPlugin = (config) => {
   });
 };
 
+/**
+ * Every Android permission the finished app asks for has to be one it uses. Expo's template and the libraries under it
+ * ask for eleven more than that, so each one is turned off here with the reason beside it, and `expo prebuild` writes
+ * `tools:node="remove"` for it, which the manifest merger honours whatever a library says (step 18).
+ *
+ * The two storage permissions are turned off in app.json instead (`android.blockedPermissions`, step 10). Everything
+ * the app really does ask for, on both platforms, is listed in apps/mobile/store/permissions.md with what asks for it.
+ */
+const BLOCKED_PERMISSIONS = [
+  // Expo's Android template asks for this so a debug build can draw React Native's dev menu over other apps. A store
+  // build has no dev menu, and "display over other apps" is a permission Play makes you justify.
+  'android.permission.SYSTEM_ALERT_WINDOW',
+
+  // expo-network asks for this for `getIpAddressAsync`, which reads the Wi-Fi address. The app only ever asks whether
+  // there is signal (`src/lib/network.ts`: `getNetworkStateAsync`, `addNetworkStateListener`), which needs
+  // ACCESS_NETWORK_STATE alone.
+  'android.permission.ACCESS_WIFI_STATE',
+
+  // expo-application (which comes in under expo-notifications) bundles Play's install-referrer library, for finding
+  // out which ad installed the app. Nothing here asks.
+  'com.google.android.finsky.permission.BIND_GET_INSTALL_REFERRER_SERVICE',
+
+  // expo-notifications bundles ShortcutBadger, which puts a count on the launcher icon and needs one permission per
+  // phone maker to do it. Nothing sets a badge — not the app, not the worker's push payloads — so all of them go.
+  // If a count on the icon is ever wanted, this list is what to put back.
+  'android.permission.READ_APP_BADGE',
+  'com.anddoes.launcher.permission.UPDATE_COUNT',
+  'com.android.launcher.permission.INSTALL_SHORTCUT',
+  'com.android.launcher.permission.READ_SETTINGS',
+  'com.android.launcher.permission.UNINSTALL_SHORTCUT',
+  'com.android.launcher.permission.WRITE_SETTINGS',
+  'com.htc.launcher.permission.READ_SETTINGS',
+  'com.htc.launcher.permission.UPDATE_SHORTCUT',
+  'com.huawei.android.launcher.permission.CHANGE_BADGE',
+  'com.huawei.android.launcher.permission.READ_SETTINGS',
+  'com.huawei.android.launcher.permission.WRITE_SETTINGS',
+  'com.majeur.launcher.permission.UPDATE_BADGE',
+  'com.oppo.launcher.permission.READ_SETTINGS',
+  'com.oppo.launcher.permission.WRITE_SETTINGS',
+  'com.sec.android.provider.badge.permission.READ',
+  'com.sec.android.provider.badge.permission.WRITE',
+  'com.sonyericsson.home.permission.BROADCAST_BADGE',
+  'com.sonymobile.home.permission.PROVIDER_INSERT_BADGE',
+  'me.everything.badger.permission.BADGE_COUNT_READ',
+  'me.everything.badger.permission.BADGE_COUNT_WRITE',
+];
+
+const withOnlyThePermissionsWeUse: ConfigPlugin = (config) =>
+  AndroidConfig.Permissions.withBlockedPermissions(config, BLOCKED_PERMISSIONS);
+
 export default ({ config }: ConfigContext): ExpoConfig => {
-  const base = withNoBackups(config as ExpoConfig);
+  const base = withOnlyThePermissionsWeUse(withNoBackups(config as ExpoConfig));
   return process.env.EXPO_PUBLIC_E2E === '1' ? withPlainHttpForTests(base) : base;
 };

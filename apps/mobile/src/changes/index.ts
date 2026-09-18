@@ -76,5 +76,5 @@ export function newId(): string {
 
 export { ChangeError, NEEDS_SIGNAL, type ChangeOptions, type ChangeResult } from './controller';
 export type { CommandName, InputOf, OutputOf, QueuedCommand, OnlineCommand } from './commands';
-export { editedOnly, tagChanges } from './edits';
+export { editedOnly, orNull, tagChanges } from './edits';
 export { fixerFor, onRefused, setFixer } from './fixers';

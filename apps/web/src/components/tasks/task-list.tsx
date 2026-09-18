@@ -13,26 +13,14 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { EmptyState } from '@/components/ui/empty-state';
+import { dueLabel, TASK_WORDS, taskRelatedLine } from '@hfos/core';
 import { apiBrowser, errorMessage, unwrap } from '@/lib/api/client';
 import type { Task } from '@/lib/api/types';
-import { formatDate } from '@/lib/format';
 import { cn } from '@/lib/utils';
 import { TaskDialog, type TaskRelation } from './task-dialog';
 
-export function dueLabel(t: Task): { text: string; tone: 'danger' | 'muted' | 'accent' } {
-  if (t.doneAt) return { text: `Done ${formatDate(t.doneAt)}`, tone: 'muted' };
-  if (!t.dueAt) return { text: 'No due date', tone: 'muted' };
-  const when = formatDate(t.dueAt, { time: !t.allDay });
-  if (t.dueBucket === 'overdue') return { text: `Overdue · ${when}`, tone: 'danger' };
-  if (t.dueBucket === 'today')
-    return {
-      text: t.allDay
-        ? 'Today'
-        : `Today ${new Date(t.dueAt).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}`,
-      tone: 'accent',
-    };
-  return { text: when, tone: 'muted' };
-}
+/** The due words live in core (M10 step 15), so the phone's task list reads the same. */
+export { dueLabel };
 
 /** Tasks on a record (or the tasks page): complete inline, edit or delete from the row menu. */
 export function TaskList({
@@ -44,8 +32,8 @@ export function TaskList({
   relation,
   leads,
   showRelated,
-  emptyTitle = 'No tasks',
-  emptyHint = 'Nothing to do here yet.',
+  emptyTitle = TASK_WORDS.emptyTitle,
+  emptyHint = TASK_WORDS.emptyBody,
 }: {
   workspaceId: string;
   tasks: Task[];
@@ -78,7 +66,7 @@ export function TaskList({
             body: { workspaceId, taskId: t.id },
           }),
         );
-        toast.success('Task completed.');
+        toast.success(TASK_WORDS.completed);
       }
       router.refresh();
     } catch (e) {
@@ -95,7 +83,7 @@ export function TaskList({
           body: { workspaceId, taskId: t.id },
         }),
       );
-      toast.success('Task deleted.');
+      toast.success(TASK_WORDS.deleted);
       router.refresh();
     } catch (e) {
       toast.error(errorMessage(e));
@@ -126,9 +114,7 @@ export function TaskList({
           {[...open, ...done].map((t) => {
             const due = dueLabel(t);
             const mine = t.createdBy?.id === myUserId;
-            const related = [t.lead?.title, t.person?.fullName, t.company?.name]
-              .filter(Boolean)
-              .join(' · ');
+            const related = taskRelatedLine(t);
             return (
               <li
                 key={t.id}
@@ -137,7 +123,7 @@ export function TaskList({
               >
                 <button
                   type="button"
-                  aria-label={t.doneAt ? 'Reopen task' : 'Complete task'}
+                  aria-label={t.doneAt ? TASK_WORDS.reopen : TASK_WORDS.complete}
                   aria-pressed={!!t.doneAt}
                   disabled={busyId === t.id}
                   onClick={() => void toggle(t)}
@@ -156,7 +142,7 @@ export function TaskList({
                     {t.title}
                   </span>
                   <span className="truncate text-xs text-text-3">
-                    {t.assignee?.fullName ?? 'Unassigned'}
+                    {t.assignee?.fullName ?? TASK_WORDS.unassigned}
                     {showRelated && related ? ` · ${related}` : ''}
                     {t.notes ? ` · ${t.notes}` : ''}
                   </span>
@@ -191,7 +177,9 @@ export function TaskList({
                       </DropdownMenuItem>
                       {t.lead ? (
                         <DropdownMenuItem asChild>
-                          <Link href={`/app/w/${workspaceId}/leads/${t.lead.id}`}>Open lead</Link>
+                          <Link href={`/app/w/${workspaceId}/leads/${t.lead.id}`}>
+                            {TASK_WORDS.openLead}
+                          </Link>
                         </DropdownMenuItem>
                       ) : null}
                       <DropdownMenuItem danger onSelect={() => void remove(t)}>

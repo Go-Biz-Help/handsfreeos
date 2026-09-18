@@ -1,4 +1,5 @@
 'use client';
+import { MONEY_TAB_LABELS, MONEY_TABS, type MoneyTab } from '@hfos/core';
 import { Plus } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -6,7 +7,7 @@ import type { ReactNode } from 'react';
 import { ButtonLink } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
-export type MoneyTab = 'invoices' | 'estimates' | 'payments' | 'plans';
+export type { MoneyTab };
 
 export function moneyBase(workspaceId: string): string {
   return `/app/w/${workspaceId}/money`;
@@ -18,12 +19,7 @@ export function moneyTabHref(workspaceId: string, tab: MoneyTab): string {
   return tab === 'invoices' ? base : `${base}/${tab}`;
 }
 
-const TABS: readonly { readonly key: MoneyTab; readonly label: string }[] = [
-  { key: 'invoices', label: 'Invoices' },
-  { key: 'estimates', label: 'Estimates' },
-  { key: 'payments', label: 'Payments' },
-  { key: 'plans', label: 'Plans' },
-];
+const TABS = MONEY_TABS.map((key) => ({ key, label: MONEY_TAB_LABELS[key] }));
 
 /** The four chips from the canvas, with each list's own filters sitting at the end of the same row. */
 export function MoneySubnav({
@@ -78,6 +74,7 @@ export function MoneyCrumbs({
   tab: MoneyTab;
   current: string;
 }) {
+  // Left exactly as it was: Plans' and Payments' crumb reads lowercase today (see the step 16 report).
   const label = tab === 'invoices' ? 'Invoices' : tab === 'estimates' ? 'Estimates' : tab;
   return (
     <nav

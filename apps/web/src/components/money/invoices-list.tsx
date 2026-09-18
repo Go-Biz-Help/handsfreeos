@@ -1,5 +1,5 @@
 'use client';
-import { dayLabel, dueWording, money } from '@hfos/core';
+import { invoiceDueLabel, invoicesEmpty, money, purposeLabel } from '@hfos/core';
 import { Plus } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { Badge } from '@/components/ui/badge';
@@ -15,25 +15,13 @@ import type { MoneyFilters } from './list-options';
 import { invoiceListBody } from './list-options';
 import { StatusBadge } from './status-badge';
 
-/**
- * What the "Due" column says: a paid invoice is done, a settling one is on its way, a draft has not gone out.
- * One whose money all went back is refunded, not "paid" — the badge beside it and the column say the same.
- */
-function dueLabel(inv: InvoiceSummary, now: number, timeZone: string): string {
-  if (inv.voidedAt) return 'Voided';
-  if (inv.state === 'refunded') return 'Refunded';
-  if (inv.status === 'paid')
-    return inv.paidAt ? `Paid ${dayLabel(Date.parse(inv.paidAt), timeZone)}` : 'Paid';
-  if (inv.state === 'paying') return 'A payment is on its way';
-  if (inv.status === 'draft') return 'Not sent';
-  return dueWording(inv.dueOn, now, timeZone);
-}
+/** What the "Due" column says: core's `invoiceDueLabel`, so the phone's list reads the same. */
+const dueLabel = (inv: InvoiceSummary, now: number, timeZone: string): string =>
+  invoiceDueLabel(inv, now, timeZone);
 
 function PurposePill({ purpose }: { purpose: string }) {
-  if (purpose === 'deposit') return <Badge variant="gray">Deposit</Badge>;
-  if (purpose === 'subscription') return <Badge variant="gray">Plan</Badge>;
-  if (purpose === 'setup_fee') return <Badge variant="gray">Setup fee</Badge>;
-  return null;
+  const label = purposeLabel(purpose);
+  return label ? <Badge variant="gray">{label}</Badge> : null;
 }
 
 export function InvoicesList({
@@ -62,11 +50,12 @@ export function InvoicesList({
   const items = [...initial.invoices, ...more.items];
   const href = (inv: InvoiceSummary) => `/app/w/${workspaceId}/money/invoices/${inv.id}`;
 
-  if (items.length === 0)
+  if (items.length === 0) {
+    const empty = invoicesEmpty(!!(filters.q || filters.status));
     return (
       <Card>
         <EmptyState
-          title={filters.q || filters.status ? 'No invoices match' : 'No invoices yet'}
+          title={empty.title}
           actions={
             filters.q || filters.status || !canManage ? undefined : (
               <ButtonLink href={`/app/w/${workspaceId}/money/invoices/new`} size="sm">
@@ -76,12 +65,11 @@ export function InvoicesList({
             )
           }
         >
-          {filters.q || filters.status
-            ? 'Try a different search, or show every status.'
-            : 'Bill a job, or turn an approved estimate into an invoice in one press.'}
+          {empty.body}
         </EmptyState>
       </Card>
     );
+  }
 
   return (
     <>

@@ -1,0 +1,142 @@
+# Screenshots of Ask HandsFreeOS, More and the settings (design/m10 Assistant and More boards) in one theme: the
+# consent step if it still shows, an answer with its card, a confirmation waiting for an OK, the chats list, More,
+# Settings, the Appearance sheet, Delete my account, and signing out. Not run in CI:
+#   maestro test -e THEME=dark -e PREFIX=ios apps/mobile/maestro/screens/assistant-and-settings.yaml --test-output-dir <dir>
+appId: com.gobizhelp.handsfreeos
+name: The Assistant's and the settings' screens
+tags:
+  - screens
+env:
+  EMAIL: dale@lonestarhvac.test
+  PASSWORD: HandsFree-Demo-2026
+  NAME: Mike Johnson
+---
+- runFlow: ../subflows/start-signed-out.yaml
+- runFlow: ../subflows/sign-in-with-password.yaml
+- tapOn:
+    id: 'tab-more'
+- tapOn:
+    id: 'more-settings'
+- tapOn:
+    id: 'setting-appearance'
+- tapOn:
+    id: 'appearance-${THEME}'
+- tapOn:
+    id: 'appearance-done'
+- waitForAnimationToEnd
+- takeScreenshot: ${PREFIX}-settings-${THEME}
+- takeScreenshot: ${PREFIX}-appearance-${THEME}
+- scrollUntilVisible:
+    element:
+      id: 'setting-delete-account'
+    direction: DOWN
+    timeout: 20000
+- tapOn:
+    id: 'setting-delete-account'
+- extendedWaitUntil:
+    visible:
+      id: 'delete-account'
+    timeout: 20000
+- takeScreenshot: ${PREFIX}-delete-account-${THEME}
+- tapOn:
+    id: 'delete-keep'
+- tapOn:
+    id: 'setting-sign-out'
+- extendedWaitUntil:
+    visible:
+      id: 'sign-out-sheet'
+    timeout: 10000
+- takeScreenshot: ${PREFIX}-sign-out-${THEME}
+- tapOn:
+    id: 'stay-signed-in'
+- tapOn:
+    id: 'back'
+- extendedWaitUntil:
+    visible:
+      id: 'more'
+    timeout: 20000
+- takeScreenshot: ${PREFIX}-more-settings-${THEME}
+# The Assistant: the consent step the first time, then an answer with its card.
+- tapOn:
+    id: 'ask-handsfreeos'
+- extendedWaitUntil:
+    visible:
+      id: 'ask'
+    timeout: 20000
+- runFlow:
+    when:
+      visible:
+        id: 'assistant-consent'
+    commands:
+      - takeScreenshot: ${PREFIX}-assistant-consent-${THEME}
+- runFlow: ../subflows/assistant-consent.yaml
+- takeScreenshot: ${PREFIX}-assistant-empty-${THEME}
+- tapOn:
+    id: 'assistant-input'
+- inputText: 'What are we owed?'
+- tapOn:
+    id: 'assistant-send'
+- extendedWaitUntil:
+    visible:
+      id: 'assistant-card-money'
+    timeout: 60000
+- takeScreenshot: ${PREFIX}-assistant-answer-${THEME}
+- tapOn:
+    id: 'assistant-history-toggle'
+- extendedWaitUntil:
+    visible:
+      id: 'assistant-history'
+    timeout: 30000
+- takeScreenshot: ${PREFIX}-assistant-chats-${THEME}
+- tapOn:
+    id: 'assistant-history-toggle'
+- tapOn:
+    id: 'close'
+# A confirmation, asked from the customer's own screen.
+- runFlow: ../subflows/open-customer.yaml
+- tapOn:
+    id: 'ask-handsfreeos'
+- extendedWaitUntil:
+    visible:
+      id: 'assistant-input'
+    timeout: 20000
+- tapOn:
+    id: 'assistant-input'
+- inputText: 'Text him that we are on our way'
+- tapOn:
+    id: 'assistant-send'
+- extendedWaitUntil:
+    visible:
+      id: 'assistant-card-confirm'
+    timeout: 60000
+- takeScreenshot: ${PREFIX}-assistant-confirm-${THEME}
+- tapOn:
+    id: 'assistant-cancel'
+- extendedWaitUntil:
+    visible:
+      id: 'assistant-result'
+    timeout: 30000
+- takeScreenshot: ${PREFIX}-assistant-cancelled-${THEME}
+# No signal: the card that says so, and what still works without it.
+- tapOn:
+    id: 'close'
+- runFlow: ../subflows/settings-no-signal.yaml
+- tapOn:
+    id: 'ask-handsfreeos'
+- extendedWaitUntil:
+    visible:
+      id: 'assistant-input'
+    timeout: 20000
+- tapOn:
+    id: 'assistant-input'
+- inputText: 'What did we charge for the last 3-ton install?'
+- tapOn:
+    id: 'assistant-send'
+- extendedWaitUntil:
+    visible:
+      id: 'assistant-offline'
+    timeout: 30000
+- takeScreenshot: ${PREFIX}-assistant-no-signal-${THEME}
+- tapOn:
+    id: 'close'
+- runFlow: ../subflows/settings-signal-back.yaml

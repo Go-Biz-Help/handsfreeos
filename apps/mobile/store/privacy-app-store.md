@@ -1,0 +1,71 @@
+# App Store — App Privacy answers
+
+What to click in App Store Connect → App Privacy. Every row names the code it comes from, so it can be re-checked
+rather than remembered. The same answers are declared in the app's own privacy manifest
+(`ios.privacyManifests` in `apps/mobile/app.json`, which `expo prebuild` writes into `PrivacyInfo.xcprivacy`), so the
+two can't drift apart quietly.
+
+**Are you tracking?** No. Nothing in the app follows a person across other companies' apps or sites: there is no
+advertising SDK, no analytics SDK and no crash reporter in `apps/mobile/package.json`, and `NSPrivacyTracking` is
+`false`.
+
+## Data collected
+
+Everything below is **linked to the person's identity** (they are signed in) and **not used for tracking**. The purpose
+is **App Functionality** in every case.
+
+| Apple's data type                     | Collected | What it actually is                                                                 | Where in the code                                                              |
+| ------------------------------------- | --------- | ----------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| Contact Info → Name                   | Yes       | The person's own name, and the names of the business's customers and their contacts | `app.users`; `app.people`, `app.companies` (customers screens)                 |
+| Contact Info → Email Address          | Yes       | The email the person signs in with, and customers' emails                           | Supabase Auth; `app.people.email`, `app.companies.email`                       |
+| Contact Info → Phone Number           | Yes       | The person's own verified cell, and customers' numbers                              | Settings → My cell phone; `app.people.phone`; the inbox and call log           |
+| Contact Info → Physical Address       | Yes       | Customers' service addresses, shown on appointments                                 | `app.people.address`, `app.companies.address`; the appointment screen          |
+| User Content → Photos or Videos       | Yes       | Photos the person chooses or takes for a customer's record or a reply               | `expo-image-picker`; `src/components/inbox/composer.tsx`, the customer's files |
+| User Content → Other User Content     | Yes       | Texts and emails with customers, notes, and what is typed to the Assistant          | `app.messages`, `app.activities`; the Assistant screen                         |
+| Identifiers → User ID                 | Yes       | The account id the business's records are credited to                               | Supabase Auth `sub`; every command's actor                                     |
+| Identifiers → Device ID               | Yes       | The push token for this install, so notifications reach this phone                  | `src/push/device.ts` (`getExpoPushTokenAsync`), stored per install             |
+| Financial Info → Other Financial Info | Yes       | Amounts on the business's invoices, estimates, payments and plans                   | The Money screens; `app.invoices`, `app.estimates`, `app.payments`             |
+
+## Data **not** collected — and why that is true, not just claimed
+
+| Apple's data type                           | Answer | Why                                                                                                                                                                                                   |
+| ------------------------------------------- | ------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Location (precise or coarse)                | No     | `expo-location` is not a dependency, nothing calls a location API, and no location permission is declared                                                                                             |
+| Contacts                                    | No     | The app never reads the phone's contacts. Adding the business number hands it to the phone's own New Contact screen (`src/inbox/contact-card.ts`)                                                     |
+| Health & Fitness                            | No     | Nothing of the kind                                                                                                                                                                                   |
+| Financial Info → Payment Info / Credit Info | No     | The app never sees a card. Paying happens on the payment provider's own hosted page, in the browser                                                                                                   |
+| Browsing History                            | No     | No in-app browser; `lib/open-web.ts` hands a URL to the system browser                                                                                                                                |
+| Search History                              | No     | Search over the phone's own copy of the business is worked out on the phone and not sent anywhere                                                                                                     |
+| Identifiers → advertising identifiers       | No     | `AppTrackingTransparency` is never requested; no ad SDK exists                                                                                                                                        |
+| Usage Data                                  | No     | No analytics SDK                                                                                                                                                                                      |
+| Diagnostics (crash, performance, other)     | No     | No crash reporter. Nothing is sent when the app fails                                                                                                                                                 |
+| Sensitive Info                              | No     | Nothing of the kind is asked for                                                                                                                                                                      |
+| Contact Info → Other User Contact Info      | No     | Only name, email, phone and address, each above                                                                                                                                                       |
+| Purchases                                   | No     | The app sells nothing, and has no in-app purchases                                                                                                                                                    |
+| User Content → Audio Data                   | No     | The app records nothing. It plays voicemails the carrier recorded (`src/components/inbox/voicemail-player.tsx`), which is data arriving, not data collected, and it asks for no microphone permission |
+| User Content → Customer Support             | No     | Nothing in the app is a support channel to Go Biz Help; the inbox is the business's own conversations with its customers                                                                              |
+
+One thing to check rather than trust: the `NSPrivacyCollectedDataType…` keys in `app.json` are Apple's own spellings,
+including the odd `PhotosorVideos` with a small "or". Xcode's privacy report on the first production build lists every
+type it recognised; if one of ours is missing from it, the key is misspelt. The App Store Connect answers above are
+what the store shows either way — the manifest only feeds the report.
+
+## Required-reason APIs (`PrivacyInfo.xcprivacy`)
+
+Each was found by reading what the libraries in this app actually call, not by copying a template.
+
+| Category                                     | Reason   | Who needs it                                                                                                               |
+| -------------------------------------------- | -------- | -------------------------------------------------------------------------------------------------------------------------- |
+| `NSPrivacyAccessedAPICategoryFileTimestamp`  | `C617.1` | `expo-file-system` reads timestamps of files inside the app's own container (photos waiting to upload, the encrypted copy) |
+| `NSPrivacyAccessedAPICategoryDiskSpace`      | `E174.1` | `expo-file-system` checks free space before writing a file                                                                 |
+| `NSPrivacyAccessedAPICategoryUserDefaults`   | `CA92.1` | `expo-constants`, `expo-notifications`, `expo-updates` and `expo-task-manager` read and write this app's own user defaults |
+| `NSPrivacyAccessedAPICategorySystemBootTime` | `35F9.1` | React Native measures elapsed time with the system's uptime                                                                |
+
+The first three come from libraries this app depends on directly; the fourth comes from React Native itself and is in
+the template Expo writes. No other category applies: nothing reads the active keyboards, and nothing asks for a file's
+timestamp outside the app's container.
+
+## Deletion
+
+"Does your app support account deletion?" **Yes** — in the app (More → Settings → Delete my account), on the web, and
+on the public page `https://app.handsfreeos.com/delete-account` (step 7).

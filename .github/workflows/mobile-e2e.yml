@@ -186,9 +186,11 @@ jobs:
       # The worker with its stand-ins: the fake carrier files a customer's text, and the push stand-in (PUSH_PROVIDER's
       # default outside production) keeps the pushes it was handed, which the app's Test notifications reads back
       # from its test routes and shows. A short poll, as Playwright's worker has, so a push is queued within a second.
+      # The Assistant answers from the scripted stand-in model (M10 step 17), as the browser suite does: no API key,
+      # and the same answers every run.
       - name: Start the worker
         run: |
-          WORKER_POLL_MS=500 pnpm --filter @hfos/worker exec tsx src/main.ts > worker.log 2>&1 &
+          ASSISTANT_PROVIDER=scripted WORKER_POLL_MS=500 pnpm --filter @hfos/worker exec tsx src/main.ts > worker.log 2>&1 &
           for i in $(seq 1 90); do
             if curl -sf http://127.0.0.1:4100/healthz > /dev/null; then exit 0; fi
             sleep 1

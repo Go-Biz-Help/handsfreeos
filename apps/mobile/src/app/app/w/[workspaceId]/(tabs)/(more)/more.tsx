@@ -1,3 +1,4 @@
+import { MORE_WORDS } from '@hfos/core';
 import { router } from 'expo-router';
 import { View } from 'react-native';
 
@@ -28,7 +29,7 @@ export default function More() {
   const name = me.user.fullName || me.user.email;
   const go = (path: string) => router.push(businessHref(business.id, path));
   return (
-    <Screen title="More" testID="more">
+    <Screen title={MORE_WORDS.title} testID="more">
       <Card className="flex-row items-center gap-3 px-3.5 py-3">
         <Avatar name={name} seed={userId} size="lg" />
         <View className="min-w-0 flex-1 gap-px">
@@ -40,13 +41,13 @@ export default function More() {
           </Text>
         </View>
         <Button variant="secondary" size="sm" onPress={openSwitcher} testID="more-switch-business">
-          Switch
+          {MORE_WORDS.switch}
         </Button>
       </Card>
       <List>
         <ListRow
           icon={CloudCheck}
-          label="Changes on this phone"
+          label={MORE_WORDS.changes}
           end={<UpToDate compact />}
           onPress={() => go('changes')}
           testID="more-changes"
@@ -55,32 +56,32 @@ export default function More() {
       <List>
         <ListRow
           icon={Users}
-          label="Customers"
+          label={MORE_WORDS.customers}
           onPress={() => go('customers')}
           testID="more-customers"
         />
         <ListRow
           icon={ClipboardList}
-          label="Tasks"
+          label={MORE_WORDS.tasks}
           onPress={() => go('tasks')}
           testID="more-tasks"
         />
         <ListRow
           icon={CircleDollarSign}
-          label="Money"
+          label={MORE_WORDS.money}
           onPress={() => go('money')}
           testID="more-money"
         />
         <ListRow
           icon={Sparkles}
-          label="Approvals"
+          label={MORE_WORDS.approvals}
           end={<ApprovalsCount />}
           onPress={() => go('approvals')}
           testID="more-approvals"
         />
         <ListRow
           icon={Settings2}
-          label="Settings"
+          label={MORE_WORDS.settings}
           onPress={() => go('settings')}
           testID="more-settings"
         />
@@ -88,8 +89,8 @@ export default function More() {
       <List>
         <ListRow
           icon={Globe}
-          label="Open on the web"
-          detail="Workflows, the AI teammate, business settings, members and more"
+          label={MORE_WORDS.openOnWeb}
+          detail={MORE_WORDS.openOnWebDetail}
           external
           onPress={() => void openWeb(`/app/w/${business.id}`)}
           testID="more-open-on-web"

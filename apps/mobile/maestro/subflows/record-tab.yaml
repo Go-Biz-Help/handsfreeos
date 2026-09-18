@@ -1,0 +1,22 @@
+# Opens one of a record's tabs. Six of them never fit a phone, so the strip scrolls sideways (the canvas): the strip is
+# swiped along until the tab shows, and only then pressed.
+appId: com.gobizhelp.handsfreeos
+---
+- scrollUntilVisible:
+    element:
+      id: 'record-tabs'
+    direction: UP
+    timeout: 10000
+- repeat:
+    times: 4
+    while:
+      notVisible:
+        id: 'record-tab-${TAB}'
+    commands:
+      - swipe:
+          from:
+            id: 'record-tabs'
+          direction: LEFT
+      - waitForAnimationToEnd
+- tapOn:
+    id: 'record-tab-${TAB}'

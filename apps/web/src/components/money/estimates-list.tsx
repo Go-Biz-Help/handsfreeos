@@ -1,5 +1,5 @@
 'use client';
-import { dayLabel, expiryPhrase, money } from '@hfos/core';
+import { estimateStanding as standingOf, estimatesEmpty, money } from '@hfos/core';
 import { Plus } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { ButtonLink } from '@/components/ui/button';
@@ -13,16 +13,9 @@ import type { MoneyFilters } from './list-options';
 import { estimateListBody } from './list-options';
 import { StatusBadge } from './status-badge';
 
-/** Where an estimate stands, in one sentence: the column the canvas calls "Where it stands". */
-export function estimateStanding(est: EstimateSummary, now: number, timeZone: string): string {
-  const day = (iso: string | null) => (iso ? dayLabel(Date.parse(iso), timeZone) : '');
-  if (est.voidedAt) return `Voided ${day(est.voidedAt)}`;
-  if (est.acceptedAt) return `Approved ${day(est.acceptedAt)}`;
-  if (est.declinedAt) return `Declined ${day(est.declinedAt)}`;
-  if (!est.sentAt) return `Started ${day(est.createdAt)} · not sent`;
-  const seen = est.firstViewedAt ? ' · opened' : '';
-  return `Sent ${day(est.sentAt)}${seen} · ${expiryPhrase(est.expiresOn, now, timeZone)}`;
-}
+/** Where an estimate stands, in one sentence: core's, so the phone's list says the same. */
+export const estimateStanding = (est: EstimateSummary, now: number, timeZone: string): string =>
+  standingOf(est, now, timeZone);
 
 export function EstimatesList({
   workspaceId,
@@ -56,7 +49,7 @@ export function EstimatesList({
     return (
       <Card>
         <EmptyState
-          title={filters.q || filters.status ? 'No estimates match' : 'No estimates yet'}
+          title={estimatesEmpty(!!(filters.q || filters.status)).title}
           actions={
             filters.q || filters.status || !canManage ? undefined : (
               <ButtonLink href={`/app/w/${workspaceId}/money/estimates/new`} size="sm">
@@ -66,9 +59,7 @@ export function EstimatesList({
             )
           }
         >
-          {filters.q || filters.status
-            ? 'Try a different search, or show every status.'
-            : 'Quote a job from the catalogue. The customer approves it on their own page.'}
+          {estimatesEmpty(!!(filters.q || filters.status)).body}
         </EmptyState>
       </Card>
     );

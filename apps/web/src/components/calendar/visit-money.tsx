@@ -14,7 +14,17 @@
  * Everything comes from `money.for_record`, which already carries the member rule: a member staffed on this
  * visit sees its deposit and its invoice, and one who isn't sees an empty answer and so no block at all.
  */
-import { money } from '@hfos/core';
+import {
+  depositInvoiceOf,
+  depositWhen,
+  depositWords,
+  dueAfterCents as dueAfter,
+  heldNote,
+  heldSection,
+  jobInvoiceOf as coreJobInvoiceOf,
+  jobInvoiceWords,
+  money,
+} from '@hfos/core';
 import { Clock, FileText } from 'lucide-react';
 import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
@@ -26,13 +36,11 @@ import { useLiveVersion } from '@/lib/realtime/live-provider';
 import type { Hold } from './appt';
 import { holdWords } from './appt';
 
-/** The deposit a booking raised: its own invoice, linked to the seat, marked as coming from the booking page. */
+/** Core's two, under the names this file has always used. */
 const depositOf = (invoices: readonly InvoiceSummary[]): InvoiceSummary | null =>
-  invoices.find((i) => i.origin === 'booking' && i.status !== 'void') ?? null;
-
-/** The bill for the job itself: anything on this visit that isn't the deposit that booked it. */
+  depositInvoiceOf(invoices);
 const jobInvoiceOf = (invoices: readonly InvoiceSummary[]): InvoiceSummary | null =>
-  invoices.find((i) => i.origin !== 'booking' && i.status !== 'void') ?? null;
+  coreJobInvoiceOf(invoices);
 
 export interface VisitMoney {
   readonly invoices: readonly InvoiceSummary[];
@@ -81,8 +89,7 @@ export function useVisitMoney(
 
 /** What is left for the invoice after the visit: the price of the visit less the deposit already taken. */
 export function dueAfterCents(priceCents: number | null, deposit: InvoiceSummary | null): number {
-  if (!priceCents || !deposit) return 0;
-  return Math.max(0, priceCents - deposit.totals.totalCents);
+  return dueAfter(priceCents, deposit?.totals.totalCents ?? null);
 }
 
 /**
@@ -186,15 +193,23 @@ export function VisitMoneyBlock({
 
   const asked = deposit?.totals.totalCents ?? 0;
   const paidDeposit = deposit ? deposit.amountPaidCents : 0;
-  // A bank transfer takes a day or two to land: the deposit is in, and the money is still on its way.
-  const settling = !!deposit && deposit.state === 'paying' && paidDeposit === 0;
-  const after = dueAfterCents(appt.priceCents, deposit);
   const paidAt = deposit?.paidAt ?? null;
+  // The words are core's (`money/visit.ts`), so the phone's appointment screen says the same.
+  const facts = {
+    askedCents: asked,
+    paidCents: paidDeposit,
+    state: deposit?.state ?? '',
+    paidAt,
+    priceCents: appt.priceCents,
+  };
+  const words = depositWords(facts);
+  const settling = words.badge === 'Deposit on its way';
+  const jobWords = jobInvoiceWords(job?.balanceCents ?? 0);
 
   return (
     <div className="mt-3.5" data-testid="visit-money">
       <div className="mb-0.5 text-[11.5px] font-semibold uppercase tracking-[0.04em] text-text-3">
-        {hold ? 'Not booked yet' : 'Deposit'}
+        {hold ? heldSection : words.section}
       </div>
 
       {hold ? (
@@ -207,13 +222,7 @@ export function VisitMoneyBlock({
             <Clock className="h-3.5 w-3.5 flex-none" strokeWidth={1.75} aria-hidden />
             <span className="text-[13px] font-semibold">{holdWords(hold, timeZone)}</span>
           </span>
-          <span className="text-[12.5px]">
-            {asked
-              ? `${customerName} is on the payment page now, paying ${money(asked)} to book this time. `
-              : `${customerName} is on the payment page now, paying the deposit that books this time. `}
-            Nothing has been charged and nobody has been told the time is theirs. Don’t call to
-            confirm it — if the deposit doesn’t land, the slot goes back on its own.
-          </span>
+          <span className="text-[12.5px]">{heldNote(customerName, asked)}</span>
         </div>
       ) : deposit ? (
         <div
@@ -222,30 +231,21 @@ export function VisitMoneyBlock({
           data-state={deposit.state}
         >
           <div className="mb-1 flex items-center gap-2">
-            <Badge variant={settling ? 'pending' : 'ok'}>
-              {settling ? 'Deposit on its way' : 'Deposit paid'}
-            </Badge>
+            <Badge variant={settling ? 'pending' : 'ok'}>{words.badge}</Badge>
             <span className="min-w-0 flex-1 truncate text-[12.5px] text-text-3">
-              {settling
-                ? 'A bank transfer takes a day or two to land.'
-                : paidAt
+              {depositWhen(
+                facts,
+                paidAt
                   ? `Paid ${fmtDateLong(dateOf(paidAt, timeZone))} · ${fmtAt(paidAt, timeZone)}`
-                  : 'Paid at booking.'}
+                  : null,
+              )}
             </span>
           </div>
-          <Line
-            label={settling ? 'On its way' : 'Paid'}
-            value={money(settling ? asked : paidDeposit)}
-            testId="visit-deposit-paid"
-          />
-          {after > 0 ? (
-            <Line
-              label="Left to pay after the visit"
-              value={money(after)}
-              testId="visit-deposit-after"
-            />
+          <Line label={words.amountLabel} value={words.amount} testId="visit-deposit-paid" />
+          {words.afterLabel ? (
+            <Line label={words.afterLabel} value={words.after!} testId="visit-deposit-after" />
           ) : null}
-          <InvoiceLink workspaceId={workspaceId} invoice={deposit} label="Deposit invoice" />
+          <InvoiceLink workspaceId={workspaceId} invoice={deposit} label={words.invoiceLabel} />
         </div>
       ) : null}
 
@@ -256,21 +256,29 @@ export function VisitMoneyBlock({
           data-state={job.state}
         >
           <div className="mb-1 flex items-center gap-2">
-            <span className="text-[13px] font-semibold">This visit’s invoice</span>
+            <span className="text-[13px] font-semibold">{jobWords.title}</span>
             <span className="min-w-0 flex-1 truncate text-[12.5px] text-text-3">
               {job.title ?? appt.title}
             </span>
           </div>
-          <Line label="Invoiced" value={money(job.totals.totalCents)} testId="visit-invoiced" />
+          <Line
+            label={jobWords.invoicedLabel}
+            value={money(job.totals.totalCents)}
+            testId="visit-invoiced"
+          />
           {job.amountPaidCents > 0 ? (
-            <Line label="Paid" value={money(job.amountPaidCents)} testId="visit-invoice-paid" />
+            <Line
+              label={jobWords.paidLabel}
+              value={money(job.amountPaidCents)}
+              testId="visit-invoice-paid"
+            />
           ) : null}
           <Line
-            label={job.balanceCents > 0 ? 'Still owed' : 'Nothing owed'}
+            label={jobWords.balanceLabel}
             value={money(job.balanceCents)}
             testId="visit-invoice-balance"
           />
-          <InvoiceLink workspaceId={workspaceId} invoice={job} label="Open the invoice" />
+          <InvoiceLink workspaceId={workspaceId} invoice={job} label={jobWords.openLabel} />
         </div>
       ) : null}
     </div>

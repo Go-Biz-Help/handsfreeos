@@ -1,0 +1,89 @@
+appId: com.gobizhelp.handsfreeos
+name: Ask HandsFreeOS - with no signal it says so, and queues nothing
+tags:
+  - ci
+# The Assistant is one of the few things that needs signal. With none, the question stays in the chat, the card says
+# "The Assistant needs signal" and what still works without it, and nothing at all is queued — Changes on this phone
+# has nothing waiting. With signal back, the same question is answered.
+#
+# Signal is taken away with the app's own test switch (Settings → Test tools), which both phones have in a test build;
+# real airplane mode is Android's alone and isn't needed here.
+env:
+  EMAIL: dale@lonestarhvac.test
+  PASSWORD: HandsFree-Demo-2026
+---
+- runFlow: subflows/start-signed-out.yaml
+- runFlow: subflows/sign-in-with-password.yaml
+# The OK is given while there is still signal, so the flow is about the Assistant and not about consent.
+- tapOn:
+    id: 'ask-handsfreeos'
+- runFlow: subflows/assistant-consent.yaml
+- tapOn:
+    id: 'close'
+- runFlow: subflows/settings-no-signal.yaml
+- tapOn:
+    id: 'ask-handsfreeos'
+- extendedWaitUntil:
+    visible:
+      id: 'assistant-input'
+    timeout: 20000
+- tapOn:
+    id: 'assistant-input'
+- inputText: 'What did we charge for the last 3-ton install?'
+- tapOn:
+    id: 'assistant-send'
+- extendedWaitUntil:
+    visible:
+      id: 'assistant-offline'
+      text: 'The Assistant needs signal'
+    timeout: 30000
+# The question is still there, and so is the line about what keeps working without signal.
+- assertVisible: 'What did we charge for the last 3-ton install?'
+- assertVisible: 'Your question is saved — ask again when you’re back online.'
+- assertVisible: 'Customers, notes, photos, tasks, the calendar and most of Money keep working with no signal.'
+- takeScreenshot: assistant-no-signal
+# Ask again with still no signal says the same thing, and still sends nothing.
+- tapOn:
+    id: 'assistant-ask-again'
+- extendedWaitUntil:
+    visible:
+      id: 'assistant-offline'
+    timeout: 30000
+# Nothing was queued: a question isn't a change, so nothing is waiting to send.
+- tapOn:
+    id: 'close'
+- extendedWaitUntil:
+    visible:
+      id: 'settings'
+    timeout: 20000
+- tapOn:
+    id: 'setting-changes'
+- extendedWaitUntil:
+    visible:
+      id: 'changes-title'
+    timeout: 20000
+- assertNotVisible:
+    id: 'changes-waiting'
+- assertNotVisible:
+    id: 'changes-needs-you'
+- tapOn:
+    id: 'close'
+# Signal back: the same question is answered.
+- runFlow: subflows/settings-signal-back.yaml
+- tapOn:
+    id: 'ask-handsfreeos'
+- extendedWaitUntil:
+    visible:
+      id: 'assistant-input'
+    timeout: 20000
+- tapOn:
+    id: 'assistant-input'
+- inputText: 'What are we owed?'
+- tapOn:
+    id: 'assistant-send'
+- extendedWaitUntil:
+    visible:
+      id: 'assistant-answer-text'
+    timeout: 60000
+- assertNotVisible:
+    id: 'assistant-offline'

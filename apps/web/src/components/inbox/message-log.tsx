@@ -9,10 +9,13 @@ import {
   heldLine,
   keywordLine,
   mediaOnlyLine,
+  noteLine,
   senderOf,
   textFailureHelp,
   THREAD_WORDS,
+  threadWithNotes,
   weekdayClock,
+  type NoteEntry,
 } from '@hfos/core';
 import { CheckCheck, CircleAlert, Moon, Sparkles } from 'lucide-react';
 import { Fragment, type ReactNode } from 'react';
@@ -36,6 +39,7 @@ function entryTime(iso: string, compact?: boolean): string {
  */
 export function MessageLog({
   items,
+  notes = [],
   pending,
   customerFirstName,
   customerName = null,
@@ -48,6 +52,8 @@ export function MessageLog({
   tail,
 }: {
   items: ThreadItem[];
+  /** The notes the business wrote about this customer, folded into the thread by time (M10 step 15). */
+  notes?: readonly NoteEntry[];
   pending: PendingText[];
   /** Cancel on a text held for quiet hours: it never goes. */
   onCancelScheduled?: (messageId: string) => void;
@@ -94,32 +100,26 @@ export function MessageLog({
         {items.length === 0 && pending.length === 0 && !tail ? (
           <div className="py-10 text-center text-[13px] text-text-3">{THREAD_WORDS.empty}</div>
         ) : null}
-        {items.map((item) => (
-          <Fragment key={item.id}>
-            {withDay(item.occurredAt) ? (
-              <DayDivider>{dayDivider(item.occurredAt)}</DayDivider>
-            ) : null}
-            {item.type === 'call' ? (
-              <CallCard item={item} time={entryTime(item.occurredAt, compact)} compact={compact} />
-            ) : item.channel === 'email' ? (
-              <MailCard
-                item={item}
-                time={entryTime(item.occurredAt, compact)}
-                customerName={customerName}
-                compact={compact}
-                onRetry={onRetry}
-              />
-            ) : (
-              <MessageEntry
-                item={item}
-                onRetry={onRetry}
-                onCancelScheduled={onCancelScheduled}
-                customerFirstName={customerFirstName}
-                compact={compact}
-              />
-            )}
-          </Fragment>
-        ))}
+        {threadWithNotes(items, notes).map((piece) =>
+          piece.kind === 'note' ? (
+            <Fragment key={`note-${piece.id}`}>
+              {withDay(piece.at) ? <DayDivider>{dayDivider(piece.at)}</DayDivider> : null}
+              <NoteEntryCard note={piece.note} time={entryTime(piece.at, compact)} />
+            </Fragment>
+          ) : (
+            <ThreadEntry
+              key={piece.id}
+              item={piece.item}
+              day={withDay(piece.at) ? dayDivider(piece.at) : null}
+              time={entryTime(piece.at, compact)}
+              customerName={customerName}
+              customerFirstName={customerFirstName}
+              compact={compact}
+              onRetry={onRetry}
+              onCancelScheduled={onCancelScheduled}
+            />
+          ),
+        )}
         {pending.map((p) => (
           <Fragment key={p.clientId}>
             {withDay(p.at) ? <DayDivider>{dayDivider(p.at)}</DayDivider> : null}
@@ -144,6 +144,68 @@ export function MessageLog({
         ))}
         {tail}
       </div>
+    </div>
+  );
+}
+
+/** One message or call in the thread, with the day divider above it when the day changed. */
+function ThreadEntry({
+  item,
+  day,
+  time,
+  customerName,
+  customerFirstName,
+  compact,
+  onRetry,
+  onCancelScheduled,
+}: {
+  item: ThreadItem;
+  day: string | null;
+  time: string;
+  customerName: string | null;
+  customerFirstName: string | null;
+  compact?: boolean;
+  onRetry?: (messageId: string) => void;
+  onCancelScheduled?: (messageId: string) => void;
+}) {
+  return (
+    <>
+      {day ? <DayDivider>{day}</DayDivider> : null}
+      {item.type === 'call' ? (
+        <CallCard item={item} time={time} compact={compact} />
+      ) : item.channel === 'email' ? (
+        <MailCard
+          item={item}
+          time={time}
+          customerName={customerName}
+          compact={compact}
+          onRetry={onRetry}
+        />
+      ) : (
+        <MessageEntry
+          item={item}
+          onRetry={onRetry}
+          onCancelScheduled={onCancelScheduled}
+          customerFirstName={customerFirstName}
+          compact={compact}
+        />
+      )}
+    </>
+  );
+}
+
+/**
+ * A note the business wrote about the customer, in the thread (M10 step 15). It sits in the middle, quietly, so it
+ * never reads as something that was sent to them — the same card the phone has shown since step 14.
+ */
+function NoteEntryCard({ note, time }: { note: NoteEntry; time: string }) {
+  return (
+    <div
+      className="mt-2 self-center rounded-[10px] bg-card-2 px-3 py-2 text-[13px] text-text"
+      data-testid={`note-${note.id}`}
+    >
+      <div className="mb-0.5 text-[11.5px] text-text-3">{noteLine(note, time)}</div>
+      <div className="whitespace-pre-wrap [overflow-wrap:anywhere]">{note.body}</div>
     </div>
   );
 }

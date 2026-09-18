@@ -1,0 +1,100 @@
+# Screenshots of the customer, pipeline and task screens in one theme: the pipeline one stage at a time, a lead's page
+# with Move to…, a customer's 360, their timeline, their files, and Tasks. Not run in CI:
+#   maestro test -e THEME=dark -e PREFIX=ios apps/mobile/maestro/screens/records.yaml --test-output-dir <dir>
+appId: com.gobizhelp.handsfreeos
+name: The customer, pipeline and task screens
+tags:
+  - screens
+env:
+  EMAIL: dale@lonestarhvac.test
+  PASSWORD: HandsFree-Demo-2026
+---
+- runFlow: ../subflows/start-signed-out.yaml
+- runFlow: ../subflows/sign-in-with-password.yaml
+- tapOn:
+    id: 'tab-more'
+- tapOn:
+    id: 'more-settings'
+- tapOn:
+    id: 'setting-appearance'
+- tapOn:
+    id: 'appearance-${THEME}'
+- tapOn:
+    id: 'appearance-done'
+- waitForAnimationToEnd
+- tapOn:
+    id: 'back'
+# The pipeline, one stage at a time.
+- runFlow: ../subflows/open-pipeline.yaml
+- extendedWaitUntil:
+    visible:
+      id: 'lead-title'
+    timeout: 30000
+- takeScreenshot: ${PREFIX}-pipeline-${THEME}
+# A lead's page, and Move to…
+- tapOn:
+    id: 'lead-title'
+    index: 0
+- extendedWaitUntil:
+    visible:
+      id: 'lead-move'
+    timeout: 20000
+- takeScreenshot: ${PREFIX}-lead-${THEME}
+- tapOn:
+    id: 'lead-move'
+- extendedWaitUntil:
+    visible:
+      id: 'move-sheet'
+    timeout: 10000
+- takeScreenshot: ${PREFIX}-lead-move-${THEME}
+- tapOn:
+    id: 'move-cancel'
+- waitForAnimationToEnd
+# A customer's 360, their timeline and their files.
+- runFlow:
+    file: ../subflows/open-customer.yaml
+    env:
+      NAME: Maria Lopez
+- waitForAnimationToEnd
+- takeScreenshot: ${PREFIX}-customer-${THEME}
+- scroll
+- takeScreenshot: ${PREFIX}-customer-timeline-${THEME}
+- runFlow:
+    file: ../subflows/record-tab.yaml
+    env:
+      TAB: files
+- waitForAnimationToEnd
+- takeScreenshot: ${PREFIX}-customer-files-${THEME}
+- runFlow:
+    file: ../subflows/record-tab.yaml
+    env:
+      TAB: details
+- waitForAnimationToEnd
+- takeScreenshot: ${PREFIX}-customer-details-${THEME}
+# Tasks. A record's own screen sits over the tabs, so the tab bar is only back there.
+- repeat:
+    times: 4
+    while:
+      notVisible:
+        id: 'tab-more'
+    commands:
+      - runFlow:
+          when:
+            visible:
+              id: 'back'
+          commands:
+            - tapOn:
+                id: 'back'
+            - waitForAnimationToEnd
+- tapOn:
+    id: 'tab-more'
+- tapOn:
+    id: 'more-tasks'
+- extendedWaitUntil:
+    visible:
+      id: 'tasks-summary'
+    timeout: 30000
+- tapOn:
+    id: 'tasks-everyone'
+- waitForAnimationToEnd
+- takeScreenshot: ${PREFIX}-tasks-${THEME}

@@ -26,23 +26,22 @@ describe('the route map', () => {
       inbox: { href: 'inbox', later: false },
       'inbox/:conversationId': { href: `inbox/${ID}`, later: false },
       pipeline: { href: 'pipeline', later: false },
-      'leads/:leadId': { href: 'pipeline', later: true },
+      'leads/:leadId': { href: `leads/${ID}`, later: false },
       customers: { href: 'customers', later: false },
-      'customers/people/:personId': { href: 'customers', later: true },
-      'customers/companies/:companyId': { href: 'customers', later: true },
+      'customers/people/:personId': { href: `customers/people/${ID}`, later: false },
+      'customers/companies/:companyId': { href: `customers/companies/${ID}`, later: false },
       tasks: { href: 'tasks', later: false },
-      calendar: { href: 'calendar', later: true },
+      calendar: { href: 'calendar', later: false },
       money: { href: 'money', later: false },
-      'money/invoices': { href: 'money', later: true },
-      'money/invoices/new': { href: 'money', later: true },
-      'money/invoices/:invoiceId': { href: 'money', later: true },
-      'money/estimates': { href: 'money', later: true },
-      'money/estimates/new': { href: 'money', later: true },
-      'money/estimates/:estimateId': { href: 'money', later: true },
-      'money/payments': { href: 'money', later: true },
-      'money/plans': { href: 'money', later: true },
-      'money/plans/:subscriptionId': { href: 'money', later: true },
+      'money/invoices': { href: 'money', later: false },
+      'money/invoices/:invoiceId': { href: `money/invoices/${ID}`, later: false },
+      'money/estimates': { href: 'money', later: false },
+      'money/estimates/:estimateId': { href: `money/estimates/${ID}`, later: false },
+      'money/payments': { href: 'money', later: false },
+      'money/plans': { href: 'money', later: false },
       'workflows/approvals': { href: 'approvals', later: false },
+      // Ask HandsFreeOS: the app's own links only, since the web has no page for the panel.
+      assistant: { href: 'ask', later: false },
       settings: { href: 'settings', later: false },
     };
     const screens = ROUTES.filter((r) => r.phone !== 'web');
@@ -73,8 +72,26 @@ describe('the route map', () => {
       later: null,
       params: { item: ID },
     });
+    // A customer's page and a lead's open themselves now (step 15), with what the path named.
+    expect(routeFor(`/app/w/${WS}/customers/people/${ID}`)).toMatchObject({
+      href: `/app/w/${WS}/customers/people/${ID}`,
+      later: null,
+      params: { personId: ID },
+    });
+    expect(routeFor(`/app/w/${WS}/leads/${ID}`)).toMatchObject({
+      href: `/app/w/${WS}/leads/${ID}`,
+      later: null,
+      params: { leadId: ID },
+    });
+    // The Pipeline tab keeps the pipeline a link names, so an email opens the right board.
+    expect(routeFor(`/app/w/${WS}/pipeline?pipeline=${ID}`)).toMatchObject({
+      href: `/app/w/${WS}/pipeline?pipeline=${ID}`,
+      params: { pipeline: ID },
+    });
+    // The Calendar tab reads ?appt= and opens the appointment itself (step 16).
     expect(routeFor(`/app/w/${WS}/calendar?appt=${ID}`)).toMatchObject({
-      href: `/app/w/${WS}/calendar`,
+      href: `/app/w/${WS}/calendar?appt=${ID}`,
+      later: null,
       params: { appt: ID },
     });
     expect(routeFor(`/app/w/${WS}/workflows/approvals?filter=ai`)).toMatchObject({
@@ -95,10 +112,10 @@ describe('the route map', () => {
       [`/app/w/${WS}?item=${ID}`, `/app/w/${WS}?item=${ID}`],
       [`/app/w/${WS}/workflows/approvals?filter=ai`, `/app/w/${WS}/approvals?filter=ai`],
       [`/app/w/${WS}/workflows/approvals`, `/app/w/${WS}/approvals`],
-      [`/app/w/${WS}/calendar?appt=${ID}`, `/app/w/${WS}/calendar`],
-      [`/app/w/${WS}/leads/${ID}`, `/app/w/${WS}/pipeline`],
+      [`/app/w/${WS}/calendar?appt=${ID}`, `/app/w/${WS}/calendar?appt=${ID}`],
+      [`/app/w/${WS}/leads/${ID}`, `/app/w/${WS}/leads/${ID}`],
       [`/app/w/${WS}/tasks`, `/app/w/${WS}/tasks`],
-      [`/app/w/${WS}/money/invoices/${ID}`, `/app/w/${WS}/money`],
+      [`/app/w/${WS}/money/invoices/${ID}`, `/app/w/${WS}/money/invoices/${ID}`],
     ];
     for (const [path, href] of opens)
       expect(routeFor(path)).toMatchObject({ kind: 'screen', href });

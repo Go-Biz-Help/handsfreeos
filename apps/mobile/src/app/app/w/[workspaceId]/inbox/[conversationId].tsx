@@ -81,7 +81,7 @@ type Row =
  * draft waiting for an OK, and the composer. Everything reads from the phone's copy and works with no signal, but Call.
  */
 export default function Conversation() {
-  const params = useLocalSearchParams<{ conversationId: string; edit?: string }>();
+  const params = useLocalSearchParams<{ conversationId: string; edit?: string; draft?: string }>();
   const conversationId = params.conversationId;
   const { business, me, userId } = useBusiness();
   const insets = useSafeAreaInsets();
@@ -146,6 +146,14 @@ export default function Conversation() {
     if (editFrom) startEdit(editFrom);
     // Only when the address names a change.
   }, [editFrom?.id]);
+
+  // A draft the Assistant wrote, opened here with Edit (M10 step 17): the words go in the box, to send or change.
+  const draftOnce = React.useRef(false);
+  React.useEffect(() => {
+    if (draftOnce.current || !params.draft) return;
+    draftOnce.current = true;
+    setBody(params.draft);
+  }, [params.draft]);
 
   function startEdit(row: OutboxRow) {
     const input = inputOf(row);

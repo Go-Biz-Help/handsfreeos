@@ -1,4 +1,5 @@
 'use client';
+import { ASSISTANT_WORDS } from '@hfos/core';
 import { Archive, ChevronLeft, MoreHorizontal, Pencil } from 'lucide-react';
 import { useEffect, useState, type FormEvent } from 'react';
 import { toast } from 'sonner';
@@ -52,7 +53,7 @@ function RenameDialog({
 
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
-      <DialogContent title="Rename chat">
+      <DialogContent title={ASSISTANT_WORDS.history.renameTitle}>
         <form onSubmit={(e) => void save(e)} className="mt-4">
           <Field label="Name" htmlFor="assistant-chat-title">
             <Input
@@ -110,7 +111,7 @@ export function ThreadList({ phone }: { phone: boolean }) {
       );
       setItems((all) => all?.filter((t) => t.id !== thread.id) ?? null);
       a.forgetThread(thread.id);
-      toast.success('Chat archived');
+      toast.success(ASSISTANT_WORDS.history.archived);
     } catch (e) {
       toast.error(errorMessage(e));
     }
@@ -128,16 +129,14 @@ export function ThreadList({ phone }: { phone: boolean }) {
         onClick={() => a.setView('chat')}
       >
         <ChevronLeft className="h-3.5 w-3.5" strokeWidth={1.5} />
-        Back to the chat
+        {ASSISTANT_WORDS.history.back}
       </Button>
       {items === null ? (
         <p role="status" className="px-3 py-2 text-[13px] text-text-3">
-          Loading your chats…
+          {ASSISTANT_WORDS.history.loading}
         </p>
       ) : items.length === 0 ? (
-        <p className="px-3 py-2 text-[13px] text-text-2">
-          No chats yet. Ask something and it’s saved here.
-        </p>
+        <p className="px-3 py-2 text-[13px] text-text-2">{ASSISTANT_WORDS.history.empty}</p>
       ) : (
         <ul className="flex flex-col gap-0.5">
           {items.map((t) => {
@@ -173,11 +172,11 @@ export function ThreadList({ phone }: { phone: boolean }) {
                   <DropdownMenuContent className="z-[60]">
                     <DropdownMenuItem onSelect={() => setRenaming(t)}>
                       <Pencil className="h-4 w-4" strokeWidth={1.5} />
-                      Rename
+                      {ASSISTANT_WORDS.history.rename}
                     </DropdownMenuItem>
                     <DropdownMenuItem onSelect={() => void archive(t)}>
                       <Archive className="h-4 w-4" strokeWidth={1.5} />
-                      Archive
+                      {ASSISTANT_WORDS.history.archive}
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
@@ -186,10 +185,7 @@ export function ThreadList({ phone }: { phone: boolean }) {
           })}
         </ul>
       )}
-      <p className="px-3 pt-3.5 text-xs text-text-3">
-        Only you can see your chats. Anything the Assistant changes shows in the audit log as done
-        by you, through the Assistant.
-      </p>
+      <p className="px-3 pt-3.5 text-xs text-text-3">{ASSISTANT_WORDS.history.privacy}</p>
       {renaming ? (
         <RenameDialog
           thread={renaming}
