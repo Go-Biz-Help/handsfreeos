@@ -142,6 +142,8 @@ const STEP_LABEL: Record<string, string> = {
   manage_payment_account: 'Changing where money lands',
   update_action_center_settings: 'Changing what Home watches for',
   manage_ai_teammate: 'Setting up your AI teammate',
+  update_my_account: 'Changing your account',
+  update_my_hours: 'Changing your hours',
 };
 const stepLabel = (tool: string) => STEP_LABEL[tool] ?? 'Preparing it for your OK';
 

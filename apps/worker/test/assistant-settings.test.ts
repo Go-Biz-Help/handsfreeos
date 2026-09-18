@@ -709,3 +709,49 @@ describe('the AI teammate', () => {
     expect(after.teammate.config.answer.enabled).toBe(before.teammate.config.answer.enabled);
   });
 });
+
+describe('your own account', () => {
+  it('turns one email off without touching the others, and keeps your name', async () => {
+    const { card, parsed, tool } = await prepare(
+      'update_my_account',
+      { morningEmail: false, appearance: 'dark' },
+      owner,
+    );
+    expect(card.fields.find((f) => f.label === 'Appearance')!.value).toBe('Dark');
+    expect(card.fields.find((f) => f.label === 'Email when: The morning list')!.value).toBe('No');
+    await confirm(tool!, parsed, owner);
+
+    const me = await q<{ user: { fullName: string; settings: Record<string, unknown> } }>(
+      'account.me',
+    );
+    expect(me.user.fullName).toBe('Dale Owner');
+    expect(me.user.settings['theme']).toBe('dark');
+    const notifications = me.user.settings['notifications'] as Record<string, boolean>;
+    expect(notifications['attentionDigest']).toBe(false);
+
+    // A second change leaves the first alone.
+    const again = await prepare('update_my_account', { emailWhenPaid: false }, owner);
+    await confirm(again.tool!, again.parsed, owner);
+    const after = await q<{ user: { settings: Record<string, unknown> } }>('account.me');
+    const now = after.user.settings['notifications'] as Record<string, boolean>;
+    expect(now['attentionDigest']).toBe(false);
+    expect(now['paymentEmail']).toBe(false);
+    expect(after.user.settings['theme']).toBe('dark');
+  });
+});
+
+describe('your own hours', () => {
+  it('books time off in plain words, and says visits already booked stay', async () => {
+    const { card, parsed, tool } = await prepare(
+      'update_my_hours',
+      { action: 'add_time_off', startDate: '2026-12-24', endDate: '2026-12-26', note: 'Christmas' },
+      owner,
+    );
+    expect(card.title).toBe('Put time off in your calendar');
+    expect(card.fields.find((f) => f.label === 'When')!.value).toBe('Dec 24 to Dec 26');
+    expect(card.fields.find((f) => f.label === 'What it is')!.value).toBe('Christmas');
+    expect(card.warnings[0]!.text).toContain('Visits already booked stay');
+    const done = await confirm(tool!, parsed, owner);
+    expect(done.command).toBe('time_off.add');
+  });
+});

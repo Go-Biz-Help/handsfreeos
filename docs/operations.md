@@ -5757,11 +5757,23 @@ If the panel says "Something went wrong" instead, see "When a question fails" be
 
 ### Each person's OK
 
-Before someone's first question, on the web or in the phone app, the Assistant asks for their OK, because what they ask about is sent to Claude. One OK covers every app and every business they belong to. HandsFreeOS keeps it in the person's own settings with the time and the version of the wording (`assistant.consent`). If the wording ever changes enough to need a new version, everyone is asked again. **Not now** asks again next time.
+Before someone's first question, on the web or in the phone app, the Assistant asks for their OK, because what they ask about is sent to an AI service. Nothing anyone reads names the vendor or the model — HandsFreeOS may change which AI answers, and a sentence naming one would go on being shown after it stopped being true. The provider is named here, in the code and in the environment variables, and nowhere a business owner sees. One OK covers every app and every business they belong to. HandsFreeOS keeps it in the person's own settings with the time and the version of the wording (`assistant.consent`). If the wording ever changes enough to need a new version, everyone is asked again. **Not now** asks again next time.
 
-Until someone says OK, the worker answers their questions with "The Assistant uses Anthropic’s Claude: what you ask about is sent to Claude to answer you. Say OK once, on the web or your phone, and it won’t ask again." and sends nothing to Anthropic.
+Until someone says OK, the worker answers their questions with "The Assistant sends what you ask about to an AI service to answer you. Say OK once, on the web or your phone, and it won’t ask again." and sends nothing to Anthropic.
 
-On the web, the panel shows the consent step ("The Assistant uses Anthropic’s Claude") instead of the chat until the person presses **OK, continue**. **Not now** closes the panel. An OK given on the phone while a web page was open counts as soon as the panel opens, and if the worker refuses a question for want of an OK, the step shows and the question is asked once they say OK.
+On the web, the panel shows the consent step ("How the Assistant answers you") instead of the chat until the person presses **OK, continue**. **Not now** closes the panel. An OK given on the phone while a web page was open counts as soon as the panel opens, and if the worker refuses a question for want of an OK, the step shows and the question is asked once they say OK.
+
+### Setting the business up by asking
+
+The Assistant can set up and change anything in Settings that the person's own role allows: calendars, services, resources, territories and the booking page; the business itself, its pipelines, its team, its tags and what its AI knows; texting, the business number, the carrier registration, email and the website chat; how the business gets paid, the items on a document, what Home watches for and the AI teammate; and each person's own account and hours.
+
+Every one of those runs the same command the settings screen runs, as the person asking, so the permissions, the events and the audit log are unchanged — each shows as their own doing, "via Assistant". Nothing is saved until they press **Confirm** on a card that says what will change.
+
+Some things it cannot do, and says so with the steps instead: signing in to Google, Outlook, Stripe or Square; the DNS records for a business's own email domain; pasting the website-chat snippet into a website; passwords, Google sign-in and passkeys; confirming a cell by phone; importing a spreadsheet; moving a business over from another CRM; and deleting an account. Carrier approval for texting is the carriers' to give — the Assistant can fill in and send the registration, but not make it pass.
+
+Three it can do that are worth knowing about, because they cost money or cannot be undone. Each carries a warning on its card: getting a business number (a monthly cost), giving one up (gone for good), and disconnecting a payout account (anything paying on a plan stops). Taking a teammate off the business is the fourth.
+
+One deliberate speed bump is kept rather than worked around: automatic follow-ups to quiet leads stay off until an owner has read the wording on **Settings** → **Action Center** and agreed to it. Asked to turn them on, the Assistant answers with a card that has no Confirm button and says where to go.
 
 ### When a question fails
 

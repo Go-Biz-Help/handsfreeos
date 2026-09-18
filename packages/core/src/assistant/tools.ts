@@ -817,6 +817,47 @@ export const assistantTools = [
     permission: 'ai_team.manage',
   }),
 
+  define({
+    name: 'update_my_account',
+    description:
+      'Change the person’s own account: their name, whether the app is light or dark, and which emails they get from HandsFreeOS. Theirs alone — never another teammate’s.',
+    input: z.object({
+      fullName: text(120).optional(),
+      appearance: z.enum(['light', 'dark', 'system']).optional(),
+      emailWhenCustomerWaiting: z.boolean().optional(),
+      morningEmail: z.boolean().optional().describe('The morning list of what needs attention'),
+      emailWhenAiHandsOver: z.boolean().optional(),
+      emailWhenBooked: z.boolean().optional(),
+      emailWhenPaid: z.boolean().optional(),
+    }),
+    autonomy: 'confirm',
+    permission: 'assistant.use',
+  }),
+  define({
+    name: 'update_my_hours',
+    description:
+      'Change the person’s own working hours, or put time off in the calendar (a day, a run of days, or part of a day). Theirs alone. Use a local date like 2026-09-24 for whole days.',
+    input: z.object({
+      action: z.enum(['set_hours', 'add_time_off', 'remove_time_off']),
+      weekly: WeeklyHoursInput.optional().describe('The working week, for set_hours'),
+      startDate: z
+        .string()
+        .refine(isLocalDate, { error: 'Use a date like 2026-09-24.' })
+        .optional(),
+      endDate: z
+        .string()
+        .refine(isLocalDate, { error: 'Use a date like 2026-09-26.' })
+        .optional()
+        .describe('The last day off, for a run of days'),
+      startsAt: when.optional().describe('For part of a day'),
+      endsAt: when.optional(),
+      note: text(500).optional().describe('What it is: "Vacation", "Doctor"'),
+      exceptionId: uuid.optional().describe('The time off to take back out'),
+    }),
+    autonomy: 'confirm',
+    permission: 'assistant.use',
+  }),
+
   // ---------- tasks and notes (auto, with Undo) ----------
   define({
     name: 'create_task',
