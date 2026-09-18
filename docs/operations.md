@@ -8203,6 +8203,33 @@ Money runs against a payment stand-in (`apps/worker/src/payments/fake.ts`) unles
 
 Both kinds of tests need the local stack running and `pnpm env:local` done.
 
+**Stop the watch-mode worker first.** A `pnpm dev` (or `pnpm --filter @hfos/worker dev`) left running is the
+largest single source of failures that look like bugs and are not. It claims jobs from the same database the
+tests use, so a test that creates a call and then looks for it as `initiated` finds nothing, a test that counts
+today's runs counts somebody else's, and an Assistant answer sits at `live` forever because the worker answering
+it has no scripted stand-in configured. It restarts itself whenever a file changes, so it comes back after a
+commit without anyone noticing. Check before a suite:
+
+```bash
+lsof -ti :4000,:4100,:4110,:4120
+```
+
+Nothing should answer except what you started deliberately. This matters most when more than one person, or more
+than one session, is working on the same machine.
+
+**Kill the watcher, not just the worker, and do it before you pull.** `pnpm dev` runs the worker under
+`tsx watch`, so stopping the worker leaves the watcher, which makes a new one the moment a tracked file changes —
+a `git pull`, a rebase, a commit of your own. Killing the watcher leaves its child orphaned but alive, still
+holding its database connection, which is what makes a later `db:reset` half-build instead of failing honestly.
+So: stop the watchers first, then the workers they left behind, then check the ports are free, and only then
+pull or reset. A reader who kills the children, kills the parents and then pulls ends up exactly where they
+started, with three workers they think they stopped.
+
+```bash
+pkill -f 'tsx.*watch src/main.ts'; pkill -f 'pnpm --filter @hfos/worker dev'
+lsof -ti :4100,:4110,:4120 | xargs -r kill -9
+```
+
 #### Unit, database, API and worker tests
 
 1. To be safe, stop `pnpm dev` with Control-C, so its worker does not pick up jobs the tests create.
