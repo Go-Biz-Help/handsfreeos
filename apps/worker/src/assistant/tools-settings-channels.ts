@@ -439,21 +439,14 @@ const manageEmailSettings: SettingsConfirmTool = {
           }),
         });
         return { outcome: 'Changed', href, command: 'email_address.update' };
-      case 'add_domain': {
-        const out = await command<{ dkimHost?: string | null; dkimValue?: string | null }>(
-          db,
-          ctx,
-          'email_domain.add',
-          { domain: args['domain'] },
-        );
+      case 'add_domain':
+        await command(db, ctx, 'email_domain.add', { domain: args['domain'] });
+        // The records themselves are on the Email screen: they are long, and they are copied, not read out.
         return {
-          outcome: out.dkimHost
-            ? 'Added. The records to copy are on the Email screen.'
-            : 'Added. The records to copy are on the Email screen.',
+          outcome: `${str(args['domain'])} is added. The records to copy are on the Email screen.`,
           href,
           command: 'email_domain.add',
         };
-      }
       case 'check_domain': {
         await command(db, ctx, 'email_domain.verify', { emailDomainId: args['emailDomainId'] });
         return { outcome: 'Checked', href, command: 'email_domain.verify' };
