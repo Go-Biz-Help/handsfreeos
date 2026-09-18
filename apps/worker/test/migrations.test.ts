@@ -84,12 +84,20 @@ const ask = <T>(q: unknown, input: unknown): Promise<T> =>
  */
 async function drain(limit = 400): Promise<void> {
   for (let i = 0; i < limit; i++) {
+    // A batch that failed once is scheduled minutes out by the backoff. Waiting for it would stall the run
+    // and ignoring it would end the run early with the work half done — which is what made this suite
+    // nondeterministic even after the jobs stopped being stolen. So it is pulled forward instead: the retry
+    // happens now, and a batch that genuinely cannot succeed still exhausts its attempts and shows up as
+    // failed rather than being quietly skipped.
+    await admin().execute(
+      sql`update app.migration_jobs set run_at = now()
+          where migration_id = ${w.migrationId} and state in ('pending', 'retry') and run_at > now()`,
+    );
     const [mine] = await rows<{ count: number }>(
       admin(),
       sql`select count(*)::int as count from app.migration_jobs
           where migration_id = ${w.migrationId}
-            and (state = 'leased'
-              or (state in ('pending', 'retry') and run_at <= now()))`,
+            and (state = 'leased' or state in ('pending', 'retry'))`,
     );
     if ((mine?.count ?? 0) === 0) return;
     await processMigrationJobs(w.deps);
@@ -264,6 +272,62 @@ describe('a business moves house', () => {
     const finding = after.findings.find((f) => f.code === 'plan.scopes_share_workspace');
     expect(finding?.whatChanges).toContain('joined into one customer');
   });
+
+  it('makes the business when a sub-account has nowhere to land, and leaves one behind when told', async () => {
+    // The default on that screen, and the one path no test took until it 500'd in somebody's hands: making
+    // the business raises `workspace.created`, and a command may only raise events it declares.
+    const got = await ask<{ scopes: { id: string; name: string }[] }>(migrationGet, {
+      organizationId: w.organizationId,
+      migrationId: w.migrationId,
+    });
+    const austin = got.scopes.find((s) => s.name.includes('Austin'))!;
+    const made = await run<{ mapped: number }>(migrationMapScopes, {
+      organizationId: w.organizationId,
+      migrationId: w.migrationId,
+      scopes: [
+        {
+          scopeId: austin.id,
+          createWorkspace: { name: 'Made By The Migration', timezone: 'America/Chicago' },
+        },
+      ],
+    });
+    expect(made.mapped).toBe(1);
+    const [ws] = await rows<{ id: string; name: string }>(
+      admin(),
+      sql`select w.id::text as id, w.name from app.workspaces w
+          join app.migration_scopes s on s.workspace_id = w.id
+          where s.id = ${austin.id}::uuid`,
+    );
+    expect(ws?.name).toBe('Made By The Migration');
+    // And it is a real business, with the event behind it, not a bare row.
+    const [event] = await rows<{ count: number }>(
+      admin(),
+      sql`select count(*)::int as count from app.events
+          where event_type = 'workspace.created' and entity_id = ${ws!.id}::uuid`,
+    );
+    expect(event?.count).toBe(1);
+    // The other choice on that screen nothing had taken: leaving a sub-account behind.
+    const dallas = got.scopes.find((s) => s.name.includes('Dallas'))!;
+    const skipped = await run<{ mapped: number; skipped: number }>(migrationMapScopes, {
+      organizationId: w.organizationId,
+      migrationId: w.migrationId,
+      scopes: [{ scopeId: dallas.id, skip: true }],
+    });
+    expect(skipped.skipped).toBe(1);
+    const [left] = await rows<{ status: string; selected: boolean; workspace_id: string | null }>(
+      admin(),
+      sql`select status::text as status, selected, workspace_id::text as workspace_id
+          from app.migration_scopes where id = ${dallas.id}::uuid`,
+    );
+    expect(left).toMatchObject({ status: 'skipped', selected: false, workspace_id: null });
+
+    // Put it back where the rest of these tests expect it: both sub-accounts in the one business.
+    await run(migrationMapScopes, {
+      organizationId: w.organizationId,
+      migrationId: w.migrationId,
+      scopes: got.scopes.map((s) => ({ scopeId: s.id, workspaceId: w.workspaceId })),
+    });
+  }, 60_000);
 
   it('adds what a choice needs and says who asked for it', async () => {
     const chosen = await run<{

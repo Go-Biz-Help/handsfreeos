@@ -44,7 +44,9 @@ export default async function MigrationsPage({ params }: { params: Promise<{ org
                   <div className="text-xs text-text-3">
                     {c.installKind === 'agency' ? 'Your whole agency' : 'One business'}
                     {c.missingScopes.length > 0
-                      ? ` · ${c.missingScopes.length} things this sign-in cannot read`
+                      ? ` · ${c.missingScopes.length} ${
+                          c.missingScopes.length === 1 ? 'thing' : 'things'
+                        } this sign-in cannot read`
                       : ''}
                   </div>
                 </div>

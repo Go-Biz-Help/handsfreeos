@@ -492,7 +492,10 @@ export const migrationMapScopes = defineCommand({
   output: MigrationMapScopesOutput,
   permission: null,
   scope: eitherDoor,
-  emits: ['migration.scopes_mapped'],
+  // A sub-account with nowhere to land makes the business it lands in, so this raises the same event a
+  // person adding one by hand does. Declared here because the kernel refuses an undeclared event, which is
+  // what made "Make a new business" — the default on that screen — fail with a 500 and write nothing.
+  emits: ['migration.scopes_mapped', 'workspace.created'],
   async handler(ctx, input) {
     const me = requireHuman(ctx).userId;
     const m = await loadMigration(ctx, input.migrationId);
