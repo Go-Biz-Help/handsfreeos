@@ -25,10 +25,10 @@ export function ProductMock() {
 
           <div>
             <div className="mb-1.5 flex items-center gap-2">
-              <span className="bg-accent text-on-solid rounded-full px-2 py-0.5 text-[0.6875rem] font-semibold">
+              <span className="bg-accent text-white rounded-full px-2 py-0.5 text-xs font-semibold">
                 Ava · AI teammate
               </span>
-              <span className="text-text-3 text-[0.6875rem]">replied in 9 seconds</span>
+              <span className="text-text-3 text-xs">replied in 9 seconds</span>
             </div>
             <Bubble side="out">
               Sorry about that, Marisol — warm air in this heat is no fun. I can get a tech to you
@@ -67,7 +67,7 @@ export function ProductMock() {
           Ava wants to send Marisol a $189 diagnostic quote. It has not sent a price on its own yet.
         </p>
         <div className="mt-3 flex gap-2">
-          <span className="bg-accent text-on-solid rounded-[8px] px-3 py-1.5 text-sm font-semibold">
+          <span className="bg-accent text-white rounded-[8px] px-3 py-1.5 text-sm font-semibold">
             Send it
           </span>
           <span className="border-border-strong rounded-[8px] border px-3 py-1.5 text-sm font-semibold">
@@ -90,9 +90,7 @@ function Bubble({ side, children }: { side: 'in' | 'out'; children: React.ReactN
       <p
         className={[
           'max-w-[85%] rounded-[14px] px-3.5 py-2.5 text-sm',
-          isIn
-            ? 'bg-card-2 text-text rounded-bl-[4px]'
-            : 'bg-accent text-on-solid rounded-br-[4px]',
+          isIn ? 'bg-card-2 text-text rounded-bl-[4px]' : 'bg-accent text-white rounded-br-[4px]',
         ].join(' ')}
       >
         {children}

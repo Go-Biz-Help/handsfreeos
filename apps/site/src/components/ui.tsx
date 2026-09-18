@@ -77,7 +77,7 @@ export function Button({
     lg: 'px-7 py-4 text-lg',
   } as const;
   const variants = {
-    primary: 'bg-accent text-on-solid hover:bg-accent-hover shadow-[var(--shadow-2)]',
+    primary: 'bg-accent text-white hover:bg-accent-hover shadow-[var(--shadow-2)]',
     secondary: 'bg-card text-text border border-border-strong hover:bg-card-2',
   } as const;
   return <Link className={`${base} ${sizes[size]} ${variants[variant]} ${className}`} {...props} />;

@@ -109,6 +109,40 @@ export const plans = [
   },
 ] as const;
 
+/**
+ * The plan differences, side by side, because three lists of different lengths are not something a
+ * person can compare. `true` is a tick, `false` a dash, a string is the answer for that plan.
+ */
+export const planComparison: readonly {
+  readonly what: string;
+  readonly starter: boolean | string;
+  readonly growth: boolean | string;
+  readonly pro: boolean | string;
+}[] = [
+  {
+    what: 'Business number, inbox, customers, calendar, quotes and invoices',
+    starter: true,
+    growth: true,
+    pro: true,
+  },
+  {
+    what: 'An AI teammate that answers your customers on its own',
+    starter: false,
+    growth: true,
+    pro: true,
+  },
+  { what: 'Follow-up workflows and the Action Center', starter: false, growth: true, pro: true },
+  { what: 'More than one business or location', starter: false, growth: false, pro: true },
+  { what: 'People', starter: 'Up to 3', growth: '8, then $15 each', pro: 'Unlimited, no extra' },
+  {
+    what: 'Moving off the CRM you use now',
+    starter: 'You run it',
+    growth: 'You run it',
+    pro: 'We do it with you',
+  },
+  { what: 'Support', starter: 'Email', growth: 'Email', pro: 'Priority, and setup with you' },
+];
+
 /** The cheapest and dearest plan, for the pricing page's title in a search result. */
 export const lowestPrice = Math.min(...plans.map((plan) => plan.price));
 export const highestPrice = Math.max(...plans.map((plan) => plan.price));

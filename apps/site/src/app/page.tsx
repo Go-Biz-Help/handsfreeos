@@ -51,9 +51,8 @@ function Hero() {
               Your business keeps answering while you&rsquo;re on the job.
             </h1>
             <p className="text-text-2 mt-6 max-w-xl text-lg sm:text-xl">
-              HandsFreeOS puts your calls, texts, email, calendar, quotes and invoices in one place
-              — and gives you an AI teammate that answers a new lead in seconds, books them in, and
-              checks with you before it does anything it hasn&rsquo;t earned yet.
+              Your calls, texts, email, calendar, quotes and invoices in one place — with an AI
+              teammate that answers new leads in seconds, books them in, and checks with you first.
             </p>
 
             <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center">
@@ -147,21 +146,24 @@ function HowItWorks() {
         You stay in charge. It just stops being the thing you do at 11pm.
       </SectionHeading>
 
-      <ol className="mt-12 grid gap-6 md:grid-cols-3">
+      {/* A sequence, so it is drawn as one: a rule the steps sit on, not three separate cards. */}
+      <ol className="relative mt-14 grid gap-12 md:grid-cols-3 md:gap-8">
+        <span
+          aria-hidden="true"
+          className="bg-border absolute top-4 right-8 left-8 hidden h-px md:block"
+        />
         {steps.map((item, index) => (
-          <li key={item.title}>
-            <Card className="h-full">
-              <div className="flex items-center gap-3">
-                <span className="bg-accent text-on-solid flex h-8 w-8 items-center justify-center rounded-full text-sm font-bold">
-                  {index + 1}
-                </span>
-                <span className="text-text-3 text-sm font-semibold tracking-[0.1em] uppercase">
-                  {item.step}
-                </span>
-              </div>
-              <h3 className="mt-4 text-lg font-semibold">{item.title}</h3>
-              <p className="text-text-2 mt-2.5">{item.body}</p>
-            </Card>
+          <li key={item.title} className="relative">
+            <div className="mb-5 flex items-center gap-3">
+              <span className="bg-accent text-white ring-bg relative z-10 flex h-8 w-8 items-center justify-center rounded-full text-sm font-bold ring-8">
+                {index + 1}
+              </span>
+              <span className="text-text-3 bg-bg relative z-10 pr-3 text-sm font-semibold tracking-[0.1em] uppercase">
+                {item.step}
+              </span>
+            </div>
+            <h3 className="text-lg font-semibold">{item.title}</h3>
+            <p className="text-text-2 mt-2.5">{item.body}</p>
           </li>
         ))}
       </ol>

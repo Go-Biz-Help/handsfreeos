@@ -30,6 +30,9 @@
   --shadow-1: 0 1px 2px rgba(25, 29, 37, 0.06), 0 1px 3px rgba(25, 29, 37, 0.04);
   --shadow-2: 0 8px 24px rgba(25, 29, 37, 0.1), 0 2px 6px rgba(25, 29, 37, 0.06);
   --shadow-3: 0 24px 60px rgba(25, 29, 37, 0.22), 0 4px 12px rgba(25, 29, 37, 0.08);
+  /* Text on a solid success, warning or danger fill. NOT for the accent: in dark mode this flips
+     to near-black, which on the accent blue measures 3.3:1 and fails AA. Accent fills use white in
+     both themes, the same as the product app. */
   --on-solid: #ffffff;
   --ink: #191d25;
   color-scheme: light;

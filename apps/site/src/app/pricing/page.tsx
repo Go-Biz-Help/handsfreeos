@@ -1,8 +1,17 @@
 import type { Metadata } from 'next';
-import { Button, Card, Check, Container, Section, SectionHeading } from '@/components/ui';
+import { IconBadge, Icons } from '@/components/icons';
 import { FaqJsonLd } from '@/components/json-ld';
+import { Button, Card, Check, Container, Section, SectionHeading } from '@/components/ui';
 import { pricingFaqs } from '@/content/faqs';
-import { annualNote, highestPrice, lowestPrice, plans, urls, usageNote } from '@/content/site';
+import {
+  annualNote,
+  highestPrice,
+  lowestPrice,
+  planComparison,
+  plans,
+  urls,
+  usageNote,
+} from '@/content/site';
 
 export const metadata: Metadata = {
   title: `Pricing — $${lowestPrice} to $${highestPrice} a month`,
@@ -35,10 +44,13 @@ export default function PricingPage() {
               ].join(' ')}
             >
               {plan.featured ? (
-                <span className="bg-accent text-on-solid mb-4 -mt-1 w-fit rounded-full px-3 py-1 text-xs font-semibold">
+                <span className="bg-accent text-white mb-4 -mt-1 w-fit rounded-full px-3 py-1 text-xs font-semibold">
                   Where most businesses start
                 </span>
               ) : null}
+              <IconBadge>
+                <PlanIcon id={plan.id} />
+              </IconBadge>
               <h2 className="text-xl font-bold">{plan.name}</h2>
               <p className="text-text-2 mt-2">{plan.blurb}</p>
               <p className="mt-6 text-4xl font-bold">
@@ -84,6 +96,54 @@ export default function PricingPage() {
           ))}
         </div>
 
+        {/* On a phone the three cards above already answer this, and a four-column table would
+            either scroll out of sight or squeeze to nothing. It appears once there is room. */}
+        <div className="border-border mt-14 hidden overflow-x-auto rounded-[var(--radius-card)] border sm:block">
+          <table className="w-full min-w-[34rem] border-collapse text-left">
+            <caption className="sr-only">What changes between the plans</caption>
+            <thead>
+              <tr className="border-border bg-card-2 border-b">
+                <th
+                  scope="col"
+                  className="text-text-3 px-4 py-3 text-xs font-semibold tracking-[0.1em] uppercase"
+                >
+                  What changes
+                </th>
+                {plans.map((plan) => (
+                  <th
+                    key={plan.id}
+                    scope="col"
+                    className={`px-4 py-3 text-center text-sm font-bold ${
+                      plan.featured ? 'text-accent-text' : ''
+                    }`}
+                  >
+                    {plan.name}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {planComparison.map((row) => (
+                <tr key={row.what} className="border-border border-b last:border-b-0">
+                  <th scope="row" className="text-text-2 px-4 py-3 text-left text-base font-normal">
+                    {row.what}
+                  </th>
+                  {([row.starter, row.growth, row.pro] as const).map((value, index) => (
+                    <td
+                      key={index}
+                      className={`px-4 py-3 text-center text-sm ${
+                        index === 1 ? 'bg-accent-soft/40' : ''
+                      }`}
+                    >
+                      <Answer value={value} />
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
         <div className="border-border bg-card-2 mt-8 grid gap-6 rounded-[var(--radius-card)] border p-6 sm:grid-cols-2">
           <div>
             <h3 className="font-semibold">Texts, calls and AI</h3>
@@ -127,4 +187,33 @@ export default function PricingPage() {
       </Section>
     </>
   );
+}
+
+/** A tick, a dash, or the words for that plan. */
+function Answer({ value }: { value: boolean | string }) {
+  if (value === true) {
+    return (
+      <>
+        <Check className="text-success mx-auto" />
+        <span className="sr-only">Included</span>
+      </>
+    );
+  }
+  if (value === false) {
+    return (
+      <>
+        <span aria-hidden="true" className="text-text-3">
+          —
+        </span>
+        <span className="sr-only">Not included</span>
+      </>
+    );
+  }
+  return <span className="text-text-2">{value}</span>;
+}
+
+function PlanIcon({ id }: { id: string }) {
+  if (id === 'growth') return <Icons.bolt />;
+  if (id === 'pro') return <Icons.apps />;
+  return <Icons.phone />;
 }
