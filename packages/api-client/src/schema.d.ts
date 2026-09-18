@@ -2628,7 +2628,7 @@ export interface paths {
         put?: never;
         /**
          * Say where each sub-account of the old system lands: a new business here, one that already exists, or nowhere. Several may land in the same business, and the plan says what that mixes.
-         * @description Risk level 3. Emits migration.scopes_mapped.
+         * @description Risk level 3. Emits migration.scopes_mapped, workspace.created.
          */
         post: operations["command_migration_map_scopes"];
         delete?: never;

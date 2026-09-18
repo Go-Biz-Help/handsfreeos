@@ -28228,7 +28228,7 @@
         "tags": [
           "commands"
         ],
-        "description": "Risk level 3. Emits migration.scopes_mapped.",
+        "description": "Risk level 3. Emits migration.scopes_mapped, workspace.created.",
         "requestBody": {
           "required": true,
           "content": {
