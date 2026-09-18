@@ -9,3 +9,6 @@ export * from './status';
 export * from './numbering';
 export * from './settings';
 export * from './words';
+export * from './lists';
+export * from './visit';
+export * from './document-words';

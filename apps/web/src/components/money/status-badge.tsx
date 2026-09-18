@@ -2,6 +2,8 @@ import {
   ESTIMATE_WORDS,
   INVOICE_WORDS,
   PAYMENT_STATUS_WORDS,
+  REFUND_WORDS,
+  SUBSCRIPTION_WORDS,
   type EstimateState,
   type InvoiceState,
   type PaymentStatus,
@@ -78,18 +80,18 @@ const PAYMENT_FACES: Readonly<Record<PaymentStatus, Face>> = {
 
 /** Plans: the words and the looks the plan list and the plan page share. */
 const SUBSCRIPTION_FACES: Readonly<Record<string, Face & { word: string }>> = {
-  draft: { look: 'draft', icon: null, word: 'Draft' },
-  active: { look: 'paid', icon: Check, word: 'Billing' },
-  past_due: { look: 'late', icon: AlertTriangle, word: 'Payment failed' },
-  paused: { look: 'quiet', icon: Pause, word: 'Paused' },
-  cancelled: { look: 'void', icon: null, word: 'Cancelled' },
-  unmanaged: { look: 'waiting', icon: Ban, word: 'Not managed here' },
+  draft: { look: 'draft', icon: null, word: SUBSCRIPTION_WORDS.draft! },
+  active: { look: 'paid', icon: Check, word: SUBSCRIPTION_WORDS.active! },
+  past_due: { look: 'late', icon: AlertTriangle, word: SUBSCRIPTION_WORDS.past_due! },
+  paused: { look: 'quiet', icon: Pause, word: SUBSCRIPTION_WORDS.paused! },
+  cancelled: { look: 'void', icon: null, word: SUBSCRIPTION_WORDS.cancelled! },
+  unmanaged: { look: 'waiting', icon: Ban, word: SUBSCRIPTION_WORDS.unmanaged! },
 };
 
 const REFUND_FACES: Readonly<Record<string, Face & { word: string }>> = {
-  pending: { look: 'waiting', icon: Clock, word: 'Refunding' },
-  succeeded: { look: 'quiet', icon: Check, word: 'Refunded' },
-  failed: { look: 'late', icon: AlertTriangle, word: 'Refund failed' },
+  pending: { look: 'waiting', icon: Clock, word: REFUND_WORDS.pending! },
+  succeeded: { look: 'quiet', icon: Check, word: REFUND_WORDS.succeeded! },
+  failed: { look: 'late', icon: AlertTriangle, word: REFUND_WORDS.failed! },
 };
 
 const UNKNOWN: Face = { look: 'quiet', icon: null };

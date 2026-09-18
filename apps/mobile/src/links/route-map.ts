@@ -66,24 +66,27 @@ export const ROUTES: readonly Rule[] = [
   { web: '', phone: '', query: ['item'] },
   { web: 'inbox', phone: 'inbox' },
   { web: 'inbox/:conversationId', phone: 'inbox/:conversationId' },
-  { web: 'pipeline', phone: 'pipeline' },
-  { web: 'leads/:leadId', phone: 'pipeline', later: 'The lead, step 15' },
+  { web: 'pipeline', phone: 'pipeline', query: ['pipeline'] },
+  { web: 'leads/:leadId', phone: 'leads/:leadId' },
   { web: 'customers', phone: 'customers' },
-  { web: 'customers/people/:personId', phone: 'customers', later: 'The customer, step 15' },
-  { web: 'customers/companies/:companyId', phone: 'customers', later: 'The company, step 15' },
+  { web: 'customers/people/:personId', phone: 'customers/people/:personId' },
+  { web: 'customers/companies/:companyId', phone: 'customers/companies/:companyId' },
   { web: 'tasks', phone: 'tasks' },
-  { web: 'calendar', phone: 'calendar', later: 'The appointment (?appt=), step 16' },
+  // The Calendar tab opens the appointment itself when the link names one (?appt=<id>).
+  { web: 'calendar', phone: 'calendar', query: ['appt', 'date'] },
   { web: 'money', phone: 'money' },
-  { web: 'money/invoices', phone: 'money', later: 'Invoices, step 16' },
-  { web: 'money/invoices/new', phone: 'money', later: 'A new invoice, step 16' },
-  { web: 'money/invoices/:invoiceId', phone: 'money', later: 'The invoice, step 16' },
-  { web: 'money/estimates', phone: 'money', later: 'Estimates, step 16' },
-  { web: 'money/estimates/new', phone: 'money', later: 'A new estimate, step 16' },
-  { web: 'money/estimates/:estimateId', phone: 'money', later: 'The estimate, step 16' },
-  { web: 'money/payments', phone: 'money', later: 'Payments, step 16' },
-  { web: 'money/plans', phone: 'money', later: 'Plans, step 16' },
-  { web: 'money/plans/:subscriptionId', phone: 'money', later: 'The plan, step 16' },
+  { web: 'money/invoices', phone: 'money' },
+  { web: 'money/invoices/:invoiceId', phone: 'money/invoices/:invoiceId' },
+  { web: 'money/estimates', phone: 'money' },
+  { web: 'money/estimates/:estimateId', phone: 'money/estimates/:estimateId' },
+  { web: 'money/payments', phone: 'money' },
+  { web: 'money/plans', phone: 'money' },
+  // Raising a document (`…/new`) and one plan's own page have no rule, so the map's own fallback opens the web:
+  // making and editing documents, and managing a plan, are the web's in M10.
   { web: 'workflows/approvals', phone: 'approvals', query: ['filter'] },
+  // Ask HandsFreeOS. The web has no page of its own for it (it's a panel over whatever page you're on), so this is
+  // for the app's own links — `handsfreeos://app/w/<business>/assistant` opens the Assistant full screen.
+  { web: 'assistant', phone: 'ask' },
   // Settings → Account on the web is you and your notifications: the phone's own Settings.
   { web: 'settings', phone: 'settings' },
   // The desk work the phone leaves to the web.

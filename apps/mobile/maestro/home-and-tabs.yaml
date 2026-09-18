@@ -25,10 +25,18 @@ env:
     timeout: 20000
 - tapOn:
     id: 'tab-pipeline'
-- assertVisible: 'Your leads, stage by stage'
+# The Pipeline tab is the board one stage at a time now (step 15), not a placeholder.
+- extendedWaitUntil:
+    visible:
+      id: 'pipeline-summary'
+    timeout: 20000
 - tapOn:
     id: 'tab-calendar'
-- assertVisible: 'Your day and week'
+# The Calendar tab is the day and its week now (step 16), not a placeholder.
+- extendedWaitUntil:
+    visible:
+      id: 'calendar-day-heading'
+    timeout: 20000
 - tapOn:
     id: 'tab-more'
 - assertVisible: 'Customers'
@@ -36,7 +44,11 @@ env:
     id: 'more-open-on-web'
 - tapOn:
     id: 'more-customers'
-- assertVisible: 'Customers on the phone'
+# Customers is the list and its search now (step 15), not a placeholder.
+- extendedWaitUntil:
+    visible:
+      id: 'customers-search'
+    timeout: 20000
 - waitForAnimationToEnd
 - tapOn:
     id: 'back'
@@ -46,10 +58,13 @@ env:
     id: 'setting-businesses'
 - assertVisible:
     id: 'setting-sign-out'
-# Ask HandsFreeOS is one tap away from every screen.
+# Ask HandsFreeOS is one tap away from every screen (its own flows ask it something; here it only opens).
 - tapOn:
     id: 'ask-handsfreeos'
-- assertVisible: 'Ask HandsFreeOS here soon'
+- extendedWaitUntil:
+    visible:
+      id: 'ask'
+    timeout: 20000
 - waitForAnimationToEnd
 - tapOn:
     id: 'close'

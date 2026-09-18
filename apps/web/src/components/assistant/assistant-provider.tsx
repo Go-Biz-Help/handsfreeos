@@ -1,5 +1,10 @@
 'use client';
-import { ASSISTANT_CONSENT_VERSION, type AssistantCard, type AssistantEvent } from '@hfos/core';
+import {
+  ASSISTANT_CONSENT_VERSION,
+  ASSISTANT_WORDS,
+  type AssistantCard,
+  type AssistantEvent,
+} from '@hfos/core';
 import { usePathname } from 'next/navigation';
 import {
   createContext,
@@ -516,10 +521,7 @@ export function AssistantProvider({
           ...m,
           live: false,
           steps: settle(m.steps, false),
-          notice: {
-            code: 'stopped',
-            message: 'Stopped. Anything that needs your OK did not happen.',
-          },
+          notice: { code: 'stopped', message: ASSISTANT_WORDS.stopped },
         }));
       detach();
     };

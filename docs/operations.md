@@ -8346,11 +8346,13 @@ The app in `apps/mobile` has its own checks, and its Maestro flows run on an And
 
    You should see "This version of HandsFreeOS is too old. Update it to keep going." on Changes on this phone, with every change kept. Turn the switch off and they go, in order.
 
-7. The notification flows (`push-reply`, `links` and `notification-switches`) also need the worker, for its stand-in carrier and push service. Start it on its own port while no browser tests run (they start their own worker on 4100), and build the app with its address:
+7. The notification flows (`push-reply`, `links` and `notification-switches`) also need the worker, for its stand-in carrier and push service, and so do the three Assistant flows (`assistant`, `assistant-confirm`, `assistant-offline`): only the worker holds the model. Start it on its own port while no browser tests run (they start their own worker on 4100), and build the app with its address:
 
    ```bash
-   WORKER_HTTP_PORT=4110 WORKER_POLL_MS=500 pnpm --filter @hfos/worker exec tsx src/main.ts
+   ASSISTANT_PROVIDER=scripted WORKER_HTTP_PORT=4110 WORKER_POLL_MS=500 pnpm --filter @hfos/worker exec tsx src/main.ts
    ```
+
+   `ASSISTANT_PROVIDER=scripted` is the stand-in model the browser suite uses: no Anthropic key, and the same answers every run ("What are we owed?" and "Text him …"). Without it, and with no `ANTHROPIC_API_KEY`, the worker has no model and Ask HandsFreeOS says "The Assistant isn't available yet".
 
    In the build's shell, `export EXPO_PUBLIC_WORKER_URL=http://localhost:4110` before building (CI's workflow writes `http://localhost:4100` into `apps/mobile/.env.local`). The Android emulator reaches it with `adb reverse tcp:4110 tcp:4110`. Pass the same address to the flows, which send a customer's text through the fake carrier. The worker still calls its own public address `http://127.0.0.1:4100` on another port, and the fake carrier signs that address, so pass it too (its delivery callbacks go there as well, so texts sent during such a run stay "sending"):
 
@@ -8424,6 +8426,29 @@ The app in `apps/mobile` has its own checks, and its Maestro flows run on an And
 The browser tests create their own users (password `correct-horse-battery-staple`) and their own businesses. They never use the seeded accounts, but what they create stays in your local database until you reset it.
 
 The booking and website chat tests run Cloudflare's Turnstile check with its always-pass test keys, so the browser tests need the internet. Tests that book straight through the worker send a test token (`TURNSTILE_TEST_TOKEN` in `apps/web/e2e/booking-helpers.ts`).
+
+#### Tests that fail at certain times of day
+
+A test that asks "what does the screen say now" can pass all morning and fail after dinner. Three have been
+found and fixed so far: a snooze that reads "tomorrow at 12:47 AM" after 11 PM, an invoice due today that
+reads differently after 9 AM, and the booking test asking for a second free slot when the evening had only
+one left. Expect more.
+
+The cure is to assert what the test is named for, not the shape of today's answer: take the first time that
+differs from the one already booked rather than the second in the list; accept "tomorrow at" in the pattern
+rather than pinning the clock. Pinning time hides the failure while leaving the test proving the wrong thing.
+
+Know how this looks in CI, because it misleads. One flake fails, Playwright retries it, and the retry pushes
+the job past its 45-minute limit. The run then reports **cancelled**, not failed, Deploy skips, and nothing
+on the summary page says a test went wrong — you have to read the per-step timings to see it. If you need a
+deploy while that is happening:
+
+```bash
+gh workflow run Deploy --ref main
+```
+
+That skips the browser suite entirely, which is the check that was failing, so use it knowing what it does
+not prove.
 
 ### Trying a real provider from your laptop
 
@@ -8881,6 +8906,34 @@ pnpm dev
    ```
 
 Do not use a bare `supabase db reset`: `supabase/seed.sql` is empty on purpose, so it leaves the app with no users.
+
+**A git worktree is not an isolated copy.** It has its own files and its own `node_modules`, which makes it feel
+like one, and then it shares the things it does not own: the local Supabase, the ports, and the seed. Three
+separate sessions learned this the same night, none of them carelessly. Two lines are worth knowing before you
+work beside somebody:
+
+- **`pnpm db:reset` in a worktree resets everybody's database**, including the one another session is testing
+  against, and applies that worktree's unlanded migrations to it. A migration that exists only on your branch
+  then sits in `app.role_permissions` while `main`'s code knows nothing about it, and `permissions-parity` goes
+  red for everyone with no bug to find.
+- **A worker on the shared database claims every session's jobs.** `private.claim_migration_jobs` has no tenant
+  filter, deliberately — in production one fleet serves every business — so any worker anyone starts picks up
+  anyone's migration batches, fails the ones whose tokens it cannot open, and spends their attempts.
+
+The reset itself also cannot drop the database while a worker holds a connection to it. It half-builds instead,
+which reads like a broken migration. Stop every worker and API first, and tell the other sessions before you
+start: a reset in the middle of someone's test run looks exactly like a product bug from where they are sitting.
+
+**Restart PowerSync after any reset, or every phone silently syncs nothing.** Migration 0057 creates the
+`hfos_sync` user with no password and `pnpm sync:start` sets the local one, so a reset leaves a running sync
+service failing replication with `password authentication failed for user "hfos_sync"` — while still answering
+phones from a checkpoint frozen at the moment of the reset. Nothing errors on the phone: Money reads "No invoices
+yet", the pipeline is empty, a customer's screen has no history. It is the same silent-wrong-answer shape as a
+phone query calling a Postgres-only function. The cure takes seconds:
+
+```bash
+pnpm sync:stop && pnpm sync:start
+```
 
 **Restart once after the Milestone 2 migrations.** A stack started before those migrations existed must be restarted once, so the Realtime service creates its tables. Until then, the live-updates migration only warns, and live updates may not appear.
 

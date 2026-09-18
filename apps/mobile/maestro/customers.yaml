@@ -1,0 +1,101 @@
+appId: com.gobizhelp.handsfreeos
+name: A customer's own screen - the head, the timeline, tags, files and a note
+tags:
+  - ci
+# Search finds Maria Lopez by name, her page shows the head the canvas draws (what she owes, her number and address,
+# her tags), the timeline in the web's words, and the tabs with their counts. A note added here shows on her timeline
+# at once. Seed accounts (apps/worker/scripts/seed.ts); the password is the seed's, for local stacks only.
+env:
+  EMAIL: dale@lonestarhvac.test
+  PASSWORD: HandsFree-Demo-2026
+---
+- runFlow: subflows/start-signed-out.yaml
+- runFlow: subflows/sign-in-with-password.yaml
+- runFlow:
+    file: subflows/open-customer.yaml
+    env:
+      NAME: Maria Lopez
+- assertVisible:
+    id: 'record-name'
+    text: 'Maria Lopez'
+- assertVisible:
+    id: 'record-line'
+    text: '(Added|Customer since).*'
+- assertVisible:
+    id: 'record-actions'
+- assertVisible:
+    id: 'record-call'
+- assertVisible:
+    id: 'record-text'
+- assertVisible:
+    id: 'record-email'
+- takeScreenshot: customer-360
+# The timeline, in the web's own sentences.
+- extendedWaitUntil:
+    visible:
+      id: 'record-tabs'
+    timeout: 20000
+- assertVisible:
+    id: 'record-tab-leads'
+    text: 'Leads · \d+'
+- assertVisible:
+    id: 'record-tab-tasks'
+    text: 'Tasks · \d+'
+- assertVisible:
+    id: 'record-tab-files'
+    text: 'Files · \d+'
+# A note goes on her timeline at once.
+- tapOn:
+    id: 'record-note'
+- extendedWaitUntil:
+    visible:
+      id: 'note-sheet'
+    timeout: 10000
+- assertVisible: 'A note about Maria Lopez'
+- assertVisible: 'Only your team sees notes.'
+- tapOn:
+    id: 'note-body'
+- inputText: 'Gate code 4821, dog in the yard'
+- runFlow:
+    file: subflows/keyboard-away.yaml
+    env:
+      FIELD: note-body
+- tapOn:
+    id: 'note-save'
+- extendedWaitUntil:
+    visible: 'Gate code 4821.*'
+    timeout: 20000
+- takeScreenshot: customer-timeline
+# Tags go on and come off one at a time.
+- scrollUntilVisible:
+    element:
+      id: 'record-add-tag'
+    direction: UP
+    timeout: 20000
+    centerElement: true
+- tapOn:
+    id: 'record-add-tag'
+- extendedWaitUntil:
+    visible:
+      id: 'tag-sheet'
+    timeout: 10000
+- assertVisible: 'Adding or removing a tag changes only that tag, so two people tagging at once both keep theirs.'
+- tapOn:
+    id: 'tag-save'
+# Files, and the way to add a photo.
+- runFlow:
+    file: subflows/record-tab.yaml
+    env:
+      TAB: files
+- waitForAnimationToEnd
+- takeScreenshot: customer-files
+- runFlow:
+    file: subflows/record-tab.yaml
+    env:
+      TAB: details
+- extendedWaitUntil:
+    visible:
+      id: 'record-details'
+    timeout: 10000
+- assertVisible: 'Phone'
+- assertVisible: 'Source'

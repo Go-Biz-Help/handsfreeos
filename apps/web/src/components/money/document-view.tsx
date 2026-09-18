@@ -1,28 +1,12 @@
-import { money } from '@hfos/core';
+import { lineDiscountLabel, lineRateLabel, money, NO_TAX_ON_LINE, unitWord } from '@hfos/core';
 import type { ReactNode } from 'react';
 import { Card } from '@/components/ui/card';
 import type { MoneyLineRow } from '@/lib/api/types';
 import { cn } from '@/lib/utils';
 import { Totals, type TotalsShape } from './totals';
 
-/** Units that read the same however many there are: "16 hours", but "1 each" and "20 sq ft". */
-const UNCOUNTED = new Set(['each', 'ft', 'sq ft', 'sq m', 'm', 'kg', 'lb', 'lbs']);
-
-/** "16 hours", "1 each": the label a product carries, made to agree with the quantity beside it. */
-export function unitWord(quantity: number, label: string): string {
-  const word = label.trim();
-  if (quantity === 1 || !word || UNCOUNTED.has(word.toLowerCase()) || /s$/i.test(word)) return word;
-  return `${word}s`;
-}
-
-/** "1 each × $6,400" — how a line's quantity and price read in a sentence. */
-export function lineRateLabel(line: {
-  quantity: number;
-  unitLabel: string;
-  unitPriceCents: number;
-}): string {
-  return `${line.quantity} ${unitWord(line.quantity, line.unitLabel)} × ${money(line.unitPriceCents)}`;
-}
+/** Core's, so the phone's document screen reads a line the same way. */
+export { lineRateLabel, unitWord };
 
 /**
  * A document as it reads once it has gone out: the lines frozen, the totals adding up, and the note the customer
@@ -49,7 +33,7 @@ export function DocumentView({
   paidCents?: number;
   balanceCents?: number;
   refundedCents?: number;
-  paidLabel?: ReactNode;
+  paidLabel?: string;
   /** What sits above the lines: the number, who it is for, when it went out. */
   heading?: ReactNode;
   /** Shown under the totals, inside the same block: a deposit, or what happens next. */
@@ -88,11 +72,11 @@ export function DocumentView({
                 </span>
                 {line.discountCents > 0 ? (
                   <span className="mt-px block text-xs text-success-text">
-                    −{money(line.discountCents)} off this line
+                    {lineDiscountLabel(line.discountCents)}
                   </span>
                 ) : null}
                 {taxed && !line.taxable ? (
-                  <span className="mt-px block text-xs text-text-3">No tax</span>
+                  <span className="mt-px block text-xs text-text-3">{NO_TAX_ON_LINE}</span>
                 ) : null}
               </span>
               <span className="hidden text-right tabular-nums text-text-2 sm:block">

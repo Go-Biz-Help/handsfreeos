@@ -12,20 +12,8 @@ import {
 import { EmptyState } from '@/components/ui/empty-state';
 import { apiBrowser, errorMessage, unwrap } from '@/lib/api/client';
 import type { FileItem } from '@/lib/api/types';
-import { formatBytes } from '@/lib/format';
+import { BROWSER_IMAGES, fileKindLabel, fileLine, FILE_WORDS, removeFileConfirm } from '@hfos/core';
 import { supabaseBrowser } from '@/lib/supabase/client';
-import { relativeTime } from '@/lib/utils';
-
-const BROWSER_IMAGES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif']);
-const LABEL: Record<string, string> = {
-  'application/pdf': 'PDF',
-  'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'DOC',
-  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': 'XLS',
-  'text/plain': 'TXT',
-  'text/csv': 'CSV',
-  'image/heic': 'HEIC',
-  'image/heif': 'HEIF',
-};
 
 /** Short-lived signed URL from the user's own Storage session (RLS decides what they may read). */
 async function signedUrl(file: FileItem, download = false): Promise<string> {
@@ -58,9 +46,7 @@ function Thumb({ file }: { file: FileItem }) {
       ) : (
         <FileText className="h-5 w-5" strokeWidth={1.5} />
       )}
-      <span className="text-xs font-semibold">
-        {LABEL[file.mimeType ?? ''] ?? (file.isImage ? 'IMG' : 'FILE')}
-      </span>
+      <span className="text-xs font-semibold">{fileKindLabel(file.mimeType, file.isImage)}</span>
     </div>
   );
 }
@@ -84,30 +70,21 @@ export function FileGrid({
     }
   }
   async function remove(file: FileItem) {
-    if (
-      !confirm(
-        `Remove ${file.name}? The stored file is deleted afterwards and the removal is recorded.`,
-      )
-    )
-      return;
+    if (!confirm(removeFileConfirm(file.name))) return;
     try {
       unwrap(
         await apiBrowser().POST('/v1/commands/file.delete', {
           body: { workspaceId, fileId: file.id },
         }),
       );
-      toast.success('File removed.');
+      toast.success(FILE_WORDS.removed);
       router.refresh();
     } catch (e) {
       toast.error(errorMessage(e));
     }
   }
   if (files.length === 0)
-    return (
-      <EmptyState title="No files yet">
-        Photos, estimates and signed paperwork live here.
-      </EmptyState>
-    );
+    return <EmptyState title={FILE_WORDS.emptyTitle}>{FILE_WORDS.emptyBody}</EmptyState>;
   return (
     <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4" data-testid="file-grid">
       {files.map((f) => (
@@ -129,15 +106,7 @@ export function FileGrid({
               <div className="truncate text-[13px] font-semibold" title={f.name}>
                 {f.name}
               </div>
-              <div className="truncate text-xs text-text-3">
-                {[
-                  formatBytes(f.sizeBytes),
-                  f.uploadedBy?.fullName ?? 'Former member',
-                  relativeTime(f.createdAt),
-                ]
-                  .filter(Boolean)
-                  .join(' · ')}
-              </div>
+              <div className="truncate text-xs text-text-3">{fileLine(f)}</div>
             </div>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -152,12 +121,12 @@ export function FileGrid({
               <DropdownMenuContent>
                 <DropdownMenuItem onSelect={() => void open(f, true)}>
                   <Download className="h-4 w-4" strokeWidth={1.5} />
-                  Download
+                  {FILE_WORDS.download}
                 </DropdownMenuItem>
                 {canDelete ? (
                   <DropdownMenuItem danger onSelect={() => void remove(f)}>
                     <Trash2 className="h-4 w-4" strokeWidth={1.5} />
-                    Remove
+                    {FILE_WORDS.remove}
                   </DropdownMenuItem>
                 ) : null}
               </DropdownMenuContent>

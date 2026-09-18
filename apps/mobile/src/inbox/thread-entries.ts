@@ -1,4 +1,10 @@
-import { dayDivider, dayKey, type ThreadItemShape } from '@hfos/core';
+import {
+  dayDivider,
+  dayKey,
+  threadWithNotes,
+  type NoteEntry,
+  type ThreadItemShape,
+} from '@hfos/core';
 
 import type { PendingReply } from './outbox';
 
@@ -9,15 +15,8 @@ import type { PendingReply } from './outbox';
  * bottom.
  */
 
-/** A note about the customer (the web keeps notes on the customer's timeline; the phone shows them in the thread). */
-export interface NoteEntry {
-  readonly id: string;
-  readonly body: string;
-  readonly occurredAt: string;
-  readonly author: string | null;
-  /** Added on this phone and not through yet. */
-  readonly waiting: boolean;
-}
+/** A note about the customer. Core holds the shape and the merge now, so the web's thread shows the same notes. */
+export type { NoteEntry };
 
 export type ThreadEntry =
   | { readonly kind: 'day'; readonly key: string; readonly label: string }
@@ -31,12 +30,7 @@ export function threadEntries(
   pending: readonly PendingReply[],
   now = new Date(),
 ): ThreadEntry[] {
-  const dated: ({ at: string; id: string } & (
-    { kind: 'item'; item: ThreadItemShape } | { kind: 'note'; note: NoteEntry }
-  ))[] = [
-    ...items.map((item) => ({ at: item.occurredAt, id: item.id, kind: 'item' as const, item })),
-    ...notes.map((note) => ({ at: note.occurredAt, id: note.id, kind: 'note' as const, note })),
-  ].sort((a, b) => (a.at === b.at ? a.id.localeCompare(b.id) : a.at < b.at ? -1 : 1));
+  const dated = threadWithNotes(items, notes);
 
   const out: ThreadEntry[] = [];
   let day: string | null = null;

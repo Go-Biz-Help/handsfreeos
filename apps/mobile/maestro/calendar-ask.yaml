@@ -1,0 +1,74 @@
+appId: com.gobizhelp.handsfreeos
+name: Calendar - a time asked for with no signal shows as Not booked yet, and is booked once signal is back
+tags:
+  - ci
+# Marco is at a customer's and needs a part, with no signal. He asks for a time: the change waits on the phone (it
+# reaches a customer, so it is fresh for 30 minutes), and until HandsFreeOS answers the day says "Not booked yet".
+# Signal back, it goes once, and the same visit is a booking.
+env:
+  EMAIL: dale@lonestarhvac.test
+  PASSWORD: HandsFree-Demo-2026
+---
+- runFlow: subflows/start-signed-out.yaml
+- runFlow: subflows/sign-in-with-password.yaml
+- runFlow: subflows/open-test-changes.yaml
+- runFlow: subflows/nothing-waiting.yaml
+- runFlow: subflows/no-signal.yaml
+- runFlow: subflows/open-calendar.yaml
+- tapOn:
+    id: 'calendar-new'
+    optional: true
+- runFlow:
+    when:
+      notVisible:
+        id: 'new-appointment'
+    commands:
+      - tapOn:
+          id: 'calendar-new-empty'
+- extendedWaitUntil:
+    visible:
+      id: 'new-appointment'
+    timeout: 15000
+# The canvas's "For Mike Johnson, at his house on Oak Hollow Dr": the sheet asks who the visit is for, from the
+# customers on the phone, so a visit booked from a truck belongs to somebody.
+- extendedWaitUntil:
+    visible:
+      id: 'new-appointment-customer-[0-9a-f]{8}-.*'
+    timeout: 15000
+- tapOn:
+    id: 'new-appointment-customer-[0-9a-f]{8}-.*'
+- extendedWaitUntil:
+    visible:
+      id: 'new-appointment-for'
+    timeout: 10000
+- assertVisible:
+    id: 'new-appointment-for'
+    text: 'For .*'
+- assertVisible: 'Tell .*'
+- assertVisible: 'No signal right now.*'
+# The sheet opens on the next half hour, so a run at a different time of day asks for a different slot; on a local
+# phone that has run this before, a slot that is genuinely full is refused, rightly, with "Not enough people are
+# free then."
+- takeScreenshot: calendar-ask-offline
+- tapOn:
+    id: 'ask-for-this-time'
+# The exact line a time asked for here wears — never the one a deposit hold wears, so this can't pass by accident —
+# read off the row itself, which is what an iPhone speaks as one thing.
+- extendedWaitUntil:
+    visible:
+      id: 'agenda-appt-.*'
+      text: '.*Not booked yet · We.ll confirm this time when you.re back online.*'
+    timeout: 20000
+- takeScreenshot: calendar-not-booked
+# Signal back: it goes by itself, once, and HandsFreeOS's own row takes its place.
+- runFlow: subflows/open-test-changes.yaml
+- runFlow: subflows/signal-back.yaml
+- runFlow: subflows/answer-if-asked.yaml
+- runFlow: subflows/open-calendar.yaml
+# Booked: HandsFreeOS's own row has taken its place, so the line is gone and the visit is on the day for good.
+- extendedWaitUntil:
+    notVisible:
+      id: 'agenda-appt-.*'
+      text: '.*Not booked yet · We.ll confirm this time when you.re back online.*'
+    timeout: 60000
+- takeScreenshot: calendar-booked

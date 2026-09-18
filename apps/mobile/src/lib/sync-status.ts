@@ -5,11 +5,11 @@ import { BUSINESS_STREAM, businessParameters } from '@/sync/subscriptions';
 import { usePhoneCopy } from '@/sync/hooks';
 
 import { cachedMe, keptBusinessIds } from './businesses';
-import { changesWord, useWaitingCount } from './changes-waiting';
+import { changesWord, useNeedsYouCount, useWaitingCount } from './changes-waiting';
 import { deviceStore } from './device-store';
 import { useNetwork } from './network';
 
-export { changesWord, useWaitingCount } from './changes-waiting';
+export { changesWord, useNeedsYouCount, useWaitingCount } from './changes-waiting';
 
 /**
  * What the status line says: "Up to date", "As of 8:58 AM", "Offline — 4 changes waiting". It reads the phone's signal,
@@ -27,8 +27,14 @@ export type Connection = 'offline' | 'unreachable' | 'updating' | 'inStep';
 export interface SyncStatus {
   readonly online: boolean;
   readonly connection: Connection;
-  /** Changes made on this phone that haven't reached HandsFreeOS. */
+  /** Changes made on this phone that haven't reached HandsFreeOS, the ones needing the person included. */
   readonly waiting: number;
+  /**
+   * Of those, the ones that will never go on their own: a refusal to fix, or a question to answer. The canvas's
+   * Changes screen groups them under "Needs you", and the strip says so instead of calling them "waiting to send"
+   * (step 13, finding 2).
+   */
+  readonly needsYou: number;
   /** In step with HandsFreeOS, and every change has gone. */
   readonly upToDate: boolean;
   /** The last moment this phone's copy was known to be up to date: what "As of 8:58 AM" shows. */
@@ -58,6 +64,7 @@ export function connectionOf(online: boolean, copy: CopyState | null): Connectio
 export function useSyncStatus(): SyncStatus {
   const network = useNetwork();
   const waiting = useWaitingCount();
+  const needsYou = useNeedsYouCount();
   const copy = usePhoneCopy();
   const userId = copy.state.status === 'open' ? copy.state.userId : null;
   // Kept businesses change with the keep switches and the person's list, both in the device store.
@@ -89,21 +96,43 @@ export function useSyncStatus(): SyncStatus {
     online,
     connection,
     waiting,
+    needsYou: Math.min(needsYou, waiting),
     upToDate: connection === 'inStep' && waiting === 0,
     asOf: copy.inStepAt,
   };
 }
 
-/** The strip under the top bar, or null when there's nothing to say. */
-export function stripText(status: Pick<SyncStatus, 'connection' | 'waiting'>): string | null {
+/** "1 change needs you", the canvas's "Needs you" group in a sentence. */
+export function needsYouWord(n: number): string {
+  return `${changesWord(n)} ${n === 1 ? 'needs' : 'need'} you`;
+}
+
+/**
+ * The strip under the top bar, or null when there's nothing to say. A change that needs the person is counted apart
+ * from the ones on their way, because saying "1 change waiting to send" about a refusal is a promise the phone can't
+ * keep: nothing sends it until the person fixes it (step 13, finding 2).
+ */
+export function stripText(
+  status: Pick<SyncStatus, 'connection' | 'waiting'> & { readonly needsYou?: number },
+): string | null {
   const { connection, waiting } = status;
-  if (connection === 'offline')
-    return waiting > 0 ? `Offline — ${changesWord(waiting)} waiting` : 'Offline';
-  if (connection === 'unreachable')
-    return waiting > 0
-      ? `Can’t connect — ${changesWord(waiting)} waiting`
-      : 'Can’t connect to HandsFreeOS';
-  return waiting > 0 ? `${changesWord(waiting)} waiting to send` : null;
+  const needsYou = Math.min(status.needsYou ?? 0, waiting);
+  const onTheirWay = waiting - needsYou;
+  // After a count, the shorter form: "2 changes waiting to send, 1 needs you".
+  const tail = needsYou > 0 ? `, ${needsYou} ${needsYou === 1 ? 'needs' : 'need'} you` : '';
+  if (connection === 'offline') {
+    if (waiting === 0) return 'Offline';
+    if (onTheirWay === 0) return `Offline — ${needsYouWord(needsYou)}`;
+    return `Offline — ${changesWord(onTheirWay)} waiting${tail}`;
+  }
+  if (connection === 'unreachable') {
+    if (waiting === 0) return 'Can’t connect to HandsFreeOS';
+    if (onTheirWay === 0) return `Can’t connect — ${needsYouWord(needsYou)}`;
+    return `Can’t connect — ${changesWord(onTheirWay)} waiting${tail}`;
+  }
+  if (waiting === 0) return null;
+  if (onTheirWay === 0) return needsYouWord(needsYou);
+  return `${changesWord(onTheirWay)} waiting to send${tail}`;
 }
 
 /** "8:58 AM", in the phone's own time and with plain spaces (iPhones and Android write U+202F before "AM"). */
@@ -127,13 +156,17 @@ export function asOfText(asOf: number | null, nowMs: number): string {
  * how many changes are still to go (`compact` for the end of a list row: "3 to send").
  */
 export function lineText(
-  status: Pick<SyncStatus, 'connection' | 'waiting' | 'asOf'>,
+  status: Pick<SyncStatus, 'connection' | 'waiting' | 'asOf'> & { readonly needsYou?: number },
   nowMs: number,
   compact = false,
 ): string {
   if (status.connection === 'offline' || status.connection === 'unreachable')
     return asOfText(status.asOf, nowMs);
-  if (status.waiting > 0)
-    return compact ? `${status.waiting} to send` : `${changesWord(status.waiting)} to send`;
+  const needsYou = Math.min(status.needsYou ?? 0, status.waiting);
+  const onTheirWay = status.waiting - needsYou;
+  if (status.waiting > 0) {
+    if (onTheirWay === 0) return compact ? `${needsYou} need you` : needsYouWord(needsYou);
+    return compact ? `${onTheirWay} to send` : `${changesWord(onTheirWay)} to send`;
+  }
   return status.connection === 'updating' ? 'Updating…' : 'Up to date';
 }

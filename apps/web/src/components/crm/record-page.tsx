@@ -57,7 +57,8 @@ import type {
   Task,
   TimelineList,
 } from '@/lib/api/types';
-import { addressLine, daysLabel, formatDate, formatMoney, monthYear, telHref } from '@/lib/format';
+import { addressLine, daysLabel, formatDate, formatMoney, telHref } from '@/lib/format';
+import { archivedNotice, customerSince, recordTabLabel, RECORD_WORDS } from '@hfos/core';
 import { useCalls } from '@/lib/calls/call-provider';
 import { useLiveRefresh } from '@/lib/realtime/live-provider';
 import { ConversationsCard } from '@/components/inbox/conversations-card';
@@ -229,11 +230,9 @@ export function RecordPage(props: RecordPageProps) {
                 </Link>
               ) : null}
               {archived ? (
-                <Badge variant="gray">Archived</Badge>
+                <Badge variant="gray">{RECORD_WORDS.archived}</Badge>
               ) : (
-                <Badge variant="gray">
-                  Customer since {monthYear((person ?? company)!.createdAt)}
-                </Badge>
+                <Badge variant="gray">{customerSince((person ?? company)!.createdAt)}</Badge>
               )}
               <OwesBadge found={recordMoney} />
             </div>
@@ -274,7 +273,7 @@ export function RecordPage(props: RecordPageProps) {
                 </span>
               ) : null}
               {!phone && !email && !address ? (
-                <span className="text-text-3">No contact details yet.</span>
+                <span className="text-text-3">{RECORD_WORDS.noContact}</span>
               ) : null}
             </div>
             <TagPicker
@@ -303,7 +302,7 @@ export function RecordPage(props: RecordPageProps) {
               <DropdownMenuContent>
                 <DropdownMenuItem onSelect={() => setEditing(true)} data-testid="record-edit">
                   <Pencil className="h-4 w-4" strokeWidth={1.5} />
-                  Edit details
+                  {RECORD_WORDS.editDetails}
                 </DropdownMenuItem>
                 {canModerate ? (
                   <>
@@ -331,8 +330,7 @@ export function RecordPage(props: RecordPageProps) {
             className="mt-4 rounded-menu bg-card-2 px-3.5 py-2.5 text-[13px] text-text-2"
             data-testid="archived-notice"
           >
-            This {kind} is archived: hidden from lists and searches, history kept.
-            {canModerate ? ' Restore from the menu to use it again.' : ''}
+            {archivedNotice(kind, canModerate)}
           </div>
         ) : (
           <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-border pt-4">
@@ -463,28 +461,30 @@ export function RecordPage(props: RecordPageProps) {
             </TabsTrigger>
             {person && props.timeZone ? (
               <TabsTrigger value="appointments" data-testid="tab-appointments">
-                Appointments · {upcoming.length}
+                {recordTabLabel('appointments', upcoming.length)}
               </TabsTrigger>
             ) : null}
             {person ? (
               <TabsTrigger value="money" data-testid="tab-money">
-                Money
-                {recordMoney && !recordMoney.empty
-                  ? ` · ${recordMoney.invoices.length + recordMoney.estimates.length}`
-                  : ''}
+                {recordTabLabel(
+                  'money',
+                  recordMoney && !recordMoney.empty
+                    ? recordMoney.invoices.length + recordMoney.estimates.length
+                    : null,
+                )}
               </TabsTrigger>
             ) : null}
             <TabsTrigger value="leads" data-testid="tab-leads">
-              Leads · {props.leads.length}
+              {recordTabLabel('leads', props.leads.length)}
             </TabsTrigger>
             <TabsTrigger value="tasks" data-testid="tab-tasks">
-              Tasks · {openTasks.length}
+              {recordTabLabel('tasks', openTasks.length)}
             </TabsTrigger>
             <TabsTrigger value="files" data-testid="tab-files">
-              Files · {props.files.length}
+              {recordTabLabel('files', props.files.length)}
             </TabsTrigger>
             <TabsTrigger value="details" data-testid="tab-details">
-              Details
+              {recordTabLabel('details', null)}
             </TabsTrigger>
           </TabsList>
           {person ? (
@@ -560,7 +560,7 @@ export function RecordPage(props: RecordPageProps) {
             <Card className="overflow-hidden">
               {props.leads.length === 0 ? (
                 <EmptyState
-                  title="No leads yet"
+                  title={RECORD_WORDS.noLeadsTitle}
                   actions={
                     archived ? undefined : (
                       <Button size="sm" onClick={() => setNewLead(true)}>
@@ -570,7 +570,7 @@ export function RecordPage(props: RecordPageProps) {
                     )
                   }
                 >
-                  A lead is a job you might win. It moves across the pipeline.
+                  {RECORD_WORDS.noLeadsBody}
                 </EmptyState>
               ) : (
                 <ul className="divide-y divide-border" data-testid="record-leads">
@@ -588,8 +588,9 @@ export function RecordPage(props: RecordPageProps) {
                           {l.title}
                         </Link>
                         <span className="truncate text-xs text-text-3">
-                          {formatMoney(l.valueCents)} · {l.assignee?.fullName ?? 'Unassigned'} ·
-                          created {formatDate(l.createdAt)}
+                          {formatMoney(l.valueCents)} ·{' '}
+                          {l.assignee?.fullName ?? RECORD_WORDS.unassigned} · created{' '}
+                          {formatDate(l.createdAt)}
                         </span>
                       </span>
                       <StageBadge name={l.stageName} kind={l.stageKind} />
@@ -619,7 +620,7 @@ export function RecordPage(props: RecordPageProps) {
                 canModerate={canModerate}
                 relation={archived ? undefined : relation}
                 leads={leadsForForms}
-                emptyHint="Reminders for the team about this customer."
+                emptyHint={RECORD_WORDS.tasksHint}
               />
             </Card>
           </TabsContent>
@@ -644,32 +645,38 @@ export function RecordPage(props: RecordPageProps) {
                 className="grid grid-cols-[110px_1fr] gap-x-4 gap-y-2.5 text-[13.5px] md:grid-cols-[130px_1fr]"
                 data-testid="record-details"
               >
-                <dt className="text-text-2">Phone</dt>
-                <dd className="font-medium">{phone ?? '—'}</dd>
-                <dt className="text-text-2">Email</dt>
-                <dd className="break-all font-medium">{email ?? '—'}</dd>
+                <dt className="text-text-2">{RECORD_WORDS.labels.phone}</dt>
+                <dd className="font-medium">{phone ?? RECORD_WORDS.none}</dd>
+                <dt className="text-text-2">{RECORD_WORDS.labels.email}</dt>
+                <dd className="break-all font-medium">{email ?? RECORD_WORDS.none}</dd>
                 {company ? (
                   <>
-                    <dt className="text-text-2">Website</dt>
-                    <dd className="break-all font-medium">{company.website ?? '—'}</dd>
+                    <dt className="text-text-2">{RECORD_WORDS.labels.website}</dt>
+                    <dd className="break-all font-medium">
+                      {company.website ?? RECORD_WORDS.none}
+                    </dd>
                   </>
                 ) : null}
-                <dt className="text-text-2">Address</dt>
-                <dd className="font-medium">{address || '—'}</dd>
+                <dt className="text-text-2">{RECORD_WORDS.labels.address}</dt>
+                <dd className="font-medium">{address || RECORD_WORDS.none}</dd>
                 {person ? (
                   <>
-                    <dt className="text-text-2">Company</dt>
-                    <dd className="font-medium">{person.company?.name ?? '—'}</dd>
+                    <dt className="text-text-2">{RECORD_WORDS.labels.company}</dt>
+                    <dd className="font-medium">{person.company?.name ?? RECORD_WORDS.none}</dd>
                   </>
                 ) : null}
-                <dt className="text-text-2">Owner</dt>
-                <dd className="font-medium">{(person ?? company)!.owner?.fullName ?? '—'}</dd>
-                <dt className="text-text-2">Source</dt>
-                <dd className="font-medium">{(person ?? company)!.source ?? '—'}</dd>
-                <dt className="text-text-2">Created</dt>
+                <dt className="text-text-2">{RECORD_WORDS.labels.owner}</dt>
+                <dd className="font-medium">
+                  {(person ?? company)!.owner?.fullName ?? RECORD_WORDS.none}
+                </dd>
+                <dt className="text-text-2">{RECORD_WORDS.labels.source}</dt>
+                <dd className="font-medium">{(person ?? company)!.source ?? RECORD_WORDS.none}</dd>
+                <dt className="text-text-2">{RECORD_WORDS.labels.created}</dt>
                 <dd className="font-medium">{formatDate((person ?? company)!.createdAt)}</dd>
-                <dt className="text-text-2">Notes</dt>
-                <dd className="whitespace-pre-wrap">{(person ?? company)!.notes ?? '—'}</dd>
+                <dt className="text-text-2">{RECORD_WORDS.labels.notes}</dt>
+                <dd className="whitespace-pre-wrap">
+                  {(person ?? company)!.notes ?? RECORD_WORDS.none}
+                </dd>
               </dl>
             </Card>
           </TabsContent>
@@ -696,7 +703,9 @@ export function RecordPage(props: RecordPageProps) {
           ) : null}
           <Card className="p-4 md:p-5" data-testid="open-lead-card">
             <div className="mb-2.5 flex items-center justify-between">
-              <h3 className="text-[15px] font-semibold">{lead ? 'Open lead' : 'Leads'}</h3>
+              <h3 className="text-[15px] font-semibold">
+                {lead ? RECORD_WORDS.openLead : RECORD_WORDS.leads}
+              </h3>
               {lead ? (
                 <Link
                   href={`/app/w/${workspaceId}/leads/${lead.id}`}
@@ -712,16 +721,18 @@ export function RecordPage(props: RecordPageProps) {
                 <div className="my-2 flex items-center gap-2">
                   <StageBadge name={lead.stageName} kind={lead.stageKind} />
                   <span className="text-[13px] text-text-2">
-                    {daysLabel(lead.stageEnteredAt)} in stage
+                    {daysLabel(lead.stageEnteredAt)} {RECORD_WORDS.inStage}
                   </span>
                 </div>
                 <div className="flex justify-between text-[13px]">
-                  <span className="text-text-2">Value</span>
+                  <span className="text-text-2">{RECORD_WORDS.value}</span>
                   <span className="font-medium">{formatMoney(lead.valueCents)}</span>
                 </div>
                 <div className="mt-1.5 flex justify-between text-[13px]">
-                  <span className="text-text-2">Assigned to</span>
-                  <span className="font-medium">{lead.assignee?.fullName ?? 'Unassigned'}</span>
+                  <span className="text-text-2">{RECORD_WORDS.assignedTo}</span>
+                  <span className="font-medium">
+                    {lead.assignee?.fullName ?? RECORD_WORDS.unassigned}
+                  </span>
                 </div>
                 <div className="my-3 h-px bg-border" />
                 {lead.nextAction ? (
@@ -770,14 +781,14 @@ export function RecordPage(props: RecordPageProps) {
               </>
             ) : (
               <div className="text-[13px] text-text-2">
-                No open leads.{' '}
+                {RECORD_WORDS.noOpenLeads}{' '}
                 {archived ? null : (
                   <button
                     type="button"
                     onClick={() => setNewLead(true)}
                     className="font-medium text-accent-text hover:underline"
                   >
-                    Start one
+                    {RECORD_WORDS.startOne}
                   </button>
                 )}
               </div>
@@ -813,10 +824,10 @@ export function RecordPage(props: RecordPageProps) {
                   {person.company.name}
                 </Link>
               ) : (
-                <div className="text-[13px] text-text-2">Not linked to a company.</div>
+                <div className="text-[13px] text-text-2">{RECORD_WORDS.notLinked}</div>
               )
             ) : (props.companyPeople?.length ?? 0) === 0 ? (
-              <div className="text-[13px] text-text-2">Nobody linked yet.</div>
+              <div className="text-[13px] text-text-2">{RECORD_WORDS.nobodyLinked}</div>
             ) : (
               <ul className="flex flex-col gap-2">
                 {props.companyPeople!.map((p) => (
@@ -836,9 +847,7 @@ export function RecordPage(props: RecordPageProps) {
                 ))}
               </ul>
             )}
-            <div className="mt-2.5 text-xs text-text-3">
-              Properties and equipment arrive with jobs in a later milestone.
-            </div>
+            <div className="mt-2.5 text-xs text-text-3">{RECORD_WORDS.laterMilestone}</div>
           </Card>
         </div>
       </div>

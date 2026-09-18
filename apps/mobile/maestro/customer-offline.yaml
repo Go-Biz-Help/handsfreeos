@@ -1,0 +1,176 @@
+appId: com.gobizhelp.handsfreeos
+name: A customer's number, a note, a tag and a task changed with no signal all go once signal is back
+tags:
+  - ci
+# With no signal Dale changes Maria Lopez's number on her own page, adds a note, puts a tag on her and completes one of
+# her tasks. All four show at once, the strip counts them, and they go on their own when signal returns. The flow puts
+# the number, the tag and the task back.
+env:
+  EMAIL: dale@lonestarhvac.test
+  PASSWORD: HandsFree-Demo-2026
+---
+- runFlow: subflows/start-signed-out.yaml
+- runFlow: subflows/sign-in-with-password.yaml
+- runFlow: subflows/open-test-changes.yaml
+- runFlow: subflows/nothing-waiting.yaml
+- runFlow: subflows/no-signal.yaml
+- runFlow:
+    file: subflows/open-customer.yaml
+    env:
+      NAME: Maria Lopez
+# 1. Her number, through the details sheet: only what changed is sent.
+- runFlow:
+    file: subflows/record-tab.yaml
+    env:
+      TAB: details
+- scrollUntilVisible:
+    element:
+      id: 'record-edit'
+    timeout: 20000
+    centerElement: true
+- tapOn:
+    id: 'record-edit'
+- extendedWaitUntil:
+    visible:
+      id: 'edit-sheet'
+    timeout: 10000
+- tapOn:
+    id: 'edit-phone'
+- eraseText: 30
+- inputText: '(713) 555-0181'
+- runFlow:
+    file: subflows/keyboard-away.yaml
+    env:
+      FIELD: edit-phone
+- tapOn:
+    id: 'edit-save'
+- extendedWaitUntil:
+    visible: '(713) 555-0181'
+    timeout: 20000
+# 2. A note.
+- tapOn:
+    id: 'record-note'
+- extendedWaitUntil:
+    visible:
+      id: 'note-sheet'
+    timeout: 10000
+- tapOn:
+    id: 'note-body'
+- inputText: 'Coil leaks. Quoted the 3-ton 16 SEER2.'
+- runFlow:
+    file: subflows/keyboard-away.yaml
+    env:
+      FIELD: note-body
+- tapOn:
+    id: 'note-save'
+- extendedWaitUntil:
+    visible: 'Coil leaks.*'
+    timeout: 20000
+# The note is on her timeline at once, and says it is waiting.
+- assertVisible:
+    id: 'record-waiting'
+    text: '\d+ changes? waiting to send'
+- takeScreenshot: customer-offline-waiting
+# 3. A tag.
+- scrollUntilVisible:
+    element:
+      id: 'record-add-tag'
+    direction: UP
+    timeout: 20000
+    centerElement: true
+- tapOn:
+    id: 'record-add-tag'
+- extendedWaitUntil:
+    visible:
+      id: 'tag-sheet'
+    timeout: 10000
+- tapOn:
+    id: 'tag-row-Residential'
+- tapOn:
+    id: 'tag-save'
+- waitForAnimationToEnd
+# 4. One of her tasks.
+- runFlow:
+    file: subflows/record-tab.yaml
+    env:
+      TAB: tasks
+- extendedWaitUntil:
+    visible:
+      id: 'record-tasks'
+    timeout: 10000
+- runFlow:
+    when:
+      visible:
+        id: 'task-toggle'
+    commands:
+      - tapOn:
+          id: 'task-toggle'
+          index: 0
+      - waitForAnimationToEnd
+# The strip counts them all, and says nothing about needing anyone.
+- assertVisible:
+    id: 'status-strip-text'
+    text: 'Offline — \d+ changes waiting'
+# Signal back: they go on their own.
+- runFlow: subflows/open-test-changes.yaml
+- runFlow: subflows/signal-back.yaml
+- extendedWaitUntil:
+    visible:
+      id: 'tc-counts'
+      text: '0 waiting · 0 need you'
+    timeout: 90000
+# Put her number and her tag back.
+- runFlow:
+    file: subflows/open-customer.yaml
+    env:
+      NAME: Maria Lopez
+- runFlow:
+    file: subflows/record-tab.yaml
+    env:
+      TAB: details
+- scrollUntilVisible:
+    element:
+      id: 'record-edit'
+    timeout: 20000
+    centerElement: true
+- tapOn:
+    id: 'record-edit'
+- extendedWaitUntil:
+    visible:
+      id: 'edit-sheet'
+    timeout: 10000
+- tapOn:
+    id: 'edit-phone'
+- eraseText: 30
+- inputText: '(713) 555-0174'
+- runFlow:
+    file: subflows/keyboard-away.yaml
+    env:
+      FIELD: edit-phone
+- tapOn:
+    id: 'edit-save'
+- extendedWaitUntil:
+    visible: '(713) 555-0174'
+    timeout: 20000
+- scrollUntilVisible:
+    element:
+      id: 'record-add-tag'
+    direction: UP
+    timeout: 20000
+    centerElement: true
+- tapOn:
+    id: 'record-add-tag'
+- extendedWaitUntil:
+    visible:
+      id: 'tag-sheet'
+    timeout: 10000
+- tapOn:
+    id: 'tag-row-Residential'
+- tapOn:
+    id: 'tag-save'
+- runFlow: subflows/open-test-changes.yaml
+- extendedWaitUntil:
+    visible:
+      id: 'tc-counts'
+      text: '0 waiting · 0 need you'
+    timeout: 90000

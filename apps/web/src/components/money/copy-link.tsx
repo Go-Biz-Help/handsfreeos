@@ -11,6 +11,7 @@
  *   inside the tap and fills in when the link lands;
  * - and a browser that allows neither shows the link in a dialog to copy from.
  */
+import { LINK_COPIED, LINK_UNAVAILABLE, MONEY_LINK_WHAT_IT_DOES } from '@hfos/core';
 import { Link2 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
@@ -20,14 +21,9 @@ import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { ApiError } from '@/lib/api/errors';
 import { moneyLink, type MoneyLinkKind } from '@/lib/api/worker';
 
-/** What the link lets whoever has it do: said once, as the link is copied. */
-const WHAT_IT_DOES: Readonly<Record<MoneyLinkKind, string>> = {
-  estimate: 'Anyone with this link can see and approve this estimate.',
-  invoice: 'Anyone with this link can pay this invoice.',
-  plan: 'Anyone with this link can put a card on this plan.',
-};
-
-const COPIED = 'Link copied';
+/** What the link lets whoever has it do, and what a copy says: core's, so the phone says the same. */
+const WHAT_IT_DOES = MONEY_LINK_WHAT_IT_DOES;
+const COPIED = LINK_COPIED;
 
 export function CopyLinkButton({
   workspaceId,
@@ -74,11 +70,7 @@ export function CopyLinkButton({
   const copied = () => toast.success(COPIED, { description: WHAT_IT_DOES[kind] });
   // The worker's own words when it answered (a voided document, say); ours when it couldn't be reached.
   const refused = (e: unknown) =>
-    toast.error(
-      e instanceof ApiError && e.status !== 0
-        ? e.message
-        : 'We couldn’t get the link just now. Try again in a minute.',
-    );
+    toast.error(e instanceof ApiError && e.status !== 0 ? e.message : LINK_UNAVAILABLE);
 
   function copy() {
     const clipboard = typeof navigator === 'undefined' ? undefined : navigator.clipboard;

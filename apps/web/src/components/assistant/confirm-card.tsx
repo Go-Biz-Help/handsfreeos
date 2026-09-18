@@ -1,5 +1,11 @@
 'use client';
-import type { AssistantCard } from '@hfos/core';
+import {
+  ASSISTANT_CONFIRM_WORDS,
+  assistantCancelledText,
+  assistantMoveKind,
+  assistantOpenLabel,
+  type AssistantCard,
+} from '@hfos/core';
 import {
   ArrowRight,
   Ban,
@@ -54,91 +60,6 @@ const FIELD_VALUE: Record<string, string> = {
   Was: 'text-text-3 line-through',
   Now: 'font-semibold',
 };
-
-const lostMove = (card: ConfirmCardData) =>
-  card.reasons.length > 0 || card.confirmLabel === 'Mark as lost' || /lost\?$/.test(card.title);
-const toKind = (card: ConfirmCardData): 'open' | 'won' | 'lost' =>
-  lostMove(card) ? 'lost' : /won\?$/.test(card.title) ? 'won' : 'open';
-
-/** "Mike" from the To line ("Mike Johnson · (713) 555-0142"). */
-const firstOfTo = (card: ConfirmCardData) =>
-  card.fields
-    .find((f) => f.label === 'To')
-    ?.value.split(' · ')[0]
-    ?.trim()
-    .split(/\s+/)[0] ?? null;
-
-function cancelledText(card: ConfirmCardData): string {
-  const first = firstOfTo(card);
-  switch (card.tool) {
-    case 'send_text':
-    case 'send_email':
-      return first ? `Not sent. Nothing went to ${first}.` : 'Not sent.';
-    case 'move_lead':
-      return lostMove(card)
-        ? `Not changed. It stays in ${card.stageFrom}.`
-        : `Not moved. It stays in ${card.stageFrom}.`;
-    case 'create_customer':
-      return 'Nothing added.';
-    case 'create_lead':
-      return 'No lead opened.';
-    case 'book_appointment':
-      return 'Not booked. Nothing was added to the calendar.';
-    case 'reschedule_appointment': {
-      const was = card.fields.find((f) => f.label === 'Was')?.value;
-      return was ? `Not moved. It stays ${was}.` : 'Not moved.';
-    }
-    case 'cancel_appointment':
-      return 'Kept. The appointment is still on.';
-    case 'start_workflow':
-      return 'Not started. Nothing was sent.';
-    case 'pause_workflow':
-      return 'Not paused. It’s still on.';
-    case 'resume_workflow':
-      return 'Still paused.';
-    case 'remove_contact_from_workflow':
-      return 'Left in. Nothing stopped.';
-    case 'answer_workflow_approval':
-      return 'Not answered. It’s still waiting for a decision.';
-    case 'add_knowledge_item':
-      return 'Nothing added.';
-    case 'handle_attention_item':
-      return 'Not handled. It’s still on Home.';
-    case 'update_attention_item':
-      return card.confirmLabel === 'Snooze'
-        ? 'Not snoozed. It’s still on Home.'
-        : card.confirmLabel === 'Dismiss'
-          ? 'Not dismissed. It’s still on Home.'
-          : 'Not changed.';
-    default:
-      return 'Not changed.';
-  }
-}
-
-const OPEN_LABELS: Record<string, string> = {
-  start_workflow: 'See runs',
-  remove_contact_from_workflow: 'See runs',
-  pause_workflow: 'Open workflow',
-  resume_workflow: 'Open workflow',
-  answer_workflow_approval: 'See the run',
-  add_knowledge_item: 'Open item',
-};
-
-/** An Action Center card opens where its result landed: the conversation, the lead, or Home. */
-const attentionOpenLabel = (href: string) =>
-  /\/inbox\//.test(href) ? 'Open conversation' : /\/leads\//.test(href) ? 'Open lead' : 'Open Home';
-
-const openLabel = (tool: string, href: string) =>
-  tool === 'handle_attention_item' || tool === 'update_attention_item'
-    ? attentionOpenLabel(href)
-    : (OPEN_LABELS[tool] ??
-      (tool === 'send_text' || tool === 'send_email'
-        ? 'Open conversation'
-        : tool === 'create_customer' || tool === 'update_customer'
-          ? 'Open customer'
-          : tool.endsWith('_lead')
-            ? 'Open lead'
-            : 'Open'));
 
 /**
  * Anything that reaches a customer, or changes a lead, a customer or an appointment, waits here for the
@@ -217,7 +138,7 @@ export function ConfirmCard({
         {waiting && !blocked ? (
           <span className="inline-flex items-center gap-1.5 text-[11.5px] font-semibold uppercase tracking-[0.04em] text-accent-text">
             <ShieldCheck className="h-3.5 w-3.5" strokeWidth={1.5} />
-            Needs your OK
+            {ASSISTANT_CONFIRM_WORDS.needsOk}
           </span>
         ) : null}
         <span className="text-[15px] font-semibold leading-[1.35]">{card.title}</span>
@@ -226,7 +147,7 @@ export function ConfirmCard({
             <div className="flex flex-wrap items-center gap-2">
               <StageBadge name={card.stageFrom!} kind="open" />
               <ArrowRight className="h-3.5 w-3.5 text-text-3" strokeWidth={1.5} aria-label="to" />
-              <StageBadge name={card.stageTo!} kind={toKind(card)} />
+              <StageBadge name={card.stageTo!} kind={assistantMoveKind(card)} />
             </div>
             {leadLine ? <div className="text-[13px] text-text-2">{leadLine}</div> : null}
           </>
@@ -269,7 +190,7 @@ export function ConfirmCard({
         {waiting && needsReason ? (
           <div>
             <Label htmlFor={reasonId} className="text-[12.5px]">
-              Why was it lost?
+              {ASSISTANT_CONFIRM_WORDS.whyLost}
             </Label>
             <Select
               id={reasonId}
@@ -277,7 +198,7 @@ export function ConfirmCard({
               value={reason}
               onChange={(e) => setReason(e.target.value)}
             >
-              <option value="">Choose a reason</option>
+              <option value="">{ASSISTANT_CONFIRM_WORDS.chooseReason}</option>
               {card.reasons.map((r) => (
                 <option key={r} value={r}>
                   {r}
@@ -312,7 +233,7 @@ export function ConfirmCard({
               onClick={() => onEdit(card)}
               data-testid="assistant-edit"
             >
-              Edit
+              {ASSISTANT_CONFIRM_WORDS.edit}
             </Button>
           ) : null}
           <span className="flex-1" />
@@ -325,7 +246,11 @@ export function ConfirmCard({
             onClick={() => void decide('cancel')}
             data-testid="assistant-cancel"
           >
-            {blocked ? 'Close' : cancelling ? 'Keep it' : 'Cancel'}
+            {blocked
+              ? ASSISTANT_CONFIRM_WORDS.close
+              : cancelling
+                ? ASSISTANT_CONFIRM_WORDS.keepIt
+                : ASSISTANT_CONFIRM_WORDS.cancel}
           </Button>
         </div>
       ) : state.status === 'confirmed' ? (
@@ -339,24 +264,24 @@ export function ConfirmCard({
                 onClick={() => a.closeIfCovering(state.href!)}
                 className="flex-none font-medium text-accent-text hover:underline max-md:inline-flex max-md:min-h-11 max-md:items-center max-md:px-1"
               >
-                {openLabel(card.tool, state.href)}
+                {assistantOpenLabel(card.tool, state.href)}
               </Link>
             ) : null
           }
         >
-          {state.outcome ?? 'Done.'}
+          {state.outcome ?? ASSISTANT_CONFIRM_WORDS.done}
         </Result>
       ) : state.status === 'cancelled' ? (
         <Result tone="no" icon={X}>
-          {state.note ?? cancelledText(card)}
+          {state.note ?? assistantCancelledText(card)}
         </Result>
       ) : state.status === 'failed' ? (
         <Result tone="bad" icon={Ban}>
-          {state.error ?? 'That didn’t work. Nothing was changed.'}
+          {state.error ?? ASSISTANT_CONFIRM_WORDS.failed}
         </Result>
       ) : (
         <Result tone="no" icon={Clock}>
-          {state.note ?? 'Expired. You asked something else first, so nothing happened.'}
+          {state.note ?? ASSISTANT_CONFIRM_WORDS.expired}
         </Result>
       )}
     </div>

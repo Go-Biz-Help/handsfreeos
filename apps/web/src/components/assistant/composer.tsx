@@ -1,4 +1,5 @@
 'use client';
+import { ASSISTANT_WORDS } from '@hfos/core';
 import { ArrowUp, Square } from 'lucide-react';
 import { useEffect, type KeyboardEvent } from 'react';
 import { Button } from '@/components/ui/button';
@@ -10,13 +11,13 @@ import { useAssistant } from './assistant-provider';
 function OffComposer({ phone, paused }: { phone: boolean; paused: boolean }) {
   const local = process.env.NODE_ENV === 'development';
   const [text, hint] = paused
-    ? ['The Assistant is paused for today', 'Back at midnight']
+    ? [ASSISTANT_WORDS.paused.text, ASSISTANT_WORDS.paused.hint]
     : local
       ? [
           'The Assistant isn’t set up on this computer',
           'Only shows when running HandsFreeOS on your own computer',
         ]
-      : ['The Assistant isn’t available yet', 'Shows until the Assistant is set up'];
+      : [ASSISTANT_WORDS.notAvailable.title, ASSISTANT_WORDS.notAvailable.hint];
   return (
     <div
       className={cn(
@@ -32,7 +33,12 @@ function OffComposer({ phone, paused }: { phone: boolean; paused: boolean }) {
         </div>
         <div className="flex items-center gap-1 px-1.5 pb-1.5 pt-1">
           <span className="min-w-0 flex-1 px-1.5 text-xs text-text-3">{hint}</span>
-          <Button size="icon" disabled aria-label="Send" className="disabled:opacity-45">
+          <Button
+            size="icon"
+            disabled
+            aria-label={ASSISTANT_WORDS.send}
+            className="disabled:opacity-45"
+          >
             <ArrowUp className="h-3.5 w-3.5" strokeWidth={1.5} />
           </Button>
         </div>
@@ -99,7 +105,7 @@ export function AssistantComposer({ phone }: { phone: boolean }) {
         <textarea
           {...box}
           rows={1}
-          placeholder="Ask HandsFreeOS…"
+          placeholder={ASSISTANT_WORDS.placeholder.compact}
           className="min-h-11 min-w-0 flex-1 resize-none rounded-[22px] border border-border-strong bg-card px-4 py-[10px] text-base leading-[1.4] text-text placeholder:text-placeholder focus:border-accent focus:outline-none focus:ring-[3px] focus:ring-ring"
         />
         {a.running ? (
@@ -138,13 +144,11 @@ export function AssistantComposer({ phone }: { phone: boolean }) {
         <textarea
           {...box}
           rows={2}
-          placeholder="Ask anything, or tell me what to do…"
+          placeholder={ASSISTANT_WORDS.placeholder.full}
           className="block min-h-[46px] w-full resize-none bg-transparent px-3 pb-0.5 pt-2.5 text-[14.5px] leading-[1.45] text-text placeholder:text-placeholder focus:outline-none"
         />
         <div className="flex items-center gap-1 px-1.5 pb-1.5 pt-1">
-          <span className="min-w-0 flex-1 px-1.5 text-xs text-text-3">
-            Asks before it contacts customers or changes records
-          </span>
+          <span className="min-w-0 flex-1 px-1.5 text-xs text-text-3">{ASSISTANT_WORDS.hint}</span>
           {a.running ? (
             <Button
               variant="secondary"

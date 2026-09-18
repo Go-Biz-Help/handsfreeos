@@ -1,0 +1,17 @@
+# The Assistant's consent step, if it's showing: the OK is kept with the account, so it shows before the first
+# question on a fresh stack and never again for that person. Says OK and waits for the composer.
+appId: com.gobizhelp.handsfreeos
+---
+- runFlow:
+    when:
+      visible:
+        id: 'assistant-consent'
+    commands:
+      - assertVisible: 'The Assistant uses Anthropic’s Claude'
+      - assertVisible: 'Nothing goes to a customer, and nothing is booked or changed, until you say OK.'
+      - tapOn:
+          id: 'assistant-consent-ok'
+- extendedWaitUntil:
+    visible:
+      id: 'assistant-input'
+    timeout: 20000

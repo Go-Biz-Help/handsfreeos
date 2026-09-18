@@ -22,6 +22,8 @@ import HfosPhone from '../../../../modules/hfos-phone';
 jest.mock('expo-router', () => ({
   router: { back: jest.fn(), replace: jest.fn(), push: jest.fn(), canGoBack: () => true },
   useLocalSearchParams: () => mockParams,
+  // The top bar's mark reads the screen it's on, so the question carries the record (M10 step 17).
+  usePathname: () => '/',
 }));
 jest.mock('@/components/shell/status-strip', () => ({ StatusStrip: () => null }));
 jest.mock('@/changes', () => {

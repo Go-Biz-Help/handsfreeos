@@ -2,6 +2,7 @@ import { AppState } from 'react-native';
 
 import { changes } from '@/changes';
 import { registerTestFixers } from '@/changes/test-actions';
+import { registerCustomerFixers } from '@/customers/fixers';
 import { registerInboxFixers } from '@/inbox/fixers';
 import { startPush } from '@/push/device';
 import { phoneCopy } from '@/sync';
@@ -41,6 +42,7 @@ export function startApp(): Promise<void> {
     prepareCopiesFolder();
     registerTestFixers();
     registerInboxFixers();
+    registerCustomerFixers();
     changes.start();
     phoneCopy.start();
     startPush();

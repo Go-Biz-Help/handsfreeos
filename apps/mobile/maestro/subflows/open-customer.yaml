@@ -1,0 +1,49 @@
+# Opens a customer from More → Customers by searching for NAME. Browser tests leave several people with the same name
+# on a local stack, so the flow takes the first row the search finds.
+appId: com.gobizhelp.handsfreeos
+---
+- repeat:
+    times: 4
+    while:
+      notVisible:
+        id: 'tab-more'
+    commands:
+      - runFlow:
+          when:
+            visible:
+              id: 'back'
+          commands:
+            - tapOn:
+                id: 'back'
+            - waitForAnimationToEnd
+- tapOn:
+    id: 'tab-more'
+- runFlow:
+    when:
+      notVisible:
+        id: 'more-customers'
+    commands:
+      - tapOn:
+          id: 'tab-more'
+- tapOn:
+    id: 'more-customers'
+- extendedWaitUntil:
+    visible:
+      id: 'customers-search'
+    timeout: 30000
+- tapOn:
+    id: 'customers-search'
+- eraseText: 60
+- inputText: ${NAME}
+# Right after a fresh install the copy is still coming down, so the search has nothing to find for a while.
+- extendedWaitUntil:
+    visible:
+      id: 'hit-title'
+    timeout: 90000
+- tapOn:
+    id: 'hit-title'
+    index: 0
+- extendedWaitUntil:
+    visible:
+      id: 'record-name'
+    timeout: 20000

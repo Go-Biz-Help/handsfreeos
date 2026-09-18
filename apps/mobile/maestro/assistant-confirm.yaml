@@ -1,0 +1,70 @@
+appId: com.gobizhelp.handsfreeos
+name: Ask HandsFreeOS - a text asks first, and only sends on the button
+tags:
+  - ci
+# Nothing reaches a customer until the person presses the button. The mark is pressed on Mike Johnson's own screen,
+# so "text him…" means him; the card that comes back says Needs your OK and shows exactly what would go, to whom and
+# from which number. Cancel records a no and says nothing went to him. Asked again, Send text sends it, and the card
+# says where it landed.
+env:
+  EMAIL: dale@lonestarhvac.test
+  PASSWORD: HandsFree-Demo-2026
+  NAME: Mike Johnson
+---
+- runFlow: subflows/start-signed-out.yaml
+- runFlow: subflows/sign-in-with-password.yaml
+- runFlow: subflows/open-customer.yaml
+- tapOn:
+    id: 'ask-handsfreeos'
+- runFlow: subflows/assistant-consent.yaml
+- tapOn:
+    id: 'assistant-input'
+- inputText: 'Text him that we are on our way'
+- tapOn:
+    id: 'assistant-send'
+- extendedWaitUntil:
+    visible:
+      id: 'assistant-card-confirm'
+    timeout: 60000
+- assertVisible:
+    id: 'assistant-needs-ok'
+    text: 'Needs your OK'
+- assertVisible:
+    id: 'assistant-confirm'
+- assertVisible: 'We are on our way'
+- takeScreenshot: assistant-confirm-card
+# Cancel: nothing goes, and the card says so in his name.
+- tapOn:
+    id: 'assistant-cancel'
+- extendedWaitUntil:
+    visible:
+      id: 'assistant-result'
+      text: 'Not sent\. Nothing went to .*'
+    timeout: 30000
+- assertNotVisible:
+    id: 'assistant-confirm'
+- takeScreenshot: assistant-confirm-cancelled
+# Asked again, the button sends it, and the card says where it landed.
+- tapOn:
+    id: 'assistant-input'
+- inputText: 'Text him that we are on our way'
+- tapOn:
+    id: 'assistant-send'
+- extendedWaitUntil:
+    visible:
+      id: 'assistant-confirm'
+    timeout: 60000
+- tapOn:
+    id: 'assistant-confirm'
+- extendedWaitUntil:
+    visible:
+      id: 'assistant-result-open'
+      text: 'Open conversation'
+    timeout: 30000
+- takeScreenshot: assistant-confirm-sent
+# The text really went: it's the last thing in his conversation.
+- tapOn:
+    id: 'assistant-result-open'
+- extendedWaitUntil:
+    visible: 'We are on our way'
+    timeout: 30000

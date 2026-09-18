@@ -56,7 +56,8 @@ import type {
 } from '@/lib/api/types';
 
 type LeadStage = LeadGet['stages'][number];
-import { daysLabel, daysSince, formatDate, formatDateOnly, formatMoney } from '@/lib/format';
+import { daysLabel, formatDate, formatDateOnly, formatMoney } from '@/lib/format';
+import { lastContactWords, moveToast, PIPELINE_WORDS, RECORD_WORDS } from '@hfos/core';
 import { useLiveRefresh, useLiveVersion } from '@/lib/realtime/live-provider';
 import { cn } from '@/lib/utils';
 import { leadQualificationOf } from '@/lib/ai-team/inbox-types';
@@ -64,13 +65,6 @@ import { AttentionBanner } from './attention-banner';
 import { LeadEditDialog } from './lead-edit-dialog';
 import { LostReasonDialog } from './lost-reason-dialog';
 import { QualificationCard } from './qualification-card';
-
-/** The latest real contact either way: "Today", "Yesterday", "2 days ago", or "No contact yet". */
-function lastContactWords(iso: string | null | undefined): string {
-  if (!iso) return 'No contact yet';
-  const days = daysSince(iso);
-  return days === 0 ? 'Today' : days === 1 ? 'Yesterday' : `${days} days ago`;
-}
 
 export interface LeadDetailData {
   lead: LeadCard;
@@ -206,12 +200,9 @@ export function LeadDetail({
           body: { workspaceId, leadId, stageId: stage.id, ...(lostReason ? { lostReason } : {}) },
         }),
       );
+      // The board's own toast names the lead; moving from the lead's page is already on it, so it says the stage.
       toast.success(
-        stage.kind === 'won'
-          ? `${lead.title} won.`
-          : stage.kind === 'lost'
-            ? `${lead.title} marked lost.`
-            : `Moved to ${stage.name}.`,
+        stage.kind === 'open' ? `Moved to ${stage.name}.` : moveToast(lead.title, stage),
       );
       setLost(null);
       reload();
@@ -235,7 +226,7 @@ export function LeadDetail({
           },
         }),
       );
-      toast.success('Next action set.');
+      toast.success(PIPELINE_WORDS.nextActionSet);
       setInlineNext('');
       setInlineAt('');
       reload();
@@ -260,7 +251,7 @@ export function LeadDetail({
           { body: { workspaceId, leadId } },
         ),
       );
-      toast.success(restore ? 'Lead restored.' : 'Lead archived.');
+      toast.success(restore ? PIPELINE_WORDS.leadRestored : PIPELINE_WORDS.leadArchived);
       reload();
     } catch (e) {
       toast.error(errorMessage(e));
@@ -337,7 +328,7 @@ export function LeadDetail({
                       ) : (
                         <Archive className="h-4 w-4" strokeWidth={1.5} />
                       )}
-                      {lead.archivedAt ? 'Restore lead' : 'Archive lead'}
+                      {lead.archivedAt ? PIPELINE_WORDS.restoreLead : PIPELINE_WORDS.archiveLead}
                     </DropdownMenuItem>
                   </>
                 ) : null}
@@ -432,8 +423,8 @@ export function LeadDetail({
             <AlertTriangle className="mt-0.5 h-4 w-4 flex-none" strokeWidth={1.75} />
             <div className="flex min-w-0 flex-1 flex-col gap-2">
               <span>
-                <strong className="font-semibold">No follow-up scheduled.</strong> Leads without a
-                next action go cold.
+                <strong className="font-semibold">{PIPELINE_WORDS.noFollowUpDot}</strong>{' '}
+                {PIPELINE_WORDS.goCold}
               </span>
               <div className="flex flex-col gap-2 sm:flex-row">
                 <Input
@@ -484,15 +475,15 @@ export function LeadDetail({
         className="grid grid-cols-[110px_1fr] gap-x-4 gap-y-2 text-[13.5px] md:grid-cols-[130px_1fr]"
         data-testid="lead-details"
       >
-        <dt className="text-text-2">Value</dt>
+        <dt className="text-text-2">{RECORD_WORDS.value}</dt>
         <dd className="font-medium">{formatMoney(lead.valueCents)}</dd>
-        <dt className="text-text-2">Assigned to</dt>
-        <dd className="font-medium">{lead.assignee?.fullName ?? 'Unassigned'}</dd>
-        <dt className="text-text-2">Last contact</dt>
+        <dt className="text-text-2">{RECORD_WORDS.assignedTo}</dt>
+        <dd className="font-medium">{lead.assignee?.fullName ?? RECORD_WORDS.unassigned}</dd>
+        <dt className="text-text-2">{PIPELINE_WORDS.lastContact}</dt>
         <dd className="font-medium" data-testid="lead-last-contact">
           {lastContactWords(lead.lastContactAt)}
         </dd>
-        <dt className="text-text-2">Expected close</dt>
+        <dt className="text-text-2">{PIPELINE_WORDS.expectedClose}</dt>
         <dd className="font-medium">
           {lead.expectedCloseOn ? formatDateOnly(lead.expectedCloseOn) : '—'}
         </dd>

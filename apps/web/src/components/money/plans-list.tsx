@@ -1,5 +1,5 @@
 'use client';
-import { dayLabel, localInstant, money } from '@hfos/core';
+import { dayLabel, localInstant, money, planPriceLabel } from '@hfos/core';
 import Link from 'next/link';
 import { Card } from '@/components/ui/card';
 import { EmptyState } from '@/components/ui/empty-state';
@@ -8,21 +8,8 @@ import { useLiveRefresh } from '@/lib/realtime/live-provider';
 import { CustomerCell, ListNote, RowLink, Td, Th } from './list-bits';
 import { StatusBadge } from './status-badge';
 
-const EVERY: Readonly<Record<string, string>> = {
-  month: 'a month',
-  quarter: 'a quarter',
-  year: 'a year',
-};
-
-/** "$29 a month", "$290 a year", "$149 every 3 months". */
-export function planPriceLabel(
-  priceCents: number,
-  interval: string,
-  intervalCount: number,
-): string {
-  const every = intervalCount === 1 ? EVERY[interval] : `every ${intervalCount} ${interval}s`;
-  return `${money(priceCents)} ${every ?? ''}`.trim();
-}
+/** "$29 a month", "$290 a year", "$149 every 3 months": core's, so the phone's list says the same. */
+export { planPriceLabel };
 
 const BILLING = new Set(['active', 'past_due']);
 

@@ -1,0 +1,142 @@
+appId: com.gobizhelp.handsfreeos
+name: More and the settings a phone needs
+tags:
+  - ci
+# More holds what doesn't fit five tabs, and Settings on the phone is about you and this phone: your cell, the lock,
+# the businesses kept here, the changes waiting, notifications, how it looks, signing out and deleting your account.
+# Everything about the business says plainly that it's on the web. Appearance is set to Dark and put back to System,
+# and Delete my account is opened and left (nothing is deleted).
+env:
+  EMAIL: dale@lonestarhvac.test
+  PASSWORD: HandsFree-Demo-2026
+---
+- runFlow: subflows/start-signed-out.yaml
+- runFlow: subflows/sign-in-with-password.yaml
+- tapOn:
+    id: 'tab-more'
+- extendedWaitUntil:
+    visible:
+      id: 'more'
+    timeout: 30000
+# Everything More holds, and the way out to the web for the desk work.
+- assertVisible:
+    id: 'more-changes'
+- assertVisible:
+    id: 'more-customers'
+- assertVisible:
+    id: 'more-tasks'
+- assertVisible:
+    id: 'more-money'
+- assertVisible:
+    id: 'more-approvals'
+- assertVisible:
+    id: 'more-settings'
+- assertVisible:
+    id: 'more-open-on-web'
+- assertVisible: 'Workflows, the AI teammate, business settings, members and more'
+- takeScreenshot: more
+- tapOn:
+    id: 'more-settings'
+- extendedWaitUntil:
+    visible:
+      id: 'settings'
+    timeout: 20000
+# This phone, then you.
+- assertVisible: 'This phone'
+- assertVisible:
+    id: 'setting-my-cell'
+- assertVisible:
+    id: 'setting-lock'
+- assertVisible:
+    id: 'setting-businesses'
+- assertVisible:
+    id: 'setting-changes'
+- assertVisible: 'You'
+- assertVisible:
+    id: 'setting-notifications'
+- assertVisible:
+    id: 'setting-profile'
+- assertVisible:
+    id: 'setting-appearance'
+- assertVisible:
+    id: 'setting-sign-out'
+- assertVisible:
+    id: 'setting-delete-account'
+- assertVisible: 'Business settings, texting, payments and members are on the web.'
+- takeScreenshot: settings
+# Appearance: dark, then back to the phone's own setting.
+- tapOn:
+    id: 'setting-appearance'
+- extendedWaitUntil:
+    visible:
+      id: 'appearance-sheet'
+    timeout: 10000
+- assertVisible: 'System follows this phone’s own light or dark setting.'
+- tapOn:
+    id: 'appearance-dark'
+- tapOn:
+    id: 'appearance-done'
+- waitForAnimationToEnd
+- assertVisible:
+    id: 'setting-appearance'
+    text: '.*Dark.*'
+- takeScreenshot: settings-dark
+- tapOn:
+    id: 'setting-appearance'
+- tapOn:
+    id: 'appearance-system'
+- tapOn:
+    id: 'appearance-done'
+- waitForAnimationToEnd
+- assertVisible:
+    id: 'setting-appearance'
+    text: '.*System.*'
+# The businesses kept on this phone.
+- tapOn:
+    id: 'setting-businesses'
+- extendedWaitUntil:
+    visible:
+      id: 'businesses-on-this-phone'
+    timeout: 20000
+- tapOn:
+    id: 'back'
+# Delete my account: what goes, what the business keeps, and the email typed to confirm. Nothing is deleted here.
+- scrollUntilVisible:
+    element:
+      id: 'setting-delete-account'
+    direction: DOWN
+    timeout: 20000
+- tapOn:
+    id: 'setting-delete-account'
+- extendedWaitUntil:
+    visible:
+      id: 'delete-account'
+    timeout: 20000
+- assertVisible: 'Your sign-in and your name are removed, and you’re signed out everywhere.'
+- assertVisible: 'Kept by the business'
+- assertVisible: 'Type your email address to confirm'
+- assertVisible:
+    id: 'delete-my-account'
+    enabled: false
+- assertVisible: 'You can also delete your account on the web, or from the public page on handsfreeos.com.'
+- takeScreenshot: delete-account
+- tapOn:
+    id: 'delete-keep'
+- extendedWaitUntil:
+    visible:
+      id: 'settings'
+    timeout: 20000
+# Sign out asks first, and Stay signed in leaves everything as it was.
+- tapOn:
+    id: 'setting-sign-out'
+- extendedWaitUntil:
+    visible:
+      id: 'sign-out-sheet'
+    timeout: 10000
+- takeScreenshot: sign-out-sheet
+- tapOn:
+    id: 'stay-signed-in'
+- extendedWaitUntil:
+    visible:
+      id: 'settings'
+    timeout: 20000

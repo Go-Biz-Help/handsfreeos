@@ -1,4 +1,5 @@
 'use client';
+import { DELETE_ACCOUNT_WORDS, deleteBlockedLine, handsOverLine, onlyOwnerLine } from '@hfos/core';
 import { AlertTriangle, Info, Trash2, UserRound } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
@@ -12,12 +13,6 @@ import type { AccountDeletionCheck } from '@/lib/api/types';
 import { supabaseBrowser } from '@/lib/supabase/client';
 
 const firstName = (name: string, fallback: string) => name.trim().split(/\s+/)[0] || fallback;
-
-/** "A", "A and B", "A, B and C". */
-function joinNames(names: readonly string[]): string {
-  if (names.length <= 1) return names[0] ?? '';
-  return `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
-}
 
 /**
  * Delete my account (M10), on Settings → Account and on the public /delete-account page. Typing the email address
@@ -36,7 +31,7 @@ export function DeleteAccount({ email, check }: { email: string; check: AccountD
   async function remove() {
     setError(null);
     if (!matches) {
-      setError('Type your email address exactly as it is on your account.');
+      setError(DELETE_ACCOUNT_WORDS.mismatch);
       return;
     }
     setDeleting(true);
@@ -61,12 +56,8 @@ export function DeleteAccount({ email, check }: { email: string; check: AccountD
   return (
     <div className="flex flex-col gap-3.5" data-testid="delete-account">
       <div>
-        <h2 className="text-lg font-semibold tracking-tight">Delete my account</h2>
-        <p className="mt-1 text-[13px] text-text-2">
-          Your sign-in and your name are removed, and you are signed out everywhere, on the web and
-          on your phones. The customers, messages and jobs you worked on stay with each business,
-          shown as from a former teammate.
-        </p>
+        <h2 className="text-lg font-semibold tracking-tight">{DELETE_ACCOUNT_WORDS.title}</h2>
+        <p className="mt-1 text-[13px] text-text-2">{DELETE_ACCOUNT_WORDS.intro}</p>
       </div>
 
       {check.businesses.map((b) => (
@@ -79,9 +70,9 @@ export function DeleteAccount({ email, check }: { email: string; check: AccountD
           <div className="flex flex-col gap-2">
             <span>
               <b className="font-semibold">You’re the only owner of {b.name}.</b>{' '}
-              {b.suggestion
-                ? `Make ${firstName(b.suggestion.fullName, b.suggestion.email)} or someone else an owner first, so the business isn’t left without one.`
-                : 'Invite someone and make them an owner first, so the business isn’t left without one.'}
+              {onlyOwnerLine(
+                b.suggestion ? firstName(b.suggestion.fullName, b.suggestion.email) : null,
+              )}
             </span>
             <span>
               <ButtonLink href={`/app/w/${b.workspaceId}/members`} size="sm">
@@ -100,9 +91,11 @@ export function DeleteAccount({ email, check }: { email: string; check: AccountD
       {check.ready && check.handsOver.length > 0 ? (
         <Callout tone="info" icon={Info} data-testid="hands-over">
           {check.handsOver
-            .map(
-              (h) =>
-                `${h.name} stays with ${joinNames(h.to.map((p) => p.fullName || p.email))}, ${h.to.length === 1 ? 'its other owner' : 'its other owners'}.`,
+            .map((h) =>
+              handsOverLine(
+                h.name,
+                h.to.map((p) => p.fullName || p.email),
+              ),
             )
             .join(' ')}
         </Callout>
@@ -118,7 +111,7 @@ export function DeleteAccount({ email, check }: { email: string; check: AccountD
           }}
         >
           <Field
-            label="Type your email address to confirm"
+            label={DELETE_ACCOUNT_WORDS.confirmLabel}
             htmlFor="delete-confirm-email"
             error={error}
           >
@@ -142,7 +135,7 @@ export function DeleteAccount({ email, check }: { email: string; check: AccountD
               data-testid="delete-my-account"
             >
               {deleting ? null : <Trash2 className="h-4 w-4" strokeWidth={1.5} />}
-              Delete my account
+              {DELETE_ACCOUNT_WORDS.button}
             </Button>
           </div>
         </form>
@@ -150,13 +143,9 @@ export function DeleteAccount({ email, check }: { email: string; check: AccountD
         <div className="flex flex-wrap items-center gap-2.5">
           <Button variant="danger" disabled data-testid="delete-my-account">
             <Trash2 className="h-4 w-4" strokeWidth={1.5} />
-            Delete my account
+            {DELETE_ACCOUNT_WORDS.button}
           </Button>
-          <span className="text-[13px] text-text-3">
-            {blockers.length === 1
-              ? `Available once someone else owns ${blockers[0]}.`
-              : `Available once someone else owns each of ${joinNames(blockers)}.`}
-          </span>
+          <span className="text-[13px] text-text-3">{deleteBlockedLine(blockers)}</span>
         </div>
       )}
     </div>

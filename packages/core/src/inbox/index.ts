@@ -11,3 +11,4 @@ export * from './composer';
 export * from './conversation';
 export * from './rows';
 export * from './calls';
+export * from './notes';

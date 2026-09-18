@@ -10,7 +10,7 @@ import {
 import { TAP } from '../buttons';
 import { PressRunner, type FollowUp, type PressDeps } from '../press';
 
-import { COMMAND_IDS, CONVERSATION, customerMessage, ITEM, urgentLead } from './fixtures';
+import { approval, COMMAND_IDS, CONVERSATION, customerMessage, ITEM, urgentLead } from './fixtures';
 
 /**
  * A press on a notification runs its command through `change()` under the command id the notification carries, then
@@ -152,6 +152,33 @@ describe('a button pressed on a notification', () => {
       },
     ]);
   });
+
+  it.each([
+    ['approval_decided', 'step' as const, 'workflow.decide_approval'],
+    ['draft_decided', 'draft' as const, 'ai_teammate.decide_draft'],
+  ])(
+    'treats Approve after the same thing was decided on Home (%s) as already done',
+    async (rule, kind, command) => {
+      const p = phone();
+      p.api.script((request) =>
+        request.name === command
+          ? refusal(409, 'final', 'This was already decided.', { rule })
+          : undefined,
+      );
+      const { r, followUps, dismissed } = runner(p);
+      await expect(
+        r.handle({
+          data: approval(kind),
+          actionId: 'approve',
+          typed: null,
+          identifier: `approval-${kind}`,
+        }),
+      ).resolves.toEqual({ kind: 'already', button: 'approve' });
+      // Nothing was refused and nothing ran twice, so the notification simply goes, as a done press does.
+      expect(followUps).toEqual([]);
+      expect(dismissed).toEqual([`approval-${kind}`]);
+    },
+  );
 
   it('snoozes an hour from the press, under Snooze’s own id', async () => {
     const p = phone();

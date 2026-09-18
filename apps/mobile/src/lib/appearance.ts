@@ -1,10 +1,15 @@
+import { APPEARANCE_LABELS, type AppearanceChoice } from '@hfos/core';
 import { useSyncExternalStore } from 'react';
 import { Uniwind } from 'uniwind';
 
 import { deviceStore } from './device-store';
 
-/** Light, dark, or the phone's own setting (Settings → Appearance). One choice for the phone, not per person. */
-export type Appearance = 'system' | 'light' | 'dark';
+/**
+ * Light, dark, or the phone's own setting (Settings → Appearance). One choice for the phone, not per person; the
+ * web keeps its own with the account. The words are core's, so both call them the same things.
+ */
+export type Appearance = AppearanceChoice;
+export { APPEARANCE_LABELS };
 
 const KEY = 'appearance';
 const listeners = new Set<() => void>();
@@ -35,9 +40,3 @@ export function useAppearance(): Appearance {
     getAppearance,
   );
 }
-
-export const APPEARANCE_LABELS: Record<Appearance, string> = {
-  system: 'System',
-  light: 'Light',
-  dark: 'Dark',
-};

@@ -1,0 +1,69 @@
+# Google Play — Data Safety answers
+
+What to click in Play Console → App content → Data safety. Same facts as
+[`privacy-app-store.md`](privacy-app-store.md), in Google's shape.
+
+## The section Google asks first
+
+| Question                                                               | Answer | Why                                                                                                                                           |
+| ---------------------------------------------------------------------- | ------ | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| Does your app collect or share any of the required user data types?    | Yes    | The business's own records, listed below                                                                                                      |
+| Is all of the user data collected by your app encrypted in transit?    | Yes    | Everything goes over HTTPS/TLS — the API, the sync stream and Supabase Auth. The phone's own copy is encrypted at rest with SQLCipher as well |
+| Do you provide a way for users to request that their data is deleted?  | Yes    | In the app, on the web, and at `https://app.handsfreeos.com/delete-account`                                                                   |
+| Has your app been independently validated against a security standard? | No     | Not audited                                                                                                                                   |
+| Is your app's data collection reviewed by a third party?               | No     | —                                                                                                                                             |
+
+## Data collected
+
+Google asks four things per type: collected or shared, required or optional, why, and whether it's processed
+ephemerally. Nothing here is **shared**: it goes to HandsFreeOS's own servers, and from there only to the service
+providers that carry it out on the business's behalf (the carrier that sends a text, the payment provider that takes a
+payment), which Google's own rules exclude from "shared". Nothing is processed ephemerally — the point of the app is
+that the business keeps its records.
+
+| Google's category → type                  | Collected | Shared | Required? | Purpose                               | Where in the code                                                              |
+| ----------------------------------------- | --------- | ------ | --------- | ------------------------------------- | ------------------------------------------------------------------------------ |
+| Personal info → Name                      | Yes       | No     | Required  | App functionality, Account management | `app.users`; `app.people`, `app.companies`                                     |
+| Personal info → Email address             | Yes       | No     | Required  | App functionality, Account management | Supabase Auth; `app.people.email`                                              |
+| Personal info → Phone number              | Yes       | No     | Optional  | App functionality                     | Settings → My cell phone; customers' numbers                                   |
+| Personal info → Address                   | Yes       | No     | Optional  | App functionality                     | Customers' and appointments' addresses                                         |
+| Personal info → User IDs                  | Yes       | No     | Required  | App functionality, Account management | The account id every change is credited to                                     |
+| Photos and videos → Photos                | Yes       | No     | Optional  | App functionality                     | `expo-image-picker` → a customer's files, or a reply                           |
+| Messages → Other in-app messages          | Yes       | No     | Required  | App functionality                     | The inbox: texts and emails with customers, notes                              |
+| Financial info → Other financial info     | Yes       | No     | Optional  | App functionality                     | Invoice, estimate, payment and plan amounts                                    |
+| Device or other IDs → Device or other IDs | Yes       | No     | Optional  | App functionality                     | `src/push/device.ts`: the push token for this install, so notifications arrive |
+
+Voicemails are the row that isn't here, and the reason matters. Google's "collect" means data leaving the phone. A
+voicemail travels the other way: the carrier records it when a customer leaves a message, the app fetches it from
+storage and plays it (`src/components/inbox/voicemail-player.tsx`, `expo-audio`). The app records nothing and asks for
+no microphone permission on either platform, so **Audio files → No**.
+
+## Data **not** collected
+
+| Google's category                                                                   | Answer | Why                                                                                                                       |
+| ----------------------------------------------------------------------------------- | ------ | ------------------------------------------------------------------------------------------------------------------------- |
+| Location (approximate or precise)                                                   | No     | `expo-location` is not a dependency and no location permission is declared                                                |
+| Personal info → Race, ethnicity, political or religious beliefs, sexual orientation | No     | Never asked                                                                                                               |
+| Personal info → Other info                                                          | No     | —                                                                                                                         |
+| Financial info → Payment info, purchase history, credit score                       | No     | The app never sees a card; paying happens on the provider's own hosted page                                               |
+| Health and fitness                                                                  | No     | —                                                                                                                         |
+| Contacts                                                                            | No     | The app never reads the phone's contacts (`src/inbox/contact-card.ts` hands the number to the phone's New Contact screen) |
+| Calendar                                                                            | No     | The business's calendar is HandsFreeOS's own; the phone's calendar is never read                                          |
+| App activity (interactions, searches, installed apps, other actions)                | No     | No analytics SDK                                                                                                          |
+| Web browsing                                                                        | No     | No in-app browser                                                                                                         |
+| App info and performance (crash logs, diagnostics, other)                           | No     | No crash reporter. Nothing is sent when the app fails                                                                     |
+| Files and docs                                                                      | No     | Files a person attaches are already the business's records, counted under Photos above                                    |
+| Audio files → Voice or sound recordings, music, other audio                         | No     | The app records nothing. It plays voicemails the carrier recorded, which is data arriving, not data collected             |
+
+## Not in Data safety, but asked next to it
+
+| Question                                    | Answer                                                                                                                                         |
+| ------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| Ads                                         | The app contains no ads and shows no third-party ad content                                                                                    |
+| Advertising ID permission (`AD_ID`)         | Not declared and not used — check the merged manifest in [`permissions.md`](permissions.md)                                                    |
+| Target audience & content                   | 18 and over; it is a tool for business owners and their crews                                                                                  |
+| News app                                    | No                                                                                                                                             |
+| Data deletion (App content → Data deletion) | `https://app.handsfreeos.com/delete-account`, which deletes an account without the app                                                         |
+| Financial features declaration              | None — the app is not a lending, banking, crypto or tax app, and takes no payments itself. The business's customers pay on the provider's page |
+| Health apps declaration                     | Not a health app                                                                                                                               |
+| Photo and video permissions declaration     | `CAMERA` only, and only after a person taps to take a photo. No storage permission is asked (both are blocked in `app.json`)                   |

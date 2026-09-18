@@ -96,7 +96,7 @@ import {
   TeammateLine,
   useDraftDecision,
 } from './draft-card';
-import { useConversationActions, useThread } from './hooks';
+import { useConversationActions, useCustomerNotes, useThread } from './hooks';
 import { useInbox } from './inbox-shell';
 import { LinkPersonDialog } from './link-person-dialog';
 import { MessageLog } from './message-log';
@@ -181,6 +181,8 @@ export function ConversationView({
   // Edit on an Assistant text or email card for a number that isn't in Customers lands here.
   const handedDraft = useComposerDraft(c.id);
   const t = useThread(workspaceId, c.id, thread);
+  // The customer's own notes, shown in the thread as the phone shows them (M10 step 15).
+  const notes = useCustomerNotes(workspaceId, person?.id ?? null);
   useLiveRefresh(['conversation', 'person', 'lead', 'task']);
   const after = () => {
     reloadList();
@@ -828,6 +830,7 @@ export function ConversationView({
           <>
             <MessageLog
               items={t.items}
+              notes={notes}
               pending={t.pending}
               customerFirstName={first}
               customerName={person?.fullName ?? null}

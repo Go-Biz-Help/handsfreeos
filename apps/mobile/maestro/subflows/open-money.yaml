@@ -1,0 +1,32 @@
+# Opens More → Money from anywhere in a business.
+appId: com.gobizhelp.handsfreeos
+---
+- repeat:
+    times: 4
+    while:
+      notVisible:
+        id: 'tab-more'
+    commands:
+      - runFlow:
+          when:
+            visible:
+              id: 'back'
+          commands:
+            - tapOn:
+                id: 'back'
+            - waitForAnimationToEnd
+- tapOn:
+    id: 'tab-more'
+- runFlow:
+    when:
+      notVisible:
+        id: 'more-money'
+    commands:
+      - tapOn:
+          id: 'tab-more'
+- tapOn:
+    id: 'more-money'
+- extendedWaitUntil:
+    visible:
+      id: 'money-tabs'
+    timeout: 30000

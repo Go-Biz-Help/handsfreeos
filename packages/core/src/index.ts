@@ -13,12 +13,23 @@ export const CORE_VERSION = '0.1.0';
 export * from './crm/phone';
 export * from './crm/import-mapping';
 export * from './crm/not-applied';
+// The CRM screens' shared words and working out (M10 step 15).
+export * from './crm/format';
+export * from './crm/record-words';
+export * from './crm/timeline-words';
+export * from './crm/pipeline-words';
+export * from './crm/task-words';
+export * from './crm/file-words';
+export * from './crm/synced';
 export * from './messaging/sms';
 export * from './messaging/quiet-hours';
 export * from './messaging/bridge';
 export * from './schemas/assistant';
 export * from './assistant/tools';
 export * from './assistant/consent';
+// The Assistant's words, and the settings people have of their own (M10 step 17).
+export * from './assistant/words';
+export * from './account/settings-words';
 export * from './calendar/index';
 export * from './workflows/index';
 export * from './knowledge/index';

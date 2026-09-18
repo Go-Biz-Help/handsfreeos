@@ -28,14 +28,13 @@ import { useCalls } from '@/lib/calls/call-provider';
 import { byLead, reminderKeyOf, reminderLabel, reminderWhy } from '@/lib/calendar/reminders';
 import {
   dateOf,
+  dayTime,
   fmtAt,
   fmtDateLong,
   fmtLength,
-  fmtMonthDay,
   fmtRange,
   fmtTime,
   todayIn,
-  weekdayShort,
   zoneLabel,
 } from '@/lib/calendar/time';
 import { telHref } from '@/lib/format';
@@ -105,18 +104,6 @@ const BADGE: Record<ReminderRow['state'], { label: string; variant: BadgeVariant
 };
 
 const capital = (s: string) => s[0]!.toUpperCase() + s.slice(1);
-
-/** "Today 4:00 PM", "Wed 4:00 PM" within a week either way, else "Sep 24, 4:00 PM". */
-function dayTime(at: number | string, timeZone: string): string {
-  const d = dateOf(at, timeZone);
-  const today = todayIn(timeZone);
-  const days = Math.round(
-    (Date.parse(`${d}T12:00:00Z`) - Date.parse(`${today}T12:00:00Z`)) / 86_400_000,
-  );
-  if (days === 0) return `Today ${fmtTime(at, timeZone)}`;
-  if (Math.abs(days) < 7) return `${weekdayShort(d)} ${fmtTime(at, timeZone)}`;
-  return `${fmtMonthDay(d, Number(today.slice(0, 4)))}, ${fmtTime(at, timeZone)}`;
-}
 
 /**
  * What the worker recorded for each customer: the confirmation, then each reminder in the order they go.

@@ -1,0 +1,93 @@
+# Screenshots of the Calendar and Money canvas screens in one theme: the day, the week's strip, an appointment, the
+# money list, an invoice and Record cash or a check. Not run in CI:
+#   maestro test -e THEME=dark -e PREFIX=ios apps/mobile/maestro/screens/calendar-money.yaml --test-output-dir <dir>
+appId: com.gobizhelp.handsfreeos
+name: The Calendar's and Money's screens
+tags:
+  - screens
+env:
+  EMAIL: dale@lonestarhvac.test
+  PASSWORD: HandsFree-Demo-2026
+---
+- launchApp:
+    clearState: true
+- runFlow: ../subflows/start-signed-out.yaml
+- runFlow: ../subflows/sign-in-with-password.yaml
+- tapOn:
+    id: 'tab-more'
+- tapOn:
+    id: 'more-settings'
+- tapOn:
+    id: 'setting-appearance'
+- tapOn:
+    id: 'appearance-${THEME}'
+- tapOn:
+    id: 'appearance-done'
+- waitForAnimationToEnd
+# The day, and the week's strip over it.
+- runFlow: ../subflows/open-calendar.yaml
+- takeScreenshot: ${PREFIX}-calendar-day-${THEME}
+- tapOn:
+    id: 'calendar-just-me'
+- waitForAnimationToEnd
+- takeScreenshot: ${PREFIX}-calendar-just-me-${THEME}
+- tapOn:
+    id: 'calendar-everyone'
+- waitForAnimationToEnd
+# One appointment.
+- repeat:
+    times: 7
+    while:
+      notVisible:
+        id: 'agenda'
+    commands:
+      - tapOn:
+          point: '75%,22%'
+      - waitForAnimationToEnd
+- tapOn:
+    id: 'agenda-appt-.*'
+- extendedWaitUntil:
+    visible:
+      id: 'appointment-status'
+    timeout: 20000
+- takeScreenshot: ${PREFIX}-calendar-appointment-${THEME}
+# Asking for a time.
+- runFlow: ../subflows/open-calendar.yaml
+- tapOn:
+    id: 'calendar-new'
+    optional: true
+- runFlow:
+    when:
+      notVisible:
+        id: 'new-appointment'
+    commands:
+      - tapOn:
+          id: 'calendar-new-empty'
+- extendedWaitUntil:
+    visible:
+      id: 'new-appointment'
+    timeout: 15000
+- takeScreenshot: ${PREFIX}-calendar-new-appointment-${THEME}
+- tapOn:
+    point: '50%,8%'
+- waitForAnimationToEnd
+# Money: the list, an invoice with something still owed, and Record cash or a check. The invoice is opened by its own
+# link (WS and INVOICE), so the shot is always of one that can still take a payment.
+- runFlow: ../subflows/open-money.yaml
+- takeScreenshot: ${PREFIX}-money-list-${THEME}
+- runFlow:
+    file: ../subflows/open-link-in-app.yaml
+    env:
+      LINK: handsfreeos://app/w/${WS}/money/invoices/${INVOICE}
+- extendedWaitUntil:
+    visible:
+      id: 'invoice-amount'
+    timeout: 30000
+- takeScreenshot: ${PREFIX}-money-invoice-${THEME}
+- tapOn:
+    id: 'record-cash-open'
+- extendedWaitUntil:
+    visible:
+      id: 'record-cash'
+    timeout: 15000
+- takeScreenshot: ${PREFIX}-money-record-cash-${THEME}

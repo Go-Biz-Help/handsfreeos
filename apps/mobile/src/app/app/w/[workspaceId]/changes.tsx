@@ -22,7 +22,7 @@ import { useChangeList, useChanges } from '@/changes/hooks';
 import type { ChangeItem } from '@/changes/list';
 import type { OutboxRow } from '@/changes/outbox';
 import { TOO_OLD_WORDS } from '@/changes/version-gate';
-import { changesWord, clockTime, useSyncStatus } from '@/lib/sync-status';
+import { changesWord, clockTime, needsYouWord, useSyncStatus } from '@/lib/sync-status';
 
 /**
  * Changes on this phone, opened from the strip under the top bar and from More: what needs the person (a question to
@@ -48,11 +48,13 @@ export default function Changes() {
       ? 0
       : list.sent.reduce((n, g) => n + (g.lastSentAt >= snapshot.backOnlineAt! ? g.count : 0), 0);
   const one = unsent === 1;
+  // Nothing here is on its way: every one of them needs the person, so the head says so rather than promising a send.
+  const allNeedYou = list.waiting.length === 0 && list.needsYou.length > 0;
   const [title, line] =
     unsent === 0
       ? ['Up to date', 'Every change made on this phone has reached HandsFreeOS.']
       : [
-          `${changesWord(unsent)} waiting to send`,
+          allNeedYou ? needsYouWord(unsent) : `${changesWord(unsent)} waiting to send`,
           snapshot.tooOld
             ? `Nothing is lost: ${one ? 'it goes' : 'they go'} once HandsFreeOS is updated.`
             : status.connection === 'offline'

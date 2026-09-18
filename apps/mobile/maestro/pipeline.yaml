@@ -1,0 +1,73 @@
+appId: com.gobizhelp.handsfreeos
+name: The pipeline one stage at a time, and moving a lead from its own page
+tags:
+  - ci
+# The chips say how many leads each stage holds and the line over them totals the open ones. A lead's page is
+# Move to… with Call and Text under it; Move to… lists every stage, says what Won and Lost do, and moves the lead at
+# once. The flow puts the lead back in the stage it came from.
+env:
+  EMAIL: dale@lonestarhvac.test
+  PASSWORD: HandsFree-Demo-2026
+---
+- runFlow: subflows/start-signed-out.yaml
+- runFlow: subflows/sign-in-with-password.yaml
+- runFlow: subflows/open-pipeline.yaml
+- extendedWaitUntil:
+    visible:
+      id: 'pipeline-summary'
+      text: '\d+ open leads? · \$.*'
+    timeout: 60000
+- extendedWaitUntil:
+    visible:
+      id: 'stage-totals'
+      text: '\d+ leads? · \$.*'
+    timeout: 60000
+- takeScreenshot: pipeline-stage
+- extendedWaitUntil:
+    visible:
+      id: 'lead-title'
+    timeout: 90000
+- tapOn:
+    id: 'lead-title'
+    index: 0
+- extendedWaitUntil:
+    visible:
+      id: 'lead-move'
+    timeout: 20000
+- assertVisible:
+    id: 'lead-value'
+    text: '\$.*'
+- assertVisible: 'Customer'
+- assertVisible: 'In stage'
+- takeScreenshot: pipeline-lead
+# Move to… and back again.
+- tapOn:
+    id: 'lead-move'
+- extendedWaitUntil:
+    visible:
+      id: 'move-sheet'
+    timeout: 10000
+- assertVisible: 'Move .* to…'
+- assertVisible: 'Works with no signal. If someone moves it first, theirs stands and the phone tells you why yours didn’t go.'
+- takeScreenshot: pipeline-move
+- tapOn:
+    id: 'move-to-Contacted'
+- extendedWaitUntil:
+    visible:
+      id: 'stage-badge'
+      text: 'Contacted'
+    timeout: 20000
+# Put it back where it was.
+- tapOn:
+    id: 'lead-move'
+- extendedWaitUntil:
+    visible:
+      id: 'move-sheet'
+    timeout: 10000
+- tapOn:
+    id: 'move-to-New'
+- extendedWaitUntil:
+    visible:
+      id: 'stage-badge'
+      text: 'New'
+    timeout: 20000

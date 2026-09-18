@@ -6,7 +6,12 @@
  * the plans (`money.manage`). Rather than hide the section from them, the manage-only queries come back null
  * and each page leaves those parts out.
  */
-import { defaultMoneySettings, type MoneySettings } from '@hfos/core';
+import {
+  COLLECTED_DAYS,
+  defaultMoneySettings,
+  seesWholeBusiness,
+  type MoneySettings,
+} from '@hfos/core';
 import type { ApiClient } from '@hfos/api-client';
 import { ApiError, apiServer, unwrapPage } from '@/lib/api/server';
 import type { MoneySummaryOut, PaymentConnectionRow, ProductRow } from '@/lib/api/types';
@@ -25,8 +30,7 @@ export interface MoneyShell {
   readonly now: number;
 }
 
-/** How far back "collected" reaches on the headline strip. */
-export const COLLECTED_DAYS = 30;
+export { COLLECTED_DAYS };
 
 /** A query a member is not allowed to run comes back null instead of blowing the page up. */
 export async function allowed<T>(run: Promise<T>): Promise<T | null> {
@@ -42,7 +46,7 @@ export async function loadMoneyShell(workspaceId: string): Promise<MoneyShell> {
   const { api } = await apiServer();
   const got = unwrapPage(await api.POST('/v1/queries/workspace.get', { body: { workspaceId } }));
   const role = got.workspace.role;
-  const canManage = role === 'owner' || role === 'admin';
+  const canManage = seesWholeBusiness(role);
   const [settings, summary] = await Promise.all([
     canManage
       ? allowed(

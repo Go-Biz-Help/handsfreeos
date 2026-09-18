@@ -1,6 +1,7 @@
 import { and, asc, desc, eq, gte, isNull, lt, or, sql as dsql, type SQL } from 'drizzle-orm';
 import { leads, pipelines, pipelineStages } from '@hfos/db/schema';
 import { leadCards } from '../crm/lead-cards';
+import { boardStages } from '../crm/pipeline-words';
 import { HfosError } from '../errors';
 import { defineQuery } from '../kernel/define';
 import { decodeCursor, page } from '../kernel/pagination';
@@ -44,18 +45,11 @@ export const leadBoard = defineQuery({
     return {
       pipeline,
       pipelines: active,
-      stages: stages.map((s) => {
-        const inStage = cards.filter((c) => c.stageId === s.id);
-        return {
-          id: s.id,
-          name: s.name,
-          kind: s.kind,
-          position: s.position,
-          count: inStage.length,
-          valueCents: inStage.reduce((a, c) => a + c.valueCents, 0),
-          leads: inStage,
-        };
-      }),
+      // Each stage's count and total come from core, so the web's board and the phone's agree after a move.
+      stages: boardStages(
+        stages.map((s) => ({ id: s.id, name: s.name, kind: s.kind, position: s.position })),
+        cards,
+      ),
     };
   },
 });

@@ -28,6 +28,17 @@ export function useWaitingCount(): number {
   return changes.lastKnown(state.person.userId);
 }
 
+/**
+ * How many of those changes are waiting on the person rather than on signal: a refusal to fix, or a question to
+ * answer. They never go on their own, so the strip and the quiet line count them apart (step 13, finding 2).
+ */
+export function useNeedsYouCount(): number {
+  const snapshot = useChanges();
+  const state = useSession();
+  if (state.status !== 'signedIn') return 0;
+  return snapshot.userId === state.person.userId ? snapshot.needsYou : 0;
+}
+
 /** Live bytes sent for a photo uploading now, if this app is the one uploading it. */
 export function usePhotoProgress(id: string): { sent: number; total: number } | null {
   const subscribe = React.useCallback(

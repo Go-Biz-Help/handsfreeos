@@ -4,9 +4,23 @@ import { ZoneChip } from '@/components/settings/my-calendar';
 import { Avatar } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Segmented } from '@/components/ui/segmented';
+import {
+  agendaEmptyWords,
+  agendaRows,
+  appointmentCount,
+  busyFrom,
+  BUSY_TITLE,
+  dayHeading,
+  daysWithAppointments,
+  NOT_BOOKED_YET,
+  nowLabel,
+  seatsLabel,
+  sourceLabel,
+  type AgendaAppointment,
+  type AgendaInput,
+} from '@hfos/core';
 import type { Appointment, TeamSchedule } from '@/lib/api/types';
 import {
-  dateOf,
   fmtDateLong,
   fmtLength,
   fmtMonthYear,
@@ -15,13 +29,7 @@ import {
   weekdayShort,
 } from '@/lib/calendar/time';
 import { cn } from '@/lib/utils';
-import { calendarProviderName } from '@/components/settings/calendar-connection-card';
 import { areaOf, customersOf, holdOf, holdWords, isPast } from './appt';
-
-type Row =
-  | { kind: 'appt'; at: number; appt: Appointment }
-  | { kind: 'busy'; at: number; end: number; provider: 'google' | 'microsoft' | null }
-  | { kind: 'now'; at: number };
 
 /** Phones: a week's date strip, Everyone or Just me, and the chosen day as a list. */
 export function Agenda({
@@ -51,26 +59,34 @@ export function Agenda({
   onOpen: (appt: Appointment) => void;
   onNew: () => void;
 }) {
-  const shown = appointments.filter((a) => !mine || a.staff.some((s) => s.userId === me?.userId));
-  const byDay = new Set(shown.map((a) => dateOf(a.startsAt, timeZone)));
-  const onDay = shown
-    .filter((a) => dateOf(a.startsAt, timeZone) === date)
-    .sort((a, b) => a.startsAt.localeCompare(b.startsAt));
-  const rows: Row[] = onDay.map((a) => ({ kind: 'appt', at: Date.parse(a.startsAt), appt: a }));
-  if (mine && me)
-    for (const b of me.busy)
-      if (dateOf(b.startsAt, timeZone) === date)
-        rows.push({
-          kind: 'busy',
-          at: Date.parse(b.startsAt),
-          end: Date.parse(b.endsAt),
-          provider: me.connection?.provider ?? null,
-        });
-  rows.sort((a, b) => a.at - b.at);
-  if (now !== null && date === today && onDay.length) {
-    const i = rows.findIndex((r) => r.at > now);
-    rows.splice(i === -1 ? rows.length : i, 0, { kind: 'now', at: now });
-  }
+  // The day, its busy rows and the "now" line are core's (`agendaRows`), so the phone app builds the same list from
+  // its own copy. The appointments themselves stay the API's, and the row it names is looked up by id.
+  const byId = new Map(appointments.map((a) => [a.id, a]));
+  const input: AgendaInput = {
+    date,
+    today,
+    timeZone,
+    mine,
+    myUserId: me?.userId ?? null,
+    now,
+    appointments: appointments.map(
+      (a) =>
+        ({
+          id: a.id,
+          startsAt: a.startsAt,
+          staff: a.staff,
+        }) as unknown as AgendaAppointment,
+    ),
+    busy: (me?.busy ?? []).map((b) => ({
+      startsAt: b.startsAt,
+      endsAt: b.endsAt,
+      provider: me?.connection?.provider ?? null,
+    })),
+  };
+  const byDay = daysWithAppointments(input);
+  const rows = agendaRows(input);
+  const onDay = rows.filter((r) => r.kind === 'appt');
+  const empty = agendaEmptyWords(mine);
 
   return (
     <div className="flex flex-col" data-testid="agenda">
@@ -130,15 +146,8 @@ export function Agenda({
         />
       </div>
       <div className="flex items-center justify-between px-4 pb-2 pt-3">
-        <span className="text-[13px] font-medium">
-          {date === today ? 'Today · ' : ''}
-          {fmtDateLong(date)}
-        </span>
-        <span className="text-xs text-text-3">
-          {onDay.length
-            ? `${onDay.length} ${onDay.length === 1 ? 'appointment' : 'appointments'}`
-            : ''}
-        </span>
+        <span className="text-[13px] font-medium">{dayHeading(date, today)}</span>
+        <span className="text-xs text-text-3">{appointmentCount(onDay.length)}</span>
       </div>
       <div className="border-t border-border">
         {onDay.length === 0 ? (
@@ -146,13 +155,11 @@ export function Agenda({
             <span className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-full bg-card-2 text-text-3">
               <CalendarDays className="h-5 w-5" strokeWidth={1.5} />
             </span>
-            <div className="text-[15px] font-semibold text-text">
-              {mine ? 'Nothing booked for you' : 'Nothing booked'}
-            </div>
-            <div className="mt-1 text-[13px]">Open times can still be booked online.</div>
+            <div className="text-[15px] font-semibold text-text">{empty.title}</div>
+            <div className="mt-1 text-[13px]">{empty.body}</div>
             <Button variant="secondary" className="mt-3.5 h-11" onClick={onNew}>
               <Plus className="h-4 w-4" strokeWidth={1.75} />
-              New appointment
+              {empty.action}
             </Button>
           </div>
         ) : (
@@ -163,7 +170,7 @@ export function Agenda({
                   key="now"
                   className="flex items-center gap-2 border-b border-border bg-card px-3.5 py-1.5 text-xs font-semibold text-danger-text"
                 >
-                  <span>Now · {fmtTime(r.at, timeZone)}</span>
+                  <span>{nowLabel(r.at, timeZone)}</span>
                   <i className="h-0.5 flex-1 rounded bg-danger" />
                 </div>
               );
@@ -181,14 +188,12 @@ export function Agenda({
                   </div>
                   <span className="w-1 flex-none rounded bg-[repeating-linear-gradient(180deg,var(--border-strong)_0_3px,transparent_3px_6px)]" />
                   <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-                    <span className="text-[15px] font-semibold text-text-2">Busy</span>
-                    <span className="text-[13px] text-text-3">
-                      From {r.provider ? calendarProviderName(r.provider) : 'your calendar'}
-                    </span>
+                    <span className="text-[15px] font-semibold text-text-2">{BUSY_TITLE}</span>
+                    <span className="text-[13px] text-text-3">{busyFrom(r.busy.provider)}</span>
                   </div>
                 </div>
               );
-            const a = r.appt;
+            const a = byId.get(r.appt.id)!;
             const customers = customersOf(a);
             const area = areaOf(a.location.address);
             const hold = holdOf(a, now);
@@ -229,7 +234,7 @@ export function Agenda({
                       className="text-[13px] font-medium text-warning-text"
                       data-testid="agenda-held"
                     >
-                      Not booked yet · {holdWords(hold, timeZone)}
+                      {NOT_BOOKED_YET} · {holdWords(hold, timeZone)}
                     </span>
                   ) : null}
                   {(() => {
@@ -271,13 +276,13 @@ export function Agenda({
                     {a.capacity > 1 ? (
                       <span className="cal-mini">
                         <Users className="h-3 w-3" strokeWidth={1.5} />
-                        {a.seatsTaken}/{a.capacity} seats
+                        {seatsLabel(a.seatsTaken, a.capacity)}
                       </span>
                     ) : null}
                     {a.source === 'booking_page' || a.source === 'ai_teammate' ? (
                       <span className="cal-mini">
                         <Globe className="h-3 w-3" strokeWidth={1.5} />
-                        {a.source === 'ai_teammate' ? 'Booked by AI' : 'Booked online'}
+                        {sourceLabel(a.source)}
                       </span>
                     ) : null}
                   </span>

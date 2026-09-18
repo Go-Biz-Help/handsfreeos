@@ -1,0 +1,78 @@
+appId: com.gobizhelp.handsfreeos
+name: A lead moved with no signal moves at once, and stands when signal is back
+tags:
+  - ci
+# With no signal Dale moves the first lead of the pipeline's first stage to Contacted. The stage badge changes at once
+# and the strip counts the change; when signal returns it goes, and the lead is still in Contacted. The flow moves it
+# back to the stage it came from.
+env:
+  EMAIL: dale@lonestarhvac.test
+  PASSWORD: HandsFree-Demo-2026
+---
+- runFlow: subflows/start-signed-out.yaml
+- runFlow: subflows/sign-in-with-password.yaml
+- runFlow: subflows/open-test-changes.yaml
+- runFlow: subflows/nothing-waiting.yaml
+- runFlow: subflows/no-signal.yaml
+- runFlow: subflows/open-pipeline.yaml
+- extendedWaitUntil:
+    visible:
+      id: 'lead-title'
+    timeout: 90000
+- tapOn:
+    id: 'lead-title'
+    index: 0
+- extendedWaitUntil:
+    visible:
+      id: 'lead-move'
+    timeout: 20000
+- tapOn:
+    id: 'lead-move'
+- extendedWaitUntil:
+    visible:
+      id: 'move-sheet'
+    timeout: 10000
+- tapOn:
+    id: 'move-to-Contacted'
+# It moves on the phone at once, with no signal.
+- extendedWaitUntil:
+    visible:
+      id: 'stage-badge'
+      text: 'Contacted'
+    timeout: 20000
+- assertVisible:
+    id: 'status-strip-text'
+    text: 'Offline — 1 change waiting'
+- takeScreenshot: lead-moved-offline
+# Signal back: the move goes, and the lead stays where it was put.
+- runFlow: subflows/open-test-changes.yaml
+- runFlow: subflows/signal-back.yaml
+- extendedWaitUntil:
+    visible:
+      id: 'tc-counts'
+      text: '0 waiting · 0 need you'
+    timeout: 90000
+- runFlow: subflows/open-pipeline.yaml
+- tapOn:
+    id: 'stage-chip-Contacted'
+- extendedWaitUntil:
+    visible:
+      id: 'lead-title'
+    timeout: 90000
+# Put it back in New.
+- tapOn:
+    id: 'lead-title'
+    index: 0
+- extendedWaitUntil:
+    visible:
+      id: 'lead-move'
+    timeout: 20000
+- tapOn:
+    id: 'lead-move'
+- tapOn:
+    id: 'move-to-New'
+- extendedWaitUntil:
+    visible:
+      id: 'stage-badge'
+      text: 'New'
+    timeout: 20000

@@ -2,6 +2,7 @@
 import { useDroppable } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { Badge } from '@/components/ui/badge';
+import { PIPELINE_WORDS } from '@hfos/core';
 import type { LeadBoard } from '@/lib/api/types';
 import { formatMoney } from '@/lib/format';
 import { cn } from '@/lib/utils';
@@ -54,7 +55,7 @@ export function StageColumn({
       </SortableContext>
       {stage.leads.length === 0 ? (
         <div className="rounded-control border border-dashed border-border-strong px-2 py-3.5 text-center text-xs text-text-3">
-          Drop a lead here
+          {PIPELINE_WORDS.dropHere}
         </div>
       ) : null}
     </div>

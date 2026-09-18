@@ -1,0 +1,35 @@
+appId: com.gobizhelp.handsfreeos
+name: Calendar - a customer marked confirmed with no signal, on the visit a link names
+# WS and APPT name a visit with a customer nobody has marked confirmed yet, so the run always has something to mark;
+# opening it by its link is also what proves the row `…/calendar?appt=<id>` opens the visit itself and not just the
+# tab. Not tagged `ci`, because CI has no way to hand a flow an id yet (see step 16's report).
+env:
+  EMAIL: dale@lonestarhvac.test
+  PASSWORD: HandsFree-Demo-2026
+---
+- runFlow: subflows/start-signed-out.yaml
+- runFlow: subflows/sign-in-with-password.yaml
+- runFlow: subflows/open-test-changes.yaml
+- runFlow: subflows/nothing-waiting.yaml
+- runFlow: subflows/no-signal.yaml
+- runFlow:
+    file: subflows/open-link-in-app.yaml
+    env:
+      LINK: handsfreeos://app/w/${WS}/calendar?appt=${APPT}
+- extendedWaitUntil:
+    visible:
+      id: 'appointment-status'
+    timeout: 30000
+- assertVisible:
+    id: 'mark-confirmed-.*'
+- tapOn:
+    id: 'mark-confirmed-.*'
+- extendedWaitUntil:
+    visible:
+      id: 'appointment-confirmed'
+    timeout: 15000
+- assertVisible: 'Confirmed by .*'
+- takeScreenshot: calendar-confirmed-offline
+- runFlow: subflows/open-test-changes.yaml
+- runFlow: subflows/signal-back.yaml
+- runFlow: subflows/answer-if-asked.yaml
