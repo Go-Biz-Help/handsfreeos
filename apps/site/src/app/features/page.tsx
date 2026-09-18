@@ -1,6 +1,19 @@
 import type { Metadata } from 'next';
+import Image from 'next/image';
 import Link from 'next/link';
+import type { ReactNode } from 'react';
 import { Button, Card, Check, Container, Section, SectionHeading } from '@/components/ui';
+import {
+  ActionCenterVisual,
+  AssistantVisual,
+  BookingVisual,
+  InboxVisual,
+  MigrationVisual,
+  MoneyVisual,
+  PipelineVisual,
+  TrustLadderVisual,
+  WorkflowVisual,
+} from '@/components/visuals';
 import { featureSections, foundations } from '@/content/features';
 import { urls } from '@/content/site';
 
@@ -9,6 +22,31 @@ export const metadata: Metadata = {
   description:
     'Missed-call text back, one inbox for texts and calls, online booking, estimates and invoices, automatic follow-ups, and an AI teammate that answers new leads.',
   alternates: { canonical: '/features' },
+};
+
+/** One picture per section, in the same order the sections are written. */
+const visuals: Record<string, ReactNode> = {
+  inbox: <InboxVisual />,
+  customers: <PipelineVisual />,
+  calendar: <BookingVisual />,
+  money: <MoneyVisual />,
+  ai: <TrustLadderVisual />,
+  assistant: <AssistantVisual />,
+  workflows: <WorkflowVisual />,
+  'action-center': <ActionCenterVisual />,
+  mobile: (
+    <div className="border-border-strong bg-card mx-auto max-w-[15rem] overflow-hidden rounded-[18px] border shadow-[var(--shadow-2)]">
+      <Image
+        src="/screenshots/home.png"
+        alt="The HandsFreeOS app on a phone, showing what needs attention with the money affected at the top."
+        width={1080}
+        height={1920}
+        sizes="(max-width: 1024px) 60vw, 15rem"
+        className="h-auto w-full"
+      />
+    </div>
+  ),
+  'moving-in': <MigrationVisual />,
 };
 
 export default function FeaturesPage() {
@@ -73,9 +111,10 @@ export default function FeaturesPage() {
                       More about the phone app
                     </Button>
                   ) : null}
+                  <div className="mt-8">{visuals[section.id]}</div>
                 </div>
 
-                <ul className="space-y-3.5">
+                <ul className="space-y-3.5 lg:pt-14">
                   {section.points.map((point) => (
                     <li key={point} className="flex gap-3">
                       <Check className="text-success mt-0.5" />

@@ -14,6 +14,10 @@ They are deployed as **two separate Vercel projects** so a copy change never reb
   - `/terms` and `/support` — Microsoft's publisher verification and Apple's support URL.
     `docs/operations.md` points reviewers at these; change one and check that guide still matches.
 - **The footer must name the legal company** (`company.legalName`). Twilio checks for it.
+- **Pictures carry this site, not paragraphs.** The little product mock-ups in
+  `src/components/visuals.tsx` are drawn in the app's own tokens, so they theme with the page, stay
+  sharp, cost nothing to load and never show a real customer's data. Add one rather than another
+  paragraph. Real screenshots of the phone app live in `public/screenshots/`.
 - Never invent a customer, a review, a logo or a number. There are no customers yet, and a made-up
   testimonial is the fastest way to lose a real one.
 

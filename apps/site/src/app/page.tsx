@@ -1,3 +1,4 @@
+import Image from 'next/image';
 import Link from 'next/link';
 import {
   FaqJsonLd,
@@ -5,7 +6,9 @@ import {
   SoftwareApplicationJsonLd,
   WebSiteJsonLd,
 } from '@/components/json-ld';
+import { IconBadge, Icons } from '@/components/icons';
 import { ProductMock } from '@/components/product-mock';
+import { TrustLadderVisual } from '@/components/visuals';
 import { Button, Card, Check, Container, Eyebrow, Section, SectionHeading } from '@/components/ui';
 import { homeFaqs } from '@/content/faqs';
 import { plans, urls } from '@/content/site';
@@ -28,6 +31,7 @@ export default function HomePage() {
       <TheProblem />
       <HowItWorks />
       <Features />
+      <InYourPocket />
       <WhyDifferent />
       <PlansStrip />
       <Questions />
@@ -63,38 +67,13 @@ function Hero() {
 
             {/* FUD reducers sit directly under the button, and every one of them is true today. */}
             <ul className="text-text-2 mt-5 flex flex-wrap gap-x-5 gap-y-2 text-sm">
-              {[
-                'No card to start',
-                'Keep the number you have',
-                'Your money goes to your own Stripe or Square',
-                'Cancel whenever',
-              ].map((item) => (
+              {['No card to start', 'Keep the number you have', 'Cancel whenever'].map((item) => (
                 <li key={item} className="flex items-center gap-1.5">
                   <Check className="text-success" />
                   {item}
                 </li>
               ))}
             </ul>
-
-            {/*
-              TODO (Chris): the strongest thing that can sit here is proof from real customers —
-              a named review with a photo, a star rating, a count of businesses running on it.
-              Until those exist, this stays factual about what it is rather than inventing praise.
-            */}
-            <dl className="border-border text-text-3 mt-10 grid gap-x-8 gap-y-4 border-t pt-6 text-sm sm:grid-cols-3">
-              {[
-                { term: 'Built and run by', detail: 'Go Biz Help LLC' },
-                { term: 'Texting', detail: 'Registered with the carriers, the way the law asks' },
-                { term: 'On the job', detail: 'iPhone and Android, working with no signal' },
-              ].map((item) => (
-                <div key={item.term}>
-                  <dt className="text-text-3 text-xs font-semibold tracking-[0.1em] uppercase">
-                    {item.term}
-                  </dt>
-                  <dd className="text-text-2 mt-1 ml-0">{item.detail}</dd>
-                </div>
-              ))}
-            </dl>
           </div>
 
           <div className="lg:pl-4">
@@ -193,26 +172,32 @@ function HowItWorks() {
 function Features() {
   const features = [
     {
+      icon: Icons.inbox,
       title: 'Every text, call and email in one thread',
       body: 'One business number, one inbox the whole team shares. Missed calls turn into a text back before the customer has put their phone down. Voicemail comes through typed out.',
     },
     {
+      icon: Icons.calendar,
       title: 'Customers book themselves, at hours you set',
       body: 'A booking page for each service, round robin across your crew, or a whole day dispatched. Reminders go out by text and email, so fewer people forget you are coming.',
     },
     {
+      icon: Icons.receipt,
       title: 'Quotes they approve with their name',
       body: 'Send an estimate from your phone. They accept it on their own screen by typing their name. It becomes an invoice, and the invoice chases itself until it is paid.',
     },
     {
+      icon: Icons.card,
       title: 'The money lands in your account, not ours',
       body: 'Connect your own Stripe or Square. Card payments, deposits taken at booking, and plans that bill themselves every month settle into your balance. HandsFreeOS never holds your money.',
     },
     {
+      icon: Icons.list,
       title: 'One list of what needs you, money first',
       body: 'Home is not a dashboard of graphs. It is a ranked list: the hot lead waiting eleven minutes, the quote about to go stale, the invoice ten days late. The safe ones it just handles.',
     },
     {
+      icon: Icons.spark,
       title: 'Ask it anything, in plain English',
       body: '"Who hasn’t paid me?" "Book Dale for Thursday morning." "Text everyone whose service is due." It answers from your real data, and shows you what it is about to change first.',
     },
@@ -228,6 +213,9 @@ function Features() {
       <div className="mt-12 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
         {features.map((feature) => (
           <Card key={feature.title} className="h-full">
+            <IconBadge>
+              <feature.icon />
+            </IconBadge>
             <h3 className="text-lg font-semibold">{feature.title}</h3>
             <p className="text-text-2 mt-2.5">{feature.body}</p>
           </Card>
@@ -246,20 +234,24 @@ function Features() {
 function WhyDifferent() {
   const points = [
     {
+      icon: Icons.shield,
       title: 'The AI asks first, until you say it does not have to',
-      body: 'Most AI tools give you a switch: off, or loose on your customers. This one starts by drafting and waiting, and only sends on its own once that kind of message has earned enough of your approvals. You can pull it back to asking at any time, for everything or just for prices.',
+      body: 'Most AI tools give you a switch: off, or loose on your customers. This one starts by drafting and waiting, and only sends on its own once that kind of message has earned enough of your approvals.',
     },
     {
+      icon: Icons.phone,
       title: 'It works with no signal, in a basement or out of town',
-      body: 'The phone app is not a website in a wrapper. Everything can be read and changed offline and syncs when you come back. A text you wrote with no bars sends itself within half an hour, or asks "still send?" if it has been longer.',
+      body: 'The phone app is not a website in a wrapper. Everything can be read and changed offline and syncs when you come back. A text you wrote with no bars sends itself within half an hour, or asks “still send?” if it has been longer.',
     },
     {
+      icon: Icons.swap,
       title: 'Your number and your customers stay yours',
       body: 'Keep the number people already have for you. Your customer list, your history and your files export whenever you want. Leaving is a thing you can actually do.',
     },
     {
+      icon: Icons.bolt,
       title: 'Registered for texting the way the carriers demand',
-      body: 'Business texting in the US has to be registered, with real consent wording, or the carriers quietly drop your messages. That registration is part of setting you up, not a thing you find out about later.',
+      body: 'US business texting has to be registered, with real consent wording, or the carriers quietly drop your messages. That registration is part of setting you up, not a thing you find out about later.',
     },
   ];
 
@@ -270,13 +262,75 @@ function WhyDifferent() {
         Built to be trusted with your customers before it is trusted on its own.
       </SectionHeading>
 
-      <div className="mt-12 grid gap-6 md:grid-cols-2">
-        {points.map((point) => (
-          <Card key={point.title} className="h-full">
-            <h3 className="text-lg font-semibold">{point.title}</h3>
-            <p className="text-text-2 mt-2.5">{point.body}</p>
-          </Card>
-        ))}
+      <div className="mt-12 grid items-start gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(0,26rem)] lg:gap-16">
+        <ul className="space-y-8">
+          {points.map((point) => (
+            <li key={point.title} className="flex gap-4">
+              <span className="bg-accent-soft-2 text-accent-text flex h-11 w-11 shrink-0 items-center justify-center rounded-[12px]">
+                <point.icon />
+              </span>
+              <div>
+                <h3 className="text-lg font-semibold">{point.title}</h3>
+                <p className="text-text-2 mt-2">{point.body}</p>
+              </div>
+            </li>
+          ))}
+        </ul>
+
+        <div className="lg:sticky lg:top-24">
+          <TrustLadderVisual />
+        </div>
+      </div>
+    </Section>
+  );
+}
+
+/** Real screens from the app, because the crew using it will never see a desktop. */
+function InYourPocket() {
+  const shots = [
+    { src: '/screenshots/home.png', alt: 'The app showing what needs attention, money first.' },
+    {
+      src: '/screenshots/offline-queue.png',
+      alt: 'The app showing changes made with no signal, waiting to send.',
+    },
+    { src: '/screenshots/invoice.png', alt: 'An invoice in the app, ready to send to a customer.' },
+  ];
+  return (
+    <Section className="bg-card-2 border-border border-y">
+      <div className="grid items-center gap-12 lg:grid-cols-[minmax(0,26rem)_minmax(0,1fr)] lg:gap-16">
+        <div>
+          <Eyebrow>On the job</Eyebrow>
+          <h2 className="text-3xl leading-[1.12] font-bold sm:text-4xl">
+            And in the pocket of whoever is doing the work.
+          </h2>
+          <p className="text-text-2 mt-5 text-lg">
+            iPhone and Android, working with no signal at all — in a basement, in a crawlspace, an
+            hour out of town — and catching up the moment the bars come back.
+          </p>
+          <Button href="/app" variant="secondary" size="lg" className="mt-7">
+            See the phone app
+          </Button>
+        </div>
+
+        <div className="grid grid-cols-3 gap-3 sm:gap-5">
+          {shots.map((shot, index) => (
+            <div
+              key={shot.src}
+              className={`border-border-strong bg-card overflow-hidden rounded-[16px] border shadow-[var(--shadow-2)] ${
+                index === 1 ? '' : 'mt-6'
+              }`}
+            >
+              <Image
+                src={shot.src}
+                alt={shot.alt}
+                width={1080}
+                height={1920}
+                sizes="(max-width: 640px) 30vw, (max-width: 1024px) 28vw, 15rem"
+                className="h-auto w-full"
+              />
+            </div>
+          ))}
+        </div>
       </div>
     </Section>
   );
