@@ -1,8 +1,9 @@
 /**
  * Signing in to the CRM a business is leaving, and hearing about changes while it is still being used.
  *
- * `/migrations/:source/start` sends the browser on with a one-time state; `/migrations/:source/callback`
- * takes it back, seals the tokens and connects the source. The same shape as mailboxes, calendars and
+ * `/migrations/:source/start` sends the browser on with a one-time state; `/migrations/callback` takes it
+ * back, seals the tokens and connects the source. The callback names no source: the state already says which
+ * one it is, and GoHighLevel's marketplace form refuses a redirect URL that mentions HighLevel. The same shape as mailboxes, calendars and
  * payment accounts (`http/oauth.ts`), separately because a migration belongs to the agency rather than to one
  * business, and because the callback has a different place to send somebody afterwards.
  *
@@ -53,7 +54,9 @@ export function registerMigrationRoutes(
   deps: HttpDeps,
   adapters: MigrationAdapters,
 ): void {
-  const callbackUrl = (source: string) => `${deps.publicUrl}/migrations/${source}/callback`;
+  // No source name in the redirect: GoHighLevel's marketplace form refuses a redirect URL that mentions
+  // HighLevel, and the source is already known from the one-time state, so the path never needed it.
+  const callbackUrl = () => `${deps.publicUrl}/migrations/callback`;
   const backTo = (organizationId: string, extra = '') =>
     `${deps.webUrl}/app/org/${organizationId}/migrations${extra}`;
 
@@ -108,7 +111,7 @@ export function registerMigrationRoutes(
       try {
         url = adapter.authorizeUrl({
           state: req.query.state!,
-          redirectUri: callbackUrl(row.source_system),
+          redirectUri: callbackUrl(),
         });
       } catch {
         return deadEnd(
@@ -122,10 +125,12 @@ export function registerMigrationRoutes(
     },
   );
 
-  app.get<{
-    Params: { source: string };
-    Querystring: { state?: string; code?: string; error?: string };
-  }>('/migrations/:source/callback', async (req, reply) => {
+  const handleCallback = async (
+    req: {
+      query: { state?: string; code?: string; error?: string };
+    },
+    reply: FastifyReply,
+  ) => {
     const row = await stateRow(req.query.state);
     if (!row)
       return deadEnd(
@@ -151,7 +156,7 @@ export function registerMigrationRoutes(
     try {
       const connection = await adapter.exchangeCode({
         code: req.query.code,
-        redirectUri: callbackUrl(row.source_system),
+        redirectUri: callbackUrl(),
       });
       // Sealed before it touches the database, exactly like a mailbox or a payment account.
       await asWorker(deps.httpDb, { organizationId: row.organization_id }, (tx) =>
@@ -214,5 +219,16 @@ export function registerMigrationRoutes(
       );
       return reply.redirect(backTo(row.organization_id, '?connect=failed'), 302);
     }
-  });
+  };
+
+  // The address registered with the source. `/migrations/:source/callback` stays so an app still registered
+  // with the older address keeps working.
+  app.get<{ Querystring: { state?: string; code?: string; error?: string } }>(
+    '/migrations/callback',
+    handleCallback,
+  );
+  app.get<{
+    Params: { source: string };
+    Querystring: { state?: string; code?: string; error?: string };
+  }>('/migrations/:source/callback', handleCallback);
 }

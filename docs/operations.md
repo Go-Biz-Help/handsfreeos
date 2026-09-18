@@ -7555,7 +7555,10 @@ Without any of this, everything else in HandsFreeOS works. **Migrations** in the
 
 1. Sign in at `https://marketplace.gohighlevel.com` as Go Biz Help and create a **marketplace app**.
 2. Give it the read scopes the adapter asks for. The list is in `apps/worker/src/migrations/adapters/gohighlevel.ts` (`GHL_SCOPES`); it is read-only throughout.
-3. Set the redirect URL to `https://hooks.handsfreeos.com/migrations/gohighlevel/callback`.
+3. Set the redirect URL to `https://hooks.handsfreeos.com/migrations/callback`. It names no source on purpose:
+   GoHighLevel's marketplace form refuses a redirect URL containing "HighLevel", and the worker already knows
+   which source a sign-in belongs to from its one-time state. The older `/migrations/gohighlevel/callback`
+   still answers, so an app registered with it keeps working.
 4. Copy the client id and client secret into your password manager.
 5. On `handsfreeos-worker`, set `GOHIGHLEVEL_CLIENT_ID` and `GOHIGHLEVEL_CLIENT_SECRET`. Both, or neither — the worker refuses to start with one of them. Neither value goes in Vercel or GitHub.
 6. `MIGRATION_SOURCE` picks itself: `real` in production or whenever a client id is set, `fake` otherwise. Production refuses `fake`.

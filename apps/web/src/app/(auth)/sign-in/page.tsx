@@ -1,6 +1,5 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { GoogleButton } from '@/components/auth/google-button';
 import { OrDivider } from '@/components/auth/divider';
 import { PasskeyButton } from '@/components/auth/passkey-button';
 import { Card } from '@/components/ui/card';
@@ -55,7 +54,6 @@ export default async function SignInPage({
               ) : null}
               <div className="mt-6 flex flex-col gap-2.5">
                 <PasskeyButton next={next} />
-                <GoogleButton next={next} />
               </div>
               <OrDivider />
             </>

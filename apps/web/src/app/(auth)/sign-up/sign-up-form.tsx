@@ -17,7 +17,7 @@ export function passwordStrength(pw: string): { score: 0 | 1 | 2 | 3 | 4; label:
   return { score: s as 1 | 2 | 3 | 4, label: ['', 'Weak', 'Okay', 'Good', 'Strong'][s]! };
 }
 
-export function SignUpForm({ children }: { children: ReactNode }) {
+export function SignUpForm({ children }: { children?: ReactNode }) {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
