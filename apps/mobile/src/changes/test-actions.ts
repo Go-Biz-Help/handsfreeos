@@ -137,6 +137,31 @@ export async function newCustomerAndLead(workspaceId: string, email: string) {
   return { person, lead };
 }
 
+/**
+ * Give the customer another open lead, so a flow that moves one to Won can run again on a database it has already
+ * run against. The seed's own open lead is used up the first time `moveLeadToWon` is pressed and nothing puts it
+ * back, which is what made `changes-offline.yaml` pass once per seed and fail ever after.
+ *
+ * Press it with signal: the lead's pipeline and its stages are the server's to decide, and `moveLeadToWon` needs
+ * them, so the change has to have gone before the lead can be moved.
+ */
+export async function addLeadFor(workspaceId: string, personId: string) {
+  const leadId = newId();
+  const at = nowIso();
+  return changes.change(
+    'lead.create',
+    { workspaceId, id: leadId, personId, title: 'AC tune-up' },
+    {
+      optimistic: (tx) =>
+        tx.execute(
+          `INSERT INTO leads (id, workspace_id, person_id, title, status, created_at, updated_at)
+           VALUES (?, ?, ?, 'AC tune-up', 'open', ?, ?)`,
+          [leadId, workspaceId, personId, at, at],
+        ),
+    },
+  );
+}
+
 /** Move the customer's first open lead to its pipeline's won stage. */
 export async function moveLeadToWon(workspaceId: string, personId: string) {
   const lead = await db().getOptional<{ id: string; pipeline_id: string }>(

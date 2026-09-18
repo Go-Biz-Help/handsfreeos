@@ -2,6 +2,14 @@
 # question on a fresh stack and never again for that person. Says OK and waits for the composer.
 appId: com.gobizhelp.handsfreeos
 ---
+# Wait for the screen to settle on one of the two before asking which it is. Ask HandsFreeOS opens on `ask` a moment
+# before it has decided whether consent is needed, and a `when:` asked in that moment sees no consent step, skips the
+# OK, and then waits for a composer that is never coming. That is what made all three Assistant flows fail with
+# "assistant-input is visible" while the screenshot beside the failure showed the consent step, OK button and all.
+- extendedWaitUntil:
+    visible:
+      id: 'assistant-consent|assistant-input'
+    timeout: 30000
 - runFlow:
     when:
       visible:

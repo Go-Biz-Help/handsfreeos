@@ -56,6 +56,20 @@ env:
     visible:
       id: 'settings'
     timeout: 20000
+# Settings is still where the no-signal switch left it, near the bottom, so Changes on this phone is off the top.
+# Out to More and back in gives a Settings screen at the top of itself, which needs no scrolling on either phone.
+- tapOn:
+    id: 'tab-more'
+- extendedWaitUntil:
+    visible:
+      id: 'more'
+    timeout: 20000
+- tapOn:
+    id: 'more-settings'
+- extendedWaitUntil:
+    visible:
+      id: 'settings'
+    timeout: 20000
 - tapOn:
     id: 'setting-changes'
 - extendedWaitUntil:

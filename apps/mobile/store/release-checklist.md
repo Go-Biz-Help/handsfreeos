@@ -16,9 +16,14 @@ In order, because most steps need the one before it.
    `APPLE_ID_OF_THE_DEVELOPER_ACCOUNT_GOES_HERE`.
 5. **The App Store Connect app record**, which gives an **ASC App ID** → `eas.json` →
    `submit.production.ios.ascAppId`. Left as `ASC_APP_ID_GOES_HERE`.
-6. **A Play Console app record** for `com.gobizhelp.handsfreeos`, and a **service-account key** for the Google Play
-   Android Developer API, saved at `secrets/play-service-account.json`. That folder is git-ignored; the key must never
-   be committed.
+6. **A Play Console app record** for `com.gobizhelp.handsfreeos`. A **service-account key** for the Google Play
+   Android Developer API, saved at `secrets/play-service-account.json`, is **optional** — it only lets
+   `eas submit` upload for you. Google now blocks key creation by default on new organisations
+   (`iam.disableServiceAccountKeyCreation`, part of "secure by default"), and turning that off needs an
+   Organization Policy Administrator and does not always take effect quickly. It is not worth blocking a release
+   over: build the `.aab` with `eas build -p android --profile production` and upload it in Play Console under
+   **Testing → Internal testing → Create new release**. Automate later if the policy is ever relaxed. That folder
+   is git-ignored; a key, if one ever exists, must never be committed.
 7. **The EAS project id** → `apps/mobile/app.json` → `expo.extra.eas.projectId`, which is empty on purpose. `eas init`
    in `apps/mobile` prints it; paste it in by hand, because `app.config.ts` means `eas init` can't write it. Without
    it, a build registers no push token and Settings → Notifications says "Not in this build".

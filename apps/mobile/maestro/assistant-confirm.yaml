@@ -50,6 +50,25 @@ env:
 - inputText: 'Text him that we are on our way'
 - tapOn:
     id: 'assistant-send'
+# The chat now holds the first card as well, so with the keyboard up the new one lands below the fold. The iPhone
+# and the emulator need different things for that: on the iPhone an element below the fold still counts as visible,
+# so waiting never fails and the tap lands on the keyboard — the keyboard has to go. Android's hideKeyboard presses
+# Back, which would leave the screen, so there the chat is scrolled to the card instead.
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - hideKeyboard
+      - waitForAnimationToEnd
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - scrollUntilVisible:
+          element:
+            id: 'assistant-confirm'
+          direction: DOWN
+          timeout: 60000
 - extendedWaitUntil:
     visible:
       id: 'assistant-confirm'

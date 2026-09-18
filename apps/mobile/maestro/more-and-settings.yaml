@@ -31,9 +31,12 @@ env:
     id: 'more-approvals'
 - assertVisible:
     id: 'more-settings'
+# The sentence as the row itself says it. On the iPhone the row is one thing — a screen reader reads the label and
+# the sentence together and there is no separate text node to match — so asserting the loose sentence found nothing
+# there while the words were plainly on screen. Both phones expose the row's own words the same way.
 - assertVisible:
     id: 'more-open-on-web'
-- assertVisible: 'Workflows, the AI teammate, business settings, members and more'
+    text: 'Open on the web\. Workflows, the AI teammate, business settings, members and more'
 - takeScreenshot: more
 - tapOn:
     id: 'more-settings'
@@ -77,9 +80,10 @@ env:
 - tapOn:
     id: 'appearance-done'
 - waitForAnimationToEnd
+# The row says what it is set to, label and value both, which is what a screen reader reads out too.
 - assertVisible:
     id: 'setting-appearance'
-    text: '.*Dark.*'
+    text: 'Appearance\. Dark'
 - takeScreenshot: settings-dark
 - tapOn:
     id: 'setting-appearance'
@@ -90,7 +94,7 @@ env:
 - waitForAnimationToEnd
 - assertVisible:
     id: 'setting-appearance'
-    text: '.*System.*'
+    text: 'Appearance\. System'
 # The businesses kept on this phone.
 - tapOn:
     id: 'setting-businesses'

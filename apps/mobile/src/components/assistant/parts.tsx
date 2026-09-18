@@ -163,6 +163,13 @@ export function Dot({ tone }: { tone: keyof typeof DOT_TONE }) {
   return <View className={cn('size-2 shrink-0 rounded-full', DOT_TONE[tone])} />;
 }
 
+/** A node's own words, for the rows whose text lives in children rather than on the row. */
+function wordsOf(node: React.ReactNode): string {
+  if (typeof node === 'string' || typeof node === 'number') return String(node);
+  if (Array.isArray(node)) return node.map(wordsOf).join('');
+  return '';
+}
+
 /** The line under a card once it's answered: done, not done, or stopped by a rule. */
 export function Result({
   tone,
@@ -183,6 +190,9 @@ export function Result({
   return (
     <View
       role="status"
+      // The result's own words on the row, so a screen reader announces the outcome as one line and the flows can
+      // assert what it says without reaching into its children.
+      accessibilityLabel={wordsOf(children) || undefined}
       testID={testID ?? 'assistant-result'}
       className={cn(
         'min-h-11 flex-row items-center gap-2 border-t border-border px-3.5 py-2.5',

@@ -6,6 +6,10 @@ tags:
 # writes her a text: the strip says 4 are waiting. Signal comes back well within 30 minutes and all four go. Quiet hours
 # are off on HandsFreeOS while it runs, so the text goes at any hour, and back on at the end. Seed accounts
 # (apps/worker/scripts/seed.ts); the password is the seed's, for local stacks only.
+#
+# The lead this moves is the flow's own, made with signal a moment before. The seed gives Maria one open lead, and
+# moving it to Won uses it up: leaning on it made this flow pass once per seed and fail on every phone after, which
+# is what a consolidated pass across two phones hits every time.
 env:
   EMAIL: dale@lonestarhvac.test
   PASSWORD: HandsFree-Demo-2026
@@ -18,6 +22,18 @@ env:
     file: subflows/quiet-hours.yaml
     env:
       QUIET: 'off'
+# A lead of this flow's own, made and sent while there is still signal: its pipeline and stages are the server's to
+# decide, and Move the lead to Won needs them.
+- runFlow:
+    file: subflows/test-change.yaml
+    env:
+      BUTTON: tc-new-lead
+      RESULT: Added a lead.
+- extendedWaitUntil:
+    visible:
+      id: 'tc-counts'
+      text: '0 waiting · 0 need you'
+    timeout: 90000
 - runFlow: subflows/no-signal.yaml
 - runFlow:
     file: subflows/test-change.yaml

@@ -17,6 +17,7 @@ import { ChangeError } from '@/changes';
 import { useChanges } from '@/changes/hooks';
 import { quietHoursWindow } from '@/changes/rules';
 import {
+  addLeadFor,
   addNote,
   addPhotoTo,
   ageNewestChange,
@@ -193,6 +194,19 @@ export default function TestChanges() {
                 testID="tc-phone-email"
               >
                 Change phone and email
+              </Button>
+              <Button
+                variant="secondary"
+                loading={busy === 'new-lead'}
+                onPress={() =>
+                  act('new-lead', async () => {
+                    await addLeadFor(business.id, need().id);
+                    return 'Added a lead.';
+                  })
+                }
+                testID="tc-new-lead"
+              >
+                Add a lead
               </Button>
               <Button
                 variant="secondary"

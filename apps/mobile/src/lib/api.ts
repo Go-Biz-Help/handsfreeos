@@ -1,5 +1,6 @@
 import { createApiClient, isApiErrorBody, type ApiClient } from '@hfos/api-client';
 import { APP_CLIENT, APP_HEADERS } from '@hfos/core';
+import * as Crypto from 'expo-crypto';
 
 import { appVersion } from './app-version';
 import { session } from './auth';
@@ -7,10 +8,32 @@ import { config } from './config';
 import { appFetch } from './network';
 
 /**
- * Every request says it's the app and which build (core's `APP_HEADERS`, M10 step 4); the queue of changes sends its
- * commands itself (`src/changes/send.ts`), with their ids and the moments they were done and sent.
+ * Every request says it's the app and which build (core's `APP_HEADERS`, M10 step 4), and every command also says
+ * which command it is and when it was done, because the API refuses one that doesn't. The queue of changes sends
+ * its own commands (`src/changes/send.ts`), with the ids and moments it saved; a command sent straight through this
+ * client says "now" (`saysWhichCommandAndWhen`).
  */
 export { APP_CLIENT, APP_HEADERS };
+
+/**
+ * Every command from the app has to say which command it is and when it was done, or the API refuses it before it
+ * even looks at the body — `assertAppRequest` in packages/core/src/kernel/app-request.ts, answering 400 with
+ * "The app sent this change without saying which one it is and when it was done."
+ *
+ * The queue of changes says so for itself: each change it saved has its own id and the moment the person made it
+ * (`src/changes/send.ts`). Everything else the app sends straight through this client — the Assistant's OK, a chat
+ * renamed or archived, an account deleted — was done just now and has no saved moment, so it says so here, in the
+ * one place every request passes, rather than at each call site, where forgetting it is silent until a phone is in
+ * someone's hand. A fresh id each time is right for these: they aren't queued, so a second try is a second asking.
+ */
+function saysWhichCommandAndWhen(request: Request): void {
+  if (!request.url.includes('/v1/commands/')) return;
+  if (request.headers.get(APP_HEADERS.commandId)) return;
+  const now = new Date().toISOString();
+  request.headers.set(APP_HEADERS.commandId, Crypto.randomUUID());
+  request.headers.set(APP_HEADERS.occurredAt, now);
+  request.headers.set(APP_HEADERS.sentAt, now);
+}
 
 export function createAppApi(
   getToken: () => Promise<string | null>,
@@ -21,6 +44,7 @@ export function createAppApi(
     onRequest({ request }) {
       request.headers.set(APP_HEADERS.client, APP_CLIENT);
       request.headers.set(APP_HEADERS.appVersion, appVersion());
+      saysWhichCommandAndWhen(request);
       return request;
     },
   });

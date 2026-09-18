@@ -85,7 +85,11 @@ export function ListRow({
   return (
     <Pressable
       role={external ? 'link' : 'button'}
-      accessibilityLabel={detail ? `${label}. ${detail}` : label}
+      // The row's own words, the value on the right included: "Appearance. Dark", not "Appearance", so a screen
+      // reader says what the setting is set to and the flows can assert it off the row itself.
+      accessibilityLabel={[label, detail, typeof end === 'string' ? end : null]
+        .filter(Boolean)
+        .join('. ')}
       disabled={disabled}
       onPress={onPress}
       testID={testID}

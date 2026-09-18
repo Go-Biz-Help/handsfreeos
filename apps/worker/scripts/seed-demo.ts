@@ -39,6 +39,7 @@ import {
   leadMoveStage,
   organizationCreate,
   personCreate,
+  pipelineArchive,
   pipelineCreate,
   pipelineList,
   tagCreate,
@@ -48,10 +49,14 @@ import {
   type HumanActor,
   type RequestMeta,
 } from '@hfos/core/server';
-import { rows, sql } from '@hfos/db/client';
+import { rows, sql, type Db } from '@hfos/db/client';
 import { closeTestDbs, createTestUser, testDbs, type TestUser } from '@hfos/db/testing';
 import { randomUUID } from 'node:crypto';
+import { readFileSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import type { z } from 'zod';
+import { createSupabaseStore } from '../src/storage';
 
 /** The business. Names, numbers and addresses are all invented; the domains can never receive mail (RFC 2606). */
 const BUSINESS = 'Bright Path Home Services';
@@ -382,6 +387,66 @@ const NOTES = [
   },
 ] as const;
 
+/**
+ * The business's own number, and the conversations on it.
+ *
+ * Why this is written straight into the tables rather than through `message.receive` and `message.send`, which is
+ * how everything else here is written: those commands are the carrier's edge. `message.send` queues an outbox row
+ * that a worker picks up and hands to Twilio, and this script's first rule is that it needs no carrier and no
+ * worker. So the rows go in as the finished article — a conversation with its messages already delivered — and no
+ * `message.*` or `email.*` event is written, because no message ever moved.
+ *
+ * Every counterpart is a 555 number belonging to a customer already in the demo, so nothing here can reach a real
+ * phone even if a carrier were connected.
+ */
+const DEMO_NUMBER = '+18335550190';
+const CONVERSATIONS = [
+  {
+    person: 'Marisol Vega',
+    daysAgo: 1,
+    messages: [
+      {
+        in: true,
+        minutes: 0,
+        body: 'Morning! Is the crew still coming Thursday for the upstairs unit?',
+      },
+      {
+        in: false,
+        minutes: 34,
+        body: 'They are — 8am Thursday, and they will call when they set off. Anything blocking the attic hatch?',
+      },
+      { in: true, minutes: 51, body: 'Nothing in the way. See you then, thank you!' },
+    ],
+  },
+  {
+    person: 'Dana Okafor',
+    daysAgo: 3,
+    photo: 'The old unit, before the coil clean.',
+    messages: [
+      {
+        in: true,
+        minutes: 0,
+        body: 'Here is the one downstairs — it is the rusty panel I mentioned.',
+        photo: true,
+      },
+      {
+        in: false,
+        minutes: 12,
+        body: 'That helps, thank you. That is the original coil. We can clean it Tuesday and it should be quieter straight away.',
+      },
+    ],
+  },
+  {
+    // Left waiting on purpose, so the Inbox has something that needs a person and Home has something to rank.
+    person: 'Ray Kowalski',
+    daysAgo: 0,
+    minutesAgo: 95,
+    messages: [
+      { in: true, minutes: 0, body: 'Can we move the spring service to the morning instead?' },
+    ],
+  },
+] as const;
+
 /** Appointments, as days from today and the hour they start. */
 const APPOINTMENTS = [
   { person: 'Angela Duffy', day: 0, hour: 9, minutes: 90, title: 'Thermostat and zoning' },
@@ -398,6 +463,121 @@ const at = (n: number, hour: number): string => {
   d.setHours(hour, 0, 0, 0);
   return d.toISOString();
 };
+
+/**
+ * The number and the conversations. Safe to run again: it does nothing if the workspace already has a text
+ * conversation, so a demo business that already has an inbox keeps the one it has rather than growing a second.
+ */
+async function seedInbox(
+  admin: Db,
+  workspaceId: string,
+  reviewerId: string,
+  step: (msg: string) => void,
+): Promise<number> {
+  const existing = await rows<{ id: string }>(
+    admin,
+    sql`select id from app.conversations where workspace_id = ${workspaceId} and channel = 'sms' limit 1`,
+  );
+  if (existing.length > 0) {
+    step('An inbox is already here, so it was left alone');
+    return 0;
+  }
+
+  const numberId = randomUUID();
+  await rows(
+    admin,
+    sql`insert into app.phone_numbers (id, workspace_id, e164, number_type, label, capabilities, status, purchased_at, created_by)
+        values (${numberId}, ${workspaceId}, ${DEMO_NUMBER}, 'toll_free', 'Main line',
+                ${JSON.stringify({ sms: true, mms: true, voice: true })}::jsonb, 'active', now() - interval '120 days', ${reviewerId})`,
+  );
+
+  // The photo a customer texted in. Without the object behind it the thread shows a grey tile, which is exactly the
+  // "nothing half-loaded" the store screenshots must not show, so the file goes up before the message points at it.
+  const url = process.env.SUPABASE_URL;
+  const secret = process.env.SUPABASE_SECRET_KEY;
+  let photoPath: string | null = null;
+  if (url && secret) {
+    const here = dirname(fileURLToPath(import.meta.url));
+    const file = readFileSync(resolve(here, '../../mobile/maestro/assets/old-unit.jpg'));
+    photoPath = `${workspaceId}/messages/${randomUUID().slice(0, 8)}/0.jpg`;
+    await createSupabaseStore(url, secret).upload('telephony', photoPath, file, 'image/jpeg', {
+      upsert: true,
+    });
+  } else {
+    step(
+      'No SUPABASE_URL or SUPABASE_SECRET_KEY, so the texted photo is a caption without its picture',
+    );
+  }
+
+  let written = 0;
+  for (const c of CONVERSATIONS) {
+    const [who] = await rows<{ id: string; phone_e164: string | null }>(
+      admin,
+      sql`select id, phone_e164 from app.people
+          where workspace_id = ${workspaceId} and first_name || ' ' || last_name = ${c.person} limit 1`,
+    );
+    if (!who?.phone_e164) throw new Error(`No customer with a number for the inbox: ${c.person}`);
+
+    const startedAt = new Date(
+      Date.now() - c.daysAgo * 86_400_000 - ('minutesAgo' in c ? c.minutesAgo : 0) * 60_000,
+    );
+    const whenOf = (minutes: number): Date => new Date(startedAt.getTime() + minutes * 60_000);
+    const conversationId = randomUUID();
+    const last = c.messages[c.messages.length - 1];
+    if (!last) throw new Error(`A conversation with no texts in it: ${c.person}`);
+    const lastIn = [...c.messages].reverse().find((m) => m.in);
+    const lastOut = [...c.messages].reverse().find((m) => !m.in);
+
+    await rows(
+      admin,
+      sql`insert into app.conversations
+            (id, workspace_id, channel, counterpart, phone_number_id, person_id, status, unread_count,
+             last_message_at, last_inbound_at, last_outbound_at, last_preview, last_direction,
+             awaiting_reply_since, handled_by, created_by, created_at, updated_at)
+          values (${conversationId}, ${workspaceId}, 'sms', ${who.phone_e164}, ${numberId}, ${who.id}, 'open',
+                  ${last.in ? 1 : 0},
+                  ${whenOf(last.minutes).toISOString()},
+                  ${lastIn ? whenOf(lastIn.minutes).toISOString() : null},
+                  ${lastOut ? whenOf(lastOut.minutes).toISOString() : null},
+                  ${last.body}, ${last.in ? 'inbound' : 'outbound'},
+                  ${last.in ? whenOf(last.minutes).toISOString() : null},
+                  'none', ${reviewerId},
+                  ${startedAt.toISOString()}, ${whenOf(last.minutes).toISOString()})`,
+    );
+
+    for (const m of c.messages) {
+      const when = whenOf(m.minutes).toISOString();
+      const media =
+        'photo' in m && m.photo && photoPath
+          ? JSON.stringify([
+              {
+                name: 'old-unit.jpg',
+                bucket: 'telephony',
+                sizeBytes: 85_079,
+                objectPath: photoPath,
+                contentType: 'image/jpeg',
+              },
+            ])
+          : '[]';
+      await rows(
+        admin,
+        sql`insert into app.messages
+              (id, workspace_id, conversation_id, channel, direction, status, from_address, to_addresses,
+               body_text, media, provider, segments, sent_by, occurred_at, sent_at, delivered_at, created_at, updated_at)
+            values (${randomUUID()}, ${workspaceId}, ${conversationId}, 'sms',
+                    ${m.in ? 'inbound' : 'outbound'}, ${m.in ? 'received' : 'delivered'},
+                    ${m.in ? who.phone_e164 : DEMO_NUMBER},
+                    ${`{${m.in ? DEMO_NUMBER : who.phone_e164}}`}::text[],
+                    ${m.body}, ${media}::jsonb, 'demo', 1,
+                    ${m.in ? null : reviewerId},
+                    ${when}, ${m.in ? null : when}, ${when}, ${when}, ${when})`,
+      );
+      written += 1;
+    }
+  }
+  step(`A number, ${CONVERSATIONS.length} conversations and ${written} texts, one with a photo`);
+  return written;
+}
 
 /**
  * There is no `--remove`, and the reason is worth knowing before anyone tries to write one.
@@ -446,8 +626,23 @@ export async function seedDemo(): Promise<void> {
     sql`select id from app.users where email = ${REVIEWER.email}`,
   );
   if (already.length > 0) {
+    // Everything above is written once and can't be written twice. The inbox came later, though, so a demo business
+    // seeded before it existed — or one left half-written by a seed that stopped partway — can still be given one:
+    // `seedInbox` does nothing at all if the workspace already has a conversation.
+    const [mine] = await rows<{ id: string }>(
+      admin.db,
+      sql`select w.id from app.workspaces w
+          join app.users u on w.id = any (u.member_workspace_ids)
+          where u.email = ${REVIEWER.email}
+          order by w.created_at
+          limit 1`,
+    );
+    if (mine) {
+      const owner = already[0];
+      if (owner) await seedInbox(admin.db, mine.id, owner.id, step);
+    }
     console.log(
-      `The demo business is already here (${REVIEWER.email} exists). Delete that account, or reset the database, before seeding it again.`,
+      `The demo business is already here (${REVIEWER.email} exists), so nothing was seeded again.`,
     );
     return;
   }
@@ -541,6 +736,13 @@ export async function seedDemo(): Promise<void> {
     actor(reviewer),
     meta(),
   );
+  // A new business comes with an empty "Sales" pipeline of its own, and the Pipeline tab opens on the first one
+  // there is. Left alone, a reviewer's first look at the pipeline is "No leads in New." while the seven leads sit on
+  // a board they have to go and find. Archiving the empty one leaves Jobs as the only pipeline, so the tab opens on
+  // the work. (It refuses while a pipeline has open leads, and refuses to take the last one, so this is safe.)
+  for (const p of pipelines)
+    if (p.id !== pipeline.pipelineId) await as(pipelineArchive, { workspaceId, pipelineId: p.id });
+
   const board = pipelines.find((p) => p.id === pipeline.pipelineId);
   if (!board) throw new Error('The pipeline just created is not in pipeline.list');
   const stage = (name: string): string => {
@@ -697,6 +899,9 @@ export async function seedDemo(): Promise<void> {
     lines: [{ name: 'Service call', quantity: 1, unitPriceCents: 14_500 }],
   });
 
+  step('The business number, and the texts on it');
+  await seedInbox(admin.db, workspaceId, reviewer.id, step);
+
   step('Making it look lived-in');
   // Customers that all appeared in the last minute look like a seed. Their own creation times are spread out;
   // everything with a date on its face (leads, tasks, notes, appointments, invoices) already has a real one.
@@ -720,8 +925,10 @@ Done. The demo business is in.
   ${PEOPLE.length} customers, ${COMPANIES.length} companies, ${LEADS.length} leads, ${TASKS.length} tasks, ${NOTES.length} timeline entries,
   ${APPOINTMENTS.length} appointments, 2 estimates and 3 invoices (one paid in cash).
 
-  The inbox and the call log are empty: both need a phone number on the business, which costs real money at a real
-  carrier. apps/mobile/store/reviewer-demo.md says what to do about that before the first submission.
+  The inbox has ${CONVERSATIONS.length} conversations on ${DEMO_NUMBER}, one of them with a photo the customer texted in.
+  That number is a row, not a number at a carrier: a reviewer can read every thread, and a reply they write will
+  wait to send rather than go. Buying a real number for the demo business is still the last thing on the list in
+  apps/mobile/store/reviewer-demo.md. The call log is still empty.
 `);
 }
 

@@ -46,8 +46,8 @@
   "submit": {
     "production": {
       "ios": {
-        "appleId": "APPLE_ID_OF_THE_DEVELOPER_ACCOUNT_GOES_HERE",
-        "ascAppId": "ASC_APP_ID_GOES_HERE",
+        "appleId": "chris@gobizhelp.com",
+        "ascAppId": "6813606312",
         "appleTeamId": "8246H5FJ42"
       },
       "android": {
