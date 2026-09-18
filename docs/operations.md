@@ -8227,7 +8227,9 @@ lsof -ti :4000,:4100,:4110,:4120
 ```
 
 Nothing should answer except what you started deliberately. This matters most when more than one person, or more
-than one session, is working on the same machine.
+than one session, is working on the same machine. The browser tests do not fail when something is already there:
+they reuse it silently, whichever checkout started it. See "A git worktree is not an isolated copy" under
+"Stopping and resetting".
 
 **Kill the watcher, not just the worker, and do it before you pull.** `pnpm dev` runs the worker under
 `tsx watch`, so stopping the worker leaves the watcher, which makes a new one the moment a tracked file changes —
@@ -8948,7 +8950,7 @@ Do not use a bare `supabase db reset`: `supabase/seed.sql` is empty on purpose, 
 
 **A git worktree is not an isolated copy.** It has its own files and its own `node_modules`, which makes it feel
 like one, and then it shares the things it does not own: the local Supabase, the ports, and the seed. Three
-separate sessions learned this the same night, none of them carelessly. Two lines are worth knowing before you
+separate sessions learned this the same night, none of them carelessly. Three lines are worth knowing before you
 work beside somebody:
 
 - **`pnpm db:reset` in a worktree resets everybody's database**, including the one another session is testing
@@ -8958,6 +8960,14 @@ work beside somebody:
 - **A worker on the shared database claims every session's jobs.** `private.claim_migration_jobs` has no tenant
   filter, deliberately — in production one fleet serves every business — so any worker anyone starts picks up
   anyone's migration batches, fails the ones whose tokens it cannot open, and spends their attempts.
+- **The dev ports are shared too, and Playwright reuses them without saying so.** `pnpm test:e2e` keeps whatever
+  is already listening on 3000 (the web app), 4000 (the API) and 4100 (the worker), whichever checkout started
+  them. A run in your worktree then tests somebody else's code, and nothing in the output says whose: the specs
+  simply fail in ways your branch cannot explain. The Assistant specs show it first, because the worker the
+  global setup would have started is the one carrying `ASSISTANT_PROVIDER=scripted` — a reused dev worker has a
+  real provider or none, so the panel answers "The Assistant isn't reachable right now". Either stop the other
+  servers (with their session's agreement — a spec is a bad reason to kill somebody's test run) or push and let
+  CI decide, which starts all of it fresh and is the verdict that counts anyway.
 
 The reset itself also cannot drop the database while a worker holds a connection to it. It half-builds instead,
 which reads like a broken migration. Stop every worker and API first, and tell the other sessions before you
