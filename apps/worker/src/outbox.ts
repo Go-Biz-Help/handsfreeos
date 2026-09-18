@@ -65,8 +65,14 @@ export async function processOnce(deps: OutboxDeps): Promise<OutboxStats> {
   for (const row of claimed) {
     // A person's own account events (no organization, no business: a profile saved, the Assistant's OK, deleting an
     // account that belongs to no business) have no tenant for a handler to act in, and the worker can't read them.
+    // The support desk's events (M13) also have no tenant, on purpose — they belong to HandsFreeOS itself —
+    // and the worker does read those.
+    const platformEvent =
+      row.event_type.startsWith('support') || row.event_type.startsWith('platform.');
     const list =
-      row.organization_id || row.workspace_id ? handlersFor(deps.handlers, row.event_type) : [];
+      row.organization_id || row.workspace_id || platformEvent
+        ? handlersFor(deps.handlers, row.event_type)
+        : [];
     try {
       if (list.length === 0) {
         await asWorker(deps.db, {}, (tx) =>

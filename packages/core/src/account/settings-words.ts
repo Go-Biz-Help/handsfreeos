@@ -49,6 +49,25 @@ export const MORE_WORDS = {
   settings: 'Settings',
   openOnWeb: 'Open on the web',
   openOnWebDetail: 'Workflows, the AI teammate, business settings, members and more',
+  getHelp: 'Get help',
+  getHelpDetail: 'Ask us. A person reads every one',
+} as const;
+
+/** Asking HandsFreeOS for help from inside the app (M13). Plain, and honest about what it sends. */
+export const GET_HELP_WORDS = {
+  title: 'Get help',
+  intro:
+    'A person reads these, Monday to Friday, and answers by email. We already know which business you are in and which screen you were on.',
+  subject: 'In a few words',
+  subjectPlaceholder: 'Appointment reminders stopped going out',
+  body: 'What happened?',
+  bodyHint:
+    'What you were doing, what you expected, and roughly when. Do not include passwords or card numbers.',
+  send: 'Send it',
+  sending: 'Sending',
+  needsBody: 'Tell us what is going on.',
+  sent: (number: number) => `Got it — that is ticket #${number}. We will answer by email.`,
+  offline: 'You need a signal to send this. Try again when you are back on.',
 } as const;
 
 /** Settings on the phone: you and this phone, and nothing about the business. */

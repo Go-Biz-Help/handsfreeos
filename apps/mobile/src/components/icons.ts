@@ -55,6 +55,7 @@ export { default as Inbox } from 'lucide-react-native/icons/inbox';
 export { default as Info } from 'lucide-react-native/icons/info';
 export { default as KeyRound } from 'lucide-react-native/icons/key-round';
 export { default as Layers } from 'lucide-react-native/icons/layers';
+export { default as LifeBuoy } from 'lucide-react-native/icons/life-buoy';
 export { default as Link2 } from 'lucide-react-native/icons/link-2';
 export { default as ListChecks } from 'lucide-react-native/icons/list-checks';
 export { default as ListTodo } from 'lucide-react-native/icons/list-todo';

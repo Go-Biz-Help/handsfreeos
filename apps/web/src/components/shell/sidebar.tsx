@@ -2,6 +2,7 @@ import { AskButton } from '@/components/assistant/ask-button';
 import { CallsPill } from '@/components/calls/calls-pill';
 import { Brand } from '@/components/ui/brand';
 import type { Me, WorkspaceSummary } from '@/lib/api/types';
+import { GetHelp } from '@/components/support/get-help';
 import { NavLinks } from './nav-links';
 import { SearchField } from './search-field';
 import { UserMenu } from './user-menu';
@@ -19,6 +20,7 @@ export function Sidebar({ me, current }: { me: Me; current: WorkspaceSummary }) 
       <NavLinks workspaceId={current.id} />
       <div className="flex-1" />
       <CallsPill />
+      <GetHelp workspaceId={current.id} />
       <UserMenu user={me.user} />
     </aside>
   );

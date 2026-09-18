@@ -1,7 +1,7 @@
 import { existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { getTableColumns, getTableName } from 'drizzle-orm';
-import { isPgEnum } from 'drizzle-orm/pg-core';
+import { getTableConfig, isPgEnum } from 'drizzle-orm/pg-core';
 import { afterAll, describe, expect, it } from 'vitest';
 import * as schema from '../src/schema/index';
 import { tables } from '../src/schema/index';
@@ -10,13 +10,14 @@ import { rows, sql } from '../src/client';
 
 afterAll(closeAll);
 
-describe('Drizzle enums mirror the live app enums', () => {
-  it('every app enum has a Drizzle mirror with the same values, in order', async () => {
+describe('Drizzle enums mirror the live enums', () => {
+  // `app` holds tenant data, `platform` HandsFreeOS's own support desk (0070); both are mirrored here.
+  it('every app and platform enum has a Drizzle mirror with the same values, in order', async () => {
     const live = await rows<{ name: string; labels: string[] }>(
       dbs.admin.db,
       sql`select t.typname::text as name, array_agg(e.enumlabel::text order by e.enumsortorder) as labels
           from pg_type t join pg_enum e on e.enumtypid = t.oid
-          where t.typnamespace = 'app'::regnamespace
+          where t.typnamespace in ('app'::regnamespace, 'platform'::regnamespace)
           group by t.typname`,
     );
     const declared = Object.values(schema as Record<string, unknown>)
@@ -112,12 +113,13 @@ describe('generated columns mirror core', () => {
   });
 });
 
-describe('Drizzle schema mirrors the live app schema', () => {
+describe('Drizzle schema mirrors the live schema', () => {
   for (const [key, table] of Object.entries(tables)) {
-    it(`app.${getTableName(table)} (${key}) has exactly the columns Drizzle declares`, async () => {
+    const schemaName = getTableConfig(table).schema ?? 'public';
+    it(`${schemaName}.${getTableName(table)} (${key}) has exactly the columns Drizzle declares`, async () => {
       const live = await rows<{ column_name: string }>(
         dbs.admin.db,
-        sql`select column_name from information_schema.columns where table_schema = 'app' and table_name = ${getTableName(table)} order by 1`,
+        sql`select column_name from information_schema.columns where table_schema = ${schemaName} and table_name = ${getTableName(table)} order by 1`,
       );
       const liveNames = live.map((r) => r.column_name).sort();
       const declared = Object.values(getTableColumns(table))

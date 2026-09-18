@@ -97,7 +97,10 @@ export const accountDelete = defineCommand({
     // one's calendars and mailboxes before the profile goes.
     const reach = await rows<{ id: string; organization_id: string }>(
       ctx.tx,
-      sql`select id, organization_id from app.workspaces order by id`,
+      // Only the ones they really work in: a support person can see every business's name (M13), and
+      // deleting an account must touch theirs alone.
+      sql`select id, organization_id from app.workspaces
+          where private.effective_workspace_role(id) is not null order by id`,
     );
     const requestedAt = new Date();
     if (!reach.length) {

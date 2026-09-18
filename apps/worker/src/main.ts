@@ -29,6 +29,7 @@ import { processOnce } from './outbox';
 import { processors } from './processors/index';
 import { ensureRecurringJobs, jobs } from './scheduled';
 import { createSupabaseStore, unconfiguredStore } from './storage';
+import { ensurePlatformOwners } from './support/owners';
 import { createTelephony } from './telephony/index';
 import { createWorkflowAi } from './workflows/ai-runner';
 import type { EngineServices } from './workflows/types';
@@ -87,6 +88,13 @@ const services: EngineServices = {
     : {}),
   // Workflow AI steps and AI-sorted branches answer from that model, grounded in the knowledge base.
   workflowAi: createWorkflowAi({ db: handle.db, ai, log }),
+  // HandsFreeOS's own support desk (M13): where its mail arrives, and who it goes out as.
+  support: {
+    mailDomain: env.supportMailDomain,
+    addresses: env.supportAddresses,
+    fromName: env.supportFromName,
+    ownerEmails: env.platformOwnerEmails,
+  },
 };
 /**
  * Reading the CRM a business is leaving (M11). `fake` is the stand-in agency the specs migrate from, so an end
@@ -100,6 +108,9 @@ const migrationAdapters = createMigrationAdapters({
     configured: !!env.goHighLevelClientId && !!env.goHighLevelClientSecret,
   },
 });
+// Whoever runs HandsFreeOS is a support admin at every start, so losing the last admin row locks nobody out.
+await ensurePlatformOwners(handle.db, env.platformOwnerEmails, log);
+
 const workerId = `${hostname()}:${process.pid}`;
 const loopDeps = { ...services, workerId, batchSize: env.batchSize };
 

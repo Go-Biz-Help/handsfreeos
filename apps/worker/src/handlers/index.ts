@@ -57,6 +57,7 @@ import {
   onRegistrationSubmitted,
   onReleaseRequested,
 } from './telephony';
+import { supportHandlers } from './support';
 import type { HandlerMap } from './types';
 import { onSeatFreed } from './waitlist';
 
@@ -165,4 +166,10 @@ const ownTeammateAndWorkflows: HandlerMap = withWorkflows(
 
 // withPush appends last: a booking, an assignment, an approval waiting or a payment queues its push once the event's
 // other work is done (push/moments.ts).
-export const handlers: HandlerMap = withPush(withAttention(ownTeammateAndWorkflows));
+//
+// The support desk's own events (M13) are added afterwards, outside all of that: they belong to no business,
+// so there is no teammate to wake, no workflow to start and nothing to put on anyone's Home.
+export const handlers: HandlerMap = {
+  ...withPush(withAttention(ownTeammateAndWorkflows)),
+  ...supportHandlers,
+};

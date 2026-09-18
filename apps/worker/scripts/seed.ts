@@ -170,6 +170,12 @@ async function main(): Promise<void> {
   const key = workerKey();
   const deps: OutboxDeps = {
     db: worker.db,
+    support: {
+      mailDomain: 'handsfreeos.local',
+      addresses: ['support', 'help'],
+      fromName: 'HandsFreeOS Support',
+      ownerEmails: [],
+    },
     mailer: createSmtpMailer(
       process.env.SMTP_URL ?? 'smtp://127.0.0.1:54425',
       process.env.MAIL_FROM ?? 'HandsFreeOS <hello@handsfreeos.local>',
@@ -392,6 +398,63 @@ async function main(): Promise<void> {
     { id: lonestar, organizationId: org.organizationId, dale, priya },
   );
 
+  // Milestone 13: HandsFreeOS's own support desk. Chris answers it, and two tickets are already waiting —
+  // one that came in by email from a customer nobody has answered, and one he has already replied to.
+  step('The support desk: Chris as its admin, two tickets and a saved reply');
+  await rows(
+    admin.db,
+    sql`insert into platform.staff (user_id, role, display_name, signature)
+        values (${chris.id}, 'admin', 'Chris', '— Chris at HandsFreeOS')
+        on conflict (user_id) do update set role = 'admin', status = 'active'`,
+  );
+  await rows(
+    admin.db,
+    sql`insert into platform.canned_replies (title, body_text, created_by) values
+        ('Texts are not arriving',
+         'Thanks for flagging this. I can see your number is registered and the last messages left us, so let me trace the exact one: what number did you text, and roughly when?',
+         ${chris.id}),
+        ('How billing works',
+         'Your plan renews on the same day each month and the receipt goes to the address on the account. Nothing is charged for a business you have not switched on yet.',
+         ${chris.id})
+        on conflict do nothing`,
+  );
+  const [waiting] = await rows<{ id: string }>(
+    admin.db,
+    sql`insert into platform.tickets
+          (subject, channel, status, requester_email, requester_name, requester_user_id,
+           workspace_id, organization_id, last_customer_at)
+        values ('Appointment reminders stopped going out', 'email', 'new', ${dale.email}, 'Dale Ramsey',
+          ${dale.id}, ${lonestar}, ${org.organizationId}, now() - interval '35 minutes')
+        returning id`,
+  );
+  await rows(
+    admin.db,
+    sql`insert into platform.ticket_messages (ticket_id, author, author_user_id, body_text, created_at)
+        values (${waiting!.id}, 'customer', ${dale.id},
+          'Morning — our reminders went out fine last week and nothing has gone out since Monday. Two customers missed their slots yesterday.',
+          now() - interval '35 minutes')`,
+  );
+  const [answered] = await rows<{ id: string }>(
+    admin.db,
+    sql`insert into platform.tickets
+          (subject, channel, status, requester_email, requester_name, requester_user_id, workspace_id,
+           organization_id, assignee_user_id, last_customer_at, last_staff_at, first_response_at)
+        values ('Can I add a second phone number?', 'in_app', 'waiting_on_customer', ${priya.email},
+          'Priya Natarajan', ${priya.id}, ${lonestar}, ${org.organizationId}, ${chris.id},
+          now() - interval '2 days', now() - interval '2 days', now() - interval '2 days')
+        returning id`,
+  );
+  await rows(
+    admin.db,
+    sql`insert into platform.ticket_messages (ticket_id, author, author_user_id, body_text, created_at) values
+        (${answered!.id}, 'customer', ${priya.id},
+         'We want a separate number for the Dallas van. Can we add one without a second account?',
+         now() - interval '2 days'),
+        (${answered!.id}, 'staff', ${chris.id},
+         'Yes — Settings, then Phone, then Add a number. It lands in the same inbox, and you choose which one each workflow texts from. Want me to walk through it on a call?',
+         now() - interval '2 days' + interval '20 minutes')`,
+  );
+
   step('Northstar Electric: a separate organization that sees none of the above');
   await executeCommand(
     api.db,
@@ -404,7 +467,7 @@ async function main(): Promise<void> {
   console.log(`
 Seeded in ${((Date.now() - started) / 1000).toFixed(1)}s. Sign in at ${deps.webUrl}/sign-in with password ${SEED_PASSWORD}:
 
-  ${chris.email.padEnd(30)} Owner of Go Biz Help (agency); reaches every client workspace
+  ${chris.email.padEnd(30)} Owner of Go Biz Help (agency); reaches every client workspace, and answers support at /admin
   ${dale.email.padEnd(30)} Owner, Lone Star HVAC & Roofing
   ${priya.email.padEnd(30)} Admin, Lone Star HVAC & Roofing
   ${marco.email.padEnd(30)} Member, Lone Star HVAC & Roofing

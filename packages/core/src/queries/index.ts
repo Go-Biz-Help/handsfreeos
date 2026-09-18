@@ -1,4 +1,6 @@
 import type { QueryDef } from '../kernel/types';
+import { platformQueries } from './platform';
+import { supportQueries } from './support';
 import { accountDeletionCheck, pushDeviceList, userPhoneGet } from './account';
 import { aiTeammateActivity, aiTeammateDraftList, aiTeammateGet } from './ai-team';
 import {
@@ -142,6 +144,8 @@ export { emailComposeOptions };
 
 export const queries: readonly QueryDef[] = [
   ...migrationQueries,
+  ...supportQueries,
+  ...platformQueries,
   me,
   accountDeletionCheck,
   pushDeviceList,
@@ -279,3 +283,5 @@ export {
 };
 
 export * from './migration';
+export * from './support';
+export * from './platform';

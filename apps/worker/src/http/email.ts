@@ -93,12 +93,81 @@ async function routeInbound(
   return null;
 }
 
+/**
+ * Mail to HandsFreeOS's own support address (M13). It is checked before the businesses' routing and answered
+ * separately: the businesses send from a subdomain, support lives on the bare domain, and the two never meet.
+ */
+function routeSupport(
+  deps: HttpDeps,
+  recipients: readonly PostmarkParty[],
+): { replyToken: string | null } | null {
+  for (const r of recipients) {
+    const email = (r.Email ?? '').trim().toLowerCase();
+    const at = email.lastIndexOf('@');
+    if (at < 1 || email.slice(at + 1) !== deps.support.mailDomain) continue;
+    const local = email.slice(0, at);
+    const plus = local.indexOf('+');
+    const base = plus === -1 ? local : local.slice(0, plus);
+    if (!deps.support.addresses.includes(base)) continue;
+    const token = (r.MailboxHash || (plus === -1 ? '' : local.slice(plus + 1))).toLowerCase();
+    return { replyToken: /^[a-z2-7]{10}$/.test(token) ? token : null };
+  }
+  return null;
+}
+
 const safeName = (name: string) =>
   name
     .replace(/[/\\]/g, '_')
     .replace(/[^\w.\- ]+/g, '')
     .trim()
     .slice(0, 120) || 'attachment';
+
+/** Support mail, stored whole with its attachments, then filed as a ticket by the delivery loop. */
+async function recordSupportInbound(
+  deps: HttpDeps,
+  p: PostmarkInbound,
+  replyToken: string | null,
+): Promise<void> {
+  const folder = createHash('sha256')
+    .update(p.MessageID ?? '')
+    .digest('hex')
+    .slice(0, 24);
+  const media: {
+    bucket: string;
+    objectPath: string;
+    contentType: string;
+    sizeBytes: number;
+    name: string;
+    contentId: string | null;
+  }[] = [];
+  for (const [i, a] of (p.Attachments ?? []).entries()) {
+    if (!a.Content) continue;
+    const data = Buffer.from(a.Content, 'base64');
+    const name = safeName(a.Name ?? `attachment-${i + 1}`);
+    const contentType = a.ContentType || 'application/octet-stream';
+    const objectPath = `support/${folder}/${i}-${name}`;
+    await deps.store.upload('telephony', objectPath, data, contentType, { upsert: true });
+    media.push({
+      bucket: 'telephony',
+      objectPath,
+      contentType,
+      sizeBytes: data.length,
+      name,
+      contentId: a.ContentID ?? null,
+    });
+  }
+  await recordDelivery(deps, {
+    provider: 'postmark',
+    kind: 'support.inbound',
+    dedupeKey: `support:${p.MessageID}`,
+    accountRef: null,
+    url: '/webhooks/postmark/inbound',
+    params: { ...p, Attachments: media, support: { replyToken } } as never,
+    // Support mail belongs to no business, and that is exactly how it is stored.
+    workspaceId: null,
+    organizationId: null,
+  });
+}
 
 /**
  * Postmark's inbound mail and delivery events. Both are stored and answered at once, then processed by the
@@ -113,12 +182,18 @@ export function registerEmailRoutes(app: FastifyInstance, deps: HttpDeps): void 
     }
     const p = (req.body ?? {}) as PostmarkInbound;
     if (!p.MessageID) return reply.code(400).send();
-    const route = await routeInbound(deps, [
+    const recipients = [
       ...(p.ToFull ?? []),
       ...(p.CcFull ?? []),
       ...(p.BccFull ?? []),
       ...(p.OriginalRecipient ? [{ Email: p.OriginalRecipient }] : []),
-    ]);
+    ];
+    const support = routeSupport(deps, recipients);
+    if (support) {
+      await recordSupportInbound(deps, p, support.replyToken);
+      return reply.code(200).send({ ok: true });
+    }
+    const route = await routeInbound(deps, recipients);
     // Mail for an address nobody owns is accepted (so Postmark stops) and dropped.
     if (!route) return reply.code(200).send({ ok: true });
     const folder = createHash('sha256').update(p.MessageID).digest('hex').slice(0, 24);

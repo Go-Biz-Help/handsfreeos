@@ -1,7 +1,7 @@
 import type { Tx, UserClaims } from '@hfos/db/client';
 import type { z } from 'zod';
 import type { OfflineClass } from '../mobile';
-import type { OrgRole, Permission, WorkspaceRole } from '../permissions';
+import type { OrgRole, Permission, StaffRole, WorkspaceRole } from '../permissions';
 import type { requestChannel } from '../schemas/audit';
 
 export type { OfflineClass } from '../mobile';
@@ -132,6 +132,8 @@ export interface RequestMeta {
 export type ScopeRef =
   | { readonly kind: 'workspace'; readonly workspaceId: string }
   | { readonly kind: 'organization'; readonly organizationId: string }
+  /** The support desk and the admin side (M13): checked against a staff role, not against any business. */
+  | { readonly kind: 'platform' }
   | { readonly kind: 'account' }
   | { readonly kind: 'none' };
 
@@ -140,6 +142,13 @@ export interface ResolvedScope {
   readonly workspaceId: string | null;
   readonly workspaceRole: WorkspaceRole | null;
   readonly orgRole: OrgRole | null;
+  /** Set when the person is HandsFreeOS support staff (M13); null for everyone else. */
+  readonly staffRole?: StaffRole | null;
+  /**
+   * Set when a staff member is looking at a business they have no standing in, under an open view-as
+   * session. Look-ups only: a command never runs in one, and nothing here can write.
+   */
+  readonly viewAs?: { readonly sessionId: string } | null;
 }
 
 export interface EmitInput {

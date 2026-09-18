@@ -8,6 +8,13 @@ export type WorkspaceRole = (typeof WORKSPACE_ROLES)[number];
 export const ORG_ROLES = ['owner', 'admin'] as const;
 export type OrgRole = (typeof ORG_ROLES)[number];
 
+/**
+ * The third axis (M13): HandsFreeOS's own support people. A staff role gives no standing in any business —
+ * it opens the support desk, and lets someone look at a business read-only, with a reason, for a while.
+ */
+export const STAFF_ROLES = ['agent', 'lead', 'admin'] as const;
+export type StaffRole = (typeof STAFF_ROLES)[number];
+
 export const ROLE_PERMISSIONS = {
   owner: [
     'workspace.read',
@@ -95,10 +102,41 @@ export const ROLE_PERMISSIONS = {
     'org.templates.manage',
     'org.migrations.manage',
   ],
+  staff_agent: ['support.read', 'support.reply', 'platform.businesses.read', 'platform.view_as'],
+  staff_lead: [
+    'support.read',
+    'support.reply',
+    'support.assign',
+    'support.manage',
+    'platform.businesses.read',
+    'platform.view_as',
+    'platform.health.read',
+  ],
+  staff_admin: [
+    'support.read',
+    'support.reply',
+    'support.assign',
+    'support.manage',
+    'platform.businesses.read',
+    'platform.view_as',
+    'platform.health.read',
+    'platform.staff.manage',
+  ],
 } as const satisfies Record<string, readonly string[]>;
 
 export type RoleKey = keyof typeof ROLE_PERMISSIONS;
 export type Permission = (typeof ROLE_PERMISSIONS)[RoleKey][number];
+
+export const STAFF_ROLE_LABELS: Record<StaffRole, string> = {
+  agent: 'Support agent',
+  lead: 'Support lead',
+  admin: 'Support admin',
+};
+export const STAFF_ROLE_DESCRIPTIONS: Record<StaffRole, string> = {
+  agent: 'Answers tickets and can look at a business read-only to see what the customer sees.',
+  lead: 'Everything an agent does, plus assigning tickets, saved replies and the health page.',
+  admin: 'Everything a lead does, plus inviting and removing support people.',
+};
 
 export const ROLE_LABELS: Record<WorkspaceRole, string> = {
   owner: 'Owner',
@@ -132,6 +170,16 @@ export function canActOnRole(actorRole: WorkspaceRole | null, targetRole: Worksp
 
 export function isOrgPermission(permission: Permission): boolean {
   return permission.startsWith('org.') || permission === 'workspace.create';
+}
+
+/** Answering support and running the platform: checked against a staff role, never against a business role. */
+export function isStaffPermission(permission: Permission): boolean {
+  return permission.startsWith('support.') || permission.startsWith('platform.');
+}
+
+export function hasStaffPermission(role: StaffRole | null, permission: Permission): boolean {
+  if (!role) return false;
+  return (ROLE_PERMISSIONS[`staff_${role}`] as readonly string[]).includes(permission);
 }
 
 export function hasWorkspacePermission(

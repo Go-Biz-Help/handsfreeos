@@ -3297,6 +3297,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/platform.view_as.end": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Stop looking at a business.
+         * @description Risk level 1. Requires platform.view_as. Emits platform.view_as_ended.
+         */
+        post: operations["command_platform_view_as_end"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/platform.view_as.start": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Open a business read-only to see what the customer sees. Time limited, and written into their own audit log.
+         * @description Risk level 3. Requires platform.view_as. Emits platform.view_as_started.
+         */
+        post: operations["command_platform_view_as_start"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/product.archive": {
         parameters: {
             query?: never;
@@ -3871,6 +3911,386 @@ export interface paths {
          * @description Risk level 3. Requires money.manage. Emits subscription.started.
          */
         post: operations["command_subscription_start"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/support.canned_reply.delete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Remove a saved reply.
+         * @description Risk level 1. Requires support.manage. Emits support_canned_reply.deleted.
+         */
+        post: operations["command_support_canned_reply_delete"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/support.canned_reply.save": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Write or change a saved reply everyone answering support can use.
+         * @description Risk level 1. Requires support.manage. Emits support_canned_reply.saved.
+         */
+        post: operations["command_support_canned_reply_save"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/support.request.create": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Ask HandsFreeOS support for help from inside the app. Opens a ticket.
+         * @description Risk level 1. Requires workspace.read. Emits support_ticket.opened.
+         */
+        post: operations["command_support_request_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/support.staff.accept": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Accept a support invitation. Works once, for the address it was sent to.
+         * @description Risk level 1. Emits support_staff.joined.
+         */
+        post: operations["command_support_staff_accept"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/support.staff.invite": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Invite someone to answer HandsFreeOS support. They get a single-use link.
+         * @description Risk level 4. Requires platform.staff.manage. Emits support_staff.invited.
+         */
+        post: operations["command_support_staff_invite"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/support.staff.remove": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Take away someone’s support access. Their name stays on the tickets they answered.
+         * @description Risk level 4. Requires platform.staff.manage. Emits support_staff.removed.
+         */
+        post: operations["command_support_staff_remove"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/support.staff.resend_invitation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Send a support invitation again. The old link stops working.
+         * @description Risk level 2. Requires platform.staff.manage. Emits support_staff.invitation_resent.
+         */
+        post: operations["command_support_staff_resend_invitation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/support.staff.revoke_invitation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Cancel a support invitation so its link no longer works.
+         * @description Risk level 2. Requires platform.staff.manage. Emits support_staff.invitation_revoked.
+         */
+        post: operations["command_support_staff_revoke_invitation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/support.staff.save_profile": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Set the name customers see on your replies, and your sign-off.
+         * @description Risk level 1. Requires support.read. Emits support_staff.profile_saved.
+         */
+        post: operations["command_support_staff_save_profile"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/support.staff.set_role": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Change what someone may do in support, or suspend them.
+         * @description Risk level 4. Requires platform.staff.manage. Emits support_staff.role_changed.
+         */
+        post: operations["command_support_staff_set_role"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/support.ticket.assign": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Give a ticket to someone, or put it back in the unassigned queue.
+         * @description Risk level 1. Requires support.assign. Emits support_ticket.assigned.
+         */
+        post: operations["command_support_ticket_assign"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/support.ticket.dismiss_draft": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Throw away the AI’s suggested answer for this ticket.
+         * @description Risk level 0. Requires support.reply. Emits support_ticket.draft_dismissed.
+         */
+        post: operations["command_support_ticket_dismiss_draft"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/support.ticket.link_business": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Say which business a ticket is about, so their account is one click away.
+         * @description Risk level 1. Requires support.reply. Emits support_ticket.linked.
+         */
+        post: operations["command_support_ticket_link_business"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/support.ticket.merge": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Fold one ticket into another when the same person wrote twice about the same thing.
+         * @description Risk level 2. Requires support.manage. Emits support_ticket.merged.
+         */
+        post: operations["command_support_ticket_merge"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/support.ticket.reply": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Answer a support ticket, or leave an internal note on it.
+         * @description Risk level 2. Requires support.reply. Emits support_ticket.replied.
+         */
+        post: operations["command_support_ticket_reply"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/support.ticket.request_draft": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Ask the AI for a suggested answer to this ticket. It never sends anything itself.
+         * @description Risk level 1. Requires support.reply. Emits support_ticket.draft_requested.
+         */
+        post: operations["command_support_ticket_request_draft"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/support.ticket.set_priority": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Set how urgent a ticket is.
+         * @description Risk level 1. Requires support.reply. Emits support_ticket.priority_changed.
+         */
+        post: operations["command_support_ticket_set_priority"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/support.ticket.set_status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Move a ticket to another status: open, waiting, solved or closed.
+         * @description Risk level 1. Requires support.reply. Emits support_ticket.status_changed.
+         */
+        post: operations["command_support_ticket_set_status"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/support.ticket.snooze": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Put a ticket down until a time you choose. It comes back by itself.
+         * @description Risk level 1. Requires support.reply. Emits support_ticket.snoozed.
+         */
+        post: operations["command_support_ticket_snooze"];
         delete?: never;
         options?: never;
         head?: never;
@@ -6097,6 +6517,106 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/queries/platform.business.get": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * One business: its people, how much of each thing it holds, and what it has set up.
+         * @description Requires platform.businesses.read.
+         */
+        post: operations["query_platform_business_get"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/platform.business.list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Every business on HandsFreeOS: when they signed up, who is in them, how busy they are.
+         * @description Requires platform.businesses.read.
+         */
+        post: operations["query_platform_business_list"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/platform.health.summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * What has failed lately across every business, so it is found before a customer writes in.
+         * @description Requires platform.health.read.
+         */
+        post: operations["query_platform_health_summary"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/platform.me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Whether the signed-in person answers HandsFreeOS support, and what they may do.
+         * @description Any signed-in user.
+         */
+        post: operations["query_platform_me"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/platform.view_as.current": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The business this person is looking at, if any. Answers for everyone, staff or not.
+         * @description Any signed-in user.
+         */
+        post: operations["query_platform_view_as_current"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/queries/product.list": {
         parameters: {
             query?: never;
@@ -6231,6 +6751,106 @@ export interface paths {
          * @description Requires money.manage.
          */
         post: operations["query_subscription_list"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/support.canned_reply.list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The saved replies everyone answering support can use.
+         * @description Requires support.read.
+         */
+        post: operations["query_support_canned_reply_list"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/support.queue.summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The numbers at the top of the support desk.
+         * @description Requires support.read.
+         */
+        post: operations["query_support_queue_summary"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/support.staff.list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Who answers HandsFreeOS support, and who has been invited.
+         * @description Requires support.read.
+         */
+        post: operations["query_support_staff_list"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/support.ticket.get": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * One ticket: the whole conversation, what happened to it, and who it is from.
+         * @description Requires support.read.
+         */
+        post: operations["query_support_ticket_get"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/support.ticket.list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The support queue, newest activity first.
+         * @description Requires support.read.
+         */
+        post: operations["query_support_ticket_list"];
         delete?: never;
         options?: never;
         head?: never;
@@ -13919,6 +14539,80 @@ export interface operations {
             };
         };
     };
+    command_platform_view_as_end: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    sessionId?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        ended: boolean;
+                    };
+                };
+            };
+        };
+    };
+    command_platform_view_as_start: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @default 60 */
+                    minutes?: number;
+                    reason: string;
+                    /** Format: uuid */
+                    ticketId?: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        session: {
+                            businessName: string;
+                            /** Format: date-time */
+                            expiresAt: string;
+                            /** Format: uuid */
+                            id: string;
+                            reason: string;
+                            /** Format: date-time */
+                            startedAt: string;
+                            /** Format: uuid */
+                            workspaceId: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
     command_product_archive: {
         parameters: {
             query?: never;
@@ -15204,6 +15898,614 @@ export interface operations {
                         status: "draft" | "active" | "past_due" | "paused" | "cancelled" | "unmanaged";
                         /** Format: uuid */
                         subscriptionId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_support_canned_reply_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    id: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        id: string;
+                    };
+                };
+            };
+        };
+    };
+    command_support_canned_reply_save: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    bodyText: string;
+                    /** Format: uuid */
+                    id?: string;
+                    title: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        id: string;
+                    };
+                };
+            };
+        };
+    };
+    command_support_request_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    body: string;
+                    /** @default {} */
+                    context?: {
+                        appVersion?: string;
+                        lastError?: string;
+                        page?: string;
+                        /** @enum {string} */
+                        platform?: "web" | "ios" | "android";
+                    };
+                    subject: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        number: number;
+                        /** Format: uuid */
+                        ticketId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_support_staff_accept: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    token: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        accepted: boolean;
+                        reason: string | null;
+                        role: ("agent" | "lead" | "admin") | null;
+                    };
+                };
+            };
+        };
+    };
+    command_support_staff_invite: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    email: string;
+                    /**
+                     * @default agent
+                     * @enum {string}
+                     */
+                    role?: "agent" | "lead" | "admin";
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        invitationId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_support_staff_remove: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    userId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        userId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_support_staff_resend_invitation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    invitationId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        invitationId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_support_staff_revoke_invitation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    invitationId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        invitationId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_support_staff_save_profile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    displayName: string;
+                    /** @default  */
+                    signature?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        userId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_support_staff_set_role: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {string} */
+                    role?: "agent" | "lead" | "admin";
+                    /** @enum {string} */
+                    status?: "active" | "suspended";
+                    /** Format: uuid */
+                    userId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        userId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_support_ticket_assign: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    assigneeUserId: string | null;
+                    /** Format: uuid */
+                    ticketId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        ticketId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_support_ticket_dismiss_draft: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    ticketId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        ticketId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_support_ticket_link_business: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    ticketId: string;
+                    workspaceId: string | null;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        ticketId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_support_ticket_merge: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    intoTicketId: string;
+                    /** Format: uuid */
+                    ticketId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        ticketId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_support_ticket_reply: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    body: string;
+                    /** @default false */
+                    internal?: boolean;
+                    /** @enum {string} */
+                    status?: "new" | "open" | "waiting_on_customer" | "solved" | "closed";
+                    /** Format: uuid */
+                    ticketId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        messageId: string;
+                        /** @enum {string} */
+                        status: "new" | "open" | "waiting_on_customer" | "solved" | "closed";
+                    };
+                };
+            };
+        };
+    };
+    command_support_ticket_request_draft: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    ticketId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        ticketId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_support_ticket_set_priority: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {string} */
+                    priority: "low" | "normal" | "high" | "urgent";
+                    /** Format: uuid */
+                    ticketId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        ticketId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_support_ticket_set_status: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {string} */
+                    status: "new" | "open" | "waiting_on_customer" | "solved" | "closed";
+                    /** Format: uuid */
+                    ticketId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        ticketId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_support_ticket_snooze: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    ticketId: string;
+                    until: string | null;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        ticketId: string;
                     };
                 };
             };
@@ -23427,6 +24729,272 @@ export interface operations {
             };
         };
     };
+    query_platform_business_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        business: {
+                            /** Format: date-time */
+                            createdAt: string;
+                            industry: string;
+                            lastActiveAt: string | null;
+                            memberCount: number;
+                            name: string;
+                            openTicketCount: number;
+                            /** Format: uuid */
+                            organizationId: string;
+                            organizationName: string;
+                            timezone: string;
+                            /** Format: uuid */
+                            workspaceId: string;
+                        };
+                        counts: {
+                            appointments: number;
+                            conversations: number;
+                            invoices: number;
+                            leads: number;
+                            people: number;
+                        };
+                        people: {
+                            email: string;
+                            fullName: string;
+                            lastActiveAt: string | null;
+                            role: string;
+                            /** Format: uuid */
+                            userId: string;
+                        }[];
+                        setup: {
+                            aiTeammate: boolean;
+                            calendar: boolean;
+                            email: boolean;
+                            payments: boolean;
+                            phone: boolean;
+                        };
+                        tickets: {
+                            /** Format: date-time */
+                            createdAt: string;
+                            /** Format: uuid */
+                            id: string;
+                            number: number;
+                            /** @enum {string} */
+                            status: "new" | "open" | "waiting_on_customer" | "solved" | "closed";
+                            subject: string;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    query_platform_business_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    cursor?: string;
+                    /** @default 25 */
+                    limit?: number;
+                    search?: string;
+                    /**
+                     * @default newest
+                     * @enum {string}
+                     */
+                    sort?: "newest" | "busiest" | "quietest" | "name";
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        businesses: {
+                            /** Format: date-time */
+                            createdAt: string;
+                            industry: string;
+                            lastActiveAt: string | null;
+                            memberCount: number;
+                            name: string;
+                            openTicketCount: number;
+                            /** Format: uuid */
+                            organizationId: string;
+                            organizationName: string;
+                            timezone: string;
+                            /** Format: uuid */
+                            workspaceId: string;
+                        }[];
+                        nextCursor: string | null;
+                        totals: {
+                            activeThisWeek: number;
+                            businesses: number;
+                            newThisWeek: number;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    query_platform_health_summary: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @default 24 */
+                    hours?: number;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        emailBounces: {
+                            count: number;
+                            label: string;
+                            worstBusiness: string | null;
+                        };
+                        failedDeliveries: {
+                            count: number;
+                            label: string;
+                            worstBusiness: string | null;
+                        };
+                        failedJobs: {
+                            count: number;
+                            label: string;
+                            worstBusiness: string | null;
+                        };
+                        failedTexts: {
+                            count: number;
+                            label: string;
+                            worstBusiness: string | null;
+                        };
+                        oldestPendingMinutes: number | null;
+                        outboxBacklog: number;
+                        paymentFailures: {
+                            count: number;
+                            label: string;
+                            worstBusiness: string | null;
+                        };
+                        recent: {
+                            /** Format: date-time */
+                            at: string;
+                            business: string | null;
+                            detail: string;
+                            kind: string;
+                        }[];
+                        /** Format: date-time */
+                        since: string;
+                    };
+                };
+            };
+        };
+    };
+    query_platform_me: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": Record<string, never>;
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        staff: {
+                            displayName: string;
+                            permissions: string[];
+                            /** @enum {string} */
+                            role: "agent" | "lead" | "admin";
+                            signature: string;
+                            /** Format: uuid */
+                            userId: string;
+                        } | null;
+                    };
+                };
+            };
+        };
+    };
+    query_platform_view_as_current: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": Record<string, never>;
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        session: {
+                            businessName: string;
+                            /** Format: date-time */
+                            expiresAt: string;
+                            /** Format: uuid */
+                            id: string;
+                            reason: string;
+                            /** Format: date-time */
+                            startedAt: string;
+                            /** Format: uuid */
+                            workspaceId: string;
+                        } | null;
+                    };
+                };
+            };
+        };
+    };
     query_product_list: {
         parameters: {
             query?: never;
@@ -23863,6 +25431,320 @@ export interface operations {
                             /** @enum {string} */
                             status: "draft" | "active" | "past_due" | "paused" | "cancelled" | "unmanaged";
                             taxable: boolean;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    query_support_canned_reply_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": Record<string, never>;
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        replies: {
+                            bodyText: string;
+                            /** Format: uuid */
+                            id: string;
+                            title: string;
+                            /** Format: date-time */
+                            updatedAt: string;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    query_support_queue_summary: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": Record<string, never>;
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        mine: number;
+                        oldestWaitingMinutes: number | null;
+                        solvedToday: number;
+                        unanswered: number;
+                        unassigned: number;
+                        waitingOnCustomer: number;
+                    };
+                };
+            };
+        };
+    };
+    query_support_staff_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": Record<string, never>;
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        invitations: {
+                            /** Format: date-time */
+                            createdAt: string;
+                            email: string;
+                            /** Format: date-time */
+                            expiresAt: string;
+                            /** Format: uuid */
+                            id: string;
+                            invitedByName: string;
+                            /** @enum {string} */
+                            role: "agent" | "lead" | "admin";
+                            sentAt: string | null;
+                        }[];
+                        staff: {
+                            /** Format: date-time */
+                            createdAt: string;
+                            displayName: string;
+                            email: string;
+                            fullName: string;
+                            openTicketCount: number;
+                            /** @enum {string} */
+                            role: "agent" | "lead" | "admin";
+                            /** @enum {string} */
+                            status: "active" | "suspended";
+                            /** Format: uuid */
+                            userId: string;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    query_support_ticket_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    ticketId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        alsoFrom: {
+                            /** Format: uuid */
+                            id: string;
+                            number: number;
+                            /** @enum {string} */
+                            status: "new" | "open" | "waiting_on_customer" | "solved" | "closed";
+                            subject: string;
+                        }[];
+                        business: {
+                            /** Format: date-time */
+                            createdAt: string;
+                            memberCount: number;
+                            name: string;
+                            openTicketCount: number;
+                            organizationName: string;
+                            /** Format: uuid */
+                            workspaceId: string;
+                        } | null;
+                        draft: {
+                            bodyText: string;
+                            /** Format: date-time */
+                            createdAt: string;
+                            model: string;
+                            sources: {
+                                id: string | null;
+                                kind: string;
+                                title: string;
+                            }[];
+                            stale: boolean;
+                        } | null;
+                        events: {
+                            actorName: string;
+                            /** Format: date-time */
+                            createdAt: string;
+                            data: {
+                                [key: string]: unknown;
+                            };
+                            /** Format: uuid */
+                            id: string;
+                            kind: string;
+                        }[];
+                        messages: {
+                            attachments: {
+                                contentType: string;
+                                name: string;
+                                sizeBytes: number;
+                            }[];
+                            /** @enum {string} */
+                            author: "customer" | "staff" | "ai" | "system";
+                            authorName: string;
+                            bodyHtml: string | null;
+                            bodyText: string;
+                            /** Format: date-time */
+                            createdAt: string;
+                            /** Format: uuid */
+                            id: string;
+                            internal: boolean;
+                        }[];
+                        ticket: {
+                            assignee: {
+                                email: string;
+                                name: string;
+                                userId: string | null;
+                            } | null;
+                            business: {
+                                name: string;
+                                organizationId: string | null;
+                                /** Format: uuid */
+                                workspaceId: string;
+                            } | null;
+                            /** @enum {string} */
+                            channel: "email" | "in_app" | "chat";
+                            /** Format: date-time */
+                            createdAt: string;
+                            firstResponseAt: string | null;
+                            /** Format: uuid */
+                            id: string;
+                            number: number;
+                            preview: string;
+                            /** @enum {string} */
+                            priority: "low" | "normal" | "high" | "urgent";
+                            requester: {
+                                email: string;
+                                name: string;
+                                userId: string | null;
+                            };
+                            snoozeUntil: string | null;
+                            /** @enum {string} */
+                            status: "new" | "open" | "waiting_on_customer" | "solved" | "closed";
+                            subject: string;
+                            tags: string[];
+                            /** Format: date-time */
+                            updatedAt: string;
+                            waitingSince: string | null;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    query_support_ticket_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @default anyone */
+                    assignee?: ("mine" | "unassigned" | "anyone") | string;
+                    cursor?: string;
+                    /** @default false */
+                    includeSnoozed?: boolean;
+                    /** @default 25 */
+                    limit?: number;
+                    search?: string;
+                    status?: ("new" | "open" | "waiting_on_customer" | "solved" | "closed")[];
+                    /** Format: uuid */
+                    workspaceId?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        nextCursor: string | null;
+                        tickets: {
+                            assignee: {
+                                email: string;
+                                name: string;
+                                userId: string | null;
+                            } | null;
+                            business: {
+                                name: string;
+                                organizationId: string | null;
+                                /** Format: uuid */
+                                workspaceId: string;
+                            } | null;
+                            /** @enum {string} */
+                            channel: "email" | "in_app" | "chat";
+                            /** Format: date-time */
+                            createdAt: string;
+                            firstResponseAt: string | null;
+                            /** Format: uuid */
+                            id: string;
+                            number: number;
+                            preview: string;
+                            /** @enum {string} */
+                            priority: "low" | "normal" | "high" | "urgent";
+                            requester: {
+                                email: string;
+                                name: string;
+                                userId: string | null;
+                            };
+                            snoozeUntil: string | null;
+                            /** @enum {string} */
+                            status: "new" | "open" | "waiting_on_customer" | "solved" | "closed";
+                            subject: string;
+                            tags: string[];
+                            /** Format: date-time */
+                            updatedAt: string;
+                            waitingSince: string | null;
                         }[];
                     };
                 };

@@ -46,6 +46,7 @@ import { moneyDocumentJobs, MONEY_JOBS, MONEY_PLAN_KEY } from './money/jobs';
 import { moneyJobs } from './money/refunds';
 import { planJobs } from './money/subscriptions';
 import { pushJobs } from './push/send';
+import { SUPPORT_JOBS } from './support/draft';
 import { errorMessage } from './outbox';
 import { PAYMENT_JOBS, PAYMENT_PLAN_KEY, paymentJobs } from './payments/refresh';
 import {
@@ -252,6 +253,8 @@ export const checkEmailDomains: JobHandler = async (ctx) => {
 };
 
 export const jobs: JobMap = {
+  // The AI's suggested answer to a support ticket, written in the background so nothing waits on it (M13).
+  ...SUPPORT_JOBS,
   'conversation.unanswered_check': unansweredCheck,
   'registration.poll': registrationPoll,
   'conversation.unsnooze': unsnooze,

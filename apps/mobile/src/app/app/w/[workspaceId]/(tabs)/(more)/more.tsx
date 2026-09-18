@@ -7,6 +7,7 @@ import {
   ClipboardList,
   CloudCheck,
   Globe,
+  LifeBuoy,
   Settings2,
   Sparkles,
   Users,
@@ -87,6 +88,13 @@ export default function More() {
         />
       </List>
       <List>
+        <ListRow
+          icon={LifeBuoy}
+          label={MORE_WORDS.getHelp}
+          detail={MORE_WORDS.getHelpDetail}
+          onPress={() => go('get-help')}
+          testID="more-get-help"
+        />
         <ListRow
           icon={Globe}
           label={MORE_WORDS.openOnWeb}

@@ -67,6 +67,13 @@ export function testServices(
     webUrl: 'http://localhost:3000',
     publicUrl: TEST_PUBLIC_URL,
     telephony: createFakeTelephony({ approvalMs: 0, callbacks: false, log }),
+    support: {
+      mailDomain: 'handsfreeos.test',
+      addresses: ['support', 'help'],
+      fromName: 'HandsFreeOS Support',
+      ownerEmails: [],
+    },
+
     sealer: createSealer(randomBytes(32).toString('base64')),
     reminderOverrideMs: opts.reminderOverrideMs ?? null,
     registrationPollMs: 50,

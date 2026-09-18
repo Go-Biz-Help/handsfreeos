@@ -5,10 +5,13 @@ import type { z } from 'zod';
 import { HfosError } from '../errors';
 import {
   hasOrgPermission,
+  hasStaffPermission,
   hasWorkspacePermission,
   isOrgPermission,
+  isStaffPermission,
   type OrgRole,
   type Permission,
+  type StaffRole,
   type WorkspaceRole,
 } from '../permissions';
 import { aiEmployeeMayRun, isMachine } from './actor';
@@ -43,17 +46,27 @@ function parseInput<I extends z.ZodType>(schema: I, raw: unknown): z.output<I> {
 async function resolveScope(tx: Tx, ref: ScopeRef): Promise<ResolvedScope> {
   switch (ref.kind) {
     case 'workspace': {
-      const [row] = await rows<{ role: WorkspaceRole | null; org: string | null }>(
+      const [row] = await rows<{
+        role: WorkspaceRole | null;
+        org: string | null;
+        view_as: string | null;
+      }>(
         tx,
-        sql`select private.effective_workspace_role(${ref.workspaceId})::text as role, private.workspace_organization(${ref.workspaceId}) as org`,
+        sql`select private.effective_workspace_role(${ref.workspaceId})::text as role,
+                   private.workspace_organization(${ref.workspaceId}) as org,
+                   (select session_id from private.my_view_as(${ref.workspaceId})) as view_as`,
       );
       // A workspace the user cannot see does not exist for them (no 403 existence leak).
-      if (!row?.role || !row.org) throw HfosError.notFound('Workspace not found.');
+      if (!row?.org || (!row.role && !row.view_as))
+        throw HfosError.notFound('Workspace not found.');
       return {
         workspaceId: ref.workspaceId,
         organizationId: row.org,
         workspaceRole: row.role,
         orgRole: null,
+        // A support person looking at a business they have no standing in (M13). Their reads are the ones
+        // the rules already allow a reader; every command is refused outright below.
+        viewAs: !row.role && row.view_as ? { sessionId: row.view_as } : null,
       };
     }
     case 'organization': {
@@ -69,6 +82,21 @@ async function resolveScope(tx: Tx, ref: ScopeRef): Promise<ResolvedScope> {
         orgRole: row.role,
       };
     }
+    case 'platform': {
+      const [row] = await rows<{ role: StaffRole | null }>(
+        tx,
+        sql`select private.staff_role() as role`,
+      );
+      // The support desk does not exist for anyone who does not work here.
+      if (!row?.role) throw HfosError.notFound('Not found.');
+      return {
+        organizationId: null,
+        workspaceId: null,
+        workspaceRole: null,
+        orgRole: null,
+        staffRole: row.role,
+      };
+    }
     default:
       return { organizationId: null, workspaceId: null, workspaceRole: null, orgRole: null };
   }
@@ -80,6 +108,9 @@ async function resolveScope(tx: Tx, ref: ScopeRef): Promise<ResolvedScope> {
  */
 function resolveMachineScope(actor: MachineActor, ref: ScopeRef): ResolvedScope {
   switch (ref.kind) {
+    // The support desk belongs to people. The worker does its support work in plain queries, not commands.
+    case 'platform':
+      throw HfosError.forbidden('The support desk is not open to the system.');
     case 'workspace':
       if (ref.workspaceId !== actor.workspaceId) throw HfosError.notFound('Workspace not found.');
       return {
@@ -108,9 +139,11 @@ function resolveMachineScope(actor: MachineActor, ref: ScopeRef): ResolvedScope 
 }
 
 function assertPermission(scope: ResolvedScope, permission: Permission): void {
-  const ok = isOrgPermission(permission)
-    ? hasOrgPermission(scope.orgRole, permission)
-    : hasWorkspacePermission(scope.workspaceRole, permission);
+  const ok = isStaffPermission(permission)
+    ? hasStaffPermission(scope.staffRole ?? null, permission)
+    : isOrgPermission(permission)
+      ? hasOrgPermission(scope.orgRole, permission)
+      : hasWorkspacePermission(scope.workspaceRole, permission);
   if (!ok) throw HfosError.forbidden();
 }
 
@@ -143,6 +176,7 @@ function assertNotTestRun(actor: Actor): void {
 }
 
 function actorRoleLabel(scope: ResolvedScope): string | null {
+  if (scope.staffRole) return `staff_${scope.staffRole}`;
   return scope.workspaceRole ?? (scope.orgRole ? `org_${scope.orgRole}` : null);
 }
 
@@ -350,6 +384,13 @@ export async function executeCommand<I extends z.ZodType, O extends z.ZodType>(
   try {
     const outcome = await asUser(db, actor.claims, async (tx) => {
       const scope = await resolveScope(tx, scopeRef);
+      // Looking at a business never changes it. The role behind a look is null, so nothing would have
+      // passed a permission check anyway; this says so plainly, and covers the commands that ask for none.
+      if (scope.viewAs)
+        throw HfosError.forbidden(
+          'You are looking at this business, not working in it. Nothing here can be changed.',
+          'view_as_read_only',
+        );
       let receiptId: string | null = null;
       if (claim) {
         receiptWorkspace = scope.workspaceId;
@@ -461,6 +502,12 @@ export async function executeCommandWithin<I extends z.ZodType, O extends z.ZodT
   }
 }
 
+/**
+ * The Assistant is the one look-up a staff member viewing a business does not get: it is the door to
+ * doing things, and view-as is for seeing only.
+ */
+const VIEW_AS_BLOCKED: ReadonlySet<string> = new Set(['assistant.use']);
+
 export async function executeQuery<I extends z.ZodType, O extends z.ZodType>(
   db: Db,
   query: QueryDef<I, O>,
@@ -487,7 +534,14 @@ export async function executeQuery<I extends z.ZodType, O extends z.ZodType>(
     }
     return await asUser(db, actor.claims, async (tx) => {
       const scope = await resolveScope(tx, scopeRef);
-      if (query.permission) assertPermission(scope, query.permission);
+      if (scope.viewAs) {
+        // Looking at a business, not working in it: no role to check a permission against, so the read
+        // rules are the whole answer — except the Assistant, which is never part of looking.
+        if (query.permission && VIEW_AS_BLOCKED.has(query.permission))
+          throw HfosError.notFound('Workspace not found.');
+      } else if (query.permission) {
+        assertPermission(scope, query.permission);
+      }
       return run(tx, scope);
     });
   } catch (e) {

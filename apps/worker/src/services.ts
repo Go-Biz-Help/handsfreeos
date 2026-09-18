@@ -17,6 +17,17 @@ import type { PushServices } from './push/index';
 import type { ObjectStore } from './storage';
 import type { TelephonyProvider } from './telephony/provider';
 
+/** HandsFreeOS's own support desk (M13): where its mail arrives and who it comes from. */
+export interface SupportServices {
+  /** The bare domain support mail arrives on, kept apart from the businesses' sending subdomain. */
+  readonly mailDomain: string;
+  /** The local parts that open a ticket, the first of which is the one we send from. */
+  readonly addresses: readonly string[];
+  readonly fromName: string;
+  /** Always support admins, whatever the database says: there is always a way back in. */
+  readonly ownerEmails: readonly string[];
+}
+
 /** Everything the worker's loops, handlers and HTTP routes share. */
 export interface WorkerServices {
   readonly db: Db;
@@ -61,6 +72,8 @@ export interface WorkerServices {
    * (account/auth-admin.ts). Missing without SUPABASE_URL and SUPABASE_SECRET_KEY; that job then waits and retries.
    */
   readonly authAdmin?: AuthAdmin;
+  /** HandsFreeOS's own support desk: the addresses its mail arrives on and sends from. */
+  readonly support: SupportServices;
 }
 
 export interface TenantScope {

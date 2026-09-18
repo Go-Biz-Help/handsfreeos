@@ -1,6 +1,7 @@
 import type { ProcessorMap } from '../deliveries';
 import { paymentProcessors } from '../money/processors';
 import { workflowProcessors } from '../workflows/index';
+import { onSupportInboundEmail } from '../support/inbound';
 import { onEmailEvent, onInboundEmail } from './postmark';
 import { onInboundText, onTextStatus } from './twilio-messaging';
 import {
@@ -26,6 +27,8 @@ export const processors: ProcessorMap = {
   'twilio:voice.transcription': onTranscription,
   'postmark:email.inbound': onInboundEmail,
   'postmark:email.event': onEmailEvent,
+  // Mail to support@handsfreeos.com, filed as a ticket instead of into anybody's business (M13).
+  'postmark:support.inbound': onSupportInboundEmail,
   // A workflow's inbound webhook: match or create the customer, start the run.
   ...workflowProcessors,
   // Stripe's and Square's events, under our own names for them (money/webhook-events.ts): a payment landing,

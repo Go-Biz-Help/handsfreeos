@@ -43,8 +43,12 @@ export const me = defineQuery({
       role: 'owner' | 'admin' | 'member';
     }>(
       ctx.tx,
+      // The businesses this person works in. Support staff can see every business's name (M13), so the
+      // filter is written here rather than left to the read rules: this list is "yours", not "visible".
       sql`select w.id, w.organization_id, o.name as organization_name, w.name, w.slug, w.timezone, w.industry, private.effective_workspace_role(w.id)::text as role
-          from app.workspaces w join app.organizations o on o.id = w.organization_id order by o.name, w.name`,
+          from app.workspaces w join app.organizations o on o.id = w.organization_id
+          where private.effective_workspace_role(w.id) is not null
+          order by o.name, w.name`,
     );
     return {
       user: {

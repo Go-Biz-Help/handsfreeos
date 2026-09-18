@@ -52,6 +52,21 @@ export interface WorkerEnv {
   readonly postmarkWebhookPassword: string;
   /** The shared subdomain (mirrors private.shared_mail_domain()). */
   readonly mailDomain: string;
+  /**
+   * HandsFreeOS's own support address (M13). Mail to it becomes a ticket rather than landing in a mailbox
+   * anybody signs into. It is the bare domain, kept apart from `mailDomain` (the businesses' subdomain), so
+   * the two routes can never be confused for one another.
+   */
+  readonly supportMailDomain: string;
+  /** The local parts that open a ticket: support@, help@ and anything else Chris points at us. */
+  readonly supportAddresses: readonly string[];
+  /** What customers see in the From line of a support reply. */
+  readonly supportFromName: string;
+  /**
+   * The people who are support admins whatever the database says — Chris, and whoever else runs HandsFreeOS.
+   * Checked at startup, so there is always a way back in if the last admin row is lost.
+   */
+  readonly platformOwnerEmails: readonly string[];
   /** Connected mailboxes: Microsoft's and Google's apps, or local mailboxes with a sign-in page on the worker. */
   readonly mailboxProvider: 'real' | 'fake';
   readonly microsoftClientId: string | null;
@@ -172,6 +187,15 @@ export function readEnv(env: NodeJS.ProcessEnv = process.env): WorkerEnv {
   if (!Number.isInteger(httpPort) || httpPort < 0 || httpPort > 65535)
     throw new Error(`Invalid WORKER_HTTP_PORT: ${env.WORKER_HTTP_PORT}`);
   const publicUrl = (env.WORKER_PUBLIC_URL ?? `http://127.0.0.1:${httpPort}`).replace(/\/+$/, '');
+
+  /**
+   * Support mail is told from a business's mail by the domain it was sent to, and nothing else. If the two
+   * were ever the same, every customer's reply would become a support ticket, so this refuses to start.
+   */
+  const mailDomain = (env.MAIL_DOMAIN || 'mail.handsfreeos.com').toLowerCase();
+  const supportMailDomain = (env.SUPPORT_MAIL_DOMAIN || 'handsfreeos.com').toLowerCase();
+  if (supportMailDomain === mailDomain)
+    throw new Error('SUPPORT_MAIL_DOMAIN must be a different domain from MAIL_DOMAIN');
   if (production && !/^https:\/\//.test(publicUrl))
     throw new Error('WORKER_PUBLIC_URL must be the https:// address providers call');
 
@@ -357,7 +381,17 @@ export function readEnv(env: NodeJS.ProcessEnv = process.env): WorkerEnv {
     postmarkMessageStream: env.POSTMARK_MESSAGE_STREAM || 'outbound',
     postmarkWebhookUser: env.POSTMARK_WEBHOOK_USER || 'postmark',
     postmarkWebhookPassword: postmarkWebhookPassword || LOCAL_WEBHOOK_PASSWORD,
-    mailDomain: (env.MAIL_DOMAIN || 'mail.handsfreeos.com').toLowerCase(),
+    mailDomain,
+    supportMailDomain,
+    supportAddresses: (env.SUPPORT_ADDRESSES || 'support,help')
+      .split(',')
+      .map((a) => a.trim().toLowerCase())
+      .filter(Boolean),
+    supportFromName: env.SUPPORT_FROM_NAME || 'HandsFreeOS Support',
+    platformOwnerEmails: (env.PLATFORM_OWNER_EMAILS || '')
+      .split(',')
+      .map((a) => a.trim().toLowerCase())
+      .filter((a) => a.includes('@')),
     mailboxProvider,
     microsoftClientId,
     microsoftClientSecret,

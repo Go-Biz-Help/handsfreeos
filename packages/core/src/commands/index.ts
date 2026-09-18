@@ -1,4 +1,6 @@
 import type { CommandDef } from '../kernel/types';
+import { supportStaffCommands } from './support-staff';
+import { supportTicketCommands } from './support';
 import { activityDelete, activityLog, activityUpdate } from './activity';
 import { assistantThreadArchive, assistantThreadRename } from './assistant';
 import {
@@ -683,6 +685,8 @@ export const commands: readonly CommandDef[] = [
   pushDeviceRegister,
   pushDeviceRemove,
   ...migrationCommands,
+  ...supportTicketCommands,
+  ...supportStaffCommands,
 ] as unknown as readonly CommandDef[];
 export { callPreview } from './call';
 export { VERIFY_CALLS_PER_DAY, VERIFY_CALLS_PER_HOUR } from './user-phone';
@@ -713,3 +717,5 @@ export * from './subscription';
 export * from './money-shared';
 export * from './push-device';
 export * from './migration';
+export * from './support';
+export * from './support-staff';

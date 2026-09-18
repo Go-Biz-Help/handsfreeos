@@ -3838,7 +3838,171 @@ export const migrationTombstones = app.table('migration_tombstones', {
   appliedAt: ts('applied_at'),
 });
 
+/* ===========================================================================
+ * platform · HandsFreeOS's own support desk (0070). Not tenant data: these
+ * tables are read by staff and by the worker, and by no business at all.
+ * ======================================================================== */
+
+export const platform = pgSchema('platform');
+
+export const staffRole = platform.enum('staff_role', ['agent', 'lead', 'admin']);
+export const staffStatus = platform.enum('staff_status', ['active', 'suspended']);
+export const ticketStatus = platform.enum('ticket_status', [
+  'new',
+  'open',
+  'waiting_on_customer',
+  'solved',
+  'closed',
+]);
+export const ticketPriority = platform.enum('ticket_priority', ['low', 'normal', 'high', 'urgent']);
+export const ticketChannel = platform.enum('ticket_channel', ['email', 'in_app', 'chat']);
+export const ticketAuthor = platform.enum('ticket_author', ['customer', 'staff', 'ai', 'system']);
+
+export type StaffRole = (typeof staffRole.enumValues)[number];
+export type TicketStatus = (typeof ticketStatus.enumValues)[number];
+export type TicketPriority = (typeof ticketPriority.enumValues)[number];
+export type TicketChannel = (typeof ticketChannel.enumValues)[number];
+
+/** The people who answer support. A suspended row keeps their name on old tickets and nothing else. */
+export const staff = platform.table('staff', {
+  userId: uuid('user_id')
+    .primaryKey()
+    .references(() => users.id, { onDelete: 'cascade' }),
+  role: staffRole('role').notNull().default('agent'),
+  status: staffStatus('status').notNull().default('active'),
+  displayName: text('display_name').notNull().default(''),
+  signature: text('signature').notNull().default(''),
+  invitedBy: userRef('invited_by'),
+  ...timestamps(),
+});
+
+export const staffInvitations = platform.table('staff_invitations', {
+  id: id(),
+  email: citext('email').notNull(),
+  role: staffRole('role').notNull().default('agent'),
+  tokenHash: bytea('token_hash'),
+  invitedBy: userRef('invited_by'),
+  sentAt: ts('sent_at'),
+  expiresAt: ts('expires_at').notNull(),
+  acceptedAt: ts('accepted_at'),
+  acceptedBy: userRef('accepted_by'),
+  revokedAt: ts('revoked_at'),
+  revokedBy: userRef('revoked_by'),
+  ...timestamps(),
+});
+
+export const tickets = platform.table('tickets', {
+  id: id(),
+  number: bigint('number', { mode: 'number' })
+    .notNull()
+    .default(sql`nextval('platform.ticket_number_seq')`),
+  subject: text('subject').notNull().default(''),
+  status: ticketStatus('status').notNull().default('new'),
+  priority: ticketPriority('priority').notNull().default('normal'),
+  channel: ticketChannel('channel').notNull(),
+  requesterEmail: citext('requester_email').notNull(),
+  requesterName: text('requester_name').notNull().default(''),
+  requesterUserId: userRef('requester_user_id'),
+  workspaceId: uuid('workspace_id').references(() => workspaces.id, { onDelete: 'set null' }),
+  organizationId: uuid('organization_id').references(() => organizations.id, {
+    onDelete: 'set null',
+  }),
+  assigneeUserId: uuid('assignee_user_id').references(() => staff.userId, { onDelete: 'set null' }),
+  /** Written by the database on insert; Reply-To carries it. */
+  replyToken: text('reply_token'),
+  firstResponseAt: ts('first_response_at'),
+  resolvedAt: ts('resolved_at'),
+  lastCustomerAt: ts('last_customer_at'),
+  lastStaffAt: ts('last_staff_at'),
+  snoozeUntil: ts('snooze_until'),
+  tags: text('tags').array().notNull().default([]),
+  mergedInto: uuid('merged_into').references((): AnyPgColumn => tickets.id, {
+    onDelete: 'set null',
+  }),
+  ...timestamps(),
+});
+
+export const ticketMessages = platform.table('ticket_messages', {
+  id: id(),
+  ticketId: uuid('ticket_id')
+    .notNull()
+    .references(() => tickets.id, { onDelete: 'cascade' }),
+  author: ticketAuthor('author').notNull(),
+  internal: boolean('internal').notNull().default(false),
+  authorUserId: userRef('author_user_id'),
+  bodyText: text('body_text').notNull().default(''),
+  bodyHtml: text('body_html'),
+  emailMessageId: text('email_message_id'),
+  emailInReplyTo: text('email_in_reply_to'),
+  attachments: jsonb('attachments').$type<unknown[]>().notNull().default([]),
+  createdAt: ts('created_at').notNull().defaultNow(),
+});
+
+/** The AI's suggested answer, waiting for a person to edit and send it. Never sent on its own. */
+export const ticketDrafts = platform.table('ticket_drafts', {
+  ticketId: uuid('ticket_id')
+    .primaryKey()
+    .references(() => tickets.id, { onDelete: 'cascade' }),
+  bodyText: text('body_text').notNull(),
+  sources: jsonb('sources').$type<unknown[]>().notNull().default([]),
+  model: text('model').notNull().default(''),
+  answersMessageId: uuid('answers_message_id').references(() => ticketMessages.id, {
+    onDelete: 'cascade',
+  }),
+  createdAt: ts('created_at').notNull().defaultNow(),
+  usedAt: ts('used_at'),
+  dismissedAt: ts('dismissed_at'),
+});
+
+export const ticketEvents = platform.table('ticket_events', {
+  id: id(),
+  ticketId: uuid('ticket_id')
+    .notNull()
+    .references(() => tickets.id, { onDelete: 'cascade' }),
+  kind: text('kind').notNull(),
+  actorUserId: userRef('actor_user_id'),
+  data: jsonb('data').$type<Json>().notNull().default({}),
+  createdAt: ts('created_at').notNull().defaultNow(),
+});
+
+export const cannedReplies = platform.table('canned_replies', {
+  id: id(),
+  title: text('title').notNull(),
+  bodyText: text('body_text').notNull(),
+  createdBy: userRef('created_by'),
+  ...timestamps(),
+});
+
+/** One open look at one business, with a reason and an end. The business sees it in its own audit log. */
+export const viewAsSessions = platform.table('view_as_sessions', {
+  id: id(),
+  staffUserId: uuid('staff_user_id')
+    .notNull()
+    .references(() => staff.userId, { onDelete: 'cascade' }),
+  workspaceId: uuid('workspace_id')
+    .notNull()
+    .references(() => workspaces.id, { onDelete: 'cascade' }),
+  organizationId: uuid('organization_id')
+    .notNull()
+    .references(() => organizations.id, { onDelete: 'cascade' }),
+  ticketId: uuid('ticket_id').references(() => tickets.id, { onDelete: 'set null' }),
+  reason: text('reason').notNull(),
+  startedAt: ts('started_at').notNull().defaultNow(),
+  expiresAt: ts('expires_at').notNull(),
+  endedAt: ts('ended_at'),
+  createdAt: ts('created_at').notNull().defaultNow(),
+});
+
 export const tables = {
+  staff,
+  staffInvitations,
+  tickets,
+  ticketMessages,
+  ticketDrafts,
+  ticketEvents,
+  cannedReplies,
+  viewAsSessions,
+
   migrationConnections,
   migrations,
   migrationScopes,
