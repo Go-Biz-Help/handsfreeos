@@ -50,16 +50,25 @@ const SUBJECT = `Reminders stopped going out ${mark}`;
 let s: TestServices;
 let app: FastifyInstance;
 
-/** Reserves the platform's own work (it has no workspace) and runs the loops until they are idle. */
+/**
+ * Runs the loops over this test's own work and nothing else.
+ *
+ * "Everything with no business" is the wrong net: the recurring planners and other suites' account jobs have
+ * no business either, and a failure of theirs is not a failure of ours. So each loop is pointed at the three
+ * kinds of work the support desk makes.
+ */
 async function drain(timeoutMs = 15_000): Promise<void> {
   const deadline = Date.now() + timeoutMs;
+  const reserve = (table: string, where: ReturnType<typeof sql>) =>
+    rows(
+      admin(),
+      sql`update ${sql.raw(`app.${table}`)} set locked_at = now(), locked_by = ${WORKER_ID}
+          where status = 'pending' and ${where}`,
+    );
   for (;;) {
-    for (const table of ['outbox', 'webhook_deliveries', 'scheduled_jobs'])
-      await rows(
-        admin(),
-        sql`update ${sql.raw(`app.${table}`)} set locked_at = now(), locked_by = ${WORKER_ID}
-            where status = 'pending' and workspace_id is null`,
-      );
+    await reserve('outbox', sql`(event_type like 'support%' or event_type like 'platform.%')`);
+    await reserve('webhook_deliveries', sql`kind = 'support.inbound'`);
+    await reserve('scheduled_jobs', sql`kind = 'support.draft'`);
     const d = { ...s, workerId: WORKER_ID, batchSize: 200, reservedOnly: true };
     const passes = [
       await processOnce({ ...d, handlers }),
@@ -70,9 +79,11 @@ async function drain(timeoutMs = 15_000): Promise<void> {
       const errors = await rows(
         admin(),
         sql`select kind as what, last_error from app.webhook_deliveries
-              where workspace_id is null and last_error is not null
+              where locked_by = ${WORKER_ID} and last_error is not null
             union all select event_type, last_error from app.outbox
-              where workspace_id is null and last_error is not null`,
+              where locked_by = ${WORKER_ID} and last_error is not null
+            union all select kind, last_error from app.scheduled_jobs
+              where locked_by = ${WORKER_ID} and last_error is not null`,
       );
       throw new Error(`support work failed: ${JSON.stringify(errors)}`);
     }
@@ -270,6 +281,57 @@ describe('mail to support@ becomes a ticket', () => {
       meta(),
     );
     expect(stillOne.tickets).toEqual([]);
+  });
+});
+
+describe('it never writes to itself', () => {
+  it('drops mail that came from our own support address', async () => {
+    const loop = inbound({
+      From: 'support@handsfreeos.test',
+      FromFull: { Email: 'support@handsfreeos.test', Name: 'HandsFreeOS Support', MailboxHash: '' },
+      Subject: `A loop waiting to happen ${mark}`,
+    });
+    expect((await post(loop)).statusCode).toBe(200);
+    await drain();
+    const found = await executeQuery(
+      api(),
+      supportTicketList,
+      { search: 'A loop waiting to happen' },
+      actor(agent),
+      meta(),
+    );
+    expect(found.tickets).toEqual([]);
+  });
+
+  it('answers no ticket whose requester is us, and says why on the ticket', async () => {
+    // Written straight into the table: the inbound door refuses this, so the only way such a ticket exists
+    // is somebody's account carrying our own address. The second door has to hold on its own.
+    const [t] = await rows<{ id: string }>(
+      admin(),
+      sql`insert into platform.tickets (subject, channel, requester_email)
+          values ('Asking ourselves', 'in_app', 'help@handsfreeos.test')
+          returning id`,
+    );
+    await executeCommand(
+      api(),
+      supportTicketReply,
+      { ticketId: t!.id, body: 'This must not go anywhere.' },
+      actor(agent),
+      meta(),
+    );
+    await drain();
+    const sent = await rows<{ email_message_id: string | null }>(
+      admin(),
+      sql`select email_message_id from platform.ticket_messages
+          where ticket_id = ${t!.id} and author = 'staff'`,
+    );
+    // Nothing was sent, so nothing was stamped with a Message-ID.
+    expect(sent.every((m) => m.email_message_id === null)).toBe(true);
+    const notes = await rows<{ kind: string }>(
+      admin(),
+      sql`select kind from platform.ticket_events where ticket_id = ${t!.id} and kind = 'not_emailed'`,
+    );
+    expect(notes).toHaveLength(1);
   });
 });
 

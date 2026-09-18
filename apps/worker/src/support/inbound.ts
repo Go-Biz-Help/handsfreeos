@@ -13,7 +13,7 @@ import { asWorker, rows, sql } from '@hfos/db/client';
 import { eq } from 'drizzle-orm';
 import { tickets, ticketEvents, ticketMessages } from '@hfos/db/schema';
 import type { DeliveryContext, DeliveryProcessor } from '../deliveries';
-import { acknowledgeTicket } from './mail';
+import { acknowledgeTicket, isOurSupportAddress } from './mail';
 import {
   headerOf,
   htmlToText,
@@ -145,6 +145,12 @@ export const onSupportInboundEmail: DeliveryProcessor = async (ctx) => {
   }
   const from = (p.FromFull?.Email ?? p.From ?? '').trim().toLowerCase();
   if (!EMAIL.test(from)) return 'ignored';
+  // Mail from one of our own support addresses is never filed. Answering it would send to ourselves, and
+  // that answer would arrive here again: a loop with real mail on every turn.
+  if (isOurSupportAddress(ctx, from)) {
+    ctx.log.warn({ from }, 'support mail from our own address was not filed');
+    return 'ignored';
+  }
 
   const media = (p.Attachments ?? []).slice(0, 20);
   const cids = new Map<string, number>();

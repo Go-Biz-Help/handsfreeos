@@ -29,6 +29,23 @@ function addresses(ctx: SupportMailContext, replyToken: string | null) {
   };
 }
 
+/**
+ * One of our own support addresses — support@, help@, or either with a +token on it.
+ *
+ * Nothing is ever sent to one of these. A ticket whose requester is us would be answered to us, and that
+ * answer would arrive as new mail, open a ticket, and be answered again: a loop that sends real mail on every
+ * turn. It cannot happen by accident today, but "cannot happen" is what a loop is made of, so the door is
+ * shut here as well as at the inbound end.
+ */
+export function isOurSupportAddress(ctx: SupportMailContext, address: string): boolean {
+  const email = address.trim().toLowerCase();
+  const at = email.lastIndexOf('@');
+  if (at < 1 || email.slice(at + 1) !== ctx.support.mailDomain) return false;
+  const local = email.slice(0, at);
+  const plus = local.indexOf('+');
+  return ctx.support.addresses.includes(plus === -1 ? local : local.slice(0, plus));
+}
+
 /** "Re: their subject", without stacking up Re: Re: Re:. */
 const reSubject = (subject: string) =>
   /^re:/i.test(subject.trim()) ? subject.trim() : `Re: ${subject.trim() || '(no subject)'}`;
@@ -79,6 +96,41 @@ async function lastFromCustomer(ctx: SupportMailContext, ticketId: string): Prom
   return row?.email_message_id ?? null;
 }
 
+/**
+ * True when the ticket's requester is one of our own addresses, and the desk has been told why nothing went
+ * out. The note is written once: the ticket is still answerable by any other means, and a person reading it
+ * should see that we chose not to send rather than that sending failed.
+ */
+async function refuseToWriteToOurselves(
+  ctx: SupportMailContext,
+  ticket: TicketMail,
+): Promise<boolean> {
+  if (!isOurSupportAddress(ctx, ticket.requesterEmail)) return false;
+  ctx.log.warn(
+    { ticketId: ticket.id, address: ticket.requesterEmail },
+    'a ticket from our own support address was not answered by email',
+  );
+  const already = await asWorker(ctx.db, {}, (tx) =>
+    rows<{ id: string }>(
+      tx,
+      sql`select id from platform.ticket_events
+          where ticket_id = ${ticket.id} and kind = 'not_emailed' limit 1`,
+    ),
+  );
+  if (already.length === 0)
+    await asWorker(ctx.db, {}, (tx) =>
+      tx.insert(ticketEvents).values({
+        ticketId: ticket.id,
+        kind: 'not_emailed',
+        data: {
+          reason: 'the requester is our own support address',
+          address: ticket.requesterEmail,
+        },
+      }),
+    );
+  return true;
+}
+
 const signOff = (staffName: string, signature: string) =>
   signature.trim() || `— ${staffName || 'HandsFreeOS Support'}`;
 
@@ -92,6 +144,7 @@ export async function sendTicketReply(
 ): Promise<void> {
   const ticket = await ticketFor(ctx, input.ticketId);
   if (!ticket) return;
+  if (await refuseToWriteToOurselves(ctx, ticket)) return;
   const [message] = await asWorker(ctx.db, {}, (tx) =>
     rows<{
       body_text: string;
@@ -146,6 +199,7 @@ export async function sendTicketReply(
 export async function acknowledgeTicket(ctx: SupportMailContext, ticketId: string): Promise<void> {
   const ticket = await ticketFor(ctx, ticketId);
   if (!ticket) return;
+  if (await refuseToWriteToOurselves(ctx, ticket)) return;
   const already = await asWorker(ctx.db, {}, (tx) =>
     rows<{ id: string }>(
       tx,
