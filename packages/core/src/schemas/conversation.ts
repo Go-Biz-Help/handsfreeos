@@ -12,7 +12,7 @@ export const conversationChannel = z.enum(['sms', 'email', 'chat']);
 export type ConversationChannel = z.infer<typeof conversationChannel>;
 export const conversationStatus = z.enum(['open', 'snoozed', 'closed']);
 /** needs_person: handed to a person and not yet picked up (oldest first); ai: the AI teammate answers. */
-export const inboxBox = z.enum(['mine', 'unassigned', 'all', 'needs_person', 'ai']);
+export const inboxBox = z.enum(['mine', 'unassigned', 'all', 'needs_person', 'ai', 'archived']);
 export const messageDirection = z.enum(['inbound', 'outbound']);
 export const smsConsent = z.enum(['unknown', 'opted_in', 'opted_out']);
 
@@ -40,6 +40,8 @@ export const ConversationSummary = z.object({
   lastSentBy: UserRef,
   awaitingReplySince: isoDateTime.nullable(),
   snoozedUntil: isoDateTime.nullable(),
+  /** Put away, so it is out of the inbox until somebody brings it back. Its status is untouched. */
+  archived: z.boolean(),
   openLead: OpenLeadRef.nullable(),
   createdAt: isoDateTime,
   /** Who answers it (M7): nobody in particular, the AI teammate, or a person who took it or picked it up. */

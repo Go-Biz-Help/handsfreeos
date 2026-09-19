@@ -789,6 +789,8 @@ export const conversations = app.table('conversations', {
   awaitingReplySince: ts('awaiting_reply_since'),
   closedAt: ts('closed_at'),
   closedBy: userRef('closed_by'),
+  /** Out of the inbox, keeping its status: restoring brings back the open, snoozed or closed thread as it was. */
+  archivedAt: ts('archived_at'),
   createdBy: userRef('created_by'),
   ...timestamps(),
   emailAddressId: uuid('email_address_id').references(() => emailAddresses.id, {

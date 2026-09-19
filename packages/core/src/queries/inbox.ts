@@ -65,6 +65,7 @@ type ConversationRow = {
   last_sender: { id: string; fullName: string } | null;
   awaiting_reply_since: Date | null;
   snoozed_until: Date | null;
+  archived_at: Date | null;
   created_at: Date;
   handled_by: 'none' | 'ai' | 'person';
   ai_teammate_id: string | null;
@@ -93,7 +94,7 @@ const conversationSelect = (
 ) => sql`
   select c.id, c.channel::text as channel, c.counterpart, c.status::text as status, c.person_id, p.first_name, p.last_name,
     c.assignee_user_id, coalesce(nullif(u.full_name, ''), u.email::text) as assignee_name, c.unread_count, c.last_message_at,
-    c.last_preview, c.last_direction::text as last_direction, c.awaiting_reply_since, c.snoozed_until, c.created_at,
+    c.last_preview, c.last_direction::text as last_direction, c.awaiting_reply_since, c.snoozed_until, c.archived_at, c.created_at,
     cv.name as visitor_name,
     coalesce(cv.last_seen_at > now() - ${CHAT_ON_SITE_MS}::float8 * interval '1 millisecond', false) as on_site_now,
     c.handled_by::text as handled_by, c.ai_teammate_id, tm.name as teammate_name, c.needs_person_since,
@@ -142,6 +143,7 @@ function summary(r: ConversationRow): ConversationSummary {
     lastSentBy: r.last_direction === 'outbound' ? r.last_sender : null,
     awaitingReplySince: iso(r.awaiting_reply_since),
     snoozedUntil: iso(r.snoozed_until),
+    archived: r.archived_at !== null,
     openLead: r.open_lead
       ? {
           id: r.open_lead.id,
@@ -247,11 +249,25 @@ export const inboxList = defineQuery({
             : input.box === 'ai'
               ? sql`and c.handled_by = 'ai'`
               : sql``;
+    // Archived threads are out of the inbox: only their own box shows them, and only it hides the live ones.
+    const archived =
+      input.box === 'archived'
+        ? sql`and c.archived_at is not null`
+        : sql`and c.archived_at is null`;
     const list = await rows<ConversationRow>(
       ctx.tx,
       sql`select * from (${conversationSelect(input.workspaceId, oldestFirst ? 'needs_person' : 'recent')}
-            ${input.personId ? sql`and c.person_id = ${input.personId}` : sql`and c.status = ${input.status}::app.conversation_status and c.last_message_at is not null`}
+            ${
+              input.personId
+                ? sql`and c.person_id = ${input.personId}`
+                : // Archived threads keep whatever status they had, so their own box lists them all rather than
+                  // hiding every closed one behind a status nobody chose.
+                  input.box === 'archived'
+                  ? sql`and c.last_message_at is not null`
+                  : sql`and c.status = ${input.status}::app.conversation_status and c.last_message_at is not null`
+            }
             ${box}
+            ${archived}
             ${input.channel ? sql`and c.channel = ${input.channel}::app.channel` : sql``}
             ${
               q
@@ -296,7 +312,9 @@ export const inboxSummary = defineQuery({
               and c.awaiting_reply_since <= now() - make_interval(mins => ${threshold}))::int as waiting,
             count(*) filter (where c.status = 'open' and c.needs_person_since is not null)::int as needs_person,
             count(*) filter (where c.status = 'open' and c.handled_by = 'ai')::int as ai
-          from app.conversations c where c.workspace_id = ${input.workspaceId} and c.last_message_at is not null`,
+          from app.conversations c
+          where c.workspace_id = ${input.workspaceId} and c.last_message_at is not null
+            and c.archived_at is null`,
     );
     const n = (k: string) => Number(s?.[k] ?? 0);
     return {

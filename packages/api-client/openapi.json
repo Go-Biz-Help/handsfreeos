@@ -6615,6 +6615,73 @@
         }
       }
     },
+    "/v1/commands/conversation.archive": {
+      "post": {
+        "operationId": "command_conversation_archive",
+        "summary": "Put a conversation away so it leaves the inbox. Its messages, calls and timeline stay; bring it back any time.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 2. Requires records.archive. Emits conversation.archived. Can wait on a phone with no signal.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "conversationId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "conversationId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "conversationId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "notApplied": {
+                      "default": [],
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "required": [
+                    "conversationId",
+                    "notApplied"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/commands/conversation.close": {
       "post": {
         "operationId": "command_conversation_close",
@@ -6690,6 +6757,73 @@
           "commands"
         ],
         "description": "Risk level 0. Requires inbox.use. Emits conversation.reopened. Can wait on a phone with no signal.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "conversationId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "conversationId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "conversationId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "notApplied": {
+                      "default": [],
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "required": [
+                    "conversationId",
+                    "notApplied"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/commands/conversation.restore": {
+      "post": {
+        "operationId": "command_conversation_restore",
+        "summary": "Bring an archived conversation back, in the state it was in when it was put away.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 2. Requires records.archive. Emits conversation.restored. Can wait on a phone with no signal.",
         "requestBody": {
           "required": true,
           "content": {
@@ -43315,7 +43449,8 @@
                       "unassigned",
                       "all",
                       "needs_person",
-                      "ai"
+                      "ai",
+                      "archived"
                     ]
                   },
                   "status": {
@@ -43528,6 +43663,9 @@
                               }
                             ]
                           },
+                          "archived": {
+                            "type": "boolean"
+                          },
                           "openLead": {
                             "anyOf": [
                               {
@@ -43708,6 +43846,7 @@
                           "lastSentBy",
                           "awaitingReplySince",
                           "snoozedUntil",
+                          "archived",
                           "openLead",
                           "createdAt",
                           "handledBy",
@@ -44073,6 +44212,9 @@
                             }
                           ]
                         },
+                        "archived": {
+                          "type": "boolean"
+                        },
                         "openLead": {
                           "anyOf": [
                             {
@@ -44253,6 +44395,7 @@
                         "lastSentBy",
                         "awaitingReplySince",
                         "snoozedUntil",
+                        "archived",
                         "openLead",
                         "createdAt",
                         "handledBy",

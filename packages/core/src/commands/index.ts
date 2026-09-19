@@ -60,12 +60,14 @@ import { calendarConnectionCommands } from './calendar-connection';
 import { companyArchive } from './company.archive';
 import {
   conversationAssign,
+  conversationArchive,
   conversationClose,
   conversationLinkPerson,
   conversationMarkRead,
   conversationMarkUnread,
   conversationOpen,
   conversationReopen,
+  conversationRestore,
   conversationSnooze,
 } from './conversation';
 import {
@@ -287,12 +289,14 @@ import { migrationCommands } from './migration';
 
 export {
   conversationAssign,
+  conversationArchive,
   conversationClose,
   conversationLinkPerson,
   conversationMarkRead,
   conversationMarkUnread,
   conversationOpen,
   conversationReopen,
+  conversationRestore,
   conversationSnooze,
   messageAttachMedia,
   messageCancelScheduled,
@@ -511,8 +515,10 @@ export const commands: readonly CommandDef[] = [
   conversationMarkUnread,
   conversationAssign,
   conversationSnooze,
+  conversationArchive,
   conversationClose,
   conversationReopen,
+  conversationRestore,
   conversationLinkPerson,
   messageSend,
   messageRetry,

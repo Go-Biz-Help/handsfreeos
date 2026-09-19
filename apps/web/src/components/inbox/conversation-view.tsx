@@ -24,6 +24,8 @@ import {
 } from '@hfos/core';
 import {
   AlarmClock,
+  Archive,
+  ArchiveRestore,
   ArrowLeft,
   Check,
   ChevronDown,
@@ -175,6 +177,8 @@ export function ConversationView({
   const listHref = `/app/w/${workspaceId}/inbox${listQuery}`;
   const customerHref = person ? `/app/w/${workspaceId}/customers/people/${person.id}` : null;
   const canManage = role === 'owner' || role === 'admin';
+  // Archiving matches every other record in HandsFreeOS: owners and admins, not everyone with the inbox.
+  const canArchive = canManage;
   const phone = useMediaQuery('(max-width: 767px)') === true;
   // With the Assistant docked beside the inbox, the customer pane folds away (Customer details opens it).
   const assistantDocked = useAssistant().docked;
@@ -674,6 +678,29 @@ export function ConversationView({
                   {email ? CONVERSATION_ACTIONS.copyEmail : CONVERSATION_ACTIONS.copyPhone}
                 </DropdownMenuItem>
               )}
+              {canArchive ? (
+                <>
+                  <DropdownMenuSeparator />
+                  {c.archived ? (
+                    <DropdownMenuItem
+                      onSelect={() => void actions.restore()}
+                      data-testid="thread-restore"
+                    >
+                      <ArchiveRestore className="h-3.5 w-3.5" strokeWidth={1.5} />
+                      {CONVERSATION_ACTIONS.restore}
+                    </DropdownMenuItem>
+                  ) : (
+                    <DropdownMenuItem
+                      danger
+                      onSelect={() => void actions.archive()}
+                      data-testid="thread-archive"
+                    >
+                      <Archive className="h-3.5 w-3.5" strokeWidth={1.5} />
+                      {CONVERSATION_ACTIONS.archive}
+                    </DropdownMenuItem>
+                  )}
+                </>
+              ) : null}
             </DropdownMenuContent>
           </DropdownMenu>
         </header>

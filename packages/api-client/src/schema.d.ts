@@ -1097,6 +1097,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/conversation.archive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Put a conversation away so it leaves the inbox. Its messages, calls and timeline stay; bring it back any time.
+         * @description Risk level 2. Requires records.archive. Emits conversation.archived. Can wait on a phone with no signal.
+         */
+        post: operations["command_conversation_archive"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/conversation.assign": {
         parameters: {
             query?: never;
@@ -1251,6 +1271,26 @@ export interface paths {
          * @description Risk level 0. Requires inbox.use. Emits conversation.reopened. Can wait on a phone with no signal.
          */
         post: operations["command_conversation_reopen"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/conversation.restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Bring an archived conversation back, in the state it was in when it was put away.
+         * @description Risk level 2. Requires records.archive. Emits conversation.restored. Can wait on a phone with no signal.
+         */
+        post: operations["command_conversation_restore"];
         delete?: never;
         options?: never;
         head?: never;
@@ -10558,6 +10598,40 @@ export interface operations {
             };
         };
     };
+    command_conversation_archive: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    conversationId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        conversationId: string;
+                        /** @default [] */
+                        notApplied: string[];
+                    };
+                };
+            };
+        };
+    };
     command_conversation_assign: {
         parameters: {
             query?: never;
@@ -10805,6 +10879,40 @@ export interface operations {
         };
     };
     command_conversation_reopen: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    conversationId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        conversationId: string;
+                        /** @default [] */
+                        notApplied: string[];
+                    };
+                };
+            };
+        };
+    };
+    command_conversation_restore: {
         parameters: {
             query?: never;
             header?: never;
@@ -22974,6 +23082,7 @@ export interface operations {
                             widgetId: string;
                         } | null;
                         conversation: {
+                            archived: boolean;
                             assignee: {
                                 fullName: string;
                                 /** Format: uuid */
@@ -24343,7 +24452,7 @@ export interface operations {
                      * @default all
                      * @enum {string}
                      */
-                    box?: "mine" | "unassigned" | "all" | "needs_person" | "ai";
+                    box?: "mine" | "unassigned" | "all" | "needs_person" | "ai" | "archived";
                     /** @enum {string} */
                     channel?: "sms" | "email" | "chat";
                     cursor?: string;
@@ -24371,6 +24480,7 @@ export interface operations {
                 content: {
                     "application/json": {
                         items: {
+                            archived: boolean;
                             assignee: {
                                 fullName: string;
                                 /** Format: uuid */

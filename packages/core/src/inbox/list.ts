@@ -6,13 +6,15 @@
 import { minutesWaiting, waitingFor, zonedWhen } from './time';
 
 /** Every inbox box, the teammate's two included. */
-export type InboxBoxKey = 'mine' | 'unassigned' | 'all' | 'needs_person' | 'ai';
+export type InboxBoxKey = 'mine' | 'unassigned' | 'all' | 'needs_person' | 'ai' | 'archived';
 export const INBOX_BOXES: readonly InboxBoxKey[] = [
   'mine',
   'unassigned',
   'all',
   'needs_person',
   'ai',
+  /** Put away. The only box that shows archived conversations; every other one hides them. */
+  'archived',
 ];
 
 export type ConversationStatus = 'open' | 'snoozed' | 'closed';
@@ -166,6 +168,11 @@ export function inboxEmptyWords(
     return {
       title: `${name} isn’t handling anything right now`,
       body: `Conversations ${name} answers show here, until someone takes one over.`,
+    };
+  if (box === 'archived')
+    return {
+      title: 'Nothing archived',
+      body: 'Conversations you put away land here, and can be brought back any time.',
     };
   if (status === 'snoozed')
     return { title: 'Nothing snoozed', body: 'Conversations you snooze or close show up here.' };
