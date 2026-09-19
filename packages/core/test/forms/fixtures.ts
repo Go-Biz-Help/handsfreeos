@@ -22,45 +22,26 @@ export const choice = (name: string, extra: Record<string, unknown> = {}) => ({
   ...extra,
 });
 
-export const shortText = (name: string, extra: Partial<QuestionInput> = {}): QuestionInput => ({
-  id: qid(name),
-  type: 'short_text',
-  title: name,
-  config: {},
-  ...extra,
-});
+/** The spread widens `type`, so each helper says which member of the union it is making. */
+export const shortText = (name: string, extra: Partial<QuestionInput> = {}): QuestionInput =>
+  ({ id: qid(name), type: 'short_text', title: name, config: {}, ...extra }) as QuestionInput;
 
-export const number = (name: string, extra: Partial<QuestionInput> = {}): QuestionInput => ({
-  id: qid(name),
-  type: 'number',
-  title: name,
-  config: {},
-  ...extra,
-});
+export const number = (name: string, extra: Partial<QuestionInput> = {}): QuestionInput =>
+  ({ id: qid(name), type: 'number', title: name, config: {}, ...extra }) as QuestionInput;
 
 export const pickOne = (
   name: string,
   choices: ReturnType<typeof choice>[],
   extra: Partial<QuestionInput> = {},
-): QuestionInput => ({
-  id: qid(name),
-  type: 'choice',
-  title: name,
-  config: { choices },
-  ...extra,
-});
+): QuestionInput =>
+  ({ id: qid(name), type: 'choice', title: name, config: { choices }, ...extra }) as QuestionInput;
 
 export const pickAny = (
   name: string,
   choices: ReturnType<typeof choice>[],
   extra: Partial<QuestionInput> = {},
-): QuestionInput => ({
-  id: qid(name),
-  type: 'checkboxes',
-  title: name,
-  config: { choices },
-  ...extra,
-});
+): QuestionInput =>
+  ({ id: qid(name), type: 'checkboxes', title: name, config: { choices }, ...extra }) as QuestionInput;
 
 export const page = (name: string, questions: QuestionInput[], extra: Partial<FormPageInput> = {}): FormPageInput => ({
   id: pid(name),

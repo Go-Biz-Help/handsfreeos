@@ -8,6 +8,7 @@ import {
   gradedQuestions,
   scoringProblems,
 } from '../../src/forms/index';
+import type { QuestionInput } from '../../src/forms/index';
 import {
   choice,
   cid,
@@ -58,10 +59,14 @@ describe('the definition', () => {
   });
 
   it('refuses a question whose config belongs to another type', () => {
-    const bad = tryDef({
-      pages: [page('about', [{ id: qid('sig'), type: 'signature', title: 'Sign', config: {} }])],
-    });
-    expect(bad.success).toBe(false);
+    // TypeScript refuses this too; the cast is there to prove the schema catches it at runtime.
+    const signatureWithNothingToSign = {
+      id: qid('sig'),
+      type: 'signature',
+      title: 'Sign',
+      config: {},
+    } as unknown as QuestionInput;
+    expect(tryDef({ pages: [page('about', [signatureWithNothingToSign])] }).success).toBe(false);
   });
 
   it('wants two choices on a pick-one', () => {
