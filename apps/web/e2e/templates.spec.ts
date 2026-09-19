@@ -19,7 +19,11 @@ test('wording is saved, reused, and put away without being lost', async ({ page 
   await page.getByLabel('Message').fill('Hi {{person.first_name}}, we are on our way.');
   await page.getByRole('button', { name: 'Save' }).click();
 
-  const card = page.getByText('On our way');
+  /**
+   * Exact, because the wording of this template contains its own name — "we are on our way" — which is
+   * entirely normal for a template and made a loose match find the card and its body both.
+   */
+  const card = page.getByText('On our way', { exact: true });
   await expect(card).toBeVisible();
   // It says what it will fill in, so nobody has to guess what the braces do.
   await expect(page.getByText('Fills in: person.first_name')).toBeVisible();
@@ -27,7 +31,7 @@ test('wording is saved, reused, and put away without being lost', async ({ page 
 
   // Still there after a reload: saved, not just on the screen.
   await page.reload();
-  await expect(page.getByText('On our way')).toBeVisible();
+  await expect(card).toBeVisible();
 
   // An email keeps its subject; a text is never given one.
   await page.getByRole('button', { name: 'New template' }).click();
@@ -36,14 +40,14 @@ test('wording is saved, reused, and put away without being lost', async ({ page 
   await page.getByLabel('Subject').fill('Your quote');
   await page.getByLabel('Message').fill('Just checking you got the quote.');
   await page.getByRole('button', { name: 'Save' }).click();
-  await expect(page.getByText('Your quote')).toBeVisible();
+  await expect(page.getByText('Your quote', { exact: true })).toBeVisible();
 
   // Put one away: gone from the list, not gone.
   await page.getByRole('button', { name: 'Put away On our way' }).click();
-  await expect(page.getByText('On our way')).toBeHidden();
+  await expect(card).toBeHidden();
   await page.getByRole('button', { name: /Put away \(1\)/ }).click();
-  await expect(page.getByText('On our way')).toBeVisible();
+  await expect(card).toBeVisible();
   await page.getByRole('button', { name: 'Restore On our way' }).click();
   await page.getByRole('button', { name: /In use \(2\)/ }).click();
-  await expect(page.getByText('On our way')).toBeVisible();
+  await expect(card).toBeVisible();
 });
