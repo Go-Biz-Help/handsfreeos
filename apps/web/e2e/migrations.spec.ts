@@ -89,7 +89,9 @@ test('migrations: connect, look, map two sub-accounts into one business, choose,
     'not visible to this sign-in',
   );
   await expect(page.getByTestId('migration-count-contacts')).toHaveText('9');
-  await expect(page.getByTestId('migration-row-custom_fields')).toContainText(
+  // Custom fields have a home since M15, so they come across as fields rather than as a note apologising
+  // for them. The row is a countable, bringable category like any other.
+  await expect(page.getByTestId('migration-row-custom_fields')).not.toContainText(
     'Nowhere to put it yet',
   );
   await expect(page.getByTestId('migration-finding-access.scope_missing')).toBeVisible();

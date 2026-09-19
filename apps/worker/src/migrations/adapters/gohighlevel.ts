@@ -109,11 +109,23 @@ interface Endpoint {
   /** The field that is the record's own id. */
   readonly idKey: string;
   /** GoHighLevel pages some things by a cursor and some by a page number; both are here. */
-  readonly paging: 'startAfter' | 'page' | 'none';
+  readonly paging: 'startAfter' | 'page' | 'offset' | 'none';
   readonly countQuality: CountQuality;
   /** Whether the endpoint can be asked "what changed since?". Most of v2 cannot. */
   readonly incremental: boolean;
   readonly objectType: string;
+  /**
+   * Whether this endpoint accepts `limit`. Two of HighLevel's reject it outright — `/users` and a location's
+   * `/customFields` answer `422 property limit should not exist` — which cost us the team list and every
+   * custom field on the first real account, because the count probe added `limit=1` to everything it asked
+   * for. A shape the source refuses is not a category the business does not have.
+   */
+  readonly limit?: boolean;
+  /**
+   * Where the total sits in the answer, when the endpoint reports one. Dotted for a nested key. Without it a
+   * count is the length of what came back, which is a floor rather than a total, and is labelled as such.
+   */
+  readonly totalKey?: string;
 }
 
 const ENDPOINTS: Record<string, Endpoint> = {
@@ -125,6 +137,8 @@ const ENDPOINTS: Record<string, Endpoint> = {
     countQuality: 'complete',
     incremental: false,
     objectType: 'user',
+    // 422 property limit should not exist.
+    limit: false,
   },
   custom_fields: {
     path: (s) => `/locations/${encodeURIComponent(s)}/customFields`,
@@ -134,6 +148,8 @@ const ENDPOINTS: Record<string, Endpoint> = {
     countQuality: 'complete',
     incremental: false,
     objectType: 'custom_field',
+    // 422 property limit should not exist.
+    limit: false,
   },
   tags: {
     path: (s) => `/locations/${encodeURIComponent(s)}/tags`,
@@ -162,34 +178,190 @@ const ENDPOINTS: Record<string, Endpoint> = {
     incremental: false,
     objectType: 'company',
   },
+
+  // ---------- the structures records live in ----------
+  pipelines: {
+    path: (s) => `/opportunities/pipelines?locationId=${encodeURIComponent(s)}`,
+    listKey: 'pipelines',
+    idKey: 'id',
+    paging: 'none',
+    countQuality: 'complete',
+    incremental: false,
+    objectType: 'pipeline',
+    limit: false,
+  },
+  calendars: {
+    path: (s) => `/calendars/?locationId=${encodeURIComponent(s)}`,
+    listKey: 'calendars',
+    idKey: 'id',
+    paging: 'none',
+    countQuality: 'complete',
+    incremental: false,
+    objectType: 'calendar',
+    limit: false,
+  },
+  forms: {
+    path: (s) => `/forms/?locationId=${encodeURIComponent(s)}`,
+    listKey: 'forms',
+    idKey: 'id',
+    paging: 'offset',
+    countQuality: 'complete',
+    incremental: false,
+    objectType: 'form',
+    totalKey: 'meta.total',
+  },
+  products: {
+    path: (s) => `/products/?locationId=${encodeURIComponent(s)}`,
+    listKey: 'products',
+    idKey: '_id',
+    paging: 'offset',
+    countQuality: 'complete',
+    incremental: false,
+    objectType: 'product',
+    totalKey: 'total',
+  },
+  templates: {
+    path: (s) => `/emails/builder?locationId=${encodeURIComponent(s)}`,
+    listKey: 'builders',
+    idKey: 'id',
+    paging: 'offset',
+    countQuality: 'complete',
+    incremental: false,
+    objectType: 'template',
+    totalKey: 'total',
+  },
+  funnels: {
+    path: (s) => `/funnels/funnel/list?locationId=${encodeURIComponent(s)}`,
+    listKey: 'funnels',
+    idKey: '_id',
+    paging: 'none',
+    countQuality: 'complete',
+    incremental: false,
+    objectType: 'funnel',
+    limit: false,
+  },
+
+  // ---------- the records themselves ----------
+  // `location_id` rather than `locationId`: the opportunity search is the one endpoint in v2 that spells it
+  // with an underscore, and spelling it the other way returns every opportunity the token can see.
+  opportunities: {
+    path: (s) => `/opportunities/search?location_id=${encodeURIComponent(s)}`,
+    listKey: 'opportunities',
+    idKey: 'id',
+    paging: 'page',
+    countQuality: 'complete',
+    incremental: false,
+    objectType: 'opportunity',
+    totalKey: 'meta.total',
+  },
+  conversations: {
+    path: (s) => `/conversations/search?locationId=${encodeURIComponent(s)}`,
+    listKey: 'conversations',
+    idKey: 'id',
+    paging: 'startAfter',
+    countQuality: 'complete',
+    incremental: false,
+    objectType: 'conversation',
+    totalKey: 'total',
+  },
+  form_submissions: {
+    path: (s) => `/forms/submissions?locationId=${encodeURIComponent(s)}`,
+    listKey: 'submissions',
+    idKey: 'id',
+    paging: 'offset',
+    countQuality: 'complete',
+    incremental: false,
+    objectType: 'form_submission',
+    totalKey: 'meta.total',
+  },
+  reviews: {
+    path: (s) => `/reviews/all?locationId=${encodeURIComponent(s)}`,
+    listKey: 'reviews',
+    idKey: 'id',
+    paging: 'offset',
+    countQuality: 'complete',
+    incremental: false,
+    objectType: 'review',
+    totalKey: 'meta.total',
+  },
+  media: {
+    path: (s) => `/medias/files?altType=location&altId=${encodeURIComponent(s)}`,
+    listKey: 'files',
+    idKey: 'id',
+    paging: 'offset',
+    countQuality: 'complete',
+    incremental: false,
+    objectType: 'media',
+    totalKey: 'total',
+  },
+
+  // ---------- money ----------
+  // The money endpoints name the account as `altId` + `altType`, not `locationId`.
+  invoices: {
+    path: (s) => `/invoices/?altType=location&altId=${encodeURIComponent(s)}`,
+    listKey: 'invoices',
+    idKey: '_id',
+    paging: 'offset',
+    countQuality: 'complete',
+    incremental: false,
+    objectType: 'invoice',
+    totalKey: 'total',
+  },
+  estimates: {
+    path: (s) => `/invoices/estimate/list?altType=location&altId=${encodeURIComponent(s)}`,
+    listKey: 'estimates',
+    idKey: '_id',
+    paging: 'offset',
+    countQuality: 'complete',
+    incremental: false,
+    objectType: 'estimate',
+    totalKey: 'total',
+  },
+  subscriptions: {
+    path: (s) => `/payments/subscriptions?altType=location&altId=${encodeURIComponent(s)}`,
+    listKey: 'data',
+    idKey: '_id',
+    paging: 'offset',
+    countQuality: 'complete',
+    incremental: false,
+    objectType: 'subscription',
+    totalKey: 'totalCount',
+  },
 };
 
-/** Categories the scan counts but this release does not read record by record. */
-const COUNT_ONLY: readonly string[] = [
-  'pipelines',
-  'opportunities',
-  'calendars',
-  'appointments',
-  'conversations',
-  'messages',
-  'calls',
-  'forms',
-  'form_submissions',
-  'templates',
-  'products',
-  'invoices',
-  'estimates',
-  'subscriptions',
-  'tasks',
-  'reviews',
-  'media',
-  'phone_numbers',
-  'sending_domains',
-  'integrations',
-  'workflows',
-  'websites',
-  'funnels',
-];
+/**
+ * Categories this release counts but does not yet read record by record. They have endpoints above, so the
+ * scan reports a real number for each; whether anything is imported is decided by the category's release in
+ * core's catalog, never here.
+ */
+const COUNT_ONLY: readonly string[] = ['workflows'];
+
+/**
+ * Categories HighLevel will not give us a count of at all, and why. Said out loud on the screen rather than
+ * left as a dash beside the words "counted now" — a promise the adapter cannot keep is worse than a gap it
+ * admits to.
+ *
+ * Everything here is a genuine limit of the v2 API for one sub-account, not a shape we have yet to get right:
+ * appointments and messages can only be asked for within a parent (a calendar and a time range, one
+ * conversation), tasks and notes only one customer at a time, and the last four are not exposed to a
+ * location's own token in any form we can ask for.
+ */
+const CANNOT_COUNT: Readonly<Record<string, string>> = {
+  appointments:
+    'GoHighLevel only lists appointments inside one calendar and one date range, so there is no number for the account as a whole until the calendars come across.',
+  messages:
+    'GoHighLevel only lists messages inside one conversation, so the number arrives with the conversations.',
+  calls:
+    'Calls are messages inside a conversation over there, so they are counted with the conversations rather than on their own.',
+  tasks:
+    'GoHighLevel only lists tasks one customer at a time, so the number arrives with the customers.',
+  websites:
+    'GoHighLevel only lists pages inside one funnel, so pages are counted with the funnels they belong to.',
+  phone_numbers: 'A sub-account cannot list its own numbers through the API.',
+  sending_domains: 'A sub-account cannot list its own sending domains through the API.',
+  integrations:
+    'GoHighLevel does not say what a sub-account is plugged into, so connected apps are found from what their data leaves behind.',
+};
 
 class GhlError extends Error {
   constructor(
@@ -215,6 +387,16 @@ const asDate = (v: unknown): Date | null => {
 };
 const asString = (v: unknown): string | null =>
   typeof v === 'string' && v.trim() ? v.trim() : null;
+
+/** One value out of an answer by a dotted key ('meta.total'), or undefined. */
+const dig = (body: Record<string, unknown>, key: string): unknown =>
+  key
+    .split('.')
+    .reduce<unknown>(
+      (at, part) =>
+        at && typeof at === 'object' ? (at as Record<string, unknown>)[part] : undefined,
+      body,
+    );
 
 /**
  * GoHighLevel's custom-field types, as far as they map. Anything not here is kept whole in extensions with a
@@ -309,13 +491,16 @@ export function createGoHighLevelAdapter(config: GoHighLevelConfig): CrmSourceAd
       startAfterId?: string;
       startAfter?: number;
       page?: number;
+      offset?: number;
     };
-    let path = `${base}${join}limit=${limit}`;
+    // An endpoint that refuses `limit` gives everything it has in one answer, so there is nothing to page.
+    let path = endpoint.limit === false ? base : `${base}${join}limit=${limit}`;
     if (endpoint.paging === 'startAfter' && cursor.startAfterId)
       path += `&startAfterId=${encodeURIComponent(cursor.startAfterId)}${
         cursor.startAfter ? `&startAfter=${cursor.startAfter}` : ''
       }`;
     if (endpoint.paging === 'page') path += `&page=${cursor.page ?? 1}`;
+    if (endpoint.paging === 'offset') path += `&offset=${cursor.offset ?? 0}`;
 
     const body = await call<Record<string, unknown>>(token, path);
     const list = Array.isArray(body[endpoint.listKey])
@@ -344,17 +529,21 @@ export function createGoHighLevelAdapter(config: GoHighLevelConfig): CrmSourceAd
       });
     }
     const last = list[list.length - 1];
-    const done = list.length < limit;
+    // An endpoint that takes no limit answered with everything at once; anything short of a full page is the
+    // end of the list either way.
+    const done = endpoint.limit === false || list.length < limit;
     const nextCursor = done
       ? null
       : endpoint.paging === 'page'
         ? { page: (cursor.page ?? 1) + 1 }
-        : endpoint.paging === 'startAfter' && last
-          ? {
-              startAfterId: asString(last[endpoint.idKey]) ?? '',
-              startAfter: Number(last['dateAdded'] ?? last['dateUpdated'] ?? 0) || undefined,
-            }
-          : null;
+        : endpoint.paging === 'offset'
+          ? { offset: (cursor.offset ?? 0) + list.length }
+          : endpoint.paging === 'startAfter' && last
+            ? {
+                startAfterId: asString(last[endpoint.idKey]) ?? '',
+                startAfter: Number(last['dateAdded'] ?? last['dateUpdated'] ?? 0) || undefined,
+              }
+            : null;
     return {
       records,
       cursor: nextCursor,
@@ -376,29 +565,26 @@ export function createGoHighLevelAdapter(config: GoHighLevelConfig): CrmSourceAd
   }> => {
     const endpoint = ENDPOINTS[category];
     if (!endpoint) return { capability: 'not_in_release', count: 0, quality: 'unknown' };
+    const base = endpoint.path(scopeId);
+    // One record is enough to count when the answer carries a total; an endpoint that refuses `limit` is
+    // asked plainly instead, and what comes back is the whole list.
+    const path =
+      endpoint.limit === false ? base : `${base}${base.includes('?') ? '&' : '?'}limit=1`;
     try {
-      const body = await call<Record<string, unknown>>(
-        token,
-        `${endpoint.path(scopeId)}${endpoint.path(scopeId).includes('?') ? '&' : '?'}limit=1`,
-        { timeoutMs: 15_000 },
-      );
-      const total = body['total'] ?? body['meta'];
-      const count =
-        typeof total === 'number'
-          ? total
-          : typeof total === 'object' &&
-              total !== null &&
-              typeof (total as { total?: unknown }).total === 'number'
-            ? (total as { total: number }).total
-            : Array.isArray(body[endpoint.listKey])
-              ? (body[endpoint.listKey] as unknown[]).length
-              : 0;
-      return {
-        capability: 'ready',
-        count,
-        // A total the source gave us is a real count; one read record only proves there is at least one.
-        quality: typeof total === 'number' || typeof total === 'object' ? 'complete' : 'estimated',
-      };
+      const body = await call<Record<string, unknown>>(token, path, { timeoutMs: 15_000 });
+      const total = dig(body, endpoint.totalKey ?? 'total');
+      const list = Array.isArray(body[endpoint.listKey])
+        ? (body[endpoint.listKey] as unknown[])
+        : [];
+      // A total the source gave us is a real count. Otherwise: everything it gave us is a real count when it
+      // gave us everything, and a floor when we asked for one record.
+      return typeof total === 'number'
+        ? { capability: 'ready', count: total, quality: 'complete' }
+        : {
+            capability: 'ready',
+            count: list.length,
+            quality: endpoint.limit === false ? 'complete' : 'estimated',
+          };
     } catch (e) {
       const err = e as GhlError;
       if (err.code === 'forbidden' || err.code === 'unauthorized')
@@ -726,19 +912,28 @@ export function createGoHighLevelAdapter(config: GoHighLevelConfig): CrmSourceAd
           categories.push(supportOf(category, granted, 'not_available', 'permission_limited'));
           continue;
         }
+        // Whatever the probe found, a category cannot be more ready than its release in core's catalog: an
+        // endpoint we can read is not an importer we have written.
+        const ceiling = releaseCapability(migrationCategory(category)?.release ?? 'next');
         try {
           const p = await probe(token, category, scope.externalScopeId);
-          categories.push(supportOf(category, granted, p.capability, p.quality));
+          const capability = p.capability === 'not_available' ? 'not_available' : ceiling;
+          categories.push(supportOf(category, granted, capability, p.quality));
         } catch {
           // A broken probe is not a permission answer; it is unknown, and the scan says so.
-          categories.push(supportOf(category, granted, 'ready', 'unknown'));
+          categories.push(supportOf(category, granted, ceiling, 'unknown'));
         }
       }
-      for (const category of COUNT_ONLY) {
+      for (const category of [...COUNT_ONLY, ...Object.keys(CANNOT_COUNT)]) {
         const cat = migrationCategory(category);
         categories.push({
-          ...supportOf(category, granted, 'not_in_release', 'unknown'),
-          capability: cat ? releaseCapability(cat.release) : 'not_in_release',
+          ...supportOf(
+            category,
+            granted,
+            cat ? releaseCapability(cat.release) : 'not_in_release',
+            CANNOT_COUNT[category] ? 'not_enumerable' : 'unknown',
+          ),
+          limitations: CANNOT_COUNT[category] ? [CANNOT_COUNT[category]!] : undefined,
         });
       }
       return {
@@ -754,9 +949,27 @@ export function createGoHighLevelAdapter(config: GoHighLevelConfig): CrmSourceAd
     async *scan(connection, scope) {
       const granted = grantedScopes(connection);
       const token = tokenOf(connection, scope);
-      for (const category of [...Object.keys(ENDPOINTS), ...COUNT_ONLY]) {
+      for (const category of [
+        ...Object.keys(ENDPOINTS),
+        ...COUNT_ONLY,
+        ...Object.keys(CANNOT_COUNT),
+      ]) {
         const cat = migrationCategory(category);
         if (!cat) continue;
+        // No number exists for this one, and the reason is a real limit of the source rather than a gap in
+        // what we asked. Said in words, in place of a dash under a sentence promising a count.
+        const cannot = CANNOT_COUNT[category];
+        if (cannot) {
+          yield {
+            category,
+            count: 0,
+            countQuality: 'not_enumerable',
+            capability: releaseCapability(cat.release),
+            notes: cannot,
+            findings: [],
+          } satisfies InventoryResult;
+          continue;
+        }
         const required = GHL_SCOPES[category] ?? [];
         // A private token never said what it was given, so nothing is missing until GoHighLevel refuses it.
         const missing = granted ? required.filter((s) => !granted.has(s)) : [];
@@ -812,13 +1025,25 @@ export function createGoHighLevelAdapter(config: GoHighLevelConfig): CrmSourceAd
             });
         } catch (e) {
           quality = 'unknown';
+          const err = e as GhlError;
+          // 400 and 422 are not "try again": GoHighLevel understood the question and refused the shape of it,
+          // which means we asked wrongly. That is ours to fix, and the finding says so rather than sending a
+          // business round the same loop. It is how the `limit` bug that cost the team list was found.
+          const ourFault = err.status === 400 || err.status === 422;
           findings.push({
-            code: 'gohighlevel.scan_failed',
+            code: ourFault ? 'gohighlevel.request_refused' : 'gohighlevel.scan_failed',
             capability,
             severity: 'review',
-            summary: `We could not count ${cat.label.toLowerCase()} this time.`,
-            whatChanges: 'Scanning again usually settles it.',
-            detail: { message: (e as Error).message.slice(0, 200) },
+            summary: ourFault
+              ? `GoHighLevel refused the way we asked for ${cat.label.toLowerCase()}.`
+              : `We could not count ${cat.label.toLowerCase()} this time.`,
+            whatChanges: ourFault
+              ? 'The count is unknown, not zero. Nothing is wrong with your account: the question we asked was wrong, and scanning again will ask it the same way.'
+              : 'Scanning again usually settles it.',
+            recommendedAction: ourFault
+              ? 'Tell us — this one is ours to fix, and the scan is safe to leave as it is meanwhile.'
+              : null,
+            detail: { message: (e as Error).message.slice(0, 200), status: err.status ?? null },
           });
         }
         yield {

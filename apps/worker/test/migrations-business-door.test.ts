@@ -235,6 +235,37 @@ describe('a business moves itself in', () => {
     );
   }, 180_000);
 
+  it('brings the fields the business invented, as fields', async () => {
+    // M15 built custom fields here, so these are no longer written into a note and hoped over: the field
+    // comes across as a field, and the value arrives on the customer as something you can see and filter by.
+    const fields = await rows<{
+      id: string;
+      key: string;
+      label: string;
+      type: string;
+      entity: string;
+    }>(
+      admin(),
+      sql`select id::text as id, key, label, type::text as type, entity::text as entity
+          from app.custom_fields
+          where workspace_id = ${workspaceId}::uuid order by key`,
+    );
+    expect(fields.map((f) => f.key)).toContain('contact_unit_model');
+    const unit = fields.find((f) => f.key === 'contact_unit_model')!;
+    expect(unit).toMatchObject({ label: 'Unit model', type: 'text', entity: 'person' });
+    // A date over there is a date here, not text.
+    expect(fields.find((f) => f.key === 'contact_install_date')?.type).toBe('date');
+
+    // And the value is on the customer, under that field's id.
+    const [withValue] = await rows<{ custom: Record<string, unknown> }>(
+      admin(),
+      sql`select custom from app.people
+          where workspace_id = ${workspaceId}::uuid and custom ? ${unit.id}
+          limit 1`,
+    );
+    expect(withValue?.custom?.[unit.id]).toBe('Carrier 24ACC6');
+  }, 60_000);
+
   it('still keeps somebody else’s migration out of reach', async () => {
     // A second business in another organization, with its own connection and migration. Ours may not read it.
     const stranger = await createTestUser('business-door-stranger', { fullName: 'Sam Stranger' });

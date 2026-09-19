@@ -96,12 +96,11 @@ export const MIGRATION_CATEGORIES: readonly MigrationCategory[] = [
     blurb: 'The extra fields the old system kept on customers, and what type each one is.',
     pass: MIGRATION_PASSES.definitions,
     dependsOn: ['locations'],
-    targetType: null,
+    // M15 built custom fields here, so these stopped being homeless: the field comes across as a field, and
+    // its values arrive on the customers as values you can see, filter and report on.
+    targetType: 'custom_field',
     selection: 'category',
-    release: 'unsupported',
-    releaseNote:
-      'HandsFreeOS has no custom fields yet. We count yours, keep every value with the customer it ' +
-      'belonged to, and list them here — so when we build custom fields, nothing has to be typed in again.',
+    release: 'ready',
   }),
   c({
     id: 'tags',

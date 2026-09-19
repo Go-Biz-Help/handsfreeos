@@ -75,6 +75,58 @@ async function tagShortened(tx: Tx, scope: ImportScope, original: string): Promi
   });
 }
 
+/**
+ * The business's own customer fields, by key. Read once per record rather than joined into every value: an
+ * import of ten thousand customers asks for a handful of fields ten thousand times otherwise.
+ */
+async function personFields(
+  tx: Tx,
+  scope: ImportScope,
+): Promise<Map<string, { id: string; type: string }>> {
+  const list = await rows<{ id: string; key: string; type: string }>(
+    tx,
+    sql`select id::text as id, key, type::text as type from app.custom_fields
+        where workspace_id = ${scope.workspaceId} and entity = 'person' and archived_at is null`,
+  );
+  return new Map(list.map((f) => [f.key, { id: f.id, type: f.type }]));
+}
+
+/**
+ * One value in the shape its field holds here, or `undefined` when it plainly is not that kind of thing —
+ * which sends it to the notes instead of writing a number field that says "ask Dave".
+ */
+function fieldValue(type: string, raw: unknown): unknown {
+  const text = typeof raw === 'string' ? raw.trim() : raw;
+  switch (type) {
+    case 'number':
+    case 'money': {
+      const n = typeof text === 'number' ? text : Number(String(text).replace(/[^0-9.-]/g, ''));
+      return Number.isFinite(n) ? n : undefined;
+    }
+    case 'boolean': {
+      if (typeof text === 'boolean') return text;
+      const v = String(text).toLowerCase();
+      if (['true', 'yes', '1', 'y'].includes(v)) return true;
+      if (['false', 'no', '0', 'n'].includes(v)) return false;
+      return undefined;
+    }
+    case 'date': {
+      const d = new Date(String(text));
+      // The date part only: a date field here holds a day, not a moment.
+      return Number.isFinite(d.getTime()) ? d.toISOString().slice(0, 10) : undefined;
+    }
+    case 'multi_choice': {
+      const list = Array.isArray(raw) ? raw : String(text).split(/\s*[,;|]\s*/);
+      const kept = list.map((v) => String(v).trim()).filter(Boolean);
+      return kept.length ? kept : undefined;
+    }
+    default: {
+      const v = Array.isArray(raw) ? raw.map(String).join(', ') : String(text);
+      return v.trim() ? v : undefined;
+    }
+  }
+}
+
 /** The old system's time, or now when it never told us. A missing date is worth saying out loud. */
 const sourceTimes = (e: CanonicalEnvelope) => ({
   createdAt: e.source.sourceCreatedAt ? new Date(e.source.sourceCreatedAt) : null,
@@ -225,34 +277,201 @@ export const importTag: Importer = async (tx, scope, envelope) => {
 // ---------- custom fields ----------
 
 /**
- * HandsFreeOS has no custom fields. This is the one importer that imports nothing, on purpose.
+ * The extra fields a business invented, brought across as fields.
  *
- * It does two honest things instead: it records that the field existed, so the values arriving on customers
- * can be named rather than shown as a wall of ids, and it raises one finding per business listing them. The
- * values themselves are kept — see `importContact`, which puts them in the customer's notes rather than
- * throwing them away. When custom fields are built, the staged payloads are still here and everything can be
- * put where it belongs without anybody retyping a thing.
+ * This importer used to import nothing: HandsFreeOS had no custom fields, so it raised a finding and the
+ * values went into each customer's notes. M15 built them (`app.custom_fields`, and a `custom` object on the
+ * customer keyed by the field's id), so they now come across as what they are — a field you can see on the
+ * customer, filter by and report on.
+ *
+ * Two mappings are not one-to-one, and both are said out loud rather than fudged:
+ *   - a **date and time** over there becomes a date here, so the time of day is lost;
+ *   - a **file** over there becomes a link here, because a field cannot hold a file yet.
+ * A type we have never seen becomes text, which is what the adapter already warned about on the way in.
  */
+const FIELD_TYPE_HERE: Readonly<Record<string, string>> = {
+  text: 'text',
+  long_text: 'long_text',
+  number: 'number',
+  money: 'money',
+  date: 'date',
+  datetime: 'date',
+  boolean: 'boolean',
+  choice: 'choice',
+  multi_choice: 'multi_choice',
+  phone: 'phone',
+  email: 'email',
+  url: 'url',
+  file: 'url',
+};
+
+/** What the field is attached to here. GoHighLevel has no equivalent of a field on an appointment. */
+const FIELD_ENTITY: Readonly<Record<string, string>> = {
+  contact: 'person',
+  company: 'company',
+  lead: 'lead',
+};
+
+/**
+ * A key the database will accept: `^[a-z][a-z0-9_]{0,39}$`. A name in another alphabet, or one starting with a
+ * digit, still gets a key rather than failing the import.
+ */
+const fieldKey = (raw: string, fallback: string): string => {
+  const cleaned = raw
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '');
+  const key = /^[a-z]/.test(cleaned) ? cleaned : `f_${cleaned}`;
+  return (key.replace(/_+$/, '') || `f_${fallback.toLowerCase().replace(/[^a-z0-9]/g, '')}`).slice(
+    0,
+    40,
+  );
+};
+
 export const importCustomField: Importer = async (tx, scope, envelope) => {
-  const data = envelope.data as { name?: string; key?: string; type?: string };
-  const name = str(data.name) ?? 'Unnamed field';
-  await finding(tx, scope, {
-    code: 'custom_fields.no_home_yet',
-    category: 'custom_fields',
-    capability: 'not_supported',
-    severity: 'review',
-    summary: 'HandsFreeOS has no custom fields yet.',
-    whatImports:
-      'Every value is kept with the customer it belonged to, written into their notes and named as it was named over there.',
-    whatChanges:
-      'They are not fields you can filter or report on here yet, and they are not on the customer form.',
-    recommendedAction:
-      'Nothing to do. When custom fields arrive, we can put these where they belong without you retyping anything.',
-    sourceCapability: 'custom_fields',
-    affected: 1,
-    detail: { fields: [name] },
+  const d = envelope.data as {
+    name?: string;
+    key?: string;
+    type?: string;
+    options?: string[];
+    position?: number;
+    appliesTo?: string;
+  };
+  const label = str(d.name) ?? 'Unnamed field';
+  const entity = FIELD_ENTITY[str(d.appliesTo) ?? 'contact'];
+  if (!entity) {
+    // A field on an appointment: there is nowhere for it, and quietly moving it onto the customer would put
+    // one appointment's answer on every appointment they ever had.
+    await finding(tx, scope, {
+      code: 'custom_fields.no_home_for_entity',
+      category: 'custom_fields',
+      capability: 'not_supported',
+      severity: 'review',
+      summary: `“${label}” is a field on something HandsFreeOS has no fields for.`,
+      whatImports: 'Nothing for this field, and nothing is invented in its place.',
+      whatChanges:
+        'Custom fields here belong to a customer, a company or a lead. Its values stay in the staged records, so nothing is lost if we add more later.',
+      sourceCapability: 'custom_fields',
+      affected: 1,
+      detail: { field: label, appliesTo: d.appliesTo ?? null },
+    });
+    return { counts: { skipped: 1 } };
+  }
+
+  const already = await existingMapping(
+    tx,
+    scope,
+    envelope.source.objectType,
+    envelope.source.objectId,
+  );
+  if (already) return { counts: { skipped: 1 } };
+
+  const sourceType = str(d.type) ?? 'text';
+  const type = FIELD_TYPE_HERE[sourceType] ?? 'text';
+  if (sourceType === 'datetime' || sourceType === 'file')
+    await finding(tx, scope, {
+      code: 'custom_fields.type_narrowed',
+      category: 'custom_fields',
+      capability: 'needs_review',
+      severity: 'info',
+      summary:
+        sourceType === 'datetime'
+          ? `“${label}” kept its date, but not the time of day.`
+          : `“${label}” comes across as a link rather than a file.`,
+      whatImports: 'The field and every value on it.',
+      whatChanges:
+        sourceType === 'datetime'
+          ? 'HandsFreeOS has date fields, not date-and-time fields, so the time part is dropped.'
+          : 'A field here holds a link, so the file stays where it is and the field points at it.',
+      sourceCapability: 'custom_fields',
+      affected: 1,
+      detail: { field: label, sourceType },
+    });
+
+  const key = fieldKey(str(d.key) ?? label, envelope.source.objectId);
+  // A field of the same name on the same thing is that field, the way a tag of the same name is that tag.
+  const [match] = await rows<{ id: string }>(
+    tx,
+    sql`select id::text as id from app.custom_fields
+        where workspace_id = ${scope.workspaceId} and entity = ${entity}::app.custom_field_entity
+          and (key = ${key} or lower(label) = ${label.toLowerCase()})
+        limit 1`,
+  );
+  if (match) {
+    await putMapping(tx, scope, {
+      sourceObjectType: envelope.source.objectType,
+      sourceObjectId: envelope.source.objectId,
+      targetType: 'custom_field',
+      targetId: match.id,
+      createdHere: false,
+      checksum: envelope.source.payloadChecksum,
+    });
+    return { counts: { merged: 1 } };
+  }
+
+  // Options belong to a choice field and to no other: the database refuses options on a text field, and
+  // refuses a choice field with none. A choice field whose options never came across becomes text, which
+  // keeps every value rather than losing the field.
+  const choices = (d.options ?? [])
+    .map((o) => str(o))
+    .filter((o): o is string => !!o)
+    .slice(0, 100)
+    .map((o) => ({ value: o.slice(0, 60), label: o.slice(0, 60) }));
+  const wantsChoices = type === 'choice' || type === 'multi_choice';
+  const finalType = wantsChoices && choices.length === 0 ? 'text' : type;
+  const options = finalType === 'choice' || finalType === 'multi_choice' ? choices : [];
+  if (wantsChoices && choices.length === 0)
+    await finding(tx, scope, {
+      code: 'custom_fields.choices_missing',
+      category: 'custom_fields',
+      capability: 'needs_review',
+      severity: 'info',
+      summary: `“${label}” was a list to pick from, and came across as plain text.`,
+      whatImports: 'The field and every value on it.',
+      whatChanges:
+        'The old system gave us no options for it, and a list with nothing in it is not a list.',
+      recommendedAction: 'Add the options here if you want it back as a list.',
+      sourceCapability: 'custom_fields',
+      affected: 1,
+      detail: { field: label },
+    });
+  const { createdAt, updatedAt } = sourceTimes(envelope);
+  const id = randomUUID();
+  // A key is unique per business and thing, and two fields over there can reduce to the same key here, so a
+  // clash falls back to a key nobody can collide with rather than failing the import.
+  await tx.execute(sql`
+    insert into app.custom_fields (id, workspace_id, entity, key, label, type, options, position,
+      created_at, updated_at)
+    values (${id}::uuid, ${scope.workspaceId}, ${entity}::app.custom_field_entity,
+      ${key}, ${label.slice(0, 60)}, ${finalType}::app.custom_field_type,
+      ${JSON.stringify(options)}::jsonb, ${Math.max(0, Math.min(1000, Number(d.position ?? 0) || 0))},
+      coalesce(${createdAt?.toISOString() ?? null}::timestamptz, now()),
+      coalesce(${updatedAt?.toISOString() ?? null}::timestamptz, now()))
+    on conflict (workspace_id, entity, key) do nothing`);
+  const [landed] = await rows<{ id: string }>(
+    tx,
+    sql`select id::text as id from app.custom_fields
+        where workspace_id = ${scope.workspaceId} and entity = ${entity}::app.custom_field_entity
+          and key = ${key} limit 1`,
+  );
+  const targetId = landed?.id ?? id;
+  await putMapping(tx, scope, {
+    sourceObjectType: envelope.source.objectType,
+    sourceObjectId: envelope.source.objectId,
+    targetType: 'custom_field',
+    targetId,
+    createdHere: targetId === id,
+    checksum: envelope.source.payloadChecksum,
   });
-  return { counts: { skipped: 1 } };
+  await journal(tx, scope, {
+    action: targetId === id ? 'create' : 'link',
+    targetType: 'custom_field',
+    targetId,
+    sourceObjectType: envelope.source.objectType,
+    sourceObjectId: envelope.source.objectId,
+  });
+  return { counts: { imported: 1 } };
 };
 
 // ---------- companies ----------
@@ -416,13 +635,30 @@ export const importContact: Importer = async (tx, scope, envelope) => {
   const smsConsent: SmsConsent = d.consent?.find((c) => c.channel === 'sms')?.state ?? 'unknown';
   const { createdAt, updatedAt } = sourceTimes(envelope);
 
-  // Custom-field values with nowhere to go yet: written into the notes, named as they were named, rather
-  // than dropped. Ugly on purpose — it is meant to look like something waiting for a proper home.
-  const extras = Object.entries(d.customFields ?? {}).filter(
+  // Custom-field values. Since M15 these have a real home: `people.custom`, keyed by the id of the field the
+  // custom-field importer made earlier in the same import. What is left over — a value whose field never came
+  // across, because its shape was not readable or it lived on something we have no fields for — still goes
+  // into the notes named as it was named over there, rather than being dropped.
+  const values = Object.entries(d.customFields ?? {}).filter(
     ([, v]) => v !== null && v !== undefined && v !== '',
   );
-  const notes = extras.length
-    ? `From the old system:\n${extras.map(([k, v]) => `• ${k}: ${String(v)}`).join('\n')}`
+  const fields = await personFields(tx, scope);
+  const custom: Record<string, unknown> = {};
+  const homeless: [string, unknown][] = [];
+  for (const [key, value] of values) {
+    // The old system's key as the field importer would have written it: `contact.unit_model` over there is
+    // `contact_unit_model` here, and looking it up raw would send every value to the notes instead.
+    const field = fields.get(fieldKey(key, key));
+    if (!field) {
+      homeless.push([key, value]);
+      continue;
+    }
+    const held = fieldValue(field.type, value);
+    if (held === undefined) homeless.push([key, value]);
+    else custom[field.id] = held;
+  }
+  const notes = homeless.length
+    ? `From the old system:\n${homeless.map(([k, v]) => `• ${k}: ${String(v)}`).join('\n')}`
     : null;
 
   if (already) {
@@ -530,6 +766,11 @@ export const importContact: Importer = async (tx, scope, envelope) => {
       if (alt !== here.phone_alt) changed['phone_alt'] = { before: here.phone_alt, after: alt };
       const nextNotes = notes ? [here.notes, notes].filter(Boolean).join('\n\n') : here.notes;
       if (nextNotes !== here.notes) changed['notes'] = { before: here.notes, after: nextNotes };
+      // Custom values merge the way every other field does: what is empty here is filled, what somebody has
+      // already answered here is left alone. Two sub-accounts holding the same customer must not fight over
+      // the gate code, and the second one in must not win by being second.
+      if (Object.keys(custom).length > 0)
+        changed['custom'] = { before: 'kept', after: 'filled in' };
 
       if (Object.keys(changed).length > 0) {
         await tx.execute(sql`
@@ -546,7 +787,8 @@ export const importContact: Importer = async (tx, scope, envelope) => {
             first_name = coalesce(nullif(${(merged.updates['first_name'] as string) ?? null}, ''), first_name),
             last_name = coalesce(nullif(${(merged.updates['last_name'] as string) ?? null}, ''), last_name),
             sms_consent = ${consent}::app.sms_consent,
-            notes = ${nextNotes}
+            notes = ${nextNotes},
+            custom = ${JSON.stringify(custom)}::jsonb || custom
           where id = ${here.id}::uuid`);
         await journal(tx, scope, {
           action: 'merge',
@@ -588,12 +830,13 @@ export const importContact: Importer = async (tx, scope, envelope) => {
   const id = randomUUID();
   await tx.execute(sql`
     insert into app.people (id, workspace_id, first_name, last_name, email, phone, phone_e164,
-      address_line1, city, state, postal_code, country, source, notes, sms_consent, created_at, updated_at)
+      address_line1, city, state, postal_code, country, source, notes, custom, sms_consent,
+      created_at, updated_at)
     values (${id}::uuid, ${scope.workspaceId}, ${firstName}, ${lastName},
       ${email}::extensions.citext, ${str(d.phone)}, ${phoneE164},
       ${str(d.address?.line1)}, ${str(d.address?.city)}, ${str(d.address?.state)},
       ${str(d.address?.postalCode)}, coalesce(${str(d.address?.country)}, 'US'),
-      ${str(d.source)}, ${notes}, ${smsConsent}::app.sms_consent,
+      ${str(d.source)}, ${notes}, ${JSON.stringify(custom)}::jsonb, ${smsConsent}::app.sms_consent,
       coalesce(${createdAt?.toISOString() ?? null}::timestamptz, now()),
       coalesce(${updatedAt?.toISOString() ?? null}::timestamptz, now()))`);
   await putMapping(tx, scope, {
