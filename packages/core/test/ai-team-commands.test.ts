@@ -1810,8 +1810,19 @@ describe('the inbox boxes and Activity', () => {
       admin(),
       sql`select count(*)::int as n from app.ai_teammate_runs where workspace_id = ${a.wsId} and not is_test`,
     );
+    // Not every run leaves a draft waiting. Since lead intake (M14) a stranger who writes in becomes a lead,
+    // and a lead of its own wakes the teammate (lead.created), which sometimes reads the lead and decides
+    // there is nothing to say — `no_reply`. So what is counted is the runs that really drafted.
+    const [drafted] = await rows<{ n: number }>(
+      admin(),
+      sql`select count(*)::int as n from app.ai_teammate_runs r
+          where r.workspace_id = ${a.wsId} and not r.is_test and r.outcome = 'drafted'
+            and not exists (select 1 from app.ai_teammate_drafts d
+              where d.run_id = r.id and d.sent_at is not null)`,
+    );
     const activity = await ask(aiTeammateActivity, { workspaceId: a.wsId }, a.member);
-    expect(activity.counters).toMatchObject({ runsToday: n!.n, draftedToday: n!.n });
+    expect(drafted!.n).toBeGreaterThan(0);
+    expect(activity.counters).toMatchObject({ runsToday: n!.n, draftedToday: drafted!.n });
     expect(activity.counters.needsPerson).toBeGreaterThan(0);
     expect(activity.runs.length).toBe(n!.n);
     const started = activity.runs.map((r) => r.startedAt);
