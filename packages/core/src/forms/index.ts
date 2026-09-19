@@ -9,3 +9,5 @@ export * from './logic';
 export * from './definition';
 export * from './ops';
 export * from './render';
+export * from './describe';
+export * from './ai-tools';
