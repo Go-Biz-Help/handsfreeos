@@ -41,6 +41,7 @@ makes every size and density each platform installs from those, so no per-densit
 
 ## What is still missing
 
-A numbered list lives in [`release-checklist.md`](release-checklist.md). The short version: both developer accounts,
-the EAS project, an App Store Connect app record, a Play service-account key, and three web pages that don't exist yet
-(privacy policy, terms, support).
+A list lives in [`release-checklist.md`](release-checklist.md), with what is done and how that is known. The short
+version, as of 2026-09-19: the iOS side has reached TestFlight and works. What is left is the demo business a
+reviewer signs into (nothing can be submitted without it), the Google Play account and app record, and filling both
+consoles from the files here.
