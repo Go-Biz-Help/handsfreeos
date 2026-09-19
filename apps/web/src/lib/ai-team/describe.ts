@@ -450,6 +450,8 @@ const TOOL_NAMES: Readonly<Record<TeammateToolName, string>> = {
   reschedule: 'Moved a visit',
   cancel: 'Cancelled a visit',
   record_answers: 'Recorded qualifying answers',
+  ask_form: 'Started a form',
+  answer_form: 'Saved a form answer',
   move_stage: 'Moved the lead',
   update_customer: 'Filled in their details',
   add_note: 'Added a note',

@@ -47,6 +47,8 @@ export const MONEY_ORIGINS = [
   'subscription',
   'workflow',
   'assistant',
+  /** A form asked for it (M15). */
+  'form',
 ] as const;
 export type MoneyOrigin = (typeof MONEY_ORIGINS)[number];
 

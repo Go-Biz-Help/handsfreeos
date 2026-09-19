@@ -470,6 +470,49 @@ describe('sending it', () => {
   });
 });
 
+describe('a form that asks for money', () => {
+  it('raises an invoice for what it asks, and points at it', async () => {
+    const form = await publishedForm('Booking deposit', [
+      {
+        op: 'add_question',
+        index: null,
+        question: {
+          id: qid('pay'),
+          type: 'payment',
+          title: 'Deposit',
+          config: {
+            amount: { kind: 'fixed', cents: 7500 },
+            description: 'Booking deposit',
+          },
+        },
+      },
+    ]);
+    const sent = await submit(await start(form.formId), {
+      [qid('name')]: 'Wendy',
+      [qid('phone')]: '(512) 555-0211',
+    });
+    expect(sent.dueCents).toBe(7500);
+    expect(sent.invoiceId).toBeTruthy();
+    const [invoice] = await rows<{ total_cents: number; status: string }>(
+      admin(),
+      sql`select total_cents, status::text as status from app.invoices where id = ${sent.invoiceId!}`,
+    );
+    expect(Number(invoice!.total_cents)).toBe(7500);
+    // A draft: nobody is charged until the business sends it and they pay on the money page.
+    expect(invoice!.status).toBe('draft');
+  });
+
+  it('asks for nothing when the form has no payment question', async () => {
+    const form = await publishedForm('No money here');
+    const sent = await submit(await start(form.formId), {
+      [qid('name')]: 'Free',
+      [qid('phone')]: '(512) 555-0212',
+    });
+    expect(sent.dueCents).toBe(0);
+    expect(sent.invoiceId).toBe(null);
+  });
+});
+
 describe('afterwards', () => {
   it('deletes one when somebody asks to be forgotten', async () => {
     const form = await publishedForm('Forget me');

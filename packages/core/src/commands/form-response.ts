@@ -39,6 +39,7 @@ import { requireHuman } from '../kernel/actor';
 import { LeadCreateInput } from '../schemas/lead';
 import { PersonUpdateInput } from '../schemas/person';
 import { TaskCreateInput } from '../schemas/task';
+import { InvoiceCreateInput } from '../schemas/money';
 import {
   FormResponseDeleteInput,
   FormResponseDeleteOutput,
@@ -49,6 +50,7 @@ import {
   FormSubmitInput,
   FormSubmitOutput,
 } from '../schemas/form';
+import { invoiceCreate } from './invoice';
 import { leadCreate } from './lead.create';
 import { personUpdate } from './person.update';
 import { taskCreate } from './task';
@@ -109,10 +111,15 @@ function assertOpen(form: typeof forms.$inferSelect, definition: FormDefinition)
 const answersOf = (response: ResponseRow): AnswerSheet =>
   (response.answers ?? {}) as unknown as AnswerSheet;
 
-/** Whoever holds the key may write to this sheet. Knowing its id is not enough. */
-function assertHolder(response: ResponseRow, token: string): void {
+/**
+ * Whoever holds the key may write to this sheet; knowing its id is not enough. The key is what a signed-out
+ * page has instead of a sign-in, so it is required of the worker acting for one. The AI teammate is already
+ * inside the business, working its own conversation, and carries no key.
+ */
+function assertHolder(ctx: CommandContext, response: ResponseRow, token: string | undefined): void {
+  if (ctx.actor.type !== 'system') return;
   const held = response.resumeTokenHash;
-  if (!held || !timingSafeEqual(Buffer.from(held), hashToken(token)))
+  if (!token || !held || !timingSafeEqual(Buffer.from(held), hashToken(token)))
     throw HfosError.notFound('That answer sheet isn’t there.');
 }
 
@@ -128,7 +135,8 @@ export const formResponseStart = defineCommand({
   permission: null,
   scope: inWorkspace,
   emits: ['form.started'],
-  actors: ['system'],
+  // The AI teammate asks a form's questions in a conversation, so it starts sheets too (M15).
+  actors: ['system', 'ai_employee'],
   async handler(ctx, input) {
     const ws = ctx.scope.workspaceId!;
     const { row, definition: draft } = await loadForm(ctx.tx, ws, input.formId);
@@ -187,12 +195,12 @@ export const formResponseSave = defineCommand({
   permission: null,
   scope: inWorkspace,
   emits: [],
-  actors: ['system'],
+  actors: ['system', 'ai_employee'],
   async handler(ctx, input) {
     const { response, definition, form } = await openResponse(ctx, input.responseId, {
       forUpdate: true,
     });
-    assertHolder(response, input.token);
+    assertHolder(ctx, response, input.token);
     if (response.status === 'completed')
       throw HfosError.conflict('This one has already been sent.', 'response_sent');
     assertOpen(form, definition);
@@ -262,14 +270,21 @@ export const formResponseSubmit = defineCommand({
   output: FormSubmitOutput,
   permission: null,
   scope: inWorkspace,
-  emits: ['form.submitted', 'person.created', 'lead.created', 'workflow.enrol_requested'],
-  actors: ['system'],
+  emits: [
+    'form.submitted',
+    'person.created',
+    'lead.created',
+    'task.created',
+    'invoice.created',
+    'workflow.enrol_requested',
+  ],
+  actors: ['system', 'ai_employee'],
   async handler(ctx, input) {
     const ws = ctx.scope.workspaceId!;
     const { response, definition, form } = await openResponse(ctx, input.responseId, {
       forUpdate: true,
     });
-    assertHolder(response, input.token);
+    assertHolder(ctx, response, input.token);
     if (response.status === 'completed')
       throw HfosError.conflict('This one has already been sent.', 'response_sent');
     assertOpen(form, definition);
@@ -410,8 +425,35 @@ export const formResponseSubmit = defineCommand({
       }
     }
 
-    // ---- Record it ----
+    // ---- What they owe ----
+    // A form that asks for money raises an invoice for it, so the payment goes through M9 like every other
+    // one the business takes: the same document, the same page to pay on, the same receipt. The card itself
+    // is taken on that page — a form never holds one.
     const due = dueCents(definition, answers, calculations);
+    let invoiceId: string | null = null;
+    if (due > 0 && personId) {
+      const paymentQuestion = allQuestions(definition).find((q) => q.type === 'payment');
+      const created = await invoiceCreate.handler(
+        ctx,
+        InvoiceCreateInput.parse({
+          workspaceId: ws,
+          personId,
+          leadId,
+          origin: 'form',
+          title: form.name,
+          lines: [
+            {
+              name:
+                (paymentQuestion?.config as { description?: string } | undefined)?.description ??
+                form.name,
+              quantity: 1,
+              unitPriceCents: due,
+            },
+          ],
+        }),
+      );
+      invoiceId = created.invoiceId;
+    }
     if (personId && definition.settings.oneResponsePerPerson) {
       const [already] = await rows<{ id: string }>(
         ctx.tx,
@@ -440,6 +482,7 @@ export const formResponseSubmit = defineCommand({
         resultId: result.id,
         personId,
         leadId,
+        invoiceId,
         // What the form asked for at the moment they answered; the unique index reads this, not the setting.
         onePerPerson: definition.settings.oneResponsePerPerson,
       })
@@ -480,6 +523,7 @@ export const formResponseSubmit = defineCommand({
         scorePercent: score.percent,
         passed: score.passed,
         dueCents: due,
+        invoiceId,
       },
       after: {
         form: form.name,
@@ -498,6 +542,7 @@ export const formResponseSubmit = defineCommand({
       passed: score.passed,
       calculations,
       dueCents: due,
+      invoiceId,
     };
   },
 });

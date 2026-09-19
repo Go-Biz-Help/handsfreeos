@@ -12185,7 +12185,7 @@ export interface operations {
                      * @default staff
                      * @enum {string}
                      */
-                    origin?: "staff" | "estimate" | "booking" | "subscription" | "workflow" | "assistant";
+                    origin?: "staff" | "estimate" | "booking" | "subscription" | "workflow" | "assistant" | "form";
                     /** Format: uuid */
                     personId: string;
                     /**
@@ -23845,7 +23845,7 @@ export interface operations {
                             notes: string | null;
                             number: string | null;
                             /** @enum {string} */
-                            origin: "staff" | "estimate" | "booking" | "subscription" | "workflow" | "assistant";
+                            origin: "staff" | "estimate" | "booking" | "subscription" | "workflow" | "assistant" | "form";
                             paidAt: string | null;
                             person: {
                                 email: string | null;
@@ -23993,7 +23993,7 @@ export interface operations {
                             leadId: string | null;
                             number: string | null;
                             /** @enum {string} */
-                            origin: "staff" | "estimate" | "booking" | "subscription" | "workflow" | "assistant";
+                            origin: "staff" | "estimate" | "booking" | "subscription" | "workflow" | "assistant" | "form";
                             paidAt: string | null;
                             person: {
                                 email: string | null;
@@ -25375,7 +25375,7 @@ export interface operations {
                             leadId: string | null;
                             number: string | null;
                             /** @enum {string} */
-                            origin: "staff" | "estimate" | "booking" | "subscription" | "workflow" | "assistant";
+                            origin: "staff" | "estimate" | "booking" | "subscription" | "workflow" | "assistant" | "form";
                             paidAt: string | null;
                             person: {
                                 email: string | null;
