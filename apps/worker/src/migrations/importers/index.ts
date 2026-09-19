@@ -15,15 +15,17 @@
  * must not produce a thousand reminders, and the way to be sure of that is to write the rows directly rather
  * than to replay the commands a person would have used.
  */
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { rows, sql, type Tx } from '@hfos/db/client';
 import {
   AUTO_MERGE_SCORE,
   decideMerge,
+  FormDefinition,
   mergeScalarFields,
   normalizePhone,
   stricterConsent,
   unionValues,
+  slugify,
   type CanonicalEnvelope,
   type ExistingContact,
   type SmsConsent,
@@ -2523,6 +2525,343 @@ export const importSubscription: Importer = async (tx, scope, envelope) => {
   return { counts: { imported: 1 } };
 };
 
+// ---------- forms, and the answers people gave them ----------
+
+/**
+ * The id a question gets here, worked out from the form and the field name over there.
+ *
+ * It has to be the same every time, because the answers arrive in a later pass and find their question by
+ * this and nothing else. A hash gives that for free and needs nowhere to be stored.
+ */
+function questionIdFor(formSourceId: string, key: string): string {
+  return `q_${createHash('sha256').update(`${formSourceId}|${key}`).digest('hex').slice(0, 8)}`;
+}
+
+/** A free slug for the public link, from the form's own name. */
+async function freeFormSlug(tx: Tx, scope: ImportScope, name: string): Promise<string> {
+  const base = slugify(name).slice(0, 48) || 'form';
+  for (let attempt = 0; attempt < 20; attempt++) {
+    const slug = attempt === 0 ? base : `${base}-${attempt + 1}`;
+    const [taken] = await rows<{ id: string }>(
+      tx,
+      sql`select id::text as id from app.forms
+           where workspace_id = ${scope.workspaceId} and slug = ${slug} limit 1`,
+    );
+    if (!taken) return slug;
+  }
+  return `${base}-${randomUUID().slice(0, 8)}`;
+}
+
+type FormQuestionIn = {
+  key: string;
+  title: string;
+  type: string;
+  required?: boolean;
+  choices?: string[];
+};
+
+/**
+ * A form as it arrives from another system.
+ *
+ * It lands as a **draft**, with a published version 1 behind it so the answers have something to point at.
+ * That is deliberate and it is the honest thing: no system we have met hands over a form's questions, so
+ * they are read back out of the answers people gave — which can only ever show the questions somebody
+ * actually filled in. Publishing that as a live form, on a link a business might put on a flyer, would be
+ * claiming we know what it asks. The answers are safe, the form is here, and it takes one look and one
+ * Publish to be a form again.
+ */
+export const importForm: Importer = async (tx, scope, envelope) => {
+  const d = envelope.data as {
+    name?: string;
+    mode?: string;
+    intro?: string | null;
+    questions?: FormQuestionIn[];
+    questionsAreComplete?: boolean;
+  };
+  const already = await existingMapping(
+    tx,
+    scope,
+    envelope.source.objectType,
+    envelope.source.objectId,
+  );
+  if (already) return { counts: { skipped: 1 } };
+
+  const name = (str(d.name) ?? 'Form').slice(0, 120);
+  const mode = d.mode === 'survey' || d.mode === 'quiz' ? d.mode : 'form';
+  const questions = (d.questions ?? []).slice(0, 200).map((q) => {
+    const choices = (q.choices ?? []).slice(0, 60).map((label, i) => ({
+      id: `c_${createHash('sha256').update(`${q.key}|${label}|${i}`).digest('hex').slice(0, 8)}`,
+      label: label.slice(0, 160),
+    }));
+    /**
+     * A pick-one or pick-any question needs the things people could pick, and an answer alone cannot show
+     * what nobody chose. Without at least two, it is not a choice question: it is the words somebody typed,
+     * and it comes across as that rather than as a broken list.
+     */
+    const listed = q.type === 'choice' || q.type === 'checkboxes';
+    const type =
+      listed && choices.length < 2
+        ? q.type === 'checkboxes'
+          ? 'long_text'
+          : 'short_text'
+        : q.type;
+    return {
+      id: questionIdFor(envelope.source.objectId, q.key),
+      type,
+      title: q.title.slice(0, 300),
+      help: '',
+      required: q.required === true,
+      showIf: {},
+      mapTo: null,
+      config: type === 'choice' || type === 'checkboxes' ? { choices } : {},
+    };
+  });
+  const draft = {
+    version: 1,
+    mode,
+    title: name.slice(0, 160),
+    intro: str(d.intro)?.slice(0, 4000) ?? '',
+    pages: [{ id: 'p_imported', title: '', showIf: {}, questions }],
+    calculations: [],
+    results: [
+      {
+        id: 'r_imported',
+        name: 'Thank you',
+        headline: 'Thank you',
+        body: '',
+        showIf: {},
+        buttonLabel: '',
+        buttonUrl: null,
+        redirectUrl: null,
+      },
+    ],
+    scoring: {},
+    onSubmit: {},
+    settings: {},
+  };
+  /**
+   * Checked with the same schema the editor saves through, and never written unless it passes. A form the
+   * app cannot open is worse than a form with plainer questions in it, so anything the checker refuses
+   * falls back to every question as a line of text — the answers are what matter, and they are all kept
+   * either way.
+   */
+  const checked = FormDefinition.safeParse(draft);
+  const definition = checked.success
+    ? checked.data
+    : FormDefinition.parse({
+        ...draft,
+        pages: [
+          {
+            ...draft.pages[0],
+            questions: questions.map((q) => ({ ...q, type: 'short_text', config: {} })),
+          },
+        ],
+      });
+  const { createdAt, updatedAt } = sourceTimes(envelope);
+  const at = createdAt?.toISOString() ?? null;
+  const formId = randomUUID();
+  const versionId = randomUUID();
+  const slug = await freeFormSlug(tx, scope, name);
+  await tx.execute(sql`
+    insert into app.forms (id, workspace_id, name, mode, status, slug, definition, definition_version,
+      revision, created_at, updated_at)
+    values (${formId}::uuid, ${scope.workspaceId}, ${name}, ${mode}::app.form_mode, 'draft', ${slug},
+      ${JSON.stringify(definition)}::jsonb, 1, 1,
+      coalesce(${at}::timestamptz, now()),
+      coalesce(${updatedAt?.toISOString() ?? null}::timestamptz, now()))`);
+  await tx.execute(sql`
+    insert into app.form_versions (id, workspace_id, form_id, version, definition, definition_version,
+      revision, source, diff_summary, created_at)
+    values (${versionId}::uuid, ${scope.workspaceId}, ${formId}::uuid, 1,
+      ${JSON.stringify(definition)}::jsonb, 1, 1, 'editor', '[]'::jsonb,
+      coalesce(${at}::timestamptz, now()))`);
+  await tx.execute(sql`
+    update app.forms set active_version_id = ${versionId}::uuid where id = ${formId}::uuid`);
+
+  /**
+   * One finding for the lot, counting up as the forms arrive, rather than one per form: a business with
+   * forty forms needs to be told the rule once, not forty times. `affected_count` is what says how many.
+   */
+  await finding(tx, scope, {
+    code: 'forms.questions_read_from_answers',
+    category: 'forms',
+    capability: 'needs_review',
+    severity: 'review',
+    summary: 'Your forms came across as drafts, because nobody can hand over what a form asks.',
+    whatImports:
+      'Every answer anybody ever gave, on the customer who gave it, dated the day they gave it. The questions were worked out from those answers.',
+    whatChanges:
+      'A question nobody ever filled in cannot be seen from the answers, so it is not here. The form takes no new answers until you publish it.',
+    recommendedAction:
+      'Open each one, check the questions read right, add any that are missing, and publish it.',
+    affected: 1,
+    detail: { form: name },
+  });
+
+  await putMapping(tx, scope, {
+    sourceObjectType: envelope.source.objectType,
+    sourceObjectId: envelope.source.objectId,
+    targetType: 'form',
+    targetId: formId,
+    createdHere: true,
+    checksum: envelope.source.payloadChecksum,
+  });
+  await journal(tx, scope, {
+    action: 'create',
+    targetType: 'form',
+    targetId: formId,
+    sourceObjectType: envelope.source.objectType,
+    sourceObjectId: envelope.source.objectId,
+  });
+  return { counts: { imported: 1 } };
+};
+
+/** One person's answers, on the day they gave them, against the questions the form was rebuilt with. */
+export const importFormResponse: Importer = async (tx, scope, envelope) => {
+  const d = envelope.data as {
+    submittedAt?: string;
+    source?: string;
+    answers?: { key: string; value: unknown }[];
+  };
+  const already = await existingMapping(
+    tx,
+    scope,
+    envelope.source.objectType,
+    envelope.source.objectId,
+  );
+  if (already) return { counts: { skipped: 1 } };
+
+  const formRef = envelope.relationships.find((r) => r.role === 'form');
+  const mappedForm = formRef
+    ? await existingMapping(tx, scope, formRef.objectType, formRef.objectId)
+    : null;
+  if (!mappedForm || mappedForm.targetType !== 'form') {
+    await quarantine(tx, scope, {
+      category: 'form_submissions',
+      sourceObjectType: envelope.source.objectType,
+      sourceObjectId: envelope.source.objectId,
+      kind: 'dependency',
+      code: 'answers_without_form',
+      message: 'The form these answers were given to is not here.',
+      retryable: true,
+    });
+    return { counts: { failed: 1 } };
+  }
+  const [form] = await rows<{
+    version_id: string | null;
+    definition: { pages?: { questions?: { id: string; title: string; type: string }[] }[] };
+  }>(
+    tx,
+    sql`select active_version_id::text as version_id, definition from app.forms
+         where id = ${mappedForm.targetId}::uuid and workspace_id = ${scope.workspaceId}`,
+  );
+  if (!form?.version_id) {
+    await quarantine(tx, scope, {
+      category: 'form_submissions',
+      sourceObjectType: envelope.source.objectType,
+      sourceObjectId: envelope.source.objectId,
+      kind: 'dependency',
+      code: 'answers_without_version',
+      message: 'The form these answers were given to has no published version here.',
+      retryable: true,
+    });
+    return { counts: { failed: 1 } };
+  }
+  const known = new Map(
+    (form.definition.pages ?? [])
+      .flatMap((page) => page.questions ?? [])
+      .map((q) => [q.id, { title: q.title, type: q.type }]),
+  );
+
+  const personRef = envelope.relationships.find((r) => r.role === 'person');
+  const mappedPerson = personRef
+    ? await existingMapping(tx, scope, personRef.objectType, personRef.objectId)
+    : null;
+  const personId = mappedPerson?.targetType === 'person' ? mappedPerson.targetId : null;
+  /**
+   * Named somebody, and that somebody is not here yet. It waits rather than landing on nobody: an answer
+   * that misses its customer is not half-imported, it is lost — nothing on the customer's timeline says it
+   * happened, and nothing ever goes back to join them up. An answer nobody signed is a different thing, and
+   * it lands below on the form alone.
+   */
+  if (personRef && !personId) {
+    await quarantine(tx, scope, {
+      category: 'form_submissions',
+      sourceObjectType: envelope.source.objectType,
+      sourceObjectId: envelope.source.objectId,
+      kind: 'dependency',
+      code: 'answers_without_customer',
+      message: 'The customer who gave these answers is not here.',
+      retryable: true,
+    });
+    return { counts: { failed: 1 } };
+  }
+
+  const submittedAt = d.submittedAt ?? envelope.source.sourceCreatedAt ?? null;
+  const source = ['link', 'embed', 'chat', 'qr', 'app', 'api'].includes(d.source ?? '')
+    ? d.source!
+    : 'link';
+  const answers = (d.answers ?? []).slice(0, 200).map((a) => ({
+    questionId: questionIdFor(formRef!.objectId, a.key),
+    key: a.key,
+    value: a.value,
+  }));
+  const id = randomUUID();
+  await tx.execute(sql`
+    insert into app.form_responses (id, workspace_id, form_id, version_id, status, source, person_id,
+      answers, calculations, one_per_person, started_at, completed_at, created_at, updated_at)
+    values (${id}::uuid, ${scope.workspaceId}, ${mappedForm.targetId}::uuid, ${form.version_id}::uuid,
+      'completed', ${source}::app.form_source, ${personId}::uuid,
+      ${JSON.stringify(Object.fromEntries(answers.map((a) => [a.questionId, a.value])))}::jsonb,
+      '{}'::jsonb,
+      -- Never: an imported answer must not be the one that stops somebody answering again.
+      false,
+      coalesce(${submittedAt}::timestamptz, now()),
+      coalesce(${submittedAt}::timestamptz, now()),
+      coalesce(${submittedAt}::timestamptz, now()),
+      coalesce(${submittedAt}::timestamptz, now()))`);
+  for (const answer of answers) {
+    const question = known.get(answer.questionId);
+    // A field somebody filled in that the rebuilt form has no question for still keeps its answer, under
+    // the name the old system used.
+    const title = (question?.title ?? answer.key).slice(0, 300);
+    const type = question?.type ?? 'short_text';
+    const text =
+      typeof answer.value === 'string'
+        ? answer.value
+        : Array.isArray(answer.value)
+          ? answer.value.join(', ')
+          : answer.value === null || answer.value === undefined
+            ? null
+            : String(answer.value);
+    const number = typeof answer.value === 'number' ? answer.value : null;
+    await tx.execute(sql`
+      insert into app.form_answers (workspace_id, response_id, form_id, question_id, question_title,
+        question_type, value, number_value, text_value, answered_at)
+      values (${scope.workspaceId}, ${id}::uuid, ${mappedForm.targetId}::uuid, ${answer.questionId},
+        ${title}, ${type}, ${JSON.stringify(answer.value ?? null)}::jsonb, ${number},
+        ${text?.slice(0, 5000) ?? null},
+        coalesce(${submittedAt}::timestamptz, now()))
+      on conflict (response_id, question_id) do nothing`);
+  }
+  await putMapping(tx, scope, {
+    sourceObjectType: envelope.source.objectType,
+    sourceObjectId: envelope.source.objectId,
+    targetType: 'form_response',
+    targetId: id,
+    createdHere: true,
+    checksum: envelope.source.payloadChecksum,
+  });
+  await journal(tx, scope, {
+    action: 'create',
+    targetType: 'form_response',
+    targetId: id,
+    sourceObjectType: envelope.source.objectType,
+    sourceObjectId: envelope.source.objectId,
+  });
+  return { counts: { imported: 1 } };
+};
+
 /** Which importer reads which canonical type. Nothing else in the engine decides this. */
 export const IMPORTERS: Readonly<Record<string, Importer>> = {
   user_identity: importUser,
@@ -2543,6 +2882,8 @@ export const IMPORTERS: Readonly<Record<string, Importer>> = {
   invoice: importInvoice,
   estimate: importEstimate,
   subscription: importSubscription,
+  form: importForm,
+  form_response: importFormResponse,
 };
 
 export { AUTO_MERGE_SCORE };

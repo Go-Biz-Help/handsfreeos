@@ -257,6 +257,39 @@ const wrote = (id: string, contactId: string, body: string, added: string): Fake
   payload: { id, contactId, body, userId: 'usr_dev', dateAdded: added },
 });
 
+/**
+ * A form. The stand-in source is one of the kinder ones: it hands over its questions, which is what an
+ * adapter is allowed to do when the source really has an endpoint for them. A form with no `questions` is
+ * the other case — everything anybody answered is kept and the form itself has to be finished by hand.
+ */
+const form = (
+  id: string,
+  name: string,
+  mode: 'form' | 'survey',
+  questions: readonly { key: string; title: string; type: string; required?: boolean }[],
+): FakeRecord => ({
+  objectType: 'form',
+  objectId: id,
+  createdAt: '2021-03-02T10:00:00.000Z',
+  updatedAt: '2024-05-02T10:00:00.000Z',
+  payload: { id, name, mode, questions },
+});
+
+/** One person's answers, keyed by the question's own name over there. */
+const answered = (
+  id: string,
+  formId: string,
+  contactId: string | null,
+  at: string,
+  answers: Record<string, unknown>,
+): FakeRecord => ({
+  objectType: 'form_submission',
+  objectId: id,
+  createdAt: at,
+  updatedAt: at,
+  payload: { id, formId, contactId, createdAt: at, ...answers },
+});
+
 /** A calendar, with a visit length and nothing HandsFreeOS could use for its hours. */
 const calendar = (id: string, name: string, minutes: number): FakeRecord => ({
   objectType: 'calendar',
@@ -726,6 +759,36 @@ const AUSTIN_RECORDS: readonly FakeRecord[] = [
     'Are you open Saturday?',
   ),
 
+  // The form on their website, with its questions, and three people who filled it in.
+  form('frm_quote', 'Get a quote', 'form', [
+    { key: 'first_name', title: 'Your name', type: 'short_text', required: true },
+    { key: 'email', title: 'Email', type: 'email', required: true },
+    { key: 'phone', title: 'Phone', type: 'phone' },
+    { key: 'what_do_you_need', title: 'What do you need?', type: 'long_text' },
+    { key: 'how_many_units', title: 'How many units?', type: 'number' },
+  ]),
+  // A survey whose questions the old system will not hand over: only the answers say what it asked.
+  form('frm_after', 'After the visit', 'survey', []),
+  answered('sub_1', 'frm_quote', 'con_a1', '2023-04-02T14:00:00.000Z', {
+    first_name: 'Dave',
+    email: 'dave.smith@example.com',
+    phone: '+15125550101',
+    what_do_you_need: 'The upstairs unit is not keeping up in the afternoon.',
+    how_many_units: 2,
+  }),
+  answered('sub_2', 'frm_quote', 'con_a2', '2023-09-18T09:30:00.000Z', {
+    first_name: 'Maria',
+    email: 'maria@example.com',
+    what_do_you_need: 'Annual service, please.',
+    how_many_units: 1,
+  }),
+  // Nobody in the book: the answers still land, on a form, waiting for somebody to deal with them.
+  answered('sub_3', 'frm_quote', null, '2024-01-07T17:45:00.000Z', {
+    first_name: 'Walk-in',
+    email: 'someone@example.com',
+    what_do_you_need: 'Quote for a new install.',
+  }),
+
   // A call with a recording, and a voicemail.
   said('cal_a1', 'cnv_a1', 'TYPE_CALL', 'outbound', '2019-05-03T09:05:00.000Z', '', {
     from: '+15125550000',
@@ -835,12 +898,12 @@ const CATEGORY_TYPE: Record<string, string> = {
   conversations: 'conversation',
   messages: 'message',
   calls: 'call',
+  forms: 'form',
+  form_submissions: 'form_submission',
 };
 
 /** What the stand-in pretends exists but this release does not read record by record. */
 const COUNTS_ONLY: Record<string, number> = {
-  forms: 4,
-  form_submissions: 210,
   templates: 11,
   reviews: 37,
   media: 640,
@@ -870,6 +933,8 @@ const SCOPE_NAMES: Record<string, readonly string[]> = {
   conversations: ['conversations.readonly'],
   messages: ['conversations/message.readonly'],
   calls: ['conversations/message.readonly'],
+  forms: ['forms.readonly'],
+  form_submissions: ['forms.readonly'],
 };
 
 export function createFakeSourceAdapter(): FakeSource {
@@ -1334,6 +1399,71 @@ export function createFakeSourceAdapter(): FakeSource {
               },
             },
           ];
+        case 'form':
+          return [
+            {
+              ...base,
+              canonicalType: 'form',
+              category: 'forms',
+              relationships: [],
+              data: {
+                name: str(p['name']) ?? 'Form',
+                mode: str(p['mode']) === 'survey' ? 'survey' : 'form',
+                intro: null,
+                questions: Array.isArray(p['questions'])
+                  ? (p['questions'] as Record<string, unknown>[]).map((q) => ({
+                      key: str(q['key']) ?? '',
+                      title: str(q['title']) ?? str(q['key']) ?? 'Question',
+                      type: str(q['type']) ?? 'short_text',
+                      required: q['required'] === true,
+                      choices: [],
+                    }))
+                  : [],
+                // This source does have an endpoint for its questions, so what it hands over is the lot.
+                questionsAreComplete: Array.isArray(p['questions']) && p['questions'].length > 0,
+              },
+            },
+          ];
+        case 'form_submission': {
+          const known = new Set(['id', 'formId', 'contactId', 'createdAt']);
+          const contactId = str(p['contactId']);
+          return [
+            {
+              ...base,
+              canonicalType: 'form_response',
+              category: 'form_submissions',
+              relationships: [
+                {
+                  category: 'forms',
+                  objectType: 'form',
+                  objectId: str(p['formId']) ?? '',
+                  role: 'form',
+                  required: true,
+                },
+                ...(contactId
+                  ? [
+                      {
+                        category: 'contacts',
+                        objectType: 'contact',
+                        objectId: contactId,
+                        role: 'person' as const,
+                        required: false,
+                      },
+                    ]
+                  : []),
+              ],
+              data: {
+                submittedAt: record.sourceCreatedAt?.toISOString() ?? new Date(0).toISOString(),
+                source: 'link',
+                answers: Object.entries(p)
+                  .filter(
+                    ([key, value]) => !known.has(key) && value !== null && value !== undefined,
+                  )
+                  .map(([key, value]) => ({ key, value: value as string })),
+              },
+            },
+          ];
+        }
         case 'calendar':
           return [
             {

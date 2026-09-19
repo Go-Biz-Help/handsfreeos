@@ -31,6 +31,7 @@ import { createHash } from 'node:crypto';
 import type {
   CategorySupport,
   CanonicalEnvelope,
+  CanonicalFormQuestion,
   CountQuality,
   CrmSourceAdapter,
   InventoryResult,
@@ -567,6 +568,42 @@ export function createGoHighLevelAdapter(config: GoHighLevelConfig): CrmSourceAd
       highWaterAt,
       done: done || nextCursor === null,
     };
+  };
+
+  /**
+   * Forms, each one carrying a sample of its own answers.
+   *
+   * HighLevel's `/forms/` hands over a name and an id and nothing about what the form asks. The questions
+   * are only visible in the answers, so each form is read once more — twenty submissions, enough to see
+   * every field somebody has filled in — and the sample travels on the payload for the mapper to read back.
+   * One extra request per form, on a list that is usually a handful.
+   */
+  const formPage = async (
+    token: string,
+    scopeId: string,
+    options: ListOptions,
+  ): Promise<SourcePage> => {
+    const forms = await page(token, ENDPOINTS['forms']!, scopeId, options);
+    const records: SourceRecord[] = [];
+    for (const form of forms.records) {
+      let sample: Record<string, unknown>[] = [];
+      try {
+        const body = await call<Record<string, unknown>>(
+          token,
+          `/forms/submissions?locationId=${encodeURIComponent(scopeId)}` +
+            `&formId=${encodeURIComponent(form.objectId)}&limit=20`,
+        );
+        sample = Array.isArray(body['submissions'])
+          ? (body['submissions'] as Record<string, unknown>[])
+          : [];
+      } catch {
+        // A form whose answers we may not read still comes across as a form; it simply arrives with no
+        // questions on it, and says so.
+        sample = [];
+      }
+      records.push({ ...form, payload: { ...form.payload, __sampleSubmissions: sample } });
+    }
+    return { ...forms, records };
   };
 
   /**
@@ -1364,6 +1401,9 @@ export function createGoHighLevelAdapter(config: GoHighLevelConfig): CrmSourceAd
           options,
           category === 'calls' ? 'calls' : 'messages',
         );
+      // A form's questions are only visible in its answers, so each one is read with a sample of them.
+      if (category === 'forms')
+        return formPage(tokenOf(connection, scope), scope.externalScopeId, options);
       const endpoint = ENDPOINTS[category];
       if (!endpoint) return { records: [], cursor: null, done: true };
       return page(tokenOf(connection, scope), endpoint, scope.externalScopeId, options);
@@ -1409,6 +1449,11 @@ export function createGoHighLevelAdapter(config: GoHighLevelConfig): CrmSourceAd
 
     normalize(record, context) {
       switch (record.objectType) {
+        case 'form':
+        case 'survey':
+          return [formEnvelope(record, context)];
+        case 'form_submission':
+          return [formResponseEnvelope(record, context)];
         case 'product':
           return [productEnvelope(record, context)];
         case 'invoice':
@@ -2173,6 +2218,186 @@ function noteEnvelope(record: SourceRecord, context: MappingContext): CanonicalE
     ]),
     [],
     relationships,
+  );
+}
+
+// ---------- forms and the answers people gave them ----------
+
+/**
+ * The keys on a submission that are the submission, not an answer.
+ *
+ * Everything else on the object is something somebody typed, which is the only way to find out what a
+ * HighLevel form asked: its API hands over the answers and never the questions.
+ */
+const SUBMISSION_KEYS = new Set([
+  'id',
+  '_id',
+  'formId',
+  'surveyId',
+  'contactId',
+  'locationId',
+  'createdAt',
+  'updatedAt',
+  'dateAdded',
+  'dateUpdated',
+  'eventData',
+  'pageDetails',
+  'others',
+  'deleted',
+]);
+
+/** Every answer on one submission, flattened: the top-level ones and the ones parked under `others`. */
+export function submissionAnswers(p: Record<string, unknown>): { key: string; value: unknown }[] {
+  const out: { key: string; value: unknown }[] = [];
+  const take = (key: string, value: unknown) => {
+    if (value === null || value === undefined || value === '') return;
+    if (typeof value === 'object' && !Array.isArray(value)) return;
+    if (out.some((a) => a.key === key)) return;
+    out.push({ key: key.slice(0, 200), value });
+  };
+  for (const [key, value] of Object.entries(p)) if (!SUBMISSION_KEYS.has(key)) take(key, value);
+  const others = p['others'];
+  if (others && typeof others === 'object' && !Array.isArray(others))
+    for (const [key, value] of Object.entries(others as Record<string, unknown>)) take(key, value);
+  return out;
+}
+
+/** A field name over there turned into a question somebody would recognise: `first_name` → "First name". */
+function questionTitle(key: string): string {
+  const words = key
+    .replace(/[_-]+/g, ' ')
+    .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+    .trim()
+    .toLowerCase();
+  const title = words.charAt(0).toUpperCase() + words.slice(1);
+  return (title || key).slice(0, 300);
+}
+
+/** What kind of question it was, from its name and from what people actually put in it. */
+function questionType(key: string, values: readonly unknown[]): CanonicalFormQuestion['type'] {
+  const name = key.toLowerCase();
+  if (/e-?mail/.test(name)) return 'email';
+  if (/phone|mobile|cell/.test(name)) return 'phone';
+  if (/address|street|city|postcode|zip/.test(name)) return 'address';
+  if (/\bdate\b|birthday|dob/.test(name)) return 'date';
+  if (values.length > 0 && values.every((v) => typeof v === 'boolean')) return 'yes_no';
+  if (values.length > 0 && values.every((v) => Array.isArray(v))) return 'checkboxes';
+  if (values.length > 0 && values.every((v) => typeof v === 'number')) return 'number';
+  const texts = values.filter((v): v is string => typeof v === 'string');
+  if (texts.length > 0 && texts.some((v) => v.length > 120)) return 'long_text';
+  return 'short_text';
+}
+
+/**
+ * The questions a form asked, worked out from a sample of the answers people gave it.
+ *
+ * HighLevel has no endpoint that hands over a form's fields, so this is the honest best: the questions
+ * somebody has actually answered at least once. A question nobody ever filled in cannot be seen from here,
+ * and the form is imported as a draft for that reason.
+ */
+export function questionsFromSubmissions(
+  submissions: readonly Record<string, unknown>[],
+): CanonicalFormQuestion[] {
+  const seen = new Map<string, unknown[]>();
+  for (const submission of submissions)
+    for (const { key, value } of submissionAnswers(submission)) {
+      const values = seen.get(key);
+      if (values) values.push(value);
+      else seen.set(key, [value]);
+    }
+  return [...seen.entries()].slice(0, 200).map(([key, values]) => ({
+    key,
+    title: questionTitle(key),
+    type: questionType(key, values),
+    // Everybody who answered answered this one: the closest thing to "required" the answers can show.
+    required: values.length > 0 && values.length === submissions.length,
+    choices: [],
+  }));
+}
+
+function formEnvelope(record: SourceRecord, context: MappingContext): CanonicalEnvelope {
+  const p = record.payload;
+  const sampled = Array.isArray(p['__sampleSubmissions'])
+    ? (p['__sampleSubmissions'] as Record<string, unknown>[])
+    : [];
+  const questions = questionsFromSubmissions(sampled);
+  const isSurvey = record.objectType === 'survey' || p['type'] === 'survey';
+  return envelopeOf(
+    record,
+    context,
+    'form',
+    'forms',
+    {
+      name: (asString(p['name']) ?? 'Form').slice(0, 120),
+      mode: isSurvey ? 'survey' : 'form',
+      intro: asString(p['description'])?.slice(0, 4000) ?? null,
+      questions,
+      // Never true for this source: HighLevel does not publish a form's fields, so these were read back out
+      // of the answers and the business has to look at them.
+      questionsAreComplete: false,
+    },
+    leftovers(p, ['id', '_id', 'name', 'description', 'locationId', 'type', '__sampleSubmissions']),
+    [],
+  );
+}
+
+const SUBMISSION_SOURCE: Readonly<
+  Record<string, 'link' | 'embed' | 'chat' | 'qr' | 'app' | 'api'>
+> = {
+  form: 'link',
+  survey: 'link',
+  widget: 'embed',
+  embed: 'embed',
+  chat: 'chat',
+  api: 'api',
+};
+
+function formResponseEnvelope(record: SourceRecord, context: MappingContext): CanonicalEnvelope {
+  const p = record.payload;
+  const submittedAt = (record.sourceCreatedAt ?? new Date()).toISOString();
+  const contactId = asString(p['contactId']);
+  return envelopeOf(
+    record,
+    context,
+    'form_response',
+    'form_submissions',
+    {
+      submittedAt,
+      source: SUBMISSION_SOURCE[(asString(p['pageDetails']) ?? '').toLowerCase()] ?? 'link',
+      answers: submissionAnswers(p).map((a) => ({
+        key: a.key,
+        value:
+          typeof a.value === 'string'
+            ? a.value.slice(0, 5000)
+            : typeof a.value === 'number' || typeof a.value === 'boolean'
+              ? a.value
+              : Array.isArray(a.value)
+                ? a.value.map((v) => String(v).slice(0, 500)).slice(0, 60)
+                : String(a.value).slice(0, 5000),
+      })),
+    },
+    leftovers(p, [...SUBMISSION_KEYS]),
+    [],
+    [
+      {
+        category: 'forms',
+        objectType: 'form',
+        objectId: asString(p['formId']) ?? asString(p['surveyId']) ?? record.parentObjectId ?? '',
+        role: 'form',
+        required: true,
+      },
+      ...(contactId
+        ? [
+            {
+              category: 'contacts',
+              objectType: 'contact',
+              objectId: contactId,
+              role: 'person' as const,
+              required: false,
+            },
+          ]
+        : []),
+    ],
   );
 }
 

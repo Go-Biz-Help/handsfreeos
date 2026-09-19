@@ -675,6 +675,13 @@ describe('the history arrives as history', () => {
 
     // The visits arrived without the diaries behind them.
     expect(byKind('calendar')[0]!.label).toContain('calendar');
+
+    // The inbox, which is not the same job as the domain: DNS makes their mail look like them, and does
+    // nothing about where a customer's reply lands.
+    const mailbox = byKind('mailbox')[0]!;
+    expect(mailbox.instructions).toContain('when a customer hits reply');
+    expect(mailbox.settings_path).toBe('/settings/mailboxes');
+
     expect(tasks.every((t) => t.state === 'todo')).toBe(true);
   }, 60_000);
 

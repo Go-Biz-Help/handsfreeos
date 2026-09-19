@@ -407,6 +407,28 @@ async function fetchCategory(deps: MigrationDeps, job: JobRow): Promise<Outcome>
     return 'done';
   }
   /**
+   * Two kinds of category are ready and yet have no list to page.
+   *
+   * The files are listed by the records that point at them, as those records arrive, and fetched afterwards
+   * by the media job — paging the source's own file library here would stage thousands of brand assets that
+   * have no home in HandsFreeOS and spend a business's API budget doing it.
+   *
+   * The setup steps — their numbers, their sending domains, what they were plugged into — are worked out
+   * during the checks from what the imported data leaves behind, because no source will tell us. Both are
+   * genuinely imported; neither is read record by record, and asking for a page would be asking a question
+   * nobody answers.
+   */
+  if (cat.targetType === 'file' || cat.targetType === 'reconnect_task') {
+    await finishJob(deps, job, {
+      skipped:
+        cat.targetType === 'file'
+          ? 'files are copied as the records that point at them arrive'
+          : 'worked out from the imported data, with the checks',
+    });
+    await afterCategory(deps, job);
+    return 'done';
+  }
+  /**
    * Wait for what this category hangs off.
    *
    * The pass number puts categories in order, but a category is not one job: it is one job per page, requeued
@@ -793,15 +815,21 @@ async function countFiles(deps: MigrationDeps, job: JobRow): Promise<FileTally> 
  * person has already ticked off is never reopened.
  */
 async function findReconnectTasks(deps: MigrationDeps, job: JobRow): Promise<void> {
-  // The sub-accounts first, as the organization: a migration's own rows belong to it rather than to any one
-  // business.
+  /**
+   * The businesses, as the organization: a migration's own rows belong to it rather than to any one of them.
+   *
+   * By business and not by sub-account, which matters when several sub-accounts land in one: porting a
+   * number is one job however many of the old system's accounts the business was spread across, and a list
+   * that says it twice is a list somebody stops reading. The rows are written with no sub-account for the
+   * same reason, and the unique index then holds one of each per business.
+   */
   const workspaces = await asWorker(
     deps.db,
     { workspaceId: null, organizationId: job.organization_id },
     (tx) =>
-      rows<{ workspace_id: string; scope_id: string }>(
+      rows<{ workspace_id: string }>(
         tx,
-        sql`select distinct s.workspace_id::text as workspace_id, s.id::text as scope_id
+        sql`select distinct s.workspace_id::text as workspace_id
             from app.migration_scopes s
             where s.migration_id = ${job.migration_id} and s.workspace_id is not null and s.selected`,
       ),
@@ -810,7 +838,6 @@ async function findReconnectTasks(deps: MigrationDeps, job: JobRow): Promise<voi
   const put = async (
     tx: Tx,
     input: {
-      scopeId: string;
       workspaceId: string;
       kind: string;
       provider: string;
@@ -824,7 +851,7 @@ async function findReconnectTasks(deps: MigrationDeps, job: JobRow): Promise<voi
     await tx.execute(sql`
       insert into app.migration_reconnect_tasks (migration_id, organization_id, scope_id, workspace_id,
         kind, provider, label, state, instructions, settings_path, descriptor, blocks_live_use)
-      values (${job.migration_id}, ${job.organization_id}, ${input.scopeId}::uuid,
+      values (${job.migration_id}, ${job.organization_id}, null,
         ${input.workspaceId}::uuid, ${input.kind}::app.reconnect_kind, ${input.provider},
         ${input.label.slice(0, 200)}, 'todo'::app.reconnect_state, ${input.instructions.slice(0, 4000)},
         ${input.settingsPath}, ${JSON.stringify(input.descriptor ?? {})}::jsonb, ${input.blocksLiveUse})
@@ -833,7 +860,7 @@ async function findReconnectTasks(deps: MigrationDeps, job: JobRow): Promise<voi
       do nothing`);
   };
 
-  for (const { workspace_id: workspaceId, scope_id: scopeId } of workspaces)
+  for (const { workspace_id: workspaceId } of workspaces)
     await asWorker(deps.db, { workspaceId, organizationId: job.organization_id }, async (tx) => {
       // The numbers they text and ring from. A number is the business's identity to its customers, and moving
       // one is the carrier's process rather than a copy — so this is a task, never something we do quietly.
@@ -852,7 +879,6 @@ async function findReconnectTasks(deps: MigrationDeps, job: JobRow): Promise<voi
       );
       for (const { number } of numbers)
         await put(tx, {
-          scopeId,
           workspaceId,
           kind: 'messaging',
           provider: 'carrier',
@@ -877,7 +903,6 @@ async function findReconnectTasks(deps: MigrationDeps, job: JobRow): Promise<voi
       );
       for (const { domain } of domains)
         await put(tx, {
-          scopeId,
           workspaceId,
           kind: 'dns',
           provider: 'email',
@@ -900,7 +925,6 @@ async function findReconnectTasks(deps: MigrationDeps, job: JobRow): Promise<voi
       );
       if ((tookMoney?.count ?? 0) > 0)
         await put(tx, {
-          scopeId,
           workspaceId,
           kind: 'payments',
           provider: 'payments',
@@ -922,7 +946,6 @@ async function findReconnectTasks(deps: MigrationDeps, job: JobRow): Promise<voi
       );
       if ((calendars?.count ?? 0) > 0)
         await put(tx, {
-          scopeId,
           workspaceId,
           kind: 'calendar',
           provider: 'calendar',
@@ -933,6 +956,62 @@ async function findReconnectTasks(deps: MigrationDeps, job: JobRow): Promise<voi
             'bookings here cannot see the rest of their day.',
           settingsPath: '/settings/calendars',
           blocksLiveUse: false,
+        });
+
+      /**
+       * The inbox itself, which is not the same job as the domain.
+       *
+       * DNS makes mail sent from here look like them. It does nothing about where a *reply* lands: that
+       * arrives in whatever mailbox the customer hits reply to, and unless that mailbox is connected, the
+       * reply sits in Gmail and the thread here just stops.
+       */
+      const [sentMail] = await rows<{ count: number }>(
+        tx,
+        sql`select count(*)::int as count from app.messages m
+          where m.workspace_id = ${workspaceId}::uuid and m.channel = 'email'
+            and m.direction = 'outbound'`,
+      );
+      if ((sentMail?.count ?? 0) > 0)
+        await put(tx, {
+          workspaceId,
+          kind: 'mailbox',
+          provider: 'mailbox',
+          label: 'The inbox your email replies land in',
+          instructions:
+            'Your email history is here. What is not is the mailbox itself: when a customer hits reply, it ' +
+            'goes wherever it always went. Connect that inbox and replies join the conversation here instead ' +
+            'of sitting where nobody sees them beside the rest of the thread.',
+          settingsPath: '/settings/mailboxes',
+          blocksLiveUse: false,
+        });
+
+      /**
+       * The form on their website, which is still posting to the old system.
+       *
+       * This is the quiet one. Everything else that is left undone is visibly undone — a number that does
+       * not ring, mail that goes out looking wrong. A form keeps working perfectly and keeps sending every
+       * new enquiry to an account the business is about to close.
+       */
+      const forms = await rows<{ name: string; slug: string }>(
+        tx,
+        sql`select f.name, f.slug from app.forms f
+          where f.workspace_id = ${workspaceId}::uuid
+          order by lower(f.name) limit 10`,
+      );
+      for (const { name, slug } of forms)
+        await put(tx, {
+          workspaceId,
+          kind: 'other',
+          provider: 'website',
+          label: name,
+          instructions:
+            `"${name}" is here with every answer anybody gave it, but the copy on your website is still the ` +
+            'old one, and it still sends what people fill in to the old system. Publish this one, then put ' +
+            'its link or its embed on your site in place of the old one. Until you do, new enquiries go to ' +
+            'the account you are leaving.',
+          settingsPath: '/settings/forms',
+          blocksLiveUse: false,
+          descriptor: { slug },
         });
     });
 }
