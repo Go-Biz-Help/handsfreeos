@@ -432,6 +432,67 @@ export const CanonicalSubscription = z.object({
 });
 export type CanonicalSubscription = z.infer<typeof CanonicalSubscription>;
 
+/**
+ * One question on a form, as the old system left it.
+ *
+ * `key` is what the source calls the field, and it is the join between a question and the answers people
+ * gave it — which is the only reason it is here rather than being replaced by an id of ours at the door.
+ */
+export const CanonicalFormQuestion = z.object({
+  key: z.string().min(1).max(200),
+  title: z.string().min(1).max(300),
+  type: z
+    .enum([
+      'short_text',
+      'long_text',
+      'choice',
+      'checkboxes',
+      'yes_no',
+      'number',
+      'date',
+      'email',
+      'phone',
+      'address',
+    ])
+    .default('short_text'),
+  required: z.boolean().default(false),
+  choices: z.array(z.string().min(1).max(200)).max(60).default([]),
+});
+export type CanonicalFormQuestion = z.infer<typeof CanonicalFormQuestion>;
+
+/**
+ * A form or survey people filled in.
+ *
+ * Most systems will not hand over the questions — they hand over the answers, and the questions have to be
+ * read back out of them. So `questions` is what could honestly be worked out, and `questionsAreComplete`
+ * says whether the source told us or we inferred it, because a form rebuilt from its answers is not a form
+ * anyone should publish without looking at it.
+ */
+export const CanonicalForm = z.object({
+  name: z.string().min(1).max(120),
+  mode: z.enum(['form', 'survey', 'quiz']).default('form'),
+  intro: z.string().max(4000).nullish(),
+  questions: z.array(CanonicalFormQuestion).max(200).default([]),
+  questionsAreComplete: z.boolean().default(false),
+});
+export type CanonicalForm = z.infer<typeof CanonicalForm>;
+
+/** One answer as somebody gave it, against the question's own key over there. */
+export const CanonicalFormAnswer = z.object({
+  key: z.string().min(1).max(200),
+  value: z.union([z.string().max(5000), z.number(), z.boolean(), z.array(z.string().max(500))]),
+});
+export type CanonicalFormAnswer = z.infer<typeof CanonicalFormAnswer>;
+
+/** One person's answers to one form, on the day they gave them. */
+export const CanonicalFormResponse = z.object({
+  submittedAt: z.iso.datetime({ offset: true }),
+  answers: z.array(CanonicalFormAnswer).max(200).default([]),
+  /** What the source says it came in through, narrowed to what this system records. */
+  source: z.enum(['link', 'embed', 'chat', 'qr', 'app', 'api']).default('link'),
+});
+export type CanonicalFormResponse = z.infer<typeof CanonicalFormResponse>;
+
 export const CANONICAL_TYPES = {
   contact: CanonicalContact,
   company: CanonicalCompany,
@@ -451,6 +512,8 @@ export const CANONICAL_TYPES = {
   invoice: CanonicalInvoice,
   estimate: CanonicalEstimate,
   subscription: CanonicalSubscription,
+  form: CanonicalForm,
+  form_response: CanonicalFormResponse,
 } as const;
 export type CanonicalTypeName = keyof typeof CANONICAL_TYPES;
 

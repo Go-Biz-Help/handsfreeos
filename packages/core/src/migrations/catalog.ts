@@ -164,8 +164,7 @@ export const MIGRATION_CATEGORIES: readonly MigrationCategory[] = [
     prefers: ['custom_fields'],
     targetType: 'form',
     selection: 'resource',
-    release: 'next',
-    releaseNote: 'Counted now, brought across in a later step.',
+    release: 'ready',
   }),
   c({
     id: 'products',
@@ -240,8 +239,7 @@ export const MIGRATION_CATEGORIES: readonly MigrationCategory[] = [
     dependsOn: ['forms', 'contacts'],
     targetType: 'form_submission',
     selection: 'category',
-    release: 'next',
-    releaseNote: 'Counted now, brought across in a later step.',
+    release: 'ready',
   }),
   c({
     id: 'invoices',

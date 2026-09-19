@@ -407,6 +407,19 @@ async function fetchCategory(deps: MigrationDeps, job: JobRow): Promise<Outcome>
     return 'done';
   }
   /**
+   * The files are not a list to be read. They are listed by the records that point at them, as those
+   * records arrive, and fetched afterwards by the media job. Paging the source's own file library here
+   * would stage thousands of brand assets that have no home in HandsFreeOS and spend a business's API
+   * budget doing it.
+   */
+  if (job.category === 'media') {
+    await finishJob(deps, job, {
+      skipped: 'files are copied as the records that point at them arrive',
+    });
+    await afterCategory(deps, job);
+    return 'done';
+  }
+  /**
    * Wait for what this category hangs off.
    *
    * The pass number puts categories in order, but a category is not one job: it is one job per page, requeued
