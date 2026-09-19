@@ -99,6 +99,7 @@ beforeAll(async () => {
       {
         workspaceId: wsId,
         responseId: started.responseId,
+        token: started.token,
         answers: {
           [qid('name')]: 'Customer ' + phone.slice(-4),
           [qid('phone')]: phone,

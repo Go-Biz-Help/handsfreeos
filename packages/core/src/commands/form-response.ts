@@ -11,7 +11,7 @@
  * the business mapped are filled in, a lead and a task open if it asked for them, its workflows are asked
  * to start, and `form.submitted` goes out for everything else that waits on it.
  */
-import { randomBytes, createHash } from 'node:crypto';
+import { randomBytes, createHash, timingSafeEqual } from 'node:crypto';
 import { and, eq, sql as dsql } from 'drizzle-orm';
 import { rows, sql } from '@hfos/db/client';
 import { customFields, formResponses, forms, formVersions, people } from '@hfos/db/schema';
@@ -109,6 +109,13 @@ function assertOpen(form: typeof forms.$inferSelect, definition: FormDefinition)
 const answersOf = (response: ResponseRow): AnswerSheet =>
   (response.answers ?? {}) as unknown as AnswerSheet;
 
+/** Whoever holds the key may write to this sheet. Knowing its id is not enough. */
+function assertHolder(response: ResponseRow, token: string): void {
+  const held = response.resumeTokenHash;
+  if (!held || !timingSafeEqual(Buffer.from(held), hashToken(token)))
+    throw HfosError.notFound('That answer sheet isn’t there.');
+}
+
 // ---- Commands ----
 
 export const formResponseStart = defineCommand({
@@ -132,11 +139,14 @@ export const formResponseStart = defineCommand({
       .where(eq(formVersions.id, row.activeVersionId));
     const definition = version ? parseStoredForm(version.definition) : draft;
     assertOpen(row, definition);
-    // An anonymous form keeps nothing that could bring somebody back to their own answers.
-    const resumeToken =
-      definition.settings.saveAndResume && definition.settings.identity !== 'anonymous'
-        ? newToken()
-        : null;
+    /**
+     * Every sheet gets a key, because the page needs one to write to its own sheet and a response id on its
+     * own must not be enough. Whether that key also becomes a "carry on later" link is the form's business:
+     * an anonymous survey offers no way back to somebody's own answers.
+     */
+    const token = newToken();
+    const canResume =
+      definition.settings.saveAndResume && definition.settings.identity !== 'anonymous';
     const [response] = await ctx.tx
       .insert(formResponses)
       .values({
@@ -146,10 +156,8 @@ export const formResponseStart = defineCommand({
         status: 'in_progress',
         source: input.source,
         visitorHash: input.visitorHash ? hashOf(input.visitorHash) : null,
-        resumeTokenHash: resumeToken ? hashToken(resumeToken) : null,
-        resumeExpiresAt: resumeToken
-          ? new Date(Date.now() + RESUME_DAYS * 86_400_000)
-          : null,
+        resumeTokenHash: hashToken(token),
+        resumeExpiresAt: new Date(Date.now() + (canResume ? RESUME_DAYS : 1) * 86_400_000),
       })
       .returning({ id: formResponses.id });
     if (!response) throw HfosError.internal('The answer sheet could not be started.');
@@ -165,7 +173,7 @@ export const formResponseStart = defineCommand({
       payload: { responseId: response.id, source: input.source },
       broadcast: false,
     });
-    return { responseId: response.id, versionId: row.activeVersionId, resumeToken };
+    return { responseId: response.id, versionId: row.activeVersionId, token, canResume };
   },
 });
 
@@ -184,6 +192,7 @@ export const formResponseSave = defineCommand({
     const { response, definition, form } = await openResponse(ctx, input.responseId, {
       forUpdate: true,
     });
+    assertHolder(response, input.token);
     if (response.status === 'completed')
       throw HfosError.conflict('This one has already been sent.', 'response_sent');
     assertOpen(form, definition);
@@ -260,6 +269,7 @@ export const formResponseSubmit = defineCommand({
     const { response, definition, form } = await openResponse(ctx, input.responseId, {
       forUpdate: true,
     });
+    assertHolder(response, input.token);
     if (response.status === 'completed')
       throw HfosError.conflict('This one has already been sent.', 'response_sent');
     assertOpen(form, definition);
@@ -432,9 +442,6 @@ export const formResponseSubmit = defineCommand({
         leadId,
         // What the form asked for at the moment they answered; the unique index reads this, not the setting.
         onePerPerson: definition.settings.oneResponsePerPerson,
-        // Once it is sent there is nothing to come back to.
-        resumeTokenHash: null,
-        resumeExpiresAt: null,
       })
       .where(eq(formResponses.id, response.id));
     await writeFormAnswers(

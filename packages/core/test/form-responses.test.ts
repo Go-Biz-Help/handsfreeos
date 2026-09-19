@@ -128,8 +128,17 @@ async function publishedForm(
 const start = (formId: string, source = 'link') =>
   runSystem(formResponseStart, { workspaceId: wsId, formId, source }, scope);
 
-const submit = (responseId: string, answers: Record<string, unknown>, smsConsent = false) =>
-  runSystem(formResponseSubmit, { workspaceId: wsId, responseId, answers, smsConsent }, scope);
+interface Started {
+  readonly responseId: string;
+  readonly token: string;
+}
+
+const submit = (started: Started, answers: Record<string, unknown>, smsConsent = false) =>
+  runSystem(
+    formResponseSubmit,
+    { workspaceId: wsId, responseId: started.responseId, token: started.token, answers, smsConsent },
+    scope,
+  );
 
 // ---- Tests ----
 
@@ -137,7 +146,8 @@ describe('starting one', () => {
   it('hands back a token to come back with, and counts the start', async () => {
     const form = await publishedForm('Quote request');
     const started = await start(form.formId);
-    expect(started.resumeToken).toBeTruthy();
+    expect(started.token).toBeTruthy();
+    expect(started.canResume).toBe(true);
     expect((await responseRow(started.responseId)).status).toBe('in_progress');
     const [day] = await rows<{ starts: number }>(
       admin(),
@@ -148,7 +158,10 @@ describe('starting one', () => {
 
   it('keeps no way back into an anonymous form', async () => {
     const form = await publishedForm('Honest feedback', [], { identity: 'anonymous' });
-    expect((await start(form.formId)).resumeToken).toBe(null);
+    // The key still exists — the page needs it — but no "carry on later" link is offered.
+    const started = await start(form.formId);
+    expect(started.token).toBeTruthy();
+    expect(started.canResume).toBe(false);
   });
 
   it('will not start on a form that is closed', async () => {
@@ -164,7 +177,12 @@ describe('saving as they go', () => {
     const started = await start(form.formId);
     const saved = await runSystem(
       formResponseSave,
-      { workspaceId: wsId, responseId: started.responseId, answers: { [qid('name')]: 'Dale' } },
+      {
+        workspaceId: wsId,
+        responseId: started.responseId,
+        token: started.token,
+        answers: { [qid('name')]: 'Dale' },
+      },
       scope,
     );
     expect(saved.progress).toBeGreaterThan(0);
@@ -178,7 +196,7 @@ describe('sending it', () => {
   it('makes the customer, fills in what they said, and records every answer', async () => {
     const form = await publishedForm('New customer');
     const started = await start(form.formId);
-    const sent = await submit(started.responseId, {
+    const sent = await submit(started, {
       [qid('name')]: 'Rosa Herrera',
       [qid('email')]: 'rosa@example.com',
       [qid('phone')]: '(512) 555-0134',
@@ -202,11 +220,11 @@ describe('sending it', () => {
 
   it('finds the customer again next time instead of making a second one', async () => {
     const form = await publishedForm('Second visit');
-    const first = await submit((await start(form.formId)).responseId, {
+    const first = await submit(await start(form.formId), {
       [qid('name')]: 'Dale',
       [qid('phone')]: '(512) 555-0199',
     });
-    const second = await submit((await start(form.formId)).responseId, {
+    const second = await submit(await start(form.formId), {
       [qid('name')]: 'Dale',
       [qid('phone')]: '(512) 555-0199',
     });
@@ -215,12 +233,12 @@ describe('sending it', () => {
 
   it('never rubs out what the business already knows', async () => {
     const form = await publishedForm('Careful with that');
-    const first = await submit((await start(form.formId)).responseId, {
+    const first = await submit(await start(form.formId), {
       [qid('name')]: 'Mina',
       [qid('email')]: 'mina@example.com',
       [qid('phone')]: '(512) 555-0111',
     });
-    await submit((await start(form.formId)).responseId, {
+    await submit(await start(form.formId), {
       [qid('name')]: 'Mina',
       [qid('phone')]: '(512) 555-0111',
     });
@@ -240,7 +258,7 @@ describe('sending it', () => {
         }),
       },
     ]);
-    const sent = await submit((await start(form.formId)).responseId, {
+    const sent = await submit(await start(form.formId), {
       [qid('name')]: 'Ivan',
       [qid('phone')]: '(512) 555-0122',
       [qid('gate')]: '1234#',
@@ -285,7 +303,7 @@ describe('sending it', () => {
         },
       },
     ]);
-    const sent = await submit((await start(form.formId)).responseId, {
+    const sent = await submit(await start(form.formId), {
       [qid('name')]: 'Nadia',
       [qid('phone')]: '(512) 555-0177',
       [qid('sqft')]: 1200,
@@ -316,7 +334,7 @@ describe('sending it', () => {
       },
     ]);
     const started = await start(form.formId);
-    await submit(started.responseId, {
+    await submit(started, {
       [qid('name')]: 'Pat',
       [qid('phone')]: '(512) 555-0188',
       [qid('dog')]: 'no',
@@ -337,7 +355,7 @@ describe('sending it', () => {
     const form = await publishedForm('Picky');
     const started = await start(form.formId);
     const error = await expectHfos(
-      () => submit(started.responseId, { [qid('email')]: 'not-an-email' }),
+      () => submit(started, { [qid('email')]: 'not-an-email' }),
       'form_answers_invalid',
       400,
     );
@@ -351,7 +369,7 @@ describe('sending it', () => {
     const form = await publishedForm('Who are you');
     const started = await start(form.formId);
     await expectHfos(
-      () => submit(started.responseId, { [qid('name')]: 'Anon' }),
+      () => submit(started, { [qid('name')]: 'Anon' }),
       'form_needs_identity',
       400,
     );
@@ -359,7 +377,7 @@ describe('sending it', () => {
 
   it('records nobody at all on an anonymous form', async () => {
     const form = await publishedForm('Anonymous survey', [], { identity: 'anonymous' });
-    const sent = await submit((await start(form.formId)).responseId, {
+    const sent = await submit(await start(form.formId), {
       [qid('name')]: 'Whoever',
       [qid('email')]: 'whoever@example.com',
     });
@@ -371,7 +389,7 @@ describe('sending it', () => {
     const open = await publishedForm('Book us again');
     const answer = (formId: string) =>
       start(formId).then((s) =>
-        submit(s.responseId, { [qid('name')]: 'Ada', [qid('phone')]: '(512) 555-0222' }),
+        submit(s, { [qid('name')]: 'Ada', [qid('phone')]: '(512) 555-0222' }),
       );
     await answer(open.formId);
     await answer(open.formId);
@@ -385,9 +403,9 @@ describe('sending it', () => {
   it('will not take the same sheet twice', async () => {
     const form = await publishedForm('Once only');
     const started = await start(form.formId);
-    await submit(started.responseId, { [qid('name')]: 'Sam', [qid('phone')]: '(512) 555-0155' });
+    await submit(started, { [qid('name')]: 'Sam', [qid('phone')]: '(512) 555-0155' });
     await expectHfos(
-      () => submit(started.responseId, { [qid('name')]: 'Sam again' }),
+      () => submit(started, { [qid('name')]: 'Sam again' }),
       'response_sent',
       409,
     );
@@ -422,7 +440,7 @@ describe('sending it', () => {
         },
       },
     ]);
-    const passed = await submit((await start(form.formId)).responseId, {
+    const passed = await submit(await start(form.formId), {
       [qid('name')]: 'Quiz taker',
       [qid('phone')]: '(512) 555-0166',
       [qid('shutoff')]: 'c_red00000',
@@ -430,7 +448,7 @@ describe('sending it', () => {
     expect(passed.scorePercent).toBe(100);
     expect(passed.passed).toBe(true);
     expect(passed.resultId).toBe('r_passed00');
-    const failed = await submit((await start(form.formId)).responseId, {
+    const failed = await submit(await start(form.formId), {
       [qid('name')]: 'Quiz taker',
       [qid('phone')]: '(512) 555-0166',
       [qid('shutoff')]: 'c_blue0000',
@@ -442,7 +460,7 @@ describe('sending it', () => {
   it('ticks the texting box only when they ticked it', async () => {
     const form = await publishedForm('Texts please');
     const sent = await submit(
-      (await start(form.formId)).responseId,
+      await start(form.formId),
       { [qid('name')]: 'Tess', [qid('phone')]: '(512) 555-0144' },
       true,
     );
@@ -456,7 +474,7 @@ describe('afterwards', () => {
   it('deletes one when somebody asks to be forgotten', async () => {
     const form = await publishedForm('Forget me');
     const started = await start(form.formId);
-    await submit(started.responseId, { [qid('name')]: 'Gone', [qid('phone')]: '(512) 555-0133' });
+    await submit(started, { [qid('name')]: 'Gone', [qid('phone')]: '(512) 555-0133' });
     await run(
       formResponseDelete,
       { workspaceId: wsId, responseId: started.responseId },
