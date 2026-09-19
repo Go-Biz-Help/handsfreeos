@@ -4777,6 +4777,86 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/template.archive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Put a piece of wording away, or bring it back. Nothing is deleted.
+         * @description Risk level 1. Requires templates.manage. Emits template.archived. Can wait on a phone with no signal.
+         */
+        post: operations["command_template_archive"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/template.create": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Save wording to reuse: a name, whether it is a text or an email, and the words, with the same {{placeholders}} a workflow uses.
+         * @description Risk level 1. Requires templates.manage. Emits template.created. Can wait on a phone with no signal.
+         */
+        post: operations["command_template_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/template.update": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Change a saved piece of wording: its name, its words, or which folder it sits in.
+         * @description Risk level 1. Requires templates.manage. Emits template.updated. Can wait on a phone with no signal.
+         */
+        post: operations["command_template_update"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/template.used": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Somebody reached for a template. Counted so the picker puts what this business actually says at the top.
+         * @description Risk level 0. Requires inbox.use. Emits . Can wait on a phone with no signal.
+         */
+        post: operations["command_template_used"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/territory.create": {
         parameters: {
             query?: never;
@@ -7371,6 +7451,26 @@ export interface paths {
          * @description Requires records.read.
          */
         post: operations["query_task_list"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/template.list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The wording this business reuses, most-used first, with the folders it is filed under and the {{placeholders}} each one needs.
+         * @description Requires inbox.use.
+         */
+        post: operations["query_template_list"];
         delete?: never;
         options?: never;
         head?: never;
@@ -18021,6 +18121,153 @@ export interface operations {
             };
         };
     };
+    command_template_archive: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @default false */
+                    restore?: boolean;
+                    /** Format: uuid */
+                    templateId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        archived: boolean;
+                        /** Format: uuid */
+                        templateId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_template_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    body: string;
+                    /**
+                     * @default sms
+                     * @enum {string}
+                     */
+                    channel?: "sms" | "email";
+                    /** @default null */
+                    folder?: string | null;
+                    name: string;
+                    /** @default null */
+                    subject?: string | null;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        templateId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_template_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    body?: string;
+                    /** @enum {string} */
+                    channel?: "sms" | "email";
+                    folder?: string | null;
+                    name?: string;
+                    subject?: string | null;
+                    /** Format: uuid */
+                    templateId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        templateId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_template_used: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    templateId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        templateId: string;
+                        usedCount: number;
+                    };
+                };
+            };
+        };
+    };
     command_territory_create: {
         parameters: {
             query?: never;
@@ -27546,6 +27793,56 @@ export interface operations {
                         }[];
                         nextCursor: string | null;
                         timezone: string;
+                    };
+                };
+            };
+        };
+    };
+    query_template_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {string} */
+                    channel?: "sms" | "email";
+                    /** @default false */
+                    includeArchived?: boolean;
+                    search?: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        folders: string[];
+                        templates: {
+                            archivedAt: string | null;
+                            body: string;
+                            /** @enum {string} */
+                            channel: "sms" | "email";
+                            /** Format: date-time */
+                            createdAt: string;
+                            folder: string | null;
+                            /** Format: uuid */
+                            id: string;
+                            lastUsedAt: string | null;
+                            name: string;
+                            placeholders: string[];
+                            subject: string | null;
+                            usedCount: number;
+                        }[];
                     };
                 };
             };

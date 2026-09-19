@@ -182,12 +182,9 @@ export const MIGRATION_CATEGORIES: readonly MigrationCategory[] = [
     blurb: 'The wording you reuse: the emails and texts you wrote once and send again.',
     pass: MIGRATION_PASSES.definitions,
     dependsOn: ['locations'],
-    targetType: null,
+    targetType: 'message_template',
     selection: 'category',
-    release: 'unsupported',
-    releaseNote:
-      'HandsFreeOS has nowhere to keep wording on its own — it lives in the workflow or the message that ' +
-      'uses it. Copy anything you want to keep before you close the old account.',
+    release: 'ready',
   }),
   c({
     id: 'conversations',

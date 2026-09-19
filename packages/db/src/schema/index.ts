@@ -4219,6 +4219,33 @@ export const formDays = app.table(
   (t) => [primaryKey({ columns: [t.formId, t.day] })],
 );
 
+/** A text has no subject line and an email does; everything else about the wording is the same. */
+export const templateChannel = app.enum('template_channel', ['sms', 'email']);
+
+/**
+ * The wording a business reuses: the quote follow-up, the "on our way", the winter reminder.
+ *
+ * The same `{{placeholders}}` a workflow step uses, so a template can be dropped into either without
+ * being rewritten.
+ */
+export const messageTemplates = app.table('message_templates', {
+  id: id(),
+  workspaceId: workspaceRef(),
+  name: text('name').notNull(),
+  channel: templateChannel('channel').notNull().default('sms'),
+  /** Email only; the table refuses a subject on a text. */
+  subject: text('subject'),
+  body: text('body').notNull(),
+  /** The business's own grouping, one level deep on purpose. */
+  folder: text('folder'),
+  /** What gets reached for most rises to the top of the picker. */
+  usedCount: integer('used_count').notNull().default(0),
+  lastUsedAt: ts('last_used_at'),
+  createdBy: userRef('created_by'),
+  archivedAt: ts('archived_at'),
+  ...timestamps(),
+});
+
 /** A field the business invented. The values live on the record, keyed by this id. */
 export const customFields = app.table('custom_fields', {
   id: id(),
@@ -4239,6 +4266,7 @@ export const customFields = app.table('custom_fields', {
 });
 
 export const tables = {
+  messageTemplates,
   forms,
   formVersions,
   formSlugs,

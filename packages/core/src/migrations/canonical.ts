@@ -493,6 +493,22 @@ export const CanonicalFormResponse = z.object({
 });
 export type CanonicalFormResponse = z.infer<typeof CanonicalFormResponse>;
 
+/**
+ * A piece of wording a business saved to send again.
+ *
+ * `body` is what they actually wrote, and it is allowed to be empty here on purpose. A source that lists a
+ * template and will not hand over its words has told us something worth passing on, and the importer says
+ * it in those words — which is a better thing for a business to read than "shape not understood".
+ */
+export const CanonicalTemplate = z.object({
+  name: z.string().min(1).max(120),
+  channel: z.enum(['sms', 'email']).default('email'),
+  subject: z.string().max(200).nullish(),
+  body: z.string().max(20_000).default(''),
+  folder: z.string().max(60).nullish(),
+});
+export type CanonicalTemplate = z.infer<typeof CanonicalTemplate>;
+
 export const CANONICAL_TYPES = {
   contact: CanonicalContact,
   company: CanonicalCompany,
@@ -514,6 +530,7 @@ export const CANONICAL_TYPES = {
   subscription: CanonicalSubscription,
   form: CanonicalForm,
   form_response: CanonicalFormResponse,
+  template: CanonicalTemplate,
 } as const;
 export type CanonicalTypeName = keyof typeof CANONICAL_TYPES;
 
