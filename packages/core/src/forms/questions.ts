@@ -224,9 +224,32 @@ export const ANSWER_TARGET_KEYS = Object.keys(ANSWER_TARGETS) as [
 ];
 export const AnswerTarget = z.enum(ANSWER_TARGET_KEYS);
 
-/** Whether that question's answer can go in that field. */
-export function targetAccepts(target: AnswerTargetKey, type: QuestionType): boolean {
-  return (ANSWER_TARGETS[target].accepts as readonly QuestionType[]).includes(type);
+/**
+ * A field the business invented (M15's custom fields), named `custom:<id>`. Whether the answer fits is
+ * checked on the server against that field's own type, since only the database knows what it is.
+ */
+export const CUSTOM_TARGET_RE =
+  /^custom:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+
+export const AnswerTargetRef = z.union([
+  AnswerTarget,
+  z.string().regex(CUSTOM_TARGET_RE, { error: 'Name a field of this business.' }),
+]);
+
+export function isCustomTarget(target: string): boolean {
+  return CUSTOM_TARGET_RE.test(target);
+}
+
+/** The custom field's id inside a `custom:<id>` target. */
+export function customTargetFieldId(target: string): string {
+  return target.slice('custom:'.length);
+}
+
+/** Whether that question's answer can go in that field. A custom field is the server's to judge. */
+export function targetAccepts(target: string, type: QuestionType): boolean {
+  if (isCustomTarget(target)) return true;
+  const known = ANSWER_TARGETS[target as AnswerTargetKey];
+  return known ? (known.accepts as readonly QuestionType[]).includes(type) : false;
 }
 
 // ---- Answers ----

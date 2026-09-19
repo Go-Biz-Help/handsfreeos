@@ -22,7 +22,7 @@ import {
   calculationProblems,
 } from './logic';
 import {
-  AnswerTarget,
+  AnswerTargetRef,
   CHOICE_TYPES,
   QUESTION_CONFIGS,
   UNANSWERED_TYPES,
@@ -57,8 +57,11 @@ const questionBase = {
   required: z.boolean().default(false),
   /** Shown only when the answers so far pass this. An empty group always shows it. */
   showIf: AnswerConditionGroup.prefault({}),
-  /** Where the answer is written on the customer's record; null keeps it on the response only. */
-  mapTo: AnswerTarget.nullable().default(null),
+  /**
+   * Where the answer is written: a field of the customer or the lead, or `custom:<id>` for one the business
+   * invented. Null keeps it on the response, where it still shows on the customer's timeline.
+   */
+  mapTo: AnswerTargetRef.nullable().default(null),
 };
 
 const question = <T extends QuestionType>(type: T) =>

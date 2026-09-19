@@ -378,6 +378,8 @@ export const companies = app.table('companies', {
   ),
   // Milestone 10
   fieldTimes: fieldTimes(),
+  // Milestone 15: the fields this business invented, keyed by custom_fields.id.
+  custom: jsonb('custom').$type<Json>().notNull().default({}),
   /** A company made with no signal that looked like this one (0059): "Possible duplicate of …". */
   possibleDuplicateOf: uuid('possible_duplicate_of').references((): AnyPgColumn => companies.id, {
     onDelete: 'set null',
@@ -420,6 +422,8 @@ export const people = app.table('people', {
   possibleDuplicateOf: uuid('possible_duplicate_of').references((): AnyPgColumn => people.id, {
     onDelete: 'set null',
   }),
+  // Milestone 15: the fields this business invented, keyed by custom_fields.id.
+  custom: jsonb('custom').$type<Json>().notNull().default({}),
 });
 
 export const tags = app.table('tags', {
@@ -499,6 +503,8 @@ export const leads = app.table('leads', {
   firstResponseAt: ts('first_response_at'),
   // Milestone 10
   fieldTimes: fieldTimes(),
+  // Milestone 15: the fields this business invented, keyed by custom_fields.id.
+  custom: jsonb('custom').$type<Json>().notNull().default({}),
 });
 
 export const tasks = app.table('tasks', {
@@ -1836,6 +1842,11 @@ const organizationRef = () =>
     .references(() => organizations.id, { onDelete: 'cascade' });
 const uuidArray = (name: string) =>
   uuid(name)
+    .array()
+    .notNull()
+    .default(sql`'{}'`);
+const textArray = (name: string) =>
+  text(name)
     .array()
     .notNull()
     .default(sql`'{}'`);
@@ -3838,6 +3849,7 @@ export const migrationTombstones = app.table('migration_tombstones', {
   appliedAt: ts('applied_at'),
 });
 
+
 /* ===========================================================================
  * platform · HandsFreeOS's own support desk (0070). Not tenant data: these
  * tables are read by staff and by the worker, and by no business at all.
@@ -3993,7 +4005,182 @@ export const viewAsSessions = platform.table('view_as_sessions', {
   createdAt: ts('created_at').notNull().defaultNow(),
 });
 
+// ---- Forms, surveys and quizzes (M15) ----
+
+export const formMode = app.enum('form_mode', ['form', 'survey', 'quiz']);
+export const formStatus = app.enum('form_status', ['draft', 'live', 'closed', 'archived']);
+export const formResponseStatus = app.enum('form_response_status', ['in_progress', 'completed']);
+export const formSource = app.enum('form_source', ['link', 'embed', 'chat', 'qr', 'app', 'api']);
+export const customFieldEntity = app.enum('custom_field_entity', ['person', 'company', 'lead']);
+export const customFieldType = app.enum('custom_field_type', [
+  'text',
+  'long_text',
+  'number',
+  'money',
+  'date',
+  'choice',
+  'multi_choice',
+  'boolean',
+  'phone',
+  'email',
+  'url',
+]);
+
+const formLink = () =>
+  uuid('form_id')
+    .notNull()
+    .references(() => forms.id, { onDelete: 'cascade' });
+
+/** A form, a survey or a quiz: one draft (core's FormDefinition) that every editor changes. */
+export const forms = app.table('forms', {
+  id: id(),
+  workspaceId: workspaceRef(),
+  name: text('name').notNull(),
+  mode: formMode('mode').notNull().default('form'),
+  status: formStatus('status').notNull().default('draft'),
+  /** The public link, /f/<site>/<slug>; renaming retires the old one into formSlugs. */
+  slug: text('slug').notNull(),
+  definition: jsonb('definition').$type<Json>().notNull().default({}),
+  definitionVersion: integer('definition_version').notNull().default(1),
+  revision: integer('revision').notNull().default(1),
+  activeVersionId: uuid('active_version_id').references((): AnyPgColumn => formVersions.id),
+  /** The sites allowed to frame it; empty means it is not embedded anywhere. */
+  embedOrigins: textArray('embed_origins'),
+  /** The AI teammate may ask its questions in a conversation instead of sending the link. */
+  inChat: boolean('in_chat').notNull().default(false),
+  /** Completed responses, kept by a trigger: what "closes after 100 answers" reads. */
+  responseCount: integer('response_count').notNull().default(0),
+  lastResponseAt: ts('last_response_at'),
+  createdBy: userRef('created_by'),
+  ...timestamps(),
+  archivedAt: ts('archived_at'),
+});
+
+/** What a publish froze. Append-only, and a response keeps its version for life. */
+export const formVersions = app.table('form_versions', {
+  id: id(),
+  workspaceId: workspaceRef(),
+  formId: formLink(),
+  version: integer('version').notNull(),
+  definition: jsonb('definition').$type<Json>().notNull(),
+  definitionVersion: integer('definition_version').notNull(),
+  revision: integer('revision').notNull(),
+  /** editor, assistant, template. */
+  source: text('source').notNull().default('editor'),
+  diffSummary: jsonb('diff_summary').$type<Json[]>().notNull().default([]),
+  publishedBy: userRef('published_by'),
+  createdAt: ts('created_at').notNull().defaultNow(),
+});
+
+/** A renamed form's old links still land here. */
+export const formSlugs = app.table(
+  'form_slugs',
+  {
+    workspaceId: workspaceRef(),
+    formId: formLink(),
+    slug: text('slug').notNull(),
+    retiredAt: ts('retired_at').notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.workspaceId, t.slug] })],
+);
+
+/** One person's answers, on the version they were shown. */
+export const formResponses = app.table('form_responses', {
+  id: id(),
+  workspaceId: workspaceRef(),
+  formId: formLink(),
+  versionId: uuid('version_id')
+    .notNull()
+    .references(() => formVersions.id),
+  status: formResponseStatus('status').notNull().default('in_progress'),
+  source: formSource('source').notNull().default('link'),
+  /** Null on an anonymous form, and until a half-finished one says who they are. */
+  personId: uuid('person_id').references(() => people.id, { onDelete: 'set null' }),
+  leadId: uuid('lead_id').references(() => leads.id, { onDelete: 'set null' }),
+  invoiceId: uuid('invoice_id').references(() => invoices.id, { onDelete: 'set null' }),
+  answers: jsonb('answers').$type<Json>().notNull().default({}),
+  calculations: jsonb('calculations').$type<Json>().notNull().default({}),
+  score: numeric('score'),
+  scorePossible: numeric('score_possible'),
+  scorePercent: integer('score_percent'),
+  passed: boolean('passed'),
+  /** Core's r_ id inside the version. */
+  resultId: text('result_id'),
+  /** Save and resume; the token itself is never stored. Worker-only. */
+  resumeTokenHash: bytea('resume_token_hash'),
+  resumeExpiresAt: ts('resume_expires_at'),
+  visitorHash: bytea('visitor_hash'),
+  /** The form asked for one answer per customer when this was sent (0077's unique index). */
+  onePerPerson: boolean('one_per_person').notNull().default(false),
+  startedAt: ts('started_at').notNull().defaultNow(),
+  completedAt: ts('completed_at'),
+  ...timestamps(),
+});
+
+/** The same answers one row per question, which is what a results summary counts. */
+export const formAnswers = app.table(
+  'form_answers',
+  {
+    workspaceId: workspaceRef(),
+    responseId: uuid('response_id')
+      .notNull()
+      .references(() => formResponses.id, { onDelete: 'cascade' }),
+    formId: formLink(),
+    questionId: text('question_id').notNull(),
+    /** Copied in as they answered, so rewording the question doesn't rewrite history. */
+    questionTitle: text('question_title').notNull(),
+    questionType: text('question_type').notNull(),
+    value: jsonb('value').notNull().default(null),
+    numberValue: numeric('number_value'),
+    textValue: text('text_value'),
+    choiceIds: textArray('choice_ids'),
+    choiceLabels: textArray('choice_labels'),
+    answeredAt: ts('answered_at').notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.responseId, t.questionId] })],
+);
+
+/** How many looked, started and finished, a day at a time. Nothing in it says who anybody is. */
+export const formDays = app.table(
+  'form_days',
+  {
+    workspaceId: workspaceRef(),
+    formId: formLink(),
+    day: date('day').notNull(),
+    views: integer('views').notNull().default(0),
+    starts: integer('starts').notNull().default(0),
+    completions: integer('completions').notNull().default(0),
+  },
+  (t) => [primaryKey({ columns: [t.formId, t.day] })],
+);
+
+/** A field the business invented. The values live on the record, keyed by this id. */
+export const customFields = app.table('custom_fields', {
+  id: id(),
+  workspaceId: workspaceRef(),
+  entity: customFieldEntity('entity').notNull(),
+  /** The short name used in imports, exports and the API ('gate_code'). */
+  key: text('key').notNull(),
+  label: text('label').notNull(),
+  type: customFieldType('type').notNull().default('text'),
+  /** Choice and multi-choice: [{value, label}]. */
+  options: jsonb('options').$type<Json[]>().notNull().default([]),
+  help: text('help').notNull().default(''),
+  position: integer('position').notNull().default(0),
+  alwaysShow: boolean('always_show').notNull().default(false),
+  archivedAt: ts('archived_at'),
+  createdBy: userRef('created_by'),
+  ...timestamps(),
+});
+
 export const tables = {
+  forms,
+  formVersions,
+  formSlugs,
+  formResponses,
+  formAnswers,
+  formDays,
+  customFields,
   staff,
   staffInvitations,
   tickets,

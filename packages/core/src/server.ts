@@ -14,6 +14,7 @@ export * from './calendar/deposit-load';
 export * from './calendar/booking';
 export * from './calendar/reminders';
 export * from './workflows/load';
+export * from './forms/load';
 export * from './workflows/template-update';
 export * from './knowledge/search';
 export * from './ai-team/load';
