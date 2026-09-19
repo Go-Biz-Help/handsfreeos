@@ -41,6 +41,21 @@ const env = Object.fromEntries(
     ([name]) => !name.startsWith('FLY_') && name !== 'PRIMARY_REGION',
   ),
 );
+/**
+ * The image to launch the compaction machine with. It has to be a tag, not a digest: `flyctl machine run` (v0.4.104)
+ * appends the resolved digest to whatever ref it is given, so a ref that already carries one becomes
+ * `repo@sha256:x@sha256:x` and Fly answers `config.image: invalid image identifier`. The service's machine records
+ * the image's version as an OCI label, so the tag is rebuilt from that and stays in step with the service by itself.
+ * The fingerprint below still uses the service's exact digest, so a changed image still replaces the machine. When
+ * flyctl takes a digest again, this can go back to `service.config.image`.
+ */
+const launchImage = () => {
+  const ref = service.image_ref;
+  const version = ref?.labels?.['org.opencontainers.image.version'];
+  if (ref?.repository && version) return `${ref.repository}:${version}`;
+  return service.config.image;
+};
+
 const wanted = {
   image: service.config.image,
   region: service.region,
@@ -63,7 +78,7 @@ for (const m of current) fly(['machine', 'destroy', m.id, '--app', APP, '--force
 fly([
   'machine',
   'run',
-  wanted.image,
+  launchImage(),
   'compact',
   '--app',
   APP,

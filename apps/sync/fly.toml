@@ -2,9 +2,13 @@
 # in step, at https://sync.handsfreeos.com. Deployed from the repository root by .github/workflows/deploy.yml once
 # its secrets exist, or by hand (docs/operations.md, "Sync service: PowerSync on Fly"):
 #   fly deploy . --config apps/sync/fly.toml --ha=false --wait-timeout 600
+# Run it from the repository root: flyctl resolves each [[files]] local_path against the working directory,
+# not against this file, so they are written repository-root-relative below.
 #
-# Nothing is built: the image is PowerSync's own, pinned by digest (the one `pnpm sync:start` runs), and every deploy
-# writes this folder's service.yaml and sync-config.yaml (and the status check) into the machine.
+# Nothing is built: the image is PowerSync's own version 1.26.1, pinned by digest (the one `pnpm sync:start`
+# runs), and every deploy writes this folder's service.yaml and sync-config.yaml (and the status check) into
+# the machine. The version stays in this comment rather than beside the digest: Fly's registry lookup refuses
+# the `name:tag@digest` spelling, answering "not a valid image" for a digest that resolves fine on Docker Hub.
 #
 # Secrets never go in this file. `fly secrets import` sets the three it needs:
 #   PS_DATA_SOURCE_URI  hfos_sync on the hosted database's direct connection (logical replication can't use a pooler)
@@ -15,12 +19,12 @@
 # its replication slot keeps the database's write-ahead log from being recycled.
 
 app = "handsfreeos-sync"
-primary_region = "dfw"
+primary_region = "iad"
 kill_signal = "SIGTERM"
 kill_timeout = "30s"
 
 [build]
-  image = "journeyapps/powersync-service:1.26.1@sha256:413a0c813e96935ebe7203b5759f8a594a7b7cd8aa42134713e63af637e0f079"
+  image = "journeyapps/powersync-service@sha256:413a0c813e96935ebe7203b5759f8a594a7b7cd8aa42134713e63af637e0f079"
 
 [processes]
   app = "start -r unified"
@@ -37,15 +41,15 @@ kill_timeout = "30s"
 
 [[files]]
   guest_path = "/config/service.yaml"
-  local_path = "service.yaml"
+  local_path = "apps/sync/service.yaml"
 
 [[files]]
   guest_path = "/config/sync-config.yaml"
-  local_path = "sync-config.yaml"
+  local_path = "apps/sync/sync-config.yaml"
 
 [[files]]
   guest_path = "/config/status.mjs"
-  local_path = "scripts/status.mjs"
+  local_path = "apps/sync/scripts/status.mjs"
 
 [http_service]
   internal_port = 8080
