@@ -129,6 +129,54 @@ const contact = (c: ContactSeed): FakeRecord => ({
   },
 });
 
+/** A pipeline and its stages, the way GoHighLevel hands them over: columns with no meaning of their own. */
+const pipeline = (
+  id: string,
+  name: string,
+  stages: readonly { id: string; name: string }[],
+): FakeRecord => ({
+  objectType: 'pipeline',
+  objectId: id,
+  createdAt: '2019-01-15T10:00:00.000Z',
+  updatedAt: '2024-01-15T10:00:00.000Z',
+  payload: {
+    id,
+    name,
+    stages: stages.map((st, i) => ({ id: st.id, name: st.name, position: i })),
+  },
+});
+
+/** A deal. `status` is where GoHighLevel keeps won and lost, rather than on the stage. */
+const deal = (
+  id: string,
+  name: string,
+  contactId: string,
+  pipelineId: string,
+  stageId: string,
+  status: string,
+  value: number,
+  added: string,
+  extra: Record<string, unknown> = {},
+): FakeRecord => ({
+  objectType: 'opportunity',
+  objectId: id,
+  createdAt: added,
+  updatedAt: added,
+  payload: {
+    id,
+    name,
+    contactId,
+    pipelineId,
+    pipelineStageId: stageId,
+    status,
+    monetaryValue: value,
+    assignedTo: 'usr_ana',
+    source: 'Google',
+    dateAdded: added,
+    ...extra,
+  },
+});
+
 /** A thread with one customer on one channel. `type` is GoHighLevel's own spelling. */
 const thread = (
   id: string,
@@ -246,6 +294,63 @@ const AUSTIN_RECORDS: readonly FakeRecord[] = [
       country: 'US',
     },
   }),
+
+  // ---------- the work ----------
+  // Stages with no meaning of their own: nothing here reads as won or lost, so the import has to add
+  // somewhere to win and somewhere to lose or the business could never mark another deal.
+  pipeline('pip_sales', 'Sales', [
+    { id: 'stg_new', name: 'New enquiry' },
+    { id: 'stg_quote', name: 'Quote sent' },
+    { id: 'stg_sched', name: 'Scheduled' },
+  ]),
+  deal(
+    'opp_a1',
+    'AC replacement',
+    'con_a1',
+    'pip_sales',
+    'stg_quote',
+    'open',
+    4200,
+    '2024-03-01T10:00:00.000Z',
+  ),
+  deal(
+    'opp_a2',
+    'Annual plan',
+    'con_a2',
+    'pip_sales',
+    'stg_sched',
+    'won',
+    349.5,
+    '2021-03-02T11:00:00.000Z',
+    {
+      lastStatusChangeAt: '2021-03-20T16:00:00.000Z',
+    },
+  ),
+  deal(
+    'opp_a3',
+    'Ducting quote',
+    'con_a4',
+    'pip_sales',
+    'stg_quote',
+    'lost',
+    1800,
+    '2022-09-10T09:00:00.000Z',
+    {
+      lastStatusChangeAt: '2022-10-01T09:00:00.000Z',
+      lostReasonName: 'Went with a cheaper quote',
+    },
+  ),
+  // Abandoned over there is lost here, and the reason says so rather than pretending it was a decision.
+  deal(
+    'opp_a4',
+    'Thermostat upgrade',
+    'con_a5',
+    'pip_sales',
+    'stg_new',
+    'abandoned',
+    260,
+    '2023-02-11T14:00:00.000Z',
+  ),
 
   // ---------- the history ----------
   // Two text threads with the same customer, which is something the old system allows and this one does not:
@@ -442,6 +547,8 @@ const RECORDS: Record<string, readonly FakeRecord[]> = {
 };
 
 const CATEGORY_TYPE: Record<string, string> = {
+  pipelines: 'pipeline',
+  opportunities: 'opportunity',
   users: 'user',
   tags: 'tag',
   custom_fields: 'custom_field',
@@ -455,8 +562,6 @@ const CATEGORY_TYPE: Record<string, string> = {
 /** What the stand-in pretends exists but this release does not read record by record. */
 const COUNTS_ONLY: Record<string, number> = {
   appointments: 96,
-  opportunities: 74,
-  pipelines: 2,
   calendars: 3,
   forms: 4,
   form_submissions: 210,
@@ -482,6 +587,8 @@ const SCOPE_NAMES: Record<string, readonly string[]> = {
   custom_fields: ['customFields.readonly'],
   contacts: ['contacts.readonly'],
   companies: ['companies.readonly'],
+  pipelines: ['opportunities.readonly'],
+  opportunities: ['opportunities.readonly'],
   conversations: ['conversations.readonly'],
   messages: ['conversations/message.readonly'],
   calls: ['conversations/message.readonly'],
@@ -727,6 +834,76 @@ export function createFakeSourceAdapter(): FakeSource {
       };
       const str = (v: unknown) => (typeof v === 'string' && v.trim() ? v.trim() : null);
       switch (record.objectType) {
+        case 'pipeline': {
+          const stages = Array.isArray(p['stages'])
+            ? (p['stages'] as Record<string, unknown>[])
+            : [];
+          const kindOf = (n: string) =>
+            /won|sold/i.test(n) ? 'won' : /lost|dead/i.test(n) ? 'lost' : 'open';
+          return [
+            {
+              ...base,
+              canonicalType: 'pipeline',
+              category: 'pipelines',
+              relationships: [],
+              data: {
+                name: str(p['name']) ?? 'Pipeline',
+                position: 0,
+                stages: stages.map((st, i) => ({
+                  name: str(st['name']) ?? `Stage ${i + 1}`,
+                  kind: kindOf(str(st['name']) ?? ''),
+                  position: i,
+                  sourceId: str(st['id']),
+                })),
+              },
+            },
+          ];
+        }
+        case 'opportunity': {
+          const status = str(p['status']) ?? 'open';
+          return [
+            {
+              ...base,
+              canonicalType: 'lead',
+              category: 'opportunities',
+              relationships: [
+                {
+                  category: 'contacts',
+                  objectType: 'contact',
+                  objectId: str(p['contactId']) ?? '',
+                  role: 'contact',
+                  required: true,
+                },
+                {
+                  category: 'pipelines',
+                  objectType: 'pipeline',
+                  objectId: str(p['pipelineId']) ?? '',
+                  role: 'pipeline',
+                  required: true,
+                },
+                {
+                  category: 'users',
+                  objectType: 'user',
+                  objectId: str(p['assignedTo']) ?? '',
+                  role: 'owner',
+                  required: false,
+                },
+              ],
+              data: {
+                title: str(p['name']) ?? 'Lead',
+                valueCents: Math.round(Number(p['monetaryValue'] ?? 0) * 100),
+                status,
+                source: str(p['source']),
+                sourceStageId: str(p['pipelineStageId']),
+                expectedCloseOn: null,
+                stageEnteredAt: record.sourceCreatedAt?.toISOString() ?? null,
+                closedAt:
+                  str(p['lastStatusChangeAt']) ?? record.sourceUpdatedAt?.toISOString() ?? null,
+                lostReason: str(p['lostReasonName']),
+              },
+            },
+          ];
+        }
         case 'conversation': {
           const type = str(p['type']) ?? '';
           const channel = type.includes('EMAIL') ? 'email' : type.includes('SMS') ? 'sms' : 'chat';

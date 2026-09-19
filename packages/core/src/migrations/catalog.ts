@@ -142,8 +142,7 @@ export const MIGRATION_CATEGORIES: readonly MigrationCategory[] = [
     dependsOn: ['locations'],
     targetType: 'pipeline',
     selection: 'resource',
-    release: 'next',
-    releaseNote: 'Counted now, brought across in a later step.',
+    release: 'ready',
   }),
   c({
     id: 'calendars',
@@ -211,8 +210,7 @@ export const MIGRATION_CATEGORIES: readonly MigrationCategory[] = [
     prefers: ['users', 'custom_fields'],
     targetType: 'lead',
     selection: 'category',
-    release: 'next',
-    releaseNote: 'Counted now, brought across in a later step.',
+    release: 'ready',
   }),
   c({
     id: 'appointments',

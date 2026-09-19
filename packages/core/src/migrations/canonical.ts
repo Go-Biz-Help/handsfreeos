@@ -256,6 +256,46 @@ export const CanonicalCall = z.object({
 });
 export type CanonicalCall = z.infer<typeof CanonicalCall>;
 
+/**
+ * A pipeline and the stages in it, in order.
+ *
+ * HandsFreeOS says what winning means with the *kind* of a stage; the source often says it with a status on
+ * the deal instead. So a stage carries a kind here, inferred from its name where the source has none, and a
+ * pipeline that ends up with no won or lost stage is given one — otherwise a deal that was won has nowhere to
+ * be won in, and the business could never mark one again.
+ */
+export const CanonicalPipelineStage = z.object({
+  name: z.string().min(1).max(60),
+  kind: z.enum(['open', 'won', 'lost']).default('open'),
+  position: z.number().int().min(0).max(1000).default(0),
+  /** The source's own id for the stage, so a deal can find the stage it was in. */
+  sourceId: z.string().max(200).nullish(),
+});
+export type CanonicalPipelineStage = z.infer<typeof CanonicalPipelineStage>;
+
+export const CanonicalPipeline = z.object({
+  name: z.string().min(1).max(80),
+  position: z.number().int().min(0).max(1000).default(0),
+  stages: z.array(CanonicalPipelineStage).max(100).default([]),
+});
+export type CanonicalPipeline = z.infer<typeof CanonicalPipeline>;
+
+/** A deal, in the stage it was in, worth what it was worth. */
+export const CanonicalLead = z.object({
+  title: z.string().min(1).max(160),
+  /** Whole cents, because money is never a float. */
+  valueCents: z.number().int().min(0).max(1_000_000_000_000).default(0),
+  status: z.enum(['open', 'won', 'lost', 'abandoned']).default('open'),
+  source: z.string().max(200).nullish(),
+  /** Which stage it was in, by the source's own stage id. */
+  sourceStageId: z.string().max(200).nullish(),
+  expectedCloseOn: z.string().max(10).nullish(),
+  stageEnteredAt: z.iso.datetime({ offset: true }).nullish(),
+  closedAt: z.iso.datetime({ offset: true }).nullish(),
+  lostReason: z.string().max(300).nullish(),
+});
+export type CanonicalLead = z.infer<typeof CanonicalLead>;
+
 export const CANONICAL_TYPES = {
   contact: CanonicalContact,
   company: CanonicalCompany,
@@ -265,6 +305,8 @@ export const CANONICAL_TYPES = {
   conversation: CanonicalConversation,
   message: CanonicalMessage,
   call: CanonicalCall,
+  pipeline: CanonicalPipeline,
+  lead: CanonicalLead,
 } as const;
 export type CanonicalTypeName = keyof typeof CANONICAL_TYPES;
 

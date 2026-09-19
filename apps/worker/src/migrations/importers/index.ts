@@ -1366,6 +1366,317 @@ export const importCall: Importer = async (tx, scope, envelope) => {
   return { counts: { imported: 1 } };
 };
 
+// ---------- pipelines and leads ----------
+
+/**
+ * A pipeline, its stages, and the meaning HandsFreeOS needs them to have.
+ *
+ * The gap worth understanding: over there a stage is only a column and the *deal* says whether it was won;
+ * here the *stage* says it, so that a board column means something and "won this month" is answerable. So a
+ * stage's kind is read from its name, and a pipeline that ends up without a won or a lost stage is given one.
+ * Without that a business could never mark another deal won in the pipeline it just brought across, which is
+ * a worse outcome than an extra column.
+ */
+export const importPipeline: Importer = async (tx, scope, envelope) => {
+  const d = envelope.data as {
+    name?: string;
+    position?: number;
+    stages?: { name: string; kind: string; position: number; sourceId?: string | null }[];
+  };
+  const already = await existingMapping(
+    tx,
+    scope,
+    envelope.source.objectType,
+    envelope.source.objectId,
+  );
+  if (already) return { counts: { skipped: 1 } };
+
+  let name = (str(d.name) ?? 'Pipeline').slice(0, 80);
+  const { createdAt, updatedAt } = sourceTimes(envelope);
+  /**
+   * Every new business here starts with a pipeline called Sales and some stages nobody chose, and the old
+   * system's pipeline is very often called Sales too. The old board comes across under its own name when that
+   * happens, rather than being mixed into the one already here.
+   *
+   * Taking over the starter board instead was the first attempt, and the database was right to refuse it: its
+   * stages are already pointed at by other things a business has set up (where a new enquiry lands, for one),
+   * so they cannot simply be swapped out from underneath. Two boards a person can tidy up beats one board
+   * whose columns are half somebody else's.
+   */
+  const [existing] = await rows<{ id: string }>(
+    tx,
+    sql`select id::text as id from app.pipelines
+        where workspace_id = ${scope.workspaceId} and lower(name) = ${name.toLowerCase()}
+          and archived_at is null limit 1`,
+  );
+  if (existing) {
+    const beside = `${name.slice(0, 55)} (from the old system)`;
+    await finding(tx, scope, {
+      code: 'pipelines.named_beside',
+      category: 'pipelines',
+      capability: 'needs_review',
+      severity: 'info',
+      summary: `You already have a pipeline called “${name}”, so theirs came across as “${beside}”.`,
+      whatImports: 'Every stage and every deal from the old system’s pipeline.',
+      whatChanges:
+        'The two boards stay separate: mixing their columns into yours would move work into stages you did not choose, and the stages you already have are pointed at by other settings.',
+      recommendedAction:
+        'If the board here was the empty one HandsFreeOS made for you, delete it and rename theirs.',
+      sourceCapability: 'pipelines',
+      affected: 1,
+      detail: { yours: name, theirs: beside },
+    });
+    name = beside;
+  }
+  const pipelineId = randomUUID();
+  await tx.execute(sql`
+    insert into app.pipelines (id, workspace_id, name, position, created_at, updated_at)
+    values (${pipelineId}::uuid, ${scope.workspaceId}, ${name},
+      ${Math.max(0, Math.min(1000, Number(d.position ?? 0) || 0))},
+      coalesce(${createdAt?.toISOString() ?? null}::timestamptz, now()),
+      coalesce(${updatedAt?.toISOString() ?? null}::timestamptz, now()))`);
+
+  // The stages, in the order they were in, with names that cannot collide.
+  const wanted = (d.stages ?? []).slice(0, 100);
+  const seen = new Set<string>();
+  const stages: { name: string; kind: string; position: number; sourceId: string | null }[] = [];
+  for (const [i, st] of wanted.entries()) {
+    let stageName = (str(st.name) ?? `Stage ${i + 1}`).slice(0, 60);
+    if (seen.has(stageName.toLowerCase())) stageName = `${stageName.slice(0, 56)} ${i + 1}`.trim();
+    seen.add(stageName.toLowerCase());
+    stages.push({
+      name: stageName,
+      kind: st.kind === 'won' || st.kind === 'lost' ? st.kind : 'open',
+      position: Number(st.position ?? i) || i,
+      sourceId: st.sourceId ?? null,
+    });
+  }
+  // Every pipeline needs somewhere to win and somewhere to lose, or the schema will not let the business
+  // change a stage's meaning later and nothing can ever be marked won.
+  const added: string[] = [];
+  for (const kind of ['won', 'lost'] as const)
+    if (!stages.some((st) => st.kind === kind) && !seen.has(kind)) {
+      stages.push({
+        name: kind === 'won' ? 'Won' : 'Lost',
+        kind,
+        position: stages.length,
+        sourceId: null,
+      });
+      added.push(kind === 'won' ? 'Won' : 'Lost');
+    }
+  if (!stages.some((st) => st.kind === 'open') && stages.length > 0)
+    // Everything read as won or lost: the first one is where work starts, whatever it is called.
+    stages[0] = { ...stages[0]!, kind: 'open' };
+
+  for (const [i, st] of stages.entries()) {
+    const stageId = randomUUID();
+    await tx.execute(sql`
+      insert into app.pipeline_stages (id, workspace_id, pipeline_id, name, kind, position,
+        created_at, updated_at)
+      values (${stageId}::uuid, ${scope.workspaceId}, ${pipelineId}::uuid, ${st.name},
+        ${st.kind}::app.stage_kind, ${i},
+        coalesce(${createdAt?.toISOString() ?? null}::timestamptz, now()),
+        coalesce(${updatedAt?.toISOString() ?? null}::timestamptz, now()))`);
+    // No `on conflict` here, deliberately: a stage's position is unique *deferrably*, and Postgres refuses a
+    // deferrable constraint as a conflict arbiter (55000). The pipeline is new and the positions are counted
+    // from zero, so there is nothing to conflict with — and the names were made unique before the loop.
+    // A deal knows the stage it was in by the old system's id, so each one is mapped on its own.
+    if (st.sourceId) {
+      const [landed] = await rows<{ id: string }>(
+        tx,
+        sql`select id::text as id from app.pipeline_stages
+            where pipeline_id = ${pipelineId}::uuid and lower(name) = ${st.name.toLowerCase()} limit 1`,
+      );
+      await putMapping(tx, scope, {
+        sourceObjectType: 'pipeline_stage',
+        sourceObjectId: st.sourceId,
+        targetType: 'pipeline_stage',
+        targetId: landed?.id ?? stageId,
+        createdHere: true,
+      });
+    }
+  }
+  if (added.length > 0)
+    await finding(tx, scope, {
+      code: 'pipelines.stage_added',
+      category: 'pipelines',
+      capability: 'needs_review',
+      severity: 'info',
+      summary: `“${name}” needed ${added.join(' and ')} ${added.length === 1 ? 'stage' : 'stages'}, and now has ${added.length === 1 ? 'one' : 'them'}.`,
+      whatImports: 'Your stages, in the order you had them.',
+      whatChanges:
+        'HandsFreeOS says what winning and losing mean with the stage itself, so a board column means something and "won this month" can be answered. The old system said it on the deal instead, so anything that read as neither got an extra column here.',
+      recommendedAction: 'Rename them to whatever you call winning and losing.',
+      sourceCapability: 'pipelines',
+      affected: added.length,
+      detail: { pipeline: name, added },
+    });
+  await putMapping(tx, scope, {
+    sourceObjectType: envelope.source.objectType,
+    sourceObjectId: envelope.source.objectId,
+    targetType: 'pipeline',
+    targetId: pipelineId,
+    createdHere: true,
+    checksum: envelope.source.payloadChecksum,
+  });
+  await journal(tx, scope, {
+    action: 'create',
+    targetType: 'pipeline',
+    targetId: pipelineId,
+    sourceObjectType: envelope.source.objectType,
+    sourceObjectId: envelope.source.objectId,
+  });
+  return { counts: { imported: 1 } };
+};
+
+/** A deal. Its stage is the one it was in; won and lost land where winning and losing live here. */
+export const importLead: Importer = async (tx, scope, envelope) => {
+  const d = envelope.data as {
+    title?: string;
+    valueCents?: number;
+    status?: string;
+    source?: string | null;
+    sourceStageId?: string | null;
+    expectedCloseOn?: string | null;
+    stageEnteredAt?: string | null;
+    closedAt?: string | null;
+    lostReason?: string | null;
+  };
+  const already = await existingMapping(
+    tx,
+    scope,
+    envelope.source.objectType,
+    envelope.source.objectId,
+  );
+  if (already) return { counts: { skipped: 1 } };
+
+  const pipelineRef = envelope.relationships.find((r) => r.role === 'pipeline');
+  const pipeline = pipelineRef
+    ? await existingMapping(tx, scope, pipelineRef.objectType, pipelineRef.objectId)
+    : null;
+  if (!pipeline || pipeline.targetType !== 'pipeline') {
+    await quarantine(tx, scope, {
+      category: 'opportunities',
+      sourceObjectType: envelope.source.objectType,
+      sourceObjectId: envelope.source.objectId,
+      kind: 'dependency',
+      code: 'lead_without_pipeline',
+      message: `The pipeline this lead belongs to is not here (${pipelineRef?.objectId ?? 'none named'}).`,
+      retryable: true,
+    });
+    return { counts: { failed: 1 } };
+  }
+
+  // A lead has to belong to somebody: the schema says a person or a company, and it is right to.
+  const contactRef = envelope.relationships.find((r) => r.role === 'contact');
+  const person = contactRef
+    ? await existingMapping(tx, scope, contactRef.objectType, contactRef.objectId)
+    : null;
+  const personId = person?.targetType === 'person' ? person.targetId : null;
+  if (!personId) {
+    await quarantine(tx, scope, {
+      category: 'opportunities',
+      sourceObjectType: envelope.source.objectType,
+      sourceObjectId: envelope.source.objectId,
+      kind: 'dependency',
+      code: 'lead_without_customer',
+      message: 'A lead with no customer behind it cannot be placed here.',
+      retryable: true,
+    });
+    return { counts: { failed: 1 } };
+  }
+
+  /**
+   * Which stage it lands in. A deal that is still open keeps the stage it was in; one that was won or lost
+   * goes where winning and losing live here, because that is where the status comes from. `abandoned` over
+   * there is lost here, said in the reason rather than silently rounded to it.
+   */
+  const status = d.status ?? 'open';
+  const wantKind = status === 'won' ? 'won' : status === 'open' ? 'open' : 'lost';
+  const sourceStage =
+    status === 'open' && d.sourceStageId
+      ? await existingMapping(tx, scope, 'pipeline_stage', d.sourceStageId)
+      : null;
+  let stageId = sourceStage?.targetType === 'pipeline_stage' ? sourceStage.targetId : null;
+  if (stageId) {
+    // Only if it really is a stage of this pipeline; a stage id from another pipeline would be refused.
+    const [ok] = await rows<{ id: string }>(
+      tx,
+      sql`select id::text as id from app.pipeline_stages
+          where id = ${stageId}::uuid and pipeline_id = ${pipeline.targetId}::uuid limit 1`,
+    );
+    if (!ok) stageId = null;
+  }
+  if (!stageId) {
+    const [byKind] = await rows<{ id: string }>(
+      tx,
+      sql`select id::text as id from app.pipeline_stages
+          where pipeline_id = ${pipeline.targetId}::uuid and kind = ${wantKind}::app.stage_kind
+          order by position limit 1`,
+    );
+    stageId = byKind?.id ?? null;
+  }
+  if (!stageId) {
+    await quarantine(tx, scope, {
+      category: 'opportunities',
+      sourceObjectType: envelope.source.objectType,
+      sourceObjectId: envelope.source.objectId,
+      kind: 'mapping',
+      code: 'lead_without_stage',
+      message: 'The pipeline this lead belongs to has no stage it could go in.',
+      retryable: true,
+    });
+    return { counts: { failed: 1 } };
+  }
+
+  const ownerRef = envelope.relationships.find((r) => r.role === 'owner');
+  const owner = ownerRef
+    ? await existingMapping(tx, scope, ownerRef.objectType, ownerRef.objectId)
+    : null;
+  const { createdAt, updatedAt } = sourceTimes(envelope);
+  const closedAt = d.closedAt ?? updatedAt?.toISOString() ?? null;
+  const lostReason =
+    wantKind === 'lost'
+      ? (str(d.lostReason)?.slice(0, 300) ??
+        (status === 'abandoned'
+          ? 'Abandoned in the old system.'
+          : 'Marked lost in the old system, with no reason recorded.'))
+      : null;
+  const id = randomUUID();
+  await tx.execute(sql`
+    insert into app.leads (id, workspace_id, pipeline_id, stage_id, person_id, title, value_cents,
+      source, assignee_user_id, expected_close_on, lost_reason, stage_entered_at, won_at, lost_at,
+      created_at, updated_at)
+    values (${id}::uuid, ${scope.workspaceId}, ${pipeline.targetId}::uuid, ${stageId}::uuid,
+      ${personId}::uuid, ${(str(d.title) ?? 'Lead').slice(0, 160)},
+      ${Math.max(0, Math.round(Number(d.valueCents ?? 0)))}, ${str(d.source)},
+      ${owner?.targetType === 'user' ? owner.targetId : null}::uuid,
+      ${str(d.expectedCloseOn)}::date, ${lostReason},
+      -- The moments the old system recorded. 0072 lets the worker keep them; a person's own leads are still
+      -- stamped by the database.
+      coalesce(${d.stageEnteredAt ?? null}::timestamptz, ${createdAt?.toISOString() ?? null}::timestamptz),
+      ${wantKind === 'won' ? closedAt : null}::timestamptz,
+      ${wantKind === 'lost' ? closedAt : null}::timestamptz,
+      coalesce(${createdAt?.toISOString() ?? null}::timestamptz, now()),
+      coalesce(${updatedAt?.toISOString() ?? null}::timestamptz, now()))`);
+  await putMapping(tx, scope, {
+    sourceObjectType: envelope.source.objectType,
+    sourceObjectId: envelope.source.objectId,
+    targetType: 'lead',
+    targetId: id,
+    createdHere: true,
+    checksum: envelope.source.payloadChecksum,
+  });
+  await journal(tx, scope, {
+    action: 'create',
+    targetType: 'lead',
+    targetId: id,
+    sourceObjectType: envelope.source.objectType,
+    sourceObjectId: envelope.source.objectId,
+  });
+  return { counts: { imported: 1 } };
+};
+
 /** Which importer reads which canonical type. Nothing else in the engine decides this. */
 export const IMPORTERS: Readonly<Record<string, Importer>> = {
   user_identity: importUser,
@@ -1376,6 +1687,8 @@ export const IMPORTERS: Readonly<Record<string, Importer>> = {
   conversation: importConversation,
   message: importMessage,
   call: importCall,
+  pipeline: importPipeline,
+  lead: importLead,
 };
 
 export { AUTO_MERGE_SCORE };

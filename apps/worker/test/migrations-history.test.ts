@@ -127,6 +127,7 @@ beforeAll(async () => {
         'tags.readonly',
         'customFields.readonly',
         'contacts.readonly',
+        'opportunities.readonly',
         'conversations.readonly',
         'conversations/message.readonly',
       ],
@@ -160,6 +161,8 @@ beforeAll(async () => {
       { category: 'contacts', selected: true },
       { category: 'tags', selected: true },
       { category: 'custom_fields', selected: true },
+      { category: 'pipelines', selected: true },
+      { category: 'opportunities', selected: true },
       { category: 'conversations', selected: true },
       { category: 'messages', selected: true },
       { category: 'calls', selected: true },
@@ -301,6 +304,79 @@ describe('the history arrives as history', () => {
           where migration_id = ${migrationId}::uuid and source_object_type = 'call'`,
     );
     expect(media!.count).toBe(1);
+  }, 60_000);
+
+  it('brings the board: the pipeline, its stages, and somewhere to win and lose', async () => {
+    const stages = await rows<{ name: string; kind: string; position: number }>(
+      admin(),
+      sql`select s.name, s.kind::text as kind, s.position from app.pipeline_stages s
+          join app.pipelines p on p.id = s.pipeline_id
+          where p.workspace_id = ${workspaceId}::uuid and p.name like 'Sales (from%'
+          order by s.position`,
+    );
+    // The three stages they had, in order, plus the two the old system kept on the deal instead.
+    expect(stages.map((s) => s.name)).toEqual([
+      'New enquiry',
+      'Quote sent',
+      'Scheduled',
+      'Won',
+      'Lost',
+    ]);
+    expect(stages.map((s) => s.kind)).toEqual(['open', 'open', 'open', 'won', 'lost']);
+    const got = await ask<{ findings: { code: string; summary: string }[] }>(migrationGet, {
+      organizationId,
+      migrationId,
+    });
+    expect(got.findings.map((f) => f.code)).toContain('pipelines.stage_added');
+    // The business already had an empty "Sales", so theirs came across beside it rather than into it.
+    expect(got.findings.map((f) => f.code)).toContain('pipelines.named_beside');
+  }, 60_000);
+
+  it('brings the deals where they stood, worth what they were worth, won when they were won', async () => {
+    const leads = await rows<{
+      title: string;
+      // `bigint` comes back as a string, which is right: cents can outgrow a float.
+      value_cents: string;
+      status: string;
+      stage: string;
+      won_at: Date | null;
+      lost_at: Date | null;
+      lost_reason: string | null;
+      person: string | null;
+      created_at: Date;
+    }>(
+      admin(),
+      sql`select l.title, l.value_cents, l.status::text as status, s.name as stage, l.won_at, l.lost_at,
+            l.lost_reason, p.first_name as person, l.created_at
+          from app.leads l
+          join app.pipeline_stages s on s.id = l.stage_id
+          left join app.people p on p.id = l.person_id
+          where l.workspace_id = ${workspaceId}::uuid order by l.created_at`,
+    );
+    expect(leads).toHaveLength(4);
+
+    // Still open: the stage it was really in.
+    const open = leads.find((l) => l.title === 'AC replacement')!;
+    expect(open).toMatchObject({ status: 'open', stage: 'Quote sent' });
+    expect(Number(open.value_cents)).toBe(420_000);
+    expect(open.person).toBe('Dave');
+
+    // Money crosses as whole cents, including the halves.
+    const won = leads.find((l) => l.title === 'Annual plan')!;
+    expect(Number(won.value_cents)).toBe(34_950);
+    expect(won.status).toBe('won');
+    // The day it was really won, not the day of the import. This is what the trigger change exists for.
+    expect(new Date(won.won_at!).getUTCFullYear()).toBe(2021);
+
+    const lost = leads.find((l) => l.title === 'Ducting quote')!;
+    expect(lost.status).toBe('lost');
+    expect(lost.lost_reason).toBe('Went with a cheaper quote');
+    expect(new Date(lost.lost_at!).getUTCFullYear()).toBe(2022);
+
+    // Abandoned over there is lost here, and says why rather than pretending somebody decided.
+    const abandoned = leads.find((l) => l.title === 'Thermostat upgrade')!;
+    expect(abandoned.status).toBe('lost');
+    expect(abandoned.lost_reason).toContain('Abandoned in the old system');
   }, 60_000);
 
   it('never turns history into work', async () => {

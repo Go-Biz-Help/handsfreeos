@@ -1206,6 +1206,10 @@ export function createGoHighLevelAdapter(config: GoHighLevelConfig): CrmSourceAd
 
     normalize(record, context) {
       switch (record.objectType) {
+        case 'pipeline':
+          return [pipelineEnvelope(record, context)];
+        case 'opportunity':
+          return [leadEnvelope(record, context)];
         case 'conversation':
           return [conversationEnvelope(record, context)];
         case 'message':
@@ -1523,6 +1527,160 @@ function tagEnvelope(record: SourceRecord, context: MappingContext): CanonicalEn
     { name: asString(p['name']) ?? 'Unnamed tag', color: null },
     leftovers(p, ['id', '_id', 'name', 'locationId']),
     [],
+  );
+}
+
+/**
+ * What a stage means, read from what it is called. GoHighLevel's stages carry no meaning of their own — a
+ * deal's own status says whether it was won — while HandsFreeOS says it with the stage, so that a board
+ * column means something. Guessing from the name is the honest version of that gap, and the importer says so
+ * and adds the missing stages rather than leaving a pipeline nobody can ever win in.
+ */
+const STAGE_KIND = (name: string): 'open' | 'won' | 'lost' => {
+  const n = name.toLowerCase();
+  if (/\b(won|sold|signed|closed[\s-]*won|booked)\b/.test(n)) return 'won';
+  if (/\b(lost|dead|closed[\s-]*lost|cancell?ed|abandoned|unqualified|no[\s-]*sale)\b/.test(n))
+    return 'lost';
+  return 'open';
+};
+
+function pipelineEnvelope(record: SourceRecord, context: MappingContext): CanonicalEnvelope {
+  const p = record.payload;
+  const rawStages = Array.isArray(p['stages']) ? (p['stages'] as Record<string, unknown>[]) : [];
+  const stages = rawStages
+    .map((st, i) => {
+      const name = asString(st['name']) ?? `Stage ${i + 1}`;
+      return {
+        name: name.slice(0, 60),
+        kind: STAGE_KIND(name),
+        position: Number(st['position'] ?? i) || i,
+        sourceId: asString(st['id']) ?? asString(st['_id']),
+      };
+    })
+    .slice(0, 100);
+  return envelopeOf(
+    record,
+    context,
+    'pipeline',
+    'pipelines',
+    {
+      name: (asString(p['name']) ?? 'Pipeline').slice(0, 80),
+      position: Number(p['position'] ?? 0) || 0,
+      stages,
+    },
+    leftovers(p, [
+      'id',
+      '_id',
+      'name',
+      'stages',
+      'position',
+      'locationId',
+      'dateAdded',
+      'dateUpdated',
+    ]),
+    [],
+  );
+}
+
+const LEAD_STATUS: Readonly<Record<string, 'open' | 'won' | 'lost' | 'abandoned'>> = {
+  open: 'open',
+  won: 'won',
+  lost: 'lost',
+  abandoned: 'abandoned',
+  abandon: 'abandoned',
+};
+
+function leadEnvelope(record: SourceRecord, context: MappingContext): CanonicalEnvelope {
+  const p = record.payload;
+  const rawStatus = (asString(p['status']) ?? '').toLowerCase();
+  const status = LEAD_STATUS[rawStatus] ?? 'open';
+  const warnings =
+    rawStatus && !LEAD_STATUS[rawStatus]
+      ? [
+          {
+            code: 'mapping.unknown_lead_status',
+            field: 'status',
+            message: `"${rawStatus}" is not a state HandsFreeOS keeps for a lead, so it comes across as still open and the original is kept.`,
+          },
+        ]
+      : [];
+  // Money over there is a number of currency units; here it is whole cents, and rounding is the only safe
+  // way to cross that gap.
+  const value = Number(p['monetaryValue'] ?? 0);
+  const contactId =
+    asString(p['contactId']) ??
+    asString((p['contact'] as Record<string, unknown> | undefined)?.['id']);
+  const owner = asString(p['assignedTo']);
+  const relationships: CanonicalEnvelope['relationships'] = [];
+  if (contactId)
+    relationships.push({
+      category: 'contacts',
+      objectType: 'contact',
+      objectId: contactId,
+      role: 'contact',
+      required: true,
+    });
+  if (asString(p['pipelineId']))
+    relationships.push({
+      category: 'pipelines',
+      objectType: 'pipeline',
+      objectId: asString(p['pipelineId'])!,
+      role: 'pipeline',
+      required: true,
+    });
+  if (owner)
+    relationships.push({
+      category: 'users',
+      objectType: 'user',
+      objectId: owner,
+      role: 'owner',
+      required: false,
+    });
+  return envelopeOf(
+    record,
+    context,
+    'lead',
+    'opportunities',
+    {
+      title: (asString(p['name']) ?? 'Lead').slice(0, 160),
+      valueCents: Number.isFinite(value) ? Math.max(0, Math.round(value * 100)) : 0,
+      status,
+      source: asString(p['source']),
+      sourceStageId: asString(p['pipelineStageId']),
+      expectedCloseOn: asDate(p['expectedCloseDate'])?.toISOString().slice(0, 10) ?? null,
+      stageEnteredAt:
+        asDate(p['lastStageChangeAt'])?.toISOString() ??
+        record.sourceCreatedAt?.toISOString() ??
+        null,
+      closedAt:
+        asDate(p['lastStatusChangeAt'])?.toISOString() ??
+        record.sourceUpdatedAt?.toISOString() ??
+        null,
+      lostReason: asString(p['lostReasonName']) ?? asString(p['lostReason']),
+    },
+    leftovers(p, [
+      'id',
+      '_id',
+      'name',
+      'monetaryValue',
+      'status',
+      'source',
+      'pipelineId',
+      'pipelineStageId',
+      'contactId',
+      'contact',
+      'assignedTo',
+      'expectedCloseDate',
+      'lastStageChangeAt',
+      'lastStatusChangeAt',
+      'lostReasonName',
+      'lostReason',
+      'locationId',
+      'dateAdded',
+      'dateUpdated',
+    ]),
+    warnings,
+    relationships,
   );
 }
 

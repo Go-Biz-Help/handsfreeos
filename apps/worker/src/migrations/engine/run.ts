@@ -347,6 +347,40 @@ async function scanScope(deps: MigrationDeps, job: JobRow): Promise<Outcome> {
 }
 
 /**
+ * The categories this one hangs off that have not finished reading for this sub-account yet.
+ *
+ * A category is finished when its checkpoint says complete, or when it was never going to run at all — not
+ * chosen, or not something this release imports. Anything else is still working, and a child that reads now
+ * would look for parents that have not arrived.
+ */
+async function unfinishedParents(
+  deps: MigrationDeps,
+  job: JobRow,
+  dependsOn: readonly string[],
+): Promise<string[]> {
+  const wanted = dependsOn.filter((c) => {
+    const parent = migrationCategory(c);
+    return parent && parent.release === 'ready';
+  });
+  if (wanted.length === 0) return [];
+  const done = await asWorker(
+    deps.db,
+    { workspaceId: null, organizationId: job.organization_id },
+    (tx) =>
+      rows<{ category: string }>(
+        tx,
+        sql`select category from app.migration_checkpoints
+            where migration_id = ${job.migration_id} and scope_id = ${job.scope_id} and complete
+            union
+            select category from app.migration_selections
+            where migration_id = ${job.migration_id} and scope_id = ${job.scope_id} and not selected`,
+      ),
+  );
+  const finished = new Set(done.map((d) => d.category));
+  return wanted.filter((c) => !finished.has(c));
+}
+
+/**
  * One page of one category: read it, keep what came, turn it into HandsFreeOS's shape, write it, and save
  * where to carry on — all in one transaction, so resuming can only ever re-read, never half-write.
  */
@@ -362,6 +396,25 @@ async function fetchCategory(deps: MigrationDeps, job: JobRow): Promise<Outcome>
     });
     return 'done';
   }
+  /**
+   * Wait for what this category hangs off.
+   *
+   * The pass number puts categories in order, but a category is not one job: it is one job per page, requeued
+   * until the pages run out. So a claim can hold a customers job with two pages left and an opportunities job
+   * from a later pass, run them in pass order, and still read a deal whose customer has not arrived yet. That
+   * is how it went wrong: a deal belonging to a customer on page two was quarantined for having no customer,
+   * and nothing retried it because the record, not the job, had failed.
+   *
+   * So the parents have to be *finished*, not merely started, and finished for this sub-account: a checkpoint
+   * per category says so. A category still working gets this one put back with a short wait, which costs a
+   * second and saves a hand-run retry.
+   */
+  const waitingFor = await unfinishedParents(deps, job, cat.dependsOn);
+  if (waitingFor.length > 0) {
+    await requeueJob(deps, job, job.input, 1_000);
+    return 'again';
+  }
+
   const migration = await loadMigration(deps, job.migration_id, job.organization_id);
   const opened = await openConnection(
     deps,
