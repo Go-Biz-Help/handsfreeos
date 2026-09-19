@@ -7,15 +7,12 @@ import {
   type AnswerSheet,
   type AnswerValue,
   type FormDefinition,
-  type Question,
 } from '@hfos/core';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
+import { QuestionField } from './question-field';
 
 /**
  * The form as the customer sees it, running core's own engine in the browser — the same code the public
@@ -88,38 +85,14 @@ export function FormPreview({
             ) : null}
             {page.questions.map((question) => {
               const value = state.answers[question.id] ?? null;
-              const problem = tried ? answerProblem(question, value) : null;
               return (
-                <div key={question.id}>
-                  {question.type === 'content' ? (
-                    <p className="whitespace-pre-wrap text-[13.5px] text-text-2">
-                      {String((question.config as { body: string }).body)}
-                    </p>
-                  ) : (
-                    <>
-                      <label
-                        className="mb-1.5 block text-[13.5px] font-medium text-text"
-                        htmlFor={`preview-${question.id}`}
-                      >
-                        {question.title}
-                        {question.required ? <span className="ml-1 text-danger-text">*</span> : null}
-                      </label>
-                      {question.help ? (
-                        <p className="mb-1.5 text-[12.5px] text-text-3">{question.help}</p>
-                      ) : null}
-                      <QuestionInputField
-                        question={question}
-                        value={value}
-                        onChange={(v) => set(question.id, v)}
-                      />
-                      {problem ? (
-                        <p role="alert" className="mt-1.5 text-[12.5px] text-danger-text">
-                          {problem}
-                        </p>
-                      ) : null}
-                    </>
-                  )}
-                </div>
+                <QuestionField
+                  key={question.id}
+                  question={question}
+                  value={value}
+                  problem={tried ? answerProblem(question, value) : null}
+                  onChange={(v) => set(question.id, v)}
+                />
               );
             })}
           </section>
@@ -158,203 +131,4 @@ export function FormPreview({
       </Button>
     </Card>
   );
-}
-
-function QuestionInputField({
-  question,
-  value,
-  onChange,
-}: {
-  question: Question;
-  value: AnswerValue;
-  onChange: (value: AnswerValue) => void;
-}) {
-  const config = question.config as Record<string, unknown>;
-  const id = `preview-${question.id}`;
-  switch (question.type) {
-    case 'long_text':
-      return (
-        <Textarea
-          id={id}
-          rows={3}
-          value={typeof value === 'string' ? value : ''}
-          placeholder={String(config.placeholder ?? '')}
-          onChange={(e) => onChange(e.target.value)}
-        />
-      );
-    case 'choice': {
-      const choices = (config.choices ?? []) as { id: string; label: string }[];
-      return (
-        <div className="space-y-1.5">
-          {choices.map((choice) => (
-            <label
-              key={choice.id}
-              className={cn(
-                'flex cursor-pointer items-center gap-2.5 rounded-control border px-3 py-2 text-[13.5px]',
-                value === choice.id ? 'border-accent bg-accent/5 text-text' : 'border-border text-text-2',
-              )}
-            >
-              <input
-                type="radio"
-                name={id}
-                className="accent-accent"
-                checked={value === choice.id}
-                onChange={() => onChange(choice.id)}
-              />
-              {choice.label}
-            </label>
-          ))}
-        </div>
-      );
-    }
-    case 'checkboxes': {
-      const choices = (config.choices ?? []) as { id: string; label: string }[];
-      const picked = Array.isArray(value) ? value.map(String) : [];
-      return (
-        <div className="space-y-1.5">
-          {choices.map((choice) => (
-            <Checkbox
-              key={choice.id}
-              className="rounded-control border border-border px-3 py-2 text-[13.5px] text-text-2"
-              label={choice.label}
-              checked={picked.includes(choice.id)}
-              onChange={(e) =>
-                onChange(
-                  e.target.checked ? [...picked, choice.id] : picked.filter((p) => p !== choice.id),
-                )
-              }
-            />
-          ))}
-        </div>
-      );
-    }
-    case 'yes_no':
-      return (
-        <div className="flex gap-2">
-          {(['yes', 'no'] as const).map((answer) => (
-            <Button
-              key={answer}
-              type="button"
-              variant={value === answer ? 'primary' : 'secondary'}
-              onClick={() => onChange(answer)}
-            >
-              {String(config[answer === 'yes' ? 'yesLabel' : 'noLabel'] ?? (answer === 'yes' ? 'Yes' : 'No'))}
-            </Button>
-          ))}
-        </div>
-      );
-    case 'rating':
-    case 'scale': {
-      const min = question.type === 'rating' ? 1 : Number(config.min ?? 1);
-      const max = Number(config.max ?? 5);
-      const numbers = Array.from({ length: max - min + 1 }, (_, i) => min + i);
-      return (
-        <div className="flex flex-wrap gap-1.5">
-          {numbers.map((n) => (
-            <button
-              key={n}
-              type="button"
-              onClick={() => onChange(n)}
-              className={cn(
-                'h-9 w-9 rounded-control border text-[13px]',
-                value === n ? 'border-accent bg-accent text-white' : 'border-border text-text-2',
-              )}
-            >
-              {n}
-            </button>
-          ))}
-        </div>
-      );
-    }
-    case 'number':
-    case 'money':
-      return (
-        <Input
-          id={id}
-          type="number"
-          value={typeof value === 'number' ? String(value) : typeof value === 'string' ? value : ''}
-          onChange={(e) => onChange(e.target.value === '' ? null : Number(e.target.value))}
-        />
-      );
-    case 'date':
-      return (
-        <Input
-          id={id}
-          type="date"
-          value={typeof value === 'string' ? value : ''}
-          onChange={(e) => onChange(e.target.value)}
-        />
-      );
-    case 'time':
-      return (
-        <Input
-          id={id}
-          type="time"
-          value={typeof value === 'string' ? value : ''}
-          onChange={(e) => onChange(e.target.value)}
-        />
-      );
-    case 'address': {
-      const address = (value ?? {}) as Record<string, string>;
-      const part = (key: string, label: string) => (
-        <Input
-          key={key}
-          aria-label={label}
-          placeholder={label}
-          value={address[key] ?? ''}
-          onChange={(e) => onChange({ ...address, [key]: e.target.value } as never)}
-        />
-      );
-      return (
-        <div className="grid gap-2 sm:grid-cols-2">
-          {config.detail === 'full' ? part('line1', 'Street') : null}
-          {part('city', 'Town')}
-          {part('state', 'State')}
-          {part('postalCode', 'Postcode')}
-        </div>
-      );
-    }
-    case 'signature':
-      return (
-        <div>
-          <p className="mb-2 whitespace-pre-wrap rounded-card bg-card-2 p-3 text-[12.5px] text-text-2">
-            {String(config.statement ?? '')}
-          </p>
-          <Input
-            id={id}
-            placeholder="Type your name"
-            value={
-              value && typeof value === 'object' && 'name' in value
-                ? String((value as { name: string }).name)
-                : ''
-            }
-            onChange={(e) =>
-              onChange({ name: e.target.value, signedAt: new Date().toISOString() } as never)
-            }
-          />
-        </div>
-      );
-    case 'file':
-      return (
-        <p className="rounded-card border border-dashed border-border px-3 py-4 text-center text-[12.5px] text-text-3">
-          They can attach up to {String(config.maxFiles ?? 3)} files here.
-        </p>
-      );
-    case 'payment':
-      return (
-        <p className="rounded-card border border-dashed border-border px-3 py-4 text-center text-[12.5px] text-text-3">
-          Card details, for {String(config.description ?? 'the payment')}.
-        </p>
-      );
-    default:
-      return (
-        <Input
-          id={id}
-          type={question.type === 'email' ? 'email' : question.type === 'phone' ? 'tel' : 'text'}
-          value={typeof value === 'string' ? value : ''}
-          placeholder={String(config.placeholder ?? '')}
-          onChange={(e) => onChange(e.target.value)}
-        />
-      );
-  }
 }

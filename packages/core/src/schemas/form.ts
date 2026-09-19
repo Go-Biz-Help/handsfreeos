@@ -151,13 +151,20 @@ export const FormStartInput = z.object({
 export const FormStartOutput = z.object({
   responseId: uuid,
   versionId: uuid,
-  /** The token in a "carry on where you left off" link; null when the form doesn't offer that. */
-  resumeToken: z.string().nullable(),
+  /**
+   * The key to this answer sheet. The page sends it back to save and to submit, so knowing a response's id
+   * is not enough to write to somebody else's sheet.
+   */
+  token: z.string(),
+  /** Whether the form offers a "carry on where you left off" link built from that token. */
+  canResume: z.boolean(),
 });
 
 export const FormSaveAnswersInput = z.object({
   workspaceId: uuid,
   responseId: uuid,
+  /** The key `form_response.start` handed back. */
+  token: z.string().max(200),
   answers: AnswerSheetInput,
 });
 export const FormSaveAnswersOutput = z.object({
@@ -172,6 +179,7 @@ export const FormSaveAnswersOutput = z.object({
 export const FormSubmitInput = z.object({
   workspaceId: uuid,
   responseId: uuid,
+  token: z.string().max(200),
   answers: AnswerSheetInput,
   /** Ticked to allow texts. The box starts unticked, as it does on the booking page. */
   smsConsent: z.boolean().default(false),

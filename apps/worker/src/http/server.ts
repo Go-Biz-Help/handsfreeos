@@ -23,6 +23,7 @@ import {
 } from './common';
 import { registerBookingRoutes } from './booking';
 import { registerChatRoutes } from './chat';
+import { registerFormRoutes } from './forms';
 import { registerEmailRoutes } from './email';
 import { registerMoneyRoutes } from './money';
 import { registerMigrationRoutes } from './migrations';
@@ -167,6 +168,7 @@ export async function buildHttpServer(deps: HttpDeps): Promise<FastifyInstance> 
   // A customer's own link for the business to copy: minting one needs the worker's key.
   registerMoneyLinkRoutes(app, deps);
   await registerChatRoutes(app, deps);
+  await registerFormRoutes(app, deps);
   await registerKnowledgeRoutes(app, deps);
   await registerWorkflowRoutes(app, deps);
   await registerBuilderRoutes(app, deps);
