@@ -13,6 +13,7 @@ import {
   UserCircle,
   Users,
   Workflow,
+  Star,
 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -58,6 +59,9 @@ export function navItems(workspaceId: string): NavItem[] {
     { key: 'workflows', href: `${base}/workflows`, label: 'Workflows', icon: Workflow },
     // Forms is a drawer item on phones, so the bottom bar stays at five.
     { key: 'forms', href: `${base}/forms`, label: 'Forms', icon: ClipboardList },
+    // Reviews is a drawer item on phones too. It sits after Forms because both are about what the outside
+    // world says to you rather than what you do about it.
+    { key: 'reviews', href: `${base}/reviews`, label: 'Reviews', icon: Star },
     // Knowledge is a drawer item on phones too.
     { key: 'knowledge', href: `${base}/knowledge`, label: 'Knowledge', icon: BookOpen },
     // The AI teammate is a drawer item on phones as well. Everyone sees it; ai_team.manage changes it.

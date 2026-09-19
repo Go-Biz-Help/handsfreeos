@@ -257,6 +257,20 @@ const wrote = (id: string, contactId: string, body: string, added: string): Fake
   payload: { id, contactId, body, userId: 'usr_dev', dateAdded: added },
 });
 
+/** A saved piece of wording. The third one has a name and no words, which is a real shape. */
+const wording = (
+  id: string,
+  name: string,
+  subject: string | null,
+  body: string | null,
+): FakeRecord => ({
+  objectType: 'template',
+  objectId: id,
+  createdAt: '2020-06-01T10:00:00.000Z',
+  updatedAt: '2024-06-01T10:00:00.000Z',
+  payload: { id, name, subject, ...(body === null ? {} : { html: body }) },
+});
+
 /**
  * A form. The stand-in source is one of the kinder ones: it hands over its questions, which is what an
  * adapter is allowed to do when the source really has an endpoint for them. A form with no `questions` is
@@ -759,6 +773,21 @@ const AUSTIN_RECORDS: readonly FakeRecord[] = [
     'Are you open Saturday?',
   ),
 
+  // The wording they reuse. The last one is listed over there with nothing in it.
+  wording(
+    'tpl_quote',
+    'Quote follow-up',
+    'Your quote from Lone Star HVAC',
+    '<p>Hi {{person.first_name}}, just checking you got the quote we sent.</p>',
+  ),
+  wording(
+    'tpl_onway',
+    'On our way',
+    'We are on our way',
+    '<p>{{person.first_name}}, we are on our way and should be with you shortly.</p>',
+  ),
+  wording('tpl_empty', 'Winter reminder', 'Time for your winter service', null),
+
   // The form on their website, with its questions, and three people who filled it in.
   form('frm_quote', 'Get a quote', 'form', [
     { key: 'first_name', title: 'Your name', type: 'short_text', required: true },
@@ -900,11 +929,11 @@ const CATEGORY_TYPE: Record<string, string> = {
   calls: 'call',
   forms: 'form',
   form_submissions: 'form_submission',
+  templates: 'template',
 };
 
 /** What the stand-in pretends exists but this release does not read record by record. */
 const COUNTS_ONLY: Record<string, number> = {
-  templates: 11,
   reviews: 37,
   media: 640,
   phone_numbers: 2,
@@ -935,6 +964,7 @@ const SCOPE_NAMES: Record<string, readonly string[]> = {
   calls: ['conversations/message.readonly'],
   forms: ['forms.readonly'],
   form_submissions: ['forms.readonly'],
+  templates: ['emails/builder.readonly'],
 };
 
 export function createFakeSourceAdapter(): FakeSource {
@@ -1396,6 +1426,22 @@ export function createFakeSourceAdapter(): FakeSource {
               data: {
                 body: str(p['body']) ?? '(empty note)',
                 occurredAt: record.sourceCreatedAt?.toISOString() ?? new Date(0).toISOString(),
+              },
+            },
+          ];
+        case 'template':
+          return [
+            {
+              ...base,
+              canonicalType: 'template',
+              category: 'templates',
+              relationships: [],
+              data: {
+                name: str(p['name']) ?? 'Template',
+                channel: 'email',
+                subject: str(p['subject']),
+                body: str(p['html']) ?? '',
+                folder: null,
               },
             },
           ];

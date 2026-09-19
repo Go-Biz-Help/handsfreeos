@@ -260,3 +260,10 @@ export type FormResponseListOut = Ok<'/v1/queries/form.response_list'>;
 export type FormResponseRow = FormResponseListOut['items'][number];
 export type FormResponseGetOut = Ok<'/v1/queries/form.response_get'>;
 export type FormSaveDraftBody = Body<'/v1/commands/form.save_draft'>;
+
+export type TemplateList = Ok<'/v1/queries/template.list'>;
+export type Template = TemplateList['templates'][number];
+
+export type ReviewListOut = Ok<'/v1/queries/review.list'>;
+export type ReviewRow = ReviewListOut['reviews'][number];
+export type ReviewConnectionRow = ReviewListOut['connections'][number];

@@ -2525,6 +2525,93 @@ export const importSubscription: Importer = async (tx, scope, envelope) => {
   return { counts: { imported: 1 } };
 };
 
+// ---------- the wording they reuse ----------
+
+/**
+ * A saved piece of wording, brought across.
+ *
+ * The last thing a business loses by leaving another CRM, and the one it notices last: nobody misses the
+ * quote follow-up until the week they need it. It could not come across at all until there was a shelf to
+ * put it on, and now there is.
+ */
+export const importTemplate: Importer = async (tx, scope, envelope) => {
+  const d = envelope.data as {
+    name?: string;
+    channel?: string;
+    subject?: string | null;
+    body?: string;
+    folder?: string | null;
+  };
+  const already = await existingMapping(
+    tx,
+    scope,
+    envelope.source.objectType,
+    envelope.source.objectId,
+  );
+  if (already) return { counts: { skipped: 1 } };
+
+  const body = str(d.body);
+  if (!body) {
+    // Named and nothing else. Recorded where the business can see it, rather than becoming an empty card
+    // in the picker that somebody clicks once and never trusts again.
+    await quarantine(tx, scope, {
+      category: 'templates',
+      sourceObjectType: envelope.source.objectType,
+      sourceObjectId: envelope.source.objectId,
+      kind: 'mapping',
+      code: 'template_has_no_words',
+      message: `"${str(d.name) ?? 'A template'}" is listed over there but its words did not come with it.`,
+      retryable: false,
+    });
+    return { counts: { failed: 1 } };
+  }
+
+  const channel = d.channel === 'sms' ? 'sms' : 'email';
+  const wanted = (str(d.name) ?? 'Template').slice(0, 120);
+  /**
+   * Two templates cannot share a name here, and over there they can. The second one keeps its own words
+   * under a name that says where it came from, rather than overwriting the first or being dropped.
+   */
+  let name = wanted;
+  for (let attempt = 2; attempt <= 20; attempt++) {
+    const [taken] = await rows<{ id: string }>(
+      tx,
+      sql`select id::text as id from app.message_templates
+           where workspace_id = ${scope.workspaceId} and archived_at is null
+             and lower(btrim(name)) = lower(btrim(${name})) limit 1`,
+    );
+    if (!taken) break;
+    name = `${wanted.slice(0, 112)} (${attempt})`;
+  }
+
+  const { createdAt, updatedAt } = sourceTimes(envelope);
+  const id = randomUUID();
+  await tx.execute(sql`
+    insert into app.message_templates (id, workspace_id, name, channel, subject, body, folder,
+      created_at, updated_at)
+    values (${id}::uuid, ${scope.workspaceId}, ${name}, ${channel}::app.template_channel,
+      ${channel === 'email' ? (str(d.subject)?.slice(0, 200) ?? null) : null},
+      ${body.slice(0, 20_000)}, ${str(d.folder)?.slice(0, 60) ?? null},
+      coalesce(${createdAt?.toISOString() ?? null}::timestamptz, now()),
+      coalesce(${updatedAt?.toISOString() ?? null}::timestamptz, now()))`);
+  await putMapping(tx, scope, {
+    sourceObjectType: envelope.source.objectType,
+    sourceObjectId: envelope.source.objectId,
+    targetType: 'message_template',
+    targetId: id,
+    createdHere: true,
+    checksum: envelope.source.payloadChecksum,
+  });
+  await journal(tx, scope, {
+    action: 'create',
+    targetType: 'message_template',
+    targetId: id,
+    sourceObjectType: envelope.source.objectType,
+    sourceObjectId: envelope.source.objectId,
+  });
+  return { counts: { imported: 1 } };
+};
+
 // ---------- forms, and the answers people gave them ----------
 
 /**
@@ -2884,6 +2971,7 @@ export const IMPORTERS: Readonly<Record<string, Importer>> = {
   subscription: importSubscription,
   form: importForm,
   form_response: importFormResponse,
+  template: importTemplate,
 };
 
 export { AUTO_MERGE_SCORE };

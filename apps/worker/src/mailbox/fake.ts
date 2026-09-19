@@ -196,6 +196,11 @@ export function createFakeMailboxes(opts: { publicUrl: string }): FakeMailboxes 
   };
 }
 
-/** The fake sign-in's authorization code: who signed in and the PKCE challenge, so the exchange can check it. */
-export const fakeCode = (provider: MailboxProviderName, email: string, challenge: string): string =>
+/**
+ * The fake sign-in's authorization code: who signed in and the PKCE challenge, so the exchange can check it.
+ *
+ * The provider is a plain string because one stand-in page now serves mailboxes, calendars and the places
+ * public reviews come from, and Facebook is none of the first two.
+ */
+export const fakeCode = (provider: string, email: string, challenge: string): string =>
   `fakecode.${enc(JSON.stringify({ email: email.trim().toLowerCase(), challenge, provider }))}`;

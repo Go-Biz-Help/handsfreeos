@@ -157,6 +157,7 @@ beforeAll(async () => {
       { category: 'contacts', selected: true },
       { category: 'forms', selected: true },
       { category: 'form_submissions', selected: true },
+      { category: 'templates', selected: true },
     ],
   });
   await run(migrationStart, { organizationId, migrationId, acknowledgedFindingIds: [] });
@@ -172,6 +173,16 @@ beforeAll(async () => {
         count: () =>
           countOf(
             sql`select count(*)::int as count from app.forms where workspace_id = ${workspaceId}::uuid`,
+          ),
+      },
+      {
+        what: 'wording',
+        categories: ['templates'],
+        expected: 2,
+        count: () =>
+          countOf(
+            sql`select count(*)::int as count from app.message_templates
+                where workspace_id = ${workspaceId}::uuid`,
           ),
       },
       {
@@ -347,5 +358,50 @@ describe('forms and what people put in them', () => {
           where workspace_id = ${workspaceId}::uuid and lead_id is not null`,
     );
     expect(leads!.count).toBe(0);
+  }, 60_000);
+});
+
+/**
+ * The wording they reuse, which is the last thing a business loses by leaving and the one it notices last:
+ * nobody misses the quote follow-up until the week they need it.
+ */
+describe('the wording they reuse', () => {
+  it('brings the saved wording across, with its own dates', async () => {
+    const saved = await rows<{
+      name: string;
+      channel: string;
+      subject: string | null;
+      body: string;
+      created_at: Date;
+    }>(
+      admin(),
+      sql`select name, channel::text as channel, subject, body, created_at
+          from app.message_templates where workspace_id = ${workspaceId}::uuid
+          order by name`,
+    );
+    expect(saved.map((t) => t.name)).toEqual(['On our way', 'Quote follow-up']);
+    const quote = saved.find((t) => t.name === 'Quote follow-up')!;
+    expect(quote.channel).toBe('email');
+    expect(quote.subject).toBe('Your quote from Lone Star HVAC');
+    // The placeholders come across as they were written: one language for wording, wherever it is used.
+    expect(quote.body).toContain('{{person.first_name}}');
+    // Saved in 2020, and it still says 2020.
+    expect(new Date(quote.created_at).getUTCFullYear()).toBe(2020);
+  }, 60_000);
+
+  it('refuses to shelve a template the old system would not hand the words over for', async () => {
+    // Listed over there, with nothing in it. An empty card in the picker is worse than an honest gap.
+    const [empty] = await rows<{ count: number }>(
+      admin(),
+      sql`select count(*)::int as count from app.message_templates
+          where workspace_id = ${workspaceId}::uuid and name = 'Winter reminder'`,
+    );
+    expect(empty!.count).toBe(0);
+    const [said] = await rows<{ message: string }>(
+      admin(),
+      sql`select message from app.migration_errors
+          where migration_id = ${migrationId}::uuid and code = 'template_has_no_words'`,
+    );
+    expect(said!.message).toContain('Winter reminder');
   }, 60_000);
 });

@@ -89,6 +89,8 @@ const SECRET_TABLES = [
   'mailbox_connections',
   'migration_connections',
   'payment_connections',
+  // M16: the sign-in to a Google Business Profile or a Facebook Page. No phone ever needs it.
+  'review_connections',
   'telephony_accounts',
   'workflow_webhooks',
 ];

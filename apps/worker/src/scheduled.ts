@@ -22,6 +22,7 @@ import { appointmentReminder } from './booking/reminders';
 import { depositJobs } from './booking/deposit';
 import { waitlistOfferExpire, waitlistOfferJob } from './booking/waitlist';
 import { appointmentCalendarSync, calendarRefresh } from './calendar/sync';
+import { reviewReplyPost, reviewsSync } from './reviews/sync';
 import { CHAT_JOBS, chatUnreadFollowUp } from './chat/followup';
 import { domainRecordInput, lapsedMessage, sharedAddress } from './handlers/email';
 import {
@@ -262,6 +263,9 @@ export const jobs: JobMap = {
   'email_domains.check': checkEmailDomains,
   'mailbox.sync': mailboxSync,
   'calendar.refresh': calendarRefresh,
+  // What customers said in public: each connected place asked on a timer, and an answer posted back.
+  'reviews.sync': reviewsSync,
+  'review.reply_post': reviewReplyPost,
   'appointment.calendar_sync': appointmentCalendarSync,
   'appointment.reminder': appointmentReminder,
   'appointment.notice': appointmentNotice,

@@ -24,6 +24,7 @@ import {
   onCalendarReauthRequired,
   onCalendarRefreshWanted,
 } from './calendar';
+import { onReviewReplied, onReviewSyncWanted } from './reviews';
 import {
   onEmailDomainAdded,
   onEmailDomainChecked,
@@ -102,6 +103,10 @@ const ownTeammateAndWorkflows: HandlerMap = withWorkflows(
     'mailbox.resync_requested': onMailboxSyncWanted,
     'mailbox.reauth_required': onMailboxReauthRequired,
     'calendar_connection.connected': onCalendarRefreshWanted,
+    // What customers said in public: a person asks, and the queue does it.
+    'review_connection.connected': onReviewSyncWanted,
+    'review_connection.sync_requested': onReviewSyncWanted,
+    'review.replied': onReviewReplied,
     'calendar_connection.sync_requested': onCalendarRefreshWanted,
     'calendar_connection.reauth_required': onCalendarReauthRequired,
     // A connected payment account: its token refresh starts, and disconnecting tells the provider too.

@@ -986,6 +986,32 @@ async function findReconnectTasks(deps: MigrationDeps, job: JobRow): Promise<voi
         });
 
       /**
+       * Their reviews, which are the happiest item on this list.
+       *
+       * They were never the old system's to keep: Google and Facebook hold them, and that system only
+       * showed them. Leaving loses nothing — so this is not a warning, it is where to look now.
+       */
+      const [hadReviews] = await rows<{ count: number }>(
+        tx,
+        sql`select coalesce(sum(i.found_count), 0)::int as count from app.migration_inventory i
+          join app.migration_scopes s on s.id = i.scope_id
+          where s.workspace_id = ${workspaceId}::uuid and i.category = 'reviews'`,
+      );
+      if ((hadReviews?.count ?? 0) > 0)
+        await put(tx, {
+          workspaceId,
+          kind: 'reviews',
+          provider: 'reviews',
+          label: 'Where your reviews are read from',
+          instructions:
+            'Your old system showed you your Google and Facebook reviews. It never held them — those live ' +
+            'on Google and Facebook, and leaving loses not one of them. Connect the two here and they show ' +
+            'in Reviews, with somewhere to write an answer that lands where people will read it.',
+          settingsPath: '/reviews',
+          blocksLiveUse: false,
+        });
+
+      /**
        * The form on their website, which is still posting to the old system.
        *
        * This is the quiet one. Everything else that is left undone is visibly undone — a number that does

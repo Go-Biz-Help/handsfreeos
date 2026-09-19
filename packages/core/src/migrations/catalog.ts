@@ -182,12 +182,9 @@ export const MIGRATION_CATEGORIES: readonly MigrationCategory[] = [
     blurb: 'The wording you reuse: the emails and texts you wrote once and send again.',
     pass: MIGRATION_PASSES.definitions,
     dependsOn: ['locations'],
-    targetType: null,
+    targetType: 'message_template',
     selection: 'category',
-    release: 'unsupported',
-    releaseNote:
-      'HandsFreeOS has nowhere to keep wording on its own — it lives in the workflow or the message that ' +
-      'uses it. Copy anything you want to keep before you close the old account.',
+    release: 'ready',
   }),
   c({
     id: 'conversations',
@@ -306,8 +303,8 @@ export const MIGRATION_CATEGORIES: readonly MigrationCategory[] = [
     selection: 'category',
     release: 'unsupported',
     releaseNote:
-      'Your reviews are on Google and Facebook — the old system only showed them to you. Leaving does not ' +
-      'lose a single one, and they stay where people read them.',
+      'Your reviews are on Google and Facebook — the old system only showed them to you, and leaving does ' +
+      'not lose a single one. Connect those two under Reviews and they show here too, with a reply box.',
   }),
   c({
     id: 'media',

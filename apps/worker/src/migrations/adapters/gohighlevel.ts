@@ -1449,6 +1449,8 @@ export function createGoHighLevelAdapter(config: GoHighLevelConfig): CrmSourceAd
 
     normalize(record, context) {
       switch (record.objectType) {
+        case 'template':
+          return [templateEnvelope(record, context)];
         case 'form':
         case 'survey':
           return [formEnvelope(record, context)];
@@ -2218,6 +2220,64 @@ function noteEnvelope(record: SourceRecord, context: MappingContext): CanonicalE
     ]),
     [],
     relationships,
+  );
+}
+
+// ---------- the wording they reuse ----------
+
+/**
+ * Where an email builder keeps the words, which is not the same place twice.
+ *
+ * HighLevel's builder returns a template's HTML under whichever of these the template was made with, and an
+ * older one made in the plain-text editor has only `textOnly`. Taking the first that has anything in it is
+ * the honest reading; a template with none of them has a name and nothing else, and is refused below rather
+ * than landing in the picker as an empty card.
+ */
+const TEMPLATE_BODY_KEYS = ['html', 'body', 'content', 'textOnly', 'text', 'message'] as const;
+
+function templateEnvelope(record: SourceRecord, context: MappingContext): CanonicalEnvelope {
+  const p = record.payload;
+  const body =
+    TEMPLATE_BODY_KEYS.map((k) => asString(p[k]))
+      .find((v) => v && v.trim().length > 0)
+      ?.slice(0, 20_000) ?? '';
+  const html = !!asString(p['html']);
+  return envelopeOf(
+    record,
+    context,
+    'template',
+    'templates',
+    {
+      name: (asString(p['name']) ?? asString(p['templateName']) ?? 'Template').slice(0, 120),
+      // HighLevel's builder is for email. A text template is a different thing over there and is not here.
+      channel: 'email',
+      subject: asString(p['subject'])?.slice(0, 200) ?? null,
+      body,
+      folder: asString(p['folder'])?.slice(0, 60) ?? null,
+    },
+    {
+      ...leftovers(p, [
+        ...TEMPLATE_BODY_KEYS,
+        'id',
+        '_id',
+        'name',
+        'templateName',
+        'subject',
+        'folder',
+        'locationId',
+      ]),
+      html,
+    },
+    body
+      ? []
+      : [
+          {
+            code: 'mapping.template_has_no_words',
+            field: 'body',
+            message:
+              'The old system listed this template but would not hand over what it says, so there is nothing to save.',
+          },
+        ],
   );
 }
 

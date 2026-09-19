@@ -46,6 +46,8 @@ export const ROLE_PERMISSIONS = {
     'money.manage',
     'migrations.manage',
     'forms.manage',
+    'templates.manage',
+    'reviews.manage',
     'fields.manage',
   ],
   admin: [
@@ -77,6 +79,8 @@ export const ROLE_PERMISSIONS = {
     'money.manage',
     'migrations.manage',
     'forms.manage',
+    'templates.manage',
+    'reviews.manage',
     'fields.manage',
   ],
   member: [

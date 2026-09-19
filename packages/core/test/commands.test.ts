@@ -447,6 +447,16 @@ describe('registry', () => {
       'form.duplicate',
       'form.archive',
       'form.restore',
+      'template.create',
+      'template.update',
+      'template.archive',
+      'template.used',
+      'review_connection.connect',
+      'review_connection.activate',
+      'review_connection.fail',
+      'review_connection.disconnect',
+      'review_connection.sync_now',
+      'review.reply',
       'form_response.start',
       'form_response.save',
       'form_response.submit',
@@ -568,6 +578,8 @@ describe('registry', () => {
       'form.response_list',
       'form.response_get',
       'form.results',
+      'template.list',
+      'review.list',
     ]);
     expect(registry.command('membership.invite')?.risk).toBe(2);
   });

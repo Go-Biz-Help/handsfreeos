@@ -1,5 +1,7 @@
 import type { QueryDef } from '../kernel/types';
 import { formQueries } from './form';
+import { reviewQueries } from './review';
+import { templateQueries } from './template';
 import { platformQueries } from './platform';
 import { supportQueries } from './support';
 import { accountDeletionCheck, pushDeviceList, userPhoneGet } from './account';
@@ -241,6 +243,8 @@ export const queries: readonly QueryDef[] = [
   moneyForRecord,
   moneySettingsGet,
   ...formQueries,
+  ...templateQueries,
+  ...reviewQueries,
 ] as unknown as readonly QueryDef[];
 
 export {
@@ -288,6 +292,8 @@ export {
 };
 
 export * from './form';
+export * from './template';
+export * from './review';
 export * from './migration';
 export * from './support';
 export * from './platform';

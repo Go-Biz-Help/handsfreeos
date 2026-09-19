@@ -32,3 +32,5 @@ export * from './money';
 export * from './push';
 export * from './migration';
 export * from './form';
+export * from './template';
+export * from './review';
