@@ -1,0 +1,40 @@
+import { hasWorkspacePermission } from '@hfos/core';
+import type { Metadata } from 'next';
+import { notFound } from 'next/navigation';
+import { FormEditor } from '@/components/forms/editor';
+import { FormNameHeader } from '@/components/forms/name-header';
+import { apiServer, unwrapPage } from '@/lib/api/server';
+
+export const metadata: Metadata = { title: 'Form' };
+
+/** One form: its questions, and what a customer would see. */
+export default async function FormPage({
+  params,
+}: {
+  params: Promise<{ workspaceId: string; formId: string }>;
+}) {
+  const { workspaceId, formId } = await params;
+  const { api } = await apiServer();
+  const got = unwrapPage(await api.POST('/v1/queries/workspace.get', { body: { workspaceId } }));
+  const canManage = hasWorkspacePermission(got.workspace.role, 'forms.manage');
+  const [formRes, catalogsRes] = await Promise.all([
+    api.POST('/v1/queries/form.get', { body: { workspaceId, formId } }),
+    api.POST('/v1/queries/form.catalogs', { body: { workspaceId } }),
+  ]);
+  if (!formRes.data) notFound();
+  return (
+    <>
+      <FormNameHeader
+        workspaceId={workspaceId}
+        form={formRes.data.form}
+        canManage={canManage}
+      />
+      <FormEditor
+        workspaceId={workspaceId}
+        initial={formRes.data}
+        catalogs={catalogsRes.data ?? null}
+        canManage={canManage}
+      />
+    </>
+  );
+}

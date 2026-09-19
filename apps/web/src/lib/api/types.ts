@@ -244,3 +244,19 @@ export type InvoiceUpdateBody = Body<'/v1/commands/invoice.update'>;
 export type MoneyLineBody = NonNullable<EstimateUpdateBody['lines']>[number];
 export type MoneyTermsBody = NonNullable<EstimateUpdateBody['discount']>;
 export type EstimateConvertOut = Ok<'/v1/commands/estimate.convert'>;
+
+// Milestone 15: forms, surveys and quizzes
+export type FormListOut = Ok<'/v1/queries/form.list'>;
+export type FormSummary = FormListOut['items'][number];
+export type FormStatus = FormSummary['status'];
+export type FormMode = FormSummary['mode'];
+export type FormGet = Ok<'/v1/queries/form.get'>;
+export type FormIssue = FormGet['issues'][number];
+export type FormVersionRow = FormGet['versions'][number];
+export type FormCatalogsOut = Ok<'/v1/queries/form.catalogs'>;
+export type FormResultsOut = Ok<'/v1/queries/form.results'>;
+export type FormQuestionSummary = FormResultsOut['questions'][number];
+export type FormResponseListOut = Ok<'/v1/queries/form.response_list'>;
+export type FormResponseRow = FormResponseListOut['items'][number];
+export type FormResponseGetOut = Ok<'/v1/queries/form.response_get'>;
+export type FormSaveDraftBody = Body<'/v1/commands/form.save_draft'>;
