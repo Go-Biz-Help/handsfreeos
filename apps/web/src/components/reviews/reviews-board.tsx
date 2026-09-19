@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
 import { apiBrowser, errorMessage, unwrap } from '@/lib/api/client';
+import { publicEnv } from '@/lib/env';
 import type { ReviewConnectionRow, ReviewRow } from '@/lib/api/types';
 
 const PROVIDER_LABEL = { google: 'Google', facebook: 'Facebook' } as const;
@@ -78,7 +79,11 @@ export function ReviewsBoard({
           body: { workspaceId, provider },
         }),
       );
-      window.location.href = `/oauth/${provider}/start?state=${encodeURIComponent(out.state)}`;
+      // The worker's own address, not this app's: the sign-in and the callback both live there, and a
+      // bare path would send somebody to a page on the website that does not exist.
+      window.location.assign(
+        `${publicEnv.workerUrl}/oauth/${provider}/start?state=${encodeURIComponent(out.state)}`,
+      );
     } catch (e) {
       toast.error(errorMessage(e));
       setBusy(null);
