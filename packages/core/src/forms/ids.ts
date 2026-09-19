@@ -9,11 +9,9 @@ const ALPHABET = 'abcdefghijklmnopqrstuvwxyz0123456789';
 
 const shape = (prefix: string) => new RegExp(`^${prefix}_[a-z0-9]{8}$`);
 const idSchema = (prefix: string, what: string) =>
-  z
-    .string()
-    .regex(shape(prefix), {
-      error: `A ${what} id is ${prefix}_ and 8 lowercase letters or digits.`,
-    });
+  z.string().regex(shape(prefix), {
+    error: `A ${what} id is ${prefix}_ and 8 lowercase letters or digits.`,
+  });
 
 export const QUESTION_ID_RE = shape('q');
 export const PAGE_ID_RE = shape('p');

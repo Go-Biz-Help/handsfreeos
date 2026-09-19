@@ -45,6 +45,8 @@ export const ROLE_PERMISSIONS = {
     'money.read',
     'money.manage',
     'migrations.manage',
+    'forms.manage',
+    'fields.manage',
   ],
   admin: [
     'workspace.read',
@@ -74,6 +76,8 @@ export const ROLE_PERMISSIONS = {
     'money.read',
     'money.manage',
     'migrations.manage',
+    'forms.manage',
+    'fields.manage',
   ],
   member: [
     'workspace.read',

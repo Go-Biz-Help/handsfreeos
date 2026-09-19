@@ -1,4 +1,6 @@
 import type { CommandDef } from '../kernel/types';
+import { formCommands } from './form';
+import { formResponseCommands } from './form-response';
 import { supportStaffCommands } from './support-staff';
 import { supportTicketCommands } from './support';
 import { activityDelete, activityLog, activityUpdate } from './activity';
@@ -430,6 +432,8 @@ export { DEFAULT_STAGES } from './pipeline.create';
 export { emailReceive, emailSuppressionRecord };
 
 export const commands: readonly CommandDef[] = [
+  ...formCommands,
+  ...formResponseCommands,
   organizationCreate,
   workspaceCreate,
   workspaceUpdate,
@@ -696,6 +700,8 @@ export { DEPOSIT_HOLD_JOB, depositHoldKey, holdState } from './appointment-onlin
 export * from './calendar-connection';
 export * from './reminder';
 export * from './waitlist-offer';
+export * from './form';
+export * from './form-response';
 export * from './workflow';
 export * from './workflow-run';
 export * from './workflow-template';
