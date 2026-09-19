@@ -68,6 +68,8 @@ export function searchNumbers(input: {
   contains?: string;
   city?: string;
   state?: string;
+  /** Widens the city to everything within this many miles of it. Only with a city; at most 500. */
+  withinMiles?: number;
 }): Promise<{ numbers: AvailableNumber[] }> {
   return workerPost('/v1/telephony/available-numbers', input);
 }

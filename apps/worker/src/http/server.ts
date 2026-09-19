@@ -103,10 +103,15 @@ const AvailableNumbersInput = z
       .string()
       .regex(/^[A-Za-z]{2}$/, 'Use a 2-letter state, like AL.')
       .optional(),
+    withinMiles: z.int().min(1).max(500).optional(),
   })
   .refine((v) => !v.city === !v.state, {
     message: 'A city needs its state with it.',
     path: ['state'],
+  })
+  .refine((v) => !v.withinMiles || !!v.city, {
+    message: 'A distance needs a city to measure from.',
+    path: ['withinMiles'],
   })
   .refine((v) => v.numberType === 'local' || !v.city, {
     message: 'Toll-free numbers have no city.',
@@ -227,6 +232,7 @@ export async function buildHttpServer(deps: HttpDeps): Promise<FastifyInstance> 
       ...(input.areaCode ? { areaCode: input.areaCode } : {}),
       ...(input.contains ? { contains: input.contains } : {}),
       ...(input.city && input.state ? { city: input.city, state: input.state.toUpperCase() } : {}),
+      ...(input.withinMiles ? { withinMiles: input.withinMiles } : {}),
       limit: 10,
     });
     return { numbers: numbers.map((n) => ({ ...n, display: formatPhone(n.e164) })) };

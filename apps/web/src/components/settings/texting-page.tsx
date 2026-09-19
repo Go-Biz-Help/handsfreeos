@@ -237,6 +237,8 @@ function NumberStep({
   const [city, setCity] = useState('');
   const [region, setRegion] = useState('');
   const [digits, setDigits] = useState('');
+  // '' is the city itself; anything else is a radius around it, in miles.
+  const [miles, setMiles] = useState('');
   const [more, setMore] = useState(false);
   const [results, setResults] = useState<AvailableNumber[] | null>(null);
   const [picked, setPicked] = useState<string | null>(null);
@@ -265,6 +267,7 @@ function NumberStep({
       setCity('');
       setRegion('');
       setDigits('');
+      setMiles('');
     }
     setSearching(true);
     setError(null);
@@ -276,14 +279,19 @@ function NumberStep({
         ...(code ? { areaCode: code } : {}),
         ...(!broaden && digits ? { contains: digits } : {}),
         ...(!broaden && type === 'local' && city && region ? { city, state: region } : {}),
+        ...(!broaden && type === 'local' && city && region && miles
+          ? { withinMiles: Number(miles) }
+          : {}),
       });
       setResults(out.numbers);
       setPicked(out.numbers[0]?.e164 ?? null);
       if (out.numbers.length === 0)
         setError(
-          !broaden && narrowed
-            ? 'Nothing free matches all of that right now. Carriers only sell what they have on hand, so asking for less usually finds one.'
-            : 'No numbers are free there right now. Try another area code.',
+          !broaden && miles && city
+            ? `We could not find ${city} to measure from — the carrier has nothing free in the city itself, and a distance is counted out from there. Searching the city alone, or the area code, still works.`
+            : !broaden && narrowed
+              ? 'Nothing free matches all of that right now. Carriers only sell what they have on hand, so asking for less usually finds one.'
+              : 'No numbers are free there right now. Try another area code.',
         );
     } catch (e) {
       setError(errorMessage(e));
@@ -423,6 +431,20 @@ function NumberStep({
                     className="h-9 w-20"
                   />
                 </div>
+                <div>
+                  <Label htmlFor="number-miles">How far out</Label>
+                  <Select
+                    id="number-miles"
+                    value={miles}
+                    onChange={(e) => setMiles(e.target.value)}
+                    className="h-9 w-44"
+                  >
+                    <option value="">That city only</option>
+                    <option value="15">Within 15 miles</option>
+                    <option value="25">Within 25 miles</option>
+                    <option value="50">Within 50 miles</option>
+                  </Select>
+                </div>
               </>
             ) : null}
             <div>
@@ -438,8 +460,11 @@ function NumberStep({
               />
             </div>
             <p className="w-full text-[13px] text-text-3">
-              Digits can sit anywhere in the number. Use * for any single digit to pin them down,
-              like 256***454* for 454 in the middle. Asking for more leaves fewer to choose from.
+              A city on its own means that city exactly, which in most places is a handful of
+              exchanges; a distance takes in the towns around it that customers think of as the same
+              place. Digits can sit anywhere in the number — use * for any single digit to pin them
+              down, like 256***454* for 454 in the middle. Asking for more leaves fewer to choose
+              from.
             </p>
           </div>
         ) : null}
