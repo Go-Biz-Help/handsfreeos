@@ -8,14 +8,16 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Segmented } from '@/components/ui/segmented';
 import { apiBrowser, errorMessage, unwrap } from '@/lib/api/client';
-import type { FormCatalogsOut, FormGet } from '@/lib/api/types';
+import type { FormCatalogsOut, FormGet, FormResultsOut } from '@/lib/api/types';
 import { FormStatusBadge } from './chips';
 import { useFormEditor } from './editor-state';
 import { FormPreview } from './preview';
+import { FormResults } from './results';
+import { FormShare } from './share';
 import { QuestionList } from './question-list';
 import { QuestionSettings } from './question-settings';
 
-type Tab = 'questions' | 'preview';
+type Tab = 'questions' | 'preview' | 'results' | 'share';
 
 /**
  * One form, three ways to look at the same thing: the questions, and the form as a customer sees it. The
@@ -28,11 +30,15 @@ export function FormEditor({
   workspaceId,
   initial,
   catalogs,
+  results,
+  siteSlug,
   canManage,
 }: {
   workspaceId: string;
   initial: FormGet;
   catalogs: FormCatalogsOut | null;
+  results: FormResultsOut | null;
+  siteSlug: string | null;
   canManage: boolean;
 }) {
   const router = useRouter();
@@ -81,6 +87,14 @@ export function FormEditor({
           options={[
             { value: 'questions', label: 'Questions', testId: 'tab-questions' },
             { value: 'preview', label: 'Preview', testId: 'tab-preview' },
+            {
+              value: 'results',
+              label: initial.form.responseCount
+                ? `Results ${initial.form.responseCount}`
+                : 'Results',
+              testId: 'tab-results',
+            },
+            { value: 'share', label: 'Share', testId: 'tab-share' },
           ]}
         />
         <FormStatusBadge status={initial.form.status} />
@@ -162,13 +176,24 @@ export function FormEditor({
             </Card>
           )}
         </div>
-      ) : (
+      ) : tab === 'preview' ? (
         <div className="mx-auto w-full max-w-2xl">
           <FormPreview definition={editor.definition} />
           <p className="mt-3 text-center text-[12.5px] text-text-3">
             Nothing here is recorded. This is the live version of what you are building.
           </p>
         </div>
+      ) : tab === 'results' ? (
+        results ? (
+          <FormResults workspaceId={workspaceId} form={initial.form} results={results} />
+        ) : null
+      ) : (
+        <FormShare
+          workspaceId={workspaceId}
+          form={initial.form}
+          siteSlug={siteSlug}
+          canManage={canManage}
+        />
       )}
     </div>
   );

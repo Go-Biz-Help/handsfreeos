@@ -39,6 +39,7 @@ interface FormRouteRow extends Record<string, unknown> {
   readonly definition: unknown;
   readonly response_count: number;
   readonly redirected: boolean;
+  readonly embed_origins: string[] | null;
 }
 
 const pageNotFound = () => HfosError.notFound('There’s no form at that address.');
@@ -137,6 +138,8 @@ export async function registerFormRoutes(app: FastifyInstance, deps: HttpDeps): 
           closed,
           closedMessage: definition.settings.closedMessage,
           redirected: row.redirected ? row.form_slug : null,
+          // The sites the business allowed to embed it, for the page's frame rule.
+          embedOrigins: row.embed_origins ?? [],
         };
       },
     );

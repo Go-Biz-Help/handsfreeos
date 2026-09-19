@@ -1,6 +1,7 @@
 import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
 import { chatWindowProxy } from './lib/chat/frame';
+import { formFrameProxy } from './lib/forms/frame';
 import { safeNext } from './lib/utils';
 
 const PROTECTED = ['/app', '/onboarding', '/invite', '/chat-preview'];
@@ -16,6 +17,8 @@ export async function proxy(request: NextRequest) {
   // session, and never redirected. The matcher leaves them out too; this is the belt to its braces.
   if (path.startsWith('/.well-known/')) return NextResponse.next();
   if (path.startsWith('/chat/')) return chatWindowProxy(request);
+  // A public form can be embedded on the business's own site: its frame rule says which one (lib/forms/frame.ts).
+  if (path.startsWith('/f/')) return formFrameProxy(request);
 
   let response = NextResponse.next({ request });
   const supabase = createServerClient(
