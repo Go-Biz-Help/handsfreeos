@@ -20,6 +20,8 @@ import { processJobs } from '../src/jobs';
 import { processOnce } from '../src/outbox';
 import { processors } from '../src/processors/index';
 import { jobs } from '../src/scheduled';
+import pino from 'pino';
+import { ensurePlatformOwners } from '../src/support/owners';
 import { testServices, type TestServices } from './helpers';
 
 /**
@@ -281,6 +283,30 @@ describe('mail to support@ becomes a ticket', () => {
       meta(),
     );
     expect(stillOne.tickets).toEqual([]);
+  });
+});
+
+describe('the way back in', () => {
+  it('makes the people named in the settings support admins, whatever the table says', async () => {
+    // This is the path that only ever runs on a real deployment, so it is exercised here on purpose: it
+    // shipped once as a query the worker could not have answered, and nothing caught it.
+    const owner = await createTestUser('support-owner');
+    await admin().execute(sql`delete from platform.staff where user_id = ${owner.id}`);
+    const log = pino({ level: 'silent' });
+    await ensurePlatformOwners(testDbs().worker.db, [owner.email.toUpperCase()], log);
+    const [made] = await rows<{ role: string; status: string }>(
+      admin(),
+      sql`select role::text as role, status::text as status from platform.staff where user_id = ${owner.id}`,
+    );
+    // Upper case in the setting still finds the account: addresses are not case sensitive.
+    expect(made).toMatchObject({ role: 'admin', status: 'active' });
+  });
+
+  it('says so plainly when the address belongs to nobody yet', async () => {
+    const lines: string[] = [];
+    const log = pino({ level: 'warn' }, { write: (line: string) => lines.push(line) } as never);
+    await ensurePlatformOwners(testDbs().worker.db, ['nobody-here@example.com'], log);
+    expect(lines.join(' ')).toContain('no HandsFreeOS account matches');
   });
 });
 
