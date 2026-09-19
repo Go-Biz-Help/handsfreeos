@@ -6,7 +6,7 @@
 import { z } from 'zod';
 import { FORM_MODES } from '../forms/definition';
 import { FormOpList } from '../forms/ops';
-import { uuid } from './common';
+import { isoDateTime, uuid } from './common';
 
 export const FormModeValue = z.enum(FORM_MODES);
 export const FormStatusValue = z.enum(['draft', 'live', 'closed', 'archived']);
@@ -192,3 +192,162 @@ export const FormSubmitOutput = z.object({
 
 export const FormResponseDeleteInput = z.object({ workspaceId: uuid, responseId: uuid });
 export const FormResponseDeleteOutput = z.object({ responseId: uuid, deleted: z.literal(true) });
+
+// ---- Reading ----
+
+const cursor = z.string().max(400).optional();
+const limit = z.int().min(1).max(100).default(25);
+
+export const FormSummaryOut = z.object({
+  formId: uuid,
+  name: z.string(),
+  mode: FormModeValue,
+  status: FormStatusValue,
+  slug: z.string(),
+  /** How many questions the live version asks (the draft's, before the first publish). */
+  questionCount: z.int(),
+  responseCount: z.int(),
+  /** Of the people who started it, how many finished, 0 to 1; null until somebody has. */
+  completionRate: z.number().nullable(),
+  lastResponseAt: isoDateTime.nullable(),
+  updatedAt: isoDateTime,
+  version: z.int().nullable(),
+  inChat: z.boolean(),
+  embedded: z.boolean(),
+});
+
+export const FormListInput = z.object({
+  workspaceId: uuid,
+  status: z.array(FormStatusValue).optional(),
+  mode: z.array(FormModeValue).optional(),
+  includeArchived: z.boolean().default(false),
+  search: z.string().trim().max(120).optional(),
+});
+export const FormListOutput = z.object({ items: z.array(FormSummaryOut) });
+
+export const FormGetInput = z.object({ workspaceId: uuid, formId: uuid });
+export const FormGetOutput = z.object({
+  form: FormSummaryOut,
+  /** The draft every editor works on. */
+  definition: z.record(z.string(), z.unknown()),
+  revision: z.int(),
+  issues: z.array(FormIssueOut),
+  /** The published versions, newest first. */
+  versions: z.array(
+    z.object({
+      versionId: uuid,
+      version: z.int(),
+      source: z.string(),
+      publishedBy: z.string().nullable(),
+      createdAt: isoDateTime,
+      /** True for the one people are filling in now. */
+      live: z.boolean(),
+    }),
+  ),
+  /** Whether the draft has changed since the last publish. */
+  unpublishedChanges: z.boolean(),
+});
+
+export const FormVersionGetInput = z.object({ workspaceId: uuid, versionId: uuid });
+export const FormVersionGetOutput = z.object({
+  versionId: uuid,
+  formId: uuid,
+  version: z.int(),
+  definition: z.record(z.string(), z.unknown()),
+  createdAt: isoDateTime,
+});
+
+/** What the editor's pickers offer, and the fields an answer can fill. */
+export const FormCatalogsInput = z.object({ workspaceId: uuid });
+export const FormCatalogsOutput = z.object({
+  pipelines: z.array(
+    z.object({
+      id: uuid,
+      name: z.string(),
+      archived: z.boolean(),
+      stages: z.array(z.object({ id: uuid, name: z.string() })),
+    }),
+  ),
+  tags: z.array(z.object({ id: uuid, name: z.string() })),
+  workflows: z.array(z.object({ id: uuid, name: z.string() })),
+  customFields: z.array(
+    z.object({ id: uuid, entity: z.string(), label: z.string(), type: z.string() }),
+  ),
+  team: z.array(z.object({ userId: uuid, name: z.string() })),
+});
+
+export const FormResponseOut = z.object({
+  responseId: uuid,
+  formId: uuid,
+  versionId: uuid,
+  status: z.enum(['in_progress', 'completed']),
+  source: FormSourceValue,
+  personId: uuid.nullable(),
+  personName: z.string().nullable(),
+  leadId: uuid.nullable(),
+  scorePercent: z.int().nullable(),
+  passed: z.boolean().nullable(),
+  resultId: z.string().nullable(),
+  startedAt: isoDateTime,
+  completedAt: isoDateTime.nullable(),
+});
+
+export const FormResponseListInput = z.object({
+  workspaceId: uuid,
+  formId: uuid,
+  /** Half-finished ones are left out unless they are asked for. */
+  includeUnfinished: z.boolean().default(false),
+  limit,
+  cursor,
+});
+export const FormResponseListOutput = z.object({
+  items: z.array(FormResponseOut),
+  nextCursor: z.string().nullable(),
+});
+
+export const FormResponseGetInput = z.object({ workspaceId: uuid, responseId: uuid });
+export const FormResponseGetOutput = z.object({
+  response: FormResponseOut,
+  /** Every answer with the question as it read when they answered. */
+  answers: z.array(
+    z.object({
+      questionId: z.string(),
+      questionTitle: z.string(),
+      questionType: z.string(),
+      value: z.unknown(),
+      text: z.string().nullable(),
+      labels: z.array(z.string()),
+    }),
+  ),
+  calculations: z.record(z.string(), z.number()),
+});
+
+/** One question's answers, summed up the way that question deserves. */
+export const FormQuestionSummaryOut = z.object({
+  questionId: z.string(),
+  title: z.string(),
+  type: z.string(),
+  answered: z.int(),
+  /** Pick-one and pick-any: how many picked each choice. */
+  choices: z.array(z.object({ label: z.string(), count: z.int() })),
+  /** Numbers, ratings and scales. */
+  average: z.number().nullable(),
+  /** Text answers, newest first, for reading rather than counting. */
+  samples: z.array(z.string()),
+});
+
+export const FormResultsInput = z.object({ workspaceId: uuid, formId: uuid });
+export const FormResultsOutput = z.object({
+  formId: uuid,
+  name: z.string(),
+  mode: FormModeValue,
+  views: z.int(),
+  starts: z.int(),
+  completions: z.int(),
+  /** Quizzes: how people did. */
+  averagePercent: z.number().nullable(),
+  passRate: z.number().nullable(),
+  questions: z.array(FormQuestionSummaryOut),
+  /** Which result people landed on, for an outcome quiz. */
+  results: z.array(z.object({ resultId: z.string(), name: z.string(), count: z.int() })),
+});
