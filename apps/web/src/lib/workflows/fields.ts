@@ -96,6 +96,9 @@ export interface RefOption {
 /** The things a reference can point at here, with names ("Sales · Estimate sent" for stages). */
 export function refOptions(kind: RefKind, c: WorkflowCatalogs): RefOption[] {
   switch (kind) {
+    // Forms are picked from their own list in the step's settings, not from the workflow catalogs (M15).
+    case 'form':
+      return [];
     case 'user':
       return c.team.filter((p) => p.active).map((p) => ({ value: p.userId, label: p.name }));
     case 'stage':

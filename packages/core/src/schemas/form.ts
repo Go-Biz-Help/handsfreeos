@@ -37,6 +37,13 @@ export const FormCreateInput = z.object({
   mode: FormModeValue.default('form'),
   /** The words the customer reads at the top; the form's own name when left out. */
   title: z.string().trim().min(1).max(160).optional(),
+  /** Start from one of the built-in forms instead of an empty page (core's FORM_STARTERS). */
+  starter: z
+    .string()
+    .trim()
+    .max(40)
+    .optional()
+    .describe('A starter’s key, like “quote” or “review”'),
 });
 export const FormCreateOutput = z.object({
   formId: uuid,

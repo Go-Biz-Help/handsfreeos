@@ -532,6 +532,33 @@ export async function runAction(ec: ExecCtx): Promise<Outcome> {
       return { kind: 'done', input, output: { stopped } };
     }
 
+    case 'send_form': {
+      // The link goes on the end of whatever the business wrote, so the message reads as one thing.
+      const r = await renderAll(ec, {
+        message: step.config.message,
+        subject: step.config.subject || 'A quick form',
+      });
+      if (r.missing.length) return missingVariable(r.missing, r.values);
+      const formId = idOf(step.config.formId);
+      const [form] = await rows<{ slug: string; site: string | null; status: string }>(
+        ec.tx,
+        sql`select f.slug, bs.slug::text as site, f.status::text as status
+            from app.forms f
+            left join app.booking_sites bs on bs.workspace_id = f.workspace_id
+            where f.id = ${formId} and f.workspace_id = ${ws}`,
+      );
+      // A form that was never published, or was closed, has nothing to send: the run carries on.
+      if (!form || form.status !== 'live' || !form.site)
+        return skipped('form_not_live', { ...r.values, formId });
+      const link = `${ec.s.webUrl}/f/${form.site}/${form.slug}`;
+      const body = `${r.values['message']!}\n\n${link}`;
+      const late = lateSkip(ec, { channel: step.config.channel, body });
+      if (late) return late;
+      return step.config.channel === 'email'
+        ? sendEmailAction(ec, r.values['subject']!, body)
+        : sendTextAction(ec, body);
+    }
+
     case 'hand_to_ai_teammate': {
       // The teammate takes the conversation and works toward the goal (ai-team/handover.ts).
       const r = await renderAll(ec, { note: step.config.note });

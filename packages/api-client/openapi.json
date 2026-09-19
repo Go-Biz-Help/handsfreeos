@@ -13717,6 +13717,7 @@
                               "estimate.accepted",
                               "estimate.declined",
                               "invoice.paid",
+                              "form.submitted",
                               "invoice.overdue"
                             ]
                           },
@@ -14637,7 +14638,8 @@
                               "calendar",
                               "service",
                               "user",
-                              "workflow"
+                              "workflow",
+                              "form"
                             ]
                           },
                           "label": {
@@ -16665,7 +16667,8 @@
                               "calendar",
                               "service",
                               "user",
-                              "workflow"
+                              "workflow",
+                              "form"
                             ]
                           },
                           "label": {
@@ -17418,6 +17421,7 @@
                               "estimate.accepted",
                               "estimate.declined",
                               "invoice.paid",
+                              "form.submitted",
                               "invoice.overdue"
                             ]
                           },
@@ -30841,6 +30845,11 @@
                     "type": "string",
                     "minLength": 1,
                     "maxLength": 160
+                  },
+                  "starter": {
+                    "description": "A starter’s key, like “quote” or “review”",
+                    "type": "string",
+                    "maxLength": 40
                   }
                 },
                 "required": [
@@ -54299,7 +54308,8 @@
                                   "calendar",
                                   "service",
                                   "user",
-                                  "workflow"
+                                  "workflow",
+                                  "form"
                                 ]
                               },
                               "label": {

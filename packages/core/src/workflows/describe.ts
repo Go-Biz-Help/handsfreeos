@@ -46,6 +46,7 @@ export interface WorkflowNames {
   readonly calendars?: readonly { readonly id: string; readonly name: string }[];
   readonly services?: readonly { readonly id: string; readonly name: string }[];
   readonly workflows?: readonly { readonly id: string; readonly name: string }[];
+  readonly forms?: readonly { readonly id: string; readonly name: string }[];
   /** The AI teammate's name ("Ava"), for its hand-over steps. */
   readonly teammateName?: string | null;
 }
@@ -58,6 +59,7 @@ const GENERIC: Readonly<Record<RefKind, string>> = {
   service: 'a service',
   user: 'someone',
   workflow: 'another workflow',
+  form: 'a form',
 };
 
 /** A name for an id or placeholder ("Estimate sent", "‹estimate stage›", or "a stage"). */
@@ -85,6 +87,8 @@ export function refName(kind: RefKind, ref: unknown, names: WorkflowNames = {}):
       return byId(names.services) ?? GENERIC.service;
     case 'workflow':
       return byId(names.workflows) ?? GENERIC.workflow;
+    case 'form':
+      return byId(names.forms) ?? GENERIC.form;
   }
 }
 
@@ -311,6 +315,10 @@ function describeAction(step: Extract<Step, { type: 'action' }>, names: Workflow
       const first = c.firstMessage === 'ai_writes' ? `it writes first${by}` : 'it waits for them';
       return `Hand to ${who}: ${goal}; ${first}`;
     }
+    case 'send_form':
+      return `Send a form by ${step.config.channel === 'email' ? 'email' : 'text'}: ${quote(
+        step.config.message,
+      )}`;
   }
 }
 

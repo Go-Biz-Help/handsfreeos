@@ -116,6 +116,25 @@ describe('starting one', () => {
     expect(again.slug).toBe('get-a-quote-2');
   });
 
+  it('can start from one of the built-in forms', async () => {
+    const created = await run(
+      formCreate,
+      { workspaceId: wsId, name: 'Quote request', starter: 'quote' },
+      owner,
+    );
+    const saved = await row(created.formId);
+    const definition = saved.definition as { pages: { questions: { type: string }[] }[]; calculations: unknown[] };
+    expect(definition.pages[0]!.questions.map((q) => q.type)).toContain('number');
+    expect(definition.calculations).toHaveLength(1);
+    // Ready to publish straight away, which is the point of a starter.
+    const published = await run(
+      formPublish,
+      { workspaceId: wsId, formId: created.formId, baseRevision: created.revision },
+      owner,
+    );
+    expect(published.version).toBe(1);
+  });
+
   it('is not something a member can do', async () => {
     await expectHfos(
       () => run(formCreate, { workspaceId: wsId, name: 'Members only' }, member),
