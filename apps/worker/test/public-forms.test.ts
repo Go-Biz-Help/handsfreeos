@@ -120,6 +120,23 @@ describe('opening one', () => {
   it('is a plain 404 for an address with no form at it', async () => {
     expect((await get(w, `/public/form/${w.site}/nothing-here`)).statusCode).toBe(404);
   });
+
+  /**
+   * `private.form_route` left `embed_origins` out of its `returns table (…)`, so the page always read `undefined`
+   * and its frame rule stayed at `frame-ancestors 'self'` — a business that listed its own website still had the
+   * browser refuse the iframe. Nothing caught it because nothing asserted the value.
+   */
+  it('hands back the sites allowed to embed it', async () => {
+    await admin().execute(
+      sql`update app.forms set embed_origins = array['https://example.com']
+          where slug = ${slug} and workspace_id = ${w.workspaceId}`,
+    );
+    const res = await get(w, formUrl());
+    expect(res.statusCode, res.body).toBe(200);
+    expect((res.json() as { embedOrigins: string[] }).embedOrigins).toEqual([
+      'https://example.com',
+    ]);
+  });
 });
 
 describe('filling it in', () => {

@@ -204,7 +204,8 @@ interface ConfirmTool {
     db: Db,
     ctx: ToolContext,
     args: Args,
-    extra: { lostReason?: string; toolCallId: string },
+    /** `webUrl` is the web app's address: a link that goes to a customer needs the whole thing, not a path. */
+    extra: { lostReason?: string; toolCallId: string; webUrl: string },
   ): Promise<CommittedAction>;
 }
 
@@ -821,6 +822,8 @@ export function createToolExecutor(
   db: Db,
   workflows: WorkflowToolDeps | null = null,
   forms: FormToolDeps | null = null,
+  /** The web app's address, for the links a tool sends to a customer. */
+  webUrl = '',
 ): ToolExecutor {
   return {
     async run(tool: AssistantTool, args: Args, ctx: ToolContext) {
@@ -845,7 +848,7 @@ export function createToolExecutor(
     async commit(tool, args, ctx, extra) {
       const t = confirmTools[tool.name];
       if (!t) throw new Error(`No confirmation for ${tool.name}`);
-      return t.commit(db, ctx, args, extra);
+      return t.commit(db, ctx, args, { ...extra, webUrl });
     },
     async undo(tool, record, ctx) {
       switch (tool.name) {

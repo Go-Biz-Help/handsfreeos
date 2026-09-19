@@ -151,7 +151,7 @@ const app = await buildHttpServer({
   assistant: model
     ? {
         provider: model,
-        tools: createToolExecutor(httpHandle.db, { ai, log }, { ai, log }),
+        tools: createToolExecutor(httpHandle.db, { ai, log }, { ai, log }, env.webUrl),
         dailyTokens: env.assistantDailyTokens,
       }
     : null,

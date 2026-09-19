@@ -10,6 +10,8 @@ import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { apiBrowser, errorMessage, unwrap } from '@/lib/api/client';
 import type { FormSummary } from '@/lib/api/types';
+import { PUBLIC_FORM_PATH } from '@/lib/forms/words';
+import { useOrigin } from '@/lib/use-origin';
 
 /**
  * The four ways a form reaches people: the link, a website embed, the AI teammate asking it in a
@@ -32,19 +34,19 @@ export function FormShare({
   const [qr, setQr] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
-  const link =
-    siteSlug && typeof window !== 'undefined'
-      ? `${window.location.origin}/f/${siteSlug}/${form.slug}`
-      : siteSlug
-        ? `/f/${siteSlug}/${form.slug}`
-        : null;
+  // `useOrigin` rather than reading `window` directly: it is empty on the server, so the first paint matches and
+  // there is no hydration mismatch. Every other page that shows a public link uses it.
+  const origin = useOrigin();
+  const path = siteSlug ? PUBLIC_FORM_PATH(siteSlug, form.slug) : null;
+  const link = path ? `${origin}${path}` : null;
 
   useEffect(() => {
-    if (!link) return;
+    // Wait for the real origin: a QR code made from a relative path sends whoever scans it nowhere.
+    if (!link || !origin) return;
     void QRCode.toDataURL(link, { margin: 1, width: 512 })
       .then(setQr)
       .catch(() => setQr(null));
-  }, [link]);
+  }, [link, origin]);
 
   async function save(next: { embedOrigins?: string[]; inChat?: boolean }) {
     setSaving(true);
@@ -73,9 +75,26 @@ export function FormShare({
       </Card>
     );
 
-  const embedSnippet = link
-    ? `<iframe src="${link}?embed=1" title="${form.name}" width="100%" height="720" style="border:0" loading="lazy"></iframe>`
-    : '';
+  // Publishing gives a business its public name, so a live form should always have one. If something went
+  // sideways and it hasn't, say so and point at the fix — the old page rendered its headings over nothing.
+  if (!siteSlug)
+    return (
+      <Card className="px-6 py-10 text-center" data-testid="form-share-no-site">
+        <Link2 className="mx-auto h-7 w-7 text-text-3" strokeWidth={1.5} />
+        <h2 className="mt-3 text-[15px] font-medium text-text">
+          This business has no link name yet
+        </h2>
+        <p className="mx-auto mt-1 max-w-sm text-[13px] text-text-2">
+          Your public links are built from it, so the form has no address until it is set. Pick one
+          under Settings → Calendars → Booking site, and the link, the embed and the QR code appear
+          here.
+        </p>
+      </Card>
+    );
+
+  // Past the guard above `siteSlug` is a string, so this is the address itself rather than a maybe-null one.
+  const publicUrl = `${origin}${PUBLIC_FORM_PATH(siteSlug, form.slug)}`;
+  const embedSnippet = `<iframe src="${publicUrl}?embed=1" title="${form.name}" width="100%" height="720" style="border:0" loading="lazy"></iframe>`;
 
   return (
     <div className="grid gap-4 lg:grid-cols-2">
@@ -86,7 +105,7 @@ export function FormShare({
             Text it, email it, put it in a signature. It keeps working if you rename the form.
           </p>
         </div>
-        {link ? <CopyField value={link} label="Copy the link" copied="Copied the link" /> : null}
+        <CopyField value={publicUrl} label="Copy the link" copied="Copied the link" />
       </Card>
 
       <Card className="space-y-3 p-4">
@@ -147,9 +166,7 @@ export function FormShare({
             }
           />
         </Field>
-        {embedSnippet ? (
-          <CopyField value={embedSnippet} label="Copy the snippet" copied="Copied the snippet" />
-        ) : null}
+        <CopyField value={embedSnippet} label="Copy the snippet" copied="Copied the snippet" />
       </Card>
 
       <Card className="space-y-3 p-4">

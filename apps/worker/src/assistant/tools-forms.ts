@@ -220,7 +220,8 @@ interface ConfirmTool {
     db: Db,
     ctx: ToolContext,
     args: Args,
-    extra: { readonly toolCallId: string },
+    /** `webUrl` is the web app's address: a link that goes to a customer needs the whole thing, not a path. */
+    extra: { readonly toolCallId: string; readonly webUrl: string },
   ): Promise<CommittedAction>;
 }
 
@@ -343,13 +344,20 @@ const sendForm: ConfirmTool = {
       result: { asked: 'Waiting for their OK before it goes out.' },
     };
   },
-  async commit(db, ctx, args) {
+  async commit(db, ctx, args, extra) {
     const formId = String(args['formId']);
     const personId = String(args['personId']);
     const channel = str(args['channel']) === 'email' ? 'email' : 'sms';
     const form = await query<{ form: FormSummary }>(db, ctx, 'form.get', { formId });
     const site = await query<{ site: { slug: string } | null }>(db, ctx, 'booking_site.get', {});
-    const link = site.site ? `/f/${site.site.slug}/${form.form.slug}` : `/f/${form.form.slug}`;
+    // Publishing gives the business its public name, so a live form has one. Without it there is no address to
+    // send, and texting somebody a bare path would be worse than saying so.
+    if (!site.site)
+      throw HfosError.conflict(
+        'This business has no link name yet, so the form has no address to send. Set one under Settings → Calendars → Booking site.',
+        'no_booking_site',
+      );
+    const link = `${extra.webUrl}/f/${site.site.slug}/${form.form.slug}`;
     const body = `${String(args['message'])}\n\n${link}`;
     if (channel === 'sms') {
       await command(db, ctx, 'message.send', { personId, body });

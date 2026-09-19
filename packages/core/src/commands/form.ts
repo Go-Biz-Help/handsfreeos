@@ -8,6 +8,7 @@
  */
 import { and, desc, eq, sql as dsql } from 'drizzle-orm';
 import { forms, formVersions } from '@hfos/db/schema';
+import { ensureBookingSite } from '../calendar/site';
 import { HfosError } from '../errors';
 import { allQuestions, type FormDefinition } from '../forms/definition';
 import { describeFormOps } from '../forms/describe';
@@ -328,6 +329,10 @@ export const formPublish = defineCommand({
       })
       .returning({ id: formVersions.id });
     if (!row) throw HfosError.forbidden();
+    // A published form needs an address, and its address is built from the business's public name. A business that
+    // never set up a booking page had none, so the link, the QR code and the embed had nothing to be made from and
+    // the Share tab showed empty headings. Publishing now gives it one, which Settings can rename later.
+    await ensureBookingSite(ctx.tx, ws, me);
     // A form that was closed stays closed: publishing changes what it asks, not whether it is open.
     const status = current.row.status === 'closed' ? ('closed' as const) : ('live' as const);
     await ctx.tx
