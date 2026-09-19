@@ -17,9 +17,11 @@ export default async function FormPage({
   const { api } = await apiServer();
   const got = unwrapPage(await api.POST('/v1/queries/workspace.get', { body: { workspaceId } }));
   const canManage = hasWorkspacePermission(got.workspace.role, 'forms.manage');
-  const [formRes, catalogsRes] = await Promise.all([
+  const [formRes, catalogsRes, resultsRes, siteRes] = await Promise.all([
     api.POST('/v1/queries/form.get', { body: { workspaceId, formId } }),
     api.POST('/v1/queries/form.catalogs', { body: { workspaceId } }),
+    api.POST('/v1/queries/form.results', { body: { workspaceId, formId } }),
+    api.POST('/v1/queries/booking_site.get', { body: { workspaceId } }),
   ]);
   if (!formRes.data) notFound();
   return (
@@ -33,6 +35,8 @@ export default async function FormPage({
         workspaceId={workspaceId}
         initial={formRes.data}
         catalogs={catalogsRes.data ?? null}
+        results={resultsRes.data ?? null}
+        siteSlug={siteRes.data?.site?.slug ?? null}
         canManage={canManage}
       />
     </>

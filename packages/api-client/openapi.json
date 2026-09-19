@@ -66488,8 +66488,11 @@
                           "inChat": {
                             "type": "boolean"
                           },
-                          "embedded": {
-                            "type": "boolean"
+                          "embedOrigins": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
                           }
                         },
                         "required": [
@@ -66505,7 +66508,7 @@
                           "updatedAt",
                           "version",
                           "inChat",
-                          "embedded"
+                          "embedOrigins"
                         ],
                         "additionalProperties": false
                       }
@@ -66643,8 +66646,11 @@
                         "inChat": {
                           "type": "boolean"
                         },
-                        "embedded": {
-                          "type": "boolean"
+                        "embedOrigins": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
                         }
                       },
                       "required": [
@@ -66660,7 +66666,7 @@
                         "updatedAt",
                         "version",
                         "inChat",
-                        "embedded"
+                        "embedOrigins"
                       ],
                       "additionalProperties": false
                     },

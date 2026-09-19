@@ -23153,7 +23153,7 @@ export interface operations {
                         };
                         form: {
                             completionRate: number | null;
-                            embedded: boolean;
+                            embedOrigins: string[];
                             /** Format: uuid */
                             formId: string;
                             inChat: boolean;
@@ -23221,7 +23221,7 @@ export interface operations {
                     "application/json": {
                         items: {
                             completionRate: number | null;
-                            embedded: boolean;
+                            embedOrigins: string[];
                             /** Format: uuid */
                             formId: string;
                             inChat: boolean;

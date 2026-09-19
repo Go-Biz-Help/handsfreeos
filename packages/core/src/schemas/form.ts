@@ -221,7 +221,8 @@ export const FormSummaryOut = z.object({
   updatedAt: isoDateTime,
   version: z.int().nullable(),
   inChat: z.boolean(),
-  embedded: z.boolean(),
+  /** The sites allowed to frame it; empty means it is embedded nowhere. */
+  embedOrigins: z.array(z.string()),
 });
 
 export const FormListInput = z.object({

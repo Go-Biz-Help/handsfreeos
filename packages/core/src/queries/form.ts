@@ -67,7 +67,7 @@ function summaryOf(
     updatedAt: row.updatedAt.toISOString(),
     version: extra.version,
     inChat: row.inChat,
-    embedded: row.embedOrigins.length > 0,
+    embedOrigins: row.embedOrigins,
   };
 }
 

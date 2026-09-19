@@ -26,10 +26,10 @@ export default async function PublicFormPage({
   searchParams,
 }: {
   params: Promise<{ site: string; slug: string }>;
-  searchParams: Promise<{ resume?: string }>;
+  searchParams: Promise<{ resume?: string; embed?: string }>;
 }) {
   const { site, slug } = await params;
-  const { resume } = await searchParams;
+  const { resume, embed } = await searchParams;
   const page = await formPageData(getPublicForm(site, slug));
   // Somebody coming back to finish one: their answers so far, if the link still stands.
   const resumed = resume
@@ -37,18 +37,21 @@ export default async function PublicFormPage({
         .then((r) => ({ responseId: r.responseId, token: resume, answers: r.answers }))
         .catch(() => null)
     : null;
+  const form = (
+    <PublicForm
+      site={site}
+      slug={slug}
+      definition={page.definition}
+      closed={page.closed}
+      closedMessage={page.closedMessage}
+      resumed={resumed}
+    />
+  );
+  // Embedded on the business's own site: no frame of ours around it, and no padding fighting theirs.
+  if (embed === '1') return <div className="p-1">{form}</div>;
   return (
     <PublicFrame business={{ name: page.business.name, phone: null, phoneDisplay: null }}>
-      <div className="mx-auto w-full max-w-2xl px-4 py-8 sm:py-12">
-        <PublicForm
-          site={site}
-          slug={slug}
-          definition={page.definition}
-          closed={page.closed}
-          closedMessage={page.closedMessage}
-          resumed={resumed}
-        />
-      </div>
+      <div className="mx-auto w-full max-w-2xl px-4 py-8 sm:py-12">{form}</div>
     </PublicFrame>
   );
 }
