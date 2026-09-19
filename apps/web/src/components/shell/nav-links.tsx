@@ -56,6 +56,8 @@ export function navItems(workspaceId: string): NavItem[] {
     { key: 'money', href: `${base}/money`, label: 'Money', icon: CircleDollarSign },
     // Workflows is a drawer item on phones, so the bottom bar stays at five.
     { key: 'workflows', href: `${base}/workflows`, label: 'Workflows', icon: Workflow },
+    // Forms is a drawer item on phones, so the bottom bar stays at five.
+    { key: 'forms', href: `${base}/forms`, label: 'Forms', icon: ClipboardList },
     // Knowledge is a drawer item on phones too.
     { key: 'knowledge', href: `${base}/knowledge`, label: 'Knowledge', icon: BookOpen },
     // The AI teammate is a drawer item on phones as well. Everyone sees it; ai_team.manage changes it.
