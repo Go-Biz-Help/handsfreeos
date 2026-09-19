@@ -35,7 +35,12 @@ export const templateCreate = defineCommand({
   scope: (i) => ({ kind: 'workspace', workspaceId: i.workspaceId }),
   emits: ['template.created'],
   actors: ['human', 'system'],
-  offline: 'anytime',
+  /**
+   * Online only, for now, and deliberately: the phone does not sync `message_templates`, so a template
+   * written on a plane would replay into a library that phone cannot show. The phone's contract may only
+   * grow, so it is cheaper to leave these out of it than to promise something the app cannot keep and be
+   * stuck with the promise.
+   */
   async handler(ctx, input) {
     const workspaceId = ctx.scope.workspaceId!;
     const [taken] = await ctx.tx
@@ -81,7 +86,6 @@ export const templateUpdate = defineCommand({
   scope: (i) => ({ kind: 'workspace', workspaceId: i.workspaceId }),
   emits: ['template.updated'],
   actors: ['human', 'system'],
-  offline: 'anytime',
   async handler(ctx, input) {
     const workspaceId = ctx.scope.workspaceId!;
     const [current] = await ctx.tx
@@ -140,7 +144,6 @@ export const templateArchive = defineCommand({
   scope: (i) => ({ kind: 'workspace', workspaceId: i.workspaceId }),
   emits: ['template.archived'],
   actors: ['human', 'system'],
-  offline: 'anytime',
   async handler(ctx, input) {
     const workspaceId = ctx.scope.workspaceId!;
     const [current] = await ctx.tx
@@ -192,7 +195,6 @@ export const templateUsed = defineCommand({
   scope: (i) => ({ kind: 'workspace', workspaceId: i.workspaceId }),
   emits: [],
   actors: ['human', 'system'],
-  offline: 'anytime',
   async handler(ctx, input) {
     /**
      * Through the database's own function, not a plain update.
