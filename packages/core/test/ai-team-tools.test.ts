@@ -44,6 +44,8 @@ describe('the registry', () => {
       ['reschedule', 'book', 'draft'],
       ['cancel', 'book', 'draft'],
       ['record_answers', 'qualify', 'auto'],
+      ['ask_form', 'qualify', 'auto'],
+      ['answer_form', 'qualify', 'auto'],
       ['move_stage', 'qualify', 'auto'],
       ['update_customer', 'core', 'auto'],
       ['add_note', 'core', 'auto'],

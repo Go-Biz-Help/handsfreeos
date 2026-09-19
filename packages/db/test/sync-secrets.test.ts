@@ -81,6 +81,8 @@ const SECRET_COLUMN =
 const SECRET_TABLES = [
   'calendar_connections',
   'chat_visitors',
+  // M15: a half-finished answer sheet keeps the hash of the key that reopens it.
+  'form_responses',
   'invitations',
   'mailbox_connections',
   'migration_connections',

@@ -430,6 +430,22 @@ describe('registry', () => {
       'support.staff.save_profile',
       'platform.view_as.start',
       'platform.view_as.end',
+      // Milestone 15: forms, surveys and quizzes.
+      'form.create',
+      'form.save_draft',
+      'form.restore_version',
+      'form.publish',
+      'form.set_status',
+      'form.rename',
+      'form.set_slug',
+      'form.set_delivery',
+      'form.duplicate',
+      'form.archive',
+      'form.restore',
+      'form_response.start',
+      'form_response.save',
+      'form_response.submit',
+      'form_response.delete',
     ]);
     expect(registry.queries.map((q) => q.name)).toEqual([
       'migration.list',
@@ -538,6 +554,14 @@ describe('registry', () => {
       'money.summary',
       'money.for_record',
       'money.settings',
+      // Milestone 15.
+      'form.list',
+      'form.get',
+      'form.version_get',
+      'form.catalogs',
+      'form.response_list',
+      'form.response_get',
+      'form.results',
     ]);
     expect(registry.command('membership.invite')?.risk).toBe(2);
   });

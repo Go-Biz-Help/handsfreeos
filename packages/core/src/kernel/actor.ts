@@ -55,6 +55,10 @@ export const AI_EMPLOYEE_COMMANDS = [
   'appointment.book_for_customer',
   'attendee.reschedule_for_customer',
   'attendee.cancel_for_customer',
+  // M15: asking one of the business's forms in the conversation, a question at a time.
+  'form_response.start',
+  'form_response.save',
+  'form_response.submit',
 ] as const;
 
 /** The look-ups the AI teammate runs through the kernel (the rest it reads in the worker, for its run). */
