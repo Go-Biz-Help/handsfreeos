@@ -24,8 +24,16 @@ import {
   formatDuration,
   HfosError,
   isLocalDate,
+  answerProblem,
+  findQuestion,
+  formResponseSave,
+  formResponseStart,
+  formResponseSubmit,
   leadMoveStage,
   leadRecordAnswers,
+  nextQuestion,
+  parseStoredForm,
+  responseProblems,
   localDateOf,
   money,
   personUpdate,
@@ -34,6 +42,10 @@ import {
   taskCreate,
   toolInputSchema,
   type AiEmployeeActor,
+  type AnswerSheet,
+  type AnswerValue,
+  type FormDefinition,
+  type Question,
   type ConversationHandoffReason,
   type DraftAction,
   type HandOffReason,
@@ -373,6 +385,100 @@ const NO_CUSTOMER =
   'There’s no customer on file for this conversation yet, so there’s nowhere to put that.';
 const NO_LEAD = 'This customer has no open lead to put that on. Add a note instead.';
 
+
+// ---- The forms the teammate may ask ----
+
+interface TeammateForm {
+  readonly formId: string;
+  readonly definition: FormDefinition;
+}
+
+/** A form of this business that is live and that the business let the teammate ask (M15's in_chat). */
+async function formForTeammate(
+  d: ExecutorDeps,
+  tx: Tx,
+  formId: string,
+): Promise<TeammateForm | { error: string }> {
+  if (!d.rc.customer || d.rc.unverifiedChat) return { error: NO_CUSTOMER };
+  const [row] = await rows<{ id: string; definition: unknown; in_chat: boolean; status: string }>(
+    tx,
+    sql`select f.id, v.definition, f.in_chat, f.status::text as status
+        from app.forms f join app.form_versions v on v.id = f.active_version_id
+        where f.id = ${formId} and f.workspace_id = ${d.scope.workspaceId}`,
+  );
+  if (!row || row.status !== 'live') return { error: 'That form isn’t taking answers.' };
+  if (!row.in_chat) return { error: 'That form isn’t one you may ask in a conversation.' };
+  return { formId: row.id, definition: parseStoredForm(row.definition) };
+}
+
+interface Sheet {
+  readonly responseId: string;
+  readonly answers: AnswerSheet;
+}
+
+/** This customer's unfinished sheet for that form, or a new one. */
+async function openSheet(d: ExecutorDeps, tx: Tx, form: TeammateForm): Promise<Sheet> {
+  const personId = d.rc.customer!.id;
+  const [open] = await rows<{ id: string; answers: Record<string, unknown> }>(
+    tx,
+    sql`select id, answers from app.form_responses
+        where form_id = ${form.formId} and person_id = ${personId} and status = 'in_progress'
+        order by started_at desc limit 1`,
+  );
+  // An unfinished sheet for this customer is theirs to carry on with. The teammate carries no key: it is
+  // inside the business already, and the commands only ask a signed-out page for one.
+  if (open) return { responseId: open.id, answers: (open.answers ?? {}) as AnswerSheet };
+  const started = await executeCommandIn(
+    tx,
+    formResponseStart,
+    { workspaceId: d.scope.workspaceId, formId: form.formId, source: 'chat', visitorHash: null },
+    d.ai,
+    d.meta,
+  );
+  // The sheet belongs to the customer this conversation is with.
+  await tx.execute(
+    sql`update app.form_responses set person_id = ${personId}
+        where id = ${started.output.responseId}`,
+  );
+  return { responseId: started.output.responseId, answers: {} };
+}
+
+/** What the model needs to know to ask one question well. */
+function questionShape(question: Question): Record<string, unknown> {
+  const config = question.config as { choices?: { id: string; label: string }[] };
+  return {
+    kind: question.type,
+    ...(question.help ? { help: quoteData(question.help) } : {}),
+    ...(config.choices
+      ? { choices: config.choices.map((c) => ({ id: c.id, label: quoteData(c.label) })) }
+      : {}),
+    ...(question.required ? { required: true } : {}),
+  };
+}
+
+/**
+ * What the customer said, as the answer that question takes: a choice matched by its wording, yes or no,
+ * a number read out of the sentence, otherwise their words as they said them.
+ */
+function answerFromWords(question: Question, said: string): AnswerValue {
+  const text = said.trim();
+  const config = question.config as { choices?: { id: string; label: string }[] };
+  if (config.choices) {
+    const lower = text.toLowerCase();
+    const exact = config.choices.find((c) => c.id === text);
+    if (exact) return question.type === 'checkboxes' ? [exact.id] : exact.id;
+    const named = config.choices.find((c) => lower.includes(c.label.toLowerCase()));
+    if (named) return question.type === 'checkboxes' ? [named.id] : named.id;
+    return question.type === 'checkboxes' ? [] : text;
+  }
+  if (question.type === 'yes_no') return /\b(no|nope|nah)\b/i.test(text) ? 'no' : 'yes';
+  if (question.type === 'number' || question.type === 'money' || question.type === 'rating' || question.type === 'scale') {
+    const n = Number(text.replace(/[^0-9.-]/g, ''));
+    return Number.isFinite(n) ? n : text;
+  }
+  return text;
+}
+
 const RUNNERS: Readonly<Record<TeammateToolName, Runner>> = {
   async search_knowledge(d, tx, args) {
     const query = String(args['query']);
@@ -583,6 +689,107 @@ const RUNNERS: Readonly<Record<TeammateToolName, Runner>> = {
         qualified: r.output.qualified,
         ...(r.output.qualified && stage
           ? { next: `Move the lead with move_stage (stage id ${stage}).` }
+          : {}),
+      },
+    };
+  },
+
+  /**
+   * The teammate asking one of the business's forms in the conversation instead of sending a link. It holds
+   * no state of its own: the answer sheet is the same row the public page writes, found by this customer and
+   * this form, so a conversation that stops halfway can be picked up by the link and finished there.
+   */
+  async ask_form(d, tx, args) {
+    const found = await formForTeammate(d, tx, String(args['formId']));
+    if ('error' in found) return refused(found);
+    const { definition } = found;
+    const sheet = await openSheet(d, tx, found);
+    const next = nextQuestion(definition, sheet.answers);
+    return {
+      status: 'done',
+      command: 'form_response.start',
+      content: next
+        ? {
+            form: quoteData(definition.title),
+            ask: { questionId: next.id, question: quoteData(next.title), ...questionShape(next) },
+            note: 'Ask it in your own words, one at a time, and save each answer with answer_form.',
+          }
+        : { form: quoteData(definition.title), done: 'Nothing left to ask; send it with answer_form.' },
+    };
+  },
+
+  async answer_form(d, tx, args) {
+    const found = await formForTeammate(d, tx, String(args['formId']));
+    if ('error' in found) return refused(found);
+    const { definition } = found;
+    const sheet = await openSheet(d, tx, found);
+    const questionId = String(args['questionId']);
+    const question = findQuestion(definition, questionId)?.question;
+    if (!question) return refused({ error: 'That question isn’t on this form.' });
+    const value = answerFromWords(question, String(args['answer']));
+    const answers: AnswerSheet = { ...sheet.answers, [questionId]: value };
+    const problem = answerProblem(question, value);
+    if (problem)
+      return {
+        status: 'done',
+        content: { saved: false, problem, note: 'Ask them again for that one.' },
+      };
+    await executeCommandIn(
+      tx,
+      formResponseSave,
+      {
+        workspaceId: d.scope.workspaceId,
+        responseId: sheet.responseId,
+        answers: { [questionId]: value },
+      },
+      d.ai,
+      d.meta,
+    );
+    const next = nextQuestion(definition, answers);
+    if (next)
+      return {
+        status: 'done',
+        command: 'form_response.save',
+        content: {
+          saved: true,
+          ask: { questionId: next.id, question: quoteData(next.title), ...questionShape(next) },
+        },
+      };
+    // Nothing left: sending is what makes it real — the customer's details, the lead, the follow-ups.
+    const left = responseProblems(definition, answers);
+    if (left.length)
+      return {
+        status: 'done',
+        content: {
+          saved: true,
+          stillNeeded: left.map((p) => ({
+            questionId: p.questionId,
+            question: quoteData(findQuestion(definition, p.questionId)?.question.title ?? ''),
+            problem: p.message,
+          })),
+        },
+      };
+    const sent = await executeCommandIn(
+      tx,
+      formResponseSubmit,
+      {
+        workspaceId: d.scope.workspaceId,
+        responseId: sheet.responseId,
+        answers,
+        smsConsent: false,
+      },
+      d.ai,
+      d.meta,
+    );
+    const landed = definition.results.find((r) => r.id === sent.output.resultId);
+    return {
+      status: 'done',
+      command: 'form_response.submit',
+      content: {
+        sent: true,
+        say: quoteData(landed?.headline ?? 'Thank you.'),
+        ...(sent.output.dueCents > 0
+          ? { owing: money(sent.output.dueCents), note: 'Tell them the invoice is on its way.' }
           : {}),
       },
     };

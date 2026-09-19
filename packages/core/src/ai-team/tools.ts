@@ -167,6 +167,27 @@ export const TEAMMATE_TOOLS = [
     autonomy: 'auto',
   }),
   define({
+    name: 'ask_form',
+    description:
+      'Start one of the business’s forms in this conversation (the ones in your context). It comes back with the first question to ask; ask it in your own words, one at a time.',
+    input: z.strictObject({ formId: uuid }),
+    skill: 'qualify',
+    autonomy: 'auto',
+  }),
+  define({
+    name: 'answer_form',
+    description:
+      'Save what the customer just told you for one question of the form you are asking, and get the next one. When there are no questions left it is sent, and what the form does (the customer’s details, a lead, the follow-ups) happens then.',
+    input: z.strictObject({
+      formId: uuid,
+      questionId: z.string().trim().min(1).max(40),
+      /** Their answer in their own words; a choice may be named rather than given by id. */
+      answer: text(500),
+    }),
+    skill: 'qualify',
+    autonomy: 'auto',
+  }),
+  define({
     name: 'move_stage',
     description:
       'Move the customer’s lead to another open stage of its pipeline (ids in the context), for example the one your settings name for qualified leads.',

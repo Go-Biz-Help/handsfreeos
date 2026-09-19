@@ -170,8 +170,9 @@ export const FormStartOutput = z.object({
 export const FormSaveAnswersInput = z.object({
   workspaceId: uuid,
   responseId: uuid,
-  /** The key `form_response.start` handed back. */
-  token: z.string().max(200),
+  /** The key `form_response.start` handed back. The public page must send it; the AI teammate is inside
+   * the business already, so its runs don't carry one. */
+  token: z.string().max(200).optional(),
   answers: AnswerSheetInput,
 });
 export const FormSaveAnswersOutput = z.object({
@@ -186,7 +187,7 @@ export const FormSaveAnswersOutput = z.object({
 export const FormSubmitInput = z.object({
   workspaceId: uuid,
   responseId: uuid,
-  token: z.string().max(200),
+  token: z.string().max(200).optional(),
   answers: AnswerSheetInput,
   /** Ticked to allow texts. The box starts unticked, as it does on the booking page. */
   smsConsent: z.boolean().default(false),
@@ -203,6 +204,8 @@ export const FormSubmitOutput = z.object({
   calculations: z.record(z.string(), z.number()),
   /** What the form asks them to pay, in cents; 0 when it asks for nothing. */
   dueCents: z.int(),
+  /** The invoice raised for it, which is where the card is taken. */
+  invoiceId: uuid.nullable(),
 });
 
 export const FormResponseDeleteInput = z.object({ workspaceId: uuid, responseId: uuid });

@@ -97,6 +97,7 @@ type WouldKind =
   | 'stage'
   | 'answers'
   | 'discount'
+  | 'form'
   | 'hand_off';
 type Outcome = 'replied' | 'drafted' | 'handed_off' | 'no_reply';
 
@@ -560,6 +561,34 @@ const RUNNERS: Readonly<Record<TeammateToolName, Runner>> = {
       `saved ${answers.length === 1 ? 'an answer' : `${answers.length} answers`} on ${h.rc.lead.title}`,
     );
     return { content: { status: 'saved', note: 'This is a test: nothing was saved.' } };
+  },
+
+  /** The console is a rehearsal: a form is described rather than started, and no sheet is written. */
+  async ask_form(h, args) {
+    const form = await asWorker(h.deps.db, h.t.scope, (tx) =>
+      rows<{ name: string; definition: { pages: { questions: { id: string; title: string }[] }[] } }>(
+        tx,
+        sql`select f.name, v.definition from app.forms f
+            join app.form_versions v on v.id = f.active_version_id
+            where f.id = ${String(args['formId'])} and f.workspace_id = ${h.t.scope.workspaceId}
+              and f.status = 'live' and f.in_chat`,
+      ),
+    );
+    const first = form[0]?.definition.pages.flatMap((p) => p.questions)[0];
+    if (!first) return refuse('That form isn’t one you may ask in a conversation.');
+    would(h, 'form', `started “${form[0]!.name}”`);
+    return {
+      content: {
+        form: form[0]!.name,
+        ask: { questionId: first.id, question: first.title },
+        note: 'This is a test: nothing was saved.',
+      },
+    };
+  },
+
+  async answer_form(h, args) {
+    would(h, 'form', `saved an answer to ${String(args['questionId'])}`);
+    return { content: { saved: true, note: 'This is a test: nothing was saved.' } };
   },
 
   async move_stage(h, args) {
