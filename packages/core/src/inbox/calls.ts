@@ -161,7 +161,6 @@ export const CONTACT_CARD_WORDS = {
     `If your phone screens or silences unknown callers, calls from ${formatPhone(businessNumber)} could go to voicemail, including the ones that connect you to customers.`,
   contactLine: (businessNumber: string) => `${formatPhone(businessNumber)} · the contact it adds`,
   add: 'Add to Contacts',
-  notNow: 'Not now',
   added: (businessName: string) => `${businessName} is in your contacts`,
   noContactsApp: 'This phone has no contacts app to add it to.',
 } as const;

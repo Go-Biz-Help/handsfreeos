@@ -51,7 +51,7 @@ export const pricingFaqs: readonly Faq[] = [
   },
   {
     q: 'Why is there usage on top?',
-    a: 'Because the phone companies charge per text and per minute, and the AI charges per reply. We pass those through rather than pad the plan for the businesses that barely use them.',
+    a: 'Because the phone companies charge per text and per minute, and the AI charges per reply. Billing it as you use it keeps the plan from being padded for businesses that barely use them. The per-use rates are shown in your account.',
   },
   {
     q: 'Does Growth hold anything back for Pro?',

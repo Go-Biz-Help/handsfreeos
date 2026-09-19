@@ -16,7 +16,7 @@ import {
 export const metadata: Metadata = {
   title: `Pricing — $${lowestPrice} to $${highestPrice} a month`,
   description:
-    'Three plans for small service businesses, month to month, no setup fee. Growth is every feature for one business; texts, calls and AI are billed at cost.',
+    'Three plans for small service businesses, month to month, no setup fee. Growth is every feature for one business; texts, calls and AI are billed for what you use.',
   alternates: { canonical: '/pricing' },
 };
 

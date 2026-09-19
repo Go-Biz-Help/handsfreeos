@@ -8077,15 +8077,17 @@ Metro, which packages the app, replaces every `process.env.EXPO_PUBLIC_…` it c
 | `EXPO_PUBLIC_API_URL`                  | Yes            | The API, which every change the phone makes goes to       | `https://api.handsfreeos.com`                          |
 | `EXPO_PUBLIC_SYNC_URL`                 | Yes            | The sync service, which fills the phone's copy            | `https://sync.handsfreeos.com`                         |
 | `EXPO_PUBLIC_WEB_URL`                  | No, but set it | The web app, for the pages the phone links out to         | `https://app.handsfreeos.com` (also the default)       |
-| `EXPO_PUBLIC_WORKER_URL`               | No             | Test builds only: the stand-in push service's test routes | Leave unset                                            |
+| `EXPO_PUBLIC_WORKER_URL`               | No, but set it | The worker: **the Assistant**, and test builds' stand-in push routes | `https://hooks.handsfreeos.com`             |
 | `EXPO_PUBLIC_PASSKEYS_ENABLED`         | No             | Shows passkey sign-in                                     | Leave unset until passkeys work                        |
 | `EXPO_PUBLIC_E2E`                      | No             | Builds for the Maestro flows                              | Leave unset                                            |
 
 The first four are the ones `isConfigured()` checks (`apps/mobile/src/lib/config.ts`). With any one of them empty the app opens on **"This build isn't connected"** and goes no further. Every one of these ends up readable inside the app on anyone's phone, so a secret must never be among them — that is what `EXPO_PUBLIC_` means.
 
+`EXPO_PUBLIC_WORKER_URL` is not checked by `isConfigured()`, so a build without it starts and works — except that **Ask HandsFreeOS says "The Assistant can't be reached from this app"**, because the Assistant streams from the worker rather than the API (`apps/mobile/src/assistant/stream.ts`). It used to be described here as a test-build-only setting; that was wrong, and a build made on that advice has no Assistant. Set it for `production` and `preview` along with the other five.
+
 **They live in EAS, not in this repository.** `apps/mobile/.env.local` is for your Mac and is git-ignored, and `eas.json` sets `requireCommit: true`, so a build only ever sees committed files. Local values therefore cannot reach a build, by design. Each profile in `eas.json` names the EAS environment it reads with `"environment"`: `production` and `preview` both point at the live servers; `development` is for builds that talk to your Mac.
 
-### Phone Part 1: Put the five settings in EAS
+### Phone Part 1: Put the six settings in EAS
 
 Do this once. They stay until you change them, and every later build picks them up.
 
@@ -8097,7 +8099,7 @@ Do this once. They stay until you change them, and every later build picks them 
 
    An empty list is what caused the "This build isn't connected" screen the first time. Note that `env:create` is deprecated and that `env:set` has no `--force`: it creates or updates either way.
 
-2. Set each one, in both environments at once. Repeat this for all five names in the table, changing `--name` and `--value`:
+2. Set each one, in both environments at once. Repeat this for all six names in the table, changing `--name` and `--value`:
 
    ```bash
    npx --yes eas-cli@latest env:set --scope project --name EXPO_PUBLIC_API_URL --value "https://api.handsfreeos.com" --type string --visibility plaintext --environment production --environment preview --non-interactive

@@ -119,13 +119,19 @@ export const onReleaseRequested: EventHandler = async (ctx) => {
     .where(eq(phoneNumbers.id, ctx.event.entityId!));
   if (!n || n.status !== 'releasing') return;
   const account = await loadAccount(ctx.tx, scope.workspaceId, ctx.sealer);
-  if (account && n.providerSid) {
-    try {
-      await ctx.telephony.releaseNumber(account, n.providerSid);
-    } catch (e) {
-      // Already gone at the provider is what we wanted.
-      if (!isPermanentProviderError(e)) throw e;
-      ctx.log.warn({ err: e.message }, 'provider refused the release; marking released anyway');
+  if (account) {
+    // A number released while it was still being set up has no sid here yet, but may well have been bought before
+    // the purchase stopped. Asking the carrier what it holds for this number is what stops us walking away from one
+    // we are paying for.
+    const sid = n.providerSid ?? (await ctx.telephony.findOwnedNumber(account, n.e164))?.sid ?? null;
+    if (sid) {
+      try {
+        await ctx.telephony.releaseNumber(account, sid);
+      } catch (e) {
+        // Already gone at the provider is what we wanted.
+        if (!isPermanentProviderError(e)) throw e;
+        ctx.log.warn({ err: e.message }, 'provider refused the release; marking released anyway');
+      }
     }
   }
   await executeCommand(

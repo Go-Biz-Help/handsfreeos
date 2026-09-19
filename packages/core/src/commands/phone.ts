@@ -91,8 +91,17 @@ export const phoneNumberRelease = defineCommand({
   emits: ['phone_number.release_requested'],
   async handler(ctx, input) {
     const n = await loadNumber(ctx, input.phoneNumberId);
-    if (n.status !== 'active')
-      throw HfosError.rule('number_not_active', 409, 'Only an active number can be released.');
+    // `provisioning` too: a purchase the worker never finished would otherwise hold the workspace's one live slot
+    // for good, with no way out of Settings. The worker looks the number up at the carrier before it gives up on
+    // it, so a number that was in fact bought is still handed back.
+    if (n.status !== 'active' && n.status !== 'provisioning')
+      throw HfosError.rule(
+        'number_not_active',
+        409,
+        n.status === 'releasing'
+          ? 'This number is already being given back.'
+          : 'This number is no longer in use.',
+      );
     if (n.e164 !== input.confirmE164)
       throw HfosError.validation([
         { path: 'confirmE164', message: 'Type the number exactly as shown to release it.' },
@@ -104,7 +113,7 @@ export const phoneNumberRelease = defineCommand({
       entityType: 'phone_number',
       entityId: n.id,
       payload: { e164: n.e164 },
-      before: { number, status: 'active' },
+      before: { number, status: n.status },
       after: { number, status: 'releasing' },
     });
     return { phoneNumberId: n.id };

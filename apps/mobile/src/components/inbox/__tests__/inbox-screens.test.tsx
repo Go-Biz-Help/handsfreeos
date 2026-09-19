@@ -16,7 +16,7 @@ import HfosPhone from '../../../../modules/hfos-phone';
 /**
  * The inbox's screens with React Native Testing Library: a row in the list, the composer (offline words, the From
  * line, photos, a note that turns the box off), and My cell phone (Verify my cell, the press of 1 arriving through the
- * copy, the contacts card with Add to Contacts and Not now).
+ * copy, the contacts card with Add to Contacts).
  */
 
 jest.mock('expo-router', () => ({

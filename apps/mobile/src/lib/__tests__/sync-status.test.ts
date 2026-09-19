@@ -1,9 +1,14 @@
+import { act, renderHook } from '@testing-library/react-native';
+
 import {
   asOfText,
   changesWord,
   connectionOf,
   lineText,
+  SETTLE_MS,
   stripText,
+  useSettledConnection,
+  type Connection,
   type CopyState,
 } from '../sync-status';
 
@@ -72,5 +77,47 @@ describe('the status line', () => {
     expect(stripText({ connection: 'inStep', waiting: 0 })).toBeNull();
     expect(stripText({ connection: 'updating', waiting: 0 })).toBeNull();
     expect(changesWord(7)).toBe('7 changes');
+  });
+});
+
+describe('settling the connection before the line says it', () => {
+  beforeEach(() => jest.useFakeTimers());
+  afterEach(() => jest.useRealTimers());
+
+  const settling = () =>
+    renderHook((c: Connection) => useSettledConnection(c), {
+      initialProps: 'inStep' as Connection,
+    });
+
+  it('keeps "Up to date" through a burst that settles quickly', async () => {
+    const { result, rerender } = await settling();
+    expect(result.current).toBe('inStep');
+    // PowerSync writing a batch: downloading flips on and off well inside the settle window.
+    await rerender('updating');
+    await act(async () => jest.advanceTimersByTime(200));
+    expect(result.current).toBe('inStep');
+    await rerender('inStep');
+    await act(async () => jest.advanceTimersByTime(200));
+    await rerender('updating');
+    await act(async () => jest.advanceTimersByTime(200));
+    expect(result.current).toBe('inStep');
+  });
+
+  it('says "Updating…" once it really is, and goes back at once', async () => {
+    const { result, rerender } = await settling();
+    await rerender('updating');
+    await act(async () => jest.advanceTimersByTime(SETTLE_MS));
+    expect(result.current).toBe('updating');
+    // Nothing is gained by holding "Updating…" once the copy is in step.
+    await rerender('inStep');
+    expect(result.current).toBe('inStep');
+  });
+
+  it('never delays losing signal', async () => {
+    const { result, rerender } = await settling();
+    await rerender('offline');
+    expect(result.current).toBe('offline');
+    await rerender('unreachable');
+    expect(result.current).toBe('unreachable');
   });
 });

@@ -1,5 +1,5 @@
 import { plainSpaces } from '@hfos/core';
-import { useSyncExternalStore } from 'react';
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 
 import { BUSINESS_STREAM, businessParameters } from '@/sync/subscriptions';
 import { usePhoneCopy } from '@/sync/hooks';
@@ -61,6 +61,33 @@ export function connectionOf(online: boolean, copy: CopyState | null): Connectio
   return 'inStep';
 }
 
+/**
+ * How long `updating` has to hold before the line says so. PowerSync sets `downloading` for every batch it writes,
+ * so a copy that is keeping up flips in and out of `updating` several times a second, and the line alternates
+ * between "Up to date" and "Updating…" too fast to read (step 1, finding: the status text glitches).
+ */
+export const SETTLE_MS = 800;
+
+/**
+ * The connection as the line should show it: only the calm-to-busy flip waits, so a burst of rows that arrives and
+ * settles inside {@link SETTLE_MS} never disturbs "Up to date". Every other change shows at once — there is nothing
+ * to gain by holding "Updating…" once the copy is in step, and someone who has lost signal should be told now.
+ */
+export function useSettledConnection(raw: Connection, settleMs: number = SETTLE_MS): Connection {
+  const [shown, setShown] = useState(raw);
+  const shownRef = useRef(shown);
+  shownRef.current = shown;
+  useEffect(() => {
+    if (!(shownRef.current === 'inStep' && raw === 'updating')) {
+      setShown(raw);
+      return;
+    }
+    const timer = setTimeout(() => setShown('updating'), settleMs);
+    return () => clearTimeout(timer);
+  }, [raw, settleMs]);
+  return shown;
+}
+
 export function useSyncStatus(): SyncStatus {
   const network = useNetwork();
   const waiting = useWaitingCount();
@@ -73,7 +100,7 @@ export function useSyncStatus(): SyncStatus {
   );
   const sync = copy.sync;
   const online = network.online && !copy.heldOffline;
-  const connection = connectionOf(
+  const raw = connectionOf(
     online,
     sync
       ? {
@@ -92,6 +119,7 @@ export function useSyncStatus(): SyncStatus {
         }
       : null,
   );
+  const connection = useSettledConnection(raw);
   return {
     online,
     connection,

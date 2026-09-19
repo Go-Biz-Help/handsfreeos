@@ -136,6 +136,20 @@ export function TextingPage({
         : 2;
   return (
     <Card className="max-w-[820px] p-5 md:p-7" data-testid="texting-setup" data-step={step}>
+      {status.number && releasable(status.number.status) ? (
+        <div
+          className="mb-1 flex items-center justify-between gap-3 border-b border-border pb-3"
+          data-testid="setup-number-bar"
+        >
+          <div className="min-w-0">
+            <div className="text-[13px] font-medium">{status.number.display}</div>
+            <div className="text-xs text-text-3">
+              Yours from now on, whatever happens with the registration.
+            </div>
+          </div>
+          <NumberActions workspaceId={workspaceId} number={status.number} />
+        </div>
+      ) : null}
       <Steps current={current} turnedDown={step === 'rejected' && !fixing} />
       {step === 'buy_number' ? (
         <NumberStep
@@ -1307,6 +1321,72 @@ const REMINDERS = [
   [0, 'Never'],
 ] as const;
 
+/** A number can be given back from the moment it is bought — never only once the carrier has approved it. */
+function releasable(status: PhoneNumberInfo['status']): boolean {
+  return status === 'active' || status === 'provisioning';
+}
+
+/**
+ * Copy the number, or give it back. Its own component because it belongs to the number rather than to any one step:
+ * a business part-way through carrier registration, or one whose registration was turned down, still needs a way out,
+ * and before this the menu existed only on the finished screen (step 1, finding: "can't release a number").
+ */
+function NumberActions({
+  workspaceId,
+  number: n,
+}: {
+  workspaceId: string;
+  number: PhoneNumberInfo;
+}) {
+  const router = useRouter();
+  const [release, setRelease] = useState(false);
+
+  async function copy() {
+    try {
+      await navigator.clipboard.writeText(n.display);
+      toast.success(`Copied ${n.display}`);
+    } catch {
+      toast.error('Your browser didn’t allow copying.');
+    }
+  }
+
+  return (
+    <>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="ghost" size="icon" aria-label="Number actions" title="More">
+            <MoreHorizontal className="h-[18px] w-[18px]" strokeWidth={1.5} />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent className="min-w-[220px]">
+          <DropdownMenuItem onSelect={() => void copy()}>
+            <Copy className="h-3.5 w-3.5" strokeWidth={1.5} />
+            Copy number
+          </DropdownMenuItem>
+          {releasable(n.status) ? (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem danger onSelect={() => setRelease(true)} data-testid="release-menu">
+                <Trash2 className="h-3.5 w-3.5" strokeWidth={1.5} />
+                Release this number
+              </DropdownMenuItem>
+            </>
+          ) : null}
+        </DropdownMenuContent>
+      </DropdownMenu>
+      <ReleaseNumberDialog
+        workspaceId={workspaceId}
+        phoneNumberId={n.id}
+        display={n.display}
+        e164={n.e164}
+        open={release}
+        onOpenChange={setRelease}
+        onReleased={() => router.refresh()}
+      />
+    </>
+  );
+}
+
 function Configured({
   workspaceId,
   businessName,
@@ -1326,7 +1406,6 @@ function Configured({
 }) {
   const router = useRouter();
   const calls = useRouting(workspaceId, n);
-  const [release, setRelease] = useState(false);
   const [test, setTest] = useState(false);
   const [quiet, setQuiet] = useState(status.settings.quietHours);
   const [reminder, setReminder] = useState(status.settings.unansweredReminderMinutes);
@@ -1359,15 +1438,6 @@ function Configured({
     void save({ quietHours: next }, success);
   };
 
-  async function copy() {
-    try {
-      await navigator.clipboard.writeText(n.display);
-      toast.success(`Copied ${n.display}`);
-    } catch {
-      toast.error('Your browser didn’t allow copying.');
-    }
-  }
-
   const regRows: [string, string | null | undefined][] = local
     ? [
         ['Business profile', approved('a2p_customer_profile')],
@@ -1391,28 +1461,7 @@ function Configured({
                 Customers text and call {businessName} here.
               </p>
             </div>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" aria-label="Number actions" title="More">
-                  <MoreHorizontal className="h-[18px] w-[18px]" strokeWidth={1.5} />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent className="min-w-[220px]">
-                <DropdownMenuItem onSelect={() => void copy()}>
-                  <Copy className="h-3.5 w-3.5" strokeWidth={1.5} />
-                  Copy number
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem
-                  danger
-                  onSelect={() => setRelease(true)}
-                  data-testid="release-menu"
-                >
-                  <Trash2 className="h-3.5 w-3.5" strokeWidth={1.5} />
-                  Release this number
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            <NumberActions workspaceId={workspaceId} number={n} />
           </div>
           <div className="mt-4 flex items-center gap-3.5">
             <ChannelIcon icon={Phone} size={44} />
@@ -1600,15 +1649,6 @@ function Configured({
         />
       </div>
 
-      <ReleaseNumberDialog
-        workspaceId={workspaceId}
-        phoneNumberId={n.id}
-        display={n.display}
-        e164={n.e164}
-        open={release}
-        onOpenChange={setRelease}
-        onReleased={() => router.refresh()}
-      />
       <TestTextDialog
         workspaceId={workspaceId}
         businessName={businessName}

@@ -14,7 +14,7 @@ import { useKeyboardHeight } from '@/components/shell/keyboard';
 import { businessHref, useBusiness } from '@/components/shell/business-context';
 import { Screen } from '@/components/shell/screen';
 import { Icon } from '@/components/ui/icon';
-import { useAssistantChat, type ChatMessage } from '@/assistant/chat';
+import { setupIsOff, useAssistantChat, type ChatMessage } from '@/assistant/chat';
 import { pageRecordOf } from '@/assistant/page-record';
 import { useNetwork } from '@/lib/network';
 
@@ -54,14 +54,16 @@ export default function Ask() {
       setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 50);
   }, [chat.messages.length]);
 
-  const off =
-    chat.setup === 'missing'
-      ? { text: ASSISTANT_WORDS.notAvailable.title, hint: ASSISTANT_WORDS.notAvailable.hint }
-      : chat.paused
-        ? { text: ASSISTANT_WORDS.paused.text, hint: ASSISTANT_WORDS.paused.hint }
-        : null;
+  const isOff = setupIsOff(chat.setup);
+  const offWords =
+    chat.setup === 'not-in-build' ? ASSISTANT_WORDS.notInThisBuild : ASSISTANT_WORDS.notAvailable;
+  const off = isOff
+    ? { text: offWords.title, hint: offWords.hint }
+    : chat.paused
+      ? { text: ASSISTANT_WORDS.paused.text, hint: ASSISTANT_WORDS.paused.hint }
+      : null;
 
-  const showConsent = chat.consentNeeded === true && chat.setup !== 'missing' && online;
+  const showConsent = chat.consentNeeded === true && !isOff && online;
 
   return (
     <Screen
@@ -119,8 +121,8 @@ export default function Ask() {
             }}
             onForget={chat.forgetThread}
           />
-        ) : chat.setup === 'missing' ? (
-          <NotSetUp />
+        ) : isOff ? (
+          <NotSetUp reason={chat.setup === 'not-in-build' ? 'not-in-build' : 'missing'} />
         ) : (
           <FlatList
             ref={listRef}
@@ -147,7 +149,7 @@ export default function Ask() {
             ListEmptyComponent={chat.loading ? null : <EmptyChat />}
           />
         )}
-        {showConsent || view === 'history' || chat.setup === 'missing' ? null : (
+        {showConsent || view === 'history' || isOff ? null : (
           <View style={{ paddingBottom: keyboard ? 0 : insets.bottom }} className="bg-card">
             <AssistantComposer
               value={draft}
