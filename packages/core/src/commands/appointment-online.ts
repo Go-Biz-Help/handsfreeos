@@ -10,17 +10,9 @@
  * The AI teammate's booking commands (appointment-ai.ts) share these internals: the caps, the lead, the
  * booking checks, and moving or cancelling a booking under its calendar's policies.
  */
-import { and, desc, eq, isNull, sql as dsql } from 'drizzle-orm';
+import { and, eq, sql as dsql } from 'drizzle-orm';
 import { rows, sql, type Tx } from '@hfos/db/client';
-import {
-  appointmentAttendees,
-  appointmentResources,
-  appointments,
-  leads,
-  people,
-  pipelines,
-  pipelineStages,
-} from '@hfos/db/schema';
+import { appointmentAttendees, appointmentResources, appointments, people } from '@hfos/db/schema';
 import {
   appointmentSnapshot,
   cancelAppointment,
@@ -60,11 +52,12 @@ import {
   type LoadedCalendar,
 } from '../calendar/load';
 import { bookableDurations, defaultLocationKind, resolveTerms } from '../calendar/terms';
+import { findOrCreateCustomer, leadFor } from '../crm/intake';
 import { requirePerson } from '../crm/records';
 import { HfosError } from '../errors';
 import { defineCommand } from '../kernel/define';
 import type { CommandContext } from '../kernel/types';
-import { isOptedOut, matchPersonByPhone, scheduleJob } from '../messaging/store';
+import { isOptedOut, scheduleJob } from '../messaging/store';
 import {
   AppointmentBookOnlineInput,
   AppointmentBookOnlineOutput,
@@ -73,11 +66,7 @@ import {
   AttendeeRescheduleOnlineInput,
   AttendeeRescheduleOnlineOutput,
 } from '../schemas/calendar';
-import { LeadCreateInput } from '../schemas/lead';
-import { PersonCreateInput } from '../schemas/person';
 import { announceBooked } from './appointment';
-import { leadCreate } from './lead.create';
-import { personCreate } from './person.create';
 
 const MIN = 60_000;
 const HOUR = 3_600_000;
@@ -166,99 +155,6 @@ export async function enforceCaps(
       429,
       'This calendar is very busy right now. Try again soon, or give us a call.',
     );
-}
-
-/** Phone first, then email; otherwise a new customer through person.create's internals. */
-async function findOrCreateCustomer(
-  ctx: CommandContext,
-  customer: { firstName: string; lastName: string; phone?: string | null; email?: string | null },
-): Promise<{ personId: string; created: boolean }> {
-  const ws = ctx.scope.workspaceId!;
-  if (customer.phone) {
-    const id = await matchPersonByPhone(ctx.tx, ws, customer.phone);
-    if (id) return { personId: id, created: false };
-  }
-  if (customer.email) {
-    const [p] = await ctx.tx
-      .select({ id: people.id })
-      .from(people)
-      .where(
-        and(
-          eq(people.workspaceId, ws),
-          eq(people.email, customer.email),
-          isNull(people.archivedAt),
-        ),
-      )
-      .orderBy(desc(people.updatedAt))
-      .limit(1);
-    if (p) return { personId: p.id, created: false };
-  }
-  const out = await personCreate.handler(
-    ctx,
-    PersonCreateInput.parse({
-      workspaceId: ws,
-      firstName: customer.firstName,
-      lastName: customer.lastName,
-      email: customer.email ?? null,
-      phone: customer.phone ?? null,
-      source: 'Booking page',
-      ignoreDuplicates: true,
-    }),
-  );
-  return { personId: out.personId, created: true };
-}
-
-/** The customer's open lead in the calendar's pipeline, or a new one through lead.create's internals. */
-export async function leadFor(
-  ctx: CommandContext,
-  personId: string,
-  target: { pipelineId: string; stageId: string },
-  title: string,
-  assigneeUserId: string | null,
-  source = 'Booking page',
-): Promise<string | null> {
-  const ws = ctx.scope.workspaceId!;
-  const [open] = await ctx.tx
-    .select({ id: leads.id })
-    .from(leads)
-    .where(
-      and(
-        eq(leads.workspaceId, ws),
-        eq(leads.personId, personId),
-        eq(leads.pipelineId, target.pipelineId),
-        eq(leads.status, 'open'),
-        isNull(leads.archivedAt),
-      ),
-    )
-    .limit(1);
-  if (open) return open.id;
-  // Stale CRM settings never cost the customer their booking: no pipeline, no lead.
-  const [stage] = await ctx.tx
-    .select({ id: pipelineStages.id })
-    .from(pipelineStages)
-    .innerJoin(pipelines, eq(pipelines.id, pipelineStages.pipelineId))
-    .where(
-      and(
-        eq(pipelineStages.id, target.stageId),
-        eq(pipelines.id, target.pipelineId),
-        eq(pipelines.workspaceId, ws),
-        isNull(pipelines.archivedAt),
-      ),
-    );
-  if (!stage) return null;
-  const out = await leadCreate.handler(
-    ctx,
-    LeadCreateInput.parse({
-      workspaceId: ws,
-      title,
-      personId,
-      pipelineId: target.pipelineId,
-      stageId: target.stageId,
-      source,
-      assigneeUserId,
-    }),
-  );
-  return out.leadId;
 }
 
 export async function bookingOutput(
@@ -419,7 +315,7 @@ export const appointmentBookOnline = defineCommand({
     const phone = input.customer.phone ?? null;
     const email = input.customer.email ?? null;
     await enforceCaps(ctx.tx, ws, calendar.id, phone, email);
-    const { personId, created } = await findOrCreateCustomer(ctx, input.customer);
+    const { personId, created } = await findOrCreateCustomer(ctx, input.customer, 'Booking page');
     const person = await requirePerson(ctx.tx, ws, personId);
     const stopped = phone ? await isOptedOut(ctx.tx, ws, phone) : false;
     // Ticked, a number, and never a STOP (on the number or the customer).

@@ -41,6 +41,7 @@ import { conversationGet, conversationThread, inboxList, inboxSummary, messageGe
 import { emailSetupStatus, emailSuppressionList, emailUnmatchedList } from './email';
 import { emailComposeOptions } from './email-compose';
 import { invitationPreview } from './invitation.preview';
+import { intakeList } from './intake';
 import { phoneSetupStatus } from './phone';
 import { leadBoard, leadGet, leadList } from './lead';
 import { me } from './me';
@@ -102,6 +103,7 @@ export {
   emailSetupStatus,
   emailSuppressionList,
   emailUnmatchedList,
+  intakeList,
   phoneSetupStatus,
   assistantThreadGet,
   assistantThreadList,
@@ -173,6 +175,7 @@ export const queries: readonly QueryDef[] = [
   crmFindMatches,
   crmSummary,
   crmMetrics,
+  intakeList,
   phoneSetupStatus,
   inboxList,
   inboxSummary,

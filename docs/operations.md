@@ -2636,10 +2636,10 @@ The migration creates `hfos_sync` without a password, so nothing can sign in as 
 7. Create its disk (a Fly volume) in the region from "Before you start". 3 GB is plenty to begin with.
 
    ```bash
-   fly volumes create pg_data --app handsfreeos-sync-storage --region dfw --size 3 --yes
+   fly volumes create pg_data --app handsfreeos-sync-storage --region iad --size 3 --yes
    ```
 
-   You should see the new volume `pg_data`, 3 GB, in `dfw`.
+   You should see the new volume `pg_data`, 3 GB, in `iad`.
 
 8. Deploy it, from the repository root:
 
@@ -7320,6 +7320,48 @@ The customer wrote again before anyone decided it, and the next reply answers ev
 
 The chat's limits per address, visitor, site and business stopped a burst. It clears within a minute. Lots of new visitors from one network, or the widget's **Daily limit**, stop new chats until the hour or the business's day is over.
 
+## Lead intake
+
+A lead reaches a business in one of two ways: somebody types it in, or it arrives on its own. This is the second. When a number nobody has texts the business, calls and doesn't get through, or a sender nobody has emails the business address, HandsFreeOS adds the customer and opens a lead for them. Everything that waits on a new lead then starts by itself: the workflows with a **A new lead comes in** trigger, the AI teammate's Respond skill, and the Action Center's **Unanswered lead**.
+
+Nothing here needs a new account, key or setting. It uses the business number and email address that are already set up. The table comes from the migration `20260926000100_lead_intake.sql`; if the hosted project doesn't have it yet, push it with "Apply new migrations" in "The database: Supabase (hosted)".
+
+### What it does by default
+
+Every business starts with all three channels on, each opening a lead in its first pipeline, with a limit of 50 a day. A business that never opens the screen has no row in `app.intake_sources` at all — the defaults are what the code falls back to — and changing anything writes the row.
+
+The customer is filed under the channel's name ("Text message", "Phone call", "Email"), and so is the lead, so the pipeline shows where its leads came from. Someone who hasn't said their name is filed under their number or address; the AI teammate writes their real name over it the moment they give it. Someone already in the customers is linked to the record they already have, and no second lead opens.
+
+### What never becomes a lead
+
+| Left out                                                                                                                                      | Why                                                           |
+| --------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------- |
+| A text that is only STOP, HELP or START, or one that says "stop texting me" in plain words                                                    | It is an instruction, not an enquiry                          |
+| A text or call from one of the business's own numbers, or a teammate's confirmed cell                                                         | It is the business talking to itself                          |
+| A number that has opted out of texts                                                                                                          | They asked to be left alone                                   |
+| A call somebody answered                                                                                                                      | The team has it; they file it themselves                      |
+| Mail from `no-reply@`, `mailer-daemon@`, `postmaster@`, a newsletter address, or anything whose subject reads as an out-of-office or a bounce | It is a machine writing                                       |
+| Mail from an address that already bounced for good or marked the business as spam                                                             | The address is suppressed                                     |
+| Anything over the channel's limit for the day                                                                                                 | The limit is what stops a robocall storm filling the pipeline |
+
+In every one of these the message still reaches the inbox exactly as before. Nobody is added to the customers, and the conversation waits for somebody to press **Link to a customer**.
+
+### The settings
+
+**Settings** → **Lead intake** (owners and admins) holds one row per channel: whether it is on, whether a lead opens as well as the customer, which pipeline and stage those leads land in, what they are filed under, and the most a day. Each control saves the moment it is changed, and the row shows how much of today's limit has been used.
+
+The Assistant sets the same things by asking — "stop making leads out of missed calls", "put text leads in New enquiries" — and, like every settings change, waits for an OK on a card first.
+
+### Trying it on your laptop
+
+With the stack running and a business that has a number (see "Test with real phones" in "The phone carrier: Twilio" for the local stand-in), post an inbound text from a number the business doesn't have, the way Twilio would, then open the pipeline. The lead is there, filed under **Text message**, and Home shows it as an unanswered lead once 15 minutes of open hours have passed. `packages/core/test/intake.test.ts` runs the whole of it — text, missed call, email, the limits and the gates — against the local database.
+
+### Before turning it on for a client
+
+- Check the pipeline each channel points at is the one they actually work from. The first pipeline is right for most, and wrong for a business that keeps its first pipeline for something else.
+- Tell them plainly that wrong numbers and spam will sometimes become leads, and that archiving one takes a tap. That is the trade for never missing a real one.
+- If they get a lot of robocalls, drop the call channel's daily limit, or turn that one channel off and leave texts and email on.
+
 ## The Action Center
 
 Home is the Action Center: one ranked list of what needs attention in a business right now, with the money affected at the top. HandsFreeOS watches for the things that matter, puts them in order, handles the safe ones itself, and emails the right person when something can't wait. The Assistant (⌘J) answers "What needs my attention?" from the same list, in the same order.
@@ -8491,6 +8533,19 @@ started, with three workers they think they stopped.
 pkill -f 'tsx.*watch src/main.ts'; pkill -f 'pnpm --filter @hfos/worker dev'
 lsof -ti :4100,:4110,:4120 | xargs -r kill -9
 ```
+
+**A worker on any port but 4100 needs `WORKER_PUBLIC_URL` as well as `WORKER_HTTP_PORT`.** `pnpm env:local` writes
+both `WORKER_HTTP_PORT=4100` and `WORKER_PUBLIC_URL=http://127.0.0.1:4100` into `apps/worker/.env`, and a shell
+variable only overrides the one you set. So `WORKER_HTTP_PORT=4120 … tsx src/main.ts` moves the listener to 4120
+while the worker goes on checking Twilio's signature against `http://127.0.0.1:4100` + the path, and every webhook
+the fake carrier signs for 4120 is refused with a 403 — correctly, which is what makes it read like a bug in the
+app. Start it with both:
+
+```bash
+WORKER_HTTP_PORT=4120 WORKER_PUBLIC_URL=http://127.0.0.1:4120 pnpm --filter @hfos/worker exec tsx src/main.ts
+```
+
+The log line at startup says which it is (`publicUrl: "http://127.0.0.1:4120"`); check it before blaming a flow.
 
 #### Unit, database, API and worker tests
 

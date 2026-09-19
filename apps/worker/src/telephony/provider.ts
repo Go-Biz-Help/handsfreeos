@@ -134,10 +134,19 @@ export interface TelephonyProvider {
     account: ProviderAccount,
     opts: { friendlyName: string; voiceUrl: string; statusCallbackUrl: string },
   ): Promise<string>;
+  /**
+   * The carrier's free numbers. Every filter narrows the same search, so a city and a digit pattern together
+   * ask for both. A city needs its state with it: there is a Huntsville in Alabama, Texas and Arkansas.
+   * Toll-free numbers have no geography, so city and state belong to local searches only.
+   */
   searchNumbers(opts: {
     numberType: NumberType;
     areaCode?: string;
+    /** Digits the number carries, `*` standing in for any one digit: `454`, or `256***454*` to pin the spot. */
     contains?: string;
+    city?: string;
+    /** Two letters, like `AL`. */
+    state?: string;
     limit: number;
   }): Promise<AvailableNumber[]>;
   findOwnedNumber(account: ProviderAccount, e164: string): Promise<OwnedNumber | null>;

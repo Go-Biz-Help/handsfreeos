@@ -79,18 +79,33 @@ function twilioWebhook(
   });
 }
 
-const AvailableNumbersInput = z.object({
-  workspaceId: z.uuid(),
-  numberType: z.enum(['local', 'toll_free']),
-  areaCode: z
-    .string()
-    .regex(/^[2-9][0-9]{2}$/, 'Use a 3-digit area code.')
-    .optional(),
-  contains: z
-    .string()
-    .regex(/^[0-9]{2,7}$/, 'Use 2 to 7 digits.')
-    .optional(),
-});
+const AvailableNumbersInput = z
+  .object({
+    workspaceId: z.uuid(),
+    numberType: z.enum(['local', 'toll_free']),
+    areaCode: z
+      .string()
+      .regex(/^[2-9][0-9]{2}$/, 'Use a 3-digit area code.')
+      .optional(),
+    // `*` stands in for any one digit, so `256***454*` pins 454 to a spot while bare `454` matches anywhere.
+    contains: z
+      .string()
+      .regex(/^(?=.*[0-9])[0-9*]{2,10}$/, 'Use 2 to 10 digits, with * for any digit.')
+      .optional(),
+    city: z.string().trim().min(2).max(40).optional(),
+    state: z
+      .string()
+      .regex(/^[A-Za-z]{2}$/, 'Use a 2-letter state, like AL.')
+      .optional(),
+  })
+  .refine((v) => !v.city === !v.state, {
+    message: 'A city needs its state with it.',
+    path: ['state'],
+  })
+  .refine((v) => v.numberType === 'local' || !v.city, {
+    message: 'Toll-free numbers have no city.',
+    path: ['city'],
+  });
 
 export async function buildHttpServer(deps: HttpDeps): Promise<FastifyInstance> {
   // Fly's proxy is the one hop in front, so request.ip is the caller's own address (the booking page's
@@ -183,6 +198,7 @@ export async function buildHttpServer(deps: HttpDeps): Promise<FastifyInstance> 
       numberType: input.numberType,
       ...(input.areaCode ? { areaCode: input.areaCode } : {}),
       ...(input.contains ? { contains: input.contains } : {}),
+      ...(input.city && input.state ? { city: input.city, state: input.state.toUpperCase() } : {}),
       limit: 10,
     });
     return { numbers: numbers.map((n) => ({ ...n, display: formatPhone(n.e164) })) };

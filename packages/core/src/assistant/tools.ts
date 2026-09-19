@@ -686,6 +686,30 @@ export const assistantTools = [
   }),
 
   define({
+    name: 'manage_lead_intake',
+    description:
+      'Set what happens when a stranger reaches the business: whether someone who texts, calls and doesn’t get through, or emails becomes a customer and an open lead by themselves, which pipeline and stage those leads land in, what they are filed under, and the most a day. One channel per call. Read it with get_settings first and pass only what changes.',
+    input: z.object({
+      channel: z
+        .enum(['text', 'call', 'email'])
+        .describe(
+          'text: they text the business number. call: a missed call or voicemail. email: they write in.',
+        ),
+      active: z
+        .boolean()
+        .optional()
+        .describe('Off leaves a stranger as a conversation only, with no customer and no lead'),
+      createLead: z.boolean().optional().describe('Whether a lead opens as well as the customer'),
+      pipelineId: uuid.nullable().optional().describe('Null is their first pipeline'),
+      stageId: uuid.nullable().optional().describe('Null is that pipeline’s first open stage'),
+      name: text(60).optional().describe('What its customers and leads are filed under'),
+      dailyCap: z.int().min(1).max(1000).optional().describe('The most leads a day it may open'),
+    }),
+    autonomy: 'confirm',
+    permission: 'channels.manage',
+  }),
+
+  define({
     name: 'update_money_settings',
     description:
       'Change how the business gets paid: sales tax, when invoices are due, your address on documents, the notes on estimates and invoices, how long an estimate is good for, deposits, whether bank transfer is offered, and the reminders that chase an unpaid invoice or an unanswered estimate. Read it with get_settings first and pass only what changes.',
@@ -1176,7 +1200,13 @@ export const assistantTools = [
     input: z.object({
       description: text(2000).describe('What it should ask, or what to change, in their words'),
       formId: uuid.optional().describe('The form to change; leave it out to start a new one'),
-      name: z.string().trim().min(1).max(120).optional().describe('A short name for a new form'),
+      name: z
+        .string()
+        .trim()
+        .min(1)
+        .max(120)
+        .optional()
+        .describe('A short name for a new form'),
       mode: z
         .enum(['form', 'survey', 'quiz'])
         .optional()

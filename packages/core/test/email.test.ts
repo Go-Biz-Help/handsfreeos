@@ -15,6 +15,7 @@ import type {
 } from '../src/kernel/types';
 import { emailComposeOptions } from '../src/queries/email-compose';
 import {
+  intakeSourceUpdate,
   messageSend,
   messageUpdateStatus,
   organizationCreate,
@@ -140,6 +141,10 @@ beforeAll(async () => {
       sql`select id, address from app.email_addresses where workspace_id = ${wsId} and is_default`,
     )
   )[0]!;
+  // Lead intake (M14) would file a stranger's first email under a new customer. This suite covers the
+  // unmatched list itself — where mail waits when intake is off, capped, or the sender is a machine — so it
+  // turns the channel off. What intake does instead is in intake.test.ts.
+  await run(intakeSourceUpdate, { workspaceId: wsId, kind: 'email', active: false }, owner);
 });
 afterAll(closeTestDbs);
 

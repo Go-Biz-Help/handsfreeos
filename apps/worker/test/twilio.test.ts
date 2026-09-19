@@ -160,6 +160,61 @@ describe('numbers and texts', () => {
     });
   });
 
+  it('narrows one search by city, state and a digit pattern together', async () => {
+    const seen = mockTwilio([
+      [
+        /^GET api\.twilio\.com\/2010-04-01\/Accounts\/ACmastertest\/AvailablePhoneNumbers\/US\/Local\.json$/,
+        () => ({
+          json: {
+            available_phone_numbers: [
+              {
+                phone_number: '+12569914540',
+                locality: 'Huntsville',
+                region: 'AL',
+                capabilities: { SMS: true, MMS: true, voice: true },
+              },
+            ],
+          },
+        }),
+      ],
+    ]);
+    const found = await createTwilioTelephony(MASTER).searchNumbers({
+      numberType: 'local',
+      areaCode: '256',
+      contains: '454',
+      city: 'Huntsville',
+      state: 'AL',
+      limit: 5,
+    });
+    expect(found[0]!.locality).toBe('Huntsville');
+    expect(Object.fromEntries(new URL(seen[0]!.url).searchParams)).toMatchObject({
+      AreaCode: '256',
+      Contains: '454',
+      InLocality: 'Huntsville',
+      InRegion: 'AL',
+    });
+  });
+
+  it('leaves the city off a toll-free search, which has no geography', async () => {
+    const seen = mockTwilio([
+      [
+        /^GET api\.twilio\.com\/2010-04-01\/Accounts\/ACmastertest\/AvailablePhoneNumbers\/US\/TollFree\.json$/,
+        () => ({ json: { available_phone_numbers: [] } }),
+      ],
+    ]);
+    await createTwilioTelephony(MASTER).searchNumbers({
+      numberType: 'toll_free',
+      contains: '454',
+      city: 'Huntsville',
+      state: 'AL',
+      limit: 5,
+    });
+    const q = new URL(seen[0]!.url).searchParams;
+    expect(q.get('Contains')).toBe('454');
+    expect(q.get('InLocality')).toBeNull();
+    expect(q.get('InRegion')).toBeNull();
+  });
+
   it('buys with the subaccount and points the number at the worker', async () => {
     const seen = mockTwilio([
       [

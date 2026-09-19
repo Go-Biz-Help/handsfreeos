@@ -1,18 +1,20 @@
-# M14 — Forms, Surveys & Quizzes
+# M15 — Forms, Surveys & Quizzes
 
 One builder. A form, a survey and a quiz are the same object in three modes, the way the calendar is
 one definition in many views and a workflow is one definition in three editors.
 
 ## Decisions (Chris, 2026-09-18)
 
-| Question  | Answer                                                                                                |
-| --------- | ----------------------------------------------------------------------------------------------------- |
-| Scope     | **One builder, three modes**: `form`, `survey`, `quiz`                                                |
-| Quiz      | **Both** graded (right answers, score, pass mark) and outcome (answers route to a result)             |
-| On submit | Create/update the customer · start a workflow · create a lead or task · **take a payment or deposit** |
-| Delivery  | Public link · website embed · **inside the AI teammate chat** · QR code                               |
-| Logic     | **Branching + calculations** (show/hide, scores, simple math like sq ft × rate)                       |
-| Identity  | **The business chooses per form** — identified by default, anonymous when switched on                 |
+| Question      | Answer                                                                                                |
+| ------------- | ----------------------------------------------------------------------------------------------------- |
+| Scope         | **One builder, three modes**: `form`, `survey`, `quiz`                                                |
+| Quiz          | **Both** graded (right answers, score, pass mark) and outcome (answers route to a result)             |
+| On submit     | Create/update the customer · start a workflow · create a lead or task · **take a payment or deposit** |
+| Delivery      | Public link · website embed · **inside the AI teammate chat** · QR code                               |
+| Logic         | **Branching + calculations** (show/hide, scores, simple math like sq ft × rate)                       |
+| Identity      | **The business chooses per form** — identified by default, anonymous when switched on                 |
+| Custom fields | **Yes** — an answer can fill a field the business invented, and customers can be filtered on it       |
+| Lead intake   | Form leads file under M14's `intake_sources` (kind `website_form`), not their own switch              |
 
 Assumed from earlier milestones, not re-asked:
 
@@ -42,9 +44,10 @@ editors over one definition:
 
 ### The database (`supabase/migrations/`)
 
-- `20260926000100_forms_core.sql` — `forms`, `form_versions` (immutable published JSON), `form_questions_index` for reporting
-- `20260926000200_forms_responses.sql` — `form_responses` (version id, person id or null, answers JSON, score, outcome, payment id, partials) and `form_response_answers` for per-question reporting
-- `20260926000300_forms_delivery.sql` — public slugs/tokens, embed allow-list, QR, per-form identity and anti-spam settings
+- `20260927000100_forms_core.sql` (0073) — `forms`, `form_versions` (immutable published JSON), retired slugs
+- `20260927000200_forms_responses.sql` (0074) — `form_responses` and `form_answers`, one row per answer for reporting
+- `20260927000300_forms_delivery.sql` (0075) — the public route, embed allow-list, QR, views and closing rules
+- `20260927000400_custom_fields.sql` (0076) — fields a business invents, on customers and leads
 
 RLS by workspace like every other table; the public routes read through a token, never the workspace key.
 
@@ -93,7 +96,7 @@ new client onboarding · paid deposit order form.
 2. `forms/ops.ts` (+ inverse ops) + tests
 3. `forms/render.ts`, `score.ts` + tests
 4. Migrations 0054–0056, schema types
-5. `commands/form.ts` — create, apply ops, publish, archive, duplicate
+5. `commands/form.ts` — create, apply ops, publish, archive, duplicate, and `custom-field.ts`
 6. `commands/form-response.ts` — submit, partial, follow-ups, `form.submitted` event
 7. Queries: list, one form, results aggregation, CSV
 8. API routes + `packages/api-client`

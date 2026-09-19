@@ -236,6 +236,15 @@ beforeAll(async () => {
     actor(owner),
     meta(),
   );
+  // Lead intake (M14) would make a customer out of a stranger's first text. This suite covers linking one
+  // to a customer by hand and the backfill that follows, which is the path with the channel off; core's
+  // intake.test.ts covers what intake opens instead.
+  await rows(
+    admin(),
+    sql`insert into app.intake_sources (workspace_id, kind, name, active)
+        values (${workspaceId}, 'text', 'Text message', false),
+               (${workspaceId}, 'call', 'Phone call', false)`,
+  );
   s = testServices({ reminderOverrideMs: 1500 });
   app = await buildHttpServer({
     ...s,
@@ -694,6 +703,38 @@ describe('texting', () => {
     expect((await conversationRow(mikeConversationId))?.status).toBe('open');
   });
 
+  it('opens a customer and a lead when lead intake is on for texts (M14)', async () => {
+    await rows(
+      admin(),
+      sql`update app.intake_sources set active = true where workspace_id = ${workspaceId} and kind = 'text'`,
+    );
+    const stranger = '+15125550187';
+    const sid = fakeSid('SM');
+    await postTwilio(INBOUND, {
+      AccountSid: accountSid,
+      MessageSid: sid,
+      From: stranger,
+      To: businessNumber,
+      Body: 'My unit is making a noise — can someone come out?',
+    });
+    await drain();
+    const m = await messageBySid(sid);
+    const c = await conversationRow(m!.conversationId);
+    const [lead] = await rows<{ title: string; source: string; person_id: string }>(
+      admin(),
+      sql`select l.title, l.source, l.person_id from app.leads l join app.people p on p.id = l.person_id
+          where p.workspace_id = ${workspaceId} and p.phone_e164 = ${stranger}`,
+    );
+    expect(lead).toMatchObject({ title: '(512) 555-0187 (texted in)', source: 'Text message' });
+    // The conversation is theirs from the first message, so the timeline entry is already filed.
+    expect(c?.personId).toBe(lead!.person_id);
+    expect(m?.activityId).toBeTruthy();
+    await rows(
+      admin(),
+      sql`update app.intake_sources set active = false where workspace_id = ${workspaceId} and kind = 'text'`,
+    );
+  });
+
   it('links an unknown texter to a customer and backfills their timeline', async () => {
     const sid = fakeSid('SM');
     await postTwilio(INBOUND, {
@@ -764,6 +805,34 @@ describe('number search', () => {
       headers: { authorization: `Bearer ${ownerToken}` },
     });
     expect(invalid.statusCode).toBe(400);
+  });
+
+  it('combines a city with a digit pattern, and asks for the state', async () => {
+    const ownerToken = await signInTestUser(owner);
+    const post = (payload: Record<string, unknown>) =>
+      app.inject({
+        method: 'POST',
+        url: path,
+        payload: { workspaceId, numberType: 'local', ...payload },
+        headers: { authorization: `Bearer ${ownerToken}` },
+      });
+
+    const both = await post({ areaCode: '256', city: 'Huntsville', state: 'AL', contains: '454' });
+    expect(both.statusCode).toBe(200);
+    const { numbers } = both.json<{ numbers: { e164: string; locality: string }[] }>();
+    expect(numbers.length).toBeGreaterThan(0);
+    expect(numbers[0]!.e164).toContain('454');
+    expect(numbers[0]!.locality).toBe('Huntsville');
+
+    // A city on its own picks the wrong Huntsville, so the worker turns it down.
+    expect((await post({ city: 'Huntsville' })).statusCode).toBe(400);
+    // Toll-free numbers sit in no city.
+    expect(
+      (await post({ numberType: 'toll_free', city: 'Huntsville', state: 'AL' })).statusCode,
+    ).toBe(400);
+    // A pattern is digits and stars, nothing else.
+    expect((await post({ contains: '45a' })).statusCode).toBe(400);
+    expect((await post({ contains: '256***454*' })).statusCode).toBe(200);
   });
 
   it('lets the web app call it across origins', async () => {

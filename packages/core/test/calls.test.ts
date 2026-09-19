@@ -20,6 +20,7 @@ import {
   callUpdateStatus,
   conversationGet,
   conversationThread,
+  intakeSourceUpdate,
   organizationCreate,
   personCreate,
   phoneNumberActivate,
@@ -103,6 +104,10 @@ beforeAll(async () => {
   noPhoneId = (
     await run(personCreate, { workspaceId: wsId, firstName: 'Pat', lastName: 'Rivera' }, owner)
   ).personId;
+  // Lead intake (M14) would make a customer out of a missed call from a number nobody knows. This suite is
+  // about the calls themselves and the path where nobody is on the conversation yet; intake.test.ts covers
+  // the customer and the lead a missed call opens.
+  await run(intakeSourceUpdate, { workspaceId: wsId, kind: 'call', active: false }, owner);
 });
 afterAll(closeTestDbs);
 

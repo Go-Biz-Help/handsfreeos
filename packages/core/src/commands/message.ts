@@ -18,7 +18,9 @@ import { optOutPhrase } from '../ai-team/guardrails';
 import { chatIdentityUnverified, notHandledByAi, outsideItsConversation } from '../ai-team/reach';
 import { attentionSettingsOf } from '../attention/settings';
 import { requireAppointment } from '../calendar/appointments';
+import { workspaceZone } from '../calendar/load';
 import { logChannelActivity } from '../crm/activities';
+import { intakeFromChannel, isOwnNumber, notALead, type IntakeResult } from '../crm/intake';
 import { formatPhone } from '../crm/phone';
 import { fullName, requirePerson } from '../crm/records';
 import { HfosError } from '../errors';
@@ -1137,6 +1139,9 @@ export const messageReceive = defineCommand({
   emits: [
     'message.received',
     'conversation.linked',
+    // A number nobody knows becomes a customer and a lead here (M14), unless the business turned that off.
+    'person.created',
+    'lead.created',
     'person.opted_out',
     'person.opted_in',
     'attendee.confirmed',
@@ -1164,7 +1169,27 @@ export const messageReceive = defineCommand({
       .from(phoneNumbers)
       .where(and(eq(phoneNumbers.workspaceId, workspaceId), eq(phoneNumbers.e164, input.to)))
       .limit(1);
-    const matched = await matchPersonByPhone(ctx.tx, workspaceId, input.from);
+    const at = input.occurredAt ? new Date(input.occurredAt) : new Date();
+    const mediaCount = Math.max(input.media.length, input.mediaCount);
+    const smsWord = mediaCount === 0 ? smsKeyword(input.body) : null;
+    let matched = await matchPersonByPhone(ctx.tx, workspaceId, input.from);
+    // Nobody we know: lead intake (M14) makes the customer and their lead, so the workflows, the AI
+    // teammate and the Action Center that wait on a new lead all start from this first text. A STOP, a HELP
+    // or "please stop texting me" is an instruction rather than a lead, and our own numbers and the team's
+    // cells are never one.
+    let intake: IntakeResult | null = null;
+    if (
+      !matched &&
+      !notALead(smsWord, input.body) &&
+      !(await isOwnNumber(ctx.tx, workspaceId, input.from))
+    ) {
+      intake = await intakeFromChannel(
+        ctx,
+        { kind: 'text', phone: input.from, how: 'texted in', at },
+        await workspaceZone(ctx.tx, workspaceId),
+      );
+      matched = intake?.personId ?? null;
+    }
     const { conversation: conv, created } = await findOrCreateConversation(ctx, {
       channel: 'sms',
       counterpart: input.from,
@@ -1173,9 +1198,6 @@ export const messageReceive = defineCommand({
     });
     const autoLink = !created && !conv.personId && !!matched;
     const personId = conv.personId ?? matched;
-    const at = input.occurredAt ? new Date(input.occurredAt) : new Date();
-    const mediaCount = Math.max(input.media.length, input.mediaCount);
-    const smsWord = mediaCount === 0 ? smsKeyword(input.body) : null;
     const wasOut = await customerOptedOut(ctx, { ...conv, personId });
     const consentChange =
       smsWord === 'stop' && !wasOut

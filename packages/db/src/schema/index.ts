@@ -3851,6 +3851,34 @@ export const migrationTombstones = app.table('migration_tombstones', {
   appliedAt: ts('applied_at'),
 });
 
+// ---------- Milestone 14: lead intake (0072) ----------
+export const intakeKind = app.enum('intake_kind', ['text', 'call', 'email', 'website_form', 'api']);
+
+/**
+ * One row per way a lead arrives. A channel a business never touched has no row and takes the defaults
+ * (on, opens a lead, in the default pipeline), so nothing is seeded; changing one writes the row.
+ */
+export const intakeSources = app.table('intake_sources', {
+  id: id(),
+  workspaceId: workspaceRef(),
+  kind: intakeKind('kind').notNull(),
+  /** What its customers and leads are filed under, e.g. "Text message". */
+  name: text('name').notNull(),
+  active: boolean('active').notNull().default(true),
+  /** Off: the customer is still made, but no lead opens. */
+  createLead: boolean('create_lead').notNull().default(true),
+  /** Null: the business's default pipeline and its first open stage. */
+  pipelineId: uuid('pipeline_id').references(() => pipelines.id, { onDelete: 'set null' }),
+  stageId: uuid('stage_id').references(() => pipelineStages.id, { onDelete: 'set null' }),
+  dailyCap: integer('daily_cap').notNull().default(50),
+  /** Today's count and the day it belongs to; the worker's. */
+  dayCount: integer('day_count').notNull().default(0),
+  dayOn: date('day_on'),
+  lastIntakeAt: ts('last_intake_at'),
+  createdBy: userRef('created_by'),
+  ...timestamps(),
+});
+
 /* ===========================================================================
  * platform · HandsFreeOS's own support desk (0070). Not tenant data: these
  * tables are read by staff and by the worker, and by no business at all.
@@ -4182,6 +4210,7 @@ export const tables = {
   formAnswers,
   formDays,
   customFields,
+  intakeSources,
   staff,
   staffInvitations,
   tickets,

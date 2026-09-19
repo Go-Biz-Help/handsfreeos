@@ -573,10 +573,109 @@ const manageWebsiteChat: SettingsConfirmTool = {
   },
 };
 
+// ---------- lead intake: leads that arrive on their own ----------
+
+interface IntakeSource {
+  kind: 'text' | 'call' | 'email';
+  name: string;
+  active: boolean;
+  createLead: boolean;
+  pipelineId: string | null;
+  stageId: string | null;
+  dailyCap: number;
+}
+interface IntakeList {
+  sources: IntakeSource[];
+  pipelines: { id: string; name: string; stages: { id: string; name: string; kind: string }[] }[];
+}
+
+const CHANNEL_WORDS = {
+  text: 'someone texts you',
+  call: 'a call is missed',
+  email: 'someone emails you',
+} as const;
+
+const intakeOf = (db: Db, ctx: ToolContext) =>
+  query<IntakeList>(db, ctx, 'intake.list').catch(() => null);
+
+const channelOf = (args: Args): 'text' | 'call' | 'email' => {
+  const c = str(args['channel']);
+  return c === 'call' || c === 'email' ? c : 'text';
+};
+
+const manageLeadIntake: SettingsConfirmTool = {
+  async prepare(db, ctx, args, toolCallId) {
+    const channel = channelOf(args);
+    const list = await intakeOf(db, ctx);
+    const current = list?.sources.find((s) => s.kind === channel);
+    const active = bool(args['active']);
+    const createLead = bool(args['createLead']);
+    const pipeline = list?.pipelines.find((p) => p.id === args['pipelineId']);
+    const stage = pipeline?.stages.find((s) => s.id === args['stageId']);
+    const words = CHANNEL_WORDS[channel];
+    const off = active === false;
+    return {
+      card: settingsCard(toolCallId, 'manage_lead_intake', {
+        title: off ? `Stop opening leads when ${words}` : `Open a lead when ${words}`,
+        fields: [
+          ...(active === undefined
+            ? []
+            : [{ label: 'New customer and lead', value: active ? 'Yes' : 'No' }]),
+          ...(createLead === undefined
+            ? []
+            : [{ label: 'Opens a lead', value: createLead ? 'Yes' : 'Customer only' }]),
+          ...(pipeline ? [{ label: 'Lands in', value: pipeline.name }] : []),
+          ...(stage ? [{ label: 'Stage', value: stage.name }] : []),
+          ...(str(args['name']) ? [{ label: 'Filed under', value: str(args['name'])! }] : []),
+          ...(num(args['dailyCap'])
+            ? [{ label: 'Most a day', value: String(num(args['dailyCap'])) }]
+            : []),
+        ],
+        confirmLabel: off ? 'Turn it off' : 'Save the change',
+        warnings: off
+          ? [
+              {
+                kind: 'note',
+                text: 'Their message still reaches your inbox — nobody is added to your customers.',
+              },
+            ]
+          : active === true && current?.active === false
+            ? [{ kind: 'note', text: 'Wrong numbers and spam can become leads; archive those.' }]
+            : [],
+      }),
+      result: { waiting: true, channel },
+    };
+  },
+
+  async commit(db, ctx, args) {
+    const channel = channelOf(args);
+    await command(db, ctx, 'intake_source.update', {
+      kind: channel,
+      ...defined({
+        active: bool(args['active']),
+        createLead: bool(args['createLead']),
+        pipelineId: args['pipelineId'] === null ? null : str(args['pipelineId']),
+        stageId: args['stageId'] === null ? null : str(args['stageId']),
+        name: str(args['name']),
+        dailyCap: num(args['dailyCap']),
+      }),
+    });
+    return {
+      outcome:
+        bool(args['active']) === false
+          ? `No more leads when ${CHANNEL_WORDS[channel]}`
+          : `Leads will come in when ${CHANNEL_WORDS[channel]}`,
+      href: `/app/w/${ctx.workspaceId}/settings/lead-intake`,
+      command: 'intake_source.update',
+    };
+  },
+};
+
 export const settingsChannelConfirmTools: Record<string, SettingsConfirmTool> = {
   update_texting_settings: updateTextingSettings,
   manage_phone_number: managePhoneNumber,
   submit_carrier_registration: submitCarrierRegistration,
   manage_email_settings: manageEmailSettings,
   manage_website_chat: manageWebsiteChat,
+  manage_lead_intake: manageLeadIntake,
 };

@@ -1,9 +1,11 @@
 import { and, eq, lte, or, isNull } from 'drizzle-orm';
 import { rows, sql } from '@hfos/db/client';
-import { activities, calls, conversations, phoneNumbers } from '@hfos/db/schema';
+import { activities, calls, conversations, people, phoneNumbers } from '@hfos/db/schema';
+import { workspaceZone } from '../calendar/load';
 import { logChannelActivity } from '../crm/activities';
+import { intakeFromChannel, isOwnNumber } from '../crm/intake';
 import { formatPhone } from '../crm/phone';
-import { requirePerson } from '../crm/records';
+import { fullName, requirePerson } from '../crm/records';
 import { HfosError } from '../errors';
 import { requireHuman } from '../kernel/actor';
 import { defineCommand } from '../kernel/define';
@@ -491,6 +493,50 @@ export const callRecord = defineCommand({
 });
 
 /**
+ * Lead intake for a call nobody answered (M14): the caller becomes a customer, their lead opens, and the call
+ * and its conversation are filed under them. The call comes back with whoever it is now from.
+ */
+async function callIntake(ctx: CommandContext, c: Call, at: Date): Promise<Call> {
+  const ws = ctx.scope.workspaceId!;
+  const from = counterpartOf(c);
+  if (!from || (await isOwnNumber(ctx.tx, ws, from))) return c;
+  const intake = await intakeFromChannel(
+    ctx,
+    {
+      kind: 'call',
+      phone: from,
+      how: c.isVoicemail ? 'left a voicemail' : 'missed call',
+      at,
+    },
+    await workspaceZone(ctx.tx, ws),
+  );
+  if (!intake) return c;
+  await ctx.tx.update(calls).set({ personId: intake.personId }).where(eq(calls.id, c.id));
+  if (c.conversationId) {
+    await ctx.tx
+      .update(conversations)
+      .set({ personId: intake.personId })
+      .where(and(eq(conversations.id, c.conversationId), isNull(conversations.personId)));
+    const [p] = await ctx.tx
+      .select({ firstName: people.firstName, lastName: people.lastName })
+      .from(people)
+      .where(eq(people.id, intake.personId));
+    await ctx.emit({
+      type: 'conversation.linked',
+      entityType: 'conversation',
+      entityId: c.conversationId,
+      payload: { personId: intake.personId, previousPersonId: null, phoneAdded: false, auto: true },
+      before: { person: null },
+      after: {
+        person: p ? fullName(p.firstName, p.lastName) : null,
+        with: formatPhone(from),
+      },
+    });
+  }
+  return { ...c, personId: intake.personId };
+}
+
+/**
  * An ended call lands on the timeline and in the conversation's preview; a missed inbound call waits for a reply. The
  * timeline entry is linked to the call here, unless `link` is false (a person cancelling their own call links it in
  * the one change they may make to it), and its id comes back.
@@ -519,6 +565,10 @@ async function settleCall(
     return null;
   }
   const answered = !!c.answeredAt;
+  // A call from a number nobody knows that didn't get through opens a customer and a lead (M14), before the
+  // events below go out, so the missed call, the timeline entry and everything waiting on a new lead all
+  // know who called. A call that was answered is the team's to file; the team's own cells never open a lead.
+  if (c.direction === 'inbound' && !answered && !c.personId) c = await callIntake(ctx, c, at);
   const subtype =
     c.direction === 'outbound'
       ? answered
@@ -608,7 +658,15 @@ export const callUpdateStatus = defineCommand({
   output: CallUpdateStatusOutput,
   permission: 'inbox.use',
   scope: inWorkspace,
-  emits: ['call.completed', 'call.missed', 'call.bridge_unanswered'],
+  emits: [
+    'call.completed',
+    'call.missed',
+    'call.bridge_unanswered',
+    // A call nobody knew and nobody answered becomes a customer and a lead here (M14).
+    'person.created',
+    'lead.created',
+    'conversation.linked',
+  ],
   actors: ['system'],
   async handler(ctx, input) {
     const c = await loadCall(ctx, input);

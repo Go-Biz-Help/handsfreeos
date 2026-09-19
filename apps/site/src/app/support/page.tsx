@@ -32,9 +32,10 @@ export default function SupportPage() {
                 {company.supportEmail}
               </a>
               <br />
-              We answer Monday to Friday, and we aim to come back to you the same working day.
-              Anything where customers cannot be reached — texts not sending, calls not ringing
-              through — jumps the queue.
+              You get a ticket number back straight away, and replying to that email adds to the
+              same ticket. We answer Monday to Friday, and we aim to come back to you the same
+              working day. Anything where customers cannot be reached — texts not sending, calls not
+              ringing through — jumps the queue.
             </p>
           </Card>
           <Card>

@@ -234,6 +234,10 @@ function NumberStep({
   const [type, setType] = useState<NumberType>('toll_free');
   const [area, setArea] = useState('');
   const [prefix, setPrefix] = useState('');
+  const [city, setCity] = useState('');
+  const [region, setRegion] = useState('');
+  const [digits, setDigits] = useState('');
+  const [more, setMore] = useState(false);
   const [results, setResults] = useState<AvailableNumber[] | null>(null);
   const [picked, setPicked] = useState<string | null>(null);
   const [searching, setSearching] = useState(false);
@@ -248,7 +252,20 @@ function NumberStep({
     setError(null);
   }
 
-  async function search() {
+  /** Whether the search asked for more than an area code, which is what usually empties the results. */
+  const narrowed = Boolean(digits || (type === 'local' && city));
+
+  /** `broaden` drops the city and the digits and looks again: the empty result's way out. */
+  async function search({ broaden = false }: { broaden?: boolean } = {}) {
+    if (!broaden && type === 'local' && city && !region) {
+      setError('Add the state too, like AL. There is a Huntsville in three of them.');
+      return;
+    }
+    if (broaden) {
+      setCity('');
+      setRegion('');
+      setDigits('');
+    }
     setSearching(true);
     setError(null);
     try {
@@ -257,11 +274,17 @@ function NumberStep({
         workspaceId,
         numberType: type,
         ...(code ? { areaCode: code } : {}),
+        ...(!broaden && digits ? { contains: digits } : {}),
+        ...(!broaden && type === 'local' && city && region ? { city, state: region } : {}),
       });
       setResults(out.numbers);
       setPicked(out.numbers[0]?.e164 ?? null);
       if (out.numbers.length === 0)
-        setError('No numbers are free there right now. Try another area code.');
+        setError(
+          !broaden && narrowed
+            ? 'Nothing free matches all of that right now. Carriers only sell what they have on hand, so asking for less usually finds one.'
+            : 'No numbers are free there right now. Try another area code.',
+        );
     } catch (e) {
       setError(errorMessage(e));
     } finally {
@@ -364,8 +387,75 @@ function NumberStep({
           {searching ? null : <Search className="h-3.5 w-3.5" strokeWidth={1.5} />}
           Show numbers
         </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          className="h-9"
+          onClick={() => setMore((v) => !v)}
+          data-testid="more-filters"
+        >
+          {more ? 'Fewer choices' : 'More choices'}
+        </Button>
+        {more ? (
+          <div className="flex w-full flex-wrap items-end gap-2">
+            {type === 'local' ? (
+              <>
+                <div>
+                  <Label htmlFor="number-city">City</Label>
+                  <Input
+                    id="number-city"
+                    value={city}
+                    onChange={(e) => setCity(e.target.value)}
+                    placeholder="Huntsville"
+                    className="h-9 w-44"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="number-state">State</Label>
+                  <Input
+                    id="number-state"
+                    maxLength={2}
+                    value={region}
+                    onChange={(e) =>
+                      setRegion(e.target.value.replace(/[^A-Za-z]/g, '').toUpperCase())
+                    }
+                    placeholder="AL"
+                    className="h-9 w-20"
+                  />
+                </div>
+              </>
+            ) : null}
+            <div>
+              <Label htmlFor="number-contains">Digits in the number</Label>
+              <Input
+                id="number-contains"
+                inputMode="numeric"
+                maxLength={10}
+                value={digits}
+                onChange={(e) => setDigits(e.target.value.replace(/[^0-9*]/g, ''))}
+                placeholder="454"
+                className="h-9 w-44"
+              />
+            </div>
+            <p className="w-full text-[13px] text-text-3">
+              Digits can sit anywhere in the number. Use * for any single digit to pin them down,
+              like 256***454* for 454 in the middle. Asking for more leaves fewer to choose from.
+            </p>
+          </div>
+        ) : null}
       </form>
       {error ? <FieldError>{error}</FieldError> : null}
+      {results && results.length === 0 && narrowed ? (
+        <Button
+          variant="secondary"
+          className="mt-2"
+          loading={searching}
+          onClick={() => void search({ broaden: true })}
+          data-testid="broaden-search"
+        >
+          Look again without the city or digits
+        </Button>
+      ) : null}
       {results && results.length > 0 ? (
         <div
           role="radiogroup"

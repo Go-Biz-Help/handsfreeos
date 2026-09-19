@@ -1957,6 +1957,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/intake_source.update": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Change how leads arrive on a channel: whether a stranger who texts, calls or emails becomes a customer and a lead, what that lead is filed under, which pipeline and stage it lands in, and how many a day. Only the fields sent change.
+         * @description Risk level 2. Requires channels.manage. Emits intake_source.updated.
+         */
+        post: operations["command_intake_source_update"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/invitation.accept": {
         parameters: {
             query?: never;
@@ -6311,6 +6331,26 @@ export interface paths {
          * @description Requires inbox.use.
          */
         post: operations["query_inbox_summary"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/intake.list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * How leads arrive by themselves: each channel (text, call, email), whether it opens a lead, where that lead lands, its daily limit and how much of today it has used.
+         * @description Requires workspace.read.
+         */
+        post: operations["query_intake_list"];
         delete?: never;
         options?: never;
         head?: never;
@@ -12033,6 +12073,45 @@ export interface operations {
                     "application/json": {
                         /** Format: uuid */
                         importId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_intake_source_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    active?: boolean;
+                    createLead?: boolean;
+                    dailyCap?: number;
+                    /** @enum {string} */
+                    kind: "text" | "call" | "email";
+                    name?: string;
+                    pipelineId?: string | null;
+                    stageId?: string | null;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {string} */
+                        kind: "text" | "call" | "email";
+                        updated: string[];
                     };
                 };
             };
@@ -23738,6 +23817,57 @@ export interface operations {
                         };
                         waiting: number;
                         waitingThresholdMinutes: number;
+                    };
+                };
+            };
+        };
+    };
+    query_intake_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        pipelines: {
+                            /** Format: uuid */
+                            id: string;
+                            name: string;
+                            stages: {
+                                /** Format: uuid */
+                                id: string;
+                                kind: string;
+                                name: string;
+                            }[];
+                        }[];
+                        sources: {
+                            active: boolean;
+                            createLead: boolean;
+                            dailyCap: number;
+                            /** @enum {string} */
+                            kind: "text" | "call" | "email";
+                            lastIntakeAt: string | null;
+                            name: string;
+                            pipelineId: string | null;
+                            stageId: string | null;
+                            todayCount: number;
+                        }[];
                     };
                 };
             };

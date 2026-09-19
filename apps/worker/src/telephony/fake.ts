@@ -272,18 +272,23 @@ export function createFakeTelephony(opts: FakeOptions): FakeTelephony {
     async createTwimlApp() {
       return fakeSid('AP');
     },
-    async searchNumbers({ numberType, areaCode, limit }) {
+    async searchNumbers({ numberType, areaCode, contains, city, state, limit }) {
       const areas = areaCode
         ? [areaCode]
         : numberType === 'toll_free'
           ? ['833', '844', '855', '877']
           : ['713'];
-      return Array.from({ length: Math.min(limit, 6) }, (_, i) => ({
-        e164: `+1${areas[i % areas.length]}555${String(1000 + Math.floor(Math.random() * 8999))}`,
-        locality: numberType === 'toll_free' ? null : 'Houston',
-        region: numberType === 'toll_free' ? null : 'TX',
-        capabilities: CAPS,
-      }));
+      // What was asked for is what comes back: the digits really are in the number, the city really is its city.
+      const wanted = (contains ?? '').replace(/[^0-9]/g, '').slice(0, 7);
+      return Array.from({ length: Math.min(limit, 6) }, (_, i) => {
+        const line = `555${String(1000 + Math.floor(Math.random() * 8999))}`;
+        return {
+          e164: `+1${areas[i % areas.length]}${wanted}${line.slice(wanted.length)}`,
+          locality: numberType === 'toll_free' ? null : city || 'Houston',
+          region: numberType === 'toll_free' ? null : state || 'TX',
+          capabilities: CAPS,
+        };
+      });
     },
     async findOwnedNumber(account: ProviderAccount, e164: string) {
       const n = [...owned.values()].find((x) => x.e164 === e164 && x.accountSid === account.sid);

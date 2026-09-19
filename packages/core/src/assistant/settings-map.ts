@@ -22,6 +22,7 @@ export const SETTINGS_AREAS = [
   'texting',
   'email',
   'website_chat',
+  'lead_intake',
   'payments',
   'products',
   'action_center',
@@ -220,6 +221,19 @@ const AREAS: Record<SettingsArea, Omit<SettingsAreaInfo, 'area'>> = {
         ],
       },
     ],
+  },
+  lead_intake: {
+    label: 'Lead intake',
+    what: 'what happens when a stranger texts, calls or emails: whether they become a customer and a lead, and where that lead lands',
+    path: '/settings/lead-intake',
+    permission: 'channels.manage',
+    canChange: [
+      'turn a channel on or off',
+      'whether a lead opens as well as the customer',
+      'which pipeline and stage those leads land in, and what they are filed under',
+      'the most leads a day a channel may open',
+    ],
+    handovers: [],
   },
   website_chat: {
     label: 'Website chat',

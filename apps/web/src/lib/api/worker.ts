@@ -55,12 +55,19 @@ export interface AvailableNumber {
   readonly capabilities: { readonly sms: boolean; readonly mms: boolean; readonly voice: boolean };
 }
 
-/** Numbers the carrier has free right now (owners and admins only; the worker checks). */
+/**
+ * Numbers the carrier has free right now (owners and admins only; the worker checks). Filters narrow one
+ * search together, so a city and a digit pattern ask for both. A city needs its state, and only local
+ * numbers have one.
+ */
 export function searchNumbers(input: {
   workspaceId: string;
   numberType: 'local' | 'toll_free';
   areaCode?: string;
+  /** Digits the number carries: `454`, or `*` for any one digit to pin the spot. */
   contains?: string;
+  city?: string;
+  state?: string;
 }): Promise<{ numbers: AvailableNumber[] }> {
   return workerPost('/v1/telephony/available-numbers', input);
 }

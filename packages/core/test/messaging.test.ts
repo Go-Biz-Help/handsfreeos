@@ -27,6 +27,7 @@ import {
   conversationThread,
   inboxList,
   inboxSummary,
+  intakeSourceUpdate,
   messageGet,
   messageReceive,
   messageRetry,
@@ -155,6 +156,10 @@ beforeAll(async () => {
   patId = (
     await run(personCreate, { workspaceId: wsId, firstName: 'Pat', lastName: 'Rivera' }, owner)
   ).personId;
+  // Lead intake (M14) is on by default, so a stranger's first text would open a customer and a lead. This
+  // suite is about the conversation itself, and the path where nobody is on it yet — a channel the business
+  // turned off, or one that has hit its day's limit. Intake has its own tests (intake.test.ts).
+  await run(intakeSourceUpdate, { workspaceId: wsId, kind: 'text', active: false }, owner);
 });
 afterAll(closeTestDbs);
 

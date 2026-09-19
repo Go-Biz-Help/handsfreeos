@@ -226,6 +226,7 @@ import {
   conversationPickUp,
   conversationTakeOver,
 } from './conversation-handling';
+import { intakeSourceUpdate } from './intake-source';
 import { leadRecordAnswers } from './lead.record_answers';
 import {
   chatWidgetCreate,
@@ -645,6 +646,7 @@ export const commands: readonly CommandDef[] = [
   appointmentBookForCustomer,
   attendeeRescheduleForCustomer,
   attendeeCancelForCustomer,
+  intakeSourceUpdate,
   chatWidgetCreate,
   chatWidgetUpdate,
   chatWidgetPause,
@@ -711,6 +713,7 @@ export * from './appointment-ai';
 export * from './conversation-handling';
 export { leadRecordAnswers } from './lead.record_answers';
 export * from './chat-widget';
+export * from './intake-source';
 export * from './chat';
 export * from './attention';
 export * from './attendee-confirm';

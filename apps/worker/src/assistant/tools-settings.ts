@@ -40,6 +40,7 @@ const QUERIES: Record<SettingsArea, readonly { readonly name: string; readonly a
   texting: [{ name: 'phone.setup_status', as: 'texting' }],
   email: [{ name: 'email.setup_status', as: 'email' }],
   website_chat: [{ name: 'chat_widget.list', as: 'websiteChat' }],
+  lead_intake: [{ name: 'intake.list', as: 'leadIntake' }],
   payments: [
     { name: 'money.settings', as: 'payments' },
     { name: 'payment_connection.list', as: 'accounts' },

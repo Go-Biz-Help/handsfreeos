@@ -171,6 +171,14 @@ beforeAll(async () => {
     sql`select id, address, local_part from app.email_addresses where workspace_id = ${workspaceId} and is_default`,
   );
   shared = { id: a!.id, address: a!.address, local: a!.local_part };
+  // Lead intake (M14) would file a stranger's first email under a new customer. This suite covers the
+  // unmatched list and claiming from it, which is what happens with the channel off; core's intake.test.ts
+  // covers the customer and lead it opens instead.
+  await rows(
+    admin(),
+    sql`insert into app.intake_sources (workspace_id, kind, name, active)
+        values (${workspaceId}, 'email', 'Email', false)`,
+  );
   s = testServices();
   app = await buildHttpServer({
     ...s,

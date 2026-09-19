@@ -640,7 +640,7 @@ export function createTwilioTelephony(master: {
       return res.sid;
     },
 
-    async searchNumbers({ numberType, areaCode, contains, limit }) {
+    async searchNumbers({ numberType, areaCode, contains, city, state, limit }) {
       const res = await call<{
         available_phone_numbers: {
           phone_number: string;
@@ -659,6 +659,8 @@ export function createTwilioTelephony(master: {
           PageSize: String(limit),
           ...(areaCode ? { AreaCode: areaCode } : {}),
           ...(contains ? { Contains: contains } : {}),
+          // Toll-free numbers sit in no city, and Twilio's TollFree endpoint refuses the pair.
+          ...(numberType === 'local' && city && state ? { InLocality: city, InRegion: state } : {}),
         },
       );
       return res.available_phone_numbers.map((n): AvailableNumber => ({

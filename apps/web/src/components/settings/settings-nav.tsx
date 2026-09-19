@@ -28,6 +28,8 @@ export function SettingsNav({
           { href: `${base}/texting`, label: 'Texting & calls' },
           { href: `${base}/email`, label: 'Email' },
           { href: `${base}/website-chat`, label: 'Website chat' },
+          // After the three channels: what happens when someone new arrives on any of them.
+          { href: `${base}/lead-intake`, label: 'Lead intake' },
           // Payments is exact so its own Products page is the only tab marked while you're on it.
           { href: `${base}/payments`, label: 'Payments', exact: true },
           { href: `${base}/payments/products`, label: 'Products' },

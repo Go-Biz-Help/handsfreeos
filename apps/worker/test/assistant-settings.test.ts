@@ -134,7 +134,7 @@ describe('the settings map', () => {
       ...Object.keys(settingsMoneyConfirmTools),
       ...Object.keys(settingsMeConfirmTools),
     ];
-    expect(settingsTools.length).toBe(24);
+    expect(settingsTools.length).toBe(25);
     for (const name of settingsTools) expect(assistantToolByName.get(name), name).toBeTruthy();
     for (const name of settingsTools)
       expect(TEAMMATE_TOOL_NAMES as readonly string[], name).not.toContain(name);

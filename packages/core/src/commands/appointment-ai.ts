@@ -17,6 +17,7 @@ import {
 import { bookAppointment, findBookingByClientId, type AttendeeDraft } from '../calendar/booking';
 import { loadCalendar, resolveService } from '../calendar/load';
 import { bookableDurations, defaultLocationKind } from '../calendar/terms';
+import { leadFor } from '../crm/intake';
 import { requirePerson } from '../crm/records';
 import { HfosError } from '../errors';
 import { aiEmployeeOf } from '../kernel/actor';
@@ -37,7 +38,6 @@ import {
   bookingOutput,
   cancelBooking,
   enforceCaps,
-  leadFor,
   loadBooked,
   rescheduleBooking,
 } from './appointment-online';

@@ -32,6 +32,17 @@
         "design/m1/preview"
       ],
       "port": 8765
+    },
+    {
+      "name": "web-only",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": [
+        "--filter",
+        "@hfos/web",
+        "dev"
+      ],
+      "port": 3000,
+      "autoPort": false
     }
   ]
 }

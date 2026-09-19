@@ -137,6 +137,7 @@ const STEP_LABEL: Record<string, string> = {
   submit_carrier_registration: 'Filling in the registration',
   manage_email_settings: 'Setting up email',
   manage_website_chat: 'Setting up the website chat',
+  manage_lead_intake: 'Changing how leads come in',
   update_money_settings: 'Changing how you get paid',
   manage_product: 'Setting up the item',
   manage_payment_account: 'Changing where money lands',

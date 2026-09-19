@@ -7,7 +7,7 @@
  * customer is never edited; the SMS box starts unticked and never overrides a STOP. Positions are handed
  * out under the calendar's booking lock, so two joins at once never share one.
  */
-import { and, desc, eq, inArray, isNull } from 'drizzle-orm';
+import { and, eq, inArray } from 'drizzle-orm';
 import { z } from 'zod';
 import { rows, sql } from '@hfos/db/client';
 import { appointmentAttendees, people, waitlistEntries } from '@hfos/db/schema';
@@ -15,15 +15,14 @@ import { requireAppointment, requireScheduled } from '../calendar/appointments';
 import { lockBooking } from '../calendar/booking';
 import { dbNow, loadCalendar, loadCatalogService } from '../calendar/load';
 import { resolveTerms } from '../calendar/terms';
+import { findOrCreateCustomer } from '../crm/intake';
 import { requirePerson } from '../crm/records';
 import { HfosError } from '../errors';
 import { defineCommand } from '../kernel/define';
 import type { CommandContext } from '../kernel/types';
-import { isOptedOut, matchPersonByPhone } from '../messaging/store';
+import { isOptedOut } from '../messaging/store';
 import { OnlineCustomer } from '../schemas/calendar';
 import { isoDateTime, uuid } from '../schemas/common';
-import { PersonCreateInput } from '../schemas/person';
-import { personCreate } from './person.create';
 
 const DAY = 86_400_000;
 
@@ -73,46 +72,6 @@ async function enforceCaps(
       429,
       'That’s a lot of waitlist requests at once. Try again in an hour, or give us a call.',
     );
-}
-
-/** Phone first, then email; otherwise a new customer through person.create's internals. */
-async function findOrCreateCustomer(
-  ctx: CommandContext,
-  customer: { firstName: string; lastName: string; phone?: string | null; email?: string | null },
-): Promise<{ personId: string; created: boolean }> {
-  const ws = ctx.scope.workspaceId!;
-  if (customer.phone) {
-    const id = await matchPersonByPhone(ctx.tx, ws, customer.phone);
-    if (id) return { personId: id, created: false };
-  }
-  if (customer.email) {
-    const [p] = await ctx.tx
-      .select({ id: people.id })
-      .from(people)
-      .where(
-        and(
-          eq(people.workspaceId, ws),
-          eq(people.email, customer.email),
-          isNull(people.archivedAt),
-        ),
-      )
-      .orderBy(desc(people.updatedAt))
-      .limit(1);
-    if (p) return { personId: p.id, created: false };
-  }
-  const out = await personCreate.handler(
-    ctx,
-    PersonCreateInput.parse({
-      workspaceId: ws,
-      firstName: customer.firstName,
-      lastName: customer.lastName,
-      email: customer.email ?? null,
-      phone: customer.phone ?? null,
-      source: 'Booking page',
-      ignoreDuplicates: true,
-    }),
-  );
-  return { personId: out.personId, created: true };
 }
 
 const tooMany = () =>
@@ -183,7 +142,7 @@ export const waitlistJoinOnline = defineCommand({
     const phone = input.customer.phone ?? null;
     const email = input.customer.email ?? null;
     await enforceCaps(ctx, phone, email);
-    const { personId, created } = await findOrCreateCustomer(ctx, input.customer);
+    const { personId, created } = await findOrCreateCustomer(ctx, input.customer, 'Booking page');
     if (appointmentId) {
       const [booked] = await ctx.tx
         .select({ id: appointmentAttendees.id })

@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { and, desc, eq, inArray, isNull, or, sql } from 'drizzle-orm';
-import { rows } from '@hfos/db/client';
+import { rows, type Tx } from '@hfos/db/client';
 import {
   conversations,
   emailAddresses,
@@ -10,7 +10,9 @@ import {
   messages,
   people,
 } from '@hfos/db/schema';
+import { workspaceZone } from '../calendar/load';
 import { logChannelActivity } from '../crm/activities';
+import { intakeFromChannel, looksAutomatedEmail, type IntakeResult } from '../crm/intake';
 import { fullName } from '../crm/records';
 import { defineCommand } from '../kernel/define';
 import { emailDedupeKey, emailPreview, matchPersonByEmail } from '../messaging/email';
@@ -30,6 +32,22 @@ const inWorkspace = (i: { workspaceId: string }) => ({
 /** Mail older than this (a mailbox's first sync) is filed quietly: no unread count, no reminder. */
 const FRESH_MS = 24 * 60 * 60 * 1000;
 
+/** An address that bounced for good or marked us as spam: mail from it opens nothing. */
+async function suppressed(tx: Tx, workspaceId: string, address: string): Promise<boolean> {
+  const [row] = await tx
+    .select({ id: emailSuppressions.id })
+    .from(emailSuppressions)
+    .where(
+      and(
+        eq(emailSuppressions.workspaceId, workspaceId),
+        eq(emailSuppressions.address, address.toLowerCase()),
+        isNull(emailSuppressions.releasedAt),
+      ),
+    )
+    .limit(1);
+  return !!row;
+}
+
 type Conversation = typeof conversations.$inferSelect;
 
 export const emailReceive = defineCommand({
@@ -46,6 +64,9 @@ export const emailReceive = defineCommand({
     'message.imported',
     'conversation.created',
     'conversation.linked',
+    // A sender nobody knows becomes a customer and a lead here (M14), unless the business turned that off.
+    'person.created',
+    'lead.created',
     'email.unmatched_received',
   ],
   actors: ['system'],
@@ -166,8 +187,34 @@ export const emailReceive = defineCommand({
             eq(conversations.counterpart, counterpart),
           ),
         );
-    const matched = personId ?? (await matchPersonByEmail(ctx.tx, workspaceId, counterpart));
+    let matched = personId ?? (await matchPersonByEmail(ctx.tx, workspaceId, counterpart));
     const at = input.occurredAt ? new Date(input.occurredAt) : new Date();
+
+    // Nobody we know wrote in: lead intake (M14) makes the customer and their lead, so the mail lands in a
+    // real conversation instead of the unmatched list. Machines don't become leads — a bounce, an
+    // out-of-office, a newsletter, or an address that already bounced for good.
+    let intake: IntakeResult | null = null;
+    if (
+      !conv &&
+      !matched &&
+      inbound &&
+      !input.knownOnly &&
+      !looksAutomatedEmail(input.from, input.subject) &&
+      !(await suppressed(ctx.tx, workspaceId, counterpart))
+    ) {
+      intake = await intakeFromChannel(
+        ctx,
+        {
+          kind: 'email',
+          email: counterpart,
+          name: input.from.name ?? null,
+          how: 'emailed in',
+          at,
+        },
+        await workspaceZone(ctx.tx, workspaceId),
+      );
+      matched = intake?.personId ?? matched;
+    }
 
     if (!conv && !matched) {
       if (!inbound || input.knownOnly) return { outcome: 'skipped' as const, ...none };
