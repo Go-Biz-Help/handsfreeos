@@ -613,6 +613,47 @@ describe('the history arrives as history', () => {
     expect(said?.recommendedAction).toContain('cancel it over there');
   }, 60_000);
 
+  it('lists what nobody can move for them, found in their own data', async () => {
+    const tasks = await rows<{
+      kind: string;
+      label: string;
+      state: string;
+      blocks: boolean;
+      instructions: string;
+      settings_path: string | null;
+    }>(
+      admin(),
+      sql`select kind::text as kind, label, state::text as state, blocks_live_use as blocks,
+            instructions, settings_path
+          from app.migration_reconnect_tasks where migration_id = ${migrationId}::uuid
+          order by kind, label`,
+    );
+    const byKind = (k: string) => tasks.filter((t) => t.kind === k);
+
+    // The number they rang customers from, found on an outbound call rather than asked for: GoHighLevel will
+    // not list a sub-account's own numbers at all.
+    const number = byKind('messaging')[0]!;
+    expect(number.label).toBe('+15125550000');
+    expect(number.instructions).toContain('the carrier ports it');
+    // Their number and their money are the two things that stop them working as they expect.
+    expect(number.blocks).toBe(true);
+
+    // The domain they sent email from, found on an outbound email.
+    const dns = byKind('dns')[0]!;
+    expect(dns.label).toBe('lonestarhvac.example');
+    expect(dns.settings_path).toBe('/settings/email');
+    expect(dns.blocks).toBe(false);
+
+    // Money moved somewhere, so somewhere has to be connected here. No key ever came across.
+    const payments = byKind('payments')[0]!;
+    expect(payments.blocks).toBe(true);
+    expect(payments.instructions).toContain('not charged twice');
+
+    // The visits arrived without the diaries behind them.
+    expect(byKind('calendar')[0]!.label).toContain('calendar');
+    expect(tasks.every((t) => t.state === 'todo')).toBe(true);
+  }, 60_000);
+
   it('never turns history into work', async () => {
     // Not one badge, not one waiting clock, and no AI teammate handed a five-year-old text.
     const list = await threads();

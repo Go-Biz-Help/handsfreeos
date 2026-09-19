@@ -637,8 +637,172 @@ async function afterCategory(deps: MigrationDeps, job: JobRow): Promise<void> {
  * record here, that nothing points at something that is not there, and that the history really kept its own
  * dates — that last one because it is the promise most easily broken by a careless default.
  */
+/**
+ * The things nobody can migrate for them, discovered rather than asked for.
+ *
+ * A sub-account's own phone numbers, sending domains and connected apps are the three things GoHighLevel will
+ * not list through the API — the scan says so in as many words. But a migration has just read five years of
+ * that business's own records, and the answers are sitting in them: the number a text went out from is a
+ * number they use, the address an email was sent from is a domain they send from, and a bill with money
+ * against it means somebody took a payment somewhere.
+ *
+ * So the list is built from what arrived. Each row is one thing a person has to do, in their words, with
+ * where to do it — and `blocks_live_use` marks the ones that stop the business working the way it expects
+ * (its number, and taking money), which is what `migration.finalize` refuses to finish without.
+ *
+ * Written at the end of the import and safe to run again: the unique key is the task itself, and a row a
+ * person has already ticked off is never reopened.
+ */
+async function findReconnectTasks(deps: MigrationDeps, job: JobRow): Promise<void> {
+  // The sub-accounts first, as the organization: a migration's own rows belong to it rather than to any one
+  // business.
+  const workspaces = await asWorker(
+    deps.db,
+    { workspaceId: null, organizationId: job.organization_id },
+    (tx) =>
+      rows<{ workspace_id: string; scope_id: string }>(
+        tx,
+        sql`select distinct s.workspace_id::text as workspace_id, s.id::text as scope_id
+            from app.migration_scopes s
+            where s.migration_id = ${job.migration_id} and s.workspace_id is not null and s.selected`,
+      ),
+  );
+
+  const put = async (
+    tx: Tx,
+    input: {
+      scopeId: string;
+      workspaceId: string;
+      kind: string;
+      provider: string;
+      label: string;
+      instructions: string;
+      settingsPath: string | null;
+      blocksLiveUse: boolean;
+      descriptor?: Record<string, unknown>;
+    },
+  ) => {
+    await tx.execute(sql`
+      insert into app.migration_reconnect_tasks (migration_id, organization_id, scope_id, workspace_id,
+        kind, provider, label, state, instructions, settings_path, descriptor, blocks_live_use)
+      values (${job.migration_id}, ${job.organization_id}, ${input.scopeId}::uuid,
+        ${input.workspaceId}::uuid, ${input.kind}::app.reconnect_kind, ${input.provider},
+        ${input.label.slice(0, 200)}, 'todo'::app.reconnect_state, ${input.instructions.slice(0, 4000)},
+        ${input.settingsPath}, ${JSON.stringify(input.descriptor ?? {})}::jsonb, ${input.blocksLiveUse})
+      on conflict (migration_id, coalesce(scope_id, '00000000-0000-0000-0000-000000000000'::uuid), kind,
+                   provider, label)
+      do nothing`);
+  };
+
+  for (const { workspace_id: workspaceId, scope_id: scopeId } of workspaces)
+    await asWorker(deps.db, { workspaceId, organizationId: job.organization_id }, async (tx) => {
+      // The numbers they text and ring from. A number is the business's identity to its customers, and moving
+      // one is the carrier's process rather than a copy — so this is a task, never something we do quietly.
+      const numbers = await rows<{ number: string }>(
+        tx,
+        sql`select distinct number from (
+            select c.from_e164 as number from app.calls c
+            where c.workspace_id = ${workspaceId}::uuid and c.direction = 'outbound'
+              and c.from_e164 is not null
+            union
+            select m.from_address from app.messages m
+            where m.workspace_id = ${workspaceId}::uuid and m.direction = 'outbound'
+              and m.channel = 'sms' and m.from_address like '+%'
+          ) n
+          order by number limit 10`,
+      );
+      for (const { number } of numbers)
+        await put(tx, {
+          scopeId,
+          workspaceId,
+          kind: 'messaging',
+          provider: 'carrier',
+          label: number,
+          instructions:
+            'Your customers know this number, so it moves rather than being replaced: the carrier ports it, ' +
+            'with your say-so and a form. Nothing happens to it until you start that, and your old system keeps ' +
+            'working on it until the day it moves. Texts and calls only arrive here once it has.',
+          settingsPath: '/settings/phone',
+          blocksLiveUse: true,
+          descriptor: { number },
+        });
+
+      // The domains they send email from. DNS is the business's own, and nobody can set it for them.
+      const domains = await rows<{ domain: string }>(
+        tx,
+        sql`select distinct lower(split_part(m.from_address, '@', 2)) as domain
+          from app.messages m
+          where m.workspace_id = ${workspaceId}::uuid and m.direction = 'outbound'
+            and m.channel = 'email' and position('@' in coalesce(m.from_address, '')) > 1
+          order by domain limit 10`,
+      );
+      for (const { domain } of domains)
+        await put(tx, {
+          scopeId,
+          workspaceId,
+          kind: 'dns',
+          provider: 'email',
+          label: domain,
+          instructions:
+            `You sent email from ${domain}. To send it from here, that domain needs two DNS records so mailboxes ` +
+            'trust it — Settings shows them and checks them for you. Until it is set up, email goes out from ' +
+            'the HandsFreeOS address instead, which works but does not look like you.',
+          settingsPath: '/settings/email',
+          blocksLiveUse: false,
+          descriptor: { domain },
+        });
+
+      // Money moved somewhere. No key, no token and no card ever comes across, so taking payments here is a
+      // connection somebody makes on purpose.
+      const [tookMoney] = await rows<{ count: number }>(
+        tx,
+        sql`select count(*)::int as count from app.invoices i
+          where i.workspace_id = ${workspaceId}::uuid and i.amount_paid_cents > 0`,
+      );
+      if ((tookMoney?.count ?? 0) > 0)
+        await put(tx, {
+          scopeId,
+          workspaceId,
+          kind: 'payments',
+          provider: 'payments',
+          label: 'The account you take payments into',
+          instructions:
+            'Your old system took card payments through an account of its own. No key, token or card number ' +
+            'comes across — they never do — so connect the account you want to be paid into here, and the ' +
+            'bills that are still owed can be paid again. What was already paid is recorded as history and is ' +
+            'not charged twice.',
+          settingsPath: '/settings/payments',
+          blocksLiveUse: true,
+        });
+
+      // A calendar came across without the diaries behind it: a person's own busy time is theirs to connect.
+      const [calendars] = await rows<{ count: number }>(
+        tx,
+        sql`select count(*)::int as count from app.calendars c
+          where c.workspace_id = ${workspaceId}::uuid`,
+      );
+      if ((calendars?.count ?? 0) > 0)
+        await put(tx, {
+          scopeId,
+          workspaceId,
+          kind: 'calendar',
+          provider: 'calendar',
+          label: 'Everyone’s own calendar',
+          instructions:
+            'The visits came across, and the diaries behind them did not: HandsFreeOS reads each person’s own ' +
+            'calendar to know when they are busy, and that is a sign-in only they can do. Until they do, ' +
+            'bookings here cannot see the rest of their day.',
+          settingsPath: '/settings/calendars',
+          blocksLiveUse: false,
+        });
+    });
+}
+
 async function verify(deps: MigrationDeps, job: JobRow): Promise<Outcome> {
   const finalize = job.input['finalize'] === true;
+  // What nobody can migrate for them, found from what their own data leaves behind. Before the checks, so a
+  // migration that is about to be called finished already knows what is still owed.
+  await findReconnectTasks(deps, job);
   await asWorker(
     deps.db,
     { workspaceId: null, organizationId: job.organization_id },
