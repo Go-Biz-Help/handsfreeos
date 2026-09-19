@@ -4868,7 +4868,7 @@ export interface paths {
         put?: never;
         /**
          * Put a piece of wording away, or bring it back. Nothing is deleted.
-         * @description Risk level 1. Requires templates.manage. Emits template.archived. Can wait on a phone with no signal.
+         * @description Risk level 1. Requires templates.manage. Emits template.archived.
          */
         post: operations["command_template_archive"];
         delete?: never;
@@ -4888,7 +4888,7 @@ export interface paths {
         put?: never;
         /**
          * Save wording to reuse: a name, whether it is a text or an email, and the words, with the same {{placeholders}} a workflow uses.
-         * @description Risk level 1. Requires templates.manage. Emits template.created. Can wait on a phone with no signal.
+         * @description Risk level 1. Requires templates.manage. Emits template.created.
          */
         post: operations["command_template_create"];
         delete?: never;
@@ -4908,7 +4908,7 @@ export interface paths {
         put?: never;
         /**
          * Change a saved piece of wording: its name, its words, or which folder it sits in.
-         * @description Risk level 1. Requires templates.manage. Emits template.updated. Can wait on a phone with no signal.
+         * @description Risk level 1. Requires templates.manage. Emits template.updated.
          */
         post: operations["command_template_update"];
         delete?: never;
@@ -4928,7 +4928,7 @@ export interface paths {
         put?: never;
         /**
          * Somebody reached for a template. Counted so the picker puts what this business actually says at the top.
-         * @description Risk level 0. Requires inbox.use. Emits . Can wait on a phone with no signal.
+         * @description Risk level 0. Requires inbox.use. Emits .
          */
         post: operations["command_template_used"];
         delete?: never;

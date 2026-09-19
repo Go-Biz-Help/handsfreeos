@@ -32777,7 +32777,7 @@
         "tags": [
           "commands"
         ],
-        "description": "Risk level 1. Requires templates.manage. Emits template.created. Can wait on a phone with no signal.",
+        "description": "Risk level 1. Requires templates.manage. Emits template.created.",
         "requestBody": {
           "required": true,
           "content": {
@@ -32874,7 +32874,7 @@
         "tags": [
           "commands"
         ],
-        "description": "Risk level 1. Requires templates.manage. Emits template.updated. Can wait on a phone with no signal.",
+        "description": "Risk level 1. Requires templates.manage. Emits template.updated.",
         "requestBody": {
           "required": true,
           "content": {
@@ -32972,7 +32972,7 @@
         "tags": [
           "commands"
         ],
-        "description": "Risk level 1. Requires templates.manage. Emits template.archived. Can wait on a phone with no signal.",
+        "description": "Risk level 1. Requires templates.manage. Emits template.archived.",
         "requestBody": {
           "required": true,
           "content": {
@@ -33039,7 +33039,7 @@
         "tags": [
           "commands"
         ],
-        "description": "Risk level 0. Requires inbox.use. Emits . Can wait on a phone with no signal.",
+        "description": "Risk level 0. Requires inbox.use. Emits .",
         "requestBody": {
           "required": true,
           "content": {
