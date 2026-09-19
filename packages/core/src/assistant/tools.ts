@@ -1200,7 +1200,13 @@ export const assistantTools = [
     input: z.object({
       description: text(2000).describe('What it should ask, or what to change, in their words'),
       formId: uuid.optional().describe('The form to change; leave it out to start a new one'),
-      name: z.string().trim().min(1).max(120).optional().describe('A short name for a new form'),
+      name: z
+        .string()
+        .trim()
+        .min(1)
+        .max(120)
+        .optional()
+        .describe('A short name for a new form'),
       mode: z
         .enum(['form', 'survey', 'quiz'])
         .optional()

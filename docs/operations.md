@@ -33,6 +33,7 @@ A plain "step 5" means step 5 of the list you are reading, or of the part named 
 - [Moving a business here from another CRM](#moving-a-business-here-from-another-crm)
 - [Support and the admin side](#support-and-the-admin-side)
 - [Push notifications: Expo](#push-notifications-expo)
+- [The phone app: builds and the stores](#the-phone-app-builds-and-the-stores)
 - [Local development](#local-development)
 - [Going live, and when something goes wrong](#going-live-and-when-something-goes-wrong)
 
@@ -8043,6 +8044,127 @@ About 15 minutes after each push, the worker asks Expo what Apple and Google sai
 1. Create a new token for the robot user (Expo Part 1, step 4).
 2. Import it on the worker (Expo Part 2). The worker restarts with it.
 3. Revoke the old token in Expo.
+
+## The phone app: builds and the stores
+
+The phone app is built by **EAS**, Expo's build service, never on your Mac. A build is made from a commit, carries the addresses of HandsFreeOS's servers baked into it, and goes to TestFlight or to Play's internal testing track. Nothing here is public until you promote it.
+
+This section is about the hosted side: the settings a build carries, how to make one, and what goes wrong. The store listings themselves — the text, icons, screenshots, privacy answers, age rating and the demo business a reviewer signs into — live in `apps/mobile/store/`, with [`release-checklist.md`](../apps/mobile/store/release-checklist.md) as their running order. Push credentials are in "Push notifications: Expo".
+
+### Before you start
+
+You need:
+
+- The Expo organization for Go Biz Help, with you signed in. `eas-cli` isn't installed in this repository, so every command below runs through `npx`, which fetches it:
+
+  ```bash
+  npx --yes eas-cli@latest whoami
+  ```
+
+  You should see `gobizhelp`.
+
+- The API, the web app and the sync service already live, because a build points at them: Fly Parts 1 to 10, "The web app on Vercel", and Sync Parts 1 to 9. A build made before the sync service exists opens and signs in, then shows nothing — the phone reads every record from its own copy, which only the sync service fills.
+- The Apple and Google developer accounts, and the rest of what [`release-checklist.md`](../apps/mobile/store/release-checklist.md) lists.
+
+### What a build carries: the `EXPO_PUBLIC_` settings
+
+Metro, which packages the app, replaces every `process.env.EXPO_PUBLIC_…` it can see with the value that was set **when the build ran**, and writes the result into the bundle. There is no configuration file on the phone and nothing is fetched at startup: a build points where it pointed the day it was made, for good.
+
+| Name                                   | Required                                | What it is                                                 | Its value                                             |
+| -------------------------------------- | --------------------------------------- | ---------------------------------------------------------- | ----------------------------------------------------- |
+| `EXPO_PUBLIC_SUPABASE_URL`             | Yes                                     | Supabase, for signing in                                   | `https://ybupfghakoszfcxhyrby.supabase.co`            |
+| `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Yes                                     | That project's publishable key                             | The `sb_publishable_…` key from the Supabase dashboard |
+| `EXPO_PUBLIC_API_URL`                  | Yes                                     | The API, which every change the phone makes goes to        | `https://api.handsfreeos.com`                          |
+| `EXPO_PUBLIC_SYNC_URL`                 | Yes                                     | The sync service, which fills the phone's copy             | `https://sync.handsfreeos.com`                         |
+| `EXPO_PUBLIC_WEB_URL`                  | No, but set it                          | The web app, for the pages the phone links out to          | `https://app.handsfreeos.com` (also the default)       |
+| `EXPO_PUBLIC_WORKER_URL`               | No                                      | Test builds only: the stand-in push service's test routes  | Leave unset                                            |
+| `EXPO_PUBLIC_PASSKEYS_ENABLED`         | No                                      | Shows passkey sign-in                                      | Leave unset until passkeys work                        |
+| `EXPO_PUBLIC_E2E`                      | No                                      | Builds for the Maestro flows                               | Leave unset                                            |
+
+The first four are the ones `isConfigured()` checks (`apps/mobile/src/lib/config.ts`). With any one of them empty the app opens on **"This build isn't connected"** and goes no further. Every one of these ends up readable inside the app on anyone's phone, so a secret must never be among them — that is what `EXPO_PUBLIC_` means.
+
+**They live in EAS, not in this repository.** `apps/mobile/.env.local` is for your Mac and is git-ignored, and `eas.json` sets `requireCommit: true`, so a build only ever sees committed files. Local values therefore cannot reach a build, by design. Each profile in `eas.json` names the EAS environment it reads with `"environment"`: `production` and `preview` both point at the live servers; `development` is for builds that talk to your Mac.
+
+### Phone Part 1: Put the five settings in EAS
+
+Do this once. They stay until you change them, and every later build picks them up.
+
+1. Check what is there now, from `apps/mobile`:
+
+   ```bash
+   npx --yes eas-cli@latest env:list production
+   ```
+
+   An empty list is what caused the "This build isn't connected" screen the first time. Note that `env:create` is deprecated and that `env:set` has no `--force`: it creates or updates either way.
+
+2. Set each one, in both environments at once. Repeat this for all five names in the table, changing `--name` and `--value`:
+
+   ```bash
+   npx --yes eas-cli@latest env:set --scope project --name EXPO_PUBLIC_API_URL --value "https://api.handsfreeos.com" --type string --visibility plaintext --environment production --environment preview --non-interactive
+   ```
+
+   You should see `✔ Created variable … on project @gobizhelp/handsfreeos.` each time.
+
+3. Read them back:
+
+   ```bash
+   npx --yes eas-cli@latest env:list production
+   ```
+
+   You should see all five, with the values from the table.
+
+`--visibility plaintext` is right for all of them: they are public by nature, and it is the only visibility EAS will also show you afterwards. Never set one to `secret` — the build can still read it, but you never can, and these are values you will want to check.
+
+### Phone Part 2: Make a build
+
+1. **Change into the app's own folder.** This matters more than it looks:
+
+   ```bash
+   cd ~/Projects/HandsFreeOS/apps/mobile
+   ```
+
+   Run `eas build` from the repository root instead and it does not fail — it decides the root is an unconfigured Expo app, writes a stub `eas.json` and `app.json` there, asks you for a bundle identifier, and only then stops on a missing `expo` package. Delete both files if that happens; neither belongs in the repository, and a later build that found them would use them.
+
+   Check too that you are not in `~/Projects/HandsFreeOS-build` or another worktree. `git worktree list` shows them, and one of them sits in detached HEAD on an old commit.
+
+2. Commit anything you want in the build. `requireCommit: true` means EAS builds a commit, not your working tree, so uncommitted work is simply absent from it.
+
+3. Build, and send it on in the same step:
+
+   ```bash
+   npx --yes eas-cli@latest build --profile production --platform ios --auto-submit
+   ```
+
+   You should see, early in the output and before the build is queued:
+
+   `Environment variables with visibility "Plain text" and "Sensitive" loaded from the "production" environment on EAS: EXPO_PUBLIC_API_URL, EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY, EXPO_PUBLIC_SUPABASE_URL, EXPO_PUBLIC_SYNC_URL, EXPO_PUBLIC_WEB_URL.`
+
+   **Read that line every time.** It is the only place a build tells you what it is about to bake in, and a missing name here is the "This build isn't connected" screen twenty minutes later. A build takes roughly seven minutes.
+
+4. For Android, the same with `--platform android`. It produces an `.aab` for Play's internal testing track. `--auto-submit` only works there once a Play service-account key exists; without one, upload the `.aab` by hand under **Testing → Internal testing → Create new release** (see [`release-checklist.md`](../apps/mobile/store/release-checklist.md), item 6).
+
+EAS keeps the build number itself — `appVersionSource` is `remote` and both profiles set `autoIncrement` — so nothing in `app.json` needs touching between builds. `version` (`1.0.0`) is the one a customer sees and the one you edit by hand.
+
+### Phone Part 3: Builds started from GitHub
+
+Optional, and only worth it if you would rather not build from your Mac. EAS can build from a commit on GitHub instead.
+
+1. Open the project's GitHub settings: `https://expo.dev/accounts/gobizhelp/projects/handsfreeos/github`.
+2. Install the Expo GitHub App, then link `gobizhelp/handsfreeos`. You need Owner or Admin on the Expo account.
+3. Set **Base directory** to `apps/mobile`. Without it the build looks for the app in the repository root and finds a monorepo.
+
+Each profile you build this way also needs an `image` in `eas.json` — `preview` and `production` have `"image": "latest"` for both platforms. Leave it out and there is no error message: the build simply never dispatches.
+
+A GitHub build reads the commit **as GitHub has it**, so push first. It is an easy way to build yesterday's code by accident.
+
+### When something goes wrong with a build
+
+- **The app opens on "This build isn't connected":** one of the first four settings was empty when the build ran. `npx --yes eas-cli@latest env:list production` shows what EAS holds now; fix it and build again. The build on the phone cannot be repaired — the values are inside it.
+- **It signs in, but every screen is empty:** the app is connected but the sync service isn't answering. Check `curl -fsS https://sync.handsfreeos.com/probes/liveness` and "When the sync service needs attention".
+- **`eas build` asks for a bundle identifier, or says "EAS project not configured":** you are in the wrong folder. See Phone Part 2, step 1, and delete any `eas.json` or `app.json` it wrote where it shouldn't have.
+- **A GitHub build never starts:** the profile has no `image`, the base directory isn't `apps/mobile`, or the commit isn't pushed.
+- **EAS refuses to build a dirty tree:** that is `requireCommit`, and it is on purpose. Commit, or stash.
+- **Settings → Notifications on the phone says "Not in this build":** that is push, not these settings. See "Push notifications: Expo", Part 4.
 
 ## Local development
 
