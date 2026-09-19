@@ -6057,6 +6057,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/queries/call.log": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Calls newest first: all of them, the ones nobody answered, or the ones that left a voicemail.
+         * @description Requires inbox.use.
+         */
+        post: operations["query_call_log"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/queries/chat_widget.get": {
         parameters: {
             query?: never;
@@ -22720,6 +22740,68 @@ export interface operations {
                             id: string;
                             slug: string;
                         } | null;
+                    };
+                };
+            };
+        };
+    };
+    query_call_log: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    cursor?: string;
+                    /**
+                     * @default all
+                     * @enum {string}
+                     */
+                    filter?: "all" | "missed" | "voicemail";
+                    /** @default 50 */
+                    limit?: number;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: {
+                            answeredBy: {
+                                fullName: string;
+                                /** Format: uuid */
+                                id: string;
+                            } | null;
+                            answeredVia: ("browser" | "forwarding" | "bridge") | null;
+                            conversationId: string | null;
+                            counterpart: string;
+                            /** @enum {string} */
+                            direction: "inbound" | "outbound";
+                            durationSeconds: number | null;
+                            /** Format: uuid */
+                            id: string;
+                            isVoicemail: boolean;
+                            /** Format: date-time */
+                            occurredAt: string;
+                            personId: string | null;
+                            recordingPath: string | null;
+                            recordingSeconds: number | null;
+                            status: string;
+                            transcript: string | null;
+                            transcriptStatus: ("pending" | "completed" | "failed") | null;
+                            who: string;
+                        }[];
+                        nextCursor: string | null;
                     };
                 };
             };

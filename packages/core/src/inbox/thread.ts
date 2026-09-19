@@ -139,6 +139,9 @@ export const THREAD_WORDS = {
   sendingNow: 'You · now · Sending…',
   voicemail: 'Missed call · left a voicemail',
   transcribed: 'Transcribed automatically, so it may contain mistakes.',
+  /** A recorded call's words open rather than filling the thread: they can run to thousands of them. */
+  showRecord: 'Recording and transcript',
+  hideRecord: 'Hide',
   /**
    * What a voicemail with nothing to play or read says. Before this the card simply showed less, so a recording
    * that never reached us and one that arrived silent looked exactly the same — and looked like a bug.

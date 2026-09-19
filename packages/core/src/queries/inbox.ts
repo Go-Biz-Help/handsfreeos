@@ -19,6 +19,8 @@ import {
   workspaceMessaging,
 } from '../messaging/store';
 import {
+  CallLogInput,
+  CallLogOutput,
   ConversationGetInput,
   ConversationGetOutput,
   InboxListInput,
@@ -591,5 +593,97 @@ export const messageGet = defineQuery({
     );
     if (!row) throw HfosError.notFound('Message not found.');
     return { message: threadItem(row), conversationId: row.conversation_id };
+  },
+});
+
+/**
+ * The call log: every call the business made or took, newest first, apart from the conversation it belongs to.
+ *
+ * The thread shows a call where it happened, which is right when you are reading one conversation and no use at
+ * all when the question is "who rang this morning". `missed` is the one that gets looked at: an inbound call
+ * nobody answered, whether or not they left anything.
+ */
+export const callLog = defineQuery({
+  name: 'call.log',
+  description:
+    'Calls newest first: all of them, the ones nobody answered, or the ones that left a voicemail.',
+  input: CallLogInput,
+  output: CallLogOutput,
+  permission: 'inbox.use',
+  scope: inWorkspace,
+  async handler(ctx, input) {
+    const cursor = decodeCursor(input.cursor);
+    const filter =
+      input.filter === 'missed'
+        ? sql`and c.direction = 'inbound' and c.answered_at is null`
+        : input.filter === 'voicemail'
+          ? sql`and c.is_voicemail`
+          : sql``;
+    const list = await rows<{
+      id: string;
+      conversation_id: string | null;
+      person_id: string | null;
+      first_name: string | null;
+      last_name: string | null;
+      counterpart: string;
+      direction: 'inbound' | 'outbound';
+      status: string;
+      started_at: Date;
+      duration_seconds: number | null;
+      is_voicemail: boolean;
+      answered_via: 'browser' | 'forwarding' | 'bridge' | null;
+      answered_by: string | null;
+      answered_name: string | null;
+      recording_path: string | null;
+      recording_seconds: number | null;
+      transcript: string | null;
+      transcript_status: 'pending' | 'completed' | 'failed' | null;
+      sort_key: string;
+    }>(
+      ctx.tx,
+      sql`select c.id, c.conversation_id, c.person_id, p.first_name, p.last_name,
+            case when c.direction = 'inbound' then c.from_e164 else c.to_e164 end as counterpart,
+            c.direction::text as direction, c.status::text as status, c.started_at,
+            c.duration_seconds, c.is_voicemail, c.answered_via::text as answered_via,
+            c.answered_by_user_id as answered_by,
+            coalesce(nullif(au.full_name, ''), au.email::text) as answered_name,
+            c.recording_object_path as recording_path, c.recording_seconds,
+            c.transcript, c.transcript_status::text as transcript_status,
+            ${SORT_KEY(sql`c.started_at`)} as sort_key
+          from app.calls c
+          left join app.people p on p.id = c.person_id
+          left join app.users au on au.id = c.answered_by_user_id
+          where c.workspace_id = ${input.workspaceId}
+          ${filter}
+          ${cursor ? sql`and (${SORT_KEY(sql`c.started_at`)}, c.id) < (${cursor.sort}, ${cursor.id}::uuid)` : sql``}
+          order by c.started_at desc, c.id desc
+          limit ${input.limit + 1}`,
+    );
+    const result = page(list, input.limit, (r) => ({ sort: r.sort_key, id: r.id }));
+    return {
+      items: result.items.map((r) => ({
+        id: r.id,
+        conversationId: r.conversation_id,
+        personId: r.person_id,
+        who:
+          fullName(r.first_name ?? '', r.last_name ?? '') ||
+          (r.counterpart.startsWith('+') ? formatPhone(r.counterpart) : r.counterpart),
+        counterpart: r.counterpart,
+        direction: r.direction,
+        status: r.status,
+        occurredAt: new Date(r.started_at).toISOString(),
+        durationSeconds: r.duration_seconds,
+        isVoicemail: !!r.is_voicemail,
+        answeredVia: r.answered_via,
+        answeredBy: r.answered_by
+          ? { id: r.answered_by, fullName: r.answered_name ?? 'Former member' }
+          : null,
+        recordingPath: r.recording_path,
+        recordingSeconds: r.recording_seconds,
+        transcript: r.transcript,
+        transcriptStatus: r.transcript_status,
+      })),
+      nextCursor: result.nextCursor,
+    };
   },
 });

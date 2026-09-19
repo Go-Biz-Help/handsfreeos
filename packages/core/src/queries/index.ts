@@ -39,7 +39,14 @@ import {
   importList,
   tagList,
 } from './crm-misc';
-import { conversationGet, conversationThread, inboxList, inboxSummary, messageGet } from './inbox';
+import {
+  callLog,
+  conversationGet,
+  conversationThread,
+  inboxList,
+  inboxSummary,
+  messageGet,
+} from './inbox';
 import { emailSetupStatus, emailSuppressionList, emailUnmatchedList } from './email';
 import { emailComposeOptions } from './email-compose';
 import { invitationPreview } from './invitation.preview';
@@ -99,6 +106,7 @@ export {
   userPhoneGet,
   conversationGet,
   conversationThread,
+  callLog,
   inboxList,
   inboxSummary,
   messageGet,
@@ -179,6 +187,7 @@ export const queries: readonly QueryDef[] = [
   crmMetrics,
   intakeList,
   phoneSetupStatus,
+  callLog,
   inboxList,
   inboxSummary,
   conversationGet,

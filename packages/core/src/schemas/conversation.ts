@@ -193,3 +193,34 @@ export const ConversationLinkPersonOutput = z.object({
   personId: uuid,
   phoneAdded: z.boolean(),
 });
+
+/** The call log: every call, or only the ones nobody took, or only the ones that left a voicemail. */
+export const callLogFilter = z.enum(['all', 'missed', 'voicemail']);
+export const CallLogInput = ListInput.extend({
+  workspaceId: uuid,
+  filter: callLogFilter.default('all'),
+});
+export const CallLogItem = z.object({
+  id: uuid,
+  conversationId: uuid.nullable(),
+  personId: uuid.nullable(),
+  /** The customer's name once somebody has linked the number, else the number itself. */
+  who: z.string(),
+  counterpart: z.string(),
+  direction: messageDirection,
+  status: z.string(),
+  occurredAt: isoDateTime,
+  durationSeconds: z.number().int().nullable(),
+  isVoicemail: z.boolean(),
+  answeredVia: z.enum(['browser', 'forwarding', 'bridge']).nullable(),
+  answeredBy: UserRef,
+  /** The stored recording (telephony bucket), for the player. Null when none reached us. */
+  recordingPath: z.string().nullable(),
+  recordingSeconds: z.number().int().nullable(),
+  transcript: z.string().nullable(),
+  transcriptStatus: z.enum(['pending', 'completed', 'failed']).nullable(),
+});
+export const CallLogOutput = z.object({
+  items: z.array(CallLogItem),
+  nextCursor: z.string().nullable(),
+});
