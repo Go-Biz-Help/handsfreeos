@@ -1,4 +1,5 @@
 import type { QueryDef } from '../kernel/types';
+import { formQueries } from './form';
 import { platformQueries } from './platform';
 import { supportQueries } from './support';
 import { accountDeletionCheck, pushDeviceList, userPhoneGet } from './account';
@@ -143,6 +144,7 @@ export {
 export { emailComposeOptions };
 
 export const queries: readonly QueryDef[] = [
+  ...formQueries,
   ...migrationQueries,
   ...supportQueries,
   ...platformQueries,
@@ -282,6 +284,7 @@ export {
   aiTeammateActivity,
 };
 
+export * from './form';
 export * from './migration';
 export * from './support';
 export * from './platform';
