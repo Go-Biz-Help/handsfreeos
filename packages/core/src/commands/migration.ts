@@ -132,10 +132,22 @@ async function loadMigrationFor(
 ): Promise<LoadedMigration> {
   const m = await loadMigration(ctx, migrationId);
   if (access.onlyWorkspaceId) {
+    // Either this business holds a sub-account of the migration, or it made the connection the migration
+    // runs on and nothing has been discovered yet. Without the second half, the first scan of a business's
+    // own source is refused by the work that scan has not done yet: the scope rows come from the discovery
+    // pass, so "connect, start, look" ended at "That migration isn't there" (0070). The same two halves are
+    // the database's answer in `private.migration_reaches_my_workspace`, and they have to agree.
     const [reaches] = await rows<{ ok: boolean }>(
       ctx.tx,
-      sql`select true as ok from app.migration_scopes
-          where migration_id = ${m.id} and workspace_id = ${access.onlyWorkspaceId} limit 1`,
+      sql`select true as ok
+            from app.migrations m
+            join app.migration_connections c on c.id = m.connection_id
+           where m.id = ${m.id}
+             and (c.workspace_id = ${access.onlyWorkspaceId}
+                  or exists (select 1 from app.migration_scopes s
+                              where s.migration_id = m.id
+                                and s.workspace_id = ${access.onlyWorkspaceId}))
+           limit 1`,
     );
     if (!reaches) throw HfosError.notFound(MIGRATION_NOT_YOURS);
   }

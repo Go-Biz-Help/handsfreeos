@@ -311,9 +311,13 @@ export function StartMigrationButton({
           },
         }),
       );
-      await apiBrowser().POST('/v1/commands/migration.scan', {
-        body: { organizationId, workspaceId, migrationId: created.migrationId },
-      });
+      // Checked, not fired and forgotten. Unchecked, a refused scan left the migration sitting at
+      // "connected" while this said it had started looking, and the only way to find out was the database.
+      unwrap(
+        await apiBrowser().POST('/v1/commands/migration.scan', {
+          body: { organizationId, workspaceId, migrationId: created.migrationId },
+        }),
+      );
       toast.success('Looking at the old system. This only reads — nothing moves yet.');
       router.push(
         workspaceId

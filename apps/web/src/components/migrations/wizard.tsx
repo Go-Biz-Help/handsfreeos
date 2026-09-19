@@ -208,6 +208,18 @@ function MapScopes({
     }
   }
 
+  // Nothing has been found yet, so there is nothing to point anywhere. That happens when the look has not
+  // been done — or did not finish — and an empty list with a Save button under it is a dead end rather than
+  // an answer. So the offer is the one thing worth doing here: look again.
+  if (detail.scopes.length === 0)
+    return (
+      <LookAgain
+        organizationId={organizationId}
+        workspaceId={workspaceId}
+        migrationId={detail.migration.id}
+      />
+    );
+
   return (
     <Card className="p-5" data-testid="migration-map">
       <h2 className="text-base font-semibold">Where each one lands</h2>
@@ -230,6 +242,57 @@ function MapScopes({
       <div className="mt-4 flex justify-end">
         <Button onClick={save} loading={busy} data-testid="migration-map-save">
           Save and choose what to bring
+          <ArrowRight className="h-4 w-4" strokeWidth={1.75} />
+        </Button>
+      </div>
+    </Card>
+  );
+}
+
+/**
+ * A migration with nothing found in it yet. Read-only, like every look: it counts what is there and writes
+ * nothing to the business, so pressing it again is always safe.
+ */
+function LookAgain({
+  organizationId,
+  workspaceId,
+  migrationId,
+}: {
+  organizationId: string;
+  workspaceId?: string;
+  migrationId: string;
+}) {
+  const router = useRouter();
+  const [busy, setBusy] = useState(false);
+
+  async function look() {
+    setBusy(true);
+    try {
+      unwrap(
+        await apiBrowser().POST('/v1/commands/migration.scan', {
+          body: { organizationId, workspaceId, migrationId },
+        }),
+      );
+      toast.success('Looking at the old system. This only reads — nothing moves yet.');
+      router.refresh();
+    } catch (err) {
+      toast.error(errorMessage(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Card className="p-5" data-testid="migration-look-again">
+      <h2 className="text-base font-semibold">Nothing found in the old system yet</h2>
+      <p className="mt-1 text-[13px] text-text-2">
+        We haven&apos;t counted what&apos;s in there — or the last look didn&apos;t finish. Looking
+        only reads: it counts what is there and changes nothing, in the old system or here, so it is
+        always safe to press again.
+      </p>
+      <div className="mt-4 flex justify-end">
+        <Button onClick={look} loading={busy} data-testid="migration-look-again-go">
+          Look at the old system
           <ArrowRight className="h-4 w-4" strokeWidth={1.75} />
         </Button>
       </div>
