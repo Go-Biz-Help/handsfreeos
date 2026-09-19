@@ -3677,6 +3677,13 @@ export const migrationJobs = app.table('migration_jobs', {
   state: migrationJobState('state').notNull().default('pending'),
   /** Lower runs first: the pass number from core's dependency graph. */
   pass: integer('pass').notNull().default(0),
+  /**
+   * The order this batch was made in. Breaks the tie between batches due at the same moment, so two runs
+   * of one migration read in the same order — which decides answers, not just tidiness.
+   */
+  sequence: bigint('sequence', { mode: 'number' })
+    .notNull()
+    .default(sql`nextval('app.migration_jobs_sequence_seq')`),
   input: jsonb('input').$type<Json>().notNull().default({}),
   result: jsonb('result').$type<Json>().notNull().default({}),
   runAt: ts('run_at').notNull().defaultNow(),
