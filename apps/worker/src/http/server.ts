@@ -79,8 +79,13 @@ function twilioWebhook(
   });
 }
 
+/**
+ * Strict on purpose. A filter this endpoint does not recognise is one a newer web app is asking for and this
+ * worker has not been deployed to honour yet; stripping it quietly answers a question nobody asked, which is
+ * how the city filter appeared to fail in production on 2026-09-19. Better a plain 400 than a wrong list.
+ */
 const AvailableNumbersInput = z
-  .object({
+  .strictObject({
     workspaceId: z.uuid(),
     numberType: z.enum(['local', 'toll_free']),
     areaCode: z
