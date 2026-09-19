@@ -177,6 +177,62 @@ const billed = (
   },
 });
 
+/** A quote, and what the customer did about it. */
+const quoted = (
+  id: string,
+  contactId: string,
+  number: string,
+  status: string,
+  total: number,
+  issued: string,
+  extra: Record<string, unknown> = {},
+): FakeRecord => ({
+  objectType: 'estimate',
+  objectId: id,
+  createdAt: issued,
+  updatedAt: issued,
+  payload: {
+    _id: id,
+    estimateNumber: number,
+    title: 'Quote',
+    status,
+    currency: 'USD',
+    total,
+    subtotal: total,
+    issueDate: issued,
+    contactDetails: { id: contactId },
+    estimateItems: [{ name: 'Replacement coil', qty: 1, amount: total }],
+    ...extra,
+  },
+});
+
+/** A customer on a recurring plan, billed by the old system's own processor. */
+const onPlan = (
+  id: string,
+  contactId: string,
+  name: string,
+  dollars: number,
+  status: string,
+  started: string,
+): FakeRecord => ({
+  objectType: 'subscription',
+  objectId: id,
+  createdAt: started,
+  updatedAt: started,
+  payload: {
+    _id: id,
+    subscriptionId: id,
+    name,
+    amount: dollars,
+    interval: 'monthly',
+    intervalCount: 1,
+    status,
+    startDate: started,
+    nextChargeDate: new Date(Date.now() + 20 * 24 * 60 * 60 * 1000).toISOString(),
+    contactDetails: { id: contactId },
+  },
+});
+
 /** Something still to do for a customer, the way GoHighLevel keeps it: on the customer. */
 const todo = (
   id: string,
@@ -495,6 +551,16 @@ const AUSTIN_RECORDS: readonly FakeRecord[] = [
     { currency: 'CAD' },
   ),
 
+  // Accepted years ago, and one still out — the one that must not be nudged from here.
+  quoted('est_a1', 'con_a1', 'EST-204', 'accepted', 850, '2023-08-01T10:00:00.000Z', {
+    acceptedBy: 'Dave Smith',
+  }),
+  quoted('est_a2', 'con_a5', 'EST-311', 'sent', 1250, '2024-05-02T10:00:00.000Z'),
+
+  // A plan still charging at the old system's processor, and one that was cancelled.
+  onPlan('sub_a1', 'con_a2', 'Maintenance plan', 29, 'active', '2021-03-20T10:00:00.000Z'),
+  onPlan('sub_a2', 'con_a4', 'Filter club', 12, 'cancelled', '2022-01-10T10:00:00.000Z'),
+
   // ---------- what people wrote down, and what is still to do ----------
   todo('tsk_a1', 'con_a1', 'Order the replacement coil', '2024-03-04T09:00:00.000Z', {
     dueDate: '2024-03-08T17:00:00.000Z',
@@ -750,6 +816,8 @@ const RECORDS: Record<string, readonly FakeRecord[]> = {
 const CATEGORY_TYPE: Record<string, string> = {
   products: 'product',
   invoices: 'invoice',
+  estimates: 'estimate',
+  subscriptions: 'subscription',
   tasks: 'task',
   calendars: 'calendar',
   appointments: 'appointment',
@@ -769,8 +837,6 @@ const CATEGORY_TYPE: Record<string, string> = {
 const COUNTS_ONLY: Record<string, number> = {
   forms: 4,
   form_submissions: 210,
-  estimates: 22,
-  subscriptions: 6,
   templates: 11,
   reviews: 37,
   media: 640,
@@ -790,6 +856,8 @@ const SCOPE_NAMES: Record<string, readonly string[]> = {
   companies: ['companies.readonly'],
   products: ['products.readonly'],
   invoices: ['invoices.readonly'],
+  estimates: ['invoices.readonly'],
+  subscriptions: ['payments/subscriptions.readonly'],
   tasks: ['contacts.readonly'],
   calendars: ['calendars.readonly'],
   appointments: ['calendars/events.readonly'],
@@ -1049,6 +1117,93 @@ export function createFakeSourceAdapter(): FakeSource {
       };
       const str = (v: unknown) => (typeof v === 'string' && v.trim() ? v.trim() : null);
       switch (record.objectType) {
+        case 'estimate': {
+          const items = Array.isArray(p['estimateItems'])
+            ? (p['estimateItems'] as Record<string, unknown>[])
+            : [];
+          const seen: Record<
+            string,
+            'draft' | 'sent' | 'accepted' | 'declined' | 'expired' | 'void'
+          > = {
+            accepted: 'accepted',
+            sent: 'sent',
+            declined: 'declined',
+          };
+          return [
+            {
+              ...base,
+              canonicalType: 'estimate',
+              category: 'estimates',
+              relationships: [
+                {
+                  category: 'contacts',
+                  objectType: 'contact',
+                  objectId:
+                    str((p['contactDetails'] as Record<string, unknown> | undefined)?.['id']) ?? '',
+                  role: 'contact',
+                  required: true,
+                },
+              ],
+              data: {
+                number: str(p['estimateNumber']),
+                title: str(p['title']),
+                notes: null,
+                status: seen[str(p['status']) ?? ''] ?? 'sent',
+                currency: 'USD',
+                subtotalCents: Math.round(Number(p['subtotal'] ?? 0) * 100),
+                discountCents: 0,
+                taxCents: 0,
+                totalCents: Math.round(Number(p['total'] ?? 0) * 100),
+                issuedAt: str(p['issueDate']),
+                expiresOn: null,
+                answeredAt:
+                  str(p['status']) === 'accepted' ? record.sourceUpdatedAt?.toISOString() : null,
+                acceptedName: str(p['acceptedBy']),
+                declinedReason: null,
+                lines: items.map((it) => ({
+                  name: str(it['name']) ?? 'Item',
+                  description: null,
+                  quantity: Number(it['qty'] ?? 1),
+                  unitLabel: 'each',
+                  unitPriceCents: Math.round(Number(it['amount'] ?? 0) * 100),
+                  taxable: true,
+                })),
+              },
+            },
+          ];
+        }
+        case 'subscription':
+          return [
+            {
+              ...base,
+              canonicalType: 'subscription',
+              category: 'subscriptions',
+              relationships: [
+                {
+                  category: 'contacts',
+                  objectType: 'contact',
+                  objectId:
+                    str((p['contactDetails'] as Record<string, unknown> | undefined)?.['id']) ?? '',
+                  role: 'contact',
+                  required: true,
+                },
+              ],
+              data: {
+                planName: str(p['name']) ?? 'Plan',
+                priceCents: Math.round(Number(p['amount'] ?? 0) * 100),
+                interval: 'month',
+                intervalCount: 1,
+                status: str(p['status']) === 'cancelled' ? 'cancelled' : 'active',
+                startedOn: str(p['startDate'])?.slice(0, 10) ?? null,
+                currentPeriodStart: null,
+                currentPeriodEnd: null,
+                nextBillingOn: str(p['nextChargeDate'])?.slice(0, 10) ?? null,
+                cancelledAt:
+                  str(p['status']) === 'cancelled' ? record.sourceUpdatedAt?.toISOString() : null,
+                externalId: record.objectId,
+              },
+            },
+          ];
         case 'product': {
           const prices = Array.isArray(p['prices'])
             ? (p['prices'] as Record<string, unknown>[])

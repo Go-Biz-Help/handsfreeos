@@ -1399,6 +1399,10 @@ export function createGoHighLevelAdapter(config: GoHighLevelConfig): CrmSourceAd
           return [productEnvelope(record, context)];
         case 'invoice':
           return [invoiceEnvelope(record, context)];
+        case 'estimate':
+          return [estimateEnvelope(record, context)];
+        case 'subscription':
+          return [subscriptionEnvelope(record, context)];
         case 'task':
           return [taskEnvelope(record, context)];
         case 'note':
@@ -1857,6 +1861,198 @@ function invoiceEnvelope(record: SourceRecord, context: MappingContext): Canonic
       'altId',
       'locationId',
       'updatedAt',
+    ]),
+    [],
+    contactId
+      ? [
+          {
+            category: 'contacts',
+            objectType: 'contact',
+            objectId: contactId,
+            role: 'contact',
+            required: true,
+          },
+        ]
+      : [],
+  );
+}
+
+const ESTIMATE_STATUS: Readonly<
+  Record<string, 'draft' | 'sent' | 'accepted' | 'declined' | 'expired' | 'void'>
+> = {
+  draft: 'draft',
+  sent: 'sent',
+  accepted: 'accepted',
+  declined: 'declined',
+  rejected: 'declined',
+  expired: 'expired',
+  invalid: 'void',
+  void: 'void',
+};
+
+function estimateEnvelope(record: SourceRecord, context: MappingContext): CanonicalEnvelope {
+  const p = record.payload;
+  const rawStatus = (asString(p['status']) ?? '').toLowerCase();
+  const status = ESTIMATE_STATUS[rawStatus] ?? 'sent';
+  const items = Array.isArray(p['estimateItems'] ?? p['invoiceItems'])
+    ? ((p['estimateItems'] ?? p['invoiceItems']) as Record<string, unknown>[])
+    : [];
+  const contactId =
+    asString((p['contactDetails'] as Record<string, unknown> | undefined)?.['id']) ??
+    asString(p['contactId']);
+  return envelopeOf(
+    record,
+    context,
+    'estimate',
+    'estimates',
+    {
+      number: asString(p['estimateNumber'] ?? p['number'])?.slice(0, 40) ?? null,
+      title: asString(p['title'] ?? p['name'])?.slice(0, 200) ?? null,
+      notes: asString(p['termsNotes'])?.slice(0, 5000) ?? null,
+      status,
+      currency: (asString(p['currency']) ?? 'USD').toUpperCase().slice(0, 3),
+      subtotalCents: cents(p['subtotal'] ?? p['total']),
+      discountCents: cents((p['discount'] as Record<string, unknown> | undefined)?.['value']),
+      taxCents: cents(p['taxSum'] ?? p['totalTax']),
+      totalCents: cents(p['total']),
+      issuedAt:
+        asDate(p['issueDate'] ?? p['sentAt'])?.toISOString() ??
+        record.sourceCreatedAt?.toISOString() ??
+        null,
+      expiresOn:
+        asDate(p['expiryDate'] ?? p['expiresOn'])
+          ?.toISOString()
+          .slice(0, 10) ?? null,
+      answeredAt:
+        status === 'accepted' || status === 'declined'
+          ? (asDate(p['updatedAt'])?.toISOString() ??
+            record.sourceUpdatedAt?.toISOString() ??
+            new Date().toISOString())
+          : null,
+      acceptedName: asString(p['acceptedBy'] ?? p['signedBy'])?.slice(0, 120) ?? null,
+      declinedReason: asString(p['declineReason'])?.slice(0, 1000) ?? null,
+      lines: items.slice(0, 200).map((it) => ({
+        name: (asString(it['name']) ?? 'Item').slice(0, 200),
+        description: asString(it['description'])?.slice(0, 2000) ?? null,
+        quantity: Math.max(0.001, Number(it['qty'] ?? it['quantity'] ?? 1) || 1),
+        unitLabel: 'each',
+        unitPriceCents: cents(it['amount'] ?? it['price']),
+        taxable: Array.isArray(it['taxes']) ? (it['taxes'] as unknown[]).length > 0 : true,
+      })),
+    },
+    leftovers(p, [
+      'id',
+      '_id',
+      'estimateNumber',
+      'number',
+      'title',
+      'name',
+      'status',
+      'currency',
+      'subtotal',
+      'discount',
+      'taxSum',
+      'totalTax',
+      'total',
+      'issueDate',
+      'sentAt',
+      'expiryDate',
+      'expiresOn',
+      'acceptedBy',
+      'signedBy',
+      'declineReason',
+      'termsNotes',
+      'estimateItems',
+      'invoiceItems',
+      'contactDetails',
+      'contactId',
+      'altId',
+      'locationId',
+      'updatedAt',
+    ]),
+    [],
+    contactId
+      ? [
+          {
+            category: 'contacts',
+            objectType: 'contact',
+            objectId: contactId,
+            role: 'contact',
+            required: true,
+          },
+        ]
+      : [],
+  );
+}
+
+const PLAN_INTERVAL: Readonly<Record<string, 'day' | 'week' | 'month' | 'year'>> = {
+  daily: 'day',
+  day: 'day',
+  weekly: 'week',
+  week: 'week',
+  monthly: 'month',
+  month: 'month',
+  yearly: 'year',
+  annually: 'year',
+  year: 'year',
+};
+
+function subscriptionEnvelope(record: SourceRecord, context: MappingContext): CanonicalEnvelope {
+  const p = record.payload;
+  const rawStatus = (asString(p['status']) ?? '').toLowerCase();
+  const status =
+    rawStatus === 'cancelled' || rawStatus === 'canceled'
+      ? 'cancelled'
+      : rawStatus === 'paused'
+        ? 'paused'
+        : rawStatus === 'past_due' || rawStatus === 'unpaid'
+          ? 'past_due'
+          : 'active';
+  const contactId =
+    asString((p['contactDetails'] as Record<string, unknown> | undefined)?.['id']) ??
+    asString(p['contactId']);
+  const day = (v: unknown) => asDate(v)?.toISOString().slice(0, 10) ?? null;
+  return envelopeOf(
+    record,
+    context,
+    'subscription',
+    'subscriptions',
+    {
+      planName: (asString(p['name'] ?? p['productName']) ?? 'Plan').slice(0, 160),
+      priceCents: cents(p['amount'] ?? p['price']),
+      interval: PLAN_INTERVAL[(asString(p['interval']) ?? 'month').toLowerCase()] ?? 'month',
+      intervalCount: Math.max(1, Math.min(36, Number(p['intervalCount'] ?? 1) || 1)),
+      status,
+      startedOn: day(p['startDate'] ?? p['createdAt']),
+      currentPeriodStart: day(p['currentPeriodStart']),
+      currentPeriodEnd: day(p['currentPeriodEnd']),
+      nextBillingOn: day(p['nextChargeDate'] ?? p['nextBillingDate']),
+      cancelledAt:
+        status === 'cancelled' ? (asDate(p['cancelledAt'])?.toISOString() ?? null) : null,
+      externalId: asString(p['subscriptionId'] ?? p['_id'] ?? p['id']),
+    },
+    leftovers(p, [
+      'id',
+      '_id',
+      'subscriptionId',
+      'name',
+      'productName',
+      'amount',
+      'price',
+      'interval',
+      'intervalCount',
+      'status',
+      'startDate',
+      'createdAt',
+      'currentPeriodStart',
+      'currentPeriodEnd',
+      'nextChargeDate',
+      'nextBillingDate',
+      'cancelledAt',
+      'contactDetails',
+      'contactId',
+      'altId',
+      'locationId',
     ]),
     [],
     contactId

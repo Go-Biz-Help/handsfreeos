@@ -130,6 +130,7 @@ beforeAll(async () => {
         'opportunities.readonly',
         'products.readonly',
         'invoices.readonly',
+        'payments/subscriptions.readonly',
         'calendars.readonly',
         'calendars/events.readonly',
         'conversations.readonly',
@@ -166,6 +167,8 @@ beforeAll(async () => {
       { category: 'tags', selected: true },
       { category: 'custom_fields', selected: true },
       { category: 'products', selected: true },
+      { category: 'estimates', selected: true },
+      { category: 'subscriptions', selected: true },
       { category: 'invoices', selected: true },
       { category: 'tasks', selected: true },
       { category: 'calendars', selected: true },
@@ -555,6 +558,61 @@ describe('the history arrives as history', () => {
     expect(got.findings.map((f) => f.code)).toContain('invoices.currency_unsupported');
   }, 60_000);
 
+  it('brings quotes as they were answered, and plans it will never charge', async () => {
+    const quotes = await rows<{
+      number: string | null;
+      status: string;
+      total_cents: string;
+      accepted_via: string | null;
+      accepted_name: string | null;
+      quiet: string | null;
+      lines: number;
+    }>(
+      admin(),
+      sql`select e.number, e.status::text as status, e.total_cents, e.accepted_via, e.accepted_name,
+            e.reminder_state ->> 'imported' as quiet,
+            (select count(*)::int from app.estimate_lines l where l.estimate_id = e.id) as lines
+          from app.estimates e where e.workspace_id = ${workspaceId}::uuid order by e.created_at`,
+    );
+    expect(quotes.map((q) => q.number)).toEqual(['EST-204', 'EST-311']);
+    const accepted = quotes[0]!;
+    expect(accepted.status).toBe('accepted');
+    expect(Number(accepted.total_cents)).toBe(85_000);
+    expect(accepted.lines).toBe(1);
+    // Recorded as a yes somebody took, not as an Accept button that was never pressed here.
+    expect(accepted.accepted_via).toBe('staff');
+    expect(accepted.accepted_name).toBe('Dave Smith');
+    // The one still out is quiet, so it is never nudged from here while the old system still does.
+    expect(quotes[1]!.status).toBe('sent');
+    expect(quotes.every((q) => q.quiet === 'quiet')).toBe(true);
+
+    const plans = await rows<{
+      plan_name: string;
+      status: string;
+      price_cents: string;
+      next_billing_on: string | null;
+      external: string | null;
+    }>(
+      admin(),
+      sql`select plan_name, status::text as status, price_cents, next_billing_on::text as next_billing_on,
+            external_subscription_id as external
+          from app.subscriptions where workspace_id = ${workspaceId}::uuid order by created_at`,
+    );
+    expect(plans.map((p) => p.plan_name)).toEqual(['Maintenance plan', 'Filter club']);
+    // Still running over there: recorded as not managed here, which is what stops anything charging it.
+    expect(plans[0]).toMatchObject({ status: 'unmanaged' });
+    expect(Number(plans[0]!.price_cents)).toBe(2_900);
+    expect(plans[0]!.external).toBe('sub_a1');
+    expect(plans[1]!.status).toBe('cancelled');
+
+    const got = await ask<{ findings: { code: string; recommendedAction: string | null }[] }>(
+      migrationGet,
+      { organizationId, migrationId },
+    );
+    const said = got.findings.find((f) => f.code === 'subscriptions.billed_elsewhere');
+    expect(said?.recommendedAction).toContain('cancel it over there');
+  }, 60_000);
+
   it('never turns history into work', async () => {
     // Not one badge, not one waiting clock, and no AI teammate handed a five-year-old text.
     const list = await threads();
@@ -576,6 +634,15 @@ describe('the history arrives as history', () => {
           where workspace_id = ${workspaceId}::uuid and status in ('queued', 'sending')`,
     );
     expect(queued!.count).toBe(0);
+    // And nothing is queued to chase a bill or nudge a quote either: the money jobs see them as quiet.
+    const [moneyJobs] = await rows<{ count: number }>(
+      admin(),
+      sql`select count(*)::int as count from app.scheduled_jobs
+          where workspace_id = ${workspaceId}::uuid
+            and (kind::text like 'invoice%' or kind::text like 'estimate%'
+                 or kind::text like 'subscription%')`,
+    );
+    expect(moneyJobs!.count).toBe(0);
     // And the thread's own summary follows its newest message, as it would have if it happened here.
     const [dave] = list.filter((t) => t.counterpart === '+15125550101');
     expect(new Date(dave!.last_message_at!).getUTCFullYear()).toBe(2024);

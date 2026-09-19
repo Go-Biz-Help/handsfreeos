@@ -2696,6 +2696,11 @@ export const estimates = app.table('estimates', {
   voidedAt: ts('voided_at'),
   voidedBy: userRef('voided_by'),
   voidReason: text('void_reason'),
+  /**
+   * The worker's: which nudges have gone out, and whether this quote came from another CRM and is therefore
+   * never chased from here (`imported: 'quiet'`). Invoices have carried the same since M9.
+   */
+  reminderState: jsonb('reminder_state').$type<Json>().notNull().default({}),
   createdBy: userRef('created_by'),
   ...timestamps(),
   // Milestone 10

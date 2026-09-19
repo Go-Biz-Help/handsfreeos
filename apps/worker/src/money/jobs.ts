@@ -196,6 +196,8 @@ const openInvoice = (scope: TenantScope, only: string | null) => sql`
  * in what needs attention: the business sees everything, the customer hears nothing.
  */
 const notImported = sql`coalesce(i.reminder_state ->> 'imported', '') <> 'quiet'`;
+/** The same for an estimate: the nudge and the expiry warning are messages to the customer as well. */
+const notImportedEstimate = sql`coalesce(e.reminder_state ->> 'imported', '') <> 'quiet'`;
 
 /** An estimate that is out and unanswered. */
 const openEstimate = (scope: TenantScope, only: string | null) => sql`
@@ -285,7 +287,7 @@ export async function armEstimateExpiry(
           ${'money-expire:'}::text || e.id::text, greatest(now(), ${expiresAtSql(timeZone)}),
           jsonb_build_object('estimateId', e.id)
         from app.estimates e
-        where ${openEstimate(scope, only)} and e.expires_on is not null
+        where ${openEstimate(scope, only)} and ${notImportedEstimate} and e.expires_on is not null
         ${keepOne()}`,
   );
 }
@@ -312,6 +314,7 @@ export async function armEstimateNudge(
           jsonb_build_object('estimateId', e.id, 'key', ${ESTIMATE_NUDGE_KEY}::text)
         from app.estimates e
         where ${openEstimate(scope, only)}
+          and ${notImportedEstimate}
           and ${at} > ${notLongPast()}
           and (e.expires_on is null or ${at} < ${expiresAtSql(timeZone)})
           and not exists (select 1 from app.events ev

@@ -389,6 +389,49 @@ export const CanonicalInvoice = z.object({
 });
 export type CanonicalInvoice = z.infer<typeof CanonicalInvoice>;
 
+/** A quote, as it stood, and what the customer did about it. */
+export const CanonicalEstimate = z.object({
+  number: z.string().max(40).nullish(),
+  title: z.string().max(200).nullish(),
+  notes: z.string().max(5000).nullish(),
+  status: z.enum(['draft', 'sent', 'accepted', 'declined', 'expired', 'void']).default('sent'),
+  currency: z.string().length(3).default('USD'),
+  subtotalCents: z.number().int().min(0).max(100_000_000_000).default(0),
+  discountCents: z.number().int().min(0).max(100_000_000_000).default(0),
+  taxCents: z.number().int().min(0).max(100_000_000_000).default(0),
+  totalCents: z.number().int().min(0).max(100_000_000_000).default(0),
+  issuedAt: z.iso.datetime({ offset: true }).nullish(),
+  expiresOn: z.string().max(10).nullish(),
+  answeredAt: z.iso.datetime({ offset: true }).nullish(),
+  /** Who said yes, when the source recorded a name against the acceptance. */
+  acceptedName: z.string().max(120).nullish(),
+  declinedReason: z.string().max(1000).nullish(),
+  lines: z.array(CanonicalMoneyLine).max(200).default([]),
+});
+export type CanonicalEstimate = z.infer<typeof CanonicalEstimate>;
+
+/**
+ * A customer on a recurring plan.
+ *
+ * Brought across as a record of what they are on, never as something HandsFreeOS bills: the card and the
+ * mandate live at the old system's processor, and only the business moving them deliberately can change that.
+ */
+export const CanonicalSubscription = z.object({
+  planName: z.string().min(1).max(160),
+  priceCents: z.number().int().min(0).max(100_000_000_000).default(0),
+  interval: z.enum(['day', 'week', 'month', 'year']).default('month'),
+  intervalCount: z.number().int().min(1).max(36).default(1),
+  status: z.enum(['active', 'past_due', 'paused', 'cancelled']).default('active'),
+  startedOn: z.string().max(10).nullish(),
+  currentPeriodStart: z.string().max(10).nullish(),
+  currentPeriodEnd: z.string().max(10).nullish(),
+  nextBillingOn: z.string().max(10).nullish(),
+  cancelledAt: z.iso.datetime({ offset: true }).nullish(),
+  /** The processor's own id, kept so the two can be matched up when the business moves the billing. */
+  externalId: z.string().max(200).nullish(),
+});
+export type CanonicalSubscription = z.infer<typeof CanonicalSubscription>;
+
 export const CANONICAL_TYPES = {
   contact: CanonicalContact,
   company: CanonicalCompany,
@@ -406,6 +449,8 @@ export const CANONICAL_TYPES = {
   note: CanonicalNote,
   product: CanonicalProduct,
   invoice: CanonicalInvoice,
+  estimate: CanonicalEstimate,
+  subscription: CanonicalSubscription,
 } as const;
 export type CanonicalTypeName = keyof typeof CANONICAL_TYPES;
 

@@ -261,8 +261,7 @@ export const MIGRATION_CATEGORIES: readonly MigrationCategory[] = [
     dependsOn: ['contacts', 'products'],
     targetType: 'estimate',
     selection: 'category',
-    release: 'next',
-    releaseNote: 'Counted now, brought across in a later step.',
+    release: 'ready',
   }),
   c({
     id: 'subscriptions',
@@ -272,8 +271,7 @@ export const MIGRATION_CATEGORIES: readonly MigrationCategory[] = [
     dependsOn: ['contacts', 'products'],
     targetType: 'subscription',
     selection: 'category',
-    release: 'next',
-    releaseNote: 'Counted now, brought across in a later step.',
+    release: 'ready',
   }),
   c({
     id: 'messages',

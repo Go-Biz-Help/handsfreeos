@@ -2236,6 +2236,242 @@ export const importInvoice: Importer = async (tx, scope, envelope) => {
   return { counts: { imported: 1 } };
 };
 
+/**
+ * A quote, and what the customer did about it.
+ *
+ * Quiet like a bill, and for the same reason: the nudge a few days after it went out and the warning before it
+ * expires are both messages to the customer, and the old system is still sending its own. The estimate still
+ * expires, still shows as out, still reaches whoever is looking — only the messages stop.
+ */
+export const importEstimate: Importer = async (tx, scope, envelope) => {
+  const d = envelope.data as {
+    number?: string | null;
+    title?: string | null;
+    notes?: string | null;
+    status?: string;
+    currency?: string;
+    subtotalCents?: number;
+    discountCents?: number;
+    taxCents?: number;
+    totalCents?: number;
+    issuedAt?: string | null;
+    expiresOn?: string | null;
+    answeredAt?: string | null;
+    acceptedName?: string | null;
+    declinedReason?: string | null;
+    lines?: {
+      name: string;
+      description?: string | null;
+      quantity: number;
+      unitLabel: string;
+      unitPriceCents: number;
+      taxable: boolean;
+    }[];
+  };
+  const already = await existingMapping(
+    tx,
+    scope,
+    envelope.source.objectType,
+    envelope.source.objectId,
+  );
+  if (already) return { counts: { skipped: 1 } };
+
+  if ((d.currency ?? 'USD').toUpperCase() !== 'USD') {
+    await quarantine(tx, scope, {
+      category: 'estimates',
+      sourceObjectType: envelope.source.objectType,
+      sourceObjectId: envelope.source.objectId,
+      kind: 'mapping',
+      code: 'estimate_not_in_dollars',
+      message: `This quote is in ${(d.currency ?? '').toUpperCase()}, and HandsFreeOS holds US dollars today.`,
+      retryable: false,
+    });
+    return { counts: { failed: 1 } };
+  }
+
+  const contactRef = envelope.relationships.find((r) => r.role === 'contact');
+  const person = contactRef
+    ? await existingMapping(tx, scope, contactRef.objectType, contactRef.objectId)
+    : null;
+  if (person?.targetType !== 'person') {
+    await quarantine(tx, scope, {
+      category: 'estimates',
+      sourceObjectType: envelope.source.objectType,
+      sourceObjectId: envelope.source.objectId,
+      kind: 'dependency',
+      code: 'estimate_without_customer',
+      message: 'The customer this quote was for is not here.',
+      retryable: true,
+    });
+    return { counts: { failed: 1 } };
+  }
+
+  const status = d.status ?? 'sent';
+  const { createdAt, updatedAt } = sourceTimes(envelope);
+  const issuedAt = d.issuedAt ?? createdAt?.toISOString() ?? null;
+  const number = status === 'draft' ? null : (str(d.number)?.slice(0, 40) ?? null);
+  const sentAt = number ? (issuedAt ?? new Date().toISOString()) : null;
+  const answeredAt = d.answeredAt ?? updatedAt?.toISOString() ?? new Date().toISOString();
+  const id = randomUUID();
+  await tx.execute(sql`
+    insert into app.estimates (id, workspace_id, number, status, person_id, title, notes,
+      subtotal_cents, discount_cents, taxable_base_cents, tax_cents, total_cents, currency, expires_on,
+      sent_at, accepted_at, accepted_via, accepted_name, declined_at, declined_reason, voided_at,
+      reminder_state, created_at, updated_at)
+    values (${id}::uuid, ${scope.workspaceId}, ${number}, ${status}::app.estimate_status,
+      ${person.targetId}::uuid, ${str(d.title)}, ${str(d.notes)},
+      ${Math.max(0, Math.round(Number(d.subtotalCents ?? 0)))},
+      ${Math.max(0, Math.round(Number(d.discountCents ?? 0)))},
+      ${Math.max(0, Math.round(Number(d.subtotalCents ?? 0)))},
+      ${Math.max(0, Math.round(Number(d.taxCents ?? 0)))},
+      ${Math.max(0, Math.round(Number(d.totalCents ?? 0)))}, 'USD',
+      ${str(d.expiresOn)}::date, ${sentAt}::timestamptz,
+      -- Accepted over there, and recorded here as a yes somebody took rather than a signature we can show:
+      -- the Accept button and its typed name never happened in HandsFreeOS, so claiming they did would be a
+      -- lie in the one record a business would show a customer.
+      ${status === 'accepted' ? answeredAt : null}::timestamptz,
+      ${status === 'accepted' ? 'staff' : null},
+      ${status === 'accepted' ? (str(d.acceptedName)?.slice(0, 120) ?? 'Accepted in the old system') : null},
+      ${status === 'declined' ? answeredAt : null}::timestamptz,
+      ${status === 'declined' ? (str(d.declinedReason)?.slice(0, 1000) ?? 'Declined in the old system.') : null},
+      ${status === 'void' ? (updatedAt?.toISOString() ?? new Date().toISOString()) : null}::timestamptz,
+      ${JSON.stringify({ imported: 'quiet', from: scope.sourceSystem })}::jsonb,
+      coalesce(${createdAt?.toISOString() ?? null}::timestamptz, now()),
+      coalesce(${updatedAt?.toISOString() ?? null}::timestamptz, now()))`);
+
+  for (const [i, line] of (d.lines ?? []).slice(0, 200).entries()) {
+    const unit = Math.max(0, Math.round(Number(line.unitPriceCents ?? 0)));
+    const quantity = Math.max(0.001, Number(line.quantity ?? 1) || 1);
+    await tx.execute(sql`
+      insert into app.estimate_lines (workspace_id, estimate_id, position, name, description, quantity,
+        unit_label, unit_price_cents, taxable, amount_cents, created_at, updated_at)
+      values (${scope.workspaceId}, ${id}::uuid, ${i}, ${(str(line.name) ?? 'Item').slice(0, 200)},
+        ${str(line.description)}, ${quantity}, ${(str(line.unitLabel) ?? 'each').slice(0, 40)},
+        ${unit}, ${line.taxable !== false}, ${Math.round(unit * quantity)},
+        coalesce(${createdAt?.toISOString() ?? null}::timestamptz, now()),
+        coalesce(${updatedAt?.toISOString() ?? null}::timestamptz, now()))`);
+  }
+
+  await putMapping(tx, scope, {
+    sourceObjectType: envelope.source.objectType,
+    sourceObjectId: envelope.source.objectId,
+    targetType: 'estimate',
+    targetId: id,
+    createdHere: true,
+    checksum: envelope.source.payloadChecksum,
+  });
+  await journal(tx, scope, {
+    action: 'create',
+    targetType: 'estimate',
+    targetId: id,
+    sourceObjectType: envelope.source.objectType,
+    sourceObjectId: envelope.source.objectId,
+  });
+  return { counts: { imported: 1 } };
+};
+
+/**
+ * A customer's recurring plan, as a record of what they are on — and never as something HandsFreeOS bills.
+ *
+ * `unmanaged` is already the word for this in the schema: a plan still charging at a processor we do not
+ * drive. The cycle arming only ever looks at `active` and `past_due`, so an imported plan cannot raise an
+ * invoice or take a payment, which is the only acceptable behaviour when the card and the mandate live in
+ * somebody else's system. Moving the billing is a deliberate act, done later, by a person.
+ */
+export const importSubscription: Importer = async (tx, scope, envelope) => {
+  const d = envelope.data as {
+    planName?: string;
+    priceCents?: number;
+    interval?: string;
+    intervalCount?: number;
+    status?: string;
+    startedOn?: string | null;
+    currentPeriodStart?: string | null;
+    currentPeriodEnd?: string | null;
+    nextBillingOn?: string | null;
+    cancelledAt?: string | null;
+    externalId?: string | null;
+  };
+  const already = await existingMapping(
+    tx,
+    scope,
+    envelope.source.objectType,
+    envelope.source.objectId,
+  );
+  if (already) return { counts: { skipped: 1 } };
+
+  const contactRef = envelope.relationships.find((r) => r.role === 'contact');
+  const person = contactRef
+    ? await existingMapping(tx, scope, contactRef.objectType, contactRef.objectId)
+    : null;
+  if (person?.targetType !== 'person') {
+    await quarantine(tx, scope, {
+      category: 'subscriptions',
+      sourceObjectType: envelope.source.objectType,
+      sourceObjectId: envelope.source.objectId,
+      kind: 'dependency',
+      code: 'subscription_without_customer',
+      message: 'The customer on this plan is not here.',
+      retryable: true,
+    });
+    return { counts: { failed: 1 } };
+  }
+
+  const { createdAt, updatedAt } = sourceTimes(envelope);
+  const cancelled = d.status === 'cancelled';
+  const id = randomUUID();
+  await tx.execute(sql`
+    insert into app.subscriptions (id, workspace_id, plan_name, price_cents, currency, interval,
+      interval_count, person_id, external_subscription_id, status, started_on, current_period_start,
+      current_period_end, next_billing_on, cancelled_at, created_at, updated_at)
+    values (${id}::uuid, ${scope.workspaceId}, ${(str(d.planName) ?? 'Plan').slice(0, 160)},
+      ${Math.max(0, Math.round(Number(d.priceCents ?? 0)))}, 'USD',
+      ${d.interval ?? 'month'}::app.plan_interval,
+      ${Math.max(1, Math.min(36, Number(d.intervalCount ?? 1) || 1))}, ${person.targetId}::uuid,
+      ${str(d.externalId)?.slice(0, 200) ?? null},
+      -- Cancelled stays cancelled; anything still running is "not managed here", which is the truth: it is
+      -- billing at the old system's processor and nothing in HandsFreeOS will charge it.
+      ${cancelled ? 'cancelled' : 'unmanaged'}::app.subscription_status,
+      ${str(d.startedOn)}::date, ${str(d.currentPeriodStart)}::date, ${str(d.currentPeriodEnd)}::date,
+      ${cancelled ? null : (str(d.nextBillingOn) ?? null)}::date,
+      ${cancelled ? (d.cancelledAt ?? updatedAt?.toISOString() ?? new Date().toISOString()) : null}::timestamptz,
+      coalesce(${createdAt?.toISOString() ?? null}::timestamptz, now()),
+      coalesce(${updatedAt?.toISOString() ?? null}::timestamptz, now()))`);
+  if (!cancelled)
+    await finding(tx, scope, {
+      code: 'subscriptions.billed_elsewhere',
+      category: 'subscriptions',
+      capability: 'action_required',
+      severity: 'action',
+      summary:
+        'Your customers on recurring plans came across, and their money still moves where it does now.',
+      whatImports: 'Who is on what, at what price, and where they are in the cycle.',
+      whatChanges:
+        'The card and the agreement behind a plan live at the old system’s payment account, and nothing here can charge them — so these are marked "not managed here" and HandsFreeOS bills nobody.',
+      recommendedAction:
+        'When you are ready, set each plan up here and cancel it over there, so it is charged once and by one system.',
+      sourceCapability: 'subscriptions',
+      affected: 1,
+      detail: { plan: str(d.planName) ?? 'Plan' },
+    });
+  await putMapping(tx, scope, {
+    sourceObjectType: envelope.source.objectType,
+    sourceObjectId: envelope.source.objectId,
+    targetType: 'subscription',
+    targetId: id,
+    createdHere: true,
+    checksum: envelope.source.payloadChecksum,
+  });
+  await journal(tx, scope, {
+    action: 'create',
+    targetType: 'subscription',
+    targetId: id,
+    sourceObjectType: envelope.source.objectType,
+    sourceObjectId: envelope.source.objectId,
+  });
+  return { counts: { imported: 1 } };
+};
+
 /** Which importer reads which canonical type. Nothing else in the engine decides this. */
 export const IMPORTERS: Readonly<Record<string, Importer>> = {
   user_identity: importUser,
@@ -2254,6 +2490,8 @@ export const IMPORTERS: Readonly<Record<string, Importer>> = {
   note: importNote,
   product: importProduct,
   invoice: importInvoice,
+  estimate: importEstimate,
+  subscription: importSubscription,
 };
 
 export { AUTO_MERGE_SCORE };
