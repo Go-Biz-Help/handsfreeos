@@ -1677,6 +1677,207 @@ export const importLead: Importer = async (tx, scope, envelope) => {
   return { counts: { imported: 1 } };
 };
 
+// ---------- calendars and the visits on them ----------
+
+/**
+ * A calendar, as a draft.
+ *
+ * What comes across is what means the same thing on both sides: its name, what it is for, how long a visit is
+ * and which time zone it is in. What does not is everything that decides *when somebody can book* — hours,
+ * buffers, round-robin, notice periods, how far ahead, what a customer is asked. Those are said in ways that
+ * do not translate, and a guess at them is worse than a gap: it would take bookings at hours nobody works.
+ *
+ * So the calendar arrives with its visits on it and its public page switched off, and the business turns it on
+ * once its hours are set. The finding says exactly that, because a draft calendar with no explanation looks
+ * like something that failed.
+ */
+const calendarSlug = (name: string, fallback: string): string => {
+  const slug = name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 60);
+  return /^[a-z0-9]/.test(slug)
+    ? slug
+    : `calendar-${fallback
+        .toLowerCase()
+        .replace(/[^a-z0-9]/g, '')
+        .slice(0, 20)}`;
+};
+
+export const importCalendar: Importer = async (tx, scope, envelope) => {
+  const d = envelope.data as {
+    name?: string;
+    description?: string | null;
+    timezone?: string | null;
+    minutes?: number;
+    active?: boolean;
+  };
+  const already = await existingMapping(
+    tx,
+    scope,
+    envelope.source.objectType,
+    envelope.source.objectId,
+  );
+  if (already) return { counts: { skipped: 1 } };
+
+  const name = (str(d.name) ?? 'Calendar').slice(0, 120);
+  const { createdAt, updatedAt } = sourceTimes(envelope);
+  // The slug is part of a public address, so a clash gets a suffix rather than failing the import.
+  let slug = calendarSlug(name, envelope.source.objectId);
+  for (let i = 2; i < 50; i++) {
+    const [taken] = await rows<{ id: string }>(
+      tx,
+      sql`select id::text as id from app.calendars
+          where workspace_id = ${scope.workspaceId} and slug = ${slug} limit 1`,
+    );
+    if (!taken) break;
+    slug = `${calendarSlug(name, envelope.source.objectId).slice(0, 56)}-${i}`;
+  }
+  const minutes = Math.max(1, Math.min(1440, Number(d.minutes ?? 60) || 60));
+  const id = randomUUID();
+  await tx.execute(sql`
+    insert into app.calendars (id, workspace_id, name, description, slug, status, public, config,
+      timezone, created_at, updated_at)
+    values (${id}::uuid, ${scope.workspaceId}, ${name}, ${str(d.description)}, ${slug},
+      -- A draft, and not public: its hours are not set here yet, and a calendar that took bookings at hours
+      -- nobody works would be worse than one nobody can book yet.
+      'draft'::app.calendar_status, false,
+      ${JSON.stringify({ visit: { minutes }, importedFrom: scope.sourceSystem })}::jsonb,
+      ${str(d.timezone)},
+      coalesce(${createdAt?.toISOString() ?? null}::timestamptz, now()),
+      coalesce(${updatedAt?.toISOString() ?? null}::timestamptz, now()))`);
+  await finding(tx, scope, {
+    code: 'calendars.hours_not_brought',
+    category: 'calendars',
+    capability: 'needs_review',
+    severity: 'action',
+    summary: `“${name}” came across with its visits, and it is switched off until you set its hours.`,
+    whatImports: 'The calendar, how long a visit is, and every visit that was booked on it.',
+    whatChanges:
+      'When people can book — your hours, how much notice you need, how far ahead, who it goes to, what a customer is asked — is said differently in the two systems, and guessing would take bookings at hours nobody works. So nothing is guessed.',
+    recommendedAction: `Open ${name} in Calendar, set your hours, and turn it on.`,
+    sourceCapability: 'calendars',
+    affected: 1,
+    detail: { calendar: name, visitMinutes: minutes },
+  });
+  await putMapping(tx, scope, {
+    sourceObjectType: envelope.source.objectType,
+    sourceObjectId: envelope.source.objectId,
+    targetType: 'calendar',
+    targetId: id,
+    createdHere: true,
+    checksum: envelope.source.payloadChecksum,
+  });
+  await journal(tx, scope, {
+    action: 'create',
+    targetType: 'calendar',
+    targetId: id,
+    sourceObjectType: envelope.source.objectType,
+    sourceObjectId: envelope.source.objectId,
+  });
+  return { counts: { imported: 1 } };
+};
+
+/**
+ * A visit, where it was in the diary.
+ *
+ * **Nothing is reminded about.** A reminder here is armed by the act of booking, so a visit written in as a row
+ * arms nothing — which is the behaviour a migration wants and worth stating because it is an absence rather
+ * than a line of code. Tomorrow's visit is in the diary on the morning they move in, and the old system is
+ * still the one texting about it until they switch that off. The finding on the calendar says so.
+ */
+export const importAppointment: Importer = async (tx, scope, envelope) => {
+  const d = envelope.data as {
+    title?: string;
+    startsAt?: string;
+    endsAt?: string;
+    status?: string;
+    notes?: string | null;
+    where?: string | null;
+  };
+  const already = await existingMapping(
+    tx,
+    scope,
+    envelope.source.objectType,
+    envelope.source.objectId,
+  );
+  if (already) return { counts: { skipped: 1 } };
+
+  const ref = envelope.relationships.find((r) => r.role === 'calendar');
+  const calendar = ref ? await existingMapping(tx, scope, ref.objectType, ref.objectId) : null;
+  if (!calendar || calendar.targetType !== 'calendar') {
+    await quarantine(tx, scope, {
+      category: 'appointments',
+      sourceObjectType: envelope.source.objectType,
+      sourceObjectId: envelope.source.objectId,
+      kind: 'dependency',
+      code: 'appointment_without_calendar',
+      message: `The calendar this visit was on is not here (${ref?.objectId ?? 'none named'}).`,
+      retryable: true,
+    });
+    return { counts: { failed: 1 } };
+  }
+  const [cal] = await rows<{ revision: number }>(
+    tx,
+    sql`select revision from app.calendars where id = ${calendar.targetId}::uuid`,
+  );
+
+  const ownerRef = envelope.relationships.find((r) => r.role === 'owner');
+  const owner = ownerRef
+    ? await existingMapping(tx, scope, ownerRef.objectType, ownerRef.objectId)
+    : null;
+  const { createdAt, updatedAt } = sourceTimes(envelope);
+  const id = randomUUID();
+  await tx.execute(sql`
+    insert into app.appointments (id, workspace_id, calendar_id, calendar_revision, kind, title,
+      starts_at, ends_at, status, location, owner_user_id, source, notes, created_at, updated_at)
+    values (${id}::uuid, ${scope.workspaceId}, ${calendar.targetId}::uuid, ${cal?.revision ?? 1},
+      'booking'::app.appointment_kind, ${(str(d.title) ?? 'Visit').slice(0, 200)},
+      ${d.startsAt}::timestamptz, ${d.endsAt}::timestamptz,
+      ${d.status ?? 'scheduled'}::app.appointment_status,
+      ${JSON.stringify(str(d.where) ? { address: str(d.where) } : {})}::jsonb,
+      ${owner?.targetType === 'user' ? owner.targetId : null}::uuid,
+      'staff'::app.appointment_source, ${str(d.notes)},
+      coalesce(${createdAt?.toISOString() ?? null}::timestamptz, now()),
+      coalesce(${updatedAt?.toISOString() ?? null}::timestamptz, now()))`);
+
+  // The customer who was coming. Their contact details are the booking's own copy, exactly as a booking made
+  // here keeps them, and `sms_ok` stays false: consent to be texted about this visit was given over there,
+  // to them, and is not ours to assume.
+  const contactRef = envelope.relationships.find((r) => r.role === 'contact');
+  const person = contactRef
+    ? await existingMapping(tx, scope, contactRef.objectType, contactRef.objectId)
+    : null;
+  if (person?.targetType === 'person')
+    await tx.execute(sql`
+      insert into app.appointment_attendees (workspace_id, appointment_id, person_id, status, seats,
+        source, created_at, updated_at)
+      values (${scope.workspaceId}, ${id}::uuid, ${person.targetId}::uuid,
+        ${d.status === 'cancelled' ? 'cancelled' : d.status === 'no_show' ? 'no_show' : d.status === 'completed' ? 'attended' : 'booked'}::app.attendee_status,
+        1, 'staff'::app.appointment_source,
+        coalesce(${createdAt?.toISOString() ?? null}::timestamptz, now()),
+        coalesce(${updatedAt?.toISOString() ?? null}::timestamptz, now()))
+      on conflict (appointment_id, person_id) do nothing`);
+
+  await putMapping(tx, scope, {
+    sourceObjectType: envelope.source.objectType,
+    sourceObjectId: envelope.source.objectId,
+    targetType: 'appointment',
+    targetId: id,
+    createdHere: true,
+    checksum: envelope.source.payloadChecksum,
+  });
+  await journal(tx, scope, {
+    action: 'create',
+    targetType: 'appointment',
+    targetId: id,
+    sourceObjectType: envelope.source.objectType,
+    sourceObjectId: envelope.source.objectId,
+  });
+  return { counts: { imported: 1 } };
+};
+
 /** Which importer reads which canonical type. Nothing else in the engine decides this. */
 export const IMPORTERS: Readonly<Record<string, Importer>> = {
   user_identity: importUser,
@@ -1689,6 +1890,8 @@ export const IMPORTERS: Readonly<Record<string, Importer>> = {
   call: importCall,
   pipeline: importPipeline,
   lead: importLead,
+  calendar: importCalendar,
+  appointment: importAppointment,
 };
 
 export { AUTO_MERGE_SCORE };

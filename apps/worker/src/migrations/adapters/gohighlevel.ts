@@ -47,6 +47,14 @@ import { CANONICAL_SCHEMA_VERSION, migrationCategory, releaseCapability } from '
 
 export const GHL_ADAPTER_VERSION = '1.0.0';
 
+/**
+ * How far back appointments are read from, how far ahead, and in what size of window. 2015 is early enough for
+ * any business HandsFreeOS is for, and two years ahead covers an annual service booked a year out.
+ */
+const APPOINTMENTS_FROM = Date.UTC(2015, 0, 1);
+const TWO_YEARS_MS = 2 * 365 * 24 * 60 * 60 * 1000;
+const WINDOW_MS = 180 * 24 * 60 * 60 * 1000;
+
 /** HighLevel pins its v2 API by date. Changing this is a mapping change, so it goes up with the version. */
 const API_VERSION = '2021-07-28';
 const API_BASE = 'https://services.leadconnectorhq.com';
@@ -555,6 +563,87 @@ export function createGoHighLevelAdapter(config: GoHighLevelConfig): CrmSourceAd
       cursor: nextCursor,
       highWaterAt,
       done: done || nextCursor === null,
+    };
+  };
+
+  /**
+   * A page of appointments, walked calendar by calendar and window by window.
+   *
+   * GoHighLevel will not list a sub-account's appointments: it lists one calendar's events between two
+   * moments. So this keeps three things in its cursor — which calendars are left, where in time it has got
+   * to, and nothing else — and walks from `APPOINTMENTS_FROM` to two years ahead in windows. Past visits are
+   * the point (a business's history is mostly behind it) and the future matters just as much, because
+   * tomorrow's visit has to be here on the morning they move in.
+   */
+  const appointmentPage = async (
+    token: string,
+    scopeId: string,
+    options: ListOptions,
+  ): Promise<SourcePage> => {
+    const cursor = (options.cursor ?? {}) as {
+      queue?: string[];
+      from?: number;
+      listed?: boolean;
+    };
+    let queue = [...(cursor.queue ?? [])];
+    let from = cursor.from ?? APPOINTMENTS_FROM;
+    // The calendars, once: there is no paging over them.
+    if (!cursor.listed) {
+      const body = await call<{ calendars?: Record<string, unknown>[] }>(
+        token,
+        ENDPOINTS['calendars']!.path(scopeId),
+      );
+      queue = (body.calendars ?? [])
+        .map((c) => asString(c['id']) ?? asString(c['_id']) ?? '')
+        .filter(Boolean);
+      from = APPOINTMENTS_FROM;
+    }
+    const horizon = Date.now() + TWO_YEARS_MS;
+    while (queue.length > 0 && from >= horizon) {
+      queue = queue.slice(1);
+      from = APPOINTMENTS_FROM;
+    }
+    if (queue.length === 0) return { records: [], cursor: null, highWaterAt: null, done: true };
+
+    const calendarId = queue[0]!;
+    const to = Math.min(from + WINDOW_MS, horizon);
+    const body = await call<{ events?: Record<string, unknown>[] }>(
+      token,
+      `/calendars/events?locationId=${encodeURIComponent(scopeId)}&calendarId=${encodeURIComponent(
+        calendarId,
+      )}&startTime=${from}&endTime=${to}`,
+    );
+    const list = body.events ?? [];
+    const records: SourceRecord[] = [];
+    let highWaterAt: Date | null = null;
+    for (const raw of list) {
+      const id = asString(raw['id']) ?? asString(raw['_id']);
+      if (!id) continue;
+      const updatedAt = asDate(raw['dateUpdated']) ?? asDate(raw['startTime']);
+      if (options.until && updatedAt && updatedAt > options.until) continue;
+      if (options.changedSince && updatedAt && updatedAt <= options.changedSince) continue;
+      if (updatedAt && (!highWaterAt || updatedAt > highWaterAt)) highWaterAt = updatedAt;
+      records.push({
+        objectType: 'appointment',
+        objectId: id,
+        parentObjectId: calendarId,
+        sourceCreatedAt: asDate(raw['dateAdded']) ?? updatedAt,
+        sourceUpdatedAt: updatedAt,
+        payload: { ...raw, calendarId },
+      });
+    }
+    // On through time, then on to the next calendar.
+    const nextFrom = to;
+    const doneWithThis = nextFrom >= horizon;
+    const nextQueue = doneWithThis ? queue.slice(1) : queue;
+    const done = nextQueue.length === 0;
+    return {
+      records,
+      cursor: done
+        ? null
+        : { queue: nextQueue, from: doneWithThis ? APPOINTMENTS_FROM : nextFrom, listed: true },
+      highWaterAt,
+      done,
     };
   };
 
@@ -1167,6 +1256,9 @@ export function createGoHighLevelAdapter(config: GoHighLevelConfig): CrmSourceAd
     },
 
     async list(connection, scope, category, options) {
+      // Appointments are read one calendar and one window of time at a time; there is no other way to ask.
+      if (category === 'appointments')
+        return appointmentPage(tokenOf(connection, scope), scope.externalScopeId, options);
       // Messages and calls have no list of their own over there: both are read through the conversations.
       if (category === 'messages' || category === 'calls')
         return messagePage(
@@ -1206,6 +1298,10 @@ export function createGoHighLevelAdapter(config: GoHighLevelConfig): CrmSourceAd
 
     normalize(record, context) {
       switch (record.objectType) {
+        case 'calendar':
+          return [calendarEnvelope(record, context)];
+        case 'appointment':
+          return [appointmentEnvelope(record, context)];
         case 'pipeline':
           return [pipelineEnvelope(record, context)];
         case 'opportunity':
@@ -1527,6 +1623,143 @@ function tagEnvelope(record: SourceRecord, context: MappingContext): CanonicalEn
     { name: asString(p['name']) ?? 'Unnamed tag', color: null },
     leftovers(p, ['id', '_id', 'name', 'locationId']),
     [],
+  );
+}
+
+function calendarEnvelope(record: SourceRecord, context: MappingContext): CanonicalEnvelope {
+  const p = record.payload;
+  // A visit's length is a number and a unit over there; minutes here.
+  const slot = Number(p['slotDuration'] ?? 0) || 0;
+  const unit = (asString(p['slotDurationUnit']) ?? 'mins').toLowerCase();
+  const minutes = Math.max(1, Math.min(1440, unit.startsWith('hour') ? slot * 60 : slot || 60));
+  return envelopeOf(
+    record,
+    context,
+    'calendar',
+    'calendars',
+    {
+      name: (asString(p['name']) ?? 'Calendar').slice(0, 120),
+      description: asString(p['description'])?.slice(0, 2000) ?? null,
+      timezone: asString(p['timezone']) ?? context.timezone,
+      minutes,
+      active: p['isActive'] !== false,
+    },
+    leftovers(p, [
+      'id',
+      '_id',
+      'name',
+      'description',
+      'timezone',
+      'slotDuration',
+      'slotDurationUnit',
+      'isActive',
+      'locationId',
+    ]),
+    // What could not come across is one finding per calendar, raised by the importer rather than here: it is
+    // a fact about HandsFreeOS, not about this payload.
+    [],
+  );
+}
+
+const APPOINTMENT_STATUS: Readonly<
+  Record<string, 'scheduled' | 'completed' | 'cancelled' | 'no_show'>
+> = {
+  confirmed: 'scheduled',
+  booked: 'scheduled',
+  new: 'scheduled',
+  showed: 'completed',
+  completed: 'completed',
+  cancelled: 'cancelled',
+  canceled: 'cancelled',
+  invalid: 'cancelled',
+  noshow: 'no_show',
+  no_show: 'no_show',
+  noshowed: 'no_show',
+};
+
+function appointmentEnvelope(record: SourceRecord, context: MappingContext): CanonicalEnvelope {
+  const p = record.payload;
+  const rawStatus = (asString(p['appointmentStatus']) ?? asString(p['status']) ?? '')
+    .toLowerCase()
+    .replace(/[\s-]/g, '');
+  const startsAt = asDate(p['startTime']) ?? record.sourceCreatedAt ?? new Date();
+  const ends = asDate(p['endTime']);
+  // A visit with no end, or one that ends before it starts, gets an hour: a row the database would refuse
+  // helps nobody, and the real length is in the payload we keep beside it.
+  const endsAt =
+    ends && ends.getTime() > startsAt.getTime()
+      ? ends
+      : new Date(startsAt.getTime() + 60 * 60 * 1000);
+  const warnings = ends
+    ? []
+    : [
+        {
+          code: 'mapping.appointment_length_assumed',
+          field: 'endTime',
+          message:
+            'The old system did not say how long this visit was, so it comes across as an hour and the original is kept.',
+        },
+      ];
+  const contactId = asString(p['contactId']);
+  const owner = asString(p['assignedUserId']) ?? asString(p['userId']);
+  const relationships: CanonicalEnvelope['relationships'] = [
+    {
+      category: 'calendars',
+      objectType: 'calendar',
+      objectId: record.parentObjectId ?? asString(p['calendarId']) ?? '',
+      role: 'calendar',
+      required: true,
+    },
+  ];
+  if (contactId)
+    relationships.push({
+      category: 'contacts',
+      objectType: 'contact',
+      objectId: contactId,
+      role: 'contact',
+      required: false,
+    });
+  if (owner)
+    relationships.push({
+      category: 'users',
+      objectType: 'user',
+      objectId: owner,
+      role: 'owner',
+      required: false,
+    });
+  return envelopeOf(
+    record,
+    context,
+    'appointment',
+    'appointments',
+    {
+      title: (asString(p['title']) ?? 'Visit').slice(0, 200),
+      startsAt: startsAt.toISOString(),
+      endsAt: endsAt.toISOString(),
+      status: APPOINTMENT_STATUS[rawStatus] ?? 'scheduled',
+      notes: asString(p['notes'])?.slice(0, 5000) ?? null,
+      where: asString(p['address'])?.slice(0, 500) ?? null,
+    },
+    leftovers(p, [
+      'id',
+      '_id',
+      'title',
+      'startTime',
+      'endTime',
+      'appointmentStatus',
+      'status',
+      'notes',
+      'address',
+      'contactId',
+      'calendarId',
+      'assignedUserId',
+      'userId',
+      'locationId',
+      'dateAdded',
+      'dateUpdated',
+    ]),
+    warnings,
+    relationships,
   );
 }
 

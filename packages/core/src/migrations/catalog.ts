@@ -153,8 +153,7 @@ export const MIGRATION_CATEGORIES: readonly MigrationCategory[] = [
     prefers: ['users'],
     targetType: 'calendar',
     selection: 'resource',
-    release: 'next',
-    releaseNote: 'Counted now, brought across in a later step.',
+    release: 'ready',
   }),
   c({
     id: 'forms',
@@ -221,8 +220,7 @@ export const MIGRATION_CATEGORIES: readonly MigrationCategory[] = [
     prefers: ['users'],
     targetType: 'appointment',
     selection: 'category',
-    release: 'next',
-    releaseNote: 'Counted now, brought across in a later step.',
+    release: 'ready',
   }),
   c({
     id: 'tasks',

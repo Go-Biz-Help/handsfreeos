@@ -128,6 +128,8 @@ beforeAll(async () => {
         'customFields.readonly',
         'contacts.readonly',
         'opportunities.readonly',
+        'calendars.readonly',
+        'calendars/events.readonly',
         'conversations.readonly',
         'conversations/message.readonly',
       ],
@@ -161,6 +163,8 @@ beforeAll(async () => {
       { category: 'contacts', selected: true },
       { category: 'tags', selected: true },
       { category: 'custom_fields', selected: true },
+      { category: 'calendars', selected: true },
+      { category: 'appointments', selected: true },
       { category: 'pipelines', selected: true },
       { category: 'opportunities', selected: true },
       { category: 'conversations', selected: true },
@@ -379,6 +383,54 @@ describe('the history arrives as history', () => {
     expect(abandoned.lost_reason).toContain('Abandoned in the old system');
   }, 60_000);
 
+  it('brings the diary, with the calendar switched off until its hours are set', async () => {
+    const [cal] = await rows<{
+      name: string;
+      status: string;
+      is_public: boolean;
+      config: Record<string, unknown>;
+    }>(
+      admin(),
+      sql`select name, status::text as status, public as is_public, config from app.calendars
+          where workspace_id = ${workspaceId}::uuid and name = 'Service visits'`,
+    );
+    expect(cal).toMatchObject({ status: 'draft', is_public: false });
+    expect((cal!.config as { visit?: { minutes?: number } }).visit?.minutes).toBe(90);
+    const got = await ask<{ findings: { code: string; recommendedAction: string | null }[] }>(
+      migrationGet,
+      { organizationId, migrationId },
+    );
+    const said = got.findings.find((f) => f.code === 'calendars.hours_not_brought');
+    expect(said?.recommendedAction).toContain('set your hours');
+
+    const visits = await rows<{
+      title: string;
+      status: string;
+      starts_at: Date;
+      minutes: number;
+      attendee: string | null;
+      notes: string | null;
+    }>(
+      admin(),
+      sql`select a.title, a.status::text as status, a.starts_at,
+            extract(epoch from (a.ends_at - a.starts_at))::int / 60 as minutes,
+            p.first_name as attendee, a.notes
+          from app.appointments a
+          left join app.appointment_attendees at on at.appointment_id = a.id
+          left join app.people p on p.id = at.person_id
+          where a.workspace_id = ${workspaceId}::uuid order by a.starts_at`,
+    );
+    expect(visits).toHaveLength(4);
+    // What happened, what nobody came to, what was called off — each kept as what it was.
+    expect(visits.map((v) => v.status)).toEqual(['completed', 'no_show', 'cancelled', 'scheduled']);
+    expect(new Date(visits[0]!.starts_at).getUTCFullYear()).toBe(2019);
+    expect(visits[0]!.minutes).toBe(90);
+    expect(visits[0]!.attendee).toBe('Dave');
+    expect(visits[0]!.notes).toContain('Gate code');
+    // And the one still ahead of them is in the diary, which is the point of bringing the future too.
+    expect(new Date(visits[3]!.starts_at).getTime()).toBeGreaterThan(Date.now());
+  }, 60_000);
+
   it('never turns history into work', async () => {
     // Not one badge, not one waiting clock, and no AI teammate handed a five-year-old text.
     const list = await threads();
@@ -386,6 +438,14 @@ describe('the history arrives as history', () => {
     expect(list.every((t) => t.awaiting_reply_since === null)).toBe(true);
     expect(list.every((t) => t.handled_by === 'none')).toBe(true);
     // Nothing queued to go out: no message is sitting in a sendable state.
+    // Not one reminder armed, for the visit still ahead of them least of all: the old system is the one
+    // texting about it until they switch that off, and two texts about one visit is the worst outcome here.
+    const [reminders] = await rows<{ count: number }>(
+      admin(),
+      sql`select count(*)::int as count from app.scheduled_jobs
+          where workspace_id = ${workspaceId}::uuid and kind::text like 'appointment%'`,
+    );
+    expect(reminders!.count).toBe(0);
     const [queued] = await rows<{ count: number }>(
       admin(),
       sql`select count(*)::int as count from app.messages

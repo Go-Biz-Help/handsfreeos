@@ -296,6 +296,36 @@ export const CanonicalLead = z.object({
 });
 export type CanonicalLead = z.infer<typeof CanonicalLead>;
 
+/**
+ * A calendar the business booked visits on.
+ *
+ * Only the parts that mean the same thing on both sides come across: what it is called, what it is for, how
+ * long a visit is and whose day it fills. Availability rules, round-robin, buffers and booking policies are
+ * said in ways that do not translate, so they are not guessed at — the calendar arrives as a draft with its
+ * visits in it, and the business sets its hours here once, deliberately.
+ */
+export const CanonicalCalendar = z.object({
+  name: z.string().min(1).max(120),
+  description: z.string().max(2000).nullish(),
+  timezone: z.string().max(60).nullish(),
+  /** How long a visit is, in minutes. */
+  minutes: z.number().int().min(1).max(1440).default(60),
+  active: z.boolean().default(true),
+});
+export type CanonicalCalendar = z.infer<typeof CanonicalCalendar>;
+
+/** A visit, past or future, at the time it was really booked for. */
+export const CanonicalAppointment = z.object({
+  title: z.string().min(1).max(200),
+  startsAt: z.iso.datetime({ offset: true }),
+  endsAt: z.iso.datetime({ offset: true }),
+  status: z.enum(['scheduled', 'completed', 'cancelled', 'no_show']).default('scheduled'),
+  notes: z.string().max(5000).nullish(),
+  /** Where it was, when the source said: an address, a room, a link. */
+  where: z.string().max(500).nullish(),
+});
+export type CanonicalAppointment = z.infer<typeof CanonicalAppointment>;
+
 export const CANONICAL_TYPES = {
   contact: CanonicalContact,
   company: CanonicalCompany,
@@ -307,6 +337,8 @@ export const CANONICAL_TYPES = {
   call: CanonicalCall,
   pipeline: CanonicalPipeline,
   lead: CanonicalLead,
+  calendar: CanonicalCalendar,
+  appointment: CanonicalAppointment,
 } as const;
 export type CanonicalTypeName = keyof typeof CANONICAL_TYPES;
 

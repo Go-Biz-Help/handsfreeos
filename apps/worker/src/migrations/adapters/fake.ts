@@ -129,6 +129,52 @@ const contact = (c: ContactSeed): FakeRecord => ({
   },
 });
 
+/** A calendar, with a visit length and nothing HandsFreeOS could use for its hours. */
+const calendar = (id: string, name: string, minutes: number): FakeRecord => ({
+  objectType: 'calendar',
+  objectId: id,
+  createdAt: '2019-02-01T09:00:00.000Z',
+  updatedAt: '2024-02-01T09:00:00.000Z',
+  payload: {
+    id,
+    name,
+    description: 'Service visits',
+    slotDuration: minutes,
+    slotDurationUnit: 'mins',
+    timezone: 'America/Chicago',
+    isActive: true,
+  },
+});
+
+/** A visit. `appointmentStatus` is GoHighLevel's own word for how it went. */
+const visit = (
+  id: string,
+  calendarId: string,
+  contactId: string,
+  title: string,
+  startsAt: string,
+  minutes: number,
+  status: string,
+  extra: Record<string, unknown> = {},
+): FakeRecord => ({
+  objectType: 'appointment',
+  objectId: id,
+  createdAt: startsAt,
+  updatedAt: startsAt,
+  payload: {
+    id,
+    calendarId,
+    contactId,
+    title,
+    startTime: startsAt,
+    endTime: new Date(new Date(startsAt).getTime() + minutes * 60_000).toISOString(),
+    appointmentStatus: status,
+    assignedUserId: 'usr_ana',
+    dateAdded: startsAt,
+    ...extra,
+  },
+});
+
 /** A pipeline and its stages, the way GoHighLevel hands them over: columns with no meaning of their own. */
 const pipeline = (
   id: string,
@@ -352,6 +398,43 @@ const AUSTIN_RECORDS: readonly FakeRecord[] = [
     '2023-02-11T14:00:00.000Z',
   ),
 
+  // ---------- the diary ----------
+  calendar('cal_service', 'Service visits', 90),
+  // Behind them: a visit that happened, one nobody came to, one that was called off.
+  visit('apt_a1', 'cal_service', 'con_a1', 'AC service', '2019-06-04T14:00:00.000Z', 90, 'showed', {
+    address: '1200 Barton Springs Rd, Austin',
+    notes: 'Gate code 2214.',
+  }),
+  visit(
+    'apt_a2',
+    'cal_service',
+    'con_a2',
+    'Filter change',
+    '2021-04-19T16:00:00.000Z',
+    60,
+    'noshow',
+  ),
+  visit(
+    'apt_a3',
+    'cal_service',
+    'con_a4',
+    'Quote visit',
+    '2022-09-08T15:00:00.000Z',
+    60,
+    'cancelled',
+  ),
+  // Ahead of them: the one that has to be in the diary on the morning they move in. A year out, so it stays
+  // in the future however long this repository lives.
+  visit(
+    'apt_a4',
+    'cal_service',
+    'con_a5',
+    'Annual service',
+    new Date(Date.now() + 300 * 24 * 60 * 60 * 1000).toISOString(),
+    90,
+    'confirmed',
+  ),
+
   // ---------- the history ----------
   // Two text threads with the same customer, which is something the old system allows and this one does not:
   // they have to fold into one timeline rather than one of them being lost.
@@ -547,6 +630,8 @@ const RECORDS: Record<string, readonly FakeRecord[]> = {
 };
 
 const CATEGORY_TYPE: Record<string, string> = {
+  calendars: 'calendar',
+  appointments: 'appointment',
   pipelines: 'pipeline',
   opportunities: 'opportunity',
   users: 'user',
@@ -561,8 +646,6 @@ const CATEGORY_TYPE: Record<string, string> = {
 
 /** What the stand-in pretends exists but this release does not read record by record. */
 const COUNTS_ONLY: Record<string, number> = {
-  appointments: 96,
-  calendars: 3,
   forms: 4,
   form_submissions: 210,
   invoices: 58,
@@ -587,6 +670,8 @@ const SCOPE_NAMES: Record<string, readonly string[]> = {
   custom_fields: ['customFields.readonly'],
   contacts: ['contacts.readonly'],
   companies: ['companies.readonly'],
+  calendars: ['calendars.readonly'],
+  appointments: ['calendars/events.readonly'],
   pipelines: ['opportunities.readonly'],
   opportunities: ['opportunities.readonly'],
   conversations: ['conversations.readonly'],
@@ -778,7 +863,9 @@ export function createFakeSourceAdapter(): FakeSource {
           parentObjectId:
             typeof r.payload['conversationId'] === 'string'
               ? (r.payload['conversationId'] as string)
-              : null,
+              : typeof r.payload['calendarId'] === 'string'
+                ? (r.payload['calendarId'] as string)
+                : null,
           sourceCreatedAt: new Date(r.createdAt),
           sourceUpdatedAt: new Date(r.updatedAt),
           payload: r.payload,
@@ -834,6 +921,68 @@ export function createFakeSourceAdapter(): FakeSource {
       };
       const str = (v: unknown) => (typeof v === 'string' && v.trim() ? v.trim() : null);
       switch (record.objectType) {
+        case 'calendar':
+          return [
+            {
+              ...base,
+              canonicalType: 'calendar',
+              category: 'calendars',
+              relationships: [],
+              data: {
+                name: str(p['name']) ?? 'Calendar',
+                description: str(p['description']),
+                timezone: str(p['timezone']),
+                minutes: Number(p['slotDuration'] ?? 60) || 60,
+                active: true,
+              },
+            },
+          ];
+        case 'appointment': {
+          const seen: Record<string, 'scheduled' | 'completed' | 'cancelled' | 'no_show'> = {
+            showed: 'completed',
+            noshow: 'no_show',
+            cancelled: 'cancelled',
+            confirmed: 'scheduled',
+          };
+          return [
+            {
+              ...base,
+              canonicalType: 'appointment',
+              category: 'appointments',
+              relationships: [
+                {
+                  category: 'calendars',
+                  objectType: 'calendar',
+                  objectId: str(p['calendarId']) ?? '',
+                  role: 'calendar',
+                  required: true,
+                },
+                {
+                  category: 'contacts',
+                  objectType: 'contact',
+                  objectId: str(p['contactId']) ?? '',
+                  role: 'contact',
+                  required: false,
+                },
+                {
+                  category: 'users',
+                  objectType: 'user',
+                  objectId: str(p['assignedUserId']) ?? '',
+                  role: 'owner',
+                  required: false,
+                },
+              ],
+              data: {
+                title: str(p['title']) ?? 'Visit',
+                startsAt: str(p['startTime'])!,
+                endsAt: str(p['endTime'])!,
+                status: seen[str(p['appointmentStatus']) ?? ''] ?? 'scheduled',
+                notes: str(p['notes']),
+                where: str(p['address']),
+              },
+            },
+          ];
+        }
         case 'pipeline': {
           const stages = Array.isArray(p['stages'])
             ? (p['stages'] as Record<string, unknown>[])
