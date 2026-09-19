@@ -56,8 +56,8 @@ export default function TermsPage() {
             the <Link href="/pricing">pricing page</Link>.
           </li>
           <li>
-            Texts, calls, phone numbers and AI replies are billed on top, at the per-use rates
-            shown in your account.
+            Texts, calls, phone numbers and AI replies are billed on top, at the per-use rates shown
+            in your account.
           </li>
           <li>
             You can cancel any time and you will not be billed again. We do not refund the part of a

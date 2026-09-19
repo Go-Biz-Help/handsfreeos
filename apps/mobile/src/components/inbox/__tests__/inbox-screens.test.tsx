@@ -263,7 +263,12 @@ describe('My cell phone', () => {
     await fireEvent.press(screen.getByTestId('contact-add'));
     expect(HfosPhone.addContact).toHaveBeenCalledWith('Lone Star HVAC & Roofing', '+17135550100');
     expect(toast.show).toHaveBeenCalledWith('Lone Star HVAC & Roofing is in your contacts');
-    expect(screen.queryByTestId('contact-card')).toBeNull();
+    // The card says it was added and stays put: a contact deleted later, or a second phone, needs the button again.
+    expect(screen.getByTestId('contact-added')).toHaveTextContent(
+      'Lone Star HVAC & Roofing is in your contacts',
+    );
+    expect(screen.getByTestId('contact-add')).toBeTruthy();
+    expect(screen.queryByTestId('contact-not-now')).toBeNull();
   });
 
   it('needs signal to verify', async () => {

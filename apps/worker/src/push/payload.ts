@@ -34,6 +34,9 @@ export const PUSH_TTL_SECONDS: Readonly<Record<PushCategory, number>> = {
   customer_waiting_no_ai: 12 * HOUR_S,
   urgent_lead: 12 * HOUR_S,
   urgent_lead_no_ai: 12 * HOUR_S,
+  // A missed call is worth hearing about late, but a day-old one is history: the inbox has it either way.
+  missed_call: 12 * HOUR_S,
+  voicemail: 12 * HOUR_S,
   approval: 24 * HOUR_S,
   booking: 24 * HOUR_S,
   assigned: 24 * HOUR_S,

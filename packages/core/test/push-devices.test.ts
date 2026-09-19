@@ -287,6 +287,7 @@ describe('pushSwitchOn', () => {
       }
     expect(pushSwitchesOf({})).toEqual({
       customerWaiting: true,
+      missedCall: true,
       urgent: true,
       approval: true,
       booking: true,

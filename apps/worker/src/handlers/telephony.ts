@@ -123,7 +123,8 @@ export const onReleaseRequested: EventHandler = async (ctx) => {
     // A number released while it was still being set up has no sid here yet, but may well have been bought before
     // the purchase stopped. Asking the carrier what it holds for this number is what stops us walking away from one
     // we are paying for.
-    const sid = n.providerSid ?? (await ctx.telephony.findOwnedNumber(account, n.e164))?.sid ?? null;
+    const sid =
+      n.providerSid ?? (await ctx.telephony.findOwnedNumber(account, n.e164))?.sid ?? null;
     if (sid) {
       try {
         await ctx.telephony.releaseNumber(account, sid);

@@ -6,7 +6,7 @@ import type { Me } from '@/lib/businesses';
  * Settings → Notifications on the phone (design/m10/More.dc.html, "Notifications: push beside email"): a push switch
  * for each moment beside today's email switches, the same switches as the web's Settings → Account. They belong to the
  * person, not the phone: push goes to every phone they're signed in on. A change saves the whole group it's in, as the
- * web does: `user.update_profile` with all six push switches (`settings.push`), or all six email ones
+ * web does: `user.update_profile` with all seven push switches (`settings.push`), or all six email ones
  * (`settings.notifications`).
  */
 
@@ -38,6 +38,12 @@ export const NOTIFICATION_ROWS: readonly NotificationRow[] = [
     title: 'A customer waiting on a reply',
     detail: 'A text, email or chat nobody answered',
     push: 'customerWaiting',
+    email: null,
+  },
+  {
+    title: 'A call nobody took',
+    detail: 'A missed call, and the voicemail if one was left',
+    push: 'missedCall',
     email: null,
   },
   {

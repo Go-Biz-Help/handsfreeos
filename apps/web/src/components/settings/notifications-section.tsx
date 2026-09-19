@@ -44,6 +44,13 @@ const ROWS: readonly Row[] = [
     email: null,
   },
   {
+    title: 'A call nobody took',
+    description:
+      'A missed call, and the voicemail if one was left, with what the caller said. It goes to whoever the conversation is assigned to, else the owners and admins.',
+    push: 'missedCall',
+    email: null,
+  },
+  {
     title: 'Urgent items',
     description:
       'As soon as something can’t wait: a hot lead, a new lead nobody has answered, or a customer left waiting. Owners and admins also get the ones nobody is assigned to.',
