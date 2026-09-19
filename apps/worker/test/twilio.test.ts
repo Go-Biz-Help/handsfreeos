@@ -215,6 +215,84 @@ describe('numbers and texts', () => {
     expect(q.get('InRegion')).toBeNull();
   });
 
+  it('measures a radius from a number in the city, because Twilio has no city to coordinates lookup', async () => {
+    let nth = 0;
+    const seen = mockTwilio([
+      [
+        /^GET api\.twilio\.com\/2010-04-01\/Accounts\/ACmastertest\/AvailablePhoneNumbers\/US\/Local\.json$/,
+        () => ({
+          json: {
+            available_phone_numbers:
+              nth++ === 0
+                ? [
+                    {
+                      phone_number: '+12569914540',
+                      locality: 'Huntsville',
+                      region: 'AL',
+                      latitude: 34.7304,
+                      longitude: -86.5861,
+                      capabilities: { SMS: true, MMS: true, voice: true },
+                    },
+                  ]
+                : [
+                    {
+                      phone_number: '+12567720188',
+                      locality: 'Madison',
+                      region: 'AL',
+                      latitude: 34.6993,
+                      longitude: -86.7483,
+                      capabilities: { SMS: true, MMS: true, voice: true },
+                    },
+                  ],
+          },
+        }),
+      ],
+    ]);
+    const found = await createTwilioTelephony(MASTER).searchNumbers({
+      numberType: 'local',
+      city: 'Huntsville',
+      state: 'AL',
+      contains: '454',
+      withinMiles: 25,
+      limit: 5,
+    });
+    // The town next door answers, which is the whole point of a distance.
+    expect(found).toEqual([
+      {
+        e164: '+12567720188',
+        locality: 'Madison',
+        region: 'AL',
+        capabilities: { sms: true, mms: true, voice: true },
+      },
+    ]);
+    const landmark = new URL(seen[0]!.url).searchParams;
+    expect(landmark.get('InLocality')).toBe('Huntsville');
+    expect(landmark.get('PageSize')).toBe('1');
+    const around = new URL(seen[1]!.url).searchParams;
+    expect(around.get('NearLatLong')).toBe('34.7304,-86.5861');
+    expect(around.get('Distance')).toBe('25');
+    expect(around.get('Contains')).toBe('454');
+    // The city is the landmark, not a second filter: keeping it would exclude every town around it.
+    expect(around.get('InLocality')).toBeNull();
+  });
+
+  it('answers nothing when the city has no number to measure from', async () => {
+    mockTwilio([
+      [
+        /^GET api\.twilio\.com\/2010-04-01\/Accounts\/ACmastertest\/AvailablePhoneNumbers\/US\/Local\.json$/,
+        () => ({ json: { available_phone_numbers: [] } }),
+      ],
+    ]);
+    const found = await createTwilioTelephony(MASTER).searchNumbers({
+      numberType: 'local',
+      city: 'Nowhere',
+      state: 'AL',
+      withinMiles: 25,
+      limit: 5,
+    });
+    expect(found).toEqual([]);
+  });
+
   it('buys with the subaccount and points the number at the worker', async () => {
     const seen = mockTwilio([
       [

@@ -830,6 +830,12 @@ describe('number search', () => {
     expect(
       (await post({ numberType: 'toll_free', city: 'Huntsville', state: 'AL' })).statusCode,
     ).toBe(400);
+    // A distance widens a city, so it has no meaning without one.
+    expect((await post({ withinMiles: 25 })).statusCode).toBe(400);
+    expect((await post({ city: 'Huntsville', state: 'AL', withinMiles: 25 })).statusCode).toBe(200);
+    expect((await post({ city: 'Huntsville', state: 'AL', withinMiles: 900 })).statusCode).toBe(
+      400,
+    );
     // A filter this worker has never heard of means the web app is ahead of it: say so, don't answer anyway.
     expect((await post({ areaCode: '256', nearPostalCode: '35801' })).statusCode).toBe(400);
     // A pattern is digits and stars, nothing else.

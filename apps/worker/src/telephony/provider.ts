@@ -147,6 +147,11 @@ export interface TelephonyProvider {
     city?: string;
     /** Two letters, like `AL`. */
     state?: string;
+    /**
+     * Widens a city to everything within this many miles of it, which is what a business usually means by its
+     * own town: a Huntsville search on its own misses Madison. Only with a city, and at most 500 (Twilio's cap).
+     */
+    withinMiles?: number;
     limit: number;
   }): Promise<AvailableNumber[]>;
   findOwnedNumber(account: ProviderAccount, e164: string): Promise<OwnedNumber | null>;

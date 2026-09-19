@@ -72,6 +72,19 @@ async function call<T>(
 
 const credsOf = (a: ProviderAccount): Creds => ({ sid: a.sid, token: a.authToken });
 
+/** One of Twilio's available numbers as the rest of the worker wants it. */
+const toAvailable = (n: {
+  phone_number: string;
+  locality: string | null;
+  region: string | null;
+  capabilities: Record<string, boolean>;
+}): AvailableNumber => ({
+  e164: n.phone_number,
+  locality: n.locality || null,
+  region: n.region || null,
+  capabilities: caps(n.capabilities),
+});
+
 /** The subaccount's transcript service, made the first time a call is transcribed there. */
 async function transcriptService(creds: Creds): Promise<string> {
   const list = await call<{ services?: { sid: string; unique_name?: string | null }[] }>(
@@ -640,35 +653,56 @@ export function createTwilioTelephony(master: {
       return res.sid;
     },
 
-    async searchNumbers({ numberType, areaCode, contains, city, state, limit }) {
-      const res = await call<{
-        available_phone_numbers: {
-          phone_number: string;
-          locality: string | null;
-          region: string | null;
-          capabilities: Record<string, boolean>;
-        }[];
-      }>(
-        masterCreds,
-        'GET',
-        `${API}/Accounts/${master.accountSid}/AvailablePhoneNumbers/US/${numberType === 'toll_free' ? 'TollFree' : 'Local'}.json`,
-        {
-          SmsEnabled: 'true',
-          MmsEnabled: 'true',
-          VoiceEnabled: 'true',
+    async searchNumbers({ numberType, areaCode, contains, city, state, withinMiles, limit }) {
+      const ask = (params: Params) =>
+        call<{
+          available_phone_numbers: {
+            phone_number: string;
+            locality: string | null;
+            region: string | null;
+            latitude: number | string | null;
+            longitude: number | string | null;
+            capabilities: Record<string, boolean>;
+          }[];
+        }>(
+          masterCreds,
+          'GET',
+          `${API}/Accounts/${master.accountSid}/AvailablePhoneNumbers/US/${numberType === 'toll_free' ? 'TollFree' : 'Local'}.json`,
+          { SmsEnabled: 'true', MmsEnabled: 'true', VoiceEnabled: 'true', ...params },
+        );
+      // Toll-free numbers sit in no city, and Twilio's TollFree endpoint refuses the pair.
+      const inCity = numberType === 'local' && city && state;
+      const narrow = {
+        ...(areaCode ? { AreaCode: areaCode } : {}),
+        ...(contains ? { Contains: contains } : {}),
+      };
+
+      /**
+       * "Within N miles of Huntsville" is two questions: where is Huntsville, and what is free around it.
+       * Twilio has no city-to-coordinates lookup, but every US number it offers carries its own latitude and
+       * longitude — so one number in the city is the landmark the second search is measured from. A city with
+       * nothing free has no landmark, and rather than quietly answering the wider question this returns
+       * nothing, which the caller reports as not being able to centre on that city.
+       */
+      if (inCity && withinMiles) {
+        const anchor = await ask({ PageSize: '1', InLocality: city, InRegion: state });
+        const at = anchor.available_phone_numbers[0];
+        if (!at || at.latitude == null || at.longitude == null) return [];
+        const res = await ask({
+          ...narrow,
           PageSize: String(limit),
-          ...(areaCode ? { AreaCode: areaCode } : {}),
-          ...(contains ? { Contains: contains } : {}),
-          // Toll-free numbers sit in no city, and Twilio's TollFree endpoint refuses the pair.
-          ...(numberType === 'local' && city && state ? { InLocality: city, InRegion: state } : {}),
-        },
-      );
-      return res.available_phone_numbers.map((n): AvailableNumber => ({
-        e164: n.phone_number,
-        locality: n.locality || null,
-        region: n.region || null,
-        capabilities: caps(n.capabilities),
-      }));
+          NearLatLong: `${at.latitude},${at.longitude}`,
+          Distance: String(withinMiles),
+        });
+        return res.available_phone_numbers.map(toAvailable);
+      }
+
+      const res = await ask({
+        ...narrow,
+        PageSize: String(limit),
+        ...(inCity ? { InLocality: city, InRegion: state } : {}),
+      });
+      return res.available_phone_numbers.map(toAvailable);
     },
 
     async findOwnedNumber(account, e164) {

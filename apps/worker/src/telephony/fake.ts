@@ -272,7 +272,7 @@ export function createFakeTelephony(opts: FakeOptions): FakeTelephony {
     async createTwimlApp() {
       return fakeSid('AP');
     },
-    async searchNumbers({ numberType, areaCode, contains, city, state, limit }) {
+    async searchNumbers({ numberType, areaCode, contains, city, state, withinMiles, limit }) {
       const areas = areaCode
         ? [areaCode]
         : numberType === 'toll_free'
@@ -284,7 +284,13 @@ export function createFakeTelephony(opts: FakeOptions): FakeTelephony {
         const line = `555${String(1000 + Math.floor(Math.random() * 8999))}`;
         return {
           e164: `+1${areas[i % areas.length]}${wanted}${line.slice(wanted.length)}`,
-          locality: numberType === 'toll_free' ? null : city || 'Houston',
+          // Widened to a radius, the towns around the city answer too — the second one stands in for them.
+          locality:
+            numberType === 'toll_free'
+              ? null
+              : withinMiles && i % 2 === 1
+                ? 'Madison'
+                : city || 'Houston',
           region: numberType === 'toll_free' ? null : state || 'TX',
           capabilities: CAPS,
         };
