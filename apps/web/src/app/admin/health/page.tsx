@@ -19,6 +19,7 @@ export default async function HealthPage({
     { label: 'Emails that bounced', value: health.emailBounces.count },
     { label: 'Texts that failed', value: health.failedTexts.count },
     { label: 'Payments that failed', value: health.paymentFailures.count },
+    { label: 'Calls with no words', value: health.lostTranscripts.count },
     { label: 'Work still queued', value: health.outboxBacklog },
   ];
   return (

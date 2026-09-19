@@ -345,6 +345,8 @@ export const HealthSummaryOutput = z.object({
   emailBounces: HealthCount,
   failedTexts: HealthCount,
   paymentFailures: HealthCount,
+  /** Calls whose words never arrived. One is ordinary; a rising number is the transcriber. */
+  lostTranscripts: HealthCount,
   /** Work waiting longer than it should be. */
   outboxBacklog: z.int(),
   oldestPendingMinutes: z.int().nullable(),

@@ -37004,6 +37004,31 @@
                       ],
                       "additionalProperties": false
                     },
+                    "lostTranscripts": {
+                      "type": "object",
+                      "properties": {
+                        "label": {
+                          "type": "string"
+                        },
+                        "count": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "worstBusiness": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "label",
+                        "count",
+                        "worstBusiness"
+                      ],
+                      "additionalProperties": false
+                    },
                     "outboxBacklog": {
                       "type": "integer",
                       "minimum": -9007199254740991,
@@ -37061,6 +37086,7 @@
                     "emailBounces",
                     "failedTexts",
                     "paymentFailures",
+                    "lostTranscripts",
                     "outboxBacklog",
                     "oldestPendingMinutes",
                     "recent"
@@ -45070,6 +45096,21 @@
                               "null"
                             ]
                           },
+                          "transcriptStatus": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "enum": [
+                                  "pending",
+                                  "completed",
+                                  "failed"
+                                ]
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
                           "answeredBy": {
                             "anyOf": [
                               {
@@ -45216,6 +45257,7 @@
                           "answeredVia",
                           "scheduledFor",
                           "transcript",
+                          "transcriptStatus",
                           "answeredBy",
                           "bodyHtml",
                           "toAddresses",
@@ -45515,6 +45557,21 @@
                             "null"
                           ]
                         },
+                        "transcriptStatus": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "enum": [
+                                "pending",
+                                "completed",
+                                "failed"
+                              ]
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
                         "answeredBy": {
                           "anyOf": [
                             {
@@ -45661,6 +45718,7 @@
                         "answeredVia",
                         "scheduledFor",
                         "transcript",
+                        "transcriptStatus",
                         "answeredBy",
                         "bodyHtml",
                         "toAddresses",

@@ -383,6 +383,12 @@ export function CallCard({ item, workspaceId }: { item: ThreadItemShape; workspa
           </Text>
         </View>
       ) : null}
+      {/* Why there is nothing to play or read. Without it the card just showed less, which looked like a bug. */}
+      {words.note ? (
+        <Text className="text-xs text-text-3" testID="voicemail-note">
+          {words.note}
+        </Text>
+      ) : null}
     </View>
   );
 }

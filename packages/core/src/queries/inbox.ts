@@ -450,6 +450,7 @@ type ThreadRow = {
   is_voicemail: boolean;
   has_recording: boolean;
   transcript: string | null;
+  transcript_status: 'pending' | 'completed' | 'failed' | null;
   answered_by: string | null;
   answered_name: string | null;
   recording_path: string | null;
@@ -474,6 +475,7 @@ const messageBranch = (workspaceId: string) => sql`
     m.channel::text as channel, m.body_text as body, m.subject, m.from_address, m.media, m.sent_by as user_id,
     coalesce(nullif(su.full_name, ''), su.email::text) as user_name, m.error_code, m.error_message, m.delivered_at,
     null::int as duration_seconds, false as is_voicemail, false as has_recording, null::text as transcript,
+    null::text as transcript_status,
     null::uuid as answered_by, null::text as answered_name, null::text as recording_path, null::int as recording_seconds, null::text as answered_via,
     m.body_html, m.to_addresses, m.cc_addresses, mc.provider::text as via,
     m.sent_by_teammate_id as teammate_id, tt.name as teammate_name, m.approved_by,
@@ -510,6 +512,7 @@ function threadItem(r: ThreadRow): ThreadItem {
     recordingSeconds: r.recording_seconds,
     answeredVia: r.answered_via,
     transcript: r.transcript,
+    transcriptStatus: r.transcript_status,
     answeredBy: r.answered_by
       ? { id: r.answered_by, fullName: r.answered_name ?? 'Former member' }
       : null,
@@ -550,7 +553,8 @@ export const conversationThread = defineQuery({
             union all
             select 'call'::text, c.id, c.conversation_id, c.started_at, c.direction::text, c.status::text, null::text, null::text, null::text,
               c.from_e164, '[]'::jsonb, c.placed_by, coalesce(nullif(pu.full_name, ''), pu.email::text), null::text, null::text, null::timestamptz,
-              c.duration_seconds, c.is_voicemail, c.recording_object_path is not null, c.transcript, c.answered_by_user_id,
+              c.duration_seconds, c.is_voicemail, c.recording_object_path is not null, c.transcript,
+              c.transcript_status::text, c.answered_by_user_id,
               coalesce(nullif(au.full_name, ''), au.email::text), c.recording_object_path, c.recording_seconds, c.answered_via::text,
               null::text, '{}'::text[], '{}'::text[], null::text,
               null::uuid, null::text, null::uuid, null::text, null::uuid, false, null::timestamptz,

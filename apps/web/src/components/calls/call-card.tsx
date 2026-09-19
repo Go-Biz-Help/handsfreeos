@@ -60,6 +60,12 @@ export function CallCard({
             )}
           </>
         ) : null}
+        {/* Why there is nothing to play or read. Without it the card just showed less, which looked like a bug. */}
+        {words.note ? (
+          <p className="text-xs text-text-3" data-testid="voicemail-note">
+            {words.note}
+          </p>
+        ) : null}
       </div>
     );
 

@@ -232,6 +232,7 @@ export const platformHealthSummary = defineQuery({
       email_bounces: string;
       failed_texts: string;
       payment_failures: string;
+      lost_transcripts: string;
       outbox_backlog: string;
       oldest_pending_minutes: number | null;
     }>(ctx.tx, sql`select * from private.admin_health_counts(${since.toISOString()}::timestamptz)`);
@@ -259,6 +260,7 @@ export const platformHealthSummary = defineQuery({
       emailBounces: one('Email bounced', c?.email_bounces),
       failedTexts: one('Text message', c?.failed_texts),
       paymentFailures: one('Payment', c?.payment_failures),
+      lostTranscripts: one('Transcript', c?.lost_transcripts),
       outboxBacklog: number(c?.outbox_backlog),
       oldestPendingMinutes: c?.oldest_pending_minutes ?? null,
       recent: recent.map((r) => ({

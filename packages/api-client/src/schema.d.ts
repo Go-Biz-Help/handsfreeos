@@ -23274,6 +23274,7 @@ export interface operations {
                             } | null;
                             toAddresses: string[];
                             transcript: string | null;
+                            transcriptStatus: ("pending" | "completed" | "failed") | null;
                             /** @enum {string} */
                             type: "message" | "call";
                             via: ("microsoft" | "google") | null;
@@ -25787,6 +25788,7 @@ export interface operations {
                             } | null;
                             toAddresses: string[];
                             transcript: string | null;
+                            transcriptStatus: ("pending" | "completed" | "failed") | null;
                             /** @enum {string} */
                             type: "message" | "call";
                             via: ("microsoft" | "google") | null;
@@ -27153,6 +27155,11 @@ export interface operations {
                             worstBusiness: string | null;
                         };
                         failedTexts: {
+                            count: number;
+                            label: string;
+                            worstBusiness: string | null;
+                        };
+                        lostTranscripts: {
                             count: number;
                             label: string;
                             worstBusiness: string | null;
