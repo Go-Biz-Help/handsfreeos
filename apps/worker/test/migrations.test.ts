@@ -369,6 +369,42 @@ describe('a business moves house', () => {
     expect(tom).toHaveLength(1); // the same person in both sub-accounts, joined on the number
   }, 120_000);
 
+  /**
+   * The test above is the one that used to fail at random, and this is why it does not any more.
+   *
+   * "Email says one customer, phone says another" can only be seen once both of those customers have
+   * landed. `migration.start` reads the sub-accounts in their own order by name, a millisecond apart, and
+   * says so in a comment — but the claim used to break a tie on `id`, which is a random uuid. Read one way
+   * it was a question; read the other it was a silent merge. Same data, different answer.
+   *
+   * So the order a batch was made in is now what breaks the tie, and this holds that: whatever else moves,
+   * the sub-accounts are read in one order, and it is theirs.
+   */
+  it('reads the sub-accounts in one order, so two runs of a migration answer the same', async () => {
+    const batches = await rows<{ name: string; sequence: string; category: string }>(
+      admin(),
+      sql`select distinct on (j.scope_id) s.name, j.sequence::text as sequence, j.category
+          from app.migration_jobs j
+          join app.migration_scopes s on s.id = j.scope_id
+          where j.migration_id = ${w.migrationId} and j.kind = 'fetch' and j.category = 'contacts'
+          order by j.scope_id, j.sequence`,
+    );
+    expect(batches).toHaveLength(2);
+    const order = [...batches].sort((a, b) => Number(a.sequence) - Number(b.sequence));
+    // Austin before Dallas, because A comes before D — not because of a uuid.
+    expect(order.map((b) => b.name)).toEqual([
+      'Lone Star HVAC — Austin',
+      'Lone Star HVAC — Dallas',
+    ]);
+    // And every batch has a place in the queue, which is what the claim now reads.
+    const [unplaced] = await rows<{ count: number }>(
+      admin(),
+      sql`select count(*)::int as count from app.migration_jobs
+          where migration_id = ${w.migrationId} and sequence is null`,
+    );
+    expect(unplaced!.count).toBe(0);
+  });
+
   it('asks a person when the email says one customer and the phone says another', async () => {
     const got = await ask<{ needsReview: number }>(migrationGet, {
       organizationId: w.organizationId,
