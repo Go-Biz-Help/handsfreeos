@@ -129,6 +129,78 @@ const contact = (c: ContactSeed): FakeRecord => ({
   },
 });
 
+/** Something the business sells. Its prices are a list of their own over there. */
+const sells = (id: string, name: string, dollars: number): FakeRecord => ({
+  objectType: 'product',
+  objectId: id,
+  createdAt: '2019-03-01T10:00:00.000Z',
+  updatedAt: '2024-03-01T10:00:00.000Z',
+  payload: {
+    id,
+    name,
+    description: null,
+    prices: [{ _id: `${id}_p1`, amount: dollars, currency: 'USD' }],
+    availableInStore: true,
+  },
+});
+
+/** A bill. GoHighLevel keeps money as dollars and what was paid on the document itself. */
+const billed = (
+  id: string,
+  contactId: string,
+  number: string,
+  status: string,
+  total: number,
+  paid: number,
+  issued: string,
+  items: readonly { name: string; qty: number; amount: number }[],
+  extra: Record<string, unknown> = {},
+): FakeRecord => ({
+  objectType: 'invoice',
+  objectId: id,
+  createdAt: issued,
+  updatedAt: issued,
+  payload: {
+    _id: id,
+    invoiceNumber: number,
+    title: 'Service',
+    status,
+    currency: 'USD',
+    total,
+    subtotal: total,
+    amountPaid: paid,
+    issueDate: issued,
+    dueDate: new Date(new Date(issued).getTime() + 15 * 24 * 60 * 60 * 1000).toISOString(),
+    contactDetails: { id: contactId },
+    invoiceItems: items.map((it) => ({ name: it.name, qty: it.qty, amount: it.amount })),
+    ...extra,
+  },
+});
+
+/** Something still to do for a customer, the way GoHighLevel keeps it: on the customer. */
+const todo = (
+  id: string,
+  contactId: string,
+  title: string,
+  added: string,
+  extra: Record<string, unknown> = {},
+): FakeRecord => ({
+  objectType: 'task',
+  objectId: id,
+  createdAt: added,
+  updatedAt: added,
+  payload: { id, contactId, title, dateAdded: added, assignedTo: 'usr_ana', ...extra },
+});
+
+/** Something somebody wrote down about a customer. */
+const wrote = (id: string, contactId: string, body: string, added: string): FakeRecord => ({
+  objectType: 'note',
+  objectId: id,
+  createdAt: added,
+  updatedAt: added,
+  payload: { id, contactId, body, userId: 'usr_dev', dateAdded: added },
+});
+
 /** A calendar, with a visit length and nothing HandsFreeOS could use for its hours. */
 const calendar = (id: string, name: string, minutes: number): FakeRecord => ({
   objectType: 'calendar',
@@ -398,6 +470,52 @@ const AUSTIN_RECORDS: readonly FakeRecord[] = [
     '2023-02-11T14:00:00.000Z',
   ),
 
+  // ---------- what they sell, and what they billed ----------
+  sells('prd_service', 'Service call', 129),
+  sells('prd_coil', 'Replacement coil', 850),
+  // Paid in full, years ago: the payment must not look like one anybody here could refund.
+  billed('inv_a1', 'con_a1', 'INV-1041', 'paid', 129, 129, '2019-06-05T10:00:00.000Z', [
+    { name: 'Service call', qty: 1, amount: 129 },
+  ]),
+  // Half paid, and still owed: the one that must never be chased from here.
+  billed('inv_a2', 'con_a2', 'INV-1120', 'partially_paid', 420.5, 200, '2021-05-02T10:00:00.000Z', [
+    { name: 'Annual plan', qty: 1, amount: 349.5 },
+    { name: 'Filter pack', qty: 2, amount: 35.5 },
+  ]),
+  // In a currency HandsFreeOS does not hold: said out loud rather than stored as though it were dollars.
+  billed(
+    'inv_a3',
+    'con_a4',
+    'INV-1200',
+    'sent',
+    90,
+    0,
+    '2022-10-02T10:00:00.000Z',
+    [{ name: 'Callout', qty: 1, amount: 90 }],
+    { currency: 'CAD' },
+  ),
+
+  // ---------- what people wrote down, and what is still to do ----------
+  todo('tsk_a1', 'con_a1', 'Order the replacement coil', '2024-03-04T09:00:00.000Z', {
+    dueDate: '2024-03-08T17:00:00.000Z',
+    body: 'Carrier, 3 ton.',
+  }),
+  todo('tsk_a2', 'con_a2', 'Send the renewal paperwork', '2021-02-25T09:00:00.000Z', {
+    completed: true,
+  }),
+  wrote(
+    'not_a1',
+    'con_a1',
+    'Dog in the back garden — ring the bell first.',
+    '2019-04-12T10:30:00.000Z',
+  ),
+  wrote(
+    'not_a2',
+    'con_a1',
+    'Second unit in the loft is out of warranty.',
+    '2023-08-02T13:15:00.000Z',
+  ),
+
   // ---------- the diary ----------
   calendar('cal_service', 'Service visits', 90),
   // Behind them: a visit that happened, one nobody came to, one that was called off.
@@ -630,6 +748,9 @@ const RECORDS: Record<string, readonly FakeRecord[]> = {
 };
 
 const CATEGORY_TYPE: Record<string, string> = {
+  products: 'product',
+  invoices: 'invoice',
+  tasks: 'task',
   calendars: 'calendar',
   appointments: 'appointment',
   pipelines: 'pipeline',
@@ -648,12 +769,9 @@ const CATEGORY_TYPE: Record<string, string> = {
 const COUNTS_ONLY: Record<string, number> = {
   forms: 4,
   form_submissions: 210,
-  invoices: 58,
   estimates: 22,
   subscriptions: 6,
-  products: 19,
   templates: 11,
-  tasks: 143,
   reviews: 37,
   media: 640,
   phone_numbers: 2,
@@ -670,6 +788,9 @@ const SCOPE_NAMES: Record<string, readonly string[]> = {
   custom_fields: ['customFields.readonly'],
   contacts: ['contacts.readonly'],
   companies: ['companies.readonly'],
+  products: ['products.readonly'],
+  invoices: ['invoices.readonly'],
+  tasks: ['contacts.readonly'],
   calendars: ['calendars.readonly'],
   appointments: ['calendars/events.readonly'],
   pipelines: ['opportunities.readonly'],
@@ -849,7 +970,11 @@ export function createFakeSourceAdapter(): FakeSource {
       if (!type) return { records: [], cursor: null, done: true };
       if (supportOf(category).missingScopes.length > 0)
         return { records: [], cursor: null, done: true };
-      const all = (RECORDS[scope.externalScopeId] ?? []).filter((r) => r.objectType === type);
+      // 'tasks' is two kinds of record over there and here: what is still to do, and what was written down.
+      const wanted = category === 'tasks' ? ['task', 'note'] : [type];
+      const all = (RECORDS[scope.externalScopeId] ?? []).filter((r) =>
+        wanted.includes(r.objectType),
+      );
       const from = Number((options.cursor as { offset?: number } | null)?.offset ?? 0);
       const size = Math.min(options.limit ?? FAKE_PAGE_SIZE, FAKE_PAGE_SIZE);
       const slice = all.slice(from, from + size);
@@ -861,11 +986,14 @@ export function createFakeSourceAdapter(): FakeSource {
           objectId: r.objectId,
           // A message or a call belongs to a thread, and the importer finds the thread through this.
           parentObjectId:
-            typeof r.payload['conversationId'] === 'string'
-              ? (r.payload['conversationId'] as string)
-              : typeof r.payload['calendarId'] === 'string'
-                ? (r.payload['calendarId'] as string)
-                : null,
+            // A task or a note hangs off the customer; a message off its thread; a visit off its calendar.
+            r.objectType === 'task' || r.objectType === 'note'
+              ? ((r.payload['contactId'] as string | undefined) ?? null)
+              : typeof r.payload['conversationId'] === 'string'
+                ? (r.payload['conversationId'] as string)
+                : typeof r.payload['calendarId'] === 'string'
+                  ? (r.payload['calendarId'] as string)
+                  : null,
           sourceCreatedAt: new Date(r.createdAt),
           sourceUpdatedAt: new Date(r.updatedAt),
           payload: r.payload,
@@ -921,6 +1049,132 @@ export function createFakeSourceAdapter(): FakeSource {
       };
       const str = (v: unknown) => (typeof v === 'string' && v.trim() ? v.trim() : null);
       switch (record.objectType) {
+        case 'product': {
+          const prices = Array.isArray(p['prices'])
+            ? (p['prices'] as Record<string, unknown>[])
+            : [];
+          return [
+            {
+              ...base,
+              canonicalType: 'product',
+              category: 'products',
+              relationships: [],
+              data: {
+                name: str(p['name']) ?? 'Product',
+                description: str(p['description']),
+                unitPriceCents: Math.round(Number(prices[0]?.['amount'] ?? 0) * 100),
+                unitLabel: 'each',
+                taxable: true,
+                active: true,
+              },
+            },
+          ];
+        }
+        case 'invoice': {
+          const items = Array.isArray(p['invoiceItems'])
+            ? (p['invoiceItems'] as Record<string, unknown>[])
+            : [];
+          const seen: Record<string, 'draft' | 'sent' | 'partly_paid' | 'paid' | 'void'> = {
+            paid: 'paid',
+            partially_paid: 'partly_paid',
+            sent: 'sent',
+            draft: 'draft',
+            void: 'void',
+          };
+          const total = Math.round(Number(p['total'] ?? 0) * 100);
+          return [
+            {
+              ...base,
+              canonicalType: 'invoice',
+              category: 'invoices',
+              relationships: [
+                {
+                  category: 'contacts',
+                  objectType: 'contact',
+                  objectId:
+                    str((p['contactDetails'] as Record<string, unknown> | undefined)?.['id']) ?? '',
+                  role: 'contact',
+                  required: true,
+                },
+              ],
+              data: {
+                number: str(p['invoiceNumber']),
+                title: str(p['title']),
+                notes: null,
+                status: seen[str(p['status']) ?? ''] ?? 'sent',
+                currency: str(p['currency']) ?? 'USD',
+                subtotalCents: Math.round(Number(p['subtotal'] ?? 0) * 100),
+                discountCents: 0,
+                taxCents: 0,
+                totalCents: total,
+                paidCents: Math.round(Number(p['amountPaid'] ?? 0) * 100),
+                paidAt: record.sourceUpdatedAt?.toISOString() ?? null,
+                issuedAt: str(p['issueDate']),
+                dueOn: str(p['dueDate'])?.slice(0, 10) ?? null,
+                terms: null,
+                lines: items.map((it) => ({
+                  name: str(it['name']) ?? 'Item',
+                  description: null,
+                  quantity: Number(it['qty'] ?? 1),
+                  unitLabel: 'each',
+                  unitPriceCents: Math.round(Number(it['amount'] ?? 0) * 100),
+                  taxable: true,
+                })),
+              },
+            },
+          ];
+        }
+        case 'task':
+          return [
+            {
+              ...base,
+              canonicalType: 'task',
+              category: 'tasks',
+              relationships: [
+                {
+                  category: 'contacts',
+                  objectType: 'contact',
+                  objectId: str(p['contactId']) ?? '',
+                  role: 'contact',
+                  required: true,
+                },
+                {
+                  category: 'users',
+                  objectType: 'user',
+                  objectId: str(p['assignedTo']) ?? '',
+                  role: 'owner',
+                  required: false,
+                },
+              ],
+              data: {
+                title: str(p['title']) ?? 'Task',
+                notes: str(p['body']),
+                dueAt: str(p['dueDate']),
+                doneAt: p['completed'] === true ? record.sourceUpdatedAt?.toISOString() : null,
+              },
+            },
+          ];
+        case 'note':
+          return [
+            {
+              ...base,
+              canonicalType: 'note',
+              category: 'tasks',
+              relationships: [
+                {
+                  category: 'contacts',
+                  objectType: 'contact',
+                  objectId: str(p['contactId']) ?? '',
+                  role: 'contact',
+                  required: true,
+                },
+              ],
+              data: {
+                body: str(p['body']) ?? '(empty note)',
+                occurredAt: record.sourceCreatedAt?.toISOString() ?? new Date(0).toISOString(),
+              },
+            },
+          ];
         case 'calendar':
           return [
             {

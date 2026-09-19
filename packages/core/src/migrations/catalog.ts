@@ -175,8 +175,7 @@ export const MIGRATION_CATEGORIES: readonly MigrationCategory[] = [
     dependsOn: ['locations'],
     targetType: 'product',
     selection: 'category',
-    release: 'next',
-    releaseNote: 'Counted now, brought across in a later step.',
+    release: 'ready',
   }),
   c({
     id: 'templates',
@@ -231,8 +230,7 @@ export const MIGRATION_CATEGORIES: readonly MigrationCategory[] = [
     prefers: ['users'],
     targetType: 'task',
     selection: 'category',
-    release: 'next',
-    releaseNote: 'Counted now, brought across in a later step.',
+    release: 'ready',
   }),
   c({
     id: 'form_submissions',
@@ -253,8 +251,7 @@ export const MIGRATION_CATEGORIES: readonly MigrationCategory[] = [
     dependsOn: ['contacts', 'products'],
     targetType: 'invoice',
     selection: 'category',
-    release: 'next',
-    releaseNote: 'Counted now, brought across in a later step.',
+    release: 'ready',
   }),
   c({
     id: 'estimates',

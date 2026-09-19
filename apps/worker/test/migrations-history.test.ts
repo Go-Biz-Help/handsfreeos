@@ -128,6 +128,8 @@ beforeAll(async () => {
         'customFields.readonly',
         'contacts.readonly',
         'opportunities.readonly',
+        'products.readonly',
+        'invoices.readonly',
         'calendars.readonly',
         'calendars/events.readonly',
         'conversations.readonly',
@@ -163,6 +165,9 @@ beforeAll(async () => {
       { category: 'contacts', selected: true },
       { category: 'tags', selected: true },
       { category: 'custom_fields', selected: true },
+      { category: 'products', selected: true },
+      { category: 'invoices', selected: true },
+      { category: 'tasks', selected: true },
       { category: 'calendars', selected: true },
       { category: 'appointments', selected: true },
       { category: 'pipelines', selected: true },
@@ -429,6 +434,125 @@ describe('the history arrives as history', () => {
     expect(visits[0]!.notes).toContain('Gate code');
     // And the one still ahead of them is in the diary, which is the point of bringing the future too.
     expect(new Date(visits[3]!.starts_at).getTime()).toBeGreaterThan(Date.now());
+  }, 60_000);
+
+  it('brings what people wrote down, and what is still to do', async () => {
+    const tasks = await rows<{
+      title: string;
+      notes: string | null;
+      due_at: Date | null;
+      done_at: Date | null;
+      all_day: boolean;
+      person: string | null;
+    }>(
+      admin(),
+      sql`select t.title, t.notes, t.due_at, t.done_at, t.all_day, p.first_name as person
+          from app.tasks t left join app.people p on p.id = t.person_id
+          where t.workspace_id = ${workspaceId}::uuid order by t.created_at`,
+    );
+    expect(tasks.map((t) => t.title)).toEqual([
+      'Send the renewal paperwork',
+      'Order the replacement coil',
+    ]);
+    // The one that was finished is finished; the one that is not carries its due date and its detail.
+    expect(tasks[0]!.done_at).not.toBeNull();
+    const open = tasks[1]!;
+    expect(open.done_at).toBeNull();
+    expect(open.person).toBe('Dave');
+    expect(open.notes).toContain('Carrier');
+    // A due date with a time of day is not an all-day task.
+    expect(open.all_day).toBe(false);
+
+    // Notes land on the customer's own timeline, each at the time it was written — four years apart here,
+    // which is history rather than a wall of text in one field.
+    const notes = await rows<{ body: string; occurred_at: Date; kind: string; actor: string }>(
+      admin(),
+      sql`select a.body, a.occurred_at, a.kind::text as kind, a.actor_type::text as actor
+          from app.activities a join app.people p on p.id = a.person_id
+          where a.workspace_id = ${workspaceId}::uuid and a.kind = 'note'
+          order by a.occurred_at`,
+    );
+    expect(notes).toHaveLength(2);
+    expect(notes[0]!.body).toContain('Dog in the back garden');
+    expect(new Date(notes[0]!.occurred_at).getUTCFullYear()).toBe(2019);
+    expect(new Date(notes[1]!.occurred_at).getUTCFullYear()).toBe(2023);
+    // Never recorded as a person here writing it: the person who wrote it may have no account at all.
+    expect(notes.every((n) => n.actor === 'integration')).toBe(true);
+  }, 60_000);
+
+  it('brings what was billed and what was paid, without chasing anybody', async () => {
+    const invoices = await rows<{
+      number: string | null;
+      status: string;
+      total_cents: string;
+      paid_cents: string;
+      balance_cents: string;
+      paid_at: Date | null;
+      sent_at: Date | null;
+      quiet: string | null;
+      person: string | null;
+      lines: number;
+    }>(
+      admin(),
+      sql`select i.number, i.status::text as status, i.total_cents, i.amount_paid_cents as paid_cents,
+            i.balance_cents, i.paid_at, i.sent_at, i.reminder_state ->> 'imported' as quiet,
+            p.first_name as person,
+            (select count(*)::int from app.invoice_lines l where l.invoice_id = i.id) as lines
+          from app.invoices i left join app.people p on p.id = i.person_id
+          where i.workspace_id = ${workspaceId}::uuid order by i.created_at`,
+    );
+    // Two of the three: the one in Canadian dollars is refused out loud rather than stored as dollars.
+    expect(invoices.map((i) => i.number)).toEqual(['INV-1041', 'INV-1120']);
+
+    // Paid in full years ago, and the roll-up agrees: nothing owing.
+    const paid = invoices[0]!;
+    expect(paid.status).toBe('paid');
+    expect(Number(paid.total_cents)).toBe(12_900);
+    expect(Number(paid.balance_cents)).toBe(0);
+    expect(new Date(paid.paid_at!).getUTCFullYear()).toBe(2019);
+
+    // Half paid: the balance is what is still owed, worked out by the same roll-up a real payment uses.
+    const half = invoices[1]!;
+    expect(half.status).toBe('partly_paid');
+    expect(Number(half.total_cents)).toBe(42_050);
+    expect(Number(half.paid_cents)).toBe(20_000);
+    expect(Number(half.balance_cents)).toBe(22_050);
+    expect(half.lines).toBe(2);
+    expect(half.person).toBe('Maria');
+
+    // Chris's call: imported bills are quiet, so nobody is chased twice while the old system still is.
+    expect(invoices.every((i) => i.quiet === 'quiet')).toBe(true);
+
+    // The money that was taken is recorded, and is not something anybody here could refund: no provider.
+    const payments = await rows<{
+      method: string;
+      provider: string | null;
+      status: string;
+      cents: string;
+    }>(
+      admin(),
+      sql`select method::text as method, provider::text as provider, status::text as status,
+            amount_cents as cents
+          from app.payments where workspace_id = ${workspaceId}::uuid order by amount_cents`,
+    );
+    expect(payments).toHaveLength(2);
+    expect(payments.every((p) => p.method === 'other' && p.provider === null)).toBe(true);
+    expect(payments.every((p) => p.status === 'succeeded')).toBe(true);
+
+    // And what they sell came with it, priced in whole cents.
+    const products = await rows<{ name: string; unit_price_cents: string }>(
+      admin(),
+      sql`select name, unit_price_cents from app.products
+          where workspace_id = ${workspaceId}::uuid order by unit_price_cents`,
+    );
+    expect(products.map((p) => p.name)).toEqual(['Service call', 'Replacement coil']);
+    expect(Number(products[0]!.unit_price_cents)).toBe(12_900);
+
+    const got = await ask<{ findings: { code: string }[] }>(migrationGet, {
+      organizationId,
+      migrationId,
+    });
+    expect(got.findings.map((f) => f.code)).toContain('invoices.currency_unsupported');
   }, 60_000);
 
   it('never turns history into work', async () => {

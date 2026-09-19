@@ -55,6 +55,9 @@ const APPOINTMENTS_FROM = Date.UTC(2015, 0, 1);
 const TWO_YEARS_MS = 2 * 365 * 24 * 60 * 60 * 1000;
 const WINDOW_MS = 180 * 24 * 60 * 60 * 1000;
 
+/** How many customers one page of the tasks-and-notes walk asks about. Two requests each. */
+const CUSTOMERS_PER_PAGE = 10;
+
 /** HighLevel pins its v2 API by date. Changing this is a mapping change, so it goes up with the version. */
 const API_VERSION = '2021-07-28';
 const API_BASE = 'https://services.leadconnectorhq.com';
@@ -563,6 +566,97 @@ export function createGoHighLevelAdapter(config: GoHighLevelConfig): CrmSourceAd
       cursor: nextCursor,
       highWaterAt,
       done: done || nextCursor === null,
+    };
+  };
+
+  /**
+   * A page of tasks and notes, walked customer by customer.
+   *
+   * GoHighLevel keeps both on the customer and nowhere else: there is no list of a sub-account's tasks, which
+   * is why the scan says it cannot count them. So this walks the customers ten at a time and asks each for
+   * both — two requests per customer, which is the cost of having them at all, and cheaper than the same walk
+   * twice.
+   */
+  const taskPage = async (
+    token: string,
+    scopeId: string,
+    options: ListOptions,
+  ): Promise<SourcePage> => {
+    const cursor = (options.cursor ?? {}) as {
+      queue?: string[];
+      contacts?: { startAfterId?: string; startAfter?: number } | null;
+      contactsDone?: boolean;
+    };
+    let queue = [...(cursor.queue ?? [])];
+    let contacts = cursor.contacts ?? null;
+    let contactsDone = cursor.contactsDone ?? false;
+
+    while (queue.length === 0 && !contactsDone) {
+      const endpoint = ENDPOINTS['contacts']!;
+      const base = endpoint.path(scopeId);
+      let path = `${base}&limit=100`;
+      if (contacts?.startAfterId) {
+        path += `&startAfterId=${encodeURIComponent(contacts.startAfterId)}`;
+        if (contacts.startAfter) path += `&startAfter=${contacts.startAfter}`;
+      }
+      const body = await call<{ contacts?: Record<string, unknown>[] }>(token, path);
+      const list = body.contacts ?? [];
+      queue = list.map((c) => asString(c['id']) ?? asString(c['_id']) ?? '').filter(Boolean);
+      const last = list[list.length - 1];
+      contactsDone = list.length < 100 || !last;
+      contacts = last
+        ? {
+            startAfterId: asString(last['id']) ?? asString(last['_id']) ?? '',
+            startAfter: Number(last['dateAdded'] ?? last['dateUpdated'] ?? 0) || undefined,
+          }
+        : null;
+    }
+    if (queue.length === 0) return { records: [], cursor: null, highWaterAt: null, done: true };
+
+    const take = queue.slice(0, CUSTOMERS_PER_PAGE);
+    const records: SourceRecord[] = [];
+    let highWaterAt: Date | null = null;
+    for (const contactId of take) {
+      for (const want of ['tasks', 'notes'] as const) {
+        let body: Record<string, unknown>;
+        try {
+          body = await call<Record<string, unknown>>(
+            token,
+            `/contacts/${encodeURIComponent(contactId)}/${want}`,
+          );
+        } catch (e) {
+          // One customer's list being refused must not stop the walk: their own record already came across,
+          // and the scan's findings carry what could not be read.
+          if ((e as GhlError).code === 'not_found' || (e as GhlError).code === 'forbidden')
+            continue;
+          throw e;
+        }
+        const list = Array.isArray(body[want]) ? (body[want] as Record<string, unknown>[]) : [];
+        for (const raw of list) {
+          const id = asString(raw['id']) ?? asString(raw['_id']);
+          if (!id) continue;
+          const at = asDate(raw['dateUpdated'] ?? raw['dateAdded'] ?? raw['createdAt']);
+          if (options.until && at && at > options.until) continue;
+          if (options.changedSince && at && at <= options.changedSince) continue;
+          if (at && (!highWaterAt || at > highWaterAt)) highWaterAt = at;
+          records.push({
+            objectType: want === 'tasks' ? 'task' : 'note',
+            objectId: id,
+            parentObjectId: contactId,
+            sourceCreatedAt: asDate(raw['dateAdded'] ?? raw['createdAt']) ?? at,
+            sourceUpdatedAt: at,
+            payload: { ...raw, contactId },
+          });
+        }
+      }
+    }
+    const rest = queue.slice(take.length);
+    const done = rest.length === 0 && contactsDone;
+    return {
+      records,
+      cursor: done ? null : { queue: rest, contacts, contactsDone },
+      highWaterAt,
+      done,
     };
   };
 
@@ -1256,6 +1350,9 @@ export function createGoHighLevelAdapter(config: GoHighLevelConfig): CrmSourceAd
     },
 
     async list(connection, scope, category, options) {
+      // Tasks and notes live on the customer over there, so they are read customer by customer.
+      if (category === 'tasks')
+        return taskPage(tokenOf(connection, scope), scope.externalScopeId, options);
       // Appointments are read one calendar and one window of time at a time; there is no other way to ask.
       if (category === 'appointments')
         return appointmentPage(tokenOf(connection, scope), scope.externalScopeId, options);
@@ -1298,6 +1395,14 @@ export function createGoHighLevelAdapter(config: GoHighLevelConfig): CrmSourceAd
 
     normalize(record, context) {
       switch (record.objectType) {
+        case 'product':
+          return [productEnvelope(record, context)];
+        case 'invoice':
+          return [invoiceEnvelope(record, context)];
+        case 'task':
+          return [taskEnvelope(record, context)];
+        case 'note':
+          return [noteEnvelope(record, context)];
         case 'calendar':
           return [calendarEnvelope(record, context)];
         case 'appointment':
@@ -1623,6 +1728,241 @@ function tagEnvelope(record: SourceRecord, context: MappingContext): CanonicalEn
     { name: asString(p['name']) ?? 'Unnamed tag', color: null },
     leftovers(p, ['id', '_id', 'name', 'locationId']),
     [],
+  );
+}
+
+/** Money over there is a number of dollars; here it is whole cents, and half a cent has never existed. */
+const cents = (v: unknown): number => {
+  const n = Number(v ?? 0);
+  return Number.isFinite(n) ? Math.max(0, Math.round(n * 100)) : 0;
+};
+
+function productEnvelope(record: SourceRecord, context: MappingContext): CanonicalEnvelope {
+  const p = record.payload;
+  // A product's prices are a list of their own over there; the first one stands for it here, and the rest are
+  // kept beside it rather than being invented into products nobody made.
+  const prices = Array.isArray(p['prices']) ? (p['prices'] as Record<string, unknown>[]) : [];
+  const first = prices[0];
+  const warnings =
+    prices.length > 1
+      ? [
+          {
+            code: 'mapping.one_price_kept',
+            field: 'prices',
+            message: `"${asString(p['name']) ?? 'This product'}" had ${prices.length} prices over there and one here; the first is used and the others are kept beside it.`,
+          },
+        ]
+      : [];
+  return envelopeOf(
+    record,
+    context,
+    'product',
+    'products',
+    {
+      name: (asString(p['name']) ?? 'Product').slice(0, 200),
+      description: asString(p['description'])?.slice(0, 2000) ?? null,
+      unitPriceCents: first ? cents(first['amount']) : 0,
+      unitLabel: 'each',
+      taxable: true,
+      active: p['availableInStore'] !== false,
+    },
+    leftovers(p, ['id', '_id', 'name', 'description', 'prices', 'availableInStore', 'locationId']),
+    warnings,
+  );
+}
+
+const INVOICE_STATUS: Readonly<Record<string, 'draft' | 'sent' | 'partly_paid' | 'paid' | 'void'>> =
+  {
+    draft: 'draft',
+    sent: 'sent',
+    payment_processing: 'sent',
+    partially_paid: 'partly_paid',
+    partially: 'partly_paid',
+    paid: 'paid',
+    void: 'void',
+    voided: 'void',
+    cancelled: 'void',
+  };
+
+function invoiceEnvelope(record: SourceRecord, context: MappingContext): CanonicalEnvelope {
+  const p = record.payload;
+  const rawStatus = (asString(p['status']) ?? '').toLowerCase();
+  const status = INVOICE_STATUS[rawStatus] ?? 'sent';
+  const items = Array.isArray(p['invoiceItems'])
+    ? (p['invoiceItems'] as Record<string, unknown>[])
+    : [];
+  const contactId =
+    asString((p['contactDetails'] as Record<string, unknown> | undefined)?.['id']) ??
+    asString(p['contactId']);
+  const total = cents(p['total']);
+  const paid = cents(p['amountPaid'] ?? p['amountPaidSummary']);
+  return envelopeOf(
+    record,
+    context,
+    'invoice',
+    'invoices',
+    {
+      number: asString(p['invoiceNumber'])?.slice(0, 40) ?? null,
+      title: asString(p['title'] ?? p['name'])?.slice(0, 200) ?? null,
+      notes: asString(p['termsNotes'])?.slice(0, 5000) ?? null,
+      status,
+      currency: (asString(p['currency']) ?? 'USD').toUpperCase().slice(0, 3),
+      subtotalCents: cents(p['subtotal'] ?? p['total']),
+      discountCents: cents((p['discount'] as Record<string, unknown> | undefined)?.['value']),
+      taxCents: cents(p['taxSum'] ?? p['totalTax']),
+      totalCents: total,
+      paidCents: Math.min(paid, total),
+      paidAt:
+        asDate(p['paidAt'] ?? p['updatedAt'])?.toISOString() ??
+        record.sourceUpdatedAt?.toISOString() ??
+        null,
+      issuedAt:
+        asDate(p['issueDate'] ?? p['sentAt'])?.toISOString() ??
+        record.sourceCreatedAt?.toISOString() ??
+        null,
+      dueOn: asDate(p['dueDate'])?.toISOString().slice(0, 10) ?? null,
+      terms: asString(p['termsNotes'])?.slice(0, 2000) ?? null,
+      lines: items.slice(0, 200).map((it) => ({
+        name: (asString(it['name']) ?? 'Item').slice(0, 200),
+        description: asString(it['description'])?.slice(0, 2000) ?? null,
+        quantity: Math.max(0.001, Number(it['qty'] ?? it['quantity'] ?? 1) || 1),
+        unitLabel: 'each',
+        unitPriceCents: cents(it['amount'] ?? it['price']),
+        taxable: Array.isArray(it['taxes']) ? (it['taxes'] as unknown[]).length > 0 : true,
+      })),
+    },
+    leftovers(p, [
+      'id',
+      '_id',
+      'invoiceNumber',
+      'title',
+      'name',
+      'status',
+      'currency',
+      'subtotal',
+      'discount',
+      'taxSum',
+      'totalTax',
+      'total',
+      'amountPaid',
+      'amountPaidSummary',
+      'paidAt',
+      'issueDate',
+      'sentAt',
+      'dueDate',
+      'termsNotes',
+      'invoiceItems',
+      'contactDetails',
+      'contactId',
+      'altId',
+      'locationId',
+      'updatedAt',
+    ]),
+    [],
+    contactId
+      ? [
+          {
+            category: 'contacts',
+            objectType: 'contact',
+            objectId: contactId,
+            role: 'contact',
+            required: true,
+          },
+        ]
+      : [],
+  );
+}
+
+/** Who and what a task or a note hangs off: always a customer over there. */
+const onCustomer = (record: SourceRecord): CanonicalEnvelope['relationships'] => [
+  {
+    category: 'contacts',
+    objectType: 'contact',
+    objectId: record.parentObjectId ?? '',
+    role: 'contact',
+    required: true,
+  },
+];
+
+function taskEnvelope(record: SourceRecord, context: MappingContext): CanonicalEnvelope {
+  const p = record.payload;
+  const done =
+    p['completed'] === true || (asString(p['status']) ?? '').toLowerCase() === 'completed';
+  const owner = asString(p['assignedTo']);
+  const relationships = [...onCustomer(record)];
+  if (owner)
+    relationships.push({
+      category: 'users',
+      objectType: 'user',
+      objectId: owner,
+      role: 'owner',
+      required: false,
+    });
+  return envelopeOf(
+    record,
+    context,
+    'task',
+    'tasks',
+    {
+      title: (asString(p['title']) ?? 'Task').slice(0, 200),
+      notes: asString(p['body'])?.slice(0, 10_000) ?? null,
+      dueAt: asDate(p['dueDate'])?.toISOString() ?? null,
+      // When it was finished is not something the old system records, so the last change stands in for it and
+      // the fact that it is finished is what matters.
+      doneAt: done ? (record.sourceUpdatedAt ?? new Date()).toISOString() : null,
+    },
+    leftovers(p, [
+      'id',
+      '_id',
+      'title',
+      'body',
+      'dueDate',
+      'completed',
+      'status',
+      'assignedTo',
+      'contactId',
+      'dateAdded',
+      'dateUpdated',
+      'locationId',
+    ]),
+    [],
+    relationships,
+  );
+}
+
+function noteEnvelope(record: SourceRecord, context: MappingContext): CanonicalEnvelope {
+  const p = record.payload;
+  const author = asString(p['userId']);
+  const relationships = [...onCustomer(record)];
+  if (author)
+    relationships.push({
+      category: 'users',
+      objectType: 'user',
+      objectId: author,
+      role: 'owner',
+      required: false,
+    });
+  return envelopeOf(
+    record,
+    context,
+    'note',
+    'tasks',
+    {
+      body: (asString(p['body']) ?? '').slice(0, 10_000) || '(empty note)',
+      occurredAt: (record.sourceCreatedAt ?? new Date()).toISOString(),
+    },
+    leftovers(p, [
+      'id',
+      '_id',
+      'body',
+      'userId',
+      'contactId',
+      'dateAdded',
+      'dateUpdated',
+      'locationId',
+    ]),
+    [],
+    relationships,
   );
 }
 

@@ -184,6 +184,19 @@ const openInvoice = (scope: TenantScope, only: string | null) => sql`
   and i.sent_at is not null and i.voided_at is null and i.balance_cents > 0
   and (${only}::uuid is null or i.id = ${only}::uuid)`;
 
+/**
+ * An invoice brought from another CRM is quiet: HandsFreeOS never chases it.
+ *
+ * Chris's call (2026-09-19), and the reason is the overlap. A business moving in keeps its old system running
+ * while the history catches up, and that system is still sending its own reminders about the same unpaid
+ * bills. Chasing from both ends would have a customer told twice, by two systems, about one bill — the kind
+ * of thing they remember about a business.
+ *
+ * Only the *outbound* chasing stops. The invoice still turns overdue, still shows as owed, and still appears
+ * in what needs attention: the business sees everything, the customer hears nothing.
+ */
+const notImported = sql`coalesce(i.reminder_state ->> 'imported', '') <> 'quiet'`;
+
 /** An estimate that is out and unanswered. */
 const openEstimate = (scope: TenantScope, only: string | null) => sql`
   e.workspace_id = ${scope.workspaceId}::uuid and e.status = 'sent'
@@ -220,6 +233,7 @@ export async function armInvoiceReminders(
             jsonb_build_object('invoiceId', i.id, 'key', ${key}::text)
           from app.invoices i
           where ${openInvoice(scope, only)}
+            and ${notImported}
             and i.due_on is not null
             and ${at} > ${notLongPast()}
             and coalesce(i.reminder_state #>> array['reminders', ${key}::text, 'status'], '')

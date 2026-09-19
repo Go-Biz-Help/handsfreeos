@@ -1878,6 +1878,364 @@ export const importAppointment: Importer = async (tx, scope, envelope) => {
   return { counts: { imported: 1 } };
 };
 
+// ---------- what people wrote down, and what they still have to do ----------
+
+/** The customer a task or a note belongs to. Both hang off one over there, and off one here. */
+async function ownerAndCustomer(
+  tx: Tx,
+  scope: ImportScope,
+  envelope: CanonicalEnvelope,
+): Promise<{ personId: string | null; userId: string | null }> {
+  const contactRef = envelope.relationships.find((r) => r.role === 'contact');
+  const person = contactRef
+    ? await existingMapping(tx, scope, contactRef.objectType, contactRef.objectId)
+    : null;
+  const ownerRef = envelope.relationships.find((r) => r.role === 'owner');
+  const owner = ownerRef
+    ? await existingMapping(tx, scope, ownerRef.objectType, ownerRef.objectId)
+    : null;
+  return {
+    personId: person?.targetType === 'person' ? person.targetId : null,
+    userId: owner?.targetType === 'user' ? owner.targetId : null,
+  };
+}
+
+export const importTask: Importer = async (tx, scope, envelope) => {
+  const d = envelope.data as {
+    title?: string;
+    notes?: string | null;
+    dueAt?: string | null;
+    doneAt?: string | null;
+  };
+  const already = await existingMapping(
+    tx,
+    scope,
+    envelope.source.objectType,
+    envelope.source.objectId,
+  );
+  if (already) return { counts: { skipped: 1 } };
+
+  const { personId, userId } = await ownerAndCustomer(tx, scope, envelope);
+  if (!personId) {
+    await quarantine(tx, scope, {
+      category: 'tasks',
+      sourceObjectType: envelope.source.objectType,
+      sourceObjectId: envelope.source.objectId,
+      kind: 'dependency',
+      code: 'task_without_customer',
+      message: 'The customer this was for is not here.',
+      retryable: true,
+    });
+    return { counts: { failed: 1 } };
+  }
+  const { createdAt, updatedAt } = sourceTimes(envelope);
+  const id = randomUUID();
+  await tx.execute(sql`
+    insert into app.tasks (id, workspace_id, title, notes, due_at, all_day, assignee_user_id,
+      person_id, done_at, created_at, updated_at)
+    values (${id}::uuid, ${scope.workspaceId}, ${(str(d.title) ?? 'Task').slice(0, 200)},
+      ${str(d.notes)}, ${d.dueAt ?? null}::timestamptz,
+      -- The old system keeps a time of day on a due date; a task here is all-day unless it has one.
+      ${d.dueAt ? false : true},
+      ${userId}::uuid, ${personId}::uuid, ${d.doneAt ?? null}::timestamptz,
+      coalesce(${createdAt?.toISOString() ?? null}::timestamptz, now()),
+      coalesce(${updatedAt?.toISOString() ?? null}::timestamptz, now()))`);
+  await putMapping(tx, scope, {
+    sourceObjectType: envelope.source.objectType,
+    sourceObjectId: envelope.source.objectId,
+    targetType: 'task',
+    targetId: id,
+    createdHere: true,
+    checksum: envelope.source.payloadChecksum,
+  });
+  await journal(tx, scope, {
+    action: 'create',
+    targetType: 'task',
+    targetId: id,
+    sourceObjectType: envelope.source.objectType,
+    sourceObjectId: envelope.source.objectId,
+  });
+  return { counts: { imported: 1 } };
+};
+
+/**
+ * A note, on the customer's own timeline.
+ *
+ * Written as an activity rather than into the customer's notes field, because that is where HandsFreeOS keeps
+ * what somebody wrote and when they wrote it — and the when is the point: five notes across four years read as
+ * four years of history, while the same five appended to one field read as a wall of text.
+ *
+ * `actor_type` is `integration` and never `human`: the database refuses `human` from the worker, and rightly,
+ * because the person who wrote this note in the other system may have no account here at all.
+ */
+export const importNote: Importer = async (tx, scope, envelope) => {
+  const d = envelope.data as { body?: string; occurredAt?: string };
+  const already = await existingMapping(
+    tx,
+    scope,
+    envelope.source.objectType,
+    envelope.source.objectId,
+  );
+  if (already) return { counts: { skipped: 1 } };
+
+  const { personId, userId } = await ownerAndCustomer(tx, scope, envelope);
+  if (!personId) {
+    await quarantine(tx, scope, {
+      category: 'tasks',
+      sourceObjectType: envelope.source.objectType,
+      sourceObjectId: envelope.source.objectId,
+      kind: 'dependency',
+      code: 'note_without_customer',
+      message: 'The customer this note was about is not here.',
+      retryable: true,
+    });
+    return { counts: { failed: 1 } };
+  }
+  const body = (str(d.body) ?? '').slice(0, 10_000);
+  if (!body) return { counts: { skipped: 1 } };
+  const { createdAt, updatedAt } = sourceTimes(envelope);
+  const id = randomUUID();
+  await tx.execute(sql`
+    insert into app.activities (id, workspace_id, kind, subtype, person_id, body, occurred_at,
+      author_user_id, actor_type, meta, created_at, updated_at)
+    values (${id}::uuid, ${scope.workspaceId}, 'note'::app.activity_kind, ${scope.sourceSystem},
+      ${personId}::uuid, ${body},
+      coalesce(${d.occurredAt ?? null}::timestamptz, ${createdAt?.toISOString() ?? null}::timestamptz, now()),
+      ${userId}::uuid, 'integration'::app.actor_type,
+      ${JSON.stringify({ importedFrom: scope.sourceSystem })}::jsonb,
+      coalesce(${createdAt?.toISOString() ?? null}::timestamptz, now()),
+      coalesce(${updatedAt?.toISOString() ?? null}::timestamptz, now()))`);
+  await putMapping(tx, scope, {
+    sourceObjectType: envelope.source.objectType,
+    sourceObjectId: envelope.source.objectId,
+    targetType: 'activity',
+    targetId: id,
+    createdHere: true,
+    checksum: envelope.source.payloadChecksum,
+  });
+  await journal(tx, scope, {
+    action: 'create',
+    targetType: 'activity',
+    targetId: id,
+    sourceObjectType: envelope.source.objectType,
+    sourceObjectId: envelope.source.objectId,
+  });
+  return { counts: { imported: 1 } };
+};
+
+// ---------- what they sell, and what they billed ----------
+
+export const importProduct: Importer = async (tx, scope, envelope) => {
+  const d = envelope.data as {
+    name?: string;
+    description?: string | null;
+    unitPriceCents?: number;
+    unitLabel?: string;
+    taxable?: boolean;
+    active?: boolean;
+  };
+  const already = await existingMapping(
+    tx,
+    scope,
+    envelope.source.objectType,
+    envelope.source.objectId,
+  );
+  if (already) return { counts: { skipped: 1 } };
+
+  const name = (str(d.name) ?? 'Product').slice(0, 160);
+  const { createdAt, updatedAt } = sourceTimes(envelope);
+  const id = randomUUID();
+  await tx.execute(sql`
+    insert into app.products (id, workspace_id, name, description, unit_price_cents, unit_label,
+      taxable, archived_at, created_at, updated_at)
+    values (${id}::uuid, ${scope.workspaceId}, ${name}, ${str(d.description)},
+      ${Math.max(0, Math.round(Number(d.unitPriceCents ?? 0)))},
+      ${(str(d.unitLabel) ?? 'each').slice(0, 40)}, ${d.taxable !== false},
+      -- Something they had stopped selling stays stopped here, rather than reappearing in the list.
+      ${d.active === false ? (updatedAt?.toISOString() ?? new Date().toISOString()) : null}::timestamptz,
+      coalesce(${createdAt?.toISOString() ?? null}::timestamptz, now()),
+      coalesce(${updatedAt?.toISOString() ?? null}::timestamptz, now()))`);
+  await putMapping(tx, scope, {
+    sourceObjectType: envelope.source.objectType,
+    sourceObjectId: envelope.source.objectId,
+    targetType: 'product',
+    targetId: id,
+    createdHere: true,
+    checksum: envelope.source.payloadChecksum,
+  });
+  await journal(tx, scope, {
+    action: 'create',
+    targetType: 'product',
+    targetId: id,
+    sourceObjectType: envelope.source.objectType,
+    sourceObjectId: envelope.source.objectId,
+  });
+  return { counts: { imported: 1 } };
+};
+
+/**
+ * A bill, as it stood, and what had been paid against it.
+ *
+ * Three decisions worth knowing, because each is a place where doing the obvious thing would be wrong:
+ *
+ * 1. **The totals are the source's, not ours.** A bill that went to a customer says what it said. Recomputing
+ *    it from the lines would quietly change history wherever a rounding or tax rule differs by a cent.
+ * 2. **What was paid arrives as one payment, taken off the system.** The card payment itself happened in
+ *    somebody else's processor: it cannot be refunded from here and must never look as though it could. So it
+ *    is recorded as a payment of method `other` with no provider — the invoice balances, the history reads
+ *    true, and the refund button has nothing to reach for. The roll-up does the rest.
+ * 3. **Nothing is chased.** `reminder_state` is marked quiet, which the worker's arming reads (money/jobs.ts):
+ *    the invoice still turns overdue and still shows as owed, and the customer hears nothing from here while
+ *    the old system is still sending its own reminders about the same bill.
+ */
+export const importInvoice: Importer = async (tx, scope, envelope) => {
+  const d = envelope.data as {
+    number?: string | null;
+    title?: string | null;
+    notes?: string | null;
+    status?: string;
+    currency?: string;
+    subtotalCents?: number;
+    discountCents?: number;
+    taxCents?: number;
+    totalCents?: number;
+    paidCents?: number;
+    paidAt?: string | null;
+    issuedAt?: string | null;
+    dueOn?: string | null;
+    terms?: string | null;
+    lines?: {
+      name: string;
+      description?: string | null;
+      quantity: number;
+      unitLabel: string;
+      unitPriceCents: number;
+      taxable: boolean;
+    }[];
+  };
+  const already = await existingMapping(
+    tx,
+    scope,
+    envelope.source.objectType,
+    envelope.source.objectId,
+  );
+  if (already) return { counts: { skipped: 1 } };
+
+  // HandsFreeOS holds US dollars and says so rather than storing a number with the wrong sign on it.
+  if ((d.currency ?? 'USD').toUpperCase() !== 'USD') {
+    await quarantine(tx, scope, {
+      category: 'invoices',
+      sourceObjectType: envelope.source.objectType,
+      sourceObjectId: envelope.source.objectId,
+      kind: 'mapping',
+      code: 'invoice_not_in_dollars',
+      message: `This bill is in ${(d.currency ?? '').toUpperCase()}, and HandsFreeOS holds US dollars today.`,
+      retryable: false,
+    });
+    await finding(tx, scope, {
+      code: 'invoices.currency_unsupported',
+      category: 'invoices',
+      capability: 'not_supported',
+      severity: 'action',
+      summary: 'Some bills are in a currency HandsFreeOS does not hold yet.',
+      whatImports: 'Nothing for those bills; every other one comes across.',
+      whatChanges:
+        'HandsFreeOS keeps money in US dollars today, and storing another currency as though it were dollars would be worse than not storing it.',
+      recommendedAction: 'Keep those in the old system until HandsFreeOS holds your currency.',
+      sourceCapability: 'invoices',
+      affected: 1,
+      detail: { currency: (d.currency ?? '').toUpperCase() },
+    });
+    return { counts: { failed: 1 } };
+  }
+
+  const contactRef = envelope.relationships.find((r) => r.role === 'contact');
+  const person = contactRef
+    ? await existingMapping(tx, scope, contactRef.objectType, contactRef.objectId)
+    : null;
+  if (person?.targetType !== 'person') {
+    await quarantine(tx, scope, {
+      category: 'invoices',
+      sourceObjectType: envelope.source.objectType,
+      sourceObjectId: envelope.source.objectId,
+      kind: 'dependency',
+      code: 'invoice_without_customer',
+      message: 'The customer this bill was for is not here.',
+      retryable: true,
+    });
+    return { counts: { failed: 1 } };
+  }
+
+  const status = d.status ?? 'sent';
+  const { createdAt, updatedAt } = sourceTimes(envelope);
+  const issuedAt = d.issuedAt ?? createdAt?.toISOString() ?? null;
+  // A number and a sent date are one fact in this schema: a bill has both or neither.
+  const number = status === 'draft' ? null : (str(d.number)?.slice(0, 40) ?? null);
+  const sentAt = number ? (issuedAt ?? new Date().toISOString()) : null;
+  const total = Math.max(0, Math.round(Number(d.totalCents ?? 0)));
+  const paid = Math.min(Math.max(0, Math.round(Number(d.paidCents ?? 0))), total);
+  const id = randomUUID();
+  await tx.execute(sql`
+    insert into app.invoices (id, workspace_id, number, status, person_id, title, notes, purpose, origin,
+      subtotal_cents, discount_cents, taxable_base_cents, tax_cents, total_cents, currency, due_on, terms,
+      sent_at, paid_at, reminder_state, voided_at, created_at, updated_at)
+    values (${id}::uuid, ${scope.workspaceId}, ${number},
+      -- Paid and partly-paid are the roll-up's to decide from the payment below; this is where it starts.
+      ${status === 'draft' ? 'draft' : status === 'void' ? 'void' : 'sent'}::app.invoice_status,
+      ${person.targetId}::uuid, ${str(d.title)}, ${str(d.notes)},
+      'standard'::app.invoice_purpose, 'staff'::app.money_origin,
+      ${Math.max(0, Math.round(Number(d.subtotalCents ?? 0)))},
+      ${Math.max(0, Math.round(Number(d.discountCents ?? 0)))},
+      ${Math.max(0, Math.round(Number(d.subtotalCents ?? 0)))},
+      ${Math.max(0, Math.round(Number(d.taxCents ?? 0)))}, ${total}, 'USD',
+      ${str(d.dueOn)}::date, ${str(d.terms)}, ${sentAt}::timestamptz,
+      ${status === 'paid' && paid >= total && total > 0 ? (d.paidAt ?? updatedAt?.toISOString() ?? null) : null}::timestamptz,
+      ${JSON.stringify({ imported: 'quiet', from: scope.sourceSystem })}::jsonb,
+      ${status === 'void' ? (updatedAt?.toISOString() ?? new Date().toISOString()) : null}::timestamptz,
+      coalesce(${createdAt?.toISOString() ?? null}::timestamptz, now()),
+      coalesce(${updatedAt?.toISOString() ?? null}::timestamptz, now()))`);
+
+  for (const [i, line] of (d.lines ?? []).slice(0, 200).entries()) {
+    const unit = Math.max(0, Math.round(Number(line.unitPriceCents ?? 0)));
+    const quantity = Math.max(0.001, Number(line.quantity ?? 1) || 1);
+    await tx.execute(sql`
+      insert into app.invoice_lines (workspace_id, invoice_id, position, name, description, quantity,
+        unit_label, unit_price_cents, taxable, amount_cents, created_at, updated_at)
+      values (${scope.workspaceId}, ${id}::uuid, ${i}, ${(str(line.name) ?? 'Item').slice(0, 200)},
+        ${str(line.description)}, ${quantity}, ${(str(line.unitLabel) ?? 'each').slice(0, 40)},
+        ${unit}, ${line.taxable !== false}, ${Math.round(unit * quantity)},
+        coalesce(${createdAt?.toISOString() ?? null}::timestamptz, now()),
+        coalesce(${updatedAt?.toISOString() ?? null}::timestamptz, now()))`);
+  }
+
+  if (paid > 0 && status !== 'draft' && status !== 'void')
+    await tx.execute(sql`
+      insert into app.payments (workspace_id, invoice_id, amount_cents, currency, method, status,
+        received_at, created_at, updated_at)
+      values (${scope.workspaceId}, ${id}::uuid, ${paid}, 'USD', 'other'::app.payment_method,
+        'succeeded'::app.payment_status,
+        coalesce(${d.paidAt ?? null}::timestamptz, ${updatedAt?.toISOString() ?? null}::timestamptz, now()),
+        coalesce(${d.paidAt ?? null}::timestamptz, ${createdAt?.toISOString() ?? null}::timestamptz, now()),
+        coalesce(${d.paidAt ?? null}::timestamptz, ${updatedAt?.toISOString() ?? null}::timestamptz, now()))`);
+
+  await putMapping(tx, scope, {
+    sourceObjectType: envelope.source.objectType,
+    sourceObjectId: envelope.source.objectId,
+    targetType: 'invoice',
+    targetId: id,
+    createdHere: true,
+    checksum: envelope.source.payloadChecksum,
+  });
+  await journal(tx, scope, {
+    action: 'create',
+    targetType: 'invoice',
+    targetId: id,
+    sourceObjectType: envelope.source.objectType,
+    sourceObjectId: envelope.source.objectId,
+  });
+  return { counts: { imported: 1 } };
+};
+
 /** Which importer reads which canonical type. Nothing else in the engine decides this. */
 export const IMPORTERS: Readonly<Record<string, Importer>> = {
   user_identity: importUser,
@@ -1892,6 +2250,10 @@ export const IMPORTERS: Readonly<Record<string, Importer>> = {
   lead: importLead,
   calendar: importCalendar,
   appointment: importAppointment,
+  task: importTask,
+  note: importNote,
+  product: importProduct,
+  invoice: importInvoice,
 };
 
 export { AUTO_MERGE_SCORE };

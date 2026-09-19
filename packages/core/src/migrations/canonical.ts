@@ -326,6 +326,69 @@ export const CanonicalAppointment = z.object({
 });
 export type CanonicalAppointment = z.infer<typeof CanonicalAppointment>;
 
+/** Something still to do, for a customer. */
+export const CanonicalTask = z.object({
+  title: z.string().min(1).max(200),
+  notes: z.string().max(10_000).nullish(),
+  dueAt: z.iso.datetime({ offset: true }).nullish(),
+  doneAt: z.iso.datetime({ offset: true }).nullish(),
+});
+export type CanonicalTask = z.infer<typeof CanonicalTask>;
+
+/** Something somebody wrote down about a customer. */
+export const CanonicalNote = z.object({
+  body: z.string().min(1).max(10_000),
+  occurredAt: z.iso.datetime({ offset: true }),
+});
+export type CanonicalNote = z.infer<typeof CanonicalNote>;
+
+/** Something the business sells, as a line on a bill starts life. */
+export const CanonicalProduct = z.object({
+  name: z.string().min(1).max(200),
+  description: z.string().max(2000).nullish(),
+  unitPriceCents: z.number().int().min(0).max(100_000_000_000).default(0),
+  unitLabel: z.string().max(40).default('each'),
+  taxable: z.boolean().default(true),
+  active: z.boolean().default(true),
+});
+export type CanonicalProduct = z.infer<typeof CanonicalProduct>;
+
+/** One line of a bill, as it read when it was sent. */
+export const CanonicalMoneyLine = z.object({
+  name: z.string().min(1).max(200),
+  description: z.string().max(2000).nullish(),
+  quantity: z.number().min(0.001).max(1_000_000).default(1),
+  unitLabel: z.string().max(40).default('each'),
+  unitPriceCents: z.number().int().min(0).max(100_000_000_000).default(0),
+  taxable: z.boolean().default(true),
+});
+export type CanonicalMoneyLine = z.infer<typeof CanonicalMoneyLine>;
+
+/**
+ * A bill, as it stood. Money is whole cents throughout — never a float, never a string — and the totals are
+ * the source's own rather than ours: a bill that has gone to a customer says what it said, and recomputing it
+ * from the lines would quietly change history when a rounding rule differs.
+ */
+export const CanonicalInvoice = z.object({
+  number: z.string().max(40).nullish(),
+  title: z.string().max(200).nullish(),
+  notes: z.string().max(5000).nullish(),
+  status: z.enum(['draft', 'sent', 'partly_paid', 'paid', 'void']).default('sent'),
+  currency: z.string().length(3).default('USD'),
+  subtotalCents: z.number().int().min(0).max(100_000_000_000).default(0),
+  discountCents: z.number().int().min(0).max(100_000_000_000).default(0),
+  taxCents: z.number().int().min(0).max(100_000_000_000).default(0),
+  totalCents: z.number().int().min(0).max(100_000_000_000).default(0),
+  /** What had been paid by the time it came across, and when the last of it arrived. */
+  paidCents: z.number().int().min(0).max(100_000_000_000).default(0),
+  paidAt: z.iso.datetime({ offset: true }).nullish(),
+  issuedAt: z.iso.datetime({ offset: true }).nullish(),
+  dueOn: z.string().max(10).nullish(),
+  terms: z.string().max(2000).nullish(),
+  lines: z.array(CanonicalMoneyLine).max(200).default([]),
+});
+export type CanonicalInvoice = z.infer<typeof CanonicalInvoice>;
+
 export const CANONICAL_TYPES = {
   contact: CanonicalContact,
   company: CanonicalCompany,
@@ -339,6 +402,10 @@ export const CANONICAL_TYPES = {
   lead: CanonicalLead,
   calendar: CanonicalCalendar,
   appointment: CanonicalAppointment,
+  task: CanonicalTask,
+  note: CanonicalNote,
+  product: CanonicalProduct,
+  invoice: CanonicalInvoice,
 } as const;
 export type CanonicalTypeName = keyof typeof CANONICAL_TYPES;
 
