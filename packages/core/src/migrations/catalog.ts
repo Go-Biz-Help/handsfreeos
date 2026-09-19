@@ -315,8 +315,7 @@ export const MIGRATION_CATEGORIES: readonly MigrationCategory[] = [
     dependsOn: [],
     targetType: 'file',
     selection: 'category',
-    release: 'next',
-    releaseNote: 'Counted now, brought across in a later step.',
+    release: 'ready',
   }),
   c({
     id: 'integrations',

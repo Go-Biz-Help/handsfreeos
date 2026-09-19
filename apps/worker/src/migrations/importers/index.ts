@@ -1190,7 +1190,12 @@ export const importMessage: Importer = async (tx, scope, envelope) => {
     fromAddress?: string | null;
     toAddresses?: string[];
     occurredAt?: string;
-    media?: { url: string; name?: string | null; mime?: string | null }[];
+    media?: {
+      url: string;
+      name?: string | null;
+      mime?: string | null;
+      sizeBytes?: number | null;
+    }[];
     providerMessageId?: string | null;
   };
   const already = await existingMapping(
@@ -1247,7 +1252,11 @@ export const importMessage: Importer = async (tx, scope, envelope) => {
       ${direction}::app.direction, ${status}::app.message_status,
       ${str(d.fromAddress)}, ${textArray(d.toAddresses ?? [])}, ${str(d.subject)?.slice(0, 998) ?? null},
       ${tooLong ? body!.slice(0, 10_000) : body}, ${bodyHtml},
-      ${JSON.stringify(d.media ?? [])}::jsonb,
+      -- Empty on purpose, and filled in by the copier. What the old system hands over here is a link to
+      -- its own storage: it needs its own sign-in, and it dies the day the account is cancelled. A photo
+      -- in the timeline has to be a photo we hold, so the bytes are fetched and this is rewritten to point
+      -- at our copy. Until then the message is its words, which is better than a broken picture.
+      '[]'::jsonb,
       ${scope.sourceSystem}, ${str(d.providerMessageId)},
       -- The source's own id, so the same message cannot land twice even if an import is replayed.
       ${`${scope.sourceSystem}:${envelope.source.objectId}`},
@@ -1272,6 +1281,15 @@ export const importMessage: Importer = async (tx, scope, envelope) => {
         then greatest(coalesce(last_outbound_at, ${occurredAt}::timestamptz), ${occurredAt}::timestamptz)
         else last_outbound_at end
     where id = ${parent.id}::uuid`);
+  for (const file of (d.media ?? []).slice(0, 20))
+    await queueMedia(tx, scope, {
+      sourceObjectType: envelope.source.objectType,
+      sourceObjectId: envelope.source.objectId,
+      locator: file.url,
+      fileName: file.name,
+      declaredMime: file.mime,
+      sizeBytes: file.sizeBytes,
+    });
   await putMapping(tx, scope, {
     sourceObjectType: envelope.source.objectType,
     sourceObjectId: envelope.source.objectId,
@@ -1289,6 +1307,38 @@ export const importMessage: Importer = async (tx, scope, envelope) => {
   });
   return { counts: { imported: 1 } };
 };
+
+/**
+ * Lists one file for the copier, while the link the old system gave us still works.
+ *
+ * Nothing is fetched here. An importer runs inside the transaction that writes the record, and a slow
+ * download inside that transaction would hold a lock open for as long as a phone line is bad. The row is the
+ * whole job: where the file was, what the old system said it is, and which record will point at it once the
+ * bytes are here.
+ */
+async function queueMedia(
+  tx: Tx,
+  scope: ImportScope,
+  input: {
+    sourceObjectType: string;
+    sourceObjectId: string;
+    locator: string;
+    fileName?: string | null;
+    declaredMime?: string | null;
+    sizeBytes?: number | null;
+  },
+): Promise<void> {
+  const locator = input.locator.trim();
+  if (!locator || locator.length > 4000) return;
+  await tx.execute(sql`
+    insert into app.migration_media (migration_id, organization_id, scope_id, workspace_id,
+      source_object_type, source_object_id, source_locator, file_name, declared_mime, size_bytes, state)
+    values (${scope.migrationId}::uuid, ${scope.organizationId}::uuid, ${scope.scopeId}::uuid,
+      ${scope.workspaceId}::uuid, ${input.sourceObjectType}, ${input.sourceObjectId},
+      ${locator}, ${str(input.fileName)?.slice(0, 300) ?? null},
+      ${str(input.declaredMime)?.slice(0, 200) ?? null}, ${input.sizeBytes ?? null}, 'pending')
+    on conflict (scope_id, source_object_type, source_object_id, md5(source_locator)) do nothing`);
+}
 
 export const importCall: Importer = async (tx, scope, envelope) => {
   const d = envelope.data as {
@@ -1342,12 +1392,13 @@ export const importCall: Importer = async (tx, scope, envelope) => {
   // The recording itself is a file, and files are copied by the engine rather than by an importer: it is
   // listed here so the copier fetches it while the source link still works.
   if (str(d.recordingUrl))
-    await tx.execute(sql`
-      insert into app.migration_media (migration_id, organization_id, scope_id, workspace_id,
-        source_object_type, source_object_id, source_locator, declared_mime, state)
-      values (${scope.migrationId}::uuid, ${scope.organizationId}::uuid, ${scope.scopeId}::uuid,
-        ${scope.workspaceId}::uuid, 'call', ${envelope.source.objectId},
-        ${str(d.recordingUrl)!.slice(0, 4000)}, 'audio/mpeg', 'pending')`);
+    await queueMedia(tx, scope, {
+      sourceObjectType: 'call',
+      sourceObjectId: envelope.source.objectId,
+      locator: str(d.recordingUrl)!,
+      fileName: 'recording.mp3',
+      declaredMime: 'audio/mpeg',
+    });
   await putMapping(tx, scope, {
     sourceObjectType: envelope.source.objectType,
     sourceObjectId: envelope.source.objectId,

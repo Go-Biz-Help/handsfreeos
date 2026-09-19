@@ -42,6 +42,7 @@ import {
 } from '../src/migrations/adapters/registry';
 import { activateConnection, sealTokens } from '../src/migrations/engine/connection';
 import { processMigrationJobs } from '../src/migrations/engine/run';
+import { standInMedia } from './helpers';
 
 const api = () => testDbs().api.db;
 const admin = () => testDbs().admin.db;
@@ -164,6 +165,7 @@ beforeAll(async () => {
       sealer,
       log: pino({ level: 'silent' }),
       adapters,
+      ...standInMedia(),
       workerId: `vitest-m11-${process.pid}`,
       batchSize: 8,
     },

@@ -15,8 +15,9 @@ import type { FakePayments } from '../src/payments/fake';
 import { fakePaymentServices, type PaymentServices } from '../src/payments/index';
 import type { FakePush } from '../src/push/fake';
 import { fakePushServices, type PushServices } from '../src/push/index';
+import type { SafeFetch } from '../src/http/safe-fetch';
 import type { WorkerServices } from '../src/services';
-import { createSupabaseStore } from '../src/storage';
+import { createSupabaseStore, type ObjectStore } from '../src/storage';
 import { createFakeTelephony, type FakeTelephony } from '../src/telephony/fake';
 
 /** Signatures are computed against this base; tests call the server with inject(), never a real port. */
@@ -109,4 +110,64 @@ export function testServices(
     // The push stand-in: what it was handed is `push.fake.sent`.
     push: fakePushServices(),
   };
+}
+
+/** One file as the old system would hand it over: the bytes, and what it says they are. */
+export interface StandInFile {
+  readonly bytes: Buffer;
+  readonly contentType: string;
+  /** What the server answers; anything but 200 exercises a path the copier has to handle. */
+  readonly status?: number;
+}
+
+export interface StandInMedia {
+  readonly store: ObjectStore;
+  readonly fetchUrl: SafeFetch;
+  /** Everything written, by `<bucket>/<path>`, so a test can say what really landed. */
+  readonly uploads: Map<string, { contentType: string; bytes: Buffer }>;
+  /** Every address asked for, in order, with the headers that went with it. */
+  readonly asked: { url: string; headers: Readonly<Record<string, string>> }[];
+}
+
+/**
+ * The two things outside the database that copying a file touches: where the bytes come from, and where they
+ * go. Both stand in here, so a test can hand the migration a photo at a known address and then say exactly
+ * what was stored and what the message ended up pointing at.
+ */
+export function standInMedia(files: Readonly<Record<string, StandInFile>> = {}): StandInMedia {
+  const uploads = new Map<string, { contentType: string; bytes: Buffer }>();
+  const asked: { url: string; headers: Readonly<Record<string, string>> }[] = [];
+  const store: ObjectStore = {
+    async upload(bucket, path, data, contentType) {
+      uploads.set(`${bucket}/${path}`, { contentType, bytes: Buffer.from(data) });
+    },
+    async download(bucket, path) {
+      const held = uploads.get(`${bucket}/${path}`);
+      if (!held) throw new Error(`storage download failed: ${bucket}/${path} is not there`);
+      return held.bytes;
+    },
+    async remove(bucket, path) {
+      uploads.delete(`${bucket}/${path}`);
+    },
+    async exists(bucket, path) {
+      return uploads.has(`${bucket}/${path}`);
+    },
+    async signedUrl(bucket, path) {
+      return `https://storage.test/${bucket}/${path}`;
+    },
+  };
+  const fetchUrl: SafeFetch = async (url, init) => {
+    asked.push({ url, headers: init?.headers ?? {} });
+    const file = files[url];
+    const bytes = file?.bytes ?? Buffer.alloc(0);
+    return {
+      status: file ? (file.status ?? 200) : 404,
+      headers: file ? ({ 'content-type': file.contentType } as Record<string, string>) : {},
+      body: init?.binary ? '' : bytes.toString('utf8'),
+      bytes,
+      finalUrl: url,
+      truncated: false,
+    };
+  };
+  return { store, fetchUrl, uploads, asked };
 }

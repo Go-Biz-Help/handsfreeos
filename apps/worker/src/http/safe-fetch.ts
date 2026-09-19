@@ -49,14 +49,21 @@ export interface SafeFetchInit {
   readonly maxRedirects?: number;
   /** Redirects must stay on the starting site; hosts that differ only by a leading `www.` count as one site. */
   readonly sameHost?: boolean;
+  /**
+   * The body is bytes, not words: a photo, a recording, a PDF. `bytes` is filled as always and `body` is left
+   * empty rather than spending a copy of the whole file on a UTF-8 reading of it that nobody wants.
+   */
+  readonly binary?: boolean;
 }
 
 export interface SafeResponse {
   readonly status: number;
   /** Lower-case names; repeated headers joined with ", ". */
   readonly headers: Readonly<Record<string, string>>;
-  /** The body as UTF-8 text, cut at `maxBytes`. */
+  /** The body as UTF-8 text, cut at `maxBytes`; empty when the request asked for `binary`. */
   readonly body: string;
+  /** The same body as it arrived, for the callers that need the bytes themselves. */
+  readonly bytes: Buffer;
   /** Where the last redirect ended up. */
   readonly finalUrl: string;
   readonly truncated: boolean;
@@ -250,15 +257,17 @@ function fetchOnce(
         const chunks: Buffer[] = [];
         let size = 0;
         const done = (truncated: boolean) =>
-          settle(() =>
+          settle(() => {
+            const bytes = Buffer.concat(chunks);
             resolve({
               status: res.statusCode ?? 0,
               headers: flatten(res.headers),
-              body: Buffer.concat(chunks).toString('utf8'),
+              body: init.binary ? '' : bytes.toString('utf8'),
+              bytes,
               finalUrl: url.toString(),
               truncated,
-            }),
-          );
+            });
+          });
         res.on('data', (chunk: Buffer) => {
           if (settled) return;
           const room = maxBytes - size;

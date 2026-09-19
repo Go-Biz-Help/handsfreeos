@@ -77,6 +77,8 @@ async function drain(limit = 200): Promise<void> {
     sealer: services.sealer,
     log: pino({ level: 'silent' }),
     adapters,
+    store: services.store,
+    fetchUrl: services.fetchUrl,
     workerId: `vitest-business-door-${process.pid}`,
     batchSize: 8,
   };

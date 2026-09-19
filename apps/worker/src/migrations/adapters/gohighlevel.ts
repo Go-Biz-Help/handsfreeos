@@ -1393,6 +1393,20 @@ export function createGoHighLevelAdapter(config: GoHighLevelConfig): CrmSourceAd
       }
     },
 
+    /**
+     * HighLevel keeps two kinds of file behind two kinds of door. A photo somebody texted sits on a public
+     * CDN and comes down for anyone with the link; a call recording is an API call in disguise, and without
+     * the sub-account's bearer token it answers 401. Only the adapter can know which is which, so the copier
+     * asks here and sends whatever comes back.
+     */
+    mediaAuth(connection, scope, locator): Readonly<Record<string, string>> {
+      if (!locator.startsWith(`${API_BASE}/`)) return {};
+      return {
+        authorization: `Bearer ${tokenOf(connection, scope)}`,
+        version: API_VERSION,
+      };
+    },
+
     normalize(record, context) {
       switch (record.objectType) {
         case 'product':

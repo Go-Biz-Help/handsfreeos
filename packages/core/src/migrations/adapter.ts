@@ -241,6 +241,19 @@ export interface CrmSourceAdapter {
 
   /** Files this record points at. Fetched and copied by the engine, not by the adapter. */
   listMedia?(record: SourceRecord): readonly SourceMedia[];
+  /**
+   * What to send with the request for one file, when the source will not hand it over to a stranger.
+   *
+   * This is not the engine asking the adapter to fetch anything — the fetching, the size limit, the retries
+   * and the copy into storage all stay on this side. It is the one thing only the adapter can know: that
+   * this host wants a bearer token and that CDN wants nothing at all. Absent, or an empty object, means the
+   * link works on its own.
+   */
+  mediaAuth?(
+    connection: SourceConnection,
+    scope: SourceScope,
+    locator: string,
+  ): Readonly<Record<string, string>>;
   /** A fresh link for a file whose last one expired. */
   refreshMedia?(
     connection: SourceConnection,

@@ -9,7 +9,9 @@
  *     HandsFreeOS is, and the folding is said out loud rather than losing one of them;
  *   - a channel HandsFreeOS has no exact home for (WhatsApp) arrives readable, as a chat, and says so;
  *   - a message longer than the column holds keeps every character of itself;
- *   - a call keeps its length and its recording is queued for copying; a voicemail is marked as one;
+ *   - a call keeps its length and its recording is copied here; a voicemail is marked as one;
+ *   - the photo somebody texted in 2019 is held by this system, not linked to the old one, so the timeline
+ *     still shows it after the old account is cancelled;
  *   - and the part that would be unforgivable to get wrong: **none of it is work.** No unread badge, no
  *     awaiting-reply clock, nothing queued to send, no AI teammate asked to answer five-year-old texts.
  */
@@ -37,6 +39,7 @@ import {
 } from '../src/migrations/adapters/registry';
 import { activateConnection, sealTokens } from '../src/migrations/engine/connection';
 import { processMigrationJobs } from '../src/migrations/engine/run';
+import { standInMedia, type StandInMedia } from './helpers';
 
 const api = () => testDbs().api.db;
 const admin = () => testDbs().admin.db;
@@ -56,6 +59,14 @@ let workspaceId: string;
 let migrationId: string;
 let adapters: MigrationAdapters;
 let deps: Parameters<typeof processMigrationJobs>[0];
+let media: StandInMedia;
+
+/** A one-pixel JPEG and a second of silence: real bytes, small enough to keep in the test. */
+const PHOTO = Buffer.from(
+  '/9j/4AAQSkZJRgABAQEASABIAAD/2wBDAAEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAf/AABEIAAEAAQMBIgACEQEDEQH/xAAfAAABBQEBAQEBAQAAAAAAAAAAAQIDBAUGBwgJCgv/xAC1EAACAQMDAgQDBQUEBAAAAX0BAgMABBEFEiExQQYTUWEHInEUMoGRoQgjQrHBFVLR8CQzYnKCCQoWFxgZGiUmJygpKjQ1Njc4OTpDREVGR0hJSlNUVVZXWFlaY2RlZmdoaWpzdHV2d3h5eoOEhYaHiImKkpOUlZaXmJmaoqOkpaanqKmqsrO0tba3uLm6wsPExcbHyMnK0tPU1dbX2Nna4eLj5OXm5+jp6vHy8/T19vf4+fr/2gAMAwEAAhEDEQA/AP7+KKKKAP/Z',
+  'base64',
+);
+const RECORDING = Buffer.from('ID3\u0004\u0000\u0000\u0000\u0000\u0000\u0000a recording', 'utf8');
 
 const run = <T>(cmd: unknown, input: unknown): Promise<T> =>
   executeCommand(api(), cmd as never, input, actorOf(owner), meta()).then((r) => r.output as T);
@@ -98,11 +109,22 @@ beforeAll(async () => {
     live: false,
     goHighLevel: { clientId: '', clientSecret: '', configured: false },
   });
+  media = standInMedia({
+    'https://fake.invalid/media/msg_a1-unit.jpg': { bytes: PHOTO, contentType: 'image/jpeg' },
+    // A second address, the same bytes: what the old system does when somebody sends a photo twice.
+    'https://fake.invalid/media/msg_a4-unit.jpg': { bytes: PHOTO, contentType: 'image/jpeg' },
+    'https://fake.invalid/recordings/cal_a1.mp3': {
+      bytes: RECORDING,
+      contentType: 'audio/mpeg',
+    },
+  });
   deps = {
     db: worker(),
     sealer,
     log: pino({ level: 'silent' }),
     adapters,
+    store: media.store,
+    fetchUrl: media.fetchUrl,
     workerId: `vitest-history-${process.pid}`,
     batchSize: 8,
   } as never;
@@ -284,6 +306,7 @@ describe('the history arrives as history', () => {
 
   it('brings calls with their length, and marks a voicemail as one', async () => {
     const list = await rows<{
+      id: string;
       direction: string;
       duration_seconds: number | null;
       is_voicemail: boolean;
@@ -292,8 +315,8 @@ describe('the history arrives as history', () => {
       started_at: Date;
     }>(
       admin(),
-      sql`select direction::text as direction, duration_seconds, is_voicemail, transcript, provider_sid,
-            started_at
+      sql`select id::text as id, direction::text as direction, duration_seconds, is_voicemail, transcript,
+            provider_sid, started_at
           from app.calls where workspace_id = ${workspaceId}::uuid order by started_at`,
     );
     expect(list).toHaveLength(2);
@@ -309,13 +332,14 @@ describe('the history arrives as history', () => {
     expect(list[0]!.provider_sid).toBeNull();
     expect(new Date(list[0]!.started_at).getUTCFullYear()).toBe(2019);
 
-    // The recording is queued for copying while the old system's link still works.
-    const [media] = await rows<{ count: number }>(
+    // The recording was listed for copying while the old system's link still worked, and copied.
+    const [recording] = await rows<{ state: string; object_path: string | null }>(
       admin(),
-      sql`select count(*)::int as count from app.migration_media
+      sql`select state::text as state, object_path from app.migration_media
           where migration_id = ${migrationId}::uuid and source_object_type = 'call'`,
     );
-    expect(media!.count).toBe(1);
+    expect(recording!.state).toBe('stored');
+    expect(recording!.object_path).toBe(`${workspaceId}/calls/${list[0]!.id}/recording.mp3`);
   }, 60_000);
 
   it('brings the board: the pipeline, its stages, and somewhere to win and lose', async () => {
@@ -613,6 +637,47 @@ describe('the history arrives as history', () => {
     expect(said?.recommendedAction).toContain('cancel it over there');
   }, 60_000);
 
+  it('lists what nobody can move for them, found in their own data', async () => {
+    const tasks = await rows<{
+      kind: string;
+      label: string;
+      state: string;
+      blocks: boolean;
+      instructions: string;
+      settings_path: string | null;
+    }>(
+      admin(),
+      sql`select kind::text as kind, label, state::text as state, blocks_live_use as blocks,
+            instructions, settings_path
+          from app.migration_reconnect_tasks where migration_id = ${migrationId}::uuid
+          order by kind, label`,
+    );
+    const byKind = (k: string) => tasks.filter((t) => t.kind === k);
+
+    // The number they rang customers from, found on an outbound call rather than asked for: GoHighLevel will
+    // not list a sub-account's own numbers at all.
+    const number = byKind('messaging')[0]!;
+    expect(number.label).toBe('+15125550000');
+    expect(number.instructions).toContain('the carrier ports it');
+    // Their number and their money are the two things that stop them working as they expect.
+    expect(number.blocks).toBe(true);
+
+    // The domain they sent email from, found on an outbound email.
+    const dns = byKind('dns')[0]!;
+    expect(dns.label).toBe('lonestarhvac.example');
+    expect(dns.settings_path).toBe('/settings/email');
+    expect(dns.blocks).toBe(false);
+
+    // Money moved somewhere, so somewhere has to be connected here. No key ever came across.
+    const payments = byKind('payments')[0]!;
+    expect(payments.blocks).toBe(true);
+    expect(payments.instructions).toContain('not charged twice');
+
+    // The visits arrived without the diaries behind them.
+    expect(byKind('calendar')[0]!.label).toContain('calendar');
+    expect(tasks.every((t) => t.state === 'todo')).toBe(true);
+  }, 60_000);
+
   it('never turns history into work', async () => {
     // Not one badge, not one waiting clock, and no AI teammate handed a five-year-old text.
     const list = await threads();
@@ -646,5 +711,136 @@ describe('the history arrives as history', () => {
     // And the thread's own summary follows its newest message, as it would have if it happened here.
     const [dave] = list.filter((t) => t.counterpart === '+15125550101');
     expect(new Date(dave!.last_message_at!).getUTCFullYear()).toBe(2024);
+  }, 60_000);
+});
+
+/**
+ * The files, which are the part of a move that quietly fails.
+ *
+ * Everything else can be copied as words in a database. A photo cannot: what the old system hands over is a
+ * link to its own storage, which needs its own sign-in and dies with the account. A migration that keeps
+ * those links looks perfect on the day and shows a page of broken pictures the week after the business
+ * cancels — so the test is never "is there a link", it is "do we hold the bytes".
+ */
+describe('the files come too, and they are ours', () => {
+  it('holds the photo somebody texted, instead of borrowing it from the old system', async () => {
+    const [text] = await rows<{
+      id: string;
+      body_text: string | null;
+      media: { bucket: string; objectPath: string; contentType: string; name: string }[];
+    }>(
+      admin(),
+      sql`select id::text as id, body_text, media from app.messages
+          where workspace_id = ${workspaceId}::uuid and body_text like 'Our AC%'`,
+    );
+    expect(text!.media).toHaveLength(1);
+    const photo = text!.media[0]!;
+    expect(photo.bucket).toBe('telephony');
+    // Inside this business's own folder. Which message's folder is not fixed: the same photo arrived on two
+    // of them, and one copy is kept for both, under whichever of them was copied first.
+    expect(photo.objectPath.startsWith(`${workspaceId}/messages/`)).toBe(true);
+    expect(photo.objectPath.endsWith('.jpg')).toBe(true);
+    expect(photo.contentType).toBe('image/jpeg');
+    expect(photo.name).toBe('photo.jpg');
+    // Nothing anywhere in the timeline still points at the old system's storage.
+    expect(JSON.stringify(text!.media)).not.toContain('fake.invalid');
+
+    // And the bytes really are in our storage, the same ones the old system had.
+    const held = await media.store.download(photo.bucket, photo.objectPath);
+    expect(held.equals(PHOTO)).toBe(true);
+  }, 60_000);
+
+  it('asks the old system with the sign-in it wants, and only when it wants one', async () => {
+    const recording = media.asked.find((a) => a.url.endsWith('cal_a1.mp3'));
+    const photo = media.asked.find((a) => a.url.endsWith('msg_a1-unit.jpg'));
+    expect(recording).toBeTruthy();
+    expect(photo).toBeTruthy();
+    // The stand-in source is not HighLevel, so neither needs a token; what matters is that the copier sends
+    // whatever the adapter says and nothing it does not.
+    expect(photo!.headers).toEqual({});
+  }, 60_000);
+
+  it('stores the same photo once, however many messages it arrived on', async () => {
+    const both = await rows<{ id: string; media: { objectPath: string }[] }>(
+      admin(),
+      sql`select id::text as id, media from app.messages
+          where workspace_id = ${workspaceId}::uuid and jsonb_array_length(media) > 0
+          order by occurred_at`,
+    );
+    expect(both).toHaveLength(2);
+    // Two messages, two references, one object.
+    expect(both[0]!.media[0]!.objectPath).toBe(both[1]!.media[0]!.objectPath);
+    const paths = [...media.uploads.keys()].filter((k) => k.endsWith('.jpg'));
+    expect(paths).toHaveLength(1);
+  }, 60_000);
+
+  it('says how many files are here, and the checks agree', async () => {
+    const files = await rows<{ state: string; count: number }>(
+      admin(),
+      sql`select state::text as state, count(*)::int as count from app.migration_media
+          where migration_id = ${migrationId}::uuid group by state`,
+    );
+    // Three listed — two photos and a recording — and every one of them copied.
+    expect(files).toEqual([{ state: 'stored', count: 3 }]);
+
+    const [check] = await rows<{
+      result: string;
+      expected_count: number | null;
+      actual_count: number | null;
+      summary: string;
+    }>(
+      admin(),
+      sql`select result::text as result, expected_count, actual_count, summary
+          from app.migration_verifications
+          where migration_id = ${migrationId}::uuid and kind = 'media'`,
+    );
+    expect(check!.result).toBe('passed');
+    expect(Number(check!.expected_count)).toBe(3);
+    expect(Number(check!.actual_count)).toBe(3);
+    expect(check!.summary).toContain('kept here');
+  }, 60_000);
+
+  it('says plainly when the old system has lost a file, rather than showing a broken picture', async () => {
+    // A file the old system listed and can no longer produce: the copier is told 404 and says so.
+    const [thread] = await rows<{ id: string }>(
+      admin(),
+      sql`select id::text as id from app.messages
+          where workspace_id = ${workspaceId}::uuid and body_text like 'Thursday works%'`,
+    );
+    const [where] = await rows<{ scope_id: string }>(
+      admin(),
+      sql`select scope_id::text as scope_id from app.migration_media
+          where migration_id = ${migrationId}::uuid and source_object_type = 'message' limit 1`,
+    );
+    await asWorker(worker(), { workspaceId, organizationId }, (tx) =>
+      tx.execute(sql`
+        insert into app.migration_media (migration_id, organization_id, scope_id, workspace_id,
+          source_object_type, source_object_id, source_locator, declared_mime, state)
+        values (${migrationId}::uuid, ${organizationId}::uuid, ${where!.scope_id}::uuid,
+          ${workspaceId}::uuid, 'message', 'msg_a3',
+          'https://fake.invalid/media/gone.jpg', 'image/jpeg', 'pending')`),
+    );
+    await asWorker(worker(), { organizationId }, (tx) =>
+      tx.execute(sql`
+        insert into app.migration_jobs (migration_id, organization_id, scope_id, workspace_id, kind,
+          category, pass, input)
+        values (${migrationId}::uuid, ${organizationId}::uuid, ${where!.scope_id}::uuid,
+          ${workspaceId}::uuid, 'media', 'media', 7, '{}'::jsonb)`),
+    );
+    await drain();
+
+    const [gone] = await rows<{ state: string; last_error: string | null }>(
+      admin(),
+      sql`select state::text as state, last_error from app.migration_media
+          where migration_id = ${migrationId}::uuid and source_object_id = 'msg_a3'`,
+    );
+    expect(gone!.state).toBe('missing');
+    expect(gone!.last_error).toContain('no longer has this file');
+    // And the message it belonged to shows no attachment at all, rather than one that will not load.
+    const [message] = await rows<{ media: unknown[] }>(
+      admin(),
+      sql`select media from app.messages where id = ${thread!.id}::uuid`,
+    );
+    expect(message!.media).toEqual([]);
   }, 60_000);
 });
