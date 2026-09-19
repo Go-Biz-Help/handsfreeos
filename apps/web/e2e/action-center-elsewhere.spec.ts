@@ -4,7 +4,7 @@
  * detection, so these check what a person actually sees on those pages.
  */
 import { expect, test, type Page } from '@playwright/test';
-import { api, signInOwner, WORKER } from './booking-helpers';
+import { api, leadIntakeOff, signInOwner, WORKER } from './booking-helpers';
 import { createBusiness, signUpAndConfirm } from './helpers';
 import { setUpTexting, textFromCustomer } from './telephony';
 
@@ -31,6 +31,8 @@ async function newOwner(page: Page, label: string, replyMinutes?: number): Promi
     quietHours: { enabled: false, start: '20:00', end: '08:00' },
     ...(replyMinutes === undefined ? {} : { unansweredReminderMinutes: replyMinutes }),
   });
+  // The chip these specs watch is about the conversation, so a texter stays a stranger (M14).
+  await leadIntakeOff(token, workspaceId);
   return { token, userId, workspaceId };
 }
 

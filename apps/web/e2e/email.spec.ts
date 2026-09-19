@@ -1,5 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 import { emailFromCustomer, mailDetail, pdfAttachment, pdfFile } from './email';
+import { leadIntakeOff, signInOwner } from './booking-helpers';
 import { createBusiness, signUpAndConfirm, uniqueEmail, waitForMail } from './helpers';
 
 const BUSINESS = 'Lone Star HVAC & Roofing';
@@ -153,8 +154,11 @@ test('email: a bounce blocks the address, and mail from a stranger waits to be f
   page,
 }) => {
   test.setTimeout(180_000);
-  await signUpAndConfirm(page, 'email-bounce');
+  const { email: ownerEmail } = await signUpAndConfirm(page, 'email-bounce');
   const workspaceId = await createBusiness(page, { name: BUSINESS });
+  // Mail from a stranger waits in the unmatched list only while lead intake leaves it there (M14).
+  const { token: ownerToken } = await signInOwner(ownerEmail);
+  await leadIntakeOff(ownerToken, workspaceId, ['email']);
 
   // The local transport bounces any address at bounce.example.com, the way a mail server would.
   const bad = `linda-${Date.now()}@bounce.example.com`;

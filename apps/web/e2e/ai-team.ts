@@ -5,7 +5,7 @@
  * at once instead of after its debounce wait.
  */
 import type { Page } from '@playwright/test';
-import { api, signInOwner, WORKER } from './booking-helpers';
+import { api, leadIntakeOff, signInOwner, WORKER } from './booking-helpers';
 import { createBusiness, signUpAndConfirm } from './helpers';
 import { setUpTexting } from './telephony';
 
@@ -132,6 +132,8 @@ export async function teammateBusiness(
   const { token, userId } = await signInOwner(email);
   const business = await setUpTexting(page, workspaceId);
   await quietHoursOff(token, workspaceId);
+  // The teammate's own work is what these specs watch, so a texter stays a stranger (M14).
+  await leadIntakeOff(token, workspaceId);
   const teammateId = await createTeammate(token, workspaceId, opts);
   return { workspaceId, token, userId, email, business, teammateId };
 }

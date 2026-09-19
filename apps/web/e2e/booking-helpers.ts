@@ -188,3 +188,19 @@ export function daysFromNow(days: number): string {
   d.setUTCHours(15, 0, 0, 0);
   return d.toISOString();
 }
+
+/**
+ * Lead intake (M14) is on for every new business, so a stranger who texts, calls or emails becomes a
+ * customer with a lead, and the Action Center folds their waiting conversation into that lead's card.
+ * Specs about the conversation itself — the waiting chip, the teammate's drafts, mail waiting to be filed —
+ * turn the channels off so they still exercise the path where nobody is on it yet. What intake does instead
+ * is covered by packages/core/test/intake.test.ts and apps/worker/test/intake-routes.test.ts.
+ */
+export async function leadIntakeOff(
+  token: string,
+  workspaceId: string,
+  kinds: readonly ('text' | 'call' | 'email')[] = ['text', 'call', 'email'],
+): Promise<void> {
+  for (const kind of kinds)
+    await api(token, 'commands', 'intake_source.update', { workspaceId, kind, active: false });
+}

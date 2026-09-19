@@ -4,7 +4,7 @@
  * each lead's events).
  */
 import { expect, type Locator, type Page } from '@playwright/test';
-import { api, signInOwner, WORKER } from './booking-helpers';
+import { api, leadIntakeOff, signInOwner, WORKER } from './booking-helpers';
 import { createBusiness, signUpAndConfirm } from './helpers';
 
 type Json = Record<string, unknown>;
@@ -56,6 +56,8 @@ export async function actionCenterOwner(page: Page, label: string): Promise<AcOw
     workspaceId,
     quietHours: { enabled: false, start: '20:00', end: '08:00' },
   });
+  // These specs are about the cards a conversation opens, so the stranger who texts stays a stranger.
+  await leadIntakeOff(token, workspaceId);
   return { token, userId, workspaceId, email };
 }
 
