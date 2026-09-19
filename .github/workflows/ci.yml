@@ -16,7 +16,13 @@ jobs:
   verify:
     name: Lint, typecheck, tests, browser tests
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    # Measured on 2026-09-19: setup, lint, typecheck and format about 7 minutes; the unit, database, API and
+    # worker tests 9 to 12; the seed and the two builds about 3; the browser tests 20 to 23. That is 40 to 45
+    # against a 45 minute limit, so a slow runner failed a green commit — the job was killed mid-browser-test
+    # and the deploy behind it skipped. The limit is here to stop a hung job burning an hour, not to hold the
+    # suite to a stopwatch, so it gets room. Better would be to run the browser tests as their own job beside
+    # this one; they share nothing but the checkout.
+    timeout-minutes: 75
     steps:
       - uses: actions/checkout@v4
 
