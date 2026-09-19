@@ -2,6 +2,7 @@
  * Lead intake sources (0072): everyone in the business sees how leads arrive, channels.manage sets them,
  * the worker keeps the daily counter, and a source never points at another business's pipeline.
  */
+import { randomUUID } from 'node:crypto';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { rows, sql, type Tx } from '../src/client';
 import { workspaceMemberships } from '../src/schema/index';
@@ -45,6 +46,10 @@ async function board(b: Business): Promise<{ pipeline: string; stage: string }> 
   );
   return { pipeline: row!.pipeline_id, stage: row!.id };
 }
+
+/** ik_ and 20 characters, the shape private.new_intake_key() makes. */
+const newKey = () =>
+  `ik_${randomUUID().replace(/-/g, '').slice(0, 20)}`.replace(/[^A-Za-z0-9_]/g, 'a');
 
 const insertAs = (actor: Actor, b: Business, who: TestUser | null, kind = 'text') =>
   actor((tx) =>
@@ -120,6 +125,123 @@ describe('who may change how leads arrive', () => {
         sql`update app.intake_sources set day_count = 3, day_on = current_date where id = ${row!.id}`,
       ),
     );
+  });
+});
+
+describe('forms and connected apps (0082)', () => {
+  it('keeps a secret key from everyone: people read every other column, never the hash', async () => {
+    const [row] = await worker(A)((tx) =>
+      rows<{ id: string }>(
+        tx,
+        sql`insert into app.intake_sources (workspace_id, kind, name, secret_hash, secret_hint)
+            values (${A.ws}, 'api', 'Zapier', ${Buffer.alloc(32, 7)}, 'abcd') returning id`,
+      ),
+    );
+    const seen = await as(admin)((tx) =>
+      rows<{ name: string; secret_hint: string }>(
+        tx,
+        sql`select name, secret_hint from app.intake_sources where id = ${row!.id}`,
+      ),
+    );
+    expect(seen[0]).toMatchObject({ name: 'Zapier', secret_hint: 'abcd' });
+    // The hash itself is not theirs to read, by column grant rather than by policy.
+    expect(
+      await code(() =>
+        as(admin)((tx) =>
+          rows(tx, sql`select secret_hash from app.intake_sources where id = ${row!.id}`),
+        ),
+      ),
+    ).toBe('42501');
+    // And `select *` asks for it, so it is refused too — every reader names its columns.
+    expect(
+      await code(() =>
+        as(admin)((tx) => rows(tx, sql`select * from app.intake_sources where id = ${row!.id}`)),
+      ),
+    ).toBe('42501');
+  });
+
+  it('holds one keyless website form row, and as many keyed ones as they like', async () => {
+    const make = (key: string | null) =>
+      worker(A)((tx) =>
+        rows<{ id: string }>(
+          tx,
+          sql`insert into app.intake_sources (workspace_id, kind, name, public_key)
+              values (${A.ws}, 'website_form', 'A form', ${key}) returning id`,
+        ),
+      );
+    await make(null);
+    expect(await code(() => make(null))).toBe('23505');
+    // A key is unique across every business, so these are made fresh rather than written out.
+    await make(newKey());
+    await make(newKey());
+  });
+
+  it('refuses a key on a channel, and a channel with sites', async () => {
+    expect(
+      await code(() =>
+        worker(A)((tx) =>
+          rows(
+            tx,
+            sql`insert into app.intake_sources (workspace_id, kind, name, public_key)
+                values (${A.ws}, 'email', 'Email', ${newKey()})`,
+          ),
+        ),
+      ),
+    ).toBe('23514');
+    expect(
+      await code(() =>
+        worker(A)((tx) =>
+          rows(
+            tx,
+            sql`insert into app.intake_sources (workspace_id, kind, name, allowed_origins)
+                values (${A.ws}, 'call', 'Calls', array['https://example.com'])`,
+          ),
+        ),
+      ),
+    ).toBe('23514');
+  });
+
+  it('writes down what arrived, once per sender’s id, and only the business sees it', async () => {
+    const [source] = await worker(A)((tx) =>
+      rows<{ id: string }>(
+        tx,
+        sql`insert into app.intake_sources (workspace_id, kind, name, secret_hash, secret_hint)
+            values (${A.ws}, 'api', 'Ad forwarder', ${Buffer.alloc(32, 9)}, 'wxyz') returning id`,
+      ),
+    );
+    const write = () =>
+      worker(A)((tx) =>
+        rows(
+          tx,
+          sql`insert into app.intake_submissions (workspace_id, source_id, dedupe_key, outcome)
+              values (${A.ws}, ${source!.id}, 'fb-1', 'opened')`,
+        ),
+      );
+    await write();
+    expect(await code(write)).toBe('23505');
+    // A member of the business doesn't work the settings, so they don't see what a key sent either.
+    expect(
+      await as(member)((tx) =>
+        rows(tx, sql`select id from app.intake_submissions where workspace_id = ${A.ws}`),
+      ),
+    ).toHaveLength(0);
+    expect(
+      await as(admin)((tx) =>
+        rows(tx, sql`select id from app.intake_submissions where workspace_id = ${A.ws}`),
+      ),
+    ).toHaveLength(1);
+    // Another business's submission never belongs to this one's source.
+    expect(
+      await detail(() =>
+        worker(B)((tx) =>
+          rows(
+            tx,
+            sql`insert into app.intake_submissions (workspace_id, source_id, dedupe_key, outcome)
+                values (${B.ws}, ${source!.id}, 'fb-2', 'opened')`,
+          ),
+        ),
+      ),
+    ).toEqual({ code: '23514', detail: 'record_workspace_mismatch' });
   });
 });
 

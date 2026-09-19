@@ -326,6 +326,47 @@ describe('sending it', () => {
     expect(Number(lead!.valueCents)).toBe(427_500);
   });
 
+  it('opens a lead where Lead intake points forms, when the form names no pipeline (M14)', async () => {
+    // The row every form built here files under: nothing has touched it, so it runs on the defaults.
+    const form = await publishedForm('Ask us anything');
+    const sent = await submit(await start(form.formId), {
+      [qid('name')]: 'Wes',
+      [qid('phone')]: '(512) 555-0161',
+    });
+    expect(sent.leadId).toBeTruthy();
+    const [lead] = await admin().select().from(leads).where(eq(leads.id, sent.leadId!));
+    // lead.create's own fallback: the business's first pipeline, its first open stage.
+    expect(lead!.pipelineId).toBe(pipelineId);
+    const [source] = await rows<{ day_count: number; kind: string }>(
+      admin(),
+      sql`select day_count, kind::text as kind from app.intake_sources
+          where workspace_id = ${wsId} and kind = 'website_form' and public_key is null`,
+    );
+    expect(source).toMatchObject({ kind: 'website_form' });
+    expect(Number(source!.day_count)).toBeGreaterThan(0);
+  });
+
+  it('opens no lead at all once website forms are turned off in Lead intake (M14)', async () => {
+    await rows(
+      admin(),
+      sql`update app.intake_sources set active = false
+          where workspace_id = ${wsId} and kind = 'website_form' and public_key is null`,
+    );
+    const form = await publishedForm('Quiet form');
+    const sent = await submit(await start(form.formId), {
+      [qid('name')]: 'Quiet',
+      [qid('phone')]: '(512) 555-0162',
+    });
+    // The answers are still recorded and the customer still made; only the lead waits for a person.
+    expect(sent.leadId).toBeNull();
+    expect(sent.personId).toBeTruthy();
+    await rows(
+      admin(),
+      sql`update app.intake_sources set active = true
+          where workspace_id = ${wsId} and kind = 'website_form' and public_key is null`,
+    );
+  });
+
   it('drops an answer to a question they were never shown', async () => {
     const form = await publishedForm('Dogs', [
       {

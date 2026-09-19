@@ -1957,6 +1957,66 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/intake_source.archive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Retire a website form or a connected app. Its key stops working and nothing more arrives through it; the customers and leads it opened stay where they are.
+         * @description Risk level 2. Requires channels.manage. Emits intake_source.archived.
+         */
+        post: operations["command_intake_source_archive"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/intake_source.create": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add a way for leads to arrive from outside: a form on the business’s own website (returns a public key for the page, and the sites it may be posted from), or a connected app like Zapier (returns a secret key, shown this once).
+         * @description Risk level 2. Requires channels.manage. Emits intake_source.created.
+         */
+        post: operations["command_intake_source_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/intake_source.rotate_key": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Give a website form a new public key, or a connected app a new secret key. Every copy of the old one stops working at once — the form on the site needs the new key pasted in, and the app needs its key changed.
+         * @description Risk level 3. Requires channels.manage. Emits intake_source.key_rotated.
+         */
+        post: operations["command_intake_source_rotate_key"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/intake_source.update": {
         parameters: {
             query?: never;
@@ -1967,7 +2027,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Change how leads arrive on a channel: whether a stranger who texts, calls or emails becomes a customer and a lead, what that lead is filed under, which pipeline and stage it lands in, and how many a day. Only the fields sent change.
+         * Change how leads arrive: whether a channel, a website form or a connected app opens a customer and a lead, what that lead is filed under, which pipeline and stage it lands in, how many a day, and — for a form — the sites it may be posted from and where its sender goes afterwards. Only the fields sent change.
          * @description Risk level 2. Requires channels.manage. Emits intake_source.updated.
          */
         post: operations["command_intake_source_update"];
@@ -6347,7 +6407,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * How leads arrive by themselves: each channel (text, call, email), whether it opens a lead, where that lead lands, its daily limit and how much of today it has used.
+         * How leads arrive by themselves: the three channels (text, call, email), the forms on the business’s own website and the apps connected to it — whether each opens a lead, where that lead lands, its daily limit and how much of today it has used. Secret keys are never read back.
          * @description Requires workspace.read.
          */
         post: operations["query_intake_list"];
@@ -12078,7 +12138,7 @@ export interface operations {
             };
         };
     };
-    command_intake_source_update: {
+    command_intake_source_archive: {
         parameters: {
             query?: never;
             header?: never;
@@ -12088,13 +12148,50 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": {
-                    active?: boolean;
+                    /** Format: uuid */
+                    sourceId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        archived: boolean;
+                        /** Format: uuid */
+                        sourceId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_intake_source_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @default [] */
+                    allowedOrigins?: string[];
+                    /** @default true */
                     createLead?: boolean;
+                    /** @default 50 */
                     dailyCap?: number;
                     /** @enum {string} */
-                    kind: "text" | "call" | "email";
-                    name?: string;
+                    kind: "website_form" | "api";
+                    name: string;
                     pipelineId?: string | null;
+                    redirectUrl?: string | null;
                     stageId?: string | null;
                     /** Format: uuid */
                     workspaceId: string;
@@ -12109,8 +12206,88 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
-                        /** @enum {string} */
-                        kind: "text" | "call" | "email";
+                        allowedOrigins: string[];
+                        publicKey: string | null;
+                        secret: string | null;
+                        /** Format: uuid */
+                        sourceId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_intake_source_rotate_key: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    sourceId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        publicKey: string | null;
+                        secret: string | null;
+                        /** Format: uuid */
+                        sourceId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_intake_source_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    active?: boolean;
+                    allowedOrigins?: string[];
+                    createLead?: boolean;
+                    dailyCap?: number;
+                    /** @enum {string} */
+                    kind?: "text" | "call" | "email";
+                    name?: string;
+                    pipelineId?: string | null;
+                    redirectUrl?: string | null;
+                    /** Format: uuid */
+                    sourceId?: string;
+                    stageId?: string | null;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        allowedOrigins: string[];
+                        kind: ("text" | "call" | "email") | ("website_form" | "api");
+                        sourceId: string | null;
                         updated: string[];
                     };
                 };
@@ -23858,13 +24035,18 @@ export interface operations {
                         }[];
                         sources: {
                             active: boolean;
+                            allowedOrigins: string[];
                             createLead: boolean;
                             dailyCap: number;
-                            /** @enum {string} */
-                            kind: "text" | "call" | "email";
+                            kind: ("text" | "call" | "email") | ("website_form" | "api");
                             lastIntakeAt: string | null;
+                            lastUsedAt: string | null;
                             name: string;
                             pipelineId: string | null;
+                            publicKey: string | null;
+                            redirectUrl: string | null;
+                            secretHint: string | null;
+                            sourceId: string | null;
                             stageId: string | null;
                             todayCount: number;
                         }[];

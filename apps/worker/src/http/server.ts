@@ -2,7 +2,7 @@ import cors from '@fastify/cors';
 import formbody from '@fastify/formbody';
 import { dispositionOf, formatPhone, HfosError } from '@hfos/core/server';
 import { asWorker, rows, sql } from '@hfos/db/client';
-import Fastify, { type FastifyInstance } from 'fastify';
+import Fastify, { type FastifyInstance, type FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import { registerTeammateRoutes } from '../ai-team/routes';
 import { registerAssistantRoutes } from '../assistant/routes';
@@ -23,6 +23,7 @@ import {
 } from './common';
 import { registerBookingRoutes } from './booking';
 import { registerChatRoutes } from './chat';
+import { formOrigins, registerIntakeRoutes } from './intake';
 import { registerFormRoutes } from './forms';
 import { registerEmailRoutes } from './email';
 import { registerMoneyRoutes } from './money';
@@ -121,12 +122,32 @@ export async function buildHttpServer(deps: HttpDeps): Promise<FastifyInstance> 
     trustProxy: (_address: string, hop: number) => hop < 1,
   });
   await app.register(formbody);
-  await app.register(cors, {
-    origin: [...deps.webOrigins],
-    methods: ['GET', 'POST'],
+  // One CORS rule for the app's own screens, and one for a business's own website posting a lead in: a
+  // form's key names the sites it may be posted from (M14 slice B), and nothing else may read its answer.
+  const corsBase = {
+    methods: ['GET', 'POST'] as string[],
     // last-event-id: the website chat's stream picks up where it left off.
     allowedHeaders: ['authorization', 'content-type', 'x-correlation-id', 'last-event-id'],
     maxAge: 600,
+  };
+  await app.register(cors, {
+    delegator: (
+      req: FastifyRequest,
+      done: (err: Error | null, opts: Record<string, unknown>) => void,
+    ) => {
+      const form = /^\/intake\/f\/(ik_[A-Za-z0-9]{20})/.exec(req.url);
+      if (!form) return done(null, { ...corsBase, origin: [...deps.webOrigins] });
+      void formOrigins(deps, form[1]!).then(
+        (origins) =>
+          done(null, {
+            ...corsBase,
+            methods: ['POST', 'OPTIONS'],
+            allowedHeaders: ['content-type'],
+            origin: origins.length ? origins : false,
+          }),
+        () => done(null, { ...corsBase, origin: false }),
+      );
+    },
   });
 
   // Every error body says what a client keeping a queue should do with it (`disposition`: final, retry or ask),
@@ -189,6 +210,8 @@ export async function buildHttpServer(deps: HttpDeps): Promise<FastifyInstance> 
   registerMoneyLinkRoutes(app, deps);
   await registerChatRoutes(app, deps);
   await registerFormRoutes(app, deps);
+  // A form on the business's own website, and services sending leads over (M14 slice B).
+  await registerIntakeRoutes(app, deps);
   await registerKnowledgeRoutes(app, deps);
   await registerWorkflowRoutes(app, deps);
   await registerBuilderRoutes(app, deps);
