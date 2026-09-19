@@ -62,6 +62,9 @@ interface Candidate {
 
 function candidates(kind: RefKind, c: WorkflowCatalogs): Candidate[] {
   switch (kind) {
+    // A recipe never names a form: the business picks one in the step (M15).
+    case 'form':
+      return [];
     case 'stage':
       return c.pipelines
         .filter((p) => !p.archived)

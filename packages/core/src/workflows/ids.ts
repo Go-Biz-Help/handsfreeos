@@ -67,5 +67,6 @@ export const REF_KINDS = [
   'service',
   'user',
   'workflow',
+  'form',
 ] as const;
 export type RefKind = (typeof REF_KINDS)[number];

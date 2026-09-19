@@ -201,6 +201,14 @@ function actionConfig(
       };
     case 'hand_to_ai_teammate':
       return { goal: 'respond', firstMessage: 'ai_writes', channel: 'latest', note: '' };
+    case 'send_form':
+      // The form is picked in the step's own settings; a placeholder until then (M15).
+      return {
+        formId: ph('form'),
+        channel: 'sms',
+        message: `Hi ${first}, could you fill this in for us? It takes a minute.`,
+        subject: '',
+      };
   }
 }
 

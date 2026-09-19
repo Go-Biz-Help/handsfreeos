@@ -1,5 +1,5 @@
 'use client';
-import type { FormMode } from '@hfos/core';
+import { FORM_STARTERS, type FormMode } from '@hfos/core';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { toast } from 'sonner';
@@ -26,6 +26,7 @@ export function NewFormDialog({
   const router = useRouter();
   const [name, setName] = useState('');
   const [mode, setMode] = useState<FormMode>('form');
+  const [starter, setStarter] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
   async function create() {
@@ -34,7 +35,7 @@ export function NewFormDialog({
     try {
       const out = unwrap(
         await apiBrowser().POST('/v1/commands/form.create', {
-          body: { workspaceId, name: name.trim(), mode },
+          body: { workspaceId, name: name.trim(), mode, ...(starter ? { starter } : {}) },
         }),
       );
       router.push(`/app/w/${workspaceId}/forms/${out.formId}`);
@@ -69,12 +70,43 @@ export function NewFormDialog({
               {MODES.map((m) => (
                 <RadioCard
                   key={m}
-                  selected={mode === m}
-                  onSelect={() => setMode(m)}
+                  selected={mode === m && !starter}
+                  onSelect={() => {
+                    setMode(m);
+                    setStarter(null);
+                  }}
                   title={FORM_MODE_LABELS[m]}
                   description={MODE_BLURB[m]}
                   testId={`form-mode-${m}`}
                 />
+              ))}
+            </div>
+          </fieldset>
+
+          <fieldset>
+            <legend className="mb-1.5 block text-[13px] font-medium text-text">
+              Or start from one of these
+            </legend>
+            <div className="max-h-56 space-y-1.5 overflow-y-auto pr-1">
+              {FORM_STARTERS.map((s) => (
+                <button
+                  key={s.key}
+                  type="button"
+                  onClick={() => {
+                    setStarter(s.key);
+                    setMode(s.mode);
+                    if (!name.trim()) setName(s.name);
+                  }}
+                  className={
+                    starter === s.key
+                      ? 'w-full rounded-card border border-accent bg-accent/5 px-3 py-2 text-left'
+                      : 'w-full rounded-card border border-border px-3 py-2 text-left hover:bg-card-2'
+                  }
+                  data-testid={`form-starter-${s.key}`}
+                >
+                  <span className="block text-[13.5px] font-medium text-text">{s.name}</span>
+                  <span className="block text-[12.5px] text-text-3">{s.blurb}</span>
+                </button>
               ))}
             </div>
           </fieldset>

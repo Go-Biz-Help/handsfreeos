@@ -132,6 +132,11 @@ export const TRIGGER_EVENTS = {
     provides: [],
   },
   'invoice.paid': { label: 'An invoice is paid', subject: 'payload_person', provides: [] },
+  /**
+   * Forms (M15). The event's entity is the form, so the customer comes from `payload.personId` — which is
+   * null on an anonymous form, and a run starts for nobody, which is right: there is nobody to follow up.
+   */
+  'form.submitted': { label: 'Somebody answers a form', subject: 'payload_person', provides: [] },
   'invoice.overdue': { label: 'An invoice goes overdue', subject: 'payload_person', provides: [] },
 } as const satisfies Record<string, TriggerEventDef>;
 export type TriggerEventKey = keyof typeof TRIGGER_EVENTS;
@@ -265,6 +270,7 @@ export const ActionStep = z.discriminatedUnion('action', [
   actionStep('enrol_workflow'),
   actionStep('remove_from_workflow'),
   actionStep('hand_to_ai_teammate'),
+  actionStep('send_form'),
 ]);
 export type ActionStep = z.infer<typeof ActionStep>;
 

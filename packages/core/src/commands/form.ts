@@ -20,6 +20,7 @@ import {
   type FormRow,
 } from '../forms/load';
 import { applyFormOps, FormOpError, type FormOp } from '../forms/ops';
+import { starterByKey, starterForm } from '../forms/starters';
 import { requireHuman } from '../kernel/actor';
 import { defineCommand } from '../kernel/define';
 import type { CommandContext } from '../kernel/types';
@@ -159,14 +160,17 @@ export const formCreate = defineCommand({
   async handler(ctx, input) {
     const ws = ctx.scope.workspaceId!;
     const me = requireHuman(ctx).userId;
-    const definition = blankForm(input.title ?? input.name, input.mode);
+    // A starter is a whole form with its own ids; a blank one is a page and a thank-you screen.
+    const definition = input.starter
+      ? starterForm(input.starter, input.title ?? input.name)
+      : blankForm(input.title ?? input.name, input.mode);
     const slug = await freeFormSlug(ctx.tx, ws, input.name);
     const [row] = await ctx.tx
       .insert(forms)
       .values({
         workspaceId: ws,
         name: input.name,
-        mode: input.mode,
+        mode: definition.mode,
         status: 'draft',
         slug,
         definition: asJson(definition),
@@ -181,8 +185,19 @@ export const formCreate = defineCommand({
       type: 'form.created',
       entityType: 'form',
       entityId: row.id,
-      payload: { name: input.name, mode: input.mode, slug },
-      after: { name: input.name, mode: input.mode, status: 'draft', link: slug },
+      payload: {
+        name: input.name,
+        mode: definition.mode,
+        slug,
+        ...(input.starter ? { starter: input.starter } : {}),
+      },
+      after: {
+        name: input.name,
+        mode: definition.mode,
+        status: 'draft',
+        link: slug,
+        ...(input.starter ? { from: starterByKey(input.starter)?.name ?? input.starter } : {}),
+      },
     });
     return { formId: row.id, revision: 1, slug, issues };
   },

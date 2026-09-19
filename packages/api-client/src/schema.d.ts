@@ -11428,6 +11428,8 @@ export interface operations {
                      */
                     mode?: "form" | "survey" | "quiz";
                     name: string;
+                    /** @description A starter’s key, like “quote” or “review” */
+                    starter?: string;
                     title?: string;
                     /** Format: uuid */
                     workspaceId: string;
@@ -18199,7 +18201,7 @@ export interface operations {
                     organizationId: string;
                     trigger?: {
                         /** @enum {string} */
-                        event: "person.created" | "person.updated" | "record.tags_changed" | "lead.created" | "lead.stage_changed" | "lead.assigned" | "lead.qualified" | "appointment.booked" | "appointment.rescheduled" | "appointment.cancelled" | "appointment.completed" | "appointment.no_show" | "message.received" | "call.missed" | "call.voicemail_left" | "call.completed" | "task.completed" | "ai_teammate.handed_off" | "estimate.sent" | "estimate.accepted" | "estimate.declined" | "invoice.paid" | "invoice.overdue";
+                        event: "person.created" | "person.updated" | "record.tags_changed" | "lead.created" | "lead.stage_changed" | "lead.assigned" | "lead.qualified" | "appointment.booked" | "appointment.rescheduled" | "appointment.cancelled" | "appointment.completed" | "appointment.no_show" | "message.received" | "call.missed" | "call.voicemail_left" | "call.completed" | "task.completed" | "ai_teammate.handed_off" | "estimate.sent" | "estimate.accepted" | "estimate.declined" | "invoice.paid" | "form.submitted" | "invoice.overdue";
                         /** @default {} */
                         filters?: {
                             /** @default [] */
@@ -18423,7 +18425,7 @@ export interface operations {
                             id: string;
                             key: string;
                             /** @enum {string} */
-                            kind: "pipeline" | "stage" | "tag" | "calendar" | "service" | "user" | "workflow";
+                            kind: "pipeline" | "stage" | "tag" | "calendar" | "service" | "user" | "workflow" | "form";
                             label: string;
                         }[];
                         revision: number;
@@ -18717,7 +18719,7 @@ export interface operations {
                     recipeKey?: "speed_to_lead" | "missed_call_text_back" | "appointment_follow_up_review" | "estimate_follow_up" | "no_show_rebook" | "speed_to_lead_ai" | "missed_call_text_back_ai";
                     trigger?: {
                         /** @enum {string} */
-                        event: "person.created" | "person.updated" | "record.tags_changed" | "lead.created" | "lead.stage_changed" | "lead.assigned" | "lead.qualified" | "appointment.booked" | "appointment.rescheduled" | "appointment.cancelled" | "appointment.completed" | "appointment.no_show" | "message.received" | "call.missed" | "call.voicemail_left" | "call.completed" | "task.completed" | "ai_teammate.handed_off" | "estimate.sent" | "estimate.accepted" | "estimate.declined" | "invoice.paid" | "invoice.overdue";
+                        event: "person.created" | "person.updated" | "record.tags_changed" | "lead.created" | "lead.stage_changed" | "lead.assigned" | "lead.qualified" | "appointment.booked" | "appointment.rescheduled" | "appointment.cancelled" | "appointment.completed" | "appointment.no_show" | "message.received" | "call.missed" | "call.voicemail_left" | "call.completed" | "task.completed" | "ai_teammate.handed_off" | "estimate.sent" | "estimate.accepted" | "estimate.declined" | "invoice.paid" | "form.submitted" | "invoice.overdue";
                         /** @default {} */
                         filters?: {
                             /** @default [] */
@@ -18922,7 +18924,7 @@ export interface operations {
                         placeholders: {
                             key: string;
                             /** @enum {string} */
-                            kind: "pipeline" | "stage" | "tag" | "calendar" | "service" | "user" | "workflow";
+                            kind: "pipeline" | "stage" | "tag" | "calendar" | "service" | "user" | "workflow" | "form";
                             label: string;
                         }[];
                         revision: number;
@@ -27436,7 +27438,7 @@ export interface operations {
                             placeholders: {
                                 key: string;
                                 /** @enum {string} */
-                                kind: "pipeline" | "stage" | "tag" | "calendar" | "service" | "user" | "workflow";
+                                kind: "pipeline" | "stage" | "tag" | "calendar" | "service" | "user" | "workflow" | "form";
                                 label: string;
                             }[];
                             revision: number;

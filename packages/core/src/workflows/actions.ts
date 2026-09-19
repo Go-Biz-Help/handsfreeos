@@ -116,6 +116,19 @@ export const WebhookOutConfig = z.object({
 });
 export const WorkflowRefConfig = z.object({ workflowId: Ref });
 
+/**
+ * Send a form's link (M15): a review request after a job, an intake form to a new lead. The message is a
+ * template like any other text or email, and the link is added to the end of it.
+ */
+export const SendFormConfig = z.object({
+  formId: Ref,
+  channel: z.enum(['sms', 'email']).default('sms'),
+  /** What goes with the link. */
+  message: template(1200, 'Write what goes with the link.'),
+  /** Email only. */
+  subject: z.string().trim().max(200).default(''),
+});
+
 export const AI_TEAMMATE_GOALS = ['respond', 'qualify', 'book'] as const;
 export type AiTeammateGoal = (typeof AI_TEAMMATE_GOALS)[number];
 /** The AI teammate takes the conversation (it's marked as handled by AI) and works toward the goal. */
@@ -149,6 +162,7 @@ export const ACTION_CONFIGS = {
   enrol_workflow: WorkflowRefConfig,
   remove_from_workflow: WorkflowRefConfig,
   hand_to_ai_teammate: HandToAiTeammateConfig,
+  send_form: SendFormConfig,
 } as const;
 export type ActionKey = keyof typeof ACTION_CONFIGS;
 export const ACTION_KEYS = Object.keys(ACTION_CONFIGS) as [ActionKey, ...ActionKey[]];
@@ -174,7 +188,12 @@ export const ACTION_LABELS: Readonly<Record<ActionKey, string>> = {
   enrol_workflow: 'Start another workflow',
   remove_from_workflow: 'Remove from a workflow',
   hand_to_ai_teammate: 'Hand to the AI teammate',
+  send_form: 'Send a form',
 };
 
 /** Actions that reach the customer (consent and quiet hours apply to texts). */
-export const CUSTOMER_ACTIONS: ReadonlySet<ActionKey> = new Set(['send_text', 'send_email']);
+export const CUSTOMER_ACTIONS: ReadonlySet<ActionKey> = new Set([
+  'send_text',
+  'send_email',
+  'send_form',
+]);
