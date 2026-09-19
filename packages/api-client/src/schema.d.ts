@@ -1657,6 +1657,246 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/form_response.delete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Delete one response: a test of your own, or a customer asking to be forgotten. The answers go with it.
+         * @description Risk level 2. Requires forms.manage. Emits form.response_deleted.
+         */
+        post: operations["command_form_response_delete"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/form.archive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Put a form away. It stops taking answers and leaves the list; the answers it already has stay.
+         * @description Risk level 2. Requires forms.manage. Emits form.archived.
+         */
+        post: operations["command_form_archive"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/form.create": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start a form, a survey or a quiz: one empty page and a thank-you screen, as a draft nobody can fill in yet.
+         * @description Risk level 1. Requires forms.manage. Emits form.created.
+         */
+        post: operations["command_form_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/form.duplicate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Copy a form, questions and all, as a fresh draft with its own link. The copy has no answers.
+         * @description Risk level 1. Requires forms.manage. Emits form.created.
+         */
+        post: operations["command_form_duplicate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/form.publish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Publish the draft as a new version and start taking answers on it. Refused while anything is wrong with the form, or while it asks nothing.
+         * @description Risk level 2. Requires forms.manage. Emits form.published.
+         */
+        post: operations["command_form_publish"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/form.rename": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Rename a form. Its link stays as it is until the link itself is changed.
+         * @description Risk level 1. Requires forms.manage. Emits form.renamed.
+         */
+        post: operations["command_form_rename"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/form.restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Take a form back out of the archive. It comes back closed, not taking answers.
+         * @description Risk level 1. Requires forms.manage. Emits form.restored.
+         */
+        post: operations["command_form_restore"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/form.restore_version": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Put an old published version back as the draft. It is not live until it is published again.
+         * @description Risk level 1. Requires forms.manage. Emits form.draft_saved.
+         */
+        post: operations["command_form_restore_version"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/form.save_draft": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Save changes to a form as patch ops against the revision the editor started from. The question list, the preview and the Assistant all save this way.
+         * @description Risk level 1. Requires forms.manage. Emits form.draft_saved.
+         */
+        post: operations["command_form_save_draft"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/form.set_delivery": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Where a form may appear: the sites allowed to embed it, and whether the AI teammate may ask its questions in a conversation.
+         * @description Risk level 2. Requires forms.manage. Emits form.delivery_changed.
+         */
+        post: operations["command_form_set_delivery"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/form.set_slug": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Change the form’s public link. The old one keeps working: anything already printed or texted still lands here.
+         * @description Risk level 2. Requires forms.manage. Emits form.slug_changed.
+         */
+        post: operations["command_form_set_slug"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/form.set_status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start or stop taking answers. A closed form still opens for anyone holding the link, and says so.
+         * @description Risk level 2. Requires forms.manage. Emits form.opened, form.closed.
+         */
+        post: operations["command_form_set_status"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/import.cancel": {
         parameters: {
             query?: never;
@@ -5851,6 +6091,146 @@ export interface paths {
          * @description Requires records.read.
          */
         post: operations["query_file_list"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/form.catalogs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * What the editor’s pickers offer: the pipelines and their stages, the tags, the live workflows, the fields the business invented, and the team.
+         * @description Requires workspace.read.
+         */
+        post: operations["query_form_catalogs"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/form.get": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * One form: the draft every editor works on, what is still wrong with it as the business stands today, its published versions, and whether the draft has moved on since the last publish.
+         * @description Requires workspace.read.
+         */
+        post: operations["query_form_get"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/form.list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Every form, survey and quiz with its link, how many people answered, how many finished what they started, and whether it is taking answers.
+         * @description Requires workspace.read.
+         */
+        post: operations["query_form_list"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/form.response_get": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * One response in full, with each question as it read when they answered it.
+         * @description Requires workspace.read.
+         */
+        post: operations["query_form_response_get"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/form.response_list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Who answered a form, newest first.
+         * @description Requires workspace.read.
+         */
+        post: operations["query_form_response_list"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/form.results": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * What everybody said: a bar per choice, an average for numbers and ratings, the most recent text answers, and for a quiz how people scored.
+         * @description Requires workspace.read.
+         */
+        post: operations["query_form_results"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/form.version_get": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * One published version, exactly as the people who filled it in saw it.
+         * @description Requires workspace.read.
+         */
+        post: operations["query_form_version_get"];
         delete?: never;
         options?: never;
         head?: never;
@@ -10959,6 +11339,582 @@ export interface operations {
                     "application/json": {
                         /** Format: uuid */
                         fileId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_form_response_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    responseId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {boolean} */
+                        deleted: true;
+                        /** Format: uuid */
+                        responseId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_form_archive: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    formId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        formId: string;
+                        /** @enum {string} */
+                        status: "draft" | "live" | "closed" | "archived";
+                    };
+                };
+            };
+        };
+    };
+    command_form_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /**
+                     * @default form
+                     * @enum {string}
+                     */
+                    mode?: "form" | "survey" | "quiz";
+                    name: string;
+                    title?: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        formId: string;
+                        issues: {
+                            message: string;
+                            questionId?: string;
+                        }[];
+                        revision: number;
+                        slug: string;
+                    };
+                };
+            };
+        };
+    };
+    command_form_duplicate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    formId: string;
+                    name?: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        formId: string;
+                        issues: {
+                            message: string;
+                            questionId?: string;
+                        }[];
+                        revision: number;
+                        slug: string;
+                    };
+                };
+            };
+        };
+    };
+    command_form_publish: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    baseRevision: number;
+                    /** Format: uuid */
+                    formId: string;
+                    /**
+                     * @default editor
+                     * @enum {string}
+                     */
+                    source?: "editor" | "assistant" | "template";
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        formId: string;
+                        /** @enum {string} */
+                        status: "draft" | "live" | "closed" | "archived";
+                        version: number;
+                        /** Format: uuid */
+                        versionId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_form_rename: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    formId: string;
+                    name: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        formId: string;
+                        /** @enum {string} */
+                        status: "draft" | "live" | "closed" | "archived";
+                    };
+                };
+            };
+        };
+    };
+    command_form_restore: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    formId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        formId: string;
+                        /** @enum {string} */
+                        status: "draft" | "live" | "closed" | "archived";
+                    };
+                };
+            };
+        };
+    };
+    command_form_restore_version: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    baseRevision: number;
+                    /** Format: uuid */
+                    formId: string;
+                    version: number;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changed: boolean;
+                        changes: string[];
+                        /** Format: uuid */
+                        formId: string;
+                        issues: {
+                            message: string;
+                            questionId?: string;
+                        }[];
+                        revision: number;
+                    };
+                };
+            };
+        };
+    };
+    command_form_save_draft: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    baseRevision: number;
+                    /** Format: uuid */
+                    formId: string;
+                    ops: ({
+                        index: number | null;
+                        /** @enum {string} */
+                        op: "add_page";
+                        page: {
+                            [key: string]: unknown;
+                        };
+                    } | {
+                        /** @enum {string} */
+                        op: "update_page";
+                        pageId: string;
+                        patch: {
+                            [key: string]: unknown;
+                        };
+                    } | {
+                        index: number;
+                        /** @enum {string} */
+                        op: "move_page";
+                        pageId: string;
+                    } | {
+                        /** @enum {string} */
+                        op: "delete_page";
+                        pageId: string;
+                    } | {
+                        index: number | null;
+                        /** @enum {string} */
+                        op: "add_question";
+                        pageId: string;
+                        question: {
+                            [key: string]: unknown;
+                        };
+                    } | {
+                        /** @enum {string} */
+                        op: "update_question";
+                        patch: {
+                            [key: string]: unknown;
+                        };
+                        questionId: string;
+                    } | {
+                        index: number;
+                        /** @enum {string} */
+                        op: "move_question";
+                        pageId: string;
+                        questionId: string;
+                    } | {
+                        /** @enum {string} */
+                        op: "delete_question";
+                        questionId: string;
+                    } | {
+                        choice: {
+                            [key: string]: unknown;
+                        };
+                        index: number | null;
+                        /** @enum {string} */
+                        op: "add_choice";
+                        questionId: string;
+                    } | {
+                        choiceId: string;
+                        /** @enum {string} */
+                        op: "delete_choice";
+                        questionId: string;
+                    } | {
+                        calculation: {
+                            [key: string]: unknown;
+                        };
+                        index: number | null;
+                        /** @enum {string} */
+                        op: "add_calculation";
+                    } | {
+                        calculationId: string;
+                        /** @enum {string} */
+                        op: "update_calculation";
+                        patch: {
+                            [key: string]: unknown;
+                        };
+                    } | {
+                        calculationId: string;
+                        /** @enum {string} */
+                        op: "delete_calculation";
+                    } | {
+                        index: number | null;
+                        /** @enum {string} */
+                        op: "add_result";
+                        result: {
+                            [key: string]: unknown;
+                        };
+                    } | {
+                        /** @enum {string} */
+                        op: "update_result";
+                        patch: {
+                            [key: string]: unknown;
+                        };
+                        resultId: string;
+                    } | {
+                        index: number;
+                        /** @enum {string} */
+                        op: "move_result";
+                        resultId: string;
+                    } | {
+                        /** @enum {string} */
+                        op: "delete_result";
+                        resultId: string;
+                    } | {
+                        /** @enum {string} */
+                        op: "set_form";
+                        patch: {
+                            [key: string]: unknown;
+                        };
+                    } | {
+                        /** @enum {string} */
+                        op: "set_scoring";
+                        patch: {
+                            [key: string]: unknown;
+                        };
+                    } | {
+                        /** @enum {string} */
+                        op: "set_on_submit";
+                        patch: {
+                            [key: string]: unknown;
+                        };
+                    } | {
+                        /** @enum {string} */
+                        op: "set_settings";
+                        patch: {
+                            [key: string]: unknown;
+                        };
+                    })[];
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changed: boolean;
+                        changes: string[];
+                        /** Format: uuid */
+                        formId: string;
+                        issues: {
+                            message: string;
+                            questionId?: string;
+                        }[];
+                        revision: number;
+                    };
+                };
+            };
+        };
+    };
+    command_form_set_delivery: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    embedOrigins?: string[];
+                    /** Format: uuid */
+                    formId: string;
+                    inChat?: boolean;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        embedOrigins: string[];
+                        /** Format: uuid */
+                        formId: string;
+                        inChat: boolean;
+                    };
+                };
+            };
+        };
+    };
+    command_form_set_slug: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    formId: string;
+                    slug: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        formId: string;
+                        slug: string;
+                    };
+                };
+            };
+        };
+    };
+    command_form_set_status: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    formId: string;
+                    /** @enum {string} */
+                    status: "live" | "closed";
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        formId: string;
+                        /** @enum {string} */
+                        status: "draft" | "live" | "closed" | "archived";
                     };
                 };
             };
@@ -22101,6 +23057,403 @@ export interface operations {
                                 id: string;
                             } | null;
                         }[];
+                    };
+                };
+            };
+        };
+    };
+    query_form_catalogs: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        customFields: {
+                            entity: string;
+                            /** Format: uuid */
+                            id: string;
+                            label: string;
+                            type: string;
+                        }[];
+                        pipelines: {
+                            archived: boolean;
+                            /** Format: uuid */
+                            id: string;
+                            name: string;
+                            stages: {
+                                /** Format: uuid */
+                                id: string;
+                                name: string;
+                            }[];
+                        }[];
+                        tags: {
+                            /** Format: uuid */
+                            id: string;
+                            name: string;
+                        }[];
+                        team: {
+                            name: string;
+                            /** Format: uuid */
+                            userId: string;
+                        }[];
+                        workflows: {
+                            /** Format: uuid */
+                            id: string;
+                            name: string;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    query_form_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    formId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        definition: {
+                            [key: string]: unknown;
+                        };
+                        form: {
+                            completionRate: number | null;
+                            embedded: boolean;
+                            /** Format: uuid */
+                            formId: string;
+                            inChat: boolean;
+                            lastResponseAt: string | null;
+                            /** @enum {string} */
+                            mode: "form" | "survey" | "quiz";
+                            name: string;
+                            questionCount: number;
+                            responseCount: number;
+                            slug: string;
+                            /** @enum {string} */
+                            status: "draft" | "live" | "closed" | "archived";
+                            /** Format: date-time */
+                            updatedAt: string;
+                            version: number | null;
+                        };
+                        issues: {
+                            message: string;
+                            questionId?: string;
+                        }[];
+                        revision: number;
+                        unpublishedChanges: boolean;
+                        versions: {
+                            /** Format: date-time */
+                            createdAt: string;
+                            live: boolean;
+                            publishedBy: string | null;
+                            source: string;
+                            version: number;
+                            /** Format: uuid */
+                            versionId: string;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    query_form_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @default false */
+                    includeArchived?: boolean;
+                    mode?: ("form" | "survey" | "quiz")[];
+                    search?: string;
+                    status?: ("draft" | "live" | "closed" | "archived")[];
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: {
+                            completionRate: number | null;
+                            embedded: boolean;
+                            /** Format: uuid */
+                            formId: string;
+                            inChat: boolean;
+                            lastResponseAt: string | null;
+                            /** @enum {string} */
+                            mode: "form" | "survey" | "quiz";
+                            name: string;
+                            questionCount: number;
+                            responseCount: number;
+                            slug: string;
+                            /** @enum {string} */
+                            status: "draft" | "live" | "closed" | "archived";
+                            /** Format: date-time */
+                            updatedAt: string;
+                            version: number | null;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    query_form_response_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    responseId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        answers: {
+                            labels: string[];
+                            questionId: string;
+                            questionTitle: string;
+                            questionType: string;
+                            text: string | null;
+                            value: unknown;
+                        }[];
+                        calculations: {
+                            [key: string]: number;
+                        };
+                        response: {
+                            completedAt: string | null;
+                            /** Format: uuid */
+                            formId: string;
+                            leadId: string | null;
+                            passed: boolean | null;
+                            personId: string | null;
+                            personName: string | null;
+                            /** Format: uuid */
+                            responseId: string;
+                            resultId: string | null;
+                            scorePercent: number | null;
+                            /** @enum {string} */
+                            source: "link" | "embed" | "chat" | "qr" | "app" | "api";
+                            /** Format: date-time */
+                            startedAt: string;
+                            /** @enum {string} */
+                            status: "in_progress" | "completed";
+                            /** Format: uuid */
+                            versionId: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    query_form_response_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    cursor?: string;
+                    /** Format: uuid */
+                    formId: string;
+                    /** @default false */
+                    includeUnfinished?: boolean;
+                    /** @default 25 */
+                    limit?: number;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: {
+                            completedAt: string | null;
+                            /** Format: uuid */
+                            formId: string;
+                            leadId: string | null;
+                            passed: boolean | null;
+                            personId: string | null;
+                            personName: string | null;
+                            /** Format: uuid */
+                            responseId: string;
+                            resultId: string | null;
+                            scorePercent: number | null;
+                            /** @enum {string} */
+                            source: "link" | "embed" | "chat" | "qr" | "app" | "api";
+                            /** Format: date-time */
+                            startedAt: string;
+                            /** @enum {string} */
+                            status: "in_progress" | "completed";
+                            /** Format: uuid */
+                            versionId: string;
+                        }[];
+                        nextCursor: string | null;
+                    };
+                };
+            };
+        };
+    };
+    query_form_results: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    formId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        averagePercent: number | null;
+                        completions: number;
+                        /** Format: uuid */
+                        formId: string;
+                        /** @enum {string} */
+                        mode: "form" | "survey" | "quiz";
+                        name: string;
+                        passRate: number | null;
+                        questions: {
+                            answered: number;
+                            average: number | null;
+                            choices: {
+                                count: number;
+                                label: string;
+                            }[];
+                            questionId: string;
+                            samples: string[];
+                            title: string;
+                            type: string;
+                        }[];
+                        results: {
+                            count: number;
+                            name: string;
+                            resultId: string;
+                        }[];
+                        starts: number;
+                        views: number;
+                    };
+                };
+            };
+        };
+    };
+    query_form_version_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    versionId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: date-time */
+                        createdAt: string;
+                        definition: {
+                            [key: string]: unknown;
+                        };
+                        /** Format: uuid */
+                        formId: string;
+                        version: number;
+                        /** Format: uuid */
+                        versionId: string;
                     };
                 };
             };

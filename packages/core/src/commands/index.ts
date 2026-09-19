@@ -432,8 +432,6 @@ export { DEFAULT_STAGES } from './pipeline.create';
 export { emailReceive, emailSuppressionRecord };
 
 export const commands: readonly CommandDef[] = [
-  ...formCommands,
-  ...formResponseCommands,
   organizationCreate,
   workspaceCreate,
   workspaceUpdate,
@@ -691,6 +689,8 @@ export const commands: readonly CommandDef[] = [
   ...migrationCommands,
   ...supportTicketCommands,
   ...supportStaffCommands,
+  ...formCommands,
+  ...formResponseCommands,
 ] as unknown as readonly CommandDef[];
 export { callPreview } from './call';
 export { VERIFY_CALLS_PER_DAY, VERIFY_CALLS_PER_HOUR } from './user-phone';
