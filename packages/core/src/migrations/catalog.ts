@@ -200,8 +200,7 @@ export const MIGRATION_CATEGORIES: readonly MigrationCategory[] = [
     prefers: ['users'],
     targetType: 'conversation',
     selection: 'category',
-    release: 'next',
-    releaseNote: 'Counted now, brought across in a later step.',
+    release: 'ready',
   }),
   c({
     id: 'opportunities',
@@ -292,8 +291,7 @@ export const MIGRATION_CATEGORIES: readonly MigrationCategory[] = [
     prefers: ['users'],
     targetType: 'message',
     selection: 'category',
-    release: 'next',
-    releaseNote: 'Counted now, brought across in a later step.',
+    release: 'ready',
   }),
   c({
     id: 'calls',
@@ -304,8 +302,7 @@ export const MIGRATION_CATEGORIES: readonly MigrationCategory[] = [
     prefers: ['users'],
     targetType: 'call',
     selection: 'category',
-    release: 'next',
-    releaseNote: 'Counted now, brought across in a later step.',
+    release: 'ready',
   }),
   c({
     id: 'reviews',

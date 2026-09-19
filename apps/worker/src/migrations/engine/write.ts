@@ -40,9 +40,15 @@ export async function existingMapping(
   sourceObjectType: string,
   sourceObjectId: string,
 ): Promise<Mapped | null> {
+  // The aliases are quoted on purpose. These rows come back with the database's own column names, and the
+  // type here says camelCase, so without them `targetType` was quietly `undefined` on every caller that read
+  // it — which meant every relationship this engine resolves (a customer's owner, their company, the thread a
+  // message belongs to) failed to find anything while looking as though it had asked. Nothing caught it
+  // because the one caller that mattered until now only ever tested the row for truthiness.
   const [row] = await tx
     .execute(
-      sql`select target_type, target_id::text as target_id, created_here
+      sql`select target_type as "targetType", target_id::text as "targetId",
+            created_here as "createdHere"
           from app.migration_source_mappings
           where workspace_id = ${scope.workspaceId} and source_system = ${scope.sourceSystem}::app.migration_source
             and installation_id = ${scope.installationId}

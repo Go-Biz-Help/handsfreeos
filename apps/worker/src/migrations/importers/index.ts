@@ -50,6 +50,15 @@ export type Importer = (
 
 const str = (v: unknown): string | null => (typeof v === 'string' && v.trim() ? v.trim() : null);
 
+/** A Postgres `text[]` from a list, empty included. */
+const textArray = (values: readonly string[]) =>
+  values.length === 0
+    ? sql`'{}'::text[]`
+    : sql`array[${sql.join(
+        values.map((v) => sql`${v}`),
+        sql`, `,
+      )}]::text[]`;
+
 /** HandsFreeOS keeps tags to 40 characters. A longer one is shortened and said out loud, never dropped. */
 const TAG_MAX = 40;
 const tagName = (v: unknown): { name: string | null; shortened: boolean } => {
@@ -952,6 +961,411 @@ async function linkCompany(
   });
 }
 
+// ---------- conversations, messages and calls ----------
+
+/**
+ * The history, in the business's own inbox.
+ *
+ * The promise here is the whole reason the milestone exists: a text sent on a Tuesday afternoon in 2019 sits
+ * where a Tuesday afternoon in 2019 belongs, and opening the customer shows the conversation as though
+ * HandsFreeOS had been carrying it all along.
+ *
+ * What these deliberately do **not** do, because history is not work:
+ *   - **no unread count.** Five years of messages must not arrive as five years of badges.
+ *   - **nothing goes out.** Rows are written directly, so no carrier, no mailbox and no AI teammate is ever
+ *     asked to do anything; `handled_by` stays `none` and no run is started.
+ *   - **no awaiting-reply clock.** An old thread the business never answered is not a customer waiting now.
+ * Each of those is a column left alone on purpose, and each would be a customer-visible mistake if it were
+ * filled in from the past.
+ */
+const conversationPerson = async (
+  tx: Tx,
+  scope: ImportScope,
+  envelope: CanonicalEnvelope,
+): Promise<string | null> => {
+  const ref = envelope.relationships.find((r) => r.role === 'contact');
+  if (!ref) return null;
+  const person = await existingMapping(tx, scope, ref.objectType, ref.objectId);
+  return person && person.targetType === 'person' ? person.targetId : null;
+};
+
+export const importConversation: Importer = async (tx, scope, envelope) => {
+  const d = envelope.data as {
+    channel?: string;
+    channelName?: string | null;
+    counterpart?: string;
+    subject?: string | null;
+    status?: string;
+    startedAt?: string | null;
+    lastMessageAt?: string | null;
+  };
+  const already = await existingMapping(
+    tx,
+    scope,
+    envelope.source.objectType,
+    envelope.source.objectId,
+  );
+  if (already) return { counts: { skipped: 1 } };
+
+  const channel = d.channel === 'sms' || d.channel === 'email' ? d.channel : 'chat';
+  // The table decides what a counterpart may be, and it is strict for a reason: a text thread is addressed
+  // by a real number and an email thread by a real address, or neither can ever be replied to from here.
+  const raw = str(d.counterpart);
+  const counterpart =
+    channel === 'sms'
+      ? normalizePhone(raw, scope.defaultCountry as never)
+      : channel === 'email'
+        ? raw?.toLowerCase().includes('@')
+          ? raw.toLowerCase()
+          : null
+        : // A chat thread is addressed by a visitor id (`chat:…`), because that is what chat means here: the
+          // website window. A WhatsApp or Instagram thread has no visitor id, so it gets one of its own,
+          // named for where it came from — the customer is still attached by `person_id`, which is what the
+          // inbox shows. Deliberately not folded onto the customer's text thread: replying there would send
+          // a real text to somebody who wrote on WhatsApp, and they would never see it.
+          chatAddress(scope.sourceSystem, envelope.source.objectId);
+  if (!counterpart) {
+    await quarantine(tx, scope, {
+      category: 'conversations',
+      sourceObjectType: envelope.source.objectType,
+      sourceObjectId: envelope.source.objectId,
+      kind: 'mapping',
+      code: 'conversation_without_counterpart',
+      message:
+        channel === 'sms'
+          ? `A text thread whose number the old system gave as "${raw ?? 'nothing'}" cannot be placed: a thread here is addressed by a real number so it can be replied to.`
+          : `A ${channel} thread with nobody addressable on the other end cannot be placed.`,
+      retryable: false,
+    });
+    return { counts: { failed: 1 } };
+  }
+
+  const personId = await conversationPerson(tx, scope, envelope);
+  const { createdAt, updatedAt } = sourceTimes(envelope);
+  const lastAt = d.lastMessageAt ?? updatedAt?.toISOString() ?? null;
+
+  /**
+   * One thread per customer per channel, which is what HandsFreeOS is and what the unique index says. The old
+   * system can hold several threads with the same person on the same channel, so those fold into one here and
+   * their messages interleave by time — which is the timeline a business actually wants. Nothing is lost and
+   * nothing is guessed; the folding is said out loud in a finding the first time it happens.
+   */
+  const [here] = await rows<{ id: string }>(
+    tx,
+    sql`select id::text as id from app.conversations
+        where workspace_id = ${scope.workspaceId} and channel = ${channel}::app.channel
+          and counterpart = ${counterpart} limit 1`,
+  );
+  if (here) {
+    await tx.execute(sql`
+      update app.conversations set
+        person_id = coalesce(person_id, ${personId}::uuid),
+        created_at = least(created_at, coalesce(${createdAt?.toISOString() ?? null}::timestamptz, created_at)),
+        last_message_at = greatest(coalesce(last_message_at, 'epoch'::timestamptz), coalesce(${lastAt}::timestamptz, 'epoch'::timestamptz))
+      where id = ${here.id}::uuid`);
+    await putMapping(tx, scope, {
+      sourceObjectType: envelope.source.objectType,
+      sourceObjectId: envelope.source.objectId,
+      targetType: 'conversation',
+      targetId: here.id,
+      createdHere: false,
+      checksum: envelope.source.payloadChecksum,
+    });
+    await finding(tx, scope, {
+      code: 'conversations.folded',
+      category: 'conversations',
+      capability: 'needs_review',
+      severity: 'info',
+      summary:
+        'Some customers had more than one thread on the same channel, and those are now one.',
+      whatImports: 'Every message from every one of them.',
+      whatChanges:
+        'HandsFreeOS keeps one thread per customer per channel, so their messages sit in one timeline in the order they happened rather than in separate threads.',
+      sourceCapability: 'conversations',
+      affected: 1,
+      detail: { channel, counterpart: counterpart.slice(0, 60) },
+    });
+    return { counts: { merged: 1 } };
+  }
+
+  const id = randomUUID();
+  await tx.execute(sql`
+    insert into app.conversations (id, workspace_id, channel, counterpart, person_id, status,
+      unread_count, last_message_at, last_preview, created_at, updated_at)
+    values (${id}::uuid, ${scope.workspaceId}, ${channel}::app.channel,
+      ${counterpart.slice(0, 320)}, ${personId}::uuid,
+      ${d.status === 'open' ? 'open' : 'closed'}::app.conversation_status,
+      -- Never a badge: five years of history is not five years of unread work.
+      0, ${lastAt}::timestamptz, ${str(d.subject)?.slice(0, 280) ?? null},
+      coalesce(${createdAt?.toISOString() ?? null}::timestamptz, now()),
+      coalesce(${updatedAt?.toISOString() ?? null}::timestamptz, now()))`);
+  // What it really was, when the source's channel is not one of ours: said once per business, in words.
+  if (str(d.channelName))
+    await finding(tx, scope, {
+      code: 'conversations.channel_narrowed',
+      category: 'conversations',
+      capability: 'needs_review',
+      severity: 'info',
+      summary: `${d.channelName} threads come across as chats.`,
+      whatImports: 'Every message in them, in order, with who said what.',
+      whatChanges: `HandsFreeOS has texts, email and chat. A ${d.channelName} thread is kept as a chat, so it is all here and readable, but replying to it from here is not connected to ${d.channelName}.`,
+      recommendedAction: `Keep answering ${d.channelName} where you do now.`,
+      sourceCapability: 'conversations',
+      affected: 1,
+      detail: { channel: d.channelName },
+    });
+  await putMapping(tx, scope, {
+    sourceObjectType: envelope.source.objectType,
+    sourceObjectId: envelope.source.objectId,
+    targetType: 'conversation',
+    targetId: id,
+    createdHere: true,
+    checksum: envelope.source.payloadChecksum,
+  });
+  await journal(tx, scope, {
+    action: 'create',
+    targetType: 'conversation',
+    targetId: id,
+    sourceObjectType: envelope.source.objectType,
+    sourceObjectId: envelope.source.objectId,
+  });
+  return { counts: { imported: 1 } };
+};
+
+/**
+ * A chat thread's address: `chat:` and up to 80 characters of letters, digits, dashes and underscores, which
+ * is the shape the table insists on. Built from where the thread came from and its own id, so the same source
+ * thread always lands on the same one.
+ */
+const chatAddress = (system: string, sourceId: string): string =>
+  `chat:${`${system}-${sourceId}`
+    .replace(/[^A-Za-z0-9_-]/g, '-')
+    .slice(0, 80)
+    .padEnd(8, '0')}`;
+
+/** Text inside an HTML body, so a long message keeps every character of itself and renders as it read. */
+const escapeText = (v: string): string =>
+  v.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+async function bodyKept(tx: Tx, scope: ImportScope): Promise<void> {
+  await finding(tx, scope, {
+    code: 'messages.long_body_kept',
+    category: 'messages',
+    capability: 'needs_review',
+    severity: 'info',
+    summary: 'Some messages were longer than a message here holds.',
+    whatImports: 'All of them, every character.',
+    whatChanges:
+      'The timeline shows the first 10,000 characters and the rest opens with the message, rather than the end being cut off.',
+    sourceCapability: 'messages',
+    affected: 1,
+  });
+}
+
+/** The thread a message or a call belongs to, and the customer on it. */
+async function parentConversation(
+  tx: Tx,
+  scope: ImportScope,
+  envelope: CanonicalEnvelope,
+): Promise<{ id: string; personId: string | null } | null> {
+  const ref = envelope.relationships.find((r) => r.role === 'conversation');
+  if (!ref) return null;
+  const mapped = await existingMapping(tx, scope, ref.objectType, ref.objectId);
+  if (!mapped || mapped.targetType !== 'conversation') return null;
+  const [row] = await rows<{ person_id: string | null }>(
+    tx,
+    sql`select person_id::text as person_id from app.conversations where id = ${mapped.targetId}::uuid`,
+  );
+  return { id: mapped.targetId, personId: row?.person_id ?? null };
+}
+
+export const importMessage: Importer = async (tx, scope, envelope) => {
+  const d = envelope.data as {
+    channel?: string;
+    direction?: string;
+    status?: string;
+    subject?: string | null;
+    body?: string | null;
+    bodyHtml?: string | null;
+    fromAddress?: string | null;
+    toAddresses?: string[];
+    occurredAt?: string;
+    media?: { url: string; name?: string | null; mime?: string | null }[];
+    providerMessageId?: string | null;
+  };
+  const already = await existingMapping(
+    tx,
+    scope,
+    envelope.source.objectType,
+    envelope.source.objectId,
+  );
+  if (already) return { counts: { skipped: 1 } };
+
+  const parent = await parentConversation(tx, scope, envelope);
+  if (!parent) {
+    // The thread has not landed yet. Retryable on purpose: the children pass runs after the records pass, so
+    // this means something genuinely went wrong with the conversation rather than that it is merely later.
+    await quarantine(tx, scope, {
+      category: 'messages',
+      sourceObjectType: envelope.source.objectType,
+      sourceObjectId: envelope.source.objectId,
+      kind: 'dependency',
+      code: 'message_without_conversation',
+      message: `The conversation this message belongs to is not here (${
+        envelope.relationships.find((r) => r.role === 'conversation')?.objectId ?? 'no thread named'
+      }).`,
+      retryable: true,
+    });
+    return { counts: { failed: 1 } };
+  }
+  const channel = d.channel === 'sms' || d.channel === 'email' ? d.channel : 'chat';
+  const direction = d.direction === 'inbound' ? 'inbound' : 'outbound';
+  const occurredAt = d.occurredAt ?? envelope.source.sourceCreatedAt ?? null;
+  // The table's own rule, and it is the right one: a message the customer sent is `received` and a message
+  // the business sent never is. Whatever the old system called it, the direction decides.
+  const status =
+    direction === 'inbound'
+      ? 'received'
+      : d.status && d.status !== 'received'
+        ? d.status
+        : 'delivered';
+  /**
+   * A body longer than the column holds keeps all of itself: the first 10,000 characters where the timeline
+   * reads them, and the whole thing in the HTML body, which has no limit. A long marketing email is the
+   * common case and truncating it silently would be the wrong kind of quiet.
+   */
+  const body = str(d.body);
+  const tooLong = body !== null && body.length > 10_000;
+  const bodyHtml = str(d.bodyHtml) ?? (tooLong ? `<pre>${escapeText(body!)}</pre>` : null);
+  if (tooLong) await bodyKept(tx, scope);
+  const id = randomUUID();
+  await tx.execute(sql`
+    insert into app.messages (id, workspace_id, conversation_id, channel, direction, status,
+      from_address, to_addresses, subject, body_text, body_html, media, provider, provider_message_id,
+      dedupe_key, occurred_at, sent_at, delivered_at, created_at, updated_at)
+    values (${id}::uuid, ${scope.workspaceId}, ${parent.id}::uuid, ${channel}::app.channel,
+      ${direction}::app.direction, ${status}::app.message_status,
+      ${str(d.fromAddress)}, ${textArray(d.toAddresses ?? [])}, ${str(d.subject)?.slice(0, 998) ?? null},
+      ${tooLong ? body!.slice(0, 10_000) : body}, ${bodyHtml},
+      ${JSON.stringify(d.media ?? [])}::jsonb,
+      ${scope.sourceSystem}, ${str(d.providerMessageId)},
+      -- The source's own id, so the same message cannot land twice even if an import is replayed.
+      ${`${scope.sourceSystem}:${envelope.source.objectId}`},
+      coalesce(${occurredAt}::timestamptz, now()),
+      ${direction === 'outbound' ? occurredAt : null}::timestamptz,
+      ${direction === 'outbound' && status === 'delivered' ? occurredAt : null}::timestamptz,
+      coalesce(${occurredAt}::timestamptz, now()),
+      coalesce(${occurredAt}::timestamptz, now()))
+    on conflict (workspace_id, dedupe_key) where dedupe_key is not null do nothing`);
+  // The thread's own summary follows its newest message, the way it would have if it had happened here.
+  await tx.execute(sql`
+    update app.conversations set
+      last_message_at = greatest(coalesce(last_message_at, ${occurredAt}::timestamptz), ${occurredAt}::timestamptz),
+      last_direction = case when coalesce(last_message_at, 'epoch'::timestamptz) <= ${occurredAt}::timestamptz
+        then ${direction}::app.direction else last_direction end,
+      last_preview = case when coalesce(last_message_at, 'epoch'::timestamptz) <= ${occurredAt}::timestamptz
+        then ${str(d.body)?.slice(0, 200) ?? null} else last_preview end,
+      last_inbound_at = case when ${direction} = 'inbound'
+        then greatest(coalesce(last_inbound_at, ${occurredAt}::timestamptz), ${occurredAt}::timestamptz)
+        else last_inbound_at end,
+      last_outbound_at = case when ${direction} = 'outbound'
+        then greatest(coalesce(last_outbound_at, ${occurredAt}::timestamptz), ${occurredAt}::timestamptz)
+        else last_outbound_at end
+    where id = ${parent.id}::uuid`);
+  await putMapping(tx, scope, {
+    sourceObjectType: envelope.source.objectType,
+    sourceObjectId: envelope.source.objectId,
+    targetType: 'message',
+    targetId: id,
+    createdHere: true,
+    checksum: envelope.source.payloadChecksum,
+  });
+  await journal(tx, scope, {
+    action: 'create',
+    targetType: 'message',
+    targetId: id,
+    sourceObjectType: envelope.source.objectType,
+    sourceObjectId: envelope.source.objectId,
+  });
+  return { counts: { imported: 1 } };
+};
+
+export const importCall: Importer = async (tx, scope, envelope) => {
+  const d = envelope.data as {
+    direction?: string;
+    status?: string;
+    fromNumber?: string | null;
+    toNumber?: string | null;
+    startedAt?: string;
+    answeredAt?: string | null;
+    endedAt?: string | null;
+    durationSeconds?: number | null;
+    isVoicemail?: boolean;
+    recordingUrl?: string | null;
+    recordingSeconds?: number | null;
+    transcript?: string | null;
+    providerCallId?: string | null;
+  };
+  const already = await existingMapping(
+    tx,
+    scope,
+    envelope.source.objectType,
+    envelope.source.objectId,
+  );
+  if (already) return { counts: { skipped: 1 } };
+
+  const parent = await parentConversation(tx, scope, envelope);
+  const startedAt = d.startedAt ?? envelope.source.sourceCreatedAt ?? null;
+  const id = randomUUID();
+  /**
+   * No `provider_sid`, on purpose. That column is unique across the whole database because it holds a
+   * carrier's own id, and an imported call has no carrier. Writing the old system's id into it looked tidy
+   * and was a trap: the same GoHighLevel account brought into a second business here — a throwaway import
+   * first and the real one after, which is exactly what we tell people to do — collided on it, and
+   * `on conflict do nothing` meant every call was reported as imported while none of them were written.
+   * What the call came from is recorded where the rest of the milestone records it: the source mapping below.
+   */
+  await tx.execute(sql`
+    insert into app.calls (id, workspace_id, conversation_id, person_id, direction, from_e164, to_e164,
+      provider_sid, status, started_at, answered_at, ended_at, duration_seconds, is_voicemail,
+      recording_seconds, transcript, created_at, updated_at)
+    values (${id}::uuid, ${scope.workspaceId}, ${parent?.id ?? null}::uuid,
+      ${parent?.personId ?? null}::uuid, ${d.direction === 'inbound' ? 'inbound' : 'outbound'}::app.direction,
+      ${normalizePhone(str(d.fromNumber), scope.defaultCountry as never) ?? str(d.fromNumber)},
+      ${normalizePhone(str(d.toNumber), scope.defaultCountry as never) ?? str(d.toNumber)},
+      null, ${d.status ?? 'completed'}::app.call_status,
+      coalesce(${startedAt}::timestamptz, now()), ${d.answeredAt ?? null}::timestamptz,
+      ${d.endedAt ?? null}::timestamptz, ${d.durationSeconds ?? null},
+      ${d.isVoicemail === true}, ${d.recordingSeconds ?? null}, ${str(d.transcript)?.slice(0, 10_000) ?? null},
+      coalesce(${startedAt}::timestamptz, now()), coalesce(${startedAt}::timestamptz, now()))`);
+  const targetId = id;
+  // The recording itself is a file, and files are copied by the engine rather than by an importer: it is
+  // listed here so the copier fetches it while the source link still works.
+  if (str(d.recordingUrl))
+    await tx.execute(sql`
+      insert into app.migration_media (migration_id, organization_id, scope_id, workspace_id,
+        source_object_type, source_object_id, source_locator, declared_mime, state)
+      values (${scope.migrationId}::uuid, ${scope.organizationId}::uuid, ${scope.scopeId}::uuid,
+        ${scope.workspaceId}::uuid, 'call', ${envelope.source.objectId},
+        ${str(d.recordingUrl)!.slice(0, 4000)}, 'audio/mpeg', 'pending')`);
+  await putMapping(tx, scope, {
+    sourceObjectType: envelope.source.objectType,
+    sourceObjectId: envelope.source.objectId,
+    targetType: 'call',
+    targetId,
+    createdHere: true,
+    checksum: envelope.source.payloadChecksum,
+  });
+  await journal(tx, scope, {
+    action: 'create',
+    targetType: 'call',
+    targetId,
+    sourceObjectType: envelope.source.objectType,
+    sourceObjectId: envelope.source.objectId,
+  });
+  return { counts: { imported: 1 } };
+};
+
 /** Which importer reads which canonical type. Nothing else in the engine decides this. */
 export const IMPORTERS: Readonly<Record<string, Importer>> = {
   user_identity: importUser,
@@ -959,6 +1373,9 @@ export const IMPORTERS: Readonly<Record<string, Importer>> = {
   custom_field: importCustomField,
   company: importCompany,
   contact: importContact,
+  conversation: importConversation,
+  message: importMessage,
+  call: importCall,
 };
 
 export { AUTO_MERGE_SCORE };

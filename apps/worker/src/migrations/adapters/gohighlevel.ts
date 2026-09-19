@@ -96,6 +96,12 @@ export const GHL_SCOPES: Record<string, readonly string[]> = {
   funnels: ['funnels/funnel.readonly'],
 };
 
+/**
+ * The message types GoHighLevel uses for a call or a voicemail. Everything else in a conversation is a
+ * message, and these become calls here, where a call has a duration, a recording and a transcript.
+ */
+const CALL_TYPES = new Set(['TYPE_CALL', 'CALL', 'TYPE_VOICEMAIL', 'VOICEMAIL', 'TYPE_PHONE_CALL']);
+
 /** Everything asked for at the sign-in: the union above, in a stable order. */
 export const GHL_ALL_SCOPES: readonly string[] = [
   ...new Set(Object.values(GHL_SCOPES).flat()),
@@ -549,6 +555,109 @@ export function createGoHighLevelAdapter(config: GoHighLevelConfig): CrmSourceAd
       cursor: nextCursor,
       highWaterAt,
       done: done || nextCursor === null,
+    };
+  };
+
+  /**
+   * A page of messages, walked through the conversations they belong to.
+   *
+   * GoHighLevel has no way to ask a sub-account for its messages: they exist only inside a conversation. So
+   * this keeps its place in two dimensions at once — which conversations are left on the current page, and
+   * where we got to inside the one being read — and hands both back in the cursor. The engine sees an
+   * ordinary page of records and never learns that two reads were involved, which is the seam the milestone
+   * is built to keep.
+   *
+   * Calls and voicemail come out of the same walk: over there a call is a message whose type says so, and a
+   * second pass over the same conversations to find them would double the reading for nothing.
+   */
+  const messagePage = async (
+    token: string,
+    scopeId: string,
+    options: ListOptions,
+    want: 'messages' | 'calls',
+  ): Promise<SourcePage> => {
+    const limit = Math.min(options.limit ?? 100, 100);
+    const cursor = (options.cursor ?? {}) as {
+      queue?: string[];
+      conv?: { startAfterId?: string; startAfter?: number } | null;
+      convDone?: boolean;
+      msg?: string | null;
+    };
+    let queue = [...(cursor.queue ?? [])];
+    let conv = cursor.conv ?? null;
+    let convDone = cursor.convDone ?? false;
+    let msg = cursor.msg ?? null;
+
+    // Out of conversations to read from: fetch the next page of them.
+    while (queue.length === 0 && !convDone) {
+      const endpoint = ENDPOINTS['conversations']!;
+      const base = endpoint.path(scopeId);
+      let path = `${base}&limit=${limit}`;
+      if (conv?.startAfterId) {
+        path += `&startAfterId=${encodeURIComponent(conv.startAfterId)}`;
+        if (conv.startAfter) path += `&startAfter=${conv.startAfter}`;
+      }
+      const body = await call<{ conversations?: Record<string, unknown>[] }>(token, path);
+      const list = body.conversations ?? [];
+      queue = list.map((c) => asString(c['id']) ?? asString(c['_id']) ?? '').filter(Boolean);
+      const last = list[list.length - 1];
+      convDone = list.length < limit || !last;
+      conv = last
+        ? {
+            startAfterId: asString(last['id']) ?? asString(last['_id']) ?? '',
+            startAfter: Number(last['dateUpdated'] ?? last['dateAdded'] ?? 0) || undefined,
+          }
+        : null;
+    }
+    if (queue.length === 0) return { records: [], cursor: null, highWaterAt: null, done: true };
+
+    const conversationId = queue[0]!;
+    let path = `/conversations/${encodeURIComponent(conversationId)}/messages?limit=${limit}`;
+    if (msg) path += `&lastMessageId=${encodeURIComponent(msg)}`;
+    const answer = await call<Record<string, unknown>>(token, path);
+    // HighLevel wraps this one: { messages: { messages: [...], lastMessageId, nextPage } }.
+    const inner = (answer['messages'] ?? answer) as Record<string, unknown>;
+    const list = Array.isArray(inner['messages'])
+      ? (inner['messages'] as Record<string, unknown>[])
+      : Array.isArray(answer['messages'])
+        ? (answer['messages'] as Record<string, unknown>[])
+        : [];
+    const more = inner['nextPage'] === true && list.length > 0;
+    const lastId = asString(inner['lastMessageId']) ?? asString(list[list.length - 1]?.['id']);
+
+    const records: SourceRecord[] = [];
+    let highWaterAt: Date | null = null;
+    for (const raw of list) {
+      const id = asString(raw['id']) ?? asString(raw['_id']);
+      if (!id) continue;
+      const isCall = CALL_TYPES.has((asString(raw['messageType']) ?? '').toUpperCase());
+      if (want === 'calls' ? !isCall : isCall) continue;
+      const at = asDate(raw['dateAdded'] ?? raw['dateUpdated']);
+      if (options.until && at && at > options.until) continue;
+      if (options.changedSince && at && at <= options.changedSince) continue;
+      if (at && (!highWaterAt || at > highWaterAt)) highWaterAt = at;
+      records.push({
+        objectType: want === 'calls' ? 'call' : 'message',
+        objectId: id,
+        parentObjectId: conversationId,
+        sourceCreatedAt: at,
+        sourceUpdatedAt: asDate(raw['dateUpdated']) ?? at,
+        payload: { ...raw, conversationId },
+      });
+    }
+
+    // Where to carry on: further into this conversation, or on to the next one.
+    if (more && lastId) msg = lastId;
+    else {
+      queue = queue.slice(1);
+      msg = null;
+    }
+    const done = queue.length === 0 && convDone && !msg;
+    return {
+      records,
+      cursor: done ? null : { queue, conv, convDone, msg },
+      highWaterAt,
+      done,
     };
   };
 
@@ -1058,6 +1167,14 @@ export function createGoHighLevelAdapter(config: GoHighLevelConfig): CrmSourceAd
     },
 
     async list(connection, scope, category, options) {
+      // Messages and calls have no list of their own over there: both are read through the conversations.
+      if (category === 'messages' || category === 'calls')
+        return messagePage(
+          tokenOf(connection, scope),
+          scope.externalScopeId,
+          options,
+          category === 'calls' ? 'calls' : 'messages',
+        );
       const endpoint = ENDPOINTS[category];
       if (!endpoint) return { records: [], cursor: null, done: true };
       return page(tokenOf(connection, scope), endpoint, scope.externalScopeId, options);
@@ -1089,6 +1206,12 @@ export function createGoHighLevelAdapter(config: GoHighLevelConfig): CrmSourceAd
 
     normalize(record, context) {
       switch (record.objectType) {
+        case 'conversation':
+          return [conversationEnvelope(record, context)];
+        case 'message':
+          return [messageEnvelope(record, context)];
+        case 'call':
+          return [callEnvelope(record, context)];
         case 'contact':
           return [contactEnvelope(record, context)];
         case 'company':
@@ -1400,6 +1523,274 @@ function tagEnvelope(record: SourceRecord, context: MappingContext): CanonicalEn
     { name: asString(p['name']) ?? 'Unnamed tag', color: null },
     leftovers(p, ['id', '_id', 'name', 'locationId']),
     [],
+  );
+}
+
+/**
+ * GoHighLevel's channels, narrowed to the three HandsFreeOS has. What it was really — WhatsApp, Instagram,
+ * Facebook, Google Business — is kept beside it rather than lost, because "chat" alone would make a business
+ * wonder where their Instagram history went.
+ */
+const CHANNELS: Readonly<Record<string, { channel: 'sms' | 'email' | 'chat'; name?: string }>> = {
+  TYPE_SMS: { channel: 'sms' },
+  SMS: { channel: 'sms' },
+  TYPE_EMAIL: { channel: 'email' },
+  EMAIL: { channel: 'email' },
+  TYPE_WEBCHAT: { channel: 'chat' },
+  TYPE_LIVE_CHAT: { channel: 'chat' },
+  TYPE_CHAT: { channel: 'chat' },
+  TYPE_WHATSAPP: { channel: 'chat', name: 'whatsapp' },
+  TYPE_INSTAGRAM: { channel: 'chat', name: 'instagram' },
+  TYPE_FACEBOOK: { channel: 'chat', name: 'facebook' },
+  TYPE_GMB: { channel: 'chat', name: 'google business' },
+  TYPE_REVIEW: { channel: 'chat', name: 'review' },
+  TYPE_CUSTOM_PROVIDER_SMS: { channel: 'sms' },
+  TYPE_CUSTOM_PROVIDER_EMAIL: { channel: 'email' },
+};
+
+const channelOf = (
+  raw: string | null,
+): { channel: 'sms' | 'email' | 'chat'; name: string | null } => {
+  const found = CHANNELS[(raw ?? '').toUpperCase()];
+  return { channel: found?.channel ?? 'chat', name: found?.name ?? null };
+};
+
+function conversationEnvelope(record: SourceRecord, context: MappingContext): CanonicalEnvelope {
+  const p = record.payload;
+  const type = asString(p['type']) ?? asString(p['lastMessageType']);
+  const { channel, name } = channelOf(type);
+  const warnings = name
+    ? [
+        {
+          code: 'mapping.channel_narrowed',
+          field: 'type',
+          message: `A ${name} thread comes across as a chat, which is the nearest thing HandsFreeOS has; the messages and their order are unchanged.`,
+        },
+      ]
+    : [];
+  // Who the thread is with. Email threads carry the address, texts the number, chats a name or an id.
+  const counterpart =
+    asString(p['email']) ??
+    asString(p['phone']) ??
+    asString(p['contactName']) ??
+    asString(p['fullName']) ??
+    asString(p['contactId']) ??
+    'unknown';
+  const contactId = asString(p['contactId']);
+  return envelopeOf(
+    record,
+    context,
+    'conversation',
+    'conversations',
+    {
+      channel,
+      channelName: name,
+      counterpart,
+      subject: asString(p['lastMessageBody'])?.slice(0, 400) ?? null,
+      // A thread nobody is waiting on arrives closed: history should not look like a queue of work.
+      status: p['unreadCount'] && Number(p['unreadCount']) > 0 ? 'open' : 'closed',
+      startedAt: record.sourceCreatedAt?.toISOString() ?? null,
+      lastMessageAt:
+        asDate(p['lastMessageDate'])?.toISOString() ??
+        record.sourceUpdatedAt?.toISOString() ??
+        null,
+    },
+    leftovers(p, [
+      'id',
+      '_id',
+      'type',
+      'lastMessageType',
+      'email',
+      'phone',
+      'contactName',
+      'fullName',
+      'contactId',
+      'lastMessageBody',
+      'lastMessageDate',
+      'unreadCount',
+      'locationId',
+    ]),
+    warnings,
+    contactId
+      ? [
+          {
+            category: 'contacts',
+            objectType: 'contact',
+            objectId: contactId,
+            role: 'contact',
+            required: true,
+          },
+        ]
+      : [],
+  );
+}
+
+/** Inbound or outbound, as GoHighLevel says it. */
+const directionOf = (p: Record<string, unknown>): 'inbound' | 'outbound' =>
+  (asString(p['direction']) ?? '').toLowerCase() === 'inbound' ? 'inbound' : 'outbound';
+
+const MESSAGE_STATUS: Readonly<
+  Record<string, 'sent' | 'delivered' | 'undelivered' | 'failed' | 'received' | 'bounced'>
+> = {
+  delivered: 'delivered',
+  sent: 'sent',
+  read: 'delivered',
+  opened: 'delivered',
+  clicked: 'delivered',
+  undelivered: 'undelivered',
+  failed: 'failed',
+  error: 'failed',
+  rejected: 'failed',
+  bounced: 'bounced',
+  complained: 'bounced',
+  received: 'received',
+  pending: 'sent',
+  scheduled: 'sent',
+};
+
+function messageEnvelope(record: SourceRecord, context: MappingContext): CanonicalEnvelope {
+  const p = record.payload;
+  const { channel, name } = channelOf(asString(p['messageType']) ?? asString(p['type']));
+  const direction = directionOf(p);
+  const rawStatus = (asString(p['status']) ?? '').toLowerCase();
+  const status = MESSAGE_STATUS[rawStatus] ?? (direction === 'inbound' ? 'received' : 'delivered');
+  const warnings =
+    rawStatus && !MESSAGE_STATUS[rawStatus]
+      ? [
+          {
+            code: 'mapping.unknown_message_status',
+            field: 'status',
+            message: `"${rawStatus}" is not a state HandsFreeOS keeps, so it is recorded as ${status} and the original is kept.`,
+          },
+        ]
+      : [];
+  const attachments = Array.isArray(p['attachments']) ? (p['attachments'] as unknown[]) : [];
+  return envelopeOf(
+    record,
+    context,
+    'message',
+    'messages',
+    {
+      channel,
+      direction,
+      status,
+      subject: asString(p['subject']),
+      body: asString(p['body']) ?? asString(p['message']),
+      bodyHtml: asString(p['html']),
+      fromAddress: asString(p['from']),
+      toAddresses: [asString(p['to'])].filter((v): v is string => !!v),
+      // A message with no time of its own would land today, which is the one thing history must never do.
+      occurredAt: (record.sourceCreatedAt ?? new Date()).toISOString(),
+      media: attachments
+        .map((a) =>
+          typeof a === 'string'
+            ? { url: a, name: null, mime: null, sizeBytes: null }
+            : {
+                url: asString((a as Record<string, unknown>)['url']) ?? '',
+                name: asString((a as Record<string, unknown>)['name']),
+                mime: asString((a as Record<string, unknown>)['type']),
+                sizeBytes: null,
+              },
+        )
+        .filter((m) => m.url),
+      providerMessageId: record.objectId,
+    },
+    { ...leftovers(p, MESSAGE_KEYS), ...(name ? { realChannel: name } : {}) },
+    warnings,
+    [
+      {
+        category: 'conversations',
+        objectType: 'conversation',
+        objectId: record.parentObjectId ?? '',
+        role: 'conversation',
+        required: true,
+      },
+    ],
+  );
+}
+
+const MESSAGE_KEYS = [
+  'id',
+  '_id',
+  'messageType',
+  'type',
+  'direction',
+  'status',
+  'subject',
+  'body',
+  'message',
+  'html',
+  'from',
+  'to',
+  'attachments',
+  'dateAdded',
+  'dateUpdated',
+  'conversationId',
+  'locationId',
+  'contactId',
+];
+
+const CALL_STATUS: Readonly<
+  Record<string, 'completed' | 'no_answer' | 'busy' | 'failed' | 'canceled'>
+> = {
+  completed: 'completed',
+  answered: 'completed',
+  'no-answer': 'no_answer',
+  no_answer: 'no_answer',
+  noanswer: 'no_answer',
+  voicemail: 'completed',
+  busy: 'busy',
+  failed: 'failed',
+  canceled: 'canceled',
+  cancelled: 'canceled',
+};
+
+function callEnvelope(record: SourceRecord, context: MappingContext): CanonicalEnvelope {
+  const p = record.payload;
+  const meta = (p['meta'] ?? {}) as Record<string, unknown>;
+  const callData = (meta['call'] ?? {}) as Record<string, unknown>;
+  const rawStatus = (asString(callData['status']) ?? asString(p['status']) ?? '').toLowerCase();
+  const isVoicemail =
+    (asString(p['messageType']) ?? '').toUpperCase().includes('VOICEMAIL') ||
+    rawStatus === 'voicemail';
+  const duration = Number(callData['duration'] ?? p['duration'] ?? 0) || null;
+  const startedAt = (record.sourceCreatedAt ?? new Date()).toISOString();
+  return envelopeOf(
+    record,
+    context,
+    'call',
+    'calls',
+    {
+      direction: directionOf(p),
+      status: CALL_STATUS[rawStatus] ?? 'completed',
+      fromNumber: asString(p['from']),
+      toNumber: asString(p['to']),
+      startedAt,
+      endedAt: duration
+        ? new Date(new Date(startedAt).getTime() + duration * 1000).toISOString()
+        : null,
+      durationSeconds: duration,
+      isVoicemail,
+      // A call's recording arrives as its first attachment, when the sub-account kept recordings at all.
+      recordingUrl:
+        asString(
+          (Array.isArray(p['attachments']) ? (p['attachments'] as unknown[])[0] : null) as string,
+        ) ?? asString(meta['recordingUrl']),
+      recordingSeconds: duration,
+      transcript: asString(meta['transcript']) ?? asString(p['transcript']),
+      providerCallId: record.objectId,
+    },
+    leftovers(p, [...MESSAGE_KEYS, 'meta', 'duration', 'transcript']),
+    [],
+    [
+      {
+        category: 'conversations',
+        objectType: 'conversation',
+        objectId: record.parentObjectId ?? '',
+        role: 'conversation',
+        required: true,
+      },
+    ],
   );
 }
 

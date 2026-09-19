@@ -187,12 +187,84 @@ export const CanonicalCustomField = z.object({
 });
 export type CanonicalCustomField = z.infer<typeof CanonicalCustomField>;
 
+/**
+ * A thread with one customer, on one channel. The source's own channels are wider than HandsFreeOS's three,
+ * so the adapter narrows them and says so: a WhatsApp or Instagram thread arrives as a chat with its real
+ * channel kept beside it, rather than being dropped for having nowhere exact to go.
+ */
+export const CanonicalConversation = z.object({
+  channel: z.enum(['sms', 'email', 'chat']),
+  /** What the source called the channel, when it is not one of ours ('whatsapp', 'instagram', 'gmb'). */
+  channelName: z.string().max(40).nullish(),
+  /** The customer's side of it: a number, an address or a handle. */
+  counterpart: z.string().min(1).max(320),
+  subject: z.string().max(400).nullish(),
+  /** History arrives settled. An open thread is one the business was still in the middle of. */
+  status: z.enum(['open', 'closed']).default('closed'),
+  startedAt: z.iso.datetime({ offset: true }).nullish(),
+  lastMessageAt: z.iso.datetime({ offset: true }).nullish(),
+});
+export type CanonicalConversation = z.infer<typeof CanonicalConversation>;
+
+/** A file a message carried. Copied by the engine, never by an importer. */
+export const CanonicalMedia = z.object({
+  url: z.string().max(2000),
+  name: z.string().max(300).nullish(),
+  mime: z.string().max(120).nullish(),
+  sizeBytes: z.number().int().min(0).nullish(),
+});
+export type CanonicalMedia = z.infer<typeof CanonicalMedia>;
+
+/**
+ * One message inside a thread. `occurredAt` is when it really happened, and it is the whole point: a text
+ * sent on a Tuesday afternoon in 2019 has to sit where a Tuesday afternoon in 2019 belongs.
+ */
+export const CanonicalMessage = z.object({
+  channel: z.enum(['sms', 'email', 'chat']),
+  direction: z.enum(['inbound', 'outbound']),
+  /** Narrowed to what HandsFreeOS records; anything unrecognised becomes the settled state for its direction. */
+  status: z
+    .enum(['sent', 'delivered', 'undelivered', 'failed', 'received', 'bounced'])
+    .default('delivered'),
+  subject: z.string().max(400).nullish(),
+  body: z.string().max(100_000).nullish(),
+  bodyHtml: z.string().max(400_000).nullish(),
+  fromAddress: z.string().max(320).nullish(),
+  toAddresses: z.array(z.string().max(320)).max(50).default([]),
+  occurredAt: z.iso.datetime({ offset: true }),
+  media: z.array(CanonicalMedia).max(50).default([]),
+  /** The source's own id for it, kept so the same message cannot arrive twice under another name. */
+  providerMessageId: z.string().max(200).nullish(),
+});
+export type CanonicalMessage = z.infer<typeof CanonicalMessage>;
+
+/** A call or a voicemail, with its recording when there was one. */
+export const CanonicalCall = z.object({
+  direction: z.enum(['inbound', 'outbound']),
+  status: z.enum(['completed', 'no_answer', 'busy', 'failed', 'canceled']).default('completed'),
+  fromNumber: z.string().max(40).nullish(),
+  toNumber: z.string().max(40).nullish(),
+  startedAt: z.iso.datetime({ offset: true }),
+  answeredAt: z.iso.datetime({ offset: true }).nullish(),
+  endedAt: z.iso.datetime({ offset: true }).nullish(),
+  durationSeconds: z.number().int().min(0).max(86_400).nullish(),
+  isVoicemail: z.boolean().default(false),
+  recordingUrl: z.string().max(2000).nullish(),
+  recordingSeconds: z.number().int().min(0).max(86_400).nullish(),
+  transcript: z.string().max(100_000).nullish(),
+  providerCallId: z.string().max(200).nullish(),
+});
+export type CanonicalCall = z.infer<typeof CanonicalCall>;
+
 export const CANONICAL_TYPES = {
   contact: CanonicalContact,
   company: CanonicalCompany,
   user_identity: CanonicalUserIdentity,
   tag: CanonicalTag,
   custom_field: CanonicalCustomField,
+  conversation: CanonicalConversation,
+  message: CanonicalMessage,
+  call: CanonicalCall,
 } as const;
 export type CanonicalTypeName = keyof typeof CANONICAL_TYPES;
 

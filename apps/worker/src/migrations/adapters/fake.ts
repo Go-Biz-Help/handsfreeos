@@ -129,6 +129,59 @@ const contact = (c: ContactSeed): FakeRecord => ({
   },
 });
 
+/** A thread with one customer on one channel. `type` is GoHighLevel's own spelling. */
+const thread = (
+  id: string,
+  contactId: string,
+  type: string,
+  who: { phone?: string; email?: string; name?: string },
+  added: string,
+  lastAt: string,
+): FakeRecord => ({
+  objectType: 'conversation',
+  objectId: id,
+  createdAt: added,
+  updatedAt: lastAt,
+  payload: {
+    id,
+    contactId,
+    type,
+    phone: who.phone,
+    email: who.email,
+    contactName: who.name,
+    dateAdded: added,
+    lastMessageDate: lastAt,
+    unreadCount: 0,
+  },
+});
+
+/** One message in a thread. `messageType` decides whether it is a message or a call over there. */
+const said = (
+  id: string,
+  conversationId: string,
+  messageType: string,
+  direction: 'inbound' | 'outbound',
+  at: string,
+  body: string,
+  extra: Record<string, unknown> = {},
+): FakeRecord => ({
+  objectType:
+    messageType.includes('CALL') || messageType.includes('VOICEMAIL') ? 'call' : 'message',
+  objectId: id,
+  createdAt: at,
+  updatedAt: at,
+  payload: {
+    id,
+    conversationId,
+    messageType,
+    direction,
+    status: direction === 'inbound' ? 'received' : 'delivered',
+    body,
+    dateAdded: at,
+    ...extra,
+  },
+});
+
 /** Austin. The 2019 dates matter: a migration that stamped today's date would fail its own history check. */
 const AUSTIN_RECORDS: readonly FakeRecord[] = [
   user('usr_ana', 'Ana', 'Ruiz', 'ana@lonestarhvac.example', 'admin'),
@@ -193,6 +246,125 @@ const AUSTIN_RECORDS: readonly FakeRecord[] = [
       country: 'US',
     },
   }),
+
+  // ---------- the history ----------
+  // Two text threads with the same customer, which is something the old system allows and this one does not:
+  // they have to fold into one timeline rather than one of them being lost.
+  thread(
+    'cnv_a1',
+    'con_a1',
+    'TYPE_SMS',
+    { phone: '+15125550101' },
+    '2019-05-02T15:00:00.000Z',
+    '2019-05-02T15:40:00.000Z',
+  ),
+  thread(
+    'cnv_a1b',
+    'con_a1',
+    'TYPE_SMS',
+    { phone: '+15125550101' },
+    '2024-06-11T17:00:00.000Z',
+    '2024-06-11T17:05:00.000Z',
+  ),
+  // An email thread, and a WhatsApp one — the channel HandsFreeOS has no exact home for.
+  thread(
+    'cnv_a2',
+    'con_a2',
+    'TYPE_EMAIL',
+    { email: 'maria@example.com' },
+    '2020-10-01T09:00:00.000Z',
+    '2020-10-01T09:30:00.000Z',
+  ),
+  thread(
+    'cnv_a4',
+    'con_a4',
+    'TYPE_WHATSAPP',
+    { phone: '+15125550104', name: 'Priya Patel' },
+    '2022-08-01T12:00:00.000Z',
+    '2022-08-01T12:10:00.000Z',
+  ),
+
+  said(
+    'msg_a1',
+    'cnv_a1',
+    'TYPE_SMS',
+    'inbound',
+    '2019-05-02T15:00:00.000Z',
+    'Our AC is making a grinding noise.',
+  ),
+  said(
+    'msg_a2',
+    'cnv_a1',
+    'TYPE_SMS',
+    'outbound',
+    '2019-05-02T15:20:00.000Z',
+    'We can be there Thursday at 9.',
+  ),
+  said(
+    'msg_a3',
+    'cnv_a1',
+    'TYPE_SMS',
+    'inbound',
+    '2019-05-02T15:40:00.000Z',
+    'Thursday works, thank you.',
+  ),
+  said(
+    'msg_a4',
+    'cnv_a1b',
+    'TYPE_SMS',
+    'inbound',
+    '2024-06-11T17:00:00.000Z',
+    'Time for the annual service?',
+  ),
+  said(
+    'msg_a5',
+    'cnv_a2',
+    'TYPE_EMAIL',
+    'outbound',
+    '2020-10-01T09:00:00.000Z',
+    'Your maintenance plan renews next month.',
+    {
+      subject: 'Maintenance plan renewal',
+      from: 'hello@lonestarhvac.example',
+      to: 'maria@example.com',
+    },
+  ),
+  // Longer than a message here holds: every character still has to survive the move.
+  said(
+    'msg_a6',
+    'cnv_a2',
+    'TYPE_EMAIL',
+    'outbound',
+    '2020-10-01T09:30:00.000Z',
+    `Spring checklist. ${'Check the filter. '.repeat(700)}`,
+    {
+      subject: 'Spring checklist',
+    },
+  ),
+  said(
+    'msg_a7',
+    'cnv_a4',
+    'TYPE_WHATSAPP',
+    'inbound',
+    '2022-08-01T12:00:00.000Z',
+    'Are you open Saturday?',
+  ),
+
+  // A call with a recording, and a voicemail.
+  said('cal_a1', 'cnv_a1', 'TYPE_CALL', 'outbound', '2019-05-03T09:05:00.000Z', '', {
+    from: '+15125550000',
+    to: '+15125550101',
+    attachments: ['https://fake.invalid/recordings/cal_a1.mp3'],
+    meta: { call: { status: 'completed', duration: 214 } },
+  }),
+  said('cal_a2', 'cnv_a1', 'TYPE_VOICEMAIL', 'inbound', '2021-11-19T18:40:00.000Z', '', {
+    from: '+15125550101',
+    to: '+15125550000',
+    meta: {
+      call: { status: 'voicemail', duration: 31 },
+      transcript: 'Hi, calling about the thermostat.',
+    },
+  }),
 ];
 
 /** Dallas. A second Dave Smith, a different person, and the email/phone conflict. */
@@ -235,6 +407,33 @@ const DALLAS_RECORDS: readonly FakeRecord[] = [
     phone: '+14695550204',
     added: '2023-05-17T10:05:00.000Z',
   }),
+
+  // Tom is the same person as Austin's con_a3 on the same number, so his thread from this sub-account has to
+  // join the customer they merged into rather than making a second one.
+  thread(
+    'cnv_d2',
+    'con_d2',
+    'TYPE_SMS',
+    { phone: '+15125550103' },
+    '2021-07-01T14:00:00.000Z',
+    '2021-07-01T14:30:00.000Z',
+  ),
+  said(
+    'msg_d1',
+    'cnv_d2',
+    'TYPE_SMS',
+    'inbound',
+    '2021-07-01T14:00:00.000Z',
+    'Can you service the Dallas office too?',
+  ),
+  said(
+    'msg_d2',
+    'cnv_d2',
+    'TYPE_SMS',
+    'outbound',
+    '2021-07-01T14:30:00.000Z',
+    'Yes — same plan, same price.',
+  ),
 ];
 
 const RECORDS: Record<string, readonly FakeRecord[]> = {
@@ -248,13 +447,13 @@ const CATEGORY_TYPE: Record<string, string> = {
   custom_fields: 'custom_field',
   contacts: 'contact',
   companies: 'company',
+  conversations: 'conversation',
+  messages: 'message',
+  calls: 'call',
 };
 
 /** What the stand-in pretends exists but this release does not read record by record. */
 const COUNTS_ONLY: Record<string, number> = {
-  conversations: 412,
-  messages: 5104,
-  calls: 318,
   appointments: 96,
   opportunities: 74,
   pipelines: 2,
@@ -283,6 +482,9 @@ const SCOPE_NAMES: Record<string, readonly string[]> = {
   custom_fields: ['customFields.readonly'],
   contacts: ['contacts.readonly'],
   companies: ['companies.readonly'],
+  conversations: ['conversations.readonly'],
+  messages: ['conversations/message.readonly'],
+  calls: ['conversations/message.readonly'],
 };
 
 export function createFakeSourceAdapter(): FakeSource {
@@ -465,6 +667,11 @@ export function createFakeSourceAdapter(): FakeSource {
         .map((r) => ({
           objectType: r.objectType,
           objectId: r.objectId,
+          // A message or a call belongs to a thread, and the importer finds the thread through this.
+          parentObjectId:
+            typeof r.payload['conversationId'] === 'string'
+              ? (r.payload['conversationId'] as string)
+              : null,
           sourceCreatedAt: new Date(r.createdAt),
           sourceUpdatedAt: new Date(r.updatedAt),
           payload: r.payload,
@@ -507,7 +714,7 @@ export function createFakeSourceAdapter(): FakeSource {
           locationId: context.locationId,
           objectType: record.objectType,
           objectId: record.objectId,
-          parentObjectId: null,
+          parentObjectId: record.parentObjectId ?? null,
           sourceCreatedAt: record.sourceCreatedAt?.toISOString() ?? null,
           sourceUpdatedAt: record.sourceUpdatedAt?.toISOString() ?? null,
           sourceDeletedAt: null,
@@ -520,6 +727,117 @@ export function createFakeSourceAdapter(): FakeSource {
       };
       const str = (v: unknown) => (typeof v === 'string' && v.trim() ? v.trim() : null);
       switch (record.objectType) {
+        case 'conversation': {
+          const type = str(p['type']) ?? '';
+          const channel = type.includes('EMAIL') ? 'email' : type.includes('SMS') ? 'sms' : 'chat';
+          const name = type.includes('WHATSAPP') ? 'whatsapp' : null;
+          return [
+            {
+              ...base,
+              canonicalType: 'conversation',
+              category: 'conversations',
+              relationships: [
+                {
+                  category: 'contacts',
+                  objectType: 'contact',
+                  objectId: str(p['contactId']) ?? '',
+                  role: 'contact',
+                  required: true,
+                },
+              ],
+              data: {
+                channel,
+                channelName: name,
+                counterpart:
+                  channel === 'email'
+                    ? (str(p['email']) ?? 'unknown@example.com')
+                    : (str(p['phone']) ?? str(p['contactName']) ?? 'unknown'),
+                subject: null,
+                status: 'closed',
+                startedAt: record.sourceCreatedAt?.toISOString() ?? null,
+                lastMessageAt: str(p['lastMessageDate']),
+              },
+            },
+          ];
+        }
+        case 'message': {
+          const type = str(p['messageType']) ?? '';
+          const channel = type.includes('EMAIL') ? 'email' : type.includes('SMS') ? 'sms' : 'chat';
+          const direction = str(p['direction']) === 'inbound' ? 'inbound' : 'outbound';
+          return [
+            {
+              ...base,
+              canonicalType: 'message',
+              category: 'messages',
+              relationships: [
+                {
+                  category: 'conversations',
+                  objectType: 'conversation',
+                  objectId: record.parentObjectId ?? '',
+                  role: 'conversation',
+                  required: true,
+                },
+              ],
+              data: {
+                channel,
+                direction,
+                status: direction === 'inbound' ? 'received' : 'delivered',
+                subject: str(p['subject']),
+                body: str(p['body']),
+                bodyHtml: null,
+                fromAddress: str(p['from']),
+                toAddresses: [str(p['to'])].filter((v): v is string => !!v),
+                occurredAt: record.sourceCreatedAt?.toISOString() ?? new Date(0).toISOString(),
+                media: [],
+                providerMessageId: record.objectId,
+              },
+            },
+          ];
+        }
+        case 'call': {
+          const meta = (p['meta'] ?? {}) as {
+            call?: { status?: string; duration?: number };
+            transcript?: string;
+          };
+          const duration = meta.call?.duration ?? null;
+          const startedAt = record.sourceCreatedAt?.toISOString() ?? new Date(0).toISOString();
+          const attachments = Array.isArray(p['attachments']) ? (p['attachments'] as string[]) : [];
+          return [
+            {
+              ...base,
+              canonicalType: 'call',
+              category: 'calls',
+              relationships: [
+                {
+                  category: 'conversations',
+                  objectType: 'conversation',
+                  objectId: record.parentObjectId ?? '',
+                  role: 'conversation',
+                  required: true,
+                },
+              ],
+              data: {
+                direction: str(p['direction']) === 'inbound' ? 'inbound' : 'outbound',
+                status:
+                  meta.call?.status === 'voicemail'
+                    ? 'completed'
+                    : (meta.call?.status ?? 'completed'),
+                fromNumber: str(p['from']),
+                toNumber: str(p['to']),
+                startedAt,
+                endedAt: duration
+                  ? new Date(new Date(startedAt).getTime() + duration * 1000).toISOString()
+                  : null,
+                durationSeconds: duration,
+                isVoicemail: (str(p['messageType']) ?? '').includes('VOICEMAIL'),
+                recordingUrl: attachments[0] ?? null,
+                recordingSeconds: duration,
+                transcript: meta.transcript ?? null,
+                providerCallId: record.objectId,
+              },
+            },
+          ];
+        }
         case 'user':
           return [
             {
