@@ -10,6 +10,7 @@ import { and, desc, eq, sql as dsql } from 'drizzle-orm';
 import { forms, formVersions } from '@hfos/db/schema';
 import { HfosError } from '../errors';
 import { allQuestions, type FormDefinition } from '../forms/definition';
+import { describeFormOps } from '../forms/describe';
 import {
   blankForm,
   formIssues,
@@ -55,36 +56,9 @@ const capLines = (lines: string[]) =>
     ? lines
     : [...lines.slice(0, MAX_CHANGE_LINES - 1), `…and ${lines.length - MAX_CHANGE_LINES + 1} more`];
 
-/**
- * One line per op for the audit log. Plain, until describe.ts (step 11) can say what actually changed —
- * "Changed “What’s your budget?” from optional to required" rather than "Changed a question".
- */
-function opLines(ops: readonly FormOp[]): string[] {
-  const said: Readonly<Record<FormOp['op'], string>> = {
-    add_page: 'Added a page',
-    update_page: 'Changed a page',
-    move_page: 'Moved a page',
-    delete_page: 'Deleted a page',
-    add_question: 'Added a question',
-    update_question: 'Changed a question',
-    move_question: 'Moved a question',
-    delete_question: 'Deleted a question',
-    add_choice: 'Added a choice',
-    delete_choice: 'Deleted a choice',
-    add_calculation: 'Added a calculation',
-    update_calculation: 'Changed a calculation',
-    delete_calculation: 'Deleted a calculation',
-    add_result: 'Added a result',
-    update_result: 'Changed a result',
-    move_result: 'Moved a result',
-    delete_result: 'Deleted a result',
-    set_form: 'Changed the form',
-    set_scoring: 'Changed the scoring',
-    set_on_submit: 'Changed what happens on submit',
-    set_settings: 'Changed the settings',
-  };
-  return ops.map((op) => said[op.op]);
-}
+/** One line per op for the audit log, read against the form as it was before the batch. */
+const opLines = (ops: readonly FormOp[], before: FormDefinition): string[] =>
+  describeFormOps(ops, before);
 
 export function formRevisionConflict(revision: number): HfosError {
   return new HfosError(
@@ -142,7 +116,7 @@ async function saveDraft(ctx: CommandContext, args: SaveArgs) {
     };
   const changes = [
     ...(args.restoredFrom ? [`Put version ${args.restoredFrom} back`] : []),
-    ...opLines(args.ops as readonly FormOp[]),
+    ...opLines(args.ops as readonly FormOp[], current.definition),
   ];
   const revision = current.row.revision + 1;
   await ctx.tx
