@@ -34,6 +34,8 @@ export * from './assistant/words';
 export * from './account/settings-words';
 export * from './calendar/index';
 export * from './workflows/index';
+// Forms, surveys and quizzes (M14).
+export * from './forms/index';
 export * from './knowledge/index';
 export * from './ai-team/index';
 export * from './chat/index';
