@@ -114,7 +114,12 @@ export function NewFormDialog({
             <Button variant="secondary" onClick={() => onOpenChange(false)} disabled={busy}>
               Cancel
             </Button>
-            <Button onClick={create} loading={busy} disabled={!name.trim()} data-testid="form-create">
+            <Button
+              onClick={create}
+              loading={busy}
+              disabled={!name.trim()}
+              data-testid="form-create"
+            >
               Create
             </Button>
           </div>

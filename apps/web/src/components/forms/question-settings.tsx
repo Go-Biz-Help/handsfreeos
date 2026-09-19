@@ -163,7 +163,11 @@ export function QuestionSettings({
             />
           </Field>
           {question.type === 'number' ? (
-            <Field label="What it counts" htmlFor="q-unit" hint="Shown beside the box: sq ft, rooms.">
+            <Field
+              label="What it counts"
+              htmlFor="q-unit"
+              hint="Shown beside the box: sq ft, rooms."
+            >
               <Input
                 id="q-unit"
                 value={String(config.unit ?? '')}
@@ -210,12 +214,7 @@ export function QuestionSettings({
       ) : null}
 
       {question.type !== 'content' && question.type !== 'payment' ? (
-        <WhereItGoes
-          question={question}
-          patch={patch}
-          catalogs={catalogs}
-          readOnly={readOnly}
-        />
+        <WhereItGoes question={question} patch={patch} catalogs={catalogs} readOnly={readOnly} />
       ) : null}
     </div>
   );
@@ -234,8 +233,11 @@ function Choices({
   readOnly: boolean;
   quiz: boolean;
 }) {
-  const choices = (question.config as { choices: { id: string; label: string; correct: boolean; value: number | null }[] })
-    .choices;
+  const choices = (
+    question.config as {
+      choices: { id: string; label: string; correct: boolean; value: number | null }[];
+    }
+  ).choices;
   return (
     <Card className="space-y-3 p-4">
       <Label>The choices</Label>

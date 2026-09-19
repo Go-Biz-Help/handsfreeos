@@ -1,9 +1,4 @@
-import {
-  FORM_MODE_LABELS,
-  QUESTION_LABELS,
-  type FormMode,
-  type QuestionType,
-} from '@hfos/core';
+import { FORM_MODE_LABELS, QUESTION_LABELS, type FormMode, type QuestionType } from '@hfos/core';
 import {
   AlignLeft,
   AtSign,

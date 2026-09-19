@@ -292,7 +292,12 @@ export const FORM_STARTERS: readonly FormStarter[] = [
               required: true,
               config: {
                 choices: [
-                  { id: c('isolate'), label: 'Isolate the power at the breaker', correct: true, points: 1 },
+                  {
+                    id: c('isolate'),
+                    label: 'Isolate the power at the breaker',
+                    correct: true,
+                    points: 1,
+                  },
                   { id: c('switch'), label: 'Switch it off at the thermostat' },
                   { id: c('nothing'), label: 'Nothing, if it’s a quick job' },
                 ],
@@ -345,7 +350,11 @@ export const FORM_STARTERS: readonly FormStarter[] = [
                 choices: [
                   { id: c('nothing'), label: 'Nothing is coming on at all', resultId: r('repair') },
                   { id: c('weak'), label: 'It runs but it’s weak', resultId: r('service') },
-                  { id: c('old'), label: 'It’s old and I’m thinking ahead', resultId: r('replace') },
+                  {
+                    id: c('old'),
+                    label: 'It’s old and I’m thinking ahead',
+                    resultId: r('replace'),
+                  },
                 ],
               },
             },
@@ -355,9 +364,24 @@ export const FORM_STARTERS: readonly FormStarter[] = [
         },
       ],
       results: [
-        { id: r('repair'), name: 'Repair', headline: 'Sounds like a repair call.', body: 'We’ll get somebody out to look.' },
-        { id: r('service'), name: 'Service', headline: 'A service should sort that.', body: 'We’ll book you in.' },
-        { id: r('replace'), name: 'Replacement', headline: 'Worth pricing a replacement.', body: 'We’ll bring options.' },
+        {
+          id: r('repair'),
+          name: 'Repair',
+          headline: 'Sounds like a repair call.',
+          body: 'We’ll get somebody out to look.',
+        },
+        {
+          id: r('service'),
+          name: 'Service',
+          headline: 'A service should sort that.',
+          body: 'We’ll book you in.',
+        },
+        {
+          id: r('replace'),
+          name: 'Replacement',
+          headline: 'Worth pricing a replacement.',
+          body: 'We’ll bring options.',
+        },
         thanks('Thanks — we’ll be in touch.'),
       ],
     },
@@ -375,11 +399,29 @@ export const FORM_STARTERS: readonly FormStarter[] = [
           id: p('about'),
           questions: [
             name(),
-            { id: q('last'), type: 'short_text', title: 'Your surname', mapTo: 'person.last_name', config: {} },
+            {
+              id: q('last'),
+              type: 'short_text',
+              title: 'Your surname',
+              mapTo: 'person.last_name',
+              config: {},
+            },
             phone(),
             email(),
-            { id: q('address'), type: 'address', title: 'Where are we coming to?', required: true, mapTo: 'person.address', config: {} },
-            { id: q('access'), type: 'short_text', title: 'Anything we need to get in? (gate code, dog, parking)', config: {} },
+            {
+              id: q('address'),
+              type: 'address',
+              title: 'Where are we coming to?',
+              required: true,
+              mapTo: 'person.address',
+              config: {},
+            },
+            {
+              id: q('access'),
+              type: 'short_text',
+              title: 'Anything we need to get in? (gate code, dog, parking)',
+              config: {},
+            },
           ],
         },
       ],
@@ -401,7 +443,13 @@ export const FORM_STARTERS: readonly FormStarter[] = [
           questions: [
             name(),
             phone(),
-            { id: q('when'), type: 'date', title: 'Which day suits?', required: true, config: { range: 'future' } },
+            {
+              id: q('when'),
+              type: 'date',
+              title: 'Which day suits?',
+              required: true,
+              config: { range: 'future' },
+            },
             {
               id: q('deposit'),
               type: 'payment',
@@ -428,13 +476,17 @@ export function starterForm(key: string, title?: string): FormDefinition {
   if (!starter) throw new Error(`There is no starter “${key}”.`);
   const fresh = new Map<string, string>();
   const idFor = (value: string): string => {
-    const made =
-      value.startsWith('q_') ? newQuestionId()
-      : value.startsWith('p_') ? newPageId()
-      : value.startsWith('c_') ? newChoiceId()
-      : value.startsWith('r_') ? newResultId()
-      : value.startsWith('k_') ? newCalculationId()
-      : value;
+    const made = value.startsWith('q_')
+      ? newQuestionId()
+      : value.startsWith('p_')
+        ? newPageId()
+        : value.startsWith('c_')
+          ? newChoiceId()
+          : value.startsWith('r_')
+            ? newResultId()
+            : value.startsWith('k_')
+              ? newCalculationId()
+              : value;
     if (!fresh.has(value)) fresh.set(value, made);
     return fresh.get(value)!;
   };

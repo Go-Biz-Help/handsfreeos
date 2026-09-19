@@ -47,7 +47,9 @@ export function FormResults({
         ) : (
           <Tile
             label="Finish rate"
-            value={results.starts ? `${Math.round((results.completions / results.starts) * 100)}%` : '—'}
+            value={
+              results.starts ? `${Math.round((results.completions / results.starts) * 100)}%` : '—'
+            }
           />
         )}
       </div>

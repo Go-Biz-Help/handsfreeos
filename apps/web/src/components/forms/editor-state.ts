@@ -129,7 +129,18 @@ export function useFormEditor(
     [],
   );
 
-  return { definition, revision, issues, saving, dirty, apply, undo, canUndo, save: saveNow, reload };
+  return {
+    definition,
+    revision,
+    issues,
+    saving,
+    dirty,
+    apply,
+    undo,
+    canUndo,
+    save: saveNow,
+    reload,
+  };
 }
 
 // ---- The shapes a new thing starts as ----
@@ -176,8 +187,7 @@ function startingConfig(type: QuestionType): Record<string, unknown> {
     };
   if (type === 'signature') return { statement: 'I agree to the work described above.' };
   if (type === 'content') return { body: 'A note for whoever is filling this in.' };
-  if (type === 'payment')
-    return { amount: { kind: 'fixed', cents: 5000 }, description: 'Deposit' };
+  if (type === 'payment') return { amount: { kind: 'fixed', cents: 5000 }, description: 'Deposit' };
   return {};
 }
 

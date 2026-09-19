@@ -7,11 +7,7 @@
  * Everything goes through the same commands and queries the screens use, as the person, marked as done
  * through the Assistant.
  */
-import {
-  describeForm,
-  HfosError,
-  type AssistantCard,
-} from '@hfos/core/server';
+import { describeForm, HfosError, type AssistantCard } from '@hfos/core/server';
 import type { Db } from '@hfos/db/client';
 import type { Logger } from 'pino';
 import { AI_UNAVAILABLE_MESSAGE } from '../ai/ask';
@@ -146,9 +142,7 @@ async function formResults(db: Db, ctx: ToolContext, args: Args): Promise<ToolOu
       looked: out.views,
       started: out.starts,
       finished: out.completions,
-      ...(out.mode === 'quiz'
-        ? { averageScore: out.averagePercent, passRate: out.passRate }
-        : {}),
+      ...(out.mode === 'quiz' ? { averageScore: out.averagePercent, passRate: out.passRate } : {}),
       questions: out.questions.map((q) => ({
         question: q.title,
         answered: q.answered,
@@ -182,11 +176,11 @@ async function buildForm(
     formId = created.formId;
     made = true;
   }
-  const drafted = await draftForm(
-    { db, ai: deps.ai, log: deps.log },
-    ctx.actor,
-    { workspaceId: ctx.workspaceId, formId, prompt: description },
-  );
+  const drafted = await draftForm({ db, ai: deps.ai, log: deps.log }, ctx.actor, {
+    workspaceId: ctx.workspaceId,
+    formId,
+    prompt: description,
+  });
   const href = formPaths(ctx.workspaceId).form(formId);
   return {
     result: {
@@ -195,7 +189,9 @@ async function buildForm(
       summary: drafted.summary,
       changes: drafted.changes,
       ...(drafted.leftover.length ? { couldNotDo: drafted.leftover } : {}),
-      ...(drafted.issues.length ? { toFixBeforePublishing: drafted.issues.map((i) => i.message) } : {}),
+      ...(drafted.issues.length
+        ? { toFixBeforePublishing: drafted.issues.map((i) => i.message) }
+        : {}),
       saved: 'As a draft. Nothing a customer sees has changed; publishing is a separate step.',
     },
     card: {
@@ -306,7 +302,8 @@ const publishForm: ConfirmTool = {
       status: action === 'close' ? 'closed' : 'live',
     });
     return {
-      outcome: action === 'close' ? 'It has stopped taking answers.' : 'It is taking answers again.',
+      outcome:
+        action === 'close' ? 'It has stopped taking answers.' : 'It is taking answers again.',
       href: formPaths(ctx.workspaceId).form(formId),
       command: 'form.set_status',
     };

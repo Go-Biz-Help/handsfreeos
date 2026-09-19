@@ -16,11 +16,7 @@ import { and, eq, sql as dsql } from 'drizzle-orm';
 import { rows, sql } from '@hfos/db/client';
 import { customFields, formResponses, forms, formVersions, people } from '@hfos/db/schema';
 import { HfosError } from '../errors';
-import {
-  allQuestions,
-  type FormDefinition,
-  type FormResult,
-} from '../forms/definition';
+import { allQuestions, type FormDefinition, type FormResult } from '../forms/definition';
 import { loadForm, parseStoredForm } from '../forms/load';
 import { runCalculations, scoreAnswers, type AnswerSheet } from '../forms/logic';
 import { choiceValues } from '../forms/definition';
@@ -224,11 +220,7 @@ export const formResponseSave = defineCommand({
 /** The result and the numbers a finished response lands on. */
 function outcome(definition: FormDefinition, answers: AnswerSheet) {
   const score = scoreAnswers(allQuestions(definition), answers, definition.scoring);
-  const calculations = runCalculations(
-    definition.calculations,
-    answers,
-    choiceValues(definition),
-  );
+  const calculations = runCalculations(definition.calculations, answers, choiceValues(definition));
   const result: FormResult = pickResult(definition, answers);
   return { score, calculations, result };
 }
@@ -355,7 +347,8 @@ export const formResponseSubmit = defineCommand({
       const wanted = definition.onSubmit.lead;
       if (wanted && typeof wanted.pipelineId === 'string' && typeof wanted.stageId === 'string') {
         const title =
-          (typeof lead.fields.title === 'string' && lead.fields.title) || `${form.name}: ${contact.firstName || 'New enquiry'}`;
+          (typeof lead.fields.title === 'string' && lead.fields.title) ||
+          `${form.name}: ${contact.firstName || 'New enquiry'}`;
         // Money in this system is whole cents; a calculation counts in dollars.
         const quoted = wanted.valueFrom ? (calculations[wanted.valueFrom] ?? null) : null;
         const typedValue = typeof lead.fields.value === 'number' ? lead.fields.value : null;
@@ -464,11 +457,7 @@ export const formResponseSubmit = defineCommand({
               and one_per_person limit 1`,
       );
       if (already)
-        throw HfosError.rule(
-          'already_answered',
-          409,
-          'You have already answered this form.',
-        );
+        throw HfosError.rule('already_answered', 409, 'You have already answered this form.');
     }
     await ctx.tx
       .update(formResponses)

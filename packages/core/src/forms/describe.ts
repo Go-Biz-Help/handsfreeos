@@ -20,7 +20,7 @@ import { CHOICE_TYPES, QUESTION_LABELS, type QuestionType } from './questions';
 // ---- One question ----
 
 const choicesOf = (question: Question): { id: string; label: string }[] =>
-  ((question.config as { choices?: { id: string; label: string }[] }).choices ?? []);
+  (question.config as { choices?: { id: string; label: string }[] }).choices ?? [];
 
 /** "Your budget — amount, must be answered, only sometimes, fills in Lead value". */
 export function questionLine(question: Question): string {
@@ -123,9 +123,12 @@ export function describeFormOp(op: FormOp, before: FormDefinition): string {
       if (typeof patch.title === 'string') changes.push(`renamed it to ${quoted(patch.title)}`);
       if (typeof patch.required === 'boolean')
         changes.push(`made it ${REQUIRED_WORDS[String(patch.required) as 'true' | 'false']}`);
-      if (typeof patch.type === 'string') changes.push(`turned it into a ${patch.type.replace(/_/g, ' ')}`);
+      if (typeof patch.type === 'string')
+        changes.push(`turned it into a ${patch.type.replace(/_/g, ' ')}`);
       if (patch.mapTo !== undefined)
-        changes.push(patch.mapTo === null ? 'stopped it filling in a field' : 'pointed it at a field');
+        changes.push(
+          patch.mapTo === null ? 'stopped it filling in a field' : 'pointed it at a field',
+        );
       if (patch.showIf !== undefined) changes.push('changed when it shows');
       if (patch.help !== undefined) changes.push('changed the line underneath');
       if (patch.config !== undefined) changes.push('changed its settings');
@@ -210,8 +213,7 @@ export function diffForms(from: FormDefinition, to: FormDefinition): FormOp[] {
   const fromQuestions = new Map(allQuestions(from).map((q) => [q.id, q]));
   const toQuestions = new Map(allQuestions(to).map((q) => [q.id, q]));
   for (const question of allQuestions(from))
-    if (!toQuestions.has(question.id))
-      ops.push({ op: 'delete_question', questionId: question.id });
+    if (!toQuestions.has(question.id)) ops.push({ op: 'delete_question', questionId: question.id });
   for (const page of to.pages)
     page.questions.forEach((question, index) => {
       const was = fromQuestions.get(question.id);

@@ -8,11 +8,7 @@ import { apiServer, unwrapPage } from '@/lib/api/server';
 export const metadata: Metadata = { title: 'Forms' };
 
 /** Everyone can see the forms; owners and admins build them. */
-export default async function FormsPage({
-  params,
-}: {
-  params: Promise<{ workspaceId: string }>;
-}) {
+export default async function FormsPage({ params }: { params: Promise<{ workspaceId: string }> }) {
   const { workspaceId } = await params;
   const { api } = await apiServer();
   const got = unwrapPage(await api.POST('/v1/queries/workspace.get', { body: { workspaceId } }));

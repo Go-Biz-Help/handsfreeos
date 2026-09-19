@@ -13,11 +13,7 @@ import { userNames, uuidArray } from '../calendar/load';
 import { HfosError } from '../errors';
 import { defineQuery } from '../kernel/define';
 import { decodeCursor, page } from '../kernel/pagination';
-import {
-  allQuestions,
-  type FormDefinition,
-  type FormMode,
-} from '../forms/definition';
+import { allQuestions, type FormDefinition, type FormMode } from '../forms/definition';
 import { formIssues, loadForm, loadFormCatalogs, parseStoredForm } from '../forms/load';
 import { jsonEqual } from '../workflows/json';
 import {
@@ -53,7 +49,11 @@ function summaryOf(
   extra: { version: number | null; starts: number },
 ) {
   const completionRate =
-    extra.starts > 0 ? Math.min(1, row.responseCount / extra.starts) : row.responseCount > 0 ? 1 : null;
+    extra.starts > 0
+      ? Math.min(1, row.responseCount / extra.starts)
+      : row.responseCount > 0
+        ? 1
+        : null;
   return {
     formId: row.id,
     name: row.name,

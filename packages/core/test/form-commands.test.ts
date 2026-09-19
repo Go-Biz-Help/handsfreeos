@@ -123,7 +123,10 @@ describe('starting one', () => {
       owner,
     );
     const saved = await row(created.formId);
-    const definition = saved.definition as { pages: { questions: { type: string }[] }[]; calculations: unknown[] };
+    const definition = saved.definition as {
+      pages: { questions: { type: string }[] }[];
+      calculations: unknown[];
+    };
     expect(definition.pages[0]!.questions.map((q) => q.type)).toContain('number');
     expect(definition.calculations).toHaveLength(1);
     // Ready to publish straight away, which is the point of a starter.

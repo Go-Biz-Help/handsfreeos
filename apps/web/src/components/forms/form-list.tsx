@@ -121,7 +121,9 @@ export function FormList({
               {siteSlug && form.status !== 'draft' ? (
                 <span className="inline-flex items-center gap-1 truncate">
                   <Link2 className="h-3.5 w-3.5 shrink-0" strokeWidth={1.75} />
-                  <span className="truncate">/f/{siteSlug}/{form.slug}</span>
+                  <span className="truncate">
+                    /f/{siteSlug}/{form.slug}
+                  </span>
                 </span>
               ) : (
                 <span>Not shared yet</span>

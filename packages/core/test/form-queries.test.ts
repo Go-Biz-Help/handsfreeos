@@ -35,7 +35,11 @@ beforeAll(async () => {
   wsId = org.workspaceId;
   scope = { workspaceId: wsId, organizationId: org.organizationId };
 
-  const created = await run(formCreate, { workspaceId: wsId, name: 'Job feedback', mode: 'survey' }, owner);
+  const created = await run(
+    formCreate,
+    { workspaceId: wsId, name: 'Job feedback', mode: 'survey' },
+    owner,
+  );
   formId = created.formId;
   const [row] = await rows<{ definition: { pages: { id: string }[] } }>(
     admin(),
@@ -63,7 +67,13 @@ beforeAll(async () => {
           mapTo: 'person.first_name',
           config: {},
         }),
-        add({ id: qid('phone'), type: 'phone', title: 'Your phone', mapTo: 'person.phone', config: {} }),
+        add({
+          id: qid('phone'),
+          type: 'phone',
+          title: 'Your phone',
+          mapTo: 'person.phone',
+          config: {},
+        }),
         add({
           id: qid('rating'),
           type: 'rating',
@@ -133,7 +143,10 @@ describe('the list', () => {
 
   it('leaves the archive out unless it is asked for', async () => {
     const extra = await run(formCreate, { workspaceId: wsId, name: 'Old one' }, owner);
-    await rows(admin(), sql`update app.forms set status = 'archived', archived_at = now() where id = ${extra.formId}`);
+    await rows(
+      admin(),
+      sql`update app.forms set status = 'archived', archived_at = now() where id = ${extra.formId}`,
+    );
     const plain = await ask(formList, { workspaceId: wsId }, owner);
     expect(plain.items.map((f) => f.formId)).not.toContain(extra.formId);
     const all = await ask(formList, { workspaceId: wsId, includeArchived: true }, owner);

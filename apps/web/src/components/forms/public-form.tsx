@@ -13,12 +13,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { ApiError } from '@/lib/api/errors';
-import {
-  saveSheet,
-  sendSheet,
-  startSheet,
-  type SentForm,
-} from '@/lib/api/public-forms';
+import { saveSheet, sendSheet, startSheet, type SentForm } from '@/lib/api/public-forms';
 import { QuestionField } from './question-field';
 
 /**
@@ -198,7 +193,9 @@ export function PublicForm({
                     key={question.id}
                     question={question}
                     value={state.answers[question.id] ?? null}
-                    problem={tried ? answerProblem(question, state.answers[question.id] ?? null) : null}
+                    problem={
+                      tried ? answerProblem(question, state.answers[question.id] ?? null) : null
+                    }
                     onChange={(value) => answer(question.id, value)}
                   />
                 ))}

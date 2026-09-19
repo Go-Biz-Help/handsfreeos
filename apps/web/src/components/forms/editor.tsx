@@ -67,7 +67,9 @@ export function FormEditor({
         }),
       );
       toast.success(
-        out.version === 1 ? 'Published. It is taking answers now.' : `Published version ${out.version}.`,
+        out.version === 1
+          ? 'Published. It is taking answers now.'
+          : `Published version ${out.version}.`,
       );
       router.refresh();
     } catch (e) {
@@ -140,7 +142,10 @@ export function FormEditor({
       </div>
 
       {editor.issues.length ? (
-        <Card className="flex gap-3 border-warning/40 bg-warning-soft p-3.5" data-testid="form-issues">
+        <Card
+          className="flex gap-3 border-warning/40 bg-warning-soft p-3.5"
+          data-testid="form-issues"
+        >
           <AlertTriangle className="h-4 w-4 shrink-0 text-warning-text" strokeWidth={1.75} />
           <div className="min-w-0 text-[13px] text-text-2">
             <p className="font-medium text-text">To fix before this can go out</p>

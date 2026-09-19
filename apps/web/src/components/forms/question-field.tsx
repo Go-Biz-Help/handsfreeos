@@ -116,9 +116,7 @@ function Answer({
               checked={picked.includes(choice.id)}
               onChange={(e) =>
                 onChange(
-                  e.target.checked
-                    ? [...picked, choice.id]
-                    : picked.filter((p) => p !== choice.id),
+                  e.target.checked ? [...picked, choice.id] : picked.filter((p) => p !== choice.id),
                 )
               }
             />

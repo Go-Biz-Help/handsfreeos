@@ -52,7 +52,9 @@ const obj = (properties: Record<string, FormJsonSchema>): FormJsonSchema => ({
   additionalProperties: false,
 });
 
-const questionRef = str('A question id (q_…) or a ref you gave a question added earlier in this reply.');
+const questionRef = str(
+  'A question id (q_…) or a ref you gave a question added earlier in this reply.',
+);
 
 export const FORM_TOOL_NAMES = [
   'add_question',
@@ -90,7 +92,9 @@ export const FORM_BUILDER_TOOLS: readonly FormToolDef[] = [
         ),
       ),
       json: nullable(
-        str('The question’s own settings as a JSON object (choices, min, max, statement…), or null.'),
+        str(
+          'The question’s own settings as a JSON object (choices, min, max, statement…), or null.',
+        ),
       ),
       showIfJson: nullable(
         str(
@@ -161,7 +165,8 @@ export const FORM_BUILDER_TOOLS: readonly FormToolDef[] = [
   },
   {
     name: 'set_form',
-    description: 'The form itself: which of the three it is, its heading, and the words at the top.',
+    description:
+      'The form itself: which of the three it is, its heading, and the words at the top.',
     inputSchema: obj({
       mode: nullable(oneOf(['form', 'survey', 'quiz'], 'Which kind it is.')),
       title: nullable(str('The heading the customer reads.')),
@@ -332,13 +337,18 @@ export function formToolCallsToOps(
         const config = withChoiceIds(input.json ? parseJsonObject(input.json, 'json') : {});
         const parsedConfig = QUESTION_CONFIGS[input.type].safeParse(config);
         if (!parsedConfig.success)
-          throw new CallError(`Those settings don’t fit a ${input.type}: ${zodMessage(parsedConfig.error)}`);
+          throw new CallError(
+            `Those settings don’t fit a ${input.type}: ${zodMessage(parsedConfig.error)}`,
+          );
         const id = newQuestionId(random);
         if (input.ref) {
-          if (questionRefs[input.ref]) throw new CallError(`The ref “${input.ref}” is already used.`);
+          if (questionRefs[input.ref])
+            throw new CallError(`The ref “${input.ref}” is already used.`);
           questionRefs[input.ref] = id;
         }
-        const showIf = input.showIfJson ? parseJsonObject(input.showIfJson, 'showIfJson') : undefined;
+        const showIf = input.showIfJson
+          ? parseJsonObject(input.showIfJson, 'showIfJson')
+          : undefined;
         return [
           {
             op: 'add_question',
@@ -366,9 +376,8 @@ export function formToolCallsToOps(
       case 'move_question': {
         const input = checked(INPUTS.move_question, raw, 'The call');
         const id = questionId(input.questionId);
-        const page =
-          input.pageId ?
-            pageId(input.pageId)
+        const page = input.pageId
+          ? pageId(input.pageId)
           : (work.pages.find((p) => p.questions.some((q) => q.id === id))?.id ?? pageId(null));
         return [{ op: 'move_question', questionId: id, pageId: page, index: input.index }];
       }
@@ -396,7 +405,9 @@ export function formToolCallsToOps(
                 ? {
                     ...term,
                     factors: term.factors.map((factor) =>
-                      isPlainObject(factor) && factor.kind === 'question' && typeof factor.questionId === 'string'
+                      isPlainObject(factor) &&
+                      factor.kind === 'question' &&
+                      typeof factor.questionId === 'string'
                         ? { ...factor, questionId: questionId(factor.questionId) }
                         : factor,
                     ),
@@ -404,13 +415,17 @@ export function formToolCallsToOps(
                 : term,
             )
           : json.terms;
-        return [{ op: 'add_calculation', index: null, calculation: { ...json, terms, id } as never }];
+        return [
+          { op: 'add_calculation', index: null, calculation: { ...json, terms, id } as never },
+        ];
       }
       case 'add_result': {
         const input = checked(INPUTS.add_result, raw, 'The call');
         const id = newResultId(random);
         if (input.ref) otherRefs[input.ref] = id;
-        const showIf = input.showIfJson ? parseJsonObject(input.showIfJson, 'showIfJson') : undefined;
+        const showIf = input.showIfJson
+          ? parseJsonObject(input.showIfJson, 'showIfJson')
+          : undefined;
         return [
           {
             op: 'add_result',
@@ -437,7 +452,10 @@ export function formToolCallsToOps(
       }
       case 'set_scoring':
         return [
-          { op: 'set_scoring', patch: parseJsonObject(checked(INPUTS.set_scoring, raw, 'The call').json, 'json') },
+          {
+            op: 'set_scoring',
+            patch: parseJsonObject(checked(INPUTS.set_scoring, raw, 'The call').json, 'json'),
+          },
         ];
       case 'set_on_submit':
         return [
@@ -491,7 +509,10 @@ function doneMessage(ops: readonly FormOp[]): string {
   const op = ops[0];
   if (!op) return 'Done.';
   if (op.op === 'add_question') {
-    const question = op.question as { id?: string; config?: { choices?: { id: string; label: string }[] } };
+    const question = op.question as {
+      id?: string;
+      config?: { choices?: { id: string; label: string }[] };
+    };
     const choices = question.config?.choices ?? [];
     const ids = choices.map((c) => `${c.label} is ${c.id}`).join(', ');
     return `Done. The question’s id is ${question.id}${ids ? `; its choices: ${ids}` : ''}.`;
@@ -499,7 +520,8 @@ function doneMessage(ops: readonly FormOp[]): string {
   if (op.op === 'add_page') return `Done. The page’s id is ${(op.page as { id: string }).id}.`;
   if (op.op === 'add_calculation')
     return `Done. The calculation’s id is ${(op.calculation as { id: string }).id}.`;
-  if (op.op === 'add_result') return `Done. The result’s id is ${(op.result as { id: string }).id}.`;
+  if (op.op === 'add_result')
+    return `Done. The result’s id is ${(op.result as { id: string }).id}.`;
   return 'Done.';
 }
 

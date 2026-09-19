@@ -44,7 +44,13 @@ beforeAll(async () => {
   stageId = stage!.id;
   const [field] = await admin()
     .insert(customFields)
-    .values({ workspaceId: wsId, entity: 'person', key: 'gate_code', label: 'Gate code', type: 'text' })
+    .values({
+      workspaceId: wsId,
+      entity: 'person',
+      key: 'gate_code',
+      label: 'Gate code',
+      type: 'text',
+    })
     .returning({ id: customFields.id });
   gateCodeFieldId = field!.id;
 });
@@ -85,8 +91,8 @@ async function publishedForm(
   settings: Record<string, unknown> = {},
 ) {
   const created = await run(formCreate, { workspaceId: wsId, name }, owner);
-  const pageId = ((await formRow(created.formId)).definition as { pages: { id: string }[] }).pages[0]!
-    .id;
+  const pageId = ((await formRow(created.formId)).definition as { pages: { id: string }[] })
+    .pages[0]!.id;
   const saved = await run(
     formSaveDraft,
     {
@@ -136,7 +142,13 @@ interface Started {
 const submit = (started: Started, answers: Record<string, unknown>, smsConsent = false) =>
   runSystem(
     formResponseSubmit,
-    { workspaceId: wsId, responseId: started.responseId, token: started.token, answers, smsConsent },
+    {
+      workspaceId: wsId,
+      responseId: started.responseId,
+      token: started.token,
+      answers,
+      smsConsent,
+    },
     scope,
   );
 
@@ -328,7 +340,9 @@ describe('sending it', () => {
           id: qid('breed'),
           type: 'short_text',
           showIf: {
-            conditions: [{ source: { kind: 'question', questionId: qid('dog') }, op: 'is', value: 'yes' }],
+            conditions: [
+              { source: { kind: 'question', questionId: qid('dog') }, op: 'is', value: 'yes' },
+            ],
           },
         }),
       },
@@ -346,7 +360,10 @@ describe('sending it', () => {
       .select()
       .from(formAnswers)
       .where(
-        and(eq(formAnswers.responseId, started.responseId), eq(formAnswers.questionId, qid('breed'))),
+        and(
+          eq(formAnswers.responseId, started.responseId),
+          eq(formAnswers.questionId, qid('breed')),
+        ),
       );
     expect(answers).toHaveLength(0);
   });
@@ -368,11 +385,7 @@ describe('sending it', () => {
   it('insists on a way to reach them when the form says it must', async () => {
     const form = await publishedForm('Who are you');
     const started = await start(form.formId);
-    await expectHfos(
-      () => submit(started, { [qid('name')]: 'Anon' }),
-      'form_needs_identity',
-      400,
-    );
+    await expectHfos(() => submit(started, { [qid('name')]: 'Anon' }), 'form_needs_identity', 400);
   });
 
   it('records nobody at all on an anonymous form', async () => {
@@ -404,11 +417,7 @@ describe('sending it', () => {
     const form = await publishedForm('Once only');
     const started = await start(form.formId);
     await submit(started, { [qid('name')]: 'Sam', [qid('phone')]: '(512) 555-0155' });
-    await expectHfos(
-      () => submit(started, { [qid('name')]: 'Sam again' }),
-      'response_sent',
-      409,
-    );
+    await expectHfos(() => submit(started, { [qid('name')]: 'Sam again' }), 'response_sent', 409);
   });
 
   it('scores a quiz and lands them on the result their score earns', async () => {
@@ -518,11 +527,7 @@ describe('afterwards', () => {
     const form = await publishedForm('Forget me');
     const started = await start(form.formId);
     await submit(started, { [qid('name')]: 'Gone', [qid('phone')]: '(512) 555-0133' });
-    await run(
-      formResponseDelete,
-      { workspaceId: wsId, responseId: started.responseId },
-      owner,
-    );
+    await run(formResponseDelete, { workspaceId: wsId, responseId: started.responseId }, owner);
     expect(
       await admin().select().from(formResponses).where(eq(formResponses.id, started.responseId)),
     ).toHaveLength(0);

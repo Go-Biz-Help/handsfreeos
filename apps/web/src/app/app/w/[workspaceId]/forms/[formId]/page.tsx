@@ -26,11 +26,7 @@ export default async function FormPage({
   if (!formRes.data) notFound();
   return (
     <>
-      <FormNameHeader
-        workspaceId={workspaceId}
-        form={formRes.data.form}
-        canManage={canManage}
-      />
+      <FormNameHeader workspaceId={workspaceId} form={formRes.data.form} canManage={canManage} />
       <FormEditor
         workspaceId={workspaceId}
         initial={formRes.data}

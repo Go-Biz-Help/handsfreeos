@@ -3851,7 +3851,6 @@ export const migrationTombstones = app.table('migration_tombstones', {
   appliedAt: ts('applied_at'),
 });
 
-
 /* ===========================================================================
  * platform · HandsFreeOS's own support desk (0070). Not tenant data: these
  * tables are read by staff and by the worker, and by no business at all.

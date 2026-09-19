@@ -566,7 +566,10 @@ const RUNNERS: Readonly<Record<TeammateToolName, Runner>> = {
   /** The console is a rehearsal: a form is described rather than started, and no sheet is written. */
   async ask_form(h, args) {
     const form = await asWorker(h.deps.db, h.t.scope, (tx) =>
-      rows<{ name: string; definition: { pages: { questions: { id: string; title: string }[] }[] } }>(
+      rows<{
+        name: string;
+        definition: { pages: { questions: { id: string; title: string }[] }[] };
+      }>(
         tx,
         sql`select f.name, v.definition from app.forms f
             join app.form_versions v on v.id = f.active_version_id

@@ -142,10 +142,7 @@ export const FormSourceValue = z.enum(['link', 'embed', 'chat', 'qr', 'app', 'ap
 
 /** Answers by question id. What each one may be is the question's own business (core's answerProblem). */
 export const AnswerSheetInput = z
-  .record(
-    z.string().regex(/^q_[a-z0-9]{8}$/, { error: 'That isn’t a question.' }),
-    z.unknown(),
-  )
+  .record(z.string().regex(/^q_[a-z0-9]{8}$/, { error: 'That isn’t a question.' }), z.unknown())
   .refine((a) => Object.keys(a).length <= 300, { error: 'That is more answers than a form has.' });
 
 export const FormStartInput = z.object({

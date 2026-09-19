@@ -6,17 +6,17 @@ one engine and one set of results screens rather than three of each.
 
 ## Where things are
 
-| What | Where |
-| --- | --- |
-| The definition, the ops, the engine | `packages/core/src/forms/` |
-| Commands | `packages/core/src/commands/form.ts`, `form-response.ts` |
-| Reads | `packages/core/src/queries/form.ts` |
-| Tables | migrations `0073`–`0078` |
-| The app | `apps/web/src/app/app/w/[workspaceId]/forms/`, `apps/web/src/components/forms/` |
-| The public page | `apps/web/src/app/f/[site]/[slug]/`, served by `apps/worker/src/http/forms.ts` |
-| The AI builder | `apps/worker/src/forms/builder.ts` (tools in `packages/core/src/forms/ai-tools.ts`) |
-| The Assistant's tools | `apps/worker/src/assistant/tools-forms.ts` |
-| The AI teammate's tools | `ask_form` / `answer_form` in `apps/worker/src/ai-team/tools.ts` |
+| What                                | Where                                                                               |
+| ----------------------------------- | ----------------------------------------------------------------------------------- |
+| The definition, the ops, the engine | `packages/core/src/forms/`                                                          |
+| Commands                            | `packages/core/src/commands/form.ts`, `form-response.ts`                            |
+| Reads                               | `packages/core/src/queries/form.ts`                                                 |
+| Tables                              | migrations `0073`–`0078`                                                            |
+| The app                             | `apps/web/src/app/app/w/[workspaceId]/forms/`, `apps/web/src/components/forms/`     |
+| The public page                     | `apps/web/src/app/f/[site]/[slug]/`, served by `apps/worker/src/http/forms.ts`      |
+| The AI builder                      | `apps/worker/src/forms/builder.ts` (tools in `packages/core/src/forms/ai-tools.ts`) |
+| The Assistant's tools               | `apps/worker/src/assistant/tools-forms.ts`                                          |
+| The AI teammate's tools             | `ask_form` / `answer_form` in `apps/worker/src/ai-team/tools.ts`                    |
 
 ## The shape
 

@@ -78,7 +78,9 @@ beforeAll(async () => {
         title: 'What breed?',
         config: {},
         showIf: {
-          conditions: [{ source: { kind: 'question', questionId: qid('dog') }, op: 'is', value: 'yes' }],
+          conditions: [
+            { source: { kind: 'question', questionId: qid('dog') }, op: 'is', value: 'yes' },
+          ],
         },
       }),
     ],
@@ -207,8 +209,8 @@ describe('filling it in', () => {
       sql`select count(*)::int as count from app.form_responses
           where workspace_id = ${w.workspaceId} and status = 'completed'`,
     );
-    const started = (await post(w, formUrl('/start'), { website: 'https://spam.example' }).then((r) =>
-      r.json(),
+    const started = (await post(w, formUrl('/start'), { website: 'https://spam.example' }).then(
+      (r) => r.json(),
     )) as { responseId: string; token: string };
     expect(started.token).toBe('nothing-was-written-for-this-one');
     const sent = await post(w, formUrl(`/${started.responseId}/submit`), {

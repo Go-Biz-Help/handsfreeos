@@ -10,13 +10,7 @@ import { apiBrowser, errorMessage, unwrap } from '@/lib/api/client';
 import type { FormResponseGetOut, FormResponseRow } from '@/lib/api/types';
 
 /** Who answered, and what one person said, with the questions worded as they read at the time. */
-export function FormResponses({
-  workspaceId,
-  formId,
-}: {
-  workspaceId: string;
-  formId: string;
-}) {
+export function FormResponses({ workspaceId, formId }: { workspaceId: string; formId: string }) {
   const [items, setItems] = useState<FormResponseRow[] | null>(null);
   const [open, setOpen] = useState<FormResponseGetOut | null>(null);
   const [busy, setBusy] = useState(false);
@@ -111,66 +105,66 @@ export function FormResponses({
 
       <Sheet open={open !== null} onOpenChange={(next) => !next && setOpen(null)}>
         <SheetContent title="The answers">
-        {busy || !open ? (
-          <div className="flex justify-center py-10 text-text-3">
-            <Loader2 className="h-5 w-5 animate-spin" strokeWidth={1.75} />
-          </div>
-        ) : (
-          <div className="space-y-4">
-            <div className="text-[13px] text-text-2">
-              {open.response.personId ? (
-                <Link
-                  href={`/app/w/${workspaceId}/customers/${open.response.personId}`}
-                  className="font-medium text-accent hover:underline"
-                >
-                  {open.response.personName ?? 'The customer'}
-                </Link>
-              ) : (
-                <span>Anonymous</span>
-              )}
-              {open.response.completedAt ? (
-                <span className="text-text-3">
-                  {' '}
-                  · {new Date(open.response.completedAt).toLocaleString()}
-                </span>
-              ) : null}
+          {busy || !open ? (
+            <div className="flex justify-center py-10 text-text-3">
+              <Loader2 className="h-5 w-5 animate-spin" strokeWidth={1.75} />
             </div>
-
-            <dl className="space-y-3">
-              {open.answers.map((answer) => (
-                <div key={answer.questionId}>
-                  <dt className="text-[12.5px] text-text-3">{answer.questionTitle}</dt>
-                  <dd className="text-[14px] text-text">
-                    {answer.labels.length
-                      ? answer.labels.join(', ')
-                      : (answer.text ?? JSON.stringify(answer.value))}
-                  </dd>
-                </div>
-              ))}
-            </dl>
-
-            {Object.keys(open.calculations).length ? (
-              <div className="rounded-card bg-card-2 p-3 text-[13px] text-text-2">
-                {Object.entries(open.calculations).map(([id, value]) => (
-                  <p key={id} className="flex justify-between">
-                    <span>Worked out</span>
-                    <span className="font-medium text-text">{value}</span>
-                  </p>
-                ))}
+          ) : (
+            <div className="space-y-4">
+              <div className="text-[13px] text-text-2">
+                {open.response.personId ? (
+                  <Link
+                    href={`/app/w/${workspaceId}/customers/${open.response.personId}`}
+                    className="font-medium text-accent hover:underline"
+                  >
+                    {open.response.personName ?? 'The customer'}
+                  </Link>
+                ) : (
+                  <span>Anonymous</span>
+                )}
+                {open.response.completedAt ? (
+                  <span className="text-text-3">
+                    {' '}
+                    · {new Date(open.response.completedAt).toLocaleString()}
+                  </span>
+                ) : null}
               </div>
-            ) : null}
 
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => forget(open.response.responseId)}
-              className="text-danger-text"
-            >
-              <Trash2 className="h-4 w-4" strokeWidth={1.75} />
-              Delete this response
-            </Button>
-          </div>
-        )}
+              <dl className="space-y-3">
+                {open.answers.map((answer) => (
+                  <div key={answer.questionId}>
+                    <dt className="text-[12.5px] text-text-3">{answer.questionTitle}</dt>
+                    <dd className="text-[14px] text-text">
+                      {answer.labels.length
+                        ? answer.labels.join(', ')
+                        : (answer.text ?? JSON.stringify(answer.value))}
+                    </dd>
+                  </div>
+                ))}
+              </dl>
+
+              {Object.keys(open.calculations).length ? (
+                <div className="rounded-card bg-card-2 p-3 text-[13px] text-text-2">
+                  {Object.entries(open.calculations).map(([id, value]) => (
+                    <p key={id} className="flex justify-between">
+                      <span>Worked out</span>
+                      <span className="font-medium text-text">{value}</span>
+                    </p>
+                  ))}
+                </div>
+              ) : null}
+
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => forget(open.response.responseId)}
+                className="text-danger-text"
+              >
+                <Trash2 className="h-4 w-4" strokeWidth={1.75} />
+                Delete this response
+              </Button>
+            </div>
+          )}
         </SheetContent>
       </Sheet>
     </>

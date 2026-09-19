@@ -385,7 +385,6 @@ const NO_CUSTOMER =
   'There’s no customer on file for this conversation yet, so there’s nowhere to put that.';
 const NO_LEAD = 'This customer has no open lead to put that on. Add a note instead.';
 
-
 // ---- The forms the teammate may ask ----
 
 interface TeammateForm {
@@ -472,7 +471,12 @@ function answerFromWords(question: Question, said: string): AnswerValue {
     return question.type === 'checkboxes' ? [] : text;
   }
   if (question.type === 'yes_no') return /\b(no|nope|nah)\b/i.test(text) ? 'no' : 'yes';
-  if (question.type === 'number' || question.type === 'money' || question.type === 'rating' || question.type === 'scale') {
+  if (
+    question.type === 'number' ||
+    question.type === 'money' ||
+    question.type === 'rating' ||
+    question.type === 'scale'
+  ) {
     const n = Number(text.replace(/[^0-9.-]/g, ''));
     return Number.isFinite(n) ? n : text;
   }
@@ -714,7 +718,10 @@ const RUNNERS: Readonly<Record<TeammateToolName, Runner>> = {
             ask: { questionId: next.id, question: quoteData(next.title), ...questionShape(next) },
             note: 'Ask it in your own words, one at a time, and save each answer with answer_form.',
           }
-        : { form: quoteData(definition.title), done: 'Nothing left to ask; send it with answer_form.' },
+        : {
+            form: quoteData(definition.title),
+            done: 'Nothing left to ask; send it with answer_form.',
+          },
     };
   },
 

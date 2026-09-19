@@ -57,7 +57,14 @@ export async function formFrameProxy(request: NextRequest): Promise<NextResponse
   const [, , site, slug] = request.nextUrl.pathname.split('/');
   const from = exactOrigin(request.headers.get('referer'));
   let rule = "frame-ancestors 'self'";
-  if (site && slug && SLUG.test(site) && SLUG.test(slug) && from && from !== request.nextUrl.origin) {
+  if (
+    site &&
+    slug &&
+    SLUG.test(site) &&
+    SLUG.test(slug) &&
+    from &&
+    from !== request.nextUrl.origin
+  ) {
     const origins = await allowedOrigins(site, slug);
     if (origins.includes(from)) rule = `frame-ancestors 'self' ${from}`;
   }

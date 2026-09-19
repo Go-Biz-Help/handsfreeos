@@ -140,7 +140,8 @@ describe('the AI builder', () => {
         name: 'Gold',
         headline: 'You want the Gold plan',
         body: null,
-        showIfJson: '{"match":"all","conditions":[{"source":{"kind":"percent"},"op":"gte","value":80}]}',
+        showIfJson:
+          '{"match":"all","conditions":[{"source":{"kind":"percent"},"op":"gte","value":80}]}',
       }),
     ]);
     expect(out.definition.results.map((r) => r.name)).toEqual(['Gold', 'thanks']);
@@ -177,7 +178,11 @@ describe('saying what changed', () => {
           shortText('when', {
             showIf: {
               conditions: [
-                { source: { kind: 'question', questionId: qid('service') }, op: 'is', value: 'c_mow00000' },
+                {
+                  source: { kind: 'question', questionId: qid('service') },
+                  op: 'is',
+                  value: 'c_mow00000',
+                },
               ],
             },
           }),

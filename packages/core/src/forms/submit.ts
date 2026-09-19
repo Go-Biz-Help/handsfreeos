@@ -71,13 +71,12 @@ function firstOfType(
  * an email address and a phone question is a phone number, because a business that drops an "Email" field
  * on a form plainly means it to reach the customer.
  */
-export function contactFromAnswers(
-  definition: FormDefinition,
-  answers: AnswerSheet,
-): FormContact {
+export function contactFromAnswers(definition: FormDefinition, answers: AnswerSheet): FormContact {
   const first = text(mapped(definition, answers, 'person.first_name'));
   const last = text(mapped(definition, answers, 'person.last_name'));
-  const email = text(mapped(definition, answers, 'person.email') ?? firstOfType(definition, answers, 'email'));
+  const email = text(
+    mapped(definition, answers, 'person.email') ?? firstOfType(definition, answers, 'email'),
+  );
   const typed = text(
     mapped(definition, answers, 'person.phone') ?? firstOfType(definition, answers, 'phone'),
   );
