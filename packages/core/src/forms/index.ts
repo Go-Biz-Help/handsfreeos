@@ -8,3 +8,4 @@ export * from './questions';
 export * from './logic';
 export * from './definition';
 export * from './ops';
+export * from './render';
