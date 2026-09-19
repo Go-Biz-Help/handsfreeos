@@ -12,7 +12,20 @@ import {
   type FormDefinition,
   type Question,
 } from '../../src/forms/index';
-import { choice, cid, def, kid, number, page, pickOne, pid, qid, result, rid, shortText } from './fixtures';
+import {
+  choice,
+  cid,
+  def,
+  kid,
+  number,
+  page,
+  pickOne,
+  pid,
+  qid,
+  result,
+  rid,
+  shortText,
+} from './fixtures';
 
 /** "Do you have a dog?" and, only then, "What breed?" */
 const dogForm = (): FormDefinition =>
@@ -23,7 +36,9 @@ const dogForm = (): FormDefinition =>
         shortText('breed', {
           title: 'What breed?',
           showIf: {
-            conditions: [{ source: { kind: 'question', questionId: qid('dog') }, op: 'is', value: 'yes' }],
+            conditions: [
+              { source: { kind: 'question', questionId: qid('dog') }, op: 'is', value: 'yes' },
+            ],
           },
         }),
         shortText('name', { title: 'Your name', required: true }),
@@ -56,12 +71,16 @@ describe('what is showing', () => {
           { id: qid('dog'), type: 'yes_no', title: 'Dog?', config: {} },
           shortText('breed', {
             showIf: {
-              conditions: [{ source: { kind: 'question', questionId: qid('dog') }, op: 'is', value: 'yes' }],
+              conditions: [
+                { source: { kind: 'question', questionId: qid('dog') }, op: 'is', value: 'yes' },
+              ],
             },
           }),
           shortText('size', {
             showIf: {
-              conditions: [{ source: { kind: 'question', questionId: qid('breed') }, op: 'answered' }],
+              conditions: [
+                { source: { kind: 'question', questionId: qid('breed') }, op: 'answered' },
+              ],
             },
           }),
         ]),
@@ -77,7 +96,9 @@ describe('what is showing', () => {
         page('about', [{ id: qid('dog'), type: 'yes_no', title: 'Dog?', config: {} }]),
         page('dogs', [shortText('breed')], {
           showIf: {
-            conditions: [{ source: { kind: 'question', questionId: qid('dog') }, op: 'is', value: 'yes' }],
+            conditions: [
+              { source: { kind: 'question', questionId: qid('dog') }, op: 'is', value: 'yes' },
+            ],
           },
         }),
       ],
@@ -112,7 +133,12 @@ describe('what is showing', () => {
           id: kid('quote'),
           name: 'Quote',
           terms: [
-            { factors: [{ kind: 'question', questionId: qid('sqft') }, { kind: 'number', value: 3.5 }] },
+            {
+              factors: [
+                { kind: 'question', questionId: qid('sqft') },
+                { kind: 'number', value: 3.5 },
+              ],
+            },
             { factors: [{ kind: 'number', value: 75 }] },
           ],
           format: 'money',
@@ -124,8 +150,21 @@ describe('what is showing', () => {
 });
 
 describe('whether an answer will do', () => {
-  const ask = (type: string, config: Record<string, unknown> = {}, extra: Record<string, unknown> = {}) =>
-    ({ id: qid('x'), type, title: 'X', required: false, config, showIf: { match: 'all', conditions: [] }, mapTo: null, ...extra }) as unknown as Question;
+  const ask = (
+    type: string,
+    config: Record<string, unknown> = {},
+    extra: Record<string, unknown> = {},
+  ) =>
+    ({
+      id: qid('x'),
+      type,
+      title: 'X',
+      required: false,
+      config,
+      showIf: { match: 'all', conditions: [] },
+      mapTo: null,
+      ...extra,
+    }) as unknown as Question;
 
   it('only insists when the question is required', () => {
     expect(answerProblem(ask('short_text', { maxLength: 120 }), null)).toBe(null);
@@ -142,10 +181,17 @@ describe('whether an answer will do', () => {
   });
 
   it('keeps a pick-one to its choices unless “other” is allowed', () => {
-    const choices = [{ id: cid('Mow'), label: 'Mow' }, { id: cid('Trim'), label: 'Trim' }];
+    const choices = [
+      { id: cid('Mow'), label: 'Mow' },
+      { id: cid('Trim'), label: 'Trim' },
+    ];
     expect(answerProblem(ask('choice', { choices }), cid('Mow'))).toBe(null);
-    expect(answerProblem(ask('choice', { choices }), 'something else')).toBe('Pick one of the choices.');
-    expect(answerProblem(ask('choice', { choices, allowOther: true }), 'something else')).toBe(null);
+    expect(answerProblem(ask('choice', { choices }), 'something else')).toBe(
+      'Pick one of the choices.',
+    );
+    expect(answerProblem(ask('choice', { choices, allowOther: true }), 'something else')).toBe(
+      null,
+    );
   });
 
   it('counts the boxes ticked', () => {
@@ -164,16 +210,25 @@ describe('whether an answer will do', () => {
     expect(answerProblem(question, 1200)).toBe(null);
     expect(answerProblem(question, 20)).toBe('Enter 100 or more.');
     expect(answerProblem(question, 1200.5)).toBe('Whole numbers only.');
-    expect(answerProblem(ask('money', { min: null, max: null }), 19.995)).toBe('Cents only, please.');
+    expect(answerProblem(ask('money', { min: null, max: null }), 19.995)).toBe(
+      'Cents only, please.',
+    );
   });
 
   it('checks dates, times, ratings and signatures', () => {
     expect(answerProblem(ask('date', { range: 'any' }), '2026-09-18')).toBe(null);
-    expect(answerProblem(ask('date', { range: 'future' }), '2020-01-01')).toBe('Pick a date to come.');
+    expect(answerProblem(ask('date', { range: 'future' }), '2020-01-01')).toBe(
+      'Pick a date to come.',
+    );
     expect(answerProblem(ask('time'), '09:30')).toBe(null);
     expect(answerProblem(ask('time'), 'morning')).toBe('Pick a time.');
     expect(answerProblem(ask('rating', { max: 5 }), 6)).toBe('Pick from 1 to 5.');
-    expect(answerProblem(ask('signature', { statement: 'I agree.' }), { name: 'Dale', signedAt: '2026-09-18T10:00:00Z' })).toBe(null);
+    expect(
+      answerProblem(ask('signature', { statement: 'I agree.' }), {
+        name: 'Dale',
+        signedAt: '2026-09-18T10:00:00Z',
+      }),
+    ).toBe(null);
     const unsigned = { name: ' ' } as unknown as AnswerValue;
     expect(answerProblem(ask('signature', { statement: 'I agree.' }), unsigned)).toBe(
       'Type your name to sign.',
@@ -182,29 +237,42 @@ describe('whether an answer will do', () => {
 
   it('holds uploads to their count and their size', () => {
     const question = ask('file', { maxFiles: 2, maxMb: 10, accept: 'any' });
-    const file = (bytes: number) => ({ fileId: '00000000-0000-4000-8000-000000000001', name: 'a.jpg', bytes });
+    const file = (bytes: number) => ({
+      fileId: '00000000-0000-4000-8000-000000000001',
+      name: 'a.jpg',
+      bytes,
+    });
     expect(answerProblem(question, [file(1000)])).toBe(null);
     expect(answerProblem(question, [file(1000), file(1000), file(1000)])).toBe('Up to 2 files.');
     expect(answerProblem(question, [file(20 * 1024 * 1024)])).toBe('Each file under 10MB.');
   });
 
   it('never complains about a question that asks nothing', () => {
-    expect(answerProblem(ask('content', { body: 'Read this' }, { required: true }), null)).toBe(null);
+    expect(answerProblem(ask('content', { body: 'Read this' }, { required: true }), null)).toBe(
+      null,
+    );
   });
 });
 
 describe('a whole response', () => {
   it('asks for what is missing, and doesn’t ask for what is hidden', () => {
     const form = dogForm();
-    expect(responseProblems(form, {})).toEqual([{ questionId: qid('name'), message: 'Answer this one.' }]);
+    expect(responseProblems(form, {})).toEqual([
+      { questionId: qid('name'), message: 'Answer this one.' },
+    ]);
     expect(responseProblems(form, { [qid('name')]: 'Dale' })).toEqual([]);
     // An answer to a hidden question is dropped rather than complained about.
-    expect(responseProblems(form, { [qid('name')]: 'Dale', [qid('breed')]: 'x'.repeat(500) })).toEqual([]);
+    expect(
+      responseProblems(form, { [qid('name')]: 'Dale', [qid('breed')]: 'x'.repeat(500) }),
+    ).toEqual([]);
   });
 
   it('checks one page at a time', () => {
     const form = def({
-      pages: [page('one', [shortText('name', { required: true })]), page('two', [shortText('notes', { required: true })])],
+      pages: [
+        page('one', [shortText('name', { required: true })]),
+        page('two', [shortText('notes', { required: true })]),
+      ],
     });
     expect(pageProblems(form, {}, pid('one'))).toEqual([
       { questionId: qid('name'), message: 'Answer this one.' },
@@ -242,7 +310,10 @@ describe('where they land', () => {
         ]),
       ],
       results: [
-        result('gold', { headline: 'Gold', showIf: { conditions: [{ source: { kind: 'percent' }, op: 'gte', value: 60 }] } }),
+        result('gold', {
+          headline: 'Gold',
+          showIf: { conditions: [{ source: { kind: 'percent' }, op: 'gte', value: 60 }] },
+        }),
         result('bronze', { headline: 'Bronze' }),
       ],
     });

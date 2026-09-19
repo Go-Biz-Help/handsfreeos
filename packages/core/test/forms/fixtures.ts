@@ -8,7 +8,11 @@ import {
 
 /** Readable ids in the right shape: `qid('sqft')` is always the same `q_…`. */
 const id = (prefix: string) => (name: string) =>
-  `${prefix}_${name.toLowerCase().replace(/[^a-z0-9]/g, '').padEnd(8, '0').slice(0, 8)}`;
+  `${prefix}_${name
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, '')
+    .padEnd(8, '0')
+    .slice(0, 8)}`;
 
 export const qid = id('q');
 export const pid = id('p');
@@ -41,9 +45,19 @@ export const pickAny = (
   choices: ReturnType<typeof choice>[],
   extra: Partial<QuestionInput> = {},
 ): QuestionInput =>
-  ({ id: qid(name), type: 'checkboxes', title: name, config: { choices }, ...extra }) as QuestionInput;
+  ({
+    id: qid(name),
+    type: 'checkboxes',
+    title: name,
+    config: { choices },
+    ...extra,
+  }) as QuestionInput;
 
-export const page = (name: string, questions: QuestionInput[], extra: Partial<FormPageInput> = {}): FormPageInput => ({
+export const page = (
+  name: string,
+  questions: QuestionInput[],
+  extra: Partial<FormPageInput> = {},
+): FormPageInput => ({
   id: pid(name),
   title: name,
   questions,

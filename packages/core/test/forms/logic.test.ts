@@ -16,7 +16,11 @@ import { cid, kid, qid, rid } from './fixtures';
 
 const group = (input: unknown) => AnswerConditionGroup.parse(input);
 const on = (questionId: string, op: string, value?: unknown) =>
-  group({ conditions: [{ source: { kind: 'question', questionId }, op, ...(value === undefined ? {} : { value }) }] });
+  group({
+    conditions: [
+      { source: { kind: 'question', questionId }, op, ...(value === undefined ? {} : { value }) },
+    ],
+  });
 
 describe('showing and hiding', () => {
   const answers: AnswerSheet = {
@@ -85,8 +89,16 @@ describe('showing and hiding', () => {
         {
           match: 'any',
           conditions: [
-            { source: { kind: 'question', questionId: qid('service') }, op: 'is', value: cid('Mow') },
-            { source: { kind: 'question', questionId: qid('service') }, op: 'is', value: cid('Trim') },
+            {
+              source: { kind: 'question', questionId: qid('service') },
+              op: 'is',
+              value: cid('Mow'),
+            },
+            {
+              source: { kind: 'question', questionId: qid('service') },
+              op: 'is',
+              value: cid('Trim'),
+            },
           ],
         },
       ],
@@ -95,9 +107,15 @@ describe('showing and hiding', () => {
   });
 
   it('reads a calculation and a score', () => {
-    const facts = { answers, calculations: { [kid('quote')]: 4275 }, score: { points: 8, percent: 80 } };
+    const facts = {
+      answers,
+      calculations: { [kid('quote')]: 4275 },
+      score: { points: 8, percent: 80 },
+    };
     const quote = group({
-      conditions: [{ source: { kind: 'calculation', calculationId: kid('quote') }, op: 'gt', value: 4000 }],
+      conditions: [
+        { source: { kind: 'calculation', calculationId: kid('quote') }, op: 'gt', value: 4000 },
+      ],
     });
     expect(evaluateAnswers(quote, facts)).toBe(true);
     const passed = group({ conditions: [{ source: { kind: 'percent' }, op: 'gte', value: 70 }] });
@@ -133,7 +151,12 @@ describe('calculations', () => {
       id: kid('quote'),
       name: 'Quote',
       terms: [
-        { factors: [{ kind: 'question', questionId: qid('sqft') }, { kind: 'number', value: 3.5 }] },
+        {
+          factors: [
+            { kind: 'question', questionId: qid('sqft') },
+            { kind: 'number', value: 3.5 },
+          ],
+        },
         { factors: [{ kind: 'number', value: 75 }] },
       ],
       format: 'money',
@@ -160,12 +183,26 @@ describe('calculations', () => {
     const base = calc({
       id: kid('base'),
       name: 'Base',
-      terms: [{ factors: [{ kind: 'question', questionId: qid('sqft') }, { kind: 'number', value: 0.11 }] }],
+      terms: [
+        {
+          factors: [
+            { kind: 'question', questionId: qid('sqft') },
+            { kind: 'number', value: 0.11 },
+          ],
+        },
+      ],
     });
     const withTax = calc({
       id: kid('total'),
       name: 'Total',
-      terms: [{ factors: [{ kind: 'calculation', calculationId: kid('base') }, { kind: 'number', value: 1.0825 }] }],
+      terms: [
+        {
+          factors: [
+            { kind: 'calculation', calculationId: kid('base') },
+            { kind: 'number', value: 1.0825 },
+          ],
+        },
+      ],
       round: 'nearest',
       min: 150,
     });
@@ -178,14 +215,29 @@ describe('calculations', () => {
     const quote = calc({
       id: kid('quote'),
       name: 'Quote',
-      terms: [{ factors: [{ kind: 'question', questionId: qid('sqft') }, { kind: 'number', value: 3 }] }],
+      terms: [
+        {
+          factors: [
+            { kind: 'question', questionId: qid('sqft') },
+            { kind: 'number', value: 3 },
+          ],
+        },
+      ],
     });
     expect(runCalculations([quote], {})).toEqual({ [kid('quote')]: 0 });
   });
 
   it('names calculations that go round in a circle', () => {
-    const a = calc({ id: kid('a'), name: 'A', terms: [{ factors: [{ kind: 'calculation', calculationId: kid('b') }] }] });
-    const b = calc({ id: kid('b'), name: 'B', terms: [{ factors: [{ kind: 'calculation', calculationId: kid('a') }] }] });
+    const a = calc({
+      id: kid('a'),
+      name: 'A',
+      terms: [{ factors: [{ kind: 'calculation', calculationId: kid('b') }] }],
+    });
+    const b = calc({
+      id: kid('b'),
+      name: 'B',
+      terms: [{ factors: [{ kind: 'calculation', calculationId: kid('a') }] }],
+    });
     expect(calculationProblems([a, b])).toHaveLength(1);
     expect(runCalculations([a, b], {})).toEqual({ [kid('a')]: 0, [kid('b')]: 0 });
   });
@@ -254,7 +306,9 @@ describe('scoring a quiz', () => {
   });
 
   it('counts the votes an outcome quiz gathers', () => {
-    expect(resultVotes(questions, { [qid('capital')]: cid('Austin') })).toEqual({ [rid('gold')]: 1 });
+    expect(resultVotes(questions, { [qid('capital')]: cid('Austin') })).toEqual({
+      [rid('gold')]: 1,
+    });
     expect(resultVotes(questions, {})).toEqual({});
   });
 });
@@ -265,8 +319,8 @@ describe('yes and no', () => {
     expect(evaluateAnswers(rule, { answers: { [qid('licensed')]: true } })).toBe(true);
     expect(evaluateAnswers(rule, { answers: { [qid('licensed')]: 'yes' } })).toBe(true);
     expect(evaluateAnswers(rule, { answers: { [qid('licensed')]: false } })).toBe(false);
-    expect(evaluateAnswers(on(qid('licensed'), 'is', 'no'), { answers: { [qid('licensed')]: false } })).toBe(
-      true,
-    );
+    expect(
+      evaluateAnswers(on(qid('licensed'), 'is', 'no'), { answers: { [qid('licensed')]: false } }),
+    ).toBe(true);
   });
 });

@@ -307,7 +307,9 @@ export function formProblems(definition: FormDefinition): string[] {
           walk(item as { conditions: readonly unknown[] });
           continue;
         }
-        const condition = item as { source: { kind: string; questionId?: string; calculationId?: string } };
+        const condition = item as {
+          source: { kind: string; questionId?: string; calculationId?: string };
+        };
         const source = condition.source;
         if (source.kind === 'question') {
           const id = source.questionId!;
@@ -326,7 +328,9 @@ export function formProblems(definition: FormDefinition): string[] {
   };
 
   definition.pages.forEach((page) => {
-    const first = page.questions.length ? (position.get(page.questions[0]!.id) ?? 0) : questions.length;
+    const first = page.questions.length
+      ? (position.get(page.questions[0]!.id) ?? 0)
+      : questions.length;
     checkGroup(page.showIf, `The rule on “${page.title || 'a page'}”`, first);
     page.questions.forEach((q) => {
       checkGroup(q.showIf, `The rule on “${q.title}”`, position.get(q.id) ?? 0);
@@ -338,7 +342,9 @@ export function formProblems(definition: FormDefinition): string[] {
   });
 
   // Results are worked out once everything has been answered, so they may read anything.
-  definition.results.forEach((r) => checkGroup(r.showIf, `The rule on “${r.name}”`, questions.length));
+  definition.results.forEach((r) =>
+    checkGroup(r.showIf, `The rule on “${r.name}”`, questions.length),
+  );
 
   for (const question of questions) {
     if (question.type !== 'payment') continue;

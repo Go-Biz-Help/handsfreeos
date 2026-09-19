@@ -63,7 +63,10 @@ export const ANSWER_OPERATOR_LABELS: Readonly<Record<AnswerOperator, string>> = 
 };
 
 /** Operators that need no value of their own. */
-export const NO_VALUE_OPERATORS: ReadonlySet<AnswerOperator> = new Set(['answered', 'not_answered']);
+export const NO_VALUE_OPERATORS: ReadonlySet<AnswerOperator> = new Set([
+  'answered',
+  'not_answered',
+]);
 
 /** Operators that only make sense on a number. */
 export const NUMERIC_OPERATORS: ReadonlySet<AnswerOperator> = new Set([
@@ -215,14 +218,18 @@ function check(condition: AnswerCondition, raw: unknown): boolean {
     case 'not_answered':
       return empty;
     case 'is':
-      return !empty && (Array.isArray(raw) ? raw.length === 1 && same(raw[0], value) : same(raw, value));
+      return (
+        !empty && (Array.isArray(raw) ? raw.length === 1 && same(raw[0], value) : same(raw, value))
+      );
     case 'is_not':
       return !(
         !empty && (Array.isArray(raw) ? raw.length === 1 && same(raw[0], value) : same(raw, value))
       );
     case 'is_one_of':
       return (
-        !empty && Array.isArray(value) && value.some((v) => (Array.isArray(raw) ? raw.some((r) => same(r, v)) : same(raw, v)))
+        !empty &&
+        Array.isArray(value) &&
+        value.some((v) => (Array.isArray(raw) ? raw.some((r) => same(r, v)) : same(raw, v)))
       );
     case 'is_none_of':
       return !(
@@ -476,7 +483,12 @@ function scoreOne(question: ScorableQuestion, answer: AnswerValue): QuestionScor
     const want = config?.correct ?? null;
     const points = config?.points ?? 0;
     if (want === null) return { ...base, points: 0, possible: 0, correct: null };
-    const said = answer === true || answer === 'yes' ? 'yes' : answer === false || answer === 'no' ? 'no' : null;
+    const said =
+      answer === true || answer === 'yes'
+        ? 'yes'
+        : answer === false || answer === 'no'
+          ? 'no'
+          : null;
     const right = said === want;
     return { ...base, points: right ? points : 0, possible: Math.max(0, points), correct: right };
   }
@@ -512,7 +524,9 @@ export function resultVotes(
 ): Record<string, number> {
   const votes: Record<string, number> = {};
   for (const question of questions) {
-    const config = question.config as { choices?: { id: string; resultId?: string | null }[] } | null;
+    const config = question.config as {
+      choices?: { id: string; resultId?: string | null }[];
+    } | null;
     if (!Array.isArray(config?.choices)) continue;
     const answer = answers[question.id] ?? null;
     const picked = new Set(

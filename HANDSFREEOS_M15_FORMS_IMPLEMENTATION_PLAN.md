@@ -5,14 +5,14 @@ one definition in many views and a workflow is one definition in three editors.
 
 ## Decisions (Chris, 2026-09-18)
 
-| Question | Answer |
-| --- | --- |
-| Scope | **One builder, three modes**: `form`, `survey`, `quiz` |
-| Quiz | **Both** graded (right answers, score, pass mark) and outcome (answers route to a result) |
+| Question  | Answer                                                                                                |
+| --------- | ----------------------------------------------------------------------------------------------------- |
+| Scope     | **One builder, three modes**: `form`, `survey`, `quiz`                                                |
+| Quiz      | **Both** graded (right answers, score, pass mark) and outcome (answers route to a result)             |
 | On submit | Create/update the customer · start a workflow · create a lead or task · **take a payment or deposit** |
-| Delivery | Public link · website embed · **inside the AI teammate chat** · QR code |
-| Logic | **Branching + calculations** (show/hide, scores, simple math like sq ft × rate) |
-| Identity | **The business chooses per form** — identified by default, anonymous when switched on |
+| Delivery  | Public link · website embed · **inside the AI teammate chat** · QR code                               |
+| Logic     | **Branching + calculations** (show/hide, scores, simple math like sq ft × rate)                       |
+| Identity  | **The business chooses per form** — identified by default, anonymous when switched on                 |
 
 Assumed from earlier milestones, not re-asked:
 
@@ -28,17 +28,17 @@ Assumed from earlier milestones, not re-asked:
 Mirrors `packages/core/src/workflows/` file for file, because that pattern already carries three
 editors over one definition:
 
-| File | What it holds |
-| --- | --- |
-| `definition.ts` | `FormDefinition` v1 — mode, pages, `questions[]` with stable ids, settings, results |
-| `questions.ts` | The question catalog: short text, long text, choice, checkboxes, dropdown, number, money, date, time, rating/NPS, scale, phone, email, address, file upload, signature, section, page break, payment |
-| `logic.ts` | Show/hide rules (reuses `workflows/conditions.ts` operators), `calculations[]`, scoring |
-| `ops.ts` | Patch ops — `add_question`, `update_question`, `move_question`, `delete_question`, `add_page`, `set_logic`, `set_settings`, `set_result` — applied all-or-nothing, returning inverse ops for Undo |
-| `describe.ts` | Plain English per question + `diffForms(a, b)` for the Describe preview and history |
-| `ai-tools.ts` | Flat strict tool defs so the AI builder emits ops, same as the workflow builder |
-| `render.ts` | Given a definition and the answers so far, the next visible question — one engine for the public page, the embed and the AI teammate chat |
-| `score.ts` | Grading, outcome routing, calculation results |
-| `templates.ts` | Built-in starters (below) |
+| File            | What it holds                                                                                                                                                                                        |
+| --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `definition.ts` | `FormDefinition` v1 — mode, pages, `questions[]` with stable ids, settings, results                                                                                                                  |
+| `questions.ts`  | The question catalog: short text, long text, choice, checkboxes, dropdown, number, money, date, time, rating/NPS, scale, phone, email, address, file upload, signature, section, page break, payment |
+| `logic.ts`      | Show/hide rules (reuses `workflows/conditions.ts` operators), `calculations[]`, scoring                                                                                                              |
+| `ops.ts`        | Patch ops — `add_question`, `update_question`, `move_question`, `delete_question`, `add_page`, `set_logic`, `set_settings`, `set_result` — applied all-or-nothing, returning inverse ops for Undo    |
+| `describe.ts`   | Plain English per question + `diffForms(a, b)` for the Describe preview and history                                                                                                                  |
+| `ai-tools.ts`   | Flat strict tool defs so the AI builder emits ops, same as the workflow builder                                                                                                                      |
+| `render.ts`     | Given a definition and the answers so far, the next visible question — one engine for the public page, the embed and the AI teammate chat                                                            |
+| `score.ts`      | Grading, outcome routing, calculation results                                                                                                                                                        |
+| `templates.ts`  | Built-in starters (below)                                                                                                                                                                            |
 
 ### The database (`supabase/migrations/`)
 
@@ -74,12 +74,12 @@ can trigger on it.
 
 ### Assistant tools (`packages/core/src/assistant/tools.ts`)
 
-| Tool | Autonomy |
-| --- | --- |
-| `list_forms`, `get_form`, `form_results` | auto |
-| `build_form` (from a description), `change_form` (ops) | confirm |
-| `publish_form`, `unpublish_form` | confirm |
-| `send_form` (text or email it to a customer) | confirm |
+| Tool                                                   | Autonomy |
+| ------------------------------------------------------ | -------- |
+| `list_forms`, `get_form`, `form_results`               | auto     |
+| `build_form` (from a description), `change_form` (ops) | confirm  |
+| `publish_form`, `unpublish_form`                       | confirm  |
+| `send_form` (text or email it to a customer)           | confirm  |
 
 ### Starters
 

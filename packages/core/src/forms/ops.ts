@@ -154,7 +154,12 @@ export interface ApplyFormResult {
 type Bag = Record<string, unknown>;
 type Work = FormDefinition;
 
-function fail(i: number, code: FormOpErrorCode, message: string, targetId: string | null = null): never {
+function fail(
+  i: number,
+  code: FormOpErrorCode,
+  message: string,
+  targetId: string | null = null,
+): never {
   throw new FormOpError(i, code, message, targetId);
 }
 
@@ -172,7 +177,11 @@ function page(work: Work, pageId: string, i: number): Bag {
   return found;
 }
 
-function question(work: Work, questionId: string, i: number): { page: Bag; list: Bag[]; at: number; question: Bag } {
+function question(
+  work: Work,
+  questionId: string,
+  i: number,
+): { page: Bag; list: Bag[]; at: number; question: Bag } {
   for (const p of pagesOf(work)) {
     const list = questionsOf(p);
     const at = list.findIndex((q) => q.id === questionId);
@@ -209,7 +218,11 @@ function patchChoices(target: Bag, edits: unknown, i: number, questionId: string
   return before;
 }
 
-function updateQuestion(work: Work, op: Extract<FormOp, { op: 'update_question' }>, i: number): FormOp {
+function updateQuestion(
+  work: Work,
+  op: Extract<FormOp, { op: 'update_question' }>,
+  i: number,
+): FormOp {
   const { question: target } = question(work, op.questionId, i);
   if (!isPlainObject(op.patch)) fail(i, 'bad_patch', 'A change must be an object.', op.questionId);
   const old: Bag = {};
@@ -292,7 +305,11 @@ function applyOne(work: Work, op: FormOp, i: number): FormOp {
         fail(i, 'bad_patch', 'Change a page’s questions with question ops.', op.pageId);
       if (op.patch.id !== undefined && op.patch.id !== target.id)
         fail(i, 'bad_patch', 'A page’s id can’t change.', op.pageId);
-      return { op: 'update_page', pageId: op.pageId, patch: patchInto(target, op.patch, i, 'Page') };
+      return {
+        op: 'update_page',
+        pageId: op.pageId,
+        patch: patchInto(target, op.patch, i, 'Page'),
+      };
     }
     case 'add_question': {
       if (!isPlainObject(op.question) || typeof op.question.id !== 'string')
@@ -418,19 +435,28 @@ function applyOne(work: Work, op: FormOp, i: number): FormOp {
     case 'set_form': {
       const allowed = new Set(['mode', 'title', 'intro']);
       for (const key of Object.keys(op.patch))
-        if (!allowed.has(key))
-          fail(i, 'bad_patch', `Change ${key} with its own op.`);
+        if (!allowed.has(key)) fail(i, 'bad_patch', `Change ${key} with its own op.`);
       return { op: 'set_form', patch: patchInto(work as unknown as Bag, op.patch, i, 'Form') };
     }
     case 'set_scoring':
       return {
         op: 'set_scoring',
-        patch: patchInto(work.scoring as unknown as Bag, op.patch, i, 'Scoring') as Partial<ScoringInput>,
+        patch: patchInto(
+          work.scoring as unknown as Bag,
+          op.patch,
+          i,
+          'Scoring',
+        ) as Partial<ScoringInput>,
       };
     case 'set_on_submit':
       return {
         op: 'set_on_submit',
-        patch: patchInto(work.onSubmit as unknown as Bag, op.patch, i, 'Submit') as Partial<OnSubmitInput>,
+        patch: patchInto(
+          work.onSubmit as unknown as Bag,
+          op.patch,
+          i,
+          'Submit',
+        ) as Partial<OnSubmitInput>,
       };
     case 'set_settings':
       return {

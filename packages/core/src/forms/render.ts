@@ -203,7 +203,8 @@ export function answerProblem(question: Question, value: AnswerValue): string | 
       const address = value as { line1?: string; city?: string; postalCode?: string };
       if (typeof address !== 'object') return 'Enter an address.';
       if (config.detail === 'full' && !address.line1?.trim()) return 'Enter the street.';
-      if (!address.city?.trim() && !address.postalCode?.trim()) return 'Enter a town or a postcode.';
+      if (!address.city?.trim() && !address.postalCode?.trim())
+        return 'Enter a town or a postcode.';
       return null;
     }
     case 'file': {
@@ -211,11 +212,15 @@ export function answerProblem(question: Question, value: AnswerValue): string | 
       const files = value as { bytes?: number }[];
       if (files.length > Number(config.maxFiles)) return `Up to ${config.maxFiles} files.`;
       const limit = Number(config.maxMb) * 1024 * 1024;
-      return files.some((f) => Number(f.bytes) > limit) ? `Each file under ${config.maxMb}MB.` : null;
+      return files.some((f) => Number(f.bytes) > limit)
+        ? `Each file under ${config.maxMb}MB.`
+        : null;
     }
     case 'signature': {
       const signature = value as { name?: string };
-      return typeof signature === 'object' && signature.name?.trim() ? null : 'Type your name to sign.';
+      return typeof signature === 'object' && signature.name?.trim()
+        ? null
+        : 'Type your name to sign.';
     }
     case 'payment':
       // The money itself is taken at submit; nothing to check here.
@@ -303,8 +308,13 @@ export function recordAnswers(definition: FormDefinition, answers: AnswerSheet):
     const value = state.answers[question.id] ?? null;
     const labels: string[] = [];
     if (CHOICE_TYPES.has(question.type)) {
-      const choices = (question.config as { choices?: { id: string; label: string }[] }).choices ?? [];
-      const picked = Array.isArray(value) ? value.map(String) : value === null ? [] : [String(value)];
+      const choices =
+        (question.config as { choices?: { id: string; label: string }[] }).choices ?? [];
+      const picked = Array.isArray(value)
+        ? value.map(String)
+        : value === null
+          ? []
+          : [String(value)];
       for (const id of picked) labels.push(choices.find((c) => c.id === id)?.label ?? String(id));
     }
     return { questionId: question.id, title: question.title, type: question.type, value, labels };

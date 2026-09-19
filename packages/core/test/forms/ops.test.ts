@@ -7,13 +7,28 @@ import {
   type FormOp,
   type FormOpError,
 } from '../../src/forms/index';
-import { choice, cid, def, kid, number, page, pickOne, pid, qid, result, rid, shortText } from './fixtures';
+import {
+  choice,
+  cid,
+  def,
+  kid,
+  number,
+  page,
+  pickOne,
+  pid,
+  qid,
+  result,
+  rid,
+  shortText,
+} from './fixtures';
 
 const base = (): FormDefinition =>
   def({
     pages: [
       page('about', [shortText('name'), number('sqft')]),
-      page('extras', [pickOne('service', [choice('Mow', { value: 45 }), choice('Trim', { value: 80 })])]),
+      page('extras', [
+        pickOne('service', [choice('Mow', { value: 45 }), choice('Trim', { value: 80 })]),
+      ]),
     ],
     results: [result('thanks')],
   });
@@ -53,7 +68,11 @@ describe('questions', () => {
     const after = applyFormOps(base(), [
       { op: 'add_question', pageId: pid('about'), index: null, question: shortText('email') },
     ]).definition;
-    expect(after.pages[0]!.questions.map((q) => q.id)).toEqual([qid('name'), qid('sqft'), qid('email')]);
+    expect(after.pages[0]!.questions.map((q) => q.id)).toEqual([
+      qid('name'),
+      qid('sqft'),
+      qid('email'),
+    ]);
   });
 
   it('deletes one and puts it back exactly', () => {
@@ -98,7 +117,9 @@ describe('questions', () => {
 
   it('won’t change a question’s id', () => {
     expect(
-      fails(base(), [{ op: 'update_question', questionId: qid('name'), patch: { id: qid('other') } }]).code,
+      fails(base(), [
+        { op: 'update_question', questionId: qid('name'), patch: { id: qid('other') } },
+      ]).code,
     ).toBe('bad_patch');
   });
 
@@ -130,7 +151,11 @@ describe('choices', () => {
         patch: { config: { choices: [{ id: cid('Trim'), label: 'Hedge trimming', value: 95 }] } },
       },
     ]);
-    const choices = (after.pages[1]!.questions[0]!.config as { choices: { id: string; label: string; value: number | null }[] }).choices;
+    const choices = (
+      after.pages[1]!.questions[0]!.config as {
+        choices: { id: string; label: string; value: number | null }[];
+      }
+    ).choices;
     expect(choices.map((c) => c.id)).toEqual([cid('Mow'), cid('Trim')]);
     expect(choices[1]).toMatchObject({ label: 'Hedge trimming', value: 95 });
   });
@@ -159,22 +184,31 @@ describe('choices', () => {
     expect(
       (after.pages[1]!.questions[0]!.config as { choices: { id: string }[] }).choices,
     ).toHaveLength(3);
-    roundTrip(after, [{ op: 'delete_choice', questionId: qid('service'), choiceId: cid('Leaves') }]);
+    roundTrip(after, [
+      { op: 'delete_choice', questionId: qid('service'), choiceId: cid('Leaves') },
+    ]);
   });
 
   it('won’t leave a pick-one with a single choice', () => {
-    expect(fails(base(), [{ op: 'delete_choice', questionId: qid('service'), choiceId: cid('Mow') }]).code).toBe(
-      'invalid',
-    );
+    expect(
+      fails(base(), [{ op: 'delete_choice', questionId: qid('service'), choiceId: cid('Mow') }])
+        .code,
+    ).toBe('invalid');
   });
 
   it('refuses a choice that isn’t on the question, and choices on a question that has none', () => {
     expect(
-      fails(base(), [{ op: 'delete_choice', questionId: qid('service'), choiceId: cid('Ghost') }]).code,
+      fails(base(), [{ op: 'delete_choice', questionId: qid('service'), choiceId: cid('Ghost') }])
+        .code,
     ).toBe('choice_not_found');
     expect(
       fails(base(), [
-        { op: 'add_choice', questionId: qid('name'), index: null, choice: { id: cid('X'), label: 'X' } },
+        {
+          op: 'add_choice',
+          questionId: qid('name'),
+          index: null,
+          choice: { id: cid('X'), label: 'X' },
+        },
       ]).code,
     ).toBe('bad_patch');
   });
@@ -182,9 +216,7 @@ describe('choices', () => {
 
 describe('pages', () => {
   it('adds, moves and deletes them', () => {
-    const added = roundTrip(base(), [
-      { op: 'add_page', index: null, page: page('photos', []) },
-    ]);
+    const added = roundTrip(base(), [{ op: 'add_page', index: null, page: page('photos', []) }]);
     expect(added.pages.map((p) => p.id)).toEqual([pid('about'), pid('extras'), pid('photos')]);
     const moved = roundTrip(added, [{ op: 'move_page', pageId: pid('photos'), index: 0 }]);
     expect(moved.pages.map((p) => p.id)).toEqual([pid('photos'), pid('about'), pid('extras')]);
@@ -209,7 +241,14 @@ describe('calculations and results', () => {
   const quote = {
     id: kid('quote'),
     name: 'Quote',
-    terms: [{ factors: [{ kind: 'question' as const, questionId: qid('sqft') }, { kind: 'number' as const, value: 3.5 }] }],
+    terms: [
+      {
+        factors: [
+          { kind: 'question' as const, questionId: qid('sqft') },
+          { kind: 'number' as const, value: 3.5 },
+        ],
+      },
+    ],
     format: 'money' as const,
   };
 
@@ -232,7 +271,9 @@ describe('calculations and results', () => {
       { op: 'add_result', index: 0, result: result('gold', { headline: 'Gold plan' }) },
     ]);
     expect(after.results.map((r) => r.id)).toEqual([rid('gold'), rid('thanks')]);
-    expect(fails(base(), [{ op: 'delete_result', resultId: rid('thanks') }]).code).toBe('last_result');
+    expect(fails(base(), [{ op: 'delete_result', resultId: rid('thanks') }]).code).toBe(
+      'last_result',
+    );
   });
 });
 
@@ -260,9 +301,9 @@ describe('the form itself', () => {
   });
 
   it('sends anything else to its own op', () => {
-    expect(fails(base(), [{ op: 'set_form', patch: { settings: { identity: 'anonymous' } } }]).code).toBe(
-      'bad_patch',
-    );
+    expect(
+      fails(base(), [{ op: 'set_form', patch: { settings: { identity: 'anonymous' } } }]).code,
+    ).toBe('bad_patch');
   });
 });
 
@@ -296,9 +337,11 @@ describe('a batch', () => {
   });
 
   it('checks the shape of ops arriving over the wire', () => {
-    expect(FormOpList.safeParse([{ op: 'delete_question', questionId: 'nope' }]).success).toBe(false);
-    expect(
-      FormOpList.safeParse([{ op: 'delete_question', questionId: qid('name') }]).success,
-    ).toBe(true);
+    expect(FormOpList.safeParse([{ op: 'delete_question', questionId: 'nope' }]).success).toBe(
+      false,
+    );
+    expect(FormOpList.safeParse([{ op: 'delete_question', questionId: qid('name') }]).success).toBe(
+      true,
+    );
   });
 });

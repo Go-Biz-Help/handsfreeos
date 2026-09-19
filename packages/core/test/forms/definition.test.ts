@@ -37,8 +37,7 @@ describe('the definition', () => {
   });
 
   it('is the same shape in all three modes', () => {
-    for (const mode of ['form', 'survey', 'quiz'] as const)
-      expect(def({ mode }).mode).toBe(mode);
+    for (const mode of ['form', 'survey', 'quiz'] as const) expect(def({ mode }).mode).toBe(mode);
   });
 
   it('takes each question type with its own config', () => {
@@ -92,14 +91,18 @@ describe('what the schema alone can’t catch', () => {
         page('about', [
           shortText('name', {
             showIf: {
-              conditions: [{ source: { kind: 'question', questionId: qid('later') }, op: 'answered' }],
+              conditions: [
+                { source: { kind: 'question', questionId: qid('later') }, op: 'answered' },
+              ],
             },
           }),
           shortText('later'),
         ]),
       ],
     });
-    expect(formProblems(form)).toEqual(['The rule on “name” reads an answer that hasn’t been given yet.']);
+    expect(formProblems(form)).toEqual([
+      'The rule on “name” reads an answer that hasn’t been given yet.',
+    ]);
   });
 
   it('is happy when the rule reads an earlier answer', () => {
@@ -109,7 +112,9 @@ describe('what the schema alone can’t catch', () => {
           shortText('owner'),
           shortText('later', {
             showIf: {
-              conditions: [{ source: { kind: 'question', questionId: qid('owner') }, op: 'answered' }],
+              conditions: [
+                { source: { kind: 'question', questionId: qid('owner') }, op: 'answered' },
+              ],
             },
           }),
         ]),
@@ -138,7 +143,11 @@ describe('what the schema alone can’t catch', () => {
 
   it('catches a choice pointing at a result that isn’t there', () => {
     const form = def({
-      pages: [page('about', [pickOne('service', [choice('Mow', { resultId: rid('gone') }), choice('Trim')])])],
+      pages: [
+        page('about', [
+          pickOne('service', [choice('Mow', { resultId: rid('gone') }), choice('Trim')]),
+        ]),
+      ],
     });
     expect(formProblems(form)).toContain('“service” points at a result that isn’t there.');
   });
@@ -165,8 +174,16 @@ describe('what the schema alone can’t catch', () => {
   it('catches calculations that go round in a circle', () => {
     const form = def({
       calculations: [
-        { id: kid('a'), name: 'A', terms: [{ factors: [{ kind: 'calculation', calculationId: kid('b') }] }] },
-        { id: kid('b'), name: 'B', terms: [{ factors: [{ kind: 'calculation', calculationId: kid('a') }] }] },
+        {
+          id: kid('a'),
+          name: 'A',
+          terms: [{ factors: [{ kind: 'calculation', calculationId: kid('b') }] }],
+        },
+        {
+          id: kid('b'),
+          name: 'B',
+          terms: [{ factors: [{ kind: 'calculation', calculationId: kid('a') }] }],
+        },
       ],
     });
     expect(formProblems(form).some((p) => p.includes('circle'))).toBe(true);
@@ -183,7 +200,13 @@ describe('what the schema alone can’t catch', () => {
     const form = def({
       pages: [
         page('about', [
-          { id: qid('note'), type: 'content', title: 'Read this', required: true, config: { body: 'Hello' } },
+          {
+            id: qid('note'),
+            type: 'content',
+            title: 'Read this',
+            required: true,
+            config: { body: 'Hello' },
+          },
         ]),
       ],
     });
