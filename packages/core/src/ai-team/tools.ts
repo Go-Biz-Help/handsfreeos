@@ -94,6 +94,16 @@ export const TEAMMATE_TOOLS = [
     autonomy: 'auto',
   }),
 
+  // ---------- the phone ----------
+  define({
+    name: 'read_call_transcript',
+    description:
+      'What was said on one call in this conversation, in full. The history shows a voicemail’s words and the start of a longer call’s; use this when it says there is more, or to re-read one. Only calls in this conversation, by the callId the history gives.',
+    input: z.strictObject({ callId: uuid.describe('A callId from the history') }),
+    skill: 'core',
+    autonomy: 'auto',
+  }),
+
   // ---------- calendar ----------
   define({
     name: 'find_times',
@@ -297,11 +307,13 @@ export const TEAMMATE_TURN_ENDERS: ReadonlySet<TeammateToolName> = new Set([
 
 /**
  * Hidden from a website chat visitor who matched an existing customer without proving who they are:
- * anyone can type someone else's phone number, so the teammate never reads that customer's bookings back,
- * never changes them (changes go through manage links sent to the contact on file) and never edits them.
+ * anyone can type someone else's phone number, so the teammate never reads that customer's bookings back or
+ * their calls, never changes a booking (changes go through manage links sent to the contact on file) and
+ * never edits them.
  */
 export const UNVERIFIED_CHAT_HIDDEN: ReadonlySet<TeammateToolName> = new Set([
   'my_appointments',
+  'read_call_transcript',
   'reschedule',
   'cancel',
   'update_customer',

@@ -42,9 +42,15 @@ export const QUIET_GRACE_MS = 2 * 60_000;
 
 /** The customer messages one run answers at most (the newest ones). */
 export const BATCH_MAX = 20;
-/** The history the model reads: the last 20 messages, from the last 7 days. */
+/** The history the model reads: the last 20 messages and calls, from the last 7 days. */
 export const HISTORY_MAX = 20;
 export const HISTORY_DAYS = 7;
+/**
+ * How much of a call's words the history carries. A voicemail is a sentence or two and fits whole; a
+ * three-minute call runs to hundreds of words, and twenty of those would crowd out everything else the model
+ * reads. What doesn't fit is a `read_call_transcript` away.
+ */
+export const CALL_WORDS_MAX = 700;
 /** Knowledge offered up front, and returned per search. */
 export const KNOWLEDGE_MATCHES = 5;
 export const SEARCH_MATCHES = 5;

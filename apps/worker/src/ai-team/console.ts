@@ -344,6 +344,7 @@ const NOT_THEIRS = 'That isn’t one of this customer’s upcoming appointments.
 const NO_CUSTOMER =
   'There’s no customer on file for this conversation yet, so there’s nowhere to put that.';
 const NO_LEAD = 'This customer has no open lead to put that on. Add a note instead.';
+const NO_CALLS = 'That isn’t a call in this conversation. Use a callId the history gave you.';
 const CHAT_REFUSAL =
   'In website chat you can’t see or change existing bookings or records. Tell them the link in their confirmation changes a booking, or hand off.';
 const DONE_NOTE = 'It happens as your reply goes out. You can tell them it’s done.';
@@ -388,6 +389,19 @@ const RUNNERS: Readonly<Record<TeammateToolName, Runner>> = {
             note: 'Nothing in the knowledge base matches. Try other words, or follow your rule for when you’re unsure.',
           },
     };
+  },
+
+  // The test chat is a made-up conversation, so it has no calls: every callId is one the model invented.
+  async read_call_transcript(h, args) {
+    h.send({
+      type: 'tool',
+      name: 'read_call_transcript',
+      title: 'Looked for a call’s words',
+      detail: 'The test chat has no calls on it.',
+      at: nowIso(),
+    });
+    void args;
+    return refuse(NO_CALLS);
   },
 
   async find_times(h, args) {

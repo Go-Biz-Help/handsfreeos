@@ -1300,6 +1300,23 @@
         "required": ["workspaceId", "companyId"]
       }
     },
+    "conversation.archive": {
+      "offline": "anytime",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "conversationId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": ["workspaceId", "conversationId"]
+      }
+    },
     "conversation.assign": {
       "offline": "anytime",
       "input": {
@@ -1442,6 +1459,23 @@
       }
     },
     "conversation.reopen": {
+      "offline": "anytime",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "conversationId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": ["workspaceId", "conversationId"]
+      }
+    },
+    "conversation.restore": {
       "offline": "anytime",
       "input": {
         "type": "object",

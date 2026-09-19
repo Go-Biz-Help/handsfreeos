@@ -1,7 +1,8 @@
 /**
  * What one run of the AI teammate knows (plan M7, "Worker runtime" step 3), read in one transaction: the
  * business and its grounding, the teammate's settings, the conversation and its customer (their lead, answers
- * and upcoming visits), its calendars, the history and the new messages, and the knowledge that matches them.
+ * and upcoming visits), its calendars, the history — what was written and what was said on the phone — and the
+ * new messages, and the knowledge that matches them.
  * A website chat visitor isn't a verified customer: they get none of the matched customer's record, visits or
  * answers, and only the contact details they typed count as theirs.
  */
@@ -23,7 +24,13 @@ import { conversations } from '@hfos/db/schema';
 import { anyOfWords, findKnowledge } from '../knowledge/find';
 import { loadGrounding, type Grounding } from '../knowledge/grounding';
 import type { TenantScope } from '../services';
-import { BATCH_MAX, HISTORY_DAYS, HISTORY_MAX, KNOWLEDGE_MATCHES } from './constants';
+import {
+  BATCH_MAX,
+  CALL_WORDS_MAX,
+  HISTORY_DAYS,
+  HISTORY_MAX,
+  KNOWLEDGE_MATCHES,
+} from './constants';
 import { stripQuoted } from './gates';
 
 const ms = (v: Date | string): number => new Date(v).getTime();
@@ -152,12 +159,33 @@ export interface RunAppointment {
   readonly timeZone: string;
 }
 
+/**
+ * A call in the history rather than a message. Before this the teammate read only what was typed: a customer
+ * who phoned, left a voicemail and then texted "as I said on the phone" was answering a question the model had
+ * never seen asked.
+ *
+ * `words` says where the words are, because a call has four ways of having none: nobody picked up, the
+ * recording never reached us, the transcriber is still working, or it heard nothing.
+ */
+export interface HistoryCall {
+  readonly id: string;
+  readonly kind: 'voicemail' | 'missed' | 'talked';
+  /** How long they talked, or how long the voicemail runs; null when nobody picked up. */
+  readonly seconds: number | null;
+  /** here: the line's text holds them (`more` when it holds only the start); coming: being transcribed. */
+  readonly words: 'here' | 'coming' | 'never';
+  /** The line carries the start of a long transcript; `read_call_transcript` has all of it. */
+  readonly more: boolean;
+}
+
 export interface HistoryLine {
   readonly at: number;
   /** customer: they wrote it; ai: the teammate; person: someone on the team; automatic: HandsFreeOS or a workflow. */
   readonly who: 'customer' | 'ai' | 'person' | 'automatic';
   readonly name: string | null;
   readonly text: string;
+  /** Set when the line is a call: `text` is then what was said on it, not what anyone typed. */
+  readonly call?: HistoryCall;
 }
 
 export interface RunContext {
@@ -454,8 +482,25 @@ export async function upcomingAppointments(
   }));
 }
 
-/** The conversation before the new messages: the last 20 from the last 7 days, oldest first. */
+/**
+ * The conversation before the new messages: the last 20 messages **and calls** from the last 7 days, oldest
+ * first. The two are read separately and merged here rather than unioned in SQL — a call and a message share
+ * almost no columns, and padding one out to the other's shape is how the inbox thread query got hard to read.
+ */
 async function historyOf(
+  tx: Tx,
+  conversationId: string,
+  batchIds: readonly string[],
+): Promise<HistoryLine[]> {
+  const [written, phoned] = await Promise.all([
+    messageHistory(tx, conversationId, batchIds),
+    callHistory(tx, conversationId),
+  ]);
+  return [...written, ...phoned].sort((a, b) => a.at - b.at).slice(-HISTORY_MAX);
+}
+
+/** Oldest first. */
+async function messageHistory(
   tx: Tx,
   conversationId: string,
   batchIds: readonly string[],
@@ -484,6 +529,63 @@ async function historyOf(
     name: r.full_name,
     text: textOf(r) || '(no text)',
   }));
+}
+
+/**
+ * The calls on this conversation that have finished, oldest first. A call placed through someone's own cell
+ * joins the conversation only once it reached the customer, which is the rule the inbox thread follows too.
+ */
+async function callHistory(tx: Tx, conversationId: string): Promise<HistoryLine[]> {
+  const list = await rows<{
+    id: string;
+    direction: string;
+    started_at: Date | string;
+    answered: boolean;
+    is_voicemail: boolean;
+    duration_seconds: number | null;
+    recording_seconds: number | null;
+    recorded: boolean;
+    transcript: string | null;
+    transcript_status: string | null;
+    placed_by: string | null;
+    full_name: string | null;
+  }>(
+    tx,
+    sql`select k.id, k.direction::text as direction, k.started_at,
+          k.answered_at is not null as answered, k.is_voicemail, k.duration_seconds,
+          k.recording_seconds, k.recording_object_path is not null as recorded, k.transcript,
+          k.transcript_status, k.placed_by, u.full_name
+        from app.calls k
+        left join app.users u on u.id = coalesce(k.placed_by, k.answered_by_user_id)
+        where k.conversation_id = ${conversationId} and k.ended_at is not null
+          and k.started_at > now() - make_interval(days => ${HISTORY_DAYS})
+          and (k.answered_via is distinct from 'bridge' or k.answered_by_user_id is not null)
+        order by k.started_at desc, k.id desc
+        limit ${HISTORY_MAX}`,
+  );
+  return list.reverse().map((r) => {
+    const kind = r.is_voicemail ? 'voicemail' : r.answered ? 'talked' : 'missed';
+    const said = (r.transcript ?? '').trim();
+    const words: HistoryCall['words'] = said
+      ? 'here'
+      : kind === 'missed' || !r.recorded || r.transcript_status === 'failed'
+        ? 'never'
+        : 'coming';
+    return {
+      at: ms(r.started_at),
+      who: r.direction === 'inbound' ? 'customer' : r.placed_by ? 'person' : 'automatic',
+      name: r.full_name,
+      text: said.slice(0, CALL_WORDS_MAX),
+      call: {
+        id: r.id,
+        kind,
+        seconds:
+          kind === 'voicemail' ? r.recording_seconds : r.answered ? r.duration_seconds : null,
+        words,
+        more: said.length > CALL_WORDS_MAX,
+      },
+    };
+  });
 }
 
 /** What a website chat visitor typed about themselves. */
