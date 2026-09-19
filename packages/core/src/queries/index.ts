@@ -144,7 +144,6 @@ export {
 export { emailComposeOptions };
 
 export const queries: readonly QueryDef[] = [
-  ...formQueries,
   ...migrationQueries,
   ...supportQueries,
   ...platformQueries,
@@ -238,6 +237,7 @@ export const queries: readonly QueryDef[] = [
   moneySummary,
   moneyForRecord,
   moneySettingsGet,
+  ...formQueries,
 ] as unknown as readonly QueryDef[];
 
 export {
