@@ -9,6 +9,7 @@ import { verifyTwilioSignature, type WebhookParams } from '../telephony/signatur
 import type { BookingHttpOptions } from './booking';
 import type { ChatHttpOptions } from './chat';
 import type { FormsHttpOptions } from './forms';
+import type { IntakeHttpOptions } from './intake';
 import type { MoneyHttpOptions } from './money';
 import type { TestRoutes } from './test-routes';
 
@@ -25,6 +26,8 @@ export interface HttpDeps extends WorkerServices {
   readonly chat?: ChatHttpOptions;
   /** The public form pages: their per-address limits. */
   readonly forms?: FormsHttpOptions;
+  /** Leads posted in from a website form or a connected app: their limits and the bot check. */
+  readonly intake?: IntakeHttpOptions;
   /**
    * The customer's money pages: their per-address limits. `limitFactor` falls back to the booking page's, so
    * one setting scales every public page Playwright drives from one address.

@@ -233,7 +233,17 @@ const AREAS: Record<SettingsArea, Omit<SettingsAreaInfo, 'area'>> = {
       'which pipeline and stage those leads land in, and what they are filed under',
       'the most leads a day a channel may open',
     ],
-    handovers: [],
+    handovers: [
+      {
+        what: 'connect a form on your own website, or an app like Zapier',
+        why: 'a form needs its key pasted into your website, and an app’s key is a secret I never put in a chat',
+        steps: [
+          'Open Settings → Lead intake and press Website form or Connect an app.',
+          'A form gives you a snippet to paste into your page; an app gives you a key, shown once.',
+          'Tell me where you want those leads to land and I’ll set the pipeline up for you.',
+        ],
+      },
+    ],
   },
   website_chat: {
     label: 'Website chat',

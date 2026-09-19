@@ -14,6 +14,7 @@ import { and, desc, eq, isNull, sql as dsql } from 'drizzle-orm';
 import { type Tx } from '@hfos/db/client';
 import {
   intakeSources,
+  intakeSubmissions,
   leads,
   people,
   phoneNumbers,
@@ -31,7 +32,8 @@ import { LeadCreateInput } from '../schemas/lead';
 import { PersonCreateInput } from '../schemas/person';
 import { leadCreate } from '../commands/lead.create';
 import { personCreate } from '../commands/person.create';
-import { formatPhone } from './phone';
+import { logSystemActivity } from './activities';
+import { formatPhone, normalizePhone } from './phone';
 import { fullName } from './records';
 
 export type IntakeKind = (typeof INTAKE_KINDS)[number];
@@ -63,28 +65,79 @@ export interface IntakeSource {
   readonly dailyCap: number;
 }
 
-/** The business's row for a channel, or the defaults it hasn't changed. */
+/** Every column a person may read: the secret hash is the worker's alone (the grants in 0082). */
+export const READABLE_SOURCE = {
+  id: intakeSources.id,
+  workspaceId: intakeSources.workspaceId,
+  kind: intakeSources.kind,
+  name: intakeSources.name,
+  active: intakeSources.active,
+  createLead: intakeSources.createLead,
+  pipelineId: intakeSources.pipelineId,
+  stageId: intakeSources.stageId,
+  dailyCap: intakeSources.dailyCap,
+  dayCount: intakeSources.dayCount,
+  dayOn: intakeSources.dayOn,
+  lastIntakeAt: intakeSources.lastIntakeAt,
+  publicKey: intakeSources.publicKey,
+  secretHint: intakeSources.secretHint,
+  allowedOrigins: intakeSources.allowedOrigins,
+  redirectUrl: intakeSources.redirectUrl,
+  lastUsedAt: intakeSources.lastUsedAt,
+  archivedAt: intakeSources.archivedAt,
+} as const;
+
+type ReadableSource = {
+  [K in keyof typeof READABLE_SOURCE]: (typeof intakeSources.$inferSelect)[K];
+};
+
+const sourceOf = (row: ReadableSource): IntakeSource => ({
+  id: row.id,
+  kind: row.kind,
+  name: row.name,
+  active: row.active && !row.archivedAt,
+  createLead: row.createLead,
+  pipelineId: row.pipelineId,
+  stageId: row.stageId,
+  dailyCap: row.dailyCap,
+});
+
+/** A form or a connected app, by the row its key found. */
+export async function intakeSourceById(
+  tx: Tx,
+  workspaceId: string,
+  sourceId: string,
+): Promise<IntakeSource | null> {
+  const [row] = await tx
+    .select(READABLE_SOURCE)
+    .from(intakeSources)
+    .where(and(eq(intakeSources.id, sourceId), eq(intakeSources.workspaceId, workspaceId)))
+    .limit(1);
+  return row ? sourceOf(row) : null;
+}
+
+/**
+ * The business's row for a channel, or for the forms built here, or the defaults it hasn't changed. Forms
+ * posted in from somebody else's website have a key and a row each; this is the keyless one they share.
+ */
 export async function intakeSourceOf(
   tx: Tx,
   workspaceId: string,
-  kind: IntakeChannel,
+  kind: IntakeChannel | 'website_form',
 ): Promise<IntakeSource> {
   const [row] = await tx
-    .select()
+    .select(READABLE_SOURCE)
     .from(intakeSources)
-    .where(and(eq(intakeSources.workspaceId, workspaceId), eq(intakeSources.kind, kind)))
+    .where(
+      and(
+        eq(intakeSources.workspaceId, workspaceId),
+        eq(intakeSources.kind, kind),
+        ...(kind === 'website_form' ? [isNull(intakeSources.publicKey)] : []),
+      ),
+    )
     .limit(1);
   return row
-    ? {
-        id: row.id,
-        kind: row.kind,
-        name: row.name,
-        active: row.active,
-        createLead: row.createLead,
-        pipelineId: row.pipelineId,
-        stageId: row.stageId,
-        dailyCap: row.dailyCap,
-      }
+    ? sourceOf(row)
     : {
         id: null,
         kind,
@@ -102,12 +155,14 @@ export async function intakeSourceOf(
  * time a channel takes a lead, so a business that never opened Settings still has its counter. The day is
  * the business's own, so a cap means "today" the way they would say it.
  */
-async function takeIntakeSlot(
+export async function takeIntakeSlot(
   tx: Tx,
   workspaceId: string,
   source: IntakeSource,
   zone: string,
   at: Date,
+  /** False counts the day without refusing: a form somebody sat down and filled in always opens its lead. */
+  enforceCap = true,
 ): Promise<boolean> {
   const today = localDayOf(at.getTime(), zone);
   if (!source.id) {
@@ -133,7 +188,11 @@ async function takeIntakeSlot(
     .where(
       and(
         eq(intakeSources.id, source.id),
-        dsql`(${intakeSources.dayOn} is distinct from ${today}::date or ${intakeSources.dayCount} < ${source.dailyCap})`,
+        ...(enforceCap
+          ? [
+              dsql`(${intakeSources.dayOn} is distinct from ${today}::date or ${intakeSources.dayCount} < ${source.dailyCap})`,
+            ]
+          : []),
       ),
     )
     .returning({ dayCount: intakeSources.dayCount });
@@ -148,6 +207,13 @@ export async function findOrCreateCustomer(
     lastName: string;
     phone?: string | null;
     email?: string | null;
+    address?: {
+      line1?: string | null;
+      line2?: string | null;
+      city?: string | null;
+      state?: string | null;
+      postalCode?: string | null;
+    } | null;
   },
   source: string,
 ): Promise<{ personId: string; created: boolean }> {
@@ -181,6 +247,17 @@ export async function findOrCreateCustomer(
       phone: customer.phone ?? null,
       source,
       ignoreDuplicates: true,
+      ...(customer.address
+        ? {
+            address: {
+              line1: customer.address.line1 ?? null,
+              line2: customer.address.line2 ?? null,
+              city: customer.address.city ?? null,
+              state: customer.address.state ?? null,
+              postalCode: customer.address.postalCode ?? null,
+            },
+          }
+        : {}),
     }),
   );
   return { personId: out.personId, created: true };
@@ -370,4 +447,214 @@ export function intakeName(input: {
   if (input.phone) return [formatPhone(input.phone).slice(0, 80), ''];
   if (input.email) return [(input.email.split('@')[0] ?? input.email).slice(0, 80), ''];
   throw HfosError.internal('intake without a way to name the customer');
+}
+
+// ---- Forms and connected apps (slice B) ----
+
+/** What a form or a service sends. Everything is optional: senders vary, and a refusal says what was missing. */
+export interface IntakePayload {
+  readonly name?: string | null;
+  readonly firstName?: string | null;
+  readonly lastName?: string | null;
+  readonly email?: string | null;
+  readonly phone?: string | null;
+  /** What they wrote: it becomes a note on their timeline. */
+  readonly message?: string | null;
+  /** What to call the lead; otherwise their name and where it came from. */
+  readonly title?: string | null;
+  readonly valueCents?: number | null;
+  readonly address?: {
+    line1?: string | null;
+    line2?: string | null;
+    city?: string | null;
+    state?: string | null;
+    postalCode?: string | null;
+  } | null;
+  /** Everything else that was posted, kept with the submission and written on the timeline. */
+  readonly extra?: Readonly<Record<string, string>>;
+}
+
+export type IntakeOutcome = 'opened' | 'matched' | 'refused';
+/** Why nothing opened. The sender is told which, so a developer can fix their end. */
+export type IntakeRefusal = 'turned_off' | 'no_contact' | 'over_limit';
+
+export interface IntakeSubmitResult {
+  readonly outcome: IntakeOutcome;
+  readonly personId: string | null;
+  readonly leadId: string | null;
+  readonly submissionId: string;
+  readonly duplicate: boolean;
+  readonly refusedReason: IntakeRefusal | null;
+}
+
+/** The name a form's sender goes under, and their phone in the shape everything else here keeps it in. */
+export function intakeContact(payload: IntakePayload): {
+  firstName: string;
+  lastName: string;
+  phone: string | null;
+  email: string | null;
+} {
+  const email = payload.email?.trim().toLowerCase() || null;
+  const phone = normalizePhone(payload.phone);
+  const first = payload.firstName?.trim() || '';
+  const last = payload.lastName?.trim() || '';
+  if (first || last)
+    return { firstName: first.slice(0, 80), lastName: last.slice(0, 80), phone, email };
+  // Nothing to reach them by and no name either: the caller refuses it, and there is nobody to name.
+  if (!phone && !email && !payload.name?.trim())
+    return { firstName: '', lastName: '', phone: null, email: null };
+  const [f, l] = intakeName({ name: payload.name ?? null, phone, email });
+  return { firstName: f, lastName: l, phone, email };
+}
+
+/** What the timeline shows: what they wrote, then whatever else the form asked them. */
+function intakeNote(payload: IntakePayload): string | null {
+  const lines: string[] = [];
+  if (payload.message?.trim()) lines.push(payload.message.trim());
+  for (const [key, value] of Object.entries(payload.extra ?? {})) {
+    const said = String(value ?? '').trim();
+    if (said) lines.push(`${key}: ${said}`);
+  }
+  return lines.length ? lines.join('\n').slice(0, 10_000) : null;
+}
+
+/**
+ * A form on a business's own website, or a service sending one over, becomes a customer and a lead. The
+ * worker has already checked the key, the site it was posted from and the rate limits; what is left is the
+ * business's own rules, which are the same ones a text goes through.
+ *
+ * A sender that retries finds the submission it already made, with the same answer: an outage on their side
+ * never opens the same lead twice. A customer already here keeps their record and still gets a lead, because
+ * somebody filling in a quote form is asking for something whether or not they have bought before.
+ */
+export async function submitIntake(
+  ctx: CommandContext,
+  input: {
+    source: IntakeSource;
+    payload: IntakePayload;
+    dedupeKey: string;
+    at: Date;
+    zone: string;
+  },
+): Promise<IntakeSubmitResult> {
+  const ws = ctx.scope.workspaceId!;
+  const { source, payload, at } = input;
+  if (!source.id) throw HfosError.internal('a form or key without its row');
+
+  const [earlier] = await ctx.tx
+    .select()
+    .from(intakeSubmissions)
+    .where(
+      and(
+        eq(intakeSubmissions.sourceId, source.id),
+        eq(intakeSubmissions.dedupeKey, input.dedupeKey),
+      ),
+    )
+    .limit(1);
+  if (earlier)
+    return {
+      outcome: earlier.outcome as IntakeOutcome,
+      personId: earlier.personId,
+      leadId: earlier.leadId,
+      submissionId: earlier.id,
+      duplicate: true,
+      refusedReason: (earlier.refusedReason as IntakeRefusal | null) ?? null,
+    };
+
+  const contact = intakeContact(payload);
+  const record = async (
+    outcome: IntakeOutcome,
+    personId: string | null,
+    leadId: string | null,
+    refusedReason: IntakeRefusal | null,
+  ): Promise<IntakeSubmitResult> => {
+    const [row] = await ctx.tx
+      .insert(intakeSubmissions)
+      .values({
+        workspaceId: ws,
+        sourceId: source.id!,
+        dedupeKey: input.dedupeKey,
+        personId,
+        leadId,
+        outcome,
+        refusedReason,
+        payload: { ...(payload.extra ?? {}), ...stripped(payload) },
+        receivedAt: at,
+      })
+      .returning({ id: intakeSubmissions.id });
+    return {
+      outcome,
+      personId,
+      leadId,
+      submissionId: row!.id,
+      duplicate: false,
+      refusedReason,
+    };
+  };
+
+  if (!source.active) return record('refused', null, null, 'turned_off');
+  // A lead nobody can answer is not a lead: every sender must give a phone number or an email address.
+  if (!contact.phone && !contact.email) return record('refused', null, null, 'no_contact');
+  if (!(await takeIntakeSlot(ctx.tx, ws, source, input.zone, at)))
+    return record('refused', null, null, 'over_limit');
+
+  const { personId, created } = await findOrCreateCustomer(
+    ctx,
+    {
+      firstName: contact.firstName,
+      lastName: contact.lastName,
+      phone: contact.phone,
+      email: contact.email,
+      address: payload.address ?? null,
+    },
+    source.name,
+  );
+  const who = fullName(contact.firstName, contact.lastName);
+  const leadId = source.createLead
+    ? await leadFor(
+        ctx,
+        personId,
+        source.pipelineId && source.stageId
+          ? { pipelineId: source.pipelineId, stageId: source.stageId }
+          : null,
+        (payload.title?.trim() || `${who} (${source.name})`).slice(0, 160),
+        null,
+        source.name,
+      )
+    : null;
+  const note = intakeNote(payload);
+  if (note)
+    await logSystemActivity(ctx, {
+      subtype: 'intake',
+      personId,
+      leadId,
+      body: note,
+      occurredAt: at,
+      meta: { source: source.name, sourceKind: source.kind },
+    });
+  if (leadId && payload.valueCents && payload.valueCents > 0)
+    await ctx.tx
+      .update(leads)
+      .set({ valueCents: payload.valueCents })
+      .where(and(eq(leads.id, leadId), eq(leads.valueCents, 0)));
+  await ctx.tx.update(intakeSources).set({ lastUsedAt: at }).where(eq(intakeSources.id, source.id));
+  return record(created ? 'opened' : 'matched', personId, leadId, null);
+}
+
+/** The named fields, kept with the submission so a business sees what the sender actually sent. */
+function stripped(payload: IntakePayload): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  for (const key of [
+    'name',
+    'firstName',
+    'lastName',
+    'email',
+    'phone',
+    'message',
+    'title',
+  ] as const) {
+    const value = payload[key];
+    if (typeof value === 'string' && value.trim()) out[key] = value.trim().slice(0, 1000);
+  }
+  return out;
 }

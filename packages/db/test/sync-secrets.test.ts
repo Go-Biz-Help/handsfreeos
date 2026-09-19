@@ -83,6 +83,8 @@ const SECRET_TABLES = [
   'chat_visitors',
   // M15: a half-finished answer sheet keeps the hash of the key that reopens it.
   'form_responses',
+  // M14 slice B: a connected app's key is kept only as its hash, and no phone ever needs it.
+  'intake_sources',
   'invitations',
   'mailbox_connections',
   'migration_connections',

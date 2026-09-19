@@ -23,12 +23,13 @@ import { choiceValues } from '../forms/definition';
 import { formState, pickResult, recordAnswers, responseProblems } from '../forms/render';
 import {
   contactFromAnswers,
-  findOrCreateFormCustomer,
   hasIdentity,
   patchesFromAnswers,
   writeCustomFields,
   writeFormAnswers,
 } from '../forms/submit';
+import { findOrCreateCustomer, intakeSourceOf, takeIntakeSlot } from '../crm/intake';
+import { workspaceZone } from '../calendar/load';
 import { defineCommand } from '../kernel/define';
 import type { CommandContext } from '../kernel/types';
 import { requireHuman } from '../kernel/actor';
@@ -313,8 +314,25 @@ export const formResponseSubmit = defineCommand({
     let personId: string | null = null;
     let leadId: string | null = null;
     const source = definition.onSubmit.person.source || form.name;
+    /**
+     * Where this form's leads belong (M14): the business's one row for the forms built here, which is what
+     * Settings → Lead intake shows and turns off. The form's own choice of pipeline still wins when it has
+     * one; the row is what a form that names none falls back to. The day is counted but never refused — a
+     * form somebody sat down and filled in is not a robocall.
+     */
+    const intake = await intakeSourceOf(ctx.tx, ws, 'website_form');
     if (identity !== 'anonymous' && hasIdentity(contact) && definition.onSubmit.person.create) {
-      const found = await findOrCreateFormCustomer(ctx, contact, source);
+      const found = await findOrCreateCustomer(
+        ctx,
+        {
+          firstName: contact.firstName,
+          lastName: contact.lastName,
+          phone: contact.phone,
+          email: contact.email,
+          address: contact.address,
+        },
+        source,
+      );
       personId = found.personId;
       const { person, lead } = patchesFromAnswers(definition, answers);
       // Only what the business doesn't already know: a form never rubs out what somebody typed.
@@ -344,13 +362,24 @@ export const formResponseSubmit = defineCommand({
       );
 
       // ---- The lead ----
+      /**
+       * A form the business asked for a lead from always opens one where it says. A plain form that says
+       * nothing opens one anyway (M14): Lead intake is the switch, the way it is for a text, and its row
+       * says where those leads land. A survey or a quiz never opens one by itself — somebody rating their
+       * visit is not an enquiry — so those still have to ask.
+       */
       const wanted = definition.onSubmit.lead;
-      if (wanted && typeof wanted.pipelineId === 'string' && typeof wanted.stageId === 'string') {
+      const named =
+        wanted && typeof wanted.pipelineId === 'string' && typeof wanted.stageId === 'string'
+          ? { pipelineId: wanted.pipelineId, stageId: wanted.stageId }
+          : null;
+      const byIntake = form.mode === 'form' && intake.createLead;
+      if (intake.active && (named || byIntake)) {
         const title =
           (typeof lead.fields.title === 'string' && lead.fields.title) ||
           `${form.name}: ${contact.firstName || 'New enquiry'}`;
         // Money in this system is whole cents; a calculation counts in dollars.
-        const quoted = wanted.valueFrom ? (calculations[wanted.valueFrom] ?? null) : null;
+        const quoted = wanted?.valueFrom ? (calculations[wanted.valueFrom] ?? null) : null;
         const typedValue = typeof lead.fields.value === 'number' ? lead.fields.value : null;
         const valueCents = Math.round((quoted ?? typedValue ?? 0) * 100);
         const created = await leadCreate.handler(
@@ -358,14 +387,26 @@ export const formResponseSubmit = defineCommand({
           LeadCreateInput.parse({
             workspaceId: ws,
             personId,
-            pipelineId: wanted.pipelineId,
-            stageId: wanted.stageId,
+            // Neither the form nor Lead intake names one: lead.create puts it in the first open stage of
+            // the business's first pipeline, which is where a lead starts everywhere else too.
+            ...(named ??
+              (intake.pipelineId && intake.stageId
+                ? { pipelineId: intake.pipelineId, stageId: intake.stageId }
+                : {})),
             title: title.slice(0, 160),
             valueCents,
             source,
           }),
         );
         leadId = created.leadId;
+        await takeIntakeSlot(
+          ctx.tx,
+          ws,
+          intake,
+          await workspaceZone(ctx.tx, ws),
+          new Date(),
+          false,
+        );
         await writeCustomFields(
           ctx.tx,
           'leads',

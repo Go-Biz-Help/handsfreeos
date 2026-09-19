@@ -7356,6 +7356,29 @@ The Assistant sets the same things by asking — "stop making leads out of misse
 
 With the stack running and a business that has a number (see "Test with real phones" in "The phone carrier: Twilio" for the local stand-in), post an inbound text from a number the business doesn't have, the way Twilio would, then open the pipeline. The lead is there, filed under **Text message**, and Home shows it as an unanswered lead once 15 minutes of open hours have passed. `packages/core/test/intake.test.ts` runs the whole of it — text, missed call, email, the limits and the gates — against the local database.
 
+### Forms and connected apps
+
+Two more ways in, both set up in **Settings** → **Lead intake** and both landing in the same place as the channels above. They come from the migration `20260928000100_lead_intake_keys.sql`.
+
+**A form already on their website.** Press **Website form**, name it, and list the sites it may be posted from (the www twin is added automatically). HandsFreeOS gives back a snippet to paste into the page: a plain HTML form that posts to `https://hooks.handsfreeos.com/intake/f/<key>`. The key sits in the page's source, so it is not a secret — what protects it is the list of sites, checked against the browser's `Origin` header, which a page cannot forge. A honeypot box that people never see catches most robots, and the rate limits and the daily cap catch the rest. Set a thank-you page and a classic form post lands there afterwards; leave it empty and the form gets JSON back.
+
+A form the business builds in HandsFreeOS (M15) needs none of this. Its leads file under the same screen's **Website form** row, which is what decides whether they open a lead at all and which pipeline it lands in. A survey or a quiz never opens a lead by itself.
+
+**An app sending leads over.** Press **Connect an app** — Zapier, a Facebook lead-ad forwarder, or a developer's own code. It gives back a secret key, shown once and kept only as its hash, and the app posts JSON to `https://hooks.handsfreeos.com/v1/intake` with `Authorization: Bearer <key>`:
+
+```bash
+curl -X POST https://hooks.handsfreeos.com/v1/intake \
+  -H "Authorization: Bearer <key>" \
+  -H "Content-Type: application/json" \
+  -d '{"name":"Dana Reyes","phone":"512-555-0134","email":"dana@example.com","message":"Need a quote","dedupeKey":"zap-1001"}'
+```
+
+The answer says what happened: `opened`, `matched` (they were already a customer), or `refused` with a reason — `no_contact`, `over_limit` or `turned_off`. Sending the same `dedupeKey` twice answers the same way and opens nothing again, so a service that retries after a timeout is safe. Without a `dedupeKey`, the same details on the same day count as the same submission.
+
+Field names are matched loosely, so most existing forms work unchanged: `name`, `fullname`, `first_name`, `email`, `phone`, `tel`, `message`, `comments` and others. Anything else posted is kept with the lead and written on the customer's timeline, so nothing a form asks is lost.
+
+Replacing a key (the **⟳** button) takes effect at once — a form needs its new snippet pasted in, and an app its key changed. Retiring one stops it for good; the customers and leads it opened stay where they are.
+
 ### Before turning it on for a client
 
 - Check the pipeline each channel points at is the one they actually work from. The first pipeline is right for most, and wrong for a business that keeps its first pipeline for something else.

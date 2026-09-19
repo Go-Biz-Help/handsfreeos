@@ -8,14 +8,10 @@
  *
  * Reads the database, so it lives outside forms/index.ts (which stays browser-safe).
  */
-import { and, desc, eq, isNull, sql as dsql } from 'drizzle-orm';
+import { sql as dsql } from 'drizzle-orm';
 import { sql, type Tx } from '@hfos/db/client';
-import { formAnswers, people } from '@hfos/db/schema';
-import { matchPersonByPhone } from '../messaging/store';
+import { formAnswers } from '@hfos/db/schema';
 import { normalizePhone } from '../crm/phone';
-import { PersonCreateInput } from '../schemas/person';
-import type { CommandContext } from '../kernel/types';
-import { personCreate } from '../commands/person.create';
 import { allQuestions, type FormDefinition, type Question } from './definition';
 import type { AnswerSheet } from './logic';
 import {
@@ -102,62 +98,6 @@ export function contactFromAnswers(definition: FormDefinition, answers: AnswerSh
 /** Whether a form that insists on knowing who somebody is has been told. */
 export function hasIdentity(contact: FormContact): boolean {
   return Boolean(contact.phone || contact.email);
-}
-
-// ---- Matching the customer ----
-
-/**
- * Phone first, then email, else a new customer.
- *
- * This is the booking page's own matching, written out again rather than shared: M14's lead intake is
- * moving that helper into crm/intake.ts as this lands. When it does, this goes and the shared one comes
- * in — with the form's leads filing under the `website_form` intake source, which is what Chris asked for.
- */
-export async function findOrCreateFormCustomer(
-  ctx: CommandContext,
-  contact: FormContact,
-  source: string,
-): Promise<{ personId: string; created: boolean }> {
-  const ws = ctx.scope.workspaceId!;
-  if (contact.phone) {
-    const id = await matchPersonByPhone(ctx.tx, ws, contact.phone);
-    if (id) return { personId: id, created: false };
-  }
-  if (contact.email) {
-    const [found] = await ctx.tx
-      .select({ id: people.id })
-      .from(people)
-      .where(
-        and(eq(people.workspaceId, ws), eq(people.email, contact.email), isNull(people.archivedAt)),
-      )
-      .orderBy(desc(people.updatedAt))
-      .limit(1);
-    if (found) return { personId: found.id, created: false };
-  }
-  const out = await personCreate.handler(
-    ctx,
-    PersonCreateInput.parse({
-      workspaceId: ws,
-      firstName: contact.firstName || 'Someone',
-      lastName: contact.lastName,
-      email: contact.email,
-      phone: contact.phone,
-      source,
-      ignoreDuplicates: true,
-      ...(contact.address
-        ? {
-            address: {
-              line1: contact.address.line1 || null,
-              line2: contact.address.line2 || null,
-              city: contact.address.city || null,
-              state: contact.address.state || null,
-              postalCode: contact.address.postalCode || null,
-            },
-          }
-        : {}),
-    }),
-  );
-  return { personId: out.personId, created: true };
 }
 
 // ---- Filling in what the answers know ----

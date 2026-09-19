@@ -3875,8 +3875,39 @@ export const intakeSources = app.table('intake_sources', {
   dayCount: integer('day_count').notNull().default(0),
   dayOn: date('day_on'),
   lastIntakeAt: ts('last_intake_at'),
+  /** website_form: ik_ + 20 base62 characters, made by private.new_intake_key(). In the page's HTML. */
+  publicKey: text('public_key'),
+  /** api: the SHA-256 of the key that was shown once. Nobody reads this column but the worker. */
+  secretHash: bytea('secret_hash'),
+  /** The last four characters of that key, so two of them can be told apart on screen. */
+  secretHint: text('secret_hint'),
+  /** website_form: the sites it may be posted from. Empty accepts none. */
+  allowedOrigins: text('allowed_origins').array().notNull().default([]),
+  /** Where a plain HTML form's sender goes afterwards; null answers with JSON. */
+  redirectUrl: text('redirect_url'),
+  lastUsedAt: ts('last_used_at'),
+  archivedAt: ts('archived_at'),
+  archivedBy: userRef('archived_by'),
   createdBy: userRef('created_by'),
   ...timestamps(),
+});
+
+/** What a form or a connected app sent, and what it opened. A retry finds its row instead of opening again. */
+export const intakeSubmissions = app.table('intake_submissions', {
+  id: id(),
+  workspaceId: workspaceRef(),
+  sourceId: uuid('source_id')
+    .notNull()
+    .references(() => intakeSources.id, { onDelete: 'cascade' }),
+  /** The sender's own id for this submission, or one made from what it sent. */
+  dedupeKey: text('dedupe_key').notNull(),
+  personId: uuid('person_id').references(() => people.id, { onDelete: 'set null' }),
+  leadId: uuid('lead_id').references(() => leads.id, { onDelete: 'set null' }),
+  /** opened, matched (they were already here), refused. */
+  outcome: text('outcome').notNull(),
+  refusedReason: text('refused_reason'),
+  payload: jsonb('payload').$type<Json>().notNull().default({}),
+  receivedAt: ts('received_at').notNull().defaultNow(),
 });
 
 /* ===========================================================================
@@ -4211,6 +4242,7 @@ export const tables = {
   formDays,
   customFields,
   intakeSources,
+  intakeSubmissions,
   staff,
   staffInvitations,
   tickets,
