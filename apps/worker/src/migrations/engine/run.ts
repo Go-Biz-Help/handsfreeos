@@ -19,6 +19,7 @@ import {
   CANONICAL_SCHEMA_VERSION,
   categoriesInOrder,
   migrationCategory,
+  MIGRATION_PASSES,
   parseCanonical,
   releaseCapability,
   type CanonicalEnvelope,
@@ -28,10 +29,13 @@ import {
 } from '@hfos/core/server';
 import type { Logger } from 'pino';
 import type { Sealer } from '../../crypto';
+import type { SafeFetch } from '../../http/safe-fetch';
+import type { ObjectStore } from '../../storage';
 import { recordSystemEvent } from '../../system-event';
 import type { MigrationAdapters } from '../adapters/registry';
 import { IMPORTERS } from '../importers/index';
 import { openConnection, scopeFor, SourceAuthError } from './connection';
+import { copyMediaBatch, MEDIA_BATCH } from './media';
 import {
   addCounts,
   emptyCounts,
@@ -62,6 +66,10 @@ export interface MigrationDeps {
   readonly sealer: Sealer;
   readonly log: Logger;
   readonly adapters: MigrationAdapters;
+  /** Where the files land: the same storage a photo texted today lands in. */
+  readonly store: ObjectStore;
+  /** How a file is fetched from the old system: https only, never a private address (http/safe-fetch.ts). */
+  readonly fetchUrl: SafeFetch;
   readonly workerId: string;
   /** Tests run the loop until it is quiet; production runs it on a timer. */
   readonly batchSize?: number;
@@ -122,6 +130,8 @@ async function runJob(deps: MigrationDeps, job: JobRow): Promise<Outcome> {
       return scanScope(deps, job);
     case 'fetch':
       return fetchCategory(deps, job);
+    case 'media':
+      return copyFiles(deps, job);
     case 'verify':
       return verify(deps, job);
     case 'rollback':
@@ -530,6 +540,51 @@ async function fetchCategory(deps: MigrationDeps, job: JobRow): Promise<Outcome>
   return 'done';
 }
 
+/**
+ * One batch of files: fetch what the importers listed and point the records at our copies.
+ *
+ * It runs after the records for a sub-account are in, because a file needs the record it belongs to before
+ * it has anywhere to be attached, and it runs before the checks, because "is the photo really here?" is one
+ * of the things the checks ask.
+ */
+async function copyFiles(deps: MigrationDeps, job: JobRow): Promise<Outcome> {
+  if (!job.scope_id || !job.workspace_id) {
+    await finishJob(deps, job, { skipped: 'nowhere to put it' });
+    return 'done';
+  }
+  const migration = await loadMigration(deps, job.migration_id, job.organization_id);
+  const opened = await openConnection(
+    deps,
+    deps.adapters,
+    migration.connection_id,
+    job.organization_id,
+  );
+  const scopeRow = await loadScope(deps, job.scope_id, job.organization_id);
+  const sourceScope: SourceScope = await scopeFor(opened, {
+    externalScopeId: scopeRow.external_scope_id,
+    name: scopeRow.name,
+    timezone: scopeRow.timezone,
+  });
+  const result = await copyMediaBatch(
+    deps,
+    {
+      migrationId: job.migration_id,
+      organizationId: job.organization_id,
+      scopeId: job.scope_id,
+      workspaceId: job.workspace_id,
+    },
+    { adapter: opened.adapter, connection: opened.connection, sourceScope },
+    MEDIA_BATCH,
+  );
+  if (!result.done) {
+    await requeueJob(deps, job, job.input);
+    return 'again';
+  }
+  await finishJob(deps, job, { ...result });
+  await afterCategory(deps, job);
+  return 'done';
+}
+
 /** The payload as it came, kept so a mapping can be corrected later without asking the old system again. */
 async function stage(
   tx: Tx,
@@ -599,6 +654,39 @@ async function checkpoint(
 
 /** When a category finishes: is the whole business done, and is the whole migration? */
 async function afterCategory(deps: MigrationDeps, job: JobRow): Promise<void> {
+  /**
+   * The files, now that the records they hang off are here. Queued only when the importers actually listed
+   * some, and only once: a second job while the first is still working would have both of them claiming the
+   * same rows.
+   *
+   * In its own transaction, and a transaction holding this business: the media rows belong to a workspace,
+   * and the worker's policy on them admits only the workspace it is currently holding. The rest of this
+   * function runs across the whole migration, where a workspace is not held and this query would see
+   * nothing at all.
+   */
+  if (job.scope_id && job.workspace_id)
+    await asWorker(
+      deps.db,
+      { workspaceId: job.workspace_id, organizationId: job.organization_id },
+      (tx) =>
+        tx.execute(sql`
+      insert into app.migration_jobs
+        (migration_id, organization_id, scope_id, workspace_id, kind, category, pass, input)
+      select ${job.migration_id}, ${job.organization_id}, ${job.scope_id}, ${job.workspace_id},
+        'media', 'media', ${MIGRATION_PASSES.media}, '{}'::jsonb
+      where exists (select 1 from app.migration_media m
+              where m.scope_id = ${job.scope_id} and m.state = 'pending')
+        -- Unless the business said not to bring the files. Saying nothing means bring them.
+        and not exists (select 1 from app.migration_selections s
+              where s.migration_id = ${job.migration_id} and s.scope_id = ${job.scope_id}
+                and s.category = 'media' and not s.selected)
+        and not exists (select 1 from app.migration_jobs j
+              where j.scope_id = ${job.scope_id} and j.kind = 'media'
+                and j.state in ('pending', 'retry', 'leased'))
+        and not exists (select 1 from app.migration_jobs j
+              where j.scope_id = ${job.scope_id} and j.kind = 'fetch'
+                and j.state in ('pending', 'retry', 'leased'))`),
+    );
   await asWorker(
     deps.db,
     { workspaceId: null, organizationId: job.organization_id },
@@ -631,6 +719,57 @@ async function afterCategory(deps: MigrationDeps, job: JobRow): Promise<void> {
 }
 
 // ---------- the checks ----------
+
+interface FileTally {
+  readonly total: number;
+  readonly stored: number;
+  /** Asked for and not had: gone from the old system, too big, or broken after every try. */
+  readonly gone: number;
+  readonly waiting: number;
+}
+
+/**
+ * How the file copying went, across every business this migration wrote into.
+ *
+ * One transaction per business, because the worker's own policy on the media rows admits only the business
+ * it is currently holding — the same reason the reconnect list is built that way.
+ */
+async function countFiles(deps: MigrationDeps, job: JobRow): Promise<FileTally> {
+  const workspaces = await asWorker(
+    deps.db,
+    { workspaceId: null, organizationId: job.organization_id },
+    (tx) =>
+      rows<{ workspace_id: string }>(
+        tx,
+        sql`select distinct workspace_id::text as workspace_id from app.migration_scopes
+            where migration_id = ${job.migration_id} and workspace_id is not null`,
+      ),
+  );
+  let total = 0;
+  let stored = 0;
+  let gone = 0;
+  let waiting = 0;
+  for (const { workspace_id: workspaceId } of workspaces) {
+    const [row] = await asWorker(
+      deps.db,
+      { workspaceId, organizationId: job.organization_id },
+      (tx) =>
+        rows<{ total: number; stored: number; gone: number; waiting: number }>(
+          tx,
+          sql`select count(*)::int as total,
+                count(*) filter (where state = 'stored')::int as stored,
+                count(*) filter (where state in ('missing', 'skipped', 'failed'))::int as gone,
+                count(*) filter (where state in ('pending', 'copying'))::int as waiting
+              from app.migration_media where migration_id = ${job.migration_id}`,
+        ),
+    );
+    total += row?.total ?? 0;
+    stored += row?.stored ?? 0;
+    gone += row?.gone ?? 0;
+    waiting += row?.waiting ?? 0;
+  }
+  return { total, stored, gone, waiting };
+}
 
 /**
  * Counting is not proof, so this does not only count. It checks that every source record has exactly one
@@ -803,6 +942,9 @@ async function verify(deps: MigrationDeps, job: JobRow): Promise<Outcome> {
   // What nobody can migrate for them, found from what their own data leaves behind. Before the checks, so a
   // migration that is about to be called finished already knows what is still owed.
   await findReconnectTasks(deps, job);
+  // The files, counted before the checks start: they belong to a business, and the checks run across the
+  // whole migration where no business is held, so counting them there would count nothing.
+  const files = await countFiles(deps, job);
   await asWorker(
     deps.db,
     { workspaceId: null, organizationId: job.organization_id },
@@ -921,6 +1063,27 @@ async function verify(deps: MigrationDeps, job: JobRow): Promise<Outcome> {
           ? 'Imported customers show the date the old system first knew them, not today.'
           : `${history?.wrong} customers show the date they were imported instead of the date they were added.`,
       );
+
+      /**
+       * The photos, recordings and attachments: not "did we try", but "is it here, and does the record
+       * point at our copy rather than at theirs". A file we could not fetch is a warning with a number on
+       * it, because the business has to know before it cancels the old account, not after.
+       */
+      const { total, stored, gone, waiting } = files;
+      if (total > 0) {
+        await put(
+          'media',
+          'media',
+          waiting > 0 ? 'failed' : gone > 0 ? 'warned' : 'passed',
+          total,
+          stored,
+          waiting > 0
+            ? `${waiting} of ${total} files have not been copied yet.`
+            : gone > 0
+              ? `${stored} of ${total} files are now kept here. The other ${gone} could not be fetched from the old system — open the file list to see which.`
+              : `All ${total} photos, recordings and attachments are kept here, so the history still opens after you cancel.`,
+        );
+      }
 
       const [failed] = await rows<{ count: number }>(
         tx,

@@ -656,6 +656,7 @@ const AUSTIN_RECORDS: readonly FakeRecord[] = [
     '2022-08-01T12:10:00.000Z',
   ),
 
+  // A photo of the unit, texted in: the kind of file the whole of the old system's storage is made of.
   said(
     'msg_a1',
     'cnv_a1',
@@ -663,6 +664,7 @@ const AUSTIN_RECORDS: readonly FakeRecord[] = [
     'inbound',
     '2019-05-02T15:00:00.000Z',
     'Our AC is making a grinding noise.',
+    { attachments: ['https://fake.invalid/media/msg_a1-unit.jpg'] },
   ),
   said(
     'msg_a2',
@@ -680,6 +682,7 @@ const AUSTIN_RECORDS: readonly FakeRecord[] = [
     '2019-05-02T15:40:00.000Z',
     'Thursday works, thank you.',
   ),
+  // The same photo again, five years later: the same bytes under two records, which is one copy here.
   said(
     'msg_a4',
     'cnv_a1b',
@@ -687,6 +690,7 @@ const AUSTIN_RECORDS: readonly FakeRecord[] = [
     'inbound',
     '2024-06-11T17:00:00.000Z',
     'Time for the annual service?',
+    { attachments: ['https://fake.invalid/media/msg_a4-unit.jpg'] },
   ),
   said(
     'msg_a5',
@@ -1523,7 +1527,9 @@ export function createFakeSourceAdapter(): FakeSource {
                 fromAddress: str(p['from']),
                 toAddresses: [str(p['to'])].filter((v): v is string => !!v),
                 occurredAt: record.sourceCreatedAt?.toISOString() ?? new Date(0).toISOString(),
-                media: [],
+                media: (Array.isArray(p['attachments']) ? (p['attachments'] as string[]) : []).map(
+                  (url) => ({ url, name: null, mime: null, sizeBytes: null }),
+                ),
                 providerMessageId: record.objectId,
               },
             },
