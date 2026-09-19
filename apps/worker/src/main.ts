@@ -32,6 +32,7 @@ import { ensureRecurringJobs, jobs } from './scheduled';
 import { createSupabaseStore, unconfiguredStore } from './storage';
 import { ensurePlatformOwners } from './support/owners';
 import { createTelephony } from './telephony/index';
+import { createTranscriber } from './telephony/transcriber';
 import { createWorkflowAi } from './workflows/ai-runner';
 import type { EngineServices } from './workflows/types';
 
@@ -48,6 +49,7 @@ const handle = createDb(env.databaseUrl, { max: 4, applicationName: 'hfos-worker
 const httpHandle = createDb(env.databaseUrl, { max: 6, applicationName: 'hfos-worker-http' });
 // Workflow AI steps, the AI builder and the knowledge base: the Assistant's model and daily limit.
 const ai = createAi(env);
+const telephony = createTelephony(env, log);
 const services: EngineServices = {
   db: handle.db,
   mailer: createSmtpMailer(env.smtpUrl, env.mailFrom),
@@ -58,7 +60,8 @@ const services: EngineServices = {
   log,
   webUrl: env.webUrl,
   publicUrl: env.publicUrl,
-  telephony: createTelephony(env, log),
+  telephony,
+  transcriber: createTranscriber(env, log, telephony),
   sealer: createSealer(env.encryptionKey, env.encryptionKeysPrevious),
   reminderOverrideMs: env.reminderOverrideMs,
   registrationPollMs: env.registrationPollMs,

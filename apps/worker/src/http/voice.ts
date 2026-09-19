@@ -329,13 +329,6 @@ export function registerVoiceRoutes(app: FastifyInstance, deps: HttpDeps): void 
       ? `${p['RecordingSid']}:${p['RecordingStatus']}`
       : null,
   );
-  report('/webhooks/twilio/voice/transcription', 'voice.transcription', (p) => {
-    const id = p['TranscriptionSid'] ?? p['RecordingSid'];
-    return id && p['TranscriptionStatus']
-      ? `${id}:transcription:${p['TranscriptionStatus']}`
-      : null;
-  });
-
   // A call through someone's own cell: their cell answered. "Press 1 to call Mike Johnson."
   app.post('/webhooks/twilio/voice/bridge', async (req, reply) => {
     const v = await verifiedTwilio(deps, req, reply);

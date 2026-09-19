@@ -91,7 +91,6 @@ export function voiceUrls(publicUrl: string) {
     dialResult: `${base}/dial-result`,
     hangup: `${base}/hangup`,
     recording: `${base}/recording`,
-    transcription: `${base}/transcription`,
     /**
      * A forwarding phone that picked up. `from` is the customer's number when forwarded phones show the business
      * number instead (their leg then says the business is calling, so the screen reads the customer from here).
@@ -216,7 +215,11 @@ export function ringTwiml(
   return twiml(`<Dial${dial}>${clients}${numbers}</Dial>`);
 }
 
-/** Nobody answered: the greeting, then a message of up to two minutes, transcribed. */
+/**
+ * Nobody answered: the greeting, then a message of up to two minutes. Its words are asked for afterwards, from
+ * our own copy of the recording (telephony/transcriber.ts) — `<Record transcribe>` is Twilio's legacy
+ * transcription, which skips anything under two seconds and is deprecated.
+ */
 export function voicemailTwiml(greeting: string, urls: VoiceUrls): string {
   const record = attrs({
     maxLength: 120,
@@ -229,8 +232,6 @@ export function voicemailTwiml(greeting: string, urls: VoiceUrls): string {
     recordingStatusCallback: urls.recording,
     recordingStatusCallbackMethod: 'POST',
     recordingStatusCallbackEvent: 'completed absent',
-    transcribe: true,
-    transcribeCallback: urls.transcription,
   });
   return twiml(`${say(greeting)}<Record${record}/>${HANGUP}`);
 }

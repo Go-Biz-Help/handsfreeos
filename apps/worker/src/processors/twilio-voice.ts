@@ -1,7 +1,6 @@
 import { and, eq } from 'drizzle-orm';
 import {
   callAttachRecording,
-  callAttachTranscript,
   callRecord,
   callUpdateStatus,
   executeCommand,
@@ -82,18 +81,20 @@ async function accountOf(ctx: DeliveryContext, scope: TenantScope): Promise<Prov
   return account;
 }
 
-/** Deletes the provider's copies once ours exist (or there is nothing to keep). Failures only log. */
+/**
+ * Drops the carrier's copy of a recording we are not keeping. A recording we do keep is deleted later instead, by
+ * `settleTranscript`, once its words have settled — the transcriber may still need to read it.
+ * Failures only log: a copy left behind costs pennies, and failing the delivery would replay the whole thing.
+ */
 async function forget(
   ctx: DeliveryContext,
   account: ProviderAccount,
   recordingSid: string | null | undefined,
-  transcriptionSid: string | null | undefined,
 ): Promise<void> {
   try {
-    if (transcriptionSid) await ctx.telephony.deleteTranscription(account, transcriptionSid);
     if (recordingSid) await ctx.telephony.deleteRecording(account, recordingSid);
   } catch (e) {
-    ctx.log.warn({ err: e }, 'could not delete the provider copy of a recording');
+    ctx.log.warn({ err: e }, 'could not delete the carrier copy of a recording');
   }
 }
 
@@ -252,7 +253,7 @@ export const onRecording: DeliveryProcessor = async (ctx) => {
   const seconds = secondsOf(p.RecordingDuration) ?? 0;
   if (!call || seconds < 1) {
     // Nothing to keep (a hidden number, or silence), and nothing left with the provider either.
-    await forget(ctx, account, p.RecordingSid, null);
+    await forget(ctx, account, p.RecordingSid);
     return 'ignored';
   }
   const whole = call.answeredVia === 'bridge';
@@ -274,44 +275,11 @@ export const onRecording: DeliveryProcessor = async (ctx) => {
     systemActor(scope),
     workerMeta(),
   );
-  // A whole call's words are asked for from the provider's copy, which goes once they arrive (telephony/cell.ts).
-  if (whole) {
-    const recordingSid = p.RecordingSid;
-    if (!call.transcriptStatus)
-      await asWorker(ctx.db, scope, (tx) => queueTranscript(tx, scope, call, recordingSid));
-    return;
-  }
-  // Twilio transcribes from its own copy (only messages over two seconds), so that copy goes when the words arrive.
-  if (seconds <= 2) await forget(ctx, account, p.RecordingSid, null);
-};
-
-/** The voicemail's words, or Twilio's word that it found none. */
-export const onTranscription: DeliveryProcessor = async (ctx) => {
-  const scope = tenant(ctx);
-  const p = paramsOf(ctx);
-  if (!scope || !p.CallSid) return 'ignored';
-  const call = await callFor(ctx, scope, p.CallSid, p);
-  if (!call) return 'ignored';
-  // The words wait for our copy of the recording, so the provider's is never deleted before ours exists.
-  if (!call.recordingObjectPath) throw new Error('the voicemail recording is not stored yet');
-  const completed = (p.TranscriptionStatus ?? '').toLowerCase() === 'completed';
-  if (call.transcriptStatus !== 'completed' && call.transcriptStatus !== 'failed')
-    await executeCommand(
-      ctx.db,
-      callAttachTranscript,
-      {
-        workspaceId: scope.workspaceId,
-        callId: call.id,
-        transcript: completed ? p.TranscriptionText?.trim() || null : null,
-        status: completed ? 'completed' : 'failed',
-      },
-      systemActor(scope),
-      workerMeta(),
-    );
-  await forget(
-    ctx,
-    await accountOf(ctx, scope),
-    p.RecordingSid ?? call.recordingSid,
-    p.TranscriptionSid,
-  );
+  // Every recording's words are asked for the same way now, voicemail included: the `call.transcribe` job reads
+  // our own stored copy (telephony/cell.ts), and the carrier's goes once the words have settled either way.
+  // Voicemail used to go through Twilio's legacy `<Record transcribe>` instead, which skipped anything under two
+  // seconds and is deprecated.
+  const recordingSid = p.RecordingSid;
+  if (!call.transcriptStatus)
+    await asWorker(ctx.db, scope, (tx) => queueTranscript(tx, scope, call, recordingSid));
 };

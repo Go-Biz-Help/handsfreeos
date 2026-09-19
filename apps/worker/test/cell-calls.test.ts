@@ -403,12 +403,7 @@ describe('calling a customer through your own cell', () => {
       ).body,
     ).toContain('<Hangup/>');
     await post(`${V}/status`, { ...base, CallStatus: 'completed', CallDuration: '150' });
-    await drain();
-    // The words come back from the provider a little later.
-    await rows(
-      admin(),
-      sql`update app.scheduled_jobs set run_at = now() where kind = 'call.transcript' and workspace_id = ${workspaceId} and status = 'pending'`,
-    );
+    // The transcriber answers in the same call, so the words settle in the same drain as the recording.
     await drain();
 
     const done = await callRow(out.callId);
@@ -427,7 +422,7 @@ describe('calling a customer through your own cell', () => {
     });
     expect(bridgeStatusOf(done)).toBe('ended');
     expect(await s.store.exists('telephony', done.recordingObjectPath!)).toBe(true);
-    expect(s.telephony.transcribed).toContain(recordingSid);
+    expect(s.transcriber.asked).toContain(recordingSid);
     expect(s.telephony.deleted).toContain(recordingSid);
     const [entry] = await admin()
       .select()
@@ -466,7 +461,7 @@ describe('calling a customer through your own cell', () => {
       });
     await leg('in-progress');
     await leg('completed', { CallDuration: '41' });
-    // An account without Conversational Intelligence turned on (the fake refuses ids with "Refused" in them).
+    // A transcriber that will not take the work at all (the fake refuses ids with "Refused" in them).
     const recordingSid = `RERefused${out.callId.replace(/-/g, '').slice(0, 20)}`;
     const stored = await post(`${V}/recording`, {
       AccountSid: accountSid,
@@ -490,7 +485,8 @@ describe('calling a customer through your own cell', () => {
       transcript: null,
     });
     expect(await s.store.exists('telephony', done.recordingObjectPath!)).toBe(true);
-    expect(s.telephony.transcribed).toContain(recordingSid);
+    expect(s.transcriber.asked).toContain(recordingSid);
+    // The words are never coming, so the carrier's copy goes anyway rather than sitting on the bill.
     expect(s.telephony.deleted).toContain(recordingSid);
     const waiting = await rows(
       admin(),

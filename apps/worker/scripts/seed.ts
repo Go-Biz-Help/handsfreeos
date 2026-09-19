@@ -41,6 +41,7 @@ import { createMoneyLinks } from '../src/money/links';
 import { processOnce, type OutboxDeps } from '../src/outbox';
 import { createSupabaseStore, unconfiguredStore } from '../src/storage';
 import { createFakeTelephony } from '../src/telephony/fake';
+import { createFakeTranscriber } from '../src/telephony/fake-transcriber';
 import { createWorkflowAi } from '../src/workflows/ai-runner';
 import { seedAiTeam } from './seed-ai-team';
 import { seedAssistant } from './seed-assistant';
@@ -191,6 +192,7 @@ async function main(): Promise<void> {
     publicUrl: (process.env.WORKER_PUBLIC_URL ?? 'http://127.0.0.1:4100').replace(/\/+$/, ''),
     // The seed never reaches a carrier: the fake stands in, and sealed tokens use the dev worker's key.
     telephony: createFakeTelephony({ approvalMs: 0, callbacks: false, log }),
+    transcriber: createFakeTranscriber({ log }),
     sealer: createSealer(key),
     reminderOverrideMs: null,
     registrationPollMs: 50,

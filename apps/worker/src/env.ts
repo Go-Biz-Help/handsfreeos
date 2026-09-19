@@ -31,6 +31,12 @@ export interface WorkerEnv {
   readonly jwksUrl: string | null;
   readonly jwtIssuer: string | null;
   readonly telephonyProvider: 'twilio' | 'fake';
+  /**
+   * Who turns a recording into words. `deepgram` reads our own stored copy; `twilio` is Conversational Intelligence,
+   * kept as the fallback for an account with no Deepgram key; `fake` is the stand-in for development and tests.
+   */
+  readonly transcriber: 'deepgram' | 'twilio' | 'fake';
+  readonly deepgramApiKey: string | null;
   readonly twilioAccountSid: string | null;
   readonly twilioAuthToken: string | null;
   /** HandsFreeOS's approved ISV customer profile (BU...): local (10DLC) registrations link under it. */
@@ -181,6 +187,16 @@ export function readEnv(env: NodeJS.ProcessEnv = process.env): WorkerEnv {
     throw new Error('TELEPHONY_PROVIDER must be twilio or fake');
   if (production && telephonyProvider === 'fake')
     throw new Error('TELEPHONY_PROVIDER=fake is for development and tests only');
+  const deepgramApiKey = env.DEEPGRAM_API_KEY || null;
+  const transcriber = (env.TRANSCRIBER ??
+    (production ? (deepgramApiKey ? 'deepgram' : 'twilio') : 'fake')) as string;
+  if (transcriber !== 'deepgram' && transcriber !== 'twilio' && transcriber !== 'fake')
+    throw new Error('TRANSCRIBER must be deepgram, twilio or fake');
+  if (production && transcriber === 'fake')
+    throw new Error('TRANSCRIBER=fake is for development and tests only');
+  if (transcriber === 'deepgram' && !deepgramApiKey)
+    throw new Error('DEEPGRAM_API_KEY is required with TRANSCRIBER=deepgram');
+
   const twilioAccountSid = env.TWILIO_ACCOUNT_SID || null;
   const twilioAuthToken = env.TWILIO_AUTH_TOKEN || null;
   if (telephonyProvider === 'twilio' && (!twilioAccountSid || !twilioAuthToken))
@@ -392,6 +408,8 @@ export function readEnv(env: NodeJS.ProcessEnv = process.env): WorkerEnv {
     goHighLevelClientId,
     goHighLevelClientSecret,
     telephonyProvider,
+    transcriber: transcriber as 'deepgram' | 'twilio' | 'fake',
+    deepgramApiKey,
     twilioAccountSid,
     twilioAuthToken,
     twilioPrimaryProfileSid: env.TWILIO_PRIMARY_PROFILE_SID || null,

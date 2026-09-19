@@ -17,6 +17,7 @@ import type { PushServices } from './push/index';
 import type { ReviewServices } from './reviews/index';
 import type { ObjectStore } from './storage';
 import type { TelephonyProvider } from './telephony/provider';
+import type { Transcriber } from './telephony/transcriber';
 
 /** HandsFreeOS's own support desk (M13): where its mail arrives and who it comes from. */
 export interface SupportServices {
@@ -39,6 +40,8 @@ export interface WorkerServices {
   /** Where providers reach the worker (webhooks, callbacks). */
   readonly publicUrl: string;
   readonly telephony: TelephonyProvider;
+  /** Turns a call recording into words. Separate from the carrier: it reads our own copy of the audio. */
+  readonly transcriber: Transcriber;
   readonly sealer: Sealer;
   /** Tests and local demos shorten the reply reminder; production uses each workspace's setting. */
   readonly reminderOverrideMs: number | null;

@@ -22,6 +22,7 @@ import type { SafeFetch } from '../src/http/safe-fetch';
 import type { WorkerServices } from '../src/services';
 import { createSupabaseStore, type ObjectStore } from '../src/storage';
 import { createFakeTelephony, type FakeTelephony } from '../src/telephony/fake';
+import { createFakeTranscriber, type FakeTranscriber } from '../src/telephony/fake-transcriber';
 
 /** Signatures are computed against this base; tests call the server with inject(), never a real port. */
 export const TEST_PUBLIC_URL = 'https://hooks.worker.test';
@@ -29,6 +30,7 @@ export const TEST_PUBLIC_URL = 'https://hooks.worker.test';
 export type TestServices = WorkerServices & {
   readonly reviews: ReviewServices & { readonly fake: FakeReviews };
   readonly telephony: FakeTelephony;
+  readonly transcriber: FakeTranscriber;
   readonly mailboxes: MailboxServices & { readonly fake: FakeMailboxes };
   readonly calendars: CalendarServices & { readonly fake: FakeCalendars };
   readonly payments: PaymentServices & { readonly fake: FakePayments };
@@ -72,6 +74,7 @@ export function testServices(
     webUrl: 'http://localhost:3000',
     publicUrl: TEST_PUBLIC_URL,
     telephony: createFakeTelephony({ approvalMs: 0, callbacks: false, log }),
+    transcriber: createFakeTranscriber({ log }),
     support: {
       mailDomain: 'handsfreeos.test',
       addresses: ['support', 'help'],
