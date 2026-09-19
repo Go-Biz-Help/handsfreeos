@@ -40,7 +40,7 @@ import {
 } from '../src/migrations/adapters/registry';
 import { activateConnection, sealTokens } from '../src/migrations/engine/connection';
 import { processMigrationJobs } from '../src/migrations/engine/run';
-import { standInMedia } from './helpers';
+import { countOf, drainUntilWritten, standInMedia } from './helpers';
 
 const api = () => testDbs().api.db;
 const admin = () => testDbs().admin.db;
@@ -79,58 +79,6 @@ async function drain(limit = 400): Promise<void> {
     );
     if ((mine?.count ?? 0) === 0) return;
     await processMigrationJobs(deps);
-  }
-}
-
-/** How many rows one of these counting queries found. */
-async function countOf(query: ReturnType<typeof sql>): Promise<number> {
-  const [row] = await rows<{ count: number }>(admin(), query);
-  return row?.count ?? 0;
-}
-
-/**
- * Drains until this code has actually written what the stand-in source holds.
- *
- * Every checkout on this machine shares one local database, and `claim_migration_jobs` claims globally, so
- * a dev worker running somewhere else can take one of this test's batches and finish it with whatever code
- * it happens to be running. An older one stages the records, writes a checkpoint and imports nothing — so
- * neither a finished job nor a checkpoint is proof, and the assertions would be about an import that never
- * happened, which reads exactly like a bug in the thing being tested.
- *
- * The rows are the proof. Each target says what should be there and counts it; anything short puts its
- * categories back in the queue. Reading a page twice writes nothing twice, so a retry is cheap. Where one
- * worker runs, as in CI, the first pass is the only pass — and something this code genuinely fails to write
- * fails here, by name and by number, rather than passing quietly.
- */
-async function drainUntilWritten(
-  targets: readonly {
-    what: string;
-    categories: readonly string[];
-    expected: number;
-    count: () => Promise<number>;
-  }[],
-): Promise<void> {
-  for (let attempt = 0; ; attempt++) {
-    await drain();
-    const counted = await Promise.all(targets.map((t) => t.count()));
-    const short = targets.filter((t, i) => counted[i]! < t.expected);
-    if (short.length === 0) return;
-    if (attempt >= 5)
-      throw new Error(
-        `this code never wrote: ${short
-          .map((t) => `${t.what} (${counted[targets.indexOf(t)]} of ${t.expected})`)
-          .join(', ')}`,
-      );
-    const list = `{${[...new Set(short.flatMap((t) => t.categories))].join(',')}}`;
-    await admin().execute(
-      // `result` is left alone on purpose: only the engine writes what a batch did, and the guard on the
-      // table says so. Putting the batch back is all a person may do, and all this needs.
-      sql`update app.migration_jobs
-             set state = 'pending', run_at = now(), attempts = 0,
-                 finished_at = null, leased_by = null, leased_until = null
-           where migration_id = ${migrationId} and kind = 'fetch'
-             and category = any(${list}::text[])`,
-    );
   }
 }
 
@@ -213,28 +161,32 @@ beforeAll(async () => {
   });
   await run(migrationStart, { organizationId, migrationId, acknowledgedFindingIds: [] });
   // What the stand-in holds: two forms, and three people who filled one of them in.
-  await drainUntilWritten([
-    {
-      what: 'forms',
-      categories: ['forms'],
-      expected: 2,
-      count: () =>
-        countOf(
-          sql`select count(*)::int as count from app.forms where workspace_id = ${workspaceId}::uuid`,
-        ),
-    },
-    {
-      what: 'answers',
-      // Answers wait for the customer who gave them, so a short count may mean the customers are late.
-      categories: ['contacts', 'form_submissions'],
-      expected: 3,
-      count: () =>
-        countOf(
-          sql`select count(*)::int as count from app.form_responses
-              where workspace_id = ${workspaceId}::uuid`,
-        ),
-    },
-  ]);
+  await drainUntilWritten({
+    migrationId,
+    drain,
+    targets: [
+      {
+        what: 'forms',
+        categories: ['forms'],
+        expected: 2,
+        count: () =>
+          countOf(
+            sql`select count(*)::int as count from app.forms where workspace_id = ${workspaceId}::uuid`,
+          ),
+      },
+      {
+        what: 'answers',
+        // Answers wait for the customer who gave them, so a short count may mean the customers are late.
+        categories: ['contacts', 'form_submissions'],
+        expected: 3,
+        count: () =>
+          countOf(
+            sql`select count(*)::int as count from app.form_responses
+                where workspace_id = ${workspaceId}::uuid`,
+          ),
+      },
+    ],
+  });
 }, 180_000);
 
 afterAll(async () => {
@@ -364,6 +316,21 @@ describe('forms and what people put in them', () => {
     expect(survey!.mode).toBe('survey');
     expect(survey!.status).toBe('draft');
     expect(survey!.definition.pages.flatMap((p) => p.questions)).toHaveLength(0);
+  }, 60_000);
+
+  it('says the form on their website is still wired to the old system', async () => {
+    const tasks = await rows<{ label: string; instructions: string; settings_path: string | null }>(
+      admin(),
+      sql`select label, instructions, settings_path from app.migration_reconnect_tasks
+          where migration_id = ${migrationId}::uuid and kind = 'other' and provider = 'website'
+          order by label`,
+    );
+    // One per form, because each one has its own copy out there on a page somewhere.
+    expect(tasks.map((t) => t.label)).toEqual(['After the visit', 'Get a quote']);
+    const quote = tasks.find((t) => t.label === 'Get a quote')!;
+    // The quiet failure this exists to prevent: the old form keeps working, and keeps feeding the dead system.
+    expect(quote.instructions).toContain('new enquiries go to the account you are leaving');
+    expect(quote.settings_path).toBe('/settings/forms');
   }, 60_000);
 
   it('turns none of it into work', async () => {

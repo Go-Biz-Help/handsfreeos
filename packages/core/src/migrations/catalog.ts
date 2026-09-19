@@ -179,13 +179,15 @@ export const MIGRATION_CATEGORIES: readonly MigrationCategory[] = [
   c({
     id: 'templates',
     label: 'Templates',
-    blurb: 'Saved texts and emails you send again and again.',
-    pass: MIGRATION_PASSES.structure,
+    blurb: 'The wording you reuse: the emails and texts you wrote once and send again.',
+    pass: MIGRATION_PASSES.definitions,
     dependsOn: ['locations'],
-    targetType: 'template',
-    selection: 'resource',
-    release: 'next',
-    releaseNote: 'Counted now, brought across in a later step.',
+    targetType: null,
+    selection: 'category',
+    release: 'unsupported',
+    releaseNote:
+      'HandsFreeOS has nowhere to keep wording on its own — it lives in the workflow or the message that ' +
+      'uses it. Copy anything you want to keep before you close the old account.',
   }),
   c({
     id: 'conversations',
@@ -300,10 +302,12 @@ export const MIGRATION_CATEGORIES: readonly MigrationCategory[] = [
     pass: MIGRATION_PASSES.records,
     dependsOn: ['locations'],
     prefers: ['contacts'],
-    targetType: 'review',
+    targetType: null,
     selection: 'category',
-    release: 'next',
-    releaseNote: 'Counted now, brought across in a later step.',
+    release: 'unsupported',
+    releaseNote:
+      'Your reviews are on Google and Facebook — the old system only showed them to you. Leaving does not ' +
+      'lose a single one, and they stay where people read them.',
   }),
   c({
     id: 'media',
@@ -323,8 +327,7 @@ export const MIGRATION_CATEGORIES: readonly MigrationCategory[] = [
     dependsOn: ['locations'],
     targetType: 'reconnect_task',
     selection: 'category',
-    release: 'next',
-    releaseNote: 'Counted now, listed as setup steps in a later step.',
+    release: 'ready',
   }),
   c({
     id: 'phone_numbers',
@@ -334,8 +337,7 @@ export const MIGRATION_CATEGORIES: readonly MigrationCategory[] = [
     dependsOn: ['locations'],
     targetType: 'port_request',
     selection: 'resource',
-    release: 'next',
-    releaseNote: 'Counted now, ported in a later step.',
+    release: 'ready',
   }),
   c({
     id: 'sending_domains',
@@ -345,8 +347,7 @@ export const MIGRATION_CATEGORIES: readonly MigrationCategory[] = [
     dependsOn: ['locations'],
     targetType: 'reconnect_task',
     selection: 'category',
-    release: 'next',
-    releaseNote: 'Counted now, listed as setup steps in a later step.',
+    release: 'ready',
   }),
   c({
     id: 'workflows',
@@ -363,24 +364,28 @@ export const MIGRATION_CATEGORIES: readonly MigrationCategory[] = [
   c({
     id: 'websites',
     label: 'Websites',
-    blurb: 'Counted so you know what stays behind.',
-    pass: MIGRATION_PASSES.workspace,
+    blurb: 'The pages the old system hosted for you.',
+    pass: MIGRATION_PASSES.structure,
     dependsOn: ['locations'],
     targetType: null,
-    selection: 'category',
-    release: 'deferred',
-    releaseNote: 'Not part of migrations yet. Your site keeps working wherever it is now.',
+    selection: 'resource',
+    release: 'unsupported',
+    releaseNote:
+      'HandsFreeOS does not host websites. Yours needs somewhere else to live before you close the old ' +
+      'account, and its forms and booking links should point here once it does.',
   }),
   c({
     id: 'funnels',
     label: 'Funnels',
-    blurb: 'Counted so you know what stays behind.',
-    pass: MIGRATION_PASSES.workspace,
+    blurb: 'Landing pages and the steps people walked through them.',
+    pass: MIGRATION_PASSES.structure,
     dependsOn: ['locations'],
     targetType: null,
-    selection: 'category',
-    release: 'deferred',
-    releaseNote: 'Not part of migrations yet.',
+    selection: 'resource',
+    release: 'unsupported',
+    releaseNote:
+      'HandsFreeOS does not host pages. What the pages were for lives here — the forms, the booking links ' +
+      'and the customers they made — but the pages themselves need somewhere else to live.',
   }),
 ];
 

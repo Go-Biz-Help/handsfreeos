@@ -1,4 +1,5 @@
 import { randomBytes } from 'node:crypto';
+import { rows, sql } from '@hfos/db/client';
 import { testDbs, testEnv } from '@hfos/db/testing';
 import pino from 'pino';
 import { createBookingLinks } from '../src/booking/links';
@@ -170,4 +171,66 @@ export function standInMedia(files: Readonly<Record<string, StandInFile>> = {}):
     };
   };
   return { store, fetchUrl, uploads, asked };
+}
+
+/** How many rows one counting query found, read as the owner of the database. */
+export async function countOf(query: ReturnType<typeof sql>): Promise<number> {
+  const [row] = await rows<{ count: number }>(testDbs().admin.db, query);
+  return row?.count ?? 0;
+}
+
+/** Something a migration should have written here, and how to count it. */
+export interface WrittenTarget {
+  readonly what: string;
+  /** The categories to put back in the queue when the count is short. */
+  readonly categories: readonly string[];
+  readonly expected: number;
+  readonly count: () => Promise<number>;
+}
+
+/**
+ * Drains a migration's queue until this code has actually written what the source holds.
+ *
+ * Every checkout on this machine shares one local database, and `claim_migration_jobs` claims globally, so
+ * a dev worker running somewhere else — another checkout, another session's scratchpad — can take one of a
+ * test's batches and finish it with whatever code it happens to be running. An older one stages the records,
+ * writes a checkpoint and imports nothing, so neither a finished job nor a checkpoint is proof. The test
+ * would then be asserting against an import that never happened, which reads exactly like a bug in the thing
+ * being tested, and costs an hour to tell apart from one.
+ *
+ * The rows are the proof. Each target says what should be there and counts it; anything short puts its
+ * categories back. Reading a page twice writes nothing twice, so a retry is cheap. Where one worker runs,
+ * as in CI, the first pass is the only pass — and something this code genuinely fails to write fails here,
+ * by name and by number, rather than passing quietly.
+ */
+export async function drainUntilWritten(input: {
+  readonly migrationId: string;
+  readonly drain: () => Promise<void>;
+  readonly targets: readonly WrittenTarget[];
+  readonly tries?: number;
+}): Promise<void> {
+  const { migrationId, drain, targets } = input;
+  const tries = input.tries ?? 6;
+  for (let attempt = 0; ; attempt++) {
+    await drain();
+    const counted = await Promise.all(targets.map((t) => t.count()));
+    const short = targets.filter((t, i) => counted[i]! < t.expected);
+    if (short.length === 0) return;
+    if (attempt >= tries - 1)
+      throw new Error(
+        `this code never wrote: ${short
+          .map((t) => `${t.what} (${counted[targets.indexOf(t)]} of ${t.expected})`)
+          .join(', ')}`,
+      );
+    const list = `{${[...new Set(short.flatMap((t) => t.categories))].join(',')}}`;
+    await testDbs().admin.db.execute(
+      // `result` is left alone on purpose: only the engine writes what a batch did, and the guard on the
+      // table says so. Putting the batch back is all a person may do, and all this needs.
+      sql`update app.migration_jobs
+             set state = 'pending', run_at = now(), attempts = 0,
+                 finished_at = null, leased_by = null, leased_until = null
+           where migration_id = ${migrationId} and kind = 'fetch'
+             and category = any(${list}::text[])`,
+    );
+  }
 }

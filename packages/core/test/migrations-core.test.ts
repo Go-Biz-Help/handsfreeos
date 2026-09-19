@@ -330,3 +330,35 @@ describe('findings', () => {
     expect(sorted.map((f) => f.code)).toEqual(['b', 'a', 'c']);
   });
 });
+
+describe('what the inventory promises', () => {
+  /**
+   * "Almost everything says Not yet — why?" was a fair question, and the answer had to stop being a
+   * promise. A category is now one of three things a business can act on: it comes across; it is left
+   * behind on purpose and says why; or this system has nowhere to put it and says that instead. Nothing
+   * is owed to a later release, because a screen full of "later" is a screen nobody can plan around.
+   */
+  it('never tells a business to wait for a later release', () => {
+    const waiting = MIGRATION_CATEGORIES.filter(
+      (c) => c.release === 'next' || c.release === 'deferred',
+    );
+    expect(waiting.map((c) => c.id)).toEqual([]);
+  });
+
+  it('says why, wherever something is not coming across', () => {
+    for (const category of MIGRATION_CATEGORIES) {
+      if (category.release === 'ready') continue;
+      // In words, and enough of them to be a reason rather than a shrug.
+      expect(category.releaseNote?.length ?? 0).toBeGreaterThan(40);
+      // Nothing that is not coming across claims to write anything here.
+      expect(category.targetType).toBeNull();
+    }
+  });
+
+  it('gives everything that is ready somewhere to land', () => {
+    for (const category of MIGRATION_CATEGORIES) {
+      if (category.release !== 'ready') continue;
+      expect(category.targetType).not.toBeNull();
+    }
+  });
+});
