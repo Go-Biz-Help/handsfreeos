@@ -265,7 +265,9 @@ export const formResponseSubmit = defineCommand({
   name: 'form_response.submit',
   description:
     'Send a filled-in form: check the answers, record them, match or make the customer, fill in what they told us, open a lead or a task, and ask its workflows to start.',
-  risk: 3,
+  // External, like booking for a customer: it makes records and something the customer sees, and every
+  // message it leads to goes through a workflow with its own consent and quiet-hours rules.
+  risk: 2,
   input: FormSubmitInput,
   output: FormSubmitOutput,
   permission: null,

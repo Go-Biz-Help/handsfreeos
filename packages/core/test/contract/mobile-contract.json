@@ -2123,7 +2123,15 @@
           "origin": {
             "default": "staff",
             "type": "string",
-            "enum": ["staff", "estimate", "booking", "subscription", "workflow", "assistant"]
+            "enum": [
+              "staff",
+              "estimate",
+              "booking",
+              "subscription",
+              "workflow",
+              "assistant",
+              "form"
+            ]
           },
           "estimateId": {
             "anyOf": [
