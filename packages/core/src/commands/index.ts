@@ -1,5 +1,6 @@
 import type { CommandDef } from '../kernel/types';
 import { formCommands } from './form';
+import { reviewCommands } from './review';
 import { templateCommands } from './template';
 import { formResponseCommands } from './form-response';
 import { supportStaffCommands } from './support-staff';
@@ -704,6 +705,7 @@ export const commands: readonly CommandDef[] = [
   ...supportStaffCommands,
   ...formCommands,
   ...templateCommands,
+  ...reviewCommands,
   ...formResponseCommands,
 ] as unknown as readonly CommandDef[];
 export { callPreview } from './call';
@@ -716,6 +718,7 @@ export * from './reminder';
 export * from './waitlist-offer';
 export * from './form';
 export * from './template';
+export * from './review';
 export * from './form-response';
 export * from './workflow';
 export * from './workflow-run';

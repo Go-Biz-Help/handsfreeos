@@ -87,6 +87,17 @@ export interface WorkerEnv {
   /** How often each connected calendar's busy times are read again (milliseconds; tests shorten it). */
   readonly calendarRefreshMs: number;
   /**
+   * What customers said in public (M16): the Google Business Profile and the Facebook Page the reviews are
+   * read from, or the stand-in that serves its own sign-in page on the worker and keeps reviews in memory.
+   */
+  readonly reviewProvider: 'real' | 'fake';
+  readonly googleReviewClientId: string | null;
+  readonly googleReviewClientSecret: string | null;
+  readonly facebookAppId: string | null;
+  readonly facebookAppSecret: string | null;
+  /** How often each connected place is asked for new reviews (milliseconds; tests shorten it). */
+  readonly reviewPollMs: number;
+  /**
    * Taking money: Stripe's Connect platform and Square's application, or the stand-in that serves its own
    * payment page on the worker and posts properly signed webhooks back to it. Production refuses the stand-in.
    */
@@ -238,6 +249,22 @@ export function readEnv(env: NodeJS.ProcessEnv = process.env): WorkerEnv {
   const calendarRefreshMs = Number(env.CALENDAR_REFRESH_MS || 600_000);
   if (!Number.isInteger(calendarRefreshMs) || calendarRefreshMs < 1_000)
     throw new Error('CALENDAR_REFRESH_MS must be a whole number of milliseconds, 1000 or more');
+
+  // What customers said in public. Its own Google project again, so reviews can pass Google's review apart
+  // from calendars and Gmail.
+  const googleReviewClientId = env.GOOGLE_REVIEWS_OAUTH_CLIENT_ID || null;
+  const googleReviewClientSecret = env.GOOGLE_REVIEWS_OAUTH_CLIENT_SECRET || null;
+  const facebookAppId = env.FACEBOOK_APP_ID || null;
+  const facebookAppSecret = env.FACEBOOK_APP_SECRET || null;
+  const reviewProvider = (env.REVIEW_PROVIDER ??
+    (production || googleReviewClientId || facebookAppId ? 'real' : 'fake')) as string;
+  if (reviewProvider !== 'real' && reviewProvider !== 'fake')
+    throw new Error('REVIEW_PROVIDER must be real or fake');
+  if (production && reviewProvider === 'fake')
+    throw new Error('REVIEW_PROVIDER=fake is for development and tests only');
+  const reviewPollMs = Number(env.REVIEW_POLL_MS || 3_600_000);
+  if (!Number.isInteger(reviewPollMs) || reviewPollMs < 1_000)
+    throw new Error('REVIEW_POLL_MS must be a whole number of milliseconds, 1000 or more');
 
   // Taking money. Local development gets the stand-in unless a real Stripe or Square app is configured.
   const stripeClientId = env.STRIPE_CLIENT_ID || null;
@@ -404,6 +431,12 @@ export function readEnv(env: NodeJS.ProcessEnv = process.env): WorkerEnv {
     googleCalendarClientId,
     googleCalendarClientSecret,
     calendarRefreshMs,
+    reviewProvider: reviewProvider as 'real' | 'fake',
+    googleReviewClientId,
+    googleReviewClientSecret,
+    facebookAppId,
+    facebookAppSecret,
+    reviewPollMs,
     paymentsProvider,
     stripeClientId,
     stripeSecretKey,

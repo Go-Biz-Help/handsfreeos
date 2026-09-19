@@ -14,6 +14,7 @@ import type { Mailer } from './mailer';
 import type { MoneyLinks } from './money/links';
 import type { PaymentServices } from './payments/index';
 import type { PushServices } from './push/index';
+import type { ReviewServices } from './reviews/index';
 import type { ObjectStore } from './storage';
 import type { TelephonyProvider } from './telephony/provider';
 
@@ -49,6 +50,8 @@ export interface WorkerServices {
   readonly mailboxes: MailboxServices;
   /** People's own Google and Outlook calendars (in-memory ones locally and in tests). */
   readonly calendars: CalendarServices;
+  /** The Google Business Profile and Facebook Page reviews are read from (a stand-in locally and in tests). */
+  readonly reviews: ReviewServices;
   /** The accounts businesses are paid into: Stripe and Square (the stand-in locally and in tests). */
   readonly payments: PaymentServices;
   /** Signs and checks customers' change-or-cancel and waitlist-offer links (booking/links.ts). */

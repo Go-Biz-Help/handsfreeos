@@ -29,6 +29,7 @@ import pino from 'pino';
 import { createBookingLinks } from '../src/booking/links';
 import { createSealer } from '../src/crypto';
 import { fakeCalendarServices } from '../src/calendar/index';
+import { fakeReviewServices } from '../src/reviews/index';
 import { fakeMailboxServices } from '../src/mailbox/index';
 import { fakePaymentServices } from '../src/payments/index';
 import { fakePushServices } from '../src/push/index';
@@ -210,6 +211,10 @@ async function main(): Promise<void> {
       60_000,
     ),
     calendars: fakeCalendarServices(
+      (process.env.WORKER_PUBLIC_URL ?? 'http://127.0.0.1:4100').replace(/\/+$/, ''),
+      60_000,
+    ),
+    reviews: fakeReviewServices(
       (process.env.WORKER_PUBLIC_URL ?? 'http://127.0.0.1:4100').replace(/\/+$/, ''),
       60_000,
     ),

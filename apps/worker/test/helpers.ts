@@ -16,6 +16,8 @@ import type { FakePayments } from '../src/payments/fake';
 import { fakePaymentServices, type PaymentServices } from '../src/payments/index';
 import type { FakePush } from '../src/push/fake';
 import { fakePushServices, type PushServices } from '../src/push/index';
+import { fakeReviewServices, type ReviewServices } from '../src/reviews/index';
+import type { FakeReviews } from '../src/reviews/fake';
 import type { SafeFetch } from '../src/http/safe-fetch';
 import type { WorkerServices } from '../src/services';
 import { createSupabaseStore, type ObjectStore } from '../src/storage';
@@ -25,6 +27,7 @@ import { createFakeTelephony, type FakeTelephony } from '../src/telephony/fake';
 export const TEST_PUBLIC_URL = 'https://hooks.worker.test';
 
 export type TestServices = WorkerServices & {
+  readonly reviews: ReviewServices & { readonly fake: FakeReviews };
   readonly telephony: FakeTelephony;
   readonly mailboxes: MailboxServices & { readonly fake: FakeMailboxes };
   readonly calendars: CalendarServices & { readonly fake: FakeCalendars };
@@ -95,6 +98,8 @@ export function testServices(
     mailboxes: fakeMailboxServices(TEST_PUBLIC_URL, 60_000),
     // Refreshes run when a test asks (the job's next run is a minute out).
     calendars: fakeCalendarServices(TEST_PUBLIC_URL, 60_000),
+    // Reviews in memory; a place is asked again only when a test asks.
+    reviews: fakeReviewServices(TEST_PUBLIC_URL, 60_000),
     // The stand-in provider. A bank transfer settles only when a test asks (settleMs 0), and token refreshes
     // run when a test asks: the job's next run is a minute out.
     payments: paymentsForTests(),

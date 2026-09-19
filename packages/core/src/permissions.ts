@@ -47,6 +47,7 @@ export const ROLE_PERMISSIONS = {
     'migrations.manage',
     'forms.manage',
     'templates.manage',
+    'reviews.manage',
     'fields.manage',
   ],
   admin: [
@@ -79,6 +80,7 @@ export const ROLE_PERMISSIONS = {
     'migrations.manage',
     'forms.manage',
     'templates.manage',
+    'reviews.manage',
     'fields.manage',
   ],
   member: [

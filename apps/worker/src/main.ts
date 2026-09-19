@@ -15,6 +15,7 @@ import { processDeliveries } from './deliveries';
 import { loadEnv, readEnv } from './env';
 import { handlers } from './handlers/index';
 import { createCalendars } from './calendar/index';
+import { createReviews } from './reviews/index';
 import { createMailboxes } from './mailbox/index';
 import { createMoneyLinks } from './money/links';
 import { createMigrationAdapters } from './migrations/adapters/registry';
@@ -64,6 +65,7 @@ const services: EngineServices = {
   email: createEmail(env, log),
   mailboxes: createMailboxes(env),
   calendars: createCalendars(env),
+  reviews: createReviews(env),
   payments: createPayments(env),
   bookingLinks: createBookingLinks({
     webUrl: env.webUrl,

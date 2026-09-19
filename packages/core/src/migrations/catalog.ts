@@ -303,8 +303,8 @@ export const MIGRATION_CATEGORIES: readonly MigrationCategory[] = [
     selection: 'category',
     release: 'unsupported',
     releaseNote:
-      'Your reviews are on Google and Facebook — the old system only showed them to you. Leaving does not ' +
-      'lose a single one, and they stay where people read them.',
+      'Your reviews are on Google and Facebook — the old system only showed them to you, and leaving does ' +
+      'not lose a single one. Connect those two under Reviews and they show here too, with a reply box.',
   }),
   c({
     id: 'media',

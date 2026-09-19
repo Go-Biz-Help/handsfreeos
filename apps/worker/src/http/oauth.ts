@@ -15,14 +15,21 @@ import { timingSafeEqual } from 'node:crypto';
 import { eq } from 'drizzle-orm';
 import {
   calendarConnectionActivate,
+  reviewConnectionActivate,
   executeCommand,
   mailboxActivate,
   paymentConnectionActivate,
 } from '@hfos/core/server';
 import { asWorker, rows, sql } from '@hfos/db/client';
-import { calendarConnections, mailboxConnections, paymentConnections } from '@hfos/db/schema';
+import {
+  calendarConnections,
+  mailboxConnections,
+  paymentConnections,
+  reviewConnections,
+} from '@hfos/db/schema';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { CALENDAR_NAME } from '../calendar/provider';
+import { REVIEW_NAME, type ReviewProviderName } from '../reviews/provider';
 import { escapeHtml } from '../emails/templates';
 import { fakeCode } from '../mailbox/fake';
 import { party, pkcePair, type MailboxProviderName } from '../mailbox/provider';
@@ -47,12 +54,15 @@ const isProvider = (p: string): p is MailboxProviderName => p === 'microsoft' ||
  * three share /oauth/:provider/start and /callback.
  */
 type StateRow = {
-  kind: 'mailbox' | 'calendar' | 'payment';
+  kind: 'mailbox' | 'calendar' | 'payment' | 'reviews';
   connection_id: string;
   workspace_id: string;
   organization_id: string;
-  /** Mailboxes and calendars name their providers the same way; payments name Stripe and Square. */
-  provider: MailboxProviderName | PaymentProviderName;
+  /**
+   * Mailboxes and calendars name their providers the same way; payments name Stripe and Square; reviews
+   * name Google and Facebook.
+   */
+  provider: MailboxProviderName | PaymentProviderName | ReviewProviderName;
   status: string;
   state_expires_at: Date | string | null;
 };
@@ -97,13 +107,14 @@ export function registerOAuthRoutes(app: FastifyInstance, deps: HttpDeps): void 
   const { providers, fake } = deps.mailboxes;
   const calendars = deps.calendars;
   const payments = deps.payments;
-  const callbackUrl = (p: MailboxProviderName | PaymentProviderName) =>
+  const callbackUrl = (p: MailboxProviderName | PaymentProviderName | ReviewProviderName) =>
     `${deps.publicUrl}/oauth/${p}/callback`;
   const settingsUrl = (workspaceId: string) => `${deps.webUrl}/app/w/${workspaceId}/settings/email`;
   const myCalendarUrl = (workspaceId: string) =>
     `${deps.webUrl}/app/w/${workspaceId}/settings/my-calendar`;
   const paymentsUrl = (workspaceId: string) =>
     `${deps.webUrl}/app/w/${workspaceId}/settings/payments`;
+  const reviewsUrl = (workspaceId: string) => `${deps.webUrl}/app/w/${workspaceId}/reviews`;
   const scopeOf = (row: StateRow): TenantScope => ({
     workspaceId: row.workspace_id,
     organizationId: row.organization_id,
@@ -111,7 +122,11 @@ export function registerOAuthRoutes(app: FastifyInstance, deps: HttpDeps): void 
 
   /** The mailbox, calendar or payment sign-in a state belongs to, still good or not. */
   async function lookup(provider: string, state: string | undefined): Promise<StateRow | null> {
-    if ((!isProvider(provider) && !isPaymentProvider(provider)) || !state || state.length > 200)
+    if (
+      (!isProvider(provider) && !isPaymentProvider(provider) && !isReviewProvider(provider)) ||
+      !state ||
+      state.length > 200
+    )
       return null;
     const [row] = await asWorker(deps.httpDb, {}, (tx) =>
       rows<StateRow>(
@@ -132,6 +147,7 @@ export function registerOAuthRoutes(app: FastifyInstance, deps: HttpDeps): void 
     mailbox: 'Email',
     calendar: 'My calendar',
     payment: 'Payments',
+    reviews: 'Reviews',
   };
   /**
    * Which Settings page to send someone back to when their link is dead. A used or expired state has no row
@@ -157,6 +173,7 @@ export function registerOAuthRoutes(app: FastifyInstance, deps: HttpDeps): void 
     if (!row || !state) return expired(reply, kindOf(provider, found));
     if (row.kind === 'payment') return startPayment(row, state, reply);
     if (row.kind === 'calendar') return startCalendar(row, state, reply);
+    if (row.kind === 'reviews') return startReviews(row, state, reply);
     if (!isProvider(row.provider)) return expired(reply, row.kind);
     const p = providers[row.provider];
     const name = PROVIDER_NAME[row.provider];
@@ -195,6 +212,7 @@ export function registerOAuthRoutes(app: FastifyInstance, deps: HttpDeps): void 
     if (!row) return expired(reply, kindOf(provider, found));
     if (row.kind === 'payment') return paymentCallback(row, q, reply);
     if (row.kind === 'calendar') return calendarCallback(row, q, reply);
+    if (row.kind === 'reviews') return reviewsCallback(row, q, reply);
     if (!isProvider(row.provider)) return expired(reply, row.kind);
     const scope = scopeOf(row);
     const back = (result: string) =>
@@ -350,6 +368,218 @@ export function registerOAuthRoutes(app: FastifyInstance, deps: HttpDeps): void 
       return back('failed');
     }
   }
+
+  // ---------- where the public reviews live: back to Reviews ----------
+
+  /**
+   * Google and Facebook both hand back a sign-in that can speak for several places — nine branches, or one
+   * page among a dozen somebody administers. One place needs no question; several do, and the chooser below
+   * is that question. Nothing is connected until it has been answered.
+   */
+  const isReviewProvider = (p: string): p is ReviewProviderName =>
+    p === 'google' || p === 'facebook';
+
+  async function startReviews(row: StateRow, state: string, reply: FastifyReply) {
+    if (!isReviewProvider(row.provider)) return expired(reply, row.kind);
+    const p = deps.reviews.providers[row.provider];
+    const name = REVIEW_NAME[row.provider];
+    if (!p.configured)
+      return deadEnd(
+        reply,
+        503,
+        `${name} isn’t set up yet`,
+        `This server can’t read ${name} reviews yet.`,
+        { href: reviewsUrl(row.workspace_id), label: 'Back to Reviews' },
+      );
+    const { verifier, challenge } = pkcePair();
+    await asWorker(deps.httpDb, scopeOf(row), (tx) =>
+      tx
+        .update(reviewConnections)
+        .set({ pkceVerifierEnc: deps.sealer.seal(verifier) })
+        .where(eq(reviewConnections.id, row.connection_id)),
+    );
+    return reply
+      .header('referrer-policy', 'no-referrer')
+      .redirect(
+        p.authorizeUrl({ state, codeChallenge: challenge, redirectUri: callbackUrl(row.provider) }),
+        302,
+      );
+  }
+
+  /** The chooser: one link per place, carrying the same state that is already waiting. */
+  function choosePlace(
+    row: StateRow,
+    state: string,
+    places: readonly { externalId: string; displayName: string }[],
+    reply: FastifyReply,
+  ) {
+    const links = places
+      .slice(0, 50)
+      .map(
+        (place) =>
+          `<p style="margin: 0 0 10px;"><a href="${escapeHtml(
+            `${deps.publicUrl}/oauth/${row.provider}/place?state=${encodeURIComponent(state)}` +
+              `&place=${encodeURIComponent(place.externalId)}`,
+          )}" style="color: #2d69d8; font-weight: 600; text-decoration: none;">${escapeHtml(
+            place.displayName,
+          )}</a></p>`,
+      )
+      .join('');
+    return reply
+      .code(200)
+      .type('text/html; charset=utf-8')
+      .header('cache-control', 'no-store')
+      .header('referrer-policy', 'no-referrer')
+      .send(
+        shell(
+          'Which one?',
+          `<h1 style="font-size: 18px; margin: 0 0 8px;">Which one is this business?</h1>` +
+            `<p style="font-size: 14px; line-height: 1.5; color: #5b616a; margin: 0 0 20px;">` +
+            `That sign-in can speak for more than one. Choose the one whose reviews belong here.</p>` +
+            links,
+        ),
+      );
+  }
+
+  async function reviewsCallback(row: StateRow, q: CallbackQuery, reply: FastifyReply) {
+    if (!isReviewProvider(row.provider)) return expired(reply, row.kind);
+    const provider = row.provider;
+    const scope = scopeOf(row);
+    const back = (result: 'connected' | 'cancelled' | 'failed') =>
+      reply
+        .header('referrer-policy', 'no-referrer')
+        .redirect(`${reviewsUrl(row.workspace_id)}?reviews=${result}`, 302);
+    const note = (error: string) =>
+      asWorker(deps.httpDb, scope, (tx) =>
+        tx
+          .update(reviewConnections)
+          .set({ lastError: error.slice(0, 2000) })
+          .where(eq(reviewConnections.id, row.connection_id)),
+      );
+    if (q.error || !q.code) {
+      await note(`The sign-in ended without access (${(q.error ?? 'no code').slice(0, 80)}).`);
+      return back(q.error === 'access_denied' ? 'cancelled' : 'failed');
+    }
+    const [c] = await asWorker(deps.httpDb, scope, (tx) =>
+      tx
+        .select({ verifier: reviewConnections.pkceVerifierEnc })
+        .from(reviewConnections)
+        .where(eq(reviewConnections.id, row.connection_id)),
+    );
+    if (!c?.verifier) return back('failed');
+    const p = deps.reviews.providers[provider];
+    try {
+      const tokens = await p.exchangeCode({
+        code: q.code,
+        codeVerifier: deps.sealer.open(c.verifier),
+        redirectUri: callbackUrl(provider),
+      });
+      const places = await p.places(tokens.accessToken);
+      if (places.length === 0) {
+        await note('That sign-in does not manage any place with reviews.');
+        return deadEnd(
+          reply,
+          409,
+          'Nothing to read reviews from',
+          `That ${REVIEW_NAME[provider]} account does not manage a business page. Sign in with the account that does.`,
+          { href: reviewsUrl(row.workspace_id), label: 'Back to Reviews' },
+        );
+      }
+      /**
+       * The token is kept now, still pending, so the chooser's link does not have to carry it. The state is
+       * what the chooser proves, exactly as the callback did, and it expires on the same ten-minute clock.
+       */
+      await asWorker(deps.httpDb, scope, (tx) =>
+        tx
+          .update(reviewConnections)
+          .set({
+            tokenEnc: deps.sealer.seal(JSON.stringify(tokens)),
+            tokenKeyId: deps.sealer.keyId,
+            tokenExpiresAt: new Date(tokens.expiresAt),
+            lastError: null,
+          })
+          .where(eq(reviewConnections.id, row.connection_id)),
+      );
+      if (places.length > 1 && q.state) return choosePlace(row, q.state, places, reply);
+      const only = places[0]!;
+      await connectPlace(row, only.externalId, only.displayName, only.publicUrl, tokens.scopes);
+      return back('connected');
+    } catch (e) {
+      deps.log.warn(
+        { connectionId: row.connection_id, err: errorMessage(e) },
+        'a review place did not connect',
+      );
+      await note(errorMessage(e));
+      return back('failed');
+    }
+  }
+
+  const connectPlace = (
+    row: StateRow,
+    externalId: string,
+    displayName: string | null,
+    publicUrl: string | null,
+    scopes: readonly string[],
+  ) =>
+    executeCommand(
+      deps.httpDb,
+      reviewConnectionActivate,
+      {
+        workspaceId: row.workspace_id,
+        connectionId: row.connection_id,
+        externalAccountId: externalId.slice(0, 200),
+        displayName: displayName?.slice(0, 200) ?? null,
+        publicUrl: publicUrl?.slice(0, 500) ?? null,
+        scopes: scopes.slice(0, 50).map((s) => s.slice(0, 120)),
+      },
+      systemActor(scopeOf(row)),
+      workerMeta(),
+    );
+
+  /** The chooser's answer. The same state, still waiting, still within its ten minutes. */
+  app.get('/oauth/:provider/place', async (req, reply) => {
+    const { provider } = req.params as { provider: string };
+    const { state, place } = req.query as { state?: string; place?: string };
+    const found = await lookup(provider, state);
+    const row = waiting(provider, found);
+    if (!row || row.kind !== 'reviews' || !place) return expired(reply, found?.kind ?? 'reviews');
+    const [c] = await asWorker(deps.httpDb, scopeOf(row), (tx) =>
+      tx
+        .select({ tokenEnc: reviewConnections.tokenEnc })
+        .from(reviewConnections)
+        .where(eq(reviewConnections.id, row.connection_id)),
+    );
+    if (!c?.tokenEnc) return expired(reply, 'reviews');
+    try {
+      const tokens = JSON.parse(deps.sealer.open(c.tokenEnc)) as {
+        accessToken: string;
+        scopes?: string[];
+      };
+      if (!isReviewProvider(row.provider)) return expired(reply, 'reviews');
+      const places = await deps.reviews.providers[row.provider].places(tokens.accessToken);
+      // Only a place that sign-in really manages: the link is a parameter, and a parameter is a guess.
+      const chosen = places.find((x) => x.externalId === place);
+      if (!chosen) return expired(reply, 'reviews');
+      await connectPlace(
+        row,
+        chosen.externalId,
+        chosen.displayName,
+        chosen.publicUrl,
+        tokens.scopes ?? [],
+      );
+      return reply
+        .header('referrer-policy', 'no-referrer')
+        .redirect(`${reviewsUrl(row.workspace_id)}?reviews=connected`, 302);
+    } catch (e) {
+      deps.log.warn(
+        { connectionId: row.connection_id, err: errorMessage(e) },
+        'a review place did not connect',
+      );
+      return reply
+        .header('referrer-policy', 'no-referrer')
+        .redirect(`${reviewsUrl(row.workspace_id)}?reviews=failed`, 302);
+    }
+  });
 
   // ---------- the account a business is paid into: back to Settings → Payments ----------
 
@@ -627,7 +857,7 @@ export function registerOAuthRoutes(app: FastifyInstance, deps: HttpDeps): void 
     const { provider } = req.params as { provider: string };
     const q = req.query as Record<string, string | undefined>;
     if (
-      !isProvider(provider) ||
+      (!isProvider(provider) && !isReviewProvider(provider)) ||
       !q.state ||
       !q.code_challenge ||
       q.redirect_uri !== callbackUrl(provider)
@@ -638,40 +868,55 @@ export function registerOAuthRoutes(app: FastifyInstance, deps: HttpDeps): void 
         'That sign-in link doesn’t work',
         'Go back to Settings and try again.',
       );
-    // One stand-in for both: the state says whether a mailbox or a calendar is signing in.
-    const calendar = (await lookup(provider, q.state))?.kind === 'calendar';
-    const name = calendar ? CALENDAR_NAME[provider] : PROVIDER_NAME[provider];
-    const intro = calendar
-      ? `A stand-in for ${provider === 'google' ? 'Google' : 'Microsoft'}’s sign-in on this development server. No real calendar is touched.`
-      : `A stand-in for ${name}’s sign-in on this development server. No real mailbox is touched.`;
+    // One stand-in for all three: the state says whether a mailbox, a calendar or a review place is
+    // signing in, and only a mailbox and a calendar have an email address to ask for.
+    const kind = (await lookup(provider, q.state))?.kind;
+    const reviewSignIn = kind === 'reviews' && isReviewProvider(provider);
+    const name = reviewSignIn
+      ? REVIEW_NAME[provider]
+      : kind === 'calendar' && isProvider(provider)
+        ? CALENDAR_NAME[provider]
+        : isProvider(provider)
+          ? PROVIDER_NAME[provider]
+          : provider;
+    const intro = reviewSignIn
+      ? `A stand-in for ${name}’s sign-in on this development server. No real page or profile is touched.`
+      : kind === 'calendar'
+        ? `A stand-in for ${provider === 'google' ? 'Google' : 'Microsoft'}’s sign-in on this development server. No real calendar is touched.`
+        : `A stand-in for ${name}’s sign-in on this development server. No real mailbox is touched.`;
     const hidden = (k: string, v: string) =>
       `<input type="hidden" name="${k}" value="${escapeHtml(v)}">`;
-    return reply
-      .type('text/html; charset=utf-8')
-      .send(
-        shell(
-          `Sign in to ${name}`,
-          `<h1 style="font-size: 18px; margin: 0 0 8px;">Sign in to ${name}</h1>` +
-            `<p style="font-size: 14px; line-height: 1.5; color: #5b616a; margin: 0 0 18px;">${intro}</p>` +
-            `<form method="get" action="/oauth/fake/${provider}/approve">` +
-            hidden('state', q.state) +
-            hidden('code_challenge', q.code_challenge) +
-            hidden('redirect_uri', q.redirect_uri) +
-            `<label for="email" style="display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px;">Email address</label>` +
-            `<input id="email" name="email" type="email" required value="owner@${provider === 'microsoft' ? 'outlook' : 'gmail'}.fake" style="width: 100%; box-sizing: border-box; height: 38px; padding: 0 10px; border: 1px solid #c9ced6; border-radius: 8px; font-size: 15px;">` +
-            `<div style="display: flex; gap: 8px; margin-top: 18px;">` +
-            `<button type="submit" name="decision" value="allow" style="height: 36px; padding: 0 16px; border: 0; border-radius: 8px; background: #2d69d8; color: #fff; font-weight: 600;">Allow</button>` +
-            `<button type="submit" name="decision" value="deny" formnovalidate style="height: 36px; padding: 0 16px; border: 1px solid #c9ced6; border-radius: 8px; background: #fff;">Cancel</button>` +
-            `</div></form>`,
-        ),
-      );
+    return reply.type('text/html; charset=utf-8').send(
+      shell(
+        `Sign in to ${name}`,
+        `<h1 style="font-size: 18px; margin: 0 0 8px;">Sign in to ${name}</h1>` +
+          `<p style="font-size: 14px; line-height: 1.5; color: #5b616a; margin: 0 0 18px;">${intro}</p>` +
+          `<form method="get" action="/oauth/fake/${provider}/approve">` +
+          hidden('state', q.state) +
+          hidden('code_challenge', q.code_challenge) +
+          hidden('redirect_uri', q.redirect_uri) +
+          // A review place has no mailbox to name, so the field it would fill in is not asked for.
+          (reviewSignIn
+            ? hidden('email', `reviews@${provider}.fake`)
+            : `<label for="email" style="display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px;">Email address</label>` +
+              `<input id="email" name="email" type="email" required value="owner@${provider === 'microsoft' ? 'outlook' : 'gmail'}.fake" style="width: 100%; box-sizing: border-box; height: 38px; padding: 0 10px; border: 1px solid #c9ced6; border-radius: 8px; font-size: 15px;">`) +
+          `<div style="display: flex; gap: 8px; margin-top: 18px;">` +
+          `<button type="submit" name="decision" value="allow" style="height: 36px; padding: 0 16px; border: 0; border-radius: 8px; background: #2d69d8; color: #fff; font-weight: 600;">Allow</button>` +
+          `<button type="submit" name="decision" value="deny" formnovalidate style="height: 36px; padding: 0 16px; border: 1px solid #c9ced6; border-radius: 8px; background: #fff;">Cancel</button>` +
+          `</div></form>`,
+      ),
+    );
   });
 
   app.get('/oauth/fake/:provider/approve', async (req, reply) => {
     const { provider } = req.params as { provider: string };
     const q = req.query as Record<string, string | undefined>;
     // The fake only ever answers our own callback.
-    if (!isProvider(provider) || !q.state || q.redirect_uri !== callbackUrl(provider))
+    if (
+      (!isProvider(provider) && !isReviewProvider(provider)) ||
+      !q.state ||
+      q.redirect_uri !== callbackUrl(provider)
+    )
       return deadEnd(
         reply,
         400,

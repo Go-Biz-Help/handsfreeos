@@ -4219,6 +4219,80 @@ export const formDays = app.table(
   (t) => [primaryKey({ columns: [t.formId, t.day] })],
 );
 
+// ---------- what customers said in public (M16) ----------
+
+export const reviewProvider = app.enum('review_provider', ['google', 'facebook']);
+export const reviewConnectionStatus = app.enum('review_connection_status', [
+  'pending',
+  'connected',
+  'needs_attention',
+  'disconnected',
+]);
+/** Facebook has no stars: a recommendation is a yes or a no, and is recorded as what it is. */
+export const reviewSentiment = app.enum('review_sentiment', ['positive', 'negative']);
+
+/** The Google Business Profile or Facebook Page the reviews are read from, and replied to. */
+export const reviewConnections = app.table('review_connections', {
+  id: id(),
+  workspaceId: workspaceRef(),
+  provider: reviewProvider('provider').notNull(),
+  status: reviewConnectionStatus('status').notNull().default('pending'),
+  /** The provider's own id for the place: a Google location, a Facebook page. */
+  externalAccountId: text('external_account_id'),
+  displayName: text('display_name'),
+  /** Where people read the reviews. */
+  publicUrl: text('public_url'),
+  scopes: text('scopes')
+    .array()
+    .notNull()
+    .default(sql`'{}'`),
+  oauthStateHash: text('oauth_state_hash'),
+  oauthStateExpiresAt: ts('oauth_state_expires_at'),
+  pkceVerifierEnc: text('pkce_verifier_enc'),
+  tokenEnc: text('token_enc'),
+  tokenKeyId: text('token_key_id'),
+  tokenExpiresAt: ts('token_expires_at'),
+  /** Reading is polled: neither provider reliably says the moment somebody writes one. */
+  nextSyncAt: ts('next_sync_at'),
+  lastSyncedAt: ts('last_synced_at'),
+  syncCursor: jsonb('sync_cursor').$type<Json>().notNull().default({}),
+  failures: integer('failures').notNull().default(0),
+  lastError: text('last_error'),
+  /** person, revoked, failed, replaced. */
+  disconnectedReason: text('disconnected_reason'),
+  connectedAt: ts('connected_at'),
+  disconnectedAt: ts('disconnected_at'),
+  createdBy: userRef('created_by'),
+  ...timestamps(),
+});
+
+/** One review, as it stands where people read it. */
+export const reviews = app.table('reviews', {
+  id: id(),
+  workspaceId: workspaceRef(),
+  connectionId: uuid('connection_id')
+    .notNull()
+    .references(() => reviewConnections.id, { onDelete: 'cascade' }),
+  provider: reviewProvider('provider').notNull(),
+  externalId: text('external_id').notNull(),
+  authorName: text('author_name'),
+  authorPhotoUrl: text('author_photo_url'),
+  /** Google's stars; null for Facebook, which has none. */
+  rating: smallint('rating'),
+  /** Facebook's thumb; null for Google, where the stars say it. */
+  sentiment: reviewSentiment('sentiment'),
+  body: text('body'),
+  /** Their time, never ours. */
+  postedAt: ts('posted_at').notNull(),
+  sourceUpdatedAt: ts('source_updated_at'),
+  url: text('url'),
+  personId: uuid('person_id').references(() => people.id, { onDelete: 'set null' }),
+  replyBody: text('reply_body'),
+  replyPostedAt: ts('reply_posted_at'),
+  replyBy: userRef('reply_by'),
+  ...timestamps(),
+});
+
 /** A text has no subject line and an email does; everything else about the wording is the same. */
 export const templateChannel = app.enum('template_channel', ['sms', 'email']);
 
@@ -4266,6 +4340,8 @@ export const customFields = app.table('custom_fields', {
 });
 
 export const tables = {
+  reviewConnections,
+  reviews,
   messageTemplates,
   forms,
   formVersions,

@@ -3897,6 +3897,86 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/review_connection.connect": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start connecting a Google Business Profile or a Facebook Page, so the reviews people leave show here and can be answered from here. Returns a one-time state; the browser signs in through the worker.
+         * @description Risk level 2. Requires reviews.manage. Emits review_connection.connect_started.
+         */
+        post: operations["command_review_connection_connect"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/review_connection.disconnect": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Stop reading reviews from this place. HandsFreeOS forgets the sign-in; the reviews already here stay, and so does every one of them on Google or Facebook.
+         * @description Risk level 2. Requires reviews.manage. Emits review_connection.disconnected.
+         */
+        post: operations["command_review_connection_disconnect"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/review_connection.sync_now": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Ask this place for new reviews now, instead of waiting for the next hourly read.
+         * @description Risk level 1. Requires reviews.manage. Emits review_connection.sync_requested.
+         */
+        post: operations["command_review_connection_sync_now"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/review.reply": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Answer a review where people will read it. The words are kept here first and posted after, so a provider having a bad morning delays the answer rather than losing it.
+         * @description Risk level 2. Requires reviews.manage. Emits review.replied.
+         */
+        post: operations["command_review_reply"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/schedule.set": {
         parameters: {
             query?: never;
@@ -7231,6 +7311,26 @@ export interface paths {
          * @description Requires workspace.read.
          */
         post: operations["query_resource_list"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/review.list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reviews from the connected Google Business Profile and Facebook Page, newest first, with what the whole of it looks like and which ones nobody has answered.
+         * @description Requires records.read.
+         */
+        post: operations["query_review_list"];
         delete?: never;
         options?: never;
         head?: never;
@@ -16464,6 +16564,136 @@ export interface operations {
                         /** Format: uuid */
                         resourceId: string;
                         updated: string[];
+                    };
+                };
+            };
+        };
+    };
+    command_review_connection_connect: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {string} */
+                    provider: "google" | "facebook";
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        connectionId: string;
+                        state: string;
+                    };
+                };
+            };
+        };
+    };
+    command_review_connection_disconnect: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    connectionId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        connectionId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_review_connection_sync_now: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    connectionId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        connectionId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_review_reply: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    body: string;
+                    /** Format: uuid */
+                    reviewId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        reviewId: string;
                     };
                 };
             };
@@ -27031,6 +27261,79 @@ export interface operations {
                             name: string;
                             quantity: number;
                         }[];
+                    };
+                };
+            };
+        };
+    };
+    query_review_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: date-time */
+                    before?: string;
+                    /** @default 50 */
+                    limit?: number;
+                    /** @enum {string} */
+                    provider?: "google" | "facebook";
+                    /** @default false */
+                    unansweredOnly?: boolean;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        connections: {
+                            displayName: string | null;
+                            /** Format: uuid */
+                            id: string;
+                            lastError: string | null;
+                            lastSyncedAt: string | null;
+                            /** @enum {string} */
+                            provider: "google" | "facebook";
+                            publicUrl: string | null;
+                            /** @enum {string} */
+                            status: "pending" | "connected" | "needs_attention" | "disconnected";
+                        }[];
+                        reviews: {
+                            authorName: string | null;
+                            authorPhotoUrl: string | null;
+                            body: string | null;
+                            canReply: boolean;
+                            /** Format: uuid */
+                            id: string;
+                            personId: string | null;
+                            /** Format: date-time */
+                            postedAt: string;
+                            /** @enum {string} */
+                            provider: "google" | "facebook";
+                            rating: number | null;
+                            replyBody: string | null;
+                            replyPostedAt: string | null;
+                            sentiment: ("positive" | "negative") | null;
+                            url: string | null;
+                        }[];
+                        summary: {
+                            averageRating: number | null;
+                            notRecommended: number;
+                            recommended: number;
+                            total: number;
+                            unanswered: number;
+                        };
                     };
                 };
             };
