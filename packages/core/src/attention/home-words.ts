@@ -484,6 +484,12 @@ export function handleButtonOf(
 ): { label: string; icon: HandleIcon } {
   const first = firstNameOr(itemCustomerOf(item));
   const email = item.reach === 'email';
+  // A card that has taken on a customer's wait answers it first, whatever kind of card it is. Since lead
+  // intake (M14) a stranger who texts is a lead straight away, so the wait arrives folded into that lead's
+  // card (attention/folding.ts) — and a card offering "Set next action" to somebody who is sitting there
+  // waiting for an answer is the opposite of what the Action Center is for.
+  if (item.conversationId && item.reasons.some((r) => r.code === 'waiting'))
+    return { label: 'Reply', icon: email ? 'mail' : 'send' };
   switch (item.kind) {
     case 'hot_lead':
       return callsAvailable && item.personId

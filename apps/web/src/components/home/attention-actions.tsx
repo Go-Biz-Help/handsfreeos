@@ -259,6 +259,10 @@ export function useItemActions(o: {
 
     return {
       handle(item) {
+        // The wait comes first: a card carrying a customer's waiting chip opens that conversation, whatever
+        // kind the card is (see handleButtonOf, which words the button the same way).
+        if (item.conversationId && item.reasons.some((r) => r.code === 'waiting'))
+          return router.push(reachOf(item));
         switch (item.kind) {
           case 'hot_lead':
             if (callsAvailable && item.personId) return void withBusy(item.id, () => call(item));
