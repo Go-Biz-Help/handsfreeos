@@ -2602,7 +2602,7 @@ The migration creates `hfos_sync` without a password, so nothing can sign in as 
 
    You should see `5` or more. The sync service uses one slot, and a second for a few minutes whenever a changed sync config copies everything (see "Every sync config change copies everything"). So at least two must be free.
 
-5. Check how long Auth's access tokens last. In the Supabase dashboard, search for "JWT expiry" (in current dashboards: **Project Settings** → **JWT Keys** → **Access token expiry time**).
+5. Check how long Auth's access tokens last, on the project's **Authentication** → **Sessions** page: `https://supabase.com/dashboard/project/ybupfghakoszfcxhyrby/auth/sessions`, under **Access token (JWT) expiry time**. It is not on the **JWT Keys** page, which is about signing keys.
 
    You should see `3600` seconds. Leave it at 3600 or less. The sync service refuses tokens more than an hour old, so a longer lifetime would stop phones syncing an hour after they sign in.
 
@@ -8070,16 +8070,16 @@ You need:
 
 Metro, which packages the app, replaces every `process.env.EXPO_PUBLIC_…` it can see with the value that was set **when the build ran**, and writes the result into the bundle. There is no configuration file on the phone and nothing is fetched at startup: a build points where it pointed the day it was made, for good.
 
-| Name                                   | Required                                | What it is                                                 | Its value                                             |
-| -------------------------------------- | --------------------------------------- | ---------------------------------------------------------- | ----------------------------------------------------- |
-| `EXPO_PUBLIC_SUPABASE_URL`             | Yes                                     | Supabase, for signing in                                   | `https://ybupfghakoszfcxhyrby.supabase.co`            |
-| `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Yes                                     | That project's publishable key                             | The `sb_publishable_…` key from the Supabase dashboard |
-| `EXPO_PUBLIC_API_URL`                  | Yes                                     | The API, which every change the phone makes goes to        | `https://api.handsfreeos.com`                          |
-| `EXPO_PUBLIC_SYNC_URL`                 | Yes                                     | The sync service, which fills the phone's copy             | `https://sync.handsfreeos.com`                         |
-| `EXPO_PUBLIC_WEB_URL`                  | No, but set it                          | The web app, for the pages the phone links out to          | `https://app.handsfreeos.com` (also the default)       |
-| `EXPO_PUBLIC_WORKER_URL`               | No                                      | Test builds only: the stand-in push service's test routes  | Leave unset                                            |
-| `EXPO_PUBLIC_PASSKEYS_ENABLED`         | No                                      | Shows passkey sign-in                                      | Leave unset until passkeys work                        |
-| `EXPO_PUBLIC_E2E`                      | No                                      | Builds for the Maestro flows                               | Leave unset                                            |
+| Name                                   | Required       | What it is                                                | Its value                                              |
+| -------------------------------------- | -------------- | --------------------------------------------------------- | ------------------------------------------------------ |
+| `EXPO_PUBLIC_SUPABASE_URL`             | Yes            | Supabase, for signing in                                  | `https://ybupfghakoszfcxhyrby.supabase.co`             |
+| `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Yes            | That project's publishable key                            | The `sb_publishable_…` key from the Supabase dashboard |
+| `EXPO_PUBLIC_API_URL`                  | Yes            | The API, which every change the phone makes goes to       | `https://api.handsfreeos.com`                          |
+| `EXPO_PUBLIC_SYNC_URL`                 | Yes            | The sync service, which fills the phone's copy            | `https://sync.handsfreeos.com`                         |
+| `EXPO_PUBLIC_WEB_URL`                  | No, but set it | The web app, for the pages the phone links out to         | `https://app.handsfreeos.com` (also the default)       |
+| `EXPO_PUBLIC_WORKER_URL`               | No             | Test builds only: the stand-in push service's test routes | Leave unset                                            |
+| `EXPO_PUBLIC_PASSKEYS_ENABLED`         | No             | Shows passkey sign-in                                     | Leave unset until passkeys work                        |
+| `EXPO_PUBLIC_E2E`                      | No             | Builds for the Maestro flows                              | Leave unset                                            |
 
 The first four are the ones `isConfigured()` checks (`apps/mobile/src/lib/config.ts`). With any one of them empty the app opens on **"This build isn't connected"** and goes no further. Every one of these ends up readable inside the app on anyone's phone, so a secret must never be among them — that is what `EXPO_PUBLIC_` means.
 
