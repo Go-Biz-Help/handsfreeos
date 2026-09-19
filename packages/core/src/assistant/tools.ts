@@ -1141,6 +1141,80 @@ export const assistantTools = [
     autonomy: 'confirm',
     permission: 'records.write',
   }),
+  // ---------- forms, surveys and quizzes (M15) ----------
+  define({
+    name: 'list_forms',
+    description:
+      'The business’s forms, surveys and quizzes: what each one is, whether it is taking answers, its public link and how many people have answered.',
+    input: z.object({
+      status: z.enum(['draft', 'live', 'closed']).optional(),
+      mode: z.enum(['form', 'survey', 'quiz']).optional(),
+    }),
+    autonomy: 'auto',
+    permission: 'workspace.read',
+  }),
+  define({
+    name: 'get_form',
+    description:
+      'One form in full: every question with its id, what each one asks, where its answers go, and anything that still needs fixing before it can go out.',
+    input: z.object({ formId: uuid }),
+    autonomy: 'auto',
+    permission: 'workspace.read',
+  }),
+  define({
+    name: 'form_results',
+    description:
+      'What people answered: a count per choice, an average for ratings and numbers, the most recent written answers, and for a quiz how people scored.',
+    input: z.object({ formId: uuid }),
+    autonomy: 'auto',
+    permission: 'workspace.read',
+  }),
+  define({
+    name: 'build_form',
+    description:
+      'Build a form, survey or quiz from the person’s words, or change one they name (formId). It saves a draft only — nothing a customer sees changes until it is published, which is a separate step they agree to. Put everything they asked for in the description.',
+    input: z.object({
+      description: text(2000).describe('What it should ask, or what to change, in their words'),
+      formId: uuid.optional().describe('The form to change; leave it out to start a new one'),
+      name: z
+        .string()
+        .trim()
+        .min(1)
+        .max(120)
+        .optional()
+        .describe('A short name for a new form'),
+      mode: z
+        .enum(['form', 'survey', 'quiz'])
+        .optional()
+        .describe('A new one: which of the three it is (default: form)'),
+    }),
+    autonomy: 'auto',
+    permission: 'forms.manage',
+  }),
+  define({
+    name: 'publish_form',
+    description:
+      'Publish a form so customers can fill it in, or stop it taking answers. This is what changes what the public sees, so it waits for the person’s OK.',
+    input: z.object({
+      formId: uuid,
+      action: z.enum(['publish', 'close', 'reopen']),
+    }),
+    autonomy: 'confirm',
+    permission: 'forms.manage',
+  }),
+  define({
+    name: 'send_form',
+    description:
+      'Text or email a customer the link to a form (an intake form, a review request, a feedback survey). The form must be taking answers.',
+    input: z.object({
+      formId: uuid,
+      personId: uuid,
+      channel: z.enum(['sms', 'email']).default('sms'),
+      message: text(600).describe('What to say with the link, in the business’s voice'),
+    }),
+    autonomy: 'confirm',
+    permission: 'records.write',
+  }),
 ] as const;
 
 export type AssistantToolName = (typeof assistantTools)[number]['name'];

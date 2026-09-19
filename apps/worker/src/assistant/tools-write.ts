@@ -17,6 +17,7 @@ import { settingsChannelConfirmTools } from './tools-settings-channels';
 import { settingsMeConfirmTools } from './tools-settings-me';
 import { settingsMoneyConfirmTools } from './tools-settings-money';
 import { settingsCalendarConfirmTools } from './tools-settings-calendar';
+import { formAutoTools, formConfirmTools, type FormToolDeps } from './tools-forms';
 import { workflowAutoTools, workflowConfirmTools, type WorkflowToolDeps } from './tools-workflow';
 
 /** The same choices as the pipeline's lost-reason dialog (apps/web/src/components/pipeline/lost-reason-dialog.tsx). */
@@ -794,6 +795,7 @@ const confirmTools: Record<string, ConfirmTool> = {
   update_lead: updateLead,
   ...calendarConfirmTools,
   ...workflowConfirmTools,
+  ...formConfirmTools,
   ...attentionConfirmTools,
   ...moneyConfirmTools,
   ...settingsCalendarConfirmTools,
@@ -811,12 +813,14 @@ export const executorFor = (name: string) =>
   attentionAutoTools[name] ??
   moneyReadTools[name] ??
   workflowAutoTools[name] ??
+  formAutoTools[name] ??
   confirmTools[name];
 
 /** `workflows`: the model drafting workflows talks to (without it, draft_workflow says the AI isn't set up). */
 export function createToolExecutor(
   db: Db,
   workflows: WorkflowToolDeps | null = null,
+  forms: FormToolDeps | null = null,
 ): ToolExecutor {
   return {
     async run(tool: AssistantTool, args: Args, ctx: ToolContext) {
@@ -827,6 +831,8 @@ export function createToolExecutor(
         attentionAutoTools[tool.name] ??
         moneyReadTools[tool.name];
       if (run) return run(db, ctx, args);
+      const form = formAutoTools[tool.name];
+      if (form) return form(db, ctx, args, forms ?? (workflows as FormToolDeps | null));
       const flow = workflowAutoTools[tool.name];
       if (!flow) throw new Error(`No executor for ${tool.name}`);
       return flow(db, ctx, args, workflows);
