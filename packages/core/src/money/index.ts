@@ -5,6 +5,7 @@
  */
 export * from './totals';
 export * from './rates';
+export * from './usage-keys';
 export * from './format';
 export * from './status';
 export * from './numbering';

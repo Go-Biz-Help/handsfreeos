@@ -4111,6 +4111,115 @@ export const usageRates = platform.table('usage_rates', {
   ...timestamps(),
 });
 
+// ---- The usage wallet (M16) ----
+// What a business has spent on texts, calls, numbers and AI, and the card that keeps it in funds. Usage only:
+// nothing here is a plan or a subscription, and app.payments is a different thing entirely (that table is the
+// business's own customers paying *them*).
+
+export const usageEntryKind = app.enum('usage_entry_kind', [
+  'spend',
+  'topup',
+  'adjustment',
+  'credit',
+  'refund',
+]);
+export const usageCostSource = app.enum('usage_cost_source', [
+  'rate_card',
+  'provider',
+  'reconciled',
+]);
+export const walletRechargeStatus = app.enum('wallet_recharge_status', [
+  'pending',
+  'succeeded',
+  'failed',
+  'cancelled',
+]);
+
+/**
+ * One business's balance and how it keeps it topped up. `balanceCents` is written **only** by
+ * private.usage_wallet_apply() and is the one money column in the repo that may go negative: inbound calls and
+ * texts arrive whether or not there is money, and the carrier has already billed us by then.
+ */
+export const usageWallets = app.table('usage_wallets', {
+  workspaceId: uuid('workspace_id')
+    .primaryKey()
+    .references(() => workspaces.id, { onDelete: 'cascade' }),
+  organizationId: orgRef(),
+  balanceCents: bigint('balance_cents', { mode: 'number' }).notNull().default(0),
+  autoTopup: boolean('auto_topup').notNull().default(true),
+  floorCents: bigint('floor_cents', { mode: 'number' }).notNull().default(1000),
+  topupCents: bigint('topup_cents', { mode: 'number' }).notNull().default(2500),
+  overdraftCents: bigint('overdraft_cents', { mode: 'number' }).notNull().default(1000),
+  provider: paymentProvider('provider'),
+  customerRef: text('customer_ref'),
+  methodToken: text('method_token'),
+  cardBrand: text('card_brand'),
+  cardLast4: text('card_last4'),
+  cardExpiryMonth: smallint('card_expiry_month'),
+  cardExpiryYear: smallint('card_expiry_year'),
+  cardRequestedAt: ts('card_requested_at'),
+  rechargesInWindow: integer('recharges_in_window').notNull().default(0),
+  windowStartedAt: ts('window_started_at'),
+  escalationStep: integer('escalation_step').notNull().default(0),
+  lastRechargeAt: ts('last_recharge_at'),
+  declinesInRow: integer('declines_in_row').notNull().default(0),
+  pausedUntil: ts('paused_until'),
+  suspendedAt: ts('suspended_at'),
+  suspendedReason: text('suspended_reason'),
+  lowWarnedAt: ts('low_warned_at'),
+  warnFingerprint: text('warn_fingerprint'),
+  ...timestamps(),
+});
+
+/** Append-only. Every charge and every top-up, with what it was priced from and what was left after it. */
+export const usageLedger = app.table('usage_ledger', {
+  id: id(),
+  workspaceId: workspaceRef(),
+  organizationId: orgRef(),
+  kind: usageEntryKind('kind').notNull(),
+  /** Signed: negative is spend, positive is money in. Never zero. */
+  amountCents: bigint('amount_cents', { mode: 'number' }).notNull(),
+  balanceAfterCents: bigint('balance_after_cents', { mode: 'number' }).notNull().default(0),
+  costCents: bigint('cost_cents', { mode: 'number' }),
+  markupBp: integer('markup_bp'),
+  rateCardVersion: integer('rate_card_version'),
+  rateKey: text('rate_key'),
+  quantity: numeric('quantity'),
+  unit: usageUnit('unit'),
+  costSource: usageCostSource('cost_source'),
+  subject: text('subject').notNull().default(''),
+  entityType: text('entity_type'),
+  entityId: uuid('entity_id'),
+  providerRef: text('provider_ref'),
+  /** Derived from the provider's own immutable id, so one event is counted once however often it is reported. */
+  idempotencyKey: text('idempotency_key').notNull(),
+  correctsId: uuid('corrects_id').references((): AnyPgColumn => usageLedger.id, {
+    onDelete: 'set null',
+  }),
+  meta: jsonb('meta').notNull().default({}),
+  occurredAt: ts('occurred_at').notNull().defaultNow(),
+  createdAt: ts('created_at').notNull().defaultNow(),
+});
+
+/** One charge of the card. Written pending, called by a job, and recorded by a second command. */
+export const walletRecharges = app.table('wallet_recharges', {
+  id: id(),
+  workspaceId: workspaceRef(),
+  organizationId: orgRef(),
+  amountCents: bigint('amount_cents', { mode: 'number' }).notNull(),
+  status: walletRechargeStatus('status').notNull().default('pending'),
+  escalationStep: integer('escalation_step').notNull().default(0),
+  requestedBy: userRef('requested_by'),
+  provider: paymentProvider('provider'),
+  providerPaymentId: text('provider_payment_id'),
+  failureCode: text('failure_code'),
+  failureMessage: text('failure_message'),
+  idempotencyKey: text('idempotency_key'),
+  ledgerEntryId: uuid('ledger_entry_id').references(() => usageLedger.id, { onDelete: 'set null' }),
+  succeededAt: ts('succeeded_at'),
+  ...timestamps(),
+});
+
 // ---- Forms, surveys and quizzes (M15) ----
 
 export const formMode = app.enum('form_mode', ['form', 'survey', 'quiz']);
@@ -4402,6 +4511,9 @@ export const tables = {
   cannedReplies,
   viewAsSessions,
   usageRates,
+  usageWallets,
+  usageLedger,
+  walletRecharges,
 
   migrationConnections,
   migrations,
