@@ -67,6 +67,8 @@ import {
   MigrationRefInput,
   MigrationRetryInput,
   MigrationRetryOutput,
+  MigrationDeleteInput,
+  MigrationDeleteOutput,
   MigrationRollbackInput,
   MigrationScanInput,
   MigrationScanOutput,
@@ -1344,6 +1346,67 @@ export const migrationTaskDone = defineCommand({
 });
 
 /** Everything a migration can be told to do. Registered in one list, as the other milestones are. */
+/**
+ * Taking a move off the list, so it can be run again (M17).
+ *
+ * **The second half of undoing one, and deliberately a separate act.** `migration.rollback` puts back what
+ * it can and *archives* what it made, which is right: somebody who rolled one back by mistake gets it all
+ * back in a click. But archived is not gone, so running the import again leaves the business with two of
+ * everybody — which is the thing that makes a botched move unrecoverable in practice.
+ *
+ * So the order is forced rather than suggested: roll it back, look at what came back, then delete it. The
+ * database refuses any other order (`private.delete_migration` checks the status itself), and it refuses it
+ * whoever asks, because that function is `security definer` and asks its own permission question rather than
+ * trusting this command.
+ *
+ * **A customer with history since is kept**, archived, however plainly the import made them — somebody who
+ * has been texted, booked or billed is not the import's to destroy. The count comes back so the screen can
+ * say how many and why.
+ */
+export const migrationDelete = defineCommand({
+  name: 'migration.delete',
+  description:
+    'Delete a move that has been taken back, so it is off the list and the import can be run again from scratch. Customers with history here are kept.',
+  risk: 4,
+  input: MigrationDeleteInput,
+  output: MigrationDeleteOutput,
+  permission: null,
+  scope: eitherDoor,
+  emits: ['migration.deleted'],
+  async handler(ctx, input) {
+    const access = requireAccess(ctx);
+    const m = await loadMigrationFor(ctx, input.migrationId, access);
+    // Typing the name is the guard a boolean cannot be: this is the one act in the whole feature that ends
+    // with records gone rather than put away.
+    if (input.confirmName.trim() !== m.name.trim())
+      throw HfosError.validation(
+        [{ path: 'confirmName', message: `Type “${m.name}” exactly.` }],
+        'That is not the name of this move.',
+      );
+    if (m.status !== 'rolled_back')
+      throw HfosError.rule(
+        'migration_not_rolled_back',
+        409,
+        'Take this move back first. Deleting it only tidies up what taking it back left behind.',
+      );
+    const [done] = await rows<{ removed: number; kept: number }>(
+      ctx.tx,
+      sql`select * from private.delete_migration(${m.id})`,
+    );
+    // Emitted before the row is gone from the caller's point of view; the entity id outlives the entity, as
+    // it does for every other delete in the kernel.
+    await ctx.emit({
+      type: 'migration.deleted',
+      entityType: 'migration',
+      entityId: m.id,
+      payload: { removed: done?.removed ?? 0, kept: done?.kept ?? 0 },
+      before: { migration: m.name, status: m.status },
+      after: null,
+    });
+    return { removed: Number(done?.removed ?? 0), kept: Number(done?.kept ?? 0) };
+  },
+});
+
 export const migrationCommands = [
   migrationConnect,
   migrationConnectionRename,
@@ -1359,6 +1422,7 @@ export const migrationCommands = [
   migrationExtendTransition,
   migrationFinalize,
   migrationRollback,
+  migrationDelete,
   migrationResolveMerge,
   migrationTaskDone,
 ] as const;

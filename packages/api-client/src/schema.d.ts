@@ -2977,6 +2977,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/migration.delete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Delete a move that has been taken back, so it is off the list and the import can be run again from scratch. Customers with history here are kept.
+         * @description Risk level 4. Emits migration.deleted.
+         */
+        post: operations["command_migration_delete"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/migration.extend_transition": {
         parameters: {
             query?: never;
@@ -15038,6 +15058,40 @@ export interface operations {
                     "application/json": {
                         /** Format: uuid */
                         migrationId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_migration_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    confirmName: string;
+                    /** Format: uuid */
+                    migrationId: string;
+                    /** Format: uuid */
+                    organizationId: string;
+                    workspaceId?: string | null;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        kept: number;
+                        removed: number;
                     };
                 };
             };
