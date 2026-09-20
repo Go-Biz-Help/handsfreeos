@@ -9,7 +9,7 @@
  *     name would get a certificate warning instead of a booking page;
  *   - two businesses could hold the same name, and "which business is this host?" would have two answers.
  */
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { rows, sql } from '../src/client';
 import { workspaceMemberships } from '../src/schema';
 import {
@@ -99,6 +99,18 @@ beforeAll(async () => {
   siteId = await site(ws, `branded-${Math.random().toString(36).slice(2, 8)}`);
   otherSiteId = await site(otherWs, `other-${Math.random().toString(36).slice(2, 8)}`);
 }, 60_000);
+
+/**
+ * One domain per business, cleared between tests.
+ *
+ * `branded_domains.site_id` is unique — that is the feature, not an accident: "which business is this host?"
+ * must have exactly one answer in both directions. This file used to add a domain per test against one
+ * booking site, so every test after the first died on that constraint. The schema was right and the fixture
+ * was wrong.
+ */
+afterEach(async () => {
+  await rows(admin$, sql`delete from app.branded_domains`);
+});
 
 afterAll(closeAll);
 

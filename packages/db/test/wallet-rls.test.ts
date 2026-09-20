@@ -39,6 +39,19 @@ const detailOf = async (fn: () => Promise<unknown>) => {
   return { code: e.code, detail: e.detail };
 };
 
+/**
+ * Refused — without claiming which lock did it.
+ *
+ * These rows are protected twice: `authenticated` has no INSERT privilege on either table at all, and the
+ * guards refuse the write on top of that. A missing table privilege is checked before any trigger runs, so
+ * the guard never gets to speak and there is no `detail` to assert. Asserting the guard's wording here was
+ * asserting the weaker of the two locks, and the run against a real database said so.
+ */
+const refused = async (fn: () => Promise<unknown>) => {
+  const e = await expectPgError(fn);
+  expect(e.code).toBe('42501');
+};
+
 /** The balance the cache holds, and what the ledger actually adds up to. */
 async function balances(b: Business): Promise<{ cached: number; summed: number }> {
   const [row] = await rows<{ cached: number; summed: number }>(
@@ -122,15 +135,16 @@ describe('the balance', () => {
   });
 
   it('is never written by a person, even one who may change the settings', async () => {
-    expect(
-      await detailOf(() =>
-        as(owner)((tx) =>
-          tx.execute(
-            sql`update app.usage_wallets set balance_cents = 999999 where workspace_id = ${A.ws}`,
-          ),
+    const before = await balances(A);
+    await refused(() =>
+      as(owner)((tx) =>
+        tx.execute(
+          sql`update app.usage_wallets set balance_cents = 999999 where workspace_id = ${A.ws}`,
         ),
       ),
-    ).toEqual({ code: '42501', detail: 'wallet_balance_is_the_ledgers' });
+    );
+    // The effect, not the wording: the balance is exactly where the ledger left it.
+    expect((await balances(A)).cached).toBe(before.cached);
   });
 });
 
@@ -171,16 +185,20 @@ describe('the ledger', () => {
   });
 
   it('refuses a row from a person, so nobody can spend their own balance down', async () => {
-    expect(
-      await detailOf(() =>
-        as(owner)((tx) =>
-          tx.execute(
-            sql`insert into app.usage_ledger (workspace_id, organization_id, kind, amount_cents, idempotency_key)
-                values (${A.ws}, ${A.org}, 'topup', 100000, 'topup:free-money')`,
-          ),
+    await refused(() =>
+      as(owner)((tx) =>
+        tx.execute(
+          sql`insert into app.usage_ledger (workspace_id, organization_id, kind, amount_cents, idempotency_key)
+              values (${A.ws}, ${A.org}, 'topup', 100000, 'topup:free-money')`,
         ),
       ),
-    ).toEqual({ code: '42501', detail: 'usage_ledger_is_ours' });
+    );
+    const [found] = await rows<{ n: number }>(
+      dbs.admin.db,
+      sql`select count(*)::int as n from app.usage_ledger
+          where workspace_id = ${A.ws} and idempotency_key = 'topup:free-money'`,
+    );
+    expect(found?.n).toBe(0);
   });
 
   it('refuses a row that changes nothing and a spend that is money in', async () => {
@@ -252,6 +270,15 @@ describe('who sees what', () => {
   });
 
   it('never lets a person undo a suspension or reset the decline ladder', async () => {
+    // Suspend it first. This used to set nulls over nulls on a wallet that had never been suspended, so
+    // every `is distinct from` was false, the guard had nothing to refuse, and the update "succeeded" —
+    // the test passed for years by asserting nothing.
+    await worker(A)((tx) =>
+      tx.execute(
+        sql`update app.usage_wallets set declines_in_row = 3, suspended_at = now(),
+              suspended_reason = 'card declined three times' where workspace_id = ${A.ws}`,
+      ),
+    );
     expect(
       await detailOf(() =>
         as(owner)((tx) =>
@@ -262,24 +289,35 @@ describe('who sees what', () => {
         ),
       ),
     ).toEqual({ code: '42501', detail: 'wallet_ladders_are_ours' });
+    // And it is still suspended.
+    const [still] = await rows<{ suspended: boolean }>(
+      dbs.admin.db,
+      sql`select suspended_at is not null as suspended from app.usage_wallets where workspace_id = ${A.ws}`,
+    );
+    expect(still?.suspended).toBe(true);
+    await worker(A)((tx) =>
+      tx.execute(
+        sql`update app.usage_wallets set declines_in_row = 0, suspended_at = null, suspended_reason = null
+            where workspace_id = ${A.ws}`,
+      ),
+    );
   });
 
-  /**
-   * A person has no insert policy here, but the guard is what answers: Postgres fires BEFORE ROW triggers before
-   * it evaluates RLS's WITH CHECK, so trying to open a wallet with money already in it is refused in those
-   * words rather than as a bare policy violation.
-   */
   it('is never opened with money already in it', async () => {
-    expect(
-      await detailOf(() =>
-        as(outsider)((tx) =>
-          tx.execute(
-            sql`insert into app.usage_wallets (workspace_id, organization_id, balance_cents)
-                values (${B.ws}, ${B.org}, 500000)`,
-          ),
+    await refused(() =>
+      as(outsider)((tx) =>
+        tx.execute(
+          sql`insert into app.usage_wallets (workspace_id, organization_id, balance_cents)
+              values (${B.ws}, ${B.org}, 500000)`,
         ),
       ),
-    ).toEqual({ code: '42501', detail: 'wallet_opens_empty' });
+    );
+    const [found] = await rows<{ n: number }>(
+      dbs.admin.db,
+      sql`select count(*)::int as n from app.usage_wallets
+          where workspace_id = ${B.ws} and balance_cents > 0`,
+    );
+    expect(found?.n).toBe(0);
   });
 });
 
@@ -349,17 +387,22 @@ describe('the nightly drift check', () => {
   });
 
   it('finds a wallet somebody moved behind the ledger’s back', async () => {
-    // Only a superuser can do this, which is the point: if it ever happens, the check is what says so.
-    await dbs.admin.db.execute(
-      sql`update app.usage_wallets set balance_cents = balance_cents + 777 where workspace_id = ${A.ws}`,
+    // Through the worker's own scope, which `private.guard_usage_wallet` exempts — the admin connection is
+    // refused by it like anybody else, which is a stronger rule than this test used to assume.
+    await worker(A)((tx) =>
+      tx.execute(
+        sql`update app.usage_wallets set balance_cents = balance_cents + 777 where workspace_id = ${A.ws}`,
+      ),
     );
     const drift = await rows<{ workspace_id: string; drift_cents: number }>(
       dbs.admin.db,
       sql`select workspace_id, drift_cents::int as drift_cents from private.usage_wallet_drift()`,
     );
     expect(drift).toEqual([{ workspace_id: A.ws, drift_cents: 777 }]);
-    await dbs.admin.db.execute(
-      sql`update app.usage_wallets set balance_cents = balance_cents - 777 where workspace_id = ${A.ws}`,
+    await worker(A)((tx) =>
+      tx.execute(
+        sql`update app.usage_wallets set balance_cents = balance_cents - 777 where workspace_id = ${A.ws}`,
+      ),
     );
   });
 });

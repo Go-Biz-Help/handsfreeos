@@ -46,8 +46,11 @@ async function aMove(status: string): Promise<{ migrationId: string; personId: s
   const [scope] = await worker((tx) =>
     rows<{ id: string }>(
       tx,
-      sql`insert into app.migration_scopes (migration_id, organization_id, workspace_id, source_location_id, name, selected)
-          values (${migrationId}, ${org}, ${ws}, 'loc_1', 'Lone Star', true) returning id`,
+      // `external_scope_id` — the source's own id for the sub-account. There is no `source_location_id`;
+      // this fixture invented one and every test in the file died on it.
+      sql`insert into app.migration_scopes (migration_id, organization_id, workspace_id, external_scope_id, name, selected)
+          values (${migrationId}, ${org}, ${ws}, ${'loc_' + Math.random().toString(36).slice(2, 10)}, 'Lone Star', true)
+          returning id`,
     ),
   );
   const [person] = await worker((tx) =>

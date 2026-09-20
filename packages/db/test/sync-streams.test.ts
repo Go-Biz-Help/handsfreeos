@@ -195,14 +195,30 @@ describe('every stream query, for each kind of person', () => {
     return reader;
   };
 
+  /**
+   * The four me_v1 arms that carry a member's own threads when a business turns per-person inbox visibility
+   * on (0081). With it off — which is the default, and what the seed has — `member_viewer_ids` is empty on
+   * every row and these correctly send nothing; business_v1 carries the whole inbox instead.
+   *
+   * So they are asserted **empty** rather than skipped. If one of them ever starts sending rows while no
+   * business has opted in, that is a member's phone being handed threads on the strength of a list that
+   * should not exist yet, and this is where it shows up.
+   */
+  const EMPTY_WHILE_EVERYONE_SEES_EVERYTHING = new Set([
+    'me_v1.conversations',
+    'me_v1.messages',
+    'me_v1.calls',
+    'me_v1.attention_items',
+  ]);
+
   for (const q of queries.filter((x) => !x.cte))
     it(`${q.stream} ${q.output}`, async () => {
       for (const [who, user] of people())
         expect(await readableBy(q, user), `${who}: ${q.text}`).toEqual(await sentTo(q, user));
-      expect(
-        (await sentTo(q, readerOf(q.stream))).length,
-        `${q.stream} ${q.output} is empty`,
-      ).toBeGreaterThan(0);
+      const sent = (await sentTo(q, readerOf(q.stream))).length;
+      if (EMPTY_WHILE_EVERYONE_SEES_EVERYTHING.has(`${q.stream}.${q.output}`))
+        expect(sent, `${q.stream} ${q.output} sends nothing until a business opts in`).toBe(0);
+      else expect(sent, `${q.stream} ${q.output} is empty`).toBeGreaterThan(0);
     });
 });
 

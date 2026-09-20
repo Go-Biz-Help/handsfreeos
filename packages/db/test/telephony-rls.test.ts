@@ -147,16 +147,43 @@ describe('phone numbers', () => {
     expect(row!.routing.ringSeconds).toBe(20);
   });
 
-  it('a workspace has one live number at a time', async () => {
-    const second = await expectPgError(() =>
-      as(admin)((tx) =>
+  /**
+   * This used to assert the opposite — `phone_numbers_one_live_per_workspace`, one number per business.
+   * 0077 dropped that index on purpose: a second location, a dispatch line or a toll-free beside a local one
+   * are all ordinary. What stays is `phone_numbers_live_e164`, and the two look alike and mean opposite
+   * things: the one that went said "a business has one number", the one that stays says "a live number
+   * belongs to one business" — which is how `private.phone_route()` can look a number up and expect one row.
+   */
+  it('lets one business hold several numbers', async () => {
+    const added = await as(admin)((tx) =>
+      rows(
+        tx,
+        sql`insert into app.phone_numbers (workspace_id, e164, number_type, created_by)
+            values (${wsA}, ${randomE164()}, 'local', ${admin.id}) returning id`,
+      ),
+    );
+    expect(added).toHaveLength(1);
+  });
+
+  it('still lets a live number belong to only one business', async () => {
+    const shared = randomE164();
+    await as(admin)((tx) =>
+      rows(
+        tx,
+        sql`insert into app.phone_numbers (workspace_id, e164, number_type, created_by)
+            values (${wsA}, ${shared}, 'local', ${admin.id})`,
+      ),
+    );
+    const taken = await expectPgError(() =>
+      as(outsider)((tx) =>
         rows(
           tx,
-          sql`insert into app.phone_numbers (workspace_id, e164, number_type, created_by) values (${wsA}, ${randomE164()}, 'local', ${admin.id})`,
+          sql`insert into app.phone_numbers (workspace_id, e164, number_type, created_by)
+              values (${wsB}, ${shared}, 'local', ${outsider.id})`,
         ),
       ),
     );
-    expect(second.code).toBe('23505');
+    expect(taken.code).toBe('23505');
   });
 
   it('people change routing and start a release; provider fields and other transitions are the worker’s', async () => {
@@ -174,12 +201,22 @@ describe('phone numbers', () => {
       ),
     );
     expect(provider.detail).toBe('phone_number_provider_fields');
-    const early = await expectPgError(() =>
-      as(owner)((tx) =>
-        rows(tx, sql`update app.phone_numbers set status = 'releasing' where id = ${numberId}`),
+    // 0073 made this allowed on purpose (item 1.1): a purchase the worker never finished used to hold the
+    // workspace's only live slot for good, with no way out of Settings. This asserted the old refusal.
+    const early = await as(owner)((tx) =>
+      rows(
+        tx,
+        sql`update app.phone_numbers set status = 'releasing' where id = ${numberId} returning id`,
       ),
     );
-    expect(early.detail).toBe('phone_number_status_transition');
+    expect(early).toHaveLength(1);
+    // What is still refused: finishing the release. Only the worker says a number has actually gone back.
+    const finished = await expectPgError(() =>
+      as(owner)((tx) =>
+        rows(tx, sql`update app.phone_numbers set status = 'released' where id = ${numberId}`),
+      ),
+    );
+    expect(finished.detail).toBe('phone_number_status_transition');
     await worker(
       wsA,
       orgA,

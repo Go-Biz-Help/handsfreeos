@@ -67,18 +67,30 @@ async function inStep(): Promise<void> {
   ).toEqual([]);
 }
 
+/**
+ * Flip the switch the way anything other than the command would — a raw settings write.
+ *
+ * **Merged with `||`, not `jsonb_set`.** A workspace's `settings` starts as `'{}'`, and `jsonb_set` does not
+ * create intermediate objects: `jsonb_set('{}', '{inbox,perPerson}', 'true')` returns `'{}'` unchanged. This
+ * file used to do exactly that, so the switch was never actually on and all six of these tests were asserting
+ * against a business that had never opted in.
+ */
 const setPerPerson = (on: boolean) =>
   rows(
     admin$,
-    sql`update app.workspaces set settings = jsonb_set(coalesce(settings, '{}'::jsonb), '{inbox,perPerson}', ${on}::text::jsonb, true)
+    sql`update app.workspaces
+        set settings = coalesce(settings, '{}'::jsonb) || jsonb_build_object('inbox',
+              coalesce(settings -> 'inbox', '{}'::jsonb) || jsonb_build_object('perPerson', ${on}::boolean))
         where id = ${ws}`,
   );
 
-/** What the command does after writing the setting; done here so the test drives the database, not the kernel. */
-const repaint = async () => {
-  await rows(admin$, sql`select private.inbox_repaint_access(${ws})`);
-  await rows(admin$, sql`select private.inbox_repaint_workspace(${ws}, 20000)`);
-};
+/**
+ * Nothing: `workspaces_inbox_switch` repaints inside the write above.
+ *
+ * Kept as a call site rather than deleted, because "the setting moved and the lists followed, with no command
+ * involved" is the property this file exists to prove.
+ */
+const repaint = async (): Promise<void> => {};
 
 beforeAll(async () => {
   [owner, admin, dale, marco] = await Promise.all([
