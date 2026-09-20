@@ -364,16 +364,20 @@ describe('a top-up', () => {
   });
 
   it('is never written by a person', async () => {
-    expect(
-      await detailOf(() =>
-        as(owner)((tx) =>
-          tx.execute(
-            sql`insert into app.wallet_recharges (workspace_id, organization_id, amount_cents)
-                values (${A.ws}, ${A.org}, 100000)`,
-          ),
+    await refused(() =>
+      as(owner)((tx) =>
+        tx.execute(
+          sql`insert into app.wallet_recharges (workspace_id, organization_id, amount_cents)
+              values (${A.ws}, ${A.org}, 100000)`,
         ),
       ),
-    ).toEqual({ code: '42501', detail: 'wallet_recharge_is_ours' });
+    );
+    const [found] = await rows<{ n: number }>(
+      dbs.admin.db,
+      sql`select count(*)::int as n from app.wallet_recharges
+          where workspace_id = ${A.ws} and amount_cents = 100000`,
+    );
+    expect(found?.n).toBe(0);
   });
 });
 

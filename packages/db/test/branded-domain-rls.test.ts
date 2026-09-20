@@ -208,7 +208,14 @@ describe('what the host said is the worker’s to write', () => {
         ),
       ),
     );
-    expect(e.code).toBe('42501');
+    // 23514, not 42501: `private.forbid_tenant_column_change` raises a check violation. The name really is
+    // immutable — this asserted the wrong lock.
+    expect(e.code).toBe('23514');
+    const [row] = await rows<{ domain: string }>(
+      admin$,
+      sql`select domain from app.branded_domains where id = ${made!.id}`,
+    );
+    expect(row?.domain).not.toBe('elsewhere.test');
   });
 });
 

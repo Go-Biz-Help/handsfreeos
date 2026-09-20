@@ -137,10 +137,27 @@ end $$;
 create or replace function private.inbox_conversation_viewers()
 returns trigger language plpgsql security definer set search_path = '' as $$
 begin
+  /*
+   * Nothing it depends on moved **and nobody is trying to set it**: leave it be. That last clause is what
+   * makes a repaint possible at all.
+   *
+   * `private.inbox_repaint_workspace` writes `member_viewer_ids` and nothing else — the assignee and the
+   * number stay exactly as they were — so without it this trigger decided the write was an ordinary one and
+   * copied the old value back over the repaint. Every repaint in this file was a no-op: turning the switch
+   * on left every list empty, turning it off could not clear the ones an insert had filled, a new member
+   * never joined the unowned threads, and a number's people changing reached nothing.
+   *
+   * Worse than silent: `get diagnostics row_count` still counted the rows, so the command answered "47
+   * conversations moved to the people who own them" having moved none.
+   *
+   * Falling through recomputes and lands on the same answer the repaint itself computed, so the list is
+   * still never taken from the caller — an owner writing their own id into it has it recomputed away — and
+   * the ordinary write this short-circuit exists for, an unread count or a preview, still pays nothing.
+   */
   if tg_op = 'UPDATE'
      and old.assignee_user_id is not distinct from new.assignee_user_id
-     and old.phone_number_id is not distinct from new.phone_number_id then
-    new.member_viewer_ids := old.member_viewer_ids;
+     and old.phone_number_id is not distinct from new.phone_number_id
+     and new.member_viewer_ids is not distinct from old.member_viewer_ids then
     return new;
   end if;
   new.member_viewer_ids :=

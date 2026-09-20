@@ -18,6 +18,7 @@ import {
   closeAll,
   createTestUser,
   dbs,
+  expectPgError,
   type TestUser,
 } from './harness';
 
@@ -103,7 +104,11 @@ afterAll(closeAll);
 describe('the order is forced, not suggested', () => {
   it('refuses a move that has not been taken back', async () => {
     const { migrationId } = await aMove('completed');
-    await expect(remove(migrationId, owner)).rejects.toThrow(/take the migration back/i);
+    // `expectPgError`, not `rejects.toThrow`: Drizzle wraps the Postgres error as "Failed query: …", so a
+    // match against the function's own words never sees them.
+    expect((await expectPgError(() => remove(migrationId, owner))).message).toMatch(
+      /take the migration back/i,
+    );
     // And it is still there.
     const [still] = await rows<{ n: number }>(
       admin$,
@@ -116,7 +121,9 @@ describe('the order is forced, not suggested', () => {
 describe('it asks its own permission question', () => {
   it('refuses somebody who does not manage migrations, definer or not', async () => {
     const { migrationId } = await aMove('rolled_back');
-    await expect(remove(migrationId, outsider)).rejects.toThrow(/manage migrations/i);
+    expect((await expectPgError(() => remove(migrationId, outsider))).message).toMatch(
+      /manage migrations/i,
+    );
   });
 });
 
