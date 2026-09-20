@@ -188,6 +188,25 @@ export function latestByKind<T extends { kind: string }>(regs: readonly T[]): Ma
  * Whether the carrier has this registration's current details: sent, and not sent again by people since. A row
  * waiting in `submitted` without them is still the worker's to send, and people may still change it.
  */
+/**
+ * Whether the carrier has *this* version of a port: sent, and not sent again by people since.
+ *
+ * The twin of `carrierHasDetails`, and needed for the same reason. A person cannot clear `provider_sid` — the
+ * port guard forbids it on every transition, Send included — so a port the carrier turned down still carries
+ * the dead request's reference. Without this the worker sees a sid, believes the carrier already has it, and
+ * the corrected account number never leaves the building.
+ */
+export function carrierHasPort(port: {
+  providerSid: string | null;
+  submittedAt: Date | null;
+  carrierSubmittedAt: Date | null;
+}): boolean {
+  return (
+    !!port.providerSid &&
+    (port.carrierSubmittedAt?.getTime() ?? null) === (port.submittedAt?.getTime() ?? null)
+  );
+}
+
 export function carrierHasDetails(reg: {
   providerSid: string | null;
   submittedAt: Date | null;

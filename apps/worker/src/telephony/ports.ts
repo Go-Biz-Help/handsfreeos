@@ -19,18 +19,19 @@
  *   there is no incoming-number row to configure; the messaging service is the whole arrangement.
  */
 import {
+  carrierHasPort,
   executeCommand,
   numberPortComplete,
   numberPortRecordState,
   scheduleJob,
   type NumberPortStatus,
 } from '@hfos/core/server';
-import { asWorker } from '@hfos/db/client';
+import { asWorker, sql } from '@hfos/db/client';
 import { eq } from 'drizzle-orm';
 import { numberPorts } from '@hfos/db/schema';
 import type { EventHandler } from '../handlers/types';
 import type { JobHandler, JobMap } from '../jobs';
-import { errorMessage } from '../outbox';
+import { errorMessage, MAX_ATTEMPTS } from '../outbox';
 import {
   systemActor,
   tenantOf,
@@ -46,9 +47,6 @@ export const PORT_JOBS = {
   poll: 'port.poll',
   cancel: 'port.cancel',
 } as const;
-
-/** How often to ask the carrier about a port. Slower than a registration: these take weeks, not hours. */
-const POLL_MS = 6 * 60 * 60_000;
 
 /** The statuses that mean the carrier still has it and an answer is still coming. */
 const IN_FLIGHT: ReadonlySet<NumberPortStatus> = new Set<NumberPortStatus>([
@@ -76,12 +74,21 @@ async function readPort(
   );
 }
 
+/**
+ * What the carrier said, or did not. `providerSid` is nullable here where `PortState`'s is not: the two
+ * writes that mean "the carrier has nothing of ours" have no sid to give, and `number_port.record_state`
+ * writes that column only when it is truthy, so null leaves whatever is there alone.
+ */
+type Recorded = Omit<PortState, 'providerSid'> & { readonly providerSid: string | null };
+
 /** Writes what the carrier said, through the command so the guard and the audit trail both see it. */
 async function record(
   services: WorkerServices,
   scope: TenantScope,
   port: PortRow,
-  state: PortState,
+  state: Recorded,
+  /** Set when this write is the submission itself: which version of the port the carrier now holds. */
+  carrierSubmittedAt?: Date | null,
 ): Promise<void> {
   const stillGoing = IN_FLIGHT.has(state.status as NumberPortStatus);
   await executeCommand(
@@ -95,7 +102,10 @@ async function record(
       providerStatus: state.providerStatus,
       rejectionReason: state.rejectionReason,
       scheduledFor: state.scheduledFor,
-      nextPollAt: stillGoing ? new Date(Date.now() + POLL_MS).toISOString() : null,
+      nextPollAt: stillGoing ? new Date(Date.now() + services.portPollMs).toISOString() : null,
+      ...(carrierSubmittedAt !== undefined
+        ? { carrierSubmittedAt: carrierSubmittedAt ? carrierSubmittedAt.toISOString() : null }
+        : {}),
     },
     systemActor(scope),
     workerMeta(),
@@ -106,7 +116,7 @@ async function ensurePoll(
   services: WorkerServices,
   scope: TenantScope,
   portId: string,
-  runAt = new Date(Date.now() + POLL_MS),
+  runAt = new Date(Date.now() + services.portPollMs),
 ): Promise<void> {
   await asWorker(services.db, scope, (tx) =>
     scheduleJob(tx, {
@@ -118,6 +128,97 @@ async function ensurePoll(
       organizationId: scope.organizationId,
     }),
   );
+}
+
+/** What a business is told when the carrier could not be reached at all. Nothing was sent, so they can resend. */
+const CARRIER_UNREACHABLE =
+  'We could not reach the carrier to send this port, so it has not gone. Nothing was submitted — send it again when you are ready.';
+
+/** One of the papers on a port, as `number_port.attach_document` writes it plus what this file adds. */
+interface Paper {
+  readonly objectPath: string;
+  readonly name: string;
+  /** The carrier's own reference for this paper, once it has it. */
+  readonly sentSid?: string;
+  /**
+   * The port-in request it went up against. A resend after a rejection gets a new one from the carrier, so
+   * every paper goes again — which is right: the old request is dead and its documents died with it.
+   */
+  readonly sentFor?: string;
+}
+
+/**
+ * Writes down that a paper reached the carrier.
+ *
+ * The job is at-least-once and a retry now goes back through the upload loop rather than past it, so
+ * something has to say which papers are already up — otherwise a carrier ends up holding three copies of one
+ * business's authorisation. `documents` is already the record of which papers are in, so it is where "and
+ * this one has gone" belongs. `jsonb_set` reaches into an object that exists (the paper was attached before
+ * any of this ran), so it creates the one missing key rather than nothing at all.
+ *
+ * Nothing a business sees changes: `NumberPortOut.documents` is `Boolean(documents['loa'])`.
+ */
+async function markSent(
+  services: WorkerServices,
+  scope: TenantScope,
+  portId: string,
+  paper: string,
+  sid: string,
+  portSid: string,
+): Promise<void> {
+  await asWorker(services.db, scope, (tx) =>
+    tx
+      .update(numberPorts)
+      .set({
+        // `array[…]::text[]`, not `'{loa,sentSid}'`: a bound parameter arrives typed `text`, and
+        // `jsonb_set(jsonb, text, jsonb)` is not a function — it fails at runtime, not at typecheck.
+        documents: sql`jsonb_set(${numberPorts.documents}, array[${paper}]::text[],
+          coalesce(${numberPorts.documents} -> ${paper}, '{}'::jsonb)
+            || ${JSON.stringify({ sentSid: sid, sentFor: portSid })}::jsonb)`,
+      })
+      .where(eq(numberPorts.id, portId)),
+  );
+}
+
+/**
+ * The tries are spent and the port never really went. Say so.
+ *
+ * A port that reads "with the carrier" when the carrier has half of it, or none of it, is worse than one
+ * that reads failed: a business waits weeks for a number that was never going to move, and the papers they
+ * signed sit in a bucket. So it fails, in words they can act on, and `number_port.record_state` puts the
+ * number back on the market with it.
+ *
+ * **And what the carrier does hold is pulled back first.** A request sent without its authorisation is one
+ * the business cannot see, cannot call off, and which would fight the next one they send — so it goes the
+ * same way the call-off button sends it, through `port.cancel`.
+ */
+async function giveUp(
+  services: WorkerServices,
+  scope: TenantScope,
+  port: PortRow,
+  providerSid: string | null,
+  reason: string,
+): Promise<void> {
+  if (providerSid)
+    await asWorker(services.db, scope, (tx) =>
+      scheduleJob(tx, {
+        kind: PORT_JOBS.cancel,
+        dedupeKey: `port:cancel:${port.id}`,
+        runAt: new Date(),
+        payload: { portId: port.id, providerSid },
+        workspaceId: scope.workspaceId,
+        organizationId: scope.organizationId,
+      }),
+    );
+  await record(services, scope, port, {
+    // `null`, never a stand-in string: `number_port.record_state` writes this column only when it is truthy,
+    // and anything truthy is read back as "the carrier already has this" — which would skip the next send.
+    providerSid,
+    providerStatus: 'not_sent',
+    status: 'failed',
+    rejectionReason: reason,
+    scheduledFor: null,
+  });
 }
 
 /** A person sent a port: the provider call is queued, so it retries on its own if it has to. */
@@ -156,67 +257,116 @@ export const onPortCancelled: EventHandler = async (ctx) => {
  *
  * In that order on purpose: the carrier gives back the reference the documents hang off, and a submission the
  * carrier already has is a thing we can ask about, whereas an uploaded document belonging to nothing is not.
- * A paper that fails to upload therefore leaves a port the carrier is holding for its LOA — which is what the
- * status says (`PENDING_LOA`) and what a retry fixes.
+ *
+ * **A retry comes back through the papers, and that is new.** This used to return the moment it saw a
+ * `providerSid` — straight past the upload loop, to schedule a poll and report success. So the first upload
+ * failure was the last one: the signed authorisation never went, the carrier held the request at
+ * `PENDING_LOA`, and the business was told nothing. A missing LOA is the commonest reason a carrier turns a
+ * port down. The comment beside the old `throw` said a retry fixed it; the code it pointed at returned.
+ *
+ * What makes coming back safe is `markSent`: a paper the carrier already has is skipped, so at-least-once
+ * costs nothing, and a submission is still only ever made once.
  */
 export const portSubmit: JobHandler = async (ctx) => {
   const scope = tenantOf(ctx.scope);
   const portId = String(ctx.job.payload['portId'] ?? '');
   const [port] = await readPort(ctx, scope, portId);
-  if (!port || port.status !== 'submitted') return;
-  // Already with the carrier: this is a retry of a job whose provider call went through. Ask rather than send
-  // again — a second submission for the same number is how a business ends up with two ports fighting.
-  if (port.providerSid) {
-    await ensurePoll(ctx, scope, port.id, new Date());
+  // `submitted` is what pressing Send leaves, but a carrier can answer `carrier_review` or `scheduled` to the
+  // submission itself, and a poll can get in first. The papers still have to go up for all three, so this
+  // asks whether the port is in flight rather than whether it is exactly as Send left it.
+  if (!port || !IN_FLIGHT.has(port.status)) return;
+  const lastTry = ctx.attempt >= MAX_ATTEMPTS;
+
+  // Outside both `try`s it was the one provider call `lastTry` did not cover — and it is the likeliest to
+  // fail, because a business's very first port is also when its carrier account is created.
+  let account: ProviderAccount;
+  try {
+    account = await ensureAccount(ctx, scope);
+  } catch (e) {
+    if (!lastTry) throw e;
+    ctx.log.warn(
+      { portId: port.id, err: errorMessage(e) },
+      'no carrier account to send the port from',
+    );
+    await giveUp(ctx, scope, port, null, CARRIER_UNREACHABLE);
     return;
   }
-
-  const account = await ensureAccount(ctx, scope);
-  const documents = port.documents as Record<string, { objectPath?: string; name?: string }>;
-  const papers = Object.values(documents).filter(
-    (d): d is { objectPath: string; name: string } =>
-      typeof d?.objectPath === 'string' && typeof d?.name === 'string',
+  const documents = port.documents as Record<string, Partial<Paper> | undefined>;
+  const papers = Object.entries(documents).filter(
+    (e): e is [string, Paper] =>
+      typeof e[1]?.objectPath === 'string' && typeof e[1]?.name === 'string',
   );
 
-  let state: PortState;
-  try {
-    state = await ctx.telephony.submitPort(account, {
-      e164: port.e164,
-      kind: port.kind,
-      submission: port.submission as Record<string, unknown>,
-      documentPaths: papers.map((d) => d.objectPath),
-    });
-  } catch (e) {
-    // A carrier saying no to the details is an answer, not a blip: the business has to fix something, and a
-    // retry would only be told the same thing more slowly.
-    if (!isPermanentProviderError(e)) throw e;
-    ctx.log.warn({ portId: port.id, err: e.message }, 'the carrier refused the port');
-    await record(ctx, scope, port, {
-      providerSid: port.providerSid ?? 'none',
-      providerStatus: 'refused',
-      status: 'rejected',
-      rejectionReason: e.message,
-      scheduledFor: null,
-    });
-    return;
+  /*
+   * Send it, unless a previous attempt already did. Never twice: a second submission for the same number is
+   * how a business ends up with two ports fighting at one carrier.
+   *
+   * **"Already did" means this version of it.** A person cannot clear `provider_sid` — the guard forbids it
+   * on every transition, Send included — so a port the carrier turned down still carries the dead request's
+   * reference. Asking `providerSid` alone therefore skipped the submit on every resend, and the corrected
+   * account number never left the building. `carrierHasPort` is the registration twin's own comparison.
+   */
+  const alreadySent = carrierHasPort(port) ? port.providerSid : null;
+  let providerSid: string;
+  if (alreadySent) {
+    providerSid = alreadySent;
+  } else {
+    let state: PortState;
+    try {
+      state = await ctx.telephony.submitPort(account, {
+        e164: port.e164,
+        kind: port.kind,
+        submission: port.submission as Record<string, unknown>,
+        documentPaths: papers.map(([, d]) => d.objectPath),
+      });
+    } catch (e) {
+      // A carrier saying no to the details is an answer, not a blip: the business has to fix something, and a
+      // retry would only be told the same thing more slowly.
+      if (isPermanentProviderError(e)) {
+        ctx.log.warn({ portId: port.id, err: e.message }, 'the carrier refused the port');
+        await record(ctx, scope, port, {
+          providerSid: port.providerSid,
+          providerStatus: 'refused',
+          status: 'rejected',
+          rejectionReason: e.message,
+          scheduledFor: null,
+        });
+        return;
+      }
+      if (!lastTry) throw e;
+      ctx.log.warn({ portId: port.id, err: errorMessage(e) }, 'the port never reached the carrier');
+      await giveUp(ctx, scope, port, null, CARRIER_UNREACHABLE);
+      return;
+    }
+    await record(ctx, scope, port, state, port.submittedAt);
+    providerSid = state.providerSid;
   }
 
-  await record(ctx, scope, port, state);
-
-  for (const paper of papers) {
+  for (const [key, paper] of papers) {
+    if (paper.sentFor === providerSid) continue;
     try {
       const data = await ctx.store.download('attachments', paper.objectPath);
-      await ctx.telephony.uploadPortDocument(account, {
-        portSid: state.providerSid,
+      const { sid } = await ctx.telephony.uploadPortDocument(account, {
+        portSid: providerSid,
         name: paper.name,
         contentType: 'application/pdf',
         data,
       });
+      await markSent(ctx, scope, port.id, key, sid, providerSid);
     } catch (e) {
-      // The port is sent and recorded; the paper is what is missing. Throwing retries this job, which now
-      // takes the `providerSid` path above and comes back here without submitting twice.
-      ctx.log.warn({ portId: port.id, err: errorMessage(e) }, 'the port document did not go up');
-      throw e;
+      ctx.log.warn(
+        { portId: port.id, paper: key, lastTry, err: errorMessage(e) },
+        'the port document did not go up',
+      );
+      if (!lastTry) throw e;
+      await giveUp(
+        ctx,
+        scope,
+        port,
+        providerSid,
+        `We could not send ${paper.name} to the carrier, and a port cannot go ahead without it. The request has been called off. Upload the paper again and resend.`,
+      );
+      return;
     }
   }
   await ensurePoll(ctx, scope, port.id);
@@ -248,7 +398,7 @@ export const portPoll: JobHandler = async (ctx) => {
   if (state.status !== 'complete') {
     await record(ctx, scope, port, state);
     return IN_FLIGHT.has(state.status as NumberPortStatus)
-      ? { rescheduleAt: new Date(Date.now() + POLL_MS) }
+      ? { rescheduleAt: new Date(Date.now() + ctx.portPollMs) }
       : undefined;
   }
 

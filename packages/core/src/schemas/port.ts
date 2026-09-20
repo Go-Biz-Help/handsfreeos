@@ -105,6 +105,8 @@ export const NumberPortRecordStateInput = z.object({
     .regex(/^\d{4}-\d{2}-\d{2}$/)
     .nullable(),
   nextPollAt: isoDateTime.nullable(),
+  /** The version of the port the carrier now has, so a resend after a rejection really is sent again. */
+  carrierSubmittedAt: isoDateTime.nullable().optional(),
 });
 
 /** Worker only: it landed. The number becomes this business's, and can send. */

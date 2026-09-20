@@ -832,6 +832,7 @@ export const numberPorts = app.table('number_ports', {
   /** The day the carrier commits to. A business plans its week around this one, so it is a date, not a time. */
   scheduledFor: date('scheduled_for'),
   submittedAt: ts('submitted_at'),
+  carrierSubmittedAt: ts('carrier_submitted_at'),
   completedAt: ts('completed_at'),
   createdBy: userRef('created_by'),
   ...timestamps(),

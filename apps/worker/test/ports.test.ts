@@ -14,6 +14,7 @@
  *   any other  it lands
  */
 import { randomUUID } from 'node:crypto';
+import { createClient } from '@supabase/supabase-js';
 import { and, eq } from 'drizzle-orm';
 import {
   executeCommand,
@@ -42,9 +43,11 @@ import { processJobs } from '../src/jobs';
 import { handlers } from '../src/handlers/index';
 import { processOnce } from '../src/outbox';
 import { jobs } from '../src/scheduled';
+import { MAX_ATTEMPTS } from '../src/outbox';
+import type { ObjectStore } from '../src/storage';
 import { testServices, type TestServices } from './helpers';
 
-testEnv();
+const env = testEnv();
 const WORKER_ID = `vitest-ports-${process.pid}`;
 const actor = (u: TestUser): HumanActor => ({
   type: 'human',
@@ -56,6 +59,15 @@ const meta = () => ({ correlationId: randomUUID(), channel: 'test' as const });
 const api = () => testDbs().api.db;
 const admin = () => testDbs().admin.db;
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+/** The worker's own key, the way every other test that needs bytes in Storage does it. */
+const bucket = () =>
+  createClient(env.supabaseUrl, env.secretKey, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  }).storage.from('attachments');
+/** Something that is a PDF as far as anything here is concerned. The carrier only ever sees bytes. */
+const LOA = Buffer.from(
+  '%PDF-1.4\n1 0 obj<</Type/Catalog>>endobj\ntrailer<</Root 1 0 R>>\n%%EOF\n',
+);
 
 /** A number nobody else in the test database holds. The last four decide what the fake carrier does with it. */
 const aNumber = (ending: string) =>
@@ -75,13 +87,23 @@ async function reserve(): Promise<void> {
     );
 }
 
-/** Runs the outbox and job loops over this workspace's work until nothing is left. */
+/**
+ * Runs the outbox and job loops over this workspace's work until nothing is left that wants to run *now*.
+ *
+ * **A job that only asks to come back later is not progress.** A port on a carrier that is still thinking
+ * polls, records the same status, and asks for another poll — forever, by design. At production's six hours
+ * that is invisible to a test; at the test interval it would be claimed again every 50ms until the deadline,
+ * and every later drain in the file would inherit the spin. So a pass whose every claim was a reschedule
+ * ends the drain, which also gives each poll exactly one turn per drain — enough for a carrier that answers.
+ */
 async function drain(timeoutMs = 10_000) {
   const deadline = Date.now() + timeoutMs;
   for (;;) {
     await reserve();
     const d = { ...s, workerId: WORKER_ID, batchSize: 200, reservedOnly: true };
-    const passes = [await processOnce({ ...d, handlers }), await processJobs({ ...d, jobs })];
+    const events = await processOnce({ ...d, handlers });
+    const ran = await processJobs({ ...d, jobs });
+    const passes = [events, ran];
     if (passes.some((p) => p.retried + p.failed > 0)) {
       const errors = await rows(
         admin(),
@@ -92,7 +114,7 @@ async function drain(timeoutMs = 10_000) {
       );
       throw new Error(`worker work failed: ${JSON.stringify(errors)}`);
     }
-    if (!passes.some((p) => p.claimed > 0)) return;
+    if (events.claimed === 0 && ran.claimed - ran.rescheduled === 0) return;
     if (Date.now() > deadline) throw new Error('the worker did not finish in time');
     await sleep(50);
   }
@@ -111,9 +133,13 @@ const numberFor = async (e164: string) =>
 /**
  * A port with its details and its signed authorisation in, ready to send.
  *
- * The file row is made the way `number_port.begin_upload` makes it and then marked ready directly, because
- * the object itself only matters to Storage: `file.confirm` would ask Storage whether the bytes arrived, and
- * this test is about the carrier loop rather than the upload.
+ * **The bytes go in for real.** The `files` row is made the way `number_port.begin_upload` makes it and
+ * marked ready directly, because `file.confirm` is the browser's half and not what this file is about — but
+ * the object itself goes into Storage with the worker's key first, as `knowledge-document.test.ts` does.
+ *
+ * It used to skip that, on the premise that "the object itself only matters to Storage". That premise was
+ * wrong — `portSubmit` downloads it and hands it to the carrier — and while it stood, nothing here ever ran
+ * the half of the job that actually sends a business's signed authorisation.
  */
 async function readyPort(e164: string, kind: 'full' | 'hosted_messaging' = 'full') {
   const { output } = await executeCommand(
@@ -140,21 +166,22 @@ async function readyPort(e164: string, kind: 'full' | 'hosted_messaging' = 'full
     meta(),
   );
   const fileId = randomUUID();
-  await admin()
-    .insert(files)
-    .values({
-      id: fileId,
-      workspaceId,
-      recordType: 'port',
-      recordId: output.portId,
-      bucket: 'attachments',
-      objectPath: `${workspaceId}/port/${output.portId}/${fileId}/loa.pdf`,
-      name: 'loa.pdf',
-      mimeType: 'application/pdf',
-      sizeBytes: 1024,
-      status: 'ready',
-      createdBy: owner.id,
-    });
+  const objectPath = `${workspaceId}/port/${output.portId}/${fileId}/loa.pdf`;
+  const put = await bucket().upload(objectPath, LOA, { contentType: 'application/pdf' });
+  expect(put.error).toBeNull();
+  await admin().insert(files).values({
+    id: fileId,
+    workspaceId,
+    recordType: 'port',
+    recordId: output.portId,
+    bucket: 'attachments',
+    objectPath,
+    name: 'loa.pdf',
+    mimeType: 'application/pdf',
+    sizeBytes: LOA.length,
+    status: 'ready',
+    createdBy: owner.id,
+  });
   await executeCommand(
     api(),
     numberPortAttach,
@@ -189,6 +216,60 @@ beforeAll(async () => {
 afterAll(async () => {
   await closeTestDbs();
 });
+
+/**
+ * The real store with its first `n` downloads made to fail, and nothing else changed.
+ *
+ * A carrier's paperwork failing to fetch is the one thing `drain()` cannot express — it throws on the first
+ * retried job, which is exactly the state these two tests are about.
+ */
+function flakyStore(n: number): ObjectStore {
+  let left = n;
+  return {
+    ...s.store,
+    async download(bucket, path) {
+      if (left > 0) {
+        left -= 1;
+        throw new Error('storage download failed: Object not found');
+      }
+      return s.store.download(bucket, path);
+    },
+  };
+}
+
+/** Brings a retried job forward: the backoff is real time, and a test cannot wait it out. */
+async function pushDue(): Promise<void> {
+  await rows(
+    admin(),
+    sql`update app.scheduled_jobs set run_at = now()
+        where workspace_id = ${workspaceId} and status = 'pending'`,
+  );
+}
+
+/**
+ * One pass of both loops with a store of our choosing, without `drain`'s "a retry is a failure" rule.
+ *
+ * Reserved twice on purpose: the outbox pass is what creates the job, and `reservedOnly` claims nothing that
+ * was not locked before it ran.
+ */
+async function runOnce(store: ObjectStore) {
+  const d = { ...s, store, workerId: WORKER_ID, batchSize: 200, reservedOnly: true };
+  await reserve();
+  await processOnce({ ...d, handlers });
+  await reserve();
+  return processJobs({ ...d, jobs });
+}
+
+/** Asks for the port to be sent again, the way `port.poll` does when it finds one it thinks never went. */
+async function askAgain(portId: string): Promise<void> {
+  await rows(
+    admin(),
+    sql`insert into app.scheduled_jobs (organization_id, workspace_id, kind, dedupe_key, run_at, payload)
+        select w.organization_id, w.id, 'port.submit', ${`again:${randomUUID()}`}, now(),
+               jsonb_build_object('portId', ${portId}::text)
+        from app.workspaces w where w.id = ${workspaceId}`,
+  );
+}
 
 describe('a number that moves', () => {
   it('is claimed the moment it is sent, and cannot send until it lands', async () => {
@@ -284,6 +365,21 @@ describe('a number that moves', () => {
     expect(retaken?.id).toBe(released!.id);
     expect(retaken?.status).toBe('porting');
     expect(retaken?.releasedAt).toBeNull();
+
+    /*
+     * And it really is sent again. Asserting the row alone is what let this pass while the resend did
+     * nothing: a person cannot clear `provider_sid`, so the worker saw the dead request's reference, decided
+     * the carrier already had it, and the corrected PIN never left the building. Two submissions at the
+     * carrier is the proof the row cannot give.
+     */
+    const sentBefore = s.telephony.ports.filter((p) => p.e164 === e164).length;
+    await drain();
+    expect(s.telephony.ports.filter((p) => p.e164 === e164)).toHaveLength(sentBefore + 1);
+    const asked = s.telephony.ports.filter((p) => p.e164 === e164).at(-1)!;
+    expect((asked.submission as { pin?: string }).pin).toBe('4321');
+    // A new request, so the paperwork goes up against it rather than being taken as already sent.
+    const papers = (await portRow(portId)).documents as { loa?: { sentFor?: string } };
+    expect(papers.loa?.sentFor).toBe((await portRow(portId)).providerSid);
   });
 
   it('keeps asking while the old carrier keeps thinking', async () => {
@@ -308,6 +404,72 @@ describe('a number that moves', () => {
     expect((await portRow(portId)).status).toBe('cancelled');
     expect(s.telephony.portsCancelled).toContain(sid);
     expect((await numberFor(e164))?.status).toBe('released');
+  });
+});
+
+describe('when the paperwork cannot be sent', () => {
+  /*
+   * The half of `port.submit` that nothing ever ran. Until the test put real bytes in Storage the download
+   * failed on the first try every time, and until the loop below was fixed a retry returned the moment it
+   * saw a provider sid — so a business's signed authorisation never reached the carrier and nobody was told.
+   */
+  it('sends the paper on the next try when the first one could not be fetched', async () => {
+    const e164 = aNumber('0001');
+    const portId = await readyPort(e164);
+    const before = s.telephony.portDocuments.length;
+    await executeCommand(api(), numberPortSubmit, { workspaceId, portId }, actor(owner), meta());
+
+    // The port reaches the carrier; the paper does not.
+    const first = await runOnce(flakyStore(1));
+    expect(first.retried).toBe(1);
+    const sid = (await portRow(portId)).providerSid;
+    expect(sid).toMatch(/^PO/);
+    expect(s.telephony.portDocuments.length).toBe(before);
+
+    // The retry comes back for the paper rather than past it.
+    await pushDue();
+    const second = await runOnce(s.store);
+    expect(second.retried + second.failed).toBe(0);
+    expect(s.telephony.portDocuments.slice(before)).toEqual([{ portSid: sid, name: 'loa.pdf' }]);
+
+    // And it is written down, so a job that runs again does not send the carrier a second copy. This is the
+    // whole reason coming back through the loop is safe, so it is asked for rather than assumed: without the
+    // marker, an at-least-once job leaves a carrier holding three copies of one business's authorisation.
+    const docs = (await portRow(portId)).documents as {
+      loa?: { sentSid?: string; sentFor?: string };
+    };
+    expect(docs.loa?.sentSid).toMatch(/^RI/);
+    expect(docs.loa?.sentFor).toBe(sid);
+    await askAgain(portId);
+    // Not an exact claim count: earlier tests leave ports the carrier is still thinking about, and their
+    // polls are claimable too. What matters is that this job ran and sent nothing.
+    const third = await runOnce(s.store);
+    expect(third.claimed).toBeGreaterThan(0);
+    expect(third.retried + third.failed).toBe(0);
+    expect(s.telephony.portDocuments.length).toBe(before + 1);
+  });
+
+  it('fails the port and pulls it back when the paper never goes up at all', async () => {
+    const e164 = aNumber('0001');
+    const portId = await readyPort(e164);
+    await executeCommand(api(), numberPortSubmit, { workspaceId, portId }, actor(owner), meta());
+    const never = flakyStore(Number.MAX_SAFE_INTEGER);
+    for (let i = 0; i < MAX_ATTEMPTS; i += 1) {
+      await pushDue();
+      await runOnce(never);
+    }
+
+    // Said, not left saying "with the carrier": a business must not wait weeks for a number that was never
+    // going to move.
+    const after = await portRow(portId);
+    expect(after.status).toBe('failed');
+    expect(after.rejectionReason).toMatch(/could not send loa\.pdf/i);
+    // The number goes back on the market, so they can start again.
+    expect((await numberFor(e164))?.status).toBe('released');
+    // And the half-finished request does not stay in their name at the carrier.
+    await pushDue();
+    await runOnce(never);
+    expect(s.telephony.portsCancelled).toContain(after.providerSid);
   });
 });
 

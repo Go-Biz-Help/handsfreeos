@@ -66,6 +66,12 @@ create table app.number_ports (
   -- The day the carrier says it will actually move. A business plans around this one.
   scheduled_for date,
   submitted_at timestamptz,
+  -- Which version of this port the carrier actually has, so a business that fixes a rejected one and sends it
+  -- again really is sent again. Twin of app.telephony_registrations.carrier_submitted_at (0013), and for the
+  -- same reason: a person cannot clear `provider_sid` — the guard below forbids it — so without this the
+  -- worker sees a sid, believes the carrier already has it, and the corrected details never leave the
+  -- building. `private.carrier_has_port()` is the comparison.
+  carrier_submitted_at timestamptz,
   completed_at timestamptz,
 
   created_by uuid references app.users (id) on delete set null,
@@ -130,6 +136,7 @@ begin
      or old.poll_count is distinct from new.poll_count
      or old.scheduled_for is distinct from new.scheduled_for
      or old.completed_at is distinct from new.completed_at
+     or old.carrier_submitted_at is distinct from new.carrier_submitted_at
      or old.account_id is distinct from new.account_id
      or old.phone_number_id is distinct from new.phone_number_id
      -- Off Send, the other two are the worker's like the rest.

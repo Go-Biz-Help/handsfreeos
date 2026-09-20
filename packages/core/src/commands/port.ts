@@ -410,6 +410,13 @@ export const numberPortRecordState = defineCommand({
         rejectionReason: input.rejectionReason,
         scheduledFor: input.scheduledFor,
         nextPollAt: input.nextPollAt ? new Date(input.nextPollAt) : null,
+        ...(input.carrierSubmittedAt !== undefined
+          ? {
+              carrierSubmittedAt: input.carrierSubmittedAt
+                ? new Date(input.carrierSubmittedAt)
+                : null,
+            }
+          : {}),
         pollCount: p.pollCount + 1,
       })
       .where(eq(numberPorts.id, p.id));
