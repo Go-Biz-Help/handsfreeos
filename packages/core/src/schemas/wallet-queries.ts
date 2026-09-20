@@ -20,6 +20,11 @@ export const WalletGetOutput = z.strictObject({
   floorCents: z.int(),
   topupCents: z.int(),
   overdraftCents: z.int(),
+  /**
+   * The most one automatic top-up could be for this business today. The terms promise this number is shown,
+   * so it is the cap that actually applies — the lowest ceiling in force, not the headline one.
+   */
+  maxTopupCents: z.int(),
   card: z
     .strictObject({
       brand: z.string().nullable(),

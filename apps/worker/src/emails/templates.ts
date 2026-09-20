@@ -798,3 +798,33 @@ export function teammateLimitEmail(input: {
   );
   return { subject, text, html };
 }
+
+/**
+ * A top-up bigger than the business chose, sent **before** the card is charged (M16 step 6, disclosed in the
+ * terms at step 10). Repeated top-ups in a few days raise the amount, and the one thing that fixes it is
+ * raising their own top-up — so that is the sentence, and the button goes straight to the setting.
+ */
+export function topUpRaisedEmail(input: {
+  business: string;
+  amountCents: number;
+  chosenCents: number;
+  recharges: number;
+  link: string;
+}): EmailContent {
+  const dollars = (c: number) => `$${(c / 100).toFixed(2)}`;
+  const amount = dollars(input.amountCents);
+  const chosen = dollars(input.chosenCents);
+  const subject = `We’re about to top up ${input.business} by ${amount}`;
+  const why = `${input.business} has topped up ${input.recharges} times in the last few days, so this one is ${amount} instead of ${chosen}. We are charging the card on file now.`;
+  const fix = `If this keeps happening, raise your own top-up amount: one ${amount} charge instead of several small ones, and the amount stops climbing.`;
+  const foot = `Sent to the owners and admins of ${input.business} before the card is charged.`;
+  const text = [why, '', fix, '', `Change your top-up: ${input.link}`, '', foot].join('\n');
+  const html = shell(
+    wordmark +
+      para(escapeHtml(why)) +
+      para(escapeHtml(fix)) +
+      button(input.link, 'Change your top-up') +
+      small(escapeHtml(foot)),
+  );
+  return { subject, text, html };
+}

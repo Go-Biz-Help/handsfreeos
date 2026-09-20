@@ -134,6 +134,20 @@ export function UsagePage({
       }
     });
 
+  const forgetCard = () =>
+    startSaving(async () => {
+      try {
+        unwrap(
+          await apiBrowser().POST('/v1/commands/wallet.forget_card', { body: { workspaceId } }),
+        );
+        toast.success('Card removed. Automatic top-up is off.');
+        setAutoTopup(false);
+        router.refresh();
+      } catch (e) {
+        toast.error(errorMessage(e));
+      }
+    });
+
   const topUpNow = () =>
     startSaving(async () => {
       try {
@@ -259,6 +273,13 @@ export function UsagePage({
             />
           </label>
         </div>
+        {/* The cap the terms promise is shown. It is the one that actually applies, not the headline. */}
+        <p className="mt-3 text-[13px] text-text-3" data-testid="usage-topup-cap">
+          If several top-ups are needed in a few days we raise the amount each time, so it is one
+          larger charge instead of many small ones — never more than {money(wallet.maxTopupCents)}{' '}
+          at once. We email you before charging more than twice your amount above, and raising that
+          amount stops it happening.
+        </p>
         {!wallet.card ? (
           <p className="mt-3 text-[13px] text-text-3">
             Add a card below and automatic top-up will start working.
@@ -270,6 +291,18 @@ export function UsagePage({
         title="Card on file"
         description="Only ever used for your own balance — never for money your customers pay you."
         testId="usage-card"
+        action={
+          wallet.card ? (
+            <Button
+              variant="secondary"
+              onClick={forgetCard}
+              disabled={saving}
+              data-testid="usage-forget-card"
+            >
+              Remove card
+            </Button>
+          ) : null
+        }
       >
         <div className="mt-4 flex items-center gap-3 text-[13px]">
           {wallet.card ? (

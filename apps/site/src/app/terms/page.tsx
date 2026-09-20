@@ -9,7 +9,7 @@ import { company, urls } from '@/content/site';
  * ever emptied, on purpose.
  */
 
-const LAST_UPDATED = 'September 18, 2026';
+const LAST_UPDATED = 'September 20, 2026';
 
 export const metadata: Metadata = {
   title: 'Terms of service',
@@ -57,7 +57,31 @@ export default function TermsPage() {
           </li>
           <li>
             Texts, calls, phone numbers and AI replies are billed on top, at the per-use rates shown
-            in your account.
+            in your account. They come out of a usage balance, and every charge appears on the
+            statement on your Usage &amp; balance page.
+          </li>
+          <li>
+            <strong>If that balance runs out, outgoing texts and outgoing calls stop</strong>, and
+            we tell you why rather than failing quietly. Calls coming <em>in</em> to your number
+            keep reaching you, and messages coming in are still received and filed. Nothing is
+            deleted, and everything starts again as soon as you top up.
+          </li>
+          <li>
+            <strong>Automatic top-up charges the card you save for it.</strong> It is on unless you
+            turn it off: when the balance falls below the amount you set, we charge your card for
+            the top-up amount you set. If several top-ups are needed in a short period, we raise the
+            amount each time so that it is one larger charge instead of many small ones, up to a cap
+            shown on your Usage &amp; balance page. That page says whenever a top-up has been raised
+            and why, and{' '}
+            <strong>we email you before charging more than twice your own top-up amount</strong>.
+            Raising your own amount stops it happening. You can turn automatic top-up off, change
+            either amount, or remove the card, at any time.
+          </li>
+          <li>
+            A card that is declined is tried again a few times over the following days. If it keeps
+            being declined we stop trying, tell you, and ask for another card. The usage balance is
+            separate from your plan, and the card saved for it is never used for money your own
+            customers pay you.
           </li>
           <li>
             You can cancel any time and you will not be billed again. We do not refund the part of a

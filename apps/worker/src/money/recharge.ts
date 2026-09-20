@@ -24,6 +24,8 @@ import {
   type Escalation,
 } from '@hfos/core/server';
 import { asWorker, rows, sql } from '@hfos/db/client';
+import { topUpRaisedEmail } from '../emails/templates';
+import { managers } from '../handlers/telephony';
 import type { EventHandler } from '../handlers/types';
 import type { JobHandler, JobMap } from '../jobs';
 import { accountByExternalId } from '../payments/index';
@@ -183,6 +185,8 @@ type RechargeRow = {
   customer_ref: string | null;
   provider: string | null;
   declines_in_row: number;
+  topup_cents: number | string;
+  recharges_in_window: number;
 };
 
 /** One top-up, carried out. Safe to run again: a row that is no longer `pending` is left alone. */
@@ -195,7 +199,7 @@ export const runRecharge: JobHandler = async (ctx) => {
     rows<RechargeRow>(
       tx,
       sql`select r.id, r.status::text as status, r.amount_cents, w.method_token, w.customer_ref,
-            w.provider::text as provider, w.declines_in_row
+            w.provider::text as provider, w.declines_in_row, w.topup_cents, w.recharges_in_window
           from app.wallet_recharges r join app.usage_wallets w on w.workspace_id = r.workspace_id
           where r.workspace_id = ${scope.workspaceId} and r.id = ${rechargeId}::uuid`,
     ),
@@ -219,6 +223,18 @@ export const runRecharge: JobHandler = async (ctx) => {
   }
 
   const amountCents = Number(row.amount_cents);
+  // Before the card, not after. The terms say a raised top-up comes with notice, so this has to go out even
+  // when the charge then fails — and a mailer that is down must not stop a business being funded, so it is
+  // logged and the charge goes ahead.
+  if (ctx.job.payload['warnFirst'] === true)
+    await tellThemItWentUp(
+      ctx,
+      scope,
+      amountCents,
+      Number(row.topup_cents),
+      row.recharges_in_window,
+    );
+
   const result = await provider.platform.charge({
     amountCents,
     method: 'card',
@@ -266,6 +282,39 @@ export const runRecharge: JobHandler = async (ctx) => {
     ),
   );
 };
+
+/** The notice the terms promise, to the people who can act on it. Never a reason not to charge. */
+async function tellThemItWentUp(
+  ctx: Parameters<JobHandler>[0],
+  scope: TenantScope,
+  amountCents: number,
+  chosenCents: number,
+  recharges: number,
+): Promise<void> {
+  try {
+    const recipients = await asWorker(ctx.db, scope, async (tx) => {
+      const [ws] = await rows<{ name: string }>(
+        tx,
+        sql`select name from app.workspaces where id = ${scope.workspaceId}`,
+      );
+      return { business: ws?.name ?? 'your business', to: await managers(tx, scope.workspaceId) };
+    });
+    if (recipients.to.length === 0) return;
+    const mail = topUpRaisedEmail({
+      business: recipients.business,
+      amountCents,
+      chosenCents,
+      recharges: Math.max(recharges, 2),
+      link: `${ctx.webUrl}/app/w/${scope.workspaceId}/settings/usage`,
+    });
+    for (const r of recipients.to) await ctx.mailer.send({ to: r.email, ...mail });
+  } catch (e) {
+    ctx.log.error(
+      { err: e, workspaceId: scope.workspaceId },
+      'could not send the raised top-up notice',
+    );
+  }
+}
 
 async function record(
   ctx: Parameters<JobHandler>[0],

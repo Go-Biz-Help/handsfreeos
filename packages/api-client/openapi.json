@@ -68865,6 +68865,11 @@
                       "minimum": -9007199254740991,
                       "maximum": 9007199254740991
                     },
+                    "maxTopupCents": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
                     "card": {
                       "anyOf": [
                         {
@@ -68992,6 +68997,7 @@
                     "floorCents",
                     "topupCents",
                     "overdraftCents",
+                    "maxTopupCents",
                     "card",
                     "cardRequested",
                     "suspended",

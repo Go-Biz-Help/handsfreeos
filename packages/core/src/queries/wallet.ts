@@ -11,7 +11,9 @@ import { rows, sql } from '@hfos/db/client';
 import { defineQuery } from '../kernel/define';
 import { decodeCursor, encodeCursor } from '../kernel/pagination';
 import {
+  escalationCeilingCents,
   escalationWords,
+  ESCALATION_MAX_MULTIPLE,
   isUsageKey,
   priceOf,
   SEED_CARD,
@@ -98,6 +100,7 @@ export const walletGet = defineQuery({
       recharges_in_window: number;
       escalation_step: number;
       paused_until: Date | null;
+      workspace_created_at: Date;
       spent_30d_cents: number | string;
       spent_mtd_cents: number | string;
       pending_recharge_cents: number | string | null;
@@ -107,6 +110,7 @@ export const walletGet = defineQuery({
             w.card_brand, w.card_last4, w.card_expiry_month, w.card_expiry_year,
             w.method_token is not null as has_card, w.card_requested_at, w.provider::text as provider,
             w.suspended_at, w.suspended_reason, w.recharges_in_window, w.escalation_step, w.paused_until,
+            ws.created_at as workspace_created_at,
             coalesce((select sum(abs(l.amount_cents)) from app.usage_ledger l
               where l.workspace_id = w.workspace_id and l.kind in ('spend', 'adjustment')
                 and l.amount_cents < 0 and l.occurred_at > now() - interval '30 days'), 0) as spent_30d_cents,
@@ -115,7 +119,9 @@ export const walletGet = defineQuery({
                 and l.amount_cents < 0 and l.occurred_at >= date_trunc('month', now())), 0) as spent_mtd_cents,
             (select r.amount_cents from app.wallet_recharges r
               where r.workspace_id = w.workspace_id and r.status = 'pending' limit 1) as pending_recharge_cents
-          from app.usage_wallets w where w.workspace_id = ${ws}`,
+          from app.usage_wallets w
+            join app.workspaces ws on ws.id = w.workspace_id
+          where w.workspace_id = ${ws}`,
     );
     // A business that has never spent anything has no row. That is "nothing has happened yet", not "empty",
     // and the page says so rather than showing a scary zero.
@@ -127,6 +133,7 @@ export const walletGet = defineQuery({
         floorCents: 1000,
         topupCents: 2500,
         overdraftCents: 1000,
+        maxTopupCents: 2500 * ESCALATION_MAX_MULTIPLE,
         card: null,
         cardRequested: false,
         suspended: null,
@@ -145,6 +152,12 @@ export const walletGet = defineQuery({
       floorCents: Number(w.floor_cents),
       topupCents: topup,
       overdraftCents: Number(w.overdraft_cents),
+      maxTopupCents: escalationCeilingCents({
+        topupCents: topup,
+        spent30dCents: Number(w.spent_30d_cents),
+        workspaceCreatedAt: w.workspace_created_at.getTime(),
+        now: Date.now(),
+      }),
       card: w.has_card
         ? {
             brand: w.card_brand,

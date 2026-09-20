@@ -9,6 +9,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   afterDecline,
+  escalationCeilingCents,
   escalationWords,
   ESCALATION_HARD_CAP_CENTS,
   needsTopUp,
@@ -346,5 +347,72 @@ describe('needsTopUp', () => {
   it('waits out a pause the decline ladder set', () => {
     expect(needsTopUp({ ...base, pausedUntil: NOW + HOUR })).toBe(false);
     expect(needsTopUp({ ...base, pausedUntil: NOW - 1 })).toBe(true);
+  });
+});
+
+/**
+ * The number the terms of service call "a cap shown in your account". Getting it wrong is not a bug in a
+ * setting, it is a written promise that does not match what the card is charged — so it has to be the ceiling
+ * that actually applies to this business today, never the headline one.
+ */
+describe('escalationCeilingCents', () => {
+  const ceiling = (over: Partial<Parameters<typeof escalationCeilingCents>[0]> = {}) =>
+    escalationCeilingCents({
+      topupCents: 2500,
+      spent30dCents: 100_000,
+      workspaceCreatedAt: OLD_BUSINESS,
+      now: NOW,
+      ...over,
+    });
+
+  it('is sixteen times their own amount when nothing else binds', () => {
+    expect(ceiling()).toBe(2500 * 16);
+  });
+
+  it('never reads higher than the hard cap', () => {
+    // A $100 top-up: sixteen times that is $1,600, and nobody is ever charged that in one go.
+    expect(ceiling({ topupCents: 10_000 })).toBe(ESCALATION_HARD_CAP_CENTS);
+  });
+
+  it('reads above the hard cap for somebody who chose an amount above it', () => {
+    // The ceilings hold *escalation* down; they never hold a business under the amount it chose on purpose.
+    // A $1,000 top-up is charged in full, so $1,000 is the honest number to print, not $500.
+    expect(ceiling({ topupCents: 100_000 })).toBe(100_000);
+  });
+
+  it('shows half of last month’s spend when that is the ceiling in force', () => {
+    // $200 spent in 30 days holds the ceiling to $100 — above their own $25, below 16 × $25.
+    expect(ceiling({ spent30dCents: 20_000 })).toBe(10_000);
+  });
+
+  it('never reads lower than the amount they chose, because that is always charged in full', () => {
+    // Half of a nearly empty month is pennies; their own $25 still goes through, so $25 is the honest cap.
+    expect(ceiling({ spent30dCents: 100 })).toBe(2500);
+  });
+
+  it('ignores last month for a business that has not had one', () => {
+    expect(ceiling({ spent30dCents: 0, workspaceCreatedAt: NOW - 3 * DAY })).toBe(2500 * 16);
+  });
+
+  it('is never below what the next top-up would actually be', () => {
+    // The promise only holds if the cap bounds the ladder. Walk a long run and check every rung.
+    let state: EscalationState = { ...fresh, windowStartedAt: NOW, lastRechargeAt: NOW };
+    const cap = ceiling();
+    for (let i = 0; i < 8; i++) {
+      const next = nextEscalation({
+        state,
+        topupCents: 2500,
+        spent30dCents: 100_000,
+        workspaceCreatedAt: OLD_BUSINESS,
+        now: NOW + i * HOUR,
+      });
+      expect(next.amountCents).toBeLessThanOrEqual(cap);
+      state = {
+        step: next.step,
+        recharges: next.recharges,
+        windowStartedAt: next.windowStartedAt,
+        lastRechargeAt: NOW + i * HOUR,
+      };
+    }
   });
 });

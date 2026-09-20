@@ -29050,6 +29050,7 @@ export interface operations {
                         cardRequested: boolean;
                         escalation: string | null;
                         floorCents: number;
+                        maxTopupCents: number;
                         opened: boolean;
                         overdraftCents: number;
                         pendingTopUpCents: number | null;

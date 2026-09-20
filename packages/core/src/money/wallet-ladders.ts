@@ -84,6 +84,39 @@ export interface Escalation {
  * The window is rolling from the **first** top-up of a run, not the last: a business topping up every 20 hours
  * forever should not climb the ladder indefinitely, and 72 quiet hours is what ends a run.
  */
+/** Every ceiling that applies to this business today, in the order they are tried. */
+function ceilingsFor(
+  input: Pick<EscalationInput, 'spent30dCents' | 'workspaceCreatedAt' | 'now'>,
+  topup: number,
+): { cents: number; by: Escalation['cappedBy'] }[] {
+  const ceilings: { cents: number; by: Escalation['cappedBy'] }[] = [
+    { cents: topup * ESCALATION_MAX_MULTIPLE, by: 'multiple' },
+    { cents: ESCALATION_HARD_CAP_CENTS, by: 'hard' },
+  ];
+  // A business with a month behind it is never charged more than half of what that month cost. One that opened
+  // this week has no month to measure, so this ceiling waits until there is something to measure against.
+  if (input.now - input.workspaceCreatedAt >= NEW_BUSINESS_MS)
+    ceilings.push({ cents: Math.floor(Math.max(0, input.spent30dCents) / 2), by: 'recent_spend' });
+  return ceilings;
+}
+
+/**
+ * The most one automatic top-up could be for this business today. This is the number the terms call "a cap
+ * shown in your account", so it has to be the cap that actually applies — the lowest ceiling in force, never
+ * the headline $500 — and it can never read lower than what they chose themselves, because their own amount
+ * is always charged in full.
+ */
+export function escalationCeilingCents(input: {
+  readonly topupCents: number;
+  readonly spent30dCents: number;
+  readonly workspaceCreatedAt: number;
+  readonly now: number;
+}): number {
+  const topup = Math.max(1, Math.round(input.topupCents));
+  const lowest = ceilingsFor(input, topup).reduce((a, c) => Math.min(a, c.cents), Infinity);
+  return Math.max(topup, lowest);
+}
+
 export function nextEscalation(input: EscalationInput): Escalation {
   const { state, now } = input;
   const topup = Math.max(1, Math.round(input.topupCents));
@@ -108,14 +141,7 @@ export function nextEscalation(input: EscalationInput): Escalation {
   const step = Math.min(state.step + (rushed ? 2 : 1), ESCALATION_MAX_STEP);
   const wanted = topup * 2 ** step;
 
-  const ceilings: { cents: number; by: Escalation['cappedBy'] }[] = [
-    { cents: topup * ESCALATION_MAX_MULTIPLE, by: 'multiple' },
-    { cents: ESCALATION_HARD_CAP_CENTS, by: 'hard' },
-  ];
-  // A business with a month behind it is never charged more than half of what that month cost. One that opened
-  // this week has no month to measure, so this ceiling waits until there is something to measure against.
-  if (now - input.workspaceCreatedAt >= NEW_BUSINESS_MS)
-    ceilings.push({ cents: Math.floor(Math.max(0, input.spent30dCents) / 2), by: 'recent_spend' });
+  const ceilings = ceilingsFor(input, topup);
 
   let amountCents = wanted;
   let cappedBy: Escalation['cappedBy'] = null;
