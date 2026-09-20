@@ -8,6 +8,7 @@ import {
   latestByKind,
   conversationNumber,
   defaultNumber,
+  numbersOf,
   messagePreview,
   messageUpdateStatus,
   phoneNumberActivate,
@@ -17,6 +18,7 @@ import {
   scheduleJob,
   WALLET_REFUSALS,
   walletRoom,
+  type RegistrationFamily,
 } from '@hfos/core/server';
 import { asWorker, rows, sql, type Tx } from '@hfos/db/client';
 import {
@@ -166,7 +168,7 @@ export async function advanceRegistrations(
   causation: { correlationId?: string | null; causationId?: string | null } = {},
 ): Promise<void> {
   const run = <T>(fn: (tx: Tx) => Promise<T>) => asWorker(services.db, scope, fn);
-  const [regs, number, account] = await run(
+  const [regs, numbers, account] = await run(
     async (tx) =>
       [
         await tx
@@ -174,11 +176,14 @@ export async function advanceRegistrations(
           .from(telephonyRegistrations)
           .where(eq(telephonyRegistrations.workspaceId, scope.workspaceId))
           .orderBy(asc(telephonyRegistrations.createdAt)),
-        await defaultNumber(tx, scope.workspaceId),
+        await numbersOf(tx, scope.workspaceId),
         await loadAccount(tx, scope.workspaceId, services.sealer),
       ] as const,
   );
-  if (!number || number.status !== 'active') return;
+  // Nothing can be registered against a number the carrier has not finished giving us, and a workspace that
+  // has no live number yet may legitimately have no carrier account either — so this stays ahead of the
+  // account check, exactly as the single-number version did.
+  if (!numbers.some((n) => n.status === 'active')) return;
   if (!account) throw new Error('no telephony account for this workspace');
   const latest = latestByKind(regs);
   const meta = workerMeta(causation.correlationId, causation.causationId);
@@ -190,84 +195,103 @@ export async function advanceRegistrations(
       systemActor(scope),
       meta,
     );
-  /**
-   * Which carrier family to walk. The registrations themselves say which number they are for, so ask them
-   * rather than the workspace's default — a business with a toll-free number beside a local one would
-   * otherwise register whichever one happened to be default that day (M17).
-   *
-   * Registrations are still per family, not per number: a workspace with two local numbers registers once and
-   * both are covered, which is how 10DLC works anyway. Per-number registrations would be a rewrite of this
-   * function and are deliberately not in this phase.
-   */
-  const registered = regs.find((r) => r.phoneNumberId)?.phoneNumberId ?? null;
-  const forNumber = registered
-    ? ((await asWorker(services.db, scope, (tx) =>
-        tx.select().from(phoneNumbers).where(eq(phoneNumbers.id, registered)).limit(1),
-      )) ?? [])[0]
-    : null;
-  const family = familyFor((forNumber ?? number).numberType);
 
-  // Provider ids of the steps later ones may build on.
-  const usable: Partial<Record<RegistrationKind, string>> = {};
-  let approvedSoFar = true;
-  for (const kind of FAMILY_KINDS[family] as readonly RegistrationKind[]) {
-    const reg = latest.get(kind);
-    if (!reg) return;
-    if (reg.status === 'approved') {
-      if (reg.providerSid) usable[kind] = reg.providerSid;
-      continue;
-    }
-    if (!REVIEWING.has(reg.status)) return; // rejected, failed or draft: people act next
-    if (carrierHasDetails(reg)) {
+  /** One family's chain, walked in order against the number that family is for. */
+  const advanceFamily = async (
+    family: RegistrationFamily,
+    number: (typeof numbers)[number],
+  ): Promise<void> => {
+    // Provider ids of the steps later ones may build on.
+    const usable: Partial<Record<RegistrationKind, string>> = {};
+    let approvedSoFar = true;
+    for (const kind of FAMILY_KINDS[family] as readonly RegistrationKind[]) {
+      const reg = latest.get(kind);
+      if (!reg) return;
+      if (reg.status === 'approved') {
+        if (reg.providerSid) usable[kind] = reg.providerSid;
+        continue;
+      }
+      if (!REVIEWING.has(reg.status)) return; // rejected, failed or draft: people act next
+      if (carrierHasDetails(reg)) {
+        await ensurePoll(services, scope, reg.id);
+        if (!PROCEED_WHILE_REVIEWING.has(kind)) return;
+        usable[kind] = reg.providerSid!;
+        approvedSoFar = false;
+        continue;
+      }
+      // Sent again after the carriers turned it down: it goes once the steps before it are approved.
+      if (reg.providerSid && !approvedSoFar) return;
+      const submission = reg.submission as Record<string, unknown>;
+      const contact = (submission['contact'] ?? {}) as { email?: string };
+      let state: RegistrationState;
+      try {
+        state = await services.telephony.submitRegistration(account, {
+          kind,
+          submission,
+          phoneNumberSid: number.providerSid,
+          phoneNumberE164: number.e164,
+          previous: { ...usable },
+          messagingServiceSid: account.messagingServiceSid,
+          notifyEmail: contact.email ?? '',
+          replaces: reg.providerSid,
+        });
+      } catch (e) {
+        if (!isPermanentProviderError(e)) throw e;
+        await update({ registrationId: reg.id, status: 'failed', rejectionReason: e.message });
+        return;
+      }
+      const reviewing = REVIEWING.has(state.status);
+      await update({
+        registrationId: reg.id,
+        status: state.status,
+        providerSid: state.providerSid,
+        providerStatus: state.providerStatus,
+        rejectionReason: state.rejectionReason,
+        nextPollAt: reviewing
+          ? new Date(Date.now() + services.registrationPollMs).toISOString()
+          : null,
+        // The version the carrier now has: people sending again later makes this differ.
+        carrierSubmittedAt: reg.submittedAt?.toISOString() ?? null,
+      });
+      if (state.status === 'approved') {
+        usable[kind] = state.providerSid;
+        continue;
+      }
+      if (!reviewing) return;
       await ensurePoll(services, scope, reg.id);
       if (!PROCEED_WHILE_REVIEWING.has(kind)) return;
-      usable[kind] = reg.providerSid!;
-      approvedSoFar = false;
-      continue;
-    }
-    // Sent again after the carriers turned it down: it goes once the steps before it are approved.
-    if (reg.providerSid && !approvedSoFar) return;
-    const submission = reg.submission as Record<string, unknown>;
-    const contact = (submission['contact'] ?? {}) as { email?: string };
-    let state: RegistrationState;
-    try {
-      state = await services.telephony.submitRegistration(account, {
-        kind,
-        submission,
-        phoneNumberSid: number.providerSid,
-        phoneNumberE164: number.e164,
-        previous: { ...usable },
-        messagingServiceSid: account.messagingServiceSid,
-        notifyEmail: contact.email ?? '',
-        replaces: reg.providerSid,
-      });
-    } catch (e) {
-      if (!isPermanentProviderError(e)) throw e;
-      await update({ registrationId: reg.id, status: 'failed', rejectionReason: e.message });
-      return;
-    }
-    const reviewing = REVIEWING.has(state.status);
-    await update({
-      registrationId: reg.id,
-      status: state.status,
-      providerSid: state.providerSid,
-      providerStatus: state.providerStatus,
-      rejectionReason: state.rejectionReason,
-      nextPollAt: reviewing
-        ? new Date(Date.now() + services.registrationPollMs).toISOString()
-        : null,
-      // The version the carrier now has: people sending again later makes this differ.
-      carrierSubmittedAt: reg.submittedAt?.toISOString() ?? null,
-    });
-    if (state.status === 'approved') {
       usable[kind] = state.providerSid;
-      continue;
+      approvedSoFar = false;
     }
-    if (!reviewing) return;
-    await ensurePoll(services, scope, reg.id);
-    if (!PROCEED_WHILE_REVIEWING.has(kind)) return;
-    usable[kind] = state.providerSid;
-    approvedSoFar = false;
+  };
+
+  /**
+   * **Every family the business has actually submitted, not one guessed from a number.**
+   *
+   * This used to take the oldest registration that named a number, look that number up and walk whichever
+   * family it belonged to. A business that gave up its toll-free number and bought a local one therefore kept
+   * working the dead number's paperwork forever: the loop found the approved toll-free verification, had
+   * nothing left to do, and returned — while the 10DLC chain the business had actually submitted sat
+   * untouched and texting never turned on. A business holding both kinds at once had the same fault, with
+   * whichever chain was submitted second never moving.
+   *
+   * So the families come from the registrations themselves, and each is walked against its own number. This
+   * cannot start anything: a family with no registration is not in the set, and `advanceFamily` returns at the
+   * first step nobody has submitted. Registrations stay per family rather than per number — a workspace with
+   * two local numbers registers once and both are covered, which is how 10DLC works — so one number per
+   * family is the right thing to submit against.
+   */
+  for (const [family, kinds] of Object.entries(FAMILY_KINDS) as [
+    RegistrationFamily,
+    readonly RegistrationKind[],
+  ][]) {
+    if (!kinds.some((k) => latest.has(k))) continue;
+    // `numbersOf` is ordered `is_default desc, created_at desc`, so this is the business's own preference,
+    // and it never returns a released one. `active` because a number still provisioning has no carrier sid
+    // to register against yet — the purchase finishing calls this again.
+    const number = numbers.find((n) => n.status === 'active' && familyFor(n.numberType) === family);
+    if (!number) continue;
+    await advanceFamily(family, number);
   }
 }
 
