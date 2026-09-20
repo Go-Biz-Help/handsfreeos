@@ -687,6 +687,7 @@ export const syncedTables = {
       label: column.text,
       capabilities: column.text,
       status: column.text,
+      is_default: column.integer,
       created_at: column.text,
       updated_at: column.text,
     },
@@ -2028,6 +2029,8 @@ export interface PhoneNumbersRow {
   readonly capabilities: string | null;
   /** app.phone_number_status */
   readonly status: string | null;
+  /** boolean in the database: 1 or 0 here */
+  readonly is_default: number | null;
   /** timestamp with time zone: ISO 8601 text here */
   readonly created_at: string | null;
   /** timestamp with time zone: ISO 8601 text here */
