@@ -38,6 +38,7 @@ import {
   syncWindowJobs,
 } from './housekeeping/sync-window';
 import { advanceRegistrations } from './handlers/telephony';
+import { portJobs } from './telephony/ports';
 import type { JobHandler, JobMap } from './jobs';
 import { knowledgeDocumentJob } from './knowledge/document';
 import { knowledgeScanJob } from './knowledge/scan';
@@ -270,6 +271,8 @@ export const jobs: JobMap = {
   ...SUPPORT_JOBS,
   'conversation.unanswered_check': unansweredCheck,
   'registration.poll': registrationPoll,
+  // Moving a number a business already owns to us: sending it, asking the carrier, calling it off (M17).
+  ...portJobs,
   'conversation.unsnooze': unsnooze,
   'webhook_deliveries.sweep': sweepDeliveries,
   'email_domains.check': checkEmailDomains,

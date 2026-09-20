@@ -239,7 +239,15 @@ export const auditLogs = app.table('audit_logs', {
 export const stageKind = app.enum('stage_kind', ['open', 'won', 'lost']);
 export const leadStatus = app.enum('lead_status', ['open', 'won', 'lost']);
 /** 'knowledge': a file in the knowledge base (its record is the workspace itself); tags never use it. */
-export const recordType = app.enum('record_type', ['person', 'company', 'lead', 'knowledge']);
+export const recordType = app.enum('record_type', [
+  'person',
+  'company',
+  'lead',
+  /** A file that belongs to the business itself, not a customer: a knowledge document (0028). */
+  'knowledge',
+  /** The signed authorisation and the bill for moving a number to us — record_id is the port (0081). */
+  'port',
+]);
 export const activityKind = app.enum('activity_kind', [
   'note',
   'call',
@@ -768,6 +776,60 @@ export const telephonyRegistrations = app.table('telephony_registrations', {
   pollCount: integer('poll_count').notNull().default(0),
   /** The submitted_at of the details the carrier last received; a different submitted_at is not sent yet. */
   carrierSubmittedAt: ts('carrier_submitted_at'),
+  createdBy: userRef('created_by'),
+  ...timestamps(),
+});
+
+/**
+ * Milestone 17: moving a number a business already owns to us (0080).
+ *
+ * Deliberately **not** `app.port_state` and **not** `app.migration_port_requests` — that pair belongs to the
+ * CRM-migration wizard and has `migration_id not null`. The status list here is shaped like
+ * `registration_status`, because this is the same machine: paperwork goes out, the carrier takes its time, a
+ * job polls, an answer comes back.
+ */
+export const numberPortKind = app.enum('number_port_kind', ['full', 'hosted_messaging']);
+export type NumberPortKind = (typeof numberPortKind.enumValues)[number];
+export const numberPortStatus = app.enum('number_port_status', [
+  'draft',
+  'submitted',
+  'carrier_review',
+  'scheduled',
+  'complete',
+  'rejected',
+  'cancelled',
+  'failed',
+]);
+export type NumberPortStatus = (typeof numberPortStatus.enumValues)[number];
+
+export const numberPorts = app.table('number_ports', {
+  id: id(),
+  workspaceId: workspaceRef(),
+  accountId: uuid('account_id').references(() => telephonyAccounts.id, { onDelete: 'set null' }),
+  e164: text('e164').notNull(),
+  kind: numberPortKind('kind').notNull(),
+  status: numberPortStatus('status').notNull().default('draft'),
+  phoneNumberId: uuid('phone_number_id').references(() => phoneNumbers.id, {
+    onDelete: 'set null',
+  }),
+  /**
+   * The losing carrier's account number, PIN, authorising name and service address. **Their credentials, not
+   * ours to spread**: this table is absent from the `powersync` publication on purpose, nothing logs it, and
+   * no output schema returns it — `NumberPortOut` says which fields are filled, never what they say.
+   */
+  submission: jsonb('submission').$type<Json>().notNull().default({}),
+  /** Which papers are in, and where they sit in the `telephony` bucket. Never what they say. */
+  documents: jsonb('documents').$type<Json>().notNull().default({}),
+  providerSid: text('provider_sid'),
+  providerStatus: text('provider_status'),
+  rejectionReason: text('rejection_reason'),
+  lastError: text('last_error'),
+  nextPollAt: ts('next_poll_at'),
+  pollCount: integer('poll_count').notNull().default(0),
+  /** The day the carrier commits to. A business plans its week around this one, so it is a date, not a time. */
+  scheduledFor: date('scheduled_for'),
+  submittedAt: ts('submitted_at'),
+  completedAt: ts('completed_at'),
   createdBy: userRef('created_by'),
   ...timestamps(),
 });
@@ -3798,6 +3860,8 @@ export const migrationPortRequests = app.table('migration_port_requests', {
   phoneNumberId: uuid('phone_number_id').references(() => phoneNumbers.id, {
     onDelete: 'set null',
   }),
+  /** The port that actually moves this number, once one is started (0080). The carrier machinery is there. */
+  numberPortId: uuid('number_port_id').references(() => numberPorts.id, { onDelete: 'set null' }),
   ...timestamps(),
 });
 
@@ -4671,6 +4735,7 @@ export const tables = {
   telephonyAccounts,
   phoneNumbers,
   telephonyRegistrations,
+  numberPorts,
   conversations,
   messages,
   calls,

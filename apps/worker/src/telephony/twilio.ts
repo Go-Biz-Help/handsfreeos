@@ -754,6 +754,22 @@ export function createTwilioTelephony(master: {
       return n ? { sid: n.sid, capabilities: caps(n.capabilities) } : null;
     },
 
+    async configureNumber(account, numberSid, urls) {
+      await call(
+        credsOf(account),
+        'POST',
+        `${API}/Accounts/${account.sid}/IncomingPhoneNumbers/${numberSid}.json`,
+        {
+          SmsUrl: urls.smsUrl,
+          SmsMethod: 'POST',
+          VoiceUrl: urls.voiceUrl,
+          VoiceMethod: 'POST',
+          StatusCallback: urls.voiceStatusUrl,
+          StatusCallbackMethod: 'POST',
+        },
+      );
+    },
+
     async buyNumber(account, { e164, urls }) {
       const res = await call<{ sid: string; capabilities: Record<string, boolean> }>(
         credsOf(account),

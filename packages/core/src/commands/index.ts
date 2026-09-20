@@ -95,6 +95,7 @@ import {
   phoneUpdateSettings,
 } from './phone';
 import { registrationSubmit, registrationUpdateStatus } from './registration';
+import { portCommands } from './port';
 import {
   emailAddressCreate,
   emailAddressUpdate,
@@ -724,6 +725,7 @@ export const commands: readonly CommandDef[] = [
   ...templateCommands,
   ...reviewCommands,
   ...formResponseCommands,
+  ...portCommands,
 ] as unknown as readonly CommandDef[];
 export { callPreview } from './call';
 export { VERIFY_CALLS_PER_DAY, VERIFY_CALLS_PER_HOUR } from './user-phone';
@@ -763,3 +765,4 @@ export * from './push-device';
 export * from './migration';
 export * from './support';
 export * from './support-staff';
+export * from './port';

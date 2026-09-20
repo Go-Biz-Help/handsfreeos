@@ -199,6 +199,14 @@ export interface TelephonyProvider {
     serviceSid: string,
     numberSid: string,
   ): Promise<void>;
+  /**
+   * Point a number we already hold at our webhooks (M17).
+   *
+   * A bought number gets these at the moment it is bought, in the same call. **A ported one arrives bare** —
+   * the carrier hands it over and nothing is listening — so this is the step between "the carrier moved it"
+   * and "a customer can text it". Separate from `buyNumber` because there is nothing to buy.
+   */
+  configureNumber(account: ProviderAccount, numberSid: string, urls: WebhookUrls): Promise<void>;
   releaseNumber(account: ProviderAccount, numberSid: string): Promise<void>;
   sendMessage(
     account: ProviderAccount,

@@ -50,6 +50,7 @@ import { onWalletDeclinedNotice, onWalletEmptyNotice } from '../money/wallet-not
 import { onRefundRequested } from '../money/refunds';
 import { onPlanCardRequested, onPlanChanged } from '../money/subscriptions';
 import { onBridgeCancelled, onBridgeRequested, onVerificationRequested } from '../telephony/cell';
+import { onPortCancelled, onPortSubmitted } from '../telephony/ports';
 import { onPaymentConnectionConnected, onPaymentConnectionDisconnected } from './payments';
 import {
   onConversationLinked,
@@ -82,6 +83,9 @@ const ownTeammateAndWorkflows: HandlerMap = withWorkflows(
     'phone_number.release_requested': onReleaseRequested,
     'registration.submitted': onRegistrationSubmitted,
     'registration.status_changed': onRegistrationStatusChanged,
+    // A number a business already owns, on its way to us: the carrier call is a job (telephony/ports.ts).
+    'number_port.submitted': onPortSubmitted,
+    'number_port.cancelled': onPortCancelled,
     'message.queued': onMessageQueued,
     // A text waiting for quiet hours to end goes then; a cancelled one ends at once (messaging/scheduled.ts).
     'message.scheduled': onTextScheduled,

@@ -63,6 +63,8 @@ export interface FakeTelephony extends TelephonyProvider {
   readonly portDocuments: { portSid: string; name: string }[];
   /** Ports called off, by sid. */
   readonly portsCancelled: string[];
+  /** Numbers pointed at our webhooks after landing here, by sid. A bought one is never in this list. */
+  readonly configured: string[];
   /** Recording and transcription ids deleted at the "provider". */
   readonly deleted: string[];
   /** Call recordings whose words were asked for. */
@@ -127,6 +129,7 @@ export function createFakeTelephony(opts: FakeOptions): FakeTelephony {
   const ports: PortRequest[] = [];
   const portDocuments: { portSid: string; name: string }[] = [];
   const portsCancelled: string[] = [];
+  const configured: string[] = [];
   const portRows = new Map<string, { at: number; e164: string; kind: NumberPortKind }>();
   const turnedDown = (request: RegistrationRequest) => {
     const samples = (request.submission['messageSamples'] ?? []) as unknown[];
@@ -283,6 +286,7 @@ export function createFakeTelephony(opts: FakeOptions): FakeTelephony {
     ports,
     portDocuments,
     portsCancelled,
+    configured,
     deleted,
     transcribed,
     async createSubaccount() {
@@ -296,6 +300,9 @@ export function createFakeTelephony(opts: FakeOptions): FakeTelephony {
     },
     async createTwimlApp() {
       return fakeSid('AP');
+    },
+    async configureNumber(_account, numberSid) {
+      configured.push(numberSid);
     },
     async searchNumbers({ numberType, areaCode, contains, city, state, withinMiles, limit }) {
       const areas = areaCode

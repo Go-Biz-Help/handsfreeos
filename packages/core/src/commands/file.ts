@@ -34,12 +34,32 @@ async function requireRecord(
 }
 
 /**
- * Knowledge base files (knowledge_document.begin_upload) belong to the business, not a customer: only
- * knowledge managers (owners, admins) confirm or remove them, and no customer timeline hears of them.
+ * Some files belong to the **business** rather than to a customer: a knowledge document
+ * (`knowledge_document.begin_upload`) and the signed authorisation for moving a number
+ * (`number_port.begin_upload`). Two things follow for both, and nothing else in this file changes:
+ * a different permission decides who may touch them, and **no customer timeline hears of them** — there is
+ * no customer to hear.
  */
-function requireKnowledgeManager(ctx: CommandContext): void {
-  if (!hasWorkspacePermission(ctx.scope.workspaceRole, 'knowledge.manage'))
-    throw HfosError.forbidden('Only owners and admins can change knowledge base files.');
+const BUSINESS_OWN = {
+  knowledge: {
+    permission: 'knowledge.manage',
+    refusal: 'Only owners and admins can change knowledge base files.',
+  },
+  port: {
+    permission: 'channels.manage',
+    refusal: 'Only owners and admins can change the papers for moving a number.',
+  },
+} as const;
+
+type BusinessOwnType = keyof typeof BUSINESS_OWN;
+
+const businessOwn = (recordType: string): recordType is BusinessOwnType =>
+  recordType in BUSINESS_OWN;
+
+function requireBusinessOwnManager(ctx: CommandContext, recordType: BusinessOwnType): void {
+  const rule = BUSINESS_OWN[recordType];
+  if (!hasWorkspacePermission(ctx.scope.workspaceRole, rule.permission))
+    throw HfosError.forbidden(rule.refusal);
 }
 
 export const fileBeginUpload = defineCommand({
@@ -102,8 +122,8 @@ export const fileConfirm = defineCommand({
       .from(files)
       .where(and(eq(files.id, input.fileId), eq(files.workspaceId, ctx.scope.workspaceId!)));
     if (!current || current.deletedAt) throw HfosError.notFound('File not found.');
-    const knowledge = current.recordType === 'knowledge';
-    if (knowledge) requireKnowledgeManager(ctx);
+    const ownFile = businessOwn(current.recordType);
+    if (ownFile) requireBusinessOwnManager(ctx, current.recordType as BusinessOwnType);
     if (current.status === 'ready')
       return {
         fileId: current.id,
@@ -126,12 +146,12 @@ export const fileConfirm = defineCommand({
       .where(eq(files.id, current.id));
     const eventId = await ctx.emit({
       type: 'file.attached',
-      entityType: knowledge ? 'file' : current.recordType,
-      entityId: knowledge ? current.id : current.recordId,
+      entityType: ownFile ? 'file' : current.recordType,
+      entityId: ownFile ? current.id : current.recordId,
       payload: { fileId: current.id, name: current.name, mimeType, sizeBytes },
       after: { name: current.name, mimeType, sizeBytes },
     });
-    if (knowledge) return { fileId: current.id, sizeBytes, mimeType };
+    if (ownFile) return { fileId: current.id, sizeBytes, mimeType };
     // On the timeline when the file was added: the confirmation's moment (a phone sends when the photo was taken),
     // never before the file was reserved.
     const madeAt = changeMoment(ctx.meta);
@@ -164,13 +184,13 @@ export const fileDelete = defineCommand({
       .from(files)
       .where(and(eq(files.id, input.fileId), eq(files.workspaceId, ctx.scope.workspaceId!)));
     if (!current || current.deletedAt) throw HfosError.notFound('File not found.');
-    const knowledge = current.recordType === 'knowledge';
-    if (knowledge) requireKnowledgeManager(ctx);
+    const ownFile = businessOwn(current.recordType);
+    if (ownFile) requireBusinessOwnManager(ctx, current.recordType as BusinessOwnType);
     await ctx.tx.update(files).set({ deletedAt: new Date() }).where(eq(files.id, current.id));
     await ctx.emit({
       type: 'file.deleted',
-      entityType: knowledge ? 'file' : current.recordType,
-      entityId: knowledge ? current.id : current.recordId,
+      entityType: ownFile ? 'file' : current.recordType,
+      entityId: ownFile ? current.id : current.recordId,
       payload: {
         fileId: current.id,
         name: current.name,

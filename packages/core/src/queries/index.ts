@@ -52,6 +52,7 @@ import { emailComposeOptions } from './email-compose';
 import { invitationPreview } from './invitation.preview';
 import { intakeList } from './intake';
 import { phoneSetupStatus } from './phone';
+import { numberPortList } from './port';
 import { leadBoard, leadGet, leadList } from './lead';
 import { me } from './me';
 import { personGet, personList } from './person';
@@ -116,6 +117,7 @@ export {
   emailUnmatchedList,
   intakeList,
   phoneSetupStatus,
+  numberPortList,
   assistantThreadGet,
   assistantThreadList,
   auditList,
@@ -188,6 +190,7 @@ export const queries: readonly QueryDef[] = [
   crmMetrics,
   intakeList,
   phoneSetupStatus,
+  numberPortList,
   callLog,
   inboxList,
   inboxSummary,
@@ -309,3 +312,4 @@ export * from './migration';
 export * from './support';
 export * from './platform';
 export * from './wallet';
+export * from './port';

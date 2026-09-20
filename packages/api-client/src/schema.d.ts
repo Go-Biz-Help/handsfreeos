@@ -3197,6 +3197,126 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/number_port.attach_document": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Record that a signed authorisation or a recent bill has been uploaded for a port.
+         * @description Risk level 1. Requires channels.manage. Emits number_port.document_attached.
+         */
+        post: operations["command_number_port_attach_document"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/number_port.begin_upload": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reserve a place for the signed authorisation or a recent bill (10 MB at most). Upload it to the returned path, then confirm it with file.confirm and attach it.
+         * @description Risk level 1. Requires channels.manage. Emits .
+         */
+        post: operations["command_number_port_begin_upload"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/number_port.cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Call off a port. The carrier may already have moved it, in which case it is too late.
+         * @description Risk level 3. Requires channels.manage. Emits number_port.cancelled.
+         */
+        post: operations["command_number_port_cancel"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/number_port.save": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Put in what the old carrier needs: the account number, the PIN, who is authorising it.
+         * @description Risk level 2. Requires channels.manage. Emits number_port.saved.
+         */
+        post: operations["command_number_port_save"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/number_port.start": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Begin moving a number the business already owns to HandsFreeOS.
+         * @description Risk level 2. Requires channels.manage. Emits number_port.started.
+         */
+        post: operations["command_number_port_start"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/number_port.submit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Send the port to the carrier. A full port moves calls too, and takes two to four weeks.
+         * @description Risk level 4. Requires channels.manage. Emits number_port.submitted.
+         */
+        post: operations["command_number_port_submit"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/organization.add_owner": {
         parameters: {
             query?: never;
@@ -7251,6 +7371,26 @@ export interface paths {
          * @description Requires money.manage.
          */
         post: operations["query_money_summary"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/number_port.list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Numbers this business is bringing from another carrier, and where each one stands.
+         * @description Requires channels.manage.
+         */
+        post: operations["query_number_port_list"];
         delete?: never;
         options?: never;
         head?: never;
@@ -15437,6 +15577,229 @@ export interface operations {
                         };
                         /** Format: uuid */
                         workspaceId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_number_port_attach_document: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {string} */
+                    document: "loa" | "bill";
+                    /** Format: uuid */
+                    fileId: string;
+                    /** Format: uuid */
+                    portId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        portId: string;
+                        /** @enum {string} */
+                        status: "draft" | "submitted" | "carrier_review" | "scheduled" | "complete" | "rejected" | "cancelled" | "failed";
+                    };
+                };
+            };
+        };
+    };
+    command_number_port_begin_upload: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {string} */
+                    document: "loa" | "bill";
+                    mimeType: string;
+                    name: string;
+                    /** Format: uuid */
+                    portId: string;
+                    sizeBytes: number;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {string} */
+                        bucket: "attachments";
+                        /** Format: uuid */
+                        fileId: string;
+                        objectPath: string;
+                    };
+                };
+            };
+        };
+    };
+    command_number_port_cancel: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    portId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        portId: string;
+                        /** @enum {string} */
+                        status: "draft" | "submitted" | "carrier_review" | "scheduled" | "complete" | "rejected" | "cancelled" | "failed";
+                    };
+                };
+            };
+        };
+    };
+    command_number_port_save: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    portId: string;
+                    submission: {
+                        accountNumber: string;
+                        authorizedBy: string;
+                        /** Format: email */
+                        email?: string;
+                        pin: string;
+                        serviceAddress: string;
+                    };
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        portId: string;
+                        /** @enum {string} */
+                        status: "draft" | "submitted" | "carrier_review" | "scheduled" | "complete" | "rejected" | "cancelled" | "failed";
+                    };
+                };
+            };
+        };
+    };
+    command_number_port_start: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    e164: string;
+                    /** @enum {string} */
+                    kind: "full" | "hosted_messaging";
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        portId: string;
+                        /** @enum {string} */
+                        status: "draft" | "submitted" | "carrier_review" | "scheduled" | "complete" | "rejected" | "cancelled" | "failed";
+                    };
+                };
+            };
+        };
+    };
+    command_number_port_submit: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    portId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        portId: string;
+                        /** @enum {string} */
+                        status: "draft" | "submitted" | "carrier_review" | "scheduled" | "complete" | "rejected" | "cancelled" | "failed";
                     };
                 };
             };
@@ -27221,6 +27584,57 @@ export interface operations {
                         quotedCount: number;
                         refundedCents: number;
                         settlingCents: number;
+                    };
+                };
+            };
+        };
+    };
+    query_number_port_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @default false */
+                    includeFinished?: boolean;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        ports: {
+                            completedAt: string | null;
+                            /** Format: date-time */
+                            createdAt: string;
+                            detailsReady: boolean;
+                            display: string;
+                            documents: {
+                                bill: boolean;
+                                loa: boolean;
+                            };
+                            e164: string;
+                            /** Format: uuid */
+                            id: string;
+                            /** @enum {string} */
+                            kind: "full" | "hosted_messaging";
+                            rejectionReason: string | null;
+                            scheduledFor: string | null;
+                            /** @enum {string} */
+                            status: "draft" | "submitted" | "carrier_review" | "scheduled" | "complete" | "rejected" | "cancelled" | "failed";
+                            submittedAt: string | null;
+                        }[];
                     };
                 };
             };
