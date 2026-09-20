@@ -129,6 +129,7 @@ export const ROLE_PERMISSIONS = {
     'platform.view_as',
     'platform.health.read',
     'platform.staff.manage',
+    'platform.rates.manage',
   ],
 } as const satisfies Record<string, readonly string[]>;
 

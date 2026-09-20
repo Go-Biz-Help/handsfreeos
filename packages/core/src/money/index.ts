@@ -4,6 +4,7 @@
  * customer's own page. Commands, queries and the providers are server-side.
  */
 export * from './totals';
+export * from './rates';
 export * from './format';
 export * from './status';
 export * from './numbering';

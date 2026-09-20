@@ -4079,6 +4079,38 @@ export const viewAsSessions = platform.table('view_as_sessions', {
   createdAt: ts('created_at').notNull().defaultNow(),
 });
 
+// ---- The usage rate card (M16) ----
+// HandsFreeOS's own price list, in `platform` beside the support desk. Costs are micro-dollars (a millionth of
+// a dollar): a text segment is 7900 and cents cannot hold it. What a business is charged is worked out in
+// cents by core's `priceEvent`, never here.
+
+export const usageUnit = platform.enum('usage_unit', [
+  'month',
+  'segment',
+  'message',
+  'minute',
+  'mtok',
+]);
+export const usageRounding = platform.enum('usage_rounding', ['none', 'minute', 'six_seconds']);
+
+/** One line of one version of the card. A published line is history: only `effectiveTo` and `notes` change. */
+export const usageRates = platform.table('usage_rates', {
+  id: id(),
+  version: integer('version').notNull(),
+  key: text('key').notNull(),
+  unit: usageUnit('unit').notNull(),
+  costMicros: bigint('cost_micros', { mode: 'number' }).notNull(),
+  markupBp: integer('markup_bp').notNull().default(15000),
+  minChargeCents: integer('min_charge_cents').notNull().default(0),
+  roundUpTo: usageRounding('round_up_to').notNull().default('none'),
+  effectiveFrom: ts('effective_from').notNull().defaultNow(),
+  /** Null while live. Set the instant a later version takes over. */
+  effectiveTo: ts('effective_to'),
+  notes: text('notes').notNull().default(''),
+  publishedBy: userRef('published_by'),
+  ...timestamps(),
+});
+
 // ---- Forms, surveys and quizzes (M15) ----
 
 export const formMode = app.enum('form_mode', ['form', 'survey', 'quiz']);
@@ -4369,6 +4401,7 @@ export const tables = {
   ticketEvents,
   cannedReplies,
   viewAsSessions,
+  usageRates,
 
   migrationConnections,
   migrations,

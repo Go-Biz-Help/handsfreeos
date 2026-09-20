@@ -58,6 +58,50 @@ describe('check constraints mirror core', () => {
   );
 });
 
+/** Core's usage keys, loaded by path for the same reason as the kinds above: pure, browser-safe. */
+const usageKeysFile = fileURLToPath(new URL('../../core/src/money/rates.ts', import.meta.url));
+
+describe('the rate card mirrors core', () => {
+  it.skipIf(!existsSync(usageKeysFile))(
+    'usage_rates.key allows exactly core’s USAGE_KEYS, and every one of them is priced',
+    async () => {
+      const { USAGE_KEYS, USAGE_KEY_UNITS } = (await import(/* @vite-ignore */ usageKeysFile)) as {
+        USAGE_KEYS: readonly string[];
+        USAGE_KEY_UNITS: Readonly<Record<string, string>>;
+      };
+      const [check] = await rows<{ def: string }>(
+        dbs.admin.db,
+        sql`select pg_get_constraintdef(oid) as def from pg_constraint
+            where conrelid = 'platform.usage_rates'::regclass and conname = 'usage_rates_key_check'`,
+      );
+      const live = [...(check?.def ?? '').matchAll(/'([a-z_.]+)'::text/g)].map((m) => m[1]!);
+      expect(live.length).toBeGreaterThan(0);
+      expect(new Set(live).size).toBe(live.length);
+      expect([...live].sort()).toEqual([...USAGE_KEYS].sort());
+
+      // A card missing a line is how a month of texts goes out free, so the seed has to price every key —
+      // with the unit core says that key counts in.
+      const seeded = await rows<{ key: string; unit: string }>(
+        dbs.admin.db,
+        sql`select key, unit::text as unit from platform.usage_rates_live order by key`,
+      );
+      expect(seeded.map((r) => r.key)).toEqual([...USAGE_KEYS].sort());
+      for (const row of seeded) expect(row.unit, row.key).toBe(USAGE_KEY_UNITS[row.key]);
+    },
+  );
+
+  it.skipIf(!existsSync(usageKeysFile))(
+    'never lets a price fall below what it costs us',
+    async () => {
+      const [bad] = await rows<{ n: number }>(
+        dbs.admin.db,
+        sql`select count(*)::int as n from platform.usage_rates where markup_bp < 10000`,
+      );
+      expect(bad?.n ?? 0).toBe(0);
+    },
+  );
+});
+
 /** Core's money arithmetic, loaded by path for the same reason: pure, with no imports of its own. */
 const totalsFile = fileURLToPath(new URL('../../core/src/money/totals.ts', import.meta.url));
 
