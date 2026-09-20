@@ -86,6 +86,12 @@ streams:
       - SELECT id, workspace_id, channel, counterpart, phone_number_id, email_address_id, person_id, status, assignee_user_id, snoozed_until, unread_count, last_message_at, last_inbound_at, last_outbound_at, last_preview, last_direction, awaiting_reply_since, closed_at, closed_by, handled_by, ai_teammate_id, needs_person_since, handoff_reason, handoff_note, taken_over_by, ai_disclosed_at, created_by, created_at, updated_at FROM app.conversations WHERE workspace_id IN inbox
       - SELECT id, workspace_id, conversation_id, channel, direction, status, from_address, to_addresses, cc_addresses, subject, body_text, media, segments, error_code, error_message, sent_by, sent_by_teammate_id, approved_by, client_id, email_address_id, occurred_at, sent_at, delivered_at, created_at, updated_at FROM app.messages WHERE workspace_id IN inbox AND sync_window = true
       - SELECT id, workspace_id, conversation_id, phone_number_id, person_id, direction, from_e164, to_e164, status, answered_via, answered_by_user_id, answered_number, placed_by, started_at, answered_at, ended_at, duration_seconds, is_voicemail, recording_seconds, transcript, transcript_status, created_at, updated_at FROM app.calls WHERE workspace_id IN inbox AND sync_window = true
+      # Forms a phone can fill in with no signal (0085): the live ones, and the single version each is
+      # actually serving. `is_active` is a stored flag because a stream cannot join — the same reason
+      # sync_window is one. The draft `definition` on app.forms is deliberately not selected: a phone shows
+      # what was published, never what somebody is still editing.
+      - SELECT id, workspace_id, name, mode, status, slug, active_version_id, created_at, updated_at FROM app.forms WHERE workspace_id IN access AND status = 'live'
+      - SELECT id, workspace_id, form_id, version, definition, definition_version, created_at FROM app.form_versions WHERE workspace_id IN access AND is_active = true
       # Who may be texted or emailed, and from which number and address.
       - SELECT id, workspace_id, counterpart_e164, opted_out, source, opted_out_at, opted_in_at, created_at, updated_at FROM app.opt_outs WHERE workspace_id IN access
       - SELECT id, workspace_id, address, reason, created_at, updated_at FROM app.email_suppressions WHERE workspace_id IN access AND released_at IS NULL

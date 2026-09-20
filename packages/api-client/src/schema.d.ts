@@ -1717,6 +1717,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/form_response.record": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Fill in a form for a customer yourself and send it, in one go. Works with no signal; the phone keeps it until there is some.
+         * @description Risk level 2. Requires records.write. Emits form.submitted, person.created, lead.created, task.created, invoice.created, workflow.enrol_requested. Can wait on a phone with no signal.
+         */
+        post: operations["command_form_response_record"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/form.archive": {
         parameters: {
             query?: never;
@@ -12265,6 +12285,56 @@ export interface operations {
                         deleted: true;
                         /** Format: uuid */
                         responseId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_form_response_record: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    answers: {
+                        [key: string]: unknown;
+                    };
+                    /** Format: uuid */
+                    formId: string;
+                    /** Format: uuid */
+                    id?: string;
+                    /** @default false */
+                    smsConsent?: boolean;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        calculations: {
+                            [key: string]: number;
+                        };
+                        dueCents: number;
+                        invoiceId: string | null;
+                        leadId: string | null;
+                        passed: boolean | null;
+                        personId: string | null;
+                        /** Format: uuid */
+                        responseId: string;
+                        resultId: string | null;
+                        score: number | null;
+                        scorePercent: number | null;
                     };
                 };
             };

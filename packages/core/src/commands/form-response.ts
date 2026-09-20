@@ -28,6 +28,7 @@ import {
   writeCustomFields,
   writeFormAnswers,
 } from '../forms/submit';
+import { insertWithId, madeBefore } from '../crm/client-ids';
 import { findOrCreateCustomer, intakeSourceOf, takeIntakeSlot } from '../crm/intake';
 import { workspaceZone } from '../calendar/load';
 import { defineCommand } from '../kernel/define';
@@ -38,6 +39,7 @@ import { PersonUpdateInput } from '../schemas/person';
 import { TaskCreateInput } from '../schemas/task';
 import { InvoiceCreateInput } from '../schemas/money';
 import {
+  FormRecordInput,
   FormResponseDeleteInput,
   FormResponseDeleteOutput,
   FormSaveAnswersInput,
@@ -614,13 +616,6 @@ export const formResponseDelete = defineCommand({
   },
 });
 
-export const formResponseCommands = [
-  formResponseStart,
-  formResponseSave,
-  formResponseSubmit,
-  formResponseDelete,
-] as const;
-
 /** The response a resume link points at, for the worker serving /f/…?resume=… */
 export async function responseByResumeToken(
   ctx: CommandContext,
@@ -634,3 +629,93 @@ export async function responseByResumeToken(
   );
   return found ? { responseId: found.id, formId: found.form_id } : null;
 }
+
+/**
+ * A person filling a form in themselves (M17) — on a job, on a phone, quite possibly with no signal.
+ *
+ * **Its own command rather than actors added to the public pair.** A visitor's path is two round trips: start
+ * a sheet, get a key back, send the answers. A phone in a basement has neither. So this makes the sheet and
+ * sends it in one go, with an id the phone made, which is what turns a retry into the same answer sheet
+ * rather than a second one.
+ *
+ * **It then hands over to `form_response.submit`**, deliberately, rather than repeating what that does. Every
+ * consequence a customer's own submission has — matching or making the customer, filling in what they told
+ * us, opening the lead or the task the form asks for, asking its workflows to start — is the form's
+ * behaviour, not the public page's, and a form that did half of that when a person filled it in would be a
+ * second set of rules to keep in step. `assertHolder` lets a person through without a key, because the key
+ * exists to stop one visitor writing to another's sheet.
+ */
+export const formResponseRecord = defineCommand({
+  name: 'form_response.record',
+  description:
+    'Fill in a form for a customer yourself and send it, in one go. Works with no signal; the phone keeps it until there is some.',
+  risk: 2,
+  input: FormRecordInput,
+  output: FormSubmitOutput,
+  permission: 'records.write',
+  scope: inWorkspace,
+  emits: formResponseSubmit.emits,
+  offline: 'anytime',
+  async handler(ctx, input) {
+    const ws = ctx.scope.workspaceId!;
+    requireHuman(ctx);
+    // Sent twice — the queue retried, or two phones were handed the same job. The first one stands.
+    const earlier = await madeBefore(ctx.tx, 'formResponses', input.id, ws);
+    if (earlier?.status === 'completed')
+      return {
+        responseId: earlier.id,
+        personId: earlier.personId,
+        leadId: earlier.leadId,
+        resultId: earlier.resultId,
+        score: earlier.score === null ? null : Number(earlier.score),
+        scorePercent: earlier.scorePercent,
+        passed: earlier.passed,
+      } as never;
+
+    let responseId = earlier?.id ?? null;
+    if (!responseId) {
+      const { row, definition: draft } = await loadForm(ctx.tx, ws, input.formId);
+      if (!row.activeVersionId) throw HfosError.notFound('This form isn’t published.');
+      const [version] = await ctx.tx
+        .select()
+        .from(formVersions)
+        .where(eq(formVersions.id, row.activeVersionId));
+      assertOpen(row, version ? parseStoredForm(version.definition) : draft);
+      const [made] = await insertWithId('formResponses', input.id, () =>
+        ctx.tx
+          .insert(formResponses)
+          .values({
+            ...(input.id ? { id: input.id } : {}),
+            workspaceId: ws,
+            formId: row.id,
+            versionId: row.activeVersionId!,
+            status: 'in_progress',
+            // The enum has had a value for this since M15; nothing had ever written it.
+            source: 'app',
+            // No resume key: nobody is coming back to this on a link, and a hash we never check is a
+            // secret kept for no reason.
+            resumeTokenHash: null,
+            resumeExpiresAt: null,
+          })
+          .returning({ id: formResponses.id }),
+      );
+      if (!made) throw HfosError.internal('The answer sheet could not be started.');
+      responseId = made.id;
+    }
+    return formResponseSubmit.handler(ctx, {
+      workspaceId: ws,
+      responseId,
+      answers: input.answers,
+      smsConsent: input.smsConsent,
+    });
+  },
+});
+
+/** Declared last because `form_response.record` is, and an array cannot name a const it precedes. */
+export const formResponseCommands = [
+  formResponseStart,
+  formResponseSave,
+  formResponseSubmit,
+  formResponseRecord,
+  formResponseDelete,
+] as const;

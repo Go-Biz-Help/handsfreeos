@@ -271,6 +271,10 @@ describe('offline classes', () => {
     'task.complete': 'anytime',
     'task.reopen': 'anytime',
     'task.delete': 'anytime',
+    // A form filled in on a job (M17): made and sent in one go, with an id the phone gave it, so the queue
+    // retrying it is the same answer sheet rather than a second one. The visitor's own two-step
+    // (form_response.start, then .submit) stays online, because it needs the key the server hands back.
+    'form_response.record': 'anytime',
     // Notes, tags and photos.
     'activity.log': 'anytime',
     'record.add_tag': 'anytime',

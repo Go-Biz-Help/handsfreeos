@@ -435,6 +435,32 @@ export const syncedTables = {
     },
     { indexes: { workspace: ['workspace_id'] } },
   ),
+  /** business_v1 */
+  form_versions: new Table(
+    {
+      workspace_id: column.text,
+      form_id: column.text,
+      version: column.integer,
+      definition: column.text,
+      definition_version: column.integer,
+      created_at: column.text,
+    },
+    { indexes: { workspace: ['workspace_id'] } },
+  ),
+  /** business_v1 */
+  forms: new Table(
+    {
+      workspace_id: column.text,
+      name: column.text,
+      mode: column.text,
+      status: column.text,
+      slug: column.text,
+      active_version_id: column.text,
+      created_at: column.text,
+      updated_at: column.text,
+    },
+    { indexes: { workspace: ['workspace_id'] } },
+  ),
   /** business_v1, me_v1 */
   invoice_lines: new Table(
     {
@@ -1612,6 +1638,42 @@ export interface FilesRow {
   readonly updated_at: string | null;
 }
 
+/** A row of `form_versions` (business_v1). */
+export interface FormVersionsRow {
+  readonly id: string;
+  /** uuid */
+  readonly workspace_id: string | null;
+  /** uuid */
+  readonly form_id: string | null;
+  /** integer */
+  readonly version: number | null;
+  /** jsonb: JSON text here */
+  readonly definition: string | null;
+  /** integer */
+  readonly definition_version: number | null;
+  /** timestamp with time zone: ISO 8601 text here */
+  readonly created_at: string | null;
+}
+
+/** A row of `forms` (business_v1). */
+export interface FormsRow {
+  readonly id: string;
+  /** uuid */
+  readonly workspace_id: string | null;
+  readonly name: string | null;
+  /** app.form_mode */
+  readonly mode: string | null;
+  /** app.form_status */
+  readonly status: string | null;
+  readonly slug: string | null;
+  /** uuid */
+  readonly active_version_id: string | null;
+  /** timestamp with time zone: ISO 8601 text here */
+  readonly created_at: string | null;
+  /** timestamp with time zone: ISO 8601 text here */
+  readonly updated_at: string | null;
+}
+
 /** A row of `invoice_lines` (business_v1, me_v1). */
 export interface InvoiceLinesRow {
   readonly id: string;
@@ -2430,6 +2492,8 @@ export interface SyncedRows {
   estimate_lines: EstimateLinesRow;
   estimates: EstimatesRow;
   files: FilesRow;
+  form_versions: FormVersionsRow;
+  forms: FormsRow;
   invoice_lines: InvoiceLinesRow;
   invoices: InvoicesRow;
   leads: LeadsRow;

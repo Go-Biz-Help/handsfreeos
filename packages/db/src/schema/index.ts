@@ -4407,6 +4407,11 @@ export const formVersions = app.table('form_versions', {
   /** editor, assistant, template. */
   source: text('source').notNull().default('editor'),
   diffSummary: jsonb('diff_summary').$type<Json[]>().notNull().default([]),
+  /**
+   * The version a phone should hold (0085): this form's active one, while the form is live. A stored flag
+   * because a sync stream cannot join — the same reason `sync_window` is one. Kept by a trigger.
+   */
+  isActive: boolean('is_active').notNull().default(false),
   publishedBy: userRef('published_by'),
   createdAt: ts('created_at').notNull().defaultNow(),
 });

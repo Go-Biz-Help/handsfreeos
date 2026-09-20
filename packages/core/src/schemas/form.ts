@@ -189,6 +189,23 @@ export const FormSubmitInput = z.object({
   /** Ticked to allow texts. The box starts unticked, as it does on the booking page. */
   smsConsent: z.boolean().default(false),
 });
+/**
+ * A person filling one in themselves (M17), on a phone that may have no signal.
+ *
+ * Its own input rather than `FormSubmitInput`'s, because the two-step a visitor takes — start a sheet, get a
+ * key back, send the answers — needs the network twice and a server-made id. This carries a client-made id
+ * instead, so the same submission arriving twice is one answer sheet.
+ */
+export const FormRecordInput = z.object({
+  workspaceId: uuid,
+  /** Made on the phone, so a retry is not a second answer sheet. */
+  id: uuid.optional(),
+  formId: uuid,
+  answers: AnswerSheetInput,
+  /** Ticked if the customer said it is OK to text them. Starts unticked, as everywhere else. */
+  smsConsent: z.boolean().default(false),
+});
+
 export const FormSubmitOutput = z.object({
   responseId: uuid,
   personId: uuid.nullable(),

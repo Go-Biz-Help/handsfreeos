@@ -4818,6 +4818,30 @@
         "updated_at": "timestamp with time zone"
       }
     },
+    "business_v1.form_versions": {
+      "columns": {
+        "id": "uuid",
+        "workspace_id": "uuid",
+        "form_id": "uuid",
+        "version": "integer",
+        "definition": "jsonb",
+        "definition_version": "integer",
+        "created_at": "timestamp with time zone"
+      }
+    },
+    "business_v1.forms": {
+      "columns": {
+        "id": "uuid",
+        "workspace_id": "uuid",
+        "name": "text",
+        "mode": "app.form_mode",
+        "status": "app.form_status",
+        "slug": "text",
+        "active_version_id": "uuid",
+        "created_at": "timestamp with time zone",
+        "updated_at": "timestamp with time zone"
+      }
+    },
     "business_v1.invoice_lines": {
       "columns": {
         "id": "uuid",
