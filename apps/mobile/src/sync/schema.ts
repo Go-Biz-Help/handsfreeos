@@ -317,6 +317,7 @@ export const syncedTables = {
       awaiting_reply_since: column.text,
       closed_at: column.text,
       closed_by: column.text,
+      archived_at: column.text,
       handled_by: column.text,
       ai_teammate_id: column.text,
       needs_person_since: column.text,
@@ -1463,6 +1464,8 @@ export interface ConversationsRow {
   readonly closed_at: string | null;
   /** uuid */
   readonly closed_by: string | null;
+  /** timestamp with time zone: ISO 8601 text here */
+  readonly archived_at: string | null;
   /** app.conversation_handler */
   readonly handled_by: string | null;
   /** uuid */
