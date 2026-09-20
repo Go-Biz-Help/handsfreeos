@@ -34888,6 +34888,67 @@
         }
       }
     },
+    "/v1/commands/inbox.set_visibility": {
+      "post": {
+        "operationId": "command_inbox_set_visibility",
+        "summary": "Choose whether everyone in the business sees every conversation, or each person sees only the ones assigned to them and the ones on the numbers they answer.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 3. Requires channels.manage. Emits inbox.visibility_changed.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "perPerson": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "perPerson"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "perPerson": {
+                      "type": "boolean"
+                    },
+                    "conversationsChanged": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    }
+                  },
+                  "required": [
+                    "perPerson",
+                    "conversationsChanged"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/queries/migration.list": {
       "post": {
         "operationId": "query_migration_list",
@@ -39537,6 +39598,9 @@
                           },
                           "additionalProperties": {}
                         },
+                        "inboxPerPerson": {
+                          "type": "boolean"
+                        },
                         "createdAt": {
                           "type": "string",
                           "format": "date-time",
@@ -39553,6 +39617,7 @@
                         "industry",
                         "role",
                         "settings",
+                        "inboxPerPerson",
                         "createdAt"
                       ],
                       "additionalProperties": false

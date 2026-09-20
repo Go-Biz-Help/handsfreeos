@@ -1997,6 +1997,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/inbox.set_visibility": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Choose whether everyone in the business sees every conversation, or each person sees only the ones assigned to them and the ones on the numbers they answer.
+         * @description Risk level 3. Requires channels.manage. Emits inbox.visibility_changed.
+         */
+        post: operations["command_inbox_set_visibility"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/intake_source.archive": {
         parameters: {
             query?: never;
@@ -12905,6 +12925,37 @@ export interface operations {
                     "application/json": {
                         /** Format: uuid */
                         importId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_inbox_set_visibility: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    perPerson: boolean;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        conversationsChanged: number;
+                        perPerson: boolean;
                     };
                 };
             };
@@ -30740,6 +30791,7 @@ export interface operations {
                             createdAt: string;
                             /** Format: uuid */
                             id: string;
+                            inboxPerPerson: boolean;
                             industry: string;
                             name: string;
                             /** Format: uuid */

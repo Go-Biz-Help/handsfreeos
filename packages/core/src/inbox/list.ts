@@ -26,9 +26,20 @@ export const STATUS_LABELS: Readonly<Record<ConversationStatus, string>> = {
   closed: 'Closed',
 };
 
-/** "Mine · 3". */
-export function boxLabel(box: 'mine' | 'unassigned' | 'all', count: number): string {
-  const name = box === 'mine' ? 'Mine' : box === 'unassigned' ? 'Unassigned' : 'All';
+/**
+ * "Mine · 3".
+ *
+ * `narrowed` is a business that has said each person sees their own threads (M17). Then "All" is a promise
+ * the box cannot keep — it holds what *this person* may see — so it reads "Everyone", which is true of the
+ * people rather than of the threads, and is what a member pressing it is actually asking for.
+ */
+export function boxLabel(
+  box: 'mine' | 'unassigned' | 'all',
+  count: number,
+  narrowed = false,
+): string {
+  const name =
+    box === 'mine' ? 'Mine' : box === 'unassigned' ? 'Unassigned' : narrowed ? 'Everyone' : 'All';
   return `${name} · ${count}`;
 }
 

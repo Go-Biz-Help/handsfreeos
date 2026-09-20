@@ -289,8 +289,11 @@ const fieldTimes = () => jsonb('field_times').$type<Record<string, string>>().no
  */
 const syncWindow = () => boolean('sync_window').notNull().default(true);
 /**
- * Milestone 10 (0056): the members who may see this money (the lead's assignee, or active staff on the booking),
- * kept by triggers so a member's phone syncs exactly what RLS lets them read.
+ * Milestone 10 (0056) and Milestone 17 (0083): the members who may see this row, kept by triggers so a
+ * member's phone syncs exactly what RLS lets them read. On money it is the lead's assignee or active staff on
+ * the booking, and empty means owner business. On the inbox it is the thread's assignee and the people its
+ * number rings, and **empty means the business has not narrowed its inbox at all** — the opposite default,
+ * said in both migrations, because each table's wide policy is what reads the empty case.
  */
 const memberViewerIds = () =>
   uuid('member_viewer_ids')
@@ -887,6 +890,11 @@ export const conversations = app.table('conversations', {
   // Milestone 10
   /** When it was last opened, closed or snoozed, or its snooze moved, at the moment the change was made (0063). */
   statusChangedAt: ts('status_changed_at'),
+  /**
+   * The members who may see this while the business narrows its inbox (0083). Empty means narrowing is off
+   * and everyone with the inbox sees everything. Kept by triggers; a value sent by a caller is replaced.
+   */
+  memberViewerIds: memberViewerIds(),
 });
 
 export const messages = app.table('messages', {
@@ -949,6 +957,11 @@ export const messages = app.table('messages', {
   approvedBy: userRef('approved_by'),
   // Milestone 10
   syncWindow: syncWindow(),
+  /**
+   * The members who may see this while the business narrows its inbox (0083). Empty means narrowing is off
+   * and everyone with the inbox sees everything. Kept by triggers; a value sent by a caller is replaced.
+   */
+  memberViewerIds: memberViewerIds(),
 });
 
 export const calls = app.table('calls', {
@@ -984,6 +997,11 @@ export const calls = app.table('calls', {
   ...timestamps(),
   // Milestone 10
   syncWindow: syncWindow(),
+  /**
+   * The members who may see this while the business narrows its inbox (0083). Empty means narrowing is off
+   * and everyone with the inbox sees everything. Kept by triggers; a value sent by a caller is replaced.
+   */
+  memberViewerIds: memberViewerIds(),
 });
 
 export const optOuts = app.table('opt_outs', {
@@ -2575,6 +2593,11 @@ export const attentionItems = app.table('attention_items', {
   resolvedAt: ts('resolved_at'),
   resolution: text('resolution'),
   ...timestamps(),
+  /**
+   * The members who may see this while the business narrows its inbox (0083). Empty means narrowing is off
+   * and everyone with the inbox sees everything. Kept by triggers; a value sent by a caller is replaced.
+   */
+  memberViewerIds: memberViewerIds(),
 });
 
 // ---------- Milestone 9: money (0044-0050) ----------
@@ -3096,6 +3119,12 @@ export const workspaceAccess = app.table(
       .references(() => users.id, { onDelete: 'cascade' }),
     workspaceId: workspaceRef(),
     role: memberRole('role').notNull(),
+    /**
+     * Whether this person sees every thread in this business (0083). True for everyone until the business
+     * narrows its inbox, and true for owners and admins always. Kept by a trigger; what `business_v1`'s
+     * `inbox` sync parameter reads, so it is one of the rows the database keeps equal to RLS.
+     */
+    seesWholeInbox: boolean('sees_whole_inbox').notNull().default(true),
   },
   (t) => [primaryKey({ columns: [t.userId, t.workspaceId] })],
 );

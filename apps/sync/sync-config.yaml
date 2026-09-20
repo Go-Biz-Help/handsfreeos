@@ -13,6 +13,12 @@
 #   - Stream names carry a version. A change to what a stream sends is a new version beside the old one, so
 #     phones on old builds keep working; and every edit to this file, even a comment, makes PowerSync copy
 #     everything again, so changes are batched.
+#     **One deliberate exception, and it is a narrowing.** 0083 lets a business say that a member sees only
+#     their own inbox threads. That moved business_v1's four inbox queries from `access` to `inbox` and added
+#     the narrowed arm to me_v1, in place, with no business_v2 beside them — because a v1 left standing is not
+#     a compatibility shim here, it is a bypass: an old app build would go on syncing every thread in the
+#     business after that business asked us to stop. The full recopy is the price of the narrowing actually
+#     narrowing. Nothing was taken out of what a phone receives, so an old build reads what it always did.
 #
 # Buckets (one person): me_v1 1 + business_v1 1 per business kept offline (+1 more where they manage money) +
 # agency_v1 1 per agency they belong to. Parameter results: 1 per business kept offline (2 where they manage money)
@@ -32,6 +38,14 @@ streams:
       - SELECT id, command_id, workspace_id, command, outcome, answer, occurred_at, received_at FROM app.command_receipts WHERE user_id = auth.user_id()
       - SELECT id, platform, app_version, device_name, last_seen_at, disabled_at, disabled_reason, created_at, updated_at FROM app.push_devices WHERE user_id = auth.user_id()
       - SELECT id, e164, verified_at, verification_count, last_verification_at, created_at, updated_at FROM app.user_phones WHERE user_id = auth.user_id()
+      # A narrowed inbox: the threads this person is on, and their messages, calls and attention items (0083).
+      # The same columns as business_v1's wide arm, byte for byte, or a row synced by both would lose whichever
+      # columns one of them left out. Empty lists everywhere until a business turns narrowing on, so this arm
+      # sends nothing at all for everyone else.
+      - SELECT id, workspace_id, channel, counterpart, phone_number_id, email_address_id, person_id, status, assignee_user_id, snoozed_until, unread_count, last_message_at, last_inbound_at, last_outbound_at, last_preview, last_direction, awaiting_reply_since, closed_at, closed_by, handled_by, ai_teammate_id, needs_person_since, handoff_reason, handoff_note, taken_over_by, ai_disclosed_at, created_by, created_at, updated_at FROM app.conversations WHERE auth.user_id() IN member_viewer_ids
+      - SELECT id, workspace_id, conversation_id, channel, direction, status, from_address, to_addresses, cc_addresses, subject, body_text, media, segments, error_code, error_message, sent_by, sent_by_teammate_id, approved_by, client_id, email_address_id, occurred_at, sent_at, delivered_at, created_at, updated_at FROM app.messages WHERE auth.user_id() IN member_viewer_ids AND sync_window = true
+      - SELECT id, workspace_id, conversation_id, phone_number_id, person_id, direction, from_e164, to_e164, status, answered_via, answered_by_user_id, answered_number, placed_by, started_at, answered_at, ended_at, duration_seconds, is_voicemail, recording_seconds, transcript, transcript_status, created_at, updated_at FROM app.calls WHERE auth.user_id() IN member_viewer_ids AND sync_window = true
+      - SELECT id, workspace_id, kind, subject_type, subject_id, person_id, lead_id, conversation_id, state, opened_at, since_at, urgent_from, due_at, value_cents, value_is_estimate, money_key, probability, confidence, reasons, title, detail, assignee_user_id, snoozed_until, snoozed_at, snoozed_by, dismissed_at, dismissed_by, dismiss_reason, handled_at, handled_by, handled_via, handled_until, auto_state, auto_scheduled_for, auto_done_at, auto_skip_reason, auto_cancelled_by, created_at, updated_at FROM app.attention_items WHERE auth.user_id() IN member_viewer_ids AND state != 'resolved'
       # Members' money: the trigger-kept list of members who may see each document (0056).
       - SELECT id, workspace_id, number, status, person_id, lead_id, assignee_user_id, title, notes, subtotal_cents, discount_cents, discount_percent_bp, taxable_base_cents, tax_cents, total_cents, tax_rate_bp, tax_label, currency, deposit_percent_bp, deposit_cents, expires_on, sent_at, first_viewed_at, last_viewed_at, accepted_at, accepted_via, accepted_by, accepted_name, declined_at, declined_reason, voided_at, voided_by, void_reason, created_by, created_at, updated_at FROM app.estimates WHERE auth.user_id() IN member_viewer_ids AND sync_window = true
       - SELECT id, workspace_id, estimate_id, position, product_id, name, description, quantity, unit_label, unit_price_cents, taxable, discount_cents, amount_cents, created_at, updated_at FROM app.estimate_lines WHERE auth.user_id() IN member_viewer_ids AND sync_window = true
@@ -47,6 +61,9 @@ streams:
     with:
       access: SELECT workspace_id FROM app.workspace_access WHERE user_id = auth.user_id() AND workspace_id = subscription.parameter('workspace_id')
       managed: SELECT workspace_id FROM app.workspace_access WHERE user_id = auth.user_id() AND workspace_id = subscription.parameter('workspace_id') AND role != 'member'
+      # The inbox, when this person sees all of it here: everyone until a business narrows its inbox (0083),
+      # and owners and admins always. The narrowed case is in me_v1, on each thread's member_viewer_ids.
+      inbox: SELECT workspace_id FROM app.workspace_access WHERE user_id = auth.user_id() AND workspace_id = subscription.parameter('workspace_id') AND sees_whole_inbox = true
     queries:
       # The business, its team (direct members: whom everyone in the business may see) and their names.
       - SELECT id, organization_id, name, slug, timezone, industry, settings, created_at, updated_at FROM app.workspaces WHERE id IN access
@@ -66,16 +83,16 @@ streams:
       - SELECT id, workspace_id, kind, subtype, person_id, company_id, lead_id, body, occurred_at, author_user_id, actor_type, meta, created_at, updated_at FROM app.activities WHERE workspace_id IN access AND sync_window = true
       - SELECT id, workspace_id, record_type, record_id, bucket, object_path, name, mime_type, size_bytes, status, created_by, created_at, updated_at FROM app.files WHERE workspace_id IN access AND deleted_at IS NULL AND record_type != 'knowledge'
       # Conversations, and their messages and calls from the last 12 months (all of an open conversation's).
-      - SELECT id, workspace_id, channel, counterpart, phone_number_id, email_address_id, person_id, status, assignee_user_id, snoozed_until, unread_count, last_message_at, last_inbound_at, last_outbound_at, last_preview, last_direction, awaiting_reply_since, closed_at, closed_by, handled_by, ai_teammate_id, needs_person_since, handoff_reason, handoff_note, taken_over_by, ai_disclosed_at, created_by, created_at, updated_at FROM app.conversations WHERE workspace_id IN access
-      - SELECT id, workspace_id, conversation_id, channel, direction, status, from_address, to_addresses, cc_addresses, subject, body_text, media, segments, error_code, error_message, sent_by, sent_by_teammate_id, approved_by, client_id, email_address_id, occurred_at, sent_at, delivered_at, created_at, updated_at FROM app.messages WHERE workspace_id IN access AND sync_window = true
-      - SELECT id, workspace_id, conversation_id, phone_number_id, person_id, direction, from_e164, to_e164, status, answered_via, answered_by_user_id, answered_number, placed_by, started_at, answered_at, ended_at, duration_seconds, is_voicemail, recording_seconds, transcript, transcript_status, created_at, updated_at FROM app.calls WHERE workspace_id IN access AND sync_window = true
+      - SELECT id, workspace_id, channel, counterpart, phone_number_id, email_address_id, person_id, status, assignee_user_id, snoozed_until, unread_count, last_message_at, last_inbound_at, last_outbound_at, last_preview, last_direction, awaiting_reply_since, closed_at, closed_by, handled_by, ai_teammate_id, needs_person_since, handoff_reason, handoff_note, taken_over_by, ai_disclosed_at, created_by, created_at, updated_at FROM app.conversations WHERE workspace_id IN inbox
+      - SELECT id, workspace_id, conversation_id, channel, direction, status, from_address, to_addresses, cc_addresses, subject, body_text, media, segments, error_code, error_message, sent_by, sent_by_teammate_id, approved_by, client_id, email_address_id, occurred_at, sent_at, delivered_at, created_at, updated_at FROM app.messages WHERE workspace_id IN inbox AND sync_window = true
+      - SELECT id, workspace_id, conversation_id, phone_number_id, person_id, direction, from_e164, to_e164, status, answered_via, answered_by_user_id, answered_number, placed_by, started_at, answered_at, ended_at, duration_seconds, is_voicemail, recording_seconds, transcript, transcript_status, created_at, updated_at FROM app.calls WHERE workspace_id IN inbox AND sync_window = true
       # Who may be texted or emailed, and from which number and address.
       - SELECT id, workspace_id, counterpart_e164, opted_out, source, opted_out_at, opted_in_at, created_at, updated_at FROM app.opt_outs WHERE workspace_id IN access
       - SELECT id, workspace_id, address, reason, created_at, updated_at FROM app.email_suppressions WHERE workspace_id IN access AND released_at IS NULL
       - SELECT id, workspace_id, e164, number_type, label, capabilities, status, created_at, updated_at FROM app.phone_numbers WHERE workspace_id IN access AND status != 'released'
       - SELECT id, workspace_id, email_domain_id, local_part, address, display_name, is_default, verified_at, created_at, updated_at FROM app.email_addresses WHERE workspace_id IN access
       # Home: what needs attention (the phone ranks it with core's scoring), the AI teammate, and what waits for an OK.
-      - SELECT id, workspace_id, kind, subject_type, subject_id, person_id, lead_id, conversation_id, state, opened_at, since_at, urgent_from, due_at, value_cents, value_is_estimate, money_key, probability, confidence, reasons, title, detail, assignee_user_id, snoozed_until, snoozed_at, snoozed_by, dismissed_at, dismissed_by, dismiss_reason, handled_at, handled_by, handled_via, handled_until, auto_state, auto_scheduled_for, auto_done_at, auto_skip_reason, auto_cancelled_by, created_at, updated_at FROM app.attention_items WHERE workspace_id IN access AND state != 'resolved'
+      - SELECT id, workspace_id, kind, subject_type, subject_id, person_id, lead_id, conversation_id, state, opened_at, since_at, urgent_from, due_at, value_cents, value_is_estimate, money_key, probability, confidence, reasons, title, detail, assignee_user_id, snoozed_until, snoozed_at, snoozed_by, dismissed_at, dismissed_by, dismiss_reason, handled_at, handled_by, handled_via, handled_until, auto_state, auto_scheduled_for, auto_done_at, auto_skip_reason, auto_cancelled_by, created_at, updated_at FROM app.attention_items WHERE workspace_id IN inbox AND state != 'resolved'
       - SELECT id, workspace_id, name, status, archived_at, created_at, updated_at FROM app.ai_teammates WHERE workspace_id IN access
       - SELECT id, workspace_id, teammate_id, conversation_id, person_id, lead_id, kind, status, preview, edits, expires_at, client_id, created_at, updated_at FROM app.ai_teammate_drafts WHERE workspace_id IN access AND status = 'pending'
       - SELECT id, workspace_id, workflow_id, run_id, step_key, status, approvers, preview, edits, expires_at, created_at, updated_at FROM app.workflow_approvals WHERE workspace_id IN access AND status = 'pending'

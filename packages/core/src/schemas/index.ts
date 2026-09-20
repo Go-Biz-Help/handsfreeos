@@ -37,3 +37,4 @@ export * from './review';
 export * from './wallet';
 export * from './wallet-queries';
 export * from './port';
+export * from './inbox-visibility';

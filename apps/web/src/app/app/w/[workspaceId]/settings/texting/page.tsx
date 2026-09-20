@@ -47,6 +47,7 @@ export default async function TextingSettingsPage({
         team={team}
         people={people}
         ports={ports.ports}
+        inboxPerPerson={got.workspace.inboxPerPerson}
       />
     </>
   );

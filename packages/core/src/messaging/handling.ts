@@ -3,7 +3,8 @@
  * raises ai_epoch (a teammate run that started under an older one is superseded) and drops the teammate's
  * pending reply draft, so two voices never answer one customer.
  */
-import { and, eq, sql as dsql } from 'drizzle-orm';
+import { and, eq, isNull, sql as dsql } from 'drizzle-orm';
+import { rows, sql } from '@hfos/db/client';
 import { aiTeammateDrafts, conversations } from '@hfos/db/schema';
 import { requireHuman } from '../kernel/actor';
 import { decidedVia } from '../kernel/app-request';
@@ -41,6 +42,32 @@ export async function cancelPendingReplyDraft(
 /** Whether a person acting here takes the conversation: the AI teammate answers it, or it waits for a person. */
 export function personTakesOver(ctx: CommandContext, conv: Conversation): boolean {
   return ctx.actor.type === 'human' && (conv.handledBy === 'ai' || conv.needsPersonSince !== null);
+}
+
+/**
+ * Whoever answers first owns it, where a business has narrowed its inbox (M17).
+ *
+ * **Only where it has.** With narrowing off this does nothing at all, which is why it costs one index probe
+ * on the settings row and stops. With it on, a thread nobody owns is seen by everybody until somebody
+ * replies; without this, it would stay that way forever and the narrowing would only ever narrow threads an
+ * owner had assigned by hand.
+ *
+ * Assigning it also moves it out of the AI teammate's reach — `conversation.pick_up` refuses a thread that
+ * has an assignee — which is the right answer for the same reason: a person has answered this customer.
+ */
+export async function claimOnReply(ctx: CommandContext, conv: Conversation): Promise<boolean> {
+  if (ctx.actor.type !== 'human' || conv.assigneeUserId !== null) return false;
+  const [flag] = await rows<{ per_person: boolean }>(
+    ctx.tx,
+    sql`select private.inbox_per_person(${conv.workspaceId}) as per_person`,
+  );
+  if (!flag?.per_person) return false;
+  const me = requireHuman(ctx).userId;
+  await ctx.tx
+    .update(conversations)
+    .set({ assigneeUserId: me })
+    .where(and(eq(conversations.id, conv.id), isNull(conversations.assigneeUserId)));
+  return true;
 }
 
 /**

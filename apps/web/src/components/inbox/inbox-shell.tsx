@@ -68,6 +68,7 @@ export function InboxShell({
   role,
   members,
   timezone,
+  narrowed,
   children,
 }: {
   workspaceId: string;
@@ -75,6 +76,8 @@ export function InboxShell({
   role: Role;
   members: { id: string; fullName: string }[];
   timezone: string;
+  /** The business says each person sees their own threads (M17). Changes two words and one default. */
+  narrowed: boolean;
   children: ReactNode;
 }) {
   const pathname = usePathname();
@@ -86,9 +89,13 @@ export function InboxShell({
     : null;
   const boxParam = params.get('box') ?? '';
   const statusParam = params.get('status') ?? '';
+  // Where a person lands with nothing in the address bar. A member of a business that has narrowed its inbox
+  // lands on their own threads, because that is what they came for; everybody else lands where they always
+  // have. Nothing is hidden either way — pressing Everyone still shows them what they may see.
+  const home: InboxBoxKey = narrowed && role === 'member' ? 'mine' : 'all';
   const box: InboxBoxKey = (INBOX_BOXES as readonly string[]).includes(boxParam)
     ? (boxParam as InboxBoxKey)
-    : 'all';
+    : home;
   const status: ConversationStatus = (CONVERSATION_STATUSES as readonly string[]).includes(
     statusParam,
   )
@@ -211,7 +218,7 @@ export function InboxShell({
               ariaLabel="Whose conversations"
               className="max-md:[&>button]:h-9"
               value={box}
-              onChange={(v) => setFilter({ box: v === 'all' ? null : v })}
+              onChange={(v) => setFilter({ box: v === home ? null : v })}
               options={[
                 { value: 'mine', label: boxLabel('mine', counts.mine), testId: 'box-mine' },
                 {
@@ -219,7 +226,11 @@ export function InboxShell({
                   label: boxLabel('unassigned', counts.unassigned),
                   testId: 'box-unassigned',
                 },
-                { value: 'all', label: boxLabel('all', counts.all), testId: 'box-all' },
+                {
+                  value: 'all',
+                  label: boxLabel('all', counts.all, narrowed),
+                  testId: 'box-all',
+                },
               ]}
             />
             {showBoxes ? (
@@ -228,7 +239,7 @@ export function InboxShell({
                 name={teammate?.name ?? null}
                 needsPerson={needsPerson}
                 ai={aiCount}
-                onPick={(b) => setFilter({ box: b === 'all' ? null : b })}
+                onPick={(b) => setFilter({ box: b === home ? null : b })}
               />
             ) : null}
             <div className="hidden gap-2 md:flex">

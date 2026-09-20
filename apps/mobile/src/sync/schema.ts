@@ -127,7 +127,7 @@ export const syncedTables = {
     },
     { indexes: { workspace: ['workspace_id'] } },
   ),
-  /** business_v1 */
+  /** business_v1, me_v1 */
   attention_items: new Table(
     {
       workspace_id: column.text,
@@ -228,7 +228,7 @@ export const syncedTables = {
     },
     { indexes: { workspace: ['workspace_id'] } },
   ),
-  /** business_v1 */
+  /** business_v1, me_v1 */
   calls: new Table(
     {
       workspace_id: column.text,
@@ -296,7 +296,7 @@ export const syncedTables = {
     },
     { indexes: { workspace: ['workspace_id'] } },
   ),
-  /** business_v1 */
+  /** business_v1, me_v1 */
   conversations: new Table(
     {
       workspace_id: column.text,
@@ -529,7 +529,7 @@ export const syncedTables = {
     },
     { indexes: { workspace: ['workspace_id'] } },
   ),
-  /** business_v1 */
+  /** business_v1, me_v1 */
   messages: new Table(
     {
       workspace_id: column.text,
@@ -1149,7 +1149,7 @@ export interface AppointmentsRow {
   readonly updated_at: string | null;
 }
 
-/** A row of `attention_items` (business_v1). */
+/** A row of `attention_items` (business_v1, me_v1). */
 export interface AttentionItemsRow {
   readonly id: string;
   /** uuid */
@@ -1302,7 +1302,7 @@ export interface CalendarsRow {
   readonly updated_at: string | null;
 }
 
-/** A row of `calls` (business_v1). */
+/** A row of `calls` (business_v1, me_v1). */
 export interface CallsRow {
   readonly id: string;
   /** uuid */
@@ -1399,7 +1399,7 @@ export interface CompaniesRow {
   readonly updated_at: string | null;
 }
 
-/** A row of `conversations` (business_v1). */
+/** A row of `conversations` (business_v1, me_v1). */
 export interface ConversationsRow {
   readonly id: string;
   /** uuid */
@@ -1766,7 +1766,7 @@ export interface LeadsRow {
   readonly updated_at: string | null;
 }
 
-/** A row of `messages` (business_v1). */
+/** A row of `messages` (business_v1, me_v1). */
 export interface MessagesRow {
   readonly id: string;
   /** uuid */

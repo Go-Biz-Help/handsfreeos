@@ -43,7 +43,7 @@ import {
   threadHeaders,
   workspaceAddresses,
 } from '../messaging/email';
-import { personTakesOver, takeOver } from '../messaging/handling';
+import { claimOnReply, personTakesOver, takeOver } from '../messaging/handling';
 import {
   CANCELLED_TEXT,
   formatClock,
@@ -612,6 +612,7 @@ async function sendEmail(ctx: CommandContext, input: z.infer<typeof MessageSendI
     })
     .where(eq(conversations.id, conv.id));
   if (personTakesOver(ctx, conv)) await takeOver(ctx, conv, 'reply');
+  await claimOnReply(ctx, conv);
   return { messageId, conversationId: conv.id, status: 'queued', duplicate: false };
 }
 
@@ -686,6 +687,7 @@ async function sendChat(ctx: CommandContext, input: z.infer<typeof MessageSendIn
     })
     .where(eq(conversations.id, conv.id));
   if (personTakesOver(ctx, conv)) await takeOver(ctx, conv, 'reply');
+  await claimOnReply(ctx, conv);
   return { messageId, conversationId: conv.id, status, duplicate: false };
 }
 
@@ -838,6 +840,7 @@ export const messageSend = defineCommand({
           .where(eq(conversations.id, conv.id));
       // The person answered it themselves: the AI teammate stops answering it now, not in the morning.
       if (personTakesOver(ctx, conv)) await takeOver(ctx, conv, 'reply');
+      await claimOnReply(ctx, conv);
       return {
         messageId,
         conversationId: conv.id,
@@ -904,6 +907,7 @@ export const messageSend = defineCommand({
       })
       .where(eq(conversations.id, conv.id));
     if (personTakesOver(ctx, conv)) await takeOver(ctx, conv, 'reply');
+    await claimOnReply(ctx, conv);
     return { messageId, conversationId: conv.id, status: 'queued', duplicate: false };
   },
 });

@@ -21,6 +21,7 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useId, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { toast } from 'sonner';
 import { Callout } from '@/components/crm/chips';
+import { InboxVisibilityCard } from '@/components/settings/inbox-visibility-card';
 import { NumbersCard, type Ringable } from '@/components/settings/numbers-card';
 import { PortStep, type PortInfo } from '@/components/settings/port-step';
 import { ChannelIcon, Pill } from '@/components/inbox/bits';
@@ -89,6 +90,7 @@ export function TextingPage({
   team,
   people,
   ports,
+  inboxPerPerson,
 }: {
   workspaceId: string;
   businessName: string;
@@ -100,6 +102,8 @@ export function TextingPage({
   people: Ringable[];
   /** Numbers being brought from another carrier, newest first (M17). */
   ports: readonly PortInfo[];
+  /** Whether each person sees only their own threads (M17). Shown beside "who this number rings". */
+  inboxPerPerson: boolean;
 }) {
   useLiveRefresh(['phone_number', 'registration', 'number_port', 'workspace']);
   const router = useRouter();
@@ -136,6 +140,13 @@ export function TextingPage({
       />
     ) : null;
 
+  // Beside the numbers on purpose: "who this number rings" and "who sees which conversations" are the same
+  // question asked twice, and a business deciding one is deciding the other. Held back until there is a
+  // working number, like the list above it — mid-setup it would be a question about nothing.
+  const visibilityCard = numbersCard ? (
+    <InboxVisibilityCard workspaceId={workspaceId} perPerson={inboxPerPerson} />
+  ) : null;
+
   if (adding)
     return (
       <div className="flex flex-col gap-5">
@@ -164,6 +175,7 @@ export function TextingPage({
     return (
       <div className="flex flex-col gap-5">
         {numbersCard}
+        {visibilityCard}
         <Configured
           workspaceId={workspaceId}
           businessName={businessName}
