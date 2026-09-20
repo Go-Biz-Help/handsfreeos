@@ -62,6 +62,7 @@ import { workspaceGet } from './workspace.get';
 import { workspaceInvitations } from './workspace.invitations';
 import { workspaceMembers } from './workspace.members';
 import { migrationQueries } from './migration';
+import { walletQueries } from './wallet';
 import {
   workflowApprovalList,
   workflowCatalogs,
@@ -251,6 +252,7 @@ export const queries: readonly QueryDef[] = [
   moneySummary,
   moneyForRecord,
   moneySettingsGet,
+  ...walletQueries,
   ...formQueries,
   ...templateQueries,
   ...reviewQueries,
@@ -306,3 +308,4 @@ export * from './review';
 export * from './migration';
 export * from './support';
 export * from './platform';
+export * from './wallet';

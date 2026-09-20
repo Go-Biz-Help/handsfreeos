@@ -16,6 +16,14 @@ import {
   workspaces,
 } from '@hfos/db/schema';
 import { HfosError } from '../errors';
+import {
+  isUsageKey,
+  SEED_CARD,
+  unitPriceCents,
+  type RateCard,
+  type UsageKey,
+  type UsageRate,
+} from '../money/index';
 import { requireHuman } from '../kernel/actor';
 import { defineQuery } from '../kernel/define';
 import {
@@ -23,6 +31,8 @@ import {
   BusinessGetOutput,
   BusinessListInput,
   BusinessListOutput,
+  RateCardGetInput,
+  RateCardGetOutput,
   HealthSummaryInput,
   HealthSummaryOutput,
   ViewAsCurrentInput,
@@ -236,6 +246,13 @@ export const platformHealthSummary = defineQuery({
       outbox_backlog: string;
       oldest_pending_minutes: number | null;
     }>(ctx.tx, sql`select * from private.admin_health_counts(${since.toISOString()}::timestamptz)`);
+    const [w] = await rows<{
+      suspended: string;
+      declines: string;
+      drifting: string;
+      negative: string;
+      unreconciled_days: string;
+    }>(ctx.tx, sql`select * from private.admin_wallet_health(${since.toISOString()}::timestamptz)`);
     const recent = await rows<{
       kind: string;
       at: string;
@@ -261,6 +278,13 @@ export const platformHealthSummary = defineQuery({
       failedTexts: one('Text message', c?.failed_texts),
       paymentFailures: one('Payment', c?.payment_failures),
       lostTranscripts: one('Transcript', c?.lost_transcripts),
+      wallets: {
+        suspended: number(w?.suspended),
+        declines: number(w?.declines),
+        drifting: number(w?.drifting),
+        negative: number(w?.negative),
+        unreconciledDays: number(w?.unreconciled_days),
+      },
       outboxBacklog: number(c?.outbox_backlog),
       oldestPendingMinutes: c?.oldest_pending_minutes ?? null,
       recent: recent.map((r) => ({
@@ -311,9 +335,104 @@ export const platformViewAsCurrent = defineQuery({
   },
 });
 
+/**
+ * The rate card, with what each line actually realised (M16, step 8).
+ *
+ * The margin column is the point of this page. The seeded prices are guesses until a real week measures them,
+ * and a guess that is wrong loses money quietly for a month — a line whose realised markup is under 1.2× is
+ * one somebody has to look at today. Everything here is staff-only: `costMicros` is what **we** pay, which a
+ * business never sees.
+ */
+export const platformRateCard = defineQuery({
+  name: 'platform.rates',
+  description:
+    'The live usage rate card, and what each line actually charged against what it actually cost over a period.',
+  input: RateCardGetInput,
+  output: RateCardGetOutput,
+  permission: 'platform.rates.manage',
+  scope: onPlatform,
+  async handler(ctx, input) {
+    const since = new Date(Date.now() - input.days * 86_400_000);
+    const [lines, margins] = await Promise.all([
+      rows<{
+        key: string;
+        unit: string;
+        cost_micros: string;
+        markup_bp: number;
+        min_charge_cents: number;
+        round_up_to: string;
+        version: number;
+        notes: string;
+      }>(
+        ctx.tx,
+        sql`select key, unit::text as unit, cost_micros, markup_bp, min_charge_cents,
+              round_up_to::text as round_up_to, version, notes
+            from platform.usage_rates_live order by key`,
+      ),
+      rows<{
+        rate_key: string;
+        events: string;
+        charged_cents: string;
+        cost_cents: string;
+        realised: string | null;
+      }>(
+        ctx.tx,
+        sql`select rate_key, events, charged_cents, cost_cents, realised
+            from private.admin_usage_margin(${since.toISOString()}::timestamptz)`,
+      ),
+    ]);
+    const byKey = new Map(margins.map((m) => [m.rate_key, m]));
+    const card: RateCard = {
+      version: lines[0]?.version ?? SEED_CARD.version,
+      rates: Object.fromEntries(
+        lines
+          .filter((l) => isUsageKey(l.key))
+          .map((l) => [
+            l.key,
+            {
+              key: l.key as UsageKey,
+              unit: l.unit as UsageRate['unit'],
+              costMicros: Number(l.cost_micros),
+              markupBp: l.markup_bp,
+              minChargeCents: l.min_charge_cents,
+              roundUpTo: l.round_up_to as UsageRate['roundUpTo'],
+            },
+          ]),
+      ) as RateCard['rates'],
+    };
+    return {
+      version: card.version,
+      since: since.toISOString(),
+      lines: lines.map((l) => {
+        const m = byKey.get(l.key);
+        return {
+          key: l.key,
+          unit: l.unit,
+          costMicros: Number(l.cost_micros),
+          markupBp: l.markup_bp,
+          minChargeCents: l.min_charge_cents,
+          roundUpTo: l.round_up_to,
+          unitPriceCents: isUsageKey(l.key) ? unitPriceCents(card, l.key) : 0,
+          notes: l.notes,
+          realised:
+            m && m.realised !== null
+              ? {
+                  events: Number(m.events),
+                  chargedCents: Number(m.charged_cents),
+                  costCents: Number(m.cost_cents),
+                  markup: Number(m.realised),
+                }
+              : null,
+        };
+      }),
+    };
+  },
+});
+
 export const platformQueries = [
   platformBusinessList,
   platformBusinessGet,
   platformHealthSummary,
   platformViewAsCurrent,
+  platformRateCard,
 ];

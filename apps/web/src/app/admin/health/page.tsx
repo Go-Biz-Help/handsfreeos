@@ -20,6 +20,11 @@ export default async function HealthPage({
     { label: 'Texts that failed', value: health.failedTexts.count },
     { label: 'Payments that failed', value: health.paymentFailures.count },
     { label: 'Calls with no words', value: health.lostTranscripts.count },
+    // The usage wallets (M16). `Balances that disagree` is the one to look at first: the cached balance is
+    // what every spending gate reads, so a wallet out of step with its own ledger means every gate is lying.
+    { label: 'Cards declined', value: health.wallets.declines },
+    { label: 'Balances suspended', value: health.wallets.suspended },
+    { label: 'Balances that disagree', value: health.wallets.drifting },
     { label: 'Work still queued', value: health.outboxBacklog },
   ];
   return (

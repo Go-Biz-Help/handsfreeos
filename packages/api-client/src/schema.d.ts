@@ -7397,6 +7397,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/queries/platform.rates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The live usage rate card, and what each line actually charged against what it actually cost over a period.
+         * @description Requires platform.rates.manage.
+         */
+        post: operations["query_platform_rates"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/queries/platform.view_as.current": {
         parameters: {
             query?: never;
@@ -7777,6 +7797,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/queries/usage.prices": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * What things cost this business, in plain words: a text, a minute of talking, a phone number, an AI reply. The charged price only — never what HandsFreeOS pays.
+         * @description Requires money.read.
+         */
+        post: operations["query_usage_prices"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/usage.statement": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Everything a business has been charged for, newest first: what it was, what it cost them, and what was left after it. Never what it cost HandsFreeOS.
+         * @description Requires money.read.
+         */
+        post: operations["query_usage_statement"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/queries/user_phone.get": {
         parameters: {
             query?: never;
@@ -7791,6 +7851,26 @@ export interface paths {
          * @description Any signed-in user.
          */
         post: operations["query_user_phone_get"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/wallet.get": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * A business’s balance and how it keeps itself topped up: what is left, the card on file, the settings, what it has spent lately, and why its top-up is the size it is.
+         * @description Requires money.read.
+         */
+        post: operations["query_wallet_get"];
         delete?: never;
         options?: never;
         head?: never;
@@ -27581,6 +27661,13 @@ export interface operations {
                         }[];
                         /** Format: date-time */
                         since: string;
+                        wallets: {
+                            declines: number;
+                            drifting: number;
+                            negative: number;
+                            suspended: number;
+                            unreconciledDays: number;
+                        };
                     };
                 };
             };
@@ -27615,6 +27702,53 @@ export interface operations {
                             /** Format: uuid */
                             userId: string;
                         } | null;
+                    };
+                };
+            };
+        };
+    };
+    query_platform_rates: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @default 30 */
+                    days?: number;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        lines: {
+                            costMicros: number;
+                            key: string;
+                            markupBp: number;
+                            minChargeCents: number;
+                            notes: string;
+                            realised: {
+                                chargedCents: number;
+                                costCents: number;
+                                events: number;
+                                markup: number;
+                            } | null;
+                            roundUpTo: string;
+                            unit: string;
+                            unitPriceCents: number;
+                        }[];
+                        /** Format: date-time */
+                        since: string;
+                        version: number;
                     };
                 };
             };
@@ -28763,6 +28897,92 @@ export interface operations {
             };
         };
     };
+    query_usage_prices: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: {
+                            cents: number;
+                            key: string | null;
+                            unit: string;
+                            what: string;
+                        }[];
+                        version: number;
+                    };
+                };
+            };
+        };
+    };
+    query_usage_statement: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    cursor?: string;
+                    /** @default 50 */
+                    limit?: number;
+                    /** Format: date-time */
+                    since?: string;
+                    /** Format: date-time */
+                    until?: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: {
+                            amountCents: number;
+                            balanceAfterCents: number;
+                            entityId: string | null;
+                            entityType: string | null;
+                            /** Format: uuid */
+                            id: string;
+                            /** @enum {string} */
+                            kind: "spend" | "topup" | "adjustment" | "credit" | "refund";
+                            occurredAt: string;
+                            quantity: number | null;
+                            rateKey: string | null;
+                            subject: string;
+                            unit: string | null;
+                        }[];
+                        nextCursor: string | null;
+                    };
+                };
+            };
+        };
+    };
     query_user_phone_get: {
         parameters: {
             query?: never;
@@ -28790,6 +29010,56 @@ export interface operations {
                             lastVerificationAt: string | null;
                             verifiedAt: string | null;
                         } | null;
+                    };
+                };
+            };
+        };
+    };
+    query_wallet_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        autoTopup: boolean;
+                        balanceCents: number;
+                        card: {
+                            brand: string | null;
+                            expiryMonth: number | null;
+                            expiryYear: number | null;
+                            last4: string | null;
+                            provider: string | null;
+                        } | null;
+                        cardRequested: boolean;
+                        escalation: string | null;
+                        floorCents: number;
+                        opened: boolean;
+                        overdraftCents: number;
+                        pendingTopUpCents: number | null;
+                        spent30dCents: number;
+                        spentThisMonthCents: number;
+                        suspended: {
+                            at: string;
+                            reason: string | null;
+                        } | null;
+                        topupCents: number;
                     };
                 };
             };

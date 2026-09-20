@@ -1,6 +1,6 @@
 import type { paths } from '@hfos/api-client';
 
-type Ok<P extends keyof paths> = paths[P] extends {
+export type Ok<P extends keyof paths> = paths[P] extends {
   post: { responses: { 200: { content: { 'application/json': infer R } } } };
 }
   ? R

@@ -347,6 +347,17 @@ export const HealthSummaryOutput = z.object({
   paymentFailures: HealthCount,
   /** Calls whose words never arrived. One is ordinary; a rising number is the transcriber. */
   lostTranscripts: HealthCount,
+  /**
+   * The usage wallets in trouble (M16). `drifting` is the silent one: the cached balance is what every
+   * spending gate reads, so a wallet that disagrees with its own ledger means every gate is lying.
+   */
+  wallets: z.object({
+    suspended: z.int(),
+    declines: z.int(),
+    drifting: z.int(),
+    negative: z.int(),
+    unreconciledDays: z.int(),
+  }),
   /** Work waiting longer than it should be. */
   outboxBacklog: z.int(),
   oldestPendingMinutes: z.int().nullable(),
@@ -382,3 +393,41 @@ export const ViewAsEndInput = z.object({ sessionId: uuid.optional() });
 export const ViewAsEndOutput = z.object({ ended: z.boolean() });
 export const ViewAsCurrentInput = z.object({});
 export const ViewAsCurrentOutput = z.object({ session: ViewAsSession.nullable() });
+
+// ---------- the usage rate card (M16) ----------
+
+export const RateCardGetInput = z.object({
+  /** How far back the margin column measures. */
+  days: z.int().min(1).max(365).default(30),
+});
+
+export const RateCardGetOutput = z.object({
+  version: z.int(),
+  since: isoDateTime,
+  lines: z.array(
+    z.object({
+      key: z.string(),
+      unit: z.string(),
+      /** What we pay, in micro-dollars: a text segment is 10900. Staff only. */
+      costMicros: z.int(),
+      markupBp: z.int(),
+      minChargeCents: z.int(),
+      roundUpTo: z.string(),
+      /** What one of these charges a business today. */
+      unitPriceCents: z.int(),
+      notes: z.string(),
+      /**
+       * What actually happened over the period, or null where nothing did. This is the column that proves the
+       * markup: a realised figure under 1.2 on any line is money going out quietly.
+       */
+      realised: z
+        .object({
+          events: z.int(),
+          chargedCents: z.int(),
+          costCents: z.int(),
+          markup: z.number(),
+        })
+        .nullable(),
+    }),
+  ),
+});
