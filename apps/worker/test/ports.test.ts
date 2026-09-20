@@ -252,8 +252,8 @@ async function pushDue(): Promise<void> {
  * Reserved twice on purpose: the outbox pass is what creates the job, and `reservedOnly` claims nothing that
  * was not locked before it ran.
  */
-async function runOnce(store: ObjectStore) {
-  const d = { ...s, store, workerId: WORKER_ID, batchSize: 200, reservedOnly: true };
+async function runOnce(store: ObjectStore, telephony: TestServices['telephony'] = s.telephony) {
+  const d = { ...s, store, telephony, workerId: WORKER_ID, batchSize: 200, reservedOnly: true };
   await reserve();
   await processOnce({ ...d, handlers });
   await reserve();
@@ -292,9 +292,11 @@ describe('a number that moves', () => {
     const landed = await numberFor(e164);
     expect(landed?.status).toBe('active');
     expect(landed?.providerSid).toBeTruthy();
-    // A full port arrives with no webhooks on it. Pointing it at ours is the difference between a customer's
-    // text reaching the inbox and reaching nothing.
+    // A full port arrives bare. Both halves are the difference between a customer reaching the inbox and
+    // reaching nothing: our webhooks on the number, and the number on the messaging service.
+    expect(landed?.providerSid).toMatch(/^PNfake/);
     expect(s.telephony.configured).toContain(landed!.providerSid!);
+    expect(s.telephony.serviced.map((x) => x.numberSid)).toContain(landed!.providerSid!);
   });
 
   it('does not configure a hosted-messaging number, because there is nothing of ours to configure', async () => {
@@ -309,6 +311,10 @@ describe('a number that moves', () => {
     expect(s.telephony.configured.filter((sid) => !before.includes(sid))).not.toContain(
       landed?.providerSid,
     );
+    // And no carrier reference for the number, because there is no number of theirs to name. It used to
+    // hold the *port's* reference, which everything that reads this column reads as a number's — releasing
+    // one would hand a port id to the carrier and then tell the business it was gone.
+    expect(landed?.providerSid).toBeNull();
   });
 
   it('gives the number back when the old carrier says no', async () => {
@@ -447,6 +453,43 @@ describe('when the paperwork cannot be sent', () => {
     expect(third.claimed).toBeGreaterThan(0);
     expect(third.retried + third.failed).toBe(0);
     expect(s.telephony.portDocuments.length).toBe(before + 1);
+  });
+
+  it('waits rather than calling a full port done before the carrier hands the number over', async () => {
+    /*
+     * The hole the fake was hiding. `findOwnedNumber` returning null is ordinary — a carrier can answer
+     * "moved" a moment before it lists the number — and finishing anyway costs everything: no webhooks on
+     * the number so a customer reaches nobody, no messaging service so nothing goes out, a port reference
+     * written where the number's belongs, and the port marked complete so this handler never runs again.
+     */
+    const e164 = aNumber('0002');
+    const portId = await readyPort(e164);
+    await executeCommand(api(), numberPortSubmit, { workspaceId, portId }, actor(owner), meta());
+    const configuredBefore = s.telephony.configured.length;
+
+    // The carrier says it moved, and has not handed the number over yet.
+    const withholding = {
+      ...s.telephony,
+      findOwnedNumber: async () => null,
+    } as TestServices['telephony'];
+    for (let i = 0; i < 3; i += 1) {
+      await pushDue();
+      await runOnce(s.store, withholding);
+    }
+    const waiting = await portRow(portId);
+    expect(waiting.status).not.toBe('complete');
+    expect(waiting.lastError).toMatch(/has not handed it over/i);
+    expect(s.telephony.configured).toHaveLength(configuredBefore);
+    expect(await numberFor(e164)).toMatchObject({ status: 'porting' });
+
+    // It appears, and the same poll finishes the job it would not finish half of.
+    await pushDue();
+    await drain();
+    expect((await portRow(portId)).status).toBe('complete');
+    const landed = await numberFor(e164);
+    expect(landed?.status).toBe('active');
+    expect(landed?.providerSid).toMatch(/^PNfake/);
+    expect(s.telephony.configured).toContain(landed!.providerSid!);
   });
 
   it('fails the port and pulls it back when the paper never goes up at all', async () => {

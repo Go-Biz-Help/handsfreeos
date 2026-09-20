@@ -86,6 +86,27 @@ describe('the fake carrier, on a number moving to us', () => {
     expect(after.status).toBe('complete');
     expect(after.scheduledFor).toMatch(/^\d{4}-\d{2}-\d{2}$/);
     expect(after.rejectionReason).toBeNull();
+
+    // And hands the number over, which is what lets it be pointed at our webhooks. Without this a full
+    // port landed and nobody was listening on the number.
+    const mine = await fake.findOwnedNumber(account, '+17135550123');
+    expect(mine?.sid).toMatch(/^PNfake/);
+    // Once: asking again is the same number, not a second one.
+    await fake.fetchPort(account, state.providerSid);
+    expect((await fake.findOwnedNumber(account, '+17135550123'))?.sid).toBe(mine!.sid);
+  });
+
+  it('leaves a hosted-messaging number with the old carrier, so we are never given one', async () => {
+    // The line stays theirs for calls; the messaging service is the whole arrangement. There is no
+    // incoming-number row to hand over, and pretending otherwise would hide that difference.
+    const state = await fake.submitPort(account, {
+      e164: '+17135550456',
+      kind: 'hosted_messaging',
+      submission,
+      documentPaths: [],
+    });
+    expect((await fake.fetchPort(account, state.providerSid)).status).toBe('complete');
+    expect(await fake.findOwnedNumber(account, '+17135550456')).toBeNull();
   });
 
   it('turns down a number ending 0000, and says why in words a business can act on', async () => {

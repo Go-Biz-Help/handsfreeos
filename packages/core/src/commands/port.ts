@@ -440,9 +440,17 @@ export const numberPortRecordState = defineCommand({
  * Worker: it landed.
  *
  * The number becomes the business's, in `active` rather than `porting`, and the worker adds it to the
- * messaging service the same way a bought one is. It is **not** made the default: a business that ported its
- * long-standing number in almost certainly wants it to be, but quietly moving where new conversations go out
- * from is not ours to decide on their behalf.
+ * messaging service the same way a bought one is. Nothing here *promotes* it: a business that ported its
+ * long-standing number in almost certainly wants new conversations to go out from it, but moving that
+ * quietly is not ours to decide. (A business whose only live number this is still gets it as the default —
+ * `private.phone_numbers_keep_default` never leaves one with live numbers and none chosen.)
+ *
+ * **`providerSid` is the number's reference, or nothing.** A hosted-messaging port has no incoming-number
+ * row of its own — the line stays with the old carrier and the messaging service is the whole arrangement —
+ * and this used to write the *port's* reference there instead. Every reader of that column reads it as a
+ * number's: releasing one passes it straight to the carrier, skipping the `findOwnedNumber` fallback that
+ * exists for exactly this case, so a business would be told the number is gone while the carrier still
+ * holds and bills it. Null says the honest thing, and that fallback then does its job.
  */
 export const numberPortComplete = defineCommand({
   name: 'number_port.complete',

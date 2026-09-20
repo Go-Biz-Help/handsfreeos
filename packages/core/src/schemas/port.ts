@@ -113,7 +113,12 @@ export const NumberPortRecordStateInput = z.object({
 export const NumberPortCompleteInput = z.object({
   workspaceId: uuid,
   portId: uuid,
-  providerSid: z.string().trim().min(2).max(64),
+  /**
+   * The carrier's reference for the *number*, which a hosted-messaging port never has: the line stays with
+   * the old carrier, so there is no incoming-number row of theirs to name. Null rather than the port's own
+   * reference — see the note in `number_port.complete`.
+   */
+  providerSid: z.string().trim().min(2).max(64).nullable(),
 });
 export const NumberPortCompleteOutput = z.object({
   portId: uuid,

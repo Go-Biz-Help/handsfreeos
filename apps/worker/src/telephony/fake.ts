@@ -65,6 +65,8 @@ export interface FakeTelephony extends TelephonyProvider {
   readonly portsCancelled: string[];
   /** Numbers pointed at our webhooks after landing here, by sid. A bought one is never in this list. */
   readonly configured: string[];
+  /** Numbers put on a messaging service, which is what lets one send. Nothing recorded this before. */
+  readonly serviced: { serviceSid: string; numberSid: string }[];
   /** Recording and transcription ids deleted at the "provider". */
   readonly deleted: string[];
   /** Call recordings whose words were asked for. */
@@ -110,6 +112,10 @@ export interface FakeOptions {
  * turned down, and so is a local number's campaign with an example text containing it), a number ending
  * in 0000 is "no longer available", and one ending in 0503 finds the carrier down on every try.
  *
+ * A port is turned down for a number ending 0000, sat on for one ending 0001, and otherwise moves once
+ * `approvalMs` has passed — at which point the carrier hands a full port's number over, so it becomes one
+ * of the account's own like a bought one.
+ *
  * Calls it places play out against the worker's own TwiML when callbacks are on: the phone answers and
  * presses 1, and a customer it dials picks up, talks for a few seconds and hangs up, leaving a recording. A cell
  * ending in 0404 never answers; one ending in 0405 answers but presses nothing (its voicemail); a customer
@@ -130,7 +136,11 @@ export function createFakeTelephony(opts: FakeOptions): FakeTelephony {
   const portDocuments: { portSid: string; name: string }[] = [];
   const portsCancelled: string[] = [];
   const configured: string[] = [];
-  const portRows = new Map<string, { at: number; e164: string; kind: NumberPortKind }>();
+  const serviced: { serviceSid: string; numberSid: string }[] = [];
+  const portRows = new Map<
+    string,
+    { at: number; e164: string; kind: NumberPortKind; numberSid?: string }
+  >();
   const turnedDown = (request: RegistrationRequest) => {
     const samples = (request.submission['messageSamples'] ?? []) as unknown[];
     return (
@@ -287,6 +297,7 @@ export function createFakeTelephony(opts: FakeOptions): FakeTelephony {
     portDocuments,
     portsCancelled,
     configured,
+    serviced,
     deleted,
     transcribed,
     async createSubaccount() {
@@ -342,7 +353,9 @@ export function createFakeTelephony(opts: FakeOptions): FakeTelephony {
       owned.set(sid, { sid, e164, accountSid: account.sid });
       return { sid, capabilities: CAPS };
     },
-    async addNumberToService() {},
+    async addNumberToService(_account, serviceSid, numberSid) {
+      serviced.push({ serviceSid, numberSid });
+    },
     async releaseNumber(_account, sid) {
       owned.delete(sid);
     },
@@ -507,7 +520,7 @@ export function createFakeTelephony(opts: FakeOptions): FakeTelephony {
         scheduledFor: null,
       };
     },
-    async fetchPort(_account, providerSid) {
+    async fetchPort(account, providerSid) {
       const p = portRows.get(providerSid);
       // A restarted fake forgets its ports; treat those as done rather than hanging a test forever.
       if (!p)
@@ -535,7 +548,21 @@ export function createFakeTelephony(opts: FakeOptions): FakeTelephony {
           rejectionReason: null,
           scheduledFor: null,
         };
-      // Past the wait: the carrier has named a day and then moved it.
+      /*
+       * Past the wait: the carrier has named a day and then moved it — **and hands the number over**,
+       * which is the half a fake is most likely to forget. A real carrier puts a ported-in number in the
+       * account like any other, which is what lets it be pointed at our webhooks; without that here,
+       * `findOwnedNumber` answered null and a full port landed with nobody listening on it.
+       *
+       * Once, remembered on the port, so polling twice does not mint a second number.
+       *
+       * **Only a full port.** Hosted messaging leaves the line with the old carrier for calls and has no
+       * incoming-number row of its own — the messaging service is the whole arrangement.
+       */
+      if (p.kind === 'full' && !p.numberSid) {
+        p.numberSid = fakeSid('PN');
+        owned.set(p.numberSid, { sid: p.numberSid, e164: p.e164, accountSid: account.sid });
+      }
       return {
         providerSid,
         providerStatus: 'COMPLETED',

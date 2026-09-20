@@ -181,6 +181,28 @@ async function markSent(
 }
 
 /**
+ * Why a landed port is still waiting, on the row rather than only in a log line.
+ *
+ * `number_ports.last_error` has existed since the table did and nothing has ever written it. This is what
+ * it is for: a port the carrier has finished with that we cannot finish, which is otherwise invisible.
+ */
+async function noteWaiting(
+  services: WorkerServices,
+  scope: TenantScope,
+  portId: string,
+): Promise<void> {
+  await asWorker(services.db, scope, (tx) =>
+    tx
+      .update(numberPorts)
+      .set({
+        lastError:
+          'The carrier says the number moved but has not handed it over yet. Still asking.',
+      })
+      .where(eq(numberPorts.id, portId)),
+  );
+}
+
+/**
  * The tries are spent and the port never really went. Say so.
  *
  * A port that reads "with the carrier" when the carrier has half of it, or none of it, is worse than one
@@ -405,6 +427,30 @@ export const portPoll: JobHandler = async (ctx) => {
   // It landed. The provider side has to be finished before the number is called active, or the first customer
   // to text it gets nothing: a full port arrives with no webhooks on it at all.
   const owned = await ctx.telephony.findOwnedNumber(account, port.e164);
+
+  /*
+   * **A full port is not done until the number is ours**, and that used to be optional: the whole block
+   * above sat behind `if (owned)`, and `providerSid` fell back to the port's own reference.
+   *
+   * A carrier that answers `complete` a moment before it lists the number is ordinary, and the cost of
+   * treating that as finished is not small. Nothing points the number at our webhooks, so a customer
+   * texting or ringing it reaches nobody; the messaging service never gets it, so nothing goes out on it;
+   * a `PO…` lands in `phone_numbers.provider_sid` where a `PN…` belongs, which is what releasing the
+   * number and registering it for texting both read; and the port is marked `complete`, so this handler
+   * returns at its first line ever after. Permanently, and silently.
+   *
+   * So wait for it. The carrier said the number moved, so it will appear — what must not happen is
+   * calling it done in the meantime.
+   */
+  if (port.kind === 'full' && !owned) {
+    ctx.log.warn(
+      { portId: port.id, e164: port.e164 },
+      'the carrier says the number moved but has not handed it over yet',
+    );
+    await noteWaiting(ctx, scope, port.id);
+    return { rescheduleAt: new Date(Date.now() + ctx.portPollMs) };
+  }
+
   if (owned) {
     if (port.kind === 'full')
       await ctx.telephony.configureNumber(account, owned.sid, webhookUrls(ctx.publicUrl));
@@ -417,8 +463,9 @@ export const portPoll: JobHandler = async (ctx) => {
     {
       workspaceId: scope.workspaceId,
       portId: port.id,
-      // Hosted messaging leaves no incoming-number row of its own, so the port's own reference is the number's.
-      providerSid: owned?.sid ?? state.providerSid,
+      // Hosted messaging leaves no incoming-number row of its own, so there is nothing to name. The port's
+      // own reference used to go here, and everything that reads the column reads it as a number's.
+      providerSid: owned?.sid ?? null,
     },
     systemActor(scope),
     workerMeta(),
