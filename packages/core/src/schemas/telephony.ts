@@ -131,6 +131,23 @@ export const PhoneNumberSetLabelInput = z.object({
 });
 export const PhoneNumberSetLabelOutput = z.object({ phoneNumberId: uuid });
 
+export const PhoneNumberSetMembersInput = z.object({
+  workspaceId: uuid,
+  phoneNumberId: uuid,
+  /**
+   * Everybody this number should ring, replacing whoever is on it now — the set form, because the screen is
+   * a list of checkboxes and "here is the list" cannot race with itself the way add-and-remove can.
+   * **Empty means everybody with the inbox**, which is how a number works before anyone touches this.
+   */
+  userIds: z.array(uuid).max(100),
+});
+export const PhoneNumberSetMembersOutput = z.object({
+  phoneNumberId: uuid,
+  userIds: z.array(uuid),
+  /** True when nobody is chosen, so the screen can say "everyone" rather than showing an empty list. */
+  ringsEveryone: z.boolean(),
+});
+
 export const PhoneUpdateSettingsInput = z.object({
   workspaceId: uuid,
   quietHours: QuietHoursSetting.optional(),
@@ -256,6 +273,8 @@ export const PhoneNumberOut = z.object({
   label: z.string().nullable(),
   /** The one new conversations go out from. Exactly one live number per business has it (M17). */
   isDefault: z.boolean(),
+  /** Whose browsers this number rings. **Empty means everyone with the inbox**, not nobody. */
+  memberUserIds: z.array(uuid),
   routing: PhoneRoutingOut,
   purchasedAt: isoDateTime.nullable(),
   lastError: z.string().nullable(),

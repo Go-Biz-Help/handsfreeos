@@ -90,6 +90,7 @@ import {
   phoneNumberSetCallerId,
   phoneNumberSetDefault,
   phoneNumberSetLabel,
+  phoneNumberSetMembers,
   phoneNumberSetRouting,
   phoneUpdateSettings,
 } from './phone';
@@ -318,6 +319,7 @@ export {
   phoneNumberSetCallerId,
   phoneNumberSetDefault,
   phoneNumberSetLabel,
+  phoneNumberSetMembers,
   phoneNumberSetRouting,
   phoneUpdateSettings,
   registrationSubmit,
@@ -511,6 +513,7 @@ export const commands: readonly CommandDef[] = [
   phoneNumberSetCallerId,
   phoneNumberSetDefault,
   phoneNumberSetLabel,
+  phoneNumberSetMembers,
   phoneUpdateSettings,
   phoneNumberActivate,
   phoneNumberFail,

@@ -24,10 +24,14 @@ export default async function TextingSettingsPage({
   ]);
   const canManage = got.workspace.role === 'owner' || got.workspace.role === 'admin';
   if (!canManage) notFound();
-  // "Team browsers": everyone who can use the inbox, by first name.
-  const team = members.members
-    .filter((m) => hasWorkspacePermission(m.role, 'inbox.use'))
-    .map((m) => (m.fullName.trim() || m.email).split(/\s+/)[0] ?? m.email);
+  // Everyone who works the inbox — by first name for the "these browsers ring" line, and with their ids
+  // for choosing who each number rings (M17).
+  const inbox = members.members.filter((m) => hasWorkspacePermission(m.role, 'inbox.use'));
+  const team = inbox.map((m) => (m.fullName.trim() || m.email).split(/\s+/)[0] ?? m.email);
+  const people = inbox.map((m) => ({
+    userId: m.userId,
+    name: m.fullName.trim() || m.email,
+  }));
   return (
     <>
       <PageHeader title="Settings" description="Your account, and how this workspace is set up." />
@@ -38,6 +42,7 @@ export default async function TextingSettingsPage({
         status={status}
         me={{ fullName: me.user.fullName, email: me.user.email }}
         team={team}
+        people={people}
       />
     </>
   );

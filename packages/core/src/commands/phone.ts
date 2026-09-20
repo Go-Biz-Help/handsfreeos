@@ -1,5 +1,6 @@
 import { and, eq } from 'drizzle-orm';
-import { phoneNumbers, workspaces } from '@hfos/db/schema';
+import { rows, sql } from '@hfos/db/client';
+import { phoneNumberMembers, phoneNumbers, workspaces } from '@hfos/db/schema';
 import { formatPhone } from '../crm/phone';
 import { HfosError } from '../errors';
 import { userIdOf } from '../kernel/actor';
@@ -7,6 +8,7 @@ import { defineCommand } from '../kernel/define';
 import type { CommandContext } from '../kernel/types';
 import {
   defaultNumber,
+  isWorkspaceUser,
   LIVE_NUMBER_STATUSES,
   liveNumberCount,
   MAX_NUMBERS_PER_WORKSPACE,
@@ -27,6 +29,8 @@ import {
   PhoneNumberSetDefaultOutput,
   PhoneNumberSetLabelInput,
   PhoneNumberSetLabelOutput,
+  PhoneNumberSetMembersInput,
+  PhoneNumberSetMembersOutput,
   PhoneNumberSetRoutingInput,
   PhoneNumberSetRoutingOutput,
   PhoneNumberSystemOutput,
@@ -300,6 +304,82 @@ export const phoneNumberSetLabel = defineCommand({
       after: { label: input.label },
     });
     return { phoneNumberId: n.id };
+  },
+});
+
+/**
+ * Who a number rings (M17).
+ *
+ * **Empty is not "nobody", it is "everybody".** A number with no people on it rings every browser with the
+ * inbox, which is what every number did before this existed — so a business that never opens this screen
+ * keeps working, and clearing the list is a way back rather than a way to break your own phones. The rule
+ * lives in `private.phone_route()`; this command only writes the list.
+ *
+ * Being on a number does not grant the inbox. Somebody without `inbox.use` cannot be added, and
+ * `phone_route` checks the permission again at call time, so taking somebody off the inbox stops their
+ * phone ringing even if nobody remembered to take them off the number.
+ */
+export const phoneNumberSetMembers = defineCommand({
+  name: 'phone_number.set_members',
+  description: 'Choose who a number rings. Nobody chosen means everyone with the inbox.',
+  risk: 2,
+  input: PhoneNumberSetMembersInput,
+  output: PhoneNumberSetMembersOutput,
+  permission: 'channels.manage',
+  scope: inWorkspace,
+  emits: ['phone_number.members_changed'],
+  async handler(ctx, input) {
+    const workspaceId = ctx.scope.workspaceId!;
+    const n = await loadNumber(ctx, input.phoneNumberId);
+    const wanted = [...new Set(input.userIds)];
+
+    for (const userId of wanted) {
+      if (!(await isWorkspaceUser(ctx.tx, workspaceId, userId)))
+        throw HfosError.rule('not_in_workspace', 409, 'That person is not in this business.');
+      const [ok] = await rows<{ can: boolean }>(
+        ctx.tx,
+        sql`select private.user_has_permission(${userId}::uuid, ${workspaceId}::uuid, 'inbox.use') as can`,
+      );
+      if (!ok?.can)
+        throw HfosError.rule(
+          'no_inbox',
+          409,
+          'That person does not work the inbox, so a number cannot ring them.',
+        );
+    }
+
+    const before = await rows<{ user_id: string }>(
+      ctx.tx,
+      sql`select user_id from app.phone_number_members where phone_number_id = ${n.id}`,
+    );
+    const was = before.map((r) => r.user_id).sort();
+    if (was.join(',') === [...wanted].sort().join(','))
+      return { phoneNumberId: n.id, userIds: wanted, ringsEveryone: wanted.length === 0 };
+
+    // Replace wholesale, in one transaction: the input is the whole list, so working out a diff would be
+    // arithmetic in service of the same end state.
+    await ctx.tx.delete(phoneNumberMembers).where(eq(phoneNumberMembers.phoneNumberId, n.id));
+    if (wanted.length)
+      await ctx.tx.insert(phoneNumberMembers).values(
+        wanted.map((userId) => ({
+          phoneNumberId: n.id,
+          userId,
+          workspaceId,
+          createdBy: userIdOf(ctx.actor),
+        })),
+      );
+
+    await ctx.emit({
+      type: 'phone_number.members_changed',
+      entityType: 'phone_number',
+      entityId: n.id,
+      payload: { e164: n.e164, userIds: wanted, ringsEveryone: wanted.length === 0 },
+      before: { people: was.length === 0 ? 'everyone with the inbox' : String(was.length) },
+      after: {
+        people: wanted.length === 0 ? 'everyone with the inbox' : String(wanted.length),
+      },
+    });
+    return { phoneNumberId: n.id, userIds: wanted, ringsEveryone: wanted.length === 0 };
   },
 });
 

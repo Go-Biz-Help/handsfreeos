@@ -21,7 +21,7 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useId, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { toast } from 'sonner';
 import { Callout } from '@/components/crm/chips';
-import { NumbersCard } from '@/components/settings/numbers-card';
+import { NumbersCard, type Ringable } from '@/components/settings/numbers-card';
 import { ChannelIcon, Pill } from '@/components/inbox/bits';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -86,6 +86,7 @@ export function TextingPage({
   status,
   me,
   team,
+  people,
 }: {
   workspaceId: string;
   businessName: string;
@@ -93,6 +94,8 @@ export function TextingPage({
   me: { fullName: string; email: string };
   /** First names of the people whose browsers ring for calls. */
   team: string[];
+  /** The same people with their ids, for choosing who a number rings (M17). */
+  people: Ringable[];
 }) {
   useLiveRefresh(['phone_number', 'registration', 'workspace']);
   const router = useRouter();
@@ -123,6 +126,7 @@ export function TextingPage({
       <NumbersCard
         workspaceId={workspaceId}
         numbers={status.numbers}
+        people={people}
         canManage={status.canManage}
         onAdd={() => setAdding(true)}
       />

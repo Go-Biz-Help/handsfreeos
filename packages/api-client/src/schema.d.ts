@@ -3537,6 +3537,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/phone_number.set_members": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Choose who a number rings. Nobody chosen means everyone with the inbox.
+         * @description Risk level 2. Requires channels.manage. Emits phone_number.members_changed.
+         */
+        post: operations["command_phone_number_set_members"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/phone_number.set_routing": {
         parameters: {
             query?: never;
@@ -16089,6 +16109,41 @@ export interface operations {
             };
         };
     };
+    command_phone_number_set_members: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    phoneNumberId: string;
+                    userIds: string[];
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        phoneNumberId: string;
+                        ringsEveryone: boolean;
+                        userIds: string[];
+                    };
+                };
+            };
+        };
+    };
     command_phone_number_set_routing: {
         parameters: {
             query?: never;
@@ -27507,6 +27562,7 @@ export interface operations {
                             isDefault: boolean;
                             label: string | null;
                             lastError: string | null;
+                            memberUserIds: string[];
                             /** @enum {string} */
                             numberType: "local" | "toll_free";
                             purchasedAt: string | null;
@@ -27533,6 +27589,7 @@ export interface operations {
                             isDefault: boolean;
                             label: string | null;
                             lastError: string | null;
+                            memberUserIds: string[];
                             /** @enum {string} */
                             numberType: "local" | "toll_free";
                             purchasedAt: string | null;

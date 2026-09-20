@@ -248,6 +248,88 @@ describe('phone numbers', () => {
     expect(people.code).toBe('42501');
   });
 
+  /**
+   * A number can now ring only its own people (M17), and the case that matters is the one where nobody has
+   * chosen any. Getting the fallback wrong means inbound calls ring **nobody**, silently, for every business
+   * that never opened the screen — which is the worst thing this system can do.
+   */
+  it('rings only a number’s own people, and everybody when it has none', async () => {
+    const live = randomE164();
+    const [n] = await worker(
+      wsA,
+      orgA,
+    )((tx) =>
+      rows<{ id: string }>(
+        tx,
+        sql`insert into app.phone_numbers (workspace_id, e164, number_type, status, provider_sid, purchased_at)
+            values (${wsA}, ${live}, 'local', 'active', ${`PNfake${uniq()}`}, now()) returning id`,
+      ),
+    );
+    const rings = async () => {
+      const [route] = await unscoped((tx) =>
+        rows<{ client_identities: string[] }>(tx, sql`select * from private.phone_route(${live})`),
+      );
+      return [...(route?.client_identities ?? [])].sort();
+    };
+
+    // Nobody on it: everybody with the inbox, exactly as before this existed.
+    expect(await rings()).toEqual([identity(owner), identity(admin), identity(member)].sort());
+
+    // One person on it: only them.
+    await worker(
+      wsA,
+      orgA,
+    )((tx) =>
+      rows(
+        tx,
+        sql`insert into app.phone_number_members (phone_number_id, user_id, workspace_id)
+            values (${n!.id}, ${member.id}, ${wsA})`,
+      ),
+    );
+    expect(await rings()).toEqual([identity(member)]);
+
+    // Taken off again: back to everybody, not nobody. This is the line that would break quietly.
+    await worker(
+      wsA,
+      orgA,
+    )((tx) => rows(tx, sql`delete from app.phone_number_members where phone_number_id = ${n!.id}`));
+    expect(await rings()).toEqual([identity(owner), identity(admin), identity(member)].sort());
+  });
+
+  it('never rings somebody on a number who does not work the inbox', async () => {
+    // Being on a number is about which calls reach you, not about whether you may answer any — so the
+    // permission is checked at call time too, and somebody taken off the inbox stops ringing even if
+    // nobody remembered to take them off the number.
+    const live = randomE164();
+    const [n] = await worker(
+      wsA,
+      orgA,
+    )((tx) =>
+      rows<{ id: string }>(
+        tx,
+        sql`insert into app.phone_numbers (workspace_id, e164, number_type, status, provider_sid, purchased_at)
+            values (${wsA}, ${live}, 'local', 'active', ${`PNfake${uniq()}`}, now()) returning id`,
+      ),
+    );
+    await worker(
+      wsA,
+      orgA,
+    )((tx) =>
+      rows(
+        tx,
+        sql`insert into app.phone_number_members (phone_number_id, user_id, workspace_id)
+            values (${n!.id}, ${outsider.id}, ${wsA})`,
+      ),
+    );
+    const [route] = await unscoped((tx) =>
+      rows<{ client_identities: string[] }>(tx, sql`select * from private.phone_route(${live})`),
+    );
+    // The only person on it cannot work the inbox, so the member arm is empty and the fallback takes over.
+    expect([...(route?.client_identities ?? [])].sort()).toEqual(
+      [identity(owner), identity(admin), identity(member)].sort(),
+    );
+  });
+
   it('checks a verified user’s permission without switching to that user', async () => {
     const has = (u: TestUser, ws: string, perm: string) =>
       unscoped((tx) =>

@@ -4182,6 +4182,24 @@ export const usageWallets = app.table('usage_wallets', {
   ...timestamps(),
 });
 
+/**
+ * Who a number rings (M17). **Empty means everybody with the inbox** — that fallback is what keeps every
+ * business that never touches this working exactly as it did, and `private.phone_route()` depends on it.
+ */
+export const phoneNumberMembers = app.table(
+  'phone_number_members',
+  {
+    phoneNumberId: uuid('phone_number_id')
+      .notNull()
+      .references(() => phoneNumbers.id, { onDelete: 'cascade' }),
+    userId: userRef('user_id').notNull(),
+    workspaceId: workspaceRef(),
+    createdBy: userRef('created_by'),
+    createdAt: ts('created_at').notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.phoneNumberId, t.userId] })],
+);
+
 /** Append-only. Every charge and every top-up, with what it was priced from and what was left after it. */
 export const usageLedger = app.table('usage_ledger', {
   id: id(),

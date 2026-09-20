@@ -1,4 +1,5 @@
 import { eq } from 'drizzle-orm';
+import { rows, sql } from '@hfos/db/client';
 import { telephonyAccounts } from '@hfos/db/schema';
 import { formatPhone } from '../crm/phone';
 import { defineQuery } from '../kernel/define';
@@ -26,6 +27,16 @@ export const phoneSetupStatus = defineQuery({
   scope: (i) => ({ kind: 'workspace', workspaceId: i.workspaceId }),
   async handler(ctx, input) {
     const all = await numbersOf(ctx.tx, input.workspaceId);
+    // Who each number rings (M17). One query for the workspace rather than one per number, and an absent
+    // entry is the ordinary case — it means the number rings everybody with the inbox.
+    const memberRows = await rows<{ phone_number_id: string; user_id: string }>(
+      ctx.tx,
+      sql`select phone_number_id, user_id from app.phone_number_members
+          where workspace_id = ${input.workspaceId} order by user_id`,
+    );
+    const members = new Map<string, string[]>();
+    for (const r of memberRows)
+      members.set(r.phone_number_id, [...(members.get(r.phone_number_id) ?? []), r.user_id]);
     // `number` stays what it always was — the one the setup wizard is about — so nothing reading it had to
     // change when a business could have several. `currentNumber` includes a `failed` purchase, which the
     // wizard has to show; `numbersOf` is the list, default first.
@@ -46,6 +57,7 @@ export const phoneSetupStatus = defineQuery({
       status: n.status,
       label: n.label,
       isDefault: n.isDefault,
+      memberUserIds: members.get(n.id) ?? [],
       routing: {
         forwarding: n.routing.forwarding.map((f) => ({ ...f })),
         ringSeconds: n.routing.ringSeconds,
