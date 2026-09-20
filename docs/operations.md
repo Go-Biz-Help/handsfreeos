@@ -30,6 +30,7 @@ A plain "step 5" means step 5 of the list you are reading, or of the part named 
 - [Workflows, the knowledge base and agency templates](#workflows-the-knowledge-base-and-agency-templates)
 - [The AI teammate and website chat](#the-ai-teammate-and-website-chat)
 - [Money: Stripe and Square](#money-stripe-and-square)
+- [Usage balances: what businesses pay us](#usage-balances-what-businesses-pay-us)
 - [Moving a business here from another CRM](#moving-a-business-here-from-another-crm)
 - [Support and the admin side](#support-and-the-admin-side)
 - [Push notifications: Expo](#push-notifications-expo)
@@ -7734,6 +7735,139 @@ Two more things worth saying to a client in the same breath:
 - **A payment succeeded at the provider but the invoice here still says unpaid:** a webhook did not arrive or did not verify. Check the provider's own webhook page for failed deliveries, and check the signing secret. Nothing is lost — both providers retry for days, and the payment lands the moment a delivery verifies.
 - **A business says they were charged twice:** they weren't. A payment carries the customer's own press as its idempotency key, and a payment's status only ever moves forward, so a retried or doubled submit takes the money once. Show them **Money** → **Payments**, which lists every payment the business has taken, with what it was paid on, where it stands and which invoice it belongs to; the provider's own dashboard will show one charge against it.
 - **An account says Reconnect:** its token lapsed (Square) or the provider refused it. Nothing is taken until the business presses Reconnect and signs in again. Refunds on payments taken through the old sign-in still work once the same account is reconnected, because the credentials are found by the provider's account id rather than by the connection row.
+
+## Usage balances: what businesses pay us
+
+Every other money page in HandsFreeOS is about a business billing **its own** customers. This one is the other
+direction: what the business pays **us** for the texts, calls, phone numbers and AI replies it uses on top of
+its plan. Two different things, deliberately never sharing a page, a table or a card — the migration headers
+say so, and somebody will eventually try to "unify" them.
+
+The whole thing runs on two switches that are easy to confuse, so learn them first:
+
+| | What it decides | Where it lives |
+| --- | --- | --- |
+| `WALLET_MODE` | Whether we **count** — `off`, `shadow` or `on` | `[env]` in `apps/worker/fly.toml`, one setting for the whole server |
+| A wallet's **stage** | Whether we **speak** — `off`, `warn` or `enforce` | On each business's own row, moved from `/admin` one at a time |
+
+Nothing a business sees or feels depends on `WALLET_MODE`. It depends on that business's stage, which starts
+at `off` for everybody and only moves when somebody moves it. That is what makes the shadow week silent: the
+ledger fills for a week, every balance goes deep into the negative because nobody has a card, and not one
+business hears a word about it.
+
+`WALLET_MODE` is **not a secret** — it goes in `fly.toml` beside `TELEPHONY_PROVIDER`, not in
+`fly secrets import`. Putting it in the file means the current mode is visible in git and every change of it
+is a one-line commit somebody reviewed.
+
+The wallet needs migrations `20260930000700_usage_rate_card.sql` through `20260930001200_support_can_credit_a_balance.sql`. See "Apply new migrations".
+
+### Part 1: The shadow week
+
+**This is the step that decides whether the price list is right, and it has to happen before a single customer
+is charged.** The rate card was seeded from Twilio and Anthropic list prices; list prices are a guess until a
+real week of a real business's traffic measures them. A guess that is wrong loses money quietly for a month.
+
+1. Set the mode in `apps/worker/fly.toml`, in the `[env]` block:
+
+   ```toml
+   WALLET_MODE = "shadow"
+   ```
+
+2. Commit it and deploy the worker the usual way. Watch the log.
+
+   ```bash
+   fly logs --app handsfreeos-worker
+   ```
+
+   You should see a `worker started` line. Nothing else changes: no card is touched, no warning is sent, and
+   nothing stops. Every text, call, minute and AI reply now writes a row to `app.usage_ledger` with what it
+   was priced from, and each night `wallet.reconcile` trues those rows up against each business's own Twilio
+   subaccount.
+
+3. Leave it for a week. A day is not enough — a rate key nobody used on Tuesday is a rate key you have not
+   measured.
+
+### Part 2: What to look at afterwards
+
+1. **The margin, at `/admin/rates`.** The right-hand column is what we charged against what it cost us, per
+   rate key, over the window. **Anything under 1.2× is the thing this week existed to find**: at 1.5× intended,
+   a key that lands at 1.1× means the seeded cost is wrong, and it will go on being wrong until somebody looks.
+2. **`/admin/health`.** Three rows matter here:
+   - **Balances that disagree** — a cached balance that does not match its own ledger. This is the silent one:
+     the balance is what every spending gate reads, so a drift means every gate is lying.
+   - **Days not reconciled** — nights the true-up did not run for a business with a carrier account. A margin
+     figure built on a missing day is not a measurement.
+   - **Balances below zero** — expected in shadow, since nobody has topped up. Not a problem here; it is a
+     problem later.
+3. **One business, end to end, at `/admin/businesses/<id>`.** The balance block shows what they were charged
+   beside what they cost us. Pick a busy one and read the statement.
+4. **Against a real invoice.** Compare a week of `cost_30d_cents` for one business against the same week on
+   Chris's actual Twilio bill. The daily reconciliation should already have closed most of the gap; what is
+   left is what we are not pricing at all.
+
+### Part 3: Fixing the card
+
+Live rate rows are never edited. A correction is a **whole new version** of the card — the function takes
+every row, not a patch, so a version is always a complete, readable price list:
+
+```sql
+select private.publish_usage_rates(
+  '[{"key": "sms.outbound.segment", "unit": "segment", "cost_micros": 10900, "markup_bp": 15000}, …]'::jsonb,
+  'Twilio raised the carrier fee on 3 Oct'
+);
+```
+
+It refuses a set that does not cover every key the live card has, and it is staff-admin only
+(`platform.rates.manage`). It returns the new version number. Every ledger row is stamped with the version
+that priced it, so a mid-month change is honest — old rows still say what they were charged under and why.
+`/admin/rates` shows the live card and the realised margin against it.
+
+### Part 4: Switching a business on
+
+One business at a time, from `/admin/businesses/<id>`. **Two steps, never one.**
+
+1. **Move them to Warned.** They now see their balance, their statement and what things cost, and they are
+   told — by email, by push and on Home — when the balance runs low or runs out. Nothing stops. This is the
+   stretch where they put a card on. Watch what they actually do with it.
+2. **Then move them to Stopped at zero**, once they have a card and have had the warnings. From that moment
+   outgoing texts and calls stop when the balance is past its overdraft. **Calls coming in still reach them**,
+   and incoming messages are still received and filed — that is a promise in terms §3, not a nicety.
+
+Order: internal first, then a handful of friendly businesses, then everyone. The dialog asks why, and the
+reason goes on the event, because a rollout is a series of decisions somebody should be able to explain a
+month later.
+
+There is deliberately **no global switch** for this. A global switch is how this gets turned on for a thousand
+businesses by accident at two in the morning.
+
+### Part 5: Turning it off
+
+```toml
+WALLET_MODE = "off"
+```
+
+Deploy. Counting stops immediately; nothing already recorded is lost, no balance is touched, and no business
+is told anything. To stop a single business instead, move its stage back to Silent from `/admin` — that is the
+faster and smaller answer to "this one business is having a bad time".
+
+### When something goes wrong
+
+- **A business says its texts stopped and it should not have:** check its stage at `/admin/businesses/<id>`.
+  Only `enforce` stops anything. If it is on `enforce` and the balance is fine, look at "Balances that
+  disagree" on `/admin/health` — a drifted cache is the one way a gate refuses a business that has money.
+- **A business was warned during the shadow week:** it should be impossible; every channel checks the stage.
+  If it happened, that business's stage is not `off`. Move it back and find out who moved it — the event says.
+- **The margin looks impossible (very high, or infinite):** a rate key with charges but no cost. Usually the
+  provider's daily records have not arrived for those days yet — they lag by about two. The other cause is a
+  carrier charge we do not price at all; the reconciler will not invent a category for it, it logs a warning
+  naming it. Search the worker log for `categories the rate card has never heard of`.
+- **A card was charged twice:** it was not. The recharge row carries its idempotency key before the provider
+  is called, the same key goes to Stripe, and a unique index allows one pending recharge per business. Show
+  them their statement — a second charge would be a second `topup` row, and there will not be one.
+- **A top-up was bigger than the business chose:** that is escalation, and it is deliberate. Several top-ups
+  in a few days become one larger charge instead of many small ones, up to a cap shown on their own page. They
+  were emailed before anything above twice their amount was charged. The fix they want is to raise their own
+  top-up amount, which the email says.
 
 ## Moving a business here from another CRM
 

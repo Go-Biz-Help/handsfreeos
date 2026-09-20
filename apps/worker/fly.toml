@@ -33,6 +33,12 @@ kill_timeout = "30s"
   SUPABASE_URL = "https://ybupfghakoszfcxhyrby.supabase.co"
   MAIL_FROM = "HandsFreeOS <alerts@handsfreeos.com>"
   TELEPHONY_PROVIDER = "twilio"
+  # How far the usage wallet has got (M16): `off` records nothing, `shadow` prices and records every text,
+  # call and AI request and never warns or stops anything, `on` warns and enforces for the businesses whose
+  # own stage says so. Deliberately here rather than in `fly secrets` — it is not a secret, and keeping it in
+  # the file means the current mode is visible in git and every change of it is a commit somebody reviewed.
+  # See docs/operations.md, "Usage balances: what businesses pay us".
+  WALLET_MODE = "off"
   LOG_LEVEL = "info"
 
 [http_service]
