@@ -35,6 +35,13 @@ const ON_THE_PHONE: Readonly<Record<string, Readonly<Record<string, readonly str
     'business_v1.phone_numbers': ['e164', 'status', 'is_default'],
     'business_v1.conversations': ['phone_number_id'],
   },
+  // A thread put away on the web has to leave the phone's inbox too, and the phone filters it itself —
+  // `packages/core/src/queries/inbox.ts` does the same for the web. Until this column arrived, it could not,
+  // and an archived thread stayed on the phone for good.
+  'putting a conversation away': {
+    'business_v1.conversations': ['archived_at'],
+    'me_v1.conversations': ['archived_at'],
+  },
   // 0085. The questions reach the phone; the answers go back as one command.
   'filling in a form with no signal': {
     'business_v1.forms': ['status', 'active_version_id'],
@@ -49,12 +56,6 @@ const NOT_ON_THE_PHONE_YET: readonly {
   readonly column?: string;
   readonly why: string;
 }[] = [
-  {
-    feature: 'putting a conversation away',
-    table: 'business_v1.conversations',
-    column: 'archived_at',
-    why: '`conversation.archive` is already an offline command, so the moment this column arrives a phone can queue an archive and watch nothing happen. The screen and the stream go together.',
-  },
   {
     feature: 'moving a number in from another carrier',
     table: 'business_v1.number_ports',

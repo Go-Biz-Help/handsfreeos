@@ -174,6 +174,9 @@ export const PHONE_COMMANDS = {
   'company.create': command(ANYTIME, CompanyCreateInput, CompanyCreateOutput),
   'company.restore': command(ANYTIME, CompanyRestoreInput, CompanyRestoreOutput),
   'company.update': command(ANYTIME, CompanyUpdateInput, CompanyUpdateOutput),
+  // Putting a thread away and bringing it back. Both are idempotent — the command returns early when it is
+  // already where it is going — which is why they can wait out a tunnel.
+  'conversation.archive': command(ANYTIME, ConversationRefInput, ConversationRefOutput),
   'conversation.assign': command(ANYTIME, ConversationAssignInput, ConversationRefOutput),
   'conversation.close': command(ANYTIME, ConversationRefInput, ConversationRefOutput),
   'conversation.hand_to_ai': command(FRESH, ConversationRefInput, ConversationHandToAiOutput),
@@ -186,6 +189,7 @@ export const PHONE_COMMANDS = {
   'conversation.mark_unread': command(ANYTIME, ConversationRefInput, ConversationRefOutput),
   'conversation.open': command(ANYTIME, ConversationOpenInput, ConversationOpenOutput),
   'conversation.reopen': command(ANYTIME, ConversationRefInput, ConversationRefOutput),
+  'conversation.restore': command(ANYTIME, ConversationRefInput, ConversationRefOutput),
   'conversation.snooze': command(ANYTIME, ConversationSnoozeInput, ConversationRefOutput),
   'conversation.take_over': command(ANYTIME, ConversationRefInput, ConversationTakeOverOutput),
   'estimate.create': command(ONLINE, EstimateCreateInput, EstimateStateOutput),

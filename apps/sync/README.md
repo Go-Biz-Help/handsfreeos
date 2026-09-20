@@ -23,7 +23,7 @@ pnpm sync:start              # PowerSync on http://127.0.0.1:54430, ready once i
 pnpm sync:stop               # removes it, its storage and its replication slot
 ```
 
-- **Storage.** PowerSync keeps its working data in a small Postgres of its own (`hfos-sync-storage`), never in the Supabase database: spike 1b measured ~7× the data in WAL per full copy in the same database, and a lost slot. Nothing in it needs keeping, so every start copies the database afresh (about 10 s locally).
+- **Storage.** PowerSync keeps its working data in a small Postgres of its own (`hfos-sync-storage`), never in the Supabase database: spike 1b measured ~7× the data in WAL per full copy in the same database, and a lost slot. Nothing in it needs keeping — but a running one is reused, so `sync:start` alone is not a fresh copy; `sync:stop` removes it and the next start copies the database again (about 10 s locally). That pair is also the cure after a `pnpm db:reset`, which leaves a running service holding a password the rebuilt `hfos_sync` role no longer has.
 - **The replication role** is `hfos_sync` (migration 0057), which has no password in the migrations. `sync:start` gives it a local-only one. At go-live it gets a real one, set by hand.
 - **The slot** is `hfos_sync_<n>_<hash>`. A slot held by a stopped service keeps WAL until `max_slot_wal_keep_size` (512 MB locally), then is lost. So `sync:stop` drops it.
 - **Tokens** are the phone's Supabase access token, checked against Auth's ES256 keys (`/auth/v1/.well-known/jwks.json`). `auth.user_id()` in the streams is the token's `sub`. PowerSync refuses tokens older than an hour, so Auth's JWT expiry must stay at 3,600 s.
