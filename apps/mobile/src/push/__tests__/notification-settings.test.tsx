@@ -88,6 +88,7 @@ const ALL_ON = {
   booking: true,
   assigned: true,
   payment: false,
+  wallet: true,
 };
 
 beforeEach(() => {

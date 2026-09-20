@@ -40,6 +40,7 @@ describe('the notification categories', () => {
       booking: ['Open'],
       assigned: ['Open'],
       payment: ['Open'],
+      wallet: ['Open'],
     });
     expect(Object.keys(titles).sort()).toEqual([...PUSH_CATEGORY_IDS].sort());
   });

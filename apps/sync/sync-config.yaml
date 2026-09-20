@@ -95,7 +95,7 @@ streams:
       # Who may be texted or emailed, and from which number and address.
       - SELECT id, workspace_id, counterpart_e164, opted_out, source, opted_out_at, opted_in_at, created_at, updated_at FROM app.opt_outs WHERE workspace_id IN access
       - SELECT id, workspace_id, address, reason, created_at, updated_at FROM app.email_suppressions WHERE workspace_id IN access AND released_at IS NULL
-      - SELECT id, workspace_id, e164, number_type, label, capabilities, status, created_at, updated_at FROM app.phone_numbers WHERE workspace_id IN access AND status != 'released'
+      - SELECT id, workspace_id, e164, number_type, label, capabilities, status, is_default, created_at, updated_at FROM app.phone_numbers WHERE workspace_id IN access AND status != 'released'
       - SELECT id, workspace_id, email_domain_id, local_part, address, display_name, is_default, verified_at, created_at, updated_at FROM app.email_addresses WHERE workspace_id IN access
       # Home: what needs attention (the phone ranks it with core's scoring), the AI teammate, and what waits for an OK.
       - SELECT id, workspace_id, kind, subject_type, subject_id, person_id, lead_id, conversation_id, state, opened_at, since_at, urgent_from, due_at, value_cents, value_is_estimate, money_key, probability, confidence, reasons, title, detail, assignee_user_id, snoozed_until, snoozed_at, snoozed_by, dismissed_at, dismissed_by, dismiss_reason, handled_at, handled_by, handled_via, handled_until, auto_state, auto_scheduled_for, auto_done_at, auto_skip_reason, auto_cancelled_by, created_at, updated_at FROM app.attention_items WHERE workspace_id IN inbox AND state != 'resolved'

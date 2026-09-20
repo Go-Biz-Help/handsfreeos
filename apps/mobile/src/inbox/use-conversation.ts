@@ -19,7 +19,7 @@ import * as React from 'react';
 import { useBusiness } from '@/components/shell/business-context';
 import { useNetwork } from '@/lib/network';
 
-import { useBusinessNumber, type BusinessNumber } from './cell';
+import { useConversationNumber, type BusinessNumber } from './cell';
 import { cancelledHere, pendingReplies, withOwnChanges, type PendingReply } from './outbox';
 import {
   CALLS_SQL,
@@ -101,7 +101,7 @@ export function useConversation(conversationId: string): {
   ]);
   const outbox = useInboxOutbox();
   const members = useMembers();
-  const number = useBusinessNumber(business.id);
+  const number = useConversationNumber(business.id, conversationId);
   const { timeZone, telephony } = useBusinessSettings();
   const teammate = useTeammate();
   const now = useNow();

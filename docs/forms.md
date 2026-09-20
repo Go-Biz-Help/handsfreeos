@@ -11,8 +11,9 @@ one engine and one set of results screens rather than three of each.
 | The definition, the ops, the engine | `packages/core/src/forms/`                                                          |
 | Commands                            | `packages/core/src/commands/form.ts`, `form-response.ts`                            |
 | Reads                               | `packages/core/src/queries/form.ts`                                                 |
-| Tables                              | migrations `0073`–`0078`                                                            |
+| Tables                              | migrations `0073`–`0078`, and `0085` for the phone                                  |
 | The app                             | `apps/web/src/app/app/w/[workspaceId]/forms/`, `apps/web/src/components/forms/`     |
+| The phone                           | `apps/mobile/src/forms/`                                                            |
 | The public page                     | `apps/web/src/app/f/[site]/[slug]/`, served by `apps/worker/src/http/forms.ts`      |
 | The AI builder                      | `apps/worker/src/forms/builder.ts` (tools in `packages/core/src/forms/ai-tools.ts`) |
 | The Assistant's tools               | `apps/worker/src/assistant/tools-forms.ts`                                          |
