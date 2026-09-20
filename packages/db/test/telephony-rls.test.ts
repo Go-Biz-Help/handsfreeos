@@ -827,3 +827,121 @@ describe('webhook deliveries, scheduled jobs and media', () => {
     expect(await readable(member, 'media/thermostat.jpg')).toBe(false);
   });
 });
+
+/**
+ * 0077: which number is "the" one, when a business has several.
+ *
+ * Every one of these was written after the fact, because the first run of these migrations against a real
+ * database found two bugs that nothing here could have caught:
+ *
+ *   - `private.phone_numbers_keep_default()` compared an enum column to a `text[]`, which has no operator.
+ *     A plpgsql body is not type-checked until it runs, so the migration applied and then every number
+ *     anybody bought failed.
+ *   - the hand-off rule fired between the two statements that move a default, put the old number straight
+ *     back, and made `phone_number.set_default` collide with the unique index — for every business with
+ *     more than one number, which is every business this milestone is for.
+ */
+describe('one number is the default', () => {
+  const buy = async (ws: string, org: string, status = 'active') => {
+    const [n] = await worker(
+      ws,
+      org,
+    )((tx) =>
+      rows<{ id: string; e164: string }>(
+        tx,
+        sql`insert into app.phone_numbers (workspace_id, e164, number_type, status)
+            values (${ws}, ${randomE164()}, 'local', ${status}::app.phone_number_status)
+            returning id, e164`,
+      ),
+    );
+    return n!;
+  };
+  const defaults = (ws: string, org: string) =>
+    worker(
+      ws,
+      org,
+    )((tx) =>
+      rows<{ id: string; is_default: boolean; status: string }>(
+        tx,
+        sql`select id::text, is_default, status::text from app.phone_numbers
+            where workspace_id = ${ws} order by created_at, id`,
+      ),
+    );
+
+  let ws: string;
+  let org: string;
+  beforeAll(async () => {
+    const u = await createTestUser(`num-${uniq()}`);
+    const o = await bootstrapOrganization(u, `Numbers ${uniq()}`, `Numbers ${uniq()}`);
+    ws = o.wsId;
+    org = o.orgId;
+  }, 60_000);
+
+  it('gives the first number the default, so a business is never left without one', async () => {
+    const first = await buy(ws, org, 'provisioning');
+    const all = await defaults(ws, org);
+    expect(all.find((n) => n.id === first.id)?.is_default).toBe(true);
+  });
+
+  it('does not let a second number quietly demote the first', async () => {
+    const first = (await defaults(ws, org))[0]!;
+    await buy(ws, org);
+    const all = await defaults(ws, org);
+    expect(all.find((n) => n.id === first.id)?.is_default).toBe(true);
+    expect(all.filter((n) => n.is_default)).toHaveLength(1);
+  });
+
+  it('moves the default when a business chooses another, which the index alone refuses', async () => {
+    const all = await defaults(ws, org);
+    const target = all.find((n) => !n.is_default)!;
+    // Exactly what phone_number.set_default does: clear the old one, then set the new one.
+    await worker(
+      ws,
+      org,
+    )(async (tx) => {
+      await rows(
+        tx,
+        sql`update app.phone_numbers set is_default = false
+            where workspace_id = ${ws} and is_default and id <> ${target.id}::uuid`,
+      );
+      await rows(
+        tx,
+        sql`update app.phone_numbers set is_default = true where id = ${target.id}::uuid`,
+      );
+    });
+    const after = await defaults(ws, org);
+    expect(after.find((n) => n.id === target.id)?.is_default).toBe(true);
+    expect(after.filter((n) => n.is_default)).toHaveLength(1);
+  });
+
+  it('hands the default on when the number holding it stops being live', async () => {
+    const holder = (await defaults(ws, org)).find((n) => n.is_default)!;
+    await worker(
+      ws,
+      org,
+    )((tx) =>
+      rows(tx, sql`update app.phone_numbers set status = 'released' where id = ${holder.id}::uuid`),
+    );
+    const after = await defaults(ws, org);
+    const live = after.filter((n) => ['provisioning', 'active', 'releasing'].includes(n.status));
+    expect(after.find((n) => n.id === holder.id)?.is_default).toBe(false);
+    expect(live.filter((n) => n.is_default)).toHaveLength(1);
+  });
+
+  it('never lets two live numbers hold it at once', async () => {
+    const live = (await defaults(ws, org)).filter((n) =>
+      ['provisioning', 'active', 'releasing'].includes(n.status),
+    );
+    const other = live.find((n) => !n.is_default);
+    if (!other) return;
+    const e = await expectPgError(() =>
+      worker(
+        ws,
+        org,
+      )((tx) =>
+        rows(tx, sql`update app.phone_numbers set is_default = true where id = ${other.id}::uuid`),
+      ),
+    );
+    expect(e.code).toBe('23505');
+  });
+});

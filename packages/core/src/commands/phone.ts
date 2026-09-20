@@ -1,4 +1,4 @@
-import { and, eq } from 'drizzle-orm';
+import { and, eq, ne } from 'drizzle-orm';
 import { rows, sql } from '@hfos/db/client';
 import { phoneNumberMembers, phoneNumbers, workspaces } from '@hfos/db/schema';
 import { formatPhone } from '../crm/phone';
@@ -269,6 +269,24 @@ export const phoneNumberSetDefault = defineCommand({
       );
     if (n.isDefault) return { phoneNumberId: n.id };
     const was = await defaultNumber(ctx.tx, ctx.scope.workspaceId!);
+    /**
+     * Stand the old one down first, in its own statement.
+     *
+     * `phone_numbers_one_default` is a partial unique index, so a second default is refused as the row is
+     * written — before `phone_numbers_keep_default` ever runs, because an AFTER trigger cannot undo a
+     * constraint violation. `payment_connection.set_default` clears its old default the same way, for the
+     * same reason.
+     */
+    await ctx.tx
+      .update(phoneNumbers)
+      .set({ isDefault: false })
+      .where(
+        and(
+          eq(phoneNumbers.workspaceId, ctx.scope.workspaceId!),
+          eq(phoneNumbers.isDefault, true),
+          ne(phoneNumbers.id, n.id),
+        ),
+      );
     await ctx.tx.update(phoneNumbers).set({ isDefault: true }).where(eq(phoneNumbers.id, n.id));
     await ctx.emit({
       type: 'phone_number.default_changed',

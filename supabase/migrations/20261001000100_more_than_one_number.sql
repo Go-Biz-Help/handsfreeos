@@ -60,10 +60,16 @@ create or replace function private.phone_numbers_keep_default()
 returns trigger language plpgsql security definer set search_path = '' as $$
 declare
   v_ws uuid := coalesce(new.workspace_id, old.workspace_id);
-  v_live text[] := array['provisioning', 'active', 'releasing'];
+  -- The enum's own array type, not `text[]`: there is no `app.phone_number_status = text` operator, and
+  -- because a plpgsql body is not type-checked until it runs, `text[]` here applied cleanly and then failed
+  -- on the first number anybody bought.
+  v_live app.phone_number_status[] :=
+    array['provisioning', 'active', 'releasing']::app.phone_number_status[];
 begin
-  -- Somebody else was just made the default: stand the others down. Done first so the unique index never sees
-  -- two, which would refuse the write rather than fix it.
+  -- A default that is no longer live still holds the flag, because the unique index below only covers live
+  -- rows. Tidy it away when a live number takes over. This cannot *prevent* two defaults — the index is
+  -- checked as the row is written, long before an AFTER trigger runs — which is why the command clears the
+  -- old default itself, the way payment_connection.set_default does.
   if tg_op <> 'DELETE' and new.is_default then
     update app.phone_numbers set is_default = false
       where workspace_id = v_ws and id <> new.id and is_default;
@@ -71,16 +77,29 @@ begin
 
   -- Nobody holds it, and somebody could. The oldest live number takes it: a business that bought a second
   -- number should not find its original one quietly demoted.
-  if not exists (
-    select 1 from app.phone_numbers
-    where workspace_id = v_ws and is_default and status = any(v_live)
-  ) then
-    update app.phone_numbers set is_default = true
-      where id = (
-        select id from app.phone_numbers
-        where workspace_id = v_ws and status = any(v_live)
-        order by created_at, id limit 1
-      );
+  --
+  -- **Only on an arrival or a departure.** Moving the default is two statements — clear the old, set the
+  -- new — because a partial unique index is checked as each row is written, long before an AFTER trigger
+  -- could tidy up. Handing off in the gap between those two put the old number straight back, and the
+  -- second statement then collided with the index: `phone_number.set_default` was refused for every
+  -- business with more than one number, which is every business this milestone is for.
+  --
+  -- What this gives up: somebody who clears a default and sets nothing leaves the workspace without one
+  -- until the next number arrives or changes status. No command does that — `set_default` only ever sets —
+  -- and the next insert or status change heals it.
+  if tg_op = 'INSERT' or tg_op = 'DELETE'
+     or (tg_op = 'UPDATE' and old.status is distinct from new.status) then
+    if not exists (
+      select 1 from app.phone_numbers
+      where workspace_id = v_ws and is_default and status = any(v_live)
+    ) then
+      update app.phone_numbers set is_default = true
+        where id = (
+          select id from app.phone_numbers
+          where workspace_id = v_ws and status = any(v_live)
+          order by created_at, id limit 1
+        );
+    end if;
   end if;
   return null;
 end $$;
