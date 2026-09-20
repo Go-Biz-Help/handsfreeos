@@ -263,6 +263,25 @@ begin
     select w.balance_cents into v_balance from app.usage_wallets w
       where w.workspace_id = new.workspace_id for update;
   end if;
+  /*
+   * Already counted. **This is what makes one event one charge**, and it is not the unique index's job.
+   *
+   * This is a BEFORE INSERT trigger, and Postgres runs those *before* it looks for an ON CONFLICT collision.
+   * So a retried webhook — `sent`, then `delivered`, then Twilio sending both again — was discarded by
+   * `usage_ledger_idempotency` exactly as intended, leaving one honest ledger row, while the balance update
+   * this trigger had already made stayed. One text, five charges. The statement was right and the balance
+   * was wrong, which is the worse way round. Found the first time this ran against a real database.
+   *
+   * **After the lock above, not before.** Two inserts of the same key race: the first holds the wallet row,
+   * the second waits, and by the time it looks the first has committed and is visible here. Checking before
+   * the lock would let both through and charge twice.
+   */
+  if exists (
+    select 1 from app.usage_ledger l
+    where l.workspace_id = new.workspace_id and l.idempotency_key = new.idempotency_key
+  ) then
+    return null;
+  end if;
   v_balance := coalesce(v_balance, 0) + new.amount_cents;
   update app.usage_wallets set balance_cents = v_balance where workspace_id = new.workspace_id;
   new.balance_after_cents := v_balance;

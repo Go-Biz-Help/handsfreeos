@@ -273,6 +273,33 @@ begin
   return v_touched;
 end $$;
 
+-- ---------- the switch itself, whoever moves it ----------
+-- The repaint used to live only in the `inbox.set_visibility` command. That was not enough: the Assistant's
+-- settings tools write app.workspaces.settings too, and so does a support fix. Flipping the switch that way
+-- left every viewer list and every `sees_whole_inbox` untouched — the business is told its team sees only
+-- their own threads while the database still shows them everything. A promise about who can read a
+-- customer's messages cannot depend on which code path happened to move the flag.
+--
+-- So the database does it. The command keeps its own ceiling check, which it now runs *before* writing, so a
+-- business too large to do in one go is refused with something readable instead of a statement timeout.
+--
+-- The condition compares the stored text rather than casting to boolean: a WHEN clause that raised on a
+-- malformed setting would block the settings write itself, which is a worse failure than one extra repaint.
+create or replace function private.inbox_switch_changed()
+returns trigger language plpgsql security definer set search_path = '' as $$
+begin
+  -- Access rows first, for the reason the command gives: no phone is briefly told it sees everything while
+  -- the lists already say otherwise.
+  perform private.inbox_repaint_access(new.id);
+  perform private.inbox_repaint_workspace(new.id);
+  return null;
+end $$;
+
+create trigger workspaces_inbox_switch after update of settings on app.workspaces
+  for each row
+  when (old.settings -> 'inbox' ->> 'perPerson' is distinct from new.settings -> 'inbox' ->> 'perPerson')
+  execute function private.inbox_switch_changed();
+
 -- A person's role in a business changed, or their access began or ended: every thread whose list they are, or
 -- could now be, part of. A no-op, and one index probe, while the business has not opted in.
 create or replace function private.inbox_viewers_access_changed()
@@ -366,7 +393,8 @@ revoke all on function
   private.inbox_conversation_viewers(), private.inbox_child_viewers(),
   private.inbox_propagate_viewers(), private.inbox_access_flag(),
   private.inbox_repaint_workspace(uuid, integer), private.inbox_repaint_access(uuid),
-  private.inbox_viewers_access_changed(), private.inbox_viewers_number_changed()
+  private.inbox_viewers_access_changed(), private.inbox_viewers_number_changed(),
+  private.inbox_switch_changed()
   from public;
 -- Only the two the policies name are reachable by a person; the rest belong to the triggers and the command.
 grant execute on function private.inbox_per_person(uuid), private.inbox_narrowed(uuid)

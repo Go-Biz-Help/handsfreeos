@@ -32,6 +32,43 @@ comment on column app.form_versions.is_active is
   'The version a phone should hold: this form''s active version, while the form is live (0085). Kept by '
   'private.form_sync_active(); writing it by hand does nothing, the trigger replaces it.';
 
+-- ---------- an append-only version still has one thing that moves ----------
+-- `form_versions_append_only` (0069) freezes a published version through private.guard_version_row(), and
+-- until this was run against a real database it froze `is_active` with it: every write below was refused,
+-- the flag was never set, and nothing reached a phone. The whole of this migration was inert.
+--
+-- `is_active` is not content. It says which version the form currently points at, which is a fact about the
+-- *form*, mirrored here because a PowerSync stream cannot join. So the guard learns it, the way it already
+-- carves out `published_by` being cleared when a user is deleted.
+--
+-- **Scoped to the table that has the column.** `to_jsonb(new) ? 'is_active'` is false on
+-- app.workflow_versions and app.workflow_template_versions, which share this guard, so nothing about them
+-- changes — not even a no-op update, which they still refuse. And a write that touches content *and*
+-- `is_active` is still refused here: the carve-out is the flag alone or nothing.
+create or replace function private.guard_version_row()
+returns trigger language plpgsql security definer set search_path = '' as $$
+declare
+  v_parent_alive boolean;
+  v_tenant_alive boolean;
+begin
+  if tg_op = 'DELETE' then
+    execute format('select exists (select 1 from app.%I x where x.id = $1)', tg_argv[0])
+      into v_parent_alive using (to_jsonb(old) ->> tg_argv[1])::uuid;
+    execute format('select exists (select 1 from app.%I x where x.id = $1)', tg_argv[2])
+      into v_tenant_alive using (to_jsonb(old) ->> tg_argv[3])::uuid;
+    if not (v_parent_alive and v_tenant_alive) then
+      return old;
+    end if;
+  elsif new.published_by is null and (to_jsonb(new) - 'published_by') = (to_jsonb(old) - 'published_by') then
+    return new;
+  elsif to_jsonb(new) ? 'is_active'
+        and (to_jsonb(new) - 'is_active') = (to_jsonb(old) - 'is_active') then
+    return new;
+  end if;
+  raise exception '%.% is append-only', tg_table_schema, tg_table_name
+    using errcode = '42501', detail = 'version_immutable';
+end $$;
+
 -- ---------- what a phone should hold ----------
 create or replace function private.form_sync_active(p_form uuid)
 returns void language sql security definer set search_path = '' as $$

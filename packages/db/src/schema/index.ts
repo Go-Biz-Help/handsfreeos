@@ -4274,6 +4274,17 @@ export const walletRechargeStatus = app.enum('wallet_recharge_status', [
 ]);
 
 /**
+ * How far a business has been rolled onto the wallet: `off` says nothing at all, `warn` shows the balance and
+ * the low-balance notices, `enforce` also stops outgoing texts and calls past the overdraft.
+ *
+ * A real enum in the database (`app.wallet_stage`, 0083) and now a real one here. It was a `text` column with
+ * a TypeScript-only union, which typechecked perfectly and still drifted: `parity.test.ts` walks every enum
+ * in both and found 126 in SQL against 125 in Drizzle.
+ */
+export const walletStage = app.enum('wallet_stage', ['off', 'warn', 'enforce']);
+export type WalletStage = (typeof walletStage.enumValues)[number];
+
+/**
  * One business's balance and how it keeps it topped up. `balanceCents` is written **only** by
  * private.usage_wallet_apply() and is the one money column in the repo that may go negative: inbound calls and
  * texts arrive whether or not there is money, and the carrier has already billed us by then.
@@ -4310,7 +4321,7 @@ export const usageWallets = app.table('usage_wallets', {
    * How far along the wallet this business is: `off` (silent), `warn` (told, nothing stops) or `enforce`
    * (stopped past the overdraft). Off everywhere until staff move it, one business at a time.
    */
-  stage: text('stage').$type<'off' | 'warn' | 'enforce'>().notNull().default('off'),
+  stage: walletStage('stage').notNull().default('off'),
   ...timestamps(),
 });
 
