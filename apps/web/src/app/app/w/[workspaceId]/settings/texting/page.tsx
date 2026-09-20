@@ -16,11 +16,14 @@ export default async function TextingSettingsPage({
 }) {
   const { workspaceId } = await params;
   const { api } = await apiServer();
-  const [got, status, me, members] = await Promise.all([
+  const [got, status, me, members, ports] = await Promise.all([
     unwrapPage(await api.POST('/v1/queries/workspace.get', { body: { workspaceId } })),
     unwrapPage(await api.POST('/v1/queries/phone.setup_status', { body: { workspaceId } })),
     fetchMe(api),
     unwrapPage(await api.POST('/v1/queries/workspace.members', { body: { workspaceId } })),
+    // Numbers being brought from another carrier (M17). Its own query rather than a field on setup_status,
+    // because it is `channels.manage` only — the losing carrier's paperwork is not everyone's to see.
+    unwrapPage(await api.POST('/v1/queries/number_port.list', { body: { workspaceId } })),
   ]);
   const canManage = got.workspace.role === 'owner' || got.workspace.role === 'admin';
   if (!canManage) notFound();
@@ -43,6 +46,7 @@ export default async function TextingSettingsPage({
         me={{ fullName: me.user.fullName, email: me.user.email }}
         team={team}
         people={people}
+        ports={ports.ports}
       />
     </>
   );

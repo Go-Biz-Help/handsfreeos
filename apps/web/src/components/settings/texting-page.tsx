@@ -22,6 +22,7 @@ import { useEffect, useId, useRef, useState, type FormEvent, type ReactNode } fr
 import { toast } from 'sonner';
 import { Callout } from '@/components/crm/chips';
 import { NumbersCard, type Ringable } from '@/components/settings/numbers-card';
+import { PortStep, type PortInfo } from '@/components/settings/port-step';
 import { ChannelIcon, Pill } from '@/components/inbox/bits';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -87,6 +88,7 @@ export function TextingPage({
   me,
   team,
   people,
+  ports,
 }: {
   workspaceId: string;
   businessName: string;
@@ -96,8 +98,10 @@ export function TextingPage({
   team: string[];
   /** The same people with their ids, for choosing who a number rings (M17). */
   people: Ringable[];
+  /** Numbers being brought from another carrier, newest first (M17). */
+  ports: readonly PortInfo[];
 }) {
-  useLiveRefresh(['phone_number', 'registration', 'workspace']);
+  useLiveRefresh(['phone_number', 'registration', 'number_port', 'workspace']);
   const router = useRouter();
   // Buying and releasing take seconds: check again every few, in case the live channel is down.
   const busy = status.nextStep === 'provisioning' || status.nextStep === 'releasing';
@@ -150,7 +154,7 @@ export function TextingPage({
             ← Back to your numbers
           </button>
           <div className="mt-3">
-            <NumberStep workspaceId={workspaceId} failed={null} />
+            <NumberStep workspaceId={workspaceId} failed={null} ports={ports} />
           </div>
         </Card>
       </div>
@@ -177,7 +181,7 @@ export function TextingPage({
 
   const step = status.nextStep;
   const current =
-    step === 'buy_number' || step === 'provisioning' || step === 'releasing'
+    step === 'buy_number' || step === 'provisioning' || step === 'releasing' || step === 'porting'
       ? 0
       : step === 'submit_registration' || fixing
         ? 1
@@ -203,7 +207,13 @@ export function TextingPage({
         <NumberStep
           workspaceId={workspaceId}
           failed={status.number?.status === 'failed' ? status.number : null}
+          ports={ports}
         />
+      ) : step === 'porting' ? (
+        // Weeks with a carrier, not seconds with us, so it is its own screen rather than the spinner that
+        // `provisioning` gets: there is a status, a moving day and a way out, and a business checking back
+        // every few days needs all three.
+        <PortStep workspaceId={workspaceId} ports={ports} onBack={() => setAdding(true)} />
       ) : step === 'provisioning' || step === 'releasing' ? (
         <div className="flex items-center gap-3 py-6 text-[13.5px] text-text-2" role="status">
           <span className="h-4 w-4 animate-spin rounded-full border-2 border-accent border-t-transparent" />
@@ -288,11 +298,24 @@ function Steps({ current, turnedDown }: { current: number; turnedDown: boolean }
 function NumberStep({
   workspaceId,
   failed,
+  ports,
 }: {
   workspaceId: string;
   failed: PhoneNumberInfo | null;
+  ports: readonly PortInfo[];
 }) {
   const router = useRouter();
+  /**
+   * New or their own (M17). The first question, before the kind of number, because it changes everything
+   * after it and because a business that has had one number for eleven years is not shopping for a new one —
+   * and until now this screen only offered shopping.
+   *
+   * A request already under way lands on it: a business that came back to check does not have to find the
+   * choice again.
+   */
+  const [source, setSource] = useState<'new' | 'bring'>(
+    ports.some((p) => p.status !== 'cancelled' && p.status !== 'complete') ? 'bring' : 'new',
+  );
   const [type, setType] = useState<NumberType>('toll_free');
   const [area, setArea] = useState('');
   const [prefix, setPrefix] = useState('');
@@ -380,6 +403,9 @@ function NumberStep({
     }
   }
 
+  if (source === 'bring')
+    return <PortStep workspaceId={workspaceId} ports={ports} onBack={() => setSource('new')} />;
+
   return (
     <div data-testid="number-step">
       <h2 className="text-lg font-semibold tracking-tight">Get a business number</h2>
@@ -387,6 +413,16 @@ function NumberStep({
         Customers text and call this number. Calls work as soon as you buy it; texting starts once
         the carriers approve you.
       </p>
+      {/* Not a radio group beside the toll-free/local pair below: that one is a property of the number being
+          bought, this one decides whether a number is being bought at all. */}
+      <button
+        type="button"
+        onClick={() => setSource('bring')}
+        className="mb-[18px] block text-[13px] text-accent-text hover:underline"
+        data-testid="bring-your-number"
+      >
+        I already have a number I want to keep →
+      </button>
       {failed ? (
         <Callout tone="danger" icon={CircleAlert} className="mb-4">
           We couldn’t buy {failed.display}

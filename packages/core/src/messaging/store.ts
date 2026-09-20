@@ -135,8 +135,12 @@ export async function numbersOf(tx: Tx, workspaceId: string) {
 }
 
 /**
- * How many live numbers a business has. Used by the purchase cap: dropping the one-per-workspace index
+ * How many numbers a business is holding. Used by the purchase cap: dropping the one-per-workspace index
  * removed the only thing standing between a stuck retry and forty numbers on somebody's card.
+ *
+ * **Claimed, not sendable.** A number on its way to us from another carrier is one this business has said it
+ * wants and nobody else can take — counting only what can send today would let a business with ten ports in
+ * flight buy ten more numbers, and end the month with twenty.
  */
 export async function liveNumberCount(tx: Tx, workspaceId: string): Promise<number> {
   const found = await tx
@@ -145,7 +149,7 @@ export async function liveNumberCount(tx: Tx, workspaceId: string): Promise<numb
     .where(
       and(
         eq(phoneNumbers.workspaceId, workspaceId),
-        inArray(phoneNumbers.status, [...SENDABLE_STATUSES]),
+        inArray(phoneNumbers.status, [...CLAIMED_STATUSES]),
       ),
     );
   return found.length;

@@ -73,6 +73,71 @@ function assertEditable(p: PortRow): void {
   );
 }
 
+/**
+ * Claim the number while the carrier thinks about it.
+ *
+ * **A `phone_numbers` row in `porting` is the claim**, and `phone_numbers_live_e164` is what makes it one:
+ * without it two businesses could both send the same number to the carrier and the second would find it
+ * taken on the day it landed. It is also why the number shows in Settings as "Moving to us" the whole time,
+ * and why a port in flight counts against the ten-number ceiling.
+ *
+ * It cannot send — `porting` is deliberately absent from `SENDABLE_STATUSES` and from the partial index the
+ * default is kept by — so nothing routes to it and nobody can make it the number new conversations go out
+ * from until it is really ours.
+ */
+async function claimNumber(ctx: CommandContext, p: PortRow): Promise<string> {
+  const workspaceId = ctx.scope.workspaceId!;
+  if (p.phoneNumberId) {
+    await ctx.tx
+      .update(phoneNumbers)
+      .set({ status: 'porting' })
+      .where(eq(phoneNumbers.id, p.phoneNumberId));
+    return p.phoneNumberId;
+  }
+  const [existing] = await ctx.tx
+    .select({ id: phoneNumbers.id })
+    .from(phoneNumbers)
+    .where(and(eq(phoneNumbers.workspaceId, workspaceId), eq(phoneNumbers.e164, p.e164)))
+    .limit(1);
+  if (existing) {
+    await ctx.tx
+      .update(phoneNumbers)
+      .set({ status: 'porting' })
+      .where(eq(phoneNumbers.id, existing.id));
+    return existing.id;
+  }
+  const [made] = await ctx.tx
+    .insert(phoneNumbers)
+    .values({
+      workspaceId,
+      e164: p.e164,
+      // A ported number is local unless the carrier says otherwise when it lands. Toll-free ports are rare
+      // and get corrected then; guessing toll-free here would send the wrong registration chain.
+      numberType: 'local',
+      status: 'porting',
+      createdBy: p.createdBy,
+    })
+    .returning({ id: phoneNumbers.id });
+  if (!made) throw HfosError.forbidden();
+  return made.id;
+}
+
+/**
+ * Let the number go again.
+ *
+ * A port that is off — called off, turned down, failed — must not keep another business from trying for the
+ * same number, and must not keep counting against this one's ceiling. Marking it `released` rather than
+ * deleting the row keeps the history: a business that tried to move a number and could not should be able to
+ * see that it tried.
+ */
+async function releaseClaim(ctx: CommandContext, p: PortRow): Promise<void> {
+  if (!p.phoneNumberId) return;
+  await ctx.tx
+    .update(phoneNumbers)
+    .set({ status: 'released', releasedAt: new Date() })
+    .where(and(eq(phoneNumbers.id, p.phoneNumberId), eq(phoneNumbers.status, 'porting')));
+}
+
 export const numberPortStart = defineCommand({
   name: 'number_port.start',
   description: 'Begin moving a number the business already owns to HandsFreeOS.',
@@ -265,9 +330,11 @@ export const numberPortSubmit = defineCommand({
         409,
         'Upload the signed authorisation before sending this. Carriers turn down a port without one.',
       );
+    // Claimed before it is sent, not after: between the two, another business could ask for the same number.
+    const phoneNumberId = await claimNumber(ctx, p);
     await ctx.tx
       .update(numberPorts)
-      .set({ status: 'submitted', submittedAt: new Date(), rejectionReason: null })
+      .set({ status: 'submitted', submittedAt: new Date(), rejectionReason: null, phoneNumberId })
       .where(eq(numberPorts.id, p.id));
     await ctx.emit({
       type: 'number_port.submitted',
@@ -296,6 +363,7 @@ export const numberPortCancel = defineCommand({
     if (p.status === 'complete')
       throw HfosError.rule('port_complete', 409, 'That number has already moved.');
     if (p.status === 'cancelled') return refOf(p);
+    await releaseClaim(ctx, p);
     await ctx.tx.update(numberPorts).set({ status: 'cancelled' }).where(eq(numberPorts.id, p.id));
     await ctx.emit({
       type: 'number_port.cancelled',
@@ -325,6 +393,9 @@ export const numberPortRecordState = defineCommand({
     // A port somebody called off while the carrier was thinking stays called off: a late answer about a
     // request nobody wants any more must not quietly restart it.
     if (p.status === 'cancelled' || p.status === 'complete') return refOf(p);
+    // The carrier said no, or it broke. The number goes back on the market: somebody else may want it, and
+    // this business should not keep paying a ceiling slot for a number it never got.
+    if (input.status === 'rejected' || input.status === 'failed') await releaseClaim(ctx, p);
     await ctx.tx
       .update(numberPorts)
       .set({
@@ -372,35 +443,13 @@ export const numberPortComplete = defineCommand({
   emits: ['number_port.completed', 'phone_number.ported_in'],
   actors: ['system'],
   async handler(ctx, input) {
-    const workspaceId = ctx.scope.workspaceId!;
     const p = await loadPort(ctx, input.portId);
     if (p.phoneNumberId && p.status === 'complete')
       return { portId: p.id, phoneNumberId: p.phoneNumberId };
 
-    // The row may already exist as `porting` from when the carrier accepted it; if not, this is where the
-    // number joins the business.
-    const [existing] = await ctx.tx
-      .select()
-      .from(phoneNumbers)
-      .where(and(eq(phoneNumbers.workspaceId, workspaceId), eq(phoneNumbers.e164, p.e164)))
-      .limit(1);
-    const numberId =
-      existing?.id ??
-      (
-        await ctx.tx
-          .insert(phoneNumbers)
-          .values({
-            workspaceId,
-            e164: p.e164,
-            // A ported number is local unless somebody says otherwise; toll-free ports are rare and the
-            // carrier tells us which it was when it lands.
-            numberType: 'local',
-            status: 'porting',
-            createdBy: p.createdBy,
-          })
-          .returning()
-      )[0]!.id;
-
+    // The row is already there in `porting`, claimed when the port was sent. `claimNumber` is called again
+    // rather than assumed, because a port that was turned down and sent again releases and re-takes it.
+    const numberId = await claimNumber(ctx, p);
     await ctx.tx
       .update(phoneNumbers)
       .set({ status: 'active', providerSid: input.providerSid, purchasedAt: new Date() })
