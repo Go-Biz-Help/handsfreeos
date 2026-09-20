@@ -105,6 +105,12 @@ export const WalletRecordRechargeInput = z.strictObject({
   failureMessage: z.string().trim().min(1).max(300).nullable().default(null),
 });
 
+/** Which line the balance went under. The funnel works this out; nothing here decides it again. */
+export const WalletNoteCrossingInput = z.strictObject({
+  ...inWorkspace,
+  crossed: z.enum(['low', 'empty']),
+});
+
 export const WalletSuspendInput = z.strictObject({
   ...inWorkspace,
   reason: z.string().trim().min(1).max(300),

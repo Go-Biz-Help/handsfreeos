@@ -30,6 +30,7 @@ import {
   WalletRecordRechargeInput,
   WalletRechargeOutput,
   WalletRefOutput,
+  WalletNoteCrossingInput,
   WalletRequestCardInput,
   WalletResumeInput,
   WalletSettingsInput,
@@ -460,6 +461,47 @@ export const walletRecordRecharge = defineCommand({
   },
 });
 
+/**
+ * The one place a low balance becomes an event.
+ *
+ * The charge itself is deliberately **not** a command. It happens on every text, every call and every AI
+ * request, and putting all of that through the kernel would write an event, an outbox row and an audit row per
+ * message — doubling the writes on the hottest path in the system to record something nobody reads. The
+ * crossing is different: it happens rarely, somebody acts on it, and it needs to reach an outbox handler. So
+ * the funnel inserts its ledger rows directly and calls this only when the balance went under a line.
+ *
+ * The funnel already made sure this is said once: it only reports a crossing on a row it actually inserted,
+ * and only when the balance was above the line before and is not now.
+ */
+export const walletNoteCrossing = defineCommand({
+  name: 'wallet.note_crossing',
+  description:
+    'Worker: a business’s balance went under its top-up line, or under zero. Says so once, so the top-up and the warnings can happen.',
+  risk: 0,
+  input: WalletNoteCrossingInput,
+  output: WalletRefOutput,
+  permission: null,
+  scope: inWorkspace,
+  emits: ['wallet.low', 'wallet.empty'],
+  actors: ['system'],
+  async handler(ctx, input) {
+    const w = await wallet(ctx);
+    await ctx.emit({
+      type: input.crossed === 'empty' ? 'wallet.empty' : 'wallet.low',
+      entityType: 'usage_wallet',
+      entityId: w.workspaceId,
+      payload: {
+        balanceCents: w.balanceCents,
+        floorCents: w.floorCents,
+        autoTopup: w.autoTopup,
+        hasCard: w.methodToken !== null,
+      },
+      after: { balance: `${(w.balanceCents / 100).toFixed(2)}` },
+    });
+    return refOf(w);
+  },
+});
+
 export const walletSuspend = defineCommand({
   name: 'wallet.suspend',
   description:
@@ -571,6 +613,7 @@ export const walletCommands = [
   walletRecordCard,
   walletStartRecharge,
   walletRecordRecharge,
+  walletNoteCrossing,
   walletSuspend,
   walletResume,
   walletAdjust,

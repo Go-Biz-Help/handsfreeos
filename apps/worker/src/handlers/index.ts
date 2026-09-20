@@ -45,6 +45,7 @@ import {
   onPaymentRecorded,
   onSubscriptionLive,
 } from '../money/jobs';
+import { onWalletLow } from '../money/recharge';
 import { onRefundRequested } from '../money/refunds';
 import { onPlanCardRequested, onPlanChanged } from '../money/subscriptions';
 import { onBridgeCancelled, onBridgeRequested, onVerificationRequested } from '../telephony/cell';
@@ -114,6 +115,10 @@ const ownTeammateAndWorkflows: HandlerMap = withWorkflows(
     'payment_connection.disconnected': onPaymentConnectionDisconnected,
     // A person asked for a refund: the provider call is queued, so it retries on its own (money/refunds.ts).
     'refund.requested': onRefundRequested,
+    // The usage wallet ran low (M16): if it has a card and automatic top-up on, the charge is queued as a job
+    // for the same reason a refund is. `wallet.empty` is deliberately not here — by then the top-up has
+    // already been tried, and what an empty balance needs is a warning, not another attempt.
+    'wallet.low': onWalletLow,
     // Money (money/jobs.ts): a document that went out carries its own message and then the jobs that follow
     // it — an estimate's nudge and expiry, an invoice's reminder ladder and its overdue mark. A payment
     // brings the customer a receipt (or, where nobody was watching, that it didn't go through), and a

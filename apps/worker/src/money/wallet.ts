@@ -18,10 +18,13 @@
  * unexpected in here is logged loudly and swallowed, and the charge is lost rather than the message. Losing a
  * penny is a smaller wrong than a business's customer never hearing back.
  */
+import { randomUUID } from 'node:crypto';
 import {
+  executeCommand,
   priceEvent,
   SEED_CARD,
   isUsageKey,
+  walletNoteCrossing,
   type RateCard,
   type UsageKey,
   type UsagePart,
@@ -238,15 +241,46 @@ async function record(deps: WalletDeps, scope: TenantScope, input: ChargeInput):
 
   const balanceAfter = Number(row.balance_after_cents);
   const before = balanceAfter - signed;
+  // Nothing warns in shadow: the week is for measuring, and a business that hears from us about a balance it
+  // was never told it had would rightly be confused.
+  const crossed = deps.mode === 'on' ? await crossing(deps, scope, before, balanceAfter) : null;
+  // Said once, from the one row that crossed the line. The charge itself is a plain insert on purpose — it
+  // happens on every message — and this is the rare thing somebody acts on, so it goes through the kernel.
+  if (crossed) await noteCrossing(deps, scope, crossed);
   return {
     recorded: true,
     amountCents: priced.amountCents,
     costCents: priced.costCents,
     balanceAfterCents: balanceAfter,
-    // Nothing warns in shadow: the week is for measuring, and a business that hears from us about a balance it
-    // was never told it had would rightly be confused.
-    crossed: deps.mode === 'on' ? await crossing(deps, scope, before, balanceAfter) : null,
+    crossed,
   };
+}
+
+/** Never lets a warning that could not be written stop the charge that was. */
+async function noteCrossing(
+  deps: WalletDeps,
+  scope: TenantScope,
+  crossed: 'low' | 'empty',
+): Promise<void> {
+  try {
+    await executeCommand(
+      deps.db,
+      walletNoteCrossing,
+      { workspaceId: scope.workspaceId, crossed },
+      {
+        type: 'system',
+        workspaceId: scope.workspaceId,
+        organizationId: scope.organizationId,
+        onBehalfOf: null,
+      },
+      { correlationId: randomUUID(), causationId: null, channel: 'worker' },
+    );
+  } catch (e) {
+    deps.log.error(
+      { err: e, workspaceId: scope.workspaceId, crossed },
+      'could not say the balance is low',
+    );
+  }
 }
 
 /**

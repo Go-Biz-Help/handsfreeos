@@ -50,6 +50,12 @@ import {
   RECONCILE_JOB_HANDLERS,
   RECONCILE_PLAN_KEY,
 } from './money/reconcile';
+import {
+  nextWalletPlanAt,
+  RECHARGE_JOBS,
+  RECHARGE_JOB_HANDLERS,
+  RECHARGE_PLAN_KEY,
+} from './money/recharge';
 import { moneyJobs } from './money/refunds';
 import { planJobs } from './money/subscriptions';
 import { pushJobs } from './push/send';
@@ -303,6 +309,7 @@ export const jobs: JobMap = {
   // business's sweep behind them all (money/jobs.ts).
   ...moneyDocumentJobs,
   ...RECONCILE_JOB_HANDLERS,
+  ...RECHARGE_JOB_HANDLERS,
   // Money: a plan made to match at the provider — created, paused, resumed or cancelled there
   // (money/subscriptions.ts).
   ...planJobs,
@@ -382,6 +389,16 @@ export async function ensureRecurringJobs(services: WorkerServices): Promise<voi
       kind: RECONCILE_JOBS.plan,
       dedupeKey: RECONCILE_PLAN_KEY,
       runAt: nextReconcileAt(Date.now()),
+      payload: {},
+      workspaceId: null,
+      organizationId: null,
+    });
+    // The wallet's hourly sweep (M16): the safety net behind a lost `wallet.low` and a job that exhausted its
+    // retries. It does nothing at all unless WALLET_MODE is on, so arming it costs nothing before then.
+    await scheduleJob(tx, {
+      kind: RECHARGE_JOBS.plan,
+      dedupeKey: RECHARGE_PLAN_KEY,
+      runAt: nextWalletPlanAt(Date.now()),
       payload: {},
       workspaceId: null,
       organizationId: null,
