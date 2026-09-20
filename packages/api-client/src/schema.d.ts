@@ -27504,6 +27504,7 @@ export interface operations {
                             e164: string;
                             /** Format: uuid */
                             id: string;
+                            isDefault: boolean;
                             label: string | null;
                             lastError: string | null;
                             /** @enum {string} */
@@ -27524,6 +27525,32 @@ export interface operations {
                             /** @enum {string} */
                             status: "provisioning" | "active" | "failed" | "releasing" | "released";
                         } | null;
+                        numbers: {
+                            display: string;
+                            e164: string;
+                            /** Format: uuid */
+                            id: string;
+                            isDefault: boolean;
+                            label: string | null;
+                            lastError: string | null;
+                            /** @enum {string} */
+                            numberType: "local" | "toll_free";
+                            purchasedAt: string | null;
+                            routing: {
+                                /** @enum {string} */
+                                forwardedCallerId: "customer" | "business";
+                                forwarding: {
+                                    e164: string;
+                                    enabled: boolean;
+                                    label: string;
+                                }[];
+                                ringSeconds: number;
+                                voicemailEnabled: boolean;
+                                voicemailGreeting: string | null;
+                            };
+                            /** @enum {string} */
+                            status: "provisioning" | "active" | "failed" | "releasing" | "released";
+                        }[];
                         quiet: {
                             endsAt: string | null;
                             localTime: string;

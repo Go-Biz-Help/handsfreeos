@@ -21,6 +21,7 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useId, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { toast } from 'sonner';
 import { Callout } from '@/components/crm/chips';
+import { NumbersCard } from '@/components/settings/numbers-card';
 import { ChannelIcon, Pill } from '@/components/inbox/bits';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -104,14 +105,57 @@ export function TextingPage({
   }, [busy, router]);
   const [fixing, setFixing] = useState(false);
   const [showSent, setShowSent] = useState(false);
+  // A business that already has a number and wants another. There is no `nextStep` for this — the wizard is
+  // about getting a first number working — so it is local state that drops back into the same buy screen.
+  const [adding, setAdding] = useState(false);
   const submission = latestSubmission(status.registrations);
   const sentSheet = (
     <SubmissionSheet open={showSent} onOpenChange={setShowSent} submission={submission} />
   );
 
+  /**
+   * The list of numbers, shown only once there is a reason for it: a second number, or a first that is
+   * finished and so could be joined by one. Mid-setup a business sees the wizard and nothing else, which is
+   * the screen that was there before and the one that suits what it is doing.
+   */
+  const numbersCard =
+    status.numbers.length > 1 || (status.numbers.length === 1 && status.nextStep === 'ready') ? (
+      <NumbersCard
+        workspaceId={workspaceId}
+        numbers={status.numbers}
+        canManage={status.canManage}
+        onAdd={() => setAdding(true)}
+      />
+    ) : null;
+
+  if (adding)
+    return (
+      <div className="flex flex-col gap-5">
+        {numbersCard}
+        <Card
+          className="max-w-[820px] p-5 md:p-7"
+          data-testid="texting-setup"
+          data-step="add_number"
+        >
+          <button
+            type="button"
+            onClick={() => setAdding(false)}
+            className="text-[13px] text-text-3 hover:text-text"
+            data-testid="numbers-add-cancel"
+          >
+            ← Back to your numbers
+          </button>
+          <div className="mt-3">
+            <NumberStep workspaceId={workspaceId} failed={null} />
+          </div>
+        </Card>
+      </div>
+    );
+
   if (status.nextStep === 'ready' && status.number)
     return (
-      <>
+      <div className="flex flex-col gap-5">
+        {numbersCard}
         <Configured
           workspaceId={workspaceId}
           businessName={businessName}
@@ -124,7 +168,7 @@ export function TextingPage({
           )}
         />
         {sentSheet}
-      </>
+      </div>
     );
 
   const step = status.nextStep;

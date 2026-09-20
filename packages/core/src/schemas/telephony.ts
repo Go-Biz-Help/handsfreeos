@@ -254,6 +254,8 @@ export const PhoneNumberOut = z.object({
   numberType: phoneNumberType,
   status: phoneNumberStatus,
   label: z.string().nullable(),
+  /** The one new conversations go out from. Exactly one live number per business has it (M17). */
+  isDefault: z.boolean(),
   routing: PhoneRoutingOut,
   purchasedAt: isoDateTime.nullable(),
   lastError: z.string().nullable(),
@@ -275,7 +277,13 @@ export const QuietState = z.object({
 });
 export const PhoneSetupStatusInput = z.object({ workspaceId: uuid });
 export const PhoneSetupStatusOutput = z.object({
+  /**
+   * The number the setup wizard is about — the default, or the newest one still being set up. Kept as it
+   * was so nothing reading it had to change when a business could have several (M17).
+   */
   number: PhoneNumberOut.nullable(),
+  /** Every number that is not released, default first. Additive: `number` is still the one above. */
+  numbers: z.array(PhoneNumberOut),
   accountStatus: z.string().nullable(),
   registrations: z.array(RegistrationOut),
   messagingReady: z.boolean(),

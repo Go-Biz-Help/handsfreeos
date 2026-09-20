@@ -5,6 +5,7 @@ import { defineQuery } from '../kernel/define';
 import { quietHoursState } from '../messaging/quiet-hours';
 import {
   currentNumber,
+  numbersOf,
   latestByKind,
   loadRegistrations,
   readiness,
@@ -24,6 +25,10 @@ export const phoneSetupStatus = defineQuery({
   permission: 'inbox.use',
   scope: (i) => ({ kind: 'workspace', workspaceId: i.workspaceId }),
   async handler(ctx, input) {
+    const all = await numbersOf(ctx.tx, input.workspaceId);
+    // `number` stays what it always was — the one the setup wizard is about — so nothing reading it had to
+    // change when a business could have several. `currentNumber` includes a `failed` purchase, which the
+    // wizard has to show; `numbersOf` is the list, default first.
     const number = await currentNumber(ctx.tx, input.workspaceId);
     const regs = await loadRegistrations(ctx.tx, input.workspaceId);
     // Column-level grants: people read the account's status, never its sealed credentials.
@@ -33,26 +38,27 @@ export const phoneSetupStatus = defineQuery({
       .where(eq(telephonyAccounts.workspaceId, input.workspaceId));
     const m = await workspaceMessaging(ctx.tx, input.workspaceId);
     const r = readiness(number, regs);
+    const out = (n: NonNullable<typeof number>) => ({
+      id: n.id,
+      e164: n.e164,
+      display: formatPhone(n.e164),
+      numberType: n.numberType,
+      status: n.status,
+      label: n.label,
+      isDefault: n.isDefault,
+      routing: {
+        forwarding: n.routing.forwarding.map((f) => ({ ...f })),
+        ringSeconds: n.routing.ringSeconds,
+        voicemailEnabled: n.routing.voicemailEnabled,
+        voicemailGreeting: n.routing.voicemailGreeting,
+        forwardedCallerId: n.routing.forwardedCallerId ?? ('customer' as const),
+      },
+      purchasedAt: iso(n.purchasedAt),
+      lastError: n.lastError,
+    });
     return {
-      number: number
-        ? {
-            id: number.id,
-            e164: number.e164,
-            display: formatPhone(number.e164),
-            numberType: number.numberType,
-            status: number.status,
-            label: number.label,
-            routing: {
-              forwarding: number.routing.forwarding.map((f) => ({ ...f })),
-              ringSeconds: number.routing.ringSeconds,
-              voicemailEnabled: number.routing.voicemailEnabled,
-              voicemailGreeting: number.routing.voicemailGreeting,
-              forwardedCallerId: number.routing.forwardedCallerId ?? 'customer',
-            },
-            purchasedAt: iso(number.purchasedAt),
-            lastError: number.lastError,
-          }
-        : null,
+      number: number ? out(number) : null,
+      numbers: all.map(out),
       accountStatus: account?.status ?? null,
       registrations: [...latestByKind(regs).values()].map((g) => ({
         id: g.id,
