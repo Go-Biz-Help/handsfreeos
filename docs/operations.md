@@ -1397,7 +1397,7 @@ If the Twilio or Postmark screens have moved, search their consoles for "Account
 | `ANTHROPIC_API_KEY`                   | Only for the Assistant                                                      | The worker starts, and its `worker started` line shows `"assistant":"none"`. The Assistant panel says "The Assistant isn’t available yet". Everything else works.                                                                                                                                                                                                               | The Claude Console, **Settings** → **API keys**: the key linked to the `handsfreeos-worker` service account and tied to the `HandsFreeOS` workspace (starts with `sk-ant-api`). See "The Assistant: Anthropic". Worker only.                       |
 | `DEEPGRAM_API_KEY`                    | Recommended, for the words of calls and voicemails                          | Without it the worker falls back to Twilio Conversational Intelligence, which costs about eight times as much per minute. Recordings still play; only the words are affected.                                                                                                                                                                                                   | The Deepgram console, **API Keys**. Give it to `handsfreeos-worker` with `fly secrets import`, never `fly secrets set`. Worker only.                                                                                                               |
 | `TRANSCRIBER`                         | No                                                                          | Picks who turns a recording into words: `deepgram` (the default once `DEEPGRAM_API_KEY` is set), `twilio` (Conversational Intelligence), or `fake` for development. Production refuses `fake`.                                                                                                                                                                                  | Leave unset unless you are deliberately moving off Deepgram. Worker only.                                                                                                                                                                          |
-| `WALLET_MODE`                         | No                                                                          | How far the usage wallet (M16) has gone: `off` (the default) records nothing; `shadow` prices and records every text, call and AI request and never warns or stops anything; `on` warns, and enforces for the businesses whose own flag is set. | Leave `off` until the shadow week. Worker only. |
+| `WALLET_MODE`                         | No                                                                          | How far the usage wallet (M16) has gone: `off` (the default) records nothing; `shadow` prices and records every text, call and AI request and never warns or stops anything; `on` warns, and enforces for the businesses whose own flag is set.                                                                                                                                 | Leave `off` until the shadow week. Worker only.                                                                                                                                                                                                    |
 | `GOOGLE_CALENDAR_OAUTH_CLIENT_ID`     | Only for Google Calendar in **Settings** → **My calendar**                  | The **Google** button in **Settings** → **My calendar** shows a page titled "Google Calendar isn’t set up yet".                                                                                                                                                                                                                                                                 | The Web application OAuth client in the separate `HandsFreeOS Calendar` Google Cloud project, not the Gmail client. See "The calendar: Google, Outlook and online booking". Worker only.                                                           |
 | `GOOGLE_CALENDAR_OAUTH_CLIENT_SECRET` | Only for Google Calendar                                                    | Same as above.                                                                                                                                                                                                                                                                                                                                                                  | The same Google Calendar client's secret (starts with `GOCSPX-`).                                                                                                                                                                                  |
 | `TURNSTILE_SECRET_KEY`                | Recommended, for the check that bookings and website chats come from people | Bookings and website chats rely on their limits, a hidden field only bots fill in, and the database's caps.                                                                                                                                                                                                                                                                     | Cloudflare's **Turnstile** page: the widget's secret key. Set its site key on Vercel (`NEXT_PUBLIC_TURNSTILE_SITE_KEY`) first. Production refuses Cloudflare's test secret. See "Protect the booking page with Turnstile (optional)". Worker only. |
@@ -4328,6 +4328,37 @@ If you do not keep the number:
 
    You should see "{number} is being released", and then the page offers **Get a business number** again. Released numbers cannot be recovered.
 
+### Bringing a number from another carrier
+
+A business that has had the same number for years usually wants to keep it. **Settings → Texting & calls → "I already have a number I want to keep"** starts that, and there are two kinds. The difference matters far more to the business than to us:
+
+| Kind                | What moves                                           | How long          | Can the old carrier refuse?                                  |
+| ------------------- | ---------------------------------------------------- | ----------------- | ------------------------------------------------------------ |
+| **Texts and calls** | everything                                           | two to four weeks | yes, and they do when anything on the account does not match |
+| **Texting only**    | texts; their desk phone keeps ringing as it does now | usually days      | rarely                                                       |
+
+**What you need from the business, before they start.** All four have to match the losing carrier's records exactly, which is why a port fails far more often over a typo than over anything technical:
+
+- the **account number on their bill** — not their phone number, which is the mistake everybody makes
+- the **transfer PIN or port-out passcode**, which most carriers will only read out over the phone
+- the **name on the account**
+- the **service address on the account**, with the ZIP
+
+They also upload a **signed authorisation** (an LOA). HandsFreeOS will not send a port without one, because carriers turn those down.
+
+**Where the account number and PIN live.** In `app.number_ports.submission`, and nowhere else. They are the _other_ carrier's credentials, not ours to spread:
+
+- the table is deliberately **not** in the `powersync` publication, so they never reach a phone
+- **nothing logs them** — the worker passes them straight into the carrier call
+- **no query returns them.** The screen and the API both say which details are _filled_, never what they say. If a business loses their own PIN, they get it from their old carrier; we cannot read it back to them.
+- reading the row at all takes `channels.manage`, so owners and admins only
+
+**What the worker does.** The same shape as a carrier registration. `port.submit` sends it and puts the papers on it, `port.poll` asks the carrier every six hours, and `port.cancel` calls it off. When it lands, the worker points the number at our webhooks and adds it to the messaging service **before** calling it active — a ported number arrives bare, and one marked active too early is one that silently drops the first customer who texts it.
+
+**While it is moving**, the number shows in the business's Settings as "Moving to us" and counts against their ten-number limit, but sends nothing and cannot be made their default. That row is also what stops a second business claiming the same number. A port that is called off or turned down gives it straight back.
+
+**Locally and in tests**, the fake carrier decides from the last four digits: a number ending `0000` is turned down, one ending `0001` stays with the carrier forever, and anything else goes through. There is no way to test a real port without doing a real one.
+
 ### Where to look in the Twilio console
 
 Each client business's texts, calls and errors are logged in its own subaccount, not in the master account. Open the subaccount first (see "Number" above); the pages you open next show that subaccount's data.
@@ -4357,6 +4388,9 @@ Startup errors are listed under "The worker refuses to start" in "Going live, an
 | Error 21408 on a text, or 13227 on a call                                                                                                                                                                              | Twilio's message or call logs         | Blocked by geo permissions (Twilio Step 3).                                                                                                                                                      |
 | Codes from 30001 to 30009 on a text                                                                                                                                                                                    | Twilio's message logs                 | Delivery failures, such as an unreachable phone, a landline, or carrier filtering of the message's wording.                                                                                      |
 | Error 21610 on a text, or "This customer texted STOP. They can text START to get texts again."                                                                                                                         | Twilio's message logs, or the inbox   | The customer texted STOP. HandsFreeOS records the opt-out. They must text START before they can be texted again.                                                                                 |
+| "Your old carrier turned this down: …"                                                                                                                                                                                 | The client's **Texting & calls** page | Almost always the account number, the PIN or the address not matching the losing carrier's records. The client fixes the details and sends it again; the port keeps its history.                 |
+| A port stuck on "With your old carrier" for weeks                                                                                                                                                                      | The client's **Texting & calls** page | Normal for "texts and calls". Check `app.number_ports.provider_status` and the Twilio Porting console for what the carrier last said. Nothing on our side makes it faster.                       |
+| `the port document did not go up`                                                                                                                                                                                      | Worker logs                           | The port is with the carrier but the signed authorisation is not. The job retries on its own and will not submit a second port. If it keeps failing, check `SUPABASE_SECRET_KEY` and Storage.    |
 
 "Texts do not send" and "Calls do not ring, or cannot be placed" in "Going live, and when something goes wrong" cover the other messages the app shows.
 
@@ -7745,10 +7779,10 @@ say so, and somebody will eventually try to "unify" them.
 
 The whole thing runs on two switches that are easy to confuse, so learn them first:
 
-| | What it decides | Where it lives |
-| --- | --- | --- |
-| `WALLET_MODE` | Whether we **count** — `off`, `shadow` or `on` | `[env]` in `apps/worker/fly.toml`, one setting for the whole server |
-| A wallet's **stage** | Whether we **speak** — `off`, `warn` or `enforce` | On each business's own row, moved from `/admin` one at a time |
+|                      | What it decides                                   | Where it lives                                                      |
+| -------------------- | ------------------------------------------------- | ------------------------------------------------------------------- |
+| `WALLET_MODE`        | Whether we **count** — `off`, `shadow` or `on`    | `[env]` in `apps/worker/fly.toml`, one setting for the whole server |
+| A wallet's **stage** | Whether we **speak** — `off`, `warn` or `enforce` | On each business's own row, moved from `/admin` one at a time       |
 
 Nothing a business sees or feels depends on `WALLET_MODE`. It depends on that business's stage, which starts
 at `off` for everybody and only moves when somebody moves it. That is what makes the shadow week silent: the

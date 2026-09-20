@@ -16,9 +16,7 @@ export default async function RatesPage({
   const { days } = await searchParams;
   const window = Math.min(365, Math.max(1, Number(days ?? 30) || 30));
   const { api } = await apiServer();
-  const card = unwrapPage(
-    await api.POST('/v1/queries/platform.rates', { body: { days: window } }),
-  );
+  const card = unwrapPage(await api.POST('/v1/queries/platform.rates', { body: { days: window } }));
   return (
     <div className="mx-auto w-full max-w-5xl">
       <div className="flex flex-wrap items-baseline justify-between gap-3">

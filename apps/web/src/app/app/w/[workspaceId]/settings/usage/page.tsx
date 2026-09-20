@@ -29,20 +29,13 @@ export default async function UsageSettingsPage({
   const [wallet, prices, statement] = await Promise.all([
     api.POST('/v1/queries/wallet.get', body).then(unwrapPage),
     api.POST('/v1/queries/usage.prices', body).then(unwrapPage),
-    api
-      .POST('/v1/queries/usage.statement', { body: { workspaceId, limit: 50 } })
-      .then(unwrapPage),
+    api.POST('/v1/queries/usage.statement', { body: { workspaceId, limit: 50 } }).then(unwrapPage),
   ]);
   return (
     <>
       <PageHeader title="Settings" />
       <SettingsNav workspaceId={workspaceId} canManage />
-      <UsagePage
-        workspaceId={workspaceId}
-        wallet={wallet}
-        prices={prices}
-        statement={statement}
-      />
+      <UsagePage workspaceId={workspaceId} wallet={wallet} prices={prices} statement={statement} />
     </>
   );
 }
