@@ -32,6 +32,7 @@ function ringsWords(ids: readonly string[], people: readonly Ringable[]): string
 /** What each status means to somebody looking at a list rather than at a wizard. */
 const STATUS_WORD: Readonly<Record<NumberInfo['status'], string>> = {
   provisioning: 'Setting up',
+  porting: 'Moving to us',
   active: 'In use',
   releasing: 'Being given back',
   released: 'Given back',

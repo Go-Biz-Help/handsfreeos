@@ -27553,7 +27553,7 @@ export interface operations {
                         canManage: boolean;
                         messagingReady: boolean;
                         /** @enum {string} */
-                        nextStep: "buy_number" | "provisioning" | "releasing" | "submit_registration" | "awaiting_approval" | "rejected" | "ready";
+                        nextStep: "buy_number" | "provisioning" | "porting" | "releasing" | "submit_registration" | "awaiting_approval" | "rejected" | "ready";
                         number: {
                             display: string;
                             e164: string;
@@ -27579,7 +27579,7 @@ export interface operations {
                                 voicemailGreeting: string | null;
                             };
                             /** @enum {string} */
-                            status: "provisioning" | "active" | "failed" | "releasing" | "released";
+                            status: "provisioning" | "porting" | "active" | "failed" | "releasing" | "released";
                         } | null;
                         numbers: {
                             display: string;
@@ -27606,7 +27606,7 @@ export interface operations {
                                 voicemailGreeting: string | null;
                             };
                             /** @enum {string} */
-                            status: "provisioning" | "active" | "failed" | "releasing" | "released";
+                            status: "provisioning" | "porting" | "active" | "failed" | "releasing" | "released";
                         }[];
                         quiet: {
                             endsAt: string | null;

@@ -9,7 +9,7 @@ import type { CommandContext } from '../kernel/types';
 import {
   defaultNumber,
   isWorkspaceUser,
-  LIVE_NUMBER_STATUSES,
+  SENDABLE_STATUSES,
   liveNumberCount,
   MAX_NUMBERS_PER_WORKSPACE,
   workspaceMessaging,
@@ -260,7 +260,8 @@ export const phoneNumberSetDefault = defineCommand({
   emits: ['phone_number.default_changed'],
   async handler(ctx, input) {
     const n = await loadNumber(ctx, input.phoneNumberId);
-    if (!LIVE_NUMBER_STATUSES.includes(n.status as (typeof LIVE_NUMBER_STATUSES)[number]))
+    // A number being ported is claimed but sends nothing, so it cannot hold the default either.
+    if (!SENDABLE_STATUSES.includes(n.status as (typeof SENDABLE_STATUSES)[number]))
       throw HfosError.rule(
         'number_not_live',
         409,

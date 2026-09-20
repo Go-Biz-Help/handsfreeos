@@ -9,6 +9,7 @@ import {
   type ProviderAccount,
   type RegistrationRequest,
   type DailyUsage,
+  type PortOutcome,
   type RegistrationState,
   type TelephonyProvider,
 } from './provider';
@@ -17,6 +18,10 @@ const API = 'https://api.twilio.com/2010-04-01';
 const MESSAGING = 'https://messaging.twilio.com/v1';
 const TRUST_HUB = 'https://trusthub.twilio.com/v1';
 const INTELLIGENCE = 'https://intelligence.twilio.com/v2';
+/** Moving a number a business already owns: the whole thing (voice and texts). */
+const PORTING = 'https://numbers.twilio.com/v1/Porting';
+/** Taking over texting only, leaving their calls where they are. */
+const HOSTED = 'https://numbers.twilio.com/v2/HostedNumber/Orders';
 /** The Conversational Intelligence service whole calls are transcribed in: one per subaccount, found by this name. */
 const TRANSCRIPT_SERVICE = 'hfos-call-transcripts';
 
@@ -72,6 +77,39 @@ async function call<T>(
 }
 
 const credsOf = (a: ProviderAccount): Creds => ({ sid: a.sid, token: a.authToken });
+
+/**
+ * Twilio's port and hosted-order statuses, onto the six this system has (M17).
+ *
+ * The two products say the same things in different words, which is most of why this map exists rather than a
+ * pair of comparisons scattered through the adapter. Anything unrecognised is `carrier_review`, deliberately:
+ * an unknown status means the carrier is still doing something, and guessing `failed` would tell a business
+ * its port died when it had not.
+ */
+const PORT_STATUS: Readonly<Record<string, PortOutcome>> = {
+  // Porting (full)
+  draft: 'submitted',
+  'pending-loa': 'submitted',
+  'in-review': 'carrier_review',
+  'waiting-for-signature': 'submitted',
+  'action-required': 'carrier_review',
+  'pending-port': 'scheduled',
+  'port-scheduled': 'scheduled',
+  completed: 'complete',
+  'port-failed': 'rejected',
+  canceled: 'failed',
+  // Hosted messaging
+  received: 'submitted',
+  'pending-verification': 'carrier_review',
+  verified: 'carrier_review',
+  'pending-loa-authorization': 'submitted',
+  'carrier-processing': 'carrier_review',
+  testing: 'scheduled',
+  failed: 'rejected',
+};
+
+const portOutcome = (status: string): PortOutcome =>
+  PORT_STATUS[status.toLowerCase()] ?? 'carrier_review';
 
 /** One of Twilio's available numbers as the rest of the worker wants it. */
 const toAvailable = (n: {
@@ -997,6 +1035,112 @@ export function createTwilioTelephony(master: {
      * is the only way to see a line we are not pricing at all — a carrier fee, a recording, a lookup — which
      * is half of what the reconciliation is for.
      */
+    /**
+     * Moving a number a business already owns (M17). Two Twilio products behind one seam:
+     *
+     * - **full** → the Porting API. Texts and calls both come to us, in two to four weeks, and the losing
+     *   carrier can refuse.
+     * - **hosted_messaging** → Hosted Numbers. We take over texting only, in days, and their calls carry on
+     *   exactly where they are — which is why so many businesses actually want this one and not the other.
+     *
+     * The account number and PIN in `submission` are the **losing carrier's** credentials. They go straight
+     * into the request body and are never logged, never returned, and never put on a phone.
+     */
+    async submitPort(account, request) {
+      const sub = request.submission as Record<string, string | undefined>;
+      const creds = credsOf(account);
+      if (request.kind === 'hosted_messaging') {
+        const order = await call<{ sid: string; status: string }>(creds, 'POST', HOSTED, {
+          PhoneNumber: request.e164,
+          SmsCapability: 'true',
+          AddressSid: sub['addressSid'],
+          Email: sub['email'],
+          FriendlyName: sub['businessName'],
+        });
+        return {
+          providerSid: order.sid,
+          providerStatus: order.status,
+          status: portOutcome(order.status),
+          rejectionReason: null,
+          scheduledFor: null,
+        };
+      }
+      const port = await call<{ port_in_request_sid: string; status: string }>(
+        creds,
+        'POST',
+        `${PORTING}`,
+        {
+          PhoneNumbers: [request.e164],
+          AccountSid: account.sid,
+          LosingCarrierAccountNumber: sub['accountNumber'],
+          LosingCarrierPin: sub['pin'],
+          AuthorizedRepresentative: sub['authorizedBy'],
+          ServiceAddress: sub['serviceAddress'],
+        },
+      );
+      return {
+        providerSid: port.port_in_request_sid,
+        providerStatus: port.status,
+        status: portOutcome(port.status),
+        rejectionReason: null,
+        scheduledFor: null,
+      };
+    },
+
+    async fetchPort(account, providerSid) {
+      const creds = credsOf(account);
+      // A hosted order and a port-in have different sid prefixes, so the sid says which product to ask.
+      const hosted = providerSid.startsWith('HR');
+      const url = hosted ? `${HOSTED}/${providerSid}` : `${PORTING}/${providerSid}`;
+      const got = await call<{
+        sid?: string;
+        port_in_request_sid?: string;
+        status: string;
+        failure_reason?: string | null;
+        target_port_in_date?: string | null;
+      }>(creds, 'GET', url);
+      const status = portOutcome(got.status);
+      return {
+        providerSid,
+        providerStatus: got.status,
+        status,
+        rejectionReason: status === 'rejected' ? (got.failure_reason ?? null) : null,
+        scheduledFor: got.target_port_in_date ?? null,
+      };
+    },
+
+    async uploadPortDocument(account, { portSid, name, contentType, data }) {
+      // The same Trust Hub upload the A2P supporting documents use, then attached to the port.
+      const creds = credsOf(account);
+      const body = new FormData();
+      body.append('FriendlyName', name);
+      body.append('File', new Blob([data as BlobPart], { type: contentType }), name);
+      const res = await fetch(`${TRUST_HUB}/SupportingDocuments`, {
+        method: 'POST',
+        headers: {
+          authorization: `Basic ${Buffer.from(`${creds.sid}:${creds.token}`).toString('base64')}`,
+        },
+        body,
+      });
+      const json = (await res.json().catch(() => ({}))) as { sid?: string; message?: string };
+      if (!res.ok) throw providerError(res.status, json as { code?: number; message?: string });
+      const sid = json.sid;
+      if (!sid)
+        throw new ProviderError('The carrier did not take the document.', 'port_document', true);
+      await call(creds, 'POST', `${PORTING}/${portSid}/Documents`, { DocumentSid: sid });
+      return { sid };
+    },
+
+    async cancelPort(account, providerSid) {
+      const creds = credsOf(account);
+      const hosted = providerSid.startsWith('HR');
+      await call(
+        creds,
+        'DELETE',
+        hosted ? `${HOSTED}/${providerSid}` : `${PORTING}/${providerSid}`,
+      );
+    },
+
     async usageDaily(account, range) {
       const out: DailyUsage[] = [];
       let url: string | null =

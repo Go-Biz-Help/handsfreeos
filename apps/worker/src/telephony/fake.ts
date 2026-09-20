@@ -7,6 +7,8 @@ import {
   type PlaceCallRequest,
   type ProviderAccount,
   type RegistrationKind,
+  type NumberPortKind,
+  type PortRequest,
   type RegistrationRequest,
   type TelephonyProvider,
   type TranscriptionState,
@@ -56,6 +58,11 @@ export interface FakeTelephony extends TelephonyProvider {
   readonly ended: string[];
   /** Registration steps in the order they were submitted. */
   readonly registrations: RegistrationRequest[];
+  /** Ports asked for, in order, and the papers put on them. */
+  readonly ports: PortRequest[];
+  readonly portDocuments: { portSid: string; name: string }[];
+  /** Ports called off, by sid. */
+  readonly portsCancelled: string[];
   /** Recording and transcription ids deleted at the "provider". */
   readonly deleted: string[];
   /** Call recordings whose words were asked for. */
@@ -117,6 +124,10 @@ export function createFakeTelephony(opts: FakeOptions): FakeTelephony {
   const transcripts = new Map<string, TranscriptionState>();
   const owned = new Map<string, { sid: string; e164: string; accountSid: string }>();
   const regs = new Map<string, { at: number; reject: boolean }>();
+  const ports: PortRequest[] = [];
+  const portDocuments: { portSid: string; name: string }[] = [];
+  const portsCancelled: string[] = [];
+  const portRows = new Map<string, { at: number; e164: string; kind: NumberPortKind }>();
   const turnedDown = (request: RegistrationRequest) => {
     const samples = (request.submission['messageSamples'] ?? []) as unknown[];
     return (
@@ -269,6 +280,9 @@ export function createFakeTelephony(opts: FakeOptions): FakeTelephony {
     calls,
     ended,
     registrations,
+    ports,
+    portDocuments,
+    portsCancelled,
     deleted,
     transcribed,
     async createSubaccount() {
@@ -460,6 +474,76 @@ export function createFakeTelephony(opts: FakeOptions): FakeTelephony {
         status: 'approved',
         rejectionReason: null,
       };
+    },
+
+    /**
+     * Moving a number in (M17). Driven by the same two levers the rest of this file uses: `approvalMs` decides
+     * how long the carrier "takes", and a magic suffix picks the unhappy path, so a test can walk a port all
+     * the way through or watch one be turned down without waiting or stubbing.
+     *
+     * - `…0000` the losing carrier refuses it (a wrong PIN, a number under contract).
+     * - `…0001` it sticks in `carrier_review` forever, which is the case a business actually complains about.
+     * - anything else moves: submitted → carrier_review → scheduled → complete.
+     *
+     * Hosted messaging is the same machine and a different promise: voice stays where it is, so a test can
+     * assert we never touched the calls.
+     */
+    async submitPort(_account, request) {
+      ports.push(request);
+      const sid = fakeSid('PO');
+      portRows.set(sid, { at: Date.now(), e164: request.e164, kind: request.kind });
+      return {
+        providerSid: sid,
+        providerStatus: 'PENDING_LOA',
+        status: 'submitted',
+        rejectionReason: null,
+        scheduledFor: null,
+      };
+    },
+    async fetchPort(_account, providerSid) {
+      const p = portRows.get(providerSid);
+      // A restarted fake forgets its ports; treat those as done rather than hanging a test forever.
+      if (!p)
+        return {
+          providerSid,
+          providerStatus: 'COMPLETED',
+          status: 'complete',
+          rejectionReason: null,
+          scheduledFor: null,
+        };
+      if (p.e164.endsWith('0000'))
+        return {
+          providerSid,
+          providerStatus: 'CARRIER_REJECTED',
+          status: 'rejected',
+          rejectionReason: 'The account number or PIN did not match the losing carrier’s records.',
+          scheduledFor: null,
+        };
+      const waited = Date.now() - p.at;
+      if (p.e164.endsWith('0001') || waited < opts.approvalMs)
+        return {
+          providerSid,
+          providerStatus: 'IN_PROGRESS',
+          status: 'carrier_review',
+          rejectionReason: null,
+          scheduledFor: null,
+        };
+      // Past the wait: the carrier has named a day and then moved it.
+      return {
+        providerSid,
+        providerStatus: 'COMPLETED',
+        status: 'complete',
+        rejectionReason: null,
+        scheduledFor: new Date(p.at + opts.approvalMs).toISOString().slice(0, 10),
+      };
+    },
+    async uploadPortDocument(_account, { portSid, name }) {
+      portDocuments.push({ portSid, name });
+      return { sid: fakeSid('RI') };
+    },
+    async cancelPort(_account, providerSid) {
+      portsCancelled.push(providerSid);
+      portRows.delete(providerSid);
     },
 
     /**

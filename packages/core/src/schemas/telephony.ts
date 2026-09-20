@@ -26,6 +26,8 @@ export const phoneRequired = z
 export const phoneNumberType = z.enum(['local', 'toll_free']);
 export const phoneNumberStatus = z.enum([
   'provisioning',
+  /** On its way to us from another carrier: claimed and visible, not yet able to send (M17). */
+  'porting',
   'active',
   'failed',
   'releasing',
@@ -257,6 +259,8 @@ export const RegistrationUpdateStatusOutput = z.object({
 export const phoneNextStep = z.enum([
   'buy_number',
   'provisioning',
+  /** Waiting on the losing carrier. Like `provisioning`, but measured in weeks rather than seconds. */
+  'porting',
   'releasing',
   'submit_registration',
   'awaiting_approval',

@@ -575,6 +575,8 @@ export const telephonyAccountStatus = app.enum('telephony_account_status', [
 export const phoneNumberType = app.enum('phone_number_type', ['local', 'toll_free']);
 export const phoneNumberStatus = app.enum('phone_number_status', [
   'provisioning',
+  /** On its way to us from another carrier: claimed and visible, not yet able to send (M17). */
+  'porting',
   'active',
   'failed',
   'releasing',

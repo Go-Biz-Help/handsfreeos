@@ -19,7 +19,22 @@ import {
 } from '../schemas/telephony';
 import type { RegistrationKind } from '@hfos/db/schema';
 
-export const LIVE_NUMBER_STATUSES = ['provisioning', 'active', 'releasing'] as const;
+/**
+ * The two meanings `LIVE_NUMBER_STATUSES` used to carry at once, separated (M17).
+ *
+ * They looked like one idea while a number could only ever be bought. `porting` broke that: a number on its
+ * way to us from another carrier **is claimed** — no other business may take it, it shows in Settings, it can
+ * be named and assigned — and **cannot send a thing** until the carrier actually moves it. One list could not
+ * be both, and whichever meaning it kept would have been wrong somewhere: claimed-only would let a default be
+ * set on a number that sends nothing, sendable-only would let two businesses port the same number in.
+ */
+export const CLAIMED_STATUSES = ['provisioning', 'porting', 'active', 'releasing'] as const;
+
+/** What a number has to be for anything to actually go out from it. */
+export const SENDABLE_STATUSES = ['provisioning', 'active', 'releasing'] as const;
+
+/** @deprecated Say which you mean: `SENDABLE_STATUSES` or `CLAIMED_STATUSES`. */
+export const LIVE_NUMBER_STATUSES = SENDABLE_STATUSES;
 
 export const FAMILY_KINDS: Record<RegistrationFamily, readonly RegistrationKind[]> = {
   toll_free_verification: ['toll_free_verification'],
@@ -46,7 +61,7 @@ export async function defaultNumber(tx: Tx, workspaceId: string) {
     .where(
       and(
         eq(phoneNumbers.workspaceId, workspaceId),
-        inArray(phoneNumbers.status, [...LIVE_NUMBER_STATUSES]),
+        inArray(phoneNumbers.status, [...SENDABLE_STATUSES]),
       ),
     )
     .orderBy(desc(phoneNumbers.isDefault), desc(phoneNumbers.createdAt))
@@ -79,7 +94,7 @@ export async function conversationNumber(
         and(
           eq(phoneNumbers.id, phoneNumberId),
           eq(phoneNumbers.workspaceId, workspaceId),
-          inArray(phoneNumbers.status, [...LIVE_NUMBER_STATUSES]),
+          inArray(phoneNumbers.status, [...SENDABLE_STATUSES]),
         ),
       )
       .limit(1);
@@ -103,7 +118,7 @@ export async function numberByE164(tx: Tx, workspaceId: string, e164: string) {
       and(
         eq(phoneNumbers.workspaceId, workspaceId),
         eq(phoneNumbers.e164, e164),
-        inArray(phoneNumbers.status, [...LIVE_NUMBER_STATUSES]),
+        inArray(phoneNumbers.status, [...SENDABLE_STATUSES]),
       ),
     )
     .limit(1);
@@ -130,7 +145,7 @@ export async function liveNumberCount(tx: Tx, workspaceId: string): Promise<numb
     .where(
       and(
         eq(phoneNumbers.workspaceId, workspaceId),
-        inArray(phoneNumbers.status, [...LIVE_NUMBER_STATUSES]),
+        inArray(phoneNumbers.status, [...SENDABLE_STATUSES]),
       ),
     );
   return found.length;
@@ -195,6 +210,10 @@ export function readiness(
     return { voiceReady: false, messagingReady: false, nextStep: 'buy_number' };
   if (number.status === 'provisioning')
     return { voiceReady: false, messagingReady: false, nextStep: 'provisioning' };
+  // The same shape as provisioning — claimed, nothing working yet — but the wait is the losing carrier's and
+  // is measured in weeks, so the screen says something different while it happens.
+  if (number.status === 'porting')
+    return { voiceReady: false, messagingReady: false, nextStep: 'porting' };
   if (number.status === 'releasing')
     return { voiceReady: false, messagingReady: false, nextStep: 'releasing' };
   const kinds = FAMILY_KINDS[familyFor(number.numberType)];

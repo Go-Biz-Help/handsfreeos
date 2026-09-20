@@ -44290,6 +44290,7 @@
                               "type": "string",
                               "enum": [
                                 "provisioning",
+                                "porting",
                                 "active",
                                 "failed",
                                 "releasing",
@@ -44436,6 +44437,7 @@
                             "type": "string",
                             "enum": [
                               "provisioning",
+                              "porting",
                               "active",
                               "failed",
                               "releasing",
@@ -44656,6 +44658,7 @@
                       "enum": [
                         "buy_number",
                         "provisioning",
+                        "porting",
                         "releasing",
                         "submit_registration",
                         "awaiting_approval",
