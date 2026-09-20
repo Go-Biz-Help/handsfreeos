@@ -1,5 +1,5 @@
 'use client';
-import { formatClock, formatPhone, normalizePhone } from '@hfos/core';
+import { formatClock, formatPhone, normalizePhone, optInDescriptionDefault } from '@hfos/core';
 import {
   Check,
   CircleAlert,
@@ -979,6 +979,17 @@ function BusinessStep({
           invalid={!!errors.optIn}
           placeholder="Customers give us their cell number when they call or text, fill in our website form, book online or sign an estimate, and agree to get texts from us. We only send automated texts to people who contacted us or booked with us: replies to new inquiries, a text back after a missed call, appointment confirmations and reminders, follow-ups on estimates and review requests. Every text says how to opt out, and replying STOP stops them."
         />
+        {/* The carriers check what you say here against what the tick box actually said. This fills in a
+            description of the box HandsFreeOS really shows on your booking page and your forms, so the two
+            cannot drift; a business that also collects consent on paper edits it afterwards. */}
+        <button
+          type="button"
+          className="mt-1.5 text-xs font-medium text-accent-text hover:underline"
+          onClick={() => set('optIn')(optInDescriptionDefault(businessName))}
+          data-testid="biz-optIn-default"
+        >
+          Describe the tick box we show for you
+        </button>
       </Field>
       <div className="mb-3.5">
         <Label htmlFor="biz-sample1">{local ? 'Two example texts' : 'Example texts'}</Label>

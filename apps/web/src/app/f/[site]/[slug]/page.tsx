@@ -41,6 +41,7 @@ export default async function PublicFormPage({
     <PublicForm
       site={site}
       slug={slug}
+      business={page.business.name}
       definition={page.definition}
       closed={page.closed}
       closedMessage={page.closedMessage}

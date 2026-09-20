@@ -3,6 +3,7 @@ import {
   answerProblem,
   formState,
   money,
+  smsConsentWords,
   type AnswerSheet,
   type AnswerValue,
   type FormDefinition,
@@ -27,6 +28,7 @@ import { QuestionField } from './question-field';
 export function PublicForm({
   site,
   slug,
+  business,
   definition,
   closed,
   closedMessage,
@@ -34,6 +36,8 @@ export function PublicForm({
 }: {
   site: string;
   slug: string;
+  /** The business's own name, for the consent box. The sender is them, not us. */
+  business: string;
   definition: FormDefinition;
   closed: boolean;
   closedMessage: string;
@@ -220,13 +224,25 @@ export function PublicForm({
             </div>
           ) : null}
 
+          {/*
+            The words come from core (messaging/consent.ts), not from here, because the booking page asks
+            the same thing and a carrier reads both. What was here before — "It's OK to text me about this"
+            — named nobody, mentioned no cost and offered no way out, which is an opt-in record that would
+            not survive being asked about.
+          */}
           {definition.settings.identity !== 'anonymous' ? (
-            <Checkbox
-              className="mt-6 text-[13px] text-text-2"
-              label="It’s OK to text me about this."
-              checked={consent}
-              onChange={(e) => setConsent(e.target.checked)}
-            />
+            <div className="mt-6">
+              <Checkbox
+                className="text-[13px] font-medium"
+                label={smsConsentWords(business, 'form').title}
+                checked={consent}
+                onChange={(e) => setConsent(e.target.checked)}
+                data-testid="form-sms-consent"
+              />
+              <p className="ml-[26px] mt-1 text-xs text-text-3">
+                {smsConsentWords(business, 'form').detail}
+              </p>
+            </div>
           ) : null}
 
           {/* Hidden from people; robots fill it in and get a polite nothing. */}

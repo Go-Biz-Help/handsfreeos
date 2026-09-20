@@ -21,6 +21,7 @@ export * from './crm/pipeline-words';
 export * from './crm/task-words';
 export * from './crm/file-words';
 export * from './crm/synced';
+export * from './messaging/consent';
 export * from './messaging/sms';
 export * from './messaging/quiet-hours';
 export * from './messaging/bridge';
