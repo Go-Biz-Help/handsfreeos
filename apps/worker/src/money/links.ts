@@ -24,6 +24,7 @@ import { asWorker, rows, sql, type Db, type Tx } from '@hfos/db/client';
 import { estimates, invoices } from '@hfos/db/schema';
 import { CODE_LENGTH, parseLinkToken, PUBLIC_REF_LENGTH } from '../booking/links';
 import { parseKey } from '../crypto';
+import { linksOn, publicOrigin } from '../hosting/origin';
 import type { TenantScope } from '../services';
 
 const ALPHABET = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
@@ -226,23 +227,32 @@ export const resolveInvoiceToken = (db: Db, links: MoneyLinks, token: string) =>
 export const resolvePlanToken = (db: Db, links: MoneyLinks, token: string) =>
   resolveDocumentToken(db, links, 'plan', token);
 
-/** An estimate's current link, read inside its workspace's scope (the text and email that send it). */
+/**
+ * An estimate's current link, read inside its workspace's scope (the text and email that send it).
+ *
+ * On the business's own domain once one is serving (M17). The workspace comes off the row this already
+ * reads, the way `manageUrlFor` does, so no caller can pass the wrong one.
+ */
 export async function estimateUrlFor(
   tx: Tx,
   links: MoneyLinks,
   estimateId: string,
 ): Promise<string | null> {
   const [e] = await tx
-    .select({ publicRef: estimates.publicRef, linkVersion: estimates.linkVersion })
+    .select({
+      publicRef: estimates.publicRef,
+      linkVersion: estimates.linkVersion,
+      workspaceId: estimates.workspaceId,
+    })
     .from(estimates)
     .where(eq(estimates.id, estimateId));
-  return e
-    ? estimateUrl(links, {
-        publicRef: e.publicRef,
-        documentId: estimateId,
-        linkVersion: e.linkVersion,
-      })
-    : null;
+  if (!e) return null;
+  const on = linksOn(links, await publicOrigin(tx, e.workspaceId, links.webUrl));
+  return estimateUrl(on, {
+    publicRef: e.publicRef,
+    documentId: estimateId,
+    linkVersion: e.linkVersion,
+  });
 }
 
 /**
@@ -254,17 +264,17 @@ export async function planUrlFor(
   links: MoneyLinks,
   subscriptionId: string,
 ): Promise<string | null> {
-  const [s] = await rows<{ public_ref: string; pay_version: number }>(
+  const [s] = await rows<{ public_ref: string; pay_version: number; workspace_id: string }>(
     tx,
-    sql`select public_ref, pay_version from app.subscriptions where id = ${subscriptionId}`,
+    sql`select public_ref, pay_version, workspace_id from app.subscriptions where id = ${subscriptionId}`,
   );
-  return s
-    ? planUrl(links, {
-        publicRef: s.public_ref,
-        documentId: subscriptionId,
-        linkVersion: s.pay_version,
-      })
-    : null;
+  if (!s) return null;
+  const on = linksOn(links, await publicOrigin(tx, s.workspace_id, links.webUrl));
+  return planUrl(on, {
+    publicRef: s.public_ref,
+    documentId: subscriptionId,
+    linkVersion: s.pay_version,
+  });
 }
 
 /** An invoice's current link, read inside its workspace's scope (the invoice, the reminders, the receipt). */
@@ -274,16 +284,20 @@ export async function invoiceUrlFor(
   invoiceId: string,
 ): Promise<string | null> {
   const [i] = await tx
-    .select({ publicRef: invoices.publicRef, linkVersion: invoices.linkVersion })
+    .select({
+      publicRef: invoices.publicRef,
+      linkVersion: invoices.linkVersion,
+      workspaceId: invoices.workspaceId,
+    })
     .from(invoices)
     .where(eq(invoices.id, invoiceId));
-  return i
-    ? invoiceUrl(links, {
-        publicRef: i.publicRef,
-        documentId: invoiceId,
-        linkVersion: i.linkVersion,
-      })
-    : null;
+  if (!i) return null;
+  const on = linksOn(links, await publicOrigin(tx, i.workspaceId, links.webUrl));
+  return invoiceUrl(on, {
+    publicRef: i.publicRef,
+    documentId: invoiceId,
+    linkVersion: i.linkVersion,
+  });
 }
 
 export { PUBLIC_REF_LENGTH, CODE_LENGTH };

@@ -33,6 +33,7 @@ import { rows, sql } from '@hfos/db/client';
 import type { z } from 'zod';
 import { handToTeammate } from '../ai-team/handover';
 import { workspaceManagers } from '../handlers/telephony';
+import { publicOrigin } from '../hosting/origin';
 import { LIVE_STATUSES, MAX_DEPTH } from './constants';
 import { RunData } from './data';
 import { versionDefinition } from './defs';
@@ -550,7 +551,8 @@ export async function runAction(ec: ExecCtx): Promise<Outcome> {
       // A form that was never published, or was closed, has nothing to send: the run carries on.
       if (!form || form.status !== 'live' || !form.site)
         return skipped('form_not_live', { ...r.values, formId });
-      const link = `${ec.s.webUrl}/f/${form.site}/${form.slug}`;
+      // Their own domain once one is serving (M17): a form link in a workflow's text reads as theirs.
+      const link = `${await publicOrigin(ec.tx, ws, ec.s.webUrl)}/f/${form.site}/${form.slug}`;
       const body = `${r.values['message']!}\n\n${link}`;
       const late = lateSkip(ec, { channel: step.config.channel, body });
       if (late) return late;

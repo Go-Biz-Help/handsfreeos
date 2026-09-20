@@ -362,7 +362,16 @@ const sendForm: ConfirmTool = {
         'This business has no link name yet, so the form has no address to send. Set one under Settings → Calendars → Booking site.',
         'no_booking_site',
       );
-    const link = `${extra.webUrl}/f/${site.site.slug}/${form.form.slug}`;
+    // Their own domain once one is serving (M17), so the link the Assistant sends matches the one on their
+    // booking page and their flyers.
+    const branded = await query<{
+      domain: { domain: string; status: string; certificateReady: boolean } | null;
+    }>(db, ctx, 'branded_domain.get', {});
+    const origin =
+      branded.domain && branded.domain.status === 'verified' && branded.domain.certificateReady
+        ? `https://${branded.domain.domain}`
+        : extra.webUrl;
+    const link = `${origin}/f/${site.site.slug}/${form.form.slug}`;
     const body = `${String(args['message'])}\n\n${link}`;
     if (channel === 'sms') {
       await command(db, ctx, 'message.send', { personId, body });

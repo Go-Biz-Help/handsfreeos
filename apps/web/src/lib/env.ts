@@ -11,6 +11,11 @@ export const publicEnv = {
     process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
   ),
   apiUrl: (process.env.NEXT_PUBLIC_API_URL ?? 'http://127.0.0.1:4000').replace(/\/+$/, ''),
+  /**
+   * The app's own address, for telling a request that arrived on a business's own domain apart from one that
+   * arrived on ours (M17). Only the host part is ever read.
+   */
+  appUrlForHost: (process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000').replace(/\/+$/, ''),
   /** The worker's HTTP server: number search now, voice tokens and mailbox sign-in later. */
   workerUrl: (process.env.NEXT_PUBLIC_WORKER_URL ?? 'http://127.0.0.1:4100').replace(/\/+$/, ''),
   passkeysEnabled: process.env.NEXT_PUBLIC_PASSKEYS_ENABLED !== 'false',

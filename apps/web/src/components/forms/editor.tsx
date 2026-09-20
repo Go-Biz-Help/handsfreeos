@@ -33,6 +33,7 @@ export function FormEditor({
   results,
   siteSlug,
   canManage,
+  brandedOrigin,
 }: {
   workspaceId: string;
   initial: FormGet;
@@ -40,6 +41,7 @@ export function FormEditor({
   results: FormResultsOut | null;
   siteSlug: string | null;
   canManage: boolean;
+  brandedOrigin: string | null;
 }) {
   const router = useRouter();
   const editor = useFormEditor(workspaceId, initial.form.formId, {
@@ -198,6 +200,7 @@ export function FormEditor({
           form={initial.form}
           siteSlug={siteSlug}
           canManage={canManage}
+          brandedOrigin={brandedOrigin}
         />
       )}
     </div>

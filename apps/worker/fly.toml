@@ -13,6 +13,9 @@
 # CALENDAR_REFRESH_MS (default 600000) sets how often connected calendars' busy times are read.
 # TURNSTILE_SECRET_KEY turns on Cloudflare Turnstile for the public booking page (its site key goes on Vercel as
 # NEXT_PUBLIC_TURNSTILE_SITE_KEY); without it bookings rely on rate limits, the honeypot and database caps.
+# VERCEL_TOKEN, VERCEL_PROJECT_ID and (on a team account) VERCEL_TEAM_ID turn on branded domains — a business's
+# own web address on the pages its customers see. Without them SITE_HOST is `off` and the feature is simply not
+# offered, which is deliberate: see docs/operations.md, "A business's own web address".
 # Save WORKER_ENCRYPTION_KEY in the password manager before setting it: without it sealed tokens can't be opened.
 
 app = "handsfreeos-worker"

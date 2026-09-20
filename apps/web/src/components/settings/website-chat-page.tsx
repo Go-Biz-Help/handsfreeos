@@ -43,7 +43,7 @@ import { apiBrowser, ApiError, errorMessage, unwrap } from '@/lib/api/client';
 import { fieldErrors } from '@/lib/api/field-errors';
 import type { ChatWidget, ChatWidgetUpdateBody } from '@/lib/api/types';
 import { useLiveRefresh } from '@/lib/realtime/live-provider';
-import { useOrigin } from '@/lib/use-origin';
+import { usePublicOrigin } from '@/lib/use-origin';
 import { cn, relativeTime } from '@/lib/utils';
 import { SetRow } from './set-row';
 
@@ -177,10 +177,13 @@ export function WebsiteChatPage({
   workspaceId,
   widget,
   teammate,
+  brandedOrigin,
 }: {
   workspaceId: string;
   widget: ChatWidget | null;
   teammate: ChatTeammate | null;
+  /** Their own domain when one is serving (M17): the snippet they paste loads from it. */
+  brandedOrigin: string | null;
 }) {
   useLiveRefresh(['chat_widget', 'ai_teammate']);
   if (!widget) return <SetUp workspaceId={workspaceId} teammate={teammate} />;
@@ -189,7 +192,7 @@ export function WebsiteChatPage({
       <div className="flex min-w-0 flex-col gap-5">
         <StatusCard workspaceId={workspaceId} widget={widget} teammate={teammate} />
         <SitesCard workspaceId={workspaceId} widget={widget} />
-        <SnippetCard workspaceId={workspaceId} widget={widget} />
+        <SnippetCard workspaceId={workspaceId} widget={widget} brandedOrigin={brandedOrigin} />
         <TryCard workspaceId={workspaceId} widget={widget} />
       </div>
       <LookForm key={widget.id} workspaceId={workspaceId} widget={widget} teammate={teammate} />
@@ -750,9 +753,17 @@ function SitesCard({ workspaceId, widget }: { workspaceId: string; widget: ChatW
   );
 }
 
-function SnippetCard({ workspaceId, widget }: { workspaceId: string; widget: ChatWidget }) {
+function SnippetCard({
+  workspaceId,
+  widget,
+  brandedOrigin,
+}: {
+  workspaceId: string;
+  widget: ChatWidget;
+  brandedOrigin: string | null;
+}) {
   const router = useRouter();
-  const origin = useOrigin();
+  const origin = usePublicOrigin(brandedOrigin);
   const src = `${origin}/embed/v1/${widget.publicKey}.js`;
   const snippet = `<script async src="${src}"></script>`;
   const [platform, setPlatform] = useState<(typeof PLATFORMS)[number]['key']>('wordpress');

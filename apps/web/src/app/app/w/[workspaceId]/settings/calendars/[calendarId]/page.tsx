@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation';
 import { CalendarBuilder } from '@/components/calendars/builder';
 import { assigneeOptions } from '@/lib/api/people';
 import { apiServer, unwrap, unwrapPage } from '@/lib/api/server';
+import { brandedOriginFor } from '@/lib/hosting/branded-origin';
 
 export const metadata: Metadata = { title: 'Calendar settings' };
 
@@ -55,7 +56,7 @@ export default async function CalendarBuilderPage({
   }
   // Settings → Payments, for the Payments module: the accounts money can be taken into, and the deposit the
   // business asks for. Both are the business's, set once; the calendar only chooses whether to ask.
-  const [accounts, moneySettings] = await Promise.all([
+  const [accounts, moneySettings, brandedOrigin] = await Promise.all([
     api
       .POST('/v1/queries/payment_connection.list', { body: { workspaceId } })
       .then((r) => r.data?.connections ?? [])
@@ -64,6 +65,7 @@ export default async function CalendarBuilderPage({
       .POST('/v1/queries/money.settings', { body: { workspaceId } })
       .then((r) => r.data?.settings ?? null)
       .catch(() => null),
+    brandedOriginFor(api, workspaceId),
   ]);
   const roles = new Map(members.members.map((m) => [m.userId, m.role]));
   const people = assigneeOptions(members).map((p) => ({
@@ -85,6 +87,7 @@ export default async function CalendarBuilderPage({
       territories={territories.items}
       pipelines={pipelines.pipelines}
       textingReady={textingReady}
+      brandedOrigin={brandedOrigin}
       payments={{
         // Only a live account counts, exactly as the server's `paymentsAvailable` counts it.
         accounts: accounts

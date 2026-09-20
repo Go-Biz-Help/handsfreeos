@@ -17,6 +17,7 @@ import type { PaymentServices } from './payments/index';
 import type { PushServices } from './push/index';
 import type { ReviewServices } from './reviews/index';
 import type { ObjectStore } from './storage';
+import type { SiteHost } from './hosting';
 import type { TelephonyProvider } from './telephony/provider';
 import type { Transcriber } from './telephony/transcriber';
 
@@ -43,6 +44,11 @@ export interface WorkerServices {
   readonly telephony: TelephonyProvider;
   /** Turns a call recording into words. Separate from the carrier: it reads our own copy of the audio. */
   readonly transcriber: Transcriber;
+  /**
+   * Where a business's own domain is served from (M17). **Null when nobody has turned it on**, which every
+   * handler checks: the feature is absent rather than present and failing.
+   */
+  readonly siteHost: SiteHost | null;
   readonly sealer: Sealer;
   /** Tests and local demos shorten the reply reminder; production uses each workspace's setting. */
   readonly reminderOverrideMs: number | null;

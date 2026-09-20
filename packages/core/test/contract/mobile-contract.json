@@ -2005,6 +2005,39 @@
         "required": ["workspaceId", "fileId"]
       }
     },
+    "form_response.record": {
+      "offline": "anytime",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "formId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "answers": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string",
+              "pattern": "^q_[a-z0-9]{8}$"
+            },
+            "additionalProperties": {}
+          },
+          "smsConsent": {
+            "default": false,
+            "type": "boolean"
+          }
+        },
+        "required": ["workspaceId", "formId", "answers"]
+      }
+    },
     "invoice.create": {
       "offline": "online",
       "input": {

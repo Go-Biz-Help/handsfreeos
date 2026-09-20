@@ -1464,6 +1464,43 @@ export const bookingSites = app.table('booking_sites', {
   ...timestamps(),
 });
 
+/** Milestone 17 (0087): the statuses a business's own domain moves through, the email domain's plus one. */
+export const brandedDomainStatus = app.enum('branded_domain_status', [
+  'pending',
+  /** The records are in DNS and the host is looking; a certificate is not issued yet. */
+  'verifying',
+  'verified',
+  'failed',
+]);
+export type BrandedDomainStatus = (typeof brandedDomainStatus.enumValues)[number];
+
+/**
+ * A business's own domain on the pages its customers see (0087): `booking.lonestarhvac.com` rather than
+ * `handsfreeos.com/book/lonestar`. One per booking site, which is already the business's public identity.
+ * Everything the host said about it is the worker's — `private.guard_branded_domain_update()`.
+ */
+export const brandedDomains = app.table('branded_domains', {
+  id: id(),
+  workspaceId: workspaceRef(),
+  siteId: uuid('site_id')
+    .notNull()
+    .unique()
+    .references(() => bookingSites.id, { onDelete: 'cascade' }),
+  domain: text('domain').notNull().unique(),
+  status: brandedDomainStatus('status').notNull().default('pending'),
+  verificationHost: text('verification_host'),
+  verificationValue: text('verification_value'),
+  cnameHost: text('cname_host'),
+  cnameValue: text('cname_value'),
+  certificateReady: boolean('certificate_ready').notNull().default(false),
+  verifiedAt: ts('verified_at'),
+  lastCheckedAt: ts('last_checked_at'),
+  lastError: text('last_error'),
+  nextCheckAt: ts('next_check_at'),
+  createdBy: userRef('created_by'),
+  ...timestamps(),
+});
+
 /** The permanent identity of a calendar; how it behaves lives in `config` (core's CalendarConfig). */
 export const calendars = app.table('calendars', {
   id: id(),
@@ -4714,6 +4751,7 @@ export const tables = {
   territories,
   territoryMembers,
   bookingSites,
+  brandedDomains,
   calendars,
   calendarRevisions,
   calendarSlugs,

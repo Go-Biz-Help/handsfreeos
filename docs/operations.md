@@ -31,6 +31,7 @@ A plain "step 5" means step 5 of the list you are reading, or of the part named 
 - [The AI teammate and website chat](#the-ai-teammate-and-website-chat)
 - [Money: Stripe and Square](#money-stripe-and-square)
 - [Usage balances: what businesses pay us](#usage-balances-what-businesses-pay-us)
+- [A business's own web address](#a-businesss-own-web-address)
 - [Moving a business here from another CRM](#moving-a-business-here-from-another-crm)
 - [Support and the admin side](#support-and-the-admin-side)
 - [Push notifications: Expo](#push-notifications-expo)
@@ -1398,6 +1399,10 @@ If the Twilio or Postmark screens have moved, search their consoles for "Account
 | `DEEPGRAM_API_KEY`                    | Recommended, for the words of calls and voicemails                          | Without it the worker falls back to Twilio Conversational Intelligence, which costs about eight times as much per minute. Recordings still play; only the words are affected.                                                                                                                                                                                                   | The Deepgram console, **API Keys**. Give it to `handsfreeos-worker` with `fly secrets import`, never `fly secrets set`. Worker only.                                                                                                               |
 | `TRANSCRIBER`                         | No                                                                          | Picks who turns a recording into words: `deepgram` (the default once `DEEPGRAM_API_KEY` is set), `twilio` (Conversational Intelligence), or `fake` for development. Production refuses `fake`.                                                                                                                                                                                  | Leave unset unless you are deliberately moving off Deepgram. Worker only.                                                                                                                                                                          |
 | `WALLET_MODE`                         | No                                                                          | How far the usage wallet (M16) has gone: `off` (the default) records nothing; `shadow` prices and records every text, call and AI request and never warns or stops anything; `on` warns, and enforces for the businesses whose own flag is set.                                                                                                                                 | Leave `off` until the shadow week. Worker only.                                                                                                                                                                                                    |
+| `VERCEL_TOKEN`                        | Only for branded domains (a business’s own web address)                     | The worker starts and its `worker started` line shows `"siteHost":"off"`. **Settings** → **Calendars** → **Booking site** offers nothing, which is the honest answer — a domain added with no host behind it would wait forever for records nobody fetches.                                                                                                                     | Vercel, **Account Settings** → **Tokens**, scoped to the team owning the web app project. See "A business’s own web address". Worker only.                                                                                                         |
+| `VERCEL_PROJECT_ID`                   | With `VERCEL_TOKEN`                                                         | The worker refuses to start with a token and no project id.                                                                                                                                                                                                                                                                                                                     | The **web app** project’s **Settings** → **General** → **Project ID** (starts `prj_`). Not the public website’s project. Worker only.                                                                                                              |
+| `VERCEL_TEAM_ID`                      | Only on a Vercel team account                                               | Vercel answers 404 for every domain, and each check records "that domain isn’t set up here".                                                                                                                                                                                                                                                                                    | Vercel, **Team Settings** → **General** → **Team ID** (starts `team_`). Leave unset on a personal account. Worker only.                                                                                                                            |
+| `SITE_HOST`                           | No                                                                          | Who serves a business’s own domain: `vercel` (the default in production once `VERCEL_TOKEN` is set), `off` (the default without one), or `fake` for development. Production refuses `fake`.                                                                                                                                                                                     | Leave unset. Worker only.                                                                                                                                                                                                                          |
 | `GOOGLE_CALENDAR_OAUTH_CLIENT_ID`     | Only for Google Calendar in **Settings** → **My calendar**                  | The **Google** button in **Settings** → **My calendar** shows a page titled "Google Calendar isn’t set up yet".                                                                                                                                                                                                                                                                 | The Web application OAuth client in the separate `HandsFreeOS Calendar` Google Cloud project, not the Gmail client. See "The calendar: Google, Outlook and online booking". Worker only.                                                           |
 | `GOOGLE_CALENDAR_OAUTH_CLIENT_SECRET` | Only for Google Calendar                                                    | Same as above.                                                                                                                                                                                                                                                                                                                                                                  | The same Google Calendar client's secret (starts with `GOCSPX-`).                                                                                                                                                                                  |
 | `TURNSTILE_SECRET_KEY`                | Recommended, for the check that bookings and website chats come from people | Bookings and website chats rely on their limits, a hidden field only bots fill in, and the database's caps.                                                                                                                                                                                                                                                                     | Cloudflare's **Turnstile** page: the widget's secret key. Set its site key on Vercel (`NEXT_PUBLIC_TURNSTILE_SITE_KEY`) first. Production refuses Cloudflare's test secret. See "Protect the booking page with Turnstile (optional)". Worker only. |
@@ -7902,6 +7907,120 @@ faster and smaller answer to "this one business is having a bad time".
   in a few days become one larger charge instead of many small ones, up to a cap shown on their own page. They
   were emailed before anything above twice their amount was charged. The fix they want is to raise their own
   top-up amount, which the email says.
+
+## A business's own web address
+
+A business that has been going a while asks for this before it asks for anything else on this page: it wants
+the booking link on the van to read `booking.lonestarhvac.com`, not `app.handsfreeos.com/book/lonestar`.
+**Branded domains** (M17) is that — one domain per business, on the pages its customers see and nowhere else.
+
+What moves onto it: the booking page, the public forms, estimate, invoice and plan links, change-or-cancel
+and waitlist links, the deposit-hold page, the chat window and the snippet that loads it. What deliberately
+does not: the app, sign-in, and the admin side. A HandsFreeOS sign-in form served on a customer's domain is a
+phishing page built out of a feature, so `brandedRoute` (`packages/core/src/hosting/branded-paths.ts`)
+redirects every one of those back to `app.handsfreeos.com`, and the names we reserve as booking-site slugs
+(`app`, `admin`, `api`, `sign-in`, …) are reserved one level down too.
+
+**Only the origin moves.** `https://booking.lonestarhvac.com/i/AbCd1234EfGh567890` and
+`https://app.handsfreeos.com/i/AbCd1234EfGh567890` are the same link, signed by the same key. So a text sent
+last month keeps working after a domain is added, and keeps working after one is removed.
+
+### What it needs
+
+| Setting             | Required                        | Where                                                                                                                                                       |
+| ------------------- | ------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `VERCEL_TOKEN`      | To offer branded domains at all | Vercel, **Account Settings** → **Tokens**. Scope it to the team that owns the web app project. Worker only, `fly secrets import`.                           |
+| `VERCEL_PROJECT_ID` | With `VERCEL_TOKEN`             | The web app project's **Settings** → **General** → **Project ID** (starts `prj_`). The **web app** project, not the website.                                |
+| `VERCEL_TEAM_ID`    | Only on a team account          | **Team Settings** → **General** → **Team ID** (starts `team_`). Leave unset on a personal account.                                                          |
+| `SITE_HOST`         | No                              | `vercel`, `fake` or `off`. Defaults to `vercel` in production when there is a token and `off` when there is not; `fake` locally. Production refuses `fake`. |
+
+**`off` is a real answer, not a missing one.** With no token the worker starts normally, the feature is simply
+not offered, and every job that would call the host logs a line and stops. A business that adds a domain and
+then waits forever for records nobody is fetching is worse off than one that was never offered it — so if you
+do not want branded domains yet, leave the token unset rather than setting `SITE_HOST=off` and half-offering
+them.
+
+### Turn it on
+
+1. In Vercel, open the **web app** project (the one serving `app.handsfreeos.com`), then
+   **Settings** → **General**, and copy the **Project ID**.
+2. **Account Settings** → **Tokens** → **Create**, scoped to that team. Copy it once; Vercel will not show it
+   again. Put it in the password manager.
+3. Give both to the worker:
+
+   ```bash
+   fly secrets import --app handsfreeos-worker <<'EOF'
+   VERCEL_TOKEN=...
+   VERCEL_PROJECT_ID=prj_...
+   EOF
+   ```
+
+   `fly secrets import`, never `fly secrets set` — `set` puts the value in your shell history.
+
+4. Wait for the restart, then check the worker's started line has `"siteHost":"vercel"`.
+
+### What a business does
+
+**Settings** → **Calendars** → **Booking site** → **Your own web address**.
+
+1. They type the domain they want, usually a subdomain of one they already own
+   (`booking.lonestarhvac.com`). Ours is refused: nobody can point `handsfreeos.com` at themselves.
+2. HandsFreeOS claims the name with Vercel and shows **two records** to add wherever their domain lives —
+   their registrar, or whoever runs their website:
+   - a **TXT**, which proves they hold the name before a certificate is issued for it;
+   - a **CNAME**, which is what actually points the name here.
+3. They add both. A job looks every 15 minutes, and **Check now** looks immediately. DNS commonly takes a
+   few hours; the card says so rather than looking broken.
+4. When the records are found _and_ the certificate has issued, the card says **Working** and every public
+   link they are shown moves onto the new name within the minute.
+
+**Verified is not working.** A domain whose DNS is right but whose certificate has not issued yet serves a
+browser warning, which is worse than serving nothing — so `certificate_ready` is a separate column from the
+status, and `private.site_for_domain` answers for neither until both are true. If you ever change this,
+change nothing else first.
+
+**Removing one is loud.** `branded_domain.remove` is risk 3, and the confirmation says why: every QR code,
+flyer and text already carrying that address stops working the moment it runs, and nobody can un-print the
+flyers. Links go back to `app.handsfreeos.com` at once.
+
+### Check one by hand
+
+```bash
+# What the business has to put in DNS, and where it has got to.
+psql "$DATABASE_URL" -c "select domain, status, certificate_ready, last_error, next_check_at
+                         from app.branded_domains order by created_at desc limit 20;"
+
+# The records really there, from outside our network.
+dig +short TXT   _handsfreeos.booking.lonestarhvac.com
+dig +short CNAME booking.lonestarhvac.com
+
+# Which business a host is, exactly as the web app asks.
+curl -s https://hooks.handsfreeos.com/public/site-for-host/booking.lonestarhvac.com
+
+# End to end: the booking page on their own name.
+curl -sI https://booking.lonestarhvac.com/ | head -3
+```
+
+The last one is the check that matters, because it is the only one a customer would do.
+
+### Good to know
+
+- **Every call to Vercel is a job.** `branded_domain.check` runs on add and on **Check now**, reschedules
+  itself every 15 minutes while a domain is unsettled, and stops once it is working.
+  `branded_domains.sweep` looks at every domain daily, including the working ones — a business moves its DNS
+  or lets a domain lapse, and otherwise the first anybody would know is a customer saying the link is broken.
+- **A name Vercel says is taken is an answer, not a retry.** The card shows what the host said, the status
+  goes `failed`, and the business either releases it at the other end or picks another name.
+- **One domain per business.** Changing it is removing and adding, deliberately: a name that has been in
+  somebody's DNS for a week is not something to silently repoint.
+- **A name pointed at us that nobody set up gets a 404**, not one of our pages. The web app asks the worker
+  which business a host is and serves nothing when the answer is nobody.
+- **If the worker is unreachable**, the web app serves nothing on a branded domain rather than guessing, and
+  every link builder falls back to `app.handsfreeos.com`. A confirmation text going out on the wrong name is
+  a far smaller failure than one not going out at all.
+- **Test it without a Vercel account.** `SITE_HOST=fake` decides from the name, the way the fake carrier
+  decides from the last four digits: a name containing `taken` is refused, `slow` verifies but never gets a
+  certificate, `missing` never finds the records, and anything else works on the second look.
 
 ## Moving a business here from another CRM
 

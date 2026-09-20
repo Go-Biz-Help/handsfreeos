@@ -14,6 +14,7 @@ import {
   type AnyConditionGroup,
 } from '@hfos/core/server';
 import { rows, sql, type Tx } from '@hfos/db/client';
+import { publicOrigin } from '../hosting/origin';
 
 export interface RunRefs {
   readonly workspaceId: string;
@@ -446,7 +447,10 @@ export class RunData {
                 ${cal ? sql`and c.id = ${cal}` : sql``}
               order by c.created_at limit 1`,
         );
-        return c?.enabled ? `${this.opts.webUrl}/book/${c.site}/${c.slug}` : null;
+        if (!c?.enabled) return null;
+        // Their own domain once one is serving (M17).
+        const origin = await publicOrigin(tx, ws, this.opts.webUrl);
+        return `${origin}/book/${c.site}/${c.slug}`;
       }
     }
   }

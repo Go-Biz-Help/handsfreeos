@@ -657,6 +657,66 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/branded_domain.add": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Put the business’s booking page, forms and links on a domain it owns. HandsFreeOS shows the DNS records to add and checks them.
+         * @description Risk level 2. Requires channels.manage. Emits branded_domain.added.
+         */
+        post: operations["command_branded_domain_add"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/branded_domain.remove": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Take the business off its own domain. Links go back to handsfreeos.com at once; links already sent on the old domain stop working.
+         * @description Risk level 3. Requires channels.manage. Emits branded_domain.removed.
+         */
+        post: operations["command_branded_domain_remove"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/branded_domain.verify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Check the domain’s DNS records now, rather than waiting for the daily check.
+         * @description Risk level 1. Requires channels.manage. Emits branded_domain.check_requested.
+         */
+        post: operations["command_branded_domain_verify"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/calendar_connection.connect": {
         parameters: {
             query?: never;
@@ -6337,6 +6397,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/queries/branded_domain.get": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The business’s own domain, what is still needed in DNS for it, and whether it is serving yet.
+         * @description Requires workspace.read.
+         */
+        post: operations["query_branded_domain_get"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/queries/calendar_connection.list": {
         parameters: {
             query?: never;
@@ -9881,6 +9961,107 @@ export interface operations {
                         /** Format: uuid */
                         siteId: string;
                         slug: string;
+                    };
+                };
+            };
+        };
+    };
+    command_branded_domain_add: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    domain: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        domainId: string;
+                        /** @enum {string} */
+                        status: "pending" | "verifying" | "verified" | "failed";
+                    };
+                };
+            };
+        };
+    };
+    command_branded_domain_remove: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    domainId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        domainId: string;
+                        /** @enum {string} */
+                        status: "pending" | "verifying" | "verified" | "failed";
+                    };
+                };
+            };
+        };
+    };
+    command_branded_domain_verify: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    domainId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        domainId: string;
+                        /** @enum {string} */
+                        status: "pending" | "verifying" | "verified" | "failed";
                     };
                 };
             };
@@ -23410,6 +23591,54 @@ export interface operations {
                             name: string;
                             path: string;
                             slug: string;
+                        } | null;
+                    };
+                };
+            };
+        };
+    };
+    query_branded_domain_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        domain: {
+                            certificateReady: boolean;
+                            /** Format: date-time */
+                            createdAt: string;
+                            domain: string;
+                            /** Format: uuid */
+                            id: string;
+                            lastCheckedAt: string | null;
+                            lastError: string | null;
+                            records: {
+                                host: string;
+                                /** @enum {string} */
+                                kind: "TXT" | "CNAME";
+                                value: string;
+                                why: string;
+                            }[];
+                            /** @enum {string} */
+                            status: "pending" | "verifying" | "verified" | "failed";
+                            verifiedAt: string | null;
                         } | null;
                     };
                 };

@@ -24,6 +24,7 @@ import {
   workspaces,
 } from '@hfos/db/schema';
 import type { WorkerServices } from '../services';
+import { publicOrigin } from '../hosting/origin';
 import { manageUrlFor } from './links';
 import type { Business, Policies, Visit } from './messages';
 
@@ -100,12 +101,15 @@ export async function businessOf(
     .limit(1);
   const bookable =
     !!site?.enabled && !!calendar && calendar.status === 'active' && calendar.config.public;
+  // Their own domain once one is serving (M17), so the "book again" link at the bottom of a confirmation is
+  // on the same name as the page the customer booked from.
+  const origin = await publicOrigin(tx, workspaceId, s.webUrl);
   return {
     name: site?.name || w?.name || 'The business',
     phone: number?.e164 ?? null,
     phoneDisplay: number ? formatPhone(number.e164) : null,
     bookingUrl:
-      bookable && site && calendar ? `${s.webUrl}/book/${site.slug}/${calendar.slug}` : null,
+      bookable && site && calendar ? `${origin}/book/${site.slug}/${calendar.slug}` : null,
   };
 }
 

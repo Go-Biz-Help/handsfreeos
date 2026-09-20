@@ -15,7 +15,7 @@ import { apiBrowser, errorMessage, unwrap } from '@/lib/api/client';
 import { fieldErrors } from '@/lib/api/field-errors';
 import type { BookingSite } from '@/lib/api/types';
 import { useLiveRefresh } from '@/lib/realtime/live-provider';
-import { useOrigin } from '@/lib/use-origin';
+import { usePublicOrigin } from '@/lib/use-origin';
 
 const slugFrom = (name: string) =>
   name
@@ -30,13 +30,16 @@ export function BookingSiteForm({
   workspaceId,
   site,
   workspaceName,
+  brandedOrigin,
 }: {
   workspaceId: string;
   site: BookingSite | null;
   workspaceName: string;
+  /** Their own domain when one is serving (M17), so the address shown here is the one to put on a van. */
+  brandedOrigin: string | null;
 }) {
   const router = useRouter();
-  const origin = useOrigin();
+  const origin = usePublicOrigin(brandedOrigin);
   useLiveRefresh(['booking_site']);
   const [name, setName] = useState(site?.name ?? workspaceName);
   const [slug, setSlug] = useState(site?.slug ?? slugFrom(workspaceName));

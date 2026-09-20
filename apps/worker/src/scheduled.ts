@@ -38,6 +38,7 @@ import {
   syncWindowJobs,
 } from './housekeeping/sync-window';
 import { advanceRegistrations } from './handlers/telephony';
+import { DOMAIN_SWEEP, domainJobs } from './hosting/domains';
 import { portJobs } from './telephony/ports';
 import type { JobHandler, JobMap } from './jobs';
 import { knowledgeDocumentJob } from './knowledge/document';
@@ -273,6 +274,8 @@ export const jobs: JobMap = {
   'registration.poll': registrationPoll,
   // Moving a number a business already owns to us: sending it, asking the carrier, calling it off (M17).
   ...portJobs,
+  // A business's own domain: claiming it, watching for its DNS, and giving it back (M17).
+  ...domainJobs,
   'conversation.unsnooze': unsnooze,
   'webhook_deliveries.sweep': sweepDeliveries,
   'email_domains.check': checkEmailDomains,
@@ -344,6 +347,15 @@ export async function ensureRecurringJobs(services: WorkerServices): Promise<voi
     await scheduleJob(tx, {
       kind: 'email_domains.check',
       dedupeKey: 'check:email_domains',
+      runAt,
+      payload: {},
+      workspaceId: null,
+      organizationId: null,
+    });
+    // A business's own domain, looked at daily in case it has stopped working (M17).
+    await scheduleJob(tx, {
+      kind: DOMAIN_SWEEP,
+      dedupeKey: 'check:branded_domains',
       runAt,
       payload: {},
       workspaceId: null,

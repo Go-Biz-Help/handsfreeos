@@ -95,6 +95,7 @@ import {
   phoneUpdateSettings,
 } from './phone';
 import { registrationSubmit, registrationUpdateStatus } from './registration';
+import { brandedDomainCommands } from './branded-domain';
 import { inboxVisibilityCommands } from './inbox-visibility';
 import { portCommands } from './port';
 import {
@@ -728,6 +729,7 @@ export const commands: readonly CommandDef[] = [
   ...formResponseCommands,
   ...portCommands,
   ...inboxVisibilityCommands,
+  ...brandedDomainCommands,
 ] as unknown as readonly CommandDef[];
 export { callPreview } from './call';
 export { VERIFY_CALLS_PER_DAY, VERIFY_CALLS_PER_HOUR } from './user-phone';
@@ -769,3 +771,4 @@ export * from './support';
 export * from './support-staff';
 export * from './port';
 export * from './inbox-visibility';
+export * from './branded-domain';

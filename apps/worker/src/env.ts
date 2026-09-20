@@ -38,6 +38,15 @@ export interface WorkerEnv {
   readonly transcriber: 'deepgram' | 'twilio' | 'fake';
   readonly deepgramApiKey: string | null;
   /**
+   * Where a business's own domain is served from (M17). `vercel` is where the web app lives; `fake` is the
+   * in-memory stand-in for development and tests. `off` is the honest default for a deployment that has not
+   * been given a token yet: the feature is simply not offered, rather than offered and then failing.
+   */
+  readonly siteHost: 'vercel' | 'fake' | 'off';
+  readonly vercelToken: string | null;
+  readonly vercelProjectId: string | null;
+  readonly vercelTeamId: string | null;
+  /**
    * How far the usage wallet (M16) has been rolled out. `off` writes nothing at all; `shadow` prices and
    * records every event but never warns and never stops anything, which is how the rate card gets proved
    * against a real week before a customer is charged; `on` is the real thing, with enforcement still gated
@@ -203,6 +212,19 @@ export function readEnv(env: NodeJS.ProcessEnv = process.env): WorkerEnv {
     throw new Error('TRANSCRIBER=fake is for development and tests only');
   if (transcriber === 'deepgram' && !deepgramApiKey)
     throw new Error('DEEPGRAM_API_KEY is required with TRANSCRIBER=deepgram');
+
+  // Branded domains (M17). `off` unless a token is there, because a business that adds a domain and then
+  // waits forever for records that are never fetched is worse off than one that was never offered it.
+  const vercelToken = env.VERCEL_TOKEN || null;
+  const vercelProjectId = env.VERCEL_PROJECT_ID || null;
+  const siteHost = (env.SITE_HOST ??
+    (production ? (vercelToken ? 'vercel' : 'off') : 'fake')) as string;
+  if (siteHost !== 'vercel' && siteHost !== 'fake' && siteHost !== 'off')
+    throw new Error('SITE_HOST must be vercel, fake or off');
+  if (production && siteHost === 'fake')
+    throw new Error('SITE_HOST=fake is for development and tests only');
+  if (siteHost === 'vercel' && !(vercelToken && vercelProjectId))
+    throw new Error('VERCEL_TOKEN and VERCEL_PROJECT_ID are required with SITE_HOST=vercel');
 
   // Default `off`: a repo that starts charging the day it is deployed would be a nasty surprise, and every
   // step of the rollout is somebody deciding to take the next one.
@@ -422,6 +444,10 @@ export function readEnv(env: NodeJS.ProcessEnv = process.env): WorkerEnv {
     goHighLevelClientSecret,
     telephonyProvider,
     transcriber: transcriber as 'deepgram' | 'twilio' | 'fake',
+    siteHost: siteHost as 'vercel' | 'fake' | 'off',
+    vercelToken,
+    vercelProjectId,
+    vercelTeamId: env.VERCEL_TEAM_ID || null,
     deepgramApiKey,
     walletMode: walletMode as 'off' | 'shadow' | 'on',
     twilioAccountSid,

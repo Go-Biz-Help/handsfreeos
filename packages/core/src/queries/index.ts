@@ -52,6 +52,7 @@ import { emailComposeOptions } from './email-compose';
 import { invitationPreview } from './invitation.preview';
 import { intakeList } from './intake';
 import { phoneSetupStatus } from './phone';
+import { brandedDomainGet } from './branded-domain';
 import { numberPortList } from './port';
 import { leadBoard, leadGet, leadList } from './lead';
 import { me } from './me';
@@ -118,6 +119,7 @@ export {
   intakeList,
   phoneSetupStatus,
   numberPortList,
+  brandedDomainGet,
   assistantThreadGet,
   assistantThreadList,
   auditList,
@@ -191,6 +193,7 @@ export const queries: readonly QueryDef[] = [
   intakeList,
   phoneSetupStatus,
   numberPortList,
+  brandedDomainGet,
   callLog,
   inboxList,
   inboxSummary,
@@ -313,3 +316,4 @@ export * from './support';
 export * from './platform';
 export * from './wallet';
 export * from './port';
+export * from './branded-domain';

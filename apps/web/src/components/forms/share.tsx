@@ -11,7 +11,7 @@ import { Switch } from '@/components/ui/switch';
 import { apiBrowser, errorMessage, unwrap } from '@/lib/api/client';
 import type { FormSummary } from '@/lib/api/types';
 import { PUBLIC_FORM_PATH } from '@/lib/forms/words';
-import { useOrigin } from '@/lib/use-origin';
+import { usePublicOrigin } from '@/lib/use-origin';
 
 /**
  * The four ways a form reaches people: the link, a website embed, the AI teammate asking it in a
@@ -23,20 +23,24 @@ export function FormShare({
   form,
   siteSlug,
   canManage,
+  brandedOrigin,
 }: {
   workspaceId: string;
   form: FormSummary;
   siteSlug: string | null;
   canManage: boolean;
+  /** Their own domain when one is serving (M17): the link to copy, and the QR code made from it. */
+  brandedOrigin: string | null;
 }) {
   const [origins, setOrigins] = useState(form.embedOrigins.join('\n'));
   const [inChat, setInChat] = useState(form.inChat);
   const [qr, setQr] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
-  // `useOrigin` rather than reading `window` directly: it is empty on the server, so the first paint matches and
-  // there is no hydration mismatch. Every other page that shows a public link uses it.
-  const origin = useOrigin();
+  // `usePublicOrigin` rather than reading `window` directly: it is empty on the server, so the first paint
+  // matches and there is no hydration mismatch, and it is where the business's own domain comes in (M17).
+  // Every other page that shows a public link uses it.
+  const origin = usePublicOrigin(brandedOrigin);
   const path = siteSlug ? PUBLIC_FORM_PATH(siteSlug, form.slug) : null;
   const link = path ? `${origin}${path}` : null;
 

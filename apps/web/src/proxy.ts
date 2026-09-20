@@ -1,6 +1,7 @@
 import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
 import { chatWindowProxy } from './lib/chat/frame';
+import { brandedHostProxy } from './lib/hosting/branded-host';
 import { formFrameProxy } from './lib/forms/frame';
 import { safeNext } from './lib/utils';
 
@@ -10,6 +11,11 @@ const AUTH_PAGES = ['/sign-in', '/sign-up'];
 /** Refreshes the Supabase session cookie on every request and gates protected routes. */
 export async function proxy(request: NextRequest) {
   const path = request.nextUrl.pathname;
+  // A business's own domain (M17): `booking.lonestarhvac.com` is that business's booking page, and a bare
+  // name on it is one of its forms. Checked first, and null on every request to our own address, so this
+  // costs one header comparison for everybody else.
+  const branded = await brandedHostProxy(request);
+  if (branded) return branded;
   // The website chat runs inside businesses' own sites for signed-out visitors, so the loader and the chat
   // window never touch the session. The window's frame rule is set per widget (lib/chat/frame.ts).
   if (path.startsWith('/embed/')) return NextResponse.next();

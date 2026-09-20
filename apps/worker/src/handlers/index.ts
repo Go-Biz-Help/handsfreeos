@@ -51,6 +51,11 @@ import { onRefundRequested } from '../money/refunds';
 import { onPlanCardRequested, onPlanChanged } from '../money/subscriptions';
 import { onBridgeCancelled, onBridgeRequested, onVerificationRequested } from '../telephony/cell';
 import { onPortCancelled, onPortSubmitted } from '../telephony/ports';
+import {
+  onBrandedDomainAdded,
+  onBrandedDomainCheckRequested,
+  onBrandedDomainRemoved,
+} from '../hosting/domains';
 import { onPaymentConnectionConnected, onPaymentConnectionDisconnected } from './payments';
 import {
   onConversationLinked,
@@ -86,6 +91,10 @@ const ownTeammateAndWorkflows: HandlerMap = withWorkflows(
     // A number a business already owns, on its way to us: the carrier call is a job (telephony/ports.ts).
     'number_port.submitted': onPortSubmitted,
     'number_port.cancelled': onPortCancelled,
+    // A business's own domain on its booking page, forms and links (hosting/domains.ts).
+    'branded_domain.added': onBrandedDomainAdded,
+    'branded_domain.check_requested': onBrandedDomainCheckRequested,
+    'branded_domain.removed': onBrandedDomainRemoved,
     'message.queued': onMessageQueued,
     // A text waiting for quiet hours to end goes then; a cancelled one ends at once (messaging/scheduled.ts).
     'message.scheduled': onTextScheduled,
