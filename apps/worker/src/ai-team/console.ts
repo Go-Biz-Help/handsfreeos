@@ -44,7 +44,8 @@ import {
 import { asWorker, rows, sql, type Db } from '@hfos/db/client';
 import type { Logger } from 'pino';
 import { z, ZodError } from 'zod';
-import { aiBudget, recordAiUsage } from '../ai/budget';
+import { aiBudget, recordAndChargeAi } from '../ai/budget';
+import type { WalletDeps } from '../money/wallet';
 import { runToolLoop, toolErrorContent, type ToolLoopAnswer } from '../ai/tool-loop';
 import { atLabel, isoWithOffset } from '../assistant/calendar-format';
 import { anyOfWords, findKnowledge } from '../knowledge/find';
@@ -153,6 +154,8 @@ export interface ConsoleDeps {
   readonly ai: { readonly provider: AiProvider | null; readonly dailyTokens: number };
   readonly webUrl: string;
   readonly log: Logger;
+  /** The test chat's tokens are real tokens: a business trying its teammate out is charged for it like anything else. */
+  readonly wallet: WalletDeps;
 }
 
 /** A test checked and ready to stream: refusals come before the stream opens, as the API's JSON errors. */
@@ -896,15 +899,13 @@ export async function runTest(
       execute: simulator(hands, tools),
       onText: (text: string) => send({ type: 'delta', text }),
       onTurnUsage: (usage: AiUsage) =>
-        asWorker(deps.db, t.scope, (tx) =>
-          recordAiUsage(tx, {
-            source: 'teammate',
-            teammateId: t.teammate.id,
-            teammateRunId: t.runId,
-            model: t.provider.model,
-            usage,
-          }),
-        ),
+        recordAndChargeAi(deps, t.scope, {
+          source: 'teammate',
+          teammateId: t.teammate.id,
+          teammateRunId: t.runId,
+          model: t.provider.model,
+          usage,
+        }),
       checkBudget: hasRoom,
       signal,
     };

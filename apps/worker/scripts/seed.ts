@@ -172,6 +172,8 @@ async function main(): Promise<void> {
   const key = workerKey();
   const deps: OutboxDeps = {
     db: worker.db,
+    // The demo data is not a billing exercise: seeding a business should not leave it owing money.
+    wallet: { db: worker.db, log, mode: 'off' as const },
     support: {
       mailDomain: 'handsfreeos.local',
       addresses: ['support', 'help'],
@@ -371,7 +373,11 @@ async function main(): Promise<void> {
 
   // Milestone 6: the stand-in model (with the seed's own rules) answers AI steps, Try it and the website scan.
   const ai = { provider: seedAi(), dailyTokens: 2_000_000 };
-  const flow = { ...deps, ai, workflowAi: createWorkflowAi({ db: worker.db, ai, log }) };
+  const flow = {
+    ...deps,
+    ai,
+    workflowAi: createWorkflowAi({ db: worker.db, ai, log, wallet: deps.wallet }),
+  };
   const knowledge = await seedKnowledge(
     { api: api.db, admin: admin.db, worker: flow, actor, meta, step, since },
     { id: lonestar, organizationId: org.organizationId, dale },

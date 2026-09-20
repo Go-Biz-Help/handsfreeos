@@ -10,9 +10,9 @@ import {
   callLegUsageKey,
   callUsageKey,
   creditUsageKey,
-  dayKey,
+  billingDay,
   mmsUsageKey,
-  monthKey,
+  billingMonth,
   monthOf,
   numberMonthUsageKey,
   reconcileUsageKey,
@@ -101,10 +101,10 @@ describe('the rest', () => {
   });
 });
 
-describe('monthKey, dayKey and monthOf', () => {
+describe('billingMonth, billingDay and monthOf', () => {
   it('read a month and a day out of an ISO moment', () => {
-    expect(monthKey('2026-09-20T18:04:00Z')).toBe('2026-09');
-    expect(dayKey('2026-09-20T18:04:00Z')).toBe('2026-09-20');
+    expect(billingMonth('2026-09-20T18:04:00Z')).toBe('2026-09');
+    expect(billingDay('2026-09-20T18:04:00Z')).toBe('2026-09-20');
   });
 
   it('say which month a moment falls in where the business is, not where the server is', () => {
@@ -115,7 +115,7 @@ describe('monthKey, dayKey and monthOf', () => {
   });
 
   it('refuse what they cannot read', () => {
-    expect(() => dayKey('yesterday')).toThrow(/a day like/);
-    expect(() => monthKey('')).toThrow(/a month like/);
+    expect(() => billingDay('yesterday')).toThrow(/a day like/);
+    expect(() => billingMonth('')).toThrow(/a month like/);
   });
 });

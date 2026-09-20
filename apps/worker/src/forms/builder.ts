@@ -31,7 +31,7 @@ import {
 import { asWorker, type Db } from '@hfos/db/client';
 import type { Logger } from 'pino';
 import { AI_BUDGET_MESSAGE, AI_BUSY_MESSAGE, AI_UNAVAILABLE_MESSAGE } from '../ai/ask';
-import { aiBudget, recordAiUsage } from '../ai/budget';
+import { aiBudget, recordAndChargeAi } from '../ai/budget';
 import type { TenantScope, WorkerServices } from '../services';
 
 const MAX_TOKENS = 8192;
@@ -57,6 +57,7 @@ export interface FormBuilderDeps {
   readonly db: Db;
   readonly ai: WorkerServices['ai'];
   readonly log: Logger;
+  readonly wallet: WorkerServices['wallet'];
 }
 
 export interface DraftedForm {
@@ -160,14 +161,12 @@ export async function draftForm(
       throw providerFailure(e);
     }
     // The tokens were spent whatever comes of them.
-    await asWorker(deps.db, scope, (tx) =>
-      recordAiUsage(tx, {
-        source: 'builder',
-        userId: actor.userId,
-        model: provider.model,
-        usage: turn.usage,
-      }),
-    );
+    await recordAndChargeAi(deps, scope, {
+      source: 'builder',
+      userId: actor.userId,
+      model: provider.model,
+      usage: turn.usage,
+    });
     if (!turn.toolCalls.length) break;
 
     const conversion = formToolCallsToOps(

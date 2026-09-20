@@ -130,20 +130,24 @@ export async function tryKnowledge(
   }));
   let value: z.output<typeof TryOutput>;
   try {
-    ({ value } = await askStructured({ db: deps.httpDb, ai: deps.ai, log: deps.log }, scope, {
-      system: TRY_SYSTEM,
-      context: groundingContext({ ...grounding, items: matches.map(promptItem) }),
-      messages: [
-        {
-          role: 'user',
-          content: `${quoteCustomerText(input.question)}\nAnswer the customer’s message above.`,
-        },
-      ],
-      schema: TRY_SCHEMA,
-      zod: TryOutput,
-      maxTokens: 1024,
-      usage: { source: 'knowledge', userId: actor.userId },
-    }));
+    ({ value } = await askStructured(
+      { db: deps.httpDb, ai: deps.ai, log: deps.log, wallet: deps.wallet },
+      scope,
+      {
+        system: TRY_SYSTEM,
+        context: groundingContext({ ...grounding, items: matches.map(promptItem) }),
+        messages: [
+          {
+            role: 'user',
+            content: `${quoteCustomerText(input.question)}\nAnswer the customer’s message above.`,
+          },
+        ],
+        schema: TRY_SCHEMA,
+        zod: TryOutput,
+        maxTokens: 1024,
+        usage: { source: 'knowledge', userId: actor.userId },
+      },
+    ));
   } catch (e) {
     throw tryError(e);
   }

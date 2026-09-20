@@ -66,7 +66,7 @@ import {
 } from '@hfos/core/server';
 import { asWorker, rows, sql, type Tx } from '@hfos/db/client';
 import { conversations } from '@hfos/db/schema';
-import { aiBudget, recordAiUsage } from '../ai/budget';
+import { aiBudget, recordAndChargeAi } from '../ai/budget';
 import { runToolLoop, type ToolLoopResult } from '../ai/tool-loop';
 import { clockLabel } from '../assistant/calendar-format';
 import { quietEndAt } from '../booking/deliver';
@@ -568,15 +568,13 @@ async function answer(ctx: JobContext, run: StartedRun): Promise<JobResult> {
     log: ctx.log,
   });
   const onTurnUsage = (usage: AiUsage) =>
-    asWorker(ctx.db, scope, (tx) =>
-      recordAiUsage(tx, {
-        source: 'teammate',
-        teammateId: run.teammate.id,
-        teammateRunId: run.id,
-        model: provider.model,
-        usage,
-      }),
-    );
+    recordAndChargeAi(ctx, scope, {
+      source: 'teammate',
+      teammateId: run.teammate.id,
+      teammateRunId: run.id,
+      model: provider.model,
+      usage,
+    });
   const base = {
     provider,
     system: TEAMMATE_SYSTEM,

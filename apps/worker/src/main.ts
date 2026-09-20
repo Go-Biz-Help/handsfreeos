@@ -50,6 +50,9 @@ const httpHandle = createDb(env.databaseUrl, { max: 6, applicationName: 'hfos-wo
 // Workflow AI steps, the AI builder and the knowledge base: the Assistant's model and daily limit.
 const ai = createAi(env);
 const telephony = createTelephony(env, log);
+// The usage wallet (M16). `off` until somebody turns it on: a repo that starts charging the day it deploys
+// would be a nasty surprise, and every step of the rollout is a decision.
+const wallet = { db: handle.db, log, mode: env.walletMode };
 const services: EngineServices = {
   db: handle.db,
   mailer: createSmtpMailer(env.smtpUrl, env.mailFrom),
@@ -62,6 +65,7 @@ const services: EngineServices = {
   publicUrl: env.publicUrl,
   telephony,
   transcriber: createTranscriber(env, log, telephony),
+  wallet,
   sealer: createSealer(env.encryptionKey, env.encryptionKeysPrevious),
   reminderOverrideMs: env.reminderOverrideMs,
   registrationPollMs: env.registrationPollMs,
@@ -92,7 +96,7 @@ const services: EngineServices = {
     ? { authAdmin: createAuthAdmin(env.supabaseUrl, env.supabaseSecretKey) }
     : {}),
   // Workflow AI steps and AI-sorted branches answer from that model, grounded in the knowledge base.
-  workflowAi: createWorkflowAi({ db: handle.db, ai, log }),
+  workflowAi: createWorkflowAi({ db: handle.db, ai, log, wallet }),
   // HandsFreeOS's own support desk (M13): where its mail arrives, and who it goes out as.
   support: {
     mailDomain: env.supportMailDomain,
@@ -154,7 +158,12 @@ const app = await buildHttpServer({
   assistant: model
     ? {
         provider: model,
-        tools: createToolExecutor(httpHandle.db, { ai, log }, { ai, log }, env.webUrl),
+        tools: createToolExecutor(
+          httpHandle.db,
+          { ai, log, wallet },
+          { ai, log, wallet },
+          env.webUrl,
+        ),
         dailyTokens: env.assistantDailyTokens,
       }
     : null,

@@ -6,10 +6,9 @@ import {
   type AiTurn,
   type AiUsage,
 } from '@hfos/ai';
-import { asWorker } from '@hfos/db/client';
 import type { z } from 'zod';
 import type { TenantScope, WorkerServices } from '../services';
-import { aiBudget, recordAiUsage, type AiUsageRef } from './budget';
+import { aiBudget, recordAndChargeAi, type AiUsageRef } from './budget';
 
 export type AiAskErrorCode = 'budget_reached' | 'ai_unavailable' | 'provider_error' | 'bad_output';
 
@@ -65,7 +64,7 @@ export interface AskStructuredResult<T> {
  * (`retryable` or not) or `bad_output`.
  */
 export async function askStructured<S extends z.ZodType>(
-  ctx: Pick<WorkerServices, 'db' | 'ai' | 'log'>,
+  ctx: Pick<WorkerServices, 'db' | 'ai' | 'log' | 'wallet'>,
   scope: TenantScope,
   input: AskStructuredInput<S>,
 ): Promise<AskStructuredResult<z.output<S>>> {
@@ -100,9 +99,11 @@ export async function askStructured<S extends z.ZodType>(
     );
   }
   // The tokens were spent whether or not the answer is usable.
-  await asWorker(ctx.db, scope, (tx) =>
-    recordAiUsage(tx, { ...input.usage, model: provider.model, usage: turn.usage }),
-  );
+  await recordAndChargeAi(ctx, scope, {
+    ...input.usage,
+    model: provider.model,
+    usage: turn.usage,
+  });
   try {
     return { value: parseStructured(turn, input.zod), usage: turn.usage, model: provider.model };
   } catch (e) {

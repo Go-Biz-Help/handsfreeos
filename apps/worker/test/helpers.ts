@@ -71,6 +71,9 @@ export function testServices(
     ),
     store: createSupabaseStore(env.supabaseUrl, env.secretKey),
     log,
+    // Shadow, so every worker test drives the capture path for real without it deciding anything. A test that
+    // wants the warnings makes its own deps with mode 'on'.
+    wallet: { db: testDbs().worker.db, log, mode: 'shadow' as const },
     webUrl: 'http://localhost:3000',
     publicUrl: TEST_PUBLIC_URL,
     telephony: createFakeTelephony({ approvalMs: 0, callbacks: false, log }),

@@ -22,6 +22,7 @@ type ConfirmCard = Extract<AssistantCard, { type: 'confirm' }>;
 export interface FormToolDeps {
   readonly ai: WorkerServices['ai'];
   readonly log: Logger;
+  readonly wallet: WorkerServices['wallet'];
 }
 
 const str = (v: unknown) => (typeof v === 'string' && v.trim() ? v.trim() : undefined);
@@ -176,11 +177,15 @@ async function buildForm(
     formId = created.formId;
     made = true;
   }
-  const drafted = await draftForm({ db, ai: deps.ai, log: deps.log }, ctx.actor, {
-    workspaceId: ctx.workspaceId,
-    formId,
-    prompt: description,
-  });
+  const drafted = await draftForm(
+    { db, ai: deps.ai, log: deps.log, wallet: deps.wallet },
+    ctx.actor,
+    {
+      workspaceId: ctx.workspaceId,
+      formId,
+      prompt: description,
+    },
+  );
   const href = formPaths(ctx.workspaceId).form(formId);
   return {
     result: {

@@ -37,6 +37,13 @@ export interface WorkerEnv {
    */
   readonly transcriber: 'deepgram' | 'twilio' | 'fake';
   readonly deepgramApiKey: string | null;
+  /**
+   * How far the usage wallet (M16) has been rolled out. `off` writes nothing at all; `shadow` prices and
+   * records every event but never warns and never stops anything, which is how the rate card gets proved
+   * against a real week before a customer is charged; `on` is the real thing, with enforcement still gated
+   * per business by its own flag.
+   */
+  readonly walletMode: 'off' | 'shadow' | 'on';
   readonly twilioAccountSid: string | null;
   readonly twilioAuthToken: string | null;
   /** HandsFreeOS's approved ISV customer profile (BU...): local (10DLC) registrations link under it. */
@@ -196,6 +203,12 @@ export function readEnv(env: NodeJS.ProcessEnv = process.env): WorkerEnv {
     throw new Error('TRANSCRIBER=fake is for development and tests only');
   if (transcriber === 'deepgram' && !deepgramApiKey)
     throw new Error('DEEPGRAM_API_KEY is required with TRANSCRIBER=deepgram');
+
+  // Default `off`: a repo that starts charging the day it is deployed would be a nasty surprise, and every
+  // step of the rollout is somebody deciding to take the next one.
+  const walletMode = (env.WALLET_MODE ?? 'off') as string;
+  if (walletMode !== 'off' && walletMode !== 'shadow' && walletMode !== 'on')
+    throw new Error('WALLET_MODE must be off, shadow or on');
 
   const twilioAccountSid = env.TWILIO_ACCOUNT_SID || null;
   const twilioAuthToken = env.TWILIO_AUTH_TOKEN || null;
@@ -410,6 +423,7 @@ export function readEnv(env: NodeJS.ProcessEnv = process.env): WorkerEnv {
     telephonyProvider,
     transcriber: transcriber as 'deepgram' | 'twilio' | 'fake',
     deepgramApiKey,
+    walletMode: walletMode as 'off' | 'shadow' | 'on',
     twilioAccountSid,
     twilioAuthToken,
     twilioPrimaryProfileSid: env.TWILIO_PRIMARY_PROFILE_SID || null,

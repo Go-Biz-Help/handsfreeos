@@ -4,8 +4,9 @@ import {
   messageReceive,
   messageUpdateStatus,
 } from '@hfos/core/server';
-import { asWorker } from '@hfos/db/client';
+import { asWorker, rows, sql } from '@hfos/db/client';
 import type { DeliveryContext, DeliveryProcessor } from '../deliveries';
+import { chargeText } from '../money/usage-capture';
 import { systemActor, workerMeta, type TenantScope } from '../services';
 import { loadAccount } from '../telephony/accounts';
 
@@ -75,6 +76,16 @@ export const onInboundText: DeliveryProcessor = async (ctx) => {
     workerMeta(),
   );
   if (mediaCount > 0) await copyMedia(ctx, scope, output.messageId, p, mediaCount);
+  // An inbound text is billed to us the moment it arrives, so it is billed on once, here. Segments are what
+  // Twilio says they are on the way in; we do not re-count them from the body.
+  await chargeText(ctx.wallet, scope, {
+    messageSid: p.MessageSid,
+    direction: 'inbound',
+    segments: Math.max(1, Number(p.NumSegments ?? 1) || 1),
+    mediaCount,
+    counterpart: p.From,
+    messageId: output.messageId,
+  });
 };
 
 /** Photos and files stay on our storage, not the provider's: copy each, attach it, then delete the original. */
@@ -148,4 +159,40 @@ export const onTextStatus: DeliveryProcessor = async (ctx) => {
     systemActor(scope),
     workerMeta(),
   );
+  // `sent`, `delivered` and `undelivered` all arrive for one message and Twilio bills us once, so all three
+  // land on the row the first of them made. An undelivered text is still billed to us, so it is billed on.
+  const sent = await sentMessage(ctx, scope, p.MessageSid);
+  if (sent)
+    await chargeText(ctx.wallet, scope, {
+      messageSid: p.MessageSid,
+      direction: 'outbound',
+      status: p.MessageStatus ?? null,
+      segments: sent.segments ?? 1,
+      mediaCount: sent.media_count,
+      counterpart: sent.counterpart,
+      messageId: sent.id,
+    });
 };
+
+/** What our own row says the text was: its segments, its pictures and who it went to. */
+async function sentMessage(
+  ctx: DeliveryContext,
+  scope: TenantScope,
+  providerMessageId: string,
+): Promise<{
+  id: string;
+  segments: number | null;
+  media_count: number;
+  counterpart: string;
+} | null> {
+  const [m] = await asWorker(ctx.db, scope, (tx) =>
+    rows<{ id: string; segments: number | null; media_count: number; counterpart: string }>(
+      tx,
+      sql`select m.id, m.segments, coalesce(jsonb_array_length(m.media), 0)::int as media_count,
+            coalesce(c.counterpart, '') as counterpart
+          from app.messages m left join app.conversations c on c.id = m.conversation_id
+          where m.workspace_id = ${scope.workspaceId} and m.provider_message_id = ${providerMessageId}`,
+    ),
+  );
+  return m ?? null;
+}

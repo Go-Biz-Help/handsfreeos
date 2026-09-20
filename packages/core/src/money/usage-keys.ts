@@ -51,7 +51,7 @@ export const callLegUsageKey = (parentCallSid: string, toE164: string): string =
  * provider id of its own, and a sweep that runs twice in October must not charge October twice.
  */
 export const numberMonthUsageKey = (phoneNumberId: string, month: string): string =>
-  `number:${need(phoneNumberId, 'phone number id')}:${monthKey(month)}`;
+  `number:${need(phoneNumberId, 'phone number id')}:${billingMonth(month)}`;
 
 /** One AI request, by the `app.ai_usage` row that recorded it. */
 export const aiUsageKey = (aiUsageId: string): string => `ai:${need(aiUsageId, 'ai_usage id')}`;
@@ -76,10 +76,13 @@ export const creditUsageKey = (reference: string): string =>
  * over a week it has already done writes nothing.
  */
 export const reconcileUsageKey = (category: string, day: string): string =>
-  `reconcile:${need(category, 'usage category')}:${dayKey(day)}`;
+  `reconcile:${need(category, 'usage category')}:${billingDay(day)}`;
 
-/** `YYYY-MM`, from that or from an ISO date. Anything else raises rather than quietly charging another month. */
-export function monthKey(value: string): string {
+/**
+ * `YYYY-MM`, from that or from an ISO date, for the one usage key that carries a period. Named apart from the
+ * inbox's `dayKey`, which groups a thread on the reader's own clock and is a different question entirely.
+ */
+export function billingMonth(value: string): string {
   const v = (value ?? '').trim();
   const match = /^(\d{4})-(\d{2})/.exec(v);
   if (!match)
@@ -88,7 +91,7 @@ export function monthKey(value: string): string {
 }
 
 /** `YYYY-MM-DD`, from that or from an ISO timestamp. */
-export function dayKey(value: string): string {
+export function billingDay(value: string): string {
   const v = (value ?? '').trim();
   const match = /^(\d{4}-\d{2}-\d{2})/.exec(v);
   if (!match)
@@ -106,5 +109,5 @@ export function monthOf(at: Date | number, timeZone: string): string {
   }).formatToParts(d);
   const year = parts.find((p) => p.type === 'year')?.value ?? '';
   const month = parts.find((p) => p.type === 'month')?.value ?? '';
-  return monthKey(`${year}-${month}`);
+  return billingMonth(`${year}-${month}`);
 }

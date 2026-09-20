@@ -5,9 +5,10 @@ import {
   callUpdateStatus,
   executeCommand,
 } from '@hfos/core/server';
-import { asWorker } from '@hfos/db/client';
+import { asWorker, rows, sql } from '@hfos/db/client';
 import { calls } from '@hfos/db/schema';
 import type { DeliveryContext, DeliveryProcessor } from '../deliveries';
+import { chargeCall, chargeCallLeg, type NumberKind } from '../money/usage-capture';
 import { systemActor, workerMeta, type TenantScope } from '../services';
 import { loadAccount } from '../telephony/accounts';
 import { queueTranscript } from '../telephony/cell';
@@ -167,7 +168,38 @@ export const onCallStatus: DeliveryProcessor = async (ctx) => {
     status,
     ...(duration !== undefined ? { durationSeconds: duration } : {}),
   });
+  // Charged at the end, from the length the carrier reported. The key is the call's own sid, so a status
+  // callback arriving twice charges once. An inbound call to a toll-free number costs us two and a half times
+  // what a local one does, so which of our numbers it came in on decides the rate.
+  if (ENDED.has(status))
+    await chargeCall(ctx.wallet, scope, {
+      callSid: p.CallSid,
+      direction: call.direction === 'outbound' ? 'outbound' : 'inbound',
+      seconds: duration ?? call.durationSeconds,
+      numberKind: await numberKindOf(ctx, scope, call.phoneNumberId),
+      counterpart: (call.direction === 'outbound' ? call.toE164 : call.fromE164) ?? '',
+      callId: call.id,
+    });
 };
+
+/**
+ * Which of our numbers a call used. Local when we cannot tell, which is the cheaper of the two and therefore
+ * the one that under-charges rather than over-charges when something has gone wrong.
+ */
+async function numberKindOf(
+  ctx: DeliveryContext,
+  scope: TenantScope,
+  phoneNumberId: string | null,
+): Promise<NumberKind> {
+  if (!phoneNumberId) return 'local';
+  const [n] = await asWorker(ctx.db, scope, (tx) =>
+    rows<{ number_type: string }>(
+      tx,
+      sql`select number_type::text as number_type from app.phone_numbers where id = ${phoneNumberId}`,
+    ),
+  );
+  return n?.number_type === 'toll_free' ? 'tollfree' : 'local';
+}
 
 /** One leg of a call: a teammate's browser, a forwarded phone, or the customer a teammate dialed. */
 export const onLegStatus: DeliveryProcessor = async (ctx) => {
@@ -197,6 +229,22 @@ export const onLegStatus: DeliveryProcessor = async (ctx) => {
     });
     return;
   }
+
+  // A customer ringing the business and being put through to somebody's own phone is **two** billable legs:
+  // the one that came in, charged by onCallStatus, and the one we dialled out, charged here. Twilio bills a
+  // dialled leg from the moment it is answered — including by that phone's own voicemail, which is why this
+  // does not wait for somebody to press 1 and take the call properly.
+  //
+  // A browser leg (`client:…`) is deliberately not charged: Twilio prices a Client connection differently and
+  // the card has no line for it. Step 4's nightly reconciliation against Twilio's own daily records is what
+  // catches that, and anything else here misses, as an adjustment.
+  if (ENDED.has(status) && isPhone(p.To) && (duration ?? 0) > 0)
+    await chargeCallLeg(ctx.wallet, scope, {
+      parentCallSid: p.ParentCallSid,
+      toE164: p.To,
+      seconds: duration ?? 0,
+      callId: call.id,
+    });
 
   const userId = userIdOfIdentity(p.To);
   if (status === 'in_progress') {
