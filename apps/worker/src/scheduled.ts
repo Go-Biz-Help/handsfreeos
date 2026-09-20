@@ -44,6 +44,12 @@ import { knowledgeScanJob } from './knowledge/scan';
 import { mailboxSync } from './mailbox/sync';
 import { scheduledTextJobs } from './messaging/scheduled';
 import { moneyDocumentJobs, MONEY_JOBS, MONEY_PLAN_KEY } from './money/jobs';
+import {
+  nextReconcileAt,
+  RECONCILE_JOBS,
+  RECONCILE_JOB_HANDLERS,
+  RECONCILE_PLAN_KEY,
+} from './money/reconcile';
 import { moneyJobs } from './money/refunds';
 import { planJobs } from './money/subscriptions';
 import { pushJobs } from './push/send';
@@ -296,6 +302,7 @@ export const jobs: JobMap = {
   // its expiry, a receipt and a payment that failed, a plan's cycle read back, and the hourly plan and each
   // business's sweep behind them all (money/jobs.ts).
   ...moneyDocumentJobs,
+  ...RECONCILE_JOB_HANDLERS,
   // Money: a plan made to match at the provider — created, paused, resumed or cancelled there
   // (money/subscriptions.ts).
   ...planJobs,
@@ -364,6 +371,17 @@ export async function ensureRecurringJobs(services: WorkerServices): Promise<voi
       kind: MONEY_JOBS.plan,
       dedupeKey: MONEY_PLAN_KEY,
       runAt,
+      payload: {},
+      workspaceId: null,
+      organizationId: null,
+    });
+    // The usage wallet's nightly true-up (M16): each business's day of carrier records against what we
+    // charged for it. Armed whatever WALLET_MODE says, because a shadow week with nothing to check it against
+    // proves nothing — and with the wallet off there is no ledger to correct, so the pass finds nothing to do.
+    await scheduleJob(tx, {
+      kind: RECONCILE_JOBS.plan,
+      dedupeKey: RECONCILE_PLAN_KEY,
+      runAt: nextReconcileAt(Date.now()),
       payload: {},
       workspaceId: null,
       organizationId: null,

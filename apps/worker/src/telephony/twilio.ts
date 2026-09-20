@@ -8,6 +8,7 @@ import {
   type Capabilities,
   type ProviderAccount,
   type RegistrationRequest,
+  type DailyUsage,
   type RegistrationState,
   type TelephonyProvider,
 } from './provider';
@@ -986,5 +987,47 @@ export function createTwilioTelephony(master: {
         }
       }
     },
+
+    /**
+     * What Twilio actually charged this business, day by day. Read from the **subaccount's** own daily usage
+     * records, which is what makes this authoritative per tenant with no allocation guesswork: one workspace,
+     * one subaccount, one set of records.
+     *
+     * `Category` is left off on purpose. Asking for every category is one request instead of a dozen, and it
+     * is the only way to see a line we are not pricing at all — a carrier fee, a recording, a lookup — which
+     * is half of what the reconciliation is for.
+     */
+    async usageDaily(account, range) {
+      const out: DailyUsage[] = [];
+      let url: string | null =
+        `${API}/Accounts/${account.sid}/Usage/Records/Daily.json` +
+        `?StartDate=${range.start}&EndDate=${range.end}&PageSize=1000`;
+      // Twilio pages with a full URL of its own; a month of a busy business runs past one page.
+      while (url) {
+        const page: UsagePage = await call<UsagePage>(credsOf(account), 'GET', url);
+        for (const r of page.usage_records ?? []) {
+          const costMicros = Math.round(Number(r.price ?? 0) * -1_000_000);
+          out.push({
+            day: String(r.start_date ?? ''),
+            category: String(r.category ?? ''),
+            count: Number(r.count ?? 0) || 0,
+            // Twilio writes what it charged us as a negative number. Ours is what we paid, so it is positive.
+            costMicros: Number.isFinite(costMicros) ? Math.abs(costMicros) : 0,
+          });
+        }
+        url = page.next_page_uri ? `https://api.twilio.com${page.next_page_uri}` : null;
+      }
+      return out.filter((r) => r.day && r.category);
+    },
   };
+}
+
+interface UsagePage {
+  readonly usage_records?: readonly {
+    readonly start_date?: string;
+    readonly category?: string;
+    readonly count?: string | number;
+    readonly price?: string | number;
+  }[];
+  readonly next_page_uri?: string | null;
 }

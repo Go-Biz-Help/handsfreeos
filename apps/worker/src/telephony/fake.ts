@@ -38,11 +38,14 @@ export const fakeSid = (prefix: string): string =>
 export interface FakeSent extends OutboundMessage {
   readonly sid: string;
   readonly accountSid: string;
+  /** When the fake "carrier" took it, so usageDaily can bucket it by day. */
+  readonly at: number;
 }
 
 export interface FakeCall extends PlaceCallRequest {
   readonly sid: string;
   readonly accountSid: string;
+  readonly at: number;
 }
 
 export interface FakeTelephony extends TelephonyProvider {
@@ -58,6 +61,9 @@ export interface FakeTelephony extends TelephonyProvider {
   /** Call recordings whose words were asked for. */
   readonly transcribed: string[];
 }
+
+/** What the fake says a text and a call cost it, in micro-dollars: Twilio's own list prices. */
+export const FAKE_COST_MICROS = { sms: 10_900, call: 13_000 } as const;
 
 /** What the fake's transcripts say: the business's side on channel 1, the customer's on channel 2. */
 export const FAKE_TRANSCRIPT = [
@@ -82,6 +88,11 @@ export interface FakeOptions {
   /** Post signed status callbacks for sent texts (off in unit tests that post their own). */
   readonly callbacks: boolean;
   readonly log: Logger;
+  /**
+   * A thumb on the scale for `usageDaily`: 0.2 makes the "carrier" report every category a fifth dearer than
+   * we counted. That disagreement is the whole reason the reconciler exists, so a test needs a way to cause one.
+   */
+  readonly usageFudgeMicros?: number;
 }
 
 /**
@@ -316,7 +327,7 @@ export function createFakeTelephony(opts: FakeOptions): FakeTelephony {
     },
     async sendMessage(account, message) {
       const sid = fakeSid('SM');
-      sent.push({ ...message, sid, accountSid: account.sid });
+      sent.push({ ...message, sid, accountSid: account.sid, at: Date.now() });
       const base = { AccountSid: account.sid, MessageSid: sid, From: message.from, To: message.to };
       if (message.body.includes('[fail]'))
         callback(
@@ -375,7 +386,12 @@ export function createFakeTelephony(opts: FakeOptions): FakeTelephony {
       deleted.push(transcriptionSid);
     },
     async placeCall(account, request) {
-      const c: FakeCall = { ...request, sid: fakeSid('CA'), accountSid: account.sid };
+      const c: FakeCall = {
+        ...request,
+        sid: fakeSid('CA'),
+        accountSid: account.sid,
+        at: Date.now(),
+      };
       calls.push(c);
       if (opts.callbacks) void playOut(account, c);
       return { sid: c.sid };
@@ -444,6 +460,41 @@ export function createFakeTelephony(opts: FakeOptions): FakeTelephony {
         status: 'approved',
         rejectionReason: null,
       };
+    },
+
+    /**
+     * What the "carrier" says this business used. The fake bills from what it was actually asked to send and
+     * dial, so a test can drive a text and a call through and then reconcile against them — which is the only
+     * way to test that the reconciler writes a real difference and not a made-up one.
+     *
+     * `usageFudgeMicros` is the thumb on the scale: set it and every category comes back that much dearer than
+     * we counted, which is the case the reconciler exists for.
+     */
+    async usageDaily(account, range) {
+      const within = (at: number) => {
+        const day = new Date(at).toISOString().slice(0, 10);
+        return day >= range.start && day <= range.end;
+      };
+      const byDay = new Map<string, { count: number; micros: number }>();
+      const add = (at: number, category: string, micros: number) => {
+        if (!within(at)) return;
+        const key = `${new Date(at).toISOString().slice(0, 10)}|${category}`;
+        const row = byDay.get(key) ?? { count: 0, micros: 0 };
+        byDay.set(key, { count: row.count + 1, micros: row.micros + micros });
+      };
+      for (const m of sent)
+        if (m.accountSid === account.sid) add(m.at, 'sms-outbound', FAKE_COST_MICROS.sms);
+      for (const c of calls)
+        if (c.accountSid === account.sid) add(c.at, 'calls-outbound', FAKE_COST_MICROS.call);
+      return [...byDay.entries()].map(([key, v]) => {
+        const [day, category] = key.split('|') as [string, string];
+        return {
+          day,
+          category,
+          count: v.count,
+          costMicros: v.micros + Math.round(v.micros * (opts.usageFudgeMicros ?? 0)),
+        };
+      });
     },
   };
 }

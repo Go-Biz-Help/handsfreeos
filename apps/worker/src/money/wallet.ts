@@ -28,6 +28,9 @@ import {
   type UsageRate,
 } from '@hfos/core/server';
 import { asWorker, rows, sql, type Db, type Tx } from '@hfos/db/client';
+
+/** 100% in basis points, as everywhere else in the money core. */
+const BP_SCALE = 10_000;
 import type { Logger } from 'pino';
 import type { TenantScope } from '../services';
 
@@ -52,6 +55,13 @@ export interface ChargeInput {
   /** The provider's own id, kept so a reconciliation can find its way back to the event. */
   readonly providerRef?: string | null;
   readonly costSource?: UsageCostSource;
+  /**
+   * An amount the card did not work out. Only the nightly reconciliation uses these: there the carrier's own
+   * number **is** the price basis, so there is nothing for `priceEvent` to price and `parts` is empty. Every
+   * other caller leaves them alone and lets the card decide, which is what keeps the markup provable.
+   */
+  readonly amountCents?: number;
+  readonly costCents?: number;
   /** When it happened, rather than when we heard about it: a status callback can be minutes late. */
   readonly occurredAt?: Date;
   readonly meta?: Readonly<Record<string, unknown>>;
@@ -186,7 +196,14 @@ export async function chargeUsage(
 
 async function record(deps: WalletDeps, scope: TenantScope, input: ChargeInput): Promise<Charged> {
   const card = await rateCard(deps, scope);
-  const priced = priceEvent(card, input.parts);
+  const priced =
+    input.amountCents === undefined
+      ? priceEvent(card, input.parts)
+      : {
+          amountCents: Math.max(0, Math.round(input.amountCents)),
+          costCents: Math.max(0, Math.round(input.costCents ?? 0)),
+          markupBp: markupRealised(input.amountCents, input.costCents ?? 0),
+        };
   if (priced.amountCents === 0) return NOTHING;
 
   const kind = input.kind ?? 'spend';
@@ -236,6 +253,10 @@ async function record(deps: WalletDeps, scope: TenantScope, input: ChargeInput):
  * An AI request's four buckets, and anything else with more than one part, cannot put one rate key on the row.
  * The parts go in `meta` instead, so a statement can still show what the request was made of.
  */
+/** What a given charge actually realised over a given cost, in basis points. */
+const markupRealised = (amountCents: number, costCents: number): number =>
+  costCents > 0 ? Math.round((amountCents * BP_SCALE) / costCents) : 0;
+
 function metaOf(input: ChargeInput, card: RateCard, amountCents: number): Record<string, unknown> {
   const meta: Record<string, unknown> = { ...(input.meta ?? {}) };
   if (input.parts.length > 1)

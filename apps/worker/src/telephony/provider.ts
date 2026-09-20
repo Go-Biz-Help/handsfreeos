@@ -207,6 +207,35 @@ export interface TelephonyProvider {
     account: ProviderAccount,
     registration: { kind: RegistrationKind; providerSid: string },
   ): Promise<RegistrationState>;
+  /**
+   * What the carrier says this business actually used, and charged **us**, day by day (M16, step 4).
+   *
+   * This is the one number in the whole wallet that is not ours: everything else is priced from our own rate
+   * card at the moment of the event, because a carrier's price arrives minutes late or not at all and a wallet
+   * that waited would let a business spend all night for free. This is how that guess gets trued up.
+   *
+   * Authoritative per business with no allocation guesswork, because **each workspace has its own subaccount**
+   * — so the carrier's own daily records for that subaccount are that business's usage and nobody else's.
+   */
+  usageDaily(
+    account: ProviderAccount,
+    range: { readonly start: string; readonly end: string },
+  ): Promise<readonly DailyUsage[]>;
+}
+
+/** One line of a carrier's daily records: what one category cost on one day. */
+export interface DailyUsage {
+  /** The local date, `YYYY-MM-DD`, in the carrier's own reckoning. */
+  readonly day: string;
+  /**
+   * The carrier's own category name (`sms-outbound`, `calls-inbound`, `pv`, …), kept as they spell it so an
+   * adjustment can be traced back to a line on their invoice.
+   */
+  readonly category: string;
+  /** How many of whatever the category counts. */
+  readonly count: number;
+  /** What they charged us, in micro-dollars — their prices have four decimal places and cents cannot hold them. */
+  readonly costMicros: number;
 }
 
 /**
