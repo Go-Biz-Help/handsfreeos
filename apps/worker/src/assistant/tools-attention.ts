@@ -52,6 +52,9 @@ const KIND_WORD: Readonly<Record<AttentionKind, string>> = {
   overdue_task: 'Overdue task',
   estimate_waiting: 'Estimate waiting',
   invoice_overdue: 'Invoice overdue',
+  wallet_low: 'Balance running low',
+  wallet_empty: 'Balance empty',
+  wallet_card_declined: 'Card declined',
 };
 
 /** Chips that tell time: a row shows the first one on its right. */
@@ -598,6 +601,10 @@ const ASSIGN_CHANGES: Readonly<Record<AttentionKind, string>> = {
   ai_approval: 'Only who follows up on it. Who may decide it stays the same.',
   estimate_waiting: 'Only who follows up on it. The estimate stays as it is.',
   invoice_overdue: 'Only who follows up on it. The invoice stays as it is.',
+  // Never assignable, so this never shows; the shape asks for a line all the same.
+  wallet_low: 'A balance belongs to the business, not to a person.',
+  wallet_empty: 'A balance belongs to the business, not to a person.',
+  wallet_card_declined: 'A card belongs to the business, not to a person.',
 };
 
 type UpdateAction = 'snooze' | 'dismiss' | 'assign';

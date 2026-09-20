@@ -9239,6 +9239,18 @@ export interface operations {
                             unanswered_lead?: boolean;
                             /** @default true */
                             unconfirmed_appointment?: boolean;
+                            /**
+                             * @default true
+                             * @enum {boolean}
+                             */
+                            wallet_card_declined?: true;
+                            /**
+                             * @default true
+                             * @enum {boolean}
+                             */
+                            wallet_empty?: true;
+                            /** @default true */
+                            wallet_low?: boolean;
                         };
                         /** @default {} */
                         money?: {
@@ -9329,6 +9341,18 @@ export interface operations {
                                 unanswered_lead: boolean;
                                 /** @default true */
                                 unconfirmed_appointment: boolean;
+                                /**
+                                 * @default true
+                                 * @enum {boolean}
+                                 */
+                                wallet_card_declined: true;
+                                /**
+                                 * @default true
+                                 * @enum {boolean}
+                                 */
+                                wallet_empty: true;
+                                /** @default true */
+                                wallet_low: boolean;
                             };
                             money: {
                                 /** @default 5 */
@@ -21631,7 +21655,7 @@ export interface operations {
                                     /** Format: uuid */
                                     itemId?: string;
                                     /** @enum {string} */
-                                    kind?: "hot_lead" | "unanswered_lead" | "stale_opportunity" | "missing_next_action" | "unconfirmed_appointment" | "ai_approval" | "customer_waiting" | "overdue_task" | "estimate_waiting" | "invoice_overdue";
+                                    kind?: "hot_lead" | "unanswered_lead" | "stale_opportunity" | "missing_next_action" | "unconfirmed_appointment" | "ai_approval" | "customer_waiting" | "overdue_task" | "estimate_waiting" | "invoice_overdue" | "wallet_low" | "wallet_empty" | "wallet_card_declined";
                                     title: string;
                                     /** @enum {string} */
                                     tone: "accent" | "warning" | "danger" | "muted";
@@ -21937,7 +21961,7 @@ export interface operations {
                             /** Format: uuid */
                             id: string;
                             /** @enum {string} */
-                            kind: "hot_lead" | "unanswered_lead" | "stale_opportunity" | "missing_next_action" | "unconfirmed_appointment" | "ai_approval" | "customer_waiting" | "overdue_task" | "estimate_waiting" | "invoice_overdue";
+                            kind: "hot_lead" | "unanswered_lead" | "stale_opportunity" | "missing_next_action" | "unconfirmed_appointment" | "ai_approval" | "customer_waiting" | "overdue_task" | "estimate_waiting" | "invoice_overdue" | "wallet_low" | "wallet_empty" | "wallet_card_declined";
                             leadId: string | null;
                             /** @enum {string} */
                             letHandleMode: "auto" | "ask" | "none";
@@ -21990,7 +22014,7 @@ export interface operations {
                 "application/json": {
                     /** @default false */
                     includeHandled?: boolean;
-                    kinds?: ("hot_lead" | "unanswered_lead" | "stale_opportunity" | "missing_next_action" | "unconfirmed_appointment" | "ai_approval" | "customer_waiting" | "overdue_task" | "estimate_waiting" | "invoice_overdue")[];
+                    kinds?: ("hot_lead" | "unanswered_lead" | "stale_opportunity" | "missing_next_action" | "unconfirmed_appointment" | "ai_approval" | "customer_waiting" | "overdue_task" | "estimate_waiting" | "invoice_overdue" | "wallet_low" | "wallet_empty" | "wallet_card_declined")[];
                     /** @enum {string} */
                     scope?: "mine" | "everyone";
                     /** Format: uuid */
@@ -22057,7 +22081,7 @@ export interface operations {
                             /** Format: uuid */
                             id: string;
                             /** @enum {string} */
-                            kind: "hot_lead" | "unanswered_lead" | "stale_opportunity" | "missing_next_action" | "unconfirmed_appointment" | "ai_approval" | "customer_waiting" | "overdue_task" | "estimate_waiting" | "invoice_overdue";
+                            kind: "hot_lead" | "unanswered_lead" | "stale_opportunity" | "missing_next_action" | "unconfirmed_appointment" | "ai_approval" | "customer_waiting" | "overdue_task" | "estimate_waiting" | "invoice_overdue" | "wallet_low" | "wallet_empty" | "wallet_card_declined";
                             leadId: string | null;
                             /** @enum {string} */
                             letHandleMode: "auto" | "ask" | "none";
@@ -22137,7 +22161,7 @@ export interface operations {
                             /** Format: uuid */
                             id: string;
                             /** @enum {string} */
-                            kind: "hot_lead" | "unanswered_lead" | "stale_opportunity" | "missing_next_action" | "unconfirmed_appointment" | "ai_approval" | "customer_waiting" | "overdue_task" | "estimate_waiting" | "invoice_overdue";
+                            kind: "hot_lead" | "unanswered_lead" | "stale_opportunity" | "missing_next_action" | "unconfirmed_appointment" | "ai_approval" | "customer_waiting" | "overdue_task" | "estimate_waiting" | "invoice_overdue" | "wallet_low" | "wallet_empty" | "wallet_card_declined";
                             leadId: string | null;
                             /** @enum {string} */
                             letHandleMode: "auto" | "ask" | "none";
@@ -22181,7 +22205,7 @@ export interface operations {
                             /** Format: uuid */
                             itemId: string;
                             /** @enum {string} */
-                            kind: "hot_lead" | "unanswered_lead" | "stale_opportunity" | "missing_next_action" | "unconfirmed_appointment" | "ai_approval" | "customer_waiting" | "overdue_task" | "estimate_waiting" | "invoice_overdue";
+                            kind: "hot_lead" | "unanswered_lead" | "stale_opportunity" | "missing_next_action" | "unconfirmed_appointment" | "ai_approval" | "customer_waiting" | "overdue_task" | "estimate_waiting" | "invoice_overdue" | "wallet_low" | "wallet_empty" | "wallet_card_declined";
                             /** Format: date-time */
                             scheduledFor: string;
                             title: string;
@@ -22241,7 +22265,7 @@ export interface operations {
                         /** Format: uuid */
                         itemId: string;
                         /** @enum {string} */
-                        kind: "hot_lead" | "unanswered_lead" | "stale_opportunity" | "missing_next_action" | "unconfirmed_appointment" | "ai_approval" | "customer_waiting" | "overdue_task" | "estimate_waiting" | "invoice_overdue";
+                        kind: "hot_lead" | "unanswered_lead" | "stale_opportunity" | "missing_next_action" | "unconfirmed_appointment" | "ai_approval" | "customer_waiting" | "overdue_task" | "estimate_waiting" | "invoice_overdue" | "wallet_low" | "wallet_empty" | "wallet_card_declined";
                         /** @enum {string} */
                         mode: "auto" | "ask" | "none";
                         options: {
@@ -22333,6 +22357,18 @@ export interface operations {
                                 unanswered_lead: boolean;
                                 /** @default true */
                                 unconfirmed_appointment: boolean;
+                                /**
+                                 * @default true
+                                 * @enum {boolean}
+                                 */
+                                wallet_card_declined: true;
+                                /**
+                                 * @default true
+                                 * @enum {boolean}
+                                 */
+                                wallet_empty: true;
+                                /** @default true */
+                                wallet_low: boolean;
                             };
                             money: {
                                 /** @default 5 */

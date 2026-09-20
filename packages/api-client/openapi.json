@@ -23077,6 +23077,24 @@
                           "invoice_overdue": {
                             "default": true,
                             "type": "boolean"
+                          },
+                          "wallet_low": {
+                            "default": true,
+                            "type": "boolean"
+                          },
+                          "wallet_empty": {
+                            "default": true,
+                            "type": "boolean",
+                            "enum": [
+                              true
+                            ]
+                          },
+                          "wallet_card_declined": {
+                            "default": true,
+                            "type": "boolean",
+                            "enum": [
+                              true
+                            ]
                           }
                         }
                       },
@@ -23303,6 +23321,24 @@
                             "invoice_overdue": {
                               "default": true,
                               "type": "boolean"
+                            },
+                            "wallet_low": {
+                              "default": true,
+                              "type": "boolean"
+                            },
+                            "wallet_empty": {
+                              "default": true,
+                              "type": "boolean",
+                              "enum": [
+                                true
+                              ]
+                            },
+                            "wallet_card_declined": {
+                              "default": true,
+                              "type": "boolean",
+                              "enum": [
+                                true
+                              ]
                             }
                           },
                           "required": [
@@ -23315,7 +23351,10 @@
                             "customer_waiting",
                             "overdue_task",
                             "estimate_waiting",
-                            "invoice_overdue"
+                            "invoice_overdue",
+                            "wallet_low",
+                            "wallet_empty",
+                            "wallet_card_declined"
                           ],
                           "additionalProperties": false
                         },
@@ -47802,7 +47841,10 @@
                                               "customer_waiting",
                                               "overdue_task",
                                               "estimate_waiting",
-                                              "invoice_overdue"
+                                              "invoice_overdue",
+                                              "wallet_low",
+                                              "wallet_empty",
+                                              "wallet_card_declined"
                                             ]
                                           },
                                           "chips": {
@@ -60598,7 +60640,7 @@
                     ]
                   },
                   "kinds": {
-                    "maxItems": 10,
+                    "maxItems": 13,
                     "type": "array",
                     "items": {
                       "type": "string",
@@ -60612,7 +60654,10 @@
                         "customer_waiting",
                         "overdue_task",
                         "estimate_waiting",
-                        "invoice_overdue"
+                        "invoice_overdue",
+                        "wallet_low",
+                        "wallet_empty",
+                        "wallet_card_declined"
                       ]
                     }
                   },
@@ -60670,7 +60715,10 @@
                               "customer_waiting",
                               "overdue_task",
                               "estimate_waiting",
-                              "invoice_overdue"
+                              "invoice_overdue",
+                              "wallet_low",
+                              "wallet_empty",
+                              "wallet_card_declined"
                             ]
                           },
                           "state": {
@@ -61187,7 +61235,10 @@
                               "customer_waiting",
                               "overdue_task",
                               "estimate_waiting",
-                              "invoice_overdue"
+                              "invoice_overdue",
+                              "wallet_low",
+                              "wallet_empty",
+                              "wallet_card_declined"
                             ]
                           },
                           "state": {
@@ -61704,7 +61755,10 @@
                               "customer_waiting",
                               "overdue_task",
                               "estimate_waiting",
-                              "invoice_overdue"
+                              "invoice_overdue",
+                              "wallet_low",
+                              "wallet_empty",
+                              "wallet_card_declined"
                             ]
                           },
                           "title": {
@@ -61982,7 +62036,10 @@
                               "customer_waiting",
                               "overdue_task",
                               "estimate_waiting",
-                              "invoice_overdue"
+                              "invoice_overdue",
+                              "wallet_low",
+                              "wallet_empty",
+                              "wallet_card_declined"
                             ]
                           },
                           "state": {
@@ -62548,7 +62605,10 @@
                         "customer_waiting",
                         "overdue_task",
                         "estimate_waiting",
-                        "invoice_overdue"
+                        "invoice_overdue",
+                        "wallet_low",
+                        "wallet_empty",
+                        "wallet_card_declined"
                       ]
                     },
                     "mode": {
@@ -62936,6 +62996,24 @@
                             "invoice_overdue": {
                               "default": true,
                               "type": "boolean"
+                            },
+                            "wallet_low": {
+                              "default": true,
+                              "type": "boolean"
+                            },
+                            "wallet_empty": {
+                              "default": true,
+                              "type": "boolean",
+                              "enum": [
+                                true
+                              ]
+                            },
+                            "wallet_card_declined": {
+                              "default": true,
+                              "type": "boolean",
+                              "enum": [
+                                true
+                              ]
                             }
                           },
                           "required": [
@@ -62948,7 +63026,10 @@
                             "customer_waiting",
                             "overdue_task",
                             "estimate_waiting",
-                            "invoice_overdue"
+                            "invoice_overdue",
+                            "wallet_low",
+                            "wallet_empty",
+                            "wallet_card_declined"
                           ],
                           "additionalProperties": false
                         },

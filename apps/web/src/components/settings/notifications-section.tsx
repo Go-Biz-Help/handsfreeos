@@ -84,6 +84,13 @@ const ROWS: readonly Row[] = [
     email: 'paymentEmail',
   },
   {
+    title: 'Your balance runs out',
+    description:
+      'When there is nothing left to send texts and make calls with, or the card that tops it up is declined. Owners and admins only, since they are the ones who can fix it.',
+    push: 'wallet',
+    email: null,
+  },
+  {
     title: 'Morning summary',
     description: 'One email at 7 AM with what needs your attention that day, urgent first.',
     push: null,

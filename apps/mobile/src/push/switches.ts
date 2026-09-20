@@ -76,6 +76,12 @@ export const NOTIFICATION_ROWS: readonly NotificationRow[] = [
     push: 'payment',
     email: 'paymentEmail',
   },
+  {
+    title: 'Your balance runs out',
+    detail: 'Nothing left to text or call with, or the card was declined',
+    push: 'wallet',
+    email: null,
+  },
 ];
 
 /** The moments that only email. */

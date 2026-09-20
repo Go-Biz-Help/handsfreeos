@@ -83,6 +83,38 @@ export const onApprovalPush = pushMoment('approval', async (ctx, scope) => {
   });
 });
 
+/**
+ * The wallet ran out, or the card on it stopped working (M16). Owners and admins, because they are the ones who
+ * can do something about it — a member with `inbox.use` cannot put a card on a wallet and would only be told
+ * about a problem they cannot fix.
+ *
+ * `wallet.low` is deliberately not here. A low balance with a working card fixes itself in seconds, and a push
+ * about something that resolves before somebody reaches their phone teaches them to ignore the next one.
+ */
+export const onWalletPush = pushMoment('wallet', async (ctx, scope) => {
+  const ws = scope.workspaceId;
+  const [w] = await rows<{ balance_cents: number | string; suspended_reason: string | null }>(
+    ctx.tx,
+    sql`select balance_cents, suspended_reason from app.usage_wallets where workspace_id = ${ws}`,
+  );
+  if (!w) return;
+  const declined = ctx.event.eventType === 'wallet.suspended';
+  const balance = Number(w.balance_cents);
+  await queuePush(ctx.tx, scope, {
+    // One key per kind of trouble, so a card declining and then the balance emptying are not two identical
+    // notifications — and so the same trouble reported twice is one.
+    key: declined ? `wallet-card:${ws}` : `wallet-empty:${ws}`,
+    category: 'wallet',
+    userIds: await managerIds(ctx.tx, ws),
+    title: declined ? 'Your card was declined' : 'Your balance has run out',
+    body: declined
+      ? (w.suspended_reason ?? 'Texts and calls have stopped until a card is added.')
+      : `${money(balance)} left. Texts and calls have stopped until it is topped up.`,
+    path: `/app/w/${ws}/settings/usage`,
+    refs: {},
+  });
+});
+
 /** Who hears about a reply draft nobody is assigned: the teammate's hand-off list, else the owners and admins. */
 async function handOffList(tx: Tx, workspaceId: string, config: unknown): Promise<string[]> {
   const who = runtimeConfigOf(config).handOff.notify;
@@ -548,6 +580,8 @@ const PUSH_HANDLERS: Readonly<Record<string, EventHandler>> = {
   'task.updated': onAssignedPush,
   'attention.assigned': onAssignedPush,
   'invoice.paid': onPaidPush,
+  'wallet.empty': onWalletPush,
+  'wallet.suspended': onWalletPush,
 };
 
 /** Appends each event's push after everything else it does (handlers/index.ts). */

@@ -12,6 +12,7 @@ import * as overdueTask from './detectors/overdue-task';
 import * as staleOpportunity from './detectors/stale-opportunity';
 import * as unansweredLead from './detectors/unanswered-lead';
 import * as unconfirmedAppointment from './detectors/unconfirmed-appointment';
+import { walletCardDeclined, walletEmpty, walletLow } from './detectors/wallet';
 import type { AttentionKind } from './kinds';
 import type { AttentionSettings } from './settings';
 import type { Detection } from './types';
@@ -32,6 +33,10 @@ export const DETECTORS = {
   overdue_task: overdueTask,
   estimate_waiting: estimateWaiting,
   invoice_overdue: invoiceOverdue,
+  // The wallet's three share one file: they read the same facts and only one of them ever holds at a time.
+  wallet_low: walletLow,
+  wallet_empty: walletEmpty,
+  wallet_card_declined: walletCardDeclined,
 } as const satisfies { readonly [K in AttentionKind]: DetectorModule<never> };
 
 /** The facts one kind's detector reads. */

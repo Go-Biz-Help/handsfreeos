@@ -27,6 +27,8 @@ export const PUSH_SWITCHES = [
   'booking',
   'assigned',
   'payment',
+  /** The usage wallet (M16): the balance ran out, or the card on it stopped working. */
+  'wallet',
 ] as const;
 export type PushSwitch = (typeof PUSH_SWITCHES)[number];
 
@@ -40,7 +42,7 @@ export function pushSwitchOn(settings: unknown, key: PushSwitch): boolean {
   return typeof chosen === 'boolean' ? chosen : key !== 'payment';
 }
 
-/** All seven switches, as a save sends them (`settings: { push: … }`). */
+/** All eight switches, as a save sends them (`settings: { push: … }`). */
 export const PushSwitches = z.object({
   customerWaiting: z.boolean(),
   missedCall: z.boolean(),
@@ -49,10 +51,11 @@ export const PushSwitches = z.object({
   booking: z.boolean(),
   assigned: z.boolean(),
   payment: z.boolean(),
+  wallet: z.boolean(),
 });
 export type PushSwitches = z.infer<typeof PushSwitches>;
 
-/** A person's seven switches with their defaults filled in, ready to show or to save back whole. */
+/** A person's eight switches with their defaults filled in, ready to show or to save back whole. */
 export function pushSwitchesOf(settings: unknown): PushSwitches {
   return Object.fromEntries(
     PUSH_SWITCHES.map((k) => [k, pushSwitchOn(settings, k)]),
@@ -138,6 +141,11 @@ export const PUSH_CATEGORIES = {
   booking: { switch: 'booking', buttons: ['open'] },
   assigned: { switch: 'assigned', buttons: ['open'] },
   payment: { switch: 'payment', buttons: ['open'] },
+  /**
+   * The balance. On by default, unlike `payment`: a failed payment is a thing to look at when you next look,
+   * and a wallet that has run out means nothing the business sends is going anywhere.
+   */
+  wallet: { switch: 'wallet', buttons: ['open'] },
 } as const satisfies Record<
   string,
   { readonly switch: PushSwitch; readonly buttons: readonly PushButton[] }

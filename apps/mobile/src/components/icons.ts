@@ -35,6 +35,7 @@ export { default as CloudDownload } from 'lucide-react-native/icons/cloud-downlo
 export { default as CloudOff } from 'lucide-react-native/icons/cloud-off';
 export { default as CloudUpload } from 'lucide-react-native/icons/cloud-upload';
 export { default as ContactRound } from 'lucide-react-native/icons/contact-round';
+export { default as CreditCard } from 'lucide-react-native/icons/credit-card';
 export { default as Database } from 'lucide-react-native/icons/database';
 export { default as Ellipsis } from 'lucide-react-native/icons/ellipsis';
 export { default as ExternalLink } from 'lucide-react-native/icons/external-link';
@@ -108,5 +109,6 @@ export { default as UserRound } from 'lucide-react-native/icons/user-round';
 export { default as Users } from 'lucide-react-native/icons/users';
 export { default as UserX } from 'lucide-react-native/icons/user-x';
 export { default as Voicemail } from 'lucide-react-native/icons/voicemail';
+export { default as Wallet } from 'lucide-react-native/icons/wallet';
 export { default as X } from 'lucide-react-native/icons/x';
 export { default as Zap } from 'lucide-react-native/icons/zap';

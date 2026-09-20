@@ -1114,6 +1114,71 @@ interface Loaded {
   readonly invoices: Map<string, InvoiceInfo>;
 }
 
+/** The usage wallet, for M16's three cards. One per business, so there is nothing to key it by. */
+interface WalletInfo {
+  readonly workspaceId: string;
+  readonly balanceCents: number;
+  readonly floorCents: number;
+  readonly autoTopup: boolean;
+  readonly hasCard: boolean;
+  readonly lowSince: string | null;
+  readonly suspendedAt: string | null;
+  readonly suspendedReason: string | null;
+  readonly declinesInRow: number;
+  readonly lastFailureMessage: string | null;
+}
+
+/**
+ * A business's wallet, or null when it has never spent anything. Null is "nothing to say", not "empty": a
+ * business that has not used its phone yet is not one whose balance ran out.
+ */
+async function loadWallet(tx: Tx, workspaceId: string): Promise<WalletInfo | null> {
+  const [w] = await rows<{
+    balance_cents: number | string;
+    floor_cents: number | string;
+    auto_topup: boolean;
+    has_card: boolean;
+    low_warned_at: Date | null;
+    suspended_at: Date | null;
+    suspended_reason: string | null;
+    declines_in_row: number;
+    last_failure_message: string | null;
+  }>(
+    tx,
+    sql`select w.balance_cents, w.floor_cents, w.auto_topup, w.method_token is not null as has_card,
+          w.low_warned_at, w.suspended_at, w.suspended_reason, w.declines_in_row,
+          (select r.failure_message from app.wallet_recharges r
+            where r.workspace_id = w.workspace_id and r.status = 'failed'
+            order by r.created_at desc limit 1) as last_failure_message
+        from app.usage_wallets w where w.workspace_id = ${workspaceId}`,
+  );
+  if (!w) return null;
+  return {
+    workspaceId,
+    balanceCents: Number(w.balance_cents),
+    floorCents: Number(w.floor_cents),
+    autoTopup: w.auto_topup,
+    hasCard: w.has_card,
+    lowSince: iso(w.low_warned_at),
+    suspendedAt: iso(w.suspended_at),
+    suspendedReason: w.suspended_reason,
+    declinesInRow: w.declines_in_row,
+    lastFailureMessage: w.last_failure_message,
+  };
+}
+
+/** What the wallet's card says under its title: the balance, and what would put it right. */
+function walletWords(w: WalletInfo): string {
+  const balance =
+    w.balanceCents < 0
+      ? `${money(Math.abs(w.balanceCents))} over`
+      : `${money(w.balanceCents)} left`;
+  if (w.suspendedAt) return `${balance} · the card on file was declined`;
+  if (!w.hasCard) return `${balance} · no card on file`;
+  if (!w.autoTopup) return `${balance} · automatic top-up is off`;
+  return balance;
+}
+
 /** "Thu, Sep 17" for a stored day (`2026-09-17`), read where the business is. */
 const dayOf = (date: string, timeZone: string): string =>
   dayLabel(localInstant(date, '12:00', timeZone), timeZone);
@@ -1211,6 +1276,16 @@ function resolutionOf(
       // moved. Either way nobody paid it off, so it isn't "handled today".
       return i.invoice.paidCents > 0 ? 'part_paid' : 'not_due';
     }
+    /**
+     * The wallet's three stop holding when the balance comes back up, or the card is replaced. There is no
+     * subject row of their own to look at — the wallet is the business — so the detector's own answer is the
+     * only thing that could have changed, and it has, or this would not be resolving.
+     */
+    case 'wallet_low':
+    case 'wallet_empty':
+      return 'topped_up';
+    case 'wallet_card_declined':
+      return 'card_fixed';
   }
 }
 
@@ -1400,6 +1475,8 @@ export async function reconcile(
   const topLeads = await loadTopLeads(tx, workspaceId, [...needTop]);
   const estimates = await loadEstimates(tx, workspaceId, [...scope.estimates], all, ctx.timeZone);
   const invoices = await loadInvoices(tx, workspaceId, [...scope.invoices], all);
+  // Only on a full sweep: a wallet has no subject row to be woken by, so it is looked at when everything is.
+  const walletInfo = all ? await loadWallet(tx, workspaceId) : null;
   const members = await workspaceUsers(tx, workspaceId, ctx.organizationId);
   const loaded: Loaded = {
     leads,
@@ -1644,6 +1721,26 @@ export async function reconcile(
         conversationId: null,
       },
     );
+
+  /**
+   * The wallet's three. The subject is the business itself, so they carry no person, lead or conversation, and
+   * only one of them ever holds at a time — the detectors stand each other down rather than the fold doing it.
+   */
+  if (walletInfo)
+    for (const kind of ['wallet_card_declined', 'wallet_empty', 'wallet_low'] as const)
+      run(
+        kind,
+        { wallet: walletInfo },
+        workspaceId,
+        { leadId: null, personId: null },
+        {
+          subjectType: 'wallet',
+          // The card is about the business's own balance, so the title says what it is rather than who.
+          title: 'Your HandsFreeOS balance',
+          detail: walletWords(walletInfo),
+          conversationId: null,
+        },
+      );
 
   // One card per lead.
   const cards = foldCandidates(candidates);
