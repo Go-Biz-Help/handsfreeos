@@ -71,6 +71,7 @@ const services: EngineServices = {
   sealer: createSealer(env.encryptionKey, env.encryptionKeysPrevious),
   reminderOverrideMs: env.reminderOverrideMs,
   registrationPollMs: env.registrationPollMs,
+  portPollMs: env.portPollMs,
   email: createEmail(env, log),
   mailboxes: createMailboxes(env),
   calendars: createCalendars(env),

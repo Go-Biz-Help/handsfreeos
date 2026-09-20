@@ -201,6 +201,7 @@ async function main(): Promise<void> {
     sealer: createSealer(key),
     reminderOverrideMs: null,
     registrationPollMs: 50,
+    portPollMs: 2_000,
     email: {
       ...createLocalEmail({
         smtpUrl: process.env.SMTP_URL ?? 'smtp://127.0.0.1:54425',

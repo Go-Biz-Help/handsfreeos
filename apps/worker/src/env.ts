@@ -62,6 +62,7 @@ export interface WorkerEnv {
   /** Local demos and tests shorten the reply reminder (milliseconds); production uses workspace settings. */
   readonly reminderOverrideMs: number | null;
   readonly registrationPollMs: number;
+  readonly portPollMs: number;
   readonly fakeApprovalMs: number;
   /** Workspace email: Postmark in production; locally Mailpit over SMTP, with domains that verify themselves. */
   readonly emailTransport: 'postmark' | 'smtp';
@@ -458,6 +459,9 @@ export function readEnv(env: NodeJS.ProcessEnv = process.env): WorkerEnv {
     reminderOverrideMs: reminder && Number.isFinite(reminder) && reminder > 0 ? reminder : null,
     registrationPollMs: Number(
       env.REGISTRATION_POLL_MS ?? (telephonyProvider === 'fake' ? 2_000 : 15 * 60_000),
+    ),
+    portPollMs: Number(
+      env.PORT_POLL_MS ?? (telephonyProvider === 'fake' ? 2_000 : 6 * 60 * 60_000),
     ),
     fakeApprovalMs: Number(env.FAKE_APPROVAL_MS ?? 3_000),
     emailTransport,

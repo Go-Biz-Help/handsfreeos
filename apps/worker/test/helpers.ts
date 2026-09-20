@@ -91,6 +91,7 @@ export function testServices(
     sealer: createSealer(randomBytes(32).toString('base64')),
     reminderOverrideMs: opts.reminderOverrideMs ?? null,
     registrationPollMs: 50,
+    portPollMs: 50,
     email: {
       ...createLocalEmail({
         smtpUrl: process.env.SMTP_URL ?? 'smtp://127.0.0.1:54425',

@@ -54,6 +54,8 @@ export interface WorkerServices {
   readonly reminderOverrideMs: number | null;
   /** How often to ask the carrier about a registration under review. */
   readonly registrationPollMs: number;
+  /** How often to ask the carrier about a port. Slower than a registration: these take weeks, not hours. */
+  readonly portPollMs: number;
   /** Workspace email: the transport, workspace domains, the shared subdomain and the webhook credentials. */
   readonly email: EmailServices;
   /** Connected Outlook and Gmail mailboxes (in-memory ones locally and in tests). */
