@@ -372,6 +372,25 @@ describe('offline classes', () => {
     expect(registry.command('subscription.cancel')!.offline).toBe('online');
   });
 
+  /**
+   * A staff permission is checked against the staff role, and only a PLATFORM scope ever resolves one — so a
+   * command or query asking for `platform.*` or `support.*` from inside a workspace can never pass, whoever
+   * calls it. `wallet.adjust` shipped that way and was unreachable by anybody until this rule was written.
+   */
+  it('gives every staff permission a platform scope, or it is unreachable', () => {
+    const staffy = (permission: string | null) =>
+      permission !== null && /^(platform|support)\./.test(permission);
+    const wrong: string[] = [];
+    for (const d of [...registry.commands, ...registry.queries]) {
+      if (!staffy(d.permission)) continue;
+      // The scope function is called with a shape wide enough for either kind, and only its `kind` matters.
+      const anyId = '11111111-1111-4111-8111-111111111111';
+      const kind = d.scope({ workspaceId: anyId, organizationId: anyId } as never).kind;
+      if (kind !== 'platform') wrong.push(`${d.name} (${d.permission} in a ${kind} scope)`);
+    }
+    expect(wrong).toEqual([]);
+  });
+
   it('has a valid class on every command', () => {
     for (const c of registry.commands) {
       const ok =

@@ -18,10 +18,11 @@
  * do the arithmetic, which is what stops a balance and its statement ever disagreeing.
  */
 import { eq, sql } from 'drizzle-orm';
+import { rows } from '@hfos/db/client';
 import { usageWallets, walletRecharges } from '@hfos/db/schema';
 import { HfosError } from '../errors';
 import { defineCommand } from '../kernel/define';
-import { creditUsageKey, topUpUsageKey } from '../money/usage-keys';
+import { topUpUsageKey } from '../money/usage-keys';
 import {
   WalletAdjustInput,
   WalletAdjustOutput,
@@ -44,6 +45,9 @@ const inWorkspace = (i: { workspaceId: string }) => ({
   kind: 'workspace' as const,
   workspaceId: i.workspaceId,
 });
+
+/** Staff act on HandsFreeOS, not inside a business — which is also the only scope that resolves a staff role. */
+const onPlatform = () => ({ kind: 'platform' as const });
 
 type WalletRow = typeof usageWallets.$inferSelect;
 
@@ -562,6 +566,19 @@ export const walletResume = defineCommand({
 
 // ---------- what support may do ----------
 
+/**
+ * Support puts a credit on a business's balance.
+ *
+ * **Scoped to the platform, not to the business**, and that is not a detail. Every `platform.*`
+ * permission is checked against the staff role, and the staff role is only resolved by a platform
+ * scope — a workspace-scoped command asking for one can never pass, whoever is calling. That is how
+ * this shipped unreachable in step 5.
+ *
+ * **The row goes in through `private.staff_credit_wallet`**, a security-definer function, because the
+ * usage ledger has no insert policy or grant for a signed-in person at all and its guard demands the
+ * system's scope. Staff are not an exception to that rule; the function is HandsFreeOS saying so for
+ * exactly one row, and it does its own `staff_can` check rather than trusting this caller.
+ */
 export const walletAdjust = defineCommand({
   name: 'wallet.adjust',
   description:
@@ -570,37 +587,41 @@ export const walletAdjust = defineCommand({
   input: WalletAdjustInput,
   output: WalletAdjustOutput,
   permission: 'platform.wallets.adjust',
-  scope: inWorkspace,
+  scope: onPlatform,
   emits: ['wallet.adjusted'],
   async handler(ctx, input) {
-    const w = await wallet(ctx);
-    const kind = input.amountCents > 0 ? 'credit' : 'adjustment';
-    const made = await ctx.tx.execute(sql`
-      insert into app.usage_ledger (workspace_id, organization_id, kind, amount_cents, subject,
-        idempotency_key, meta, occurred_at)
-      values (${w.workspaceId}, ${ctx.scope.organizationId!}, ${kind}::app.usage_entry_kind,
-        ${input.amountCents}, ${input.reason.slice(0, 300)}, ${creditUsageKey(input.reference)},
-        ${JSON.stringify({ reason: input.reason, reference: input.reference, by: ctx.actor.type === 'human' ? ctx.actor.userId : null })}::jsonb,
-        now())
-      on conflict (workspace_id, idempotency_key) do nothing
-      returning id`);
-    const entryId = (made as unknown as { id: string }[])[0]?.id ?? null;
-    const after = await wallet(ctx);
-    if (entryId)
+    const by = ctx.actor.type === 'human' ? ctx.actor.userId : null;
+    const [row] = await rows<{
+      entry_id: string | null;
+      balance_cents: number | string;
+      recorded: boolean;
+    }>(
+      ctx.tx,
+      sql`select * from private.staff_credit_wallet(${input.workspaceId}::uuid,
+            ${input.amountCents}::bigint, ${input.reason}, ${input.reference}, ${by}::uuid)`,
+    );
+    if (!row) throw HfosError.notFound('That business has no usage wallet.');
+    const balanceCents = Number(row.balance_cents);
+    // A platform-scoped event: it belongs to HandsFreeOS's own record of what staff did, beside every
+    // other staff action, with the business named in it. What the business sees is the statement row.
+    if (row.recorded)
       await ctx.emit({
         type: 'wallet.adjusted',
         entityType: 'usage_wallet',
-        entityId: w.workspaceId,
-        payload: { amountCents: input.amountCents, reason: input.reason },
-        before: { balance: `${(w.balanceCents / 100).toFixed(2)}` },
-        after: { balance: `${(after.balanceCents / 100).toFixed(2)}`, why: input.reason },
+        entityId: input.workspaceId,
+        payload: {
+          workspaceId: input.workspaceId,
+          amountCents: input.amountCents,
+          reason: input.reason,
+        },
+        after: { balance: `${(balanceCents / 100).toFixed(2)}`, why: input.reason },
       });
     return {
-      workspaceId: w.workspaceId,
-      entryId,
-      balanceCents: after.balanceCents,
+      workspaceId: input.workspaceId,
+      entryId: row.entry_id,
+      balanceCents,
       // The same reference twice is the same decision, recorded once.
-      recorded: entryId !== null,
+      recorded: row.recorded,
     };
   },
 });
