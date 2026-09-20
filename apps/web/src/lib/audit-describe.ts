@@ -841,6 +841,7 @@ const HANDOFF_REASON_WORDS: Record<string, string> = {
   cancellation: 'cancelling service',
   limit: 'the daily reply limit',
   budget: 'the day’s AI limit',
+  wallet: 'the balance ran out',
   error: 'something went wrong',
   draft_expired: 'nobody approved its draft in time',
   loop: 'an automatic reply loop',

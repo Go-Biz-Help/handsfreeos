@@ -8,9 +8,17 @@ import {
 } from '@hfos/ai';
 import type { z } from 'zod';
 import type { TenantScope, WorkerServices } from '../services';
+import { asWorker } from '@hfos/db/client';
+import { walletRoom, WALLET_REFUSALS } from '@hfos/core/server';
 import { aiBudget, recordAndChargeAi, type AiUsageRef } from './budget';
 
-export type AiAskErrorCode = 'budget_reached' | 'ai_unavailable' | 'provider_error' | 'bad_output';
+export type AiAskErrorCode =
+  | 'budget_reached'
+  /** The usage balance has run out. Beside `budget_reached`: same shape, different limit. */
+  | 'wallet_empty'
+  | 'ai_unavailable'
+  | 'provider_error'
+  | 'bad_output';
 
 /**
  * Why askStructured has no answer, in words callers act on: a workflow step falls back, Try it answers 429
@@ -72,6 +80,12 @@ export async function askStructured<S extends z.ZodType>(
   if (!provider) throw new AiAskError('ai_unavailable', AI_UNAVAILABLE_MESSAGE);
   if ((await aiBudget.usedToday(ctx.db, scope)) >= ctx.ai.dailyTokens)
     throw new AiAskError('budget_reached', AI_BUDGET_MESSAGE);
+  // Beside the daily token limit, and for the same reason: both are a business's spending running out, and
+  // both stop before the provider is asked rather than after the tokens are gone.
+  const room = await asWorker(ctx.db, scope, (tx) =>
+    walletRoom(tx, scope.workspaceId, 'ai', (m, e) => ctx.log.error({ err: e }, m)),
+  );
+  if (!room.allowed) throw new AiAskError('wallet_empty', WALLET_REFUSALS.ai);
   let turn: AiTurn;
   try {
     turn = await provider.stream(

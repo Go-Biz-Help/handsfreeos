@@ -6,6 +6,7 @@ import { logChannelActivity } from '../crm/activities';
 import { intakeFromChannel, isOwnNumber } from '../crm/intake';
 import { formatPhone } from '../crm/phone';
 import { fullName, requirePerson } from '../crm/records';
+import { assertWalletHasRoom } from '../money/wallet-gate';
 import { HfosError } from '../errors';
 import { requireHuman } from '../kernel/actor';
 import { defineCommand } from '../kernel/define';
@@ -110,6 +111,7 @@ export const callStart = defineCommand({
     const number = await liveNumber(ctx.tx, workspaceId);
     if (!number || number.status !== 'active')
       throw HfosError.rule('no_number', 409, 'Get a business number to call customers.');
+    await assertWalletHasRoom(ctx.tx, workspaceId, 'call');
 
     let to: string;
     let personId: string | null;
@@ -252,6 +254,8 @@ export const callConnectMe = defineCommand({
         409,
         'Verify your cell phone first. HandsFreeOS rings it, then connects the customer.',
       );
+    // Two outbound legs, so it costs more than a browser call does — and the same refusal either way.
+    await assertWalletHasRoom(ctx.tx, workspaceId, 'call');
     const target = await bridgeTarget(ctx, input);
     const { to, personId } = target;
     if (to === number.e164)

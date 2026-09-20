@@ -99,6 +99,8 @@ function tryError(e: unknown): unknown {
       return HfosError.rule('ai_not_configured', 503, AI_UNAVAILABLE_MESSAGE);
     case 'budget_reached':
       return HfosError.rule('budget_reached', 429, AI_BUDGET_MESSAGE);
+    case 'wallet_empty':
+      return HfosError.rule('wallet_empty', 402, e.message);
     case 'provider_error':
       return e.retryable
         ? HfosError.rule('ai_busy', 503, AI_BUSY_MESSAGE)

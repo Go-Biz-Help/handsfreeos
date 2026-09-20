@@ -33,6 +33,7 @@ import {
   voiceUrls,
   type Routing,
 } from '../telephony/voice';
+import { mayRingOut, walletRoom } from '@hfos/core/server';
 import {
   authenticate,
   hasPermission,
@@ -203,7 +204,20 @@ export function registerVoiceRoutes(app: FastifyInstance, deps: HttpDeps): void 
     // Calling the business line from a forwarding phone (the owner's cell) should not ring that phone.
     const forwarding = routing.forwarding.filter((f) => f.e164 !== from);
     const identities = (route.client_identities ?? []).slice(0, 10);
-    if (identities.length + forwarding.length === 0)
+    /**
+     * **Inbound is never hard-blocked** (M16, step 9). A customer hearing "not in service" is the business's
+     * reputation, and Twilio bills us for the inbound leg whether we answer or not — refusing saves almost
+     * nothing. What stops past the overdraft is the *extra*: the outbound legs that ring somebody's own cell,
+     * which cost real money on top. The call still goes to voicemail, so the customer is still heard, and the
+     * voicemail still gets transcribed and still lands in the inbox.
+     *
+     * One extra condition on the test that was already here, which is exactly where the plan said to put it.
+     */
+    const room = await asWorker(deps.db, scope, (tx) =>
+      walletRoom(tx, route.workspace_id, 'call', (m, e) => deps.log.error({ err: e }, m)),
+    );
+    const ringOut = mayRingOut(room);
+    if (identities.length + forwarding.length === 0 || !ringOut)
       return xml(reply, noAnswerTwiml(routing, route, urls));
     const caller = isPhone(from) ? await callerCard(deps, scope, from) : null;
     return xml(

@@ -23579,7 +23579,7 @@ export interface operations {
                             /** @enum {string} */
                             handledBy: "none" | "ai" | "person";
                             handoffNote: string | null;
-                            handoffReason: ("asked_for_person" | "frustrated" | "cant_answer" | "sensitive" | "emergency" | "legal" | "complaint" | "refund" | "cancellation" | "limit" | "budget" | "error" | "draft_expired" | "loop" | "other") | null;
+                            handoffReason: ("asked_for_person" | "frustrated" | "cant_answer" | "sensitive" | "emergency" | "legal" | "complaint" | "refund" | "cancellation" | "limit" | "budget" | "wallet" | "error" | "draft_expired" | "loop" | "other") | null;
                             /** Format: uuid */
                             id: string;
                             lastDirection: ("inbound" | "outbound") | null;
@@ -24978,7 +24978,7 @@ export interface operations {
                             /** @enum {string} */
                             handledBy: "none" | "ai" | "person";
                             handoffNote: string | null;
-                            handoffReason: ("asked_for_person" | "frustrated" | "cant_answer" | "sensitive" | "emergency" | "legal" | "complaint" | "refund" | "cancellation" | "limit" | "budget" | "error" | "draft_expired" | "loop" | "other") | null;
+                            handoffReason: ("asked_for_person" | "frustrated" | "cant_answer" | "sensitive" | "emergency" | "legal" | "complaint" | "refund" | "cancellation" | "limit" | "budget" | "wallet" | "error" | "draft_expired" | "loop" | "other") | null;
                             /** Format: uuid */
                             id: string;
                             lastDirection: ("inbound" | "outbound") | null;

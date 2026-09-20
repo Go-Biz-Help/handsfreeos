@@ -65,6 +65,7 @@ const HANDOFF_REASON: Readonly<Record<ConversationHandoffReason, (name: string) 
   cancellation: () => 'they want to cancel their service',
   limit: (n) => `${n} reached today’s reply limit in this conversation`,
   budget: (n) => `${n} used its share of today’s AI limit`,
+  wallet: () => 'the balance ran out, so the AI paused',
   error: (n) => `something went wrong on ${n}’s side`,
   draft_expired: (n) => `nobody approved ${n}’s draft in time`,
   loop: () => 'it looked like an automatic reply talking back',

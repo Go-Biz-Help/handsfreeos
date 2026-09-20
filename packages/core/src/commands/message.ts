@@ -56,6 +56,7 @@ import {
   scheduledForOf,
   type QuietHoursState,
 } from '../messaging/quiet-hours';
+import { assertWalletHasRoom } from '../money/wallet-gate';
 import { confirmWord, messagePreview, smsKeyword, smsSegments, yesWord } from '../messaging/sms';
 import {
   findOrCreateConversation,
@@ -181,6 +182,12 @@ async function assertCanText(
       409,
       'Texting turns on when the carriers approve your registration.',
     );
+  /**
+   * After the number and carrier checks, before opt-out. Order matters both ways: a business with no number
+   * should be told that rather than about money, and STOP must always win — a customer who opted out is never
+   * texted, whatever the balance says, so the opt-out check stays last of the three.
+   */
+  await assertWalletHasRoom(ctx.tx, workspaceId, 'text');
   if (await customerOptedOut(ctx, conv))
     throw HfosError.rule(
       'opted_out',
@@ -995,6 +1002,13 @@ export const messageCancelScheduled = defineCommand({
   },
 });
 
+/**
+ * How long a scheduled text waits when the balance is empty. An hour, because that is how often `wallet.plan`
+ * sweeps: a shorter wait would just re-read the same balance, and a longer one would leave a text sitting after
+ * the top-up that funded it went through.
+ */
+const WALLET_WAIT_MS = 60 * 60_000;
+
 export const messageReleaseScheduled = defineCommand({
   name: 'message.release_scheduled',
   description:
@@ -1039,8 +1053,19 @@ export const messageReleaseScheduled = defineCommand({
       await assertCanText(ctx, conv, { acknowledgeQuietHours: true, skipQuietHours: true });
     } catch (e) {
       if (!(e instanceof HfosError) || e.status >= 500) throw e;
-      // The customer texted STOP overnight, or texting was switched off: it doesn't go, and says why.
       const errorCode = e.rule ?? e.code;
+      // An empty balance is the one refusal that undoes itself. STOP and a switched-off number are decisions;
+      // this is a card that hasn't been charged yet, so the text keeps its place in the queue, says why it is
+      // still waiting, and goes on its own once the balance is topped up.
+      if (errorCode === 'wallet_empty') {
+        const later = new Date(now.getTime() + WALLET_WAIT_MS);
+        await ctx.tx
+          .update(messages)
+          .set({ occurredAt: later, errorMessage: e.message })
+          .where(eq(messages.id, m.id));
+        return outcome('waiting', later);
+      }
+      // The customer texted STOP overnight, or texting was switched off: it doesn't go, and says why.
       await ctx.tx
         .update(messages)
         .set({ status: 'failed', errorCode, errorMessage: e.message })

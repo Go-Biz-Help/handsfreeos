@@ -138,6 +138,13 @@ const BUDGET_PROBLEM: ScanProblem = {
     'Today’s AI limit for this business was reached, so the scan stopped early. Run it again tomorrow to read the rest of the website.',
 };
 
+/** The other way a scan runs out of room to spend: the usage balance rather than the daily token limit. */
+const WALLET_PROBLEM: ScanProblem = {
+  code: 'wallet_empty',
+  message:
+    'The balance ran out, so the scan stopped early. Top up and run it again to read the rest of the website.',
+};
+
 /** `knowledge_scan.requested`: queue the scan's job. */
 export async function onKnowledgeScanRequested(ctx: HandlerContext): Promise<void> {
   const p = ctx.event.payload as {
@@ -525,11 +532,13 @@ async function readNextPage(run: ScanRun): Promise<boolean> {
       'failed',
       e.code === 'budget_reached'
         ? BUDGET_PROBLEM
-        : {
-            code: 'ai_failed',
-            message:
-              'The AI couldn’t read the website’s pages, so the scan stopped. Try again later.',
-          },
+        : e.code === 'wallet_empty'
+          ? WALLET_PROBLEM
+          : {
+              code: 'ai_failed',
+              message:
+                'The AI couldn’t read the website’s pages, so the scan stopped. Try again later.',
+            },
     );
     return true;
   }

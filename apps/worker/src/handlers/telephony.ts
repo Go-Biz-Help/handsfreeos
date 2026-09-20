@@ -14,6 +14,8 @@ import {
   phoneNumberMarkReleased,
   registrationUpdateStatus,
   scheduleJob,
+  WALLET_REFUSALS,
+  walletRoom,
 } from '@hfos/core/server';
 import { asWorker, rows, sql, type Tx } from '@hfos/db/client';
 import {
@@ -381,6 +383,16 @@ export const onMessageQueued: EventHandler = async (ctx) => {
   const account = await loadAccount(ctx.tx, scope.workspaceId, ctx.sealer);
   if (!conv || !number || number.status !== 'active' || !account) {
     await fail('no_number', 'The business number is not active.');
+    return;
+  }
+  // The second wallet gate (M16 step 9). The first is on message.send, but a text can sit queued for minutes —
+  // scheduled, held, retried — and the balance can run out in between. Failing here means the message lands
+  // `failed` with a code the inbox explains, rather than disappearing into a carrier call nobody paid for.
+  const room = await walletRoom(ctx.tx, scope.workspaceId, 'text', (msg, e) =>
+    ctx.log.error({ err: e }, msg),
+  );
+  if (!room.allowed) {
+    await fail('wallet_empty', WALLET_REFUSALS.text);
     return;
   }
   const mediaUrls = await Promise.all(

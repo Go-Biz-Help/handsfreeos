@@ -6,6 +6,7 @@ import { userIdOf } from '../kernel/actor';
 import { defineCommand } from '../kernel/define';
 import type { CommandContext } from '../kernel/types';
 import { liveNumber, workspaceMessaging } from '../messaging/store';
+import { assertWalletHasRoom } from '../money/wallet-gate';
 import {
   PhoneNumberActivateInput,
   PhoneNumberBuyInput,
@@ -54,6 +55,9 @@ export const phoneNumberBuy = defineCommand({
     const workspaceId = ctx.scope.workspaceId!;
     if (await liveNumber(ctx.tx, workspaceId))
       throw HfosError.rule('number_exists', 409, 'This workspace already has a business number.');
+    // A number is charged a month up front, so it needs the whole month there. Nobody should be able to buy
+    // one at zero and be billed for it later.
+    await assertWalletHasRoom(ctx.tx, workspaceId, 'number');
     const [row] = await ctx.tx
       .insert(phoneNumbers)
       .values({

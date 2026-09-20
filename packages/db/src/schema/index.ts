@@ -806,7 +806,7 @@ export const conversations = app.table('conversations', {
   needsPersonSince: ts('needs_person_since'),
   /**
    * asked_for_person, frustrated, cant_answer, sensitive, emergency, legal, complaint, refund,
-   * cancellation, limit, budget, error, draft_expired, loop, other.
+   * cancellation, limit, budget, wallet, error, draft_expired, loop, other.
    */
   handoffReason: text('handoff_reason'),
   handoffNote: text('handoff_note'),
@@ -4168,6 +4168,8 @@ export const usageWallets = app.table('usage_wallets', {
   suspendedReason: text('suspended_reason'),
   lowWarnedAt: ts('low_warned_at'),
   warnFingerprint: text('warn_fingerprint'),
+  /** Whether a zero balance actually stops this business sending. Off everywhere until staff turn it on. */
+  enforced: boolean('enforced').notNull().default(false),
   ...timestamps(),
 });
 

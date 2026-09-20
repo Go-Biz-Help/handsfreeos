@@ -62,6 +62,7 @@ export const HAND_OFF_REASONS = [
 export const SYSTEM_HAND_OFF_REASONS = [
   'reply_limit',
   'budget',
+  'wallet',
   'error',
   'check_failed',
   'draft_expired',
@@ -78,6 +79,7 @@ export const HAND_OFF_REASON_LABELS: Readonly<Record<HandOffReason, string>> = {
   other: 'Needs a person',
   reply_limit: 'Reached today’s reply limit',
   budget: 'Reached the AI limit',
+  wallet: 'The balance ran out',
   error: 'Something went wrong',
   check_failed: 'Its reply didn’t pass the safety check',
   draft_expired: 'Nobody decided its draft in time',

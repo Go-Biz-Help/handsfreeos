@@ -7,6 +7,7 @@ export * from './totals';
 export * from './rates';
 export * from './usage-keys';
 export * from './wallet-ladders';
+export * from './wallet-gate';
 export * from './format';
 export * from './status';
 export * from './numbering';
