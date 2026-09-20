@@ -38,6 +38,8 @@ import {
   personSetSmsConsent,
   phoneNumberActivate,
   phoneNumberBuy,
+  phoneNumberMarkReleased,
+  phoneNumberRelease,
   phoneNumberSetRouting,
   phoneSetupStatus,
   phoneUpdateSettings,
@@ -254,15 +256,35 @@ describe('the business number and carrier approval', () => {
     expect(status).toMatchObject({ nextStep: 'provisioning', voiceReady: false, canManage: true });
     expect(status.number?.status).toBe('provisioning');
     expect((await ask(phoneSetupStatus, { workspaceId: wsId }, member)).canManage).toBe(false);
-    await expectHfos(
-      () =>
-        run(
-          phoneNumberBuy,
-          { workspaceId: wsId, e164: randomE164(), numberType: 'local' },
-          adminUser,
-        ),
-      'rule_violation',
-      'number_exists',
+    /*
+     * A second number is **allowed** now: 0077 dropped `phone_numbers_one_live_per_workspace` on purpose,
+     * because a second location, a dispatch line or a toll-free beside a local one are all ordinary. This
+     * asserted the rule that was removed, and the cost was not one failure — the buy succeeded, the fixture
+     * ended up holding two numbers, and thirteen tests below it broke on the wrong one.
+     *
+     * What still refuses is the ceiling, which is what stands between a stuck purchase retry and forty
+     * numbers on somebody's card.
+     */
+    const secondE164 = randomE164();
+    const second = await run(
+      phoneNumberBuy,
+      { workspaceId: wsId, e164: secondE164, numberType: 'local' },
+      adminUser,
+    );
+    expect(second.phoneNumberId).toBeTruthy();
+    // Given straight back, and all the way back: `releasing` still counts as live, so the worker has to
+    // finish it or the rest of this file stops describing a one-number business.
+    await run(
+      phoneNumberRelease,
+      { workspaceId: wsId, phoneNumberId: second.phoneNumberId, confirmE164: secondE164 },
+      owner,
+    );
+    await sys(phoneNumberMarkReleased, {
+      workspaceId: wsId,
+      phoneNumberId: second.phoneNumberId,
+    });
+    expect((await ask(phoneSetupStatus, { workspaceId: wsId }, owner)).number?.e164).toBe(
+      businessNumber,
     );
     // People cannot pose as the worker.
     await expectHfos(

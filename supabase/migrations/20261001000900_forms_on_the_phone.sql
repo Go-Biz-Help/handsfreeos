@@ -72,13 +72,28 @@ end $$;
 -- ---------- what a phone should hold ----------
 create or replace function private.form_sync_active(p_form uuid)
 returns void language sql security definer set search_path = '' as $$
+  /*
+   * `coalesce(…, false)` on both sides, and it is not decoration.
+   *
+   * A form that is closed or archived matches no row in that subquery, so the scalar is NULL,
+   * `v.id = NULL` is NULL, and this wrote NULL into a `not null` column. The `where` matched too, because
+   * `false is distinct from NULL`. Same for a live form whose `active_version_id` is null.
+   *
+   * It was always wrong; the append-only guard refused every write, so it never got the chance to fail.
+   * Teaching the guard about `is_active` let it through and three tests said so at once — all of them about
+   * a form being closed.
+   *
+   * Not live, or nothing published: no version belongs on a phone, which is `false`, not "unknown".
+   */
   update app.form_versions v
-  set is_active = (
-    v.id = (select f.active_version_id from app.forms f where f.id = p_form and f.status = 'live')
+  set is_active = coalesce(
+    v.id = (select f.active_version_id from app.forms f where f.id = p_form and f.status = 'live'),
+    false
   )
   where v.form_id = p_form
-    and v.is_active is distinct from (
-      v.id = (select f.active_version_id from app.forms f where f.id = p_form and f.status = 'live')
+    and v.is_active is distinct from coalesce(
+      v.id = (select f.active_version_id from app.forms f where f.id = p_form and f.status = 'live'),
+      false
     );
 $$;
 
