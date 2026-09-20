@@ -828,3 +828,81 @@ export function topUpRaisedEmail(input: {
   );
   return { subject, text, html };
 }
+
+/**
+ * The balance has run out (M16). One of the two emails a business gets about its own balance, and the reason
+ * they exist at all: the push switch for these can be turned off, and at zero we deliberately do **not** send
+ * a text — spending money to tell somebody they have none is absurd, and on an empty balance it would not go
+ * out anyway. Without an email a business whose phone had stopped could have nothing but a card in an app
+ * nobody had opened. The terms say we tell them why rather than failing quietly; this is how.
+ *
+ * `stopping` is the wallet's stage. At `warn` nothing has stopped yet and the email says so — that stretch
+ * exists so a business can put a card on before any of this costs it a customer.
+ */
+export function walletEmptyEmail(input: {
+  business: string;
+  balanceCents: number;
+  hasCard: boolean;
+  autoTopup: boolean;
+  stopping: boolean;
+  link: string;
+}): EmailContent {
+  const left =
+    input.balanceCents < 0
+      ? `$${(Math.abs(input.balanceCents) / 100).toFixed(2)} over`
+      : `$${(input.balanceCents / 100).toFixed(2)} left`;
+  const subject = input.stopping
+    ? `Texts and calls have stopped for ${input.business}`
+    : `${input.business} is out of balance — texts and calls still work`;
+  const what = input.stopping
+    ? `${input.business}'s usage balance has run out (${left}), so outgoing texts and calls have stopped. Calls coming in still reach you, and messages coming in are still received and filed — nothing is lost.`
+    : `${input.business}'s usage balance has run out (${left}). Nothing has stopped: texts and calls still work for now. This is the warning before they don't.`;
+  const fix = !input.hasCard
+    ? 'There is no card on this balance yet. Add one and it tops itself up from now on.'
+    : !input.autoTopup
+      ? 'There is a card on this balance, but automatic top-up is off. Turn it on and this stops happening.'
+      : 'The card on file has not covered it. Check that it is still good, or top up by hand.';
+  const foot = `Sent to the owners and admins of ${input.business}. This is about what you pay HandsFreeOS, not about money your own customers owe you.`;
+  const text = [what, '', fix, '', `Top up: ${input.link}`, '', foot].join('\n');
+  const html = shell(
+    wordmark +
+      para(escapeHtml(what)) +
+      para(escapeHtml(fix)) +
+      button(input.link, 'Top up') +
+      small(escapeHtml(foot)),
+  );
+  return { subject, text, html };
+}
+
+/**
+ * The card on the balance has stopped working and the retries have run out (M16). Harder than the one above,
+ * because there is nothing automatic left to try: the ladder waited six hours, a day and three days, and the
+ * bank said no each time. What it needs is a different card, which only a person can provide.
+ */
+export function walletCardDeclinedEmail(input: {
+  business: string;
+  reason: string | null;
+  stopping: boolean;
+  link: string;
+}): EmailContent {
+  const subject = `The card for ${input.business} was declined`;
+  const what = `We tried to top up ${input.business}'s usage balance and the card was declined. ${
+    input.reason ?? 'The bank did not say why.'
+  }`;
+  const tried =
+    'We tried again after six hours, after a day and after three days. It has been declined each time, so we have stopped trying rather than keep asking the bank.';
+  const now = input.stopping
+    ? 'Outgoing texts and calls have stopped until there is a working card. Calls coming in still reach you.'
+    : 'Nothing has stopped yet, so there is time to sort it out.';
+  const foot = `Sent to the owners and admins of ${input.business}.`;
+  const text = [what, '', tried, '', now, '', `Add a card: ${input.link}`, '', foot].join('\n');
+  const html = shell(
+    wordmark +
+      para(escapeHtml(what)) +
+      para(escapeHtml(tried)) +
+      para(escapeHtml(now)) +
+      button(input.link, 'Add a card') +
+      small(escapeHtml(foot)),
+  );
+  return { subject, text, html };
+}

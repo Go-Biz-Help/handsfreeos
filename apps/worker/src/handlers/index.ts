@@ -46,6 +46,7 @@ import {
   onSubscriptionLive,
 } from '../money/jobs';
 import { onWalletLow } from '../money/recharge';
+import { onWalletDeclinedNotice, onWalletEmptyNotice } from '../money/wallet-notices';
 import { onRefundRequested } from '../money/refunds';
 import { onPlanCardRequested, onPlanChanged } from '../money/subscriptions';
 import { onBridgeCancelled, onBridgeRequested, onVerificationRequested } from '../telephony/cell';
@@ -116,9 +117,12 @@ const ownTeammateAndWorkflows: HandlerMap = withWorkflows(
     // A person asked for a refund: the provider call is queued, so it retries on its own (money/refunds.ts).
     'refund.requested': onRefundRequested,
     // The usage wallet ran low (M16): if it has a card and automatic top-up on, the charge is queued as a job
-    // for the same reason a refund is. `wallet.empty` is deliberately not here — by then the top-up has
-    // already been tried, and what an empty balance needs is a warning, not another attempt.
+    // for the same reason a refund is. `wallet.empty` brings no second attempt — by then the top-up has
+    // already been tried — but it does bring the email, because a push can be switched off and at zero we do
+    // not send a text to say there is no money for texts.
     'wallet.low': onWalletLow,
+    'wallet.empty': onWalletEmptyNotice,
+    'wallet.suspended': onWalletDeclinedNotice,
     // Money (money/jobs.ts): a document that went out carries its own message and then the jobs that follow
     // it — an estimate's nudge and expiry, an invoice's reminder ladder and its overdue mark. A payment
     // brings the customer a receipt (or, where nobody was watching, that it didn't go through), and a
