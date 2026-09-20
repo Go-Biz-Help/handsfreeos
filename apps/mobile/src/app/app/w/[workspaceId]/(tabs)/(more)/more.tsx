@@ -5,6 +5,7 @@ import { View } from 'react-native';
 import {
   CircleDollarSign,
   ClipboardList,
+  ClipboardPen,
   CloudCheck,
   Globe,
   LifeBuoy,
@@ -72,6 +73,12 @@ export default function More() {
           label={MORE_WORDS.money}
           onPress={() => go('money')}
           testID="more-money"
+        />
+        <ListRow
+          icon={ClipboardPen}
+          label={MORE_WORDS.forms}
+          onPress={() => go('forms')}
+          testID="more-forms"
         />
         <ListRow
           icon={Sparkles}

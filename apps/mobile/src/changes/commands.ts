@@ -58,6 +58,8 @@ import {
   FileBeginUploadOutput,
   FileConfirmInput,
   FileConfirmOutput,
+  FormRecordInput,
+  FormSubmitOutput,
   FRESH_MINUTES,
   InvoiceCreateInput,
   InvoiceRecordCashPaymentInput,
@@ -191,6 +193,9 @@ export const PHONE_COMMANDS = {
   'estimate.update': command(ONLINE, EstimateUpdateInput, EstimateStateOutput),
   'file.begin_upload': command(ANYTIME, FileBeginUploadInput, FileBeginUploadOutput),
   'file.confirm': command(ANYTIME, FileConfirmInput, FileConfirmOutput),
+  // M17: a form filled in on a job. Made and sent in one go, with an id from this phone, so the queue
+  // retrying it is the same answer sheet rather than a second one.
+  'form_response.record': command(ANYTIME, FormRecordInput, FormSubmitOutput),
   'invoice.create': command(ONLINE, InvoiceCreateInput, InvoiceStateOutput),
   'invoice.record_cash_payment': command(
     ANYTIME,

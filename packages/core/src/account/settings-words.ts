@@ -45,6 +45,8 @@ export const MORE_WORDS = {
   customers: 'Customers',
   tasks: 'Tasks',
   money: 'Money',
+  /** M17: forms a phone can fill in with no signal. */
+  forms: 'Forms',
   approvals: 'Approvals',
   settings: 'Settings',
   openOnWeb: 'Open on the web',

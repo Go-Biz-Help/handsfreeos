@@ -29,6 +29,7 @@ export { default as CircleCheck } from 'lucide-react-native/icons/circle-check';
 export { default as CircleDollarSign } from 'lucide-react-native/icons/circle-dollar-sign';
 export { default as CirclePause } from 'lucide-react-native/icons/circle-pause';
 export { default as ClipboardList } from 'lucide-react-native/icons/clipboard-list';
+export { default as ClipboardPen } from 'lucide-react-native/icons/clipboard-pen';
 export { default as Clock } from 'lucide-react-native/icons/clock';
 export { default as CloudCheck } from 'lucide-react-native/icons/cloud-check';
 export { default as CloudDownload } from 'lucide-react-native/icons/cloud-download';

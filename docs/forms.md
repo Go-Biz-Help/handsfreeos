@@ -73,14 +73,25 @@ A form marked "the AI teammate may ask this" (`in_chat`) becomes two teammate to
 state: the sheet is the same row the public page writes, found by customer and form, so a conversation that
 stops halfway can be finished on the link and the other way round.
 
-## What is not built yet
+## On the phone (M17)
 
-**Filling a form in on the phone, offline.** The mobile app can open a form's public link, but the tables
-are not in the PowerSync rules (`apps/sync/sync-config.yaml`) and there is no form screen in
-`apps/mobile/`. Doing it properly means: the `powersync` publication and the sync rules for `forms`,
-`form_versions` and `form_responses`; a form screen that runs `formState` from core (it is browser-safe, so
-it runs on the phone unchanged); and the offline queue writing `form_response.submit` like any other
-command. The engine is ready for it — nothing in `forms/` needs a change.
+Built, and nothing in `forms/` had to change — the engine really was ready.
+
+- **`app.forms` and `app.form_versions` are published; `app.form_responses` is not.** Its
+  `resume_token_hash` is a secret column by `packages/db/test/sync-secrets.test.ts`'s rule, and PowerSync's
+  first copy of a table reads every column whatever the stream selects. A phone filling a form in needs the
+  questions, not a row.
+- **`form_versions.is_active`** is a stored flag meaning _a phone should hold this one_: the form's active
+  version, while the form is live. A stream cannot join, which is the same reason `sync_window` is stored.
+- **`form_response.record`** makes the answer sheet and sends it in one go, with an id from the phone, then
+  hands over to `form_response.submit` so every consequence — the customer, the lead, the workflows — is the
+  form's own behaviour and not a second set of rules.
+- **`apps/mobile/src/forms/`** and `app/.../forms/[formId].tsx` render it with core's `formState` and
+  `answerProblem`, so what the phone accepts is what the server accepts.
+- **A file, a signature or a card payment stops the whole form** with "open this one on the web", rather
+  than rendering the other questions and quietly dropping that one.
+
+## What is not built yet
 
 **Agency templates for forms.** M6's template mechanism pushes workflows to client businesses; forms would
 use the same one, and `diffForms` already describes what an update would do.
