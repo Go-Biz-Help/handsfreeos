@@ -309,6 +309,11 @@ describe('offline classes', () => {
     'appointment.update': 'anytime',
     'appointment.set_status': 'anytime',
     'attendee.confirm': 'anytime',
+    // Putting a conversation away and bringing it back: nothing reaches a customer either way, and doing it
+    // twice is doing it once. The phone's screen and sync rules come with the M16 mobile work; the class is
+    // declared here because the kernel's answer does not depend on a screen existing yet.
+    'conversation.archive': 'anytime',
+    'conversation.restore': 'anytime',
     // Money: cash is recorded any time; sending a document or a link reaches the customer.
     'invoice.record_cash_payment': 'anytime',
     'invoice.send': FRESH,

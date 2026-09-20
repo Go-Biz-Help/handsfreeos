@@ -5157,6 +5157,106 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/wallet.adjust": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Support: put a credit on a business’s balance, or take one back, with a reason. It shows on their statement like everything else.
+         * @description Risk level 4. Requires platform.wallets.adjust. Emits wallet.adjusted.
+         */
+        post: operations["command_wallet_adjust"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/wallet.forget_card": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Take the card off the wallet. Automatic top-up goes off with it, because a top-up with nothing to charge is a promise nobody can keep.
+         * @description Risk level 3. Requires money.manage. Emits wallet.card_forgotten.
+         */
+        post: operations["command_wallet_forget_card"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/wallet.request_card": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start putting a card on the wallet. The worker opens the page the card is typed on; nothing about the card is ever written here.
+         * @description Risk level 2. Requires money.manage. Emits wallet.card_requested.
+         */
+        post: operations["command_wallet_request_card"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/wallet.set_auto_topup": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Turn automatic top-up on or off, and set the balance it happens at, how much it adds, and how far the balance may go under before outbound texts and calls stop.
+         * @description Risk level 2. Requires money.manage. Emits wallet.settings_changed.
+         */
+        post: operations["command_wallet_set_auto_topup"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/wallet.top_up": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add money to the balance now, from the card on file. A top-up somebody asked for never raises the automatic amount.
+         * @description Risk level 3. Requires money.manage. Emits wallet.recharge_requested.
+         */
+        post: operations["command_wallet_top_up"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/workflow_proposal.apply": {
         parameters: {
             query?: never;
@@ -18954,6 +19054,189 @@ export interface operations {
                     "application/json": {
                         /** Format: uuid */
                         entryId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_wallet_adjust: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    amountCents: number;
+                    reason: string;
+                    reference: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        balanceCents: number;
+                        entryId: string | null;
+                        recorded: boolean;
+                        /** Format: uuid */
+                        workspaceId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_wallet_forget_card: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        cardBrand: string | null;
+                        cardExpiryMonth: number | null;
+                        cardExpiryYear: number | null;
+                        cardLast4: string | null;
+                        hasCard: boolean;
+                        /** Format: uuid */
+                        workspaceId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_wallet_request_card: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        cardBrand: string | null;
+                        cardExpiryMonth: number | null;
+                        cardExpiryYear: number | null;
+                        cardLast4: string | null;
+                        hasCard: boolean;
+                        /** Format: uuid */
+                        workspaceId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_wallet_set_auto_topup: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    autoTopup?: boolean;
+                    floorCents?: number;
+                    overdraftCents?: number;
+                    topupCents?: number;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        autoTopup: boolean;
+                        balanceCents: number;
+                        floorCents: number;
+                        hasCard: boolean;
+                        overdraftCents: number;
+                        suspended: boolean;
+                        topupCents: number;
+                        /** Format: uuid */
+                        workspaceId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_wallet_top_up: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    amountCents?: number;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        amountCents: number;
+                        /** Format: uuid */
+                        rechargeId: string;
+                        /** @enum {string} */
+                        status: "pending" | "succeeded" | "failed" | "cancelled";
+                        /** Format: uuid */
+                        workspaceId: string;
                     };
                 };
             };

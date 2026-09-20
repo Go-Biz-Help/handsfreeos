@@ -195,7 +195,8 @@ export function createStripePayments(opts: {
    * as the intent Stripe attached to it; anything else is a real failure.
    */
   async function charged(
-    account: PaymentAccount,
+    /** The seller the money goes to. **Null is HandsFreeOS itself**: no header, so the money comes to us. */
+    account: PaymentAccount | null,
     path: string,
     body: Json,
     key: string,
@@ -205,7 +206,7 @@ export function createStripePayments(opts: {
       method: 'POST',
       headers: {
         authorization: `Bearer ${secretKey}`,
-        'stripe-account': account.externalAccountId,
+        ...(account ? { 'stripe-account': account.externalAccountId } : {}),
         'content-type': 'application/x-www-form-urlencoded',
         'idempotency-key': idempotencyKey(key),
       },
@@ -560,6 +561,61 @@ export function createStripePayments(opts: {
       await api(account, `/payment_methods/${encodeURIComponent(input.token)}/detach`, {
         body: {},
       });
+    },
+
+    /**
+     * Our own charges: the usage wallet's top-ups. Every call here passes `null` where a seller's account
+     * would go, which is the whole of what makes the money ours — with Stripe Connect, the header is the
+     * difference between their bank account and ours.
+     */
+    platform: {
+      supported: true,
+
+      async ensureCustomer(input: CustomerInput) {
+        if (input.customerRef) return { customerRef: input.customerRef };
+        const made = await api<Json>(null, '/customers', {
+          body: {
+            ...(input.name ? { name: input.name.slice(0, 200) } : {}),
+            ...(input.email ? { email: input.email.slice(0, 200) } : {}),
+            ...(input.phone ? { phone: input.phone.slice(0, 40) } : {}),
+          },
+          idempotencyKey: input.idempotencyKey,
+        });
+        return { customerRef: String(made['id'] ?? '') };
+      },
+
+      async saveMethod(input) {
+        const attached = await api<Json>(
+          null,
+          `/payment_methods/${encodeURIComponent(input.sourceToken)}/attach`,
+          { body: { customer: input.customerRef }, idempotencyKey: input.idempotencyKey },
+        );
+        return cardOf(attached);
+      },
+
+      async forgetMethod(input) {
+        await api(null, `/payment_methods/${encodeURIComponent(input.token)}/detach`, { body: {} });
+      },
+
+      charge(input) {
+        const amount = requireAmount(input.amountCents);
+        return charged(
+          null,
+          '/payment_intents',
+          {
+            amount,
+            currency: 'usd',
+            confirm: true,
+            off_session: true,
+            ...(input.sourceToken ? { payment_method: input.sourceToken } : {}),
+            ...(input.customerRef ? { customer: input.customerRef } : {}),
+            ...(input.description ? { description: input.description.slice(0, 200) } : {}),
+            payment_method_types: ['card'],
+            metadata: cleanMetadata(input.metadata),
+          },
+          input.idempotencyKey,
+        );
+      },
     },
 
     subscriptions: {

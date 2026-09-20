@@ -322,6 +322,18 @@ export interface PaymentProvider {
     input: { customerRef: string; token: string },
   ): Promise<void>;
 
+  /**
+   * Charges **HandsFreeOS itself** makes: the usage wallet's top-ups (M16, step 5). Everything else on this
+   * interface acts for a business against their connected account; these act for us, against nobody's.
+   *
+   * They take no account at all, on purpose. With Stripe Connect a call carrying the `stripe-account` header
+   * is the business's and a call without it is ours — the difference between money landing in their bank and
+   * money landing in ours is one header. Passing an account somehow marked "not really an account" would put
+   * that difference inside a conditional somebody could get wrong; having no account to pass makes it
+   * impossible to get wrong.
+   */
+  readonly platform: PlatformPayments;
+
   /** Plans run on the provider: it brings the retries, the card updater and the re-authentication. */
   readonly subscriptions: {
     create(account: PaymentAccount, input: SubscriptionInput): Promise<SubscriptionResult>;
@@ -362,6 +374,38 @@ export interface PaymentProvider {
  * The provider no longer accepts the sign-in (revoked, deauthorized, a token 30 days gone): the business must
  * reconnect. Connections move to `reauth_required` and the owners hear once.
  */
+/**
+ * What HandsFreeOS can do with its own money. Square is absent on purpose: its API acts only as a seller with
+ * that seller's own token, so there is no way to charge a business through it on our behalf. `supported` is
+ * false there and every method refuses in words a person can read — which is what `wallet.request_card` says
+ * back to a business that has only connected Square.
+ */
+export interface PlatformPayments {
+  readonly supported: boolean;
+  /** Us, as a customer of the provider, for one business. Their id for it is kept on the wallet. */
+  ensureCustomer(input: CustomerInput): Promise<{ customerRef: string }>;
+  saveMethod(input: {
+    customerRef: string;
+    sourceToken: string;
+    idempotencyKey: string;
+  }): Promise<SavedMethod>;
+  forgetMethod(input: { customerRef: string; token: string }): Promise<void>;
+  /** A top-up. A declined card is a returned `failed`, never an exception: it is an answer, not a breakdown. */
+  charge(input: ChargeInput): Promise<PaymentResult>;
+}
+
+/** What a provider says when it has no way to take money for us. */
+export class PlatformUnsupportedError extends Error {
+  constructor(readonly provider: PaymentProviderName) {
+    super(
+      provider === 'square'
+        ? 'Square can only take money for your own customers, so HandsFreeOS cannot bill a card through it. Connect Stripe to keep your balance topped up.'
+        : `HandsFreeOS cannot bill a card through ${provider}.`,
+    );
+    this.name = 'PlatformUnsupportedError';
+  }
+}
+
 export class PaymentAuthError extends Error {
   constructor(
     message: string,

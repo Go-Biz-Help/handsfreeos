@@ -13,6 +13,7 @@
  *
  * Pure and browser-safe, so a test can check a key without a database.
  */
+import { intlTimeZone } from '../intl/engine-zones';
 
 /** A provider's id, trimmed and bounded, or nothing at all. An event with no id of its own cannot be counted. */
 function sid(value: string | null | undefined): string | null {
@@ -99,11 +100,15 @@ export function billingDay(value: string): string {
   return match[1]!;
 }
 
-/** The month a moment falls in, in a time zone, for the number sweep. */
+/**
+ * The month a moment falls in, where the business is, for the number sweep. The zone goes through
+ * `intlTimeZone` like every other Intl call in core: a device whose time-zone data has never heard of
+ * `America/Ciudad_Juarez` would otherwise throw here, and charging a month is not the place to find out.
+ */
 export function monthOf(at: Date | number, timeZone: string): string {
   const d = typeof at === 'number' ? new Date(at) : at;
   const parts = new Intl.DateTimeFormat('en-CA', {
-    timeZone,
+    timeZone: intlTimeZone(timeZone),
     year: 'numeric',
     month: '2-digit',
   }).formatToParts(d);

@@ -555,6 +555,8 @@ describe('a zone this engine’s time-zone data doesn’t have', () => {
       'calendar/engine/zoned.ts',
       'calendar/when.ts',
       'messaging/quiet-hours.ts',
+      // The wallet's month key: what month a phone number's rent falls in, where the business is (M16).
+      'money/usage-keys.ts',
       'workflows/templates.ts',
     ]);
     // The scan catches a call that skips it.
