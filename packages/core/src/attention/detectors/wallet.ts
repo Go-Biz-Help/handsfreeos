@@ -14,6 +14,13 @@
  *
  * One card at a time: `wallet_empty` supersedes `wallet_low`, and a declined card supersedes both, because a
  * business staring at three cards about the same thing learns nothing from the second and third.
+ *
+ * **None of them says anything until the business is on the wallet.** The `stage` is what makes that true.
+ * At `off` these return null, whatever the balance says — which matters most during a shadow week, when every
+ * balance in the system goes negative and nothing is being charged for. Telling a thousand businesses their
+ * balance had run out, when no balance existed and nothing had stopped, is the one way this feature could
+ * have done real damage on its first day. At `warn` the cards appear and say what *will* happen; only at
+ * `enforce` do they say what has.
  */
 import { chip } from '../chips';
 import { fingerprintOf } from '../fingerprint';
@@ -26,6 +33,8 @@ const NO_VALUE = { value: 0, valueIsEstimate: false, moneyKey: null } as const;
 export interface WalletFacts {
   readonly wallet: {
     readonly workspaceId: string;
+    /** How far along the wallet this business is. `off` means say nothing at all. */
+    readonly stage: 'off' | 'warn' | 'enforce';
     readonly balanceCents: number;
     readonly floorCents: number;
     readonly autoTopup: boolean;
@@ -48,6 +57,7 @@ const left = (cents: number): string =>
 
 function assessDeclined(f: WalletFacts, _settings: AttentionSettings, _now: number): Assessment {
   const w = f.wallet;
+  if (w.stage === 'off') return null;
   if (!w.suspendedAt) return null;
   const since = Date.parse(w.suspendedAt);
   return detection({
@@ -75,6 +85,7 @@ function assessDeclined(f: WalletFacts, _settings: AttentionSettings, _now: numb
 
 function assessEmpty(f: WalletFacts, _settings: AttentionSettings, now: number): Assessment {
   const w = f.wallet;
+  if (w.stage === 'off') return null;
   // A declined card is the same problem with a cause, and says so better. One card, not two.
   if (w.suspendedAt) return null;
   if (w.balanceCents > 0) return null;
@@ -82,7 +93,9 @@ function assessEmpty(f: WalletFacts, _settings: AttentionSettings, now: number):
   return detection({
     fingerprint: fingerprintOf('wallet_empty', { workspace: w.workspaceId }),
     since,
-    urgentFrom: since,
+    // Urgent only once it is actually stopping things. At `warn` it is a card worth reading today, not an
+    // emergency — calling it one would spend the word before the day it is needed.
+    urgentFrom: w.stage === 'enforce' ? since : null,
     dueAt: null,
     value: NO_VALUE,
     probability: 1,
@@ -107,6 +120,7 @@ function assessEmpty(f: WalletFacts, _settings: AttentionSettings, now: number):
 
 function assessLow(f: WalletFacts, _settings: AttentionSettings, now: number): Assessment {
   const w = f.wallet;
+  if (w.stage === 'off') return null;
   if (w.suspendedAt) return null;
   // Empty is its own card, and a harder one.
   if (w.balanceCents <= 0) return null;

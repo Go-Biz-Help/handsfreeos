@@ -4168,8 +4168,11 @@ export const usageWallets = app.table('usage_wallets', {
   suspendedReason: text('suspended_reason'),
   lowWarnedAt: ts('low_warned_at'),
   warnFingerprint: text('warn_fingerprint'),
-  /** Whether a zero balance actually stops this business sending. Off everywhere until staff turn it on. */
-  enforced: boolean('enforced').notNull().default(false),
+  /**
+   * How far along the wallet this business is: `off` (silent), `warn` (told, nothing stops) or `enforce`
+   * (stopped past the overdraft). Off everywhere until staff move it, one business at a time.
+   */
+  stage: text('stage').$type<'off' | 'warn' | 'enforce'>().notNull().default('off'),
   ...timestamps(),
 });
 

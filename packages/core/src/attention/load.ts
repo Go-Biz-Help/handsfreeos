@@ -1117,6 +1117,8 @@ interface Loaded {
 /** The usage wallet, for M16's three cards. One per business, so there is nothing to key it by. */
 interface WalletInfo {
   readonly workspaceId: string;
+  /** How far along the wallet this business is. `off` means none of the three cards appears at all. */
+  readonly stage: 'off' | 'warn' | 'enforce';
   readonly balanceCents: number;
   readonly floorCents: number;
   readonly autoTopup: boolean;
@@ -1134,6 +1136,7 @@ interface WalletInfo {
  */
 async function loadWallet(tx: Tx, workspaceId: string): Promise<WalletInfo | null> {
   const [w] = await rows<{
+    stage: string;
     balance_cents: number | string;
     floor_cents: number | string;
     auto_topup: boolean;
@@ -1145,7 +1148,8 @@ async function loadWallet(tx: Tx, workspaceId: string): Promise<WalletInfo | nul
     last_failure_message: string | null;
   }>(
     tx,
-    sql`select w.balance_cents, w.floor_cents, w.auto_topup, w.method_token is not null as has_card,
+    sql`select w.stage::text as stage,
+          w.balance_cents, w.floor_cents, w.auto_topup, w.method_token is not null as has_card,
           w.low_warned_at, w.suspended_at, w.suspended_reason, w.declines_in_row,
           (select r.failure_message from app.wallet_recharges r
             where r.workspace_id = w.workspace_id and r.status = 'failed'
@@ -1155,6 +1159,7 @@ async function loadWallet(tx: Tx, workspaceId: string): Promise<WalletInfo | nul
   if (!w) return null;
   return {
     workspaceId,
+    stage: w.stage === 'warn' || w.stage === 'enforce' ? w.stage : 'off',
     balanceCents: Number(w.balance_cents),
     floorCents: Number(w.floor_cents),
     autoTopup: w.auto_topup,
@@ -1167,16 +1172,24 @@ async function loadWallet(tx: Tx, workspaceId: string): Promise<WalletInfo | nul
   };
 }
 
-/** What the wallet's card says under its title: the balance, and what would put it right. */
+/**
+ * What the wallet's card says under its title: the balance, and what would put it right.
+ *
+ * At `warn` it also says that nothing has stopped. A business seeing "Balance empty" for the first time will
+ * assume the worst, and for them the worst is not true yet — the whole point of that stretch is that they find
+ * out before it costs them a customer.
+ */
 function walletWords(w: WalletInfo): string {
   const balance =
     w.balanceCents < 0
       ? `${money(Math.abs(w.balanceCents))} over`
       : `${money(w.balanceCents)} left`;
-  if (w.suspendedAt) return `${balance} · the card on file was declined`;
-  if (!w.hasCard) return `${balance} · no card on file`;
-  if (!w.autoTopup) return `${balance} · automatic top-up is off`;
-  return balance;
+  const soon =
+    w.stage === 'warn' && w.balanceCents <= 0 ? ' · texts and calls still work for now' : '';
+  if (w.suspendedAt) return `${balance} · the card on file was declined${soon}`;
+  if (!w.hasCard) return `${balance} · no card on file${soon}`;
+  if (!w.autoTopup) return `${balance} · automatic top-up is off${soon}`;
+  return `${balance}${soon}`;
 }
 
 /** "Thu, Sep 17" for a stored day (`2026-09-17`), read where the business is. */

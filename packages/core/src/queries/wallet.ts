@@ -6,6 +6,12 @@
  * row and neither leaves this file: the statement says what was charged and what it was for. What we pay is
  * ours, and showing it would invite an argument about the markup on every line rather than about the price,
  * which is the number a business actually decides on.
+ *
+ * **And a business that is not on the wallet yet is shown nothing at all**, whatever its row says. That is not
+ * a display nicety, it is the shadow week: while the worker is counting in `shadow`, every balance in the
+ * system falls further below zero every day and nobody is being charged a penny. Showing that to a business
+ * would be showing it a bill that does not exist. Both queries check the stage first, so the answer is the
+ * same wherever it is asked from — this page today, the phone tomorrow.
  */
 import { rows, sql } from '@hfos/db/client';
 import { defineQuery } from '../kernel/define';
@@ -83,6 +89,7 @@ export const walletGet = defineQuery({
   async handler(ctx) {
     const ws = ctx.scope.workspaceId!;
     const [w] = await rows<{
+      stage: string;
       balance_cents: number | string;
       auto_topup: boolean;
       floor_cents: number | string;
@@ -106,7 +113,8 @@ export const walletGet = defineQuery({
       pending_recharge_cents: number | string | null;
     }>(
       ctx.tx,
-      sql`select w.balance_cents, w.auto_topup, w.floor_cents, w.topup_cents, w.overdraft_cents,
+      sql`select w.stage::text as stage,
+            w.balance_cents, w.auto_topup, w.floor_cents, w.topup_cents, w.overdraft_cents,
             w.card_brand, w.card_last4, w.card_expiry_month, w.card_expiry_year,
             w.method_token is not null as has_card, w.card_requested_at, w.provider::text as provider,
             w.suspended_at, w.suspended_reason, w.recharges_in_window, w.escalation_step, w.paused_until,
@@ -123,9 +131,9 @@ export const walletGet = defineQuery({
             join app.workspaces ws on ws.id = w.workspace_id
           where w.workspace_id = ${ws}`,
     );
-    // A business that has never spent anything has no row. That is "nothing has happened yet", not "empty",
-    // and the page says so rather than showing a scary zero.
-    if (!w)
+    // A business that has never spent anything has no row, and one that is not on the wallet yet is told the
+    // same thing for the same reason: nothing has happened here. "Nothing yet" rather than a scary zero.
+    if (!w || w.stage === 'off')
       return {
         opened: false,
         balanceCents: 0,
@@ -201,6 +209,13 @@ export const usageStatement = defineQuery({
   scope: inWorkspace,
   async handler(ctx, input) {
     const ws = ctx.scope.workspaceId!;
+    // Same rule as the balance, for the same reason: a shadow week fills this table with charges nobody is
+    // making, and a business reading them would reasonably think it owed us the money.
+    const [stage] = await rows<{ stage: string }>(
+      ctx.tx,
+      sql`select stage::text as stage from app.usage_wallets where workspace_id = ${ws}`,
+    );
+    if (!stage || stage.stage === 'off') return { items: [], nextCursor: null };
     const cursor = input.cursor ? decodeCursor(input.cursor) : null;
     const list = await rows<{
       id: string;

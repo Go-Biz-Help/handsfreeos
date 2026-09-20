@@ -1,30 +1,51 @@
 -- =============================================================================
--- 0075 · Enforcement, one business at a time.
+-- 0075 · How far along the wallet a business is, one business at a time.
 --
 --        Ninth of the wallet's ten steps (M16), and the one that can actually
 --        hurt somebody. Everything before this counted money; this is the
 --        first thing that stops a text going out.
 --
---        So it is off for everybody. `enforced` is false on every wallet,
---        including ones that already exist, and turning it on is a deliberate
---        act per business: internal first, then a cohort, then everyone. There
---        is no global switch, because a global switch is a way to turn this on
---        for a thousand businesses by accident at two in the morning.
+--        So it is off for everybody, and coming on is TWO deliberate acts, not
+--        one:
 --
---        Only staff may set it. A business cannot turn its own enforcement off
---        — that would not be a setting, it would be a way to spend money we
---        have no way of collecting.
+--          off      nothing. The business does not know the wallet exists.
+--          warn     it sees its balance and its statement, and is told when
+--                   the balance is low or empty. Nothing stops.
+--          enforce  the same, and outgoing texts and calls stop past the
+--                   overdraft.
+--
+--        The middle rung is the point. A business whose phone stopped with no
+--        warning would be right to be furious, and the terms now say we tell
+--        them — so `warn` is the stretch where they can put a card on before
+--        anything depends on it. Going straight from `off` to `enforce` is
+--        possible and is nobody's plan.
+--
+--        There is no global switch, because a global switch is a way to turn
+--        this on for a thousand businesses by accident at two in the morning.
+--
+--        The other half of the rule lives in the worker: WALLET_MODE decides
+--        whether we COUNT (off / shadow / on), and this column decides whether
+--        we SPEAK. That is what makes a shadow week silent — every balance goes
+--        negative during one, and not one business hears a word about it.
+--
+--        Only staff may set it. A business cannot turn its own off — that would
+--        not be a setting, it would be a way to run up a bill nobody can
+--        collect.
 -- =============================================================================
 
+create type app.wallet_stage as enum ('off', 'warn', 'enforce');
+
 alter table app.usage_wallets
-  add column enforced boolean not null default false;
+  add column stage app.wallet_stage not null default 'off';
 
-comment on column app.usage_wallets.enforced is
-  'Whether a zero balance actually stops this business sending. False everywhere until somebody turns it on '
-  'per business (M16 step 9). Staff-only: private.guard_usage_wallet refuses a business writing its own.';
+comment on column app.usage_wallets.stage is
+  'How far along the wallet this business is: off (silent), warn (told, nothing stops) or enforce (stopped '
+  'past the overdraft). Off everywhere until somebody moves it, per business (M16 step 9). Staff-only: '
+  'private.guard_usage_wallet refuses a business writing its own.';
 
--- The gate reads this on the path of every outbound text, so it reads one row by primary key and nothing else.
-create index usage_wallets_enforced_idx on app.usage_wallets (workspace_id) where enforced;
+-- Read on the path of every outbound text, so the gate reads one row by primary key and nothing else. The
+-- partial index is for counting a rollout ("who is on warn?"), which is the only query that scans.
+create index usage_wallets_stage_idx on app.usage_wallets (stage) where stage <> 'off';
 
 -- ---------- a business never writes its own ----------
 create or replace function private.guard_usage_wallet()
@@ -39,9 +60,9 @@ begin
   end if;
   -- New in 0075. A business turning off its own spending limit is not a setting, it is a way to run up a bill
   -- nobody can collect.
-  if new.enforced is distinct from old.enforced then
-    raise exception 'Whether a balance stops this business sending is HandsFreeOS''s to set'
-      using errcode = '42501', detail = 'wallet_enforcement_is_ours';
+  if new.stage is distinct from old.stage then
+    raise exception 'How far along the wallet this business is is HandsFreeOS''s to set'
+      using errcode = '42501', detail = 'wallet_stage_is_ours';
   end if;
   if new.provider is distinct from old.provider
     or new.customer_ref is distinct from old.customer_ref
@@ -69,25 +90,39 @@ begin
   return new;
 end $$;
 
--- ---------- turning it on ----------
--- Staff-only, one business at a time, and it says what it did so a rollout can be counted.
-create or replace function private.set_wallet_enforcement(p_workspace uuid, p_on boolean)
-returns boolean language plpgsql security definer set search_path = '' as $$
+-- ---------- moving a business along ----------
+-- Staff-only, one business at a time, and it says where it came from so a rollout can be counted and an
+-- accidental repeat is visibly a no-op.
+create or replace function private.set_wallet_stage(p_workspace uuid, p_stage app.wallet_stage)
+returns table (was app.wallet_stage, changed boolean)
+language plpgsql security definer set search_path = '' as $$
 declare
-  v_was boolean;
+  v_was app.wallet_stage;
+  v_org uuid;
 begin
   if not private.staff_can('platform.wallets.adjust') then
-    raise exception 'You cannot change enforcement' using errcode = '42501', detail = 'wallets_adjust';
+    raise exception 'You cannot change where a business is on the wallet'
+      using errcode = '42501', detail = 'wallets_adjust';
   end if;
-  select enforced into v_was from app.usage_wallets where workspace_id = p_workspace;
+  select stage into v_was from app.usage_wallets where workspace_id = p_workspace;
   if not found then
-    raise exception 'That business has no usage wallet' using errcode = '23503', detail = 'no_wallet';
+    -- A business that has never spent anything has no wallet yet, and putting it on `warn` before its first
+    -- text is exactly how a careful rollout goes. Open one rather than refusing.
+    select w.organization_id into v_org from app.workspaces w where w.id = p_workspace;
+    if v_org is null then
+      raise exception 'No business with that id' using errcode = '23503', detail = 'no_workspace';
+    end if;
+    perform set_config('app.system_scope.workspace_id', p_workspace::text, true);
+    insert into app.usage_wallets (workspace_id, organization_id) values (p_workspace, v_org)
+      on conflict (workspace_id) do nothing;
+    perform set_config('app.system_scope.workspace_id', '', true);
+    v_was := 'off';
   end if;
-  update app.usage_wallets set enforced = p_on where workspace_id = p_workspace;
-  return v_was is distinct from p_on;
+  update app.usage_wallets set stage = p_stage where workspace_id = p_workspace;
+  return query select v_was, v_was is distinct from p_stage;
 end $$;
 
-grant execute on function private.set_wallet_enforcement(uuid, boolean) to authenticated, service_actor;
+grant execute on function private.set_wallet_stage(uuid, app.wallet_stage) to authenticated, service_actor;
 
 -- ---------- what the AI teammate says when it stops ----------
 -- The teammate never errors at a customer. When the balance runs out it hands the conversation to a person,

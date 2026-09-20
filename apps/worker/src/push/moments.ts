@@ -90,14 +90,25 @@ export const onApprovalPush = pushMoment('approval', async (ctx, scope) => {
  *
  * `wallet.low` is deliberately not here. A low balance with a working card fixes itself in seconds, and a push
  * about something that resolves before somebody reaches their phone teaches them to ignore the next one.
+ *
+ * **Nothing goes out before the business is on the wallet**, and what it says depends on how far along it is.
+ * At `off` there is no push at all: during a shadow week every balance goes negative and telling somebody
+ * their texts had stopped would be false. At `warn` it says what is about to happen; only at `enforce` does it
+ * say what has.
  */
 export const onWalletPush = pushMoment('wallet', async (ctx, scope) => {
   const ws = scope.workspaceId;
-  const [w] = await rows<{ balance_cents: number | string; suspended_reason: string | null }>(
+  const [w] = await rows<{
+    balance_cents: number | string;
+    suspended_reason: string | null;
+    stage: string;
+  }>(
     ctx.tx,
-    sql`select balance_cents, suspended_reason from app.usage_wallets where workspace_id = ${ws}`,
+    sql`select balance_cents, suspended_reason, stage::text as stage
+        from app.usage_wallets where workspace_id = ${ws}`,
   );
-  if (!w) return;
+  if (!w || w.stage === 'off') return;
+  const stopping = w.stage === 'enforce';
   const declined = ctx.event.eventType === 'wallet.suspended';
   const balance = Number(w.balance_cents);
   await queuePush(ctx.tx, scope, {
@@ -108,8 +119,13 @@ export const onWalletPush = pushMoment('wallet', async (ctx, scope) => {
     userIds: await managerIds(ctx.tx, ws),
     title: declined ? 'Your card was declined' : 'Your balance has run out',
     body: declined
-      ? (w.suspended_reason ?? 'Texts and calls have stopped until a card is added.')
-      : `${money(balance)} left. Texts and calls have stopped until it is topped up.`,
+      ? (w.suspended_reason ??
+        (stopping
+          ? 'Texts and calls have stopped until a card is added.'
+          : 'Add a card so texts and calls keep working.'))
+      : stopping
+        ? `${money(balance)} left. Texts and calls have stopped until it is topped up.`
+        : `${money(balance)} left. Top up before texts and calls stop.`,
     path: `/app/w/${ws}/settings/usage`,
     refs: {},
   });

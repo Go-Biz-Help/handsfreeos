@@ -20,6 +20,9 @@ const settings = defaultAttentionSettings();
 const facts = (over: Partial<WalletFacts['wallet']> = {}): WalletFacts => ({
   wallet: {
     workspaceId: '11111111-1111-1111-1111-111111111111',
+    // The existing cases were all written before stages existed, and they are all about a business that is
+    // being stopped — so `enforce` is the default here and the `off` / `warn` cases are asked for explicitly.
+    stage: 'enforce' as const,
     balanceCents: 5000,
     floorCents: 1000,
     autoTopup: true,
@@ -157,5 +160,38 @@ describe('the settings', () => {
     // `wallet_empty` and `wallet_card_declined` are `z.literal(true)`: there is no false to pass.
     expect(settings.kinds.wallet_empty).toBe(true);
     expect(settings.kinds.wallet_card_declined).toBe(true);
+  });
+});
+
+/**
+ * The stage, which decides whether any of this is said at all.
+ *
+ * The case that matters is a shadow week: every balance in the system goes negative because nobody has a card
+ * and nothing is being charged. If these cards fired on the balance alone, every business would be told its
+ * balance had run out and its texts had stopped — neither of which would be true. That is the one way this
+ * feature could have done real damage on its first day.
+ */
+describe('before a business is on the wallet', () => {
+  const broke = { balanceCents: -5000, lowSince: '2026-09-19T12:00:00Z' };
+
+  it('says nothing at all at `off`, whatever the balance', () => {
+    expect(empty({ ...broke, stage: 'off' })).toBeNull();
+    expect(low({ balanceCents: 500, hasCard: false, stage: 'off' })).toBeNull();
+    expect(
+      declined({ stage: 'off', suspendedAt: '2026-09-19T12:00:00Z', declinesInRow: 3 }),
+    ).toBeNull();
+  });
+
+  it('speaks at `warn`, but does not call it urgent', () => {
+    const card = empty({ ...broke, stage: 'warn' });
+    expect(card).not.toBeNull();
+    // Nothing has stopped yet, so this is a card to read today, not an emergency. Spending the word here
+    // would leave nothing to say on the day it is true.
+    expect(card!.urgentFrom).toBeNull();
+  });
+
+  it('calls it urgent at `enforce`, because by then it is', () => {
+    const card = empty({ ...broke, stage: 'enforce' });
+    expect(card!.urgentFrom).toBe(new Date(broke.lowSince).toISOString());
   });
 });

@@ -15,6 +15,7 @@ import {
   walletRoom,
   WALLET_REFUSALS,
   type WalletRoom,
+  type WalletStage,
 } from '../src/money/wallet-gate';
 
 const WORKSPACE = '11111111-1111-4111-8111-111111111111';
@@ -22,7 +23,7 @@ const WORKSPACE = '11111111-1111-4111-8111-111111111111';
 interface WalletShape {
   balance_cents: number;
   overdraft_cents: number;
-  enforced: boolean;
+  stage: WalletStage;
 }
 
 /** A transaction that answers the gate's one query, in whichever shape the driver hands back. */
@@ -42,11 +43,16 @@ function brokenTx(message = 'canceling statement due to lock timeout'): Tx {
   } as unknown as Tx;
 }
 
-const enforced = (balance: number, overdraft = 1000): WalletShape => ({
-  balance_cents: balance,
-  overdraft_cents: overdraft,
-  enforced: true,
-});
+const at =
+  (stage: WalletStage) =>
+  (balance: number, overdraft = 1000): WalletShape => ({
+    balance_cents: balance,
+    overdraft_cents: overdraft,
+    stage,
+  });
+const enforced = at('enforce');
+const warned = at('warn');
+const silent = at('off');
 
 describe('walletRoom fails open', () => {
   it('allows the spend when the wallet cannot be read at all', async () => {
@@ -67,38 +73,47 @@ describe('walletRoom fails open', () => {
     expect((said[0]!.error as Error).message).toMatch(/does not exist/);
   });
 
-  it('lets a text out even when the wallet is broken and the business is meant to be enforced', async () => {
+  it('lets a text out even when the wallet is broken and the business is meant to be enforcing', async () => {
     // There is no way to tell these apart from outside, which is the point: an unreadable wallet is allowed.
     await expect(assertWalletHasRoom(brokenTx(), WORKSPACE, 'text')).resolves.toBeUndefined();
   });
 });
 
-describe('walletRoom before anybody has been switched on', () => {
+describe('walletRoom before a business has been moved along', () => {
   it('allows a business with no wallet row — it has never spent anything', async () => {
     const room = await walletRoom(txWith(null), WORKSPACE, 'text');
-    expect(room).toEqual({ allowed: true, balanceCents: 0, overdraftCents: 0, unknown: false });
+    expect(room).toEqual({
+      allowed: true,
+      balanceCents: 0,
+      overdraftCents: 0,
+      unknown: false,
+      stage: 'off',
+    });
   });
 
-  it('allows a business at zero while enforcement is off for it', async () => {
+  it('allows a business deep in the red at `off` — which is every business during a shadow week', async () => {
+    // This is the case the shadow week actually produces: nobody has a card, every balance goes negative,
+    // and not one text may be refused over it.
+    const room = await walletRoom(txWith(silent(-50_000)), WORKSPACE, 'text');
+    expect(room).toMatchObject({ allowed: true, stage: 'off', unknown: false });
+  });
+
+  it('allows a business deep in the red at `warn` — being told is not being stopped', async () => {
+    const room = await walletRoom(txWith(warned(-50_000)), WORKSPACE, 'text');
+    expect(room).toMatchObject({ allowed: true, stage: 'warn' });
+  });
+
+  it('reads an unrecognised stage as `off`, because that fails open like everything else here', async () => {
     const room = await walletRoom(
-      txWith({ balance_cents: 0, overdraft_cents: 0, enforced: false }),
+      txWith({ balance_cents: -50_000, overdraft_cents: 0, stage: 'enforcing' as WalletStage }),
       WORKSPACE,
       'text',
     );
-    expect(room).toMatchObject({ allowed: true, balanceCents: 0, unknown: false });
-  });
-
-  it('allows a business deep in the red while enforcement is off for it', async () => {
-    const room = await walletRoom(
-      txWith({ balance_cents: -50_000, overdraft_cents: 1000, enforced: false }),
-      WORKSPACE,
-      'text',
-    );
-    expect(room.allowed).toBe(true);
+    expect(room).toMatchObject({ allowed: true, stage: 'off' });
   });
 });
 
-describe('walletRoom once a business is enforced', () => {
+describe('walletRoom once a business is at `enforce`', () => {
   it('allows a positive balance', async () => {
     expect((await walletRoom(txWith(enforced(2500)), WORKSPACE, 'text')).allowed).toBe(true);
   });
@@ -170,6 +185,7 @@ describe('mayRingOut', () => {
     balanceCents: 0,
     overdraftCents: 1000,
     unknown: false,
+    stage: 'enforce',
     ...over,
   });
 

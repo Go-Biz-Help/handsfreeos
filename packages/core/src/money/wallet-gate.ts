@@ -12,8 +12,9 @@
  * of money. That is also why this takes a `Tx` rather than a `Db`: there is no correct way to call it outside
  * the transaction that does the spending.
  *
- * **Enforcement is per business.** `usage_wallets.enforced` starts false for everyone, so nothing here refuses
- * anything until somebody turns it on for a business — internal first, then a cohort, then everyone.
+ * **It is per business, and in two steps.** `usage_wallets.stage` starts `off` for everyone. `warn` means the
+ * business is told about its balance but nothing stops; only `enforce` refuses. Nothing here refuses anything
+ * until somebody moves a business along — internal first, then a cohort, then everyone.
  */
 import { sql, type Tx } from '@hfos/db/client';
 import { HfosError } from '../errors';
@@ -21,17 +22,30 @@ import { HfosError } from '../errors';
 /** What is being paid for, which decides how much room is needed and what a refusal says. */
 export type SpendKind = 'text' | 'call' | 'ai' | 'number';
 
+/** How far along the wallet a business is. `off` is silent, `warn` speaks, only `enforce` refuses. */
+export type WalletStage = 'off' | 'warn' | 'enforce';
+
 export interface WalletRoom {
-  /** False only when enforcement is on for this business and the balance has run out. */
+  /** False only when this business is at `enforce` and the balance has run out. */
   readonly allowed: boolean;
   readonly balanceCents: number;
   /** How far under zero this business may go before outbound stops. */
   readonly overdraftCents: number;
   /** True when the wallet could not be read at all, and the action was allowed because of it. */
   readonly unknown: boolean;
+  /** Where this business is. Callers that only want to know whether to *say* something read this. */
+  readonly stage: WalletStage;
 }
 
-const OPEN: WalletRoom = { allowed: true, balanceCents: 0, overdraftCents: 0, unknown: true };
+const OPEN: WalletRoom = {
+  allowed: true,
+  balanceCents: 0,
+  overdraftCents: 0,
+  unknown: true,
+  stage: 'off',
+};
+
+const isStage = (v: unknown): v is WalletStage => v === 'off' || v === 'warn' || v === 'enforce';
 
 /** What a business is told, per kind. Never "insufficient funds": say what stopped and how to start it again. */
 export const WALLET_REFUSALS: Readonly<Record<SpendKind, string>> = {
@@ -66,20 +80,23 @@ export async function walletRoom(
 ): Promise<WalletRoom> {
   try {
     const result = await tx.execute(sql`
-      select balance_cents, overdraft_cents, enforced
+      select balance_cents, overdraft_cents, stage::text as stage
       from app.usage_wallets where workspace_id = ${workspaceId}`);
     const row = (result as unknown as { rows?: unknown[] }).rows?.[0] ?? (result as unknown[])[0];
     // No wallet at all is a business that has never spent anything. That is fine, not empty.
-    if (!row) return { allowed: true, balanceCents: 0, overdraftCents: 0, unknown: false };
-    const w = row as { balance_cents: unknown; overdraft_cents: unknown; enforced: unknown };
+    if (!row)
+      return { allowed: true, balanceCents: 0, overdraftCents: 0, unknown: false, stage: 'off' };
+    const w = row as { balance_cents: unknown; overdraft_cents: unknown; stage: unknown };
     const balanceCents = Number(w.balance_cents ?? 0);
     const overdraftCents = Number(w.overdraft_cents ?? 0);
-    if (w.enforced !== true) return { allowed: true, balanceCents, overdraftCents, unknown: false };
+    // An unreadable stage reads as `off`, which is the same way everything else here fails: open.
+    const stage = isStage(w.stage) ? w.stage : 'off';
     return {
-      allowed: balanceCents - ROOM_NEEDED[kind] > -overdraftCents,
+      allowed: stage !== 'enforce' || balanceCents - ROOM_NEEDED[kind] > -overdraftCents,
       balanceCents,
       overdraftCents,
       unknown: false,
+      stage,
     };
   } catch (e) {
     // Loudly, and then let it through. A wallet that cannot be read must never stop a text.
@@ -89,8 +106,8 @@ export async function walletRoom(
 }
 
 /**
- * Refuse a spend when the balance has run out and this business has enforcement on. Everything else — an
- * unreadable wallet, a business without one, a business not yet enforced — goes through.
+ * Refuse a spend when the balance has run out and this business is at `enforce`. Everything else — an
+ * unreadable wallet, a business without one, a business still at `off` or `warn` — goes through.
  */
 export async function assertWalletHasRoom(
   tx: Tx,
