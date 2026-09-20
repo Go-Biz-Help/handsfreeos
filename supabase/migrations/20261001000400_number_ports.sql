@@ -73,8 +73,19 @@ create table app.number_ports (
   updated_at timestamptz not null default now()
 );
 
--- One live port per number: asking twice for the same number is a mistake, not a second request.
+-- Two rules that look like one, and are not.
+--
+-- **Once a port is actually sent**, one business in the world is moving that number, because a carrier can
+-- only move it to one place. But a *draft* is a business writing down what it wants, and written down as one
+-- index across every workspace it meant something much worse: anybody could stop anybody else from so much
+-- as drafting a port, forever, by keeping a draft of their own alive — and the 23505 said out loud that
+-- somebody else had that number. `number_port.start`'s own "asking twice is a mistake, not a second request"
+-- check is workspace-scoped (commands/port.ts), which is the rule that actually belongs to a business.
+--
+-- The global claim on a number being moved is staked at send, by phone_numbers_live_e164 below.
 create unique index number_ports_one_live_per_e164 on app.number_ports (e164)
+  where status in ('submitted', 'carrier_review', 'scheduled');
+create unique index number_ports_one_open_per_workspace on app.number_ports (workspace_id, e164)
   where status in ('draft', 'submitted', 'carrier_review', 'scheduled');
 create index number_ports_workspace_idx on app.number_ports (workspace_id, created_at desc);
 -- Twin of telephony_registrations_poll_idx: the poller reads only what is actually with the carrier.
@@ -93,15 +104,21 @@ create or replace function private.guard_number_port_update()
 returns trigger language plpgsql security definer set search_path = '' as $$
 declare
   /*
-   * Pressing Send. Three of the columns below move on this one transition and nowhere else, because
-   * *sending is what claims the number*: `number_port.submit` takes the e164 off the market before it goes
-   * to the carrier, since between claiming and sending another business could ask for the same number.
+   * Pressing Send. Two of the columns below move on this one transition and nowhere else: a person really
+   * does press Send, which stamps the time and clears whatever the carrier said last time.
    *
-   * Listing `phone_number_id`, `submitted_at` and `rejection_reason` as the worker's without this made
-   * `number_port.submit` refuse itself — 42501, translated to a 403, on every port anybody tried to send.
-   * Seven tests said so the first time this ran against a database.
+   * `phone_number_id` is deliberately **not** one of them. Claiming the number is the database's own act —
+   * private.port_claim_number below — so a person never writes it, on this transition or any other.
    */
   v_sending boolean := old.status in ('draft', 'rejected', 'failed') and new.status = 'submitted';
+  /*
+   * Calling it off. A port that is already with the carrier is frozen — that is the next rule down — but
+   * *cancelling* it is the one thing a business must still be able to do, and freezing it froze that too:
+   * `number_port.cancel` was refused for every port past `draft`, which is every port worth cancelling.
+   * Its own description says "The carrier may already have moved it", and `onPortCancelled` only asks the
+   * carrier to stop when there is a provider sid — that is, only for the ports this refused.
+   */
+  v_calling_off boolean := old.status <> 'complete' and new.status = 'cancelled';
 begin
   if coalesce(private.system_scope_workspace() = new.workspace_id, false) then
     return new;
@@ -114,24 +131,29 @@ begin
      or old.scheduled_for is distinct from new.scheduled_for
      or old.completed_at is distinct from new.completed_at
      or old.account_id is distinct from new.account_id
-     -- Off that transition, all three are the worker's like the rest.
+     or old.phone_number_id is distinct from new.phone_number_id
+     -- Off Send, the other two are the worker's like the rest.
      or (not v_sending and (old.submitted_at is distinct from new.submitted_at
-                         or old.phone_number_id is distinct from new.phone_number_id
                          or old.rejection_reason is distinct from new.rejection_reason))
-     -- And on it, narrowly: the claim is made once and never re-pointed, the stamp is set rather than
-     -- cleared, and a rejection is only ever cleared — never invented by the person resending.
-     or (v_sending and (old.phone_number_id is not null
-                     or new.submitted_at is null
-                     or new.rejection_reason is not null)) then
+     -- And on it, narrowly: the stamp is set rather than cleared, and a rejection is only ever cleared —
+     -- never invented by the person resending.
+     or (v_sending and (new.submitted_at is null or new.rejection_reason is not null)) then
     raise exception 'Only HandsFreeOS records what the carrier said'
       using errcode = '42501', detail = 'number_port_provider_fields';
   end if;
-  if old.status not in ('draft', 'rejected', 'failed')
+  if old.status not in ('draft', 'rejected', 'failed') and not v_calling_off
      and (old.status is distinct from new.status
        or old.submission is distinct from new.submission
        or old.documents is distinct from new.documents
        or old.kind is distinct from new.kind) then
     raise exception 'A port already with the carrier cannot be changed'
+      using errcode = '42501', detail = 'number_port_with_carrier';
+  end if;
+  -- And calling off is only calling off: the papers do not change on the way out.
+  if v_calling_off and (old.submission is distinct from new.submission
+                     or old.documents is distinct from new.documents
+                     or old.kind is distinct from new.kind) then
+    raise exception 'Calling a port off changes nothing else about it'
       using errcode = '42501', detail = 'number_port_with_carrier';
   end if;
   if old.status is distinct from new.status and new.status not in ('draft', 'submitted', 'cancelled') then
@@ -142,6 +164,137 @@ begin
 end $$;
 create trigger number_ports_update_guard before update on app.number_ports
   for each row execute function private.guard_number_port_update();
+
+-- ---------- claiming the number, and giving it back, are the database's own acts ----------
+-- A port is the one thing a person does that has to move a phone number through states only HandsFreeOS may
+-- write. `number_port.submit` takes the e164 off the market before the papers go to the carrier — between
+-- claiming and sending, another business could ask for the same number — and `number_port.cancel` puts it
+-- back. Both are pressed by a person.
+--
+-- Written as ordinary command SQL, every one of those writes is refused, and rightly:
+--
+--   phone_numbers_insert   with check (… and status = 'provisioning' and …)   → 'porting' is not that
+--   phone_numbers_insert   with check (… created_by = auth.uid() …)           → the port's author, not the sender
+--   guard_phone_number_update   a person may only go active|provisioning → releasing
+--   guard_phone_number_update   released_at is a provider field
+--
+-- Those four rules are what stop anybody conjuring a number that routes real calls, so they are not widened.
+-- Instead the claim becomes the database's, exactly as private.staff_credit_wallet (0092) made the support
+-- credit the database's: the function asks the permission question **for itself** rather than trusting its
+-- caller, sets the system scope for the length of its own writes, and hands back what it did.
+--
+-- **The scope is saved and restored, not cleared.** staff_credit_wallet can clear to '' on the way out
+-- because nothing calls it from inside a worker's transaction. These two are called from both sides —
+-- `number_port.complete` runs as the worker, which already holds the scope for its whole transaction — and
+-- clearing it there would leave every statement after this one matching no rows under the service_actor
+-- policies, silently.
+create or replace function private.port_claim_number(p_port uuid)
+returns uuid language plpgsql security definer set search_path = '' as $$
+declare
+  v_ws uuid;
+  v_e164 text;
+  v_by uuid;
+  v_held uuid;
+  v_number uuid;
+  v_prev text := current_setting('app.system_scope.workspace_id', true);
+begin
+  select p.workspace_id, p.e164, p.created_by, p.phone_number_id
+    into v_ws, v_e164, v_by, v_held
+    from app.number_ports p where p.id = p_port;
+  if v_ws is null then
+    raise exception 'No port with that id' using errcode = '23503', detail = 'no_number_port';
+  end if;
+  if not (coalesce(private.system_scope_workspace() = v_ws, false)
+          or private.has_permission(v_ws, 'channels.manage')) then
+    raise exception 'You cannot move this business''s numbers'
+      using errcode = '42501', detail = 'number_port_not_yours';
+  end if;
+
+  -- Somebody else is already moving it. This function can see across businesses where the person calling it
+  -- cannot, so it says so plainly rather than letting the insert below fail on phone_numbers_live_e164 and
+  -- reach a business as "That already exists."
+  if exists (select 1 from app.phone_numbers n
+             where n.e164 = v_e164 and n.workspace_id <> v_ws
+               and n.status in ('provisioning', 'porting', 'active', 'releasing')) then
+    raise exception 'That number is already with another business'
+      using errcode = '23505', detail = 'number_already_moving';
+  end if;
+
+  perform set_config('app.system_scope.workspace_id', v_ws::text, true);
+
+  -- The port's own row first, then any row this business already has for the number: a port that was turned
+  -- down and is being sent again re-takes the same row rather than leaving a released one behind it.
+  --
+  -- **Ordered, because a business can hold several rows for one e164** — every release-and-re-port leaves
+  -- one behind. `limit 1` with no order picks whatever the plan hands back, and picking a released row while
+  -- a live sibling exists collides with phone_numbers_live_e164 the moment it is set to `porting`.
+  if v_held is null then
+    select n.id into v_held from app.phone_numbers n
+      where n.workspace_id = v_ws and n.e164 = v_e164
+      order by (n.status in ('porting', 'active')) desc, n.created_at desc
+      limit 1;
+  end if;
+
+  if v_held is null then
+    -- Local unless the carrier says otherwise when it lands. Toll-free ports are rare and get corrected
+    -- then; guessing toll-free here would send the wrong registration chain.
+    insert into app.phone_numbers (workspace_id, e164, number_type, status, created_by)
+    values (v_ws, v_e164, 'local', 'porting', v_by)
+    returning id into v_number;
+  else
+    /*
+     * **Never demotes a working number.** `private.phone_route()` only answers for an `active` number, so
+     * moving one to `porting` takes it off routing outright: every call and text to it would reach nobody.
+     * A business that already holds the number and starts a second port for it would do exactly that, and
+     * so would `number_port.complete` if it ever ran twice. A number that is already theirs and already
+     * working needs no claiming — it is claimed.
+     */
+    update app.phone_numbers set status = 'porting', released_at = null
+      where id = v_held and status <> 'active';
+    v_number := v_held;
+  end if;
+
+  if v_number is null then
+    raise exception 'That number could not be claimed' using errcode = '23503', detail = 'no_number_port';
+  end if;
+
+  update app.number_ports set phone_number_id = v_number where id = p_port;
+
+  perform set_config('app.system_scope.workspace_id', coalesce(v_prev, ''), true);
+  return v_number;
+end $$;
+
+-- Let the number go again. A port that is off — called off, turned down, failed — must not keep another
+-- business from trying for the same number, and must not keep counting against this one's ceiling. The port
+-- keeps pointing at the row: a business that tried to move a number should be able to see that it tried.
+create or replace function private.port_release_number(p_port uuid)
+returns void language plpgsql security definer set search_path = '' as $$
+declare
+  v_ws uuid;
+  v_number uuid;
+  v_prev text := current_setting('app.system_scope.workspace_id', true);
+begin
+  select p.workspace_id, p.phone_number_id into v_ws, v_number
+    from app.number_ports p where p.id = p_port;
+  if v_ws is null then
+    raise exception 'No port with that id' using errcode = '23503', detail = 'no_number_port';
+  end if;
+  if not (coalesce(private.system_scope_workspace() = v_ws, false)
+          or private.has_permission(v_ws, 'channels.manage')) then
+    raise exception 'You cannot move this business''s numbers'
+      using errcode = '42501', detail = 'number_port_not_yours';
+  end if;
+  if v_number is null then
+    return;
+  end if;
+
+  perform set_config('app.system_scope.workspace_id', v_ws::text, true);
+  -- Only a number this port is actually holding. A number that already landed is `active` and is the
+  -- business's own now: cancelling a stale port row must never take a working number off them.
+  update app.phone_numbers set status = 'released', released_at = now()
+    where id = v_number and status = 'porting';
+  perform set_config('app.system_scope.workspace_id', coalesce(v_prev, ''), true);
+end $$;
 
 -- ---------- who may see it ----------
 -- The same permission as buying or releasing a number, because it is the same decision: which numbers this
@@ -167,6 +320,12 @@ grant select, insert, update on app.number_ports to authenticated;
 grant select, insert, update, delete on app.number_ports to service_actor;
 
 revoke all on function private.guard_number_port_update() from public;
+revoke all on function private.port_claim_number(uuid) from public;
+revoke all on function private.port_release_number(uuid) from public;
+-- Both ask their own permission question, so handing them to `authenticated` hands over nothing: a person
+-- without `channels.manage` on that business gets the same refusal they would have got from the policy.
+grant execute on function private.port_claim_number(uuid) to authenticated, service_actor;
+grant execute on function private.port_release_number(uuid) to authenticated, service_actor;
 
 -- ---------- a migration's port request points here ----------
 -- One column, no semantics moved: the migration UI keeps reading its own table, and the carrier machinery

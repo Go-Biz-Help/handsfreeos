@@ -23,6 +23,7 @@ import {
   numberPortStart,
   numberPortSubmit,
   organizationCreate,
+  type HfosError,
   type HumanActor,
 } from '@hfos/core/server';
 import { rows, sql } from '@hfos/db/client';
@@ -242,6 +243,49 @@ describe('a number that moves', () => {
     expect((await numberFor(e164))?.status).toBe('released');
   });
 
+  it('lets a business fix a rejected port and send it again', async () => {
+    /*
+     * The half the suite was missing, and the reason a guard shipped that refused a resend: every test
+     * stopped at the rejection. `rejected → submitted` is in the guard precisely so a business that got the
+     * account number wrong can correct it and try again — nothing exercised it until now.
+     *
+     * The number goes back on the market on the rejection and has to be re-taken by the second send, on the
+     * same row rather than a second one, with the old carrier's answer cleared off the port.
+     */
+    const e164 = aNumber('0000');
+    const portId = await readyPort(e164);
+    await executeCommand(api(), numberPortSubmit, { workspaceId, portId }, actor(owner), meta());
+    await drain();
+    expect((await portRow(portId)).status).toBe('rejected');
+    const released = await numberFor(e164);
+    expect(released?.status).toBe('released');
+
+    await executeCommand(
+      api(),
+      numberPortSave,
+      {
+        workspaceId,
+        portId,
+        submission: {
+          accountNumber: '8675309',
+          pin: '4321',
+          authorizedBy: 'Dale Cooper',
+          serviceAddress: '1 Main St, Twin Peaks, WA 98170',
+        },
+      },
+      actor(owner),
+      meta(),
+    );
+    await executeCommand(api(), numberPortSubmit, { workspaceId, portId }, actor(owner), meta());
+    const resent = await portRow(portId);
+    expect(resent.status).toBe('submitted');
+    expect(resent.rejectionReason).toBeNull();
+    const retaken = await numberFor(e164);
+    expect(retaken?.id).toBe(released!.id);
+    expect(retaken?.status).toBe('porting');
+    expect(retaken?.releasedAt).toBeNull();
+  });
+
   it('keeps asking while the old carrier keeps thinking', async () => {
     const e164 = aNumber('0001');
     const portId = await readyPort(e164);
@@ -285,18 +329,38 @@ describe('what the database refuses', () => {
     expect(e.detail).toBe('number_port_provider_fields');
   });
 
-  it('will not let a person re-point the claim once the port has been sent', async () => {
-    // Sending is the one transition on which a person writes `phone_number_id`, because sending is what
-    // claims the number. The carve-out is that transition and nothing else: afterwards the column is the
-    // worker's like the rest of the carrier's side, or a business could hand a landed number to itself.
-    const portId = await readyPort(aNumber('0001'));
-    await executeCommand(api(), numberPortSubmit, { workspaceId, portId }, actor(owner), meta());
-    const e = await expectPgError(() =>
+  it('never lets a person write the claim, before sending or after', async () => {
+    // Sending claims the number, but a person is not what writes the claim down: `private.port_claim_number`
+    // does, on their behalf, after asking whether they may. So this column is the worker's at every point —
+    // otherwise a business could point a port at a number that landed for somebody else.
+    const sent = await readyPort(aNumber('0001'));
+    await executeCommand(
+      api(),
+      numberPortSubmit,
+      { workspaceId, portId: sent },
+      actor(owner),
+      meta(),
+    );
+    // A real id, captured rather than looked up: `set phone_number_id = (select … limit 1)` writes NULL when
+    // the subquery finds nothing, which equals what is already there, so the guard never fires and the test
+    // would pass by asserting nothing.
+    const claimed = (await portRow(sent)).phoneNumberId;
+    expect(claimed).toBeTruthy();
+
+    const draft = await readyPort(aNumber('0001'));
+    const before = await expectPgError(() =>
       as(owner)((tx) =>
-        rows(tx, sql`update app.number_ports set phone_number_id = null where id = ${portId}`),
+        rows(tx, sql`update app.number_ports set phone_number_id = ${claimed} where id = ${draft}`),
       ),
     );
-    expect(e.detail).toBe('number_port_provider_fields');
+    expect(before.detail).toBe('number_port_provider_fields');
+
+    const after = await expectPgError(() =>
+      as(owner)((tx) =>
+        rows(tx, sql`update app.number_ports set phone_number_id = null where id = ${sent}`),
+      ),
+    );
+    expect(after.detail).toBe('number_port_provider_fields');
   });
 
   it('will not let a person change a port the carrier already has', async () => {
@@ -382,14 +446,16 @@ describe('what the database refuses', () => {
       actor(other),
       meta(),
     );
-    await expect(
-      executeCommand(
-        api(),
-        numberPortSubmit,
-        { workspaceId: output.workspaceId, portId: rival.output.portId },
-        actor(other),
-        meta(),
-      ),
-    ).rejects.toThrow();
+    const e = (await executeCommand(
+      api(),
+      numberPortSubmit,
+      { workspaceId: output.workspaceId, portId: rival.output.portId },
+      actor(other),
+      meta(),
+    ).catch((x: unknown) => x)) as HfosError;
+    // Told why, not just refused: `private.port_claim_number` can see across businesses where the rival
+    // cannot, so it answers instead of letting the unique index surface as "That already exists."
+    expect(e.rule).toBe('number_already_moving');
+    expect(e.status).toBe(409);
   });
 });

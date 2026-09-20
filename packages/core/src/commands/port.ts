@@ -16,6 +16,7 @@
  */
 import { randomUUID } from 'node:crypto';
 import { and, desc, eq } from 'drizzle-orm';
+import { rows, sql } from '@hfos/db/client';
 import { files, numberPorts, phoneNumbers } from '@hfos/db/schema';
 import { formatPhone } from '../crm/phone';
 import { safeFileName } from '../crm/records';
@@ -85,41 +86,27 @@ function assertEditable(p: PortRow): void {
  * default is kept by — so nothing routes to it and nobody can make it the number new conversations go out
  * from until it is really ours.
  */
+/**
+ * Take the number off the market, and hand back the row that now holds it.
+ *
+ * **The database does this, not us.** Claiming means writing `porting` onto a phone number, and later
+ * `released` with the timestamp that goes with it — states that four separate rules say only HandsFreeOS
+ * writes: the insert policy pins a person's new number to `provisioning`, and
+ * `private.guard_phone_number_update()` lets a person move one only as far as `releasing`. Those rules are
+ * what stop anyone conjuring a number that routes real calls, so rather than widening them for the one
+ * command that needs more, `private.port_claim_number` is HandsFreeOS doing it on the business's behalf —
+ * asking `channels.manage` for itself rather than trusting this caller, exactly as
+ * `private.staff_credit_wallet` does for a support credit.
+ *
+ * It also stamps `number_ports.phone_number_id`, which is why no command writes that column any more.
+ */
 async function claimNumber(ctx: CommandContext, p: PortRow): Promise<string> {
-  const workspaceId = ctx.scope.workspaceId!;
-  if (p.phoneNumberId) {
-    await ctx.tx
-      .update(phoneNumbers)
-      .set({ status: 'porting' })
-      .where(eq(phoneNumbers.id, p.phoneNumberId));
-    return p.phoneNumberId;
-  }
-  const [existing] = await ctx.tx
-    .select({ id: phoneNumbers.id })
-    .from(phoneNumbers)
-    .where(and(eq(phoneNumbers.workspaceId, workspaceId), eq(phoneNumbers.e164, p.e164)))
-    .limit(1);
-  if (existing) {
-    await ctx.tx
-      .update(phoneNumbers)
-      .set({ status: 'porting' })
-      .where(eq(phoneNumbers.id, existing.id));
-    return existing.id;
-  }
-  const [made] = await ctx.tx
-    .insert(phoneNumbers)
-    .values({
-      workspaceId,
-      e164: p.e164,
-      // A ported number is local unless the carrier says otherwise when it lands. Toll-free ports are rare
-      // and get corrected then; guessing toll-free here would send the wrong registration chain.
-      numberType: 'local',
-      status: 'porting',
-      createdBy: p.createdBy,
-    })
-    .returning({ id: phoneNumbers.id });
-  if (!made) throw HfosError.forbidden();
-  return made.id;
+  const [row] = await rows<{ port_claim_number: string }>(
+    ctx.tx,
+    sql`select private.port_claim_number(${p.id}::uuid)`,
+  );
+  if (!row) throw HfosError.forbidden();
+  return row.port_claim_number;
 }
 
 /**
@@ -132,10 +119,7 @@ async function claimNumber(ctx: CommandContext, p: PortRow): Promise<string> {
  */
 async function releaseClaim(ctx: CommandContext, p: PortRow): Promise<void> {
   if (!p.phoneNumberId) return;
-  await ctx.tx
-    .update(phoneNumbers)
-    .set({ status: 'released', releasedAt: new Date() })
-    .where(and(eq(phoneNumbers.id, p.phoneNumberId), eq(phoneNumbers.status, 'porting')));
+  await rows(ctx.tx, sql`select private.port_release_number(${p.id}::uuid)`);
 }
 
 export const numberPortStart = defineCommand({
@@ -330,11 +314,32 @@ export const numberPortSubmit = defineCommand({
         409,
         'Upload the signed authorisation before sending this. Carriers turn down a port without one.',
       );
+    // A number this business already has and is already using. The database refuses to demote it — taking an
+    // `active` number to `porting` would drop it off routing and every call to it would reach nobody — but
+    // silence there would send papers to a carrier for no reason, so say it here where it can be said in
+    // words.
+    const [already] = await ctx.tx
+      .select({ id: phoneNumbers.id })
+      .from(phoneNumbers)
+      .where(
+        and(
+          eq(phoneNumbers.workspaceId, ctx.scope.workspaceId!),
+          eq(phoneNumbers.e164, p.e164),
+          eq(phoneNumbers.status, 'active'),
+        ),
+      );
+    if (already)
+      throw HfosError.rule(
+        'number_already_yours',
+        409,
+        'You already have this number, so there is nothing to move.',
+      );
     // Claimed before it is sent, not after: between the two, another business could ask for the same number.
-    const phoneNumberId = await claimNumber(ctx, p);
+    // `claimNumber` writes `phone_number_id` itself, so this update is only what pressing Send means.
+    await claimNumber(ctx, p);
     await ctx.tx
       .update(numberPorts)
-      .set({ status: 'submitted', submittedAt: new Date(), rejectionReason: null, phoneNumberId })
+      .set({ status: 'submitted', submittedAt: new Date(), rejectionReason: null })
       .where(eq(numberPorts.id, p.id));
     await ctx.emit({
       type: 'number_port.submitted',
@@ -456,7 +461,7 @@ export const numberPortComplete = defineCommand({
       .where(eq(phoneNumbers.id, numberId));
     await ctx.tx
       .update(numberPorts)
-      .set({ status: 'complete', completedAt: new Date(), phoneNumberId: numberId })
+      .set({ status: 'complete', completedAt: new Date() })
       .where(eq(numberPorts.id, p.id));
 
     await ctx.emit({
