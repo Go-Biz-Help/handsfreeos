@@ -2,6 +2,7 @@
  * Twilio over plain HTTPS (no SDK): the master account creates one subaccount per workspace, and each
  * workspace's numbers, messages and registrations live in its subaccount.
  */
+import { HELP_KEYWORDS, START_KEYWORDS, STOP_KEYWORDS } from '@hfos/core';
 import {
   ProviderError,
   type AvailableNumber,
@@ -604,6 +605,30 @@ async function submitCampaign(
       'a2p_samples',
       true,
     );
+  /**
+   * The three messages a campaign declares, built from the business's own name.
+   *
+   * Kept short on purpose: every one of them is a real text somebody's phone will show, and a carrier reads
+   * them looking for the business's name, the way out, and that rates may apply. 160 characters is one
+   * segment, so none of these costs the business two.
+   */
+  const shortName = (b: Business) => b.legalName.slice(0, 40);
+  const optInMessage = (b: Business) =>
+    `${shortName(b)}: you're signed up for texts. Msg frequency varies. Msg & data rates may apply. Reply HELP for help, STOP to stop.`.slice(
+      0,
+      320,
+    );
+  const optOutMessage = (b: Business) =>
+    `${shortName(b)}: you're unsubscribed and will get no more texts. Reply START to start again.`.slice(
+      0,
+      320,
+    );
+  const helpMessage = (b: Business) =>
+    `${shortName(b)}: reply STOP to stop texts. Msg & data rates may apply. Contact us at ${b.contact.email}.`.slice(
+      0,
+      320,
+    );
+
   // A campaign the carriers turned down is replaced (Twilio's edit in place is still a private beta); the new
   // one may be charged the vetting fee again.
   if (request.replaces)
@@ -623,6 +648,15 @@ async function submitCampaign(
       UsAppToPersonUsecase: A2P_USE_CASE[b.useCase] ?? 'CUSTOMER_CARE',
       HasEmbeddedLinks: String(samples.some((x) => /https?:\/\/|www\./i.test(x))),
       HasEmbeddedPhone: String(samples.some((x) => /\d{3}\D{0,3}\d{3}\D{0,3}\d{4}/.test(x))),
+      // What the carriers are told about stopping, starting and getting help. Increasingly required rather
+      // than optional, and **the keyword lists come from core** so what we declare is what the code does
+      // (packages/core/src/messaging/sms.ts) rather than a second copy that drifts.
+      OptInKeywords: [...START_KEYWORDS],
+      OptInMessage: optInMessage(b),
+      OptOutKeywords: [...STOP_KEYWORDS],
+      OptOutMessage: optOutMessage(b),
+      HelpKeywords: [...HELP_KEYWORDS],
+      HelpMessage: helpMessage(b),
     },
   );
   return stateOf(res.sid, res.campaign_status ?? 'PENDING', CAMPAIGN_STATUS, res);

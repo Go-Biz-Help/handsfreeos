@@ -134,6 +134,59 @@ export default function TermsPage() {
           </li>
         </ul>
 
+        {/*
+          Written to the person receiving the texts, not to the business sending them — which is why it sits
+          apart from section 5 and is lettered rather than numbered. A carrier's A2P review reads this
+          section, and it reads it looking for five things: what the programme is, STOP, HELP, that frequency
+          varies and rates may apply, and that carriers are not liable for a message that does not arrive.
+          Every claim here is something HandsFreeOS actually does — the keywords are in
+          packages/core/src/messaging/sms.ts and the opt-out is recorded by message.receive. Do not soften or
+          trim it without checking the requirement first.
+        */}
+        <h2 id="messaging">5A. If a business texts you through HandsFreeOS</h2>
+        <p>
+          This part is for you if you are a customer of a business that uses HandsFreeOS, and it has
+          texted you.
+        </p>
+        <ul>
+          <li>
+            <strong>Who is texting you.</strong> The business is. HandsFreeOS is the software it
+            uses to send the message, the way an email provider is not the person writing to you.
+            The business decided to text you, and it is the business you agreed to hear from.
+          </li>
+          <li>
+            <strong>Stopping.</strong> Reply <strong>STOP</strong> to any message and that business
+            stops texting you. STOPALL, UNSUBSCRIBE, CANCEL, END, QUIT, OPTOUT and REVOKE all work
+            the same way. You will get one message confirming it, and then nothing more. If you
+            change your mind, reply <strong>START</strong> (or UNSTOP, SUBSCRIBE or OPTIN) and the
+            texts start again.
+          </li>
+          <li>
+            <strong>Help.</strong> Reply <strong>HELP</strong> or INFO and you will get a message
+            saying who is texting you and how to reach them. You can also write to us at{' '}
+            <a href={`mailto:${company.supportEmail}`}>{company.supportEmail}</a>, though for
+            anything about the business itself — an appointment, a quote, a bill — that business is
+            who you want.
+          </li>
+          <li>
+            <strong>How often, and what it costs.</strong> How many messages you get depends on the
+            business and on what you are talking to them about; there is no set number. Your own
+            message and data rates may apply, both to their messages and to your replies. If you are
+            not sure what your plan costs, your mobile provider is who knows.
+          </li>
+          <li>
+            <strong>Delivery.</strong> Mobile carriers are not liable for messages that arrive late
+            or do not arrive at all, and neither are we. A text is not a reliable way to send
+            something urgent.
+          </li>
+          <li>
+            <strong>Your number.</strong> Your phone number and the record of your agreeing to be
+            texted are used to deliver those messages and for nothing else. They are never sold, and
+            never shared with anyone else for marketing. Our{' '}
+            <Link href="/privacy#messaging">privacy policy</Link> says so in full.
+          </li>
+        </ul>
+
         <h2>6. The AI features</h2>
         <ul>
           <li>

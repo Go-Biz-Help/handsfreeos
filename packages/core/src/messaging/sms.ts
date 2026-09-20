@@ -40,7 +40,14 @@ export function smsSegments(text: string): SmsSegments {
 
 export type SmsKeyword = 'stop' | 'start' | 'help';
 
-const STOP = new Set([
+/**
+ * The carrier keywords, in one place.
+ *
+ * **Exported because the carrier is told these too.** A 10DLC campaign registration declares which words
+ * stop, start and help, and a declaration that does not match what the code does is the kind of thing a
+ * carrier audit finds. `apps/worker/src/telephony/twilio.ts` sends these arrays; nothing retypes them.
+ */
+export const STOP_KEYWORDS = [
   'STOP',
   'STOPALL',
   'UNSUBSCRIBE',
@@ -49,9 +56,13 @@ const STOP = new Set([
   'QUIT',
   'OPTOUT',
   'REVOKE',
-]);
-const START = new Set(['START', 'UNSTOP', 'YES', 'SUBSCRIBE', 'OPTIN']);
-const HELP = new Set(['HELP', 'INFO']);
+] as const;
+export const START_KEYWORDS = ['START', 'UNSTOP', 'YES', 'SUBSCRIBE', 'OPTIN'] as const;
+export const HELP_KEYWORDS = ['HELP', 'INFO'] as const;
+
+const STOP = new Set<string>(STOP_KEYWORDS);
+const START = new Set<string>(START_KEYWORDS);
+const HELP = new Set<string>(HELP_KEYWORDS);
 
 /** A carrier keyword when it is the whole text (case, spaces and punctuation ignored), else null. */
 export function smsKeyword(body: string): SmsKeyword | null {
