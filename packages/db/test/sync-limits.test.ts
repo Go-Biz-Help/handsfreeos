@@ -242,11 +242,12 @@ describe.skipIf(!process.env.HFOS_SYNC_TESTS)(
         `agency owner, ${BUSINESSES} businesses: ${run.buckets.length} buckets (log ${run.logBuckets}), ${run.paramResults} parameter results, ` +
           `${run.ops} operations in ${run.firstSyncMs} ms`,
       );
-      // me_v1 1, business_v1 12, their money in each 12, agency_v1 1.
-      expect(run.buckets.length).toBe(1 + BUSINESSES + BUSINESSES + 1);
+      // me_v1 1, then all three of business_v1's arms in each of the 12 — `access`, `managed` (an agency
+      // owner is not a member) and `inbox` (0083: they still see the whole one) — and agency_v1 1.
+      expect(run.buckets.length).toBe(1 + 3 * BUSINESSES + 1);
       expect(run.logBuckets).toBe(run.buckets.length);
-      // One access lookup and one money lookup per business, and one for the agency.
-      expect(run.paramResults).toBe(2 * BUSINESSES + 1);
+      // One lookup per arm per business, and one for the agency. me_v1 needs none.
+      expect(run.paramResults).toBe(3 * BUSINESSES + 1);
       expect(run.buckets.length).toBeLessThan(LIMIT);
       expect(run.paramResults).toBeLessThan(LIMIT);
     }, 120_000);
@@ -260,8 +261,9 @@ describe.skipIf(!process.env.HFOS_SYNC_TESTS)(
           `${run.paramResults} parameter results, ${run.ops} operations in ${run.firstSyncMs} ms; ` +
           `buckets ${run.buckets.map((b) => `${b.bucket.replace(/^\d+#/, '').replace(/\[.*$/, '')}=${b.count}`).join(', ')}`,
       );
-      expect(run.buckets.length).toBe(2);
-      expect(run.paramResults).toBe(1);
+      // me_v1, and two of business_v1's three arms: a member matches `access` and `inbox`, never `managed`.
+      expect(run.buckets.length).toBe(3);
+      expect(run.paramResults).toBe(2);
       const own = run.buckets.find((b) => b.bucket.includes('me_v1|'))!;
       expect(own.count).toBeGreaterThanOrEqual(2 * (LEAD_DOCUMENTS + VISIT_DOCUMENTS));
       expect(run.buckets.length).toBeLessThan(LIMIT);

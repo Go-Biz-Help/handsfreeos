@@ -20,9 +20,14 @@
 #     business after that business asked us to stop. The full recopy is the price of the narrowing actually
 #     narrowing. Nothing was taken out of what a phone receives, so an old build reads what it always did.
 #
-# Buckets (one person): me_v1 1 + business_v1 1 per business kept offline (+1 more where they manage money) +
-# agency_v1 1 per agency they belong to. Parameter results: 1 per business kept offline (2 where they manage money)
-# + 1 per agency. An agency owner keeping 12 businesses offline: 26 buckets, 25 results.
+# Buckets (one person): me_v1 1 + one per business_v1 arm that matches them, per business kept offline, +
+# agency_v1 1 per agency they belong to. business_v1 has three arms: `access` matches everyone who can open
+# the business, `managed` everyone who is not a member, and `inbox` everyone who still sees the whole inbox
+# (0083). So two arms for a member, three for an owner or admin. Parameter results are that count less the
+# me_v1 one, which needs no lookup. An agency owner keeping 12 businesses offline: 38 buckets, 37 results.
+# `sees_whole_inbox` defaults true, so the `inbox` arm costs its bucket whether or not any business has
+# narrowed anything — the price of it being a separate arm rather than an OR, which is what keeps the
+# member lookup off every row an owner reads.
 
 config:
   edition: 3
