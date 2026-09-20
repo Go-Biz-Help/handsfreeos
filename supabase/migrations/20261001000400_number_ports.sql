@@ -91,21 +91,38 @@ create trigger number_ports_immutable before update on app.number_ports
 -- fix and resend one that was turned down. Everything the carrier said is the worker's to write.
 create or replace function private.guard_number_port_update()
 returns trigger language plpgsql security definer set search_path = '' as $$
+declare
+  /*
+   * Pressing Send. Three of the columns below move on this one transition and nowhere else, because
+   * *sending is what claims the number*: `number_port.submit` takes the e164 off the market before it goes
+   * to the carrier, since between claiming and sending another business could ask for the same number.
+   *
+   * Listing `phone_number_id`, `submitted_at` and `rejection_reason` as the worker's without this made
+   * `number_port.submit` refuse itself — 42501, translated to a 403, on every port anybody tried to send.
+   * Seven tests said so the first time this ran against a database.
+   */
+  v_sending boolean := old.status in ('draft', 'rejected', 'failed') and new.status = 'submitted';
 begin
   if coalesce(private.system_scope_workspace() = new.workspace_id, false) then
     return new;
   end if;
   if old.provider_sid is distinct from new.provider_sid
      or old.provider_status is distinct from new.provider_status
-     or old.rejection_reason is distinct from new.rejection_reason
      or old.last_error is distinct from new.last_error
      or old.next_poll_at is distinct from new.next_poll_at
      or old.poll_count is distinct from new.poll_count
      or old.scheduled_for is distinct from new.scheduled_for
-     or old.submitted_at is distinct from new.submitted_at
      or old.completed_at is distinct from new.completed_at
-     or old.phone_number_id is distinct from new.phone_number_id
-     or old.account_id is distinct from new.account_id then
+     or old.account_id is distinct from new.account_id
+     -- Off that transition, all three are the worker's like the rest.
+     or (not v_sending and (old.submitted_at is distinct from new.submitted_at
+                         or old.phone_number_id is distinct from new.phone_number_id
+                         or old.rejection_reason is distinct from new.rejection_reason))
+     -- And on it, narrowly: the claim is made once and never re-pointed, the stamp is set rather than
+     -- cleared, and a rejection is only ever cleared — never invented by the person resending.
+     or (v_sending and (old.phone_number_id is not null
+                     or new.submitted_at is null
+                     or new.rejection_reason is not null)) then
     raise exception 'Only HandsFreeOS records what the carrier said'
       using errcode = '42501', detail = 'number_port_provider_fields';
   end if;

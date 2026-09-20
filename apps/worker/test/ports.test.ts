@@ -31,6 +31,7 @@ import {
   as,
   closeTestDbs,
   createTestUser,
+  expectPgError,
   testDbs,
   testEnv,
   type TestUser,
@@ -269,25 +270,46 @@ describe('a number that moves', () => {
 describe('what the database refuses', () => {
   it('will not let a person write what the carrier said', async () => {
     const portId = await readyPort(aNumber('0001'));
-    await expect(
+    // Drizzle wraps a driver error, so the guard's own words are on the innermost cause and never on the
+    // message `rejects.toThrow` reads — that only ever sees `Failed query: …`. `expectPgError` unwraps it,
+    // and `detail` is the part the guard actually promises a caller.
+    const e = await expectPgError(() =>
       as(owner)((tx) =>
         rows(
           tx,
           sql`update app.number_ports set provider_status = 'APPROVED' where id = ${portId}`,
         ),
       ),
-    ).rejects.toThrow(/Only HandsFreeOS records what the carrier said/);
+    );
+    expect(e.message).toMatch(/Only HandsFreeOS records what the carrier said/);
+    expect(e.detail).toBe('number_port_provider_fields');
+  });
+
+  it('will not let a person re-point the claim once the port has been sent', async () => {
+    // Sending is the one transition on which a person writes `phone_number_id`, because sending is what
+    // claims the number. The carve-out is that transition and nothing else: afterwards the column is the
+    // worker's like the rest of the carrier's side, or a business could hand a landed number to itself.
+    const portId = await readyPort(aNumber('0001'));
+    await executeCommand(api(), numberPortSubmit, { workspaceId, portId }, actor(owner), meta());
+    const e = await expectPgError(() =>
+      as(owner)((tx) =>
+        rows(tx, sql`update app.number_ports set phone_number_id = null where id = ${portId}`),
+      ),
+    );
+    expect(e.detail).toBe('number_port_provider_fields');
   });
 
   it('will not let a person change a port the carrier already has', async () => {
     const portId = await readyPort(aNumber('0001'));
     await executeCommand(api(), numberPortSubmit, { workspaceId, portId }, actor(owner), meta());
     await drain();
-    await expect(
+    const e = await expectPgError(() =>
       as(owner)((tx) =>
         rows(tx, sql`update app.number_ports set kind = 'hosted_messaging' where id = ${portId}`),
       ),
-    ).rejects.toThrow(/already with the carrier/);
+    );
+    expect(e.message).toMatch(/already with the carrier/);
+    expect(e.detail).toBe('number_port_with_carrier');
   });
 
   it('keeps the old carrier’s PIN away from a member', async () => {

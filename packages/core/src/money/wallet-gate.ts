@@ -131,6 +131,15 @@ export async function assertWalletHasRoom(
  * carrier bills us for the inbound leg whether we answer or not, so refusing saves almost nothing. What stops
  * past the overdraft is the *extra* — the outbound legs that ring somebody's cell — and the call goes to
  * voicemail instead, which still gets the customer heard.
+ *
+ * **The stage decides, and it is checked here.** Without that clause this read `balanceCents >
+ * -overdraftCents`, and a business with no wallet at all — which is every business while `WALLET_MODE` is
+ * `off` — comes back from `walletRoom` as balance 0, overdraft 0. `0 > -0` is false, so **every inbound call
+ * went straight to voicemail and nobody's phone rang.** The tests missed it because each one set
+ * `stage: 'enforce'` with an overdraft; none used the default a real business has.
+ *
+ * That is the same hazard A1 named — *the one thing that decides whether a business hears anything at all is
+ * its own stage* — and this was a fifth place that spoke without asking.
  */
 export const mayRingOut = (room: WalletRoom): boolean =>
-  room.unknown || room.balanceCents > -room.overdraftCents;
+  room.unknown || room.stage !== 'enforce' || room.balanceCents > -room.overdraftCents;

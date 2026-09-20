@@ -210,4 +210,39 @@ describe('mayRingOut', () => {
     // A wallet the gate would refuse a text on still rings phones, as long as it is inside the overdraft.
     expect(mayRingOut(room({ allowed: false, balanceCents: -500 }))).toBe(true);
   });
+
+  /*
+   * The cases above all set `stage: 'enforce'` with an overdraft, and that is exactly how this shipped
+   * broken: without the stage clause this read `balanceCents > -overdraftCents`, and a business with no
+   * wallet at all — which is every business while `WALLET_MODE` is `off` — is balance 0, overdraft 0.
+   * `0 > -0` is false, so every inbound call went to voicemail and nobody's phone rang. Five tests passed.
+   *
+   * So these start from what `walletRoom` actually returns rather than from a hand-made room: the bug was
+   * in the gap between the two.
+   */
+  describe('the stage decides, and these are the rooms a real business has', () => {
+    it('rings out for a business with no wallet row at all — the default everywhere today', async () => {
+      const real = await walletRoom(txWith(null), WORKSPACE, 'call');
+      expect(real).toMatchObject({ balanceCents: 0, overdraftCents: 0, stage: 'off' });
+      expect(mayRingOut(real)).toBe(true);
+    });
+
+    it('rings out at `off` however deep in the red — a shadow week refuses nobody', async () => {
+      expect(mayRingOut(await walletRoom(txWith(silent(-50_000, 0)), WORKSPACE, 'call'))).toBe(
+        true,
+      );
+    });
+
+    it('rings out at `warn`, because warning is not stopping', async () => {
+      expect(mayRingOut(await walletRoom(txWith(warned(-50_000, 0)), WORKSPACE, 'call'))).toBe(
+        true,
+      );
+    });
+
+    it('still stops at `enforce` past the overdraft, which is the only case that should', async () => {
+      expect(mayRingOut(await walletRoom(txWith(enforced(-50_000, 0)), WORKSPACE, 'call'))).toBe(
+        false,
+      );
+    });
+  });
 });
