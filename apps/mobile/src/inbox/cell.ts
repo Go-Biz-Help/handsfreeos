@@ -44,7 +44,15 @@ export interface BusinessNumber {
 }
 
 /**
- * The business's number as the server picks it (`liveNumber`): the newest one being set up, active or being released.
+ * The business's number, as the phone can currently work it out: the newest one being set up, active or
+ * being released.
+ *
+ * **This no longer matches the server.** Since M17 a business may have several numbers and one of them is
+ * marked `is_default`, which is the one `defaultNumber()` returns — so for a business with more than one,
+ * the phone can show a different number from the web. Closing it needs `is_default` in the phone's contract
+ * and in the `phone_numbers` sync rule, then `pnpm --filter @hfos/mobile schema`; recording a contract reads
+ * the live table, so it needs a machine with the database up. Harmless until then: a one-number business is
+ * unaffected, and the phone has no number management to get wrong.
  * Null until it has one.
  */
 export function useBusinessNumber(workspaceId: string): BusinessNumber | null {

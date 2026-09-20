@@ -24,7 +24,8 @@ import {
   callRecord,
   callUpdateStatus,
   executeCommand,
-  liveNumber,
+  defaultNumber,
+  numberByE164,
   scheduleJob,
   userPhoneRecordCall,
 } from '@hfos/core/server';
@@ -108,11 +109,16 @@ export const onBridgeRequested: EventHandler = async (ctx) => {
         .from(userPhones)
         .where(and(eq(userPhones.userId, c.placedBy), isNotNull(userPhones.verifiedAt)))
     : [];
-  const number = await liveNumber(ctx.tx, scope.workspaceId);
+  /**
+   * The number this call is actually on, not the business's default. Until M17 these were the same thing and
+   * this read the default and then refused if it differed — which, the moment a business had a second number,
+   * failed every call placed from the other one. Looking it up by the call's own `from` asks the question
+   * that was always meant: is this one of ours, and is it live?
+   */
+  const number = c.fromE164 ? await numberByE164(ctx.tx, scope.workspaceId, c.fromE164) : null;
   const account = await loadAccount(ctx.tx, scope.workspaceId, ctx.sealer);
   if (!cell) return fail('no_verified_cell');
-  if (!number || number.status !== 'active' || number.e164 !== c.fromE164 || !c.toE164 || !account)
-    return fail('no_number');
+  if (!number || number.status !== 'active' || !c.toE164 || !account) return fail('no_number');
   const urls = voiceUrls(ctx.publicUrl);
   let sid: string;
   try {
@@ -175,7 +181,8 @@ export const onVerificationRequested: EventHandler = async (ctx) => {
   if (!row || row.verifiedAt) return;
   if (row.lastVerificationAt && row.lastVerificationAt >= ctx.event.createdAt) return;
   if (Date.now() - ctx.event.createdAt.getTime() > VERIFY_STALE_MS) return;
-  const number = await liveNumber(ctx.tx, scope.workspaceId);
+  // Confirming somebody's own cell is not part of any conversation, so the business's default is right here.
+  const number = await defaultNumber(ctx.tx, scope.workspaceId);
   const account = await loadAccount(ctx.tx, scope.workspaceId, ctx.sealer);
   if (!number || number.status !== 'active' || !account) {
     ctx.log.warn({ userPhoneId }, 'no business number to confirm a cell from');

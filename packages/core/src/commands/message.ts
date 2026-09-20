@@ -61,7 +61,8 @@ import { confirmWord, messagePreview, smsKeyword, smsSegments, yesWord } from '.
 import {
   findOrCreateConversation,
   isOptedOut,
-  liveNumber,
+  conversationNumber,
+  defaultNumber,
   loadConversation,
   loadRegistrations,
   matchPersonByPhone,
@@ -120,7 +121,9 @@ async function resolveSmsConversation(
       );
     return { conversation: c, created: false };
   }
-  const number = await liveNumber(ctx.tx, workspaceId);
+  // A thread that does not exist yet has no number of its own, so it is stamped with the business's default
+  // and stays on it from then on.
+  const number = await defaultNumber(ctx.tx, workspaceId);
   if (input.personId) {
     const p = await requirePerson(ctx.tx, workspaceId, input.personId);
     if (p.archivedAt)
@@ -173,7 +176,10 @@ async function assertCanText(
   },
 ) {
   const workspaceId = ctx.scope.workspaceId!;
-  const number = await liveNumber(ctx.tx, workspaceId);
+  // The conversation's own number, not the business's default — whoever types, the reply goes out from the
+  // number the customer wrote to, so their thread never splits in two (M17). A thread that has no number, or
+  // whose number was released, falls back to the default rather than failing.
+  const number = await conversationNumber(ctx.tx, workspaceId, conv.phoneNumberId);
   if (!number || number.status !== 'active')
     throw HfosError.rule('no_number', 409, 'Get a business number to text customers.');
   if (!readiness(number, await loadRegistrations(ctx.tx, workspaceId)).messagingReady)

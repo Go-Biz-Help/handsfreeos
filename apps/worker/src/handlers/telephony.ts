@@ -6,7 +6,8 @@ import {
   familyFor,
   formatPhone,
   latestByKind,
-  liveNumber,
+  conversationNumber,
+  defaultNumber,
   messagePreview,
   messageUpdateStatus,
   phoneNumberActivate,
@@ -173,7 +174,7 @@ export async function advanceRegistrations(
           .from(telephonyRegistrations)
           .where(eq(telephonyRegistrations.workspaceId, scope.workspaceId))
           .orderBy(asc(telephonyRegistrations.createdAt)),
-        await liveNumber(tx, scope.workspaceId),
+        await defaultNumber(tx, scope.workspaceId),
         await loadAccount(tx, scope.workspaceId, services.sealer),
       ] as const,
   );
@@ -189,10 +190,27 @@ export async function advanceRegistrations(
       systemActor(scope),
       meta,
     );
+  /**
+   * Which carrier family to walk. The registrations themselves say which number they are for, so ask them
+   * rather than the workspace's default — a business with a toll-free number beside a local one would
+   * otherwise register whichever one happened to be default that day (M17).
+   *
+   * Registrations are still per family, not per number: a workspace with two local numbers registers once and
+   * both are covered, which is how 10DLC works anyway. Per-number registrations would be a rewrite of this
+   * function and are deliberately not in this phase.
+   */
+  const registered = regs.find((r) => r.phoneNumberId)?.phoneNumberId ?? null;
+  const forNumber = registered
+    ? ((await asWorker(services.db, scope, (tx) =>
+        tx.select().from(phoneNumbers).where(eq(phoneNumbers.id, registered)).limit(1),
+      )) ?? [])[0]
+    : null;
+  const family = familyFor((forNumber ?? number).numberType);
+
   // Provider ids of the steps later ones may build on.
   const usable: Partial<Record<RegistrationKind, string>> = {};
   let approvedSoFar = true;
-  for (const kind of FAMILY_KINDS[familyFor(number.numberType)] as readonly RegistrationKind[]) {
+  for (const kind of FAMILY_KINDS[family] as readonly RegistrationKind[]) {
     const reg = latest.get(kind);
     if (!reg) return;
     if (reg.status === 'approved') {
@@ -288,7 +306,7 @@ export const onRegistrationStatusChanged: EventHandler = async (ctx) => {
   if (recipients.length === 0) return;
   let mail;
   if (p.to === 'approved') {
-    const number = await liveNumber(ctx.tx, scope.workspaceId);
+    const number = await defaultNumber(ctx.tx, scope.workspaceId);
     mail = textingApprovedEmail({
       business,
       number: number ? formatPhone(number.e164) : 'your business number',
@@ -379,11 +397,28 @@ export const onMessageQueued: EventHandler = async (ctx) => {
     .select()
     .from(conversations)
     .where(eq(conversations.id, m.conversationId));
-  const number = await liveNumber(ctx.tx, scope.workspaceId);
+  /**
+   * The number this thread is on — what the customer sees the reply come from (M17). `conversationNumber`
+   * falls back to the business's default when the thread has no number (it predates this) or when the number
+   * it had has since been released: a queued text is not worth failing because somebody released a number
+   * last week, and sending from the number that replaced it is what a person would do.
+   */
+  const number = conv
+    ? await conversationNumber(ctx.tx, scope.workspaceId, conv.phoneNumberId)
+    : null;
   const account = await loadAccount(ctx.tx, scope.workspaceId, ctx.sealer);
   if (!conv || !number || number.status !== 'active' || !account) {
     await fail('no_number', 'The business number is not active.');
     return;
+  }
+  // It fell back, so the timeline has to say what the wire will. Both the thread and the message itself are
+  // re-stamped, so the thread is stable again from here and its history does not claim a number it never used.
+  if (conv.phoneNumberId !== number.id) {
+    await ctx.tx
+      .update(conversations)
+      .set({ phoneNumberId: number.id })
+      .where(eq(conversations.id, conv.id));
+    await ctx.tx.update(messages).set({ fromAddress: number.e164 }).where(eq(messages.id, m.id));
   }
   // The second wallet gate (M16 step 9). The first is on message.send, but a text can sit queued for minutes —
   // scheduled, held, retried — and the balance can run out in between. Failing here means the message lands

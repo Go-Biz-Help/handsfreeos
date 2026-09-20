@@ -12,7 +12,7 @@ import type { CommandContext } from '../kernel/types';
 import {
   findOrCreateConversation,
   isWorkspaceUser,
-  liveNumber,
+  defaultNumber,
   loadConversation,
 } from '../messaging/store';
 import {
@@ -69,7 +69,7 @@ export const conversationOpen = defineCommand({
       throw input.channel === 'sms'
         ? HfosError.rule('no_phone', 400, 'Add a mobile number to text this customer.')
         : HfosError.rule('no_email', 400, 'Add an email address to email this customer.');
-    const number = input.channel === 'sms' ? await liveNumber(ctx.tx, workspaceId) : null;
+    const number = input.channel === 'sms' ? await defaultNumber(ctx.tx, workspaceId) : null;
     const { conversation, created } = await findOrCreateConversation(ctx, {
       channel: input.channel,
       counterpart,

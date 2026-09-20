@@ -13,7 +13,7 @@ import { defineCommand } from '../kernel/define';
 import type { CommandContext } from '../kernel/types';
 import {
   findOrCreateConversation,
-  liveNumber,
+  conversationNumber,
   loadConversation,
   matchPersonByPhone,
 } from '../messaging/store';
@@ -108,14 +108,14 @@ export const callStart = defineCommand({
   async handler(ctx, input) {
     const workspaceId = ctx.scope.workspaceId!;
     const me = ctx.actor.type === 'human' ? ctx.actor.userId : null;
-    const number = await liveNumber(ctx.tx, workspaceId);
-    if (!number || number.status !== 'active')
-      throw HfosError.rule('no_number', 409, 'Get a business number to call customers.');
     await assertWalletHasRoom(ctx.tx, workspaceId, 'call');
 
     let to: string;
     let personId: string | null;
     let conversationId: string | null = null;
+    // Which number they see us calling from. A call inside a thread comes from that thread's number, for the
+    // same reason its texts do; a call started from a customer record comes from the default.
+    let fromId: string | null = null;
     if (input.conversationId) {
       const c = await loadConversation(ctx, input.conversationId);
       if (c.channel !== 'sms')
@@ -127,6 +127,7 @@ export const callStart = defineCommand({
       to = c.counterpart;
       personId = c.personId;
       conversationId = c.id;
+      fromId = c.phoneNumberId;
     } else if (input.personId) {
       const p = await requirePerson(ctx.tx, workspaceId, input.personId);
       if (p.archivedAt)
@@ -139,6 +140,9 @@ export const callStart = defineCommand({
       to = input.toPhone!;
       personId = await matchPersonByPhone(ctx.tx, workspaceId, to);
     }
+    const number = await conversationNumber(ctx.tx, workspaceId, fromId);
+    if (!number || number.status !== 'active')
+      throw HfosError.rule('no_number', 409, 'Get a business number to call customers.');
     if (to === number.e164)
       throw HfosError.rule('own_number', 400, 'That is the business number itself.');
     if (!conversationId) {
@@ -185,7 +189,13 @@ const BRIDGE_REPEAT_MS = 2 * 60_000;
 async function bridgeTarget(
   ctx: CommandContext,
   input: { conversationId?: string | undefined; personId?: string | undefined; toPhone?: string },
-): Promise<{ to: string; personId: string | null; conversationId: string | null }> {
+): Promise<{
+  to: string;
+  personId: string | null;
+  conversationId: string | null;
+  /** The thread's own number, so a bridged call comes from the same place its texts do. */
+  phoneNumberId: string | null;
+}> {
   const workspaceId = ctx.scope.workspaceId!;
   if (input.conversationId) {
     const c = await loadConversation(ctx, input.conversationId);
@@ -195,7 +205,12 @@ async function bridgeTarget(
         400,
         'This conversation is email. Call the customer from their page.',
       );
-    return { to: c.counterpart, personId: c.personId, conversationId: c.id };
+    return {
+      to: c.counterpart,
+      personId: c.personId,
+      conversationId: c.id,
+      phoneNumberId: c.phoneNumberId,
+    };
   }
   if (input.personId) {
     const p = await requirePerson(ctx.tx, workspaceId, input.personId);
@@ -203,13 +218,17 @@ async function bridgeTarget(
       throw HfosError.rule('person_archived', 409, 'Restore this customer before calling them.');
     if (!p.phoneE164)
       throw HfosError.rule('no_phone', 400, 'Add a phone number to call this customer.');
-    return { to: p.phoneE164, personId: p.id, conversationId: null };
+    return { to: p.phoneE164, personId: p.id, conversationId: null, phoneNumberId: null };
   }
   const to = input.toPhone!;
   const personId = await matchPersonByPhone(ctx.tx, workspaceId, to);
-  if (personId) return { to, personId, conversationId: null };
+  if (personId) return { to, personId, conversationId: null, phoneNumberId: null };
   const [c] = await ctx.tx
-    .select({ id: conversations.id, personId: conversations.personId })
+    .select({
+      id: conversations.id,
+      personId: conversations.personId,
+      phoneNumberId: conversations.phoneNumberId,
+    })
     .from(conversations)
     .where(
       and(
@@ -219,7 +238,7 @@ async function bridgeTarget(
       ),
     )
     .limit(1);
-  if (c) return { to, personId: c.personId, conversationId: c.id };
+  if (c) return { to, personId: c.personId, conversationId: c.id, phoneNumberId: c.phoneNumberId };
   // Never a number typed in: the bridge dials from the business number, so it only reaches people the business knows.
   throw HfosError.rule(
     'unknown_number',
@@ -241,9 +260,6 @@ export const callConnectMe = defineCommand({
   async handler(ctx, input) {
     const workspaceId = ctx.scope.workspaceId!;
     const me = requireHuman(ctx).userId;
-    const number = await liveNumber(ctx.tx, workspaceId);
-    if (!number || number.status !== 'active')
-      throw HfosError.rule('no_number', 409, 'Get a business number to call customers.');
     const [cell] = await rows<{ e164: string }>(
       ctx.tx,
       sql`select e164 from app.user_phones where user_id = ${me} and verified_at is not null limit 1`,
@@ -258,6 +274,10 @@ export const callConnectMe = defineCommand({
     await assertWalletHasRoom(ctx.tx, workspaceId, 'call');
     const target = await bridgeTarget(ctx, input);
     const { to, personId } = target;
+    // Same rule as a text: the thread's number, falling back to the business default for a new one.
+    const number = await conversationNumber(ctx.tx, workspaceId, target.phoneNumberId);
+    if (!number || number.status !== 'active')
+      throw HfosError.rule('no_number', 409, 'Get a business number to call customers.');
     if (to === number.e164)
       throw HfosError.rule('own_number', 400, 'That is the business number itself.');
     if (to === cell.e164) throw HfosError.rule('own_cell', 400, 'That is your own cell.');

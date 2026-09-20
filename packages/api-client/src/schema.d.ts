@@ -3497,6 +3497,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/phone_number.set_default": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Choose which of a business’s numbers new conversations go out from.
+         * @description Risk level 2. Requires channels.manage. Emits phone_number.default_changed.
+         */
+        post: operations["command_phone_number_set_default"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/phone_number.set_label": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Name one of a business’s numbers, so a list of them can be told apart.
+         * @description Risk level 1. Requires channels.manage. Emits phone_number.label_changed.
+         */
+        post: operations["command_phone_number_set_label"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/phone_number.set_routing": {
         parameters: {
             query?: never;
@@ -15977,6 +16017,71 @@ export interface operations {
                     "application/json": {
                         /** @enum {string} */
                         forwardedCallerId: "customer" | "business";
+                        /** Format: uuid */
+                        phoneNumberId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_phone_number_set_default: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    phoneNumberId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        phoneNumberId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_phone_number_set_label: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    label: string | null;
+                    /** Format: uuid */
+                    phoneNumberId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
                         /** Format: uuid */
                         phoneNumberId: string;
                     };

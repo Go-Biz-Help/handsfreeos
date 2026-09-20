@@ -5,7 +5,13 @@ import { HfosError } from '../errors';
 import { userIdOf } from '../kernel/actor';
 import { defineCommand } from '../kernel/define';
 import type { CommandContext } from '../kernel/types';
-import { liveNumber, workspaceMessaging } from '../messaging/store';
+import {
+  defaultNumber,
+  LIVE_NUMBER_STATUSES,
+  liveNumberCount,
+  MAX_NUMBERS_PER_WORKSPACE,
+  workspaceMessaging,
+} from '../messaging/store';
 import { assertWalletHasRoom } from '../money/wallet-gate';
 import {
   PhoneNumberActivateInput,
@@ -17,6 +23,10 @@ import {
   PhoneNumberReleaseOutput,
   PhoneNumberSetCallerIdInput,
   PhoneNumberSetCallerIdOutput,
+  PhoneNumberSetDefaultInput,
+  PhoneNumberSetDefaultOutput,
+  PhoneNumberSetLabelInput,
+  PhoneNumberSetLabelOutput,
   PhoneNumberSetRoutingInput,
   PhoneNumberSetRoutingOutput,
   PhoneNumberSystemOutput,
@@ -53,8 +63,18 @@ export const phoneNumberBuy = defineCommand({
   emits: ['phone_number.purchase_requested'],
   async handler(ctx, input) {
     const workspaceId = ctx.scope.workspaceId!;
-    if (await liveNumber(ctx.tx, workspaceId))
-      throw HfosError.rule('number_exists', 409, 'This workspace already has a business number.');
+    /**
+     * A business may have several numbers now (M17) — a second location, a dispatch line, a toll-free
+     * beside a local one. But a ceiling is not optional: dropping the one-per-workspace unique index
+     * removed the only thing that stood between a purchase that kept retrying and forty numbers on
+     * somebody's card, each of them billed monthly.
+     */
+    if ((await liveNumberCount(ctx.tx, workspaceId)) >= MAX_NUMBERS_PER_WORKSPACE)
+      throw HfosError.rule(
+        'number_limit',
+        409,
+        `That is ${MAX_NUMBERS_PER_WORKSPACE} numbers, which is as many as one business can have. Release one you are not using first.`,
+      );
     // A number is charged a month up front, so it needs the whole month there. Nobody should be able to buy
     // one at zero and be billed for it later.
     await assertWalletHasRoom(ctx.tx, workspaceId, 'number');
@@ -211,6 +231,75 @@ export const phoneNumberSetCallerId = defineCommand({
       after: { forwardedCallerId: input.forwardedCallerId },
     });
     return { phoneNumberId: n.id, forwardedCallerId: input.forwardedCallerId };
+  },
+});
+
+/**
+ * Which number a new conversation goes out from (M17).
+ *
+ * The write is one boolean; the rule that exactly one number holds it, and that a released number hands it
+ * on, lives in `private.phone_numbers_keep_default()`. That is deliberate — a business can have several
+ * numbers and several people changing them, and "exactly one" is the kind of promise the database should keep
+ * rather than whichever command ran last.
+ *
+ * Existing threads are not moved. A conversation belongs to the number the customer wrote to, and changing
+ * the default is about where the *next* one starts.
+ */
+export const phoneNumberSetDefault = defineCommand({
+  name: 'phone_number.set_default',
+  description: 'Choose which of a business’s numbers new conversations go out from.',
+  risk: 2,
+  input: PhoneNumberSetDefaultInput,
+  output: PhoneNumberSetDefaultOutput,
+  permission: 'channels.manage',
+  scope: inWorkspace,
+  emits: ['phone_number.default_changed'],
+  async handler(ctx, input) {
+    const n = await loadNumber(ctx, input.phoneNumberId);
+    if (!LIVE_NUMBER_STATUSES.includes(n.status as (typeof LIVE_NUMBER_STATUSES)[number]))
+      throw HfosError.rule(
+        'number_not_live',
+        409,
+        'That number is not in use, so nothing can be sent from it.',
+      );
+    if (n.isDefault) return { phoneNumberId: n.id };
+    const was = await defaultNumber(ctx.tx, ctx.scope.workspaceId!);
+    await ctx.tx.update(phoneNumbers).set({ isDefault: true }).where(eq(phoneNumbers.id, n.id));
+    await ctx.emit({
+      type: 'phone_number.default_changed',
+      entityType: 'phone_number',
+      entityId: n.id,
+      payload: { e164: n.e164, wasPhoneNumberId: was?.id ?? null },
+      before: { number: was ? formatPhone(was.e164) : null },
+      after: { number: formatPhone(n.e164) },
+    });
+    return { phoneNumberId: n.id };
+  },
+});
+
+/** What the team calls a number. With one number nobody needs this; with three it is what makes a list usable. */
+export const phoneNumberSetLabel = defineCommand({
+  name: 'phone_number.set_label',
+  description: 'Name one of a business’s numbers, so a list of them can be told apart.',
+  risk: 1,
+  input: PhoneNumberSetLabelInput,
+  output: PhoneNumberSetLabelOutput,
+  permission: 'channels.manage',
+  scope: inWorkspace,
+  emits: ['phone_number.label_changed'],
+  async handler(ctx, input) {
+    const n = await loadNumber(ctx, input.phoneNumberId);
+    if ((n.label ?? null) === input.label) return { phoneNumberId: n.id };
+    await ctx.tx.update(phoneNumbers).set({ label: input.label }).where(eq(phoneNumbers.id, n.id));
+    await ctx.emit({
+      type: 'phone_number.label_changed',
+      entityType: 'phone_number',
+      entityId: n.id,
+      payload: { e164: n.e164, label: input.label },
+      before: { label: n.label },
+      after: { label: input.label },
+    });
+    return { phoneNumberId: n.id };
   },
 });
 

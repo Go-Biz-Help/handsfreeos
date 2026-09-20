@@ -121,6 +121,16 @@ export const PhoneNumberSetCallerIdOutput = z.object({
   phoneNumberId: uuid,
   forwardedCallerId: forwardedCallerId,
 });
+export const PhoneNumberSetDefaultInput = z.object({ workspaceId: uuid, phoneNumberId: uuid });
+export const PhoneNumberSetDefaultOutput = z.object({ phoneNumberId: uuid });
+export const PhoneNumberSetLabelInput = z.object({
+  workspaceId: uuid,
+  phoneNumberId: uuid,
+  /** What the team calls it — "Front desk", "Dispatch". Null clears it back to just the number. */
+  label: z.string().trim().min(1).max(40).nullable(),
+});
+export const PhoneNumberSetLabelOutput = z.object({ phoneNumberId: uuid });
+
 export const PhoneUpdateSettingsInput = z.object({
   workspaceId: uuid,
   quietHours: QuietHoursSetting.optional(),

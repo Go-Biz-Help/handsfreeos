@@ -8,7 +8,7 @@ import { rows, sql, type Tx } from '@hfos/db/client';
 import { calendars, pipelineStages, pipelines, services, tags, workflows } from '@hfos/db/schema';
 import { uuidArray, workspaceZone } from '../calendar/load';
 import { HfosError } from '../errors';
-import { liveNumber, loadRegistrations, readiness } from '../messaging/store';
+import { defaultNumber, loadRegistrations, readiness } from '../messaging/store';
 import { parseDefinition, type WorkflowDefinition } from './definition';
 import { recipeDefinition, WORKFLOW_RECIPES, type WorkflowRecipe } from './recipes';
 import { listRefs } from './refs';
@@ -86,7 +86,7 @@ export async function loadWorkflowCatalogs(
     .from(workflows)
     .where(and(eq(workflows.workspaceId, workspaceId), ne(workflows.status, 'archived')))
     .orderBy(asc(workflows.name));
-  const number = await liveNumber(tx, workspaceId);
+  const number = await defaultNumber(tx, workspaceId);
   const regs = await loadRegistrations(tx, workspaceId);
   return {
     timeZone: await workspaceZone(tx, workspaceId),

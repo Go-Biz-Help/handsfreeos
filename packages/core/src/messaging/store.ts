@@ -28,8 +28,18 @@ export const FAMILY_KINDS: Record<RegistrationFamily, readonly RegistrationKind[
 export const familyFor = (numberType: string): RegistrationFamily =>
   numberType === 'toll_free' ? 'toll_free_verification' : 'a2p_10dlc';
 
-/** The workspace's live business number (provisioning, active or releasing), if any. */
-export async function liveNumber(tx: Tx, workspaceId: string) {
+/**
+ * The number a business sends from when nothing more specific applies (M17).
+ *
+ * This is what `liveNumber` used to be, with one clause added, and the clause is the whole compatibility
+ * story: ordering by
+ * `is_default` first and then by the same `created_at desc` it always used means a business with one number
+ * gets exactly the row it got before. A business with several gets the one it picked.
+ *
+ * It is the fallback, not the answer. A conversation that already knows its own number uses that
+ * (`conversationNumber`); this is for a thread that has not started yet.
+ */
+export async function defaultNumber(tx: Tx, workspaceId: string) {
   const [n] = await tx
     .select()
     .from(phoneNumbers)
@@ -39,10 +49,95 @@ export async function liveNumber(tx: Tx, workspaceId: string) {
         inArray(phoneNumbers.status, [...LIVE_NUMBER_STATUSES]),
       ),
     )
-    .orderBy(desc(phoneNumbers.createdAt))
+    .orderBy(desc(phoneNumbers.isDefault), desc(phoneNumbers.createdAt))
     .limit(1);
   return n ?? null;
 }
+
+/**
+ * The number a conversation belongs to, which is the one the customer has been writing to.
+ *
+ * **This is the fix for the split-thread problem.** A customer who texted the dispatch line and gets a reply
+ * from the front-desk line sees two threads on their phone and no longer knows which one to use — and the
+ * business sees one thread while the customer sees two. So a conversation is glued to the number it arrived
+ * on, whoever types the reply.
+ *
+ * Falls back to the workspace default when the conversation has no number (threads created before this
+ * shipped) or when the number it had has since been released. Never throws: failing a text because somebody
+ * released a number a month ago would be worse than sending it from the number that replaced it.
+ */
+export async function conversationNumber(
+  tx: Tx,
+  workspaceId: string,
+  phoneNumberId: string | null,
+) {
+  if (phoneNumberId) {
+    const [n] = await tx
+      .select()
+      .from(phoneNumbers)
+      .where(
+        and(
+          eq(phoneNumbers.id, phoneNumberId),
+          eq(phoneNumbers.workspaceId, workspaceId),
+          inArray(phoneNumbers.status, [...LIVE_NUMBER_STATUSES]),
+        ),
+      )
+      .limit(1);
+    if (n) return n;
+  }
+  return defaultNumber(tx, workspaceId);
+}
+
+/**
+ * A business's own number, found by the e164 a call or message is actually on.
+ *
+ * The workspace check is the point: it says "this number is ours and it is live", which is what a caller
+ * comparing `number.e164` to a call's `from` was really asking. Comparing against the *default* was only ever
+ * right while a business could have one number.
+ */
+export async function numberByE164(tx: Tx, workspaceId: string, e164: string) {
+  const [n] = await tx
+    .select()
+    .from(phoneNumbers)
+    .where(
+      and(
+        eq(phoneNumbers.workspaceId, workspaceId),
+        eq(phoneNumbers.e164, e164),
+        inArray(phoneNumbers.status, [...LIVE_NUMBER_STATUSES]),
+      ),
+    )
+    .limit(1);
+  return n ?? null;
+}
+
+/** Every number a business has that is not released, its default first. For Settings, and for pickers. */
+export async function numbersOf(tx: Tx, workspaceId: string) {
+  return tx
+    .select()
+    .from(phoneNumbers)
+    .where(and(eq(phoneNumbers.workspaceId, workspaceId), ne(phoneNumbers.status, 'released')))
+    .orderBy(desc(phoneNumbers.isDefault), desc(phoneNumbers.createdAt));
+}
+
+/**
+ * How many live numbers a business has. Used by the purchase cap: dropping the one-per-workspace index
+ * removed the only thing standing between a stuck retry and forty numbers on somebody's card.
+ */
+export async function liveNumberCount(tx: Tx, workspaceId: string): Promise<number> {
+  const found = await tx
+    .select({ id: phoneNumbers.id })
+    .from(phoneNumbers)
+    .where(
+      and(
+        eq(phoneNumbers.workspaceId, workspaceId),
+        inArray(phoneNumbers.status, [...LIVE_NUMBER_STATUSES]),
+      ),
+    );
+  return found.length;
+}
+
+/** No business needs more than this, and a runaway purchase loop needs a ceiling. */
+export const MAX_NUMBERS_PER_WORKSPACE = 10;
 
 /** The newest number that is not released (a failed purchase shows its error until someone retries). */
 export async function currentNumber(tx: Tx, workspaceId: string) {

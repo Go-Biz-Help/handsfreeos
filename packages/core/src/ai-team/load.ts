@@ -19,7 +19,12 @@ import { uuidArray } from '../calendar/load';
 import { HfosError } from '../errors';
 import { emptyKnowledgeProfile, KnowledgeProfile, profileCompleteness } from '../knowledge/profile';
 import { workspaceAddresses } from '../messaging/email';
-import { liveNumber, loadRegistrations, readiness, workspaceMessaging } from '../messaging/store';
+import {
+  defaultNumber,
+  loadRegistrations,
+  readiness,
+  workspaceMessaging,
+} from '../messaging/store';
 import type { WorkspaceRole } from '../permissions';
 import { openHoursOf } from '../schemas/workspace';
 import { parseStoredDefinition } from '../workflows/load';
@@ -199,7 +204,7 @@ export async function loadTeammateCatalogs(
     .where(eq(workspaces.id, workspaceId));
   if (!ws) throw HfosError.notFound('Workspace not found.');
   const messaging = await workspaceMessaging(tx, workspaceId);
-  const number = await liveNumber(tx, workspaceId);
+  const number = await defaultNumber(tx, workspaceId);
   const regs = await loadRegistrations(tx, workspaceId);
   const addresses = (await workspaceAddresses(tx, workspaceId)).filter((a) => a.usable);
   const widgets = await tx

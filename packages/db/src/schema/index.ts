@@ -729,6 +729,12 @@ export const phoneNumbers = app.table('phone_numbers', {
   label: text('label'),
   capabilities: jsonb('capabilities').$type<Json>().notNull().default({}),
   status: phoneNumberStatus('status').notNull().default('provisioning'),
+  /**
+   * The number a new conversation sends from, and what Settings shows first. Exactly one per workspace among
+   * live numbers, kept by `private.phone_numbers_keep_default()` — never write it expecting to be the only
+   * one, the trigger stands the others down.
+   */
+  isDefault: boolean('is_default').notNull().default(false),
   routing: jsonb('routing')
     .$type<PhoneRouting>()
     .notNull()

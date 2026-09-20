@@ -13,7 +13,7 @@ import type { QueryContext } from '../kernel/types';
 import { CANCELLED_TEXT, quietHoursState, SCHEDULED_TEXT } from '../messaging/quiet-hours';
 import {
   isOptedOut,
-  liveNumber,
+  conversationNumber,
   loadRegistrations,
   readiness,
   workspaceMessaging,
@@ -56,6 +56,8 @@ type ConversationRow = {
   counterpart: string;
   status: 'open' | 'snoozed' | 'closed';
   person_id: string | null;
+  /** The number this thread is on, so a reply goes out from where the customer wrote to (M17). */
+  phone_number_id: string | null;
   first_name: string | null;
   last_name: string | null;
   assignee_user_id: string | null;
@@ -94,7 +96,8 @@ const conversationSelect = (
   workspaceId: string,
   sortBy: 'recent' | 'needs_person' = 'recent',
 ) => sql`
-  select c.id, c.channel::text as channel, c.counterpart, c.status::text as status, c.person_id, p.first_name, p.last_name,
+  select c.id, c.channel::text as channel, c.counterpart, c.status::text as status, c.person_id, c.phone_number_id,
+    p.first_name, p.last_name,
     c.assignee_user_id, coalesce(nullif(u.full_name, ''), u.email::text) as assignee_name, c.unread_count, c.last_message_at,
     c.last_preview, c.last_direction::text as last_direction, c.awaiting_reply_since, c.snoozed_until, c.archived_at, c.created_at,
     cv.name as visitor_name,
@@ -404,7 +407,9 @@ export const conversationGet = defineQuery({
         }));
       }
     }
-    const number = await liveNumber(ctx.tx, input.workspaceId);
+    // This thread's own number, because that is what a reply will go out from and what `fromNumber` shows
+    // (M17). A thread whose number was released falls back to the default, exactly as sending does.
+    const number = await conversationNumber(ctx.tx, input.workspaceId, row.phone_number_id);
     const ready = readiness(number, await loadRegistrations(ctx.tx, input.workspaceId));
     const canText =
       row.channel === 'email'

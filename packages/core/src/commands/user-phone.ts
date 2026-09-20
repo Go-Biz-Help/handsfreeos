@@ -13,7 +13,7 @@ import { HfosError } from '../errors';
 import { requireHuman } from '../kernel/actor';
 import { waitInWords } from '../kernel/app-request';
 import { defineCommand } from '../kernel/define';
-import { liveNumber } from '../messaging/store';
+import { defaultNumber } from '../messaging/store';
 import {
   UserPhoneRecordCallInput,
   UserPhoneRefOutput,
@@ -48,7 +48,7 @@ export const userPhoneStartVerification = defineCommand({
   async handler(ctx, input) {
     const me = requireHuman(ctx).userId;
     const workspaceId = ctx.scope.workspaceId!;
-    const number = await liveNumber(ctx.tx, workspaceId);
+    const number = await defaultNumber(ctx.tx, workspaceId);
     if (!number || number.status !== 'active')
       throw HfosError.rule(
         'no_number',

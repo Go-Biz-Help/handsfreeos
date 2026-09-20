@@ -11,7 +11,7 @@ import {
   executeCommand,
   HfosError,
   isOptedOut,
-  liveNumber,
+  defaultNumber,
   loadRegistrations,
   localDateOf,
   localInstant,
@@ -76,7 +76,7 @@ export async function reachOf(
     text = 'opted_out';
   else if (!c.smsOk && c.personConsent !== 'opted_in') text = 'no_consent';
   else {
-    const number = await liveNumber(tx, workspaceId);
+    const number = await defaultNumber(tx, workspaceId);
     const ready =
       !!number &&
       number.status === 'active' &&
