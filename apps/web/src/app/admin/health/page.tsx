@@ -25,6 +25,10 @@ export default async function HealthPage({
     { label: 'Cards declined', value: health.wallets.declines },
     { label: 'Balances suspended', value: health.wallets.suspended },
     { label: 'Balances that disagree', value: health.wallets.drifting },
+    { label: 'Balances below zero', value: health.wallets.negative },
+    // The shadow week's own check: days the nightly true-up against Twilio did not run for a business with a
+    // carrier account. Nothing else would ever tell us the margin numbers were built on a missing day.
+    { label: 'Days not reconciled', value: health.wallets.unreconciledDays },
     { label: 'Work still queued', value: health.outboxBacklog },
   ];
   return (

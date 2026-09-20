@@ -27,6 +27,8 @@ import {
 import { requireHuman } from '../kernel/actor';
 import { defineQuery } from '../kernel/define';
 import {
+  AdminWalletGetInput,
+  AdminWalletGetOutput,
   BusinessGetInput,
   BusinessGetOutput,
   BusinessListInput,
@@ -297,6 +299,86 @@ export const platformHealthSummary = defineQuery({
   },
 });
 
+/**
+ * One business's balance, for the support desk (M16).
+ *
+ * This is the page a "my texts stopped" ticket is answered from, so it is the one view of a wallet that shows
+ * **cost beside price**. A business is shown what it was charged, because that is the number it decides on;
+ * staff are shown both, because the question they get asked is why.
+ *
+ * `private.admin_wallet_for` is `security definer` and checks `platform.businesses.read` for itself, so the
+ * permission is enforced twice on purpose — here, where it is readable, and there, where it is true.
+ */
+export const platformWalletGet = defineQuery({
+  name: 'platform.wallet.get',
+  description:
+    'One business’s usage balance, its card, and what 30 days of it cost against what it was charged.',
+  input: AdminWalletGetInput,
+  output: AdminWalletGetOutput,
+  permission: 'platform.businesses.read',
+  scope: onPlatform,
+  async handler(ctx, input) {
+    const [w] = await rows<{
+      stage: string;
+      balance_cents: string;
+      auto_topup: boolean;
+      floor_cents: string;
+      topup_cents: string;
+      has_card: boolean;
+      card_brand: string | null;
+      card_last4: string | null;
+      suspended_at: Date | null;
+      suspended_reason: string | null;
+      declines_in_row: number;
+      escalation_step: number;
+      spent_30d_cents: string;
+      cost_30d_cents: string;
+      topped_up_30d_cents: string;
+    }>(ctx.tx, sql`select * from private.admin_wallet_for(${input.workspaceId}::uuid)`);
+    // No row is a business that has never spent anything and has never been moved along — not an error, and
+    // not a zero balance either. The page says "nothing yet".
+    if (!w)
+      return {
+        opened: false,
+        stage: 'off' as const,
+        balanceCents: 0,
+        autoTopup: true,
+        floorCents: 1000,
+        topupCents: 2500,
+        hasCard: false,
+        cardBrand: null,
+        cardLast4: null,
+        suspendedAt: null,
+        suspendedReason: null,
+        declinesInRow: 0,
+        escalationStep: 0,
+        spent30dCents: 0,
+        cost30dCents: 0,
+        toppedUp30dCents: 0,
+      };
+    const stage: 'off' | 'warn' | 'enforce' =
+      w.stage === 'warn' || w.stage === 'enforce' ? w.stage : 'off';
+    return {
+      opened: true,
+      stage,
+      balanceCents: Number(w.balance_cents),
+      autoTopup: w.auto_topup,
+      floorCents: Number(w.floor_cents),
+      topupCents: Number(w.topup_cents),
+      hasCard: w.has_card,
+      cardBrand: w.card_brand,
+      cardLast4: w.card_last4,
+      suspendedAt: w.suspended_at ? w.suspended_at.toISOString() : null,
+      suspendedReason: w.suspended_reason,
+      declinesInRow: Number(w.declines_in_row),
+      escalationStep: Number(w.escalation_step),
+      spent30dCents: Number(w.spent_30d_cents),
+      cost30dCents: Number(w.cost_30d_cents),
+      toppedUp30dCents: Number(w.topped_up_30d_cents),
+    };
+  },
+});
+
 export const platformViewAsCurrent = defineQuery({
   name: 'platform.view_as.current',
   description:
@@ -435,4 +517,5 @@ export const platformQueries = [
   platformHealthSummary,
   platformViewAsCurrent,
   platformRateCard,
+  platformWalletGet,
 ];

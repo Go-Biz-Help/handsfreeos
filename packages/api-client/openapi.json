@@ -28232,6 +28232,96 @@
         }
       }
     },
+    "/v1/commands/wallet.set_stage": {
+      "post": {
+        "operationId": "command_wallet_set_stage",
+        "summary": "Support: move one business along the usage wallet — silent, warned, or stopped when the balance runs out.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 4. Requires platform.wallets.adjust. Emits wallet.stage_changed.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "stage": {
+                    "type": "string",
+                    "enum": [
+                      "off",
+                      "warn",
+                      "enforce"
+                    ]
+                  },
+                  "reason": {
+                    "type": "string",
+                    "minLength": 3,
+                    "maxLength": 300
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "stage",
+                  "reason"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "workspaceId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "was": {
+                      "type": "string",
+                      "enum": [
+                        "off",
+                        "warn",
+                        "enforce"
+                      ]
+                    },
+                    "stage": {
+                      "type": "string",
+                      "enum": [
+                        "off",
+                        "warn",
+                        "enforce"
+                      ]
+                    },
+                    "changed": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "workspaceId",
+                    "was",
+                    "stage",
+                    "changed"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/commands/money.save_settings": {
       "post": {
         "operationId": "command_money_save_settings",
@@ -37881,6 +37971,156 @@
                     "version",
                     "since",
                     "lines"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/queries/platform.wallet.get": {
+      "post": {
+        "operationId": "query_platform_wallet_get",
+        "summary": "One business’s usage balance, its card, and what 30 days of it cost against what it was charged.",
+        "tags": [
+          "queries"
+        ],
+        "description": "Requires platform.businesses.read.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  }
+                },
+                "required": [
+                  "workspaceId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "opened": {
+                      "type": "boolean"
+                    },
+                    "stage": {
+                      "type": "string",
+                      "enum": [
+                        "off",
+                        "warn",
+                        "enforce"
+                      ]
+                    },
+                    "balanceCents": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "autoTopup": {
+                      "type": "boolean"
+                    },
+                    "floorCents": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "topupCents": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "hasCard": {
+                      "type": "boolean"
+                    },
+                    "cardBrand": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "cardLast4": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "suspendedAt": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "format": "date-time",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "suspendedReason": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "declinesInRow": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "escalationStep": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "spent30dCents": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "cost30dCents": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "toppedUp30dCents": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    }
+                  },
+                  "required": [
+                    "opened",
+                    "stage",
+                    "balanceCents",
+                    "autoTopup",
+                    "floorCents",
+                    "topupCents",
+                    "hasCard",
+                    "cardBrand",
+                    "cardLast4",
+                    "suspendedAt",
+                    "suspendedReason",
+                    "declinesInRow",
+                    "escalationStep",
+                    "spent30dCents",
+                    "cost30dCents",
+                    "toppedUp30dCents"
                   ],
                   "additionalProperties": false
                 }

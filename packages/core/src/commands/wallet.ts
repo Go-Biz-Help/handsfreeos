@@ -39,6 +39,7 @@ import {
   WalletSuspendInput,
   WalletTopUpInput,
 } from '../schemas/wallet';
+import { WalletSetStageInput, WalletSetStageOutput } from '../schemas/support';
 import type { CommandContext } from '../kernel/types';
 
 const inWorkspace = (i: { workspaceId: string }) => ({
@@ -626,6 +627,51 @@ export const walletAdjust = defineCommand({
   },
 });
 
+/**
+ * Move a business along the wallet: `off` → `warn` → `enforce` (M16, step 9).
+ *
+ * This is the switch the whole rollout runs on, and the only one in the product that can stop a business's
+ * phone working. So it is deliberate in three ways: it is per business and there is no global form of it, a
+ * global one being how this gets turned on for a thousand businesses by accident at two in the morning; it
+ * takes a reason, because a rollout is a series of decisions somebody made and ought to be able to explain;
+ * and it says where the business came from, so the same click twice is visibly a no-op rather than a second
+ * decision.
+ *
+ * Platform-scoped, like everything staff do — and the SQL behind it checks `platform.wallets.adjust` for
+ * itself rather than trusting this caller.
+ */
+export const walletSetStage = defineCommand({
+  name: 'wallet.set_stage',
+  description:
+    'Support: move one business along the usage wallet — silent, warned, or stopped when the balance runs out.',
+  risk: 4,
+  input: WalletSetStageInput,
+  output: WalletSetStageOutput,
+  permission: 'platform.wallets.adjust',
+  scope: onPlatform,
+  emits: ['wallet.stage_changed'],
+  async handler(ctx, input) {
+    const [row] = await rows<{ was: string; changed: boolean }>(
+      ctx.tx,
+      sql`select * from private.set_wallet_stage(${input.workspaceId}::uuid,
+            ${input.stage}::app.wallet_stage)`,
+    );
+    if (!row) throw HfosError.notFound('No business with that id.');
+    const was: 'off' | 'warn' | 'enforce' =
+      row.was === 'warn' || row.was === 'enforce' ? row.was : 'off';
+    if (row.changed)
+      await ctx.emit({
+        type: 'wallet.stage_changed',
+        entityType: 'usage_wallet',
+        entityId: input.workspaceId,
+        payload: { workspaceId: input.workspaceId, was, stage: input.stage, reason: input.reason },
+        before: { stage: was },
+        after: { stage: input.stage, why: input.reason },
+      });
+    return { workspaceId: input.workspaceId, was, stage: input.stage, changed: row.changed };
+  },
+});
+
 export const walletCommands = [
   walletSetAutoTopup,
   walletRequestCard,
@@ -638,4 +684,5 @@ export const walletCommands = [
   walletSuspend,
   walletResume,
   walletAdjust,
+  walletSetStage,
 ];

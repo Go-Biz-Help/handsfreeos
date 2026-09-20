@@ -326,6 +326,53 @@ export const BusinessGetOutput = z.object({
   }),
 });
 
+// ---------- one business's usage balance ----------
+
+export const WalletStageValue = z.enum(['off', 'warn', 'enforce']);
+
+export const AdminWalletGetInput = z.object({ workspaceId: uuid });
+
+/**
+ * What the support desk sees of a business's balance — **including what it cost us**, which is the one place
+ * in the product that number appears. A customer is shown the price; staff answering "why was I charged 2c for
+ * that text" need both sides of it.
+ */
+export const AdminWalletGetOutput = z.object({
+  /** False for a business that has never spent anything and has never been moved along. */
+  opened: z.boolean(),
+  stage: WalletStageValue,
+  balanceCents: z.int(),
+  autoTopup: z.boolean(),
+  floorCents: z.int(),
+  topupCents: z.int(),
+  hasCard: z.boolean(),
+  cardBrand: z.string().nullable(),
+  cardLast4: z.string().nullable(),
+  suspendedAt: isoDateTime.nullable(),
+  suspendedReason: z.string().nullable(),
+  declinesInRow: z.int(),
+  escalationStep: z.int(),
+  spent30dCents: z.int(),
+  /** What those 30 days cost HandsFreeOS. Never leaves /admin. */
+  cost30dCents: z.int(),
+  toppedUp30dCents: z.int(),
+});
+
+export const WalletSetStageInput = z.object({
+  workspaceId: uuid,
+  stage: WalletStageValue,
+  /** Why, in a few words. Stored on the event: a rollout is a series of decisions somebody made. */
+  reason: z.string().trim().min(3).max(300),
+});
+
+export const WalletSetStageOutput = z.object({
+  workspaceId: uuid,
+  was: WalletStageValue,
+  stage: WalletStageValue,
+  /** False when it was already there, so a double-click is visibly a no-op rather than a second decision. */
+  changed: z.boolean(),
+});
+
 // ---------- is anything broken ----------
 
 export const HealthSummaryInput = z.object({

@@ -5237,6 +5237,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/wallet.set_stage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Support: move one business along the usage wallet — silent, warned, or stopped when the balance runs out.
+         * @description Risk level 4. Requires platform.wallets.adjust. Emits wallet.stage_changed.
+         */
+        post: operations["command_wallet_set_stage"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/wallet.top_up": {
         parameters: {
             query?: never;
@@ -7431,6 +7451,26 @@ export interface paths {
          * @description Any signed-in user.
          */
         post: operations["query_platform_view_as_current"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/platform.wallet.get": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * One business’s usage balance, its card, and what 30 days of it cost against what it was charged.
+         * @description Requires platform.businesses.read.
+         */
+        post: operations["query_platform_wallet_get"];
         delete?: never;
         options?: never;
         head?: never;
@@ -19310,6 +19350,44 @@ export interface operations {
             };
         };
     };
+    command_wallet_set_stage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    reason: string;
+                    /** @enum {string} */
+                    stage: "off" | "warn" | "enforce";
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changed: boolean;
+                        /** @enum {string} */
+                        stage: "off" | "warn" | "enforce";
+                        /** @enum {string} */
+                        was: "off" | "warn" | "enforce";
+                        /** Format: uuid */
+                        workspaceId: string;
+                    };
+                };
+            };
+        };
+    };
     command_wallet_top_up: {
         parameters: {
             query?: never;
@@ -27786,6 +27864,51 @@ export interface operations {
                             /** Format: uuid */
                             workspaceId: string;
                         } | null;
+                    };
+                };
+            };
+        };
+    };
+    query_platform_wallet_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        autoTopup: boolean;
+                        balanceCents: number;
+                        cardBrand: string | null;
+                        cardLast4: string | null;
+                        cost30dCents: number;
+                        declinesInRow: number;
+                        escalationStep: number;
+                        floorCents: number;
+                        hasCard: boolean;
+                        opened: boolean;
+                        spent30dCents: number;
+                        /** @enum {string} */
+                        stage: "off" | "warn" | "enforce";
+                        suspendedAt: string | null;
+                        suspendedReason: string | null;
+                        toppedUp30dCents: number;
+                        topupCents: number;
                     };
                 };
             };
