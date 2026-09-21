@@ -11,6 +11,7 @@
  * `/book/lonestar` and `/f/lonestar/quote` — and a branded domain is another name for exactly that. One per
  * site, so "which business is this host?" always has one answer.
  */
+import { rows, sql } from '@hfos/db/client';
 import { and, eq, sql as dsql } from 'drizzle-orm';
 import { bookingSites, brandedDomains } from '@hfos/db/schema';
 import { HfosError } from '../errors';
@@ -22,6 +23,7 @@ import {
   BrandedDomainRecordInput,
   BrandedDomainRefInput,
   BrandedDomainRefOutput,
+  isOurHost,
 } from '../schemas/branded-domain';
 
 const inWorkspace = (i: { workspaceId: string }) => ({
@@ -54,6 +56,24 @@ export const brandedDomainAdd = defineCommand({
   emits: ['branded_domain.added'],
   async handler(ctx, input) {
     const workspaceId = ctx.scope.workspaceId!;
+
+    // One of our own names is nobody's to claim by typing it. Which of them may be claimed, and by which
+    // single workspace, is written down in `platform.claimable_hosts` — so this asks rather than guesses,
+    // and the trigger on the table refuses anything that gets past here. Said before the booking-site
+    // check because "that one is not yours" is the truer answer of the two.
+    if (isOurHost(input.domain)) {
+      const [claim] = await rows<{ workspace_id: string | null }>(
+        ctx.tx,
+        sql`select private.claimable_host_workspace(${input.domain}) as workspace_id`,
+      );
+      if (claim?.workspace_id !== workspaceId)
+        throw HfosError.rule(
+          'branded_domain_is_ours',
+          403,
+          'That is one of our own addresses. Use a domain your business owns.',
+        );
+    }
+
     const [site] = await ctx.tx
       .select({ id: bookingSites.id })
       .from(bookingSites)

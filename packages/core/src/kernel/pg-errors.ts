@@ -153,6 +153,12 @@ const RULES: Record<string, { status: number; message: string }> = {
     status: 400,
     message: 'That chat belongs to a different visitor.',
   },
+  // The trigger behind `platform.claimable_hosts`. `branded_domain.add` says this first and in the same
+  // words; this is for anything that reaches the table by another road.
+  branded_domain_is_ours: {
+    status: 403,
+    message: 'That is one of our own addresses. Use a domain your business owns.',
+  },
   not_authenticated: { status: 401, message: 'Sign in to continue.' },
   profile_missing: {
     status: 500,
