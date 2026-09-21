@@ -23,7 +23,11 @@ export function withWorkflowAi(w: World, opts: AiWorldOptions = {}): World {
     provider: opts.provider === undefined ? scriptedAi() : opts.provider,
     dailyTokens: opts.dailyTokens ?? 5_000_000,
   };
-  const s = { ...w.s, ai, workflowAi: createWorkflowAi({ db: w.s.db, ai, log: w.s.log }) };
+  const s = {
+    ...w.s,
+    ai,
+    workflowAi: createWorkflowAi({ db: w.s.db, ai, log: w.s.log, wallet: w.s.wallet }),
+  };
   Object.assign(w, { s: s as TestServices });
   return w;
 }

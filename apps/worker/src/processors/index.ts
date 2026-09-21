@@ -11,7 +11,6 @@ import {
   onOutboundCall,
   onRecording,
   onScreened,
-  onTranscription,
 } from './twilio-voice';
 
 /** `provider:kind` → processor for stored webhooks. Deliveries without one are marked ignored. */
@@ -24,7 +23,6 @@ export const processors: ProcessorMap = {
   'twilio:voice.leg_status': onLegStatus,
   'twilio:voice.screened': onScreened,
   'twilio:voice.recording': onRecording,
-  'twilio:voice.transcription': onTranscription,
   'postmark:email.inbound': onInboundEmail,
   'postmark:email.event': onEmailEvent,
   // Mail to support@handsfreeos.com, filed as a ticket instead of into anybody's business (M13).

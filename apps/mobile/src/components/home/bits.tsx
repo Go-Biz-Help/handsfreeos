@@ -18,6 +18,7 @@ import {
   Check,
   ChevronDown,
   Clock,
+  CreditCard,
   FileText,
   Flame,
   Hourglass,
@@ -31,6 +32,7 @@ import {
   Sparkles,
   UserPlus,
   UserRound,
+  Wallet,
   Zap,
 } from '@/components/icons';
 import { Avatar } from '@/components/ui/avatar';
@@ -65,6 +67,9 @@ const KIND_LOOK: Readonly<
   overdue_task: { icon: ListChecks, tone: 'warning' },
   estimate_waiting: { icon: FileText, tone: 'warning' },
   invoice_overdue: { icon: Receipt, tone: 'danger' },
+  wallet_low: { icon: Wallet, tone: 'warning' },
+  wallet_empty: { icon: Wallet, tone: 'danger' },
+  wallet_card_declined: { icon: CreditCard, tone: 'danger' },
 };
 
 const TONE_CLASS: Readonly<Partial<Record<Tone, { bg: string; fg: string }>>> = {

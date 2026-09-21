@@ -1,6 +1,6 @@
 import type { paths } from '@hfos/api-client';
 
-type Ok<P extends keyof paths> = paths[P] extends {
+export type Ok<P extends keyof paths> = paths[P] extends {
   post: { responses: { 200: { content: { 'application/json': infer R } } } };
 }
   ? R
@@ -55,6 +55,7 @@ export type RecordType = 'person' | 'company' | 'lead';
 
 // Milestone 3: texting and the inbox
 export type InboxList = Ok<'/v1/queries/inbox.list'>;
+export type CallLogItem = Ok<'/v1/queries/call.log'>['items'][number];
 export type ConversationSummary = InboxList['items'][number];
 export type InboxSummary = Ok<'/v1/queries/inbox.summary'>;
 export type ConversationGet = Ok<'/v1/queries/conversation.get'>;

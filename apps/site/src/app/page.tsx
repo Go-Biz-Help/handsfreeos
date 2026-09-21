@@ -342,7 +342,7 @@ function PlansStrip() {
   return (
     <Section className="bg-card-2 border-border border-y">
       <div className="flex flex-col gap-8 lg:flex-row lg:items-end lg:justify-between">
-        <SectionHeading sub="One price a month, every feature in the plan, and texts and calls passed through at what they cost us.">
+        <SectionHeading sub="One price a month, every feature in the plan, and texts and calls billed for what you use.">
           Priced against the one job a month it saves you.
         </SectionHeading>
         <Button href="/pricing" variant="secondary" size="lg" className="shrink-0">

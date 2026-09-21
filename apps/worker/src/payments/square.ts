@@ -27,6 +27,7 @@ import {
   NO_CAPABILITIES,
   PaymentAuthError,
   PaymentError,
+  PlatformUnsupportedError,
   requireAmount,
   signatureMatches,
   type ChargeInput,
@@ -658,6 +659,19 @@ export function createSquarePayments(opts: {
 
     async forgetMethod(account, input) {
       await api(account, `/v2/cards/${encodeURIComponent(input.token)}/disable`, { body: {} });
+    },
+
+    /**
+     * Square cannot take money for us. Its API acts only as a seller, with that seller's own token, so there
+     * is no equivalent of omitting Stripe's account header — there is no "us" for Square to charge on behalf
+     * of. A business with only Square connected is told so in words rather than met with a failed charge.
+     */
+    platform: {
+      supported: false,
+      ensureCustomer: () => Promise.reject(new PlatformUnsupportedError('square')),
+      saveMethod: () => Promise.reject(new PlatformUnsupportedError('square')),
+      forgetMethod: () => Promise.reject(new PlatformUnsupportedError('square')),
+      charge: () => Promise.reject(new PlatformUnsupportedError('square')),
     },
 
     subscriptions: {

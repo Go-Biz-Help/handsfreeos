@@ -32,6 +32,7 @@ import {
   hmacHex,
   PaymentAuthError,
   PaymentError,
+  PlatformUnsupportedError,
   requireAmount,
   type ChargeInput,
   type ConnectedAccount,
@@ -157,8 +158,10 @@ export type WebhookDeliver = (post: FakeWebhookPost) => Promise<{ ok: boolean }>
 
 export interface FakePayments {
   readonly providers: Record<PaymentProviderName, PaymentProvider>;
-  /** Every payment the stand-in took, oldest first. */
+  /** Every payment the stand-in took **for a business**, oldest first. */
   charges(): readonly FakeCharge[];
+  /** Every payment the stand-in took **for HandsFreeOS**: the usage wallet's top-ups, and nothing else. */
+  platformCharges(): readonly FakeCharge[];
   charge(providerPaymentId: string): FakeCharge | null;
   refunds(): readonly FakeRefund[];
   subscriptions(): readonly FakeSubscription[];
@@ -234,6 +237,24 @@ export interface FakePaymentGrant {
 
 export const fakePaymentCode = (grant: FakePaymentGrant): string =>
   `fakepay.${enc(JSON.stringify(grant))}`;
+
+/**
+ * The "account" a charge of ours is recorded under: **no account at all**. The real difference at Stripe is a
+ * missing `stripe-account` header, which a stand-in has no way to represent; an empty account id is the
+ * closest honest thing, and it is what makes "ours" and "a business's" tellable apart in the charge list.
+ */
+const PLATFORM_ACCOUNT: PaymentAccount = {
+  provider: 'stripe',
+  externalAccountId: '',
+  locationId: null,
+  accessToken: null,
+  environment: 'test',
+};
+
+/** Only Stripe can take money for us; Square acts only as a seller, so it has no way to. */
+function requirePlatform(provider: PaymentProviderName): void {
+  if (provider !== 'stripe') throw new PlatformUnsupportedError(provider);
+}
 
 function readGrant(code: string, provider: PaymentProviderName): FakePaymentGrant {
   const [prefix, body] = code.split('.');
@@ -830,6 +851,77 @@ export function createFakePayments(opts: {
         if (c) c.cards = c.cards.filter((x) => x.token !== input.token);
       },
 
+      /**
+       * HandsFreeOS's own charges. `accountId` is **the empty string** here rather than a business's account,
+       * which is what the stand-in has instead of a missing Stripe header — and what `platformCharges()` and
+       * the test read to prove a top-up never lands in a business's account, nor a customer's payment in ours.
+       */
+      platform: {
+        supported: name === 'stripe',
+
+        async ensureCustomer(input) {
+          requirePlatform(name);
+          if (input.customerRef) return { customerRef: input.customerRef };
+          const ref = nextId('cus_hfos');
+          customers.set(ref, { name: input.name, cards: [] });
+          return { customerRef: ref };
+        },
+
+        async saveMethod(input) {
+          requirePlatform(name);
+          const t = readToken(input.sourceToken);
+          const answer = outcome(t.instrument, t.method, false);
+          if (answer.status === 'failed')
+            throw new PaymentError(
+              declineWording(answer.failureCode),
+              402,
+              true,
+              null,
+              answer.failureCode ?? 'card_declined',
+            );
+          const saved: SavedMethod = {
+            token: mintToken({ ...t, saved: true }),
+            kind: t.method,
+            brand: t.method === 'ach' ? 'Test Bank' : 'Visa',
+            last4: last4(t.instrument),
+            expiryMonth: t.method === 'ach' ? null : 12,
+            expiryYear: t.method === 'ach' ? null : new Date().getUTCFullYear() + 2,
+          };
+          const c = customers.get(input.customerRef) ?? { name: null, cards: [] };
+          c.cards = [...c.cards.filter((x) => x.last4 !== saved.last4), saved];
+          customers.set(input.customerRef, c);
+          return saved;
+        },
+
+        async forgetMethod(input) {
+          requirePlatform(name);
+          const c = customers.get(input.customerRef);
+          if (c) c.cards = c.cards.filter((x) => x.token !== input.token);
+        },
+
+        async charge(input: ChargeInput) {
+          requirePlatform(name);
+          const amount = requireAmount(input.amountCents);
+          if (!input.sourceToken)
+            throw new PaymentError('There is no card on the wallet to charge.', null, true);
+          const t = readToken(input.sourceToken);
+          const c = record(PLATFORM_ACCOUNT, {
+            amountCents: amount,
+            method: t.method,
+            instrument: t.instrument,
+            idempotencyKey: input.idempotencyKey,
+            description: input.description,
+            customerRef: input.customerRef,
+            metadata: input.metadata,
+            hold: false,
+          });
+          if (c.status !== 'requires_payment') return resultOf(c);
+          const answer = outcome(t.instrument, t.method, t.saved);
+          await land(c, answer.status, answer.failureCode);
+          return resultOf(c);
+        },
+      },
+
       subscriptions: {
         async create(account, input) {
           guard(account);
@@ -959,7 +1051,10 @@ export function createFakePayments(opts: {
 
   return {
     providers: { stripe, square },
-    charges: () => [...charges.values()],
+    // Split by which "account" took it, which is the stand-in's stand-in for Stripe's account header: a
+    // business's charges carry theirs, and ours carry none.
+    charges: () => [...charges.values()].filter((c) => c.accountId !== ''),
+    platformCharges: () => [...charges.values()].filter((c) => c.accountId === ''),
     charge: (id) => charges.get(id) ?? null,
     refunds: () => [...refundRows],
     subscriptions: () => [...subs.values()],

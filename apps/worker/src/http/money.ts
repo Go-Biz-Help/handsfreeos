@@ -79,6 +79,7 @@ import {
   type MoneyDocumentKind,
   type MoneyTokenResult,
 } from '../money/links';
+import { publicOrigin } from '../hosting/origin';
 import { paymentKindOf, WEBHOOK_MAX_BYTES } from '../money/webhook-events';
 import { accountFor, paymentConnectionUsable, type PaymentConnectionRow } from '../payments/index';
 import {
@@ -750,6 +751,14 @@ export async function registerMoneyRoutes(app: FastifyInstance, deps: HttpDeps):
   });
   const links = deps.moneyLinks;
 
+  /**
+   * The address this business's customers see: its own domain once one is serving (M17), ours otherwise.
+   * Every page a customer is sent back to after paying is built on it, so nobody is bounced between two
+   * names halfway through putting a card down.
+   */
+  const origin = (scope: TenantScope) =>
+    asWorker(deps.httpDb, scope, (tx) => publicOrigin(tx, scope.workspaceId, links.webUrl));
+
   /** Checks one of the customer's links: 404 when it isn't one, 410 when a newer one replaced it. */
   async function linked(kind: MoneyDocumentKind, token: string) {
     const r: MoneyTokenResult = await resolveDocumentToken(deps.httpDb, links, kind, token);
@@ -992,11 +1001,13 @@ export async function registerMoneyRoutes(app: FastifyInstance, deps: HttpDeps):
             );
           const account = await planAccount(deps, tx, scope.workspaceId, row);
           if (!account) throw cannotTakePayment();
-          return { row, account };
+          // Read in the transaction that is already open rather than one of its own.
+          return { row, account, origin: await publicOrigin(tx, scope.workspaceId, links.webUrl) };
         });
         const { row, account } = found;
         const api = deps.payments.providers[account.session.provider]!;
-        const returnUrl = `${links.webUrl}/${MONEY_LINK_PATH.plan}/${req.params.token}`;
+        // Back to the page they started on: their own domain when one is serving (M17).
+        const returnUrl = `${found.origin}/${MONEY_LINK_PATH.plan}/${req.params.token}`;
 
         // Nothing to save yet: hand the browser what it needs to turn a card into a token.
         if (!body.sourceToken) {
@@ -1243,7 +1254,7 @@ export async function registerMoneyRoutes(app: FastifyInstance, deps: HttpDeps):
         } catch (e) {
           return refused(e, scope, ctx.account.connection.id);
         }
-        const returnUrl = `${links.webUrl}/${MONEY_LINK_PATH.invoice}/${req.params.token}`;
+        const returnUrl = `${await origin(scope)}/${MONEY_LINK_PATH.invoice}/${req.params.token}`;
 
         /**
          * Nothing to act on yet: hand the browser a session. Stripe's makes the intent it will confirm — so

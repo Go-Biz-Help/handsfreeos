@@ -304,6 +304,11 @@ export default function PrivacyPage() {
           expect. If we ever add analytics, it will be the kind that counts visits without following
           people around, and this page will say so.
         </p>
+        <p>
+          Some browsers send a &ldquo;Do Not Track&rdquo; signal. We do not need to do anything
+          differently when we get one, because we do not track you across other websites in the
+          first place.
+        </p>
 
         <h2>How long we keep it</h2>
         <ul>
@@ -344,6 +349,14 @@ export default function PrivacyPage() {
           why, to get a copy, to correct it, to delete it, and to opt out of the sale or sharing of
           personal information — which is easy here, because we do neither. You can ask through an
           authorised agent.
+        </p>
+        <p>
+          <strong>If you are in Colorado, Connecticut, Utah, Virginia</strong> or another state with
+          its own privacy law: the same rights above are yours, and you do not have to work out
+          whether your state&rsquo;s law applies to us before asking. Those laws also give you the
+          right to appeal if we turn a request down. We will not, but if we ever do, the refusal
+          will say why and how to appeal it, and an appeal goes to the same address and gets an
+          answer within 45 days.
         </p>
         <p>
           <strong>If you are in the UK or the EU:</strong> you also have the right to object to some

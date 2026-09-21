@@ -147,16 +147,43 @@ describe('phone numbers', () => {
     expect(row!.routing.ringSeconds).toBe(20);
   });
 
-  it('a workspace has one live number at a time', async () => {
-    const second = await expectPgError(() =>
-      as(admin)((tx) =>
+  /**
+   * This used to assert the opposite — `phone_numbers_one_live_per_workspace`, one number per business.
+   * 0077 dropped that index on purpose: a second location, a dispatch line or a toll-free beside a local one
+   * are all ordinary. What stays is `phone_numbers_live_e164`, and the two look alike and mean opposite
+   * things: the one that went said "a business has one number", the one that stays says "a live number
+   * belongs to one business" — which is how `private.phone_route()` can look a number up and expect one row.
+   */
+  it('lets one business hold several numbers', async () => {
+    const added = await as(admin)((tx) =>
+      rows(
+        tx,
+        sql`insert into app.phone_numbers (workspace_id, e164, number_type, created_by)
+            values (${wsA}, ${randomE164()}, 'local', ${admin.id}) returning id`,
+      ),
+    );
+    expect(added).toHaveLength(1);
+  });
+
+  it('still lets a live number belong to only one business', async () => {
+    const shared = randomE164();
+    await as(admin)((tx) =>
+      rows(
+        tx,
+        sql`insert into app.phone_numbers (workspace_id, e164, number_type, created_by)
+            values (${wsA}, ${shared}, 'local', ${admin.id})`,
+      ),
+    );
+    const taken = await expectPgError(() =>
+      as(outsider)((tx) =>
         rows(
           tx,
-          sql`insert into app.phone_numbers (workspace_id, e164, number_type, created_by) values (${wsA}, ${randomE164()}, 'local', ${admin.id})`,
+          sql`insert into app.phone_numbers (workspace_id, e164, number_type, created_by)
+              values (${wsB}, ${shared}, 'local', ${outsider.id})`,
         ),
       ),
     );
-    expect(second.code).toBe('23505');
+    expect(taken.code).toBe('23505');
   });
 
   it('people change routing and start a release; provider fields and other transitions are the worker’s', async () => {
@@ -174,12 +201,22 @@ describe('phone numbers', () => {
       ),
     );
     expect(provider.detail).toBe('phone_number_provider_fields');
-    const early = await expectPgError(() =>
-      as(owner)((tx) =>
-        rows(tx, sql`update app.phone_numbers set status = 'releasing' where id = ${numberId}`),
+    // 0073 made this allowed on purpose (item 1.1): a purchase the worker never finished used to hold the
+    // workspace's only live slot for good, with no way out of Settings. This asserted the old refusal.
+    const early = await as(owner)((tx) =>
+      rows(
+        tx,
+        sql`update app.phone_numbers set status = 'releasing' where id = ${numberId} returning id`,
       ),
     );
-    expect(early.detail).toBe('phone_number_status_transition');
+    expect(early).toHaveLength(1);
+    // What is still refused: finishing the release. Only the worker says a number has actually gone back.
+    const finished = await expectPgError(() =>
+      as(owner)((tx) =>
+        rows(tx, sql`update app.phone_numbers set status = 'released' where id = ${numberId}`),
+      ),
+    );
+    expect(finished.detail).toBe('phone_number_status_transition');
     await worker(
       wsA,
       orgA,
@@ -246,6 +283,88 @@ describe('phone numbers', () => {
       as(member)((tx) => rows(tx, sql`select * from private.phone_route(${live})`)),
     );
     expect(people.code).toBe('42501');
+  });
+
+  /**
+   * A number can now ring only its own people (M17), and the case that matters is the one where nobody has
+   * chosen any. Getting the fallback wrong means inbound calls ring **nobody**, silently, for every business
+   * that never opened the screen — which is the worst thing this system can do.
+   */
+  it('rings only a number’s own people, and everybody when it has none', async () => {
+    const live = randomE164();
+    const [n] = await worker(
+      wsA,
+      orgA,
+    )((tx) =>
+      rows<{ id: string }>(
+        tx,
+        sql`insert into app.phone_numbers (workspace_id, e164, number_type, status, provider_sid, purchased_at)
+            values (${wsA}, ${live}, 'local', 'active', ${`PNfake${uniq()}`}, now()) returning id`,
+      ),
+    );
+    const rings = async () => {
+      const [route] = await unscoped((tx) =>
+        rows<{ client_identities: string[] }>(tx, sql`select * from private.phone_route(${live})`),
+      );
+      return [...(route?.client_identities ?? [])].sort();
+    };
+
+    // Nobody on it: everybody with the inbox, exactly as before this existed.
+    expect(await rings()).toEqual([identity(owner), identity(admin), identity(member)].sort());
+
+    // One person on it: only them.
+    await worker(
+      wsA,
+      orgA,
+    )((tx) =>
+      rows(
+        tx,
+        sql`insert into app.phone_number_members (phone_number_id, user_id, workspace_id)
+            values (${n!.id}, ${member.id}, ${wsA})`,
+      ),
+    );
+    expect(await rings()).toEqual([identity(member)]);
+
+    // Taken off again: back to everybody, not nobody. This is the line that would break quietly.
+    await worker(
+      wsA,
+      orgA,
+    )((tx) => rows(tx, sql`delete from app.phone_number_members where phone_number_id = ${n!.id}`));
+    expect(await rings()).toEqual([identity(owner), identity(admin), identity(member)].sort());
+  });
+
+  it('never rings somebody on a number who does not work the inbox', async () => {
+    // Being on a number is about which calls reach you, not about whether you may answer any — so the
+    // permission is checked at call time too, and somebody taken off the inbox stops ringing even if
+    // nobody remembered to take them off the number.
+    const live = randomE164();
+    const [n] = await worker(
+      wsA,
+      orgA,
+    )((tx) =>
+      rows<{ id: string }>(
+        tx,
+        sql`insert into app.phone_numbers (workspace_id, e164, number_type, status, provider_sid, purchased_at)
+            values (${wsA}, ${live}, 'local', 'active', ${`PNfake${uniq()}`}, now()) returning id`,
+      ),
+    );
+    await worker(
+      wsA,
+      orgA,
+    )((tx) =>
+      rows(
+        tx,
+        sql`insert into app.phone_number_members (phone_number_id, user_id, workspace_id)
+            values (${n!.id}, ${outsider.id}, ${wsA})`,
+      ),
+    );
+    const [route] = await unscoped((tx) =>
+      rows<{ client_identities: string[] }>(tx, sql`select * from private.phone_route(${live})`),
+    );
+    // The only person on it cannot work the inbox, so the member arm is empty and the fallback takes over.
+    expect([...(route?.client_identities ?? [])].sort()).toEqual(
+      [identity(owner), identity(admin), identity(member)].sort(),
+    );
   });
 
   it('checks a verified user’s permission without switching to that user', async () => {
@@ -743,5 +862,123 @@ describe('webhook deliveries, scheduled jobs and media', () => {
     expect(await readable(member, `${wsA}/media/thermostat.jpg`)).toBe(true);
     expect(await readable(outsider, `${wsA}/media/thermostat.jpg`)).toBe(false);
     expect(await readable(member, 'media/thermostat.jpg')).toBe(false);
+  });
+});
+
+/**
+ * 0077: which number is "the" one, when a business has several.
+ *
+ * Every one of these was written after the fact, because the first run of these migrations against a real
+ * database found two bugs that nothing here could have caught:
+ *
+ *   - `private.phone_numbers_keep_default()` compared an enum column to a `text[]`, which has no operator.
+ *     A plpgsql body is not type-checked until it runs, so the migration applied and then every number
+ *     anybody bought failed.
+ *   - the hand-off rule fired between the two statements that move a default, put the old number straight
+ *     back, and made `phone_number.set_default` collide with the unique index — for every business with
+ *     more than one number, which is every business this milestone is for.
+ */
+describe('one number is the default', () => {
+  const buy = async (ws: string, org: string, status = 'active') => {
+    const [n] = await worker(
+      ws,
+      org,
+    )((tx) =>
+      rows<{ id: string; e164: string }>(
+        tx,
+        sql`insert into app.phone_numbers (workspace_id, e164, number_type, status)
+            values (${ws}, ${randomE164()}, 'local', ${status}::app.phone_number_status)
+            returning id, e164`,
+      ),
+    );
+    return n!;
+  };
+  const defaults = (ws: string, org: string) =>
+    worker(
+      ws,
+      org,
+    )((tx) =>
+      rows<{ id: string; is_default: boolean; status: string }>(
+        tx,
+        sql`select id::text, is_default, status::text from app.phone_numbers
+            where workspace_id = ${ws} order by created_at, id`,
+      ),
+    );
+
+  let ws: string;
+  let org: string;
+  beforeAll(async () => {
+    const u = await createTestUser(`num-${uniq()}`);
+    const o = await bootstrapOrganization(u, `Numbers ${uniq()}`, `Numbers ${uniq()}`);
+    ws = o.wsId;
+    org = o.orgId;
+  }, 60_000);
+
+  it('gives the first number the default, so a business is never left without one', async () => {
+    const first = await buy(ws, org, 'provisioning');
+    const all = await defaults(ws, org);
+    expect(all.find((n) => n.id === first.id)?.is_default).toBe(true);
+  });
+
+  it('does not let a second number quietly demote the first', async () => {
+    const first = (await defaults(ws, org))[0]!;
+    await buy(ws, org);
+    const all = await defaults(ws, org);
+    expect(all.find((n) => n.id === first.id)?.is_default).toBe(true);
+    expect(all.filter((n) => n.is_default)).toHaveLength(1);
+  });
+
+  it('moves the default when a business chooses another, which the index alone refuses', async () => {
+    const all = await defaults(ws, org);
+    const target = all.find((n) => !n.is_default)!;
+    // Exactly what phone_number.set_default does: clear the old one, then set the new one.
+    await worker(
+      ws,
+      org,
+    )(async (tx) => {
+      await rows(
+        tx,
+        sql`update app.phone_numbers set is_default = false
+            where workspace_id = ${ws} and is_default and id <> ${target.id}::uuid`,
+      );
+      await rows(
+        tx,
+        sql`update app.phone_numbers set is_default = true where id = ${target.id}::uuid`,
+      );
+    });
+    const after = await defaults(ws, org);
+    expect(after.find((n) => n.id === target.id)?.is_default).toBe(true);
+    expect(after.filter((n) => n.is_default)).toHaveLength(1);
+  });
+
+  it('hands the default on when the number holding it stops being live', async () => {
+    const holder = (await defaults(ws, org)).find((n) => n.is_default)!;
+    await worker(
+      ws,
+      org,
+    )((tx) =>
+      rows(tx, sql`update app.phone_numbers set status = 'released' where id = ${holder.id}::uuid`),
+    );
+    const after = await defaults(ws, org);
+    const live = after.filter((n) => ['provisioning', 'active', 'releasing'].includes(n.status));
+    expect(after.find((n) => n.id === holder.id)?.is_default).toBe(false);
+    expect(live.filter((n) => n.is_default)).toHaveLength(1);
+  });
+
+  it('never lets two live numbers hold it at once', async () => {
+    const live = (await defaults(ws, org)).filter((n) =>
+      ['provisioning', 'active', 'releasing'].includes(n.status),
+    );
+    const other = live.find((n) => !n.is_default);
+    if (!other) return;
+    const e = await expectPgError(() =>
+      worker(
+        ws,
+        org,
+      )((tx) =>
+        rows(tx, sql`update app.phone_numbers set is_default = true where id = ${other.id}::uuid`),
+      ),
+    );
+    expect(e.code).toBe('23505');
   });
 });

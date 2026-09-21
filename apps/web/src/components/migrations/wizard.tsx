@@ -7,6 +7,7 @@ import {
   Info,
   Lock,
   RefreshCw,
+  Trash2,
   Undo2,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
@@ -672,6 +673,34 @@ function Finished({
     }
   };
 
+  const remove = async () => {
+    const typed = prompt(`Type the name of this move to delete it: ${detail.migration.name}`, '');
+    if (typed === null) return;
+    setBusy(true);
+    try {
+      const out = unwrap(
+        await apiBrowser().POST('/v1/commands/migration.delete', {
+          body: {
+            organizationId,
+            workspaceId,
+            migrationId: detail.migration.id,
+            confirmName: typed,
+          },
+        }),
+      );
+      toast.success(
+        out.kept > 0
+          ? `Deleted. ${out.removed} removed; ${out.kept} kept because they have history here.`
+          : `Deleted. ${out.removed} records removed.`,
+      );
+      router.refresh();
+    } catch (err) {
+      toast.error(errorMessage(err));
+    } finally {
+      setBusy(false);
+    }
+  };
+
   return (
     <Card className="p-5" data-testid="migration-done">
       <h2 className="text-base font-semibold">
@@ -714,7 +743,28 @@ function Finished({
             Take it back
           </Button>
         </div>
-      ) : null}
+      ) : (
+        // Only once it has been taken back, because that is the order the database insists on: taking it
+        // back puts the records away, and this finishes them off so running the import again does not leave
+        // the business with two of everybody.
+        <div className="mt-4">
+          <p className="text-[13px] text-text-2">
+            The customers it made are put away, not gone. Delete the move to finish them off and
+            start the import again from scratch — anyone who has been texted, booked or billed since
+            is kept.
+          </p>
+          <Button
+            variant="danger"
+            className="mt-2"
+            onClick={remove}
+            loading={busy}
+            data-testid="migration-delete"
+          >
+            <Trash2 className="h-4 w-4" strokeWidth={1.75} />
+            Delete this move
+          </Button>
+        </div>
+      )}
     </Card>
   );
 }

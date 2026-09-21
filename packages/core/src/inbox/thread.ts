@@ -27,6 +27,11 @@ export interface ThreadItemFacts {
   readonly errorMessage: string | null;
   readonly durationSeconds: number | null;
   readonly isVoicemail: boolean;
+  /** Whether the recording reached our storage: without it there is nothing to play. */
+  readonly hasRecording?: boolean;
+  readonly transcript?: string | null;
+  /** Where the words got to: null before anything was asked, then pending, completed or failed. */
+  readonly transcriptStatus?: 'pending' | 'completed' | 'failed' | null;
   readonly answeredVia: 'browser' | 'forwarding' | 'bridge' | null;
   readonly answeredBy: UserRef | null;
   readonly scheduledFor: string | null;
@@ -134,6 +139,17 @@ export const THREAD_WORDS = {
   sendingNow: 'You · now · Sending…',
   voicemail: 'Missed call · left a voicemail',
   transcribed: 'Transcribed automatically, so it may contain mistakes.',
+  /** A recorded call's words open rather than filling the thread: they can run to thousands of them. */
+  showRecord: 'Recording and transcript',
+  hideRecord: 'Hide',
+  /**
+   * What a voicemail with nothing to play or read says. Before this the card simply showed less, so a recording
+   * that never reached us and one that arrived silent looked exactly the same — and looked like a bug.
+   */
+  noRecording: 'The recording didn’t reach HandsFreeOS, so there’s nothing to play.',
+  transcribing: 'Working out what they said…',
+  noWords: 'This one couldn’t be transcribed. The recording still plays.',
+  noWordsNoRecording: 'Nothing was recorded, so there’s nothing to play or read.',
   noSubject: '(no subject)',
 } as const;
 
@@ -179,6 +195,25 @@ export interface CallCardWords {
   /** "4:12", for a call that was answered and is over. */
   readonly length: string | null;
   readonly live: boolean;
+  /** Why there is nothing to play or read, when there isn't. Null when the card has what it should. */
+  readonly note: string | null;
+}
+
+/**
+ * A voicemail that cannot be played or read says which of the two it is. The recording and the words fail
+ * separately — the audio may never have reached our storage, or it reached it and the transcriber found nothing —
+ * and a card that just showed less made both look like the app being broken.
+ */
+function voicemailNote(item: ThreadItemFacts): string | null {
+  const recorded = item.hasRecording ?? true;
+  if (item.transcript) return null;
+  if (!recorded)
+    return item.transcriptStatus === 'failed'
+      ? THREAD_WORDS.noWordsNoRecording
+      : THREAD_WORDS.noRecording;
+  if (item.transcriptStatus === 'pending' || item.transcriptStatus == null)
+    return THREAD_WORDS.transcribing;
+  return THREAD_WORDS.noWords;
 }
 
 /** A call in the conversation: a voicemail, or a call with who answered and its length. */
@@ -192,6 +227,7 @@ export function callCardWords(item: ThreadItemFacts): CallCardWords {
       tone: 'warning',
       length: null,
       live: false,
+      note: voicemailNote(item),
     };
   const inbound = item.direction === 'inbound';
   const live = LIVE_CALL.has(item.status);
@@ -245,5 +281,7 @@ export function callCardWords(item: ThreadItemFacts): CallCardWords {
     tone: missed ? 'warning' : inbound ? 'success' : 'accent',
     length: answered && !live ? callClock(item.durationSeconds) : null,
     live,
+    // A plain call carries no note: nothing is promised for it to be missing.
+    note: null,
   };
 }

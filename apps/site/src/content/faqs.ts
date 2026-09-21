@@ -19,7 +19,13 @@ export const homeFaqs: readonly Faq[] = [
   },
   {
     q: 'Do I have to give up my phone number?',
-    a: 'No. You can bring the number your customers already have, or start with a new one and forward the old one. Calls still ring your actual cell phone — this is not a system that makes you answer calls in an app.',
+    /**
+     * Deliberately promises nothing about the number itself. Porting is not built, and forwarding depends
+     * entirely on the old carrier — so both halves of what this used to say were promises we could not keep
+     * for everybody. Every setup genuinely is different; the honest answer is a conversation. What stays is
+     * the part that is true whichever way it goes.
+     */
+    a: 'Every business is set up differently, so this one is worth talking through before you start — tell us how your number works today and we will tell you what your options are. Whichever way it goes, calls still ring your actual cell phone: this is not a system that makes you answer calls in an app.',
   },
   {
     q: 'I am not technical. How long does setup take?',
@@ -51,7 +57,7 @@ export const pricingFaqs: readonly Faq[] = [
   },
   {
     q: 'Why is there usage on top?',
-    a: 'Because the phone companies charge per text and per minute, and the AI charges per reply. We pass those through rather than pad the plan for the businesses that barely use them.',
+    a: 'Because the phone companies charge per text and per minute, and the AI charges per reply. Billing it as you use it keeps the plan from being padded for businesses that barely use them. The per-use rates are shown in your account.',
   },
   {
     q: 'Does Growth hold anything back for Pro?',

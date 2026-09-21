@@ -20,10 +20,12 @@ import { and, eq, isNotNull, isNull } from 'drizzle-orm';
 import {
   BRIDGE_CELL_RING_SECONDS,
   callAttachTranscript,
+  TELEPHONY_BUCKET,
   callRecord,
   callUpdateStatus,
   executeCommand,
-  liveNumber,
+  defaultNumber,
+  numberByE164,
   scheduleJob,
   userPhoneRecordCall,
 } from '@hfos/core/server';
@@ -46,9 +48,12 @@ import {
   type ProviderAccount,
   type TranscriptionState,
 } from './provider';
+import type { TranscribeStarted } from './transcriber';
 import { voiceUrls } from './voice';
 
 const MIN = 60_000;
+/** How long the transcriber's link to our copy of a recording has to live: one request, not one job. */
+const SIGNED_FOR_S = 15 * 60;
 /** A call through someone's cell that waited this long for the worker (it was down) isn't placed: nobody waits for it. */
 const BRIDGE_STALE_MS = 2 * MIN;
 /** A verification call that waited this long isn't placed either; they can ask again. */
@@ -104,11 +109,16 @@ export const onBridgeRequested: EventHandler = async (ctx) => {
         .from(userPhones)
         .where(and(eq(userPhones.userId, c.placedBy), isNotNull(userPhones.verifiedAt)))
     : [];
-  const number = await liveNumber(ctx.tx, scope.workspaceId);
+  /**
+   * The number this call is actually on, not the business's default. Until M17 these were the same thing and
+   * this read the default and then refused if it differed — which, the moment a business had a second number,
+   * failed every call placed from the other one. Looking it up by the call's own `from` asks the question
+   * that was always meant: is this one of ours, and is it live?
+   */
+  const number = c.fromE164 ? await numberByE164(ctx.tx, scope.workspaceId, c.fromE164) : null;
   const account = await loadAccount(ctx.tx, scope.workspaceId, ctx.sealer);
   if (!cell) return fail('no_verified_cell');
-  if (!number || number.status !== 'active' || number.e164 !== c.fromE164 || !c.toE164 || !account)
-    return fail('no_number');
+  if (!number || number.status !== 'active' || !c.toE164 || !account) return fail('no_number');
   const urls = voiceUrls(ctx.publicUrl);
   let sid: string;
   try {
@@ -171,7 +181,8 @@ export const onVerificationRequested: EventHandler = async (ctx) => {
   if (!row || row.verifiedAt) return;
   if (row.lastVerificationAt && row.lastVerificationAt >= ctx.event.createdAt) return;
   if (Date.now() - ctx.event.createdAt.getTime() > VERIFY_STALE_MS) return;
-  const number = await liveNumber(ctx.tx, scope.workspaceId);
+  // Confirming somebody's own cell is not part of any conversation, so the business's default is right here.
+  const number = await defaultNumber(ctx.tx, scope.workspaceId);
   const account = await loadAccount(ctx.tx, scope.workspaceId, ctx.sealer);
   if (!number || number.status !== 'active' || !account) {
     ctx.log.warn({ userPhoneId }, 'no business number to confirm a cell from');
@@ -271,8 +282,7 @@ async function settleTranscript(
     workerMeta(null, ctx.job.id),
   );
   try {
-    if (sids.transcriptionSid)
-      await ctx.telephony.deleteTranscription(account, sids.transcriptionSid);
+    if (sids.transcriptionSid) await ctx.transcriber.forget(account, sids.transcriptionSid);
     await ctx.telephony.deleteRecording(account, sids.recordingSid);
   } catch (e) {
     ctx.log.warn(
@@ -311,19 +321,39 @@ export const callTranscribeJob: JobHandler = async (ctx) => {
   const target = await transcriptTarget(ctx, scope, callId);
   if (!target) return;
   const askedAt = askedAtOf(ctx, p);
-  let transcriptionSid: string;
+  const { call } = target;
+  // Every recording is ours before this runs: onRecording copies it into the workspace's bucket and only then
+  // asks for the words. Without a path there is nothing to read, and no amount of asking again will make one.
+  if (!call.recordingObjectPath) {
+    ctx.log.warn({ callId }, 'a call recording has no stored copy to transcribe');
+    await settleTranscript(ctx, scope, target.account, callId, null, { recordingSid });
+    return;
+  }
+  // A bridged call is recorded one side per channel; a voicemail is the caller alone.
+  const channels = call.answeredVia === 'bridge' ? 2 : 1;
+
+  let started: TranscribeStarted;
   try {
-    ({ transcriptionSid } = await ctx.telephony.transcribeRecording(target.account, recordingSid));
+    const url = await ctx.store.signedUrl(TELEPHONY_BUCKET, call.recordingObjectPath, SIGNED_FOR_S);
+    started = await ctx.transcriber.submit(target.account, { url, recordingSid, channels });
   } catch (e) {
     const later = refused(e) ? null : again(ctx, askedAt, 'unreachable');
     ctx.log.warn(
-      { err: errorMessage(e), callId, giveUp: !later },
+      { err: errorMessage(e), callId, transcriber: ctx.transcriber.name, giveUp: !later },
       later
-        ? 'the provider could not take a call recording for transcription yet'
-        : 'the provider would not transcribe a call recording (is Conversational Intelligence turned on?)',
+        ? 'the transcriber could not take a call recording yet'
+        : 'the transcriber would not take a call recording',
     );
     if (later) return later;
     await settleTranscript(ctx, scope, target.account, callId, null, { recordingSid });
+    return;
+  }
+
+  // A transcriber that answers in the same call (Deepgram, and the fake) is done here; one that takes the work
+  // is read back by `call.transcript`.
+  if (started.status === 'completed') {
+    const transcript = await wordsOf(ctx, scope, call, started.sentences);
+    await settleTranscript(ctx, scope, target.account, callId, transcript, { recordingSid });
     return;
   }
   await asWorker(ctx.db, scope, (tx) =>
@@ -334,7 +364,7 @@ export const callTranscribeJob: JobHandler = async (ctx) => {
       payload: {
         callId,
         recordingSid,
-        transcriptionSid,
+        transcriptionSid: started.jobId,
         askedAt: new Date(askedAt).toISOString(),
       },
       workspaceId: scope.workspaceId,
@@ -366,7 +396,12 @@ async function wordsOf(
     if (last?.who === who) last.text = `${last.text} ${sentence.text}`;
     else lines.push({ who, text: sentence.text });
   }
-  const text = lines.map((l) => `${l.who}: ${l.text}`).join('\n');
+  // A name in front only earns its place where there is somebody to tell apart. A voicemail is one person
+  // talking, so "Customer: Hi, it's Mike…" would be noise in front of what he actually said.
+  const oneVoice = new Set(sentences.map((s) => s.channel)).size <= 1;
+  const text = oneVoice
+    ? lines.map((l) => l.text).join('\n')
+    : lines.map((l) => `${l.who}: ${l.text}`).join('\n');
   return text ? text.slice(0, TRANSCRIPT_MAX) : null;
 }
 
@@ -385,12 +420,12 @@ export const callTranscriptJob: JobHandler = async (ctx) => {
   const sids = { recordingSid, transcriptionSid };
   let state: TranscriptionState;
   try {
-    state = await ctx.telephony.fetchTranscription(target.account, transcriptionSid);
+    state = await ctx.transcriber.fetch(target.account, transcriptionSid);
   } catch (e) {
     const later = refused(e) ? null : again(ctx, askedAt, 'unreachable');
     ctx.log.warn(
       { err: errorMessage(e), callId, giveUp: !later },
-      'could not read a call’s words from the provider',
+      'could not read a call’s words back from the transcriber',
     );
     if (later) return later;
     await settleTranscript(ctx, scope, target.account, callId, null, sids);

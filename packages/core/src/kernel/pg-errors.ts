@@ -73,6 +73,35 @@ const RULES: Record<string, { status: number; message: string }> = {
     status: 409,
     message: 'A registration can only be saved or sent.',
   },
+  // M17's port guards. Their absence here is what made a whole round of debugging guesswork: an untagged
+  // 42501 becomes a bare `HfosError.forbidden()`, so a guard that fires and a policy that refuses are
+  // indistinguishable in the failure. These are the twins of the three above, and say the same kind of thing.
+  number_port_provider_fields: {
+    status: 403,
+    message: 'Only HandsFreeOS records what the carrier said about a port.',
+  },
+  number_port_with_carrier: {
+    status: 409,
+    message:
+      'This port is already with the carrier, so it can’t be changed. Call it off to start again.',
+  },
+  number_port_status_transition: {
+    status: 409,
+    message: 'A port can only be saved, sent or called off.',
+  },
+  number_port_not_yours: {
+    status: 403,
+    message: 'You need to be able to manage this business’s numbers to move one.',
+  },
+  number_already_moving: {
+    status: 409,
+    message: 'That number is already with another business. Only one can be moving it at a time.',
+  },
+  number_already_yours: {
+    status: 409,
+    message: 'You already have this number, so there is nothing to move.',
+  },
+  no_number_port: { status: 404, message: 'That port no longer exists.' },
   message_status_transition: {
     status: 409,
     message: 'Only a message that did not go out can be sent again.',

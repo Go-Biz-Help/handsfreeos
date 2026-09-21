@@ -34,10 +34,13 @@ describe('the notification categories', () => {
       customer_waiting_no_ai: ['Reply', 'Call'],
       urgent_lead: ['Call', 'Let HandsFreeOS handle', 'Snooze 1 hour'],
       urgent_lead_no_ai: ['Call', 'Snooze 1 hour'],
+      missed_call: ['Call', 'Reply'],
+      voicemail: ['Call', 'Reply'],
       approval: ['Approve', 'Review'],
       booking: ['Open'],
       assigned: ['Open'],
       payment: ['Open'],
+      wallet: ['Open'],
     });
     expect(Object.keys(titles).sort()).toEqual([...PUSH_CATEGORY_IDS].sort());
   });

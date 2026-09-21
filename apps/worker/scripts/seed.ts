@@ -41,6 +41,8 @@ import { createMoneyLinks } from '../src/money/links';
 import { processOnce, type OutboxDeps } from '../src/outbox';
 import { createSupabaseStore, unconfiguredStore } from '../src/storage';
 import { createFakeTelephony } from '../src/telephony/fake';
+import { createFakeHost } from '../src/hosting';
+import { createFakeTranscriber } from '../src/telephony/fake-transcriber';
 import { createWorkflowAi } from '../src/workflows/ai-runner';
 import { seedAiTeam } from './seed-ai-team';
 import { seedAssistant } from './seed-assistant';
@@ -171,6 +173,8 @@ async function main(): Promise<void> {
   const key = workerKey();
   const deps: OutboxDeps = {
     db: worker.db,
+    // The demo data is not a billing exercise: seeding a business should not leave it owing money.
+    wallet: { db: worker.db, log, mode: 'off' as const },
     support: {
       mailDomain: 'handsfreeos.local',
       addresses: ['support', 'help'],
@@ -191,9 +195,13 @@ async function main(): Promise<void> {
     publicUrl: (process.env.WORKER_PUBLIC_URL ?? 'http://127.0.0.1:4100').replace(/\/+$/, ''),
     // The seed never reaches a carrier: the fake stands in, and sealed tokens use the dev worker's key.
     telephony: createFakeTelephony({ approvalMs: 0, callbacks: false, log }),
+    transcriber: createFakeTranscriber({ log }),
+    // The seed never touches a real host; a branded domain in it is the fake's (M17).
+    siteHost: createFakeHost(),
     sealer: createSealer(key),
     reminderOverrideMs: null,
     registrationPollMs: 50,
+    portPollMs: 2_000,
     email: {
       ...createLocalEmail({
         smtpUrl: process.env.SMTP_URL ?? 'smtp://127.0.0.1:54425',
@@ -369,7 +377,11 @@ async function main(): Promise<void> {
 
   // Milestone 6: the stand-in model (with the seed's own rules) answers AI steps, Try it and the website scan.
   const ai = { provider: seedAi(), dailyTokens: 2_000_000 };
-  const flow = { ...deps, ai, workflowAi: createWorkflowAi({ db: worker.db, ai, log }) };
+  const flow = {
+    ...deps,
+    ai,
+    workflowAi: createWorkflowAi({ db: worker.db, ai, log, wallet: deps.wallet }),
+  };
   const knowledge = await seedKnowledge(
     { api: api.db, admin: admin.db, worker: flow, actor, meta, step, since },
     { id: lonestar, organizationId: org.organizationId, dale },

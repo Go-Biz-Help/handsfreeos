@@ -304,3 +304,42 @@ describe('asking for permission', () => {
     expect(t.requests).toEqual([]);
   });
 });
+
+describe('the label in Settings', () => {
+  /**
+   * The app coming to the front registers again, which is right — it keeps this phone's last-seen fresh. What was
+   * wrong is that it dropped to "Setting up" each time, so Settings flipped 'On' → 'Setting up' → 'On' too fast to
+   * read. Re-registering an unchanged registration now keeps saying "On".
+   */
+  it('stays "registered" while the app comes to the front again', async () => {
+    const t = setup();
+    t.registration.start();
+    await t.registration.settled();
+    expect(t.registration.getSnapshot().status).toBe('registered');
+
+    const seen: string[] = [];
+    t.registration.subscribe(() => seen.push(t.registration.getSnapshot().status));
+    t.returnToApp();
+    await t.registration.settled();
+
+    expect(seen).not.toContain('registering');
+    expect(t.registration.getSnapshot().status).toBe('registered');
+    // It really did register again, rather than skipping the work to keep the label still.
+    expect(t.calls.map((c) => c.command)).toEqual(['register', 'register']);
+  });
+
+  it('still says "Setting up" for a first registration and for a new token', async () => {
+    const t = setup();
+    const seen: string[] = [];
+    t.registration.subscribe(() => seen.push(t.registration.getSnapshot().status));
+    t.registration.start();
+    await t.registration.settled();
+    expect(seen).toContain('registering');
+
+    seen.length = 0;
+    t.setToken('ExponentPushToken[real-2]');
+    await t.registration.settled();
+    expect(seen).toContain('registering');
+    expect(t.registration.getSnapshot().status).toBe('registered');
+  });
+});

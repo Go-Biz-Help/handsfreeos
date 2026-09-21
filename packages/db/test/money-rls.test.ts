@@ -906,9 +906,23 @@ describe('parity with core', () => {
           where conrelid = 'app.attention_items'::regclass and conname = 'attention_items_kind_check'`,
     );
     const live = [...(check?.def ?? '').matchAll(/'([a-z_]+)'::text/g)].map((m) => m[1]!);
-    expect(live).toContain('estimate_waiting');
-    expect(live).toContain('invoice_overdue');
-    expect(live).toHaveLength(10);
+    // The whole list, not a count. `toHaveLength(10)` was a magic number that said nothing about what
+    // changed when the wallet added its three in 0081, and it could only ever fail unhelpfully.
+    expect(live).toEqual([
+      'hot_lead',
+      'unanswered_lead',
+      'stale_opportunity',
+      'missing_next_action',
+      'unconfirmed_appointment',
+      'ai_approval',
+      'customer_waiting',
+      'overdue_task',
+      'estimate_waiting',
+      'invoice_overdue',
+      'wallet_low',
+      'wallet_empty',
+      'wallet_card_declined',
+    ]);
     await worker(A)((tx) =>
       tx.execute(
         sql`insert into app.attention_items (workspace_id, kind, subject_type, subject_id, title, fingerprint)

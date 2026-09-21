@@ -24,6 +24,7 @@ export default async function InboxLayout({
       role={got.workspace.role}
       members={assigneeOptions(members)}
       timezone={got.workspace.timezone}
+      narrowed={got.workspace.inboxPerPerson}
     >
       {children}
     </InboxShell>

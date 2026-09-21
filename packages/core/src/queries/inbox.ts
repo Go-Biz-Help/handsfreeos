@@ -13,12 +13,14 @@ import type { QueryContext } from '../kernel/types';
 import { CANCELLED_TEXT, quietHoursState, SCHEDULED_TEXT } from '../messaging/quiet-hours';
 import {
   isOptedOut,
-  liveNumber,
+  conversationNumber,
   loadRegistrations,
   readiness,
   workspaceMessaging,
 } from '../messaging/store';
 import {
+  CallLogInput,
+  CallLogOutput,
   ConversationGetInput,
   ConversationGetOutput,
   InboxListInput,
@@ -54,6 +56,8 @@ type ConversationRow = {
   counterpart: string;
   status: 'open' | 'snoozed' | 'closed';
   person_id: string | null;
+  /** The number this thread is on, so a reply goes out from where the customer wrote to (M17). */
+  phone_number_id: string | null;
   first_name: string | null;
   last_name: string | null;
   assignee_user_id: string | null;
@@ -65,6 +69,7 @@ type ConversationRow = {
   last_sender: { id: string; fullName: string } | null;
   awaiting_reply_since: Date | null;
   snoozed_until: Date | null;
+  archived_at: Date | null;
   created_at: Date;
   handled_by: 'none' | 'ai' | 'person';
   ai_teammate_id: string | null;
@@ -91,9 +96,10 @@ const conversationSelect = (
   workspaceId: string,
   sortBy: 'recent' | 'needs_person' = 'recent',
 ) => sql`
-  select c.id, c.channel::text as channel, c.counterpart, c.status::text as status, c.person_id, p.first_name, p.last_name,
+  select c.id, c.channel::text as channel, c.counterpart, c.status::text as status, c.person_id, c.phone_number_id,
+    p.first_name, p.last_name,
     c.assignee_user_id, coalesce(nullif(u.full_name, ''), u.email::text) as assignee_name, c.unread_count, c.last_message_at,
-    c.last_preview, c.last_direction::text as last_direction, c.awaiting_reply_since, c.snoozed_until, c.created_at,
+    c.last_preview, c.last_direction::text as last_direction, c.awaiting_reply_since, c.snoozed_until, c.archived_at, c.created_at,
     cv.name as visitor_name,
     coalesce(cv.last_seen_at > now() - ${CHAT_ON_SITE_MS}::float8 * interval '1 millisecond', false) as on_site_now,
     c.handled_by::text as handled_by, c.ai_teammate_id, tm.name as teammate_name, c.needs_person_since,
@@ -142,6 +148,7 @@ function summary(r: ConversationRow): ConversationSummary {
     lastSentBy: r.last_direction === 'outbound' ? r.last_sender : null,
     awaitingReplySince: iso(r.awaiting_reply_since),
     snoozedUntil: iso(r.snoozed_until),
+    archived: r.archived_at !== null,
     openLead: r.open_lead
       ? {
           id: r.open_lead.id,
@@ -247,11 +254,25 @@ export const inboxList = defineQuery({
             : input.box === 'ai'
               ? sql`and c.handled_by = 'ai'`
               : sql``;
+    // Archived threads are out of the inbox: only their own box shows them, and only it hides the live ones.
+    const archived =
+      input.box === 'archived'
+        ? sql`and c.archived_at is not null`
+        : sql`and c.archived_at is null`;
     const list = await rows<ConversationRow>(
       ctx.tx,
       sql`select * from (${conversationSelect(input.workspaceId, oldestFirst ? 'needs_person' : 'recent')}
-            ${input.personId ? sql`and c.person_id = ${input.personId}` : sql`and c.status = ${input.status}::app.conversation_status and c.last_message_at is not null`}
+            ${
+              input.personId
+                ? sql`and c.person_id = ${input.personId}`
+                : // Archived threads keep whatever status they had, so their own box lists them all rather than
+                  // hiding every closed one behind a status nobody chose.
+                  input.box === 'archived'
+                  ? sql`and c.last_message_at is not null`
+                  : sql`and c.status = ${input.status}::app.conversation_status and c.last_message_at is not null`
+            }
             ${box}
+            ${archived}
             ${input.channel ? sql`and c.channel = ${input.channel}::app.channel` : sql``}
             ${
               q
@@ -296,7 +317,9 @@ export const inboxSummary = defineQuery({
               and c.awaiting_reply_since <= now() - make_interval(mins => ${threshold}))::int as waiting,
             count(*) filter (where c.status = 'open' and c.needs_person_since is not null)::int as needs_person,
             count(*) filter (where c.status = 'open' and c.handled_by = 'ai')::int as ai
-          from app.conversations c where c.workspace_id = ${input.workspaceId} and c.last_message_at is not null`,
+          from app.conversations c
+          where c.workspace_id = ${input.workspaceId} and c.last_message_at is not null
+            and c.archived_at is null`,
     );
     const n = (k: string) => Number(s?.[k] ?? 0);
     return {
@@ -384,7 +407,9 @@ export const conversationGet = defineQuery({
         }));
       }
     }
-    const number = await liveNumber(ctx.tx, input.workspaceId);
+    // This thread's own number, because that is what a reply will go out from and what `fromNumber` shows
+    // (M17). A thread whose number was released falls back to the default, exactly as sending does.
+    const number = await conversationNumber(ctx.tx, input.workspaceId, row.phone_number_id);
     const ready = readiness(number, await loadRegistrations(ctx.tx, input.workspaceId));
     const canText =
       row.channel === 'email'
@@ -432,6 +457,7 @@ type ThreadRow = {
   is_voicemail: boolean;
   has_recording: boolean;
   transcript: string | null;
+  transcript_status: 'pending' | 'completed' | 'failed' | null;
   answered_by: string | null;
   answered_name: string | null;
   recording_path: string | null;
@@ -456,6 +482,7 @@ const messageBranch = (workspaceId: string) => sql`
     m.channel::text as channel, m.body_text as body, m.subject, m.from_address, m.media, m.sent_by as user_id,
     coalesce(nullif(su.full_name, ''), su.email::text) as user_name, m.error_code, m.error_message, m.delivered_at,
     null::int as duration_seconds, false as is_voicemail, false as has_recording, null::text as transcript,
+    null::text as transcript_status,
     null::uuid as answered_by, null::text as answered_name, null::text as recording_path, null::int as recording_seconds, null::text as answered_via,
     m.body_html, m.to_addresses, m.cc_addresses, mc.provider::text as via,
     m.sent_by_teammate_id as teammate_id, tt.name as teammate_name, m.approved_by,
@@ -492,6 +519,7 @@ function threadItem(r: ThreadRow): ThreadItem {
     recordingSeconds: r.recording_seconds,
     answeredVia: r.answered_via,
     transcript: r.transcript,
+    transcriptStatus: r.transcript_status,
     answeredBy: r.answered_by
       ? { id: r.answered_by, fullName: r.answered_name ?? 'Former member' }
       : null,
@@ -532,7 +560,8 @@ export const conversationThread = defineQuery({
             union all
             select 'call'::text, c.id, c.conversation_id, c.started_at, c.direction::text, c.status::text, null::text, null::text, null::text,
               c.from_e164, '[]'::jsonb, c.placed_by, coalesce(nullif(pu.full_name, ''), pu.email::text), null::text, null::text, null::timestamptz,
-              c.duration_seconds, c.is_voicemail, c.recording_object_path is not null, c.transcript, c.answered_by_user_id,
+              c.duration_seconds, c.is_voicemail, c.recording_object_path is not null, c.transcript,
+              c.transcript_status::text, c.answered_by_user_id,
               coalesce(nullif(au.full_name, ''), au.email::text), c.recording_object_path, c.recording_seconds, c.answered_via::text,
               null::text, '{}'::text[], '{}'::text[], null::text,
               null::uuid, null::text, null::uuid, null::text, null::uuid, false, null::timestamptz,
@@ -569,5 +598,97 @@ export const messageGet = defineQuery({
     );
     if (!row) throw HfosError.notFound('Message not found.');
     return { message: threadItem(row), conversationId: row.conversation_id };
+  },
+});
+
+/**
+ * The call log: every call the business made or took, newest first, apart from the conversation it belongs to.
+ *
+ * The thread shows a call where it happened, which is right when you are reading one conversation and no use at
+ * all when the question is "who rang this morning". `missed` is the one that gets looked at: an inbound call
+ * nobody answered, whether or not they left anything.
+ */
+export const callLog = defineQuery({
+  name: 'call.log',
+  description:
+    'Calls newest first: all of them, the ones nobody answered, or the ones that left a voicemail.',
+  input: CallLogInput,
+  output: CallLogOutput,
+  permission: 'inbox.use',
+  scope: inWorkspace,
+  async handler(ctx, input) {
+    const cursor = decodeCursor(input.cursor);
+    const filter =
+      input.filter === 'missed'
+        ? sql`and c.direction = 'inbound' and c.answered_at is null`
+        : input.filter === 'voicemail'
+          ? sql`and c.is_voicemail`
+          : sql``;
+    const list = await rows<{
+      id: string;
+      conversation_id: string | null;
+      person_id: string | null;
+      first_name: string | null;
+      last_name: string | null;
+      counterpart: string;
+      direction: 'inbound' | 'outbound';
+      status: string;
+      started_at: Date;
+      duration_seconds: number | null;
+      is_voicemail: boolean;
+      answered_via: 'browser' | 'forwarding' | 'bridge' | null;
+      answered_by: string | null;
+      answered_name: string | null;
+      recording_path: string | null;
+      recording_seconds: number | null;
+      transcript: string | null;
+      transcript_status: 'pending' | 'completed' | 'failed' | null;
+      sort_key: string;
+    }>(
+      ctx.tx,
+      sql`select c.id, c.conversation_id, c.person_id, p.first_name, p.last_name,
+            case when c.direction = 'inbound' then c.from_e164 else c.to_e164 end as counterpart,
+            c.direction::text as direction, c.status::text as status, c.started_at,
+            c.duration_seconds, c.is_voicemail, c.answered_via::text as answered_via,
+            c.answered_by_user_id as answered_by,
+            coalesce(nullif(au.full_name, ''), au.email::text) as answered_name,
+            c.recording_object_path as recording_path, c.recording_seconds,
+            c.transcript, c.transcript_status::text as transcript_status,
+            ${SORT_KEY(sql`c.started_at`)} as sort_key
+          from app.calls c
+          left join app.people p on p.id = c.person_id
+          left join app.users au on au.id = c.answered_by_user_id
+          where c.workspace_id = ${input.workspaceId}
+          ${filter}
+          ${cursor ? sql`and (${SORT_KEY(sql`c.started_at`)}, c.id) < (${cursor.sort}, ${cursor.id}::uuid)` : sql``}
+          order by c.started_at desc, c.id desc
+          limit ${input.limit + 1}`,
+    );
+    const result = page(list, input.limit, (r) => ({ sort: r.sort_key, id: r.id }));
+    return {
+      items: result.items.map((r) => ({
+        id: r.id,
+        conversationId: r.conversation_id,
+        personId: r.person_id,
+        who:
+          fullName(r.first_name ?? '', r.last_name ?? '') ||
+          (r.counterpart.startsWith('+') ? formatPhone(r.counterpart) : r.counterpart),
+        counterpart: r.counterpart,
+        direction: r.direction,
+        status: r.status,
+        occurredAt: new Date(r.started_at).toISOString(),
+        durationSeconds: r.duration_seconds,
+        isVoicemail: !!r.is_voicemail,
+        answeredVia: r.answered_via,
+        answeredBy: r.answered_by
+          ? { id: r.answered_by, fullName: r.answered_name ?? 'Former member' }
+          : null,
+        recordingPath: r.recording_path,
+        recordingSeconds: r.recording_seconds,
+        transcript: r.transcript,
+        transcriptStatus: r.transcript_status,
+      })),
+      nextCursor: result.nextCursor,
+    };
   },
 });

@@ -83,7 +83,7 @@ import {
 } from '@/lib/calendar/describe';
 import { dateOf, fmtMonthDay, fmtTime, todayIn } from '@/lib/calendar/time';
 import { useLiveRefresh } from '@/lib/realtime/live-provider';
-import { useOrigin } from '@/lib/use-origin';
+import { usePublicOrigin } from '@/lib/use-origin';
 import { cn } from '@/lib/utils';
 import { CalendarDot, CalendarStatusBadge, LabelChips } from './chips';
 import { HistorySheet } from './history-sheet';
@@ -163,6 +163,8 @@ export interface BuilderProps {
   textingReady: boolean;
   /** Settings → Payments: the connected accounts and the deposit the business asks for by default. */
   payments: BuilderPayments;
+  /** Their own domain when one is serving (M17): the booking link in the right rail is on it. */
+  brandedOrigin: string | null;
 }
 
 /**
@@ -173,7 +175,7 @@ export interface BuilderProps {
 export function CalendarBuilder(props: BuilderProps) {
   const { workspaceId, calendar, revisions } = props;
   const router = useRouter();
-  const origin = useOrigin();
+  const origin = usePublicOrigin(props.brandedOrigin);
   useLiveRefresh(['calendar', 'service', 'resource', 'territory', 'booking_site', 'schedule']);
 
   const saved = useMemo(() => parseConfig(calendar.config), [calendar.config]);

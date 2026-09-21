@@ -216,6 +216,8 @@ export const ThreadItem = z.object({
   /** A text waiting for quiet hours to end: when it goes (it can still be cancelled). */
   scheduledFor: isoDateTime.nullable(),
   transcript: z.string().nullable(),
+  /** Where the words got to: null before anything was asked, then pending, completed or failed. */
+  transcriptStatus: z.enum(['pending', 'completed', 'failed']).nullable(),
   answeredBy: UserRef,
   /** Email: the sanitized HTML body (received mail), the recipients, and the mailbox it went through. */
   bodyHtml: z.string().nullable(),

@@ -1,14 +1,14 @@
 import { and, eq } from 'drizzle-orm';
 import {
   callAttachRecording,
-  callAttachTranscript,
   callRecord,
   callUpdateStatus,
   executeCommand,
 } from '@hfos/core/server';
-import { asWorker } from '@hfos/db/client';
+import { asWorker, rows, sql } from '@hfos/db/client';
 import { calls } from '@hfos/db/schema';
 import type { DeliveryContext, DeliveryProcessor } from '../deliveries';
+import { chargeCall, chargeCallLeg, type NumberKind } from '../money/usage-capture';
 import { systemActor, workerMeta, type TenantScope } from '../services';
 import { loadAccount } from '../telephony/accounts';
 import { queueTranscript } from '../telephony/cell';
@@ -82,18 +82,20 @@ async function accountOf(ctx: DeliveryContext, scope: TenantScope): Promise<Prov
   return account;
 }
 
-/** Deletes the provider's copies once ours exist (or there is nothing to keep). Failures only log. */
+/**
+ * Drops the carrier's copy of a recording we are not keeping. A recording we do keep is deleted later instead, by
+ * `settleTranscript`, once its words have settled — the transcriber may still need to read it.
+ * Failures only log: a copy left behind costs pennies, and failing the delivery would replay the whole thing.
+ */
 async function forget(
   ctx: DeliveryContext,
   account: ProviderAccount,
   recordingSid: string | null | undefined,
-  transcriptionSid: string | null | undefined,
 ): Promise<void> {
   try {
-    if (transcriptionSid) await ctx.telephony.deleteTranscription(account, transcriptionSid);
     if (recordingSid) await ctx.telephony.deleteRecording(account, recordingSid);
   } catch (e) {
-    ctx.log.warn({ err: e }, 'could not delete the provider copy of a recording');
+    ctx.log.warn({ err: e }, 'could not delete the carrier copy of a recording');
   }
 }
 
@@ -166,7 +168,38 @@ export const onCallStatus: DeliveryProcessor = async (ctx) => {
     status,
     ...(duration !== undefined ? { durationSeconds: duration } : {}),
   });
+  // Charged at the end, from the length the carrier reported. The key is the call's own sid, so a status
+  // callback arriving twice charges once. An inbound call to a toll-free number costs us two and a half times
+  // what a local one does, so which of our numbers it came in on decides the rate.
+  if (ENDED.has(status))
+    await chargeCall(ctx.wallet, scope, {
+      callSid: p.CallSid,
+      direction: call.direction === 'outbound' ? 'outbound' : 'inbound',
+      seconds: duration ?? call.durationSeconds,
+      numberKind: await numberKindOf(ctx, scope, call.phoneNumberId),
+      counterpart: (call.direction === 'outbound' ? call.toE164 : call.fromE164) ?? '',
+      callId: call.id,
+    });
 };
+
+/**
+ * Which of our numbers a call used. Local when we cannot tell, which is the cheaper of the two and therefore
+ * the one that under-charges rather than over-charges when something has gone wrong.
+ */
+async function numberKindOf(
+  ctx: DeliveryContext,
+  scope: TenantScope,
+  phoneNumberId: string | null,
+): Promise<NumberKind> {
+  if (!phoneNumberId) return 'local';
+  const [n] = await asWorker(ctx.db, scope, (tx) =>
+    rows<{ number_type: string }>(
+      tx,
+      sql`select number_type::text as number_type from app.phone_numbers where id = ${phoneNumberId}`,
+    ),
+  );
+  return n?.number_type === 'toll_free' ? 'tollfree' : 'local';
+}
 
 /** One leg of a call: a teammate's browser, a forwarded phone, or the customer a teammate dialed. */
 export const onLegStatus: DeliveryProcessor = async (ctx) => {
@@ -196,6 +229,22 @@ export const onLegStatus: DeliveryProcessor = async (ctx) => {
     });
     return;
   }
+
+  // A customer ringing the business and being put through to somebody's own phone is **two** billable legs:
+  // the one that came in, charged by onCallStatus, and the one we dialled out, charged here. Twilio bills a
+  // dialled leg from the moment it is answered — including by that phone's own voicemail, which is why this
+  // does not wait for somebody to press 1 and take the call properly.
+  //
+  // A browser leg (`client:…`) is deliberately not charged: Twilio prices a Client connection differently and
+  // the card has no line for it. Step 4's nightly reconciliation against Twilio's own daily records is what
+  // catches that, and anything else here misses, as an adjustment.
+  if (ENDED.has(status) && isPhone(p.To) && (duration ?? 0) > 0)
+    await chargeCallLeg(ctx.wallet, scope, {
+      parentCallSid: p.ParentCallSid,
+      toE164: p.To,
+      seconds: duration ?? 0,
+      callId: call.id,
+    });
 
   const userId = userIdOfIdentity(p.To);
   if (status === 'in_progress') {
@@ -252,7 +301,7 @@ export const onRecording: DeliveryProcessor = async (ctx) => {
   const seconds = secondsOf(p.RecordingDuration) ?? 0;
   if (!call || seconds < 1) {
     // Nothing to keep (a hidden number, or silence), and nothing left with the provider either.
-    await forget(ctx, account, p.RecordingSid, null);
+    await forget(ctx, account, p.RecordingSid);
     return 'ignored';
   }
   const whole = call.answeredVia === 'bridge';
@@ -274,44 +323,11 @@ export const onRecording: DeliveryProcessor = async (ctx) => {
     systemActor(scope),
     workerMeta(),
   );
-  // A whole call's words are asked for from the provider's copy, which goes once they arrive (telephony/cell.ts).
-  if (whole) {
-    const recordingSid = p.RecordingSid;
-    if (!call.transcriptStatus)
-      await asWorker(ctx.db, scope, (tx) => queueTranscript(tx, scope, call, recordingSid));
-    return;
-  }
-  // Twilio transcribes from its own copy (only messages over two seconds), so that copy goes when the words arrive.
-  if (seconds <= 2) await forget(ctx, account, p.RecordingSid, null);
-};
-
-/** The voicemail's words, or Twilio's word that it found none. */
-export const onTranscription: DeliveryProcessor = async (ctx) => {
-  const scope = tenant(ctx);
-  const p = paramsOf(ctx);
-  if (!scope || !p.CallSid) return 'ignored';
-  const call = await callFor(ctx, scope, p.CallSid, p);
-  if (!call) return 'ignored';
-  // The words wait for our copy of the recording, so the provider's is never deleted before ours exists.
-  if (!call.recordingObjectPath) throw new Error('the voicemail recording is not stored yet');
-  const completed = (p.TranscriptionStatus ?? '').toLowerCase() === 'completed';
-  if (call.transcriptStatus !== 'completed' && call.transcriptStatus !== 'failed')
-    await executeCommand(
-      ctx.db,
-      callAttachTranscript,
-      {
-        workspaceId: scope.workspaceId,
-        callId: call.id,
-        transcript: completed ? p.TranscriptionText?.trim() || null : null,
-        status: completed ? 'completed' : 'failed',
-      },
-      systemActor(scope),
-      workerMeta(),
-    );
-  await forget(
-    ctx,
-    await accountOf(ctx, scope),
-    p.RecordingSid ?? call.recordingSid,
-    p.TranscriptionSid,
-  );
+  // Every recording's words are asked for the same way now, voicemail included: the `call.transcribe` job reads
+  // our own stored copy (telephony/cell.ts), and the carrier's goes once the words have settled either way.
+  // Voicemail used to go through Twilio's legacy `<Record transcribe>` instead, which skipped anything under two
+  // seconds and is deprecated.
+  const recordingSid = p.RecordingSid;
+  if (!call.transcriptStatus)
+    await asWorker(ctx.db, scope, (tx) => queueTranscript(tx, scope, call, recordingSid));
 };

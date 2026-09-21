@@ -203,6 +203,17 @@ export const ASSISTANT_WORDS = {
     hint: 'Shows until the Assistant is set up',
   },
   /**
+   * The phone app built without the worker's address (`EXPO_PUBLIC_WORKER_URL`): the Assistant may well be running
+   * fine, this copy of the app just can't reach it. Said apart from `notAvailable` because the fix is a new build,
+   * not setting the Assistant up — and telling someone "not available yet" when it works on the web sends them
+   * looking in the wrong place.
+   */
+  notInThisBuild: {
+    title: 'The Assistant can’t be reached from this app',
+    body: 'This build of the app wasn’t given the address it needs. Updating to the latest version usually fixes it — if it doesn’t, tell us from Get help.',
+    hint: 'Shows until the app is built with it',
+  },
+  /**
    * The phone with no signal (design/m10/Assistant.dc.html, "No signal"). The Assistant is one of the few things
    * that needs it: the question stays in the chat and nothing is queued.
    */

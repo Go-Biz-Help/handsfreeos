@@ -35,6 +35,9 @@ export function SettingsNav({
           // Payments is exact so its own Products page is the only tab marked while you're on it.
           { href: `${base}/payments`, label: 'Payments', exact: true },
           { href: `${base}/payments/products`, label: 'Products' },
+          // Named apart from Payments on purpose: that page is the business's own customers paying *them*,
+          // and this is what the business pays HandsFreeOS. Two things, two names, no shared word.
+          { href: `${base}/usage`, label: 'Usage & balance' },
           { href: `${base}/action-center`, label: 'Action Center' },
         ]
       : []),

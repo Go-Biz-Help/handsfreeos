@@ -21,7 +21,9 @@ import type { FakeReviews } from '../src/reviews/fake';
 import type { SafeFetch } from '../src/http/safe-fetch';
 import type { WorkerServices } from '../src/services';
 import { createSupabaseStore, type ObjectStore } from '../src/storage';
+import { createFakeHost } from '../src/hosting';
 import { createFakeTelephony, type FakeTelephony } from '../src/telephony/fake';
+import { createFakeTranscriber, type FakeTranscriber } from '../src/telephony/fake-transcriber';
 
 /** Signatures are computed against this base; tests call the server with inject(), never a real port. */
 export const TEST_PUBLIC_URL = 'https://hooks.worker.test';
@@ -29,6 +31,7 @@ export const TEST_PUBLIC_URL = 'https://hooks.worker.test';
 export type TestServices = WorkerServices & {
   readonly reviews: ReviewServices & { readonly fake: FakeReviews };
   readonly telephony: FakeTelephony;
+  readonly transcriber: FakeTranscriber;
   readonly mailboxes: MailboxServices & { readonly fake: FakeMailboxes };
   readonly calendars: CalendarServices & { readonly fake: FakeCalendars };
   readonly payments: PaymentServices & { readonly fake: FakePayments };
@@ -69,9 +72,15 @@ export function testServices(
     ),
     store: createSupabaseStore(env.supabaseUrl, env.secretKey),
     log,
+    // Shadow, so every worker test drives the capture path for real without it deciding anything. A test that
+    // wants the warnings makes its own deps with mode 'on'.
+    wallet: { db: testDbs().worker.db, log, mode: 'shadow' as const },
     webUrl: 'http://localhost:3000',
     publicUrl: TEST_PUBLIC_URL,
     telephony: createFakeTelephony({ approvalMs: 0, callbacks: false, log }),
+    transcriber: createFakeTranscriber({ log }),
+    // The in-memory host: a branded domain can be driven end to end with no Vercel account (M17).
+    siteHost: createFakeHost(),
     support: {
       mailDomain: 'handsfreeos.test',
       addresses: ['support', 'help'],
@@ -82,6 +91,7 @@ export function testServices(
     sealer: createSealer(randomBytes(32).toString('base64')),
     reminderOverrideMs: opts.reminderOverrideMs ?? null,
     registrationPollMs: 50,
+    portPollMs: 50,
     email: {
       ...createLocalEmail({
         smtpUrl: process.env.SMTP_URL ?? 'smtp://127.0.0.1:54425',

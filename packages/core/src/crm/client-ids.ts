@@ -1,17 +1,18 @@
 /**
  * Records made with the id the phone gave them (M10), so what it adds for a customer created offline a minute
- * earlier can point at that customer. Creates that accept one (person, company, lead, task, activity, file) look
+ * earlier can point at that customer. Creates that accept one (person, company, lead, task, activity, file,
+ * and from M17 a form's answer sheet) look
  * for it first: already in this business, the create has happened before (a repeat whose receipt is long gone),
  * and the answer is that record, unchanged. An id taken by anything the person can't see is refused the same way
  * whoever holds it, and never says what or where, so no other business's row shows through.
  */
 import { and, eq } from 'drizzle-orm';
 import type { Tx } from '@hfos/db/client';
-import { activities, companies, files, leads, people, tasks } from '@hfos/db/schema';
+import { activities, companies, files, formResponses, leads, people, tasks } from '@hfos/db/schema';
 import { HfosError } from '../errors';
 import { isUniqueViolation } from '../kernel/pg-errors';
 
-const TABLES = { people, companies, leads, tasks, activities, files } as const;
+const TABLES = { people, companies, leads, tasks, activities, files, formResponses } as const;
 type TableName = keyof typeof TABLES;
 
 /** The record with this id in this business, as the person sees it; null when there's none. */

@@ -5,8 +5,14 @@
 
 const userName = (alias: string) => `coalesce(nullif(${alias}.full_name, ''), ${alias}.email)`;
 
-/** A business's conversations, each with its customer, assignee, teammate, open lead and last sender. */
-export const CONVERSATIONS_SQL = `
+/**
+ * One business's conversations with everything the inbox's words need, before the archived rule.
+ *
+ * Split from the two below because they want opposite things from it: the list hides what has been put away,
+ * and opening one by id must not — "bring it back any time" would be a poor promise if an archived thread
+ * could not be opened to bring back.
+ */
+const CONVERSATION_BASE = `
   SELECT c.id, c.channel, c.counterpart, c.status, c.person_id, p.first_name, p.last_name,
     c.assignee_user_id, ${userName('au')} AS assignee_name,
     c.unread_count, c.last_message_at, c.last_preview, c.last_direction,
@@ -34,8 +40,19 @@ export const CONVERSATIONS_SQL = `
   LEFT JOIN pipeline_stages s ON s.id = l.stage_id
   WHERE c.workspace_id = ?`;
 
-/** One conversation, the same way. */
-export const CONVERSATION_SQL = `${CONVERSATIONS_SQL} AND c.id = ?`;
+/**
+ * A business's conversations, each with its customer, assignee, teammate, open lead and last sender.
+ *
+ * **Archived ones are not here**, the same way `inbox.list` leaves them out
+ * (`packages/core/src/queries/inbox.ts`, `and c.archived_at is null`). The phone could not do this until
+ * `archived_at` reached it, so a thread put away on the web stayed in the inbox on the phone — for good,
+ * since nothing else ever takes it out. The phone has no archived box to show them in; when it gets one,
+ * this is where the other half goes.
+ */
+export const CONVERSATIONS_SQL = `${CONVERSATION_BASE} AND c.archived_at IS NULL`;
+
+/** One conversation, archived or not: this is how an archived one is opened to be brought back. */
+export const CONVERSATION_SQL = `${CONVERSATION_BASE} AND c.id = ?`;
 
 /** A conversation's messages from the last 12 months on the phone, with who sent and approved them. */
 export const MESSAGES_SQL = `

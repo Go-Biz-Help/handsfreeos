@@ -326,6 +326,53 @@ export const BusinessGetOutput = z.object({
   }),
 });
 
+// ---------- one business's usage balance ----------
+
+export const WalletStageValue = z.enum(['off', 'warn', 'enforce']);
+
+export const AdminWalletGetInput = z.object({ workspaceId: uuid });
+
+/**
+ * What the support desk sees of a business's balance — **including what it cost us**, which is the one place
+ * in the product that number appears. A customer is shown the price; staff answering "why was I charged 2c for
+ * that text" need both sides of it.
+ */
+export const AdminWalletGetOutput = z.object({
+  /** False for a business that has never spent anything and has never been moved along. */
+  opened: z.boolean(),
+  stage: WalletStageValue,
+  balanceCents: z.int(),
+  autoTopup: z.boolean(),
+  floorCents: z.int(),
+  topupCents: z.int(),
+  hasCard: z.boolean(),
+  cardBrand: z.string().nullable(),
+  cardLast4: z.string().nullable(),
+  suspendedAt: isoDateTime.nullable(),
+  suspendedReason: z.string().nullable(),
+  declinesInRow: z.int(),
+  escalationStep: z.int(),
+  spent30dCents: z.int(),
+  /** What those 30 days cost HandsFreeOS. Never leaves /admin. */
+  cost30dCents: z.int(),
+  toppedUp30dCents: z.int(),
+});
+
+export const WalletSetStageInput = z.object({
+  workspaceId: uuid,
+  stage: WalletStageValue,
+  /** Why, in a few words. Stored on the event: a rollout is a series of decisions somebody made. */
+  reason: z.string().trim().min(3).max(300),
+});
+
+export const WalletSetStageOutput = z.object({
+  workspaceId: uuid,
+  was: WalletStageValue,
+  stage: WalletStageValue,
+  /** False when it was already there, so a double-click is visibly a no-op rather than a second decision. */
+  changed: z.boolean(),
+});
+
 // ---------- is anything broken ----------
 
 export const HealthSummaryInput = z.object({
@@ -345,6 +392,19 @@ export const HealthSummaryOutput = z.object({
   emailBounces: HealthCount,
   failedTexts: HealthCount,
   paymentFailures: HealthCount,
+  /** Calls whose words never arrived. One is ordinary; a rising number is the transcriber. */
+  lostTranscripts: HealthCount,
+  /**
+   * The usage wallets in trouble (M16). `drifting` is the silent one: the cached balance is what every
+   * spending gate reads, so a wallet that disagrees with its own ledger means every gate is lying.
+   */
+  wallets: z.object({
+    suspended: z.int(),
+    declines: z.int(),
+    drifting: z.int(),
+    negative: z.int(),
+    unreconciledDays: z.int(),
+  }),
   /** Work waiting longer than it should be. */
   outboxBacklog: z.int(),
   oldestPendingMinutes: z.int().nullable(),
@@ -380,3 +440,41 @@ export const ViewAsEndInput = z.object({ sessionId: uuid.optional() });
 export const ViewAsEndOutput = z.object({ ended: z.boolean() });
 export const ViewAsCurrentInput = z.object({});
 export const ViewAsCurrentOutput = z.object({ session: ViewAsSession.nullable() });
+
+// ---------- the usage rate card (M16) ----------
+
+export const RateCardGetInput = z.object({
+  /** How far back the margin column measures. */
+  days: z.int().min(1).max(365).default(30),
+});
+
+export const RateCardGetOutput = z.object({
+  version: z.int(),
+  since: isoDateTime,
+  lines: z.array(
+    z.object({
+      key: z.string(),
+      unit: z.string(),
+      /** What we pay, in micro-dollars: a text segment is 10900. Staff only. */
+      costMicros: z.int(),
+      markupBp: z.int(),
+      minChargeCents: z.int(),
+      roundUpTo: z.string(),
+      /** What one of these charges a business today. */
+      unitPriceCents: z.int(),
+      notes: z.string(),
+      /**
+       * What actually happened over the period, or null where nothing did. This is the column that proves the
+       * markup: a realised figure under 1.2 on any line is money going out quietly.
+       */
+      realised: z
+        .object({
+          events: z.int(),
+          chargedCents: z.int(),
+          costCents: z.int(),
+          markup: z.number(),
+        })
+        .nullable(),
+    }),
+  ),
+});

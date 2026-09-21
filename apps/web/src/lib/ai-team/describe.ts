@@ -446,6 +446,7 @@ const TOOL_NAMES: Readonly<Record<TeammateToolName, string>> = {
   search_knowledge: 'Searched Knowledge',
   find_times: 'Found times',
   my_appointments: 'Looked up their visits',
+  read_call_transcript: 'Read a call',
   book: 'Booked a visit',
   reschedule: 'Moved a visit',
   cancel: 'Cancelled a visit',

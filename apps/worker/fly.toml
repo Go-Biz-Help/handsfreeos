@@ -13,6 +13,9 @@
 # CALENDAR_REFRESH_MS (default 600000) sets how often connected calendars' busy times are read.
 # TURNSTILE_SECRET_KEY turns on Cloudflare Turnstile for the public booking page (its site key goes on Vercel as
 # NEXT_PUBLIC_TURNSTILE_SITE_KEY); without it bookings rely on rate limits, the honeypot and database caps.
+# VERCEL_TOKEN, VERCEL_PROJECT_ID and (on a team account) VERCEL_TEAM_ID turn on branded domains — a business's
+# own web address on the pages its customers see. Without them SITE_HOST is `off` and the feature is simply not
+# offered, which is deliberate: see docs/operations.md, "A business's own web address".
 # Save WORKER_ENCRYPTION_KEY in the password manager before setting it: without it sealed tokens can't be opened.
 
 app = "handsfreeos-worker"
@@ -33,6 +36,12 @@ kill_timeout = "30s"
   SUPABASE_URL = "https://ybupfghakoszfcxhyrby.supabase.co"
   MAIL_FROM = "HandsFreeOS <alerts@handsfreeos.com>"
   TELEPHONY_PROVIDER = "twilio"
+  # How far the usage wallet has got (M16): `off` records nothing, `shadow` prices and records every text,
+  # call and AI request and never warns or stops anything, `on` warns and enforces for the businesses whose
+  # own stage says so. Deliberately here rather than in `fly secrets` — it is not a secret, and keeping it in
+  # the file means the current mode is visible in git and every change of it is a commit somebody reviewed.
+  # See docs/operations.md, "Usage balances: what businesses pay us".
+  WALLET_MODE = "off"
   LOG_LEVEL = "info"
 
 [http_service]

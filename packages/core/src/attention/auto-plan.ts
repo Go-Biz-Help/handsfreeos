@@ -16,7 +16,7 @@ import { userNames } from '../calendar/load';
 import { formatPhone } from '../crm/phone';
 import { activeSuppression, workspaceAddresses } from '../messaging/email';
 import { quietHoursState, type QuietHoursWindow } from '../messaging/quiet-hours';
-import { isOptedOut, liveNumber, loadRegistrations, readiness } from '../messaging/store';
+import { isOptedOut, defaultNumber, loadRegistrations, readiness } from '../messaging/store';
 import type { AttentionAskOptionOut, AttentionAutoPlanOut } from '../schemas/attention';
 import { LIVE_RUN_STATUSES } from '../schemas/workflow';
 import { chipsOf } from './items';
@@ -96,7 +96,7 @@ export function shortClock(value: string): string {
 }
 
 export async function reachBusinessOf(tx: Tx, workspaceId: string): Promise<ReachBusiness> {
-  const number = await liveNumber(tx, workspaceId);
+  const number = await defaultNumber(tx, workspaceId);
   const textingReady =
     !!number &&
     number.status === 'active' &&
@@ -505,7 +505,7 @@ export async function planAutoAction(
         to,
       });
   } else {
-    const number = await liveNumber(tx, ctx.workspaceId);
+    const number = await defaultNumber(tx, ctx.workspaceId);
     const sender = target.lead?.assigneeUserId
       ? (await userNames(tx, [target.lead.assigneeUserId])).get(target.lead.assigneeUserId)
       : null;

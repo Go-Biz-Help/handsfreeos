@@ -44,7 +44,8 @@ import {
 import { asWorker, rows, sql, type Db } from '@hfos/db/client';
 import type { Logger } from 'pino';
 import { z, ZodError } from 'zod';
-import { aiBudget, recordAiUsage } from '../ai/budget';
+import { aiBudget, recordAndChargeAi } from '../ai/budget';
+import type { WalletDeps } from '../money/wallet';
 import { runToolLoop, toolErrorContent, type ToolLoopAnswer } from '../ai/tool-loop';
 import { atLabel, isoWithOffset } from '../assistant/calendar-format';
 import { anyOfWords, findKnowledge } from '../knowledge/find';
@@ -153,6 +154,8 @@ export interface ConsoleDeps {
   readonly ai: { readonly provider: AiProvider | null; readonly dailyTokens: number };
   readonly webUrl: string;
   readonly log: Logger;
+  /** The test chat's tokens are real tokens: a business trying its teammate out is charged for it like anything else. */
+  readonly wallet: WalletDeps;
 }
 
 /** A test checked and ready to stream: refusals come before the stream opens, as the API's JSON errors. */
@@ -344,6 +347,7 @@ const NOT_THEIRS = 'That isn’t one of this customer’s upcoming appointments.
 const NO_CUSTOMER =
   'There’s no customer on file for this conversation yet, so there’s nowhere to put that.';
 const NO_LEAD = 'This customer has no open lead to put that on. Add a note instead.';
+const NO_CALLS = 'That isn’t a call in this conversation. Use a callId the history gave you.';
 const CHAT_REFUSAL =
   'In website chat you can’t see or change existing bookings or records. Tell them the link in their confirmation changes a booking, or hand off.';
 const DONE_NOTE = 'It happens as your reply goes out. You can tell them it’s done.';
@@ -388,6 +392,19 @@ const RUNNERS: Readonly<Record<TeammateToolName, Runner>> = {
             note: 'Nothing in the knowledge base matches. Try other words, or follow your rule for when you’re unsure.',
           },
     };
+  },
+
+  // The test chat is a made-up conversation, so it has no calls: every callId is one the model invented.
+  async read_call_transcript(h, args) {
+    h.send({
+      type: 'tool',
+      name: 'read_call_transcript',
+      title: 'Looked for a call’s words',
+      detail: 'The test chat has no calls on it.',
+      at: nowIso(),
+    });
+    void args;
+    return refuse(NO_CALLS);
   },
 
   async find_times(h, args) {
@@ -882,15 +899,13 @@ export async function runTest(
       execute: simulator(hands, tools),
       onText: (text: string) => send({ type: 'delta', text }),
       onTurnUsage: (usage: AiUsage) =>
-        asWorker(deps.db, t.scope, (tx) =>
-          recordAiUsage(tx, {
-            source: 'teammate',
-            teammateId: t.teammate.id,
-            teammateRunId: t.runId,
-            model: t.provider.model,
-            usage,
-          }),
-        ),
+        recordAndChargeAi(deps, t.scope, {
+          source: 'teammate',
+          teammateId: t.teammate.id,
+          teammateRunId: t.runId,
+          model: t.provider.model,
+          usage,
+        }),
       checkBudget: hasRoom,
       signal,
     };

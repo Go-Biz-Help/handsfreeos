@@ -657,6 +657,66 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/branded_domain.add": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Put the business’s booking page, forms and links on a domain it owns. HandsFreeOS shows the DNS records to add and checks them.
+         * @description Risk level 2. Requires channels.manage. Emits branded_domain.added.
+         */
+        post: operations["command_branded_domain_add"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/branded_domain.remove": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Take the business off its own domain. Links go back to handsfreeos.com at once; links already sent on the old domain stop working.
+         * @description Risk level 3. Requires channels.manage. Emits branded_domain.removed.
+         */
+        post: operations["command_branded_domain_remove"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/branded_domain.verify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Check the domain’s DNS records now, rather than waiting for the daily check.
+         * @description Risk level 1. Requires channels.manage. Emits branded_domain.check_requested.
+         */
+        post: operations["command_branded_domain_verify"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/calendar_connection.connect": {
         parameters: {
             query?: never;
@@ -1097,6 +1157,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/conversation.archive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Put a conversation away so it leaves the inbox. Its messages, calls and timeline stay; bring it back any time.
+         * @description Risk level 2. Requires records.archive. Emits conversation.archived. Can wait on a phone with no signal.
+         */
+        post: operations["command_conversation_archive"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/conversation.assign": {
         parameters: {
             query?: never;
@@ -1251,6 +1331,26 @@ export interface paths {
          * @description Risk level 0. Requires inbox.use. Emits conversation.reopened. Can wait on a phone with no signal.
          */
         post: operations["command_conversation_reopen"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/conversation.restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Bring an archived conversation back, in the state it was in when it was put away.
+         * @description Risk level 2. Requires records.archive. Emits conversation.restored. Can wait on a phone with no signal.
+         */
+        post: operations["command_conversation_restore"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1677,6 +1777,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/form_response.record": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Fill in a form for a customer yourself and send it, in one go. Works with no signal; the phone keeps it until there is some.
+         * @description Risk level 2. Requires records.write. Emits form.submitted, person.created, lead.created, task.created, invoice.created, workflow.enrol_requested. Can wait on a phone with no signal.
+         */
+        post: operations["command_form_response_record"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/form.archive": {
         parameters: {
             query?: never;
@@ -1951,6 +2071,26 @@ export interface paths {
          * @description Risk level 3. Requires records.import. Emits import.requested.
          */
         post: operations["command_import_start"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/inbox.set_visibility": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Choose whether everyone in the business sees every conversation, or each person sees only the ones assigned to them and the ones on the numbers they answer.
+         * @description Risk level 3. Requires channels.manage. Emits inbox.visibility_changed.
+         */
+        post: operations["command_inbox_set_visibility"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2897,6 +3037,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/migration.delete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Delete a move that has been taken back, so it is off the list and the import can be run again from scratch. Customers with history here are kept.
+         * @description Risk level 4. Emits migration.deleted.
+         */
+        post: operations["command_migration_delete"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/migration.extend_transition": {
         parameters: {
             query?: never;
@@ -3151,6 +3311,126 @@ export interface paths {
          * @description Risk level 2. Requires money.manage. Emits money.settings_saved.
          */
         post: operations["command_money_save_settings"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/number_port.attach_document": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Record that a signed authorisation or a recent bill has been uploaded for a port.
+         * @description Risk level 1. Requires channels.manage. Emits number_port.document_attached.
+         */
+        post: operations["command_number_port_attach_document"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/number_port.begin_upload": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reserve a place for the signed authorisation or a recent bill (10 MB at most). Upload it to the returned path, then confirm it with file.confirm and attach it.
+         * @description Risk level 1. Requires channels.manage. Emits .
+         */
+        post: operations["command_number_port_begin_upload"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/number_port.cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Call off a port. The carrier may already have moved it, in which case it is too late.
+         * @description Risk level 3. Requires channels.manage. Emits number_port.cancelled.
+         */
+        post: operations["command_number_port_cancel"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/number_port.save": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Put in what the old carrier needs: the account number, the PIN, who is authorising it.
+         * @description Risk level 2. Requires channels.manage. Emits number_port.saved.
+         */
+        post: operations["command_number_port_save"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/number_port.start": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Begin moving a number the business already owns to HandsFreeOS.
+         * @description Risk level 2. Requires channels.manage. Emits number_port.started.
+         */
+        post: operations["command_number_port_start"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/number_port.submit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Send the port to the carrier. A full port moves calls too, and takes two to four weeks.
+         * @description Risk level 4. Requires channels.manage. Emits number_port.submitted.
+         */
+        post: operations["command_number_port_submit"];
         delete?: never;
         options?: never;
         head?: never;
@@ -3451,6 +3731,66 @@ export interface paths {
          * @description Risk level 1. Requires channels.manage. Emits phone_number.routing_updated.
          */
         post: operations["command_phone_number_set_caller_id"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/phone_number.set_default": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Choose which of a business’s numbers new conversations go out from.
+         * @description Risk level 2. Requires channels.manage. Emits phone_number.default_changed.
+         */
+        post: operations["command_phone_number_set_default"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/phone_number.set_label": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Name one of a business’s numbers, so a list of them can be told apart.
+         * @description Risk level 1. Requires channels.manage. Emits phone_number.label_changed.
+         */
+        post: operations["command_phone_number_set_label"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/phone_number.set_members": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Choose who a number rings. Nobody chosen means everyone with the inbox.
+         * @description Risk level 2. Requires channels.manage. Emits phone_number.members_changed.
+         */
+        post: operations["command_phone_number_set_members"];
         delete?: never;
         options?: never;
         head?: never;
@@ -5117,6 +5457,126 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/wallet.adjust": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Support: put a credit on a business’s balance, or take one back, with a reason. It shows on their statement like everything else.
+         * @description Risk level 4. Requires platform.wallets.adjust. Emits wallet.adjusted.
+         */
+        post: operations["command_wallet_adjust"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/wallet.forget_card": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Take the card off the wallet. Automatic top-up goes off with it, because a top-up with nothing to charge is a promise nobody can keep.
+         * @description Risk level 3. Requires money.manage. Emits wallet.card_forgotten.
+         */
+        post: operations["command_wallet_forget_card"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/wallet.request_card": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start putting a card on the wallet. The worker opens the page the card is typed on; nothing about the card is ever written here.
+         * @description Risk level 2. Requires money.manage. Emits wallet.card_requested.
+         */
+        post: operations["command_wallet_request_card"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/wallet.set_auto_topup": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Turn automatic top-up on or off, and set the balance it happens at, how much it adds, and how far the balance may go under before outbound texts and calls stop.
+         * @description Risk level 2. Requires money.manage. Emits wallet.settings_changed.
+         */
+        post: operations["command_wallet_set_auto_topup"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/wallet.set_stage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Support: move one business along the usage wallet — silent, warned, or stopped when the balance runs out.
+         * @description Risk level 4. Requires platform.wallets.adjust. Emits wallet.stage_changed.
+         */
+        post: operations["command_wallet_set_stage"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/wallet.top_up": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add money to the balance now, from the card on file. A top-up somebody asked for never raises the automatic amount.
+         * @description Risk level 3. Requires money.manage. Emits wallet.recharge_requested.
+         */
+        post: operations["command_wallet_top_up"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/workflow_proposal.apply": {
         parameters: {
             query?: never;
@@ -5937,6 +6397,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/queries/branded_domain.get": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The business’s own domain, what is still needed in DNS for it, and whether it is serving yet.
+         * @description Requires workspace.read.
+         */
+        post: operations["query_branded_domain_get"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/queries/calendar_connection.list": {
         parameters: {
             query?: never;
@@ -6011,6 +6491,26 @@ export interface paths {
          * @description Requires workspace.read.
          */
         post: operations["query_calendar_list"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/call.log": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Calls newest first: all of them, the ones nobody answered, or the ones that left a voicemail.
+         * @description Requires inbox.use.
+         */
+        post: operations["query_call_log"];
         delete?: never;
         options?: never;
         head?: never;
@@ -7017,6 +7517,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/queries/number_port.list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Numbers this business is bringing from another carrier, and where each one stands.
+         * @description Requires channels.manage.
+         */
+        post: operations["query_number_port_list"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/queries/payment_connection.list": {
         parameters: {
             query?: never;
@@ -7237,6 +7757,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/queries/platform.rates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The live usage rate card, and what each line actually charged against what it actually cost over a period.
+         * @description Requires platform.rates.manage.
+         */
+        post: operations["query_platform_rates"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/queries/platform.view_as.current": {
         parameters: {
             query?: never;
@@ -7251,6 +7791,26 @@ export interface paths {
          * @description Any signed-in user.
          */
         post: operations["query_platform_view_as_current"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/platform.wallet.get": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * One business’s usage balance, its card, and what 30 days of it cost against what it was charged.
+         * @description Requires platform.businesses.read.
+         */
+        post: operations["query_platform_wallet_get"];
         delete?: never;
         options?: never;
         head?: never;
@@ -7617,6 +8177,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/queries/usage.prices": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * What things cost this business, in plain words: a text, a minute of talking, a phone number, an AI reply. The charged price only — never what HandsFreeOS pays.
+         * @description Requires money.read.
+         */
+        post: operations["query_usage_prices"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/usage.statement": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Everything a business has been charged for, newest first: what it was, what it cost them, and what was left after it. Never what it cost HandsFreeOS.
+         * @description Requires money.read.
+         */
+        post: operations["query_usage_statement"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/queries/user_phone.get": {
         parameters: {
             query?: never;
@@ -7631,6 +8231,26 @@ export interface paths {
          * @description Any signed-in user.
          */
         post: operations["query_user_phone_get"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/wallet.get": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * A business’s balance and how it keeps itself topped up: what is left, the card on file, the settings, what it has spent lately, and why its top-up is the size it is.
+         * @description Requires money.read.
+         */
+        post: operations["query_wallet_get"];
         delete?: never;
         options?: never;
         head?: never;
@@ -9079,6 +9699,18 @@ export interface operations {
                             unanswered_lead?: boolean;
                             /** @default true */
                             unconfirmed_appointment?: boolean;
+                            /**
+                             * @default true
+                             * @enum {boolean}
+                             */
+                            wallet_card_declined?: true;
+                            /**
+                             * @default true
+                             * @enum {boolean}
+                             */
+                            wallet_empty?: true;
+                            /** @default true */
+                            wallet_low?: boolean;
                         };
                         /** @default {} */
                         money?: {
@@ -9169,6 +9801,18 @@ export interface operations {
                                 unanswered_lead: boolean;
                                 /** @default true */
                                 unconfirmed_appointment: boolean;
+                                /**
+                                 * @default true
+                                 * @enum {boolean}
+                                 */
+                                wallet_card_declined: true;
+                                /**
+                                 * @default true
+                                 * @enum {boolean}
+                                 */
+                                wallet_empty: true;
+                                /** @default true */
+                                wallet_low: boolean;
                             };
                             money: {
                                 /** @default 5 */
@@ -9317,6 +9961,107 @@ export interface operations {
                         /** Format: uuid */
                         siteId: string;
                         slug: string;
+                    };
+                };
+            };
+        };
+    };
+    command_branded_domain_add: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    domain: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        domainId: string;
+                        /** @enum {string} */
+                        status: "pending" | "verifying" | "verified" | "failed";
+                    };
+                };
+            };
+        };
+    };
+    command_branded_domain_remove: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    domainId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        domainId: string;
+                        /** @enum {string} */
+                        status: "pending" | "verifying" | "verified" | "failed";
+                    };
+                };
+            };
+        };
+    };
+    command_branded_domain_verify: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    domainId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        domainId: string;
+                        /** @enum {string} */
+                        status: "pending" | "verifying" | "verified" | "failed";
                     };
                 };
             };
@@ -10558,6 +11303,40 @@ export interface operations {
             };
         };
     };
+    command_conversation_archive: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    conversationId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        conversationId: string;
+                        /** @default [] */
+                        notApplied: string[];
+                    };
+                };
+            };
+        };
+    };
     command_conversation_assign: {
         parameters: {
             query?: never;
@@ -10805,6 +11584,40 @@ export interface operations {
         };
     };
     command_conversation_reopen: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    conversationId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        conversationId: string;
+                        /** @default [] */
+                        notApplied: string[];
+                    };
+                };
+            };
+        };
+    };
+    command_conversation_restore: {
         parameters: {
             query?: never;
             header?: never;
@@ -11678,6 +12491,56 @@ export interface operations {
             };
         };
     };
+    command_form_response_record: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    answers: {
+                        [key: string]: unknown;
+                    };
+                    /** Format: uuid */
+                    formId: string;
+                    /** Format: uuid */
+                    id?: string;
+                    /** @default false */
+                    smsConsent?: boolean;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        calculations: {
+                            [key: string]: number;
+                        };
+                        dueCents: number;
+                        invoiceId: string | null;
+                        leadId: string | null;
+                        passed: boolean | null;
+                        personId: string | null;
+                        /** Format: uuid */
+                        responseId: string;
+                        resultId: string | null;
+                        score: number | null;
+                        scorePercent: number | null;
+                    };
+                };
+            };
+        };
+    };
     command_form_archive: {
         parameters: {
             query?: never;
@@ -12333,6 +13196,37 @@ export interface operations {
                     "application/json": {
                         /** Format: uuid */
                         importId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_inbox_set_visibility: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    perPerson: boolean;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        conversationsChanged: number;
+                        perPerson: boolean;
                     };
                 };
             };
@@ -14350,6 +15244,40 @@ export interface operations {
             };
         };
     };
+    command_migration_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    confirmName: string;
+                    /** Format: uuid */
+                    migrationId: string;
+                    /** Format: uuid */
+                    organizationId: string;
+                    workspaceId?: string | null;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        kept: number;
+                        removed: number;
+                    };
+                };
+            };
+        };
+    };
     command_migration_extend_transition: {
         parameters: {
             query?: never;
@@ -15010,6 +15938,229 @@ export interface operations {
             };
         };
     };
+    command_number_port_attach_document: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {string} */
+                    document: "loa" | "bill";
+                    /** Format: uuid */
+                    fileId: string;
+                    /** Format: uuid */
+                    portId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        portId: string;
+                        /** @enum {string} */
+                        status: "draft" | "submitted" | "carrier_review" | "scheduled" | "complete" | "rejected" | "cancelled" | "failed";
+                    };
+                };
+            };
+        };
+    };
+    command_number_port_begin_upload: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {string} */
+                    document: "loa" | "bill";
+                    mimeType: string;
+                    name: string;
+                    /** Format: uuid */
+                    portId: string;
+                    sizeBytes: number;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {string} */
+                        bucket: "attachments";
+                        /** Format: uuid */
+                        fileId: string;
+                        objectPath: string;
+                    };
+                };
+            };
+        };
+    };
+    command_number_port_cancel: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    portId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        portId: string;
+                        /** @enum {string} */
+                        status: "draft" | "submitted" | "carrier_review" | "scheduled" | "complete" | "rejected" | "cancelled" | "failed";
+                    };
+                };
+            };
+        };
+    };
+    command_number_port_save: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    portId: string;
+                    submission: {
+                        accountNumber: string;
+                        authorizedBy: string;
+                        /** Format: email */
+                        email?: string;
+                        pin: string;
+                        serviceAddress: string;
+                    };
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        portId: string;
+                        /** @enum {string} */
+                        status: "draft" | "submitted" | "carrier_review" | "scheduled" | "complete" | "rejected" | "cancelled" | "failed";
+                    };
+                };
+            };
+        };
+    };
+    command_number_port_start: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    e164: string;
+                    /** @enum {string} */
+                    kind: "full" | "hosted_messaging";
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        portId: string;
+                        /** @enum {string} */
+                        status: "draft" | "submitted" | "carrier_review" | "scheduled" | "complete" | "rejected" | "cancelled" | "failed";
+                    };
+                };
+            };
+        };
+    };
+    command_number_port_submit: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    portId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        portId: string;
+                        /** @enum {string} */
+                        status: "draft" | "submitted" | "carrier_review" | "scheduled" | "complete" | "rejected" | "cancelled" | "failed";
+                    };
+                };
+            };
+        };
+    };
     command_organization_add_owner: {
         parameters: {
             query?: never;
@@ -15607,6 +16758,106 @@ export interface operations {
                         forwardedCallerId: "customer" | "business";
                         /** Format: uuid */
                         phoneNumberId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_phone_number_set_default: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    phoneNumberId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        phoneNumberId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_phone_number_set_label: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    label: string | null;
+                    /** Format: uuid */
+                    phoneNumberId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        phoneNumberId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_phone_number_set_members: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    phoneNumberId: string;
+                    userIds: string[];
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        phoneNumberId: string;
+                        ringsEveryone: boolean;
+                        userIds: string[];
                     };
                 };
             };
@@ -18831,6 +20082,227 @@ export interface operations {
             };
         };
     };
+    command_wallet_adjust: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    amountCents: number;
+                    reason: string;
+                    reference: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        balanceCents: number;
+                        entryId: string | null;
+                        recorded: boolean;
+                        /** Format: uuid */
+                        workspaceId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_wallet_forget_card: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        cardBrand: string | null;
+                        cardExpiryMonth: number | null;
+                        cardExpiryYear: number | null;
+                        cardLast4: string | null;
+                        hasCard: boolean;
+                        /** Format: uuid */
+                        workspaceId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_wallet_request_card: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        cardBrand: string | null;
+                        cardExpiryMonth: number | null;
+                        cardExpiryYear: number | null;
+                        cardLast4: string | null;
+                        hasCard: boolean;
+                        /** Format: uuid */
+                        workspaceId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_wallet_set_auto_topup: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    autoTopup?: boolean;
+                    floorCents?: number;
+                    overdraftCents?: number;
+                    topupCents?: number;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        autoTopup: boolean;
+                        balanceCents: number;
+                        floorCents: number;
+                        hasCard: boolean;
+                        overdraftCents: number;
+                        suspended: boolean;
+                        topupCents: number;
+                        /** Format: uuid */
+                        workspaceId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_wallet_set_stage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    reason: string;
+                    /** @enum {string} */
+                    stage: "off" | "warn" | "enforce";
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changed: boolean;
+                        /** @enum {string} */
+                        stage: "off" | "warn" | "enforce";
+                        /** @enum {string} */
+                        was: "off" | "warn" | "enforce";
+                        /** Format: uuid */
+                        workspaceId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_wallet_top_up: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    amountCents?: number;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        amountCents: number;
+                        /** Format: uuid */
+                        rechargeId: string;
+                        /** @enum {string} */
+                        status: "pending" | "succeeded" | "failed" | "cancelled";
+                        /** Format: uuid */
+                        workspaceId: string;
+                    };
+                };
+            };
+        };
+    };
     command_workflow_proposal_apply: {
         parameters: {
             query?: never;
@@ -21220,7 +22692,7 @@ export interface operations {
                                     /** Format: uuid */
                                     itemId?: string;
                                     /** @enum {string} */
-                                    kind?: "hot_lead" | "unanswered_lead" | "stale_opportunity" | "missing_next_action" | "unconfirmed_appointment" | "ai_approval" | "customer_waiting" | "overdue_task" | "estimate_waiting" | "invoice_overdue";
+                                    kind?: "hot_lead" | "unanswered_lead" | "stale_opportunity" | "missing_next_action" | "unconfirmed_appointment" | "ai_approval" | "customer_waiting" | "overdue_task" | "estimate_waiting" | "invoice_overdue" | "wallet_low" | "wallet_empty" | "wallet_card_declined";
                                     title: string;
                                     /** @enum {string} */
                                     tone: "accent" | "warning" | "danger" | "muted";
@@ -21526,7 +22998,7 @@ export interface operations {
                             /** Format: uuid */
                             id: string;
                             /** @enum {string} */
-                            kind: "hot_lead" | "unanswered_lead" | "stale_opportunity" | "missing_next_action" | "unconfirmed_appointment" | "ai_approval" | "customer_waiting" | "overdue_task" | "estimate_waiting" | "invoice_overdue";
+                            kind: "hot_lead" | "unanswered_lead" | "stale_opportunity" | "missing_next_action" | "unconfirmed_appointment" | "ai_approval" | "customer_waiting" | "overdue_task" | "estimate_waiting" | "invoice_overdue" | "wallet_low" | "wallet_empty" | "wallet_card_declined";
                             leadId: string | null;
                             /** @enum {string} */
                             letHandleMode: "auto" | "ask" | "none";
@@ -21579,7 +23051,7 @@ export interface operations {
                 "application/json": {
                     /** @default false */
                     includeHandled?: boolean;
-                    kinds?: ("hot_lead" | "unanswered_lead" | "stale_opportunity" | "missing_next_action" | "unconfirmed_appointment" | "ai_approval" | "customer_waiting" | "overdue_task" | "estimate_waiting" | "invoice_overdue")[];
+                    kinds?: ("hot_lead" | "unanswered_lead" | "stale_opportunity" | "missing_next_action" | "unconfirmed_appointment" | "ai_approval" | "customer_waiting" | "overdue_task" | "estimate_waiting" | "invoice_overdue" | "wallet_low" | "wallet_empty" | "wallet_card_declined")[];
                     /** @enum {string} */
                     scope?: "mine" | "everyone";
                     /** Format: uuid */
@@ -21646,7 +23118,7 @@ export interface operations {
                             /** Format: uuid */
                             id: string;
                             /** @enum {string} */
-                            kind: "hot_lead" | "unanswered_lead" | "stale_opportunity" | "missing_next_action" | "unconfirmed_appointment" | "ai_approval" | "customer_waiting" | "overdue_task" | "estimate_waiting" | "invoice_overdue";
+                            kind: "hot_lead" | "unanswered_lead" | "stale_opportunity" | "missing_next_action" | "unconfirmed_appointment" | "ai_approval" | "customer_waiting" | "overdue_task" | "estimate_waiting" | "invoice_overdue" | "wallet_low" | "wallet_empty" | "wallet_card_declined";
                             leadId: string | null;
                             /** @enum {string} */
                             letHandleMode: "auto" | "ask" | "none";
@@ -21726,7 +23198,7 @@ export interface operations {
                             /** Format: uuid */
                             id: string;
                             /** @enum {string} */
-                            kind: "hot_lead" | "unanswered_lead" | "stale_opportunity" | "missing_next_action" | "unconfirmed_appointment" | "ai_approval" | "customer_waiting" | "overdue_task" | "estimate_waiting" | "invoice_overdue";
+                            kind: "hot_lead" | "unanswered_lead" | "stale_opportunity" | "missing_next_action" | "unconfirmed_appointment" | "ai_approval" | "customer_waiting" | "overdue_task" | "estimate_waiting" | "invoice_overdue" | "wallet_low" | "wallet_empty" | "wallet_card_declined";
                             leadId: string | null;
                             /** @enum {string} */
                             letHandleMode: "auto" | "ask" | "none";
@@ -21770,7 +23242,7 @@ export interface operations {
                             /** Format: uuid */
                             itemId: string;
                             /** @enum {string} */
-                            kind: "hot_lead" | "unanswered_lead" | "stale_opportunity" | "missing_next_action" | "unconfirmed_appointment" | "ai_approval" | "customer_waiting" | "overdue_task" | "estimate_waiting" | "invoice_overdue";
+                            kind: "hot_lead" | "unanswered_lead" | "stale_opportunity" | "missing_next_action" | "unconfirmed_appointment" | "ai_approval" | "customer_waiting" | "overdue_task" | "estimate_waiting" | "invoice_overdue" | "wallet_low" | "wallet_empty" | "wallet_card_declined";
                             /** Format: date-time */
                             scheduledFor: string;
                             title: string;
@@ -21830,7 +23302,7 @@ export interface operations {
                         /** Format: uuid */
                         itemId: string;
                         /** @enum {string} */
-                        kind: "hot_lead" | "unanswered_lead" | "stale_opportunity" | "missing_next_action" | "unconfirmed_appointment" | "ai_approval" | "customer_waiting" | "overdue_task" | "estimate_waiting" | "invoice_overdue";
+                        kind: "hot_lead" | "unanswered_lead" | "stale_opportunity" | "missing_next_action" | "unconfirmed_appointment" | "ai_approval" | "customer_waiting" | "overdue_task" | "estimate_waiting" | "invoice_overdue" | "wallet_low" | "wallet_empty" | "wallet_card_declined";
                         /** @enum {string} */
                         mode: "auto" | "ask" | "none";
                         options: {
@@ -21922,6 +23394,18 @@ export interface operations {
                                 unanswered_lead: boolean;
                                 /** @default true */
                                 unconfirmed_appointment: boolean;
+                                /**
+                                 * @default true
+                                 * @enum {boolean}
+                                 */
+                                wallet_card_declined: true;
+                                /**
+                                 * @default true
+                                 * @enum {boolean}
+                                 */
+                                wallet_empty: true;
+                                /** @default true */
+                                wallet_low: boolean;
                             };
                             money: {
                                 /** @default 5 */
@@ -22107,6 +23591,54 @@ export interface operations {
                             name: string;
                             path: string;
                             slug: string;
+                        } | null;
+                    };
+                };
+            };
+        };
+    };
+    query_branded_domain_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        domain: {
+                            certificateReady: boolean;
+                            /** Format: date-time */
+                            createdAt: string;
+                            domain: string;
+                            /** Format: uuid */
+                            id: string;
+                            lastCheckedAt: string | null;
+                            lastError: string | null;
+                            records: {
+                                host: string;
+                                /** @enum {string} */
+                                kind: "TXT" | "CNAME";
+                                value: string;
+                                why: string;
+                            }[];
+                            /** @enum {string} */
+                            status: "pending" | "verifying" | "verified" | "failed";
+                            verifiedAt: string | null;
                         } | null;
                     };
                 };
@@ -22617,6 +24149,68 @@ export interface operations {
             };
         };
     };
+    query_call_log: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    cursor?: string;
+                    /**
+                     * @default all
+                     * @enum {string}
+                     */
+                    filter?: "all" | "missed" | "voicemail";
+                    /** @default 50 */
+                    limit?: number;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: {
+                            answeredBy: {
+                                fullName: string;
+                                /** Format: uuid */
+                                id: string;
+                            } | null;
+                            answeredVia: ("browser" | "forwarding" | "bridge") | null;
+                            conversationId: string | null;
+                            counterpart: string;
+                            /** @enum {string} */
+                            direction: "inbound" | "outbound";
+                            durationSeconds: number | null;
+                            /** Format: uuid */
+                            id: string;
+                            isVoicemail: boolean;
+                            /** Format: date-time */
+                            occurredAt: string;
+                            personId: string | null;
+                            recordingPath: string | null;
+                            recordingSeconds: number | null;
+                            status: string;
+                            transcript: string | null;
+                            transcriptStatus: ("pending" | "completed" | "failed") | null;
+                            who: string;
+                        }[];
+                        nextCursor: string | null;
+                    };
+                };
+            };
+        };
+    };
     query_chat_widget_get: {
         parameters: {
             query?: never;
@@ -22974,6 +24568,7 @@ export interface operations {
                             widgetId: string;
                         } | null;
                         conversation: {
+                            archived: boolean;
                             assignee: {
                                 fullName: string;
                                 /** Format: uuid */
@@ -22989,7 +24584,7 @@ export interface operations {
                             /** @enum {string} */
                             handledBy: "none" | "ai" | "person";
                             handoffNote: string | null;
-                            handoffReason: ("asked_for_person" | "frustrated" | "cant_answer" | "sensitive" | "emergency" | "legal" | "complaint" | "refund" | "cancellation" | "limit" | "budget" | "error" | "draft_expired" | "loop" | "other") | null;
+                            handoffReason: ("asked_for_person" | "frustrated" | "cant_answer" | "sensitive" | "emergency" | "legal" | "complaint" | "refund" | "cancellation" | "limit" | "budget" | "wallet" | "error" | "draft_expired" | "loop" | "other") | null;
                             /** Format: uuid */
                             id: string;
                             lastDirection: ("inbound" | "outbound") | null;
@@ -23165,6 +24760,7 @@ export interface operations {
                             } | null;
                             toAddresses: string[];
                             transcript: string | null;
+                            transcriptStatus: ("pending" | "completed" | "failed") | null;
                             /** @enum {string} */
                             type: "message" | "call";
                             via: ("microsoft" | "google") | null;
@@ -24343,7 +25939,7 @@ export interface operations {
                      * @default all
                      * @enum {string}
                      */
-                    box?: "mine" | "unassigned" | "all" | "needs_person" | "ai";
+                    box?: "mine" | "unassigned" | "all" | "needs_person" | "ai" | "archived";
                     /** @enum {string} */
                     channel?: "sms" | "email" | "chat";
                     cursor?: string;
@@ -24371,6 +25967,7 @@ export interface operations {
                 content: {
                     "application/json": {
                         items: {
+                            archived: boolean;
                             assignee: {
                                 fullName: string;
                                 /** Format: uuid */
@@ -24386,7 +25983,7 @@ export interface operations {
                             /** @enum {string} */
                             handledBy: "none" | "ai" | "person";
                             handoffNote: string | null;
-                            handoffReason: ("asked_for_person" | "frustrated" | "cant_answer" | "sensitive" | "emergency" | "legal" | "complaint" | "refund" | "cancellation" | "limit" | "budget" | "error" | "draft_expired" | "loop" | "other") | null;
+                            handoffReason: ("asked_for_person" | "frustrated" | "cant_answer" | "sensitive" | "emergency" | "legal" | "complaint" | "refund" | "cancellation" | "limit" | "budget" | "wallet" | "error" | "draft_expired" | "loop" | "other") | null;
                             /** Format: uuid */
                             id: string;
                             lastDirection: ("inbound" | "outbound") | null;
@@ -25677,6 +27274,7 @@ export interface operations {
                             } | null;
                             toAddresses: string[];
                             transcript: string | null;
+                            transcriptStatus: ("pending" | "completed" | "failed") | null;
                             /** @enum {string} */
                             type: "message" | "call";
                             via: ("microsoft" | "google") | null;
@@ -26395,6 +27993,57 @@ export interface operations {
             };
         };
     };
+    query_number_port_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @default false */
+                    includeFinished?: boolean;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        ports: {
+                            completedAt: string | null;
+                            /** Format: date-time */
+                            createdAt: string;
+                            detailsReady: boolean;
+                            display: string;
+                            documents: {
+                                bill: boolean;
+                                loa: boolean;
+                            };
+                            e164: string;
+                            /** Format: uuid */
+                            id: string;
+                            /** @enum {string} */
+                            kind: "full" | "hosted_messaging";
+                            rejectionReason: string | null;
+                            scheduledFor: string | null;
+                            /** @enum {string} */
+                            status: "draft" | "submitted" | "carrier_review" | "scheduled" | "complete" | "rejected" | "cancelled" | "failed";
+                            submittedAt: string | null;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
     query_payment_connection_list: {
         parameters: {
             query?: never;
@@ -26722,14 +28371,16 @@ export interface operations {
                         canManage: boolean;
                         messagingReady: boolean;
                         /** @enum {string} */
-                        nextStep: "buy_number" | "provisioning" | "releasing" | "submit_registration" | "awaiting_approval" | "rejected" | "ready";
+                        nextStep: "buy_number" | "provisioning" | "porting" | "releasing" | "submit_registration" | "awaiting_approval" | "rejected" | "ready";
                         number: {
                             display: string;
                             e164: string;
                             /** Format: uuid */
                             id: string;
+                            isDefault: boolean;
                             label: string | null;
                             lastError: string | null;
+                            memberUserIds: string[];
                             /** @enum {string} */
                             numberType: "local" | "toll_free";
                             purchasedAt: string | null;
@@ -26746,8 +28397,35 @@ export interface operations {
                                 voicemailGreeting: string | null;
                             };
                             /** @enum {string} */
-                            status: "provisioning" | "active" | "failed" | "releasing" | "released";
+                            status: "provisioning" | "porting" | "active" | "failed" | "releasing" | "released";
                         } | null;
+                        numbers: {
+                            display: string;
+                            e164: string;
+                            /** Format: uuid */
+                            id: string;
+                            isDefault: boolean;
+                            label: string | null;
+                            lastError: string | null;
+                            memberUserIds: string[];
+                            /** @enum {string} */
+                            numberType: "local" | "toll_free";
+                            purchasedAt: string | null;
+                            routing: {
+                                /** @enum {string} */
+                                forwardedCallerId: "customer" | "business";
+                                forwarding: {
+                                    e164: string;
+                                    enabled: boolean;
+                                    label: string;
+                                }[];
+                                ringSeconds: number;
+                                voicemailEnabled: boolean;
+                                voicemailGreeting: string | null;
+                            };
+                            /** @enum {string} */
+                            status: "provisioning" | "porting" | "active" | "failed" | "releasing" | "released";
+                        }[];
                         quiet: {
                             endsAt: string | null;
                             localTime: string;
@@ -27047,6 +28725,11 @@ export interface operations {
                             label: string;
                             worstBusiness: string | null;
                         };
+                        lostTranscripts: {
+                            count: number;
+                            label: string;
+                            worstBusiness: string | null;
+                        };
                         oldestPendingMinutes: number | null;
                         outboxBacklog: number;
                         paymentFailures: {
@@ -27063,6 +28746,13 @@ export interface operations {
                         }[];
                         /** Format: date-time */
                         since: string;
+                        wallets: {
+                            declines: number;
+                            drifting: number;
+                            negative: number;
+                            suspended: number;
+                            unreconciledDays: number;
+                        };
                     };
                 };
             };
@@ -27102,6 +28792,53 @@ export interface operations {
             };
         };
     };
+    query_platform_rates: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @default 30 */
+                    days?: number;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        lines: {
+                            costMicros: number;
+                            key: string;
+                            markupBp: number;
+                            minChargeCents: number;
+                            notes: string;
+                            realised: {
+                                chargedCents: number;
+                                costCents: number;
+                                events: number;
+                                markup: number;
+                            } | null;
+                            roundUpTo: string;
+                            unit: string;
+                            unitPriceCents: number;
+                        }[];
+                        /** Format: date-time */
+                        since: string;
+                        version: number;
+                    };
+                };
+            };
+        };
+    };
     query_platform_view_as_current: {
         parameters: {
             query?: never;
@@ -27134,6 +28871,51 @@ export interface operations {
                             /** Format: uuid */
                             workspaceId: string;
                         } | null;
+                    };
+                };
+            };
+        };
+    };
+    query_platform_wallet_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        autoTopup: boolean;
+                        balanceCents: number;
+                        cardBrand: string | null;
+                        cardLast4: string | null;
+                        cost30dCents: number;
+                        declinesInRow: number;
+                        escalationStep: number;
+                        floorCents: number;
+                        hasCard: boolean;
+                        opened: boolean;
+                        spent30dCents: number;
+                        /** @enum {string} */
+                        stage: "off" | "warn" | "enforce";
+                        suspendedAt: string | null;
+                        suspendedReason: string | null;
+                        toppedUp30dCents: number;
+                        topupCents: number;
                     };
                 };
             };
@@ -28245,6 +30027,92 @@ export interface operations {
             };
         };
     };
+    query_usage_prices: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: {
+                            cents: number;
+                            key: string | null;
+                            unit: string;
+                            what: string;
+                        }[];
+                        version: number;
+                    };
+                };
+            };
+        };
+    };
+    query_usage_statement: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    cursor?: string;
+                    /** @default 50 */
+                    limit?: number;
+                    /** Format: date-time */
+                    since?: string;
+                    /** Format: date-time */
+                    until?: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: {
+                            amountCents: number;
+                            balanceAfterCents: number;
+                            entityId: string | null;
+                            entityType: string | null;
+                            /** Format: uuid */
+                            id: string;
+                            /** @enum {string} */
+                            kind: "spend" | "topup" | "adjustment" | "credit" | "refund";
+                            occurredAt: string;
+                            quantity: number | null;
+                            rateKey: string | null;
+                            subject: string;
+                            unit: string | null;
+                        }[];
+                        nextCursor: string | null;
+                    };
+                };
+            };
+        };
+    };
     query_user_phone_get: {
         parameters: {
             query?: never;
@@ -28272,6 +30140,57 @@ export interface operations {
                             lastVerificationAt: string | null;
                             verifiedAt: string | null;
                         } | null;
+                    };
+                };
+            };
+        };
+    };
+    query_wallet_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        autoTopup: boolean;
+                        balanceCents: number;
+                        card: {
+                            brand: string | null;
+                            expiryMonth: number | null;
+                            expiryYear: number | null;
+                            last4: string | null;
+                            provider: string | null;
+                        } | null;
+                        cardRequested: boolean;
+                        escalation: string | null;
+                        floorCents: number;
+                        maxTopupCents: number;
+                        opened: boolean;
+                        overdraftCents: number;
+                        pendingTopUpCents: number | null;
+                        spent30dCents: number;
+                        spentThisMonthCents: number;
+                        suspended: {
+                            at: string;
+                            reason: string | null;
+                        } | null;
+                        topupCents: number;
                     };
                 };
             };
@@ -29225,6 +31144,7 @@ export interface operations {
                             createdAt: string;
                             /** Format: uuid */
                             id: string;
+                            inboxPerPerson: boolean;
                             industry: string;
                             name: string;
                             /** Format: uuid */

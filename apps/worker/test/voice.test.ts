@@ -48,7 +48,8 @@ const MIKE = '+17135550142';
 const CELL = '+17135550161';
 const OFFICE = '+17135550102';
 const BUSINESS_NAME = 'Voice Test HVAC';
-const WORDS = 'Hey, it’s Mike on Main Street. The AC upstairs is blowing warm air again.';
+/** What the stand-in transcriber hears on a voicemail, which is mono: the caller and nobody else. */
+const VOICEMAIL_WORDS = 'Hi, it’s Mike. Give me a call back when you can.';
 const actor = (u: TestUser): HumanActor => ({
   type: 'human',
   userId: u.id,
@@ -433,33 +434,11 @@ describe('a customer calls', () => {
       `<Say voice="Polly.Joanna-Neural">You’ve reached ${BUSINESS_NAME}. Leave your name, number and what you need, and we’ll call you back today.</Say>`,
     );
     expect(result.body).toContain('<Record maxLength="120"');
-    expect(result.body).toContain(`transcribeCallback="${TEST_PUBLIC_URL}${V}/transcription"`);
+    // Twilio's legacy transcription is gone: the words come from our own copy of the recording afterwards.
+    expect(result.body).not.toContain('transcribeCallback');
+    expect(result.body).not.toContain('transcribe="true"');
 
-    // The words can beat the recording; they wait for our copy of it.
     const rec = fakeSid('RE');
-    const tr = fakeSid('TR');
-    expect(
-      (
-        await post(`${V}/transcription`, {
-          AccountSid: accountSid,
-          CallSid: sid,
-          RecordingSid: rec,
-          TranscriptionSid: tr,
-          TranscriptionStatus: 'completed',
-          TranscriptionText: WORDS,
-          From: MIKE,
-          To: businessNumber,
-        })
-      ).statusCode,
-    ).toBe(204);
-    await reserve();
-    const early = await processDeliveries({ ...loopDeps(), processors });
-    expect(early).toMatchObject({ retried: 1, done: 0 });
-    await rows(
-      admin(),
-      sql`update app.webhook_deliveries set next_attempt_at = now() + interval '1 hour'
-          where dedupe_key like ${`${tr}%`}`,
-    );
     await post(`${V}/recording`, {
       AccountSid: accountSid,
       CallSid: sid,
@@ -477,11 +456,6 @@ describe('a customer calls', () => {
       To: businessNumber,
     });
     await drain();
-    await rows(
-      admin(),
-      sql`update app.webhook_deliveries set next_attempt_at = now() where dedupe_key like ${`${tr}%`}`,
-    );
-    await drain();
 
     const call = await callRow(sid);
     expect(call).toMatchObject({
@@ -490,16 +464,18 @@ describe('a customer calls', () => {
       isVoicemail: true,
       recordingSeconds: 12,
       recordingObjectPath: `${workspaceId}/calls/${call!.id}/voicemail.wav`,
-      transcript: WORDS,
+      // One person talking, so the words stand on their own without a name in front of them.
+      transcript: VOICEMAIL_WORDS,
       transcriptStatus: 'completed',
     });
     expect(await s.store.exists('telephony', call!.recordingObjectPath!)).toBe(true);
-    expect(s.telephony.deleted).toEqual(expect.arrayContaining([rec, tr]));
+    // Ours is stored and the words have settled, so the carrier's copy goes.
+    expect(s.telephony.deleted).toEqual(expect.arrayContaining([rec]));
     const [conversation] = await admin()
       .select()
       .from(conversations)
       .where(eq(conversations.id, call!.conversationId!));
-    expect(conversation!.lastPreview).toBe(`Voicemail, 0:12: “${WORDS}”`);
+    expect(conversation!.lastPreview).toBe(`Voicemail, 0:12: “${VOICEMAIL_WORDS}”`);
     expect(conversation!.unreadCount).toBeGreaterThan(0);
   });
 

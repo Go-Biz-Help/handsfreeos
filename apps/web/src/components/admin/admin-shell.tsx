@@ -5,6 +5,7 @@ import {
   Inbox,
   Menu,
   MessageSquareQuote,
+  Tag,
   Users,
   type LucideIcon,
 } from 'lucide-react';
@@ -38,6 +39,7 @@ const SECTIONS: readonly {
     needs: 'platform.businesses.read',
   },
   { href: '/admin/health', label: 'Health', icon: HeartPulse, needs: 'platform.health.read' },
+  { href: '/admin/rates', label: 'Rates', icon: Tag, needs: 'platform.rates.manage' },
   { href: '/admin/replies', label: 'Saved replies', icon: MessageSquareQuote },
   { href: '/admin/staff', label: 'Support people', icon: Users },
 ];

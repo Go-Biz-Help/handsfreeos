@@ -78,6 +78,7 @@ import {
 import { icsCalendar, icsSequence } from '../booking/ics';
 import { manageToken, resolveManageToken, resolveWaitlistToken } from '../booking/links';
 import { oneOnOne } from '../booking/visit';
+import { publicOrigin } from '../hosting/origin';
 import { accountFor } from '../payments/index';
 import { declineWording, type PaymentMethodKind, type PaymentResult } from '../payments/provider';
 import { systemActor, type TenantScope } from '../services';
@@ -787,6 +788,9 @@ export async function registerBookingRoutes(app: FastifyInstance, deps: HttpDeps
         attendeeId: b.a.id,
         manageVersion: b.a.manageVersion,
       });
+      // Their own domain once one is serving (M17). The token is the same either way — the origin is all
+      // that moves — so a link already in somebody's texts keeps working on our address.
+      const origin = await publicOrigin(tx, scope.workspaceId, links.webUrl);
       return {
         state,
         business,
@@ -823,7 +827,7 @@ export async function registerBookingRoutes(app: FastifyInstance, deps: HttpDeps
             }
           : null,
         manageToken: token,
-        manageUrl: `${links.webUrl}/m/${token}`,
+        manageUrl: `${origin}/m/${token}`,
         /** For the calendar file. */
         sequence: icsSequence(b.p.updatedAt, b.a.updatedAt),
         attendeeId: b.a.id,
@@ -997,6 +1001,8 @@ export async function registerBookingRoutes(app: FastifyInstance, deps: HttpDeps
       const offer = parseWaitlistOffer(e.offer);
       const service = offer?.serviceId ? await loadCatalogService(tx, ws, offer.serviceId) : null;
       const holding = !!e.offerExpiresAt && e.offerExpiresAt.getTime() > Date.now();
+      // Their own domain once one is serving (M17), as everywhere else a customer is sent a link.
+      const origin = await publicOrigin(tx, ws, links.webUrl);
       let state: 'offered' | 'taken' | 'expired' | 'booked' | 'closed' = 'closed';
       let manage: string | null = null;
       if (e.status === 'booked') {
@@ -1049,7 +1055,7 @@ export async function registerBookingRoutes(app: FastifyInstance, deps: HttpDeps
           : null,
         expiresAt: state === 'offered' ? e.offerExpiresAt!.toISOString() : null,
         manageToken: manage,
-        manageUrl: manage ? `${links.webUrl}/m/${manage}` : null,
+        manageUrl: manage ? `${origin}/m/${manage}` : null,
       };
     });
   }
@@ -1350,6 +1356,10 @@ export async function registerBookingRoutes(app: FastifyInstance, deps: HttpDeps
             method,
             gone: b.a.status !== 'booked' || b.p.status !== 'scheduled',
             what: plan!.what,
+            // Read here rather than in a transaction of its own, because this one is already open: their own
+            // domain when one is serving (M17), so a customer is not bounced between two names in the middle
+            // of putting a card down.
+            origin: await publicOrigin(tx, scope.workspaceId, links.webUrl),
           };
         });
 
@@ -1374,7 +1384,7 @@ export async function registerBookingRoutes(app: FastifyInstance, deps: HttpDeps
         } catch (e) {
           return refused(deps, e, scope, ctx.account.connection.id);
         }
-        const returnUrl = `${links.webUrl}/hold/${req.params.token}`;
+        const returnUrl = `${start.origin}/hold/${req.params.token}`;
 
         // Phase one: hand the browser whatever the provider needs it to do. `hold: true` is the whole point —
         // Stripe's intent is made for capture later, so confirming it holds the card instead of taking it.

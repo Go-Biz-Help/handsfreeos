@@ -15,7 +15,13 @@ export function registerTeammateRoutes(app: FastifyInstance, deps: HttpDeps): vo
     const actor = await authenticate(deps, req);
     const input = parseBody(TestConsoleInput, req.body);
     await requirePermission(deps, actor.userId, input.workspaceId, 'ai_team.manage');
-    const consoleDeps = { db: deps.httpDb, ai: deps.ai, webUrl: deps.webUrl, log: deps.log };
+    const consoleDeps = {
+      db: deps.httpDb,
+      ai: deps.ai,
+      webUrl: deps.webUrl,
+      log: deps.log,
+      wallet: deps.wallet,
+    };
     const prepared = await prepareTest(consoleDeps, input);
     const stream = openStream<ConsoleEvent>(reply);
     const stop = new AbortController();

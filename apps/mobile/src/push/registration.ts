@@ -245,7 +245,14 @@ export class PushRegistration {
       // A new token for this person: the old one comes off the list first.
       if (earlier && earlier.userId === userId && earlier.token !== token)
         await this.removeRegistration(earlier, 'turned_off').catch(() => undefined);
-      this.update({ status: 'registering', token, message: null });
+      // Registering again over an unchanged registration — which happens every time the app comes to the front —
+      // keeps saying "On". Without this, Settings flips 'On' → 'Setting up' → 'On' on every foreground, too fast to
+      // read (step 1, finding: the notifications text glitches). A first registration, or a new token, still says so.
+      const alreadyOn =
+        this.snapshot.status === 'registered' &&
+        earlier?.userId === userId &&
+        earlier.token === token;
+      if (!alreadyOn) this.update({ status: 'registering', token, message: null });
       try {
         await this.deps.register({
           platform: this.deps.platform,

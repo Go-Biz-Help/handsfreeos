@@ -127,7 +127,7 @@ export const syncedTables = {
     },
     { indexes: { workspace: ['workspace_id'] } },
   ),
-  /** business_v1 */
+  /** business_v1, me_v1 */
   attention_items: new Table(
     {
       workspace_id: column.text,
@@ -228,7 +228,7 @@ export const syncedTables = {
     },
     { indexes: { workspace: ['workspace_id'] } },
   ),
-  /** business_v1 */
+  /** business_v1, me_v1 */
   calls: new Table(
     {
       workspace_id: column.text,
@@ -296,7 +296,7 @@ export const syncedTables = {
     },
     { indexes: { workspace: ['workspace_id'] } },
   ),
-  /** business_v1 */
+  /** business_v1, me_v1 */
   conversations: new Table(
     {
       workspace_id: column.text,
@@ -317,6 +317,7 @@ export const syncedTables = {
       awaiting_reply_since: column.text,
       closed_at: column.text,
       closed_by: column.text,
+      archived_at: column.text,
       handled_by: column.text,
       ai_teammate_id: column.text,
       needs_person_since: column.text,
@@ -435,6 +436,32 @@ export const syncedTables = {
     },
     { indexes: { workspace: ['workspace_id'] } },
   ),
+  /** business_v1 */
+  form_versions: new Table(
+    {
+      workspace_id: column.text,
+      form_id: column.text,
+      version: column.integer,
+      definition: column.text,
+      definition_version: column.integer,
+      created_at: column.text,
+    },
+    { indexes: { workspace: ['workspace_id'] } },
+  ),
+  /** business_v1 */
+  forms: new Table(
+    {
+      workspace_id: column.text,
+      name: column.text,
+      mode: column.text,
+      status: column.text,
+      slug: column.text,
+      active_version_id: column.text,
+      created_at: column.text,
+      updated_at: column.text,
+    },
+    { indexes: { workspace: ['workspace_id'] } },
+  ),
   /** business_v1, me_v1 */
   invoice_lines: new Table(
     {
@@ -529,7 +556,7 @@ export const syncedTables = {
     },
     { indexes: { workspace: ['workspace_id'] } },
   ),
-  /** business_v1 */
+  /** business_v1, me_v1 */
   messages: new Table(
     {
       workspace_id: column.text,
@@ -661,6 +688,7 @@ export const syncedTables = {
       label: column.text,
       capabilities: column.text,
       status: column.text,
+      is_default: column.integer,
       created_at: column.text,
       updated_at: column.text,
     },
@@ -1149,7 +1177,7 @@ export interface AppointmentsRow {
   readonly updated_at: string | null;
 }
 
-/** A row of `attention_items` (business_v1). */
+/** A row of `attention_items` (business_v1, me_v1). */
 export interface AttentionItemsRow {
   readonly id: string;
   /** uuid */
@@ -1302,7 +1330,7 @@ export interface CalendarsRow {
   readonly updated_at: string | null;
 }
 
-/** A row of `calls` (business_v1). */
+/** A row of `calls` (business_v1, me_v1). */
 export interface CallsRow {
   readonly id: string;
   /** uuid */
@@ -1399,7 +1427,7 @@ export interface CompaniesRow {
   readonly updated_at: string | null;
 }
 
-/** A row of `conversations` (business_v1). */
+/** A row of `conversations` (business_v1, me_v1). */
 export interface ConversationsRow {
   readonly id: string;
   /** uuid */
@@ -1436,6 +1464,8 @@ export interface ConversationsRow {
   readonly closed_at: string | null;
   /** uuid */
   readonly closed_by: string | null;
+  /** timestamp with time zone: ISO 8601 text here */
+  readonly archived_at: string | null;
   /** app.conversation_handler */
   readonly handled_by: string | null;
   /** uuid */
@@ -1612,6 +1642,42 @@ export interface FilesRow {
   readonly updated_at: string | null;
 }
 
+/** A row of `form_versions` (business_v1). */
+export interface FormVersionsRow {
+  readonly id: string;
+  /** uuid */
+  readonly workspace_id: string | null;
+  /** uuid */
+  readonly form_id: string | null;
+  /** integer */
+  readonly version: number | null;
+  /** jsonb: JSON text here */
+  readonly definition: string | null;
+  /** integer */
+  readonly definition_version: number | null;
+  /** timestamp with time zone: ISO 8601 text here */
+  readonly created_at: string | null;
+}
+
+/** A row of `forms` (business_v1). */
+export interface FormsRow {
+  readonly id: string;
+  /** uuid */
+  readonly workspace_id: string | null;
+  readonly name: string | null;
+  /** app.form_mode */
+  readonly mode: string | null;
+  /** app.form_status */
+  readonly status: string | null;
+  readonly slug: string | null;
+  /** uuid */
+  readonly active_version_id: string | null;
+  /** timestamp with time zone: ISO 8601 text here */
+  readonly created_at: string | null;
+  /** timestamp with time zone: ISO 8601 text here */
+  readonly updated_at: string | null;
+}
+
 /** A row of `invoice_lines` (business_v1, me_v1). */
 export interface InvoiceLinesRow {
   readonly id: string;
@@ -1766,7 +1832,7 @@ export interface LeadsRow {
   readonly updated_at: string | null;
 }
 
-/** A row of `messages` (business_v1). */
+/** A row of `messages` (business_v1, me_v1). */
 export interface MessagesRow {
   readonly id: string;
   /** uuid */
@@ -1966,6 +2032,8 @@ export interface PhoneNumbersRow {
   readonly capabilities: string | null;
   /** app.phone_number_status */
   readonly status: string | null;
+  /** boolean in the database: 1 or 0 here */
+  readonly is_default: number | null;
   /** timestamp with time zone: ISO 8601 text here */
   readonly created_at: string | null;
   /** timestamp with time zone: ISO 8601 text here */
@@ -2430,6 +2498,8 @@ export interface SyncedRows {
   estimate_lines: EstimateLinesRow;
   estimates: EstimatesRow;
   files: FilesRow;
+  form_versions: FormVersionsRow;
+  forms: FormsRow;
   invoice_lines: InvoiceLinesRow;
   invoices: InvoicesRow;
   leads: LeadsRow;

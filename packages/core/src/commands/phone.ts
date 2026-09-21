@@ -1,11 +1,20 @@
-import { and, eq } from 'drizzle-orm';
-import { phoneNumbers, workspaces } from '@hfos/db/schema';
+import { and, eq, ne } from 'drizzle-orm';
+import { rows, sql } from '@hfos/db/client';
+import { phoneNumberMembers, phoneNumbers, workspaces } from '@hfos/db/schema';
 import { formatPhone } from '../crm/phone';
 import { HfosError } from '../errors';
 import { userIdOf } from '../kernel/actor';
 import { defineCommand } from '../kernel/define';
 import type { CommandContext } from '../kernel/types';
-import { liveNumber, workspaceMessaging } from '../messaging/store';
+import {
+  defaultNumber,
+  isWorkspaceUser,
+  SENDABLE_STATUSES,
+  liveNumberCount,
+  MAX_NUMBERS_PER_WORKSPACE,
+  workspaceMessaging,
+} from '../messaging/store';
+import { assertWalletHasRoom } from '../money/wallet-gate';
 import {
   PhoneNumberActivateInput,
   PhoneNumberBuyInput,
@@ -16,6 +25,12 @@ import {
   PhoneNumberReleaseOutput,
   PhoneNumberSetCallerIdInput,
   PhoneNumberSetCallerIdOutput,
+  PhoneNumberSetDefaultInput,
+  PhoneNumberSetDefaultOutput,
+  PhoneNumberSetLabelInput,
+  PhoneNumberSetLabelOutput,
+  PhoneNumberSetMembersInput,
+  PhoneNumberSetMembersOutput,
   PhoneNumberSetRoutingInput,
   PhoneNumberSetRoutingOutput,
   PhoneNumberSystemOutput,
@@ -52,8 +67,21 @@ export const phoneNumberBuy = defineCommand({
   emits: ['phone_number.purchase_requested'],
   async handler(ctx, input) {
     const workspaceId = ctx.scope.workspaceId!;
-    if (await liveNumber(ctx.tx, workspaceId))
-      throw HfosError.rule('number_exists', 409, 'This workspace already has a business number.');
+    /**
+     * A business may have several numbers now (M17) — a second location, a dispatch line, a toll-free
+     * beside a local one. But a ceiling is not optional: dropping the one-per-workspace unique index
+     * removed the only thing that stood between a purchase that kept retrying and forty numbers on
+     * somebody's card, each of them billed monthly.
+     */
+    if ((await liveNumberCount(ctx.tx, workspaceId)) >= MAX_NUMBERS_PER_WORKSPACE)
+      throw HfosError.rule(
+        'number_limit',
+        409,
+        `That is ${MAX_NUMBERS_PER_WORKSPACE} numbers, which is as many as one business can have. Release one you are not using first.`,
+      );
+    // A number is charged a month up front, so it needs the whole month there. Nobody should be able to buy
+    // one at zero and be billed for it later.
+    await assertWalletHasRoom(ctx.tx, workspaceId, 'number');
     const [row] = await ctx.tx
       .insert(phoneNumbers)
       .values({
@@ -91,8 +119,17 @@ export const phoneNumberRelease = defineCommand({
   emits: ['phone_number.release_requested'],
   async handler(ctx, input) {
     const n = await loadNumber(ctx, input.phoneNumberId);
-    if (n.status !== 'active')
-      throw HfosError.rule('number_not_active', 409, 'Only an active number can be released.');
+    // `provisioning` too: a purchase the worker never finished would otherwise hold the workspace's one live slot
+    // for good, with no way out of Settings. The worker looks the number up at the carrier before it gives up on
+    // it, so a number that was in fact bought is still handed back.
+    if (n.status !== 'active' && n.status !== 'provisioning')
+      throw HfosError.rule(
+        'number_not_active',
+        409,
+        n.status === 'releasing'
+          ? 'This number is already being given back.'
+          : 'This number is no longer in use.',
+      );
     if (n.e164 !== input.confirmE164)
       throw HfosError.validation([
         { path: 'confirmE164', message: 'Type the number exactly as shown to release it.' },
@@ -104,7 +141,7 @@ export const phoneNumberRelease = defineCommand({
       entityType: 'phone_number',
       entityId: n.id,
       payload: { e164: n.e164 },
-      before: { number, status: 'active' },
+      before: { number, status: n.status },
       after: { number, status: 'releasing' },
     });
     return { phoneNumberId: n.id };
@@ -198,6 +235,170 @@ export const phoneNumberSetCallerId = defineCommand({
       after: { forwardedCallerId: input.forwardedCallerId },
     });
     return { phoneNumberId: n.id, forwardedCallerId: input.forwardedCallerId };
+  },
+});
+
+/**
+ * Which number a new conversation goes out from (M17).
+ *
+ * The write is one boolean; the rule that exactly one number holds it, and that a released number hands it
+ * on, lives in `private.phone_numbers_keep_default()`. That is deliberate — a business can have several
+ * numbers and several people changing them, and "exactly one" is the kind of promise the database should keep
+ * rather than whichever command ran last.
+ *
+ * Existing threads are not moved. A conversation belongs to the number the customer wrote to, and changing
+ * the default is about where the *next* one starts.
+ */
+export const phoneNumberSetDefault = defineCommand({
+  name: 'phone_number.set_default',
+  description: 'Choose which of a business’s numbers new conversations go out from.',
+  risk: 2,
+  input: PhoneNumberSetDefaultInput,
+  output: PhoneNumberSetDefaultOutput,
+  permission: 'channels.manage',
+  scope: inWorkspace,
+  emits: ['phone_number.default_changed'],
+  async handler(ctx, input) {
+    const n = await loadNumber(ctx, input.phoneNumberId);
+    // A number being ported is claimed but sends nothing, so it cannot hold the default either.
+    if (!SENDABLE_STATUSES.includes(n.status as (typeof SENDABLE_STATUSES)[number]))
+      throw HfosError.rule(
+        'number_not_live',
+        409,
+        'That number is not in use, so nothing can be sent from it.',
+      );
+    if (n.isDefault) return { phoneNumberId: n.id };
+    const was = await defaultNumber(ctx.tx, ctx.scope.workspaceId!);
+    /**
+     * Stand the old one down first, in its own statement.
+     *
+     * `phone_numbers_one_default` is a partial unique index, so a second default is refused as the row is
+     * written — before `phone_numbers_keep_default` ever runs, because an AFTER trigger cannot undo a
+     * constraint violation. `payment_connection.set_default` clears its old default the same way, for the
+     * same reason.
+     */
+    await ctx.tx
+      .update(phoneNumbers)
+      .set({ isDefault: false })
+      .where(
+        and(
+          eq(phoneNumbers.workspaceId, ctx.scope.workspaceId!),
+          eq(phoneNumbers.isDefault, true),
+          ne(phoneNumbers.id, n.id),
+        ),
+      );
+    await ctx.tx.update(phoneNumbers).set({ isDefault: true }).where(eq(phoneNumbers.id, n.id));
+    await ctx.emit({
+      type: 'phone_number.default_changed',
+      entityType: 'phone_number',
+      entityId: n.id,
+      payload: { e164: n.e164, wasPhoneNumberId: was?.id ?? null },
+      before: { number: was ? formatPhone(was.e164) : null },
+      after: { number: formatPhone(n.e164) },
+    });
+    return { phoneNumberId: n.id };
+  },
+});
+
+/** What the team calls a number. With one number nobody needs this; with three it is what makes a list usable. */
+export const phoneNumberSetLabel = defineCommand({
+  name: 'phone_number.set_label',
+  description: 'Name one of a business’s numbers, so a list of them can be told apart.',
+  risk: 1,
+  input: PhoneNumberSetLabelInput,
+  output: PhoneNumberSetLabelOutput,
+  permission: 'channels.manage',
+  scope: inWorkspace,
+  emits: ['phone_number.label_changed'],
+  async handler(ctx, input) {
+    const n = await loadNumber(ctx, input.phoneNumberId);
+    if ((n.label ?? null) === input.label) return { phoneNumberId: n.id };
+    await ctx.tx.update(phoneNumbers).set({ label: input.label }).where(eq(phoneNumbers.id, n.id));
+    await ctx.emit({
+      type: 'phone_number.label_changed',
+      entityType: 'phone_number',
+      entityId: n.id,
+      payload: { e164: n.e164, label: input.label },
+      before: { label: n.label },
+      after: { label: input.label },
+    });
+    return { phoneNumberId: n.id };
+  },
+});
+
+/**
+ * Who a number rings (M17).
+ *
+ * **Empty is not "nobody", it is "everybody".** A number with no people on it rings every browser with the
+ * inbox, which is what every number did before this existed — so a business that never opens this screen
+ * keeps working, and clearing the list is a way back rather than a way to break your own phones. The rule
+ * lives in `private.phone_route()`; this command only writes the list.
+ *
+ * Being on a number does not grant the inbox. Somebody without `inbox.use` cannot be added, and
+ * `phone_route` checks the permission again at call time, so taking somebody off the inbox stops their
+ * phone ringing even if nobody remembered to take them off the number.
+ */
+export const phoneNumberSetMembers = defineCommand({
+  name: 'phone_number.set_members',
+  description: 'Choose who a number rings. Nobody chosen means everyone with the inbox.',
+  risk: 2,
+  input: PhoneNumberSetMembersInput,
+  output: PhoneNumberSetMembersOutput,
+  permission: 'channels.manage',
+  scope: inWorkspace,
+  emits: ['phone_number.members_changed'],
+  async handler(ctx, input) {
+    const workspaceId = ctx.scope.workspaceId!;
+    const n = await loadNumber(ctx, input.phoneNumberId);
+    const wanted = [...new Set(input.userIds)];
+
+    for (const userId of wanted) {
+      if (!(await isWorkspaceUser(ctx.tx, workspaceId, userId)))
+        throw HfosError.rule('not_in_workspace', 409, 'That person is not in this business.');
+      const [ok] = await rows<{ can: boolean }>(
+        ctx.tx,
+        sql`select private.user_has_permission(${userId}::uuid, ${workspaceId}::uuid, 'inbox.use') as can`,
+      );
+      if (!ok?.can)
+        throw HfosError.rule(
+          'no_inbox',
+          409,
+          'That person does not work the inbox, so a number cannot ring them.',
+        );
+    }
+
+    const before = await rows<{ user_id: string }>(
+      ctx.tx,
+      sql`select user_id from app.phone_number_members where phone_number_id = ${n.id}`,
+    );
+    const was = before.map((r) => r.user_id).sort();
+    if (was.join(',') === [...wanted].sort().join(','))
+      return { phoneNumberId: n.id, userIds: wanted, ringsEveryone: wanted.length === 0 };
+
+    // Replace wholesale, in one transaction: the input is the whole list, so working out a diff would be
+    // arithmetic in service of the same end state.
+    await ctx.tx.delete(phoneNumberMembers).where(eq(phoneNumberMembers.phoneNumberId, n.id));
+    if (wanted.length)
+      await ctx.tx.insert(phoneNumberMembers).values(
+        wanted.map((userId) => ({
+          phoneNumberId: n.id,
+          userId,
+          workspaceId,
+          createdBy: userIdOf(ctx.actor),
+        })),
+      );
+
+    await ctx.emit({
+      type: 'phone_number.members_changed',
+      entityType: 'phone_number',
+      entityId: n.id,
+      payload: { e164: n.e164, userIds: wanted, ringsEveryone: wanted.length === 0 },
+      before: { people: was.length === 0 ? 'everyone with the inbox' : String(was.length) },
+      after: {
+        people: wanted.length === 0 ? 'everyone with the inbox' : String(wanted.length),
+      },
+    });
+    return { phoneNumberId: n.id, userIds: wanted, ringsEveryone: wanted.length === 0 };
   },
 });
 

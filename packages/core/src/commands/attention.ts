@@ -37,7 +37,7 @@ import { changedSince, logLaterChange } from '../kernel/later-change';
 import { changeMoment } from '../kernel/moment';
 import type { CommandContext } from '../kernel/types';
 import { workspaceAddresses } from '../messaging/email';
-import { isWorkspaceUser, liveNumber } from '../messaging/store';
+import { isWorkspaceUser, defaultNumber } from '../messaging/store';
 import {
   AttentionAssignInput,
   AttentionAssignOutput,
@@ -700,7 +700,7 @@ async function nudgeCheckContext(
   businessName: string,
 ): Promise<NudgeCheckContext> {
   const ws = ctx.scope.workspaceId!;
-  const number = await liveNumber(ctx.tx, ws);
+  const number = await defaultNumber(ctx.tx, ws);
   const addresses = await workspaceAddresses(ctx.tx, ws);
   const [w] = await rows<{ origins: string[] | null }>(
     ctx.tx,

@@ -32,6 +32,7 @@ type Warning = { kind: string; text: string };
 export interface WorkflowToolDeps {
   readonly ai: WorkerServices['ai'];
   readonly log: Logger;
+  readonly wallet: WorkerServices['wallet'];
 }
 
 const str = (v: unknown) => (typeof v === 'string' && v.trim() ? v.trim() : undefined);
@@ -183,7 +184,7 @@ export const workflowAutoTools: Record<string, WorkflowAutoTool> = {
     const workflowId = str(args['workflowId']) ?? null;
     const current = workflowId ? await workflowGet(db, ctx, workflowId) : null;
     const { proposal, catalogs } = await draftProposal(
-      { db, ai: deps.ai, log: deps.log },
+      { db, ai: deps.ai, log: deps.log, wallet: deps.wallet },
       ctx.actor,
       {
         workspaceId: ctx.workspaceId,

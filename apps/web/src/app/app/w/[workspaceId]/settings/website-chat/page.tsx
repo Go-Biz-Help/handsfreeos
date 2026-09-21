@@ -5,6 +5,7 @@ import { SettingsNav } from '@/components/settings/settings-nav';
 import { WebsiteChatPage } from '@/components/settings/website-chat-page';
 import { PageHeader } from '@/components/shell/page-header';
 import { apiServer, unwrapPage } from '@/lib/api/server';
+import { brandedOriginFor } from '@/lib/hosting/branded-origin';
 
 export const metadata: Metadata = { title: 'Website chat' };
 
@@ -21,9 +22,10 @@ export default async function WebsiteChatSettingsPage({
   const { api } = await apiServer();
   const got = unwrapPage(await api.POST('/v1/queries/workspace.get', { body: { workspaceId } }));
   if (!hasWorkspacePermission(got.workspace.role, 'channels.manage')) notFound();
-  const [widgets, team] = await Promise.all([
+  const [widgets, team, brandedOrigin] = await Promise.all([
     api.POST('/v1/queries/chat_widget.list', { body: { workspaceId } }),
     api.POST('/v1/queries/ai_teammate.get', { body: { workspaceId } }),
+    brandedOriginFor(api, workspaceId),
   ]);
   // One widget per business for now (the first); more come with more sites to separate.
   const widget = unwrapPage(widgets).items[0] ?? null;
@@ -47,6 +49,7 @@ export default async function WebsiteChatSettingsPage({
               }
             : null
         }
+        brandedOrigin={brandedOrigin}
       />
     </>
   );

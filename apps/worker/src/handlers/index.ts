@@ -45,9 +45,17 @@ import {
   onPaymentRecorded,
   onSubscriptionLive,
 } from '../money/jobs';
+import { onWalletLow } from '../money/recharge';
+import { onWalletDeclinedNotice, onWalletEmptyNotice } from '../money/wallet-notices';
 import { onRefundRequested } from '../money/refunds';
 import { onPlanCardRequested, onPlanChanged } from '../money/subscriptions';
 import { onBridgeCancelled, onBridgeRequested, onVerificationRequested } from '../telephony/cell';
+import { onPortCancelled, onPortSubmitted } from '../telephony/ports';
+import {
+  onBrandedDomainAdded,
+  onBrandedDomainCheckRequested,
+  onBrandedDomainRemoved,
+} from '../hosting/domains';
 import { onPaymentConnectionConnected, onPaymentConnectionDisconnected } from './payments';
 import {
   onConversationLinked,
@@ -80,6 +88,13 @@ const ownTeammateAndWorkflows: HandlerMap = withWorkflows(
     'phone_number.release_requested': onReleaseRequested,
     'registration.submitted': onRegistrationSubmitted,
     'registration.status_changed': onRegistrationStatusChanged,
+    // A number a business already owns, on its way to us: the carrier call is a job (telephony/ports.ts).
+    'number_port.submitted': onPortSubmitted,
+    'number_port.cancelled': onPortCancelled,
+    // A business's own domain on its booking page, forms and links (hosting/domains.ts).
+    'branded_domain.added': onBrandedDomainAdded,
+    'branded_domain.check_requested': onBrandedDomainCheckRequested,
+    'branded_domain.removed': onBrandedDomainRemoved,
     'message.queued': onMessageQueued,
     // A text waiting for quiet hours to end goes then; a cancelled one ends at once (messaging/scheduled.ts).
     'message.scheduled': onTextScheduled,
@@ -114,6 +129,13 @@ const ownTeammateAndWorkflows: HandlerMap = withWorkflows(
     'payment_connection.disconnected': onPaymentConnectionDisconnected,
     // A person asked for a refund: the provider call is queued, so it retries on its own (money/refunds.ts).
     'refund.requested': onRefundRequested,
+    // The usage wallet ran low (M16): if it has a card and automatic top-up on, the charge is queued as a job
+    // for the same reason a refund is. `wallet.empty` brings no second attempt — by then the top-up has
+    // already been tried — but it does bring the email, because a push can be switched off and at zero we do
+    // not send a text to say there is no money for texts.
+    'wallet.low': onWalletLow,
+    'wallet.empty': onWalletEmptyNotice,
+    'wallet.suspended': onWalletDeclinedNotice,
     // Money (money/jobs.ts): a document that went out carries its own message and then the jobs that follow
     // it — an estimate's nudge and expiry, an invoice's reminder ladder and its overdue mark. A payment
     // brings the customer a receipt (or, where nobody was watching, that it didn't go through), and a

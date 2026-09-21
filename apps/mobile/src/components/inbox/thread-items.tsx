@@ -22,6 +22,7 @@ import { Image, Linking, Pressable, View } from 'react-native';
 import { useAiColors } from '@/components/drafts';
 import {
   CheckCheck,
+  ChevronDown,
   CircleAlert,
   FileText,
   Image as ImageIcon,
@@ -336,6 +337,35 @@ const CALL_ICON: Record<ReturnType<typeof callCardWords>['icon'], LucideIcon> = 
   outgoing: PhoneOutgoing,
 };
 
+/** A recorded call's words, folded away until somebody wants them. */
+function Transcript({ text }: { text: string }) {
+  const [open, setOpen] = React.useState(false);
+  return (
+    <View className="gap-1.5">
+      <Pressable
+        onPress={() => setOpen(!open)}
+        accessibilityRole="button"
+        accessibilityState={{ expanded: open }}
+        testID="call-transcript-toggle"
+        className="min-h-11 flex-row items-center gap-1"
+      >
+        <Icon
+          as={ChevronDown}
+          className={cn('size-4 text-accent-text', open ? '' : '-rotate-90')}
+        />
+        <Text className="text-[13px] font-medium text-accent-text">
+          {open ? THREAD_WORDS.hideRecord : THREAD_WORDS.showRecord}
+        </Text>
+      </Pressable>
+      {open ? (
+        <Text selectable className="text-[14.5px] leading-[21px]">
+          {text}
+        </Text>
+      ) : null}
+    </View>
+  );
+}
+
 /** A call in the conversation: a voicemail with its player and words, or a call with who answered and its length. */
 export function CallCard({ item, workspaceId }: { item: ThreadItemShape; workspaceId: string }) {
   const words = callCardWords(item);
@@ -376,12 +406,23 @@ export function CallCard({ item, workspaceId }: { item: ThreadItemShape; workspa
         ) : null
       ) : null}
       {item.transcript ? (
-        <View className="gap-1">
-          <Text variant="group">Transcript</Text>
-          <Text selectable className="text-[14.5px] leading-[21px]">
-            {item.transcript}
-          </Text>
-        </View>
+        words.kind === 'voicemail' ? (
+          <View className="gap-1">
+            <Text variant="group">Transcript</Text>
+            <Text selectable className="text-[14.5px] leading-[21px]">
+              {item.transcript}
+            </Text>
+          </View>
+        ) : (
+          // A whole call's words can run to thousands: they open rather than filling the thread.
+          <Transcript text={item.transcript} />
+        )
+      ) : null}
+      {/* Why there is nothing to play or read. Without it the card just showed less, which looked like a bug. */}
+      {words.note ? (
+        <Text className="text-xs text-text-3" testID="voicemail-note">
+          {words.note}
+        </Text>
       ) : null}
     </View>
   );

@@ -239,7 +239,15 @@ export const auditLogs = app.table('audit_logs', {
 export const stageKind = app.enum('stage_kind', ['open', 'won', 'lost']);
 export const leadStatus = app.enum('lead_status', ['open', 'won', 'lost']);
 /** 'knowledge': a file in the knowledge base (its record is the workspace itself); tags never use it. */
-export const recordType = app.enum('record_type', ['person', 'company', 'lead', 'knowledge']);
+export const recordType = app.enum('record_type', [
+  'person',
+  'company',
+  'lead',
+  /** A file that belongs to the business itself, not a customer: a knowledge document (0028). */
+  'knowledge',
+  /** The signed authorisation and the bill for moving a number to us — record_id is the port (0081). */
+  'port',
+]);
 export const activityKind = app.enum('activity_kind', [
   'note',
   'call',
@@ -281,8 +289,11 @@ const fieldTimes = () => jsonb('field_times').$type<Record<string, string>>().no
  */
 const syncWindow = () => boolean('sync_window').notNull().default(true);
 /**
- * Milestone 10 (0056): the members who may see this money (the lead's assignee, or active staff on the booking),
- * kept by triggers so a member's phone syncs exactly what RLS lets them read.
+ * Milestone 10 (0056) and Milestone 17 (0083): the members who may see this row, kept by triggers so a
+ * member's phone syncs exactly what RLS lets them read. On money it is the lead's assignee or active staff on
+ * the booking, and empty means owner business. On the inbox it is the thread's assignee and the people its
+ * number rings, and **empty means the business has not narrowed its inbox at all** — the opposite default,
+ * said in both migrations, because each table's wide policy is what reads the empty case.
  */
 const memberViewerIds = () =>
   uuid('member_viewer_ids')
@@ -575,6 +586,8 @@ export const telephonyAccountStatus = app.enum('telephony_account_status', [
 export const phoneNumberType = app.enum('phone_number_type', ['local', 'toll_free']);
 export const phoneNumberStatus = app.enum('phone_number_status', [
   'provisioning',
+  /** On its way to us from another carrier: claimed and visible, not yet able to send (M17). */
+  'porting',
   'active',
   'failed',
   'releasing',
@@ -729,6 +742,12 @@ export const phoneNumbers = app.table('phone_numbers', {
   label: text('label'),
   capabilities: jsonb('capabilities').$type<Json>().notNull().default({}),
   status: phoneNumberStatus('status').notNull().default('provisioning'),
+  /**
+   * The number a new conversation sends from, and what Settings shows first. Exactly one per workspace among
+   * live numbers, kept by `private.phone_numbers_keep_default()` — never write it expecting to be the only
+   * one, the trigger stands the others down.
+   */
+  isDefault: boolean('is_default').notNull().default(false),
   routing: jsonb('routing')
     .$type<PhoneRouting>()
     .notNull()
@@ -764,6 +783,61 @@ export const telephonyRegistrations = app.table('telephony_registrations', {
   ...timestamps(),
 });
 
+/**
+ * Milestone 17: moving a number a business already owns to us (0080).
+ *
+ * Deliberately **not** `app.port_state` and **not** `app.migration_port_requests` — that pair belongs to the
+ * CRM-migration wizard and has `migration_id not null`. The status list here is shaped like
+ * `registration_status`, because this is the same machine: paperwork goes out, the carrier takes its time, a
+ * job polls, an answer comes back.
+ */
+export const numberPortKind = app.enum('number_port_kind', ['full', 'hosted_messaging']);
+export type NumberPortKind = (typeof numberPortKind.enumValues)[number];
+export const numberPortStatus = app.enum('number_port_status', [
+  'draft',
+  'submitted',
+  'carrier_review',
+  'scheduled',
+  'complete',
+  'rejected',
+  'cancelled',
+  'failed',
+]);
+export type NumberPortStatus = (typeof numberPortStatus.enumValues)[number];
+
+export const numberPorts = app.table('number_ports', {
+  id: id(),
+  workspaceId: workspaceRef(),
+  accountId: uuid('account_id').references(() => telephonyAccounts.id, { onDelete: 'set null' }),
+  e164: text('e164').notNull(),
+  kind: numberPortKind('kind').notNull(),
+  status: numberPortStatus('status').notNull().default('draft'),
+  phoneNumberId: uuid('phone_number_id').references(() => phoneNumbers.id, {
+    onDelete: 'set null',
+  }),
+  /**
+   * The losing carrier's account number, PIN, authorising name and service address. **Their credentials, not
+   * ours to spread**: this table is absent from the `powersync` publication on purpose, nothing logs it, and
+   * no output schema returns it — `NumberPortOut` says which fields are filled, never what they say.
+   */
+  submission: jsonb('submission').$type<Json>().notNull().default({}),
+  /** Which papers are in, and where they sit in the `telephony` bucket. Never what they say. */
+  documents: jsonb('documents').$type<Json>().notNull().default({}),
+  providerSid: text('provider_sid'),
+  providerStatus: text('provider_status'),
+  rejectionReason: text('rejection_reason'),
+  lastError: text('last_error'),
+  nextPollAt: ts('next_poll_at'),
+  pollCount: integer('poll_count').notNull().default(0),
+  /** The day the carrier commits to. A business plans its week around this one, so it is a date, not a time. */
+  scheduledFor: date('scheduled_for'),
+  submittedAt: ts('submitted_at'),
+  carrierSubmittedAt: ts('carrier_submitted_at'),
+  completedAt: ts('completed_at'),
+  createdBy: userRef('created_by'),
+  ...timestamps(),
+});
+
 /** Milestone 7: who answers a conversation (declared here because `conversations` uses it). */
 export const conversationHandler = app.enum('conversation_handler', ['none', 'ai', 'person']);
 export type ConversationHandler = (typeof conversationHandler.enumValues)[number];
@@ -789,6 +863,8 @@ export const conversations = app.table('conversations', {
   awaitingReplySince: ts('awaiting_reply_since'),
   closedAt: ts('closed_at'),
   closedBy: userRef('closed_by'),
+  /** Out of the inbox, keeping its status: restoring brings back the open, snoozed or closed thread as it was. */
+  archivedAt: ts('archived_at'),
   createdBy: userRef('created_by'),
   ...timestamps(),
   emailAddressId: uuid('email_address_id').references(() => emailAddresses.id, {
@@ -804,7 +880,7 @@ export const conversations = app.table('conversations', {
   needsPersonSince: ts('needs_person_since'),
   /**
    * asked_for_person, frustrated, cant_answer, sensitive, emergency, legal, complaint, refund,
-   * cancellation, limit, budget, error, draft_expired, loop, other.
+   * cancellation, limit, budget, wallet, error, draft_expired, loop, other.
    */
   handoffReason: text('handoff_reason'),
   handoffNote: text('handoff_note'),
@@ -815,6 +891,11 @@ export const conversations = app.table('conversations', {
   // Milestone 10
   /** When it was last opened, closed or snoozed, or its snooze moved, at the moment the change was made (0063). */
   statusChangedAt: ts('status_changed_at'),
+  /**
+   * The members who may see this while the business narrows its inbox (0083). Empty means narrowing is off
+   * and everyone with the inbox sees everything. Kept by triggers; a value sent by a caller is replaced.
+   */
+  memberViewerIds: memberViewerIds(),
 });
 
 export const messages = app.table('messages', {
@@ -877,6 +958,11 @@ export const messages = app.table('messages', {
   approvedBy: userRef('approved_by'),
   // Milestone 10
   syncWindow: syncWindow(),
+  /**
+   * The members who may see this while the business narrows its inbox (0083). Empty means narrowing is off
+   * and everyone with the inbox sees everything. Kept by triggers; a value sent by a caller is replaced.
+   */
+  memberViewerIds: memberViewerIds(),
 });
 
 export const calls = app.table('calls', {
@@ -912,6 +998,11 @@ export const calls = app.table('calls', {
   ...timestamps(),
   // Milestone 10
   syncWindow: syncWindow(),
+  /**
+   * The members who may see this while the business narrows its inbox (0083). Empty means narrowing is off
+   * and everyone with the inbox sees everything. Kept by triggers; a value sent by a caller is replaced.
+   */
+  memberViewerIds: memberViewerIds(),
 });
 
 export const optOuts = app.table('opt_outs', {
@@ -1370,6 +1461,43 @@ export const bookingSites = app.table('booking_sites', {
   name: text('name').notNull(),
   intro: text('intro'),
   enabled: boolean('enabled').notNull().default(true),
+  createdBy: userRef('created_by'),
+  ...timestamps(),
+});
+
+/** Milestone 17 (0087): the statuses a business's own domain moves through, the email domain's plus one. */
+export const brandedDomainStatus = app.enum('branded_domain_status', [
+  'pending',
+  /** The records are in DNS and the host is looking; a certificate is not issued yet. */
+  'verifying',
+  'verified',
+  'failed',
+]);
+export type BrandedDomainStatus = (typeof brandedDomainStatus.enumValues)[number];
+
+/**
+ * A business's own domain on the pages its customers see (0087): `booking.lonestarhvac.com` rather than
+ * `handsfreeos.com/book/lonestar`. One per booking site, which is already the business's public identity.
+ * Everything the host said about it is the worker's — `private.guard_branded_domain_update()`.
+ */
+export const brandedDomains = app.table('branded_domains', {
+  id: id(),
+  workspaceId: workspaceRef(),
+  siteId: uuid('site_id')
+    .notNull()
+    .unique()
+    .references(() => bookingSites.id, { onDelete: 'cascade' }),
+  domain: text('domain').notNull().unique(),
+  status: brandedDomainStatus('status').notNull().default('pending'),
+  verificationHost: text('verification_host'),
+  verificationValue: text('verification_value'),
+  cnameHost: text('cname_host'),
+  cnameValue: text('cname_value'),
+  certificateReady: boolean('certificate_ready').notNull().default(false),
+  verifiedAt: ts('verified_at'),
+  lastCheckedAt: ts('last_checked_at'),
+  lastError: text('last_error'),
+  nextCheckAt: ts('next_check_at'),
   createdBy: userRef('created_by'),
   ...timestamps(),
 });
@@ -2503,6 +2631,11 @@ export const attentionItems = app.table('attention_items', {
   resolvedAt: ts('resolved_at'),
   resolution: text('resolution'),
   ...timestamps(),
+  /**
+   * The members who may see this while the business narrows its inbox (0083). Empty means narrowing is off
+   * and everyone with the inbox sees everything. Kept by triggers; a value sent by a caller is replaced.
+   */
+  memberViewerIds: memberViewerIds(),
 });
 
 // ---------- Milestone 9: money (0044-0050) ----------
@@ -3024,6 +3157,12 @@ export const workspaceAccess = app.table(
       .references(() => users.id, { onDelete: 'cascade' }),
     workspaceId: workspaceRef(),
     role: memberRole('role').notNull(),
+    /**
+     * Whether this person sees every thread in this business (0083). True for everyone until the business
+     * narrows its inbox, and true for owners and admins always. Kept by a trigger; what `business_v1`'s
+     * `inbox` sync parameter reads, so it is one of the rows the database keeps equal to RLS.
+     */
+    seesWholeInbox: boolean('sees_whole_inbox').notNull().default(true),
   },
   (t) => [primaryKey({ columns: [t.userId, t.workspaceId] })],
 );
@@ -3788,6 +3927,8 @@ export const migrationPortRequests = app.table('migration_port_requests', {
   phoneNumberId: uuid('phone_number_id').references(() => phoneNumbers.id, {
     onDelete: 'set null',
   }),
+  /** The port that actually moves this number, once one is started (0080). The carrier machinery is there. */
+  numberPortId: uuid('number_port_id').references(() => numberPorts.id, { onDelete: 'set null' }),
   ...timestamps(),
 });
 
@@ -4077,6 +4218,181 @@ export const viewAsSessions = platform.table('view_as_sessions', {
   createdAt: ts('created_at').notNull().defaultNow(),
 });
 
+// ---- The usage rate card (M16) ----
+// HandsFreeOS's own price list, in `platform` beside the support desk. Costs are micro-dollars (a millionth of
+// a dollar): a text segment is 7900 and cents cannot hold it. What a business is charged is worked out in
+// cents by core's `priceEvent`, never here.
+
+export const usageUnit = platform.enum('usage_unit', [
+  'month',
+  'segment',
+  'message',
+  'minute',
+  'mtok',
+]);
+export const usageRounding = platform.enum('usage_rounding', ['none', 'minute', 'six_seconds']);
+
+/** One line of one version of the card. A published line is history: only `effectiveTo` and `notes` change. */
+export const usageRates = platform.table('usage_rates', {
+  id: id(),
+  version: integer('version').notNull(),
+  key: text('key').notNull(),
+  unit: usageUnit('unit').notNull(),
+  costMicros: bigint('cost_micros', { mode: 'number' }).notNull(),
+  markupBp: integer('markup_bp').notNull().default(15000),
+  minChargeCents: integer('min_charge_cents').notNull().default(0),
+  roundUpTo: usageRounding('round_up_to').notNull().default('none'),
+  effectiveFrom: ts('effective_from').notNull().defaultNow(),
+  /** Null while live. Set the instant a later version takes over. */
+  effectiveTo: ts('effective_to'),
+  notes: text('notes').notNull().default(''),
+  publishedBy: userRef('published_by'),
+  ...timestamps(),
+});
+
+// ---- The usage wallet (M16) ----
+// What a business has spent on texts, calls, numbers and AI, and the card that keeps it in funds. Usage only:
+// nothing here is a plan or a subscription, and app.payments is a different thing entirely (that table is the
+// business's own customers paying *them*).
+
+export const usageEntryKind = app.enum('usage_entry_kind', [
+  'spend',
+  'topup',
+  'adjustment',
+  'credit',
+  'refund',
+]);
+export const usageCostSource = app.enum('usage_cost_source', [
+  'rate_card',
+  'provider',
+  'reconciled',
+]);
+export const walletRechargeStatus = app.enum('wallet_recharge_status', [
+  'pending',
+  'succeeded',
+  'failed',
+  'cancelled',
+]);
+
+/**
+ * How far a business has been rolled onto the wallet: `off` says nothing at all, `warn` shows the balance and
+ * the low-balance notices, `enforce` also stops outgoing texts and calls past the overdraft.
+ *
+ * A real enum in the database (`app.wallet_stage`, 0083) and now a real one here. It was a `text` column with
+ * a TypeScript-only union, which typechecked perfectly and still drifted: `parity.test.ts` walks every enum
+ * in both and found 126 in SQL against 125 in Drizzle.
+ */
+export const walletStage = app.enum('wallet_stage', ['off', 'warn', 'enforce']);
+export type WalletStage = (typeof walletStage.enumValues)[number];
+
+/**
+ * One business's balance and how it keeps it topped up. `balanceCents` is written **only** by
+ * private.usage_wallet_apply() and is the one money column in the repo that may go negative: inbound calls and
+ * texts arrive whether or not there is money, and the carrier has already billed us by then.
+ */
+export const usageWallets = app.table('usage_wallets', {
+  workspaceId: uuid('workspace_id')
+    .primaryKey()
+    .references(() => workspaces.id, { onDelete: 'cascade' }),
+  organizationId: orgRef(),
+  balanceCents: bigint('balance_cents', { mode: 'number' }).notNull().default(0),
+  autoTopup: boolean('auto_topup').notNull().default(true),
+  floorCents: bigint('floor_cents', { mode: 'number' }).notNull().default(1000),
+  topupCents: bigint('topup_cents', { mode: 'number' }).notNull().default(2500),
+  overdraftCents: bigint('overdraft_cents', { mode: 'number' }).notNull().default(1000),
+  provider: paymentProvider('provider'),
+  customerRef: text('customer_ref'),
+  methodToken: text('method_token'),
+  cardBrand: text('card_brand'),
+  cardLast4: text('card_last4'),
+  cardExpiryMonth: smallint('card_expiry_month'),
+  cardExpiryYear: smallint('card_expiry_year'),
+  cardRequestedAt: ts('card_requested_at'),
+  rechargesInWindow: integer('recharges_in_window').notNull().default(0),
+  windowStartedAt: ts('window_started_at'),
+  escalationStep: integer('escalation_step').notNull().default(0),
+  lastRechargeAt: ts('last_recharge_at'),
+  declinesInRow: integer('declines_in_row').notNull().default(0),
+  pausedUntil: ts('paused_until'),
+  suspendedAt: ts('suspended_at'),
+  suspendedReason: text('suspended_reason'),
+  lowWarnedAt: ts('low_warned_at'),
+  warnFingerprint: text('warn_fingerprint'),
+  /**
+   * How far along the wallet this business is: `off` (silent), `warn` (told, nothing stops) or `enforce`
+   * (stopped past the overdraft). Off everywhere until staff move it, one business at a time.
+   */
+  stage: walletStage('stage').notNull().default('off'),
+  ...timestamps(),
+});
+
+/**
+ * Who a number rings (M17). **Empty means everybody with the inbox** — that fallback is what keeps every
+ * business that never touches this working exactly as it did, and `private.phone_route()` depends on it.
+ */
+export const phoneNumberMembers = app.table(
+  'phone_number_members',
+  {
+    phoneNumberId: uuid('phone_number_id')
+      .notNull()
+      .references(() => phoneNumbers.id, { onDelete: 'cascade' }),
+    userId: userRef('user_id').notNull(),
+    workspaceId: workspaceRef(),
+    createdBy: userRef('created_by'),
+    createdAt: ts('created_at').notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.phoneNumberId, t.userId] })],
+);
+
+/** Append-only. Every charge and every top-up, with what it was priced from and what was left after it. */
+export const usageLedger = app.table('usage_ledger', {
+  id: id(),
+  workspaceId: workspaceRef(),
+  organizationId: orgRef(),
+  kind: usageEntryKind('kind').notNull(),
+  /** Signed: negative is spend, positive is money in. Never zero. */
+  amountCents: bigint('amount_cents', { mode: 'number' }).notNull(),
+  balanceAfterCents: bigint('balance_after_cents', { mode: 'number' }).notNull().default(0),
+  costCents: bigint('cost_cents', { mode: 'number' }),
+  markupBp: integer('markup_bp'),
+  rateCardVersion: integer('rate_card_version'),
+  rateKey: text('rate_key'),
+  quantity: numeric('quantity'),
+  unit: usageUnit('unit'),
+  costSource: usageCostSource('cost_source'),
+  subject: text('subject').notNull().default(''),
+  entityType: text('entity_type'),
+  entityId: uuid('entity_id'),
+  providerRef: text('provider_ref'),
+  /** Derived from the provider's own immutable id, so one event is counted once however often it is reported. */
+  idempotencyKey: text('idempotency_key').notNull(),
+  correctsId: uuid('corrects_id').references((): AnyPgColumn => usageLedger.id, {
+    onDelete: 'set null',
+  }),
+  meta: jsonb('meta').notNull().default({}),
+  occurredAt: ts('occurred_at').notNull().defaultNow(),
+  createdAt: ts('created_at').notNull().defaultNow(),
+});
+
+/** One charge of the card. Written pending, called by a job, and recorded by a second command. */
+export const walletRecharges = app.table('wallet_recharges', {
+  id: id(),
+  workspaceId: workspaceRef(),
+  organizationId: orgRef(),
+  amountCents: bigint('amount_cents', { mode: 'number' }).notNull(),
+  status: walletRechargeStatus('status').notNull().default('pending'),
+  escalationStep: integer('escalation_step').notNull().default(0),
+  requestedBy: userRef('requested_by'),
+  provider: paymentProvider('provider'),
+  providerPaymentId: text('provider_payment_id'),
+  failureCode: text('failure_code'),
+  failureMessage: text('failure_message'),
+  idempotencyKey: text('idempotency_key'),
+  ledgerEntryId: uuid('ledger_entry_id').references(() => usageLedger.id, { onDelete: 'set null' }),
+  succeededAt: ts('succeeded_at'),
+  ...timestamps(),
+});
+
 // ---- Forms, surveys and quizzes (M15) ----
 
 export const formMode = app.enum('form_mode', ['form', 'survey', 'quiz']);
@@ -4140,6 +4456,11 @@ export const formVersions = app.table('form_versions', {
   /** editor, assistant, template. */
   source: text('source').notNull().default('editor'),
   diffSummary: jsonb('diff_summary').$type<Json[]>().notNull().default([]),
+  /**
+   * The version a phone should hold (0085): this form's active one, while the form is live. A stored flag
+   * because a sync stream cannot join — the same reason `sync_window` is one. Kept by a trigger.
+   */
+  isActive: boolean('is_active').notNull().default(false),
   publishedBy: userRef('published_by'),
   createdAt: ts('created_at').notNull().defaultNow(),
 });
@@ -4367,6 +4688,10 @@ export const tables = {
   ticketEvents,
   cannedReplies,
   viewAsSessions,
+  usageRates,
+  usageWallets,
+  usageLedger,
+  walletRecharges,
 
   migrationConnections,
   migrations,
@@ -4438,6 +4763,7 @@ export const tables = {
   territories,
   territoryMembers,
   bookingSites,
+  brandedDomains,
   calendars,
   calendarRevisions,
   calendarSlugs,
@@ -4493,6 +4819,7 @@ export const tables = {
   telephonyAccounts,
   phoneNumbers,
   telephonyRegistrations,
+  numberPorts,
   conversations,
   messages,
   calls,

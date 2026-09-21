@@ -1,5 +1,9 @@
 import type { AiUsage } from '@hfos/ai';
+import { aiUsageKey } from '@hfos/core/server';
 import { asWorker, rows, sql, type Db, type Tx } from '@hfos/db/client';
+import type { Logger } from 'pino';
+import { chargeAi } from '../money/usage-capture';
+import type { WalletDeps } from '../money/wallet';
 import type { TenantScope } from '../services';
 
 /** Where AI tokens outside the Assistant were spent (app.ai_usage.source). */
@@ -28,14 +32,55 @@ const count = (n: number) => (Number.isFinite(n) ? Math.max(0, Math.round(n)) : 
 export async function recordAiUsage(
   tx: Tx,
   input: AiUsageRef & { readonly model: string; readonly usage: AiUsage },
-): Promise<void> {
-  await tx.execute(sql`insert into app.ai_usage (workspace_id, source, user_id, workflow_id, run_id, step_key,
+): Promise<string | null> {
+  const [row] = await rows<{ id: string }>(
+    tx,
+    sql`insert into app.ai_usage (workspace_id, source, user_id, workflow_id, run_id, step_key,
       teammate_id, teammate_run_id, model, input_tokens, output_tokens, cache_read_tokens, cache_write_tokens)
     values (private.system_scope_workspace(), ${input.source}::app.ai_usage_source, ${input.userId ?? null},
       ${input.workflowId ?? null}, ${input.runId ?? null}, ${input.stepKey ? input.stepKey.slice(0, 100) : null},
       ${input.teammateId ?? null}, ${input.teammateRunId ?? null},
       ${input.model.slice(0, 100) || 'unknown'}, ${count(input.usage.inputTokens)}, ${count(input.usage.outputTokens)},
-      ${count(input.usage.cacheReadTokens)}, ${count(input.usage.cacheWriteTokens)})`);
+      ${count(input.usage.cacheReadTokens)}, ${count(input.usage.cacheWriteTokens)})
+    returning id`,
+  );
+  return row?.id ?? null;
+}
+
+/** What an AI request is called on a business's statement. Never a model name: "AI replies" is what it bought. */
+const AI_SUBJECTS: Readonly<Record<AiUsageSource, string>> = {
+  workflow: 'AI in a workflow',
+  builder: 'AI while building',
+  knowledge: 'AI reading your knowledge',
+  teammate: 'An AI teammate reply',
+};
+
+/**
+ * Record an AI call's tokens **and** charge for them (M16, step 3). The two are one act everywhere else in the
+ * worker, so they are one call here — five places used to write the tokens and none of them charged.
+ *
+ * The charge is a second transaction on purpose, after the tokens are safely recorded. Joining the first would
+ * be neater, but a wallet that cannot be written must never take the token record down with it, and in Postgres
+ * an error inside a transaction poisons the whole of it.
+ */
+export async function recordAndChargeAi(
+  deps: { readonly db: Db; readonly log: Logger; readonly wallet: WalletDeps },
+  scope: TenantScope,
+  input: AiUsageRef & { readonly model: string; readonly usage: AiUsage },
+): Promise<void> {
+  const id = await asWorker(deps.db, scope, (tx) => recordAiUsage(tx, input));
+  if (!id) return;
+  await chargeAi(deps.wallet, scope, {
+    tokens: input.usage,
+    idempotencyKey: aiUsageKey(id),
+    subject: AI_SUBJECTS[input.source],
+    entityType: 'ai_usage',
+    entityId: id,
+    // Every model we run today is on the card. One that is not bills at `ai.unknown.mtok`, which is dear on
+    // purpose so that somebody notices and prices it properly.
+    known: true,
+    model: input.model,
+  });
 }
 
 /**

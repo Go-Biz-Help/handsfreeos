@@ -9,7 +9,7 @@ import { company, urls } from '@/content/site';
  * ever emptied, on purpose.
  */
 
-const LAST_UPDATED = 'September 18, 2026';
+const LAST_UPDATED = 'September 20, 2026';
 
 export const metadata: Metadata = {
   title: 'Terms of service',
@@ -56,8 +56,32 @@ export default function TermsPage() {
             the <Link href="/pricing">pricing page</Link>.
           </li>
           <li>
-            Texts, calls, phone numbers and AI replies are billed on top, at what they cost us, on
-            the same bill.
+            Texts, calls, phone numbers and AI replies are billed on top, at the per-use rates shown
+            in your account. They come out of a usage balance, and every charge appears on the
+            statement on your Usage &amp; balance page.
+          </li>
+          <li>
+            <strong>If that balance runs out, outgoing texts and outgoing calls stop</strong>, and
+            we tell you why rather than failing quietly. Calls coming <em>in</em> to your number
+            keep reaching you, and messages coming in are still received and filed. Nothing is
+            deleted, and everything starts again as soon as you top up.
+          </li>
+          <li>
+            <strong>Automatic top-up charges the card you save for it.</strong> It is on unless you
+            turn it off: when the balance falls below the amount you set, we charge your card for
+            the top-up amount you set. If several top-ups are needed in a short period, we raise the
+            amount each time so that it is one larger charge instead of many small ones, up to a cap
+            shown on your Usage &amp; balance page. That page says whenever a top-up has been raised
+            and why, and{' '}
+            <strong>we email you before charging more than twice your own top-up amount</strong>.
+            Raising your own amount stops it happening. You can turn automatic top-up off, change
+            either amount, or remove the card, at any time.
+          </li>
+          <li>
+            A card that is declined is tried again a few times over the following days. If it keeps
+            being declined we stop trying, tell you, and ask for another card. The usage balance is
+            separate from your plan, and the card saved for it is never used for money your own
+            customers pay you.
           </li>
           <li>
             You can cancel any time and you will not be billed again. We do not refund the part of a
@@ -107,6 +131,59 @@ export default function TermsPage() {
             <strong>No spam.</strong> No bought lists, no messaging people who never asked, nothing
             illegal, nothing about the categories carriers forbid. We will suspend an account that
             does this, without notice if the carriers require it.
+          </li>
+        </ul>
+
+        {/*
+          Written to the person receiving the texts, not to the business sending them — which is why it sits
+          apart from section 5 and is lettered rather than numbered. A carrier's A2P review reads this
+          section, and it reads it looking for five things: what the programme is, STOP, HELP, that frequency
+          varies and rates may apply, and that carriers are not liable for a message that does not arrive.
+          Every claim here is something HandsFreeOS actually does — the keywords are in
+          packages/core/src/messaging/sms.ts and the opt-out is recorded by message.receive. Do not soften or
+          trim it without checking the requirement first.
+        */}
+        <h2 id="messaging">5A. If a business texts you through HandsFreeOS</h2>
+        <p>
+          This part is for you if you are a customer of a business that uses HandsFreeOS, and it has
+          texted you.
+        </p>
+        <ul>
+          <li>
+            <strong>Who is texting you.</strong> The business is. HandsFreeOS is the software it
+            uses to send the message, the way an email provider is not the person writing to you.
+            The business decided to text you, and it is the business you agreed to hear from.
+          </li>
+          <li>
+            <strong>Stopping.</strong> Reply <strong>STOP</strong> to any message and that business
+            stops texting you. STOPALL, UNSUBSCRIBE, CANCEL, END, QUIT, OPTOUT and REVOKE all work
+            the same way. You will get one message confirming it, and then nothing more. If you
+            change your mind, reply <strong>START</strong> (or UNSTOP, SUBSCRIBE or OPTIN) and the
+            texts start again.
+          </li>
+          <li>
+            <strong>Help.</strong> Reply <strong>HELP</strong> or INFO and you will get a message
+            saying who is texting you and how to reach them. You can also write to us at{' '}
+            <a href={`mailto:${company.supportEmail}`}>{company.supportEmail}</a>, though for
+            anything about the business itself — an appointment, a quote, a bill — that business is
+            who you want.
+          </li>
+          <li>
+            <strong>How often, and what it costs.</strong> How many messages you get depends on the
+            business and on what you are talking to them about; there is no set number. Your own
+            message and data rates may apply, both to their messages and to your replies. If you are
+            not sure what your plan costs, your mobile provider is who knows.
+          </li>
+          <li>
+            <strong>Delivery.</strong> Mobile carriers are not liable for messages that arrive late
+            or do not arrive at all, and neither are we. A text is not a reliable way to send
+            something urgent.
+          </li>
+          <li>
+            <strong>Your number.</strong> Your phone number and the record of your agreeing to be
+            texted are used to deliver those messages and for nothing else. They are never sold, and
+            never shared with anyone else for marketing. Our{' '}
+            <Link href="/privacy#messaging">privacy policy</Link> says so in full.
           </li>
         </ul>
 

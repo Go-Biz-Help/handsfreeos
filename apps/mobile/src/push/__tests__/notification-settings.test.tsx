@@ -11,7 +11,7 @@ import type { Me } from '@/lib/businesses';
 import type { RegistrationSnapshot } from '@/push/registration';
 
 /**
- * Settings → Notifications: the six push switches beside email, saved whole through `user.update_profile` as the web
+ * Settings → Notifications: the seven push switches beside email, saved whole through `user.update_profile` as the web
  * saves them, online only ("This needs signal."), with a refusal putting the switch back; this phone's own permission,
  * with the way to its settings; and "On N phones".
  */
@@ -82,11 +82,13 @@ async function show() {
 
 const ALL_ON = {
   customerWaiting: true,
+  missedCall: true,
   urgent: true,
   approval: true,
   booking: true,
   assigned: true,
   payment: false,
+  wallet: true,
 };
 
 beforeEach(() => {
@@ -133,7 +135,7 @@ describe('Settings → Notifications', () => {
     expect(screen.getByText('On 1 phone')).toBeTruthy();
   });
 
-  it('saves all six push switches through user.update_profile, and says so', async () => {
+  it('saves all seven push switches through user.update_profile, and says so', async () => {
     jest.mocked(change).mockResolvedValue({ id: 'c', queued: false, output: {} } as never);
     await show();
     await fireEvent.press(screen.getByTestId('push-urgent'));

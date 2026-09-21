@@ -6,7 +6,9 @@ import {
   familyFor,
   formatPhone,
   latestByKind,
-  liveNumber,
+  conversationNumber,
+  defaultNumber,
+  numbersOf,
   messagePreview,
   messageUpdateStatus,
   phoneNumberActivate,
@@ -14,6 +16,9 @@ import {
   phoneNumberMarkReleased,
   registrationUpdateStatus,
   scheduleJob,
+  WALLET_REFUSALS,
+  walletRoom,
+  type RegistrationFamily,
 } from '@hfos/core/server';
 import { asWorker, rows, sql, type Tx } from '@hfos/db/client';
 import {
@@ -119,13 +124,20 @@ export const onReleaseRequested: EventHandler = async (ctx) => {
     .where(eq(phoneNumbers.id, ctx.event.entityId!));
   if (!n || n.status !== 'releasing') return;
   const account = await loadAccount(ctx.tx, scope.workspaceId, ctx.sealer);
-  if (account && n.providerSid) {
-    try {
-      await ctx.telephony.releaseNumber(account, n.providerSid);
-    } catch (e) {
-      // Already gone at the provider is what we wanted.
-      if (!isPermanentProviderError(e)) throw e;
-      ctx.log.warn({ err: e.message }, 'provider refused the release; marking released anyway');
+  if (account) {
+    // A number released while it was still being set up has no sid here yet, but may well have been bought before
+    // the purchase stopped. Asking the carrier what it holds for this number is what stops us walking away from one
+    // we are paying for.
+    const sid =
+      n.providerSid ?? (await ctx.telephony.findOwnedNumber(account, n.e164))?.sid ?? null;
+    if (sid) {
+      try {
+        await ctx.telephony.releaseNumber(account, sid);
+      } catch (e) {
+        // Already gone at the provider is what we wanted.
+        if (!isPermanentProviderError(e)) throw e;
+        ctx.log.warn({ err: e.message }, 'provider refused the release; marking released anyway');
+      }
     }
   }
   await executeCommand(
@@ -156,7 +168,7 @@ export async function advanceRegistrations(
   causation: { correlationId?: string | null; causationId?: string | null } = {},
 ): Promise<void> {
   const run = <T>(fn: (tx: Tx) => Promise<T>) => asWorker(services.db, scope, fn);
-  const [regs, number, account] = await run(
+  const [regs, numbers, account] = await run(
     async (tx) =>
       [
         await tx
@@ -164,11 +176,14 @@ export async function advanceRegistrations(
           .from(telephonyRegistrations)
           .where(eq(telephonyRegistrations.workspaceId, scope.workspaceId))
           .orderBy(asc(telephonyRegistrations.createdAt)),
-        await liveNumber(tx, scope.workspaceId),
+        await numbersOf(tx, scope.workspaceId),
         await loadAccount(tx, scope.workspaceId, services.sealer),
       ] as const,
   );
-  if (!number || number.status !== 'active') return;
+  // Nothing can be registered against a number the carrier has not finished giving us, and a workspace that
+  // has no live number yet may legitimately have no carrier account either — so this stays ahead of the
+  // account check, exactly as the single-number version did.
+  if (!numbers.some((n) => n.status === 'active')) return;
   if (!account) throw new Error('no telephony account for this workspace');
   const latest = latestByKind(regs);
   const meta = workerMeta(causation.correlationId, causation.causationId);
@@ -180,67 +195,103 @@ export async function advanceRegistrations(
       systemActor(scope),
       meta,
     );
-  // Provider ids of the steps later ones may build on.
-  const usable: Partial<Record<RegistrationKind, string>> = {};
-  let approvedSoFar = true;
-  for (const kind of FAMILY_KINDS[familyFor(number.numberType)] as readonly RegistrationKind[]) {
-    const reg = latest.get(kind);
-    if (!reg) return;
-    if (reg.status === 'approved') {
-      if (reg.providerSid) usable[kind] = reg.providerSid;
-      continue;
-    }
-    if (!REVIEWING.has(reg.status)) return; // rejected, failed or draft: people act next
-    if (carrierHasDetails(reg)) {
+
+  /** One family's chain, walked in order against the number that family is for. */
+  const advanceFamily = async (
+    family: RegistrationFamily,
+    number: (typeof numbers)[number],
+  ): Promise<void> => {
+    // Provider ids of the steps later ones may build on.
+    const usable: Partial<Record<RegistrationKind, string>> = {};
+    let approvedSoFar = true;
+    for (const kind of FAMILY_KINDS[family] as readonly RegistrationKind[]) {
+      const reg = latest.get(kind);
+      if (!reg) return;
+      if (reg.status === 'approved') {
+        if (reg.providerSid) usable[kind] = reg.providerSid;
+        continue;
+      }
+      if (!REVIEWING.has(reg.status)) return; // rejected, failed or draft: people act next
+      if (carrierHasDetails(reg)) {
+        await ensurePoll(services, scope, reg.id);
+        if (!PROCEED_WHILE_REVIEWING.has(kind)) return;
+        usable[kind] = reg.providerSid!;
+        approvedSoFar = false;
+        continue;
+      }
+      // Sent again after the carriers turned it down: it goes once the steps before it are approved.
+      if (reg.providerSid && !approvedSoFar) return;
+      const submission = reg.submission as Record<string, unknown>;
+      const contact = (submission['contact'] ?? {}) as { email?: string };
+      let state: RegistrationState;
+      try {
+        state = await services.telephony.submitRegistration(account, {
+          kind,
+          submission,
+          phoneNumberSid: number.providerSid,
+          phoneNumberE164: number.e164,
+          previous: { ...usable },
+          messagingServiceSid: account.messagingServiceSid,
+          notifyEmail: contact.email ?? '',
+          replaces: reg.providerSid,
+        });
+      } catch (e) {
+        if (!isPermanentProviderError(e)) throw e;
+        await update({ registrationId: reg.id, status: 'failed', rejectionReason: e.message });
+        return;
+      }
+      const reviewing = REVIEWING.has(state.status);
+      await update({
+        registrationId: reg.id,
+        status: state.status,
+        providerSid: state.providerSid,
+        providerStatus: state.providerStatus,
+        rejectionReason: state.rejectionReason,
+        nextPollAt: reviewing
+          ? new Date(Date.now() + services.registrationPollMs).toISOString()
+          : null,
+        // The version the carrier now has: people sending again later makes this differ.
+        carrierSubmittedAt: reg.submittedAt?.toISOString() ?? null,
+      });
+      if (state.status === 'approved') {
+        usable[kind] = state.providerSid;
+        continue;
+      }
+      if (!reviewing) return;
       await ensurePoll(services, scope, reg.id);
       if (!PROCEED_WHILE_REVIEWING.has(kind)) return;
-      usable[kind] = reg.providerSid!;
-      approvedSoFar = false;
-      continue;
-    }
-    // Sent again after the carriers turned it down: it goes once the steps before it are approved.
-    if (reg.providerSid && !approvedSoFar) return;
-    const submission = reg.submission as Record<string, unknown>;
-    const contact = (submission['contact'] ?? {}) as { email?: string };
-    let state: RegistrationState;
-    try {
-      state = await services.telephony.submitRegistration(account, {
-        kind,
-        submission,
-        phoneNumberSid: number.providerSid,
-        phoneNumberE164: number.e164,
-        previous: { ...usable },
-        messagingServiceSid: account.messagingServiceSid,
-        notifyEmail: contact.email ?? '',
-        replaces: reg.providerSid,
-      });
-    } catch (e) {
-      if (!isPermanentProviderError(e)) throw e;
-      await update({ registrationId: reg.id, status: 'failed', rejectionReason: e.message });
-      return;
-    }
-    const reviewing = REVIEWING.has(state.status);
-    await update({
-      registrationId: reg.id,
-      status: state.status,
-      providerSid: state.providerSid,
-      providerStatus: state.providerStatus,
-      rejectionReason: state.rejectionReason,
-      nextPollAt: reviewing
-        ? new Date(Date.now() + services.registrationPollMs).toISOString()
-        : null,
-      // The version the carrier now has: people sending again later makes this differ.
-      carrierSubmittedAt: reg.submittedAt?.toISOString() ?? null,
-    });
-    if (state.status === 'approved') {
       usable[kind] = state.providerSid;
-      continue;
+      approvedSoFar = false;
     }
-    if (!reviewing) return;
-    await ensurePoll(services, scope, reg.id);
-    if (!PROCEED_WHILE_REVIEWING.has(kind)) return;
-    usable[kind] = state.providerSid;
-    approvedSoFar = false;
+  };
+
+  /**
+   * **Every family the business has actually submitted, not one guessed from a number.**
+   *
+   * This used to take the oldest registration that named a number, look that number up and walk whichever
+   * family it belonged to. A business that gave up its toll-free number and bought a local one therefore kept
+   * working the dead number's paperwork forever: the loop found the approved toll-free verification, had
+   * nothing left to do, and returned — while the 10DLC chain the business had actually submitted sat
+   * untouched and texting never turned on. A business holding both kinds at once had the same fault, with
+   * whichever chain was submitted second never moving.
+   *
+   * So the families come from the registrations themselves, and each is walked against its own number. This
+   * cannot start anything: a family with no registration is not in the set, and `advanceFamily` returns at the
+   * first step nobody has submitted. Registrations stay per family rather than per number — a workspace with
+   * two local numbers registers once and both are covered, which is how 10DLC works — so one number per
+   * family is the right thing to submit against.
+   */
+  for (const [family, kinds] of Object.entries(FAMILY_KINDS) as [
+    RegistrationFamily,
+    readonly RegistrationKind[],
+  ][]) {
+    if (!kinds.some((k) => latest.has(k))) continue;
+    // `numbersOf` is ordered `is_default desc, created_at desc`, so this is the business's own preference,
+    // and it never returns a released one. `active` because a number still provisioning has no carrier sid
+    // to register against yet — the purchase finishing calls this again.
+    const number = numbers.find((n) => n.status === 'active' && familyFor(n.numberType) === family);
+    if (!number) continue;
+    await advanceFamily(family, number);
   }
 }
 
@@ -279,7 +330,7 @@ export const onRegistrationStatusChanged: EventHandler = async (ctx) => {
   if (recipients.length === 0) return;
   let mail;
   if (p.to === 'approved') {
-    const number = await liveNumber(ctx.tx, scope.workspaceId);
+    const number = await defaultNumber(ctx.tx, scope.workspaceId);
     mail = textingApprovedEmail({
       business,
       number: number ? formatPhone(number.e164) : 'your business number',
@@ -370,10 +421,37 @@ export const onMessageQueued: EventHandler = async (ctx) => {
     .select()
     .from(conversations)
     .where(eq(conversations.id, m.conversationId));
-  const number = await liveNumber(ctx.tx, scope.workspaceId);
+  /**
+   * The number this thread is on — what the customer sees the reply come from (M17). `conversationNumber`
+   * falls back to the business's default when the thread has no number (it predates this) or when the number
+   * it had has since been released: a queued text is not worth failing because somebody released a number
+   * last week, and sending from the number that replaced it is what a person would do.
+   */
+  const number = conv
+    ? await conversationNumber(ctx.tx, scope.workspaceId, conv.phoneNumberId)
+    : null;
   const account = await loadAccount(ctx.tx, scope.workspaceId, ctx.sealer);
   if (!conv || !number || number.status !== 'active' || !account) {
     await fail('no_number', 'The business number is not active.');
+    return;
+  }
+  // It fell back, so the timeline has to say what the wire will. Both the thread and the message itself are
+  // re-stamped, so the thread is stable again from here and its history does not claim a number it never used.
+  if (conv.phoneNumberId !== number.id) {
+    await ctx.tx
+      .update(conversations)
+      .set({ phoneNumberId: number.id })
+      .where(eq(conversations.id, conv.id));
+    await ctx.tx.update(messages).set({ fromAddress: number.e164 }).where(eq(messages.id, m.id));
+  }
+  // The second wallet gate (M16 step 9). The first is on message.send, but a text can sit queued for minutes —
+  // scheduled, held, retried — and the balance can run out in between. Failing here means the message lands
+  // `failed` with a code the inbox explains, rather than disappearing into a carrier call nobody paid for.
+  const room = await walletRoom(ctx.tx, scope.workspaceId, 'text', (msg, e) =>
+    ctx.log.error({ err: e }, msg),
+  );
+  if (!room.allowed) {
+    await fail('wallet_empty', WALLET_REFUSALS.text);
     return;
   }
   const mediaUrls = await Promise.all(

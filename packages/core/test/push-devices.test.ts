@@ -287,11 +287,14 @@ describe('pushSwitchOn', () => {
       }
     expect(pushSwitchesOf({})).toEqual({
       customerWaiting: true,
+      missedCall: true,
       urgent: true,
       approval: true,
       booking: true,
       assigned: true,
       payment: false,
+      // M16. On by default like the rest: `payment` is the only one that starts off.
+      wallet: true,
     });
   });
 });

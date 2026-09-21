@@ -1,5 +1,5 @@
 'use client';
-import { formatClock, formatPhone, normalizePhone } from '@hfos/core';
+import { formatClock, formatPhone, normalizePhone, optInDescriptionDefault } from '@hfos/core';
 import {
   Check,
   CircleAlert,
@@ -21,6 +21,9 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useId, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { toast } from 'sonner';
 import { Callout } from '@/components/crm/chips';
+import { InboxVisibilityCard } from '@/components/settings/inbox-visibility-card';
+import { NumbersCard, type Ringable } from '@/components/settings/numbers-card';
+import { PortStep, type PortInfo } from '@/components/settings/port-step';
 import { ChannelIcon, Pill } from '@/components/inbox/bits';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -85,6 +88,9 @@ export function TextingPage({
   status,
   me,
   team,
+  people,
+  ports,
+  inboxPerPerson,
 }: {
   workspaceId: string;
   businessName: string;
@@ -92,8 +98,14 @@ export function TextingPage({
   me: { fullName: string; email: string };
   /** First names of the people whose browsers ring for calls. */
   team: string[];
+  /** The same people with their ids, for choosing who a number rings (M17). */
+  people: Ringable[];
+  /** Numbers being brought from another carrier, newest first (M17). */
+  ports: readonly PortInfo[];
+  /** Whether each person sees only their own threads (M17). Shown beside "who this number rings". */
+  inboxPerPerson: boolean;
 }) {
-  useLiveRefresh(['phone_number', 'registration', 'workspace']);
+  useLiveRefresh(['phone_number', 'registration', 'number_port', 'workspace']);
   const router = useRouter();
   // Buying and releasing take seconds: check again every few, in case the live channel is down.
   const busy = status.nextStep === 'provisioning' || status.nextStep === 'releasing';
@@ -104,14 +116,66 @@ export function TextingPage({
   }, [busy, router]);
   const [fixing, setFixing] = useState(false);
   const [showSent, setShowSent] = useState(false);
+  // A business that already has a number and wants another. There is no `nextStep` for this — the wizard is
+  // about getting a first number working — so it is local state that drops back into the same buy screen.
+  const [adding, setAdding] = useState(false);
   const submission = latestSubmission(status.registrations);
   const sentSheet = (
     <SubmissionSheet open={showSent} onOpenChange={setShowSent} submission={submission} />
   );
 
+  /**
+   * The list of numbers, shown only once there is a reason for it: a second number, or a first that is
+   * finished and so could be joined by one. Mid-setup a business sees the wizard and nothing else, which is
+   * the screen that was there before and the one that suits what it is doing.
+   */
+  const numbersCard =
+    status.numbers.length > 1 || (status.numbers.length === 1 && status.nextStep === 'ready') ? (
+      <NumbersCard
+        workspaceId={workspaceId}
+        numbers={status.numbers}
+        people={people}
+        canManage={status.canManage}
+        onAdd={() => setAdding(true)}
+      />
+    ) : null;
+
+  // Beside the numbers on purpose: "who this number rings" and "who sees which conversations" are the same
+  // question asked twice, and a business deciding one is deciding the other. Held back until there is a
+  // working number, like the list above it — mid-setup it would be a question about nothing.
+  const visibilityCard = numbersCard ? (
+    <InboxVisibilityCard workspaceId={workspaceId} perPerson={inboxPerPerson} />
+  ) : null;
+
+  if (adding)
+    return (
+      <div className="flex flex-col gap-5">
+        {numbersCard}
+        <Card
+          className="max-w-[820px] p-5 md:p-7"
+          data-testid="texting-setup"
+          data-step="add_number"
+        >
+          <button
+            type="button"
+            onClick={() => setAdding(false)}
+            className="text-[13px] text-text-3 hover:text-text"
+            data-testid="numbers-add-cancel"
+          >
+            ← Back to your numbers
+          </button>
+          <div className="mt-3">
+            <NumberStep workspaceId={workspaceId} failed={null} ports={ports} />
+          </div>
+        </Card>
+      </div>
+    );
+
   if (status.nextStep === 'ready' && status.number)
     return (
-      <>
+      <div className="flex flex-col gap-5">
+        {numbersCard}
+        {visibilityCard}
         <Configured
           workspaceId={workspaceId}
           businessName={businessName}
@@ -124,24 +188,44 @@ export function TextingPage({
           )}
         />
         {sentSheet}
-      </>
+      </div>
     );
 
   const step = status.nextStep;
   const current =
-    step === 'buy_number' || step === 'provisioning' || step === 'releasing'
+    step === 'buy_number' || step === 'provisioning' || step === 'releasing' || step === 'porting'
       ? 0
       : step === 'submit_registration' || fixing
         ? 1
         : 2;
   return (
     <Card className="max-w-[820px] p-5 md:p-7" data-testid="texting-setup" data-step={step}>
+      {status.number && releasable(status.number.status) ? (
+        <div
+          className="mb-1 flex items-center justify-between gap-3 border-b border-border pb-3"
+          data-testid="setup-number-bar"
+        >
+          <div className="min-w-0">
+            <div className="text-[13px] font-medium">{status.number.display}</div>
+            <div className="text-xs text-text-3">
+              Yours from now on, whatever happens with the registration.
+            </div>
+          </div>
+          <NumberActions workspaceId={workspaceId} number={status.number} />
+        </div>
+      ) : null}
       <Steps current={current} turnedDown={step === 'rejected' && !fixing} />
       {step === 'buy_number' ? (
         <NumberStep
           workspaceId={workspaceId}
           failed={status.number?.status === 'failed' ? status.number : null}
+          ports={ports}
         />
+      ) : step === 'porting' ? (
+        // Weeks with a carrier, not seconds with us, so it is its own screen rather than the spinner that
+        // `provisioning` gets: there is a status, a moving day and a way out, and a business checking back
+        // every few days needs all three.
+        <PortStep workspaceId={workspaceId} ports={ports} onBack={() => setAdding(true)} />
       ) : step === 'provisioning' || step === 'releasing' ? (
         <div className="flex items-center gap-3 py-6 text-[13.5px] text-text-2" role="status">
           <span className="h-4 w-4 animate-spin rounded-full border-2 border-accent border-t-transparent" />
@@ -226,11 +310,24 @@ function Steps({ current, turnedDown }: { current: number; turnedDown: boolean }
 function NumberStep({
   workspaceId,
   failed,
+  ports,
 }: {
   workspaceId: string;
   failed: PhoneNumberInfo | null;
+  ports: readonly PortInfo[];
 }) {
   const router = useRouter();
+  /**
+   * New or their own (M17). The first question, before the kind of number, because it changes everything
+   * after it and because a business that has had one number for eleven years is not shopping for a new one —
+   * and until now this screen only offered shopping.
+   *
+   * A request already under way lands on it: a business that came back to check does not have to find the
+   * choice again.
+   */
+  const [source, setSource] = useState<'new' | 'bring'>(
+    ports.some((p) => p.status !== 'cancelled' && p.status !== 'complete') ? 'bring' : 'new',
+  );
   const [type, setType] = useState<NumberType>('toll_free');
   const [area, setArea] = useState('');
   const [prefix, setPrefix] = useState('');
@@ -318,6 +415,9 @@ function NumberStep({
     }
   }
 
+  if (source === 'bring')
+    return <PortStep workspaceId={workspaceId} ports={ports} onBack={() => setSource('new')} />;
+
   return (
     <div data-testid="number-step">
       <h2 className="text-lg font-semibold tracking-tight">Get a business number</h2>
@@ -325,6 +425,16 @@ function NumberStep({
         Customers text and call this number. Calls work as soon as you buy it; texting starts once
         the carriers approve you.
       </p>
+      {/* Not a radio group beside the toll-free/local pair below: that one is a property of the number being
+          bought, this one decides whether a number is being bought at all. */}
+      <button
+        type="button"
+        onClick={() => setSource('bring')}
+        className="mb-[18px] block text-[13px] text-accent-text hover:underline"
+        data-testid="bring-your-number"
+      >
+        I already have a number I want to keep →
+      </button>
       {failed ? (
         <Callout tone="danger" icon={CircleAlert} className="mb-4">
           We couldn’t buy {failed.display}
@@ -869,6 +979,17 @@ function BusinessStep({
           invalid={!!errors.optIn}
           placeholder="Customers give us their cell number when they call or text, fill in our website form, book online or sign an estimate, and agree to get texts from us. We only send automated texts to people who contacted us or booked with us: replies to new inquiries, a text back after a missed call, appointment confirmations and reminders, follow-ups on estimates and review requests. Every text says how to opt out, and replying STOP stops them."
         />
+        {/* The carriers check what you say here against what the tick box actually said. This fills in a
+            description of the box HandsFreeOS really shows on your booking page and your forms, so the two
+            cannot drift; a business that also collects consent on paper edits it afterwards. */}
+        <button
+          type="button"
+          className="mt-1.5 text-xs font-medium text-accent-text hover:underline"
+          onClick={() => set('optIn')(optInDescriptionDefault(businessName))}
+          data-testid="biz-optIn-default"
+        >
+          Describe the tick box we show for you
+        </button>
       </Field>
       <div className="mb-3.5">
         <Label htmlFor="biz-sample1">{local ? 'Two example texts' : 'Example texts'}</Label>
@@ -1307,6 +1428,72 @@ const REMINDERS = [
   [0, 'Never'],
 ] as const;
 
+/** A number can be given back from the moment it is bought — never only once the carrier has approved it. */
+function releasable(status: PhoneNumberInfo['status']): boolean {
+  return status === 'active' || status === 'provisioning';
+}
+
+/**
+ * Copy the number, or give it back. Its own component because it belongs to the number rather than to any one step:
+ * a business part-way through carrier registration, or one whose registration was turned down, still needs a way out,
+ * and before this the menu existed only on the finished screen (step 1, finding: "can't release a number").
+ */
+function NumberActions({
+  workspaceId,
+  number: n,
+}: {
+  workspaceId: string;
+  number: PhoneNumberInfo;
+}) {
+  const router = useRouter();
+  const [release, setRelease] = useState(false);
+
+  async function copy() {
+    try {
+      await navigator.clipboard.writeText(n.display);
+      toast.success(`Copied ${n.display}`);
+    } catch {
+      toast.error('Your browser didn’t allow copying.');
+    }
+  }
+
+  return (
+    <>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="ghost" size="icon" aria-label="Number actions" title="More">
+            <MoreHorizontal className="h-[18px] w-[18px]" strokeWidth={1.5} />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent className="min-w-[220px]">
+          <DropdownMenuItem onSelect={() => void copy()}>
+            <Copy className="h-3.5 w-3.5" strokeWidth={1.5} />
+            Copy number
+          </DropdownMenuItem>
+          {releasable(n.status) ? (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem danger onSelect={() => setRelease(true)} data-testid="release-menu">
+                <Trash2 className="h-3.5 w-3.5" strokeWidth={1.5} />
+                Release this number
+              </DropdownMenuItem>
+            </>
+          ) : null}
+        </DropdownMenuContent>
+      </DropdownMenu>
+      <ReleaseNumberDialog
+        workspaceId={workspaceId}
+        phoneNumberId={n.id}
+        display={n.display}
+        e164={n.e164}
+        open={release}
+        onOpenChange={setRelease}
+        onReleased={() => router.refresh()}
+      />
+    </>
+  );
+}
+
 function Configured({
   workspaceId,
   businessName,
@@ -1326,7 +1513,6 @@ function Configured({
 }) {
   const router = useRouter();
   const calls = useRouting(workspaceId, n);
-  const [release, setRelease] = useState(false);
   const [test, setTest] = useState(false);
   const [quiet, setQuiet] = useState(status.settings.quietHours);
   const [reminder, setReminder] = useState(status.settings.unansweredReminderMinutes);
@@ -1359,15 +1545,6 @@ function Configured({
     void save({ quietHours: next }, success);
   };
 
-  async function copy() {
-    try {
-      await navigator.clipboard.writeText(n.display);
-      toast.success(`Copied ${n.display}`);
-    } catch {
-      toast.error('Your browser didn’t allow copying.');
-    }
-  }
-
   const regRows: [string, string | null | undefined][] = local
     ? [
         ['Business profile', approved('a2p_customer_profile')],
@@ -1391,28 +1568,7 @@ function Configured({
                 Customers text and call {businessName} here.
               </p>
             </div>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" aria-label="Number actions" title="More">
-                  <MoreHorizontal className="h-[18px] w-[18px]" strokeWidth={1.5} />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent className="min-w-[220px]">
-                <DropdownMenuItem onSelect={() => void copy()}>
-                  <Copy className="h-3.5 w-3.5" strokeWidth={1.5} />
-                  Copy number
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem
-                  danger
-                  onSelect={() => setRelease(true)}
-                  data-testid="release-menu"
-                >
-                  <Trash2 className="h-3.5 w-3.5" strokeWidth={1.5} />
-                  Release this number
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            <NumberActions workspaceId={workspaceId} number={n} />
           </div>
           <div className="mt-4 flex items-center gap-3.5">
             <ChannelIcon icon={Phone} size={44} />
@@ -1600,15 +1756,6 @@ function Configured({
         />
       </div>
 
-      <ReleaseNumberDialog
-        workspaceId={workspaceId}
-        phoneNumberId={n.id}
-        display={n.display}
-        e164={n.e164}
-        open={release}
-        onOpenChange={setRelease}
-        onReleased={() => router.refresh()}
-      />
       <TestTextDialog
         workspaceId={workspaceId}
         businessName={businessName}

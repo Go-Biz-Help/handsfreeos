@@ -7,6 +7,8 @@ import {
   type PlaceCallRequest,
   type ProviderAccount,
   type RegistrationKind,
+  type NumberPortKind,
+  type PortRequest,
   type RegistrationRequest,
   type TelephonyProvider,
   type TranscriptionState,
@@ -38,11 +40,14 @@ export const fakeSid = (prefix: string): string =>
 export interface FakeSent extends OutboundMessage {
   readonly sid: string;
   readonly accountSid: string;
+  /** When the fake "carrier" took it, so usageDaily can bucket it by day. */
+  readonly at: number;
 }
 
 export interface FakeCall extends PlaceCallRequest {
   readonly sid: string;
   readonly accountSid: string;
+  readonly at: number;
 }
 
 export interface FakeTelephony extends TelephonyProvider {
@@ -53,11 +58,23 @@ export interface FakeTelephony extends TelephonyProvider {
   readonly ended: string[];
   /** Registration steps in the order they were submitted. */
   readonly registrations: RegistrationRequest[];
+  /** Ports asked for, in order, and the papers put on them. */
+  readonly ports: PortRequest[];
+  readonly portDocuments: { portSid: string; name: string }[];
+  /** Ports called off, by sid. */
+  readonly portsCancelled: string[];
+  /** Numbers pointed at our webhooks after landing here, by sid. A bought one is never in this list. */
+  readonly configured: string[];
+  /** Numbers put on a messaging service, which is what lets one send. Nothing recorded this before. */
+  readonly serviced: { serviceSid: string; numberSid: string }[];
   /** Recording and transcription ids deleted at the "provider". */
   readonly deleted: string[];
   /** Call recordings whose words were asked for. */
   readonly transcribed: string[];
 }
+
+/** What the fake says a text and a call cost it, in micro-dollars: Twilio's own list prices. */
+export const FAKE_COST_MICROS = { sms: 10_900, call: 13_000 } as const;
 
 /** What the fake's transcripts say: the business's side on channel 1, the customer's on channel 2. */
 export const FAKE_TRANSCRIPT = [
@@ -82,6 +99,11 @@ export interface FakeOptions {
   /** Post signed status callbacks for sent texts (off in unit tests that post their own). */
   readonly callbacks: boolean;
   readonly log: Logger;
+  /**
+   * A thumb on the scale for `usageDaily`: 0.2 makes the "carrier" report every category a fifth dearer than
+   * we counted. That disagreement is the whole reason the reconciler exists, so a test needs a way to cause one.
+   */
+  readonly usageFudgeMicros?: number;
 }
 
 /**
@@ -89,6 +111,10 @@ export interface FakeOptions {
  * failure instead), registrations are approved after `approvalMs` (a legal name containing "reject" is
  * turned down, and so is a local number's campaign with an example text containing it), a number ending
  * in 0000 is "no longer available", and one ending in 0503 finds the carrier down on every try.
+ *
+ * A port is turned down for a number ending 0000, sat on for one ending 0001, and otherwise moves once
+ * `approvalMs` has passed — at which point the carrier hands a full port's number over, so it becomes one
+ * of the account's own like a bought one.
  *
  * Calls it places play out against the worker's own TwiML when callbacks are on: the phone answers and
  * presses 1, and a customer it dials picks up, talks for a few seconds and hangs up, leaving a recording. A cell
@@ -106,6 +132,15 @@ export function createFakeTelephony(opts: FakeOptions): FakeTelephony {
   const transcripts = new Map<string, TranscriptionState>();
   const owned = new Map<string, { sid: string; e164: string; accountSid: string }>();
   const regs = new Map<string, { at: number; reject: boolean }>();
+  const ports: PortRequest[] = [];
+  const portDocuments: { portSid: string; name: string }[] = [];
+  const portsCancelled: string[] = [];
+  const configured: string[] = [];
+  const serviced: { serviceSid: string; numberSid: string }[] = [];
+  const portRows = new Map<
+    string,
+    { at: number; e164: string; kind: NumberPortKind; numberSid?: string }
+  >();
   const turnedDown = (request: RegistrationRequest) => {
     const samples = (request.submission['messageSamples'] ?? []) as unknown[];
     return (
@@ -258,6 +293,11 @@ export function createFakeTelephony(opts: FakeOptions): FakeTelephony {
     calls,
     ended,
     registrations,
+    ports,
+    portDocuments,
+    portsCancelled,
+    configured,
+    serviced,
     deleted,
     transcribed,
     async createSubaccount() {
@@ -271,6 +311,9 @@ export function createFakeTelephony(opts: FakeOptions): FakeTelephony {
     },
     async createTwimlApp() {
       return fakeSid('AP');
+    },
+    async configureNumber(_account, numberSid) {
+      configured.push(numberSid);
     },
     async searchNumbers({ numberType, areaCode, contains, city, state, withinMiles, limit }) {
       const areas = areaCode
@@ -310,13 +353,15 @@ export function createFakeTelephony(opts: FakeOptions): FakeTelephony {
       owned.set(sid, { sid, e164, accountSid: account.sid });
       return { sid, capabilities: CAPS };
     },
-    async addNumberToService() {},
+    async addNumberToService(_account, serviceSid, numberSid) {
+      serviced.push({ serviceSid, numberSid });
+    },
     async releaseNumber(_account, sid) {
       owned.delete(sid);
     },
     async sendMessage(account, message) {
       const sid = fakeSid('SM');
-      sent.push({ ...message, sid, accountSid: account.sid });
+      sent.push({ ...message, sid, accountSid: account.sid, at: Date.now() });
       const base = { AccountSid: account.sid, MessageSid: sid, From: message.from, To: message.to };
       if (message.body.includes('[fail]'))
         callback(
@@ -375,7 +420,12 @@ export function createFakeTelephony(opts: FakeOptions): FakeTelephony {
       deleted.push(transcriptionSid);
     },
     async placeCall(account, request) {
-      const c: FakeCall = { ...request, sid: fakeSid('CA'), accountSid: account.sid };
+      const c: FakeCall = {
+        ...request,
+        sid: fakeSid('CA'),
+        accountSid: account.sid,
+        at: Date.now(),
+      };
       calls.push(c);
       if (opts.callbacks) void playOut(account, c);
       return { sid: c.sid };
@@ -444,6 +494,125 @@ export function createFakeTelephony(opts: FakeOptions): FakeTelephony {
         status: 'approved',
         rejectionReason: null,
       };
+    },
+
+    /**
+     * Moving a number in (M17). Driven by the same two levers the rest of this file uses: `approvalMs` decides
+     * how long the carrier "takes", and a magic suffix picks the unhappy path, so a test can walk a port all
+     * the way through or watch one be turned down without waiting or stubbing.
+     *
+     * - `…0000` the losing carrier refuses it (a wrong PIN, a number under contract).
+     * - `…0001` it sticks in `carrier_review` forever, which is the case a business actually complains about.
+     * - anything else moves: submitted → carrier_review → scheduled → complete.
+     *
+     * Hosted messaging is the same machine and a different promise: voice stays where it is, so a test can
+     * assert we never touched the calls.
+     */
+    async submitPort(_account, request) {
+      ports.push(request);
+      const sid = fakeSid('PO');
+      portRows.set(sid, { at: Date.now(), e164: request.e164, kind: request.kind });
+      return {
+        providerSid: sid,
+        providerStatus: 'PENDING_LOA',
+        status: 'submitted',
+        rejectionReason: null,
+        scheduledFor: null,
+      };
+    },
+    async fetchPort(account, providerSid) {
+      const p = portRows.get(providerSid);
+      // A restarted fake forgets its ports; treat those as done rather than hanging a test forever.
+      if (!p)
+        return {
+          providerSid,
+          providerStatus: 'COMPLETED',
+          status: 'complete',
+          rejectionReason: null,
+          scheduledFor: null,
+        };
+      if (p.e164.endsWith('0000'))
+        return {
+          providerSid,
+          providerStatus: 'CARRIER_REJECTED',
+          status: 'rejected',
+          rejectionReason: 'The account number or PIN did not match the losing carrier’s records.',
+          scheduledFor: null,
+        };
+      const waited = Date.now() - p.at;
+      if (p.e164.endsWith('0001') || waited < opts.approvalMs)
+        return {
+          providerSid,
+          providerStatus: 'IN_PROGRESS',
+          status: 'carrier_review',
+          rejectionReason: null,
+          scheduledFor: null,
+        };
+      /*
+       * Past the wait: the carrier has named a day and then moved it — **and hands the number over**,
+       * which is the half a fake is most likely to forget. A real carrier puts a ported-in number in the
+       * account like any other, which is what lets it be pointed at our webhooks; without that here,
+       * `findOwnedNumber` answered null and a full port landed with nobody listening on it.
+       *
+       * Once, remembered on the port, so polling twice does not mint a second number.
+       *
+       * **Only a full port.** Hosted messaging leaves the line with the old carrier for calls and has no
+       * incoming-number row of its own — the messaging service is the whole arrangement.
+       */
+      if (p.kind === 'full' && !p.numberSid) {
+        p.numberSid = fakeSid('PN');
+        owned.set(p.numberSid, { sid: p.numberSid, e164: p.e164, accountSid: account.sid });
+      }
+      return {
+        providerSid,
+        providerStatus: 'COMPLETED',
+        status: 'complete',
+        rejectionReason: null,
+        scheduledFor: new Date(p.at + opts.approvalMs).toISOString().slice(0, 10),
+      };
+    },
+    async uploadPortDocument(_account, { portSid, name }) {
+      portDocuments.push({ portSid, name });
+      return { sid: fakeSid('RI') };
+    },
+    async cancelPort(_account, providerSid) {
+      portsCancelled.push(providerSid);
+      portRows.delete(providerSid);
+    },
+
+    /**
+     * What the "carrier" says this business used. The fake bills from what it was actually asked to send and
+     * dial, so a test can drive a text and a call through and then reconcile against them — which is the only
+     * way to test that the reconciler writes a real difference and not a made-up one.
+     *
+     * `usageFudgeMicros` is the thumb on the scale: set it and every category comes back that much dearer than
+     * we counted, which is the case the reconciler exists for.
+     */
+    async usageDaily(account, range) {
+      const within = (at: number) => {
+        const day = new Date(at).toISOString().slice(0, 10);
+        return day >= range.start && day <= range.end;
+      };
+      const byDay = new Map<string, { count: number; micros: number }>();
+      const add = (at: number, category: string, micros: number) => {
+        if (!within(at)) return;
+        const key = `${new Date(at).toISOString().slice(0, 10)}|${category}`;
+        const row = byDay.get(key) ?? { count: 0, micros: 0 };
+        byDay.set(key, { count: row.count + 1, micros: row.micros + micros });
+      };
+      for (const m of sent)
+        if (m.accountSid === account.sid) add(m.at, 'sms-outbound', FAKE_COST_MICROS.sms);
+      for (const c of calls)
+        if (c.accountSid === account.sid) add(c.at, 'calls-outbound', FAKE_COST_MICROS.call);
+      return [...byDay.entries()].map(([key, v]) => {
+        const [day, category] = key.split('|') as [string, string];
+        return {
+          day,
+          category,
+          count: v.count,
+          costMicros: v.micros + Math.round(v.micros * (opts.usageFudgeMicros ?? 0)),
+        };
+      });
     },
   };
 }

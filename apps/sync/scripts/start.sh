@@ -2,7 +2,9 @@
 # `pnpm sync:start`: the PowerSync Service beside the local Supabase stack (start that first with `pnpm supabase:start`).
 #
 #   - Its working data lives in a small Postgres of its own (hfos-sync-storage), as it will on Fly. It holds nothing
-#     that can't be rebuilt, so it has no volume: every start copies the database afresh (a few seconds locally).
+#     that can't be rebuilt, so it has no volume — but a running one is reused, state and all, so a start alone is
+#     NOT a fresh copy. `pnpm sync:stop` is what removes it, and is the cure for a service that outlived a
+#     `pnpm db:reset` and is holding a password the rebuilt database no longer has.
 #   - It reads the local database as hfos_sync (migration 0057), which gets a local-only password here.
 #   - Phones and tests reach it at http://127.0.0.1:54430 (HFOS_SYNC_PORT to change it).
 #   - It waits until the first copy is done and says so, or prints why not.

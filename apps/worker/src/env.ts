@@ -31,6 +31,28 @@ export interface WorkerEnv {
   readonly jwksUrl: string | null;
   readonly jwtIssuer: string | null;
   readonly telephonyProvider: 'twilio' | 'fake';
+  /**
+   * Who turns a recording into words. `deepgram` reads our own stored copy; `twilio` is Conversational Intelligence,
+   * kept as the fallback for an account with no Deepgram key; `fake` is the stand-in for development and tests.
+   */
+  readonly transcriber: 'deepgram' | 'twilio' | 'fake';
+  readonly deepgramApiKey: string | null;
+  /**
+   * Where a business's own domain is served from (M17). `vercel` is where the web app lives; `fake` is the
+   * in-memory stand-in for development and tests. `off` is the honest default for a deployment that has not
+   * been given a token yet: the feature is simply not offered, rather than offered and then failing.
+   */
+  readonly siteHost: 'vercel' | 'fake' | 'off';
+  readonly vercelToken: string | null;
+  readonly vercelProjectId: string | null;
+  readonly vercelTeamId: string | null;
+  /**
+   * How far the usage wallet (M16) has been rolled out. `off` writes nothing at all; `shadow` prices and
+   * records every event but never warns and never stops anything, which is how the rate card gets proved
+   * against a real week before a customer is charged; `on` is the real thing, with enforcement still gated
+   * per business by its own flag.
+   */
+  readonly walletMode: 'off' | 'shadow' | 'on';
   readonly twilioAccountSid: string | null;
   readonly twilioAuthToken: string | null;
   /** HandsFreeOS's approved ISV customer profile (BU...): local (10DLC) registrations link under it. */
@@ -40,6 +62,7 @@ export interface WorkerEnv {
   /** Local demos and tests shorten the reply reminder (milliseconds); production uses workspace settings. */
   readonly reminderOverrideMs: number | null;
   readonly registrationPollMs: number;
+  readonly portPollMs: number;
   readonly fakeApprovalMs: number;
   /** Workspace email: Postmark in production; locally Mailpit over SMTP, with domains that verify themselves. */
   readonly emailTransport: 'postmark' | 'smtp';
@@ -181,6 +204,35 @@ export function readEnv(env: NodeJS.ProcessEnv = process.env): WorkerEnv {
     throw new Error('TELEPHONY_PROVIDER must be twilio or fake');
   if (production && telephonyProvider === 'fake')
     throw new Error('TELEPHONY_PROVIDER=fake is for development and tests only');
+  const deepgramApiKey = env.DEEPGRAM_API_KEY || null;
+  const transcriber = (env.TRANSCRIBER ??
+    (production ? (deepgramApiKey ? 'deepgram' : 'twilio') : 'fake')) as string;
+  if (transcriber !== 'deepgram' && transcriber !== 'twilio' && transcriber !== 'fake')
+    throw new Error('TRANSCRIBER must be deepgram, twilio or fake');
+  if (production && transcriber === 'fake')
+    throw new Error('TRANSCRIBER=fake is for development and tests only');
+  if (transcriber === 'deepgram' && !deepgramApiKey)
+    throw new Error('DEEPGRAM_API_KEY is required with TRANSCRIBER=deepgram');
+
+  // Branded domains (M17). `off` unless a token is there, because a business that adds a domain and then
+  // waits forever for records that are never fetched is worse off than one that was never offered it.
+  const vercelToken = env.VERCEL_TOKEN || null;
+  const vercelProjectId = env.VERCEL_PROJECT_ID || null;
+  const siteHost = (env.SITE_HOST ??
+    (production ? (vercelToken ? 'vercel' : 'off') : 'fake')) as string;
+  if (siteHost !== 'vercel' && siteHost !== 'fake' && siteHost !== 'off')
+    throw new Error('SITE_HOST must be vercel, fake or off');
+  if (production && siteHost === 'fake')
+    throw new Error('SITE_HOST=fake is for development and tests only');
+  if (siteHost === 'vercel' && !(vercelToken && vercelProjectId))
+    throw new Error('VERCEL_TOKEN and VERCEL_PROJECT_ID are required with SITE_HOST=vercel');
+
+  // Default `off`: a repo that starts charging the day it is deployed would be a nasty surprise, and every
+  // step of the rollout is somebody deciding to take the next one.
+  const walletMode = (env.WALLET_MODE ?? 'off') as string;
+  if (walletMode !== 'off' && walletMode !== 'shadow' && walletMode !== 'on')
+    throw new Error('WALLET_MODE must be off, shadow or on');
+
   const twilioAccountSid = env.TWILIO_ACCOUNT_SID || null;
   const twilioAuthToken = env.TWILIO_AUTH_TOKEN || null;
   if (telephonyProvider === 'twilio' && (!twilioAccountSid || !twilioAuthToken))
@@ -392,6 +444,13 @@ export function readEnv(env: NodeJS.ProcessEnv = process.env): WorkerEnv {
     goHighLevelClientId,
     goHighLevelClientSecret,
     telephonyProvider,
+    transcriber: transcriber as 'deepgram' | 'twilio' | 'fake',
+    siteHost: siteHost as 'vercel' | 'fake' | 'off',
+    vercelToken,
+    vercelProjectId,
+    vercelTeamId: env.VERCEL_TEAM_ID || null,
+    deepgramApiKey,
+    walletMode: walletMode as 'off' | 'shadow' | 'on',
     twilioAccountSid,
     twilioAuthToken,
     twilioPrimaryProfileSid: env.TWILIO_PRIMARY_PROFILE_SID || null,
@@ -400,6 +459,9 @@ export function readEnv(env: NodeJS.ProcessEnv = process.env): WorkerEnv {
     reminderOverrideMs: reminder && Number.isFinite(reminder) && reminder > 0 ? reminder : null,
     registrationPollMs: Number(
       env.REGISTRATION_POLL_MS ?? (telephonyProvider === 'fake' ? 2_000 : 15 * 60_000),
+    ),
+    portPollMs: Number(
+      env.PORT_POLL_MS ?? (telephonyProvider === 'fake' ? 2_000 : 6 * 60 * 60_000),
     ),
     fakeApprovalMs: Number(env.FAKE_APPROVAL_MS ?? 3_000),
     emailTransport,

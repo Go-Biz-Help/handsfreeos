@@ -18,6 +18,11 @@ export const ATTENTION_KINDS = [
   'overdue_task',
   'estimate_waiting',
   'invoice_overdue',
+  // The usage wallet (M16). Unlike every other kind these are not about a customer at all: they are about the
+  // business's own ability to keep working, which is why they carry no person, lead or conversation.
+  'wallet_low',
+  'wallet_empty',
+  'wallet_card_declined',
 ] as const;
 export type AttentionKind = (typeof ATTENTION_KINDS)[number];
 
@@ -35,6 +40,9 @@ export const ATTENTION_KIND_LABELS: Readonly<Record<AttentionKind, string>> = {
   overdue_task: 'Overdue task',
   estimate_waiting: 'Estimate waiting',
   invoice_overdue: 'Invoice overdue',
+  wallet_low: 'Balance running low',
+  wallet_empty: 'Balance empty',
+  wallet_card_declined: 'Card declined',
 };
 
 /** For folded groups: "Unconfirmed appointments · 4 customers". */
@@ -49,6 +57,10 @@ export const ATTENTION_KIND_PLURALS: Readonly<Record<AttentionKind, string>> = {
   overdue_task: 'Overdue tasks',
   estimate_waiting: 'Estimates waiting',
   invoice_overdue: 'Overdue invoices',
+  // One wallet per business, so a plural never actually shows; the shape asks for one all the same.
+  wallet_low: 'Balance running low',
+  wallet_empty: 'Balance empty',
+  wallet_card_declined: 'Card declined',
 };
 
 /**
@@ -66,6 +78,10 @@ export const ATTENTION_SUBJECT_OF = {
   overdue_task: 'task',
   estimate_waiting: 'estimate',
   invoice_overdue: 'invoice',
+  // One wallet per business, so the subject is the business itself. There is never more than one of these.
+  wallet_low: 'wallet',
+  wallet_empty: 'wallet',
+  wallet_card_declined: 'wallet',
 } as const satisfies Record<AttentionKind, string>;
 export type AttentionSubjectType = (typeof ATTENTION_SUBJECT_OF)[AttentionKind];
 
@@ -182,6 +198,35 @@ export const ATTENTION_PERMISSIONS: Readonly<
     snooze: [ITEM],
     dismiss: [ITEM],
   },
+  /**
+   * The wallet's three. Handling one means opening the usage page and topping up or fixing a card, which is
+   * `money.manage`; a member sees that the business is running out and cannot spend its money.
+   *
+   * None of them may be handed to HandsFreeOS: what would that even be — charging the card again, which is
+   * what already failed. And none may be assigned: a wallet belongs to the business, not to a person.
+   */
+  wallet_low: {
+    handle: [ITEM, MONEY],
+    let_handle: null,
+    assign: null,
+    snooze: [ITEM],
+    dismiss: [ITEM],
+  },
+  wallet_empty: {
+    handle: [ITEM, MONEY],
+    let_handle: null,
+    assign: null,
+    snooze: [ITEM],
+    // Never dismissed: the business cannot text anybody, and hiding that does not fix it.
+    dismiss: null,
+  },
+  wallet_card_declined: {
+    handle: [ITEM, MONEY],
+    let_handle: null,
+    assign: null,
+    snooze: [ITEM],
+    dismiss: null,
+  },
 };
 
 /** The permissions an action on a kind needs, or null when the kind doesn't offer it. */
@@ -220,6 +265,9 @@ export const ATTENTION_HANDLE_LABELS: Readonly<Record<AttentionKind, string>> = 
   overdue_task: 'Open task',
   estimate_waiting: 'Follow up',
   invoice_overdue: 'Follow up',
+  wallet_low: 'Top up',
+  wallet_empty: 'Top up',
+  wallet_card_declined: 'Fix the card',
 };
 
 // ---- What runs on its own ----
@@ -282,6 +330,10 @@ export function autoActionOf(
 export const LET_HANDLE_REFUSALS: Readonly<Partial<Record<AttentionKind, string>>> = {
   ai_approval: 'Approvals always wait for a person to decide.',
   overdue_task: 'This is a to-do for someone on the team.',
+  // Handling these would mean charging the card again, which is exactly what has already failed.
+  wallet_low: 'Only you can put money on your own balance.',
+  wallet_empty: 'Only you can put money on your own balance.',
+  wallet_card_declined: 'Only you can put a working card on your own balance.',
 };
 
 /** Why HandsFreeOS won't handle this kind, or null when it does. */

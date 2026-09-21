@@ -35,6 +35,7 @@ declare
   person uuid; lead uuid; tag uuid; conversation uuid; teammate uuid; workflow uuid; version uuid; run uuid;
   calendar uuid; service uuid; schedule uuid; connection uuid; appointment uuid; attendee uuid; product uuid;
   estimate uuid; staffed_invoice uuid; other_invoice uuid; invoice uuid; payment uuid;
+  form uuid; form_version uuid;
 begin
   insert into app.people (workspace_id, first_name, last_name, phone_e164) values (ws, 'Maria', 'Lopez', '+15125550170') returning id into person;
   insert into app.companies (workspace_id, name) values (ws, 'Lopez Dental');
@@ -103,6 +104,16 @@ begin
       returning id into payment;
     insert into app.refunds (workspace_id, payment_id, invoice_id, amount_cents, status, refunded_at) values (ws, payment, invoice, 100, 'succeeded', now());
   end loop;
+
+  -- A published form, so business_v1's forms and form_versions have something to send. 0085 added both
+  -- streams and nothing here created one, so "every stream sends something" had two arms asserting an
+  -- empty fixture. is_active is not set by hand: the forms_sync_active trigger sets it when
+  -- active_version_id moves, which is the thing worth proving anyway.
+  insert into app.forms (workspace_id, name, slug, definition, revision)
+    values (ws, 'New system enquiry', 'enquiry-' || suffix, '{}', 1) returning id into form;
+  insert into app.form_versions (workspace_id, form_id, version, definition, definition_version, revision)
+    values (ws, form, 1, '{}', 1, 1) returning id into form_version;
+  update app.forms set active_version_id = form_version, status = 'live' where id = form;
 
   insert into app.command_receipts (user_id, command_id, workspace_id, command, input_hash, outcome, answer, occurred_at)
     values (member, gen_random_uuid(), ws, 'task.create', repeat('e', 64), 'applied', '{}', now());
@@ -195,14 +206,30 @@ describe('every stream query, for each kind of person', () => {
     return reader;
   };
 
+  /**
+   * The four me_v1 arms that carry a member's own threads when a business turns per-person inbox visibility
+   * on (0081). With it off — which is the default, and what the seed has — `member_viewer_ids` is empty on
+   * every row and these correctly send nothing; business_v1 carries the whole inbox instead.
+   *
+   * So they are asserted **empty** rather than skipped. If one of them ever starts sending rows while no
+   * business has opted in, that is a member's phone being handed threads on the strength of a list that
+   * should not exist yet, and this is where it shows up.
+   */
+  const EMPTY_WHILE_EVERYONE_SEES_EVERYTHING = new Set([
+    'me_v1.conversations',
+    'me_v1.messages',
+    'me_v1.calls',
+    'me_v1.attention_items',
+  ]);
+
   for (const q of queries.filter((x) => !x.cte))
     it(`${q.stream} ${q.output}`, async () => {
       for (const [who, user] of people())
         expect(await readableBy(q, user), `${who}: ${q.text}`).toEqual(await sentTo(q, user));
-      expect(
-        (await sentTo(q, readerOf(q.stream))).length,
-        `${q.stream} ${q.output} is empty`,
-      ).toBeGreaterThan(0);
+      const sent = (await sentTo(q, readerOf(q.stream))).length;
+      if (EMPTY_WHILE_EVERYONE_SEES_EVERYTHING.has(`${q.stream}.${q.output}`))
+        expect(sent, `${q.stream} ${q.output} sends nothing until a business opts in`).toBe(0);
+      else expect(sent, `${q.stream} ${q.output} is empty`).toBeGreaterThan(0);
     });
 });
 

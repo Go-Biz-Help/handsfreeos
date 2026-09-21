@@ -114,6 +114,41 @@ export interface RegistrationState {
   readonly rejectionReason: string | null;
 }
 
+/**
+ * Moving a number a business already owns (M17). Two kinds, and the difference is what the business
+ * actually experiences:
+ *
+ * - `full` — texts **and** calls come to us. Two to four weeks, and the losing carrier can refuse.
+ * - `hosted_messaging` — we take over texting only. Days, and their desk phone keeps ringing as it does.
+ */
+export type NumberPortKind = 'full' | 'hosted_messaging';
+
+export type PortOutcome =
+  'submitted' | 'carrier_review' | 'scheduled' | 'complete' | 'rejected' | 'failed';
+
+/** The same shape `RegistrationState` has, plus the date a business plans its week around. */
+export interface PortState {
+  readonly providerSid: string;
+  readonly providerStatus: string;
+  readonly status: PortOutcome;
+  readonly rejectionReason: string | null;
+  /** When the carrier says the number actually moves. Null until they commit to one. */
+  readonly scheduledFor: string | null;
+}
+
+export interface PortRequest {
+  readonly e164: string;
+  readonly kind: NumberPortKind;
+  /**
+   * What the losing carrier asks for: the account number on the bill, the PIN or passcode, the service
+   * address, and who is authorising it. **Their credentials, not ours to spread** — never logged, never put
+   * on a phone.
+   */
+  readonly submission: Record<string, unknown>;
+  /** Storage paths of the papers already uploaded (the signed LOA, a recent bill). */
+  readonly documentPaths: readonly string[];
+}
+
 export interface TelephonyProvider {
   readonly name: 'twilio' | 'fake';
   /** The master account: webhooks it signs verify with its own token. */
@@ -164,6 +199,14 @@ export interface TelephonyProvider {
     serviceSid: string,
     numberSid: string,
   ): Promise<void>;
+  /**
+   * Point a number we already hold at our webhooks (M17).
+   *
+   * A bought number gets these at the moment it is bought, in the same call. **A ported one arrives bare** —
+   * the carrier hands it over and nothing is listening — so this is the step between "the carrier moved it"
+   * and "a customer can text it". Separate from `buyNumber` because there is nothing to buy.
+   */
+  configureNumber(account: ProviderAccount, numberSid: string, urls: WebhookUrls): Promise<void>;
   releaseNumber(account: ProviderAccount, numberSid: string): Promise<void>;
   sendMessage(
     account: ProviderAccount,
@@ -207,6 +250,50 @@ export interface TelephonyProvider {
     account: ProviderAccount,
     registration: { kind: RegistrationKind; providerSid: string },
   ): Promise<RegistrationState>;
+  /** Ask the carrier to move a number to us. Same shape as `submitRegistration`, same reasons. */
+  submitPort(account: ProviderAccount, request: PortRequest): Promise<PortState>;
+  fetchPort(account: ProviderAccount, providerSid: string): Promise<PortState>;
+  /** Put one signed paper on a port the carrier already has. */
+  uploadPortDocument(
+    account: ProviderAccount,
+    input: {
+      readonly portSid: string;
+      readonly name: string;
+      readonly contentType: string;
+      readonly data: Uint8Array;
+    },
+  ): Promise<{ readonly sid: string }>;
+  /** Call it off, while the carrier will still let us. */
+  cancelPort(account: ProviderAccount, providerSid: string): Promise<void>;
+  /**
+   * What the carrier says this business actually used, and charged **us**, day by day (M16, step 4).
+   *
+   * This is the one number in the whole wallet that is not ours: everything else is priced from our own rate
+   * card at the moment of the event, because a carrier's price arrives minutes late or not at all and a wallet
+   * that waited would let a business spend all night for free. This is how that guess gets trued up.
+   *
+   * Authoritative per business with no allocation guesswork, because **each workspace has its own subaccount**
+   * — so the carrier's own daily records for that subaccount are that business's usage and nobody else's.
+   */
+  usageDaily(
+    account: ProviderAccount,
+    range: { readonly start: string; readonly end: string },
+  ): Promise<readonly DailyUsage[]>;
+}
+
+/** One line of a carrier's daily records: what one category cost on one day. */
+export interface DailyUsage {
+  /** The local date, `YYYY-MM-DD`, in the carrier's own reckoning. */
+  readonly day: string;
+  /**
+   * The carrier's own category name (`sms-outbound`, `calls-inbound`, `pv`, …), kept as they spell it so an
+   * adjustment can be traced back to a line on their invoice.
+   */
+  readonly category: string;
+  /** How many of whatever the category counts. */
+  readonly count: number;
+  /** What they charged us, in micro-dollars — their prices have four decimal places and cents cannot hold them. */
+  readonly costMicros: number;
 }
 
 /**

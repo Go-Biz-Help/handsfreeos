@@ -147,8 +147,8 @@ export const planComparison: readonly {
 export const lowestPrice = Math.min(...plans.map((plan) => plan.price));
 export const highestPrice = Math.max(...plans.map((plan) => plan.price));
 
-/** What sits on top of a plan, at cost. Texts, calls and AI are metered by the companies behind them. */
+/** What sits on top of a plan: texts, calls, numbers and AI, billed for what you use. */
 export const usageNote =
-  'Texts, calls and AI replies are passed through at what they cost us, on one line of your bill. A typical Growth business spends about $20–$40 a month on top of the plan.';
+  'Texts, calls, phone numbers and AI replies are billed for what you use, on top of the plan. A typical Growth business spends about $30–$60 a month on top.';
 
 export const annualNote = 'Pay for the year and get two months free.';

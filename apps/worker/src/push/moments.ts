@@ -11,6 +11,8 @@
  * - **Assigned to you** (`assigned`): a lead, a conversation, a task, or a Home item assigned on its own (an item
  *   whose lead, conversation or task changed hands says so through that record's own event).
  * - **A customer pays** (`payment`, off unless turned on): an invoice paid in full, to the people its email goes to.
+ * - **A call nobody took** (`missedCall`): an inbound call that went unanswered, and the voicemail if one was left,
+ *   to the conversation's assignee, else the owners and admins.
  * - **A customer's new message** (`customerWaiting`): arrival.ts.
  *
  * Whoever did it gets nothing about it. A push is a second channel: a handler runs in a savepoint, and a failure is
@@ -19,6 +21,7 @@
 import {
   ATTENTION_KIND_LABELS,
   dayLabel,
+  formatPhone,
   loadCustomerSaid,
   money,
   PAYMENT_METHOD_WORDS,
@@ -47,8 +50,8 @@ import {
   strings,
   userName,
 } from './moment';
-import { queuePush } from './queue';
-import { CHANNEL_WORD } from './urgent';
+import { pushAudience, queuePush } from './queue';
+import { CHANNEL_WORD, conversationCollapseId } from './urgent';
 
 // ---------- approvals ----------
 
@@ -77,6 +80,54 @@ export const onApprovalPush = pushMoment('approval', async (ctx, scope) => {
     body: `${workflow}: ${written ? quoted(written) : (str(preview['message']) ?? 'waiting for your OK')}`,
     path: `/app/w/${scope.workspaceId}/workflows/approvals`,
     refs: { approvalId, ...(personId ? { personId } : {}) },
+  });
+});
+
+/**
+ * The wallet ran out, or the card on it stopped working (M16). Owners and admins, because they are the ones who
+ * can do something about it — a member with `inbox.use` cannot put a card on a wallet and would only be told
+ * about a problem they cannot fix.
+ *
+ * `wallet.low` is deliberately not here. A low balance with a working card fixes itself in seconds, and a push
+ * about something that resolves before somebody reaches their phone teaches them to ignore the next one.
+ *
+ * **Nothing goes out before the business is on the wallet**, and what it says depends on how far along it is.
+ * At `off` there is no push at all: during a shadow week every balance goes negative and telling somebody
+ * their texts had stopped would be false. At `warn` it says what is about to happen; only at `enforce` does it
+ * say what has.
+ */
+export const onWalletPush = pushMoment('wallet', async (ctx, scope) => {
+  const ws = scope.workspaceId;
+  const [w] = await rows<{
+    balance_cents: number | string;
+    suspended_reason: string | null;
+    stage: string;
+  }>(
+    ctx.tx,
+    sql`select balance_cents, suspended_reason, stage::text as stage
+        from app.usage_wallets where workspace_id = ${ws}`,
+  );
+  if (!w || w.stage === 'off') return;
+  const stopping = w.stage === 'enforce';
+  const declined = ctx.event.eventType === 'wallet.suspended';
+  const balance = Number(w.balance_cents);
+  await queuePush(ctx.tx, scope, {
+    // One key per kind of trouble, so a card declining and then the balance emptying are not two identical
+    // notifications — and so the same trouble reported twice is one.
+    key: declined ? `wallet-card:${ws}` : `wallet-empty:${ws}`,
+    category: 'wallet',
+    userIds: await managerIds(ctx.tx, ws),
+    title: declined ? 'Your card was declined' : 'Your balance has run out',
+    body: declined
+      ? (w.suspended_reason ??
+        (stopping
+          ? 'Texts and calls have stopped until a card is added.'
+          : 'Add a card so texts and calls keep working.'))
+      : stopping
+        ? `${money(balance)} left. Texts and calls have stopped until it is topped up.`
+        : `${money(balance)} left. Top up before texts and calls stop.`,
+    path: `/app/w/${ws}/settings/usage`,
+    refs: {},
   });
 });
 
@@ -444,11 +495,91 @@ export const onPaidPush = pushMoment('payment', async (ctx, scope) => {
   });
 });
 
+// ---------- a call nobody took ----------
+
+/** "0:14", the same shape the conversation list uses for a call's length. */
+const callClock = (seconds: number | null | undefined): string => {
+  const s = Math.max(0, seconds ?? 0);
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+};
+
+/**
+ * `call.missed` and `call.voicemail_left`: an inbound call nobody answered, and the voicemail if one followed.
+ *
+ * Both collapse onto the conversation, so a call that goes to voicemail replaces its own missed-call notification
+ * instead of buzzing twice. The two events come from different webhooks and may arrive in either order, which is
+ * why the collapse does the work rather than the ordering: whichever lands second is the one left on the phone,
+ * and the voicemail's words are a superset of the missed call's either way.
+ *
+ * An outbound call that didn't connect is nobody's news — whoever placed it watched it fail — and a bridge the
+ * person cancelled themselves is theirs, so the actor never hears about it.
+ */
+export const onMissedCallPush = pushMoment('missedCall', async (ctx, scope) => {
+  const callId = ctx.event.entityId;
+  if (!callId) return;
+  const ws = scope.workspaceId;
+  const [call] = await rows<{
+    direction: string;
+    from_e164: string;
+    conversation_id: string | null;
+    person_id: string | null;
+    is_voicemail: boolean;
+    transcript: string | null;
+    recording_seconds: number | null;
+  }>(
+    ctx.tx,
+    sql`select direction::text as direction, from_e164, conversation_id, person_id,
+          is_voicemail, transcript, recording_seconds
+        from app.calls where id = ${callId} and workspace_id = ${ws}`,
+  );
+  if (!call || call.direction !== 'inbound' || !call.conversation_id) return;
+  // The voicemail says everything the missed call would, so the missed call stands down once one is known.
+  if (ctx.event.eventType === 'call.missed' && call.is_voicemail) return;
+
+  const [conv] = await rows<{ id: string; channel: string; assignee_user_id: string | null }>(
+    ctx.tx,
+    sql`select id, channel::text as channel, assignee_user_id from app.conversations
+        where id = ${call.conversation_id} and workspace_id = ${ws}`,
+  );
+  if (!conv) return;
+  const assignee = conv.assignee_user_id
+    ? await stillHere(ctx.tx, ws, [conv.assignee_user_id])
+    : [];
+  const userIds = assignee.length ? assignee : await managerIds(ctx.tx, ws);
+  const actor = personActor(ctx);
+  if ((await pushAudience(ctx.tx, 'missed_call', userIds, actor)).length === 0) return;
+
+  const voicemail = call.is_voicemail;
+  const customer = (await personName(ctx.tx, call.person_id)) ?? formatPhone(call.from_e164);
+  await queuePush(ctx.tx, scope, {
+    key: `${voicemail ? 'voicemail' : 'missed-call'}:${ctx.event.id}`,
+    category: voicemail ? 'voicemail' : 'missed_call',
+    userIds,
+    exceptUserId: actor,
+    title: customer,
+    about: voicemail ? 'Voicemail' : 'Missed call',
+    body: voicemail
+      ? call.transcript
+        ? quoted(call.transcript)
+        : `Left a voicemail · ${callClock(call.recording_seconds)}`
+      : 'Called, and nobody picked up.',
+    path: `/app/w/${ws}/inbox/${conv.id}`,
+    refs: {
+      conversationId: conv.id,
+      channel: conv.channel as PushRefs['channel'],
+      ...(call.person_id ? { personId: call.person_id } : {}),
+    },
+    collapseId: conversationCollapseId(conv.id),
+  });
+});
+
 // ---------- wiring ----------
 
 /** Event type → the push it may bring. */
 const PUSH_HANDLERS: Readonly<Record<string, EventHandler>> = {
   'message.received': onCustomerMessagePush,
+  'call.missed': onMissedCallPush,
+  'call.voicemail_left': onMissedCallPush,
   'workflow.approval_requested': onApprovalPush,
   'ai_teammate.drafted': onDraftPush,
   'appointment.booked': onAppointmentPush,
@@ -465,6 +596,8 @@ const PUSH_HANDLERS: Readonly<Record<string, EventHandler>> = {
   'task.updated': onAssignedPush,
   'attention.assigned': onAssignedPush,
   'invoice.paid': onPaidPush,
+  'wallet.empty': onWalletPush,
+  'wallet.suspended': onWalletPush,
 };
 
 /** Appends each event's push after everything else it does (handlers/index.ts). */

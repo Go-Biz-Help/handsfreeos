@@ -29,7 +29,7 @@ import { ROLE_PERMISSIONS, WORKSPACE_ROLES } from '../src/permissions';
 import { uid } from './attention-fixtures';
 
 describe('attention kinds', () => {
-  it('lists the ten kinds in order', () => {
+  it('lists the thirteen kinds in order', () => {
     expect(ATTENTION_KINDS).toEqual([
       'hot_lead',
       'unanswered_lead',
@@ -41,6 +41,9 @@ describe('attention kinds', () => {
       'overdue_task',
       'estimate_waiting',
       'invoice_overdue',
+      'wallet_low',
+      'wallet_empty',
+      'wallet_card_declined',
     ]);
   });
 
@@ -82,8 +85,15 @@ describe('attention kinds', () => {
   });
 
   it('lets every role act, but never hands off an AI approval or an overdue task', () => {
-    // Money is the exception: chasing it needs money.manage, which a member doesn't have.
-    const money: AttentionKind[] = ['estimate_waiting', 'invoice_overdue'];
+    // Money is the exception: chasing it needs money.manage, which a member doesn't have. The wallet's three
+    // are the same — a member sees that the business is running out and cannot spend its money.
+    const money: AttentionKind[] = [
+      'estimate_waiting',
+      'invoice_overdue',
+      'wallet_low',
+      'wallet_empty',
+      'wallet_card_declined',
+    ];
     for (const role of WORKSPACE_ROLES)
       for (const kind of ATTENTION_KINDS)
         for (const action of ATTENTION_ACTIONS) {
@@ -155,8 +165,14 @@ describe('attention kinds', () => {
       expect(refusal === null, kind).toBe(letHandleModeOf(kind, [{ code: 'x' }]) !== 'none');
       if (refusal) expect(refusal, kind).toMatch(/^[A-Z].*\.$/);
     }
-    // Only the two kinds nobody can hand off are refused; every other kind has something to offer.
-    expect(Object.keys(LET_HANDLE_REFUSALS).sort()).toEqual(['ai_approval', 'overdue_task']);
+    // Only the kinds nobody can hand off are refused; every other kind has something to offer.
+    expect(Object.keys(LET_HANDLE_REFUSALS).sort()).toEqual([
+      'ai_approval',
+      'overdue_task',
+      'wallet_card_declined',
+      'wallet_empty',
+      'wallet_low',
+    ]);
     expect(letHandleRefusal('hot_lead')).toBeNull();
     expect(letHandleRefusal('invoice_overdue')).toBeNull();
   });

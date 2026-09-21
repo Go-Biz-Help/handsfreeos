@@ -9,7 +9,7 @@ import {
   FAMILY_KINDS,
   familyFor,
   latestByKind,
-  liveNumber,
+  defaultNumber,
   loadRegistrations,
 } from '../messaging/store';
 import {
@@ -36,7 +36,7 @@ export const registrationSubmit = defineCommand({
   emits: ['registration.submitted'],
   async handler(ctx, input) {
     const workspaceId = ctx.scope.workspaceId!;
-    const number = await liveNumber(ctx.tx, workspaceId);
+    const number = await defaultNumber(ctx.tx, workspaceId);
     if (!number) throw HfosError.rule('no_number', 409, 'Get a business number first.');
     if (familyFor(number.numberType) !== input.kind)
       throw HfosError.rule(

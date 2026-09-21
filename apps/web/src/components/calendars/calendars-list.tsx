@@ -7,7 +7,7 @@ import { copyText } from '@/components/ui/copy-field';
 import { EmptyState } from '@/components/ui/empty-state';
 import type { CalendarList, CalendarSummary } from '@/lib/api/types';
 import { useLiveRefresh } from '@/lib/realtime/live-provider';
-import { useOrigin } from '@/lib/use-origin';
+import { usePublicOrigin } from '@/lib/use-origin';
 import { CalendarDot, CalendarStatusBadge, LabelChips } from './chips';
 
 export function calendarLink(c: Pick<CalendarSummary, 'bookingPath' | 'permanentPath'>) {
@@ -19,13 +19,16 @@ export function CalendarsList({
   workspaceId,
   items,
   site,
+  brandedOrigin,
 }: {
   workspaceId: string;
   items: CalendarSummary[];
   site: CalendarList['site'];
+  /** Their own domain when one is serving (M17). */
+  brandedOrigin: string | null;
 }) {
   useLiveRefresh(['calendar', 'booking_site', 'appointment']);
-  const origin = useOrigin();
+  const origin = usePublicOrigin(brandedOrigin);
   const base = `/app/w/${workspaceId}/settings/calendars`;
   const shown = [...items].sort(
     (a, b) => Number(a.status === 'archived') - Number(b.status === 'archived'),

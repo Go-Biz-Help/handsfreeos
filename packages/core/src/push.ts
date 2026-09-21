@@ -5,9 +5,10 @@
  *
  * - **Switches:** `users.settings.push`, one per moment, a key of its own beside the email switches (0058). Each is
  *   on unless the person turned it off, except `payment`, which is off until they turn it on. `pushSwitchOn` reads
- *   one exactly as `private.push_on` does. A save sends all six: `user.update_profile` replaces a top-level key
- *   whole. `customerWaiting` is a new message nobody has answered yet, as it arrives; `urgent` is what can't wait,
- *   a customer left waiting past the reply threshold among it.
+ *   one exactly as `private.push_on` does. A save sends all seven: `user.update_profile` replaces a top-level key
+ *   whole. `customerWaiting` is a new message nobody has answered yet, as it arrives; `missedCall` is a call nobody
+ *   took, and the voicemail if one was left; `urgent` is what can't wait, a customer left waiting past the reply
+ *   threshold among it.
  * - **Categories and buttons:** what each kind of push offers. The buttons that reach a customer or approve
  *   something (Reply, Let AI handle, Let HandsFreeOS handle, Approve) need the phone unlocked first; Snooze 1 hour
  *   doesn't; Call, Review and Open open the app.
@@ -20,11 +21,14 @@ import { z } from 'zod';
 
 export const PUSH_SWITCHES = [
   'customerWaiting',
+  'missedCall',
   'urgent',
   'approval',
   'booking',
   'assigned',
   'payment',
+  /** The usage wallet (M16): the balance ran out, or the card on it stopped working. */
+  'wallet',
 ] as const;
 export type PushSwitch = (typeof PUSH_SWITCHES)[number];
 
@@ -38,18 +42,20 @@ export function pushSwitchOn(settings: unknown, key: PushSwitch): boolean {
   return typeof chosen === 'boolean' ? chosen : key !== 'payment';
 }
 
-/** All six switches, as a save sends them (`settings: { push: … }`). */
+/** All eight switches, as a save sends them (`settings: { push: … }`). */
 export const PushSwitches = z.object({
   customerWaiting: z.boolean(),
+  missedCall: z.boolean(),
   urgent: z.boolean(),
   approval: z.boolean(),
   booking: z.boolean(),
   assigned: z.boolean(),
   payment: z.boolean(),
+  wallet: z.boolean(),
 });
 export type PushSwitches = z.infer<typeof PushSwitches>;
 
-/** A person's six switches with their defaults filled in, ready to show or to save back whole. */
+/** A person's eight switches with their defaults filled in, ready to show or to save back whole. */
 export function pushSwitchesOf(settings: unknown): PushSwitches {
   return Object.fromEntries(
     PUSH_SWITCHES.map((k) => [k, pushSwitchOn(settings, k)]),
@@ -129,10 +135,17 @@ export const PUSH_CATEGORIES = {
   customer_waiting_no_ai: { switch: 'urgent', buttons: ['reply', 'call'] },
   urgent_lead: { switch: 'urgent', buttons: ['call', 'let_handle', 'snooze'] },
   urgent_lead_no_ai: { switch: 'urgent', buttons: ['call', 'snooze'] },
+  missed_call: { switch: 'missedCall', buttons: ['call', 'reply'] },
+  voicemail: { switch: 'missedCall', buttons: ['call', 'reply'] },
   approval: { switch: 'approval', buttons: ['approve', 'review'] },
   booking: { switch: 'booking', buttons: ['open'] },
   assigned: { switch: 'assigned', buttons: ['open'] },
   payment: { switch: 'payment', buttons: ['open'] },
+  /**
+   * The balance. On by default, unlike `payment`: a failed payment is a thing to look at when you next look,
+   * and a wallet that has run out means nothing the business sends is going anywhere.
+   */
+  wallet: { switch: 'wallet', buttons: ['open'] },
 } as const satisfies Record<
   string,
   { readonly switch: PushSwitch; readonly buttons: readonly PushButton[] }

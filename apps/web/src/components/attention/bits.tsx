@@ -9,6 +9,7 @@ import {
   CalendarClock,
   Check,
   Clock,
+  CreditCard,
   FileText,
   Flame,
   Hourglass,
@@ -18,6 +19,7 @@ import {
   Signpost,
   Sparkles,
   UserRound,
+  Wallet,
   type LucideIcon,
 } from 'lucide-react';
 import Link from 'next/link';
@@ -46,6 +48,10 @@ export const KIND_LOOK: Readonly<Record<AttentionKind, { icon: LucideIcon; tone:
   overdue_task: { icon: ListChecks, tone: 'bg-warning-soft text-warning-text' },
   estimate_waiting: { icon: FileText, tone: 'bg-warning-soft text-warning-text' },
   invoice_overdue: { icon: Receipt, tone: `${HOT_SOFT} ${HOT_TEXT}` },
+  // The wallet's three (M16): a warning in amber, and the two that stop the business working in red.
+  wallet_low: { icon: Wallet, tone: 'bg-warning-soft text-warning-text' },
+  wallet_empty: { icon: Wallet, tone: `${HOT_SOFT} ${HOT_TEXT}` },
+  wallet_card_declined: { icon: CreditCard, tone: `${HOT_SOFT} ${HOT_TEXT}` },
 };
 
 /** A card's kind, in the canvas's words ("Gone quiet", "Not confirmed"). */
@@ -60,6 +66,9 @@ export const KIND_WORD: Readonly<Record<AttentionKind, string>> = {
   overdue_task: 'Overdue task',
   estimate_waiting: 'Estimate waiting',
   invoice_overdue: 'Invoice overdue',
+  wallet_low: 'Balance running low',
+  wallet_empty: 'Balance empty',
+  wallet_card_declined: 'Card declined',
 };
 
 /** The kind's icon on its tinted tile: 30 px on cards, 24 px in Settings' list. */

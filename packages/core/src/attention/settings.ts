@@ -12,6 +12,8 @@ import { DEFAULT_NUDGE_TEMPLATE, nudgePlaceholderProblem } from './nudge';
 
 const MAX_CENTS = 100_000_000_00;
 const on = () => z.boolean().default(true);
+/** On, and not a switch: the kinds a business must not be able to hide from itself. */
+const always = () => z.literal(true).default(true);
 
 const kindSwitches = {
   hot_lead: on(),
@@ -24,6 +26,12 @@ const kindSwitches = {
   overdue_task: on(),
   estimate_waiting: on(),
   invoice_overdue: on(),
+  // The wallet's three (M16). `always()` rather than `on()` for the two that mean the business has stopped
+  // working: a business that turned off "you cannot send texts any more" and then wondered why nothing sent
+  // would have been failed by a setting we offered them.
+  wallet_low: on(),
+  wallet_empty: always(),
+  wallet_card_declined: always(),
 } satisfies Record<AttentionKind, z.ZodType>;
 
 const Hot = z.object({

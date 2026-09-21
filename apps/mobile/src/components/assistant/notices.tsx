@@ -107,17 +107,18 @@ export function NoticeCard({
   );
 }
 
-/** No model on the worker, or a build that doesn't know where the worker is. */
-export function NotSetUp() {
+/**
+ * No model on the worker (`missing`), or a build that doesn't know where the worker is (`not-in-build`). They read
+ * differently on purpose: only the first is fixed by setting the Assistant up.
+ */
+export function NotSetUp({ reason = 'missing' }: { reason?: 'missing' | 'not-in-build' }) {
+  const words =
+    reason === 'not-in-build' ? ASSISTANT_WORDS.notInThisBuild : ASSISTANT_WORDS.notAvailable;
   return (
     <View className="items-center gap-3 px-6 py-10" testID="assistant-not-set-up">
       <Tile icon={CircleAlert} tone="accent" size={40} />
-      <Text className="text-center text-[17px] font-semibold">
-        {ASSISTANT_WORDS.notAvailable.title}
-      </Text>
-      <Text className="text-center text-[13.5px] leading-[19px] text-text-2">
-        {ASSISTANT_WORDS.notAvailable.body}
-      </Text>
+      <Text className="text-center text-[17px] font-semibold">{words.title}</Text>
+      <Text className="text-center text-[13.5px] leading-[19px] text-text-2">{words.body}</Text>
     </View>
   );
 }

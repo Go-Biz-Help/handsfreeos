@@ -24,7 +24,7 @@ import {
 } from '@hfos/db/schema';
 import { loadMoneySettings } from '../commands/money-shared';
 import { HfosError } from '../errors';
-import { liveNumber, loadRegistrations, readiness } from '../messaging/store';
+import { defaultNumber, loadRegistrations, readiness } from '../messaging/store';
 import { NO_DEPOSIT, type DepositTerms } from '../money/totals';
 import type {
   CalendarCatalogs,
@@ -363,7 +363,7 @@ export async function loadCatalogs(
     .from(pipelineStages)
     .where(eq(pipelineStages.workspaceId, workspaceId))
     .orderBy(asc(pipelineStages.position));
-  const number = await liveNumber(tx, workspaceId);
+  const number = await defaultNumber(tx, workspaceId);
   const regs = await loadRegistrations(tx, workspaceId);
   // Whether a booking can take money at all: one live account is enough. The read runs as the caller, and
   // `payment_connections` is only readable with money.manage, so a member reading a calendar sees false —

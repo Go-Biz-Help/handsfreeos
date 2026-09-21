@@ -44,6 +44,13 @@ const ROWS: readonly Row[] = [
     email: null,
   },
   {
+    title: 'A call nobody took',
+    description:
+      'A missed call, and the voicemail if one was left, with what the caller said. It goes to whoever the conversation is assigned to, else the owners and admins.',
+    push: 'missedCall',
+    email: null,
+  },
+  {
     title: 'Urgent items',
     description:
       'As soon as something can’t wait: a hot lead, a new lead nobody has answered, or a customer left waiting. Owners and admins also get the ones nobody is assigned to.',
@@ -75,6 +82,13 @@ const ROWS: readonly Row[] = [
     description: 'A short note when an invoice is settled, with what it was for and how they paid.',
     push: 'payment',
     email: 'paymentEmail',
+  },
+  {
+    title: 'Your balance runs out',
+    description:
+      'When there is nothing left to send texts and make calls with, or the card that tops it up is declined. Owners and admins only, since they are the ones who can fix it.',
+    push: 'wallet',
+    email: null,
   },
   {
     title: 'Morning summary',

@@ -8,6 +8,7 @@ import {
   Hourglass,
   Info,
   MessageSquare,
+  PhoneCall,
   RotateCcw,
   Send,
   ShieldCheck,
@@ -67,6 +68,7 @@ const TOOL_ICONS: Readonly<Record<string, LucideIcon>> = {
   search_knowledge: BookOpen,
   find_times: CalendarCheck,
   my_appointments: CalendarCheck,
+  read_call_transcript: PhoneCall,
 };
 const ORDINALS = ['First', 'Second', 'Third', 'Fourth', 'Fifth', 'Sixth'];
 

@@ -39,12 +39,21 @@ import {
   importList,
   tagList,
 } from './crm-misc';
-import { conversationGet, conversationThread, inboxList, inboxSummary, messageGet } from './inbox';
+import {
+  callLog,
+  conversationGet,
+  conversationThread,
+  inboxList,
+  inboxSummary,
+  messageGet,
+} from './inbox';
 import { emailSetupStatus, emailSuppressionList, emailUnmatchedList } from './email';
 import { emailComposeOptions } from './email-compose';
 import { invitationPreview } from './invitation.preview';
 import { intakeList } from './intake';
 import { phoneSetupStatus } from './phone';
+import { brandedDomainGet } from './branded-domain';
+import { numberPortList } from './port';
 import { leadBoard, leadGet, leadList } from './lead';
 import { me } from './me';
 import { personGet, personList } from './person';
@@ -55,6 +64,7 @@ import { workspaceGet } from './workspace.get';
 import { workspaceInvitations } from './workspace.invitations';
 import { workspaceMembers } from './workspace.members';
 import { migrationQueries } from './migration';
+import { walletQueries } from './wallet';
 import {
   workflowApprovalList,
   workflowCatalogs,
@@ -99,6 +109,7 @@ export {
   userPhoneGet,
   conversationGet,
   conversationThread,
+  callLog,
   inboxList,
   inboxSummary,
   messageGet,
@@ -107,6 +118,8 @@ export {
   emailUnmatchedList,
   intakeList,
   phoneSetupStatus,
+  numberPortList,
+  brandedDomainGet,
   assistantThreadGet,
   assistantThreadList,
   auditList,
@@ -179,6 +192,9 @@ export const queries: readonly QueryDef[] = [
   crmMetrics,
   intakeList,
   phoneSetupStatus,
+  numberPortList,
+  brandedDomainGet,
+  callLog,
   inboxList,
   inboxSummary,
   conversationGet,
@@ -242,6 +258,7 @@ export const queries: readonly QueryDef[] = [
   moneySummary,
   moneyForRecord,
   moneySettingsGet,
+  ...walletQueries,
   ...formQueries,
   ...templateQueries,
   ...reviewQueries,
@@ -297,3 +314,6 @@ export * from './review';
 export * from './migration';
 export * from './support';
 export * from './platform';
+export * from './wallet';
+export * from './port';
+export * from './branded-domain';

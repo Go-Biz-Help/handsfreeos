@@ -57,6 +57,10 @@ const KIND_ROWS: readonly {
   { kind: 'unconfirmed_appointment', title: 'Not confirmed', noun: 'unconfirmed visits' },
   { kind: 'ai_approval', title: 'Approvals', noun: 'approvals' },
   { kind: 'overdue_task', title: 'Overdue tasks', noun: 'overdue tasks' },
+  // M16. `wallet_empty` and `wallet_card_declined` are deliberately absent: they are always on, because a
+  // business that hid "you cannot send texts any more" and then wondered why nothing sent would have been
+  // failed by a setting we offered them.
+  { kind: 'wallet_low', title: 'Balance running low', noun: 'a balance running low' },
 ];
 
 /** The chips that put a placeholder in the wording, with the words the canvas gives them. */
@@ -543,6 +547,26 @@ export function ActionCenterSettings({
         return `${teammateName ? `${teammateName}’s` : 'AI teammate'} drafts and workflow approvals. Only people who can decide see them.`;
       case 'overdue_task':
         return 'Tasks past their due time.';
+      case 'wallet_low':
+        return (
+          <>
+            Your balance is near the point it tops up at. Only shown when there is something to do
+            about it — with a card on file and automatic top-up on, it fixes itself. See{' '}
+            <Link
+              href={`/app/w/${workspaceId}/settings/usage`}
+              className="text-accent-text hover:underline"
+            >
+              Usage &amp; balance
+            </Link>
+            .
+          </>
+        );
+      // Always on, and not in the list above: there is nothing to describe here.
+      case 'wallet_empty':
+      case 'wallet_card_declined':
+      case 'estimate_waiting':
+      case 'invoice_overdue':
+        return null;
     }
   };
 

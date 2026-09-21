@@ -322,6 +322,23 @@ export const MigrationRollbackInput = z.object({
   confirm: z.literal(true),
 });
 
+/**
+ * Taking a move off the list once it has been rolled back (M17), so it can be run again without the business
+ * ending up with two of everybody.
+ */
+export const MigrationDeleteInput = z.object({
+  ...inOrgOrWorkspace,
+  migrationId: uuid,
+  /** The move's own name, typed out. Nothing else will do. */
+  confirmName: z.string().trim().min(1).max(200),
+});
+export const MigrationDeleteOutput = z.object({
+  /** Archived records this finished off, so the import can be run again cleanly. */
+  removed: z.number().int().nonnegative(),
+  /** Records kept because somebody has talked to, booked or billed them since. Still archived. */
+  kept: z.number().int().nonnegative(),
+});
+
 export const MigrationMergeResolveInput = z.object({
   ...inOrgOrWorkspace,
   candidateId: uuid,

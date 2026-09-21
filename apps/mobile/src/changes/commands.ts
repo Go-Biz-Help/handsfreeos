@@ -58,6 +58,8 @@ import {
   FileBeginUploadOutput,
   FileConfirmInput,
   FileConfirmOutput,
+  FormRecordInput,
+  FormSubmitOutput,
   FRESH_MINUTES,
   InvoiceCreateInput,
   InvoiceRecordCashPaymentInput,
@@ -172,6 +174,9 @@ export const PHONE_COMMANDS = {
   'company.create': command(ANYTIME, CompanyCreateInput, CompanyCreateOutput),
   'company.restore': command(ANYTIME, CompanyRestoreInput, CompanyRestoreOutput),
   'company.update': command(ANYTIME, CompanyUpdateInput, CompanyUpdateOutput),
+  // Putting a thread away and bringing it back. Both are idempotent — the command returns early when it is
+  // already where it is going — which is why they can wait out a tunnel.
+  'conversation.archive': command(ANYTIME, ConversationRefInput, ConversationRefOutput),
   'conversation.assign': command(ANYTIME, ConversationAssignInput, ConversationRefOutput),
   'conversation.close': command(ANYTIME, ConversationRefInput, ConversationRefOutput),
   'conversation.hand_to_ai': command(FRESH, ConversationRefInput, ConversationHandToAiOutput),
@@ -184,6 +189,7 @@ export const PHONE_COMMANDS = {
   'conversation.mark_unread': command(ANYTIME, ConversationRefInput, ConversationRefOutput),
   'conversation.open': command(ANYTIME, ConversationOpenInput, ConversationOpenOutput),
   'conversation.reopen': command(ANYTIME, ConversationRefInput, ConversationRefOutput),
+  'conversation.restore': command(ANYTIME, ConversationRefInput, ConversationRefOutput),
   'conversation.snooze': command(ANYTIME, ConversationSnoozeInput, ConversationRefOutput),
   'conversation.take_over': command(ANYTIME, ConversationRefInput, ConversationTakeOverOutput),
   'estimate.create': command(ONLINE, EstimateCreateInput, EstimateStateOutput),
@@ -191,6 +197,9 @@ export const PHONE_COMMANDS = {
   'estimate.update': command(ONLINE, EstimateUpdateInput, EstimateStateOutput),
   'file.begin_upload': command(ANYTIME, FileBeginUploadInput, FileBeginUploadOutput),
   'file.confirm': command(ANYTIME, FileConfirmInput, FileConfirmOutput),
+  // M17: a form filled in on a job. Made and sent in one go, with an id from this phone, so the queue
+  // retrying it is the same answer sheet rather than a second one.
+  'form_response.record': command(ANYTIME, FormRecordInput, FormSubmitOutput),
   'invoice.create': command(ONLINE, InvoiceCreateInput, InvoiceStateOutput),
   'invoice.record_cash_payment': command(
     ANYTIME,

@@ -36,7 +36,7 @@ export async function registerBuilderRoutes(app: FastifyInstance, deps: HttpDeps
         const input = parseBody(BuilderInput, req.body);
         await requirePermission(deps, actor.userId, input.workspaceId, 'workflows.manage');
         const { proposal } = await draftProposal(
-          { db: deps.httpDb, ai: deps.ai, log: deps.log },
+          { db: deps.httpDb, ai: deps.ai, log: deps.log, wallet: deps.wallet },
           actor,
           input,
         );

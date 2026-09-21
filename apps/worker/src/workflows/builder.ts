@@ -46,7 +46,7 @@ import {
 import { asWorker, rows, sql, type Tx } from '@hfos/db/client';
 import { z } from 'zod';
 import { AI_BUDGET_MESSAGE, AI_BUSY_MESSAGE, AI_UNAVAILABLE_MESSAGE } from '../ai/ask';
-import { aiBudget, recordAiUsage } from '../ai/budget';
+import { aiBudget, recordAndChargeAi } from '../ai/budget';
 import { systemActor, workerMeta, type TenantScope, type WorkerServices } from '../services';
 
 /** Rounds that feed failed calls or new check errors back to the model. */
@@ -103,7 +103,7 @@ export interface BuilderProposal {
   readonly expiresAt: string;
 }
 
-export type BuilderDeps = Pick<WorkerServices, 'db' | 'ai' | 'log'>;
+export type BuilderDeps = Pick<WorkerServices, 'db' | 'ai' | 'log' | 'wallet'>;
 
 export const BUILDER_SYSTEM = `You change one workflow for a small home-services business, using the tools. A workflow is a trigger, then steps in order; a branch step holds paths with their own steps, and an approval step holds the steps for when it's rejected. After a branch's paths the run carries on with the next step below the branch.
 
@@ -368,15 +368,13 @@ export async function draftProposal(
       throw providerFailure(e);
     }
     // The tokens were spent whatever comes of them.
-    await asWorker(deps.db, scope, (tx) =>
-      recordAiUsage(tx, {
-        source: 'builder',
-        userId: actor.userId,
-        workflowId: input.workflowId,
-        model: provider.model,
-        usage: turn.usage,
-      }),
-    );
+    await recordAndChargeAi(deps, scope, {
+      source: 'builder',
+      userId: actor.userId,
+      workflowId: input.workflowId,
+      model: provider.model,
+      usage: turn.usage,
+    });
     if (turn.text.trim()) said = turn.text.trim();
     if (!turn.toolCalls.length) break;
 

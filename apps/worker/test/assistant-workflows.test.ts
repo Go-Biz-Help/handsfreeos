@@ -245,7 +245,11 @@ beforeAll(async () => {
     webOrigins: ['http://localhost:3000'],
     assistant: {
       provider: scriptedAssistant(),
-      tools: createToolExecutor(httpDb, { ai, log: pino({ level: 'silent' }) }),
+      tools: createToolExecutor(httpDb, {
+        ai,
+        log: pino({ level: 'silent' }),
+        wallet: { db: httpDb, log: pino({ level: 'silent' }), mode: 'shadow' as const },
+      }),
       dailyTokens: 5_000_000,
     },
   });

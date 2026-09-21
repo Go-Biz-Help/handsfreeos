@@ -334,6 +334,18 @@ export function useConversationActions(
           unwrap(await apiBrowser().POST('/v1/commands/conversation.mark_unread', { body: ref })),
         CONVERSATION_DONE.markedUnread,
       ),
+    archive: () =>
+      attempt(
+        async () =>
+          unwrap(await apiBrowser().POST('/v1/commands/conversation.archive', { body: ref })),
+        CONVERSATION_DONE.archived,
+      ),
+    restore: () =>
+      attempt(
+        async () =>
+          unwrap(await apiBrowser().POST('/v1/commands/conversation.restore', { body: ref })),
+        CONVERSATION_DONE.restored,
+      ),
     assign: (assigneeUserId: string | null, success: string) =>
       attempt(
         async () =>

@@ -2,12 +2,15 @@
  * Twilio over plain HTTPS (no SDK): the master account creates one subaccount per workspace, and each
  * workspace's numbers, messages and registrations live in its subaccount.
  */
+import { HELP_KEYWORDS, START_KEYWORDS, STOP_KEYWORDS } from '@hfos/core';
 import {
   ProviderError,
   type AvailableNumber,
   type Capabilities,
   type ProviderAccount,
   type RegistrationRequest,
+  type DailyUsage,
+  type PortOutcome,
   type RegistrationState,
   type TelephonyProvider,
 } from './provider';
@@ -16,6 +19,10 @@ const API = 'https://api.twilio.com/2010-04-01';
 const MESSAGING = 'https://messaging.twilio.com/v1';
 const TRUST_HUB = 'https://trusthub.twilio.com/v1';
 const INTELLIGENCE = 'https://intelligence.twilio.com/v2';
+/** Moving a number a business already owns: the whole thing (voice and texts). */
+const PORTING = 'https://numbers.twilio.com/v1/Porting';
+/** Taking over texting only, leaving their calls where they are. */
+const HOSTED = 'https://numbers.twilio.com/v2/HostedNumber/Orders';
 /** The Conversational Intelligence service whole calls are transcribed in: one per subaccount, found by this name. */
 const TRANSCRIPT_SERVICE = 'hfos-call-transcripts';
 
@@ -71,6 +78,39 @@ async function call<T>(
 }
 
 const credsOf = (a: ProviderAccount): Creds => ({ sid: a.sid, token: a.authToken });
+
+/**
+ * Twilio's port and hosted-order statuses, onto the six this system has (M17).
+ *
+ * The two products say the same things in different words, which is most of why this map exists rather than a
+ * pair of comparisons scattered through the adapter. Anything unrecognised is `carrier_review`, deliberately:
+ * an unknown status means the carrier is still doing something, and guessing `failed` would tell a business
+ * its port died when it had not.
+ */
+const PORT_STATUS: Readonly<Record<string, PortOutcome>> = {
+  // Porting (full)
+  draft: 'submitted',
+  'pending-loa': 'submitted',
+  'in-review': 'carrier_review',
+  'waiting-for-signature': 'submitted',
+  'action-required': 'carrier_review',
+  'pending-port': 'scheduled',
+  'port-scheduled': 'scheduled',
+  completed: 'complete',
+  'port-failed': 'rejected',
+  canceled: 'failed',
+  // Hosted messaging
+  received: 'submitted',
+  'pending-verification': 'carrier_review',
+  verified: 'carrier_review',
+  'pending-loa-authorization': 'submitted',
+  'carrier-processing': 'carrier_review',
+  testing: 'scheduled',
+  failed: 'rejected',
+};
+
+const portOutcome = (status: string): PortOutcome =>
+  PORT_STATUS[status.toLowerCase()] ?? 'carrier_review';
 
 /** One of Twilio's available numbers as the rest of the worker wants it. */
 const toAvailable = (n: {
@@ -565,6 +605,30 @@ async function submitCampaign(
       'a2p_samples',
       true,
     );
+  /**
+   * The three messages a campaign declares, built from the business's own name.
+   *
+   * Kept short on purpose: every one of them is a real text somebody's phone will show, and a carrier reads
+   * them looking for the business's name, the way out, and that rates may apply. 160 characters is one
+   * segment, so none of these costs the business two.
+   */
+  const shortName = (b: Business) => b.legalName.slice(0, 40);
+  const optInMessage = (b: Business) =>
+    `${shortName(b)}: you're signed up for texts. Msg frequency varies. Msg & data rates may apply. Reply HELP for help, STOP to stop.`.slice(
+      0,
+      320,
+    );
+  const optOutMessage = (b: Business) =>
+    `${shortName(b)}: you're unsubscribed and will get no more texts. Reply START to start again.`.slice(
+      0,
+      320,
+    );
+  const helpMessage = (b: Business) =>
+    `${shortName(b)}: reply STOP to stop texts. Msg & data rates may apply. Contact us at ${b.contact.email}.`.slice(
+      0,
+      320,
+    );
+
   // A campaign the carriers turned down is replaced (Twilio's edit in place is still a private beta); the new
   // one may be charged the vetting fee again.
   if (request.replaces)
@@ -584,6 +648,15 @@ async function submitCampaign(
       UsAppToPersonUsecase: A2P_USE_CASE[b.useCase] ?? 'CUSTOMER_CARE',
       HasEmbeddedLinks: String(samples.some((x) => /https?:\/\/|www\./i.test(x))),
       HasEmbeddedPhone: String(samples.some((x) => /\d{3}\D{0,3}\d{3}\D{0,3}\d{4}/.test(x))),
+      // What the carriers are told about stopping, starting and getting help. Increasingly required rather
+      // than optional, and **the keyword lists come from core** so what we declare is what the code does
+      // (packages/core/src/messaging/sms.ts) rather than a second copy that drifts.
+      OptInKeywords: [...START_KEYWORDS],
+      OptInMessage: optInMessage(b),
+      OptOutKeywords: [...STOP_KEYWORDS],
+      OptOutMessage: optOutMessage(b),
+      HelpKeywords: [...HELP_KEYWORDS],
+      HelpMessage: helpMessage(b),
     },
   );
   return stateOf(res.sid, res.campaign_status ?? 'PENDING', CAMPAIGN_STATUS, res);
@@ -713,6 +786,22 @@ export function createTwilioTelephony(master: {
       });
       const n = res.incoming_phone_numbers[0];
       return n ? { sid: n.sid, capabilities: caps(n.capabilities) } : null;
+    },
+
+    async configureNumber(account, numberSid, urls) {
+      await call(
+        credsOf(account),
+        'POST',
+        `${API}/Accounts/${account.sid}/IncomingPhoneNumbers/${numberSid}.json`,
+        {
+          SmsUrl: urls.smsUrl,
+          SmsMethod: 'POST',
+          VoiceUrl: urls.voiceUrl,
+          VoiceMethod: 'POST',
+          StatusCallback: urls.voiceStatusUrl,
+          StatusCallbackMethod: 'POST',
+        },
+      );
     },
 
     async buyNumber(account, { e164, urls }) {
@@ -986,5 +1075,153 @@ export function createTwilioTelephony(master: {
         }
       }
     },
+
+    /**
+     * What Twilio actually charged this business, day by day. Read from the **subaccount's** own daily usage
+     * records, which is what makes this authoritative per tenant with no allocation guesswork: one workspace,
+     * one subaccount, one set of records.
+     *
+     * `Category` is left off on purpose. Asking for every category is one request instead of a dozen, and it
+     * is the only way to see a line we are not pricing at all — a carrier fee, a recording, a lookup — which
+     * is half of what the reconciliation is for.
+     */
+    /**
+     * Moving a number a business already owns (M17). Two Twilio products behind one seam:
+     *
+     * - **full** → the Porting API. Texts and calls both come to us, in two to four weeks, and the losing
+     *   carrier can refuse.
+     * - **hosted_messaging** → Hosted Numbers. We take over texting only, in days, and their calls carry on
+     *   exactly where they are — which is why so many businesses actually want this one and not the other.
+     *
+     * The account number and PIN in `submission` are the **losing carrier's** credentials. They go straight
+     * into the request body and are never logged, never returned, and never put on a phone.
+     */
+    async submitPort(account, request) {
+      const sub = request.submission as Record<string, string | undefined>;
+      const creds = credsOf(account);
+      if (request.kind === 'hosted_messaging') {
+        const order = await call<{ sid: string; status: string }>(creds, 'POST', HOSTED, {
+          PhoneNumber: request.e164,
+          SmsCapability: 'true',
+          AddressSid: sub['addressSid'],
+          Email: sub['email'],
+          FriendlyName: sub['businessName'],
+        });
+        return {
+          providerSid: order.sid,
+          providerStatus: order.status,
+          status: portOutcome(order.status),
+          rejectionReason: null,
+          scheduledFor: null,
+        };
+      }
+      const port = await call<{ port_in_request_sid: string; status: string }>(
+        creds,
+        'POST',
+        `${PORTING}`,
+        {
+          PhoneNumbers: [request.e164],
+          AccountSid: account.sid,
+          LosingCarrierAccountNumber: sub['accountNumber'],
+          LosingCarrierPin: sub['pin'],
+          AuthorizedRepresentative: sub['authorizedBy'],
+          ServiceAddress: sub['serviceAddress'],
+        },
+      );
+      return {
+        providerSid: port.port_in_request_sid,
+        providerStatus: port.status,
+        status: portOutcome(port.status),
+        rejectionReason: null,
+        scheduledFor: null,
+      };
+    },
+
+    async fetchPort(account, providerSid) {
+      const creds = credsOf(account);
+      // A hosted order and a port-in have different sid prefixes, so the sid says which product to ask.
+      const hosted = providerSid.startsWith('HR');
+      const url = hosted ? `${HOSTED}/${providerSid}` : `${PORTING}/${providerSid}`;
+      const got = await call<{
+        sid?: string;
+        port_in_request_sid?: string;
+        status: string;
+        failure_reason?: string | null;
+        target_port_in_date?: string | null;
+      }>(creds, 'GET', url);
+      const status = portOutcome(got.status);
+      return {
+        providerSid,
+        providerStatus: got.status,
+        status,
+        rejectionReason: status === 'rejected' ? (got.failure_reason ?? null) : null,
+        scheduledFor: got.target_port_in_date ?? null,
+      };
+    },
+
+    async uploadPortDocument(account, { portSid, name, contentType, data }) {
+      // The same Trust Hub upload the A2P supporting documents use, then attached to the port.
+      const creds = credsOf(account);
+      const body = new FormData();
+      body.append('FriendlyName', name);
+      body.append('File', new Blob([data as BlobPart], { type: contentType }), name);
+      const res = await fetch(`${TRUST_HUB}/SupportingDocuments`, {
+        method: 'POST',
+        headers: {
+          authorization: `Basic ${Buffer.from(`${creds.sid}:${creds.token}`).toString('base64')}`,
+        },
+        body,
+      });
+      const json = (await res.json().catch(() => ({}))) as { sid?: string; message?: string };
+      if (!res.ok) throw providerError(res.status, json as { code?: number; message?: string });
+      const sid = json.sid;
+      if (!sid)
+        throw new ProviderError('The carrier did not take the document.', 'port_document', true);
+      await call(creds, 'POST', `${PORTING}/${portSid}/Documents`, { DocumentSid: sid });
+      return { sid };
+    },
+
+    async cancelPort(account, providerSid) {
+      const creds = credsOf(account);
+      const hosted = providerSid.startsWith('HR');
+      await call(
+        creds,
+        'DELETE',
+        hosted ? `${HOSTED}/${providerSid}` : `${PORTING}/${providerSid}`,
+      );
+    },
+
+    async usageDaily(account, range) {
+      const out: DailyUsage[] = [];
+      let url: string | null =
+        `${API}/Accounts/${account.sid}/Usage/Records/Daily.json` +
+        `?StartDate=${range.start}&EndDate=${range.end}&PageSize=1000`;
+      // Twilio pages with a full URL of its own; a month of a busy business runs past one page.
+      while (url) {
+        const page: UsagePage = await call<UsagePage>(credsOf(account), 'GET', url);
+        for (const r of page.usage_records ?? []) {
+          const costMicros = Math.round(Number(r.price ?? 0) * -1_000_000);
+          out.push({
+            day: String(r.start_date ?? ''),
+            category: String(r.category ?? ''),
+            count: Number(r.count ?? 0) || 0,
+            // Twilio writes what it charged us as a negative number. Ours is what we paid, so it is positive.
+            costMicros: Number.isFinite(costMicros) ? Math.abs(costMicros) : 0,
+          });
+        }
+        url = page.next_page_uri ? `https://api.twilio.com${page.next_page_uri}` : null;
+      }
+      return out.filter((r) => r.day && r.category);
+    },
   };
+}
+
+interface UsagePage {
+  readonly usage_records?: readonly {
+    readonly start_date?: string;
+    readonly category?: string;
+    readonly count?: string | number;
+    readonly price?: string | number;
+  }[];
+  readonly next_page_uri?: string | null;
 }

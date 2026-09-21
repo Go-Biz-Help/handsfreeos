@@ -12,7 +12,7 @@ import type { CommandContext } from '../kernel/types';
 import {
   findOrCreateConversation,
   isWorkspaceUser,
-  liveNumber,
+  defaultNumber,
   loadConversation,
 } from '../messaging/store';
 import {
@@ -69,7 +69,7 @@ export const conversationOpen = defineCommand({
       throw input.channel === 'sms'
         ? HfosError.rule('no_phone', 400, 'Add a mobile number to text this customer.')
         : HfosError.rule('no_email', 400, 'Add an email address to email this customer.');
-    const number = input.channel === 'sms' ? await liveNumber(ctx.tx, workspaceId) : null;
+    const number = input.channel === 'sms' ? await defaultNumber(ctx.tx, workspaceId) : null;
     const { conversation, created } = await findOrCreateConversation(ctx, {
       channel: input.channel,
       counterpart,
@@ -415,5 +415,63 @@ export const conversationLinkPerson = defineCommand({
       after: { person: name, with: withWho(c), contactAdded: phoneAdded },
     });
     return { conversationId: c.id, personId: person.id, phoneAdded };
+  },
+});
+
+export const conversationArchive = defineCommand({
+  name: 'conversation.archive',
+  description:
+    'Put a conversation away so it leaves the inbox. Its messages, calls and timeline stay; bring it back any time.',
+  risk: 2,
+  input: ConversationRefInput,
+  output: ConversationRefOutput,
+  // Archiving anywhere else in HandsFreeOS is an owner's or admin's, not anyone with the inbox.
+  permission: 'records.archive',
+  scope: inWorkspace,
+  emits: ['conversation.archived'],
+  offline: 'anytime',
+  async handler(ctx, input) {
+    const c = await loadConversation(ctx, input.conversationId);
+    if (c.archivedAt) return { conversationId: c.id };
+    await ctx.tx
+      .update(conversations)
+      // The status is untouched on purpose: restoring brings back the thread it was, not an open one.
+      .set({ archivedAt: changeMoment(ctx.meta) })
+      .where(eq(conversations.id, c.id));
+    await ctx.emit({
+      type: 'conversation.archived',
+      entityType: 'conversation',
+      entityId: c.id,
+      payload: {},
+      before: { archived: false, with: await withWhom(ctx, c) },
+      after: { archived: true, with: await withWhom(ctx, c) },
+    });
+    return { conversationId: c.id };
+  },
+});
+
+export const conversationRestore = defineCommand({
+  name: 'conversation.restore',
+  description: 'Bring an archived conversation back, in the state it was in when it was put away.',
+  risk: 2,
+  input: ConversationRefInput,
+  output: ConversationRefOutput,
+  permission: 'records.archive',
+  scope: inWorkspace,
+  emits: ['conversation.restored'],
+  offline: 'anytime',
+  async handler(ctx, input) {
+    const c = await loadConversation(ctx, input.conversationId);
+    if (!c.archivedAt) return { conversationId: c.id };
+    await ctx.tx.update(conversations).set({ archivedAt: null }).where(eq(conversations.id, c.id));
+    await ctx.emit({
+      type: 'conversation.restored',
+      entityType: 'conversation',
+      entityId: c.id,
+      payload: {},
+      before: { archived: true, with: await withWhom(ctx, c) },
+      after: { archived: false, with: await withWhom(ctx, c) },
+    });
+    return { conversationId: c.id };
   },
 });

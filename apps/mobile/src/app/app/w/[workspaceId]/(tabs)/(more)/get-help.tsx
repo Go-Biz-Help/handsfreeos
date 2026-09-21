@@ -56,7 +56,12 @@ export default function GetHelp() {
   };
 
   return (
-    <Screen title={GET_HELP_WORDS.title} back={businessHref(business.id, 'more')} testID="get-help">
+    <Screen
+      title={GET_HELP_WORDS.title}
+      leading="back"
+      back={businessHref(business.id, 'more')}
+      testID="get-help"
+    >
       <Card className="gap-4 px-3.5 py-4">
         <Text className="text-[13px] leading-5 text-text-2">{GET_HELP_WORDS.intro}</Text>
         <View className="gap-1.5">

@@ -38,6 +38,7 @@ describe('the registry', () => {
   it('has the plan’s tools, each with a skill and an autonomy', () => {
     expect(TEAMMATE_TOOLS.map((t) => [t.name, t.skill, t.autonomy])).toEqual([
       ['search_knowledge', 'answer', 'auto'],
+      ['read_call_transcript', 'core', 'auto'],
       ['find_times', 'book', 'auto'],
       ['my_appointments', 'book', 'auto'],
       ['book', 'book', 'draft'],
@@ -142,6 +143,7 @@ describe('teammateTools', () => {
   it('turns on the tools of the skills that are on', () => {
     expect(names(responder)).toEqual([
       'search_knowledge',
+      'read_call_transcript',
       'update_customer',
       'add_note',
       'create_task',
@@ -151,6 +153,7 @@ describe('teammateTools', () => {
     ]);
     expect(names(coordinator)).toEqual([
       'search_knowledge',
+      'read_call_transcript',
       'find_times',
       'my_appointments',
       'book',

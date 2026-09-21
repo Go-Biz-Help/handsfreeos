@@ -36,6 +36,11 @@ export const URGENCY_RULES: Readonly<Record<AttentionKind, UrgencyRule>> = {
   estimate_waiting: { grows: 'since', start: 1, stepMs: 5 * DAY },
   // Money owed climbs slowly — its size does the talking — and is at the cap three weeks past the due day.
   invoice_overdue: { grows: 'since', start: 1, stepMs: 10 * DAY },
+  // A low balance is a warning, not an emergency: it climbs slowly and there is still money.
+  wallet_low: { grows: 'since', start: 1, stepMs: 2 * DAY },
+  // These two start at the cap. The business cannot send a text; there is no "getting worse" about it.
+  wallet_empty: { grows: 'since', start: URGENCY_CAP, stepMs: DAY },
+  wallet_card_declined: { grows: 'since', start: URGENCY_CAP, stepMs: DAY },
 };
 
 /**

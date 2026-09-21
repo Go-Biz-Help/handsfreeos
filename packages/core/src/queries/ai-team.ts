@@ -248,6 +248,8 @@ type ToolFacts = {
   refusal?: string;
   calendar?: string;
   stage?: string;
+  /** read_call_transcript: true when the call had words, false when it had none yet. */
+  callWords?: boolean;
 };
 type ToolCallRow = {
   tool: string;
@@ -287,7 +289,9 @@ const TOOL_FACTS = sql`jsonb_strip_nulls(jsonb_build_object(
   'calendar', (select cal.name from app.calendars cal
     where cal.workspace_id = tc.workspace_id and cal.id::text = tc.arguments ->> 'calendarId'),
   'stage', (select s.name from app.pipeline_stages s
-    where s.workspace_id = tc.workspace_id and s.id::text = tc.arguments ->> 'stageId')
+    where s.workspace_id = tc.workspace_id and s.id::text = tc.arguments ->> 'stageId'),
+  'callWords', case when jsonb_typeof(tc.result #> '{content,words}') = 'string' then true
+    when tc.result #> '{content,words}' is not null then false end
 ))`;
 
 type RunRow = {
@@ -371,6 +375,8 @@ function toolCallSummary(c: ToolCallRow): string | null {
       return f.appointments
         ? countOf(f.appointments, 'upcoming visit', 'upcoming visits')
         : 'No upcoming visits';
+    case 'read_call_transcript':
+      return f.callWords === false ? 'That call had no words' : 'Read what was said on it';
     case 'book':
     case 'reschedule':
     case 'cancel':

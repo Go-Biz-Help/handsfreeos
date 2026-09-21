@@ -15,6 +15,7 @@ import { eq } from 'drizzle-orm';
 import { asWorker, rows, sql, type Db, type Tx } from '@hfos/db/client';
 import { appointmentAttendees, waitlistEntries } from '@hfos/db/schema';
 import { parseKey } from '../crypto';
+import { linksOn, publicOrigin } from '../hosting/origin';
 import type { TenantScope } from '../services';
 
 const ALPHABET = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
@@ -202,7 +203,12 @@ export async function resolveWaitlistToken(
   };
 }
 
-/** A booking's current change-or-cancel link, read inside its workspace's scope (confirmations, reminders). */
+/**
+ * A booking's current change-or-cancel link, read inside its workspace's scope (confirmations, reminders).
+ *
+ * On the business's own domain once one is serving (M17). The workspace comes off the row this already reads
+ * rather than from the caller, so there is no third argument anybody can pass the wrong value for.
+ */
 export async function manageUrlFor(
   tx: Tx,
   links: BookingLinks,
@@ -212,12 +218,13 @@ export async function manageUrlFor(
     .select({
       publicRef: appointmentAttendees.publicRef,
       manageVersion: appointmentAttendees.manageVersion,
+      workspaceId: appointmentAttendees.workspaceId,
     })
     .from(appointmentAttendees)
     .where(eq(appointmentAttendees.id, attendeeId));
-  return a
-    ? manageUrl(links, { publicRef: a.publicRef, attendeeId, manageVersion: a.manageVersion })
-    : null;
+  if (!a) return null;
+  const on = linksOn(links, await publicOrigin(tx, a.workspaceId, links.webUrl));
+  return manageUrl(on, { publicRef: a.publicRef, attendeeId, manageVersion: a.manageVersion });
 }
 
 /** A waitlist entry's offer link, read inside its workspace's scope (the offer text and email). */
@@ -227,8 +234,10 @@ export async function waitlistUrlFor(
   entryId: string,
 ): Promise<string | null> {
   const [e] = await tx
-    .select({ publicRef: waitlistEntries.publicRef })
+    .select({ publicRef: waitlistEntries.publicRef, workspaceId: waitlistEntries.workspaceId })
     .from(waitlistEntries)
     .where(eq(waitlistEntries.id, entryId));
-  return e ? waitlistUrl(links, { publicRef: e.publicRef, entryId }) : null;
+  if (!e) return null;
+  const on = linksOn(links, await publicOrigin(tx, e.workspaceId, links.webUrl));
+  return waitlistUrl(on, { publicRef: e.publicRef, entryId });
 }

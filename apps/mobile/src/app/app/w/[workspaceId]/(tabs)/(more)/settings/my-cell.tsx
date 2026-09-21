@@ -271,7 +271,7 @@ export default function MyCell() {
         </Button>
       ) : null}
 
-      {verified && number && card === null ? (
+      {verified && number ? (
         <Card className="gap-3 border-accent-soft-2 p-3.5" testID="contact-card">
           <View className="flex-row items-start gap-3">
             <View className="size-9 items-center justify-center rounded-[9px] bg-accent-soft">
@@ -308,13 +308,11 @@ export default function MyCell() {
           <Button icon={Plus} onPress={() => void addContact()} testID="contact-add">
             {CONTACT_CARD_WORDS.add}
           </Button>
-          <Button
-            variant="ghost"
-            onPress={() => setContactCardState(userId, number.e164, 'dismissed')}
-            testID="contact-not-now"
-          >
-            {CONTACT_CARD_WORDS.notNow}
-          </Button>
+          {card === 'added' ? (
+            <Text className="text-center text-[12.5px] text-text-3" testID="contact-added">
+              {CONTACT_CARD_WORDS.added(business.name)}
+            </Text>
+          ) : null}
         </Card>
       ) : null}
     </Screen>

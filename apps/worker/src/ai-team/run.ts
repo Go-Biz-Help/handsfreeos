@@ -49,6 +49,7 @@ import {
   teammateTools,
   TEAMMATE_TURN_ENDERS,
   uuidArray,
+  walletRoom,
   workspaceMessaging,
   type AiEmployeeActor,
   type AiEmployeeOrigin,
@@ -66,7 +67,7 @@ import {
 } from '@hfos/core/server';
 import { asWorker, rows, sql, type Tx } from '@hfos/db/client';
 import { conversations } from '@hfos/db/schema';
-import { aiBudget, recordAiUsage } from '../ai/budget';
+import { aiBudget, recordAndChargeAi } from '../ai/budget';
 import { runToolLoop, type ToolLoopResult } from '../ai/tool-loop';
 import { clockLabel } from '../assistant/calendar-format';
 import { quietEndAt } from '../booking/deliver';
@@ -180,6 +181,7 @@ const REASON_WORDS: Readonly<Record<ConversationHandoffReason, string>> = {
   cancellation: 'cancelling service',
   limit: 'a limit was reached',
   budget: 'the AI limit was reached',
+  wallet: 'the balance ran out',
   error: 'something went wrong',
   draft_expired: 'nobody decided its draft in time',
   loop: 'a loop with another bot',
@@ -551,6 +553,16 @@ async function answer(ctx: JobContext, run: StartedRun): Promise<JobResult> {
     note: 'It reached its share of today’s AI limit, so it stopped. The limit resets at midnight.',
   };
   if (!(await hasRoom())) return end(budget);
+  // The other way it runs out of room to spend. A customer is waiting on this conversation, so a dry balance
+  // hands it to a person rather than erroring — the teammate never says "no money" to a customer.
+  const money = await asWorker(ctx.db, scope, (tx) =>
+    walletRoom(tx, scope.workspaceId, 'ai', (m, e) => ctx.log.error({ err: e }, m)),
+  );
+  if (!money.allowed)
+    return end({
+      reason: 'wallet',
+      note: 'The balance ran out, so the AI paused. Top up and it starts answering again.',
+    });
 
   const state = newRunState();
   const tools = toolsFor(run, rc);
@@ -568,15 +580,13 @@ async function answer(ctx: JobContext, run: StartedRun): Promise<JobResult> {
     log: ctx.log,
   });
   const onTurnUsage = (usage: AiUsage) =>
-    asWorker(ctx.db, scope, (tx) =>
-      recordAiUsage(tx, {
-        source: 'teammate',
-        teammateId: run.teammate.id,
-        teammateRunId: run.id,
-        model: provider.model,
-        usage,
-      }),
-    );
+    recordAndChargeAi(ctx, scope, {
+      source: 'teammate',
+      teammateId: run.teammate.id,
+      teammateRunId: run.id,
+      model: provider.model,
+      usage,
+    });
   const base = {
     provider,
     system: TEAMMATE_SYSTEM,

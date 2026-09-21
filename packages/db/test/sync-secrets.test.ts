@@ -41,6 +41,8 @@ const PUBLISHED = [
   'estimate_lines',
   'estimates',
   'files',
+  'form_versions',
+  'forms',
   'invoice_lines',
   'invoices',
   'leads',

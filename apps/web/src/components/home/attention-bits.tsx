@@ -4,6 +4,7 @@ import {
   Check,
   ChevronDown,
   Clock,
+  CreditCard,
   FileText,
   Flame,
   Hourglass,
@@ -14,6 +15,7 @@ import {
   Sparkles,
   UserPlus,
   UserRound,
+  Wallet,
   Zap,
   type LucideIcon,
 } from 'lucide-react';
@@ -37,6 +39,9 @@ const KIND_LOOK: Readonly<
   overdue_task: { icon: ListChecks, tile: 'bg-warning-soft text-warning-text' },
   estimate_waiting: { icon: FileText, tile: 'bg-warning-soft text-warning-text' },
   invoice_overdue: { icon: Receipt, tile: 'bg-danger-soft text-danger-text' },
+  wallet_low: { icon: Wallet, tile: 'bg-warning-soft text-warning-text' },
+  wallet_empty: { icon: Wallet, tile: 'bg-danger-soft text-danger-text' },
+  wallet_card_declined: { icon: CreditCard, tile: 'bg-danger-soft text-danger-text' },
 };
 
 /** The kind label's colour where it isn't grey: hot leads in red, approvals in the AI teammate's violet. */

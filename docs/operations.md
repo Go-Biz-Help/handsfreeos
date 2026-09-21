@@ -30,6 +30,8 @@ A plain "step 5" means step 5 of the list you are reading, or of the part named 
 - [Workflows, the knowledge base and agency templates](#workflows-the-knowledge-base-and-agency-templates)
 - [The AI teammate and website chat](#the-ai-teammate-and-website-chat)
 - [Money: Stripe and Square](#money-stripe-and-square)
+- [Usage balances: what businesses pay us](#usage-balances-what-businesses-pay-us)
+- [A business's own web address](#a-businesss-own-web-address)
 - [Moving a business here from another CRM](#moving-a-business-here-from-another-crm)
 - [Support and the admin side](#support-and-the-admin-side)
 - [Push notifications: Expo](#push-notifications-expo)
@@ -1394,6 +1396,13 @@ If the Twilio or Postmark screens have moved, search their consoles for "Account
 | `GOOGLE_OAUTH_CLIENT_ID`              | Only for Connect Gmail                                                      | Connect Gmail shows a page titled "Gmail isn’t set up yet".                                                                                                                                                                                                                                                                                                                     | The Google Cloud OAuth client (type Web application).                                                                                                                                                                                              |
 | `GOOGLE_OAUTH_CLIENT_SECRET`          | Only for Connect Gmail                                                      | Same as above.                                                                                                                                                                                                                                                                                                                                                                  | The same Google Cloud OAuth client (starts with `GOCSPX-`).                                                                                                                                                                                        |
 | `ANTHROPIC_API_KEY`                   | Only for the Assistant                                                      | The worker starts, and its `worker started` line shows `"assistant":"none"`. The Assistant panel says "The Assistant isn’t available yet". Everything else works.                                                                                                                                                                                                               | The Claude Console, **Settings** → **API keys**: the key linked to the `handsfreeos-worker` service account and tied to the `HandsFreeOS` workspace (starts with `sk-ant-api`). See "The Assistant: Anthropic". Worker only.                       |
+| `DEEPGRAM_API_KEY`                    | Recommended, for the words of calls and voicemails                          | Without it the worker falls back to Twilio Conversational Intelligence, which costs about eight times as much per minute. Recordings still play; only the words are affected.                                                                                                                                                                                                   | The Deepgram console, **API Keys**. Give it to `handsfreeos-worker` with `fly secrets import`, never `fly secrets set`. Worker only.                                                                                                               |
+| `TRANSCRIBER`                         | No                                                                          | Picks who turns a recording into words: `deepgram` (the default once `DEEPGRAM_API_KEY` is set), `twilio` (Conversational Intelligence), or `fake` for development. Production refuses `fake`.                                                                                                                                                                                  | Leave unset unless you are deliberately moving off Deepgram. Worker only.                                                                                                                                                                          |
+| `WALLET_MODE`                         | No                                                                          | How far the usage wallet (M16) has gone: `off` (the default) records nothing; `shadow` prices and records every text, call and AI request and never warns or stops anything; `on` warns, and enforces for the businesses whose own flag is set.                                                                                                                                 | Leave `off` until the shadow week. Worker only.                                                                                                                                                                                                    |
+| `VERCEL_TOKEN`                        | Only for branded domains (a business’s own web address)                     | The worker starts and its `worker started` line shows `"siteHost":"off"`. **Settings** → **Calendars** → **Booking site** offers nothing, which is the honest answer — a domain added with no host behind it would wait forever for records nobody fetches.                                                                                                                     | Vercel, **Account Settings** → **Tokens**, scoped to the team owning the web app project. See "A business’s own web address". Worker only.                                                                                                         |
+| `VERCEL_PROJECT_ID`                   | With `VERCEL_TOKEN`                                                         | The worker refuses to start with a token and no project id.                                                                                                                                                                                                                                                                                                                     | The **web app** project’s **Settings** → **General** → **Project ID** (starts `prj_`). Not the public website’s project. Worker only.                                                                                                              |
+| `VERCEL_TEAM_ID`                      | Only on a Vercel team account                                               | Vercel answers 404 for every domain, and each check records "that domain isn’t set up here".                                                                                                                                                                                                                                                                                    | Vercel, **Team Settings** → **General** → **Team ID** (starts `team_`). Leave unset on a personal account. Worker only.                                                                                                                            |
+| `SITE_HOST`                           | No                                                                          | Who serves a business’s own domain: `vercel` (the default in production once `VERCEL_TOKEN` is set), `off` (the default without one), or `fake` for development. Production refuses `fake`.                                                                                                                                                                                     | Leave unset. Worker only.                                                                                                                                                                                                                          |
 | `GOOGLE_CALENDAR_OAUTH_CLIENT_ID`     | Only for Google Calendar in **Settings** → **My calendar**                  | The **Google** button in **Settings** → **My calendar** shows a page titled "Google Calendar isn’t set up yet".                                                                                                                                                                                                                                                                 | The Web application OAuth client in the separate `HandsFreeOS Calendar` Google Cloud project, not the Gmail client. See "The calendar: Google, Outlook and online booking". Worker only.                                                           |
 | `GOOGLE_CALENDAR_OAUTH_CLIENT_SECRET` | Only for Google Calendar                                                    | Same as above.                                                                                                                                                                                                                                                                                                                                                                  | The same Google Calendar client's secret (starts with `GOCSPX-`).                                                                                                                                                                                  |
 | `TURNSTILE_SECRET_KEY`                | Recommended, for the check that bookings and website chats come from people | Bookings and website chats rely on their limits, a hidden field only bots fill in, and the database's caps.                                                                                                                                                                                                                                                                     | Cloudflare's **Turnstile** page: the widget's secret key. Set its site key on Vercel (`NEXT_PUBLIC_TURNSTILE_SITE_KEY`) first. Production refuses Cloudflare's test secret. See "Protect the booking page with Turnstile (optional)". Worker only. |
@@ -4121,7 +4130,6 @@ Twilio sends every request to `https://hooks.handsfreeos.com` by POST. All paths
 | `voice/dial-result`                    | End of ringing: voicemail or the apology                                                                            | No                                                                              |
 | `voice/hangup`                         | Hang-up                                                                                                             | No                                                                              |
 | `voice/recording`                      | A recording is ready: a voicemail, or a whole call through someone's cell                                           | No                                                                              |
-| `voice/transcription`                  | The voicemail transcript                                                                                            | No                                                                              |
 | `voice/bridge?callId=<call>`           | A call through someone's own cell: what their cell hears when they answer                                           | No                                                                              |
 | `voice/bridge-gate?callId=<call>`      | The key pressed on that cell: 1 dials the customer                                                                  | No                                                                              |
 | `voice/bridge-result?callId=<call>`    | The end of dialing the customer: busy, no answer or done                                                            | No                                                                              |
@@ -4325,6 +4333,37 @@ If you do not keep the number:
 
    You should see "{number} is being released", and then the page offers **Get a business number** again. Released numbers cannot be recovered.
 
+### Bringing a number from another carrier
+
+A business that has had the same number for years usually wants to keep it. **Settings → Texting & calls → "I already have a number I want to keep"** starts that, and there are two kinds. The difference matters far more to the business than to us:
+
+| Kind                | What moves                                           | How long          | Can the old carrier refuse?                                  |
+| ------------------- | ---------------------------------------------------- | ----------------- | ------------------------------------------------------------ |
+| **Texts and calls** | everything                                           | two to four weeks | yes, and they do when anything on the account does not match |
+| **Texting only**    | texts; their desk phone keeps ringing as it does now | usually days      | rarely                                                       |
+
+**What you need from the business, before they start.** All four have to match the losing carrier's records exactly, which is why a port fails far more often over a typo than over anything technical:
+
+- the **account number on their bill** — not their phone number, which is the mistake everybody makes
+- the **transfer PIN or port-out passcode**, which most carriers will only read out over the phone
+- the **name on the account**
+- the **service address on the account**, with the ZIP
+
+They also upload a **signed authorisation** (an LOA). HandsFreeOS will not send a port without one, because carriers turn those down.
+
+**Where the account number and PIN live.** In `app.number_ports.submission`, and nowhere else. They are the _other_ carrier's credentials, not ours to spread:
+
+- the table is deliberately **not** in the `powersync` publication, so they never reach a phone
+- **nothing logs them** — the worker passes them straight into the carrier call
+- **no query returns them.** The screen and the API both say which details are _filled_, never what they say. If a business loses their own PIN, they get it from their old carrier; we cannot read it back to them.
+- reading the row at all takes `channels.manage`, so owners and admins only
+
+**What the worker does.** The same shape as a carrier registration. `port.submit` sends it and puts the papers on it, `port.poll` asks the carrier every six hours, and `port.cancel` calls it off. When it lands, the worker points the number at our webhooks and adds it to the messaging service **before** calling it active — a ported number arrives bare, and one marked active too early is one that silently drops the first customer who texts it.
+
+**While it is moving**, the number shows in the business's Settings as "Moving to us" and counts against their ten-number limit, but sends nothing and cannot be made their default. That row is also what stops a second business claiming the same number. A port that is called off or turned down gives it straight back.
+
+**Locally and in tests**, the fake carrier decides from the last four digits: a number ending `0000` is turned down, one ending `0001` stays with the carrier forever, and anything else goes through. There is no way to test a real port without doing a real one.
+
 ### Where to look in the Twilio console
 
 Each client business's texts, calls and errors are logged in its own subaccount, not in the master account. Open the subaccount first (see "Number" above); the pages you open next show that subaccount's data.
@@ -4354,6 +4393,9 @@ Startup errors are listed under "The worker refuses to start" in "Going live, an
 | Error 21408 on a text, or 13227 on a call                                                                                                                                                                              | Twilio's message or call logs         | Blocked by geo permissions (Twilio Step 3).                                                                                                                                                      |
 | Codes from 30001 to 30009 on a text                                                                                                                                                                                    | Twilio's message logs                 | Delivery failures, such as an unreachable phone, a landline, or carrier filtering of the message's wording.                                                                                      |
 | Error 21610 on a text, or "This customer texted STOP. They can text START to get texts again."                                                                                                                         | Twilio's message logs, or the inbox   | The customer texted STOP. HandsFreeOS records the opt-out. They must text START before they can be texted again.                                                                                 |
+| "Your old carrier turned this down: …"                                                                                                                                                                                 | The client's **Texting & calls** page | Almost always the account number, the PIN or the address not matching the losing carrier's records. The client fixes the details and sends it again; the port keeps its history.                 |
+| A port stuck on "With your old carrier" for weeks                                                                                                                                                                      | The client's **Texting & calls** page | Normal for "texts and calls". Check `app.number_ports.provider_status` and the Twilio Porting console for what the carrier last said. Nothing on our side makes it faster.                       |
+| `the port document did not go up`                                                                                                                                                                                      | Worker logs                           | The port is with the carrier but the signed authorisation is not. The job retries on its own and will not submit a second port. If it keeps failing, check `SUPABASE_SECRET_KEY` and Storage.    |
 
 "Texts do not send" and "Calls do not ring, or cannot be placed" in "Going live, and when something goes wrong" cover the other messages the app shows.
 
@@ -7733,6 +7775,253 @@ Two more things worth saying to a client in the same breath:
 - **A business says they were charged twice:** they weren't. A payment carries the customer's own press as its idempotency key, and a payment's status only ever moves forward, so a retried or doubled submit takes the money once. Show them **Money** → **Payments**, which lists every payment the business has taken, with what it was paid on, where it stands and which invoice it belongs to; the provider's own dashboard will show one charge against it.
 - **An account says Reconnect:** its token lapsed (Square) or the provider refused it. Nothing is taken until the business presses Reconnect and signs in again. Refunds on payments taken through the old sign-in still work once the same account is reconnected, because the credentials are found by the provider's account id rather than by the connection row.
 
+## Usage balances: what businesses pay us
+
+Every other money page in HandsFreeOS is about a business billing **its own** customers. This one is the other
+direction: what the business pays **us** for the texts, calls, phone numbers and AI replies it uses on top of
+its plan. Two different things, deliberately never sharing a page, a table or a card — the migration headers
+say so, and somebody will eventually try to "unify" them.
+
+The whole thing runs on two switches that are easy to confuse, so learn them first:
+
+|                      | What it decides                                   | Where it lives                                                      |
+| -------------------- | ------------------------------------------------- | ------------------------------------------------------------------- |
+| `WALLET_MODE`        | Whether we **count** — `off`, `shadow` or `on`    | `[env]` in `apps/worker/fly.toml`, one setting for the whole server |
+| A wallet's **stage** | Whether we **speak** — `off`, `warn` or `enforce` | On each business's own row, moved from `/admin` one at a time       |
+
+Nothing a business sees or feels depends on `WALLET_MODE`. It depends on that business's stage, which starts
+at `off` for everybody and only moves when somebody moves it. That is what makes the shadow week silent: the
+ledger fills for a week, every balance goes deep into the negative because nobody has a card, and not one
+business hears a word about it.
+
+`WALLET_MODE` is **not a secret** — it goes in `fly.toml` beside `TELEPHONY_PROVIDER`, not in
+`fly secrets import`. Putting it in the file means the current mode is visible in git and every change of it
+is a one-line commit somebody reviewed.
+
+The wallet needs migrations `20260930000700_usage_rate_card.sql` through `20260930001200_support_can_credit_a_balance.sql`. See "Apply new migrations".
+
+### Part 1: The shadow week
+
+**This is the step that decides whether the price list is right, and it has to happen before a single customer
+is charged.** The rate card was seeded from Twilio and Anthropic list prices; list prices are a guess until a
+real week of a real business's traffic measures them. A guess that is wrong loses money quietly for a month.
+
+1. Set the mode in `apps/worker/fly.toml`, in the `[env]` block:
+
+   ```toml
+   WALLET_MODE = "shadow"
+   ```
+
+2. Commit it and deploy the worker the usual way. Watch the log.
+
+   ```bash
+   fly logs --app handsfreeos-worker
+   ```
+
+   You should see a `worker started` line. Nothing else changes: no card is touched, no warning is sent, and
+   nothing stops. Every text, call, minute and AI reply now writes a row to `app.usage_ledger` with what it
+   was priced from, and each night `wallet.reconcile` trues those rows up against each business's own Twilio
+   subaccount.
+
+3. Leave it for a week. A day is not enough — a rate key nobody used on Tuesday is a rate key you have not
+   measured.
+
+### Part 2: What to look at afterwards
+
+1. **The margin, at `/admin/rates`.** The right-hand column is what we charged against what it cost us, per
+   rate key, over the window. **Anything under 1.2× is the thing this week existed to find**: at 1.5× intended,
+   a key that lands at 1.1× means the seeded cost is wrong, and it will go on being wrong until somebody looks.
+2. **`/admin/health`.** Three rows matter here:
+   - **Balances that disagree** — a cached balance that does not match its own ledger. This is the silent one:
+     the balance is what every spending gate reads, so a drift means every gate is lying.
+   - **Days not reconciled** — nights the true-up did not run for a business with a carrier account. A margin
+     figure built on a missing day is not a measurement.
+   - **Balances below zero** — expected in shadow, since nobody has topped up. Not a problem here; it is a
+     problem later.
+3. **One business, end to end, at `/admin/businesses/<id>`.** The balance block shows what they were charged
+   beside what they cost us. Pick a busy one and read the statement.
+4. **Against a real invoice.** Compare a week of `cost_30d_cents` for one business against the same week on
+   Chris's actual Twilio bill. The daily reconciliation should already have closed most of the gap; what is
+   left is what we are not pricing at all.
+
+### Part 3: Fixing the card
+
+Live rate rows are never edited. A correction is a **whole new version** of the card — the function takes
+every row, not a patch, so a version is always a complete, readable price list:
+
+```sql
+select private.publish_usage_rates(
+  '[{"key": "sms.outbound.segment", "unit": "segment", "cost_micros": 10900, "markup_bp": 15000}, …]'::jsonb,
+  'Twilio raised the carrier fee on 3 Oct'
+);
+```
+
+It refuses a set that does not cover every key the live card has, and it is staff-admin only
+(`platform.rates.manage`). It returns the new version number. Every ledger row is stamped with the version
+that priced it, so a mid-month change is honest — old rows still say what they were charged under and why.
+`/admin/rates` shows the live card and the realised margin against it.
+
+### Part 4: Switching a business on
+
+One business at a time, from `/admin/businesses/<id>`. **Two steps, never one.**
+
+1. **Move them to Warned.** They now see their balance, their statement and what things cost, and they are
+   told — by email, by push and on Home — when the balance runs low or runs out. Nothing stops. This is the
+   stretch where they put a card on. Watch what they actually do with it.
+2. **Then move them to Stopped at zero**, once they have a card and have had the warnings. From that moment
+   outgoing texts and calls stop when the balance is past its overdraft. **Calls coming in still reach them**,
+   and incoming messages are still received and filed — that is a promise in terms §3, not a nicety.
+
+Order: internal first, then a handful of friendly businesses, then everyone. The dialog asks why, and the
+reason goes on the event, because a rollout is a series of decisions somebody should be able to explain a
+month later.
+
+There is deliberately **no global switch** for this. A global switch is how this gets turned on for a thousand
+businesses by accident at two in the morning.
+
+### Part 5: Turning it off
+
+```toml
+WALLET_MODE = "off"
+```
+
+Deploy. Counting stops immediately; nothing already recorded is lost, no balance is touched, and no business
+is told anything. To stop a single business instead, move its stage back to Silent from `/admin` — that is the
+faster and smaller answer to "this one business is having a bad time".
+
+### When something goes wrong
+
+- **A business says its texts stopped and it should not have:** check its stage at `/admin/businesses/<id>`.
+  Only `enforce` stops anything. If it is on `enforce` and the balance is fine, look at "Balances that
+  disagree" on `/admin/health` — a drifted cache is the one way a gate refuses a business that has money.
+- **A business was warned during the shadow week:** it should be impossible; every channel checks the stage.
+  If it happened, that business's stage is not `off`. Move it back and find out who moved it — the event says.
+- **The margin looks impossible (very high, or infinite):** a rate key with charges but no cost. Usually the
+  provider's daily records have not arrived for those days yet — they lag by about two. The other cause is a
+  carrier charge we do not price at all; the reconciler will not invent a category for it, it logs a warning
+  naming it. Search the worker log for `categories the rate card has never heard of`.
+- **A card was charged twice:** it was not. The recharge row carries its idempotency key before the provider
+  is called, the same key goes to Stripe, and a unique index allows one pending recharge per business. Show
+  them their statement — a second charge would be a second `topup` row, and there will not be one.
+- **A top-up was bigger than the business chose:** that is escalation, and it is deliberate. Several top-ups
+  in a few days become one larger charge instead of many small ones, up to a cap shown on their own page. They
+  were emailed before anything above twice their amount was charged. The fix they want is to raise their own
+  top-up amount, which the email says.
+
+## A business's own web address
+
+A business that has been going a while asks for this before it asks for anything else on this page: it wants
+the booking link on the van to read `booking.lonestarhvac.com`, not `app.handsfreeos.com/book/lonestar`.
+**Branded domains** (M17) is that — one domain per business, on the pages its customers see and nowhere else.
+
+What moves onto it: the booking page, the public forms, estimate, invoice and plan links, change-or-cancel
+and waitlist links, the deposit-hold page, the chat window and the snippet that loads it. What deliberately
+does not: the app, sign-in, and the admin side. A HandsFreeOS sign-in form served on a customer's domain is a
+phishing page built out of a feature, so `brandedRoute` (`packages/core/src/hosting/branded-paths.ts`)
+redirects every one of those back to `app.handsfreeos.com`, and the names we reserve as booking-site slugs
+(`app`, `admin`, `api`, `sign-in`, …) are reserved one level down too.
+
+**Only the origin moves.** `https://booking.lonestarhvac.com/i/AbCd1234EfGh567890` and
+`https://app.handsfreeos.com/i/AbCd1234EfGh567890` are the same link, signed by the same key. So a text sent
+last month keeps working after a domain is added, and keeps working after one is removed.
+
+### What it needs
+
+| Setting             | Required                        | Where                                                                                                                                                       |
+| ------------------- | ------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `VERCEL_TOKEN`      | To offer branded domains at all | Vercel, **Account Settings** → **Tokens**. Scope it to the team that owns the web app project. Worker only, `fly secrets import`.                           |
+| `VERCEL_PROJECT_ID` | With `VERCEL_TOKEN`             | The web app project's **Settings** → **General** → **Project ID** (starts `prj_`). The **web app** project, not the website.                                |
+| `VERCEL_TEAM_ID`    | Only on a team account          | **Team Settings** → **General** → **Team ID** (starts `team_`). Leave unset on a personal account.                                                          |
+| `SITE_HOST`         | No                              | `vercel`, `fake` or `off`. Defaults to `vercel` in production when there is a token and `off` when there is not; `fake` locally. Production refuses `fake`. |
+
+**`off` is a real answer, not a missing one.** With no token the worker starts normally, the feature is simply
+not offered, and every job that would call the host logs a line and stops. A business that adds a domain and
+then waits forever for records nobody is fetching is worse off than one that was never offered it — so if you
+do not want branded domains yet, leave the token unset rather than setting `SITE_HOST=off` and half-offering
+them.
+
+### Turn it on
+
+1. In Vercel, open the **web app** project (the one serving `app.handsfreeos.com`), then
+   **Settings** → **General**, and copy the **Project ID**.
+2. **Account Settings** → **Tokens** → **Create**, scoped to that team. Copy it once; Vercel will not show it
+   again. Put it in the password manager.
+3. Give both to the worker:
+
+   ```bash
+   fly secrets import --app handsfreeos-worker <<'EOF'
+   VERCEL_TOKEN=...
+   VERCEL_PROJECT_ID=prj_...
+   EOF
+   ```
+
+   `fly secrets import`, never `fly secrets set` — `set` puts the value in your shell history.
+
+4. Wait for the restart, then check the worker's started line has `"siteHost":"vercel"`.
+
+### What a business does
+
+**Settings** → **Calendars** → **Booking site** → **Your own web address**.
+
+1. They type the domain they want, usually a subdomain of one they already own
+   (`booking.lonestarhvac.com`). Ours is refused: nobody can point `handsfreeos.com` at themselves.
+2. HandsFreeOS claims the name with Vercel and shows **two records** to add wherever their domain lives —
+   their registrar, or whoever runs their website:
+   - a **TXT**, which proves they hold the name before a certificate is issued for it;
+   - a **CNAME**, which is what actually points the name here.
+3. They add both. A job looks every 15 minutes, and **Check now** looks immediately. DNS commonly takes a
+   few hours; the card says so rather than looking broken.
+4. When the records are found _and_ the certificate has issued, the card says **Working** and every public
+   link they are shown moves onto the new name within the minute.
+
+**Verified is not working.** A domain whose DNS is right but whose certificate has not issued yet serves a
+browser warning, which is worse than serving nothing — so `certificate_ready` is a separate column from the
+status, and `private.site_for_domain` answers for neither until both are true. If you ever change this,
+change nothing else first.
+
+**Removing one is loud.** `branded_domain.remove` is risk 3, and the confirmation says why: every QR code,
+flyer and text already carrying that address stops working the moment it runs, and nobody can un-print the
+flyers. Links go back to `app.handsfreeos.com` at once.
+
+### Check one by hand
+
+```bash
+# What the business has to put in DNS, and where it has got to.
+psql "$DATABASE_URL" -c "select domain, status, certificate_ready, last_error, next_check_at
+                         from app.branded_domains order by created_at desc limit 20;"
+
+# The records really there, from outside our network.
+dig +short TXT   _handsfreeos.booking.lonestarhvac.com
+dig +short CNAME booking.lonestarhvac.com
+
+# Which business a host is, exactly as the web app asks.
+curl -s https://hooks.handsfreeos.com/public/site-for-host/booking.lonestarhvac.com
+
+# End to end: the booking page on their own name.
+curl -sI https://booking.lonestarhvac.com/ | head -3
+```
+
+The last one is the check that matters, because it is the only one a customer would do.
+
+### Good to know
+
+- **Every call to Vercel is a job.** `branded_domain.check` runs on add and on **Check now**, reschedules
+  itself every 15 minutes while a domain is unsettled, and stops once it is working.
+  `branded_domains.sweep` looks at every domain daily, including the working ones — a business moves its DNS
+  or lets a domain lapse, and otherwise the first anybody would know is a customer saying the link is broken.
+- **A name Vercel says is taken is an answer, not a retry.** The card shows what the host said, the status
+  goes `failed`, and the business either releases it at the other end or picks another name.
+- **One domain per business.** Changing it is removing and adding, deliberately: a name that has been in
+  somebody's DNS for a week is not something to silently repoint.
+- **A name pointed at us that nobody set up gets a 404**, not one of our pages. The web app asks the worker
+  which business a host is and serves nothing when the answer is nobody.
+- **If the worker is unreachable**, the web app serves nothing on a branded domain rather than guessing, and
+  every link builder falls back to `app.handsfreeos.com`. A confirmation text going out on the wrong name is
+  a far smaller failure than one not going out at all.
+- **Test it without a Vercel account.** `SITE_HOST=fake` decides from the name, the way the fake carrier
+  decides from the last four digits: a name containing `taken` is refused, `slow` verifies but never gets a
+  certificate, `missing` never finds the records, and anything else works on the second look.
+
 ## Moving a business here from another CRM
 
 A business you take on is almost never starting from nothing. It has five years of customers, texts, calls, appointments and invoices in whatever it uses today, and it will not move until it believes none of that will be lost. **Migrations** is the part of HandsFreeOS that moves it, and the promise it makes is stricter than "the data is in there somewhere": the history has to feel as though the business had been using HandsFreeOS all along. A customer added in 2019 says 2019. A text sent on a Tuesday afternoon sits where a Tuesday afternoon belongs.
@@ -8070,22 +8359,24 @@ You need:
 
 Metro, which packages the app, replaces every `process.env.EXPO_PUBLIC_…` it can see with the value that was set **when the build ran**, and writes the result into the bundle. There is no configuration file on the phone and nothing is fetched at startup: a build points where it pointed the day it was made, for good.
 
-| Name                                   | Required       | What it is                                                | Its value                                              |
-| -------------------------------------- | -------------- | --------------------------------------------------------- | ------------------------------------------------------ |
-| `EXPO_PUBLIC_SUPABASE_URL`             | Yes            | Supabase, for signing in                                  | `https://ybupfghakoszfcxhyrby.supabase.co`             |
-| `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Yes            | That project's publishable key                            | The `sb_publishable_…` key from the Supabase dashboard |
-| `EXPO_PUBLIC_API_URL`                  | Yes            | The API, which every change the phone makes goes to       | `https://api.handsfreeos.com`                          |
-| `EXPO_PUBLIC_SYNC_URL`                 | Yes            | The sync service, which fills the phone's copy            | `https://sync.handsfreeos.com`                         |
-| `EXPO_PUBLIC_WEB_URL`                  | No, but set it | The web app, for the pages the phone links out to         | `https://app.handsfreeos.com` (also the default)       |
-| `EXPO_PUBLIC_WORKER_URL`               | No             | Test builds only: the stand-in push service's test routes | Leave unset                                            |
-| `EXPO_PUBLIC_PASSKEYS_ENABLED`         | No             | Shows passkey sign-in                                     | Leave unset until passkeys work                        |
-| `EXPO_PUBLIC_E2E`                      | No             | Builds for the Maestro flows                              | Leave unset                                            |
+| Name                                   | Required       | What it is                                                           | Its value                                              |
+| -------------------------------------- | -------------- | -------------------------------------------------------------------- | ------------------------------------------------------ |
+| `EXPO_PUBLIC_SUPABASE_URL`             | Yes            | Supabase, for signing in                                             | `https://ybupfghakoszfcxhyrby.supabase.co`             |
+| `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Yes            | That project's publishable key                                       | The `sb_publishable_…` key from the Supabase dashboard |
+| `EXPO_PUBLIC_API_URL`                  | Yes            | The API, which every change the phone makes goes to                  | `https://api.handsfreeos.com`                          |
+| `EXPO_PUBLIC_SYNC_URL`                 | Yes            | The sync service, which fills the phone's copy                       | `https://sync.handsfreeos.com`                         |
+| `EXPO_PUBLIC_WEB_URL`                  | No, but set it | The web app, for the pages the phone links out to                    | `https://app.handsfreeos.com` (also the default)       |
+| `EXPO_PUBLIC_WORKER_URL`               | No, but set it | The worker: **the Assistant**, and test builds' stand-in push routes | `https://hooks.handsfreeos.com`                        |
+| `EXPO_PUBLIC_PASSKEYS_ENABLED`         | No             | Shows passkey sign-in                                                | Leave unset until passkeys work                        |
+| `EXPO_PUBLIC_E2E`                      | No             | Builds for the Maestro flows                                         | Leave unset                                            |
 
 The first four are the ones `isConfigured()` checks (`apps/mobile/src/lib/config.ts`). With any one of them empty the app opens on **"This build isn't connected"** and goes no further. Every one of these ends up readable inside the app on anyone's phone, so a secret must never be among them — that is what `EXPO_PUBLIC_` means.
 
+`EXPO_PUBLIC_WORKER_URL` is not checked by `isConfigured()`, so a build without it starts and works — except that **Ask HandsFreeOS says "The Assistant can't be reached from this app"**, because the Assistant streams from the worker rather than the API (`apps/mobile/src/assistant/stream.ts`). It used to be described here as a test-build-only setting; that was wrong, and a build made on that advice has no Assistant. Set it for `production` and `preview` along with the other five.
+
 **They live in EAS, not in this repository.** `apps/mobile/.env.local` is for your Mac and is git-ignored, and `eas.json` sets `requireCommit: true`, so a build only ever sees committed files. Local values therefore cannot reach a build, by design. Each profile in `eas.json` names the EAS environment it reads with `"environment"`: `production` and `preview` both point at the live servers; `development` is for builds that talk to your Mac.
 
-### Phone Part 1: Put the five settings in EAS
+### Phone Part 1: Put the six settings in EAS
 
 Do this once. They stay until you change them, and every later build picks them up.
 
@@ -8097,7 +8388,7 @@ Do this once. They stay until you change them, and every later build picks them 
 
    An empty list is what caused the "This build isn't connected" screen the first time. Note that `env:create` is deprecated and that `env:set` has no `--force`: it creates or updates either way.
 
-2. Set each one, in both environments at once. Repeat this for all five names in the table, changing `--name` and `--value`:
+2. Set each one, in both environments at once. Repeat this for all six names in the table, changing `--name` and `--value`:
 
    ```bash
    npx --yes eas-cli@latest env:set --scope project --name EXPO_PUBLIC_API_URL --value "https://api.handsfreeos.com" --type string --visibility plaintext --environment production --environment preview --non-interactive

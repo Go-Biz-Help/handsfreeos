@@ -383,6 +383,7 @@ const depositInstead = (cal: {
   }`;
 const NO_CUSTOMER =
   'There’s no customer on file for this conversation yet, so there’s nowhere to put that.';
+const NO_CALLS = 'That isn’t a call in this conversation. Use a callId the history gave you.';
 const NO_LEAD = 'This customer has no open lead to put that on. Add a note instead.';
 
 // ---- The forms the teammate may ask ----
@@ -507,6 +508,46 @@ const RUNNERS: Readonly<Record<TeammateToolName, Runner>> = {
             note: 'Nothing in the knowledge base matches. Try other words, or follow your rule for when you’re unsure.',
           },
       effect: { found, searched: true },
+    };
+  },
+
+  /**
+   * What was said on one call of this conversation. Scoped to the run's own conversation in the `where`, not
+   * in the id: the model is handed call ids by the history, and a made-up one must find nothing rather than
+   * somebody else's call.
+   */
+  async read_call_transcript(d, tx, args) {
+    const callId = String(args['callId']);
+    if (!d.rc.conversation.id) return refused({ error: NO_CALLS });
+    const [call] = await rows<{
+      transcript: string | null;
+      is_voicemail: boolean;
+      transcript_status: string | null;
+      recorded: boolean;
+    }>(
+      tx,
+      sql`select k.transcript, k.is_voicemail, k.transcript_status,
+            k.recording_object_path is not null as recorded
+          from app.calls k
+          where k.id = ${callId} and k.workspace_id = ${d.scope.workspaceId}
+            and k.conversation_id = ${d.rc.conversation.id}`,
+    );
+    if (!call) return refused({ error: NO_CALLS });
+    const said = (call.transcript ?? '').trim();
+    if (said)
+      return {
+        status: 'done',
+        content: { words: quoteData(said), voicemail: call.is_voicemail },
+      };
+    return {
+      status: 'done',
+      content: {
+        words: null,
+        note:
+          !call.recorded || call.transcript_status === 'failed'
+            ? 'Nothing was written out from that call, so you don’t know what was said on it. Don’t guess at it.'
+            : 'That call hasn’t been written out yet, so you don’t know what was said on it. Don’t guess at it.',
+      },
     };
   },
 

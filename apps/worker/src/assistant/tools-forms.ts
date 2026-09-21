@@ -22,6 +22,7 @@ type ConfirmCard = Extract<AssistantCard, { type: 'confirm' }>;
 export interface FormToolDeps {
   readonly ai: WorkerServices['ai'];
   readonly log: Logger;
+  readonly wallet: WorkerServices['wallet'];
 }
 
 const str = (v: unknown) => (typeof v === 'string' && v.trim() ? v.trim() : undefined);
@@ -176,11 +177,15 @@ async function buildForm(
     formId = created.formId;
     made = true;
   }
-  const drafted = await draftForm({ db, ai: deps.ai, log: deps.log }, ctx.actor, {
-    workspaceId: ctx.workspaceId,
-    formId,
-    prompt: description,
-  });
+  const drafted = await draftForm(
+    { db, ai: deps.ai, log: deps.log, wallet: deps.wallet },
+    ctx.actor,
+    {
+      workspaceId: ctx.workspaceId,
+      formId,
+      prompt: description,
+    },
+  );
   const href = formPaths(ctx.workspaceId).form(formId);
   return {
     result: {
@@ -220,7 +225,8 @@ interface ConfirmTool {
     db: Db,
     ctx: ToolContext,
     args: Args,
-    extra: { readonly toolCallId: string },
+    /** `webUrl` is the web app's address: a link that goes to a customer needs the whole thing, not a path. */
+    extra: { readonly toolCallId: string; readonly webUrl: string },
   ): Promise<CommittedAction>;
 }
 
@@ -343,13 +349,29 @@ const sendForm: ConfirmTool = {
       result: { asked: 'Waiting for their OK before it goes out.' },
     };
   },
-  async commit(db, ctx, args) {
+  async commit(db, ctx, args, extra) {
     const formId = String(args['formId']);
     const personId = String(args['personId']);
     const channel = str(args['channel']) === 'email' ? 'email' : 'sms';
     const form = await query<{ form: FormSummary }>(db, ctx, 'form.get', { formId });
     const site = await query<{ site: { slug: string } | null }>(db, ctx, 'booking_site.get', {});
-    const link = site.site ? `/f/${site.site.slug}/${form.form.slug}` : `/f/${form.form.slug}`;
+    // Publishing gives the business its public name, so a live form has one. Without it there is no address to
+    // send, and texting somebody a bare path would be worse than saying so.
+    if (!site.site)
+      throw HfosError.conflict(
+        'This business has no link name yet, so the form has no address to send. Set one under Settings → Calendars → Booking site.',
+        'no_booking_site',
+      );
+    // Their own domain once one is serving (M17), so the link the Assistant sends matches the one on their
+    // booking page and their flyers.
+    const branded = await query<{
+      domain: { domain: string; status: string; certificateReady: boolean } | null;
+    }>(db, ctx, 'branded_domain.get', {});
+    const origin =
+      branded.domain && branded.domain.status === 'verified' && branded.domain.certificateReady
+        ? `https://${branded.domain.domain}`
+        : extra.webUrl;
+    const link = `${origin}/f/${site.site.slug}/${form.form.slug}`;
     const body = `${String(args['message'])}\n\n${link}`;
     if (channel === 'sms') {
       await command(db, ctx, 'message.send', { personId, body });

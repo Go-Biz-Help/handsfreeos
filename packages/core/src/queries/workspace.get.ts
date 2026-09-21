@@ -43,6 +43,11 @@ export const workspaceGet = defineQuery({
         industry: row.ws.industry,
         role: ctx.scope.workspaceRole ?? 'member',
         settings: row.ws.settings,
+        inboxPerPerson:
+          (
+            (row.ws.settings as Record<string, unknown> | null)?.['inbox'] as
+              { perPerson?: unknown } | undefined
+          )?.perPerson === true,
         createdAt: row.ws.createdAt.toISOString(),
       },
       counts: { members: Number(members?.n ?? 0), pendingInvitations: Number(pending?.n ?? 0) },

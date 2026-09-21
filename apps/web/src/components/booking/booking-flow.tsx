@@ -6,7 +6,7 @@
  * left, and "Join the waitlist" when one is full. The Book button sends one clientId per booking, so a
  * doubled tap never books twice.
  */
-import { addDays, daysBetween, localDateOf, startOfLocalDay } from '@hfos/core';
+import { addDays, daysBetween, localDateOf, smsConsentWords, startOfLocalDay } from '@hfos/core';
 import {
   CalendarSearch,
   Check,
@@ -273,6 +273,7 @@ function SmsConsent({
   phone: string;
   emailToo: boolean;
 }) {
+  const words = smsConsentWords(business, 'booking');
   return (
     <div className="flex flex-col gap-1">
       <button
@@ -291,12 +292,11 @@ function SmsConsent({
         >
           {checked ? <Check size={13} strokeWidth={2.4} /> : null}
         </span>
+        {/* The words are core's (messaging/consent.ts), shared with the public form, because a carrier
+            reads both and two screens that say different things is what an audit finds. */}
         <span className="flex flex-col gap-0.5">
-          <span className="text-[13px] font-medium">Text me about this appointment</span>
-          <span className="text-xs text-text-3">
-            Confirmations and reminders from {business}. Msg &amp; data rates may apply. Reply STOP
-            to opt out.
-          </span>
+          <span className="text-[13px] font-medium">{words.title}</span>
+          <span className="text-xs text-text-3">{words.detail}</span>
         </span>
       </button>
       <span className="text-xs text-text-3">

@@ -227,6 +227,23 @@ function describeAction(e: AuditEntry): string {
       return 'changed how calls ring';
     case 'phone.update_settings':
       return 'updated the texting settings';
+    // Milestone 17: bringing a number the business already owns. Every sentence here deliberately says what
+    // was done and never what was typed — the account number and the PIN are the old carrier's credentials,
+    // and the audit log is read by people who have no business seeing them.
+    case 'number_port.start':
+      return `started bringing ${s(e.after?.number)} here from another carrier`;
+    case 'number_port.save':
+      return 'filled in what the old carrier needs';
+    case 'number_port.attach_document':
+      return `attached ${s(e.after?.document) || 'a document'} for the number move`;
+    case 'number_port.submit':
+      return `sent the move of ${s(e.after?.number)} to the old carrier`;
+    case 'number_port.cancel':
+      return 'called off a number move';
+    case 'number_port.record_state':
+      return portStateSentence(e);
+    case 'number_port.complete':
+      return `${s(e.after?.number)} finished moving here`;
     case 'registration.submit':
       return `sent ${s(e.after?.legalName)}'s ${s(e.after?.kind) === 'a2p_10dlc' ? 'local-number registration' : 'toll-free verification'} to the carriers`;
     case 'registration.update_status':
@@ -841,6 +858,7 @@ const HANDOFF_REASON_WORDS: Record<string, string> = {
   cancellation: 'cancelling service',
   limit: 'the daily reply limit',
   budget: 'the day’s AI limit',
+  wallet: 'the balance ran out',
   error: 'something went wrong',
   draft_expired: 'nobody approved its draft in time',
   loop: 'an automatic reply loop',
@@ -1154,6 +1172,29 @@ function calendarStatusSentence(e: AuditEntry): string {
   }
 }
 
+/**
+ * What the old carrier said, in a sentence. The one that matters is `scheduled`: a business plans its week
+ * around moving day, and a row in the log that names the date is often the only place it is written down.
+ */
+function portStateSentence(e: AuditEntry): string {
+  const status = s(e.after?.status);
+  const moves = s(e.after?.moves);
+  switch (status) {
+    case 'carrier_review':
+      return 'the old carrier is looking at the number move';
+    case 'scheduled':
+      return moves
+        ? `the old carrier set ${moves} as the day the number moves`
+        : 'the old carrier agreed to move the number';
+    case 'rejected':
+      return 'the old carrier turned the number move down';
+    case 'failed':
+      return 'the number move did not go through';
+    default:
+      return `recorded the number move as ${status || 'changed'}`;
+  }
+}
+
 const withWho = (e: AuditEntry) =>
   s(e.after?.with) || s(e.before?.with) || e.entityName || 'a customer';
 
@@ -1381,6 +1422,7 @@ export function auditCategory(action: string): AuditCategory {
       'phone_number.',
       'phone.',
       'registration.',
+      'number_port.',
       'email.',
       'email_domain.',
       'email_address.',

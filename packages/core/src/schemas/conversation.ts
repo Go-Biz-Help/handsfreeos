@@ -12,7 +12,7 @@ export const conversationChannel = z.enum(['sms', 'email', 'chat']);
 export type ConversationChannel = z.infer<typeof conversationChannel>;
 export const conversationStatus = z.enum(['open', 'snoozed', 'closed']);
 /** needs_person: handed to a person and not yet picked up (oldest first); ai: the AI teammate answers. */
-export const inboxBox = z.enum(['mine', 'unassigned', 'all', 'needs_person', 'ai']);
+export const inboxBox = z.enum(['mine', 'unassigned', 'all', 'needs_person', 'ai', 'archived']);
 export const messageDirection = z.enum(['inbound', 'outbound']);
 export const smsConsent = z.enum(['unknown', 'opted_in', 'opted_out']);
 
@@ -40,6 +40,8 @@ export const ConversationSummary = z.object({
   lastSentBy: UserRef,
   awaitingReplySince: isoDateTime.nullable(),
   snoozedUntil: isoDateTime.nullable(),
+  /** Put away, so it is out of the inbox until somebody brings it back. Its status is untouched. */
+  archived: z.boolean(),
   openLead: OpenLeadRef.nullable(),
   createdAt: isoDateTime,
   /** Who answers it (M7): nobody in particular, the AI teammate, or a person who took it or picked it up. */
@@ -190,4 +192,35 @@ export const ConversationLinkPersonOutput = z.object({
   conversationId: uuid,
   personId: uuid,
   phoneAdded: z.boolean(),
+});
+
+/** The call log: every call, or only the ones nobody took, or only the ones that left a voicemail. */
+export const callLogFilter = z.enum(['all', 'missed', 'voicemail']);
+export const CallLogInput = ListInput.extend({
+  workspaceId: uuid,
+  filter: callLogFilter.default('all'),
+});
+export const CallLogItem = z.object({
+  id: uuid,
+  conversationId: uuid.nullable(),
+  personId: uuid.nullable(),
+  /** The customer's name once somebody has linked the number, else the number itself. */
+  who: z.string(),
+  counterpart: z.string(),
+  direction: messageDirection,
+  status: z.string(),
+  occurredAt: isoDateTime,
+  durationSeconds: z.number().int().nullable(),
+  isVoicemail: z.boolean(),
+  answeredVia: z.enum(['browser', 'forwarding', 'bridge']).nullable(),
+  answeredBy: UserRef,
+  /** The stored recording (telephony bucket), for the player. Null when none reached us. */
+  recordingPath: z.string().nullable(),
+  recordingSeconds: z.number().int().nullable(),
+  transcript: z.string().nullable(),
+  transcriptStatus: z.enum(['pending', 'completed', 'failed']).nullable(),
+});
+export const CallLogOutput = z.object({
+  items: z.array(CallLogItem),
+  nextCursor: z.string().nullable(),
 });

@@ -12,11 +12,14 @@ import type { SafeFetch } from './http/safe-fetch';
 import type { MailboxServices } from './mailbox/index';
 import type { Mailer } from './mailer';
 import type { MoneyLinks } from './money/links';
+import type { WalletDeps } from './money/wallet';
 import type { PaymentServices } from './payments/index';
 import type { PushServices } from './push/index';
 import type { ReviewServices } from './reviews/index';
 import type { ObjectStore } from './storage';
+import type { SiteHost } from './hosting';
 import type { TelephonyProvider } from './telephony/provider';
+import type { Transcriber } from './telephony/transcriber';
 
 /** HandsFreeOS's own support desk (M13): where its mail arrives and who it comes from. */
 export interface SupportServices {
@@ -39,11 +42,20 @@ export interface WorkerServices {
   /** Where providers reach the worker (webhooks, callbacks). */
   readonly publicUrl: string;
   readonly telephony: TelephonyProvider;
+  /** Turns a call recording into words. Separate from the carrier: it reads our own copy of the audio. */
+  readonly transcriber: Transcriber;
+  /**
+   * Where a business's own domain is served from (M17). **Null when nobody has turned it on**, which every
+   * handler checks: the feature is absent rather than present and failing.
+   */
+  readonly siteHost: SiteHost | null;
   readonly sealer: Sealer;
   /** Tests and local demos shorten the reply reminder; production uses each workspace's setting. */
   readonly reminderOverrideMs: number | null;
   /** How often to ask the carrier about a registration under review. */
   readonly registrationPollMs: number;
+  /** How often to ask the carrier about a port. Slower than a registration: these take weeks, not hours. */
+  readonly portPollMs: number;
   /** Workspace email: the transport, workspace domains, the shared subdomain and the webhook credentials. */
   readonly email: EmailServices;
   /** Connected Outlook and Gmail mailboxes (in-memory ones locally and in tests). */
@@ -77,6 +89,11 @@ export interface WorkerServices {
   readonly authAdmin?: AuthAdmin;
   /** HandsFreeOS's own support desk: the addresses its mail arrives on and sends from. */
   readonly support: SupportServices;
+  /**
+   * The usage wallet (M16). `off` records nothing; `shadow` prices and records every event and stops nothing,
+   * which is how the rate card gets proved against a real week; `on` warns and, per business, enforces.
+   */
+  readonly wallet: WalletDeps;
 }
 
 export interface TenantScope {

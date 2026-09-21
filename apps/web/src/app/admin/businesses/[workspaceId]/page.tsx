@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { ViewAsButton } from '@/components/admin/view-as';
+import { WalletBlock } from '@/components/admin/wallet-block';
 import { STATUS_WORD, sinceWords, whenWords } from '@/components/admin/ticket-bits';
 import { apiServer, unwrap, unwrapPage } from '@/lib/api/server';
 
@@ -19,9 +20,10 @@ export default async function BusinessPage({
 }) {
   const { workspaceId } = await params;
   const { api } = await apiServer();
-  const detail = unwrapPage(
-    await api.POST('/v1/queries/platform.business.get', { body: { workspaceId } }),
-  );
+  const [detail, wallet] = await Promise.all([
+    api.POST('/v1/queries/platform.business.get', { body: { workspaceId } }).then(unwrapPage),
+    api.POST('/v1/queries/platform.wallet.get', { body: { workspaceId } }).then(unwrapPage),
+  ]);
   const me = unwrap(await api.POST('/v1/queries/platform.me', { body: {} }));
   const b = detail.business;
   return (
@@ -95,6 +97,13 @@ export default async function BusinessPage({
           </ul>
         </section>
       </div>
+
+      <WalletBlock
+        workspaceId={workspaceId}
+        businessName={b.name}
+        wallet={wallet}
+        canChange={me.staff?.permissions.includes('platform.wallets.adjust') ?? false}
+      />
 
       <section className="mt-5 rounded-card border border-border bg-card p-4">
         <h2 className="text-sm font-semibold">Their tickets</h2>

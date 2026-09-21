@@ -349,7 +349,7 @@ const lastTry = (attempt: number | undefined): boolean =>
   attempt !== undefined && attempt > 0 && attempt % MAX_STEP_ATTEMPTS === 0;
 
 export async function runAiStep(
-  ctx: Pick<WorkerServices, 'db' | 'ai' | 'log'>,
+  ctx: Pick<WorkerServices, 'db' | 'ai' | 'log' | 'wallet'>,
   input: AiStepInput,
 ): Promise<AiStepResult> {
   if (!ctx.ai.provider) return { ok: false, reason: 'ai_unavailable' };
@@ -434,6 +434,8 @@ export async function runAiStep(
 }
 
 /** The runner the worker's services carry as `workflowAi` (main.ts). */
-export function createWorkflowAi(ctx: Pick<WorkerServices, 'db' | 'ai' | 'log'>): AiStepRunner {
+export function createWorkflowAi(
+  ctx: Pick<WorkerServices, 'db' | 'ai' | 'log' | 'wallet'>,
+): AiStepRunner {
   return { run: (input) => runAiStep(ctx, input) };
 }

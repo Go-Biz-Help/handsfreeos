@@ -6,6 +6,7 @@ import {
   ClipboardList,
   Home,
   Inbox,
+  PhoneCall,
   KanbanSquare,
   ListOrdered,
   Settings2,
@@ -37,6 +38,9 @@ export function navItems(workspaceId: string): NavItem[] {
   return [
     { key: 'home', href: base, label: 'Home', icon: Home, exact: true, primary: true },
     { key: 'inbox', href: `${base}/inbox`, label: 'Inbox', icon: Inbox, primary: true },
+    // The call log sits next to the inbox rather than inside it: a thread shows a call where it happened, which
+    // is no use when the question is "who rang this morning". A drawer item on phones, so the bar stays at five.
+    { key: 'calls', href: `${base}/calls`, label: 'Calls', icon: PhoneCall },
     // Customers moved to the drawer on phones when the calendar joined the bottom bar (search still finds them).
     { key: 'customers', href: `${base}/customers`, label: 'Customers', icon: Users },
     {

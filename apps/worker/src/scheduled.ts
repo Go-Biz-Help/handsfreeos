@@ -38,12 +38,26 @@ import {
   syncWindowJobs,
 } from './housekeeping/sync-window';
 import { advanceRegistrations } from './handlers/telephony';
+import { DOMAIN_SWEEP, domainJobs } from './hosting/domains';
+import { portJobs } from './telephony/ports';
 import type { JobHandler, JobMap } from './jobs';
 import { knowledgeDocumentJob } from './knowledge/document';
 import { knowledgeScanJob } from './knowledge/scan';
 import { mailboxSync } from './mailbox/sync';
 import { scheduledTextJobs } from './messaging/scheduled';
 import { moneyDocumentJobs, MONEY_JOBS, MONEY_PLAN_KEY } from './money/jobs';
+import {
+  nextReconcileAt,
+  RECONCILE_JOBS,
+  RECONCILE_JOB_HANDLERS,
+  RECONCILE_PLAN_KEY,
+} from './money/reconcile';
+import {
+  nextWalletPlanAt,
+  RECHARGE_JOBS,
+  RECHARGE_JOB_HANDLERS,
+  RECHARGE_PLAN_KEY,
+} from './money/recharge';
 import { moneyJobs } from './money/refunds';
 import { planJobs } from './money/subscriptions';
 import { pushJobs } from './push/send';
@@ -258,6 +272,10 @@ export const jobs: JobMap = {
   ...SUPPORT_JOBS,
   'conversation.unanswered_check': unansweredCheck,
   'registration.poll': registrationPoll,
+  // Moving a number a business already owns to us: sending it, asking the carrier, calling it off (M17).
+  ...portJobs,
+  // A business's own domain: claiming it, watching for its DNS, and giving it back (M17).
+  ...domainJobs,
   'conversation.unsnooze': unsnooze,
   'webhook_deliveries.sweep': sweepDeliveries,
   'email_domains.check': checkEmailDomains,
@@ -296,6 +314,8 @@ export const jobs: JobMap = {
   // its expiry, a receipt and a payment that failed, a plan's cycle read back, and the hourly plan and each
   // business's sweep behind them all (money/jobs.ts).
   ...moneyDocumentJobs,
+  ...RECONCILE_JOB_HANDLERS,
+  ...RECHARGE_JOB_HANDLERS,
   // Money: a plan made to match at the provider — created, paused, resumed or cancelled there
   // (money/subscriptions.ts).
   ...planJobs,
@@ -327,6 +347,15 @@ export async function ensureRecurringJobs(services: WorkerServices): Promise<voi
     await scheduleJob(tx, {
       kind: 'email_domains.check',
       dedupeKey: 'check:email_domains',
+      runAt,
+      payload: {},
+      workspaceId: null,
+      organizationId: null,
+    });
+    // A business's own domain, looked at daily in case it has stopped working (M17).
+    await scheduleJob(tx, {
+      kind: DOMAIN_SWEEP,
+      dedupeKey: 'check:branded_domains',
       runAt,
       payload: {},
       workspaceId: null,
@@ -364,6 +393,27 @@ export async function ensureRecurringJobs(services: WorkerServices): Promise<voi
       kind: MONEY_JOBS.plan,
       dedupeKey: MONEY_PLAN_KEY,
       runAt,
+      payload: {},
+      workspaceId: null,
+      organizationId: null,
+    });
+    // The usage wallet's nightly true-up (M16): each business's day of carrier records against what we
+    // charged for it. Armed whatever WALLET_MODE says, because a shadow week with nothing to check it against
+    // proves nothing — and with the wallet off there is no ledger to correct, so the pass finds nothing to do.
+    await scheduleJob(tx, {
+      kind: RECONCILE_JOBS.plan,
+      dedupeKey: RECONCILE_PLAN_KEY,
+      runAt: nextReconcileAt(Date.now()),
+      payload: {},
+      workspaceId: null,
+      organizationId: null,
+    });
+    // The wallet's hourly sweep (M16): the safety net behind a lost `wallet.low` and a job that exhausted its
+    // retries. It does nothing at all unless WALLET_MODE is on, so arming it costs nothing before then.
+    await scheduleJob(tx, {
+      kind: RECHARGE_JOBS.plan,
+      dedupeKey: RECHARGE_PLAN_KEY,
+      runAt: nextWalletPlanAt(Date.now()),
       payload: {},
       workspaceId: null,
       organizationId: null,

@@ -16,7 +16,7 @@ import HfosPhone from '../../../../modules/hfos-phone';
 /**
  * The inbox's screens with React Native Testing Library: a row in the list, the composer (offline words, the From
  * line, photos, a note that turns the box off), and My cell phone (Verify my cell, the press of 1 arriving through the
- * copy, the contacts card with Add to Contacts and Not now).
+ * copy, the contacts card with Add to Contacts).
  */
 
 jest.mock('expo-router', () => ({
@@ -263,7 +263,12 @@ describe('My cell phone', () => {
     await fireEvent.press(screen.getByTestId('contact-add'));
     expect(HfosPhone.addContact).toHaveBeenCalledWith('Lone Star HVAC & Roofing', '+17135550100');
     expect(toast.show).toHaveBeenCalledWith('Lone Star HVAC & Roofing is in your contacts');
-    expect(screen.queryByTestId('contact-card')).toBeNull();
+    // The card says it was added and stays put: a contact deleted later, or a second phone, needs the button again.
+    expect(screen.getByTestId('contact-added')).toHaveTextContent(
+      'Lone Star HVAC & Roofing is in your contacts',
+    );
+    expect(screen.getByTestId('contact-add')).toBeTruthy();
+    expect(screen.queryByTestId('contact-not-now')).toBeNull();
   });
 
   it('needs signal to verify', async () => {

@@ -1,6 +1,7 @@
 'use client';
 import {
   ArrowRight,
+  CalendarPlus,
   Clock,
   Link as LinkIcon,
   Mail,
@@ -10,8 +11,10 @@ import {
   UserPlus,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { toast } from 'sonner';
+import { AppointmentDialog } from '@/components/calendar/appointment-dialog';
+import { firstName } from '@/components/calendar/appt';
 import { NextActionChip, StageBadge, TagChip } from '@/components/crm/chips';
 import { LeadDialog } from '@/components/crm/lead-dialog';
 import { InboxOwed, useRecordMoney } from '@/components/crm/record-money';
@@ -19,10 +22,11 @@ import { TaskDialog } from '@/components/tasks/task-dialog';
 import { Button, ButtonLink } from '@/components/ui/button';
 import { useCalls } from '@/lib/calls/call-provider';
 import { apiBrowser, errorMessage, unwrap } from '@/lib/api/client';
-import type { ConversationGet, Pipeline } from '@/lib/api/types';
+import { useLiveVersion } from '@/lib/realtime/live-provider';
+import type { ConversationGet, Ok, Pipeline } from '@/lib/api/types';
 import { addressLine, formatDate, formatMoney } from '@/lib/format';
 import { cn } from '@/lib/utils';
-import { ContactAvatar, Pill } from './bits';
+import { ContactAvatar } from './bits';
 
 const Label = ({ children }: { children: string }) => (
   <div className="text-[11.5px] font-semibold uppercase tracking-[0.04em] text-text-3">
@@ -39,9 +43,53 @@ function Row({ icon: Icon, children }: { icon: typeof Phone; children: string })
   );
 }
 
+type Visit = Ok<'/v1/queries/appointment.list'>['items'][number];
+
+/** How far ahead the panel looks. A year is past anything a small business books. */
+const AHEAD_MS = 365 * 24 * 60 * 60_000;
+
 /**
- * Who this is, beside the conversation: the customer's card, their open lead and tasks, and what arrives
- * later. A number nobody has linked gets "add" and "link" instead.
+ * This customer's next visits (M17).
+ *
+ * Asked for here rather than added to `conversation.get`, which every keystroke in the inbox already
+ * reloads — the same reason `useRecordMoney` next to it fetches its own. A null person asks nothing, so the
+ * hook is safe to run before the unknown-contact branch returns.
+ */
+function useUpcomingVisits(workspaceId: string, personId: string | null): readonly Visit[] {
+  const version = useLiveVersion(['appointment']);
+  const [items, setItems] = useState<readonly Visit[]>([]);
+  const load = useCallback(async () => {
+    if (!personId) {
+      setItems([]);
+      return;
+    }
+    try {
+      const now = Date.now();
+      const got = unwrap(
+        await apiBrowser().POST('/v1/queries/appointment.list', {
+          body: {
+            workspaceId,
+            personId,
+            from: new Date(now).toISOString(),
+            to: new Date(now + AHEAD_MS).toISOString(),
+          },
+        }),
+      );
+      setItems(got.items);
+    } catch {
+      // A panel that cannot reach the calendar shows no visits rather than an error beside the customer.
+      setItems([]);
+    }
+  }, [workspaceId, personId]);
+  useEffect(() => {
+    void load();
+  }, [load, version]);
+  return items;
+}
+
+/**
+ * Who this is, beside the conversation: the customer's card, their open lead, tasks and next visits. A
+ * number nobody has linked gets "add" and "link" instead.
  */
 export function ContextPanel({
   data,
@@ -67,10 +115,12 @@ export function ContextPanel({
   const { person, conversation: c } = data;
   const [newLead, setNewLead] = useState(false);
   const [newTask, setNewTask] = useState(false);
+  const [booking, setBooking] = useState(false);
   const [completing, setCompleting] = useState<string | null>(null);
   const calls = useCalls();
   /** What this customer owes. Hooks run before the unknown-contact branch returns; a null id asks nothing. */
   const owed = useRecordMoney(workspaceId, 'person', data.person?.id ?? null);
+  const visits = useUpcomingVisits(workspaceId, data.person?.id ?? null);
 
   async function complete(taskId: string) {
     setCompleting(taskId);
@@ -263,23 +313,62 @@ export function ContextPanel({
         </Button>
       </section>
 
-      {extra}
-
-      <div className="h-px bg-border" />
-
-      <section className="flex flex-col gap-1">
-        <Label>Coming later</Label>
-        {['Appointments', 'AI summary of this customer'].map((label) => (
-          <div
-            key={label}
-            className="flex h-[26px] items-center justify-between text-[13px] text-text-3"
-          >
-            {label}
-            <Pill>Later</Pill>
-          </div>
-        ))}
+      <section className="flex flex-col gap-2">
+        <Label>Next visits</Label>
+        {visits.length === 0 ? (
+          <div className="text-[13px] text-text-3">Nothing booked.</div>
+        ) : (
+          <ul className="flex flex-col gap-2">
+            {visits.slice(0, 3).map((v) => (
+              <li key={v.id} className="flex items-start gap-2.5">
+                <span
+                  aria-hidden
+                  className="mt-[5px] h-2 w-2 flex-none rounded-full"
+                  style={{ backgroundColor: v.calendar.color }}
+                />
+                <div className="min-w-0">
+                  <div className="truncate text-[13px]">{v.service?.name ?? v.title}</div>
+                  <div className="text-xs text-text-3">
+                    {formatDate(v.startsAt, { time: true })}
+                    {v.staff.length
+                      ? ` · ${v.staff.map((p) => firstName(p.fullName)).join(', ')}`
+                      : ''}
+                  </div>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+        <Button
+          variant="ghost"
+          size="sm"
+          className="-ml-2.5 self-start"
+          onClick={() => setBooking(true)}
+          data-testid="context-book-visit"
+        >
+          <CalendarPlus className="h-3.5 w-3.5" strokeWidth={1.75} />
+          Book a visit
+        </Button>
       </section>
 
+      {extra}
+
+      <AppointmentDialog
+        workspaceId={workspaceId}
+        timeZone={data.timezone}
+        open={booking}
+        onOpenChange={setBooking}
+        people={members.map((m) => ({ userId: m.id, fullName: m.fullName }))}
+        myUserId={myUserId}
+        // Locked: this panel is about this customer, and a picker here would let somebody book a visit for
+        // the wrong person while reading someone else's conversation.
+        prefill={{ person: { id: person.id, fullName: person.fullName } }}
+        lockCustomer
+        onBooked={() => {
+          setBooking(false);
+          router.refresh();
+        }}
+      />
       <LeadDialog
         workspaceId={workspaceId}
         open={newLead}

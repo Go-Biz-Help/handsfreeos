@@ -110,6 +110,8 @@ describe('askStructured', () => {
     db: worker(),
     ai: { provider, dailyTokens },
     log,
+    // Shadow: the charge is written for real, and nothing here is about what it decides.
+    wallet: { db: worker(), log, mode: 'shadow' as const },
   });
   const failing = (error: AiProviderError): AiProvider => ({
     id: 'failing',

@@ -60,12 +60,14 @@ import { calendarConnectionCommands } from './calendar-connection';
 import { companyArchive } from './company.archive';
 import {
   conversationAssign,
+  conversationArchive,
   conversationClose,
   conversationLinkPerson,
   conversationMarkRead,
   conversationMarkUnread,
   conversationOpen,
   conversationReopen,
+  conversationRestore,
   conversationSnooze,
 } from './conversation';
 import {
@@ -86,10 +88,16 @@ import {
   phoneNumberMarkReleased,
   phoneNumberRelease,
   phoneNumberSetCallerId,
+  phoneNumberSetDefault,
+  phoneNumberSetLabel,
+  phoneNumberSetMembers,
   phoneNumberSetRouting,
   phoneUpdateSettings,
 } from './phone';
 import { registrationSubmit, registrationUpdateStatus } from './registration';
+import { brandedDomainCommands } from './branded-domain';
+import { inboxVisibilityCommands } from './inbox-visibility';
+import { portCommands } from './port';
 import {
   emailAddressCreate,
   emailAddressUpdate,
@@ -282,17 +290,20 @@ import { estimateCommands } from './estimate';
 import { invoiceCommands } from './invoice';
 import { paymentCommands } from './payment';
 import { subscriptionCommands } from './subscription';
+import { walletCommands } from './wallet';
 import { pushDeviceRegister, pushDeviceRemove } from './push-device';
 import { migrationCommands } from './migration';
 
 export {
   conversationAssign,
+  conversationArchive,
   conversationClose,
   conversationLinkPerson,
   conversationMarkRead,
   conversationMarkUnread,
   conversationOpen,
   conversationReopen,
+  conversationRestore,
   conversationSnooze,
   messageAttachMedia,
   messageCancelScheduled,
@@ -309,6 +320,9 @@ export {
   phoneNumberMarkReleased,
   phoneNumberRelease,
   phoneNumberSetCallerId,
+  phoneNumberSetDefault,
+  phoneNumberSetLabel,
+  phoneNumberSetMembers,
   phoneNumberSetRouting,
   phoneUpdateSettings,
   registrationSubmit,
@@ -500,6 +514,9 @@ export const commands: readonly CommandDef[] = [
   phoneNumberRelease,
   phoneNumberSetRouting,
   phoneNumberSetCallerId,
+  phoneNumberSetDefault,
+  phoneNumberSetLabel,
+  phoneNumberSetMembers,
   phoneUpdateSettings,
   phoneNumberActivate,
   phoneNumberFail,
@@ -511,8 +528,10 @@ export const commands: readonly CommandDef[] = [
   conversationMarkUnread,
   conversationAssign,
   conversationSnooze,
+  conversationArchive,
   conversationClose,
   conversationReopen,
+  conversationRestore,
   conversationLinkPerson,
   messageSend,
   messageRetry,
@@ -697,6 +716,7 @@ export const commands: readonly CommandDef[] = [
   ...invoiceCommands,
   ...paymentCommands,
   ...subscriptionCommands,
+  ...walletCommands,
   moneySaveSettings,
   pushDeviceRegister,
   pushDeviceRemove,
@@ -707,6 +727,9 @@ export const commands: readonly CommandDef[] = [
   ...templateCommands,
   ...reviewCommands,
   ...formResponseCommands,
+  ...portCommands,
+  ...inboxVisibilityCommands,
+  ...brandedDomainCommands,
 ] as unknown as readonly CommandDef[];
 export { callPreview } from './call';
 export { VERIFY_CALLS_PER_DAY, VERIFY_CALLS_PER_HOUR } from './user-phone';
@@ -740,8 +763,12 @@ export * from './estimate';
 export * from './invoice';
 export * from './payment';
 export * from './subscription';
+export * from './wallet';
 export * from './money-shared';
 export * from './push-device';
 export * from './migration';
 export * from './support';
 export * from './support-staff';
+export * from './port';
+export * from './inbox-visibility';
+export * from './branded-domain';

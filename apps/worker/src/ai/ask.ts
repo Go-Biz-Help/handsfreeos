@@ -6,12 +6,19 @@ import {
   type AiTurn,
   type AiUsage,
 } from '@hfos/ai';
-import { asWorker } from '@hfos/db/client';
 import type { z } from 'zod';
 import type { TenantScope, WorkerServices } from '../services';
-import { aiBudget, recordAiUsage, type AiUsageRef } from './budget';
+import { asWorker } from '@hfos/db/client';
+import { walletRoom, WALLET_REFUSALS } from '@hfos/core/server';
+import { aiBudget, recordAndChargeAi, type AiUsageRef } from './budget';
 
-export type AiAskErrorCode = 'budget_reached' | 'ai_unavailable' | 'provider_error' | 'bad_output';
+export type AiAskErrorCode =
+  | 'budget_reached'
+  /** The usage balance has run out. Beside `budget_reached`: same shape, different limit. */
+  | 'wallet_empty'
+  | 'ai_unavailable'
+  | 'provider_error'
+  | 'bad_output';
 
 /**
  * Why askStructured has no answer, in words callers act on: a workflow step falls back, Try it answers 429
@@ -65,7 +72,7 @@ export interface AskStructuredResult<T> {
  * (`retryable` or not) or `bad_output`.
  */
 export async function askStructured<S extends z.ZodType>(
-  ctx: Pick<WorkerServices, 'db' | 'ai' | 'log'>,
+  ctx: Pick<WorkerServices, 'db' | 'ai' | 'log' | 'wallet'>,
   scope: TenantScope,
   input: AskStructuredInput<S>,
 ): Promise<AskStructuredResult<z.output<S>>> {
@@ -73,6 +80,12 @@ export async function askStructured<S extends z.ZodType>(
   if (!provider) throw new AiAskError('ai_unavailable', AI_UNAVAILABLE_MESSAGE);
   if ((await aiBudget.usedToday(ctx.db, scope)) >= ctx.ai.dailyTokens)
     throw new AiAskError('budget_reached', AI_BUDGET_MESSAGE);
+  // Beside the daily token limit, and for the same reason: both are a business's spending running out, and
+  // both stop before the provider is asked rather than after the tokens are gone.
+  const room = await asWorker(ctx.db, scope, (tx) =>
+    walletRoom(tx, scope.workspaceId, 'ai', (m, e) => ctx.log.error({ err: e }, m)),
+  );
+  if (!room.allowed) throw new AiAskError('wallet_empty', WALLET_REFUSALS.ai);
   let turn: AiTurn;
   try {
     turn = await provider.stream(
@@ -100,9 +113,11 @@ export async function askStructured<S extends z.ZodType>(
     );
   }
   // The tokens were spent whether or not the answer is usable.
-  await asWorker(ctx.db, scope, (tx) =>
-    recordAiUsage(tx, { ...input.usage, model: provider.model, usage: turn.usage }),
-  );
+  await recordAndChargeAi(ctx, scope, {
+    ...input.usage,
+    model: provider.model,
+    usage: turn.usage,
+  });
   try {
     return { value: parseStructured(turn, input.zod), usage: turn.usage, model: provider.model };
   } catch (e) {

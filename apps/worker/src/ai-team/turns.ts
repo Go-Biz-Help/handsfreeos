@@ -6,7 +6,8 @@
  */
 import { quoteData, type AiTeammateGoal } from '@hfos/core/server';
 import { clockLabel, dayLabel } from '../assistant/calendar-format';
-import type { HistoryLine, RunContext } from './context';
+import type { RunContext } from './context';
+import { historyBlock } from './prompt';
 
 /** How a first message's turn ends. */
 export const FIRST_MESSAGE_ASK =
@@ -53,22 +54,6 @@ export function retryLines(r: Retry): string[] {
   ];
 }
 
-function speaker(h: HistoryLine, name: string): string {
-  if (h.who === 'customer') return 'Customer';
-  if (h.who === 'ai') return `You (${quoteData(name)})`;
-  if (h.who === 'person') return `${quoteData(h.name ?? 'Someone on the team')} (team)`;
-  return 'Automatic message';
-}
-
-function history(rc: RunContext): string[] {
-  const tz = rc.workspace.timeZone;
-  const lines = rc.history.map(
-    (h) =>
-      `[${dayLabel(h.at, tz)}, ${clockLabel(h.at, tz)}] ${speaker(h, rc.config.identity.name)}: ${quoteData(h.text)}`,
-  );
-  return ['<history>', ...(lines.length ? lines : ['(no earlier messages)']), '</history>'];
-}
-
 /** A first message: to a new lead, or to someone a workflow handed over. */
 export function firstMessageTurn(rc: RunContext, why: 'new_lead' | 'workflow'): string {
   const lead = rc.lead
@@ -79,7 +64,7 @@ export function firstMessageTurn(rc: RunContext, why: 'new_lead' | 'workflow'): 
       ]
     : [];
   return [
-    ...history(rc),
+    ...historyBlock(rc),
     why === 'new_lead'
       ? 'They just came in as a new lead, and nobody has written to them yet.'
       : 'The business asked you to write to them first.',
@@ -93,7 +78,7 @@ export function firstMessageTurn(rc: RunContext, why: 'new_lead' | 'workflow'): 
 export function nudgeTurn(rc: RunContext, n: number, max: number, lastAt: number): string {
   const tz = rc.workspace.timeZone;
   return [
-    ...history(rc),
+    ...historyBlock(rc),
     `The customer hasn’t answered your last message (${dayLabel(lastAt, tz)}, ${clockLabel(lastAt, tz)}). This is follow-up ${n} of ${max}: one or two sentences, and don’t repeat your last message word for word.`,
     NUDGE_ASK,
   ].join('\n');

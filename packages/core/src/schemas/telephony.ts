@@ -26,6 +26,8 @@ export const phoneRequired = z
 export const phoneNumberType = z.enum(['local', 'toll_free']);
 export const phoneNumberStatus = z.enum([
   'provisioning',
+  /** On its way to us from another carrier: claimed and visible, not yet able to send (M17). */
+  'porting',
   'active',
   'failed',
   'releasing',
@@ -121,6 +123,33 @@ export const PhoneNumberSetCallerIdOutput = z.object({
   phoneNumberId: uuid,
   forwardedCallerId: forwardedCallerId,
 });
+export const PhoneNumberSetDefaultInput = z.object({ workspaceId: uuid, phoneNumberId: uuid });
+export const PhoneNumberSetDefaultOutput = z.object({ phoneNumberId: uuid });
+export const PhoneNumberSetLabelInput = z.object({
+  workspaceId: uuid,
+  phoneNumberId: uuid,
+  /** What the team calls it — "Front desk", "Dispatch". Null clears it back to just the number. */
+  label: z.string().trim().min(1).max(40).nullable(),
+});
+export const PhoneNumberSetLabelOutput = z.object({ phoneNumberId: uuid });
+
+export const PhoneNumberSetMembersInput = z.object({
+  workspaceId: uuid,
+  phoneNumberId: uuid,
+  /**
+   * Everybody this number should ring, replacing whoever is on it now — the set form, because the screen is
+   * a list of checkboxes and "here is the list" cannot race with itself the way add-and-remove can.
+   * **Empty means everybody with the inbox**, which is how a number works before anyone touches this.
+   */
+  userIds: z.array(uuid).max(100),
+});
+export const PhoneNumberSetMembersOutput = z.object({
+  phoneNumberId: uuid,
+  userIds: z.array(uuid),
+  /** True when nobody is chosen, so the screen can say "everyone" rather than showing an empty list. */
+  ringsEveryone: z.boolean(),
+});
+
 export const PhoneUpdateSettingsInput = z.object({
   workspaceId: uuid,
   quietHours: QuietHoursSetting.optional(),
@@ -230,6 +259,8 @@ export const RegistrationUpdateStatusOutput = z.object({
 export const phoneNextStep = z.enum([
   'buy_number',
   'provisioning',
+  /** Waiting on the losing carrier. Like `provisioning`, but measured in weeks rather than seconds. */
+  'porting',
   'releasing',
   'submit_registration',
   'awaiting_approval',
@@ -244,6 +275,10 @@ export const PhoneNumberOut = z.object({
   numberType: phoneNumberType,
   status: phoneNumberStatus,
   label: z.string().nullable(),
+  /** The one new conversations go out from. Exactly one live number per business has it (M17). */
+  isDefault: z.boolean(),
+  /** Whose browsers this number rings. **Empty means everyone with the inbox**, not nobody. */
+  memberUserIds: z.array(uuid),
   routing: PhoneRoutingOut,
   purchasedAt: isoDateTime.nullable(),
   lastError: z.string().nullable(),
@@ -265,7 +300,13 @@ export const QuietState = z.object({
 });
 export const PhoneSetupStatusInput = z.object({ workspaceId: uuid });
 export const PhoneSetupStatusOutput = z.object({
+  /**
+   * The number the setup wizard is about — the default, or the newest one still being set up. Kept as it
+   * was so nothing reading it had to change when a business could have several (M17).
+   */
   number: PhoneNumberOut.nullable(),
+  /** Every number that is not released, default first. Additive: `number` is still the one above. */
+  numbers: z.array(PhoneNumberOut),
   accountStatus: z.string().nullable(),
   registrations: z.array(RegistrationOut),
   messagingReady: z.boolean(),

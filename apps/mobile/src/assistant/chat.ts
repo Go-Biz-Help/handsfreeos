@@ -76,7 +76,17 @@ export interface CallState {
 }
 
 /** missing: the worker has no model to answer with, or this build doesn't know where the worker is. */
-export type Setup = 'unknown' | 'ready' | 'missing';
+/**
+ * `missing` is the worker having no model; `not-in-build` is this copy of the app having no worker address at all
+ * (`EXPO_PUBLIC_WORKER_URL`). Both stop the Assistant, but only one of them is something setting the Assistant up
+ * would fix, so they say different things.
+ */
+export type Setup = 'unknown' | 'ready' | 'missing' | 'not-in-build';
+
+/** Whether the Assistant is off, whichever of the two reasons it is. */
+export function setupIsOff(setup: Setup): boolean {
+  return setup === 'missing' || setup === 'not-in-build';
+}
 
 export function upsertStep(steps: readonly Step[], step: Step): Step[] {
   return steps.some((s) => s.id === step.id)
@@ -171,7 +181,9 @@ export function useAssistantChat(
   const [threadId, setThreadId] = React.useState<string | null>(null);
   const [running, setRunning] = React.useState(false);
   const [loading, setLoading] = React.useState(false);
-  const [setup, setSetup] = React.useState<Setup>(assistantConfigured() ? 'unknown' : 'missing');
+  const [setup, setSetup] = React.useState<Setup>(
+    assistantConfigured() ? 'unknown' : 'not-in-build',
+  );
   const [paused, setPaused] = React.useState(false);
   const [consentNeeded, setConsentNeeded] = React.useState<boolean | null>(() => {
     const known = rememberedConsent(userId);

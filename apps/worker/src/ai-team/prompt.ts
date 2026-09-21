@@ -234,20 +234,95 @@ function speaker(h: HistoryLine, name: string): string {
   }
 }
 
+/** "24 seconds", "3 minutes 12 seconds": spelt out, so a model can't read 3:12 as a time of day. */
+function callLength(seconds: number | null): string | null {
+  const s = Math.max(0, Math.round(seconds ?? 0));
+  if (!s) return null;
+  const m = Math.floor(s / 60);
+  const rest = s % 60;
+  if (!m) return plainCount(rest, 'second');
+  return rest
+    ? `${plainCount(m, 'minute')} ${plainCount(rest, 'second')}`
+    : plainCount(m, 'minute');
+}
+
+const plainCount = (n: number, unit: string): string => `${n} ${unit}${n === 1 ? '' : 's'}`;
+
+/** Who rang, for a call line: a call is an event, not a turn of typing, so it doesn't read as "Customer: …". */
+function caller(h: HistoryLine): string {
+  if (h.who === 'customer') return 'The customer';
+  if (h.who === 'person') return `${quoteData(h.name ?? 'Someone on the team')} (team)`;
+  return 'The business';
+}
+
+/**
+ * A call in the history. It says what happened, then the words, then — when there are none — which of the
+ * several reasons it is. "There are no words" and "nobody has transcribed it yet" look the same to a model
+ * otherwise, and it would guess.
+ */
+function callLine(h: HistoryLine, call: NonNullable<HistoryLine['call']>): string {
+  const inbound = h.who === 'customer';
+  const length = callLength(call.seconds);
+  const what =
+    call.kind === 'voicemail'
+      ? `${inbound ? 'called and left a voicemail' : 'left a voicemail'}${length ? ` (${length})` : ''}`
+      : call.kind === 'missed'
+        ? inbound
+          ? 'called and nobody answered'
+          : 'called them and they didn’t answer'
+        : `${inbound ? 'called and someone on the team talked to them' : 'called them and they talked'}${
+            length ? ` for ${length}` : ''
+          }`;
+  const head = `${caller(h)} ${what}.`;
+  if (call.words === 'here')
+    return [
+      head,
+      call.kind === 'voicemail' ? 'What they said:' : 'What was said on it:',
+      // Quoted the way callPreview quotes a voicemail, so the model can see where the words stop and the
+      // note after them starts. The escaping is what keeps them data; the quotes are what make them legible.
+      `“${quoteData(h.text)}”`,
+      call.more
+        ? `(That is the start of it. read_call_transcript with callId ${call.id} has the whole thing.)`
+        : '',
+    ]
+      .filter(Boolean)
+      .join(' ');
+  if (call.words === 'coming')
+    return `${head} What was said on it isn’t written out yet, so you don’t know it. Don’t guess at it.`;
+  return call.kind === 'missed'
+    ? head
+    : `${head} Nothing was written out from it, so you don’t know what was said. Don’t guess at it.`;
+}
+
+/** All `historyBlock` reads of a run, so a test can render a history without building a whole context. */
+export interface HistoryView {
+  readonly history: readonly HistoryLine[];
+  readonly workspace: { readonly timeZone: string };
+  readonly config: { readonly identity: { readonly name: string } };
+}
+
+/** One line of the history: a message as who said it and what, a call as what happened on it. */
+function historyLine(h: HistoryLine, rc: HistoryView): string {
+  const tz = rc.workspace.timeZone;
+  const at = `[${dayLabel(h.at, tz)}, ${clockLabel(h.at, tz)}]`;
+  return h.call
+    ? `${at} ${callLine(h, h.call)}`
+    : `${at} ${speaker(h, rc.config.identity.name)}: ${quoteData(h.text)}`;
+}
+
+/** The conversation so far, calls and messages in the order they happened. */
+export function historyBlock(rc: HistoryView): string[] {
+  const lines = rc.history.map((h) => historyLine(h, rc));
+  return ['<history>', ...(lines.length ? lines : ['(nothing earlier)']), '</history>'];
+}
+
 /** The one message the model answers: the history, then the customer's new messages. */
 export function conversationTurn(rc: RunContext): string {
-  const tz = rc.workspace.timeZone;
-  const history = rc.history.map(
-    (h) =>
-      `[${dayLabel(h.at, tz)}, ${clockLabel(h.at, tz)}] ${speaker(h, rc.config.identity.name)}: ${quoteData(h.text)}`,
-  );
   const fresh = rc.batch.map((b) =>
     quoteData(b.channel === 'email' && b.subject ? `Subject: ${b.subject}\n${b.text}` : b.text),
   );
   return [
-    '<history>',
-    ...(history.length ? history : ['(no earlier messages)']),
-    '</history>',
+    ...historyBlock(rc),
     'The customer’s new messages, oldest first:',
     '<customer_message>',
     fresh.join('\n\n'),

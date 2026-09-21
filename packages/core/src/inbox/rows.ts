@@ -310,6 +310,7 @@ export interface CallThreadRow {
   readonly is_voicemail: number | boolean | null;
   readonly recording_seconds: number | null;
   readonly transcript: Text;
+  readonly transcript_status?: Text;
 }
 
 /** A stored photo or file on a message. */
@@ -329,6 +330,7 @@ export interface ThreadItemShape extends ThreadItemFacts {
   readonly hasRecording: boolean;
   readonly recordingSeconds: number | null;
   readonly transcript: string | null;
+  readonly transcriptStatus: 'pending' | 'completed' | 'failed' | null;
   readonly toAddresses: readonly string[];
   readonly ccAddresses: readonly string[];
   /** The phone's copy doesn't hold received emails' HTML; the plain text shows instead. */
@@ -383,6 +385,7 @@ export function messageItemOf(r: MessageThreadRow): ThreadItemShape {
     recordingSeconds: null,
     answeredVia: null,
     transcript: null,
+    transcriptStatus: null,
     answeredBy: null,
     bodyHtml: null,
     toAddresses: json<string[]>(r.to_addresses, []),
@@ -432,6 +435,12 @@ export function callItemOf(r: CallThreadRow): ThreadItemShape {
     recordingSeconds: r.recording_seconds,
     answeredVia: via === 'browser' || via === 'forwarding' || via === 'bridge' ? via : null,
     transcript: r.transcript,
+    transcriptStatus:
+      r.transcript_status === 'pending' ||
+      r.transcript_status === 'completed' ||
+      r.transcript_status === 'failed'
+        ? r.transcript_status
+        : null,
     answeredBy: userRef(r.answered_by_user_id, r.answered_name),
     bodyHtml: null,
     toAddresses: [],

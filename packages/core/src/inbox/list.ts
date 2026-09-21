@@ -6,13 +6,15 @@
 import { minutesWaiting, waitingFor, zonedWhen } from './time';
 
 /** Every inbox box, the teammate's two included. */
-export type InboxBoxKey = 'mine' | 'unassigned' | 'all' | 'needs_person' | 'ai';
+export type InboxBoxKey = 'mine' | 'unassigned' | 'all' | 'needs_person' | 'ai' | 'archived';
 export const INBOX_BOXES: readonly InboxBoxKey[] = [
   'mine',
   'unassigned',
   'all',
   'needs_person',
   'ai',
+  /** Put away. The only box that shows archived conversations; every other one hides them. */
+  'archived',
 ];
 
 export type ConversationStatus = 'open' | 'snoozed' | 'closed';
@@ -24,9 +26,20 @@ export const STATUS_LABELS: Readonly<Record<ConversationStatus, string>> = {
   closed: 'Closed',
 };
 
-/** "Mine · 3". */
-export function boxLabel(box: 'mine' | 'unassigned' | 'all', count: number): string {
-  const name = box === 'mine' ? 'Mine' : box === 'unassigned' ? 'Unassigned' : 'All';
+/**
+ * "Mine · 3".
+ *
+ * `narrowed` is a business that has said each person sees their own threads (M17). Then "All" is a promise
+ * the box cannot keep — it holds what *this person* may see — so it reads "Everyone", which is true of the
+ * people rather than of the threads, and is what a member pressing it is actually asking for.
+ */
+export function boxLabel(
+  box: 'mine' | 'unassigned' | 'all',
+  count: number,
+  narrowed = false,
+): string {
+  const name =
+    box === 'mine' ? 'Mine' : box === 'unassigned' ? 'Unassigned' : narrowed ? 'Everyone' : 'All';
   return `${name} · ${count}`;
 }
 
@@ -166,6 +179,11 @@ export function inboxEmptyWords(
     return {
       title: `${name} isn’t handling anything right now`,
       body: `Conversations ${name} answers show here, until someone takes one over.`,
+    };
+  if (box === 'archived')
+    return {
+      title: 'Nothing archived',
+      body: 'Conversations you put away land here, and can be brought back any time.',
     };
   if (status === 'snoozed')
     return { title: 'Nothing snoozed', body: 'Conversations you snooze or close show up here.' };

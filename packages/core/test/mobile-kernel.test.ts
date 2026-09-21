@@ -271,6 +271,10 @@ describe('offline classes', () => {
     'task.complete': 'anytime',
     'task.reopen': 'anytime',
     'task.delete': 'anytime',
+    // A form filled in on a job (M17): made and sent in one go, with an id the phone gave it, so the queue
+    // retrying it is the same answer sheet rather than a second one. The visitor's own two-step
+    // (form_response.start, then .submit) stays online, because it needs the key the server hands back.
+    'form_response.record': 'anytime',
     // Notes, tags and photos.
     'activity.log': 'anytime',
     'record.add_tag': 'anytime',
@@ -309,6 +313,11 @@ describe('offline classes', () => {
     'appointment.update': 'anytime',
     'appointment.set_status': 'anytime',
     'attendee.confirm': 'anytime',
+    // Putting a conversation away and bringing it back: nothing reaches a customer either way, and doing it
+    // twice is doing it once. The phone's screen and sync rules come with the M16 mobile work; the class is
+    // declared here because the kernel's answer does not depend on a screen existing yet.
+    'conversation.archive': 'anytime',
+    'conversation.restore': 'anytime',
     // Money: cash is recorded any time; sending a document or a link reaches the customer.
     'invoice.record_cash_payment': 'anytime',
     'invoice.send': FRESH,
@@ -365,6 +374,25 @@ describe('offline classes', () => {
     // Recording cash already in hand is the only money a phone writes on its own.
     expect(registry.command('payment.refund')!.offline).toBe('online');
     expect(registry.command('subscription.cancel')!.offline).toBe('online');
+  });
+
+  /**
+   * A staff permission is checked against the staff role, and only a PLATFORM scope ever resolves one — so a
+   * command or query asking for `platform.*` or `support.*` from inside a workspace can never pass, whoever
+   * calls it. `wallet.adjust` shipped that way and was unreachable by anybody until this rule was written.
+   */
+  it('gives every staff permission a platform scope, or it is unreachable', () => {
+    const staffy = (permission: string | null) =>
+      permission !== null && /^(platform|support)\./.test(permission);
+    const wrong: string[] = [];
+    for (const d of [...registry.commands, ...registry.queries]) {
+      if (!staffy(d.permission)) continue;
+      // The scope function is called with a shape wide enough for either kind, and only its `kind` matters.
+      const anyId = '11111111-1111-4111-8111-111111111111';
+      const kind = d.scope({ workspaceId: anyId, organizationId: anyId } as never).kind;
+      if (kind !== 'platform') wrong.push(`${d.name} (${d.permission} in a ${kind} scope)`);
+    }
+    expect(wrong).toEqual([]);
   });
 
   it('has a valid class on every command', () => {

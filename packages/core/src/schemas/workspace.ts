@@ -136,6 +136,15 @@ export type WorkspaceSummary = z.infer<typeof WorkspaceSummary>;
 
 export const WorkspaceGetInput = z.object({ workspaceId: uuid });
 export const WorkspaceGetOutput = z.object({
-  workspace: WorkspaceSummary.extend({ settings: settings, createdAt: isoDateTime }),
+  workspace: WorkspaceSummary.extend({
+    settings: settings,
+    /**
+     * Whether each person sees only their own threads here (M17). It is inside `settings` as well; it is
+     * pulled out because two screens branch on it and a screen digging a boolean out of a free-form document
+     * is how the wrong key gets read.
+     */
+    inboxPerPerson: z.boolean(),
+    createdAt: isoDateTime,
+  }),
   counts: z.object({ members: z.number().int(), pendingInvitations: z.number().int() }),
 });

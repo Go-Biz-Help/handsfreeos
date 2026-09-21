@@ -32,6 +32,8 @@ import { ensureRecurringJobs, jobs } from './scheduled';
 import { createSupabaseStore, unconfiguredStore } from './storage';
 import { ensurePlatformOwners } from './support/owners';
 import { createTelephony } from './telephony/index';
+import { createSiteHost } from './hosting';
+import { createTranscriber } from './telephony/transcriber';
 import { createWorkflowAi } from './workflows/ai-runner';
 import type { EngineServices } from './workflows/types';
 
@@ -48,6 +50,10 @@ const handle = createDb(env.databaseUrl, { max: 4, applicationName: 'hfos-worker
 const httpHandle = createDb(env.databaseUrl, { max: 6, applicationName: 'hfos-worker-http' });
 // Workflow AI steps, the AI builder and the knowledge base: the Assistant's model and daily limit.
 const ai = createAi(env);
+const telephony = createTelephony(env, log);
+// The usage wallet (M16). `off` until somebody turns it on: a repo that starts charging the day it deploys
+// would be a nasty surprise, and every step of the rollout is a decision.
+const wallet = { db: handle.db, log, mode: env.walletMode };
 const services: EngineServices = {
   db: handle.db,
   mailer: createSmtpMailer(env.smtpUrl, env.mailFrom),
@@ -58,10 +64,14 @@ const services: EngineServices = {
   log,
   webUrl: env.webUrl,
   publicUrl: env.publicUrl,
-  telephony: createTelephony(env, log),
+  telephony,
+  transcriber: createTranscriber(env, log, telephony),
+  siteHost: createSiteHost(env),
+  wallet,
   sealer: createSealer(env.encryptionKey, env.encryptionKeysPrevious),
   reminderOverrideMs: env.reminderOverrideMs,
   registrationPollMs: env.registrationPollMs,
+  portPollMs: env.portPollMs,
   email: createEmail(env, log),
   mailboxes: createMailboxes(env),
   calendars: createCalendars(env),
@@ -89,7 +99,7 @@ const services: EngineServices = {
     ? { authAdmin: createAuthAdmin(env.supabaseUrl, env.supabaseSecretKey) }
     : {}),
   // Workflow AI steps and AI-sorted branches answer from that model, grounded in the knowledge base.
-  workflowAi: createWorkflowAi({ db: handle.db, ai, log }),
+  workflowAi: createWorkflowAi({ db: handle.db, ai, log, wallet }),
   // HandsFreeOS's own support desk (M13): where its mail arrives, and who it goes out as.
   support: {
     mailDomain: env.supportMailDomain,
@@ -151,7 +161,12 @@ const app = await buildHttpServer({
   assistant: model
     ? {
         provider: model,
-        tools: createToolExecutor(httpHandle.db, { ai, log }, { ai, log }),
+        tools: createToolExecutor(
+          httpHandle.db,
+          { ai, log, wallet },
+          { ai, log, wallet },
+          env.webUrl,
+        ),
         dailyTokens: env.assistantDailyTokens,
       }
     : null,

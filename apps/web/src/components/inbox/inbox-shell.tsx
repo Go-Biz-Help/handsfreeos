@@ -68,6 +68,7 @@ export function InboxShell({
   role,
   members,
   timezone,
+  narrowed,
   children,
 }: {
   workspaceId: string;
@@ -75,6 +76,8 @@ export function InboxShell({
   role: Role;
   members: { id: string; fullName: string }[];
   timezone: string;
+  /** The business says each person sees their own threads (M17). Changes two words and one default. */
+  narrowed: boolean;
   children: ReactNode;
 }) {
   const pathname = usePathname();
@@ -86,18 +89,30 @@ export function InboxShell({
     : null;
   const boxParam = params.get('box') ?? '';
   const statusParam = params.get('status') ?? '';
+  // Where a person lands with nothing in the address bar. A member of a business that has narrowed its inbox
+  // lands on their own threads, because that is what they came for; everybody else lands where they always
+  // have. Nothing is hidden either way — pressing Everyone still shows them what they may see.
+  const home: InboxBoxKey = narrowed && role === 'member' ? 'mine' : 'all';
   const box: InboxBoxKey = (INBOX_BOXES as readonly string[]).includes(boxParam)
     ? (boxParam as InboxBoxKey)
-    : 'all';
+    : home;
   const status: ConversationStatus = (CONVERSATION_STATUSES as readonly string[]).includes(
     statusParam,
   )
     ? (statusParam as ConversationStatus)
     : 'open';
   const q = params.get('q') ?? '';
+  // Archived is chosen where the statuses are, because that is where somebody looks for a thread they put away —
+  // but it is a box, not a status: an archived conversation keeps the status it had.
+  const archivedView = statusParam === 'archived';
   const [search, setSearch] = useState(q);
   const [newOpen, setNewOpen] = useState(false);
-  const list = useInboxList(workspaceId, { box, status, ...(q ? { q } : {}) });
+  // `status` still goes with it: the archived box ignores it server-side, since a thread keeps the status it had.
+  const list = useInboxList(workspaceId, {
+    box: archivedView ? ('archived' as InboxBoxKey) : box,
+    status,
+    ...(q ? { q } : {}),
+  });
   const { summary } = useUnread();
   const counts = summary?.open ?? { mine: 0, unassigned: 0, all: 0 };
   const waitThreshold = summary?.waitingThresholdMinutes ?? 10;
@@ -111,11 +126,12 @@ export function InboxShell({
   const listQuery = useMemo(() => {
     const p = new URLSearchParams();
     if (box !== 'all') p.set('box', box);
-    if (status !== 'open') p.set('status', status);
+    if (archivedView) p.set('status', 'archived');
+    else if (status !== 'open') p.set('status', status);
     if (q) p.set('q', q);
     const s = p.toString();
     return s ? `?${s}` : '';
-  }, [box, status, q]);
+  }, [box, status, q, archivedView]);
 
   const setFilter = useCallback(
     (change: Record<string, string | null>) => {
@@ -164,7 +180,12 @@ export function InboxShell({
     }),
     [workspaceId, myUserId, role, members, timezone, list.reload, list.patch, listQuery, teammate],
   );
-  const empty = inboxEmptyWords(box, status, q, teammate?.name ?? 'The AI teammate');
+  const empty = inboxEmptyWords(
+    archivedView ? 'archived' : box,
+    status,
+    q,
+    teammate?.name ?? 'The AI teammate',
+  );
 
   return (
     <InboxContext.Provider value={value}>
@@ -197,7 +218,7 @@ export function InboxShell({
               ariaLabel="Whose conversations"
               className="max-md:[&>button]:h-9"
               value={box}
-              onChange={(v) => setFilter({ box: v === 'all' ? null : v })}
+              onChange={(v) => setFilter({ box: v === home ? null : v })}
               options={[
                 { value: 'mine', label: boxLabel('mine', counts.mine), testId: 'box-mine' },
                 {
@@ -205,7 +226,11 @@ export function InboxShell({
                   label: boxLabel('unassigned', counts.unassigned),
                   testId: 'box-unassigned',
                 },
-                { value: 'all', label: boxLabel('all', counts.all), testId: 'box-all' },
+                {
+                  value: 'all',
+                  label: boxLabel('all', counts.all, narrowed),
+                  testId: 'box-all',
+                },
               ]}
             />
             {showBoxes ? (
@@ -214,7 +239,7 @@ export function InboxShell({
                 name={teammate?.name ?? null}
                 needsPerson={needsPerson}
                 ai={aiCount}
-                onPick={(b) => setFilter({ box: b === 'all' ? null : b })}
+                onPick={(b) => setFilter({ box: b === home ? null : b })}
               />
             ) : null}
             <div className="hidden gap-2 md:flex">
@@ -236,7 +261,7 @@ export function InboxShell({
               <Select
                 selectSize="sm"
                 className="w-[112px]"
-                value={status}
+                value={archivedView ? 'archived' : status}
                 aria-label="Status"
                 data-testid="inbox-status"
                 onChange={(e) =>
@@ -248,6 +273,7 @@ export function InboxShell({
                     {STATUS_LABELS[s]}
                   </option>
                 ))}
+                <option value="archived">Archived</option>
               </Select>
             </div>
             {q ? (

@@ -26,6 +26,9 @@ const NOUNS: Readonly<Record<AttentionKind, readonly [string, string]>> = {
   overdue_task: ['task', 'tasks'],
   estimate_waiting: ['estimate', 'estimates'],
   invoice_overdue: ['invoice', 'invoices'],
+  wallet_low: ['balance', 'balances'],
+  wallet_empty: ['balance', 'balances'],
+  wallet_card_declined: ['card', 'cards'],
 };
 
 /** The kinds about a lead: assigning one makes that person the lead's owner. */
@@ -529,6 +532,13 @@ export function handleButtonOf(
         label: item.kind === 'invoice_overdue' ? 'Open the invoice' : 'Open the estimate',
         icon: item.kind === 'invoice_overdue' ? 'receipt' : 'file-text',
       };
+    // The wallet's three go to the usage page. Nothing reaches a customer, so none of the channel reasoning
+    // above applies — the whole card is about the business's own balance.
+    case 'wallet_low':
+    case 'wallet_empty':
+      return { label: 'Top up', icon: 'receipt' };
+    case 'wallet_card_declined':
+      return { label: 'Fix the card', icon: 'receipt' };
   }
 }
 
