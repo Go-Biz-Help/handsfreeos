@@ -423,9 +423,22 @@ export async function findOrCreateConversation(
       .select()
       .from(conversations)
       .where(and(sameCustomer, lineId ? eq(column, lineId) : isNull(column)));
-  const [existing] = await find();
-  if (existing) return { conversation: existing, created: false };
-  if (lineId) {
+  if (!lineId) {
+    // **No line named means "wherever this customer already is", never "the line-less lane".**
+    //
+    // Not everything that files a message knows which of the business's ends it came in on: mail whose `To`
+    // is an address this business does not own, an import, a caller that only has a person. Reading that as
+    // the line-less lane looks right until the thread has since been stamped with a line — the first reply
+    // out of it does that — and then the next one of these opens a *second* thread beside it, and a customer
+    // whose "stop emailing me" lands somewhere nobody is reading is the mildest way that goes wrong.
+    //
+    // So it falls back to the same rule `preferredLane` uses. Only a customer with no thread at all starts
+    // one, line-less, which is where the paragraph above came in.
+    const anyLane = await latestConversation(ctx.tx, workspaceId, input.channel, input.counterpart);
+    if (anyLane) return { conversation: anyLane, created: false };
+  } else {
+    const [exact] = await find();
+    if (exact) return { conversation: exact, created: false };
     const [lineless] = await ctx.tx
       .select()
       .from(conversations)

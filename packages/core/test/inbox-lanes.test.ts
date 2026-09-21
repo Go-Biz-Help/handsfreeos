@@ -34,6 +34,7 @@ import {
   conversationLinkPerson,
   inboxList,
   intakeSourceUpdate,
+  emailReceive,
   messageReceive,
   organizationCreate,
   personCreate,
@@ -224,6 +225,61 @@ describe('a thread belongs to the line it came in on', () => {
     expect(
       (await run(conversationCloseAll, { workspaceId: wsId, conversationId: front }, owner)).closed,
     ).toBe(0);
+  });
+});
+
+/**
+ * The defect CI found on 5c98fe1, kept as a test.
+ *
+ * Not everything that files a message knows the line it arrived on. Mail with no address id used to be read
+ * as "the line-less lane", which matches a fresh thread and stops matching the moment the first reply out of
+ * it stamps an address on. The customer's next message then opened a second thread beside the first — and in
+ * the case that found it, the second message was "please stop emailing me", filed where nobody was reading.
+ */
+describe('a message that names no line', () => {
+  const quiet = 'quiet.customer@example.com';
+
+  it('joins the thread the customer already has, even after a reply gave it an address', async () => {
+    const first = await sys(emailReceive, {
+      workspaceId: wsId,
+      provider: 'fake',
+      providerMessageId: randomUUID(),
+      messageIdHeader: `<${randomUUID()}@example.com>`,
+      from: { address: quiet },
+      to: [{ address: 'hello@business.example.com' }],
+      subject: 'Hours',
+      bodyText: 'What time do you open?',
+    });
+    expect(first.conversationId).not.toBeNull();
+    // What a reply out of the thread does: the send stamps the address it went from onto the conversation.
+    // The business's shared address is made on demand, so this asks for it rather than assuming one is there.
+    const [address] = await rows<{ id: string }>(
+      admin(),
+      sql`select private.ensure_default_email_address(${wsId}) as id`,
+    );
+    expect(address?.id).toBeTruthy();
+    await rows(
+      admin(),
+      sql`update app.conversations set email_address_id = ${address!.id} where id = ${first.conversationId}`,
+    );
+    // The next one still names no line, and must land in the same thread rather than opening a second.
+    const second = await sys(emailReceive, {
+      workspaceId: wsId,
+      provider: 'fake',
+      providerMessageId: randomUUID(),
+      messageIdHeader: `<${randomUUID()}@example.com>`,
+      from: { address: quiet },
+      to: [{ address: 'hello@business.example.com' }],
+      subject: 'Re: Hours',
+      bodyText: 'Please stop emailing me.',
+    });
+    expect(second.conversationId).toBe(first.conversationId);
+    const threads = await rows<{ id: string }>(
+      admin(),
+      sql`select id from app.conversations
+          where workspace_id = ${wsId} and channel = 'email' and counterpart = ${quiet}`,
+    );
+    expect(threads).toHaveLength(1);
   });
 });
 
