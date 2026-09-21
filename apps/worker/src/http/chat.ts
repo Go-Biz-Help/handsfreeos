@@ -386,6 +386,12 @@ export async function registerChatRoutes(app: FastifyInstance, deps: HttpDeps): 
           );
           const timeZone = ws?.timezone || 'UTC';
           const openHours = openHoursOf(ws?.settings as Record<string, unknown> | null);
+          // `text` carries the same words as `detail`: a widget already embedded on a customer's site
+          // reads only `text`, and it keeps working until its cached copy of the snippet catches up.
+          const consentWords = chatSmsConsent(
+            ws?.name ?? '',
+            ws?.site_slug ? consentPolicyPath(ws.site_slug) : null,
+          );
           const teammate = await answeringTeammate(tx, widget);
           const now = Date.now();
           const aiAnswering =
@@ -405,16 +411,7 @@ export async function registerChatRoutes(app: FastifyInstance, deps: HttpDeps): 
               position: widget.position === 'left' ? 'left' : 'right',
             },
             askFor: chatAskForOf(widget.askFor),
-            smsConsent: widget.smsConsent
-              ? {
-                  ...chatSmsConsent(
-                    ws?.name ?? '',
-                    ws?.site_slug ? consentPolicyPath(ws.site_slug) : null,
-                  ),
-                  /** Kept as `text` too: an older embedded widget reads only this. */
-                  text: chatSmsConsent(ws?.name ?? '', null).detail,
-                }
-              : null,
+            smsConsent: widget.smsConsent ? { ...consentWords, text: consentWords.detail } : null,
             humanCheck: botCheck.enabled ? { siteKey: botCheck.siteKey } : null,
             paused: widget.pausedAt !== null,
             maxMessageLength: CHAT_MESSAGE_MAX,

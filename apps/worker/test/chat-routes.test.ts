@@ -88,8 +88,10 @@ describe('the widget’s settings', () => {
       askFor: { name: 'when_needed', phone: 'when_needed', email: 'when_needed' },
       // The widget says the same six things the public form and the booking page say, and names the
       // business while doing it: a visitor who agreed to hear from nobody in particular agreed to nothing.
+      // The path is spelled out rather than built with core's helper, so that changing where policies live
+      // fails here instead of agreeing with itself.
       smsConsent: {
-        ...chatSmsConsent('chat-routes Booking HVAC', null),
+        ...chatSmsConsent('chat-routes Booking HVAC', `/legal/${w.site}/privacy`),
         text: chatSmsConsent('chat-routes Booking HVAC', null).detail,
       },
       humanCheck: null,
