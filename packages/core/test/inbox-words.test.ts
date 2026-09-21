@@ -7,7 +7,6 @@ import {
   approvedToast,
   boxLabel,
   callCardWords,
-  callLogWords,
   canTextOf,
   closedBanner,
   composerPlaceholder,
@@ -51,7 +50,6 @@ import {
   THREAD_WORDS,
   waitingFor,
   zonedWhen,
-  type CallLogRowFacts,
   type DraftFacts,
   type RowFacts,
   type ThreadItemFacts,
@@ -377,83 +375,6 @@ describe('a thread', () => {
     expect(vm({ hasRecording: false, transcript: null, transcriptStatus: 'completed' })).toBe(
       THREAD_WORDS.noRecording,
     );
-  });
-});
-
-/**
- * The call log, which the web and the phone both draw from these words. It exists because a call in the thread it
- * belongs to is no use to somebody who has just missed one: they go looking for the call, not the conversation.
- */
-describe('the call log', () => {
-  const row = (over: Partial<CallLogRowFacts> = {}): CallLogRowFacts => ({
-    direction: 'inbound',
-    isVoicemail: false,
-    answeredVia: null,
-    answeredByName: null,
-    hasRecording: false,
-    transcript: null,
-    transcriptStatus: null,
-    durationSeconds: null,
-    ...over,
-  });
-
-  it('words each kind of call', () => {
-    expect(callLogWords(row({ isVoicemail: true, hasRecording: true }))).toMatchObject({
-      title: 'Voicemail',
-      detail: 'they left a message',
-      icon: 'voicemail',
-      tone: 'warning',
-      openable: true,
-    });
-    expect(callLogWords(row())).toMatchObject({
-      title: 'Missed call',
-      icon: 'missed',
-      tone: 'warning',
-      openable: false,
-    });
-    expect(
-      callLogWords(
-        row({ answeredVia: 'browser', answeredByName: 'Dale Porter', durationSeconds: 134 }),
-      ),
-    ).toMatchObject({ title: 'Incoming call', detail: 'Dale Porter answered', length: '2:14' });
-    expect(callLogWords(row({ answeredVia: 'forwarding' }))).toMatchObject({
-      detail: 'answered on a forwarding phone',
-    });
-    expect(
-      callLogWords(row({ direction: 'outbound', answeredVia: 'bridge', hasRecording: true })),
-    ).toMatchObject({
-      title: 'Outgoing call',
-      detail: 'from their cell, showing the business number',
-      icon: 'outgoing',
-      openable: true,
-    });
-  });
-
-  it('opens a voicemail that has words but no audio, and says why it can’t be played', () => {
-    expect(
-      callLogWords(
-        row({
-          isVoicemail: true,
-          hasRecording: false,
-          transcript: 'Hi, it’s Mike. Call me back.',
-          transcriptStatus: 'completed',
-        }),
-      ),
-    ).toMatchObject({ openable: true, note: THREAD_WORDS.wordsOnly });
-  });
-
-  it('opens a voicemail with neither, rather than showing an empty row', () => {
-    expect(callLogWords(row({ isVoicemail: true }))).toMatchObject({
-      openable: true,
-      note: THREAD_WORDS.transcribing,
-    });
-  });
-
-  it('promises nothing for a plain call, so it does not open', () => {
-    expect(callLogWords(row({ answeredVia: 'browser' }))).toMatchObject({
-      openable: false,
-      note: null,
-    });
   });
 });
 
