@@ -6136,6 +6136,8 @@ Leave `ASSISTANT_PROVIDER` unset. The worker uses `anthropic` when the key is se
 
 Each person in a workspace can connect their own Google or Outlook calendar in **Settings** → **My calendar**. HandsFreeOS then reads when they are busy, so nobody books them over it, and adds their HandsFreeOS appointments to that calendar as events, so the appointments show on their phone too. It reads only busy times, never what the events are, and it never shows or edits their other events. This section also covers the public booking pages, where customers book online, and the optional bot check that protects them.
 
+If you only want the steps, `docs/calendar-setup.md` is the same setup as a straight checklist, without the reasoning, the review process or the failure modes below.
+
 How a sign-in travels: it is the same trip as a connected mailbox's. The **Google** or **Outlook** button in **Settings** → **My calendar** sends the browser to the worker at `https://hooks.handsfreeos.com/oauth/<provider>/start`. The worker sends it on to Google or Microsoft. After the person approves, the browser comes back to `https://hooks.handsfreeos.com/oauth/<provider>/callback`. The worker seals the sign-in with `WORKER_ENCRYPTION_KEY`, stores it, and returns the browser to **Settings** → **My calendar**. The words used here (client ID, client secret, redirect URI, consent screen, scope) mean the same as in "Connected mailboxes: Outlook and Gmail".
 
 Two things differ from mailboxes:
