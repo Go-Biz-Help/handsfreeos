@@ -164,7 +164,7 @@ test('calls: ring, answer, move around, hang up, voicemail, and call a customer'
   await page.getByTestId('conversation-list').getByText('Mike Johnson').click();
   const voicemail = page.getByTestId('message-log').locator('[data-kind="voicemail"]');
   await expect(voicemail).toContainText('Missed call · left a voicemail');
-  await expect(voicemail).toContainText('“Hey, it’s Mike on Main Street.');
+  await expect(voicemail).toContainText('Give me a call back when you can');
   await voicemail.getByRole('button', { name: 'Play voicemail' }).click();
   await expect(voicemail.getByRole('button', { name: 'Pause voicemail' })).toBeVisible();
 
