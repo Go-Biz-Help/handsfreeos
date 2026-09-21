@@ -37,6 +37,8 @@ import {
   readableTextOn,
   type CommandDef,
   type RequestMeta,
+  consentPolicyPath,
+  smsConsentWords,
 } from '@hfos/core/server';
 import { asWorker, rows, sql, type Tx } from '@hfos/db/client';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
@@ -104,9 +106,20 @@ export interface ChatHttpOptions {
 export const CHAT_STREAM_MS = 5 * 60_000;
 /** The invisible human check comes back every this many messages. */
 export const HUMAN_CHECK_EVERY = 50;
-/** Next to the texts box (the booking page's wording, for a chat). */
-export const CHAT_SMS_CONSENT_TEXT =
-  'Text me about my request. Msg & data rates may apply. Reply STOP to opt out.';
+/**
+ * Next to the texts box.
+ *
+ * **It used to be a fixed string here, and it under-disclosed.** "Text me about my request. Msg & data
+ * rates may apply. Reply STOP to opt out." names no business — so a visitor agreed to hear from nobody in
+ * particular — and never says that agreeing is not a condition of buying anything. Two of the six things a
+ * compliant opt-in has to carry, missing on the surface the registration wizard recommends as the place to
+ * collect consent, which is exactly the surface a carrier goes and looks at.
+ *
+ * It comes from core now, like the public form's and the booking page's, so all three say the same thing
+ * and a reviewer reading any of them reads the same six disclosures.
+ */
+export const chatSmsConsent = (business: string, policyUrl: string | null) =>
+  smsConsentWords(business, 'chat', policyUrl);
 
 // ---- What the chat window gets ----
 
@@ -357,12 +370,28 @@ export async function registerChatRoutes(app: FastifyInstance, deps: HttpDeps): 
           if (!widget) throw widgetNotFound();
           const origin = typeof req.query.origin === 'string' ? req.query.origin : '';
           if (origin && !originAllowed(widget, origin)) throw originRefused();
-          const [ws] = await rows<{ name: string; timezone: string | null; settings: unknown }>(
+          // The booking site's slug comes along for the consent box's privacy-policy link; a business
+          // without a public site simply has no link to give, and the box still says the other five things.
+          const [ws] = await rows<{
+            name: string;
+            timezone: string | null;
+            settings: unknown;
+            site_slug: string | null;
+          }>(
             tx,
-            sql`select name, timezone, settings from app.workspaces where id = ${route.workspaceId}`,
+            sql`select w.name, w.timezone, w.settings, s.slug as site_slug
+                from app.workspaces w
+                left join app.booking_sites s on s.workspace_id = w.id
+                where w.id = ${route.workspaceId}`,
           );
           const timeZone = ws?.timezone || 'UTC';
           const openHours = openHoursOf(ws?.settings as Record<string, unknown> | null);
+          // `text` carries the same words as `detail`: a widget already embedded on a customer's site
+          // reads only `text`, and it keeps working until its cached copy of the snippet catches up.
+          const consentWords = chatSmsConsent(
+            ws?.name ?? '',
+            ws?.site_slug ? consentPolicyPath(ws.site_slug) : null,
+          );
           const teammate = await answeringTeammate(tx, widget);
           const now = Date.now();
           const aiAnswering =
@@ -382,7 +411,7 @@ export async function registerChatRoutes(app: FastifyInstance, deps: HttpDeps): 
               position: widget.position === 'left' ? 'left' : 'right',
             },
             askFor: chatAskForOf(widget.askFor),
-            smsConsent: widget.smsConsent ? { text: CHAT_SMS_CONSENT_TEXT } : null,
+            smsConsent: widget.smsConsent ? { ...consentWords, text: consentWords.detail } : null,
             humanCheck: botCheck.enabled ? { siteKey: botCheck.siteKey } : null,
             paused: widget.pausedAt !== null,
             maxMessageLength: CHAT_MESSAGE_MAX,

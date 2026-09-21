@@ -6,7 +6,14 @@
  * left, and "Join the waitlist" when one is full. The Book button sends one clientId per booking, so a
  * doubled tap never books twice.
  */
-import { addDays, daysBetween, localDateOf, smsConsentWords, startOfLocalDay } from '@hfos/core';
+import {
+  addDays,
+  consentPolicyPath,
+  daysBetween,
+  localDateOf,
+  smsConsentWords,
+  startOfLocalDay,
+} from '@hfos/core';
 import {
   CalendarSearch,
   Check,
@@ -266,14 +273,17 @@ function SmsConsent({
   business,
   phone,
   emailToo,
+  policyPath,
 }: {
   checked: boolean;
   onChange: (v: boolean) => void;
   business: string;
   phone: string;
   emailToo: boolean;
+  /** Where the business's privacy policy is, so the box can link to it. */
+  policyPath: string | null;
 }) {
-  const words = smsConsentWords(business, 'booking');
+  const words = smsConsentWords(business, 'booking', policyPath);
   return (
     <div className="flex flex-col gap-1">
       <button
@@ -306,7 +316,12 @@ function SmsConsent({
             : 'Add your mobile number to get texts.'
           : emailToo
             ? 'Leave it unticked and we’ll email you instead.'
-            : 'Leave it unticked and we won’t text you.'}
+            : 'Leave it unticked and we won’t text you.'}{' '}
+        {words.policyUrl ? (
+          <a className="underline" href={words.policyUrl} target="_blank" rel="noreferrer">
+            Privacy policy
+          </a>
+        ) : null}
       </span>
     </div>
   );
@@ -893,6 +908,7 @@ export function BookingFlow({
         business={business.name}
         phone={form.phone}
         emailToo={!!form.email.trim() || !form.phone.trim()}
+        policyPath={consentPolicyPath(site)}
       />
       <Honeypot value={website} onChange={setWebsite} />
       {botSiteKey ? (

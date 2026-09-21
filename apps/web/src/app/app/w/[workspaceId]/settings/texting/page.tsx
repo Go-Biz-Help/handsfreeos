@@ -16,7 +16,7 @@ export default async function TextingSettingsPage({
 }) {
   const { workspaceId } = await params;
   const { api } = await apiServer();
-  const [got, status, me, members, ports] = await Promise.all([
+  const [got, status, me, members, ports, site, widgets, forms] = await Promise.all([
     unwrapPage(await api.POST('/v1/queries/workspace.get', { body: { workspaceId } })),
     unwrapPage(await api.POST('/v1/queries/phone.setup_status', { body: { workspaceId } })),
     fetchMe(api),
@@ -24,6 +24,11 @@ export default async function TextingSettingsPage({
     // Numbers being brought from another carrier (M17). Its own query rather than a field on setup_status,
     // because it is `channels.manage` only — the losing carrier's paperwork is not everyone's to see.
     unwrapPage(await api.POST('/v1/queries/number_port.list', { body: { workspaceId } })),
+    // What is already public, for the registration wizard's hosted opt-in: it has to know what it still
+    // has to create, and a carrier reviewing the campaign has to be given addresses that actually open.
+    unwrapPage(await api.POST('/v1/queries/booking_site.get', { body: { workspaceId } })),
+    unwrapPage(await api.POST('/v1/queries/chat_widget.list', { body: { workspaceId } })),
+    unwrapPage(await api.POST('/v1/queries/form.list', { body: { workspaceId } })),
   ]);
   const canManage = got.workspace.role === 'owner' || got.workspace.role === 'admin';
   if (!canManage) notFound();
@@ -35,6 +40,16 @@ export default async function TextingSettingsPage({
     userId: m.userId,
     name: m.fullName.trim() || m.email,
   }));
+  // A paused widget is not a page a reviewer can open, and a form that was never published is not either,
+  // so neither counts as a live surface however recently it was made.
+  const liveWidget = widgets.items.find((w) => !w.paused) ?? null;
+  const liveForm = forms.items.find((f) => f.status === 'live') ?? null;
+  const surfaces = {
+    siteSlug: site.site?.slug ?? null,
+    chatPublicKey: liveWidget?.publicKey ?? null,
+    contactFormSlug: liveForm?.slug ?? null,
+    bookingEnabled: site.site?.enabled ?? false,
+  };
   return (
     <>
       <PageHeader title="Settings" description="Your account, and how this workspace is set up." />
@@ -48,6 +63,7 @@ export default async function TextingSettingsPage({
         people={people}
         ports={ports.ports}
         inboxPerPerson={got.workspace.inboxPerPerson}
+        surfaces={surfaces}
       />
     </>
   );

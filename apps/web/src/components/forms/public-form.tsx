@@ -3,6 +3,7 @@ import {
   answerProblem,
   formState,
   money,
+  consentPolicyPath,
   smsConsentWords,
   type AnswerSheet,
   type AnswerValue,
@@ -52,6 +53,9 @@ export function PublicForm({
   const [sent, setSent] = useState<SentForm | null>(null);
   const [failed, setFailed] = useState<string | null>(null);
   const [consent, setConsent] = useState(false);
+  // The box links to the business's privacy policy: that the terms are findable is one of the six
+  // things a compliant opt-in has to say, and a link is the only way of saying it that works.
+  const consentWords = smsConsentWords(business, 'form', consentPolicyPath(site));
   /** The honeypot: hidden from people, irresistible to robots. */
   const [website, setWebsite] = useState('');
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -234,13 +238,23 @@ export function PublicForm({
             <div className="mt-6">
               <Checkbox
                 className="text-[13px] font-medium"
-                label={smsConsentWords(business, 'form').title}
+                label={consentWords.title}
                 checked={consent}
                 onChange={(e) => setConsent(e.target.checked)}
                 data-testid="form-sms-consent"
               />
               <p className="ml-[26px] mt-1 text-xs text-text-3">
-                {smsConsentWords(business, 'form').detail}
+                {consentWords.detail}{' '}
+                {consentWords.policyUrl ? (
+                  <a
+                    className="underline"
+                    href={consentWords.policyUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    Privacy policy
+                  </a>
+                ) : null}
               </p>
             </div>
           ) : null}

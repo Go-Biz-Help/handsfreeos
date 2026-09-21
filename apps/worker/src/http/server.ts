@@ -1,6 +1,14 @@
 import cors from '@fastify/cors';
 import formbody from '@fastify/formbody';
-import { dispositionOf, formatPhone, HfosError } from '@hfos/core/server';
+import {
+  checkOptInSurface,
+  checkPolicy,
+  checkWebsite,
+  dispositionOf,
+  formatPhone,
+  HfosError,
+  type FetchedPage,
+} from '@hfos/core/server';
 import { asWorker, rows, sql } from '@hfos/db/client';
 import Fastify, { type FastifyInstance, type FastifyRequest } from 'fastify';
 import { z } from 'zod';
@@ -25,6 +33,8 @@ import { registerBookingRoutes } from './booking';
 import { registerChatRoutes } from './chat';
 import { formOrigins, registerIntakeRoutes } from './intake';
 import { registerFormRoutes } from './forms';
+import { registerLegalRoutes } from './legal';
+import { SafeFetchError } from './safe-fetch';
 import { registerSiteRoutes } from './sites';
 import { registerEmailRoutes } from './email';
 import { registerMoneyRoutes } from './money';
@@ -118,6 +128,20 @@ const AvailableNumbersInput = z
     message: 'Toll-free numbers have no city.',
     path: ['city'],
   });
+
+/**
+ * What the registration wizard asks for before it lets a business submit: the three things a carrier's
+ * reviewer goes and looks at. Core decides what each page means; this only fetches them.
+ */
+const PreflightInput = z.strictObject({
+  workspaceId: z.uuid(),
+  website: z.string().trim().max(300).optional(),
+  /** The privacy policy a reviewer will open: the business's own, or the one we host. */
+  policyUrl: z.string().trim().max(300).nullable().optional(),
+  optInPath: z.enum(['hosted', 'own_site', 'in_person']),
+  /** The page carrying the agreement box, when the chosen path claims one. */
+  optInUrl: z.string().trim().max(300).nullable().optional(),
+});
 
 export async function buildHttpServer(deps: HttpDeps): Promise<FastifyInstance> {
   // Fly's proxy is the one hop in front, so request.ip is the caller's own address (the booking page's
@@ -215,6 +239,7 @@ export async function buildHttpServer(deps: HttpDeps): Promise<FastifyInstance> 
   await registerChatRoutes(app, deps);
   await registerFormRoutes(app, deps);
   await registerSiteRoutes(app, deps);
+  await registerLegalRoutes(app, deps);
   // A form on the business's own website, and services sending leads over (M14 slice B).
   await registerIntakeRoutes(app, deps);
   await registerKnowledgeRoutes(app, deps);
@@ -236,6 +261,46 @@ export async function buildHttpServer(deps: HttpDeps): Promise<FastifyInstance> 
       limit: 10,
     });
     return { numbers: numbers.map((n) => ({ ...n, display: formatPhone(n.e164) })) };
+  });
+
+  app.post('/v1/telephony/registration-preflight', async (req) => {
+    const actor = await authenticate(deps, req);
+    const input = parseBody(PreflightInput, req.body);
+    await requirePermission(deps, actor.userId, input.workspaceId, 'channels.manage');
+
+    /**
+     * One address, fetched as forgivingly as the check allows: a reviewer would follow redirects and would
+     * not mind a slow page, so neither do we. Anything that goes wrong becomes a FetchedPage saying so,
+     * because "we could not open it" is itself one of the answers core knows how to read.
+     */
+    const open = async (raw: string | null | undefined): Promise<FetchedPage | null> => {
+      const url = (raw ?? '').trim();
+      if (!url) return null;
+      const full = /^https?:\/\//i.test(url) ? url : `https://${url}`;
+      try {
+        const res = await deps.fetchUrl(full, { timeoutMs: 8000, maxBytes: 512_000 });
+        return { url: full, status: res.status, html: res.body, finalUrl: res.finalUrl };
+      } catch (err) {
+        const code = err instanceof SafeFetchError ? err.code : 'network';
+        return { url: full, status: null, html: '', error: code };
+      }
+    };
+
+    // Fetched together: three sequential round trips would have the business watching a spinner for
+    // the better part of half a minute.
+    const [website, policy, optIn] = await Promise.all([
+      open(input.website),
+      open(input.policyUrl),
+      input.optInPath === 'in_person' ? Promise.resolve(null) : open(input.optInUrl),
+    ]);
+
+    return {
+      checks: [
+        checkWebsite(website),
+        checkPolicy(policy),
+        checkOptInSurface(optIn, input.optInPath),
+      ],
+    };
   });
 
   return app;
