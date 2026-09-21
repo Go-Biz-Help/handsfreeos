@@ -123,7 +123,13 @@ export const CallAttachRecordingInput = z
     workspaceId: uuid,
     ...callRef,
     recordingSid: z.string().trim().min(2).max(64),
-    objectPath: z.string().min(3).max(500),
+    /**
+     * Where our copy of the audio is kept, or null while there isn't one. The call is a voicemail the moment the
+     * carrier says a message was left; storing the audio is a separate step that can fail, be retried, or (for a
+     * business whose storage is misconfigured) never happen. A voicemail with no path still shows, still gets its
+     * words, and still tells the AI what the caller wanted.
+     */
+    objectPath: z.string().min(3).max(500).nullish(),
     seconds: z.number().int().min(0).max(3600),
     /** A message left after nobody answered; false for a call through a person's own cell, recorded whole. */
     voicemail: z.boolean().default(true),

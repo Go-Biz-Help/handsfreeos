@@ -267,7 +267,7 @@ The log check in step 16 only works once the worker has been deployed and has al
     fly logs --app handsfreeos-worker
     ```
 
-    You should see a `worker started` line that includes `"storage":true`, and no line saying `SUPABASE_SECRET_KEY is not set`. That line only shows that a key is set, not that it is right. To check the key itself, run steps 5 to 7 of "Check the Postmark tokens and the Supabase key" in Fly Part 6.
+    You should see a `worker started` line that includes `"storage":true`, then a `storage ready` line. The first only shows that a key is set; the second shows that Supabase took it. Instead of `storage ready` you may see `Supabase Storage would not take SUPABASE_SECRET_KEY` — the key is wrong, and "A voicemail nobody can play" under "Storage buckets" says what happens meanwhile and how to recover once it is right.
 
 17. If you replaced an older worker key, delete the old key on the **API Keys** page now.
 
@@ -1012,6 +1012,34 @@ The migrations create three private buckets. There is nothing to create by hand.
 
 - Never make a bucket public or change its limits in the dashboard. Put any change in a new migration.
 - Database backups do not include these files (see "Backups").
+
+#### A voicemail nobody can play
+
+The worker checks its own key against Storage as it starts. In `fly logs --app handsfreeos-worker` you want a
+`storage ready` line shortly after `worker started`. Instead of it you may see:
+
+```
+Supabase Storage would not take SUPABASE_SECRET_KEY: recordings, photos and imports will fail
+```
+
+Until that is fixed, callers' voicemails still arrive, are still transcribed and still show in the inbox and the
+call log with their words — the worker reads the carrier's own copy of the audio for that — but there is no
+recording to play, and the card says so. Set the worker's key again ("Copy the publishable key and the secret
+key", steps 12 to 16). The key must be the `sb_secret_…` one; the publishable key and the JWT secret sit on the
+same page and neither works.
+
+Once `storage ready` shows, the voicemails that arrived while it was broken can be fetched from the carrier,
+which still has them. Put their recording webhooks back in the queue:
+
+```sql
+update app.webhook_deliveries
+   set status = 'pending', attempts = 0, next_attempt_at = now(), locked_at = null, locked_by = null
+ where provider = 'twilio' and kind = 'voice.recording' and status = 'failed'
+   and received_at > now() - interval '30 days';
+```
+
+The worker picks them up within a minute and each voicemail gets its recording. Nothing is charged twice: the
+call is already there, and the customer is not notified again.
 
 ### Live updates
 

@@ -288,8 +288,13 @@ export const onScreened: DeliveryProcessor = async (ctx) => {
 };
 
 /**
- * A recording finished: copy it into the workspace's storage and attach it to the call. A voicemail, or a whole call
- * through someone's own cell (its words are then asked for, and read back by the `call.transcript` job).
+ * A recording finished: a voicemail, or a whole call through someone's own cell.
+ *
+ * Three things happen, in this order for a reason. The call is marked as having a recording first, because that is
+ * the fact the carrier just told us and nothing about it can fail. Then the audio is copied into the workspace's
+ * storage, which can. Then its words are asked for, which happens either way — a transcriber can read the
+ * carrier's copy when ours is missing. A failed copy still fails the delivery, so the retry has another go at it,
+ * and finds the voicemail already recorded and its words already asked for.
  */
 export const onRecording: DeliveryProcessor = async (ctx) => {
   const scope = tenant(ctx);
@@ -305,29 +310,49 @@ export const onRecording: DeliveryProcessor = async (ctx) => {
     return 'ignored';
   }
   const whole = call.answeredVia === 'bridge';
-  const got = await ctx.telephony.fetchRecording(account, p.RecordingSid);
-  const ext = /wav/i.test(got.contentType) ? 'wav' : 'mp3';
-  const objectPath = `${scope.workspaceId}/calls/${call.id}/${whole ? 'recording' : 'voicemail'}.${ext}`;
-  await ctx.store.upload('telephony', objectPath, got.data, got.contentType, { upsert: true });
-  await executeCommand(
-    ctx.db,
-    callAttachRecording,
-    {
-      workspaceId: scope.workspaceId,
-      callId: call.id,
-      recordingSid: p.RecordingSid,
-      objectPath,
-      seconds,
-      voicemail: !whole,
-    },
-    systemActor(scope),
-    workerMeta(),
-  );
-  // Every recording's words are asked for the same way now, voicemail included: the `call.transcribe` job reads
-  // our own stored copy (telephony/cell.ts), and the carrier's goes once the words have settled either way.
-  // Voicemail used to go through Twilio's legacy `<Record transcribe>` instead, which skipped anything under two
-  // seconds and is deprecated.
   const recordingSid = p.RecordingSid;
+  const attach = (objectPath: string | null) =>
+    executeCommand(
+      ctx.db,
+      callAttachRecording,
+      {
+        workspaceId: scope.workspaceId,
+        callId: call.id,
+        recordingSid,
+        objectPath,
+        seconds,
+        voicemail: !whole,
+      },
+      systemActor(scope),
+      workerMeta(),
+    );
+
+  // The voicemail exists the moment the carrier says one was left, and it is written down here before anything
+  // that can fail. It used to be the other way round: the audio was fetched and stored first, and the call was
+  // only marked a voicemail afterwards — so a storage that would not take our key (or a carrier that was slow)
+  // left the business looking at a plain missed call, with nothing to play, no words, and nothing telling the
+  // AI that somebody had spoken at all. Where the audio landed is added below, once it has landed.
+  await attach(null);
+
+  let failed: unknown = null;
+  try {
+    const got = await ctx.telephony.fetchRecording(account, recordingSid);
+    const ext = /wav/i.test(got.contentType) ? 'wav' : 'mp3';
+    const name = whole ? 'recording' : 'voicemail';
+    const objectPath = `${scope.workspaceId}/calls/${call.id}/${name}.${ext}`;
+    await ctx.store.upload('telephony', objectPath, got.data, got.contentType, { upsert: true });
+    await attach(objectPath);
+  } catch (e) {
+    failed = e;
+  }
+
+  // Asked for after the copy, so the job reads our own object in the ordinary case, and asked for even when the
+  // copy failed, because the transcriber falls back to the carrier's audio (telephony/cell.ts). The words are
+  // what the inbox shows and what the AI reads: they must not be lost with the file.
   if (!call.transcriptStatus)
     await asWorker(ctx.db, scope, (tx) => queueTranscript(tx, scope, call, recordingSid));
+
+  // Now the delivery can fail and be retried: the retry is the copy's second chance, and it finds the voicemail
+  // already recorded and its words already asked for, so neither happens twice.
+  if (failed) throw failed;
 };

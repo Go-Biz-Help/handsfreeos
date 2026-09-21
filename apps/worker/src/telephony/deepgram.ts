@@ -10,10 +10,10 @@ import type {
 /**
  * Deepgram: the words of a recording we already hold.
  *
- * Pre-recorded audio is one request — hand it a link, get the transcript back — so there is nothing to poll and
- * nothing of ours left on their side afterwards. That is why `fetch` and `forget` are the shapes they are here:
- * the seam has to fit Conversational Intelligence, which takes the work and is read back later, and this reads
- * back nothing because it never left anything behind.
+ * Pre-recorded audio is one request — hand it a link or the bytes themselves, get the transcript back — so there
+ * is nothing to poll and nothing of ours left on their side afterwards. That is why `fetch` and `forget` are the
+ * shapes they are here: the seam has to fit Conversational Intelligence, which takes the work and is read back
+ * later, and this reads back nothing because it never left anything behind.
  *
  * Nova-3, with utterances so the words come back as turns rather than one block. A bridged call is recorded one
  * side per channel, and `multichannel` keeps them apart; a voicemail is mono and is all the caller.
@@ -85,12 +85,27 @@ export function createDeepgramTranscriber(deps: {
       });
       if (request.channels === 2) params.set('multichannel', 'true');
 
+      // A link to our copy where there is one, the carrier's bytes where there is not. Deepgram takes either:
+      // JSON with a `url`, or the audio itself under its own content type.
+      if (!request.url && !request.audio)
+        throw new ProviderError(
+          'No recording to transcribe: neither a stored copy nor the audio itself.',
+          'no-audio',
+          true,
+        );
+      const contentType = request.url
+        ? 'application/json'
+        : request.audio!.contentType || 'audio/mpeg';
+      const payload: BodyInit = request.url
+        ? JSON.stringify({ url: request.url })
+        : new Uint8Array(request.audio!.data);
+
       let res: Response;
       try {
         res = await fetch(`${BASE}?${params.toString()}`, {
           method: 'POST',
-          headers: { authorization: `Token ${deps.apiKey}`, 'content-type': 'application/json' },
-          body: JSON.stringify({ url: request.url }),
+          headers: { authorization: `Token ${deps.apiKey}`, 'content-type': contentType },
+          body: payload,
           signal: AbortSignal.timeout(TIMEOUT_MS),
         });
       } catch (e) {

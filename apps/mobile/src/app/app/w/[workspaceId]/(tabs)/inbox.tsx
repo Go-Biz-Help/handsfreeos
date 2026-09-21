@@ -1,5 +1,6 @@
 import {
   boxLabel,
+  CALL_LOG_WORDS,
   CONVERSATION_STATUSES,
   inboxEmptyWords,
   NEEDS_PERSON,
@@ -12,7 +13,7 @@ import * as React from 'react';
 import { FlatList, Pressable, View } from 'react-native';
 
 import { useAiColors } from '@/components/drafts';
-import { Inbox as InboxIcon, Search, Sparkles, UserRound, X } from '@/components/icons';
+import { Inbox as InboxIcon, PhoneCall, Search, Sparkles, UserRound, X } from '@/components/icons';
 import { ConversationRow } from '@/components/inbox/conversation-row';
 import { businessHref, useBusiness } from '@/components/shell/business-context';
 import { Screen } from '@/components/shell/screen';
@@ -74,7 +75,24 @@ export default function Inbox() {
   );
 
   return (
-    <Screen title="Inbox" testID="inbox" scroll={false}>
+    <Screen
+      title="Inbox"
+      testID="inbox"
+      scroll={false}
+      trailing={
+        // A call sits in the conversation it belongs to, which is no help to somebody who has just missed one and
+        // wants to hear what was left. The call log is one tap from here.
+        <Pressable
+          role="button"
+          accessibilityLabel={CALL_LOG_WORDS.title}
+          testID="inbox-calls"
+          onPress={() => router.push(businessHref(business.id, 'calls') as Href)}
+          className="size-11 items-center justify-center rounded-full active:bg-card-2"
+        >
+          <Icon as={PhoneCall} className="size-[22px] text-text-2" />
+        </Pressable>
+      }
+    >
       <View className="gap-3 border-b border-border bg-card px-3.5 pb-3 pt-3">
         <Input
           value={typed}

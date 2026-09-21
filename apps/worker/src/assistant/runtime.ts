@@ -107,6 +107,7 @@ const STEP_LABEL: Record<string, string> = {
   find_availability: 'Checking open times',
   get_conversation: 'Reading the conversation',
   list_inbox: 'Checking the inbox',
+  recent_calls: 'Looking at the call log',
   list_team: 'Looking up the team',
   call_customer: 'Getting the number',
   create_task: 'Adding the task',

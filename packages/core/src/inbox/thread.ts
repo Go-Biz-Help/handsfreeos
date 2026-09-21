@@ -147,6 +147,11 @@ export const THREAD_WORDS = {
    * that never reached us and one that arrived silent looked exactly the same — and looked like a bug.
    */
   noRecording: 'The recording didn’t reach HandsFreeOS, so there’s nothing to play.',
+  /**
+   * The words arrived and the audio did not. They are read from the carrier's own copy of the recording, so a
+   * storage that is down or misconfigured costs the business the message but not what was said in it.
+   */
+  wordsOnly: 'The recording didn’t reach HandsFreeOS. These are the words the caller left.',
   transcribing: 'Working out what they said…',
   noWords: 'This one couldn’t be transcribed. The recording still plays.',
   noWordsNoRecording: 'Nothing was recorded, so there’s nothing to play or read.',
@@ -204,16 +209,22 @@ export interface CallCardWords {
  * separately — the audio may never have reached our storage, or it reached it and the transcriber found nothing —
  * and a card that just showed less made both look like the app being broken.
  */
-function voicemailNote(item: ThreadItemFacts): string | null {
+function voicemailNote(
+  item: Pick<ThreadItemFacts, 'hasRecording' | 'transcript' | 'transcriptStatus'>,
+): string | null {
   const recorded = item.hasRecording ?? true;
-  if (item.transcript) return null;
-  if (!recorded)
-    return item.transcriptStatus === 'failed'
-      ? THREAD_WORDS.noWordsNoRecording
-      : THREAD_WORDS.noRecording;
-  if (item.transcriptStatus === 'pending' || item.transcriptStatus == null)
-    return THREAD_WORDS.transcribing;
-  return THREAD_WORDS.noWords;
+  const waiting = item.transcriptStatus === 'pending' || item.transcriptStatus == null;
+  if (recorded) {
+    if (item.transcript) return null;
+    return waiting ? THREAD_WORDS.transcribing : THREAD_WORDS.noWords;
+  }
+  // No audio of our own. The words can still be here: they are taken from the carrier's copy when ours is
+  // missing, so "no recording" no longer has to mean the business learns nothing about the call.
+  if (item.transcript) return THREAD_WORDS.wordsOnly;
+  if (waiting) return THREAD_WORDS.transcribing;
+  return item.transcriptStatus === 'failed'
+    ? THREAD_WORDS.noWordsNoRecording
+    : THREAD_WORDS.noRecording;
 }
 
 /** A call in the conversation: a voicemail, or a call with who answered and its length. */
@@ -285,3 +296,111 @@ export function callCardWords(item: ThreadItemFacts): CallCardWords {
     note: null,
   };
 }
+
+// ------------------------------------------------------------------------------- the call log
+
+/** What the call log knows about one call. The same facts on the web and on the phone. */
+export interface CallLogRowFacts {
+  readonly direction: 'inbound' | 'outbound';
+  readonly isVoicemail: boolean;
+  readonly answeredVia: 'browser' | 'forwarding' | 'bridge' | null;
+  /** Who picked it up, where a teammate did. */
+  readonly answeredByName: string | null;
+  /** Whether our own copy of the audio is stored — which is what there is to play. */
+  readonly hasRecording: boolean;
+  readonly transcript: string | null;
+  readonly transcriptStatus: 'pending' | 'completed' | 'failed' | null;
+  readonly durationSeconds: number | null;
+}
+
+export interface CallLogRowWords {
+  readonly title: string;
+  readonly detail: string | null;
+  readonly icon: 'voicemail' | 'missed' | 'incoming' | 'outgoing';
+  readonly tone: 'warning' | 'success' | 'accent';
+  /** "4:12", for a call that was answered. */
+  readonly length: string | null;
+  /** Why there is nothing to play or read, when there isn't. Null when the row has what it should. */
+  readonly note: string | null;
+  /**
+   * Whether the row opens at all: it does when there is a recording, words, or a reason there are neither.
+   * A row that opens onto an empty panel is worse than one that doesn't open.
+   */
+  readonly openable: boolean;
+}
+
+/**
+ * One row of the call log: who it was, how it went, and whether there is anything under it to open.
+ *
+ * It lives here rather than in either app because both need it and they must agree. A voicemail that says
+ * "left a message" on the web and nothing at all on the phone is how "I left a voicemail and can't listen to
+ * it" starts: the business looks in one place, sees less than the other place shows, and concludes the message
+ * is gone.
+ */
+export function callLogWords(call: CallLogRowFacts): CallLogRowWords {
+  const inbound = call.direction === 'inbound';
+  const answered = !!call.answeredVia;
+  // A voicemail and a recorded call are the two that promise something to open, so they are the two that owe
+  // an explanation when there is nothing there.
+  const recorded = call.isVoicemail || call.answeredVia === 'bridge';
+  const note = recorded ? voicemailNote(call) : null;
+  const openable = call.hasRecording || !!call.transcript || !!note;
+  const length =
+    call.durationSeconds !== null && call.durationSeconds > 0
+      ? callClock(call.durationSeconds)
+      : null;
+  if (call.isVoicemail)
+    return {
+      title: 'Voicemail',
+      detail: 'they left a message',
+      icon: 'voicemail',
+      tone: 'warning',
+      length,
+      note,
+      openable,
+    };
+  if (inbound && !answered)
+    return {
+      title: 'Missed call',
+      detail: null,
+      icon: 'missed',
+      tone: 'warning',
+      length,
+      note,
+      openable,
+    };
+  const detail = call.answeredByName
+    ? `${call.answeredByName} answered`
+    : call.answeredVia === 'forwarding'
+      ? 'answered on a forwarding phone'
+      : call.answeredVia === 'bridge'
+        ? 'from their cell, showing the business number'
+        : null;
+  return inbound
+    ? { title: 'Incoming call', detail, icon: 'incoming', tone: 'success', length, note, openable }
+    : { title: 'Outgoing call', detail, icon: 'outgoing', tone: 'accent', length, note, openable };
+}
+
+export const CALL_LOG_WORDS = {
+  title: 'Calls',
+  description:
+    'Every call this business made or took, newest first. Open one for its recording and what was said.',
+  all: 'All',
+  missed: 'Missed',
+  voicemail: 'Voicemail',
+  which: 'Which calls to show',
+  who: 'Who',
+  what: 'What happened',
+  when: 'When',
+  emptyAll: 'No calls yet. They show up here as they come in.',
+  emptyMissed: 'No missed calls. Every call has been answered.',
+  emptyVoicemail: 'No voicemails.',
+} as const;
+
+/** The empty line for the filter that is showing. */
+export const callLogEmpty = (filter: 'all' | 'missed' | 'voicemail'): string =>
+  filter === 'missed'
+    ? CALL_LOG_WORDS.emptyMissed
+    : filter === 'voicemail'
+      ? CALL_LOG_WORDS.emptyVoicemail
+      : CALL_LOG_WORDS.emptyAll;

@@ -1,5 +1,6 @@
 import { hostname } from 'node:os';
 import { AnthropicProvider } from '@hfos/ai';
+import { TELEPHONY_BUCKET } from '@hfos/core';
 import { createTokenVerifier } from '@hfos/core/server';
 import { createDb } from '@hfos/db/client';
 import pino from 'pino';
@@ -12,7 +13,7 @@ import { createBookingLinks } from './booking/links';
 import { createSealer } from './crypto';
 import { createEmail } from './email/index';
 import { processDeliveries } from './deliveries';
-import { loadEnv, readEnv } from './env';
+import { loadEnv, readEnv, supabaseKeyLooksRight } from './env';
 import { handlers } from './handlers/index';
 import { createCalendars } from './calendar/index';
 import { createReviews } from './reviews/index';
@@ -26,7 +27,7 @@ import { createSafeFetch } from './http/safe-fetch';
 import { buildHttpServer } from './http/server';
 import { processJobs } from './jobs';
 import { createSmtpMailer } from './mailer';
-import { processOnce } from './outbox';
+import { errorMessage, processOnce } from './outbox';
 import { processors } from './processors/index';
 import { ensureRecurringJobs, jobs } from './scheduled';
 import { createSupabaseStore, unconfiguredStore } from './storage';
@@ -197,6 +198,28 @@ if (!env.supabaseSecretKey)
   log.warn(
     'SUPABASE_SECRET_KEY is not set: file removals, imports and photos will fail until it is',
   );
+else {
+  if (!supabaseKeyLooksRight(env.supabaseSecretKey))
+    log.error(
+      'SUPABASE_SECRET_KEY does not look like a Supabase key. It should be the sb_secret_… key from Project ' +
+        'Settings → API Keys, or a legacy service_role JWT — not the publishable key and not the JWT secret.',
+    );
+  // A key that is set is not a key that works, and until now the difference only showed when a customer left a
+  // voicemail and nothing came of it. One list of one bucket at startup says which it is.
+  void services.store
+    .check(TELEPHONY_BUCKET)
+    .then((result) => {
+      if (result.ok) log.info('storage ready');
+      else
+        log.error(
+          { err: result.error },
+          'Supabase Storage would not take SUPABASE_SECRET_KEY: recordings, photos and imports will fail',
+        );
+    })
+    .catch((err: unknown) =>
+      log.error({ err: errorMessage(err) }, 'could not reach Supabase Storage at startup'),
+    );
+}
 if (env.pushProvider === 'none')
   log.warn('EXPO_ACCESS_TOKEN is not set: push notifications to phones are off until it is');
 

@@ -1,5 +1,5 @@
 'use client';
-import { callClock, formatPhone, THREAD_WORDS } from '@hfos/core';
+import { CALL_LOG_WORDS, callLogEmpty, callLogWords, formatPhone, THREAD_WORDS } from '@hfos/core';
 import { ChevronDown, Phone, PhoneMissed, PhoneOutgoing, Voicemail } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -16,33 +16,18 @@ type Filter = 'all' | 'missed' | 'voicemail';
 const COLUMNS =
   'sm:grid sm:grid-cols-[minmax(0,2fr)_minmax(0,1.6fr)_110px] sm:items-center sm:gap-4';
 
-/** Who rang, and how it went. */
-function rowWords(call: CallLogItem): {
-  title: string;
-  detail: string | null;
-  icon: 'voicemail' | 'missed' | 'incoming' | 'outgoing';
-  tone: 'warning' | 'success' | 'accent';
-} {
-  if (call.isVoicemail)
-    return {
-      title: 'Voicemail',
-      detail: 'they left a message',
-      icon: 'voicemail',
-      tone: 'warning',
-    };
-  const inbound = call.direction === 'inbound';
-  const answered = !!call.answeredVia;
-  if (inbound && !answered)
-    return { title: 'Missed call', detail: null, icon: 'missed', tone: 'warning' };
-  const detail = call.answeredBy
-    ? `${call.answeredBy.fullName} answered`
-    : call.answeredVia === 'forwarding'
-      ? 'answered on a forwarding phone'
-      : null;
-  return inbound
-    ? { title: 'Incoming call', detail, icon: 'incoming', tone: 'success' }
-    : { title: 'Outgoing call', detail, icon: 'outgoing', tone: 'accent' };
-}
+/** Who rang and how it went — the same words the phone's Calls screen uses (core). */
+const rowWords = (call: CallLogItem) =>
+  callLogWords({
+    direction: call.direction,
+    isVoicemail: call.isVoicemail,
+    answeredVia: call.answeredVia,
+    answeredByName: call.answeredBy?.fullName ?? null,
+    hasRecording: !!call.recordingPath,
+    transcript: call.transcript,
+    transcriptStatus: call.transcriptStatus,
+    durationSeconds: call.durationSeconds,
+  });
 
 const ICON = {
   voicemail: Voicemail,
@@ -56,11 +41,6 @@ function CallRow({ call, workspaceId }: { call: CallLogItem; workspaceId: string
   const [open, setOpen] = useState(false);
   const words = rowWords(call);
   const when = new Date(call.occurredAt);
-  const has = !!call.recordingPath || !!call.transcript;
-  const length =
-    call.durationSeconds !== null && call.durationSeconds > 0
-      ? callClock(call.durationSeconds)
-      : null;
 
   return (
     <div className="px-4 py-3" data-testid="call-row">
@@ -95,12 +75,12 @@ function CallRow({ call, workspaceId }: { call: CallLogItem; workspaceId: string
           </span>
           <span className="block">
             {when.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}
-            {length ? ` · ${length}` : ''}
+            {words.length ? ` · ${words.length}` : ''}
           </span>
         </div>
       </div>
 
-      {has ? (
+      {words.openable ? (
         <div className="mt-2 flex flex-col gap-2 sm:pl-[42px]">
           <button
             type="button"
@@ -125,8 +105,13 @@ function CallRow({ call, workspaceId }: { call: CallLogItem; workspaceId: string
                 />
               ) : null}
               {call.transcript ? (
-                <p className="whitespace-pre-line text-[13px] leading-[1.5]">{call.transcript}</p>
+                <>
+                  <p className="whitespace-pre-line text-[13px] leading-[1.5]">{call.transcript}</p>
+                  <p className="text-xs text-text-3">{THREAD_WORDS.transcribed}</p>
+                </>
               ) : null}
+              {/* Why there is nothing to play or read. A row that opens onto nothing reads as a broken app. */}
+              {words.note ? <p className="text-xs text-text-3">{words.note}</p> : null}
             </>
           ) : null}
         </div>
@@ -164,11 +149,11 @@ export function CallLog({
       <Segmented
         value={filter}
         onChange={pick}
-        ariaLabel="Which calls to show"
+        ariaLabel={CALL_LOG_WORDS.which}
         options={[
-          { value: 'all', label: 'All', testId: 'calls-all' },
-          { value: 'missed', label: 'Missed', testId: 'calls-missed' },
-          { value: 'voicemail', label: 'Voicemail', testId: 'calls-voicemail' },
+          { value: 'all', label: CALL_LOG_WORDS.all, testId: 'calls-all' },
+          { value: 'missed', label: CALL_LOG_WORDS.missed, testId: 'calls-missed' },
+          { value: 'voicemail', label: CALL_LOG_WORDS.voicemail, testId: 'calls-voicemail' },
         ]}
       />
       <Card className="divide-y divide-border">
@@ -178,20 +163,14 @@ export function CallLog({
             COLUMNS,
           )}
         >
-          <span>Who</span>
-          <span>What happened</span>
-          <span className="text-right">When</span>
+          <span>{CALL_LOG_WORDS.who}</span>
+          <span>{CALL_LOG_WORDS.what}</span>
+          <span className="text-right">{CALL_LOG_WORDS.when}</span>
         </div>
         {items.length ? (
           items.map((call) => <CallRow key={call.id} call={call} workspaceId={workspaceId} />)
         ) : (
-          <p className="px-4 py-10 text-center text-[13px] text-text-3">
-            {filter === 'missed'
-              ? 'No missed calls. Every call has been answered.'
-              : filter === 'voicemail'
-                ? 'No voicemails.'
-                : 'No calls yet. They show up here as they come in.'}
-          </p>
+          <p className="px-4 py-10 text-center text-[13px] text-text-3">{callLogEmpty(filter)}</p>
         )}
       </Card>
     </div>

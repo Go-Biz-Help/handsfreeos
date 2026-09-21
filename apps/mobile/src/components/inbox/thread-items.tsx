@@ -395,15 +395,13 @@ export function CallCard({ item, workspaceId }: { item: ThreadItemShape; workspa
           </Text>
         </View>
       </View>
-      {words.kind === 'voicemail' || (item.hasRecording && item.answeredVia === 'bridge') ? (
-        item.hasRecording ? (
-          <VoicemailPlayer
-            workspaceId={workspaceId}
-            callId={item.id}
-            voicemail={item.isVoicemail}
-            seconds={item.recordingSeconds}
-          />
-        ) : null
+      {item.hasRecording && (words.kind === 'voicemail' || item.answeredVia === 'bridge') ? (
+        <VoicemailPlayer
+          workspaceId={workspaceId}
+          callId={item.id}
+          voicemail={item.isVoicemail}
+          seconds={item.recordingSeconds}
+        />
       ) : null}
       {item.transcript ? (
         words.kind === 'voicemail' ? (

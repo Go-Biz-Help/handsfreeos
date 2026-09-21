@@ -10,6 +10,19 @@ export function loadEnv(): void {
   if (existsSync(path)) process.loadEnvFile(path);
 }
 
+/**
+ * Whether a value is shaped like a key Supabase would take: the new `sb_secret_…` format, or a legacy
+ * `service_role` JWT (three dot-separated parts). It says nothing about whether the key is the right one or
+ * still valid — only that it is not the publishable key's neighbour, the JWT *secret*, or a password, all of
+ * which have been pasted in here and all of which Storage rejects with "Invalid Compact JWS".
+ */
+export function supabaseKeyLooksRight(key: string): boolean {
+  if (key.startsWith('sb_publishable_')) return false;
+  if (/^sb_[a-z]+_.+/.test(key)) return true;
+  const parts = key.split('.');
+  return parts.length === 3 && parts.every((p) => /^[A-Za-z0-9_-]+$/.test(p) && p.length > 0);
+}
+
 export interface WorkerEnv {
   readonly databaseUrl: string;
   /** The Supabase project URL and secret key: the worker is the only app allowed to hold it (Storage deletes, imports). */
@@ -197,7 +210,11 @@ export function readEnv(env: NodeJS.ProcessEnv = process.env): WorkerEnv {
   if (!/^smtps?:\/\//.test(smtpUrl)) throw new Error('SMTP_URL must be an smtp:// or smtps:// URL');
   const production = env.NODE_ENV === 'production';
   const supabaseUrl = (env.SUPABASE_URL ?? '').replace(/\/+$/, '') || null;
-  const supabaseSecretKey = env.SUPABASE_SECRET_KEY || null;
+  // Trimmed: the key is pasted into `fly secrets set` by hand, and a stray space or newline rides along as part
+  // of the key. Storage then answers "Invalid Compact JWS" and says nothing about why. A key that still looks
+  // wrong is said so at startup (main.ts) rather than refusing to start: storage is one of the worker's jobs,
+  // and a business should not lose its texts and calls over a bad paste in an optional value.
+  const supabaseSecretKey = (env.SUPABASE_SECRET_KEY ?? '').trim() || null;
 
   const telephonyProvider = (env.TELEPHONY_PROVIDER ?? (production ? 'twilio' : 'fake')) as string;
   if (telephonyProvider !== 'twilio' && telephonyProvider !== 'fake')

@@ -327,6 +327,13 @@ export interface MediaShape {
 export interface ThreadItemShape extends ThreadItemFacts {
   readonly media: readonly MediaShape[];
   readonly deliveredAt: string | null;
+  /**
+   * Whether the carrier recorded anything, which is all the phone's copy can say: where our copy of the audio
+   * is kept is deliberately not synced (packages/db/test/sync-secrets.test.ts — the phone derives the folder
+   * and lists it instead). So a recording that never reached our storage reads as present here and turns out
+   * to be missing when somebody presses play, which the player says plainly. The web, which has the path,
+   * knows the difference up front.
+   */
   readonly hasRecording: boolean;
   readonly recordingSeconds: number | null;
   readonly transcript: string | null;

@@ -260,14 +260,25 @@ async function transcriptTarget(ctx: JobContext, scope: TenantScope, callId: str
   return { call, account };
 }
 
-/** Attaches the words (or that there are none) and deletes the provider's copies: ours are what's kept. */
+/**
+ * Attaches the words (or that there are none) and deletes the provider's copies: ours are what's kept.
+ *
+ * Except where ours is not kept. The carrier's recording is deleted only once our own copy is stored, because
+ * otherwise this would destroy the only audio of the voicemail that exists — the words would survive and the
+ * message itself would not.
+ */
 async function settleTranscript(
   ctx: JobContext,
   scope: TenantScope,
   account: ProviderAccount,
   callId: string,
   transcript: string | null,
-  sids: { readonly recordingSid: string; readonly transcriptionSid?: string },
+  sids: {
+    readonly recordingSid: string;
+    readonly transcriptionSid?: string;
+    /** False while we have no copy of our own: the carrier's is then all there is, and it stays. */
+    readonly stored?: boolean;
+  },
 ): Promise<void> {
   await executeCommand(
     ctx.db,
@@ -283,7 +294,7 @@ async function settleTranscript(
   );
   try {
     if (sids.transcriptionSid) await ctx.transcriber.forget(account, sids.transcriptionSid);
-    await ctx.telephony.deleteRecording(account, sids.recordingSid);
+    if (sids.stored !== false) await ctx.telephony.deleteRecording(account, sids.recordingSid);
   } catch (e) {
     ctx.log.warn(
       { err: errorMessage(e) },
@@ -322,20 +333,22 @@ export const callTranscribeJob: JobHandler = async (ctx) => {
   if (!target) return;
   const askedAt = askedAtOf(ctx, p);
   const { call } = target;
-  // Every recording is ours before this runs: onRecording copies it into the workspace's bucket and only then
-  // asks for the words. Without a path there is nothing to read, and no amount of asking again will make one.
-  if (!call.recordingObjectPath) {
-    ctx.log.warn({ callId }, 'a call recording has no stored copy to transcribe');
-    await settleTranscript(ctx, scope, target.account, callId, null, { recordingSid });
-    return;
-  }
+  const stored = !!call.recordingObjectPath;
   // A bridged call is recorded one side per channel; a voicemail is the caller alone.
   const channels = call.answeredVia === 'bridge' ? 2 : 1;
 
   let started: TranscribeStarted;
   try {
-    const url = await ctx.store.signedUrl(TELEPHONY_BUCKET, call.recordingObjectPath, SIGNED_FOR_S);
-    started = await ctx.transcriber.submit(target.account, { url, recordingSid, channels });
+    // Normally the transcriber reads our own copy. Where there is none — storage refused the upload, or has not
+    // caught up — the carrier's copy is read instead rather than giving up on the words: a voicemail nobody can
+    // play is bad, and a voicemail nobody can play *or* read is what the business actually complained about.
+    const source = stored
+      ? {
+          url: await ctx.store.signedUrl(TELEPHONY_BUCKET, call.recordingObjectPath!, SIGNED_FOR_S),
+          audio: null,
+        }
+      : { url: null, audio: await ctx.telephony.fetchRecording(target.account, recordingSid) };
+    started = await ctx.transcriber.submit(target.account, { ...source, recordingSid, channels });
   } catch (e) {
     const later = refused(e) ? null : again(ctx, askedAt, 'unreachable');
     ctx.log.warn(
@@ -345,7 +358,7 @@ export const callTranscribeJob: JobHandler = async (ctx) => {
         : 'the transcriber would not take a call recording',
     );
     if (later) return later;
-    await settleTranscript(ctx, scope, target.account, callId, null, { recordingSid });
+    await settleTranscript(ctx, scope, target.account, callId, null, { recordingSid, stored });
     return;
   }
 
@@ -353,7 +366,10 @@ export const callTranscribeJob: JobHandler = async (ctx) => {
   // is read back by `call.transcript`.
   if (started.status === 'completed') {
     const transcript = await wordsOf(ctx, scope, call, started.sentences);
-    await settleTranscript(ctx, scope, target.account, callId, transcript, { recordingSid });
+    await settleTranscript(ctx, scope, target.account, callId, transcript, {
+      recordingSid,
+      stored,
+    });
     return;
   }
   await asWorker(ctx.db, scope, (tx) =>
@@ -417,7 +433,11 @@ export const callTranscriptJob: JobHandler = async (ctx) => {
   const target = await transcriptTarget(ctx, scope, callId);
   if (!target) return;
   const askedAt = askedAtOf(ctx, p);
-  const sids = { recordingSid, transcriptionSid };
+  const sids = {
+    recordingSid,
+    transcriptionSid,
+    stored: !!target.call.recordingObjectPath,
+  };
   let state: TranscriptionState;
   try {
     state = await ctx.transcriber.fetch(target.account, transcriptionSid);

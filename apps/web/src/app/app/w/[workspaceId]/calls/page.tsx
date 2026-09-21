@@ -1,3 +1,4 @@
+import { CALL_LOG_WORDS } from '@hfos/core';
 import type { Metadata } from 'next';
 import { CallLog } from '@/components/calls/call-log';
 import { PageHeader } from '@/components/shell/page-header';
@@ -27,10 +28,7 @@ export default async function CallsPage({
   const log = unwrapPage(await api.POST('/v1/queries/call.log', { body: { workspaceId, filter } }));
   return (
     <>
-      <PageHeader
-        title="Calls"
-        description="Every call this business made or took, newest first. Open one for its recording and what was said."
-      />
+      <PageHeader title={CALL_LOG_WORDS.title} description={CALL_LOG_WORDS.description} />
       <CallLog workspaceId={workspaceId} items={log.items} filter={filter} />
     </>
   );
