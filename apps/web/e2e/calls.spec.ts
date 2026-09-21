@@ -3,7 +3,6 @@ import { createBusiness, signUpAndConfirm } from './helpers';
 import { fakeCallSid, postVoice, setUpTexting, twimlParameters } from './telephony';
 
 const MIKE = '+17135550142';
-const WORDS = 'Hey, it’s Mike on Main Street. The AC upstairs is blowing warm air again.';
 
 /** The stand-in device the app uses with the fake carrier (apps/web/src/lib/calls/fake-device.ts). */
 interface FakeVoice {
@@ -153,16 +152,12 @@ test('calls: ring, answer, move around, hang up, voicemail, and call a customer'
     RecordingStatus: 'completed',
     RecordingDuration: '32',
   });
-  await postVoice('transcription', {
-    ...missed,
-    RecordingSid: recordingSid,
-    TranscriptionSid: fakeCallSid().replace(/^CA/, 'TR'),
-    TranscriptionStatus: 'completed',
-    TranscriptionText: WORDS,
-  });
   await postVoice('status', { ...missed, CallStatus: 'completed', CallDuration: '45' });
   await seeOnTimeline(page, 'timeline-call-voicemail', 'Mike Johnson left a voicemail · 0:32');
-  await expect(page.getByTestId('timeline-call-voicemail')).toContainText('blowing warm air again');
+  // The words are nobody's webhook any more. Storing the recording queues `call.transcribe`
+  // (apps/worker/src/processors/twilio-voice.ts), which asks the transcriber for them — so they arrive a
+  // moment after the row does, and this waits rather than looking once.
+  await seeOnTimeline(page, 'timeline-call-voicemail', 'Give me a call back when you can');
 
   // In the conversation it sits with a player; it plays.
   await page.goto(`/app/w/${workspaceId}/inbox`);
