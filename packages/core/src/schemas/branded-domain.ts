@@ -11,7 +11,18 @@ import { isoDateTime, uuid } from './common';
 export const brandedDomainStatus = z.enum(['pending', 'verifying', 'verified', 'failed']);
 export type BrandedDomainStatus = z.infer<typeof brandedDomainStatus>;
 
-/** A hostname the business owns. Never one of ours, and never with a scheme or a path on it. */
+/**
+ * One of our own names.
+ *
+ * Whether a name of ours may be claimed is not a question about the name — it is a question about who is
+ * asking, and `platform.claimable_hosts` holds the answer. So this only says "that one is ours"; the
+ * handler asks the database whether this workspace is the one it was written down for, and a trigger on
+ * `app.branded_domains` refuses anything that gets past the handler.
+ */
+export const isOurHost = (d: string): boolean =>
+  /(^|\.)handsfreeos\.com$/.test(d.trim().toLowerCase());
+
+/** A hostname a business can point at us: the right shape, with no scheme and no path on it. */
 export const hostname = z
   .string()
   .trim()
@@ -21,10 +32,7 @@ export const hostname = z
   .regex(
     /^([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/,
     'Enter a domain like booking.yourbusiness.com — no https:// and no slash.',
-  )
-  .refine((d) => !/(^|\.)handsfreeos\.com$/.test(d), {
-    error: 'That is one of our own addresses. Use a domain your business owns.',
-  });
+  );
 
 export const BrandedDomainAddInput = z.object({ workspaceId: uuid, domain: hostname });
 export const BrandedDomainRefInput = z.object({ workspaceId: uuid, domainId: uuid });

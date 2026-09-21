@@ -164,7 +164,88 @@ describe('who may put a business on its own domain', () => {
 
   it('refuses one of our own names, so nobody can point handsfreeos.com at themselves', async () => {
     const e = await expectPgError(() => add(owner, ws, siteId, 'book.handsfreeos.com'));
-    expect(e.code).toBe('23514');
+    // 0089 moved this from the check constraint to a trigger, because the answer now depends on who is
+    // asking and a check constraint cannot read another table. Same refusal, and it says which rule it is.
+    expect(e.code).toBe('42501');
+    expect(e.detail).toBe('branded_domain_is_ours');
+  });
+});
+
+/**
+ * 0089: one of our own names, claimed on purpose.
+ *
+ * The rule that used to be "never" is now "only the workspace written down for it", and the whole of that
+ * rule lives in Postgres — so this is the file that has to hold it down. The case that matters is the
+ * third: a business that is not on the list must not get a name that is, even when the name is claimable
+ * by somebody.
+ */
+describe('a name of ours somebody is allowed to claim', () => {
+  const OURS = 'link.handsfreeos.com';
+
+  const allow = (host: string, workspaceId: string) =>
+    rows(
+      admin$,
+      sql`insert into platform.claimable_hosts (host, workspace_id, why)
+          values (${host}, ${workspaceId}, 'test') on conflict (host) do update
+          set workspace_id = excluded.workspace_id`,
+    );
+
+  afterEach(async () => {
+    await rows(admin$, sql`delete from platform.claimable_hosts`);
+  });
+
+  it('is refused while it is on nobody’s list', async () => {
+    const e = await expectPgError(() => add(owner, ws, siteId, OURS));
+    expect(e.code).toBe('42501');
+    expect(e.detail).toBe('branded_domain_is_ours');
+  });
+
+  it('is taken once it is written down against that workspace', async () => {
+    await allow(OURS, ws);
+    const [made] = await add(owner, ws, siteId, OURS);
+    expect(made?.id).toBeTruthy();
+  });
+
+  it('is still refused to a business it was not written down for', async () => {
+    // The one that matters: `link.handsfreeos.com` is claimable, and this business is not who may claim it.
+    await allow(OURS, ws);
+    const e = await expectPgError(() => add(outsider, otherWs, otherSiteId, OURS));
+    expect(e.code).toBe('42501');
+    expect(e.detail).toBe('branded_domain_is_ours');
+  });
+
+  it('answers the handler’s question, and says nothing about anybody else’s name', async () => {
+    await allow(OURS, ws);
+    const [mine] = await rows<{ workspace_id: string | null }>(
+      admin$,
+      sql`select private.claimable_host_workspace(${OURS}) as workspace_id`,
+    );
+    expect(mine?.workspace_id).toBe(ws);
+    const [theirs] = await rows<{ workspace_id: string | null }>(
+      admin$,
+      sql`select private.claimable_host_workspace('booking.lonestarhvac.com') as workspace_id`,
+    );
+    expect(theirs?.workspace_id).toBeNull();
+  });
+
+  it('is not a list a business can read, nor one it can add itself to', async () => {
+    await allow(OURS, ws);
+    // Refused outright rather than read as empty: the grant was revoked, so this never reaches row level
+    // security. A business cannot even learn which of our names exist.
+    const read = await expectPgError(() =>
+      as(owner)((tx) => rows(tx, sql`select host from platform.claimable_hosts`)),
+    );
+    expect(read.code).toBe('42501');
+    const write = await expectPgError(() =>
+      as(owner)((tx) =>
+        rows(
+          tx,
+          sql`insert into platform.claimable_hosts (host, workspace_id)
+              values ('login.handsfreeos.com', ${ws})`,
+        ),
+      ),
+    );
+    expect(write.code).toBe('42501');
   });
 });
 

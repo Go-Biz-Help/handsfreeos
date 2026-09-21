@@ -1,13 +1,17 @@
 /**
  * M17: what counts as a domain a business may put its pages on.
  *
- * The check runs twice on purpose — here in Zod so somebody typing gets a sentence they can act on, and
- * again in a check constraint on `app.branded_domains` so nothing else can write a name past it. This
- * covers the first of those, and the cases that matter are the refusals: one of our own names accepted here
- * would let a business point `handsfreeos.com` at itself and take the app down for everybody.
+ * The shape check runs twice on purpose — here in Zod so somebody typing gets a sentence they can act on,
+ * and again in a check constraint on `app.branded_domains` so nothing else can write a name past it.
+ *
+ * **Whose the name is, is a separate question, and it is not asked here.** 0089 moved it: whether one of
+ * our own names may be claimed depends on which workspace is asking, so the handler asks the database and
+ * a trigger refuses anything that gets past it (`packages/db/test/branded-domain-rls.test.ts`). What Zod
+ * still owes us is `isOurHost` — recognising one of ours, however it is written, so the handler knows to
+ * ask at all.
  */
 import { describe, expect, it } from 'vitest';
-import { hostname } from '../src/schemas/branded-domain';
+import { hostname, isOurHost } from '../src/schemas/branded-domain';
 
 const ok = (s: string) => hostname.safeParse(s);
 
@@ -19,9 +23,32 @@ describe('a branded domain name', () => {
     expect(ok('book.lonestarhvac.plumbing').data).toBe('book.lonestarhvac.plumbing');
   });
 
-  it('refuses one of ours, however it is written', () => {
-    for (const d of ['handsfreeos.com', 'app.handsfreeos.com', 'BOOK.HandsFreeOS.com'])
-      expect(ok(d).success, d).toBe(false);
+  it('knows one of ours, however it is written', () => {
+    for (const d of [
+      'handsfreeos.com',
+      'app.handsfreeos.com',
+      'BOOK.HandsFreeOS.com',
+      '  link.handsfreeos.com  ',
+    ])
+      expect(isOurHost(d), d).toBe(true);
+  });
+
+  it('does not mistake somebody else’s name for one of ours', () => {
+    // The trailing-label match matters: `handsfreeos.com.evil.test` ends in neither, and
+    // `nothandsfreeos.com` only looks like it does.
+    for (const d of [
+      'booking.lonestarhvac.com',
+      'nothandsfreeos.com',
+      'handsfreeos.com.evil.test',
+      'handsfreeos.co',
+    ])
+      expect(isOurHost(d), d).toBe(false);
+  });
+
+  it('leaves whose-name-is-it to the handler, so the shape check takes one of ours', () => {
+    // Not an endorsement — `link.handsfreeos.com` is the right shape, and `branded_domain.add` is what
+    // decides whether this workspace may have it.
+    expect(ok('link.handsfreeos.com').success).toBe(true);
   });
 
   it('refuses a name with a scheme or a path on it, which is what somebody pastes', () => {
