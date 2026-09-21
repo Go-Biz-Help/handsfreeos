@@ -166,8 +166,11 @@ describe('a thread belongs to the line it came in on', () => {
    */
   it('gives a thread that has no line the first one offered, instead of forking it', async () => {
     const stranger = randomE164();
+    // Planted with the admin connection, like every other raw row here. The worker's own connection is
+    // `service_actor`, whose policies are scoped by `app.system_scope.*`, and those are set by the command
+    // kernel — a bare insert on it is refused before RLS is even reached.
     const [made] = await rows<{ id: string }>(
-      testDbs().worker.db,
+      admin(),
       sql`insert into app.conversations (workspace_id, channel, counterpart, phone_number_id)
           values (${wsId}, 'sms', ${stranger}, null) returning id`,
     );
