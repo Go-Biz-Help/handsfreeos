@@ -117,6 +117,19 @@ export function weekOf(date: string, weekStartsOn: 0 | 1 = 1): string[] {
   return Array.from({ length: 7 }, (_, i) => addDays(first, i));
 }
 
+/**
+ * The local dates of the month grid holding a date: whole weeks, so it opens with the days of the
+ * previous month that share the first week and closes with the next month's that share the last.
+ * Always six rows of seven, because a grid that changes height between months moves everything under
+ * it when you step through them.
+ */
+export function monthGridOf(date: string, weekStartsOn: 0 | 1 = 1): string[] {
+  const first = `${date.slice(0, 7)}-01`;
+  const back = (weekdayOf(first) - weekStartsOn + 7) % 7;
+  const start = addDays(first, -back);
+  return Array.from({ length: 42 }, (_, i) => addDays(start, i));
+}
+
 /** Whole hours to show: at least the default span, widened to take in every given span. */
 export function visibleHours(
   spans: readonly MinuteSpan[],

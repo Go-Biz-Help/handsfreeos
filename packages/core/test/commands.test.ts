@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { eq } from 'drizzle-orm';
 import { asWorker } from '@hfos/db/client';
-import { auditLogs, events, invitations, outbox } from '@hfos/db/schema';
+import { auditLogs, events, invitations, outbox, workspaceMemberships } from '@hfos/db/schema';
 import { closeTestDbs, createTestUser, testDbs, type TestUser } from '@hfos/db/testing';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { z } from 'zod';
@@ -688,6 +688,14 @@ describe('workspace.create / workspace.update', () => {
       owner,
     );
     expect(output.slug).toMatch(/^bayou-plumbing-co-[a-f0-9]{6}$/);
+    // The creator is on it. Administering the org is what allows the command, but the workspace's own
+    // people are its members, and a business with none has nobody to show, book or assign.
+    const members = await testDbs()
+      .admin.db.select()
+      .from(workspaceMemberships)
+      .where(eq(workspaceMemberships.workspaceId, output.workspaceId));
+    expect(members).toHaveLength(1);
+    expect(members[0]).toMatchObject({ userId: owner.id, role: 'owner' });
     await expectHfos(
       () => run(workspaceCreate, { organizationId: orgId, name: 'Nope' }, outsider),
       'not_found',

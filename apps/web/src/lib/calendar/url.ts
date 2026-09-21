@@ -5,13 +5,13 @@
  */
 import { isLocalDate } from '@hfos/core';
 
-export const CALENDAR_VIEWS = ['team', 'week', 'day', 'resources'] as const;
+export const CALENDAR_VIEWS = ['team', 'week', 'day', 'month', 'resources'] as const;
 export type CalendarView = (typeof CALENDAR_VIEWS)[number];
 
 export interface CalendarQuery {
   readonly view: CalendarView;
   readonly date: string;
-  /** Team: the people shown (null is everyone). Week and Day: the one person (null is you). */
+  /** Team: the people shown (null is everyone). Week, Day and Month: the one person (null is you). */
   readonly people: readonly string[] | null;
   /** The calendars shown; null is all of them. */
   readonly calendars: readonly string[] | null;
