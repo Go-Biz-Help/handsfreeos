@@ -24,6 +24,7 @@ export * from './crm/synced';
 export * from './hosting/branded-paths';
 export * from './messaging/consent';
 export * from './messaging/a2p';
+export * from './messaging/policies';
 export * from './messaging/sms';
 export * from './messaging/quiet-hours';
 export * from './messaging/bridge';
