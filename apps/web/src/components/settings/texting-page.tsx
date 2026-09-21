@@ -1,9 +1,8 @@
 'use client';
-import { formatClock, formatPhone, normalizePhone, optInDescriptionDefault } from '@hfos/core';
+import { formatClock, formatPhone, normalizePhone } from '@hfos/core';
 import {
   Check,
   CircleAlert,
-  CircleCheck,
   Clock,
   Copy,
   Globe,
@@ -23,12 +22,12 @@ import { toast } from 'sonner';
 import { Callout } from '@/components/crm/chips';
 import { InboxVisibilityCard } from '@/components/settings/inbox-visibility-card';
 import { NumbersCard, type Ringable } from '@/components/settings/numbers-card';
+import { A2pWizard, type HostedSurfaces } from '@/components/settings/a2p-wizard';
 import { PortStep, type PortInfo } from '@/components/settings/port-step';
 import { ChannelIcon, Pill } from '@/components/inbox/bits';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { Checkbox } from '@/components/ui/checkbox';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -91,6 +90,7 @@ export function TextingPage({
   people,
   ports,
   inboxPerPerson,
+  surfaces,
 }: {
   workspaceId: string;
   businessName: string;
@@ -104,6 +104,12 @@ export function TextingPage({
   ports: readonly PortInfo[];
   /** Whether each person sees only their own threads (M17). Shown beside "who this number rings". */
   inboxPerPerson: boolean;
+  /**
+   * What is already public for this business: the booking site's slug, a live chat widget, a live form.
+   * The registration wizard needs them to know what its hosted opt-in still has to create, and to write
+   * addresses a carrier can open into the sentence it sends.
+   */
+  surfaces: HostedSurfaces;
 }) {
   useLiveRefresh(['phone_number', 'registration', 'number_port', 'workspace']);
   const router = useRouter();
@@ -234,12 +240,13 @@ export function TextingPage({
             : `Releasing ${status.number?.display ?? 'the number'}.`}
         </div>
       ) : step === 'submit_registration' || fixing ? (
-        <BusinessStep
+        <A2pWizard
           workspaceId={workspaceId}
           businessName={businessName}
           number={status.number!}
           me={me}
           initial={fixing ? submission : null}
+          surfaces={surfaces}
           onBack={fixing ? () => setFixing(false) : undefined}
           onSubmitted={() => setFixing(false)}
         />
@@ -647,420 +654,6 @@ function NumberStep({
   );
 }
 
-interface BizForm {
-  legalName: string;
-  businessType: string;
-  ein: string;
-  website: string;
-  line1: string;
-  city: string;
-  state: string;
-  postalCode: string;
-  contactFirst: string;
-  contactLast: string;
-  contactPhone: string;
-  contactEmail: string;
-  optIn: string;
-  sample1: string;
-  sample2: string;
-  useCase: string;
-  volume: string;
-}
-
-/** Server paths of the business profile, mapped to the form's fields. */
-const ERROR_FIELD: Record<string, keyof BizForm> = {
-  'business.legalName': 'legalName',
-  'business.businessType': 'businessType',
-  'business.ein': 'ein',
-  'business.website': 'website',
-  'business.address.line1': 'line1',
-  'business.address.city': 'city',
-  'business.address.state': 'state',
-  'business.address.postalCode': 'postalCode',
-  'business.contact.firstName': 'contactFirst',
-  'business.contact.lastName': 'contactLast',
-  'business.contact.phone': 'contactPhone',
-  'business.contact.email': 'contactEmail',
-  'business.optInDescription': 'optIn',
-  'business.messageSamples': 'sample2',
-  'business.messageSamples.0': 'sample1',
-  'business.messageSamples.1': 'sample2',
-  'business.useCase': 'useCase',
-  'business.monthlyVolume': 'volume',
-};
-
-function formFrom(
-  initial: Record<string, unknown> | null,
-  businessName: string,
-  me: { fullName: string; email: string },
-): BizForm {
-  const b = (initial ?? {}) as {
-    legalName?: string;
-    businessType?: string;
-    ein?: string | null;
-    website?: string;
-    address?: { line1?: string; city?: string; state?: string; postalCode?: string };
-    contact?: { firstName?: string; lastName?: string; email?: string; phone?: string };
-    optInDescription?: string;
-    messageSamples?: string[];
-    useCase?: string;
-    monthlyVolume?: string;
-  };
-  const [meFirst = '', ...meRest] = me.fullName.trim().split(/\s+/);
-  return {
-    legalName: b.legalName ?? businessName,
-    businessType: b.businessType ?? 'llc',
-    ein: b.ein ?? '',
-    website: b.website ?? '',
-    line1: b.address?.line1 ?? '',
-    city: b.address?.city ?? '',
-    state: b.address?.state ?? '',
-    postalCode: b.address?.postalCode ?? '',
-    contactFirst: b.contact?.firstName ?? meFirst,
-    contactLast: b.contact?.lastName ?? meRest.join(' '),
-    contactPhone: b.contact?.phone ?? '',
-    contactEmail: b.contact?.email ?? me.email,
-    optIn: b.optInDescription ?? '',
-    sample1: b.messageSamples?.[0] ?? '',
-    sample2: b.messageSamples?.[1] ?? '',
-    useCase: b.useCase ?? 'customer_care',
-    volume: b.monthlyVolume ?? 'under_1000',
-  };
-}
-
-function BusinessStep({
-  workspaceId,
-  businessName,
-  number,
-  me,
-  initial,
-  onBack,
-  onSubmitted,
-}: {
-  workspaceId: string;
-  businessName: string;
-  number: PhoneNumberInfo;
-  me: { fullName: string; email: string };
-  initial: Record<string, unknown> | null;
-  onBack?: () => void;
-  onSubmitted: () => void;
-}) {
-  const router = useRouter();
-  const [form, setForm] = useState<BizForm>(() => formFrom(initial, businessName, me));
-  const [errors, setErrors] = useState<Partial<Record<keyof BizForm, string>>>({});
-  const [agreed, setAgreed] = useState(false);
-  const [busy, setBusy] = useState(false);
-  const local = number.numberType === 'local';
-  const set = (k: keyof BizForm) => (v: string) => setForm((f) => ({ ...f, [k]: v }));
-  const soleProp = form.businessType === 'sole_proprietor';
-
-  async function submit(e: FormEvent) {
-    e.preventDefault();
-    setBusy(true);
-    setErrors({});
-    const website = /^https?:\/\//i.test(form.website.trim())
-      ? form.website.trim()
-      : form.website.trim()
-        ? `https://${form.website.trim()}`
-        : '';
-    try {
-      unwrap(
-        await apiBrowser().POST('/v1/commands/registration.submit', {
-          body: {
-            workspaceId,
-            kind: local ? 'a2p_10dlc' : 'toll_free_verification',
-            business: {
-              legalName: form.legalName,
-              businessType: form.businessType as 'llc',
-              ein: soleProp ? null : form.ein || null,
-              website,
-              address: {
-                line1: form.line1,
-                city: form.city,
-                state: form.state,
-                postalCode: form.postalCode,
-                country: 'US',
-              },
-              contact: {
-                firstName: form.contactFirst,
-                lastName: form.contactLast,
-                email: form.contactEmail,
-                phone: form.contactPhone,
-              },
-              useCase: form.useCase as 'customer_care',
-              messageSamples: [form.sample1, form.sample2].map((s) => s.trim()).filter(Boolean),
-              optInDescription: form.optIn,
-              monthlyVolume: form.volume as 'under_1000',
-            },
-          },
-        }),
-      );
-      toast.success('Sent to the carriers');
-      onSubmitted();
-      router.refresh();
-    } catch (err) {
-      if (err instanceof ApiError && err.code === 'validation' && Array.isArray(err.details)) {
-        const next: Partial<Record<keyof BizForm, string>> = {};
-        for (const d of err.details as { path?: string; message?: string }[]) {
-          const key = ERROR_FIELD[d.path ?? ''];
-          if (key && !next[key]) next[key] = d.message ?? 'Check this.';
-        }
-        setErrors(next);
-        toast.error(Object.keys(next).length ? 'A few details need a look.' : err.message);
-      } else toast.error(errorMessage(err));
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  const text = (
-    k: keyof BizForm,
-    lbl: string,
-    props: Partial<Parameters<typeof Input>[0]> = {},
-    span = false,
-  ) => (
-    <Field
-      label={lbl}
-      htmlFor={`biz-${k}`}
-      error={errors[k]}
-      className={cn('mb-3.5', span && 'sm:col-span-2')}
-    >
-      <Input
-        id={`biz-${k}`}
-        value={form[k]}
-        onChange={(e) => set(k)(e.target.value)}
-        invalid={!!errors[k]}
-        {...props}
-      />
-    </Field>
-  );
-
-  return (
-    <form onSubmit={(e) => void submit(e)} data-testid="business-step" noValidate>
-      {onBack ? null : (
-        <Callout tone="info" icon={CircleCheck} className="mb-[18px]">
-          <strong>{number.display} is yours.</strong> Calls ring now. To turn on texting, the
-          carriers need to know who is texting and why.
-        </Callout>
-      )}
-      <h2 className="text-lg font-semibold tracking-tight">Business details for the carriers</h2>
-      <p className="mb-4 mt-1 text-[13px] text-text-2">
-        We send these to the carriers for you. Use the legal details on your tax paperwork.
-      </p>
-      <div className="grid grid-cols-1 gap-x-3.5 sm:grid-cols-2">
-        {text('legalName', 'Legal business name')}
-        <Field
-          label="Business type"
-          htmlFor="biz-businessType"
-          error={errors.businessType}
-          className="mb-3.5"
-        >
-          <Select
-            id="biz-businessType"
-            value={form.businessType}
-            onChange={(e) => set('businessType')(e.target.value)}
-          >
-            {BUSINESS_TYPES.map(([v, l]) => (
-              <option key={v} value={v}>
-                {l}
-              </option>
-            ))}
-          </Select>
-        </Field>
-        {soleProp ? (
-          <p className="mb-3.5 self-end text-[12.5px] text-text-3 sm:pb-3">
-            Sole proprietors don’t need an EIN
-            {local ? ', but local numbers need one: pick toll-free instead' : ''}.
-          </p>
-        ) : (
-          text('ein', 'EIN (tax ID)', {
-            className: 'font-mono text-sm',
-            placeholder: '12-3456789',
-            inputMode: 'numeric',
-          })
-        )}
-        {text('website', 'Website', { placeholder: 'https://', inputMode: 'url' })}
-        <div className="mb-3.5 sm:col-span-2">
-          <Label htmlFor="biz-line1">Business address</Label>
-          <div className="grid grid-cols-6 gap-2">
-            <Input
-              id="biz-line1"
-              className="col-span-6"
-              placeholder="Street"
-              value={form.line1}
-              onChange={(e) => set('line1')(e.target.value)}
-              invalid={!!errors.line1}
-            />
-            <Input
-              aria-label="City"
-              className="col-span-3"
-              placeholder="City"
-              value={form.city}
-              onChange={(e) => set('city')(e.target.value)}
-              invalid={!!errors.city}
-            />
-            <Input
-              aria-label="State"
-              className="col-span-1"
-              placeholder="TX"
-              maxLength={2}
-              value={form.state}
-              onChange={(e) => set('state')(e.target.value.toUpperCase())}
-              invalid={!!errors.state}
-            />
-            <Input
-              aria-label="ZIP code"
-              className="col-span-2"
-              placeholder="ZIP"
-              inputMode="numeric"
-              value={form.postalCode}
-              onChange={(e) => set('postalCode')(e.target.value)}
-              invalid={!!errors.postalCode}
-            />
-          </div>
-          <FieldError>
-            {errors.line1 ?? errors.city ?? errors.state ?? errors.postalCode}
-          </FieldError>
-        </div>
-        <div className="mb-3.5">
-          <Label htmlFor="biz-contactFirst">Contact person</Label>
-          <div className="grid grid-cols-2 gap-2">
-            <Input
-              id="biz-contactFirst"
-              placeholder="First name"
-              value={form.contactFirst}
-              onChange={(e) => set('contactFirst')(e.target.value)}
-              invalid={!!errors.contactFirst}
-            />
-            <Input
-              aria-label="Last name"
-              placeholder="Last name"
-              value={form.contactLast}
-              onChange={(e) => set('contactLast')(e.target.value)}
-              invalid={!!errors.contactLast}
-            />
-          </div>
-          <FieldError>{errors.contactFirst ?? errors.contactLast}</FieldError>
-        </div>
-        <div className="mb-3.5">
-          <Label htmlFor="biz-contactPhone">Contact phone and email</Label>
-          <div className="grid grid-cols-2 gap-2">
-            <Input
-              id="biz-contactPhone"
-              placeholder="(713) 555-0123"
-              inputMode="tel"
-              value={form.contactPhone}
-              onChange={(e) => set('contactPhone')(e.target.value)}
-              invalid={!!errors.contactPhone}
-            />
-            <Input
-              aria-label="Contact email"
-              placeholder="you@business.com"
-              inputMode="email"
-              value={form.contactEmail}
-              onChange={(e) => set('contactEmail')(e.target.value)}
-              invalid={!!errors.contactEmail}
-            />
-          </div>
-          <FieldError>{errors.contactPhone ?? errors.contactEmail}</FieldError>
-        </div>
-      </div>
-      <Field
-        label="How customers agree to get texts"
-        htmlFor="biz-optIn"
-        error={errors.optIn}
-        className="mb-3.5"
-      >
-        <Textarea
-          id="biz-optIn"
-          className="min-h-32"
-          value={form.optIn}
-          onChange={(e) => set('optIn')(e.target.value)}
-          invalid={!!errors.optIn}
-          placeholder="Customers give us their cell number when they call or text, fill in our website form, book online or sign an estimate, and agree to get texts from us. We only send automated texts to people who contacted us or booked with us: replies to new inquiries, a text back after a missed call, appointment confirmations and reminders, follow-ups on estimates and review requests. Every text says how to opt out, and replying STOP stops them."
-        />
-        {/* The carriers check what you say here against what the tick box actually said. This fills in a
-            description of the box HandsFreeOS really shows on your booking page and your forms, so the two
-            cannot drift; a business that also collects consent on paper edits it afterwards. */}
-        <button
-          type="button"
-          className="mt-1.5 text-xs font-medium text-accent-text hover:underline"
-          onClick={() => set('optIn')(optInDescriptionDefault(businessName))}
-          data-testid="biz-optIn-default"
-        >
-          Describe the tick box we show for you
-        </button>
-      </Field>
-      <div className="mb-3.5">
-        <Label htmlFor="biz-sample1">{local ? 'Two example texts' : 'Example texts'}</Label>
-        <div className="flex flex-col gap-2">
-          <Input
-            id="biz-sample1"
-            value={form.sample1}
-            onChange={(e) => set('sample1')(e.target.value)}
-            invalid={!!errors.sample1}
-            placeholder={`Hi Mike, this is ${businessName}. Sorry we missed your call! How can we help? Reply STOP to opt out.`}
-          />
-          <Input
-            aria-label="Second example text"
-            value={form.sample2}
-            onChange={(e) => set('sample2')(e.target.value)}
-            invalid={!!errors.sample2}
-            placeholder={`Hi Mike, it’s ${businessName}. Just checking in on your AC estimate. Any questions? Reply STOP to opt out.`}
-          />
-        </div>
-        <FieldError>{errors.sample1 ?? errors.sample2}</FieldError>
-      </div>
-      <div className="flex flex-col gap-x-3.5 sm:flex-row">
-        <Field label="What you text about" htmlFor="biz-useCase" className="mb-3.5 flex-1">
-          <Select
-            id="biz-useCase"
-            value={form.useCase}
-            onChange={(e) => set('useCase')(e.target.value)}
-          >
-            {USE_CASES.map(([v, l]) => (
-              <option key={v} value={v}>
-                {l}
-              </option>
-            ))}
-          </Select>
-        </Field>
-        <Field label="Texts a month" htmlFor="biz-volume" className="mb-3.5 sm:w-[220px]">
-          <Select
-            id="biz-volume"
-            value={form.volume}
-            onChange={(e) => set('volume')(e.target.value)}
-          >
-            {VOLUMES.map(([v, l]) => (
-              <option key={v} value={v}>
-                {l}
-              </option>
-            ))}
-          </Select>
-        </Field>
-      </div>
-      <Checkbox
-        className="mb-[18px] mt-1 text-[13px]"
-        label="These details are accurate, and we only text customers who agreed to it."
-        checked={agreed}
-        onChange={(e) => setAgreed(e.target.checked)}
-        data-testid="business-agree"
-      />
-      <div className="flex items-center justify-between gap-3">
-        {onBack ? (
-          <Button variant="ghost" onClick={onBack}>
-            Back
-          </Button>
-        ) : (
-          <span />
-        )}
-        <Button type="submit" disabled={!agreed} loading={busy} data-testid="submit-registration">
-          Submit for approval
-        </Button>
-      </div>
-    </form>
-  );
-}
 
 type RowState = 'done' | 'review' | 'next' | 'turned_down';
 

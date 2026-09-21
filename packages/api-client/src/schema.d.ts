@@ -17724,6 +17724,9 @@ export interface operations {
                         monthlyVolume: "under_1000" | "1000_10000" | "10000_100000" | "over_100000";
                         optInDescription: string;
                         /** @enum {string} */
+                        optInPath?: "hosted" | "own_site" | "in_person";
+                        policyUrl?: string | null;
+                        /** @enum {string} */
                         useCase: "customer_care" | "mixed" | "marketing";
                         /** Format: uri */
                         website: string;

@@ -117,21 +117,46 @@ export async function setUpTexting(page: Page, workspaceId: string): Promise<str
   const display = (await picked.locator('.font-mono').textContent())!.trim();
   await page.getByTestId('buy-number').click();
   await expect(page.getByTestId('business-step')).toBeVisible({ timeout: 30_000 });
-  await page.getByLabel('EIN (tax ID)').fill('12-3456789');
-  await page.getByLabel('Website').fill('https://lonestarhvac.test');
-  await page.locator('#biz-line1').fill('4410 Westpark Dr');
+  // The registration is a wizard now: one question at a time, and a step with a blocker on it will not
+  // advance. So this walks it the way a business does, and a check that starts failing here is the wizard
+  // refusing details a carrier would have refused later.
+  const next = page.getByTestId('a2p-next');
+
+  // 1. Who the carriers look up.
+  await page.getByLabel('Your EIN').fill('12-3456789');
+  await next.click();
+
+  // 2. Where to find them.
+  await page.getByLabel('Your website').fill('https://lonestarhvac.test');
+  await page.getByLabel('Street address').fill('4410 Westpark Dr');
   await page.getByLabel('City', { exact: true }).fill('Houston');
   await page.getByLabel('State', { exact: true }).fill('TX');
   await page.getByLabel('ZIP code').fill('77027');
-  await page.locator('#biz-contactPhone').fill('(713) 555-0161');
-  await page
-    .getByLabel('How customers agree to get texts')
-    .fill(
-      'Customers give us their cell number when they book a visit and agree to texts about it.',
-    );
-  await page
-    .locator('#biz-sample1')
-    .fill('Hi Mike, this is Lone Star HVAC. Marco is on the way. Reply STOP to opt out.');
+  await next.click();
+
+  // 3. Who to write to. The name and email come from the signed-in user.
+  await page.getByLabel('Phone', { exact: true }).fill('(713) 555-0161');
+  await next.click();
+
+  // 4. What they text about: appointments and customer care is already chosen.
+  await next.click();
+
+  // 5. Two texts they would really send. Taken from the wizard's own suggestions rather than typed: the
+  //    wizard blocks a sample that does not name the business, and this helper is called for workspaces
+  //    with a different name in every spec. Filling them this way also checks the suggestions are usable.
+  await page.getByTestId('a2p-suggestion-0').click();
+  await page.getByTestId('a2p-suggestion-1').click();
+  await expect(page.locator('#a2p-sample-0')).not.toHaveValue('');
+  await expect(page.locator('#a2p-sample-1')).not.toHaveValue('');
+  await next.click();
+
+  // 6. How customers agree. In person, so the test does not stand up a chat widget and a public form.
+  await page.getByTestId('optin-in_person').click();
+  await next.click();
+
+  // 7. The privacy policy we write for them, which is the default.
+  await next.click();
+
   await page.getByTestId('business-agree').check();
   await page.getByTestId('submit-registration').click();
   // The details go to the (fake) carriers. On a cold server that can take a while, and they may approve before the

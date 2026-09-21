@@ -6418,6 +6418,26 @@
                           "10000_100000",
                           "over_100000"
                         ]
+                      },
+                      "optInPath": {
+                        "type": "string",
+                        "enum": [
+                          "hosted",
+                          "own_site",
+                          "in_person"
+                        ]
+                      },
+                      "policyUrl": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "maxLength": 200,
+                            "format": "uri"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
                       }
                     },
                     "required": [
