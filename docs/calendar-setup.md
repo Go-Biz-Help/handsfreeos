@@ -309,11 +309,16 @@ handed a client ID and rejected that ID.
 The failing URL in the address bar is the evidence. Find `client_id=` in it — that is verbatim what the worker
 sent — and check, in order:
 
-1. It ends in `.apps.googleusercontent.com`. If it starts `GOCSPX-`, the secret went into the ID.
-2. Nothing is wrapped around it. `%22` at either end means quotes were stored as part of the value:
+1. It is a client ID at all. `%3C` and `%3E` are `<` and `>`, so a `client_id=%3C…%3E` means a placeholder
+   from these instructions was imported as the value — the worker stored `<Google Calendar client ID>`, or
+   `<id>`, and sent it. Google answers "The OAuth client was not found." Set the real value, **and the secret
+   in the same import**: the secret is not sent here, so a placeholder in it stays invisible until the token
+   exchange right after consent, where it fails as `invalid_client` all over again.
+2. It ends in `.apps.googleusercontent.com`. If it starts `GOCSPX-`, the secret went into the ID.
+3. Nothing is wrapped around it. `%22` at either end means quotes were stored as part of the value:
    `fly secrets import` takes everything after the `=`, so `KEY="…"` keeps the quotes. A trailing space or
    newline does the same.
-3. It matches the **Clients** page of the `HandsFreeOS Calendar` project character for character.
+4. It matches the **Clients** page of the `HandsFreeOS Calendar` project character for character.
 
 If the ID is right, check the client still exists, the project isn't deleted, and the client's type is **Web
 application**. A client made minutes ago may still be propagating; past ten, it is not that.
