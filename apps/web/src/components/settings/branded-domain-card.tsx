@@ -73,9 +73,11 @@ export function BrandedDomainCard({
       <h2 className="text-lg font-semibold leading-[1.3] tracking-[-0.005em]">
         Your own web address
       </h2>
-      <p className="mt-1 max-w-[540px] text-[13px] text-text-2">
-        Put your booking page, your forms and the links you send on a domain you own, like{' '}
-        <span className="font-mono">booking.yourbusiness.com</span>, instead of ours.
+      <p className="mt-1 max-w-[560px] text-[13px] text-text-2">
+        One domain you own — like <span className="font-mono">booking.yourbusiness.com</span> —
+        carries everything a customer sees: your booking page and calendar links, your forms, your
+        estimates and invoices, your payment links, and your website chat. Set it once here and they
+        all move together.
       </p>
 
       {!domain ? (
@@ -122,6 +124,13 @@ export function BrandedDomainCard({
               <CircleCheck className="h-4 w-4 text-success-text" strokeWidth={1.8} />
             ) : null}
           </div>
+
+          {serving ? (
+            <p className="mt-1.5 max-w-[560px] text-[13px] text-text-2">
+              New links are handed out on this address. Anything you sent before still opens on
+              handsfreeos.com, so nothing you have already texted or printed has stopped working.
+            </p>
+          ) : null}
 
           {domain.lastError && !serving ? (
             <Callout tone="warning" icon={CircleAlert} className="mt-3">

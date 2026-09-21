@@ -26,6 +26,7 @@ type Args = Record<string, unknown>;
 /** What one area is read with: the same queries the screen behind it runs. */
 const QUERIES: Record<SettingsArea, readonly { readonly name: string; readonly as: string }[]> = {
   business: [{ name: 'workspace.get', as: 'business' }],
+  branded_domain: [{ name: 'branded_domain.get', as: 'brandedDomain' }],
   pipelines: [{ name: 'pipeline.list', as: 'pipelines' }],
   calendars: [{ name: 'calendar.list', as: 'calendars' }],
   services: [{ name: 'service.list', as: 'services' }],

@@ -11,6 +11,7 @@ import type { Permission } from '../permissions';
 
 export const SETTINGS_AREAS = [
   'business',
+  'branded_domain',
   'pipelines',
   'calendars',
   'services',
@@ -68,6 +69,26 @@ const AREAS: Record<SettingsArea, Omit<SettingsAreaInfo, 'area'>> = {
     permission: 'workspace.update',
     canChange: ['the name, time zone and industry', 'the website and review link', 'open hours'],
     handovers: [],
+  },
+  branded_domain: {
+    label: 'Your own web address',
+    what: 'the domain the customer-facing links are served on — the booking page and calendar links, forms, estimates, invoices, payment links and website chat — instead of handsfreeos.com',
+    // The same screen as the business itself: one domain covers every public link, so it does not belong
+    // under any one of them.
+    path: '/settings/workspace',
+    permission: 'channels.manage',
+    canChange: [],
+    handovers: [
+      {
+        what: 'use your own domain for your booking page, forms and payment links',
+        why: 'the records go in with whoever you bought the domain from, which only you can sign in to',
+        steps: [
+          'Open Settings → Workspace and type the address you want, like booking.yourbusiness.com.',
+          'Put the two records it gives you in with whoever you bought the domain from (GoDaddy, Namecheap, wherever it is).',
+          'DNS often takes a few hours. The card says when it is working, and it keeps checking on its own.',
+        ],
+      },
+    ],
   },
   pipelines: {
     label: 'Pipelines',
