@@ -280,6 +280,7 @@ while you wait.
 | --------------------------------------------------------------- | ------------------------------------------------------- | --------------------------------------------------------------------------------- |
 | "Google Calendar isn't set up yet" / "Outlook isn't set up yet" | The worker is missing that provider's ID or secret      | Set the two values on `handsfreeos-worker`                                        |
 | `redirect_uri_mismatch`                                         | The Google client's redirect URI doesn't match          | Make it exactly `https://hooks.handsfreeos.com/oauth/google/callback`             |
+| Google's `Error 401: invalid_client` at sign-in                 | Google doesn't recognise the client ID the worker sent  | See "invalid_client at sign-in" below. Not the secret — rotating it won't help    |
 | `AADSTS50011`                                                   | The Entra redirect URI doesn't match                    | `https://hooks.handsfreeos.com/oauth/microsoft/callback`, on the **Web** platform |
 | Google blocks the sign-in                                       | App is in Testing, that address isn't a test user       | Add it under **Audience** → **Test users**                                        |
 | "This sign-in link has expired"                                 | More than ten minutes passed, or the link was used once | Start again from **My calendar**                                                  |
@@ -290,3 +291,29 @@ while you wait.
 Two more worth knowing: Outlook calendars share the Microsoft client secret with Outlook mailboxes, so when it
 expires both stop. And the sign-ins are sealed with `WORKER_ENCRYPTION_KEY` — lose it and every calendar has
 to be reconnected.
+
+### invalid_client at sign-in
+
+`invalid_client` means two different things depending on when it arrives, and the two have different fixes.
+
+**At a refresh**, in the worker's log or behind a **Not syncing** badge, it is the client secret: expired, wrong
+or from the other Google client. Rotate it on the worker.
+
+**At sign-in**, as Google's own `Error 401: invalid_client` page with `flowName=GeneralOAuthFlow`, the secret is
+not involved at all — the authorize request carries only the client ID, the redirect URI, the scopes, the state
+and the PKCE challenge (`apps/worker/src/calendar/google.ts`). Rotating the secret changes nothing. Two things
+are already established by the fact that you got Google's page rather than the worker's "Google Calendar isn't
+set up yet": both values are set on the worker (`startCalendar` refuses to redirect otherwise), and Google was
+handed a client ID and rejected that ID.
+
+The failing URL in the address bar is the evidence. Find `client_id=` in it — that is verbatim what the worker
+sent — and check, in order:
+
+1. It ends in `.apps.googleusercontent.com`. If it starts `GOCSPX-`, the secret went into the ID.
+2. Nothing is wrapped around it. `%22` at either end means quotes were stored as part of the value:
+   `fly secrets import` takes everything after the `=`, so `KEY="…"` keeps the quotes. A trailing space or
+   newline does the same.
+3. It matches the **Clients** page of the `HandsFreeOS Calendar` project character for character.
+
+If the ID is right, check the client still exists, the project isn't deleted, and the client's type is **Web
+application**. A client made minutes ago may still be propagating; past ten, it is not that.
