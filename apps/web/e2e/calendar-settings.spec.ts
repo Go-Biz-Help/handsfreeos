@@ -79,6 +79,20 @@ test('hours, time off, a Google busy block, services and resources', async ({ pa
     }),
   });
   expect(res.ok).toBe(true);
+  // And one late in the evening, well outside both the grid's default 7–18 window and anyone's hours.
+  // The grid has to stretch to it: a busy time it doesn't draw still blocks bookings, so a block that
+  // falls outside the window has to widen the window rather than be dropped.
+  const evening = new Date(start.getTime() + 12 * 3_600_000);
+  const lateRes = await fetch(`${WORKER_URL}/test/calendars/busy`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({
+      account,
+      start: evening.toISOString(),
+      end: new Date(evening.getTime() + 1_800_000).toISOString(),
+    }),
+  });
+  expect(lateRes.ok).toBe(true);
   await page.getByTestId('calendar-sync-now').click();
   // Inside the toast: the card says the same words while it has never synced, and matching both is a tie.
   await expect(
@@ -95,7 +109,7 @@ test('hours, time off, a Google busy block, services and resources', async ({ pa
       },
       { timeout: 30_000, intervals: [1000] },
     )
-    .toBeGreaterThan(0);
+    .toBeGreaterThanOrEqual(2);
   await expect(page.getByTestId('busy-block').first()).toHaveText('Busy');
   await expect(page.getByTestId('busy-block').first()).toHaveAttribute(
     'title',

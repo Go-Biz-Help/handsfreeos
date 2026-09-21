@@ -354,6 +354,10 @@ export function CalendarPage(props: {
   const hours = visibleHours(
     columns.flatMap((c) => [
       ...(c.open ?? []),
+      // Busy times and time off stretch the day too. Without them the grid keeps its 7–18 window and
+      // the time grid drops any block outside it, so an evening dentist appointment read from someone's
+      // Google or Outlook calendar would block bookings while showing nowhere.
+      ...c.blocks.map((b) => b.span),
       ...c.events
         .map((a) => placeOnDay(Date.parse(a.startsAt), Date.parse(a.endsAt), c.date, tz))
         .filter((s): s is MinuteSpan => !!s),
