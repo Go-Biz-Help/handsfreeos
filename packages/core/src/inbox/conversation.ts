@@ -109,6 +109,13 @@ export const CONVERSATION_DONE = {
         : `Assigned to ${firstName(fullName ?? '')}`,
   closed: (who: string) => `Closed. A new message from ${who} opens it again.`,
   closedShort: 'Closed. A new message opens it again.',
+  /** conversation.close_all: one line whether it closed four lanes or none (0089). */
+  closedAll: (n: number) =>
+    n === 0
+      ? 'Nothing left to close.'
+      : n === 1
+        ? 'Closed. A new message opens it again.'
+        : `Closed all ${n} conversations. A new message opens one again.`,
   reopened: 'Back in the inbox',
   snoozed: (when: string) => `Snoozed until ${when}`,
   snoozedTomorrow: (time: string) => `Snoozed until tomorrow ${time}`,
@@ -132,6 +139,8 @@ export const CONVERSATION_ACTIONS = {
   snooze: 'Snooze',
   close: 'Close',
   closeConversation: 'Close conversation',
+  /** Every line this customer writes on, at once (0089). */
+  closeAll: 'Close every line',
   reopen: 'Reopen',
   markUnread: 'Mark as unread',
   archive: 'Archive this conversation',

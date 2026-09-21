@@ -176,17 +176,31 @@ export const emailReceive = defineCommand({
           .from(conversations)
           .where(eq(conversations.id, earlier.conversationId));
     }
-    if (!conv)
-      [conv = null] = await ctx.tx
-        .select()
-        .from(conversations)
-        .where(
-          and(
-            eq(conversations.workspaceId, workspaceId),
-            eq(conversations.channel, 'email'),
-            eq(conversations.counterpart, counterpart),
-          ),
-        );
+    /**
+     * Whether this address has ever written here, on any of the business's addresses.
+     *
+     * This used to be `conv`, found by counterpart alone, and it was answering two questions at once. Only
+     * one of them is about *which* thread, and since 0089 that one has an address in it:
+     * `findOrCreateConversation` keys on the address they wrote to, so mail to support@ no longer lands in
+     * the thread they started with sales@. The other two — whether a stranger's mail waits in the unmatched
+     * list, and whether lead intake should make them a customer — are about the person, and a customer who
+     * wrote to sales@ last week is neither a stranger nor a new lead because today they wrote to support@.
+     */
+    const known =
+      conv !== null ||
+      (
+        await ctx.tx
+          .select({ id: conversations.id })
+          .from(conversations)
+          .where(
+            and(
+              eq(conversations.workspaceId, workspaceId),
+              eq(conversations.channel, 'email'),
+              eq(conversations.counterpart, counterpart),
+            ),
+          )
+          .limit(1)
+      ).length > 0;
     let matched = personId ?? (await matchPersonByEmail(ctx.tx, workspaceId, counterpart));
     const at = input.occurredAt ? new Date(input.occurredAt) : new Date();
 
@@ -195,7 +209,7 @@ export const emailReceive = defineCommand({
     // out-of-office, a newsletter, or an address that already bounced for good.
     let intake: IntakeResult | null = null;
     if (
-      !conv &&
+      !known &&
       !matched &&
       inbound &&
       !input.knownOnly &&
@@ -216,7 +230,7 @@ export const emailReceive = defineCommand({
       matched = intake?.personId ?? matched;
     }
 
-    if (!conv && !matched) {
+    if (!known && !matched) {
       if (!inbound || input.knownOnly) return { outcome: 'skipped' as const, ...none };
       // Someone we don't know: kept whole until the team claims it for a customer or dismisses it.
       const snippet =
@@ -267,6 +281,7 @@ export const emailReceive = defineCommand({
         counterpart,
         personId: matched,
         phoneNumberId: null,
+        emailAddressId: input.emailAddressId ?? null,
       }));
     const autoLink = !conv.personId && !!matched;
     const person = conv.personId ?? matched;

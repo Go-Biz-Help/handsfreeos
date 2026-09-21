@@ -190,6 +190,45 @@ describe('the list', () => {
     ]);
   });
 
+  /**
+   * The row is the customer now, not the thread (0089), so it has to say when opening it shows one of
+   * several conversations — and when a thread that looks like a customer is not linked to them yet.
+   */
+  it('says when a customer writes on more than one line, and who an unlinked one looks like', () => {
+    const now = Date.parse('2026-09-17T12:40:00Z');
+    const chips = (over: Partial<RowFacts>) =>
+      conversationChips(row(over), { waitThreshold: 10, timeZone: TZ, now }).map(
+        (c) => `${c.kind}:${c.label}`,
+      );
+    const sms = { channel: 'sms' as const };
+    const mail = { channel: 'email' as const };
+    // One lane is the ordinary case and says nothing: every row would carry the chip otherwise.
+    expect(chips({ lanes: [sms] })).toEqual([]);
+    expect(chips({ lanes: [] })).toEqual([]);
+    // Two of the business's numbers: how many, since naming both would not fit a row.
+    expect(chips({ lanes: [sms, sms] })).toEqual(['lanes:2 lines']);
+    expect(chips({ lanes: [mail, mail] })).toEqual(['lanes:2 addresses']);
+    // Different kinds of conversation: which kinds, which is the more useful answer.
+    expect(chips({ lanes: [sms, mail] })).toEqual(['lanes:Text · Email']);
+    expect(chips({ lanes: [sms, mail, { channel: 'chat' }] })).toEqual([
+      'lanes:Text · Email · Chat',
+    ]);
+    // Unlinked, and nobody it looks like: what it has always said.
+    expect(chips({ person: null, counterpartDisplay: '(713) 555-0168' })).toEqual([
+      'new_number:New number',
+    ]);
+    // Unlinked, and it looks like somebody: offered, never taken.
+    expect(
+      chips({
+        person: null,
+        counterpartDisplay: '(713) 555-0168',
+        sameAs: { fullName: 'Kim Alvarez' },
+      }),
+    ).toEqual(['same_as:Same as Kim Alvarez?']);
+    // A row already linked never asks: it is that customer, which is the whole difference.
+    expect(chips({ sameAs: { fullName: 'Kim Alvarez' } })).toEqual([]);
+  });
+
   it('says why a list is empty', () => {
     expect(inboxEmptyWords('all', 'open', 'duct', 'Ava').title).toBe('Nothing matches “duct”');
     expect(inboxEmptyWords('mine', 'open', '', 'Ava').title).toBe('Nothing waiting on you');

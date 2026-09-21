@@ -7,7 +7,7 @@ import {
   rowName,
   type RowChip,
 } from '@hfos/core';
-import { AlarmClock, Mail, MessageCircle } from 'lucide-react';
+import { AlarmClock, Layers, Mail, MessageCircle } from 'lucide-react';
 import Link from 'next/link';
 import { StageBadge } from '@/components/crm/chips';
 import { Avatar } from '@/components/ui/avatar';
@@ -38,6 +38,18 @@ function Chip({ chip }: { chip: RowChip }) {
       );
     case 'new_number':
       return <Pill>{chip.label}</Pill>;
+    case 'lanes':
+      return (
+        <Pill icon={Layers} testId="row-lanes">
+          {chip.label}
+        </Pill>
+      );
+    case 'same_as':
+      return (
+        <Badge variant="member" data-testid="row-same-as">
+          {chip.label}
+        </Badge>
+      );
     case 'snoozed':
       return <Pill icon={AlarmClock}>{chip.label}</Pill>;
     case 'closed':
@@ -69,7 +81,7 @@ export function ConversationRow({
   /** The teammate's reply waits for someone's OK. */
   draftWaiting?: boolean;
 }) {
-  const unread = c.unreadCount > 0;
+  const unread = c.unreadTotal > 0;
   const chips = conversationChips(c, { waitThreshold, draftWaiting, timeZone: timezone });
   return (
     <Link
@@ -130,7 +142,7 @@ export function ConversationRow({
               <Avatar name={c.assignee.fullName} seed={c.assignee.id} size="sm" />
             </span>
           ) : null}
-          <CountBadge count={c.unreadCount} />
+          <CountBadge count={c.unreadTotal} />
         </div>
       </div>
     </Link>

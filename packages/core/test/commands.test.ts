@@ -180,6 +180,7 @@ describe('registry', () => {
       'conversation.snooze',
       'conversation.archive',
       'conversation.close',
+      'conversation.close_all',
       'conversation.reopen',
       'conversation.restore',
       'conversation.link_person',

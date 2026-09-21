@@ -66,6 +66,7 @@ import {
   loadConversation,
   loadRegistrations,
   matchPersonByPhone,
+  preferredLane,
   readiness,
   scheduleJob,
   workspaceMessaging,
@@ -121,9 +122,14 @@ async function resolveSmsConversation(
       );
     return { conversation: c, created: false };
   }
-  // A thread that does not exist yet has no number of its own, so it is stamped with the business's default
-  // and stays on it from then on.
-  const number = await defaultNumber(ctx.tx, workspaceId);
+  // Which of the business's lines this goes out on when the caller named no thread (0089): the line this
+  // customer has most recently been talking on, and only for a customer with no thread at all the business's
+  // default. Reaching for the default first is what would split a customer who has been texting the dispatch
+  // line into a second thread on the front desk, which is the thing lines exist to stop.
+  const lineFor = async (counterpart: string): Promise<string | null> =>
+    (await preferredLane(ctx.tx, workspaceId, 'sms', counterpart))?.phoneNumberId ??
+    (await defaultNumber(ctx.tx, workspaceId))?.id ??
+    null;
   if (input.personId) {
     const p = await requirePerson(ctx.tx, workspaceId, input.personId);
     if (p.archivedAt)
@@ -134,7 +140,7 @@ async function resolveSmsConversation(
       channel: 'sms',
       counterpart: p.phoneE164,
       personId: p.id,
-      phoneNumberId: number?.id ?? null,
+      phoneNumberId: await lineFor(p.phoneE164),
     });
   }
   const to = input.toPhone!;
@@ -142,7 +148,7 @@ async function resolveSmsConversation(
     channel: 'sms',
     counterpart: to,
     personId: await matchPersonByPhone(ctx.tx, workspaceId, to),
-    phoneNumberId: number?.id ?? null,
+    phoneNumberId: await lineFor(to),
   });
 }
 

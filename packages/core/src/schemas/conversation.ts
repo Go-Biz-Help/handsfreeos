@@ -27,6 +27,27 @@ export const OpenLeadRef = z.object({
   nextAction: z.string().nullable(),
   nextActionAt: isoDateTime.nullable(),
 });
+/**
+ * One of a customer's lanes: a thread of theirs, named by the business's own end of it (0089).
+ *
+ * The inbox shows a customer once and switches between these, so the label is what tells somebody which of
+ * the business's lines they are about to answer on — and `lineId` null is a lane with no line, which is a
+ * website chat or a business with nothing to send from.
+ */
+export const ConversationLane = z.object({
+  id: uuid,
+  channel: conversationChannel,
+  lineId: uuid.nullable(),
+  /** "Front desk · (713) 555-0142", "support@acme.com", "Website chat". Ready to show. */
+  lineDisplay: z.string(),
+  unreadCount: z.number().int(),
+  status: conversationStatus,
+  archived: z.boolean(),
+  lastMessageAt: isoDateTime.nullable(),
+  assignee: UserRef,
+});
+export type ConversationLane = z.infer<typeof ConversationLane>;
+
 export const ConversationSummary = z.object({
   id: uuid,
   channel: conversationChannel,
@@ -61,6 +82,18 @@ export const ConversationSummary = z.object({
   takenOverBy: UserRef,
   /** A website chat whose visitor's chat window checked in within the last 2 minutes ("On the site now"). */
   onSiteNow: z.boolean(),
+  /**
+   * Every lane of this customer the viewer may see, the one that spoke most recently first (0089).
+   *
+   * The row itself is the first of them, so a client that ignores this field shows exactly what it showed
+   * before. "The viewer may see" is not a filter this query applies — RLS does it, which is how a narrowed
+   * inbox (0083) keeps a member from learning that a thread they are not on exists.
+   */
+  lanes: z.array(ConversationLane),
+  /** Unread across every lane above, which is what the customer's row badges. */
+  unreadTotal: z.number().int(),
+  /** A customer this unlinked thread looks like, offered as "Same as …?" rather than merged on its own. */
+  sameAs: z.object({ id: uuid, fullName: z.string() }).nullable(),
 });
 export type ConversationSummary = z.infer<typeof ConversationSummary>;
 
@@ -186,6 +219,12 @@ export const ConversationRefOutput = z.object({
    */
   notApplied,
 });
+/** conversation.close_all: how many of the customer's lanes were still open when it ran (0089). */
+export const ConversationCloseAllOutput = z.object({
+  conversationId: uuid,
+  closed: z.number().int(),
+});
+
 /** conversation.pick_up: the teammate that answers it now, and the conversation's new ai_epoch. */
 export const ConversationPickUpOutput = z.object({
   conversationId: uuid,

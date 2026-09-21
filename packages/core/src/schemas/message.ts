@@ -219,6 +219,10 @@ export const ThreadItem = z.object({
   /** Where the words got to: null before anything was asked, then pending, completed or failed. */
   transcriptStatus: z.enum(['pending', 'completed', 'failed']).nullable(),
   answeredBy: UserRef,
+  /** Which lane it is on, so "All" can say which line each message was to or from (0089). */
+  conversationId: uuid.nullable(),
+  /** That lane's line, ready to show: "Front desk · (713) 555-0142", "support@acme.com". */
+  lineDisplay: z.string().nullable(),
   /** Email: the sanitized HTML body (received mail), the recipients, and the mailbox it went through. */
   bodyHtml: z.string().nullable(),
   toAddresses: z.array(z.string()),
@@ -239,6 +243,14 @@ export const ConversationThreadInput = ListInput.extend({
   conversationId: uuid,
   /** Only items after this moment (live refreshes fetch just what is new). */
   since: isoDateTime.optional(),
+  /**
+   * Every lane this customer has, woven into one timeline, newest first (0089).
+   *
+   * What the inbox's "All" shows: the whole history with somebody, texts on either of the business's numbers
+   * and mail on either of its addresses together, each item saying which line it was on. Nothing can be sent
+   * from it — a reply has to be on a line, and "all" is not one — so this only ever reads.
+   */
+  allLanes: z.boolean().optional(),
 });
 export const ConversationThreadOutput = z.object({
   items: z.array(ThreadItem),

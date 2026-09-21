@@ -1217,6 +1217,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/conversation.close_all": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Close every one of this customer’s conversations, on every line.
+         * @description Risk level 1. Requires inbox.use. Emits conversation.closed. Can wait on a phone with no signal.
+         */
+        post: operations["command_conversation_close_all"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/conversation.hand_to_ai": {
         parameters: {
             query?: never;
@@ -11401,6 +11421,39 @@ export interface operations {
                         conversationId: string;
                         /** @default [] */
                         notApplied: string[];
+                    };
+                };
+            };
+        };
+    };
+    command_conversation_close_all: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    conversationId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        closed: number;
+                        /** Format: uuid */
+                        conversationId: string;
                     };
                 };
             };
@@ -24588,6 +24641,24 @@ export interface operations {
                             handoffReason: ("asked_for_person" | "frustrated" | "cant_answer" | "sensitive" | "emergency" | "legal" | "complaint" | "refund" | "cancellation" | "limit" | "budget" | "wallet" | "error" | "draft_expired" | "loop" | "other") | null;
                             /** Format: uuid */
                             id: string;
+                            lanes: {
+                                archived: boolean;
+                                assignee: {
+                                    fullName: string;
+                                    /** Format: uuid */
+                                    id: string;
+                                } | null;
+                                /** @enum {string} */
+                                channel: "sms" | "email" | "chat";
+                                /** Format: uuid */
+                                id: string;
+                                lastMessageAt: string | null;
+                                lineDisplay: string;
+                                lineId: string | null;
+                                /** @enum {string} */
+                                status: "open" | "snoozed" | "closed";
+                                unreadCount: number;
+                            }[];
                             lastDirection: ("inbound" | "outbound") | null;
                             lastMessageAt: string | null;
                             lastPreview: string | null;
@@ -24616,6 +24687,11 @@ export interface operations {
                                 /** Format: uuid */
                                 id: string;
                             } | null;
+                            sameAs: {
+                                fullName: string;
+                                /** Format: uuid */
+                                id: string;
+                            } | null;
                             snoozedUntil: string | null;
                             /** @enum {string} */
                             status: "open" | "snoozed" | "closed";
@@ -24630,6 +24706,7 @@ export interface operations {
                                 name: string;
                             } | null;
                             unreadCount: number;
+                            unreadTotal: number;
                         };
                         fromNumber: string | null;
                         openTasks: {
@@ -24690,6 +24767,7 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": {
+                    allLanes?: boolean;
                     /** Format: uuid */
                     conversationId: string;
                     cursor?: string;
@@ -24727,6 +24805,7 @@ export interface operations {
                             bodyHtml: string | null;
                             ccAddresses: string[];
                             channel: ("sms" | "email" | "chat") | null;
+                            conversationId: string | null;
                             deliveredAt: string | null;
                             /** @enum {string} */
                             direction: "inbound" | "outbound";
@@ -24739,6 +24818,7 @@ export interface operations {
                             /** Format: uuid */
                             id: string;
                             isVoicemail: boolean;
+                            lineDisplay: string | null;
                             media: {
                                 bucket: string;
                                 contentType: string;
@@ -25993,6 +26073,24 @@ export interface operations {
                             handoffReason: ("asked_for_person" | "frustrated" | "cant_answer" | "sensitive" | "emergency" | "legal" | "complaint" | "refund" | "cancellation" | "limit" | "budget" | "wallet" | "error" | "draft_expired" | "loop" | "other") | null;
                             /** Format: uuid */
                             id: string;
+                            lanes: {
+                                archived: boolean;
+                                assignee: {
+                                    fullName: string;
+                                    /** Format: uuid */
+                                    id: string;
+                                } | null;
+                                /** @enum {string} */
+                                channel: "sms" | "email" | "chat";
+                                /** Format: uuid */
+                                id: string;
+                                lastMessageAt: string | null;
+                                lineDisplay: string;
+                                lineId: string | null;
+                                /** @enum {string} */
+                                status: "open" | "snoozed" | "closed";
+                                unreadCount: number;
+                            }[];
                             lastDirection: ("inbound" | "outbound") | null;
                             lastMessageAt: string | null;
                             lastPreview: string | null;
@@ -26021,6 +26119,11 @@ export interface operations {
                                 /** Format: uuid */
                                 id: string;
                             } | null;
+                            sameAs: {
+                                fullName: string;
+                                /** Format: uuid */
+                                id: string;
+                            } | null;
                             snoozedUntil: string | null;
                             /** @enum {string} */
                             status: "open" | "snoozed" | "closed";
@@ -26035,6 +26138,7 @@ export interface operations {
                                 name: string;
                             } | null;
                             unreadCount: number;
+                            unreadTotal: number;
                         }[];
                         nextCursor: string | null;
                     };
@@ -27245,6 +27349,7 @@ export interface operations {
                             bodyHtml: string | null;
                             ccAddresses: string[];
                             channel: ("sms" | "email" | "chat") | null;
+                            conversationId: string | null;
                             deliveredAt: string | null;
                             /** @enum {string} */
                             direction: "inbound" | "outbound";
@@ -27257,6 +27362,7 @@ export interface operations {
                             /** Format: uuid */
                             id: string;
                             isVoicemail: boolean;
+                            lineDisplay: string | null;
                             media: {
                                 bucket: string;
                                 contentType: string;

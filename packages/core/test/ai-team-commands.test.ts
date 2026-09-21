@@ -1784,11 +1784,19 @@ describe('the inbox boxes and Activity', () => {
           where workspace_id = ${a.wsId} and status = 'open' and needs_person_since is not null and last_message_at is not null
           order by needs_person_since, id`,
     );
-    const handledByAi = await rows<{ id: string }>(
+    /**
+     * Since 0089 the inbox lists a customer once, not a thread once, so this reads the customer each
+     * AI-handled thread belongs to as well as its id — the same key `inbox.list` groups on. One of these
+     * customers has two: a text thread, and the website chat that `chatIdentify` tied to the same phone.
+     * That is one customer with the teammate on two lines, and the box says so once.
+     */
+    const handledByAi = await rows<{ id: string; customer: string }>(
       admin(),
-      sql`select id from app.conversations
+      sql`select id, coalesce(person_id::text, channel::text || ':' || counterpart) as customer
+          from app.conversations
           where workspace_id = ${a.wsId} and status = 'open' and handled_by = 'ai' and last_message_at is not null`,
     );
+    const aiCustomers = new Set(handledByAi.map((r) => r.customer));
     expect(needsPerson.length).toBeGreaterThan(1);
     expect(handledByAi.length).toBeGreaterThan(1);
     const box = (name: 'needs_person' | 'ai') =>
@@ -1796,12 +1804,16 @@ describe('the inbox boxes and Activity', () => {
     expect((await box('needs_person')).items.map((c) => c.id)).toEqual(
       needsPerson.map((r) => r.id),
     );
-    expect(new Set((await box('ai')).items.map((c) => c.id))).toEqual(
-      new Set(handledByAi.map((r) => r.id)),
+    const aiBox = (await box('ai')).items;
+    // Every row stands for one of the teammate's threads...
+    expect(handledByAi.map((r) => r.id)).toEqual(expect.arrayContaining(aiBox.map((c) => c.id)));
+    // ...and between them the rows account for every customer the teammate is answering, exactly once.
+    expect(aiBox.map((c) => handledByAi.find((r) => r.id === c.id)!.customer).sort()).toEqual(
+      [...aiCustomers].sort(),
     );
     expect(await ask(inboxSummary, { workspaceId: a.wsId }, a.owner)).toMatchObject({
       needsPerson: needsPerson.length,
-      ai: handledByAi.length,
+      ai: aiCustomers.size,
     });
   });
 

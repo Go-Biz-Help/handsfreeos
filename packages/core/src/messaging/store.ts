@@ -330,7 +330,74 @@ export async function loadConversation(ctx: CommandContext, conversationId: stri
   return c;
 }
 
-/** One conversation per customer per channel: returns the existing one or starts it. */
+/**
+ * The customer's most recent thread on a channel, whichever of the business's lines it is on (0089).
+ *
+ * One ordering rule in one place, because several things now turn on "which lane?" — where a workflow's text
+ * goes, which thread the call bridge dials into, which email thread a text thread offers to switch to — and
+ * they must all pick the same one or the customer gets answered in two places at once.
+ *
+ * Null when this customer has never written on this channel.
+ */
+export async function latestConversation(
+  tx: Tx,
+  workspaceId: string,
+  channel: 'sms' | 'email',
+  counterpart: string,
+) {
+  const [c] = await tx
+    .select()
+    .from(conversations)
+    .where(
+      and(
+        eq(conversations.workspaceId, workspaceId),
+        eq(conversations.channel, channel),
+        eq(conversations.counterpart, counterpart),
+      ),
+    )
+    // Nulls last: a thread that has never carried a message is the weakest answer, not the strongest.
+    .orderBy(sql`${conversations.lastMessageAt} desc nulls last`, desc(conversations.createdAt))
+    .limit(1);
+  return c ?? null;
+}
+
+/**
+ * The line a message should start on when the caller has not named one (0089).
+ *
+ * A customer who already has a thread is answered on the line of whichever of their threads spoke most
+ * recently, so a workflow, a booking confirmation or the AI teammate writes where the customer has actually
+ * been talking rather than on whatever the business happens to call its default. Only a customer nobody has
+ * ever written to falls through to the default line, which is what every outbound path did before threads had
+ * lines at all — so a business with one number gets the row it got yesterday, every time.
+ *
+ * Returns null when this customer has no thread on this channel; the caller then picks the default itself,
+ * because what "default" means differs by channel (`defaultNumber` vs `pickFromAddress`).
+ */
+export async function preferredLane(
+  tx: Tx,
+  workspaceId: string,
+  channel: 'sms' | 'email',
+  counterpart: string,
+): Promise<{ phoneNumberId: string | null; emailAddressId: string | null } | null> {
+  const c = await latestConversation(tx, workspaceId, channel, counterpart);
+  return c ? { phoneNumberId: c.phoneNumberId, emailAddressId: c.emailAddressId } : null;
+}
+
+/**
+ * One conversation per customer per line of the business (0089): returns the existing one or starts it.
+ *
+ * The line is the business's own end of the thread — the number a text came in on, the address a mail was
+ * sent to — and it is half of the key, because a customer who texts the dispatch line after texting the front
+ * desk is starting a second conversation, not adding to the first. Before this they shared one thread and the
+ * reply went out from whichever line came first, which is the split-thread problem seen from the business's
+ * side instead of the customer's.
+ *
+ * **A thread with no line takes the first one offered rather than sitting beside a new one.** Threads made
+ * before lines existed, and threads belonging to a business that had nothing to send from when they started,
+ * have no line to be keyed on. Left alone they would each fork the first time anybody wrote to them, and
+ * every business would find its inbox doubled on the morning this shipped. Adoption is what makes 0089
+ * invisible to a business with one number, and it is the property to defend in review.
+ */
 export async function findOrCreateConversation(
   ctx: CommandContext,
   input: {
@@ -338,22 +405,54 @@ export async function findOrCreateConversation(
     counterpart: string;
     personId: string | null;
     phoneNumberId: string | null;
+    emailAddressId?: string | null;
   },
 ) {
   const workspaceId = ctx.scope.workspaceId!;
+  const mail = input.channel === 'email';
+  const column = mail ? conversations.emailAddressId : conversations.phoneNumberId;
+  const lineId = (mail ? input.emailAddressId : input.phoneNumberId) ?? null;
+  const lineValue = (id: string) => (mail ? { emailAddressId: id } : { phoneNumberId: id });
+  const sameCustomer = and(
+    eq(conversations.workspaceId, workspaceId),
+    eq(conversations.channel, input.channel),
+    eq(conversations.counterpart, input.counterpart),
+  );
   const find = () =>
     ctx.tx
       .select()
       .from(conversations)
-      .where(
-        and(
-          eq(conversations.workspaceId, workspaceId),
-          eq(conversations.channel, input.channel),
-          eq(conversations.counterpart, input.counterpart),
-        ),
-      );
-  const [existing] = await find();
-  if (existing) return { conversation: existing, created: false };
+      .where(and(sameCustomer, lineId ? eq(column, lineId) : isNull(column)));
+  if (!lineId) {
+    // **No line named means "wherever this customer already is", never "the line-less lane".**
+    //
+    // Not everything that files a message knows which of the business's ends it came in on: mail whose `To`
+    // is an address this business does not own, an import, a caller that only has a person. Reading that as
+    // the line-less lane looks right until the thread has since been stamped with a line — the first reply
+    // out of it does that — and then the next one of these opens a *second* thread beside it, and a customer
+    // whose "stop emailing me" lands somewhere nobody is reading is the mildest way that goes wrong.
+    //
+    // So it falls back to the same rule `preferredLane` uses. Only a customer with no thread at all starts
+    // one, line-less, which is where the paragraph above came in.
+    const anyLane = await latestConversation(ctx.tx, workspaceId, input.channel, input.counterpart);
+    if (anyLane) return { conversation: anyLane, created: false };
+  } else {
+    const [exact] = await find();
+    if (exact) return { conversation: exact, created: false };
+    const [lineless] = await ctx.tx
+      .select()
+      .from(conversations)
+      .where(and(sameCustomer, isNull(column)))
+      .limit(1);
+    if (lineless) {
+      const [adopted] = await ctx.tx
+        .update(conversations)
+        .set(lineValue(lineId))
+        .where(eq(conversations.id, lineless.id))
+        .returning();
+      if (adopted) return { conversation: adopted, created: false };
+    }
+  }
   const inserted = await ctx.tx
     .insert(conversations)
     .values({
@@ -361,7 +460,8 @@ export async function findOrCreateConversation(
       channel: input.channel,
       counterpart: input.counterpart,
       personId: input.personId,
-      phoneNumberId: input.phoneNumberId,
+      phoneNumberId: mail ? null : lineId,
+      emailAddressId: mail ? lineId : null,
       createdBy: ctx.actor.type === 'human' ? ctx.actor.userId : null,
     })
     .onConflictDoNothing()

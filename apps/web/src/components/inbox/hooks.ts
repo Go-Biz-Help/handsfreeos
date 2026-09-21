@@ -146,6 +146,8 @@ export function useThread(
   workspaceId: string,
   conversationId: string,
   initial: ConversationThread,
+  /** "All lines": refreshes and earlier pages have to ask for the same woven thread (0089). */
+  allLanes = false,
 ) {
   const [items, setItems] = useState<ThreadItem[]>(() => [...initial.items].sort(byTime));
   const [cursor, setCursor] = useState(initial.nextCursor);
@@ -172,7 +174,7 @@ export function useThread(
     let cancelled = false;
     apiBrowser()
       .POST('/v1/queries/conversation.thread', {
-        body: { workspaceId, conversationId, limit: PAGE },
+        body: { workspaceId, conversationId, limit: PAGE, ...(allLanes ? { allLanes } : {}) },
       })
       .then((r) => {
         if (cancelled) return;
@@ -194,7 +196,7 @@ export function useThread(
     return () => {
       cancelled = true;
     };
-  }, [workspaceId, conversationId, live, nonce]);
+  }, [workspaceId, conversationId, live, nonce, allLanes]);
 
   const loadEarlier = useCallback(async () => {
     if (!cursor) return;
@@ -202,7 +204,13 @@ export function useThread(
     try {
       const out = unwrap(
         await apiBrowser().POST('/v1/queries/conversation.thread', {
-          body: { workspaceId, conversationId, cursor, limit: PAGE },
+          body: {
+            workspaceId,
+            conversationId,
+            cursor,
+            limit: PAGE,
+            ...(allLanes ? { allLanes } : {}),
+          },
         }),
       );
       setItems((old) => {
@@ -216,7 +224,7 @@ export function useThread(
     } finally {
       setLoadingEarlier(false);
     }
-  }, [workspaceId, conversationId, cursor]);
+  }, [workspaceId, conversationId, cursor, allLanes]);
 
   const ids = useMemo(() => new Set(items.map((i) => i.id)), [items]);
   // Pending texts drop out once the stored message is in the thread.
@@ -334,6 +342,27 @@ export function useConversationActions(
           unwrap(await apiBrowser().POST('/v1/commands/conversation.mark_unread', { body: ref })),
         CONVERSATION_DONE.markedUnread,
       ),
+    /**
+     * Close every line this customer writes on (0089).
+     *
+     * Its own call rather than a loop over the lanes here, so the whole thing is one command in the audit and
+     * one transaction: closing three of four and failing on the last would leave the inbox in a state nobody
+     * asked for, and the phone replaying a queued close must never find it grew into a close-everything.
+     */
+    closeAll: async (): Promise<boolean> => {
+      try {
+        const out = unwrap(
+          await apiBrowser().POST('/v1/commands/conversation.close_all', { body: ref }),
+        );
+        toast.success(CONVERSATION_DONE.closedAll(out.closed));
+        refreshUnread();
+        after();
+        return true;
+      } catch (e) {
+        toast.error(errorMessage(e));
+        return false;
+      }
+    },
     archive: () =>
       attempt(
         async () =>
