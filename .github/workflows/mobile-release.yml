@@ -1,0 +1,112 @@
+name: Phone app release
+
+# The phone app's half of "a commit on main goes live by itself". CI decides whether the commit is sound; this job
+# then asks EAS to run .eas/workflows/deploy-production.yml on that exact commit, which either builds and submits to
+# TestFlight and Play or sends an over-the-air update, depending on whether the native side changed. What it decides
+# and why is written at the top of that file.
+#
+# Same shape as deploy.yml, and for the same reason: nothing reaches a store from a commit CI has not passed. It is a
+# separate workflow rather than a third job in deploy.yml because the phone app waits for no server — the API deploy
+# and a twenty-minute app build have nothing to say to each other.
+#
+# Until the EXPO_TOKEN repository secret exists this only notes that it skipped, so main stays green before Expo's
+# robot user is set up.
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: mobile-release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Build or update the phone app
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    # A production build for both phones, plus both submissions, runs about forty minutes on a busy queue.
+    timeout-minutes: 60
+    env:
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+      # app.json → expo.extra.eas.projectId. EAS identifies the project by this and nothing else.
+      EAS_PROJECT_ID: 22b0e923-de8b-4b67-9089-2c4bd440a956
+      # The commit CI just verified, not whatever main points at now.
+      GIT_REF: ${{ github.event.workflow_run.head_sha || github.sha }}
+      # Set this repository variable to `true` once Play Console has an app record for com.gobizhelp.handsfreeos and
+      # EAS holds a Google service-account key. Until then the .aab is built and waits in EAS for an upload by hand.
+      SUBMIT_ANDROID: ${{ vars.MOBILE_SUBMIT_ANDROID == 'true' }}
+    steps:
+      - name: Is Expo set up?
+        id: check
+        run: |
+          if [ -z "$EXPO_TOKEN" ]; then
+            echo "::notice::EXPO_TOKEN is not set, so the phone app was not built or updated."
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Ask EAS to ship this commit
+        id: dispatch
+        if: steps.check.outputs.ready == 'true'
+        run: |
+          set -euo pipefail
+          body=$(jq -nc \
+            --arg appId "$EAS_PROJECT_ID" \
+            --arg gitRef "$GIT_REF" \
+            --argjson submitAndroid "$SUBMIT_ANDROID" \
+            '{appId: $appId, gitRef: $gitRef, fileName: "deploy-production.yml", inputs: {submit_android: $submitAndroid}}')
+          response=$(curl -fsS -X POST "https://api.expo.dev/v2/workflows/dispatch" \
+            -H "Authorization: Bearer $EXPO_TOKEN" \
+            -H "Content-Type: application/json" \
+            -d "$body")
+          id=$(echo "$response" | jq -r '.data.id // empty')
+          url=$(echo "$response" | jq -r '.data.url // empty')
+          if [ -z "$id" ]; then
+            echo "::error::EAS accepted the request but named no run: $response"
+            exit 1
+          fi
+          echo "run_id=$id" >> "$GITHUB_OUTPUT"
+          echo "::notice::$url"
+          echo "[The run on EAS]($url)" >> "$GITHUB_STEP_SUMMARY"
+
+      # EAS emails on a failed run too, but a red job here is what puts the failure next to the commit that caused
+      # it. A run that outlives the wait is not failed — it is still going, on EAS, and the link above follows it.
+      - name: Wait for it
+        if: steps.check.outputs.ready == 'true'
+        env:
+          RUN_ID: ${{ steps.dispatch.outputs.run_id }}
+        run: |
+          set -euo pipefail
+          deadline=$(( SECONDS + 45 * 60 ))
+          while [ "$SECONDS" -lt "$deadline" ]; do
+            # A blip talking to EAS is not a failed release: say so and ask again in thirty seconds.
+            if ! run=$(curl -fsS "https://api.expo.dev/v2/workflows/runs/$RUN_ID" \
+              -H "Authorization: Bearer $EXPO_TOKEN"); then
+              echo "couldn't reach EAS, trying again"
+              sleep 30
+              continue
+            fi
+            status=$(echo "$run" | jq -r '.data.status')
+            case "$status" in
+              success)
+                echo "EAS finished: the phone app was built, submitted or updated."
+                exit 0
+                ;;
+              failure|canceled)
+                echo "::error::The EAS run ended as $status. Open the run linked above to see which job stopped it."
+                exit 1
+                ;;
+              action-required)
+                echo "::warning::The EAS run is waiting for someone to approve a job."
+                ;;
+              *)
+                echo "still $status"
+                ;;
+            esac
+            sleep 30
+          done
+          echo "::notice::Still running after 45 minutes. The run carries on at EAS; this job is not waiting for it."

@@ -1,0 +1,139 @@
+name: Ship to TestFlight and Play
+
+# What happens after a commit lands on main and CI goes green. GitHub starts this run (mobile-release.yml), never a
+# push on its own: a phone build should only ever come from a commit the test suite has already agreed with, the same
+# rule deploy.yml keeps for the API and the worker.
+#
+# It decides for itself whether the change needs a new build:
+#
+#   - It fingerprints the native side of the commit (every native module, every config plugin, every setting in
+#     app.json that reaches the built app) and asks EAS whether a production build with that fingerprint exists.
+#   - No matching build — the native side moved — so it builds and sends the build to the stores. Roughly twenty
+#     minutes, then Apple's processing.
+#   - A matching build exists, so the change is JavaScript only. It publishes an over-the-air update to the
+#     production channel instead, and the phones already holding that build pick it up on their next launch. About a
+#     minute, and no store review.
+#
+# The two platforms are decided separately: iOS can take an update on the same commit that makes Android build.
+#
+# Publishing to the public App Store or a Play production release is still a decision someone makes by hand in the
+# consoles. This workflow's reach ends at TestFlight and Play's internal testing track.
+
+on:
+  workflow_dispatch:
+    inputs:
+      submit_android:
+        type: boolean
+        required: false
+        default: false
+        description: >-
+          Upload the Android build to Play's internal testing track. Leave this off until the Play Console app record
+          and the Google service-account key in EAS both exist (release-checklist.md, items 3 and 4); until then the
+          .aab is built and waits in EAS for an upload by hand.
+
+jobs:
+  fingerprint:
+    name: What does the native side look like?
+    type: fingerprint
+    # Must match the production build profile's environment, or the fingerprints of this job and of the build are
+    # taken with different EXPO_PUBLIC_ values and never agree — which would mean a new build on every commit.
+    environment: production
+
+  get_ios_build:
+    name: Is there already an iOS build for it?
+    needs: [fingerprint]
+    type: get-build
+    params:
+      platform: ios
+      profile: production
+      fingerprint_hash: ${{ needs.fingerprint.outputs.ios_fingerprint_hash }}
+
+  get_android_build:
+    name: Is there already an Android build for it?
+    needs: [fingerprint]
+    type: get-build
+    params:
+      platform: android
+      profile: production
+      fingerprint_hash: ${{ needs.fingerprint.outputs.android_fingerprint_hash }}
+
+  # --- The native side changed: build, then send it to the store. ---
+
+  build_ios:
+    name: Build iOS
+    needs: [get_ios_build]
+    if: ${{ !needs.get_ios_build.outputs.build_id }}
+    type: build
+    params:
+      platform: ios
+      profile: production
+
+  build_android:
+    name: Build Android
+    needs: [get_android_build]
+    if: ${{ !needs.get_android_build.outputs.build_id }}
+    type: build
+    params:
+      platform: android
+      profile: production
+
+  submit_ios:
+    name: Send it to TestFlight
+    needs: [build_ios]
+    type: submit
+    params:
+      build_id: ${{ needs.build_ios.outputs.build_id }}
+      profile: production
+
+  submit_android:
+    name: Send it to Play internal testing
+    needs: [build_android]
+    if: ${{ inputs.submit_android }}
+    type: submit
+    params:
+      build_id: ${{ needs.build_android.outputs.build_id }}
+      profile: production
+
+  # --- JavaScript only: the build on the phone is still the right one, so just replace what it runs. ---
+
+  update_ios:
+    name: Update the iPhones
+    needs: [get_ios_build]
+    if: ${{ needs.get_ios_build.outputs.build_id }}
+    type: update
+    # Same reason as in preview-update.yml: the bundle carries the five EXPO_PUBLIC_ settings, and production is
+    # where EAS keeps the live ones.
+    environment: production
+    params:
+      platform: ios
+      # The branch, not the channel: the production channel is created by the first production build and points at
+      # the branch of the same name, so this reaches exactly the builds on that channel, and it works before the
+      # channel exists.
+      branch: production
+
+  update_android:
+    name: Update the Android phones
+    needs: [get_android_build]
+    if: ${{ needs.get_android_build.outputs.build_id }}
+    type: update
+    environment: production
+    params:
+      platform: android
+      branch: production
+
+  what_to_do_with_the_android_build:
+    name: The Android build needs an upload by hand
+    needs: [build_android]
+    if: ${{ !inputs.submit_android }}
+    type: doc
+    params:
+      md: |
+        # Upload the Android build
+
+        `submit_android` was off, so the `.aab` was built but not sent anywhere. Download it from the build page and
+        upload it in Play Console under **Testing → Internal testing → Create new release**.
+
+        To have this happen by itself: finish items 3 and 4 of `apps/mobile/store/release-checklist.md` (a Play
+        Developer account and an app record for `com.gobizhelp.handsfreeos`), give EAS a Google service-account key
+        with `eas credentials --platform android`, then set the GitHub repository variable
+        `MOBILE_SUBMIT_ANDROID` to `true`.

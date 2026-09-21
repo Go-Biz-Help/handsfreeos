@@ -43,17 +43,25 @@ In order, because some need the one before.
    that exists.
 3. **A Google Play Developer account** for Go Biz Help, $25 once, with identity verification — not checked here.
    Verification has taken days before now, so start it before anything else on the Android side.
-4. **A Play Console app record** for `com.gobizhelp.handsfreeos` — not checked here. A **service-account key** at
-   `secrets/play-service-account.json` is **optional** and is not present (there is no `secrets/` folder). It only
-   lets `eas submit` upload for you. Google blocks key creation by default on new organisations
+4. **A Play Console app record** for `com.gobizhelp.handsfreeos` — not checked here. A **service-account key** is
+   **optional**. It only lets `eas submit` upload for you, and it now belongs in EAS rather than in this repository:
+   `eas credentials --platform android` → **Google Service Account** → **Manage your Google Service Account Key for
+   Play Store submissions**. A key on a Mac cannot be read by a build machine, so `eas.json` no longer names a path
+   to one. With the key in EAS, set the GitHub repository variable `MOBILE_SUBMIT_ANDROID` to `true` and every
+   release after that uploads itself. Google blocks key creation by default on new organisations
    (`iam.disableServiceAccountKeyCreation`), and turning that off needs an Organization Policy Administrator and does
    not always take effect quickly. Don't block a release on it: build the `.aab` with
    `eas build -p android --profile production` and upload it in Play Console under **Testing → Internal testing →
-   Create new release**. That folder is git-ignored; a key, if one ever exists, must never be committed.
-5. **`eas update:configure`.** Not done — `app.json` has no `updates` key, so over-the-air updates are off and every
-   change needs a new build. The channels are already in `eas.json` (`development`, `preview`, `production`) and
-   `runtimeVersion` is `{ "policy": "fingerprint" }`, so an update would only reach builds whose native side matches
-   it — the right policy here, because this app has native modules of its own.
+   Create new release** — which is also what the automated release does while `MOBILE_SUBMIT_ANDROID` is unset. A
+   key, if one ever exists, belongs in EAS and must never be committed here.
+5. ~~**`eas update:configure`.**~~ Done. `app.json` now has `expo.updates.url`, so over-the-air updates work: a
+   JavaScript-only change reaches a build without a new one. The channels were already in `eas.json` (`development`,
+   `preview`, `production`) and `runtimeVersion` is `{ "policy": "fingerprint" }`, so an update only reaches builds
+   whose native side matches it — the right policy here, because this app has native modules of its own. Two things
+   are still open for the automation that rides on this, both in "Phone Part 4" of `docs/operations.md`: the Expo
+   GitHub App has to be linked to `gobizhelp/handsfreeos` with base directory `apps/mobile`, and GitHub needs an
+   `EXPO_TOKEN` repository secret. Adding the `updates` key changed the fingerprint, so the next build on each
+   platform is a fresh native build — once.
 6. **The push key and Firebase**, if push is to work on real builds — not checked here. `eas credentials` sets both
    up; Expo Parts 4.2 and 4.3 in `docs/operations.md` say how. The worker already holds its `EXPO_ACCESS_TOKEN` and
    reports `"push":"expo"`, so the server half is ready and waiting.
@@ -70,7 +78,8 @@ In order, because some need the one before.
     iOS.
 
 **Publishing still waits for Chris's go-live.** TestFlight and internal testing are the end of this list; promotion to
-the App Store and to a Play production release is a separate decision.
+the App Store and to a Play production release is a separate decision, and neither is another upload — in App Store
+Connect you submit a TestFlight build for review, and in Play Console you promote the internal testing release.
 
 ## Things worth knowing before a build
 
@@ -83,5 +92,9 @@ the App Store and to a Play production release is a separate decision.
   (`autoIncrement`). `version` in `app.json` (`1.0.0`) stays the one Chris edits — it is what a customer sees, and
   `runtimeVersion`'s fingerprint policy doesn't depend on it. `ios.buildNumber` and `android.versionCode` in
   `app.json` are only there so a local `expo run:` build has sane values; EAS ignores them.
+- **Most builds no longer start from a keyboard.** A commit on `main` that CI passes makes EAS either build and
+  submit or publish an over-the-air update, deciding per platform from the fingerprint; a push to any other branch
+  publishes a preview update, and the `mobile-build` label on a pull request makes an installable build. "Phone Part
+  4" in `docs/operations.md` has the whole arrangement. Everything below still applies to a build you start yourself.
 - **Read the line that says which environment variables were loaded**, early in every build's output. It is the only
   place a build says what it is baking in, and a missing name there is a broken app twenty minutes later.
