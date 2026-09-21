@@ -174,6 +174,9 @@ export const PhoneNumberMarkReleasedInput = z.object({ workspaceId: uuid, phoneN
 export const PhoneNumberSystemOutput = z.object({ phoneNumberId: uuid, status: phoneNumberStatus });
 
 // ---------- carrier registration ----------
+/** Mirrors core's `OptInPath`. Kept as a schema value so a submission carries the answer to the carrier. */
+export const optInPathValue = z.enum(['hosted', 'own_site', 'in_person']);
+
 export const businessType = z.enum([
   'llc',
   'corporation',
@@ -219,6 +222,16 @@ export const BusinessProfile = z
       .min(40, 'Explain how customers agree to get texts.')
       .max(1000),
     monthlyVolume: z.enum(['under_1000', '1000_10000', '10000_100000', 'over_100000']),
+    /**
+     * How the business collects consent, as the wizard settled it. Optional because registrations
+     * submitted before the wizard existed have no answer, and a stored submission is never rewritten.
+     */
+    optInPath: optInPathValue.optional(),
+    /**
+     * The privacy policy a reviewer will open: the one HandsFreeOS hosts for this business, or the
+     * business's own when it already has one that mentions texting.
+     */
+    policyUrl: z.url().max(200).nullable().optional(),
   })
   .refine((b) => b.businessType === 'sole_proprietor' || !!b.ein, {
     path: ['ein'],
