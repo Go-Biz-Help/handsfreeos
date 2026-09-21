@@ -1,7 +1,7 @@
 name: Phone app release
 
 # The phone app's half of "a commit on main goes live by itself". CI decides whether the commit is sound; this job
-# then asks EAS to run .eas/workflows/deploy-production.yml on that exact commit, which either builds and submits to
+# then asks EAS to run apps/mobile/.eas/workflows/deploy-production.yml on that exact commit, which either builds and submits to
 # TestFlight and Play or sends an over-the-air update, depending on whether the native side changed. What it decides
 # and why is written at the top of that file.
 #
