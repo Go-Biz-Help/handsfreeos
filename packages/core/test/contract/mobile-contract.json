@@ -1362,6 +1362,23 @@
         "required": ["workspaceId", "conversationId"]
       }
     },
+    "conversation.close_all": {
+      "offline": "anytime",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "conversationId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": ["workspaceId", "conversationId"]
+      }
+    },
     "conversation.hand_to_ai": {
       "offline": {
         "freshMinutes": 30

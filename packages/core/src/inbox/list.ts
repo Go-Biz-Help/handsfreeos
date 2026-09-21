@@ -66,6 +66,10 @@ export interface RowFacts {
   readonly teammate: { readonly name: string } | null;
   readonly needsPersonSince: string | null;
   readonly onSiteNow: boolean;
+  /** The customer's lanes, so a row can say they also write to another of the business's lines (0089). */
+  readonly lanes?: readonly { readonly channel: 'sms' | 'email' | 'chat' }[];
+  /** A customer this unlinked row looks like, offered rather than merged (0089). */
+  readonly sameAs?: { readonly fullName: string } | null;
 }
 
 /** Who a row is: the customer, or the number, address or chat visitor nobody has linked. */
@@ -91,6 +95,8 @@ export type RowChip =
   | { readonly kind: 'on_site'; readonly label: string }
   | { readonly kind: 'stage'; readonly label: string }
   | { readonly kind: 'new_number'; readonly label: string }
+  | { readonly kind: 'lanes'; readonly label: string }
+  | { readonly kind: 'same_as'; readonly label: string }
   | { readonly kind: 'snoozed'; readonly label: string }
   | { readonly kind: 'closed'; readonly label: string };
 
@@ -142,7 +148,28 @@ export function conversationChips(
   if (c.onSiteNow) chips.push({ kind: 'on_site', label: 'On the site now' });
   if (!needsPerson && waited !== null && waited >= opts.waitThreshold) chips.push(wait(waited));
   if (c.openLead) chips.push({ kind: 'stage', label: c.openLead.stageName });
-  if (!c.person && c.channel !== 'chat') chips.push({ kind: 'new_number', label: 'New number' });
+  /**
+   * The customer writes to the business in more than one place (0089).
+   *
+   * The row is the customer now, not the thread, so this is what tells somebody that opening it shows one of
+   * several conversations — otherwise a row quietly hiding a second line looks like a row with one.
+   * Counted by channel, because "2 lines" and "Text and email" answer different questions and only the
+   * second is worth the width: which kinds of conversation this customer has.
+   */
+  const kinds = new Set((c.lanes ?? []).map((l) => l.channel));
+  if ((c.lanes?.length ?? 0) > 1)
+    chips.push({
+      kind: 'lanes',
+      label:
+        kinds.size > 1
+          ? [...kinds].map(channelWord).join(' · ')
+          : `${c.lanes!.length} ${kinds.has('email') ? 'addresses' : 'lines'}`,
+    });
+  if (!c.person && c.channel !== 'chat') {
+    // Offered, never taken: one click links them, and until somebody clicks, the row stays what it is.
+    if (c.sameAs) chips.push({ kind: 'same_as', label: `Same as ${c.sameAs.fullName}?` });
+    else chips.push({ kind: 'new_number', label: 'New number' });
+  }
   if (c.status === 'snoozed' && c.snoozedUntil)
     chips.push({
       kind: 'snoozed',
@@ -151,6 +178,10 @@ export function conversationChips(
   if (c.status === 'closed') chips.push({ kind: 'closed', label: 'Closed' });
   return chips;
 }
+
+/** What a channel is called on a chip. */
+const channelWord = (channel: 'sms' | 'email' | 'chat'): string =>
+  channel === 'sms' ? 'Text' : channel === 'email' ? 'Email' : 'Chat';
 
 /** "Assigned to Marco Diaz", for the assignee's avatar on a row. */
 export const assignedToLabel = (fullName: string): string => `Assigned to ${fullName}`;

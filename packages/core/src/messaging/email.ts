@@ -16,7 +16,7 @@ import {
 import { requirePerson } from '../crm/records';
 import { HfosError } from '../errors';
 import type { CommandContext } from '../kernel/types';
-import { findOrCreateConversation, loadConversation } from './store';
+import { findOrCreateConversation, loadConversation, preferredLane } from './store';
 
 /** Mirrors private.shared_mail_domain(). */
 export const SHARED_MAIL_DOMAIN = 'mail.handsfreeos.com';
@@ -216,17 +216,25 @@ export async function resolveEmailConversation(
       );
     return { conversation: c, created: false };
   }
+  // Which of the business's addresses this belongs to when the caller named no thread (0089): the one this
+  // customer last wrote to or was last written from. Null starts a thread with no address yet, which the
+  // send below stamps with whatever it goes out from — the same lazy stamping this path has always done.
+  // Without it, writing to a customer who already has a support@ thread would open a second one beside it.
+  const lane = async (counterpart: string): Promise<string | null> =>
+    (await preferredLane(ctx.tx, workspaceId, 'email', counterpart))?.emailAddressId ?? null;
   if (input.personId) {
     const p = await requirePerson(ctx.tx, workspaceId, input.personId);
     if (p.archivedAt)
       throw HfosError.rule('person_archived', 409, 'Restore this customer before emailing them.');
     if (!p.email)
       throw HfosError.rule('no_email', 400, 'Add an email address to email this customer.');
+    const counterpart = p.email.toLowerCase();
     return findOrCreateConversation(ctx, {
       channel: 'email',
-      counterpart: p.email.toLowerCase(),
+      counterpart,
       personId: p.id,
       phoneNumberId: null,
+      emailAddressId: await lane(counterpart),
     });
   }
   const to = input.toEmail!.toLowerCase();
@@ -235,6 +243,7 @@ export async function resolveEmailConversation(
     counterpart: to,
     personId: await matchPersonByEmail(ctx.tx, workspaceId, to),
     phoneNumberId: null,
+    emailAddressId: await lane(to),
   });
 }
 

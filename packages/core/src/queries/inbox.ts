@@ -1,6 +1,7 @@
 import { eq } from 'drizzle-orm';
 import { rows, sql } from '@hfos/db/client';
 import { people } from '@hfos/db/schema';
+import { uuidArray } from '../calendar/load';
 import { CHAT_ON_SITE_MS, CHAT_VISITOR_NAME } from '../chat/limits';
 import { chatWidgetName } from '../chat/origins';
 import { formatPhone } from '../crm/phone';
@@ -28,6 +29,7 @@ import {
   InboxSummaryInput,
   InboxSummaryOutput,
   type ConversationChat,
+  type ConversationLane,
   type ConversationSummary,
 } from '../schemas/conversation';
 import type { ConversationHandoffReason } from '../schemas/ai-team';
@@ -91,7 +93,95 @@ type ConversationRow = {
     nextActionAt: string | null;
   } | null;
   sort_key: string;
+  /** The customer this row stands for: their id, or their address when nobody has linked them (0089). */
+  group_key?: string;
+  /** Every lane of theirs the viewer may see. Absent on the queries that are about one thread. */
+  lanes?: readonly LaneRow[] | null;
+  same_as?: { id: string; fullName: string } | null;
 };
+
+/** A lane as the database hands it over: raw, because how a line reads is the mapper's business. */
+type LaneRow = {
+  id: string;
+  channel: 'sms' | 'email' | 'chat';
+  line_id: string | null;
+  line_e164: string | null;
+  line_label: string | null;
+  line_address: string | null;
+  unread_count: number | string;
+  status: 'open' | 'snoozed' | 'closed';
+  archived: boolean;
+  last_message_at: string | null;
+  assignee_user_id: string | null;
+  assignee_name: string | null;
+};
+
+/**
+ * Which customer a thread belongs to, for an inbox that shows each of them once (0089).
+ *
+ * Their id when somebody has linked the thread to a customer, so every lane of theirs — texts on two of the
+ * business's numbers, mail on two of its addresses, a website chat — collapses into one row. Otherwise the
+ * address itself, which still merges an unknown number that has written to two of the business's lines, and
+ * still keeps an unknown number apart from an unknown mail address: nothing here knows they are the same
+ * person, and guessing that is how a shared family phone becomes one customer.
+ */
+const GROUP_KEY = sql`coalesce(c.person_id::text, c.channel::text || ':' || c.counterpart)`;
+
+/**
+ * Every lane of one row's customer, newest first.
+ *
+ * Read straight from `app.conversations` rather than from the filtered list above, because the switcher is
+ * asking "where else does this customer talk to us", which the box and status the viewer happens to be
+ * looking at have no bearing on. **RLS is the only thing narrowing it**, which is deliberate: under a
+ * narrowed inbox (0083) a member gets the lanes they are on and never learns that the others exist, and
+ * that is "merge only what you can see" with nothing in this query to keep in step with it.
+ */
+const LANES = (workspaceId: string, archived: boolean) => sql`
+  (select coalesce(json_agg(json_build_object(
+            'id', z.id,
+            'channel', z.channel::text,
+            'line_id', case when z.channel = 'email' then z.email_address_id else z.phone_number_id end,
+            'line_e164', pn.e164,
+            'line_label', pn.label,
+            'line_address', ea.address,
+            'unread_count', z.unread_count,
+            'status', z.status::text,
+            'archived', z.archived_at is not null,
+            'last_message_at', z.last_message_at,
+            'assignee_user_id', z.assignee_user_id,
+            'assignee_name', coalesce(nullif(zu.full_name, ''), zu.email::text))
+          order by z.last_message_at desc nulls last, z.id desc), '[]'::json)
+     from app.conversations z
+     left join app.phone_numbers pn on pn.id = z.phone_number_id
+     left join app.email_addresses ea on ea.id = z.email_address_id
+     left join app.users zu on zu.id = z.assignee_user_id
+    where z.workspace_id = ${workspaceId}
+      -- The thread being looked at is always in its own switcher, archived or not: a menu that cannot name
+      -- where you are standing is a menu that reads as though you are nowhere.
+      and (z.id = x.id
+        or ${archived ? sql`z.archived_at is not null` : sql`z.archived_at is null`})
+      and case when x.person_id is not null then z.person_id = x.person_id
+               else z.person_id is null and z.channel::text = x.channel and z.counterpart = x.counterpart
+          end)`;
+
+/**
+ * The customer an unlinked thread looks like, so the row can offer "Same as Kim Alvarez?" (0089).
+ *
+ * Offered, never taken: linking is a person's decision. A number on a shared family phone or a shared office
+ * address matches a customer without being them, and a merge made on that guess is far harder to undo than
+ * one that never happened.
+ */
+const SAME_AS = (workspaceId: string) => sql`
+  (select json_build_object('id', sp.id,
+            'fullName', btrim(coalesce(sp.first_name, '') || ' ' || coalesce(sp.last_name, '')))
+     from app.people sp
+    where x.person_id is null
+      and sp.workspace_id = ${workspaceId}
+      and sp.archived_at is null
+      and ((x.channel = 'sms' and sp.phone_e164 = x.counterpart)
+        or (x.channel = 'email' and lower(sp.email::text) = x.counterpart))
+    order by sp.updated_at desc
+    limit 1)`;
 
 /** `sortBy` needs_person: the "Needs a person" box, by how long it has waited. */
 const conversationSelect = (
@@ -117,7 +207,8 @@ const conversationSelect = (
        from app.messages lm join app.users su on su.id = lm.sent_by
        where lm.conversation_id = c.id and lm.direction = 'outbound'
        order by lm.occurred_at desc limit 1) as last_sender,
-    ${SORT_KEY(sortBy === 'needs_person' ? sql`c.needs_person_since` : sql`coalesce(c.last_message_at, c.created_at)`)} as sort_key
+    ${SORT_KEY(sortBy === 'needs_person' ? sql`c.needs_person_since` : sql`coalesce(c.last_message_at, c.created_at)`)} as sort_key,
+    ${GROUP_KEY} as group_key
   from app.conversations c
   left join app.people p on p.id = c.person_id
   left join app.users u on u.id = c.assignee_user_id
@@ -127,6 +218,7 @@ const conversationSelect = (
   where c.workspace_id = ${workspaceId}`;
 
 function summary(r: ConversationRow): ConversationSummary {
+  const lanes = (r.lanes ?? []).map(lane);
   return {
     id: r.id,
     channel: r.channel,
@@ -175,6 +267,46 @@ function summary(r: ConversationRow): ConversationSummary {
       ? { id: r.taken_over_by, fullName: r.taken_over_name ?? 'Former member' }
       : null,
     onSiteNow: r.channel === 'chat' && !!r.on_site_now,
+    lanes,
+    unreadTotal: lanes.length
+      ? lanes.reduce((n, l) => n + l.unreadCount, 0)
+      : Number(r.unread_count),
+    sameAs: r.same_as?.id ? { id: r.same_as.id, fullName: r.same_as.fullName || 'Unnamed' } : null,
+  };
+}
+
+/**
+ * How a lane reads in the switcher: the business's own end of the thread, never the customer's.
+ *
+ * A named number says its name, because "Front desk" is what somebody picking a line is actually choosing
+ * between — the digits are there for the second front-desk number nobody has named yet. A lane with no line
+ * is a website chat, or a business whose only number was released; it still has to say something, because a
+ * blank item in a menu is not choosable.
+ */
+function lane(l: LaneRow): ConversationLane {
+  const number = l.line_e164 ? formatPhone(l.line_e164) : null;
+  const lineDisplay =
+    l.channel === 'chat'
+      ? 'Website chat'
+      : l.channel === 'email'
+        ? (l.line_address ?? 'Email')
+        : number
+          ? l.line_label
+            ? `${l.line_label} · ${number}`
+            : number
+          : 'Text';
+  return {
+    id: l.id,
+    channel: l.channel,
+    lineId: l.line_id,
+    lineDisplay,
+    unreadCount: Number(l.unread_count),
+    status: l.status,
+    archived: !!l.archived,
+    lastMessageAt: iso(l.last_message_at),
+    assignee: l.assignee_user_id
+      ? { id: l.assignee_user_id, fullName: l.assignee_name ?? 'Former member' }
+      : null,
   };
 }
 
@@ -264,9 +396,19 @@ export const inboxList = defineQuery({
       input.box === 'archived'
         ? sql`and c.archived_at is not null`
         : sql`and c.archived_at is null`;
-    const list = await rows<ConversationRow>(
-      ctx.tx,
-      sql`select * from (${conversationSelect(input.workspaceId, oldestFirst ? 'needs_person' : 'recent')}
+    /**
+     * One row per customer, not per thread (0089).
+     *
+     * The filters run first, on threads, so a box still means what it says: "Mine" is the customer with a
+     * thread assigned to me, and the row that comes back stands for that thread rather than for some other
+     * lane of theirs the filter never matched. Then `row_number` keeps the newest matching lane per customer
+     * and the rest fold into its `lanes`.
+     *
+     * **The customer record page is the one screen that does not group.** It asks for one person's threads on
+     * purpose — grouping them would answer with a single row, which is the opposite of what it is for.
+     */
+    const grouped = !input.personId;
+    const matching = sql`${conversationSelect(input.workspaceId, oldestFirst ? 'needs_person' : 'recent')}
             ${
               input.personId
                 ? sql`and c.person_id = ${input.personId}`
@@ -286,9 +428,22 @@ export const inboxList = defineQuery({
                       or lower(coalesce(cv.name, '')) like ${q}
                       ${digits.length >= 3 ? sql`or c.counterpart like ${`%${digits}%`}` : sql``})`
                 : sql``
-            }
-          ) x
-          ${cursor ? (oldestFirst ? sql`where (x.sort_key, x.id) > (${cursor.sort}, ${cursor.id}::uuid)` : sql`where (x.sort_key, x.id) < (${cursor.sort}, ${cursor.id}::uuid)`) : sql``}
+            }`;
+    // The newest matching lane per customer, or every matching thread when the record page asked for one
+    // customer's own list.
+    const one = grouped
+      ? sql`select * from (select m.*, row_number() over (
+              partition by m.group_key order by m.sort_key desc, m.id desc) as rn
+            from (${matching}) m) k where k.rn = 1`
+      : sql`select * from (${matching}) k`;
+    const list = await rows<ConversationRow>(
+      ctx.tx,
+      sql`select x.*,
+            ${LANES(input.workspaceId, input.box === 'archived')} as lanes,
+            ${SAME_AS(input.workspaceId)} as same_as
+          from (${one}) x
+          where true
+          ${cursor ? (oldestFirst ? sql`and (x.sort_key, x.id) > (${cursor.sort}, ${cursor.id}::uuid)` : sql`and (x.sort_key, x.id) < (${cursor.sort}, ${cursor.id}::uuid)`) : sql``}
           order by ${oldestFirst ? sql`x.sort_key asc, x.id asc` : sql`x.sort_key desc, x.id desc`}
           limit ${input.limit + 1}`,
     );
@@ -311,17 +466,19 @@ export const inboxSummary = defineQuery({
     const threshold = m.settings.unansweredReminderMinutes || 10;
     const [s] = await rows<Record<string, number>>(
       ctx.tx,
+      // Customers, not threads (0089): the list beside these badges shows each customer once, and a badge
+      // that counts their lanes says "3" over a list with one row in it.
       sql`select
-            count(*) filter (where c.status = 'open')::int as open_all,
-            count(*) filter (where c.status = 'open' and c.assignee_user_id = ${me})::int as open_mine,
-            count(*) filter (where c.status = 'open' and c.assignee_user_id is null)::int as open_unassigned,
-            count(*) filter (where c.status = 'open' and c.unread_count > 0)::int as unread_all,
-            count(*) filter (where c.status = 'open' and c.unread_count > 0 and c.assignee_user_id = ${me})::int as unread_mine,
-            count(*) filter (where c.status = 'open' and c.unread_count > 0 and c.assignee_user_id is null)::int as unread_unassigned,
-            count(*) filter (where c.status = 'open' and c.awaiting_reply_since is not null
+            count(distinct ${GROUP_KEY}) filter (where c.status = 'open')::int as open_all,
+            count(distinct ${GROUP_KEY}) filter (where c.status = 'open' and c.assignee_user_id = ${me})::int as open_mine,
+            count(distinct ${GROUP_KEY}) filter (where c.status = 'open' and c.assignee_user_id is null)::int as open_unassigned,
+            count(distinct ${GROUP_KEY}) filter (where c.status = 'open' and c.unread_count > 0)::int as unread_all,
+            count(distinct ${GROUP_KEY}) filter (where c.status = 'open' and c.unread_count > 0 and c.assignee_user_id = ${me})::int as unread_mine,
+            count(distinct ${GROUP_KEY}) filter (where c.status = 'open' and c.unread_count > 0 and c.assignee_user_id is null)::int as unread_unassigned,
+            count(distinct ${GROUP_KEY}) filter (where c.status = 'open' and c.awaiting_reply_since is not null
               and c.awaiting_reply_since <= now() - make_interval(mins => ${threshold}))::int as waiting,
-            count(*) filter (where c.status = 'open' and c.needs_person_since is not null)::int as needs_person,
-            count(*) filter (where c.status = 'open' and c.handled_by = 'ai')::int as ai
+            count(distinct ${GROUP_KEY}) filter (where c.status = 'open' and c.needs_person_since is not null)::int as needs_person,
+            count(distinct ${GROUP_KEY}) filter (where c.status = 'open' and c.handled_by = 'ai')::int as ai
           from app.conversations c
           where c.workspace_id = ${input.workspaceId} and c.last_message_at is not null
             and c.archived_at is null`,
@@ -349,7 +506,11 @@ export const conversationGet = defineQuery({
   async handler(ctx, input) {
     const [row] = await rows<ConversationRow>(
       ctx.tx,
-      sql`${conversationSelect(input.workspaceId)} and c.id = ${input.conversationId}`,
+      // The lanes ride along because the thread view is where somebody switches between them (0089). Live
+      // ones only: a closed or archived lane is not somewhere to start typing, and the switcher is a place to
+      // start typing.
+      sql`select x.*, ${LANES(input.workspaceId, false)} as lanes, ${SAME_AS(input.workspaceId)} as same_as
+          from (${conversationSelect(input.workspaceId)} and c.id = ${input.conversationId}) x`,
     );
     if (!row) throw HfosError.notFound('Conversation not found.');
     const m = await workspaceMessaging(ctx.tx, input.workspaceId);
@@ -449,6 +610,8 @@ export const conversationGet = defineQuery({
 type ThreadRow = {
   type: 'message' | 'call';
   id: string;
+  /** The lane it is on. Selected by every branch already; named here so "All" can label it (0089). */
+  conversation_id?: string | null;
   occurred_at: Date;
   direction: 'inbound' | 'outbound';
   status: string;
@@ -505,10 +668,14 @@ const messageBranch = (workspaceId: string) => sql`
   left join app.users ab on ab.id = m.approved_by
   where m.workspace_id = ${workspaceId}`;
 
-function threadItem(r: ThreadRow): ThreadItem {
+function threadItem(r: ThreadRow, lines?: ReadonlyMap<string, string>): ThreadItem {
   return {
     type: r.type,
     id: r.id,
+    conversationId: r.conversation_id ?? null,
+    // Only "All" passes the map: one lane's own thread says its line once, above the box, rather than on
+    // every message in it.
+    lineDisplay: (r.conversation_id && lines?.get(r.conversation_id)) || null,
     occurredAt: iso(r.occurred_at)!,
     direction: r.direction,
     status: r.status,
@@ -547,6 +714,47 @@ function threadItem(r: ThreadRow): ThreadItem {
   };
 }
 
+/**
+ * Every lane of the customer behind one conversation, newest first (0089).
+ *
+ * Grouped the way the inbox groups them — their record when they have one, their address when nobody has
+ * linked them — and narrowed by nothing but RLS, so a member on a narrowed inbox weaves together the lanes
+ * they are on and never learns of the others.
+ */
+async function lanesOf(
+  ctx: QueryContext,
+  workspaceId: string,
+  conversationId: string,
+): Promise<ConversationLane[]> {
+  const [c] = await rows<{ person_id: string | null; channel: string; counterpart: string }>(
+    ctx.tx,
+    sql`select person_id, channel::text as channel, counterpart from app.conversations
+        where id = ${conversationId} and workspace_id = ${workspaceId}`,
+  );
+  if (!c) return [];
+  const found = await rows<LaneRow>(
+    ctx.tx,
+    sql`select z.id, z.channel::text as channel,
+          case when z.channel = 'email' then z.email_address_id else z.phone_number_id end as line_id,
+          pn.e164 as line_e164, pn.label as line_label, ea.address as line_address,
+          z.unread_count, z.status::text as status, z.archived_at is not null as archived,
+          z.last_message_at, z.assignee_user_id,
+          coalesce(nullif(zu.full_name, ''), zu.email::text) as assignee_name
+        from app.conversations z
+        left join app.phone_numbers pn on pn.id = z.phone_number_id
+        left join app.email_addresses ea on ea.id = z.email_address_id
+        left join app.users zu on zu.id = z.assignee_user_id
+        where z.workspace_id = ${workspaceId}
+          and ${
+            c.person_id
+              ? sql`z.person_id = ${c.person_id}`
+              : sql`z.person_id is null and z.channel::text = ${c.channel} and z.counterpart = ${c.counterpart}`
+          }
+        order by z.last_message_at desc nulls last, z.id desc`,
+  );
+  return found.map(lane);
+}
+
 export const conversationThread = defineQuery({
   name: 'conversation.thread',
   description: 'The messages and calls in one conversation, newest first.',
@@ -561,10 +769,17 @@ export const conversationThread = defineQuery({
     );
     if (!exists) throw HfosError.notFound('Conversation not found.');
     const cursor = decodeCursor(input.cursor);
+    // "All": every lane of this customer woven together, each item saying which line it was on (0089).
+    const lanes = input.allLanes
+      ? await lanesOf(ctx, input.workspaceId, input.conversationId)
+      : null;
+    const lines = lanes ? new Map(lanes.map((l) => [l.id, l.lineDisplay])) : undefined;
+    // `uuidArray`, not a bare array: Drizzle's sql tag spreads a JS array into a parameter list.
+    const ids = uuidArray(lanes?.length ? lanes.map((l) => l.id) : [input.conversationId]);
     const list = await rows<ThreadRow>(
       ctx.tx,
       sql`select * from (
-            ${messageBranch(input.workspaceId)} and m.conversation_id = ${input.conversationId}
+            ${messageBranch(input.workspaceId)} and m.conversation_id = any(${ids})
               and m.error_code is distinct from ${CANCELLED_TEXT}
             union all
             select 'call'::text, c.id, c.conversation_id, c.started_at, c.direction::text, c.status::text, null::text, null::text, null::text,
@@ -578,7 +793,7 @@ export const conversationThread = defineQuery({
             from app.calls c
             left join app.users pu on pu.id = c.placed_by
             left join app.users au on au.id = c.answered_by_user_id
-            where c.workspace_id = ${input.workspaceId} and c.conversation_id = ${input.conversationId}
+            where c.workspace_id = ${input.workspaceId} and c.conversation_id = any(${ids})
               -- A call through someone's own cell joins the conversation once the customer's phone was dialed.
               and (c.answered_via is distinct from 'bridge' or c.answered_by_user_id is not null)
           ) t
@@ -589,7 +804,10 @@ export const conversationThread = defineQuery({
           limit ${input.limit + 1}`,
     );
     const result = page(list, input.limit, (r) => ({ sort: r.sort_key, id: r.id }));
-    return { items: result.items.map(threadItem), nextCursor: result.nextCursor };
+    return {
+      items: result.items.map((r) => threadItem(r, lines)),
+      nextCursor: result.nextCursor,
+    };
   },
 });
 

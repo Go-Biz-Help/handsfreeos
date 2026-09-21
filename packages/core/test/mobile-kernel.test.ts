@@ -318,6 +318,9 @@ describe('offline classes', () => {
     // declared here because the kernel's answer does not depend on a screen existing yet.
     'conversation.archive': 'anytime',
     'conversation.restore': 'anytime',
+    // Closing every lane a customer has (0089). Same reasoning: nothing reaches them, and closing what is
+    // already closed is closing it once.
+    'conversation.close_all': 'anytime',
     // Money: cash is recorded any time; sending a document or a link reaches the customer.
     'invoice.record_cash_payment': 'anytime',
     'invoice.send': FRESH,

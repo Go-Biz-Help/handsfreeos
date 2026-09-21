@@ -57,6 +57,8 @@ export type RecordType = 'person' | 'company' | 'lead';
 export type InboxList = Ok<'/v1/queries/inbox.list'>;
 export type CallLogItem = Ok<'/v1/queries/call.log'>['items'][number];
 export type ConversationSummary = InboxList['items'][number];
+/** One of a customer's lanes: a thread of theirs, named by the business's own line (0089). */
+export type ConversationLane = ConversationSummary['lanes'][number];
 export type InboxSummary = Ok<'/v1/queries/inbox.summary'>;
 export type ConversationGet = Ok<'/v1/queries/conversation.get'>;
 export type ConversationThread = Ok<'/v1/queries/conversation.thread'>;

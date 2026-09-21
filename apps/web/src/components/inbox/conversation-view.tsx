@@ -89,6 +89,7 @@ import {
 } from './ai-handling';
 import { ChannelIcon, ContactAvatar, QuietStrip, Words } from './bits';
 import { Composer, type ComposerTarget } from './composer';
+import { LaneSwitcher } from './lane-switcher';
 import { ContextPanel } from './context-panel';
 import {
   DraftCard,
@@ -149,12 +150,15 @@ export function ConversationView({
   tags,
   pipelines,
   businessName,
+  allLanes = false,
 }: {
   data: ConversationGet;
   thread: ConversationThread;
   tags: Tag[];
   pipelines: Pipeline[];
   businessName: string;
+  /** "All lines": every lane of this customer at once, which reads and never sends (0089). */
+  allLanes?: boolean;
 }) {
   const router = useRouter();
   const {
@@ -184,7 +188,7 @@ export function ConversationView({
   const assistantDocked = useAssistant().docked;
   // Edit on an Assistant text or email card for a number that isn't in Customers lands here.
   const handedDraft = useComposerDraft(c.id);
-  const t = useThread(workspaceId, c.id, thread);
+  const t = useThread(workspaceId, c.id, thread, allLanes);
   // The customer's own notes, shown in the thread as the phone shows them (M10 step 15).
   const notes = useCustomerNotes(workspaceId, person?.id ?? null);
   useLiveRefresh(['conversation', 'person', 'lead', 'task']);
@@ -387,7 +391,22 @@ export function ConversationView({
     handoverNote: phone && waiting ? null : handoverNote(view, aiName),
     chatBlocked: data.chat?.blocked ?? false,
   };
-  const composer = (
+  /**
+   * "All lines" reads and never writes (0089).
+   *
+   * Not a disabled Send but no composer at all, with the reason and the way out in its place: the customer
+   * has more than one line here and the app cannot pick which one an answer leaves from — only the person
+   * can, and the switcher above is where. A greyed-out box would leave somebody typing into something that
+   * was never going to send.
+   */
+  const composer = allLanes ? (
+    <div
+      className="flex-none border-t border-border bg-card px-4 py-3 text-center text-[13px] text-text-2"
+      data-testid="composer-all-lines"
+    >
+      Reading every line at once. Pick a line above to reply.
+    </div>
+  ) : (
     <Composer
       key={handedDraft ? `${c.id}:${handedDraft.id}` : c.id}
       target={target}
@@ -527,6 +546,15 @@ export function ConversationView({
               {name}
             </div>
             <div className="flex items-center gap-1.5 truncate text-xs text-text-3">
+              {/* Which of the business's lines this customer is on, and a way to change it (0089). The
+                  channel line stays beside it: one says what the customer's end is, the other ours. */}
+              <LaneSwitcher
+                workspaceId={workspaceId}
+                lanes={data.conversation.lanes}
+                currentId={c.id}
+                all={allLanes}
+                listQuery={listQuery}
+              />
               {chat ? <WebsiteIcon className="h-3 w-3" /> : null}
               <span className="truncate" data-testid="thread-channel">
                 {threadChannelLine(c, person, { chat: data.chat })}
@@ -676,6 +704,18 @@ export function ConversationView({
                 <Mail className="h-3.5 w-3.5" strokeWidth={1.5} />
                 {CONVERSATION_ACTIONS.markUnread}
               </DropdownMenuItem>
+              {/* Closing is per lane, because finishing a text says nothing about a mail thread still
+                  waiting. This is the other half: done with the customer, everywhere (0089). Only offered
+                  when there is more than one, or it is the Close button under a longer name. */}
+              {data.conversation.lanes.length > 1 ? (
+                <DropdownMenuItem
+                  onSelect={() => void actions.closeAll()}
+                  data-testid="close-all-lanes"
+                >
+                  <CircleCheck className="h-3.5 w-3.5" strokeWidth={1.5} />
+                  {CONVERSATION_ACTIONS.closeAll}
+                </DropdownMenuItem>
+              ) : null}
               {chat ? null : (
                 <DropdownMenuItem onSelect={() => void copyCounterpart()} data-testid="thread-copy">
                   <Copy className="h-3.5 w-3.5" strokeWidth={1.5} />
@@ -722,9 +762,21 @@ export function ConversationView({
           <ContactAvatar person={person} chat={chat} />
           <div className="ml-1.5 min-w-0 flex-1">
             <div className="truncate text-[15px] font-semibold">{name}</div>
-            <div className="truncate text-xs text-text-3">
-              {threadChannelLine(c, person, { chat: data.chat, short: true })}
-            </div>
+            {/* A phone has less room, so the line it is on replaces the channel line rather than joining it:
+                which of the business's numbers answers is the more useful of the two here (0089). */}
+            {data.conversation.lanes.length > 1 ? (
+              <LaneSwitcher
+                workspaceId={workspaceId}
+                lanes={data.conversation.lanes}
+                currentId={c.id}
+                all={allLanes}
+                listQuery={listQuery}
+              />
+            ) : (
+              <div className="truncate text-xs text-text-3">
+                {threadChannelLine(c, person, { chat: data.chat, short: true })}
+              </div>
+            )}
           </div>
           {onHome ? (
             <AttentionWaitingChip

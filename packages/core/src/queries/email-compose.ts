@@ -11,6 +11,7 @@ import {
   threadHeaders,
   workspaceAddresses,
 } from '../messaging/email';
+import { latestConversation } from '../messaging/store';
 import { EmailComposeOptionsInput, EmailComposeOptionsOutput } from '../schemas/message';
 
 export const emailComposeOptions = defineQuery({
@@ -49,16 +50,10 @@ export const emailComposeOptions = defineQuery({
     }
     // A customer's text thread (or page) finds their email thread by address.
     if (to && !conversationId) {
-      const [c] = await ctx.tx
-        .select({ id: conversations.id, emailAddressId: conversations.emailAddressId })
-        .from(conversations)
-        .where(
-          and(
-            eq(conversations.workspaceId, workspaceId),
-            eq(conversations.channel, 'email'),
-            eq(conversations.counterpart, to),
-          ),
-        );
+      // The one they last wrote to, since a customer can have a mail thread on more than one of the
+      // business's addresses (0089). Composing into the older of the two would answer them on an address
+      // they have moved off.
+      const c = await latestConversation(ctx.tx, workspaceId, 'email', to);
       if (c) {
         conversationId = c.id;
         usedAddressId = c.emailAddressId;

@@ -171,6 +171,13 @@ function ThreadEntry({
   return (
     <>
       {day ? <DayDivider>{day}</DayDivider> : null}
+      {/* Which of the business's lines this one was on (0089). Only "All lines" fills `lineDisplay`, because
+          a single lane's thread says its line once above the composer rather than on every message in it. */}
+      {item.lineDisplay ? (
+        <div className="pt-2 text-center text-[11px] text-text-3" data-testid={`line-${item.id}`}>
+          {item.direction === 'inbound' ? 'To' : 'From'} {item.lineDisplay}
+        </div>
+      ) : null}
       {item.type === 'call' ? (
         <CallCard item={item} time={time} compact={compact} />
       ) : item.channel === 'email' ? (

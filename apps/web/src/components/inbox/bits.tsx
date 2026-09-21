@@ -41,13 +41,16 @@ export function Pill({
   children,
   icon: Icon,
   className,
+  testId,
 }: {
   children: ReactNode;
   icon?: IconType;
   className?: string;
+  testId?: string;
 }) {
   return (
     <span
+      data-testid={testId}
       className={cn(
         'inline-flex h-5 items-center gap-1 whitespace-nowrap rounded-[6px] bg-card-2 px-1.5 text-[11.5px] font-medium text-text-2',
         className,

@@ -1,4 +1,4 @@
-import { and, eq } from 'drizzle-orm';
+import { and, eq, isNull, ne, or } from 'drizzle-orm';
 import { conversations, people } from '@hfos/db/schema';
 import { formatPhone } from '../crm/phone';
 import { fullName, requirePerson, userRef } from '../crm/records';
@@ -14,6 +14,7 @@ import {
   isWorkspaceUser,
   defaultNumber,
   loadConversation,
+  preferredLane,
 } from '../messaging/store';
 import {
   ConversationAssignInput,
@@ -21,6 +22,7 @@ import {
   ConversationLinkPersonOutput,
   ConversationOpenInput,
   ConversationOpenOutput,
+  ConversationCloseAllOutput,
   ConversationRefInput,
   ConversationRefOutput,
   ConversationSnoozeInput,
@@ -69,12 +71,20 @@ export const conversationOpen = defineCommand({
       throw input.channel === 'sms'
         ? HfosError.rule('no_phone', 400, 'Add a mobile number to text this customer.')
         : HfosError.rule('no_email', 400, 'Add an email address to email this customer.');
-    const number = input.channel === 'sms' ? await defaultNumber(ctx.tx, workspaceId) : null;
+    // Opening a customer's thread means the one they are actually on (0089), not a fresh one on the
+    // business's default line. Only a customer with no thread at all starts one, and a text starts on the
+    // default number exactly as it did before lines existed.
+    const lane = await preferredLane(ctx.tx, workspaceId, input.channel, counterpart);
+    const number =
+      input.channel === 'sms' && !lane?.phoneNumberId
+        ? await defaultNumber(ctx.tx, workspaceId)
+        : null;
     const { conversation, created } = await findOrCreateConversation(ctx, {
       channel: input.channel,
       counterpart,
       personId: person.id,
-      phoneNumberId: number?.id ?? null,
+      phoneNumberId: lane?.phoneNumberId ?? number?.id ?? null,
+      emailAddressId: lane?.emailAddressId ?? null,
     });
     const name = fullName(person.firstName, person.lastName);
     if (created)
@@ -332,6 +342,81 @@ export const conversationClose = defineCommand({
   },
 });
 
+/**
+ * Close every lane this customer has, in one go (0089).
+ *
+ * Closing is per lane, because finishing a text conversation says nothing about a mail thread that is still
+ * waiting on an answer — but "I am done with this customer" is a real thing to want, and doing it lane by
+ * lane is four clicks and a chance to miss one. So both, and this is the second one, deliberately a separate
+ * command rather than a flag on `conversation.close`: it is a different-sized decision, it wants its own line
+ * in the audit, and a phone replaying a queued close must never find it has grown into a close-everything.
+ *
+ * Each lane goes through the same checks one at a time, `overtaken` included, so a customer who wrote in
+ * while somebody was reading keeps their lane open and the rest still close. The count that comes back is
+ * how many actually did.
+ */
+export const conversationCloseAll = defineCommand({
+  name: 'conversation.close_all',
+  description: 'Close every one of this customer’s conversations, on every line.',
+  risk: 1,
+  input: ConversationRefInput,
+  output: ConversationCloseAllOutput,
+  permission: 'inbox.use',
+  scope: inWorkspace,
+  emits: ['conversation.closed'],
+  actors: ['human'],
+  offline: 'anytime',
+  async handler(ctx, input) {
+    const c = await loadConversation(ctx, input.conversationId);
+    const workspaceId = ctx.scope.workspaceId!;
+    // The customer's lanes, by the same rule the inbox groups them under: their record when they have one,
+    // their address when nobody has linked them. RLS keeps a narrowed member to the lanes they may see, so
+    // "close all" closes all of what they were shown and never a thread they cannot open.
+    const lanes = await ctx.tx
+      .select({ id: conversations.id })
+      .from(conversations)
+      .where(
+        and(
+          eq(conversations.workspaceId, workspaceId),
+          ne(conversations.status, 'closed'),
+          c.personId
+            ? eq(conversations.personId, c.personId)
+            : and(
+                isNull(conversations.personId),
+                eq(conversations.channel, c.channel),
+                eq(conversations.counterpart, c.counterpart),
+              ),
+        ),
+      );
+    let closed = 0;
+    for (const { id } of lanes) {
+      const lane = await lockConversation(ctx, id);
+      if (lane.status === 'closed') continue;
+      if (await overtaken(ctx, lane, 'close the conversation')) continue;
+      await ctx.tx
+        .update(conversations)
+        .set({
+          status: 'closed',
+          closedAt: changeMoment(ctx.meta),
+          closedBy: userIdOf(ctx.actor),
+          snoozedUntil: null,
+          awaitingReplySince: null,
+        })
+        .where(eq(conversations.id, lane.id));
+      await ctx.emit({
+        type: 'conversation.closed',
+        entityType: 'conversation',
+        entityId: lane.id,
+        payload: { closedWithCustomer: true },
+        before: { status: lane.status },
+        after: { status: 'closed', with: await withWhom(ctx, lane) },
+      });
+      closed += 1;
+    }
+    return { conversationId: c.id, closed };
+  },
+});
+
 export const conversationReopen = defineCommand({
   name: 'conversation.reopen',
   description: 'Bring a closed or snoozed conversation back into the inbox.',
@@ -400,10 +485,29 @@ export const conversationLinkPerson = defineCommand({
         .where(eq(people.id, person.id));
       phoneAdded = true;
     }
+    /**
+     * Every unlinked lane on this address, not only the one somebody clicked (0089).
+     *
+     * The inbox groups an unlinked thread under its address and a linked one under its customer, so linking
+     * one of two text lanes would split the customer in two: one row under their name, one still under their
+     * number, and both of them the same person. The lanes share a counterpart, so this is the identification
+     * the click already made, applied to all of it.
+     *
+     * The lane that was clicked moves whoever it was linked to before, because re-linking a thread put on the
+     * wrong customer is exactly what this command is for. A *sibling* already linked to somebody else is left
+     * alone: that was a separate decision and this click did not overrule it.
+     */
     await ctx.tx
       .update(conversations)
       .set({ personId: person.id })
-      .where(eq(conversations.id, c.id));
+      .where(
+        and(
+          eq(conversations.workspaceId, workspaceId),
+          eq(conversations.channel, c.channel),
+          eq(conversations.counterpart, c.counterpart),
+          or(eq(conversations.id, c.id), isNull(conversations.personId)),
+        ),
+      );
     const previous = await personLabel(ctx, c.personId);
     const name = fullName(person.firstName, person.lastName);
     await ctx.emit({

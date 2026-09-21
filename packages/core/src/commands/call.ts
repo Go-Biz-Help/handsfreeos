@@ -14,6 +14,7 @@ import type { CommandContext } from '../kernel/types';
 import {
   findOrCreateConversation,
   conversationNumber,
+  latestConversation,
   loadConversation,
   matchPersonByPhone,
 } from '../messaging/store';
@@ -223,21 +224,10 @@ async function bridgeTarget(
   const to = input.toPhone!;
   const personId = await matchPersonByPhone(ctx.tx, workspaceId, to);
   if (personId) return { to, personId, conversationId: null, phoneNumberId: null };
-  const [c] = await ctx.tx
-    .select({
-      id: conversations.id,
-      personId: conversations.personId,
-      phoneNumberId: conversations.phoneNumberId,
-    })
-    .from(conversations)
-    .where(
-      and(
-        eq(conversations.workspaceId, workspaceId),
-        eq(conversations.channel, 'sms'),
-        eq(conversations.counterpart, to),
-      ),
-    )
-    .limit(1);
+  // A customer can have a thread on more than one of the business's lines (0089), and this used to take
+  // whichever the database handed back first. The bridge dials out from the thread's number, so picking the
+  // wrong one calls them from a line they have not used — hence the shared rule rather than a local order by.
+  const c = await latestConversation(ctx.tx, workspaceId, 'sms', to);
   if (c) return { to, personId: c.personId, conversationId: c.id, phoneNumberId: c.phoneNumberId };
   // Never a number typed in: the bridge dials from the business number, so it only reaches people the business knows.
   throw HfosError.rule(
