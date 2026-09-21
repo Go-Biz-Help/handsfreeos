@@ -337,13 +337,22 @@ export const migrationGet = defineQuery({
           order by c.category`,
     );
 
-    const [counts] = await rows<{ needs_review: number; retryable: number }>(
+    const [counts] = await rows<{
+      needs_review: number;
+      retryable: number;
+      put_records_here: boolean;
+    }>(
       ctx.tx,
       sql`select
             (select count(*)::int from app.migration_merge_candidates
              where migration_id = ${m.id} and resolution = 'pending') as needs_review,
             (select count(*)::int from app.migration_errors
-             where migration_id = ${m.id} and resolved_at is null and retryable) as retryable`,
+             where migration_id = ${m.id} and resolved_at is null and retryable) as retryable,
+            -- The journal is what a rollback reads to put records back, so its being empty is exactly what
+            -- "this move has changed nothing here" means. An existence test rather than a count: the screen
+            -- asks whether, never how many, and the journal of a finished move is long (0088).
+            exists (select 1 from app.migration_change_journal
+                    where migration_id = ${m.id}) as put_records_here`,
     );
 
     return {
@@ -361,6 +370,7 @@ export const migrationGet = defineQuery({
         finalizedAt: iso(m.finalized_at),
         totals: m.totals ?? {},
         lastError: m.last_error,
+        putRecordsHere: counts?.put_records_here ?? false,
       },
       connection: {
         id: m.connection_id,

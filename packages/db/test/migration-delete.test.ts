@@ -1,10 +1,14 @@
 /**
- * 0086: deleting a move that has been taken back, so the import can be run again.
+ * 0086 and 0088: taking a move off the list, whether it finished or never started.
  *
  * **Needs the stack up.** The rules worth testing are all the function's own, and a `security definer`
  * function that trusts its caller is the bug this file exists to catch:
  *
- *   - it refuses a move that has not been rolled back, whoever asks;
+ *   - it refuses a move that put records here and has not been rolled back, whoever asks;
+ *   - it deletes one that put nothing here at whatever step it stopped on, because there is nothing to put
+ *     back and a rollback with no work to do is not a step (0088);
+ *   - it refuses one that is still running either way, because the journal it reads to tell the two apart
+ *     is not a settled answer while the engine holds a lease;
  *   - it refuses somebody who does not manage migrations, even though it runs past every policy;
  *   - it keeps a customer who has been talked to since, however plainly the import made them;
  *   - and it never touches a phone number that really moved carrier.
@@ -72,6 +76,42 @@ async function aMove(status: string): Promise<{ migrationId: string; personId: s
   return { migrationId, personId: person!.id };
 }
 
+/**
+ * A move that never wrote anything: connected, maybe scanned, and then thought better of.
+ *
+ * The scope row is deliberately there. Being far enough along to have found the sub-accounts is exactly the
+ * state people get stuck in, and it is the journal — not the scopes, not the badge — that decides which of
+ * the two acts deleting is.
+ */
+async function anEmptyMove(status: string): Promise<string> {
+  const worker = asService({ workspaceId: ws, organizationId: org });
+  const [m] = await worker((tx) =>
+    rows<{ id: string }>(
+      tx,
+      sql`insert into app.migrations (organization_id, connection_id, source_system, status, name, adapter_version)
+          values (${org}, ${connectionId}, 'gohighlevel', ${status}::app.migration_status, 'Second thoughts', 1)
+          returning id`,
+    ),
+  );
+  const migrationId = m!.id;
+  await worker((tx) =>
+    rows(
+      tx,
+      sql`insert into app.migration_scopes (migration_id, organization_id, workspace_id, external_scope_id, name, selected)
+          values (${migrationId}, ${org}, ${ws}, ${'loc_' + Math.random().toString(36).slice(2, 10)}, 'Lone Star', true)`,
+    ),
+  );
+  return migrationId;
+}
+
+const countOf = async (migrationId: string): Promise<number> => {
+  const [row] = await rows<{ n: number }>(
+    admin$,
+    sql`select count(*)::int as n from app.migrations where id = ${migrationId}`,
+  );
+  return row!.n;
+};
+
 const remove = (migrationId: string, who: TestUser) =>
   as(who)((tx) =>
     rows<{ removed: number; kept: number }>(
@@ -102,6 +142,18 @@ beforeAll(async () => {
 afterAll(closeAll);
 
 describe('the order is forced, not suggested', () => {
+  // 0088 loosened this for moves that wrote nothing, and for nothing else: a move that put records here is
+  // rolled back first at every step it can be caught on, not just at the one it finished on.
+  for (const status of ['ready', 'paused', 'needs_attention', 'failed', 'imported']) {
+    it(`refuses a move at ${status} that has put records here`, async () => {
+      const { migrationId } = await aMove(status);
+      expect((await expectPgError(() => remove(migrationId, owner))).message).toMatch(
+        /take the migration back/i,
+      );
+      expect(await countOf(migrationId)).toBe(1);
+    });
+  }
+
   it('refuses a move that has not been taken back', async () => {
     const { migrationId } = await aMove('completed');
     // `expectPgError`, not `rejects.toThrow`: Drizzle wraps the Postgres error as "Failed query: …", so a
@@ -115,6 +167,105 @@ describe('the order is forced, not suggested', () => {
       sql`select count(*)::int as n from app.migrations where id = ${migrationId}`,
     );
     expect(still!.n).toBe(1);
+  });
+});
+
+describe('a move that never put anything here just goes (0088)', () => {
+  // Every step a move can stop on before it writes, and the ones it can reach and still have written
+  // nothing. Each was a dead end before 0088: no rollback would take it, so no delete would either.
+  for (const status of [
+    'draft',
+    'connected',
+    'scanned',
+    'ready',
+    'paused',
+    'needs_attention',
+    'failed',
+    'cancelled',
+  ]) {
+    it(`deletes one sitting at ${status}`, async () => {
+      const migrationId = await anEmptyMove(status);
+      const [done] = await remove(migrationId, owner);
+      // Nothing was put here, so nothing was finished off and nothing was kept.
+      expect(done!.removed).toBe(0);
+      expect(done!.kept).toBe(0);
+      expect(await countOf(migrationId)).toBe(0);
+    });
+  }
+
+  it('still asks who is asking', async () => {
+    const migrationId = await anEmptyMove('ready');
+    expect((await expectPgError(() => remove(migrationId, outsider))).message).toMatch(
+      /manage migrations/i,
+    );
+    expect(await countOf(migrationId)).toBe(1);
+  });
+
+  it('takes the queued work with it, which is the point of deleting it', async () => {
+    const migrationId = await anEmptyMove('ready');
+    await asService({ workspaceId: ws, organizationId: org })((tx) =>
+      rows(
+        tx,
+        sql`insert into app.migration_jobs (migration_id, organization_id, kind, category, pass, input)
+            values (${migrationId}, ${org}, 'scan', 'locations', 0, '{}'::jsonb)`,
+      ),
+    );
+    await remove(migrationId, owner);
+    const [jobs] = await rows<{ n: number }>(
+      admin$,
+      sql`select count(*)::int as n from app.migration_jobs where migration_id = ${migrationId}`,
+    );
+    expect(jobs!.n).toBe(0);
+  });
+});
+
+describe('a move that is still going is stopped first, not raced', () => {
+  // Whatever the journal says this instant, the engine may write again before the delete commits. The
+  // answer is the step it is on, so the screen can say "pause it" — which is a button.
+  for (const status of ['scanning', 'importing', 'rolling_back', 'cancelling']) {
+    it(`refuses one at ${status}, even with nothing written`, async () => {
+      const migrationId = await anEmptyMove(status);
+      expect((await expectPgError(() => remove(migrationId, owner))).message).toMatch(
+        /stop the migration/i,
+      );
+      expect(await countOf(migrationId)).toBe(1);
+    });
+  }
+
+  it('refuses one that reads paused while a batch is still running', async () => {
+    // Pausing stops the *next* batch, not the one already going — which is what it says it does. Pause and
+    // then Delete is what somebody in a hurry does, and the lease is the only thing that knows.
+    const migrationId = await anEmptyMove('paused');
+    await asService({ workspaceId: ws, organizationId: org })((tx) =>
+      rows(
+        tx,
+        sql`insert into app.migration_jobs
+              (migration_id, organization_id, kind, category, pass, state, leased_by, leased_until)
+            values (${migrationId}, ${org}, 'import', 'contacts', 1, 'leased', 'worker-1',
+                    now() + interval '2 minutes')`,
+      ),
+    );
+    expect((await expectPgError(() => remove(migrationId, owner))).message).toMatch(
+      /stop the migration/i,
+    );
+    expect(await countOf(migrationId)).toBe(1);
+  });
+
+  it('lets go once the lease has run out', async () => {
+    // An expired lease is a worker that died, not one still writing: the engine's own claim treats it as
+    // work to be picked up again, so it must not wedge a move nobody can clear.
+    const migrationId = await anEmptyMove('paused');
+    await asService({ workspaceId: ws, organizationId: org })((tx) =>
+      rows(
+        tx,
+        sql`insert into app.migration_jobs
+              (migration_id, organization_id, kind, category, pass, state, leased_by, leased_until)
+            values (${migrationId}, ${org}, 'import', 'contacts', 1, 'leased', 'worker-1',
+                    now() - interval '1 minute')`,
+      ),
+    );
+    await remove(migrationId, owner);
+    expect(await countOf(migrationId)).toBe(0);
   });
 });
 

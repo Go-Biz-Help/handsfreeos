@@ -3047,7 +3047,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Delete a move that has been taken back, so it is off the list and the import can be run again from scratch. Customers with history here are kept.
+         * Take a move off the list: one that never put anything here goes straight away, and one that did has to be taken back first so the import can be run again from scratch. Customers with history here are kept.
          * @description Risk level 4. Emits migration.deleted.
          */
         post: operations["command_migration_delete"];
@@ -15254,7 +15254,7 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": {
-                    confirmName: string;
+                    confirmName?: string;
                     /** Format: uuid */
                     migrationId: string;
                     /** Format: uuid */
@@ -15271,6 +15271,7 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        hadRecords: boolean;
                         kept: number;
                         removed: number;
                     };
@@ -27369,6 +27370,7 @@ export interface operations {
                             includeDeleted: boolean;
                             lastError: string | null;
                             name: string;
+                            putRecordsHere: boolean;
                             /** @enum {string} */
                             source: "gohighlevel" | "hubspot" | "salesforce" | "jobber" | "housecall_pro" | "servicetitan" | "follow_up_boss";
                             sourceLabel: string;

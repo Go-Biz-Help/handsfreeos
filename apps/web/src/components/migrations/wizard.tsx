@@ -95,6 +95,9 @@ export function MigrationWizard({
         <Finished organizationId={organizationId} workspaceId={workspaceId} detail={detail} />
       ) : null}
       <Findings findings={detail.findings} />
+      {/* On every step, because the move people most want rid of is the one that never got off the first
+          one — connected to the wrong sub-account, or a second go at the same one. */}
+      <Discard organizationId={organizationId} workspaceId={workspaceId} detail={detail} />
     </div>
   );
 }
@@ -661,38 +664,8 @@ function Finished({
       return;
     setBusy(true);
     try {
-      await apiBrowser().POST('/v1/commands/migration.rollback', {
-        body: { organizationId, workspaceId, migrationId: detail.migration.id, confirm: true },
-      });
+      await askForRollback(organizationId, workspaceId, detail.migration.id);
       toast.success('Taking it back. Anything you changed since is left as it is.');
-      router.refresh();
-    } catch (err) {
-      toast.error(errorMessage(err));
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const remove = async () => {
-    const typed = prompt(`Type the name of this move to delete it: ${detail.migration.name}`, '');
-    if (typed === null) return;
-    setBusy(true);
-    try {
-      const out = unwrap(
-        await apiBrowser().POST('/v1/commands/migration.delete', {
-          body: {
-            organizationId,
-            workspaceId,
-            migrationId: detail.migration.id,
-            confirmName: typed,
-          },
-        }),
-      );
-      toast.success(
-        out.kept > 0
-          ? `Deleted. ${out.removed} removed; ${out.kept} kept because they have history here.`
-          : `Deleted. ${out.removed} records removed.`,
-      );
       router.refresh();
     } catch (err) {
       toast.error(errorMessage(err));
@@ -731,6 +704,7 @@ function Finished({
           asks rather than stopping quietly.
         </p>
       ) : null}
+      {/* Taking it back is the way out of a finished move; deleting is the card below, on every step. */}
       {detail.migration.status !== 'rolled_back' ? (
         <div className="mt-4 flex flex-wrap gap-2">
           <Button
@@ -743,28 +717,175 @@ function Finished({
             Take it back
           </Button>
         </div>
-      ) : (
-        // Only once it has been taken back, because that is the order the database insists on: taking it
-        // back puts the records away, and this finishes them off so running the import again does not leave
-        // the business with two of everybody.
-        <div className="mt-4">
-          <p className="text-[13px] text-text-2">
-            The customers it made are put away, not gone. Delete the move to finish them off and
-            start the import again from scratch — anyone who has been texted, booked or billed since
-            is kept.
-          </p>
-          <Button
-            variant="danger"
-            className="mt-2"
-            onClick={remove}
-            loading={busy}
-            data-testid="migration-delete"
-          >
-            <Trash2 className="h-4 w-4" strokeWidth={1.75} />
-            Delete this move
-          </Button>
-        </div>
-      )}
+      ) : null}
+    </Card>
+  );
+}
+
+/** Where the engine may still be writing, so what the move has done is not a settled question yet. */
+const RUNNING_STATUSES = ['scanning', 'importing', 'rolling_back', 'cancelling'];
+/** Where taking it back is something a person can press. Anywhere else, it has to be paused first. */
+const ROLLBACKABLE_STATUSES = [
+  'imported',
+  'transition',
+  'completed',
+  'needs_attention',
+  'failed',
+  'paused',
+];
+
+/** Taking a move back: the same call from the card that finishes one and the card that clears one. */
+async function askForRollback(
+  organizationId: string,
+  workspaceId: string | undefined,
+  migrationId: string,
+) {
+  await apiBrowser().POST('/v1/commands/migration.rollback', {
+    body: { organizationId, workspaceId, migrationId, confirm: true },
+  });
+}
+
+/**
+ * Taking a move off the list, at whatever step it stopped on.
+ *
+ * **This is on every step, and that is the point of it.** The move people most want rid of is not the one
+ * that finished — it is the one that never got going: connected to the wrong sub-account, pointed at the
+ * wrong system, or a second go at the same one that is now two rows in the list. Until 0088 the only way
+ * out was the finished card, which those moves never reach, so they stayed forever.
+ *
+ * **What it asks for turns on one thing: whether the move has put anything here.** Nothing here, nothing to
+ * put back, so it just goes — no rollback with no work to do, and no name to copy out to clear an empty
+ * draft. Something here, and the order from 0086 stands: take it back, look at what came back, then delete,
+ * with the name typed out because that one ends with records gone rather than put away.
+ */
+function Discard({
+  organizationId,
+  workspaceId,
+  detail,
+}: {
+  organizationId: string;
+  workspaceId?: string;
+  detail: MigrationDetail;
+}) {
+  const router = useRouter();
+  const [busy, setBusy] = useState(false);
+  const { id, name, status, putRecordsHere } = detail.migration;
+
+  const remove = async () => {
+    let confirmName: string | undefined;
+    if (putRecordsHere) {
+      const typed = prompt(`Type the name of this move to delete it: ${name}`, '');
+      if (typed === null) return;
+      confirmName = typed;
+    } else if (
+      !confirm(`Delete “${name}”? It has put nothing here, so nothing of yours goes with it.`)
+    )
+      return;
+    setBusy(true);
+    try {
+      const out = unwrap(
+        await apiBrowser().POST('/v1/commands/migration.delete', {
+          body: {
+            organizationId,
+            workspaceId,
+            migrationId: id,
+            ...(confirmName === undefined ? {} : { confirmName }),
+          },
+        }),
+      );
+      toast.success(
+        !out.hadRecords
+          ? 'Deleted. It had put nothing here, so nothing of yours went with it.'
+          : out.kept > 0
+            ? `Deleted. ${out.removed} removed; ${out.kept} kept because they have history here.`
+            : `Deleted. ${out.removed} records removed.`,
+      );
+      // The page this card is on went with it, so there is nothing here to refresh back into.
+      router.replace(
+        workspaceId
+          ? `/app/w/${workspaceId}/settings/migrations`
+          : `/app/org/${organizationId}/migrations`,
+      );
+      router.refresh();
+    } catch (err) {
+      toast.error(errorMessage(err));
+      setBusy(false);
+    }
+  };
+
+  const takeItBack = async () => {
+    if (
+      !confirm(
+        'Take back everything this migration put here? Customers you already had are never deleted.',
+      )
+    )
+      return;
+    setBusy(true);
+    try {
+      await askForRollback(organizationId, workspaceId, id);
+      toast.success('Taking it back. You can delete it once that has finished.');
+      router.refresh();
+    } catch (err) {
+      toast.error(errorMessage(err));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  // Said in the order a person meets them: still going, then nothing to undo, then the two-step way out.
+  const say = (): { line: string; button?: 'delete' | 'rollback' } => {
+    if (status === 'rolling_back')
+      return { line: 'This move is being taken back. You can delete it once that has finished.' };
+    if (RUNNING_STATUSES.includes(status))
+      return { line: 'Pause this move first, and the way to delete it appears here.' };
+    if (!putRecordsHere)
+      return {
+        line: "This move hasn't put anything here — nothing was brought across. Deleting it takes nothing of yours with it, and the import can be set up again from scratch.",
+        button: 'delete',
+      };
+    if (status === 'rolled_back')
+      return {
+        line: 'The customers it made are put away, not gone. Delete the move to finish them off and start the import again from scratch — anyone who has been texted, booked or billed since is kept.',
+        button: 'delete',
+      };
+    if (ROLLBACKABLE_STATUSES.includes(status))
+      return {
+        line: 'This move has put records here, so take it back before deleting it. Taking it back puts them away and shows you what it could not undo; deleting is what finishes them off.',
+        button: 'rollback',
+      };
+    // `verifying` and `finalizing`: still one of its own steps, and taking one back wants it stopped first.
+    return { line: 'Pause this move, then take it back, and it can be deleted.' };
+  };
+  const { line, button } = say();
+
+  return (
+    <Card className="p-5" data-testid="migration-discard">
+      <h2 className="text-base font-semibold">Delete this move</h2>
+      <p className="mt-1 text-[13px] text-text-2">{line}</p>
+      {button === 'delete' ? (
+        <Button
+          variant="danger"
+          className="mt-3"
+          onClick={remove}
+          loading={busy}
+          data-testid="migration-delete"
+        >
+          <Trash2 className="h-4 w-4" strokeWidth={1.75} />
+          Delete this move
+        </Button>
+      ) : null}
+      {button === 'rollback' ? (
+        <Button
+          variant="ghost"
+          className="mt-3"
+          onClick={takeItBack}
+          loading={busy}
+          data-testid="migration-discard-rollback"
+        >
+          <Undo2 className="h-4 w-4" strokeWidth={1.75} />
+          Take it back
+        </Button>
+      ) : null}
     </Card>
   );
 }
