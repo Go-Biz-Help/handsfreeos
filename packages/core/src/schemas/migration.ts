@@ -323,20 +323,26 @@ export const MigrationRollbackInput = z.object({
 });
 
 /**
- * Taking a move off the list once it has been rolled back (M17), so it can be run again without the business
- * ending up with two of everybody.
+ * Taking a move off the list (M17): one that never put anything here goes straight away, and one that did
+ * has to be rolled back first, so it can be run again without the business ending up with two of everybody.
  */
 export const MigrationDeleteInput = z.object({
   ...inOrgOrWorkspace,
   migrationId: uuid,
-  /** The move's own name, typed out. Nothing else will do. */
-  confirmName: z.string().trim().min(1).max(200),
+  /**
+   * The move's own name, typed out. Nothing else will do — but only where it guards something. A move that
+   * put nothing in the business's records ends with nothing gone, so the command asks for this only when
+   * there are records to finish off, and refuses a wrong one then (0088).
+   */
+  confirmName: z.string().trim().min(1).max(200).optional(),
 });
 export const MigrationDeleteOutput = z.object({
   /** Archived records this finished off, so the import can be run again cleanly. */
   removed: z.number().int().nonnegative(),
   /** Records kept because somebody has talked to, booked or billed them since. Still archived. */
   kept: z.number().int().nonnegative(),
+  /** False when the move had put nothing here, so the screen can say that rather than count to zero. */
+  hadRecords: z.boolean(),
 });
 
 export const MigrationMergeResolveInput = z.object({
@@ -445,6 +451,12 @@ export const MigrationGetOutput = z.object({
     finalizedAt: isoDateTime.nullable(),
     totals: z.record(z.string(), z.unknown()),
     lastError: z.string().nullable(),
+    /**
+     * Whether this move has put anything in the business's own records yet (0088). It is the journal's
+     * answer, not a count of progress: what deleting the move asks for turns on this and nothing else, so
+     * the screen can offer the right one of the two rather than guess from the badge.
+     */
+    putRecordsHere: z.boolean(),
   }),
   connection: z.object({
     id: uuid,

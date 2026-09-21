@@ -234,6 +234,53 @@ function requireStatus(
     throw HfosError.rule('migration_wrong_step', 409, what);
 }
 
+/**
+ * The steps where the engine may still be writing. A question about what a move has done is only worth
+ * asking once it has stopped, because the answer changes underneath the asker otherwise.
+ */
+const RUNNING_STATUSES: readonly MigrationLifecycle[] = [
+  'scanning',
+  'importing',
+  'rolling_back',
+  'cancelling',
+];
+
+/** The working steps a person can stop. `rolling_back` is not one: undoing is not a thing to leave half done. */
+const PAUSABLE_STATUSES: readonly MigrationLifecycle[] = [
+  'scanning',
+  'importing',
+  'verifying',
+  'finalizing',
+];
+
+/**
+ * The two things deleting a move turns on, asked together.
+ *
+ * `wrote` — did it put anything in the business's own records? The journal is the whole of it, since it is
+ * what a rollback reads to put things back, so empty means there is nothing to put back and nothing to
+ * finish off, whatever step the move stopped on.
+ *
+ * `busy` — is the engine holding a lease on it this moment? Pausing stops the next batch, not the one
+ * already running, so a move reads `paused` with a live lease for as long as that batch takes — and Pause
+ * then Delete is what somebody in a hurry does. `private.claim_migration_jobs` also takes work at
+ * `verifying`, `transition` and `finalizing`, which no list of obviously-running steps would catch.
+ */
+async function migrationWorkState(
+  ctx: CommandContext,
+  migrationId: string,
+): Promise<{ wrote: boolean; busy: boolean }> {
+  const [state] = await rows<{ wrote: boolean; busy: boolean }>(
+    ctx.tx,
+    sql`select
+          exists (select 1 from app.migration_change_journal
+                  where migration_id = ${migrationId}) as wrote,
+          exists (select 1 from app.migration_jobs
+                  where migration_id = ${migrationId}
+                    and state = 'leased' and leased_until > now()) as busy`,
+  );
+  return { wrote: state?.wrote ?? false, busy: state?.busy ?? false };
+}
+
 const sourceLabel = (s: string) => SOURCE_LABELS[s as MigrationSourceSystem] ?? s;
 
 /** The little answers every state-changing command gives back, typed so a literal stays a literal. */
@@ -948,7 +995,10 @@ export const migrationPause = defineCommand({
   async handler(ctx, input) {
     requireHuman(ctx);
     const m = await loadMigration(ctx, input.migrationId);
-    if (m.status !== 'importing' && m.status !== 'scanning')
+    // Checking and finishing are working states too, and until 0088 neither could be stopped: a move that
+    // stalled in `verifying` had no pause, so no rollback (which wants it paused) and so no delete either.
+    // Pausing one of those stops the same way — after the batch that is running.
+    if (!PAUSABLE_STATUSES.includes(m.status as MigrationLifecycle))
       return migrationState(m.id, m.status as MigrationLifecycle, false);
     await ctx.tx.update(migrations).set({ status: 'paused' }).where(eq(migrations.id, m.id));
     await ctx.emit({
@@ -1347,17 +1397,28 @@ export const migrationTaskDone = defineCommand({
 
 /** Everything a migration can be told to do. Registered in one list, as the other milestones are. */
 /**
- * Taking a move off the list, so it can be run again (M17).
+ * Taking a move off the list (M17), whether it finished or never started.
  *
- * **The second half of undoing one, and deliberately a separate act.** `migration.rollback` puts back what
+ * **Which of the two it is depends on one question: did it put anything here?** The journal is what a
+ * rollback reads to put records back, so an empty journal says the same thing to both halves of this — the
+ * move changed nothing in the business's own records.
+ *
+ * **It wrote nothing, so it just goes.** A move that was connected and then thought better of — wrong
+ * sub-account, wrong system, a second go at the same one — sits at `draft`, `scanned` or `ready` with
+ * nothing behind it. Making that one be rolled back first (0086) asked for a rollback with no work to do,
+ * which `migration.rollback` will not take, so the move could never be cleared at all and the list filled
+ * up with them. A move that fell over before its first write is the same kind of empty, whatever the badge
+ * says.
+ *
+ * **It wrote something, so the order is forced rather than suggested.** `migration.rollback` puts back what
  * it can and *archives* what it made, which is right: somebody who rolled one back by mistake gets it all
  * back in a click. But archived is not gone, so running the import again leaves the business with two of
- * everybody — which is the thing that makes a botched move unrecoverable in practice.
+ * everybody — which is the thing that makes a botched move unrecoverable in practice. Roll it back, look at
+ * what came back, then delete it.
  *
- * So the order is forced rather than suggested: roll it back, look at what came back, then delete it. The
- * database refuses any other order (`private.delete_migration` checks the status itself), and it refuses it
- * whoever asks, because that function is `security definer` and asks its own permission question rather than
- * trusting this command.
+ * The database refuses any other order, and refuses it whoever asks: `private.delete_migration` asks both
+ * questions itself, because it is `security definer` and a function like that trusting its caller is a hole.
+ * What is here is the same rules in the words a person reads.
  *
  * **A customer with history since is kept**, archived, however plainly the import made them — somebody who
  * has been texted, booked or billed is not the import's to destroy. The count comes back so the screen can
@@ -1366,7 +1427,7 @@ export const migrationTaskDone = defineCommand({
 export const migrationDelete = defineCommand({
   name: 'migration.delete',
   description:
-    'Delete a move that has been taken back, so it is off the list and the import can be run again from scratch. Customers with history here are kept.',
+    'Take a move off the list: one that never put anything here goes straight away, and one that did has to be taken back first so the import can be run again from scratch. Customers with history here are kept.',
   risk: 4,
   input: MigrationDeleteInput,
   output: MigrationDeleteOutput,
@@ -1376,19 +1437,35 @@ export const migrationDelete = defineCommand({
   async handler(ctx, input) {
     const access = requireAccess(ctx);
     const m = await loadMigrationFor(ctx, input.migrationId, access);
-    // Typing the name is the guard a boolean cannot be: this is the one act in the whole feature that ends
-    // with records gone rather than put away.
-    if (input.confirmName.trim() !== m.name.trim())
-      throw HfosError.validation(
-        [{ path: 'confirmName', message: `Type “${m.name}” exactly.` }],
-        'That is not the name of this move.',
-      );
-    if (m.status !== 'rolled_back')
+    const { wrote, busy } = await migrationWorkState(ctx, m.id);
+    // Still going, so what the journal says is not an answer about a move that is still writing. Stopping it
+    // is a button, so this says which one.
+    if (busy || RUNNING_STATUSES.includes(m.status as MigrationLifecycle))
       throw HfosError.rule(
-        'migration_not_rolled_back',
+        'migration_still_running',
         409,
-        'Take this move back first. Deleting it only tidies up what taking it back left behind.',
+        m.status === 'rolling_back'
+          ? 'This move is still being taken back. It can be deleted once that has finished.'
+          : busy
+            ? 'A batch of this move is still running. It stops on its own in a moment, and then this works.'
+            : 'Pause this move before deleting it.',
       );
+    // Typing the name is the guard a boolean cannot be — but only where it guards something. A move that put
+    // nothing here ends with nothing gone, so asking somebody to copy out a name to clear a draft is
+    // ceremony, and ceremony people learn to click through is worse than no guard at all.
+    if (wrote) {
+      if (input.confirmName === undefined || input.confirmName.trim() !== m.name.trim())
+        throw HfosError.validation(
+          [{ path: 'confirmName', message: `Type “${m.name}” exactly.` }],
+          'That is not the name of this move.',
+        );
+      if (m.status !== 'rolled_back')
+        throw HfosError.rule(
+          'migration_not_rolled_back',
+          409,
+          'Take this move back first. Deleting it only tidies up what taking it back left behind.',
+        );
+    }
     const [done] = await rows<{ removed: number; kept: number }>(
       ctx.tx,
       sql`select * from private.delete_migration(${m.id})`,
@@ -1399,11 +1476,15 @@ export const migrationDelete = defineCommand({
       type: 'migration.deleted',
       entityType: 'migration',
       entityId: m.id,
-      payload: { removed: done?.removed ?? 0, kept: done?.kept ?? 0 },
+      payload: { removed: done?.removed ?? 0, kept: done?.kept ?? 0, hadRecords: wrote },
       before: { migration: m.name, status: m.status },
       after: null,
     });
-    return { removed: Number(done?.removed ?? 0), kept: Number(done?.kept ?? 0) };
+    return {
+      removed: Number(done?.removed ?? 0),
+      kept: Number(done?.kept ?? 0),
+      hadRecords: wrote,
+    };
   },
 });
 
