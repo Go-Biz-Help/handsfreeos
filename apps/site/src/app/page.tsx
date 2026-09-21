@@ -31,6 +31,7 @@ export default function HomePage() {
       <TheProblem />
       <HowItWorks />
       <Features />
+      <ConnectedAccounts />
       <InYourPocket />
       <WhyDifferent />
       <PlansStrip />
@@ -47,12 +48,19 @@ function Hero() {
       <Container className="relative py-16 sm:py-24">
         <div className="grid items-center gap-14 lg:grid-cols-[1.05fr_1fr] lg:gap-16">
           <div>
+            {/*
+             * The product name leads the page. Google's OAuth review checks that the name on the
+             * consent screen is the name a visitor sees here, and a wordmark in the nav bar is not
+             * what it reads. Keep this string identical to the consent screen's app name.
+             */}
+            <Eyebrow>HandsFreeOS</Eyebrow>
             <h1 className="text-[2.5rem] leading-[1.06] font-bold sm:text-6xl">
               Your business keeps answering while you&rsquo;re on the job.
             </h1>
             <p className="text-text-2 mt-6 max-w-xl text-lg sm:text-xl">
-              Your calls, texts, email, calendar, quotes and invoices in one place — with an AI
-              teammate that answers new leads in seconds, books them in, and checks with you first.
+              HandsFreeOS puts your calls, texts, email, calendar, quotes and invoices in one place
+              — with an AI teammate that answers new leads in seconds, books them in, and checks
+              with you first.
             </p>
 
             <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center">
@@ -229,6 +237,62 @@ function Features() {
           Everything it does, in full
         </Button>
       </div>
+    </Section>
+  );
+}
+
+/*
+ * What HandsFreeOS does with a connected Google or Microsoft account, in plain sight on the home
+ * page rather than only in the privacy policy. Google's OAuth verification reads this page to
+ * decide whether the app's purpose explains the scopes it asks for, so each line here is meant to
+ * map onto one: busy times to calendar.freebusy, appointments written back to
+ * calendar.events.owned, and the mailbox scopes to the shared inbox.
+ */
+function ConnectedAccounts() {
+  const connections = [
+    {
+      icon: Icons.calendar,
+      title: 'Your Google or Outlook calendar',
+      body: 'HandsFreeOS reads when you are busy — the times only, never what the events are — so customers booking online and teammates booking for you cannot put a job on top of something you already have. Your HandsFreeOS appointments are written back to that calendar as events with no guests, so the day on your phone is the whole day.',
+    },
+    {
+      icon: Icons.inbox,
+      title: 'Your Gmail or Outlook mailbox',
+      body: 'Email lands in the same thread as that customer’s texts and calls, and replies you write go out from your own address. One place to look, whichever way the customer got in touch.',
+    },
+    {
+      icon: Icons.shield,
+      title: 'What it never does',
+      body: 'It does not read your event titles, show your other events to anyone, or change anything in your calendar that it did not put there. Nothing is used for advertising and nothing is sold. Disconnect in Settings and the access stops and what was stored is deleted.',
+    },
+  ];
+
+  return (
+    <Section id="connects">
+      <Eyebrow>Connected accounts</Eyebrow>
+      <SectionHeading sub="HandsFreeOS is the system a small service business runs its customers on: one business number, one shared inbox, a calendar customers book themselves on, and the quotes and invoices that follow. It connects to the calendar and mailbox you already use so you do not have to keep two of anything in step by hand.">
+        It works with the calendar and inbox you already have.
+      </SectionHeading>
+
+      <div className="mt-12 grid gap-6 md:grid-cols-3">
+        {connections.map((item) => (
+          <Card key={item.title} className="h-full">
+            <IconBadge>
+              <item.icon />
+            </IconBadge>
+            <h3 className="text-lg font-semibold">{item.title}</h3>
+            <p className="text-text-2 mt-2.5">{item.body}</p>
+          </Card>
+        ))}
+      </div>
+
+      <p className="text-text-2 mt-10 max-w-3xl">
+        HandsFreeOS&rsquo;s use of information received from Google APIs follows the{' '}
+        <Link href="/privacy#google" className="text-accent-text font-semibold underline">
+          Google API Services User Data Policy
+        </Link>
+        , including the Limited Use requirements.
+      </p>
     </Section>
   );
 }
