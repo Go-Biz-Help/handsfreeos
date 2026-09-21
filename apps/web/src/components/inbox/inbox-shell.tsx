@@ -7,7 +7,7 @@ import {
   STATUS_LABELS,
   type InboxBoxKey,
 } from '@hfos/core';
-import { PhoneMissed, Search, SquarePen } from 'lucide-react';
+import { Search, SquarePen } from 'lucide-react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import {
   createContext,
@@ -18,7 +18,7 @@ import {
   useState,
   type ReactNode,
 } from 'react';
-import { Button, ButtonLink } from '@/components/ui/button';
+import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Input, Select } from '@/components/ui/input';
 import { Segmented } from '@/components/ui/segmented';
@@ -203,30 +203,15 @@ export function InboxShell({
           <div className="flex flex-col gap-3 border-b border-border px-3.5 py-3 md:px-4 md:pb-3 md:pt-[18px]">
             <div className="hidden items-center justify-between md:flex">
               <h1 className="text-lg font-semibold tracking-tight">Inbox</h1>
-              <div className="flex items-center gap-2">
-                {/*
-                 * A call is in the thread it belongs to, which is no help when somebody has just missed one and
-                 * wants to hear it. The call log is one click from here, filtered to the calls nobody took.
-                 */}
-                <ButtonLink
-                  variant="ghost"
-                  size="sm"
-                  href={`/app/w/${workspaceId}/calls?filter=missed`}
-                  data-testid="inbox-calls"
-                >
-                  <PhoneMissed className="h-3.5 w-3.5" strokeWidth={1.5} />
-                  Missed calls
-                </ButtonLink>
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={() => setNewOpen(true)}
-                  data-testid="inbox-new"
-                >
-                  <SquarePen className="h-3.5 w-3.5" strokeWidth={1.5} />
-                  New message
-                </Button>
-              </div>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => setNewOpen(true)}
+                data-testid="inbox-new"
+              >
+                <SquarePen className="h-3.5 w-3.5" strokeWidth={1.5} />
+                New message
+              </Button>
             </div>
             <Segmented
               fill
