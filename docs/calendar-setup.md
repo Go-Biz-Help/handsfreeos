@@ -57,6 +57,28 @@ Everything below is for production.
 (it refuses to start if it sees any name containing `_OAUTH_`), not Vercel, not GitHub, not any file in this
 repository. Leave `CALENDAR_PROVIDER` and `CALENDAR_REFRESH_MS` unset in production.
 
+### What the worker needs, and what it doesn't
+
+Four values in all, and Outlook's two are already there from mailboxes:
+
+| Secret on `handsfreeos-worker`        | For               |
+| ------------------------------------- | ----------------- |
+| `MICROSOFT_OAUTH_CLIENT_ID`           | Outlook calendars |
+| `MICROSOFT_OAUTH_CLIENT_SECRET`       | Outlook calendars |
+| `GOOGLE_CALENDAR_OAUTH_CLIENT_ID`     | Google Calendar   |
+| `GOOGLE_CALENDAR_OAUTH_CLIENT_SECRET` | Google Calendar   |
+
+Nothing else. **A person's own access and refresh tokens are never a Fly secret**: they come from the sign-in,
+are sealed with `WORKER_ENCRYPTION_KEY` into the connection's `token_enc`, and the worker renews and re-seals
+them ahead of expiry. Neither provider uses an API key — an OAuth client and a per-person token is the whole
+of it.
+
+Which means two things are worth remembering:
+
+- `WORKER_ENCRYPTION_KEY` must already be set (the worker won't start without it), and losing or changing it
+  makes every calendar reconnect. Rotate it through `WORKER_ENCRYPTION_KEYS_PREVIOUS`, never by replacing it.
+- The Microsoft secret is shared with Outlook mailboxes, so when it expires both stop at once.
+
 ---
 
 ## Outlook
