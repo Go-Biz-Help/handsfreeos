@@ -4,7 +4,7 @@
  * The shape check runs twice on purpose — here in Zod so somebody typing gets a sentence they can act on,
  * and again in a check constraint on `app.branded_domains` so nothing else can write a name past it.
  *
- * **Whose the name is, is a separate question, and it is not asked here.** 0089 moved it: whether one of
+ * **Whose the name is, is a separate question, and it is not asked here.** 0090 moved it: whether one of
  * our own names may be claimed depends on which workspace is asking, so the handler asks the database and
  * a trigger refuses anything that gets past it (`packages/db/test/branded-domain-rls.test.ts`). What Zod
  * still owes us is `isOurHost` — recognising one of ours, however it is written, so the handler knows to

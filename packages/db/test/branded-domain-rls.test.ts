@@ -164,7 +164,7 @@ describe('who may put a business on its own domain', () => {
 
   it('refuses one of our own names, so nobody can point handsfreeos.com at themselves', async () => {
     const e = await expectPgError(() => add(owner, ws, siteId, 'book.handsfreeos.com'));
-    // 0089 moved this from the check constraint to a trigger, because the answer now depends on who is
+    // 0090 moved this from the check constraint to a trigger, because the answer now depends on who is
     // asking and a check constraint cannot read another table. Same refusal, and it says which rule it is.
     expect(e.code).toBe('42501');
     expect(e.detail).toBe('branded_domain_is_ours');
@@ -172,7 +172,7 @@ describe('who may put a business on its own domain', () => {
 });
 
 /**
- * 0089: one of our own names, claimed on purpose.
+ * 0090: one of our own names, claimed on purpose.
  *
  * The rule that used to be "never" is now "only the workspace written down for it", and the whole of that
  * rule lives in Postgres — so this is the file that has to hold it down. The case that matters is the
