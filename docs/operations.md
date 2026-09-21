@@ -5057,6 +5057,8 @@ fly logs --app handsfreeos-worker
 
 A teammate can connect their Outlook or Gmail mailbox in **Settings** → **Email**. HandsFreeOS then brings in email between that mailbox and people in Customers (nothing else is stored), and replies written in the inbox can go out through it. Outlook works for every client once the Microsoft app exists and the worker has its values. Gmail stays switched off in the web app until Google finishes its security review.
 
+**In a hurry?** `docs/mailbox-setup.md` is the short version of this section: register both apps, set four secrets on the worker, test. Come back here for publisher verification, Google's security review, admin approval at client businesses, rotating the secrets and the full troubleshooting.
+
 Words used below:
 
 - Tenant: a company's directory of Microsoft work accounts.
