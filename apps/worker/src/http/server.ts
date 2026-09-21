@@ -180,9 +180,7 @@ export async function buildHttpServer(deps: HttpDeps): Promise<FastifyInstance> 
     deps.log.error({ err }, 'worker http error');
     return reply.code(500).send(HfosError.internal().toBody());
   });
-  app.setNotFoundHandler((_req, reply) =>
-    reply.code(404).send(HfosError.notFound('No such route.').toBody()),
-  );
+  app.setNotFoundHandler((_req, reply) => reply.code(404).send(HfosError.noSuchRoute().toBody()));
 
   app.get('/healthz', async () => ({ ok: true }));
 

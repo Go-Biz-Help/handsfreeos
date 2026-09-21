@@ -43,6 +43,15 @@ export function dispositionOf(status: number, rule?: string): Disposition {
   return rule && ASK_RULES.has(rule) ? 'ask' : 'final';
 }
 
+/**
+ * The rule on a 404 that means "this build has no such route", as opposed to "that thing does not exist".
+ * The two are the same status and have to be told apart: the web app ships on a push and the API ships
+ * after CI, so for a few minutes every deploy the browser asks for endpoints the API is about to have. A
+ * client that reads those as real 404s tells the person a whole page is gone, or that they have lost access
+ * to it, when nothing is wrong with either.
+ */
+export const NO_SUCH_ROUTE = 'no_such_route';
+
 export interface HfosErrorBody {
   readonly error: {
     readonly code: HfosErrorCode;
@@ -90,6 +99,10 @@ export class HfosError extends Error {
   }
   static notFound(message = 'Not found.'): HfosError {
     return new HfosError('not_found', 404, message);
+  }
+  /** A path this build does not serve. Carries `NO_SUCH_ROUTE` so a client never reads it as a real 404. */
+  static noSuchRoute(): HfosError {
+    return new HfosError('not_found', 404, 'No such route.', undefined, NO_SUCH_ROUTE);
   }
   static validation(details: unknown, message = 'Some fields need attention.'): HfosError {
     return new HfosError('validation', 400, message, details);

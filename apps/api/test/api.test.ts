@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { NO_SUCH_ROUTE } from '@hfos/core';
 import {
   closeTestDbs,
   createTestUser,
@@ -161,11 +162,17 @@ describe('the full Milestone 1 flow over HTTP', () => {
     const missing = await post('/v1/commands/does.not_exist', {}, ownerToken);
     expect(missing.statusCode).toBe(404);
     expect(missing.json().error.code).toBe('not_found');
+    // Told apart from a real 404 by its rule, so a browser one deploy ahead of this API reports a route it
+    // does not have yet as server trouble rather than as a page the person has lost access to.
+    expect(missing.json().error.rule).toBe(NO_SUCH_ROUTE);
   });
 
   it('a forged workspace id in the body is a 404 for a non-member, never a 403', async () => {
     const res = await post('/v1/queries/workspace.members', { workspaceId }, outsiderToken);
     expect(res.statusCode).toBe(404);
+    // A real 404: the route exists, the workspace does not exist for them. No NO_SUCH_ROUTE rule, so the
+    // web app still renders its 404 page for this one.
+    expect(res.json().error.rule).toBeUndefined();
     const write = await post(
       '/v1/commands/membership.invite',
       { workspaceId, email: 'x@y.zz' },
