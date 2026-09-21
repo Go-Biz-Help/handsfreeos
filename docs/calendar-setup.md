@@ -101,6 +101,24 @@ One thing to know: a business whose admin approved HandsFreeOS before you added 
 only. Their employees may be asked for approval again before they can connect a calendar. Send that admin
 `https://login.microsoftonline.com/organizations/adminconsent?client_id=<MICROSOFT_OAUTH_CLIENT_ID>`.
 
+### Where the two Microsoft values come from
+
+`fly secrets list --app handsfreeos-worker` settles it: if `MICROSOFT_OAUTH_CLIENT_ID` and
+`MICROSOFT_OAUTH_CLIENT_SECRET` are listed, there is nothing to look up. Otherwise, on the same app
+registration:
+
+- **Client ID** — **Overview** → **Application (client) ID**. Not a secret, copy it whenever.
+- **Client secret** — **Certificates & secrets** → **Client secrets**. Microsoft shows the **Value** once,
+  when it is made. If it isn't in the password manager it is gone: click **New client secret**, take the
+  **Value** column (not **Secret ID**), and import it to the worker. An app holds two secrets at once, so add
+  the new one and check a mailbox and a calendar still sync before deleting the old.
+
+If the app registration doesn't exist at all, register it first — "Microsoft (Outlook and Microsoft 365)" in
+`docs/operations.md`, which also covers the tenant, publisher verification and branding. Two choices there
+decide whether calendars can work: **Supported account types** must be **Any Entra ID Tenant + Personal
+Microsoft accounts** (anything narrower breaks every sign-in, or locks out personal Outlook.com accounts), and
+the redirect URI goes on the **Web** platform, never single-page application.
+
 Skip to [Check it works](#check-it-works).
 
 ---
