@@ -24,11 +24,13 @@ import {
   issuesFor,
   optInDescriptionFor,
   privacyPolicy,
+  preflightBlocked,
   sampleSuggestions,
   type A2pDraft,
   type A2pField,
   type A2pIssue,
   type OptInPath,
+  type PreflightCheck,
 } from '@hfos/core';
 import {
   ArrowLeft,
@@ -42,7 +44,7 @@ import {
   MessageCircle,
   Sparkles,
 } from 'lucide-react';
-import { useMemo, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { toast } from 'sonner';
 import { Callout } from '@/components/crm/chips';
 import { Button } from '@/components/ui/button';
@@ -53,6 +55,7 @@ import { RadioCard } from '@/components/ui/radio-card';
 import { Textarea } from '@/components/ui/textarea';
 import { apiBrowser, ApiError, errorMessage, unwrap } from '@/lib/api/client';
 import type { PhoneNumberInfo } from '@/lib/api/types';
+import { registrationPreflight } from '@/lib/api/worker';
 import { cn } from '@/lib/utils';
 
 // ---------- the answers ----------
@@ -707,6 +710,10 @@ export function A2pWizard({
   // The business says these details are true before they go to a carrier. Kept from the old form: it is
   // the record that somebody asserted it, which is what a carrier audit asks for.
   const [agreed, setAgreed] = useState(false);
+  // What a reviewer would find. Run when the review step opens rather than on every keystroke: each one is
+  // three requests to somebody else's website, and the answers only change when an answer above them does.
+  const [checks, setChecks] = useState<PreflightCheck[] | null>(null);
+  const [checking, setChecking] = useState(false);
 
   const set = <K extends keyof WizardForm>(key: K, value: WizardForm[K]) =>
     setForm((f) => ({ ...f, [key]: value }));
@@ -720,6 +727,48 @@ export function A2pWizard({
     issuesFor(issues, field).filter((i) => i.severity === 'blocker'),
   );
   const origin = typeof window === 'undefined' ? '' : window.location.origin;
+
+  const surfaceUrls = urlsOf(surfaces, origin);
+  /** The page we are about to tell the carrier the agreement box is on. */
+  const optInUrl =
+    form.optInPath === 'hosted'
+      ? (surfaceUrls.formUrl ?? surfaceUrls.chatUrl)
+      : form.optInPath === 'own_site'
+        ? withScheme(form.website)
+        : null;
+  /** Theirs when they gave us one, ours when we are hosting it, and nothing before a site exists. */
+  const policyUrl = form.ownPolicyUrl.trim()
+    ? withScheme(form.ownPolicyUrl)
+    : surfaces.siteSlug
+      ? `${origin}/legal/${surfaces.siteSlug}/privacy`
+      : null;
+
+  const runPreflight = useCallback(async () => {
+    if (!form.optInPath) return;
+    setChecking(true);
+    try {
+      const { checks: got } = await registrationPreflight({
+        workspaceId,
+        website: withScheme(form.website),
+        policyUrl,
+        optInPath: form.optInPath,
+        optInUrl,
+      });
+      setChecks(got);
+    } catch (err) {
+      toast.error(errorMessage(err));
+      setChecks(null);
+    } finally {
+      setChecking(false);
+    }
+  }, [workspaceId, form.website, form.optInPath, policyUrl, optInUrl]);
+
+  // Opening the review runs them; going back and changing something throws the old answers away, so a
+  // business never submits on the strength of a check of a website it has since corrected.
+  useEffect(() => {
+    if (step.key === 'review') void runPreflight();
+    else setChecks(null);
+  }, [step.key, runPreflight]);
 
   async function submit() {
     setBusy(true);
@@ -982,6 +1031,9 @@ export function A2pWizard({
           form={form}
           issues={issues}
           serverErrors={serverErrors}
+          checks={checks}
+          checking={checking}
+          onRecheck={() => void runPreflight()}
           agreed={agreed}
           onAgreed={setAgreed}
           onJump={(key) => setAt(STEPS.findIndex((s) => s.key === key))}
@@ -1002,7 +1054,14 @@ export function A2pWizard({
           <Button
             type="button"
             onClick={submit}
-            disabled={busy || hasBlockers(issues) || !agreed}
+            disabled={
+              busy ||
+              checking ||
+              hasBlockers(issues) ||
+              !agreed ||
+              !checks ||
+              preflightBlocked(checks)
+            }
             data-testid="submit-registration"
           >
             {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
@@ -1176,6 +1235,9 @@ function ReviewStep({
   form,
   issues,
   serverErrors,
+  checks,
+  checking,
+  onRecheck,
   agreed,
   onAgreed,
   onJump,
@@ -1183,6 +1245,10 @@ function ReviewStep({
   form: WizardForm;
   issues: readonly A2pIssue[];
   serverErrors: readonly string[];
+  /** What a reviewer would find, or null while it has not been looked at. */
+  checks: readonly PreflightCheck[] | null;
+  checking: boolean;
+  onRecheck: () => void;
   agreed: boolean;
   onAgreed: (next: boolean) => void;
   onJump: (key: string) => void;
@@ -1215,6 +1281,66 @@ function ReviewStep({
           seven working days.
         </Callout>
       )}
+
+      <div className="rounded-menu border border-border bg-card p-4">
+        <div className="mb-2 flex items-center justify-between gap-3">
+          <p className="text-[13.5px] font-semibold">What a reviewer will find</p>
+          {checking ? (
+            <span className="inline-flex items-center gap-1.5 text-[13px] text-text-2">
+              <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
+              Looking…
+            </span>
+          ) : (
+            <Button type="button" variant="secondary" size="sm" onClick={onRecheck}>
+              Check again
+            </Button>
+          )}
+        </div>
+        {checking && !checks ? (
+          <p className="text-[13px] text-text-2">
+            Opening your website, your privacy policy and the page where customers agree — the same
+            three a carrier opens.
+          </p>
+        ) : null}
+        {checks?.map((check) => (
+          <div
+            key={check.id}
+            className="flex items-start gap-2.5 border-b border-border py-2.5 last:border-0"
+          >
+            {check.ok ? (
+              <Check className="mt-0.5 h-4 w-4 flex-none text-success-text" aria-hidden />
+            ) : (
+              <CircleAlert
+                className={cn(
+                  'mt-0.5 h-4 w-4 flex-none',
+                  check.severity === 'blocker' ? 'text-danger-text' : 'text-warning-text',
+                )}
+                aria-hidden
+              />
+            )}
+            <div className="min-w-0">
+              <p className="text-[13.5px] font-medium">{check.label}</p>
+              <p className="text-[13px] leading-relaxed text-text-2">{check.detail}</p>
+              {check.url ? (
+                <a
+                  className="text-[13px] underline text-text-3"
+                  href={check.url}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  {check.url}
+                </a>
+              ) : null}
+            </div>
+          </div>
+        ))}
+        {!checking && !checks ? (
+          <p className="text-[13px] text-text-2">
+            We could not look just now. Press &ldquo;Check again&rdquo; — the registration will not
+            go until these have been looked at.
+          </p>
+        ) : null}
+      </div>
 
       {warnings.length ? (
         <Callout tone="warning" icon={CircleAlert}>

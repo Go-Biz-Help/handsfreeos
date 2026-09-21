@@ -36,6 +36,12 @@ export interface SmsConsentWords {
   readonly title: string;
   /** The fine print under it. This is the part a carrier reads. */
   readonly detail: string;
+  /**
+   * Where the privacy policy is, when the page knows. Given back rather than written into `detail` so the
+   * caller renders a real link: the sixth disclosure is that the terms are findable, and a URL a customer
+   * has to retype is not findable.
+   */
+  readonly policyUrl: string | null;
 }
 
 /**
@@ -44,7 +50,11 @@ export interface SmsConsentWords {
  * `business` is the business's own name as its customers know it, never "HandsFreeOS" — the business is the
  * sender, and a customer who agreed to hear from us rather than from them has agreed to the wrong thing.
  */
-export function smsConsentWords(business: string, place: ConsentPlace): SmsConsentWords {
+export function smsConsentWords(
+  business: string,
+  place: ConsentPlace,
+  policyUrl: string | null = null,
+): SmsConsentWords {
   const who = business.trim() || 'this business';
   return {
     title: place === 'booking' ? 'Text me about this appointment' : `Text me, ${who}`,
@@ -52,8 +62,18 @@ export function smsConsentWords(business: string, place: ConsentPlace): SmsConse
       `${who} may text you ${ABOUT[place]}. Agreeing is not a condition of buying anything. ` +
       'How many messages you get varies, and message and data rates may apply. ' +
       'Reply STOP to stop and HELP for help.',
+    policyUrl: policyUrl?.trim() || null,
   };
 }
+
+/**
+ * The one address the agreement box links to, for a business with a public site.
+ *
+ * Always ours, even for a business using its own policy: `/legal/<site>/privacy` redirects to theirs when
+ * they have set one. One canonical link means the consent records all point at something that resolves,
+ * and a business that later changes where its policy lives does not leave old boxes pointing at nothing.
+ */
+export const consentPolicyPath = (siteSlug: string): string => `/legal/${siteSlug}/privacy`;
 
 /**
  * The same thing said backwards, for the carrier: how this business collects consent.

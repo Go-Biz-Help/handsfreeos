@@ -29,7 +29,12 @@ export interface ChatConfig {
   };
   readonly askFor: ChatAskFor;
   /** The texts box's wording (the booking page's, for a chat); null when the widget doesn't offer it. */
-  readonly smsConsent: { readonly text: string } | null;
+  readonly smsConsent: {
+    /** What the box says. `detail` is core's wording; `text` is the same, kept for older embeds. */
+    readonly text: string;
+    readonly detail: string | null;
+    readonly policyUrl: string | null;
+  } | null;
   /** Cloudflare Turnstile; a null site key means this app's own (NEXT_PUBLIC_TURNSTILE_SITE_KEY). */
   readonly humanCheck: { readonly siteKey: string | null } | null;
   readonly paused: boolean;
@@ -70,7 +75,8 @@ export function parseChatConfig(raw: unknown): ChatConfig | null {
       ? look.accentColor.toLowerCase()
       : DEFAULT_ACCENT;
   const teammateName = isObj(raw.teammate) ? text(raw.teammate.name) : null;
-  const consent = isObj(raw.smsConsent) ? text(raw.smsConsent.text) : null;
+  const consentRaw = isObj(raw.smsConsent) ? raw.smsConsent : null;
+  const consent = consentRaw ? (text(consentRaw.detail) ?? text(consentRaw.text)) : null;
   const check = isObj(raw.humanCheck) ? raw.humanCheck : null;
   const max = typeof raw.maxMessageLength === 'number' ? raw.maxMessageLength : 1000;
   return {
@@ -86,7 +92,13 @@ export function parseChatConfig(raw: unknown): ChatConfig | null {
       position: look.position === 'left' ? 'left' : 'right',
     },
     askFor: chatAskForOf(raw.askFor),
-    smsConsent: consent ? { text: consent } : null,
+    smsConsent: consent
+      ? {
+          text: consent,
+          detail: consent,
+          policyUrl: consentRaw ? text(consentRaw.policyUrl) : null,
+        }
+      : null,
     humanCheck: check ? { siteKey: text(check.siteKey) } : null,
     paused: raw.paused === true,
     maxMessageLength: Math.max(1, Math.min(1000, Math.floor(max))),

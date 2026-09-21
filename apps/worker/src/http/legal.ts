@@ -28,6 +28,8 @@ type RouteRow = { workspace_id: string; organization_id: string; site_name: stri
 /** What the latest registration told the carriers about this business. */
 type Submission = {
   legalName?: string;
+  /** Set when the business pointed us at a policy of its own instead of the one we generate. */
+  policyUrl?: string | null;
   website?: string;
   contact?: { email?: string };
   address?: { line1?: string; city?: string; state?: string; postalCode?: string };
@@ -67,6 +69,9 @@ export async function registerLegalRoutes(app: FastifyInstance, deps: HttpDeps):
                   limit 1`,
             );
             const s = latest?.submission ?? {};
+            // A business using its own policy still links here, so this is where the two are reconciled:
+            // the agreement box has one address, and it lands on whichever document is really theirs.
+            if (s.policyUrl?.trim()) return { redirectTo: s.policyUrl.trim() };
             const business: PolicyBusiness = {
               name: route.site_name ?? workspace?.name ?? 'This business',
               legalName: s.legalName,
@@ -74,13 +79,15 @@ export async function registerLegalRoutes(app: FastifyInstance, deps: HttpDeps):
               email: s.contact?.email,
               address: s.address,
             };
-            return kind === 'privacy' ? privacyPolicy(business) : termsOfService(business);
+            return {
+              policy: kind === 'privacy' ? privacyPolicy(business) : termsOfService(business),
+            };
           },
         );
 
         // A reviewer may load this more than once, and it changes only when a registration is sent again.
         void reply.header('cache-control', 'public, max-age=300, s-maxage=300');
-        return reply.send({ policy: page });
+        return reply.send(page);
       },
     );
   });

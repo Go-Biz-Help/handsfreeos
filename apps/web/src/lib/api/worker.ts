@@ -1,4 +1,5 @@
 'use client';
+import type { PreflightCheck } from '@hfos/core';
 import { publicEnv } from '../env';
 import { supabaseBrowser } from '../supabase/client';
 import { ApiError } from './errors';
@@ -103,4 +104,19 @@ export function moneyLink(input: {
   id: string;
 }): Promise<{ url: string }> {
   return workerPost('/v1/money/link', input);
+}
+
+/**
+ * Goes and looks at what a carrier's reviewer would look at, before the registration is sent (owners and
+ * admins; the worker checks). The worker does it rather than the browser because these are a business's
+ * own addresses and fetching them from here would be blocked, unauthenticated and unsafe by turns.
+ */
+export function registrationPreflight(input: {
+  workspaceId: string;
+  website?: string;
+  policyUrl?: string | null;
+  optInPath: 'hosted' | 'own_site' | 'in_person';
+  optInUrl?: string | null;
+}): Promise<{ checks: PreflightCheck[] }> {
+  return workerPost('/v1/telephony/registration-preflight', input);
 }

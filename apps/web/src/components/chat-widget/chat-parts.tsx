@@ -349,6 +349,8 @@ export interface DetailsFormProps {
   readonly needContact: boolean;
   /** The texts box's wording, shown with the mobile number; null when the widget doesn't offer it. */
   readonly consentText: string | null;
+  /** The business's privacy policy, when it has a public site. Linked, never inside the label. */
+  readonly consentPolicyUrl?: string | null;
   /** The away form: "How can we help?" too. */
   readonly withMessage: boolean;
   readonly intro: string | null;
@@ -482,16 +484,29 @@ export function DetailsForm(p: DetailsFormProps) {
         </div>
       ) : null}
       {p.consentText && p.show.phone ? (
-        <label className="flex cursor-pointer items-start gap-2.5 text-xs leading-[1.5] text-text-2">
-          <input
-            type="checkbox"
-            checked={values.smsConsent}
-            onChange={(e) => set({ smsConsent: e.target.checked })}
-            className="mt-0.5 h-[18px] w-[18px] flex-none cursor-pointer accent-[var(--wacc)]"
-            data-testid={`${p.testId}-texts`}
-          />
-          <span>{p.consentText}</span>
-        </label>
+        <>
+          <label className="flex cursor-pointer items-start gap-2.5 text-xs leading-[1.5] text-text-2">
+            <input
+              type="checkbox"
+              checked={values.smsConsent}
+              onChange={(e) => set({ smsConsent: e.target.checked })}
+              className="mt-0.5 h-[18px] w-[18px] flex-none cursor-pointer accent-[var(--wacc)]"
+              data-testid={`${p.testId}-texts`}
+            />
+            <span>{p.consentText}</span>
+          </label>
+          {/* Outside the label on purpose: a link inside one toggles the box when it is followed. */}
+          {p.consentPolicyUrl ? (
+            <a
+              className="ml-[28px] text-xs underline text-text-3"
+              href={p.consentPolicyUrl}
+              target="_blank"
+              rel="noreferrer"
+            >
+              Privacy policy
+            </a>
+          ) : null}
+        </>
       ) : null}
       {problems.form ? (
         <p role="alert" className="text-xs text-danger-text">

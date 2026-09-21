@@ -22,7 +22,7 @@ import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { fakeBotCheck, type BotCheck } from '../src/booking/bot-check';
 import { tokenHashOf } from '../src/chat/store';
-import { CHAT_SMS_CONSENT_TEXT } from '../src/http/chat';
+import { chatSmsConsent } from '../src/http/chat';
 import {
   admin,
   AWAY,
@@ -86,7 +86,12 @@ describe('the widget’s settings', () => {
         position: 'right',
       },
       askFor: { name: 'when_needed', phone: 'when_needed', email: 'when_needed' },
-      smsConsent: { text: CHAT_SMS_CONSENT_TEXT },
+      // The widget says the same six things the public form and the booking page say, and names the
+      // business while doing it: a visitor who agreed to hear from nobody in particular agreed to nothing.
+      smsConsent: {
+        ...chatSmsConsent('chat-routes Booking HVAC', null),
+        text: chatSmsConsent('chat-routes Booking HVAC', null).detail,
+      },
       humanCheck: null,
       paused: false,
       maxMessageLength: 1000,

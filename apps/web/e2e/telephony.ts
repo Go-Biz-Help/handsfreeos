@@ -104,6 +104,9 @@ export async function textFromCustomer(opts: {
  * Settings → Texting & calls with the fake carrier: buys the first toll-free number offered, sends the
  * business details, and waits for the (fake) carriers to approve. Returns the number in E.164.
  */
+/** The stand-in website playwright.config.ts serves, which the worker may open (FETCH_TEST_ORIGINS). */
+const KNOWLEDGE_SITE = 'http://127.0.0.1:4190';
+
 export async function setUpTexting(page: Page, workspaceId: string): Promise<string> {
   await page.goto(`/app/w/${workspaceId}/settings/texting`);
   await expect(page.getByTestId('number-step')).toBeVisible();
@@ -126,8 +129,9 @@ export async function setUpTexting(page: Page, workspaceId: string): Promise<str
   await page.getByLabel('Your EIN').fill('12-3456789');
   await next.click();
 
-  // 2. Where to find them.
-  await page.getByLabel('Your website').fill('https://lonestarhvac.test');
+  // 2. Where to find them. The stand-in website playwright.config.ts serves, because the wizard's
+  //    pre-flight really opens this address before it lets anything be submitted (FETCH_TEST_ORIGINS).
+  await page.getByLabel('Your website').fill(KNOWLEDGE_SITE);
   await page.getByLabel('Street address').fill('4410 Westpark Dr');
   await page.getByLabel('City', { exact: true }).fill('Houston');
   await page.getByLabel('State', { exact: true }).fill('TX');
@@ -154,8 +158,17 @@ export async function setUpTexting(page: Page, workspaceId: string): Promise<str
   await page.getByTestId('optin-in_person').click();
   await next.click();
 
-  // 7. The privacy policy we write for them, which is the default.
+  // 7. The privacy policy. The fixture site has one written properly, so this takes the "I already have
+  //    my own" branch — which is also the branch pre-flight has to fetch and read.
+  await page.getByTestId('policy-own').click();
+  await page.getByLabel('Where your privacy policy is').fill(`${KNOWLEDGE_SITE}/privacy`);
   await next.click();
+
+  // The review opens the website, the policy and (for in-person consent, nothing else) before it will let
+  // the registration go. Nothing is submitted until all three have been looked at.
+  await expect(page.getByText('Your privacy policy mentions texting')).toBeVisible({
+    timeout: 30_000,
+  });
 
   await page.getByTestId('business-agree').check();
   await page.getByTestId('submit-registration').click();
