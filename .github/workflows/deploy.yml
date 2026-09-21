@@ -3,6 +3,12 @@ name: Deploy
 # After CI passes on main, ship the API and the worker to Fly.io, then the sync service. Until the FLY_API_TOKEN
 # repository secret exists this workflow only notes that it skipped, so main stays green before the Fly organization
 # is set up; the sync service likewise waits until its own Fly app has its secrets.
+#
+# The web app is not deployed here: Vercel builds it from the same push. What keeps it from going live ahead of the
+# API is Vercel's Deployment Checks, which hold the address back until CI and the first job below have passed
+# ("Make Vercel wait for CI and the API" in docs/operations.md). That is why the sync service is a second job rather
+# than three more steps in the first: the web app should wait for the API it calls, and never for PowerSync copying
+# a database for a quarter of an hour.
 on:
   workflow_run:
     workflows: [CI]
@@ -16,11 +22,14 @@ concurrency:
 
 jobs:
   deploy:
-    name: API, worker and sync service to Fly.io
+    # Vercel waits on this job by name. Renaming it makes that wait silently stop happening, so change the checks in
+    # the Vercel project in the same breath.
+    name: The API and the worker on Fly.io
     if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
-    # A changed sync config can take up to 15 minutes to finish copying.
-    timeout-minutes: 60
+    timeout-minutes: 30
+    outputs:
+      ready: ${{ steps.check.outputs.ready }}
     env:
       FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
     steps:
@@ -52,12 +61,28 @@ jobs:
         if: steps.check.outputs.ready == 'true'
         run: flyctl deploy . --config apps/api/fly.toml --dockerfile apps/api/Dockerfile --remote-only --wait-timeout 300
 
-      # The sync service (apps/sync) ships only once handsfreeos-sync exists with its three secrets ("Sync service:
-      # PowerSync on Fly" in docs/operations.md), and only when its config changed since the running one: a deploy
-      # makes every phone reconnect, and a changed sync-config.yaml makes PowerSync copy the whole database again.
+  # Its own job so the web app never waits on it. The sync service (apps/sync) ships only once handsfreeos-sync
+  # exists with its three secrets ("Sync service: PowerSync on Fly" in docs/operations.md), and only when its config
+  # changed since the running one: a deploy makes every phone reconnect, and a changed sync-config.yaml makes
+  # PowerSync copy the whole database again.
+  sync:
+    name: The sync service on Fly.io
+    needs: deploy
+    if: needs.deploy.outputs.ready == 'true'
+    runs-on: ubuntu-latest
+    # A changed sync config can take up to 15 minutes to finish copying.
+    timeout-minutes: 60
+    env:
+      FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+
+      - uses: superfly/flyctl-actions/setup-flyctl@1.6
+
       - name: Is the sync service set up, and did its config change?
         id: sync
-        if: steps.check.outputs.ready == 'true'
         run: |
           set -euo pipefail
           if ! secrets=$(flyctl secrets list --app handsfreeos-sync --json 2>/dev/null); then
