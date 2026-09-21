@@ -41,6 +41,7 @@ import {
   CompanyUpdateInput,
   CompanyUpdateOutput,
   ConversationAssignInput,
+  ConversationCloseAllOutput,
   ConversationHandToAiOutput,
   ConversationLinkPersonInput,
   ConversationLinkPersonOutput,
@@ -179,6 +180,10 @@ export const PHONE_COMMANDS = {
   'conversation.archive': command(ANYTIME, ConversationRefInput, ConversationRefOutput),
   'conversation.assign': command(ANYTIME, ConversationAssignInput, ConversationRefOutput),
   'conversation.close': command(ANYTIME, ConversationRefInput, ConversationRefOutput),
+  // Closing every line a customer writes on (0089). Idempotent for the same reason the one above is: it
+  // closes what is still open and returns a count, so a queued one that lands twice closes nothing the
+  // second time.
+  'conversation.close_all': command(ANYTIME, ConversationRefInput, ConversationCloseAllOutput),
   'conversation.hand_to_ai': command(FRESH, ConversationRefInput, ConversationHandToAiOutput),
   'conversation.link_person': command(
     ANYTIME,
