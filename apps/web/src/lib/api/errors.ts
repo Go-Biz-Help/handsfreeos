@@ -52,7 +52,9 @@ function fieldMessages(details: unknown): string[] {
   if (!Array.isArray(details)) return [];
   const said = details
     .map((d) =>
-      typeof d === 'object' && d !== null && typeof (d as { message?: unknown }).message === 'string'
+      typeof d === 'object' &&
+      d !== null &&
+      typeof (d as { message?: unknown }).message === 'string'
         ? (d as { message: string }).message.trim()
         : '',
     )
