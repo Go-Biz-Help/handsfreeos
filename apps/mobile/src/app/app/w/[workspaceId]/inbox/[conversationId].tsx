@@ -393,7 +393,7 @@ export default function Conversation() {
         return <ThreadDraft waiting={item.waiting} who={who} timeZone={data.timeZone} now={now} />;
       case 'item': {
         const i = item.item;
-        if (i.type === 'call') return <CallCard item={i} />;
+        if (i.type === 'call') return <CallCard item={i} workspaceId={business.id} />;
         if (i.channel === 'email')
           return <EmailCard item={i} customerName={person?.fullName ?? null} />;
         return (

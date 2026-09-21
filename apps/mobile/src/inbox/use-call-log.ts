@@ -17,7 +17,9 @@ export interface CallLogEntry {
   readonly who: string;
   readonly number: string;
   readonly occurredAt: string;
-  readonly recordingPath: string | null;
+  readonly isVoicemail: boolean;
+  /** Whether the carrier recorded anything — see ThreadItemShape.hasRecording for what the phone can know. */
+  readonly hasRecording: boolean;
   readonly recordingSeconds: number | null;
   readonly transcript: string | null;
   readonly words: CallLogRowWords;
@@ -37,7 +39,6 @@ interface CallLogRow {
   readonly duration_seconds: number | null;
   readonly is_voicemail: number | null;
   readonly recording_seconds: number | null;
-  readonly recording_object_path: string | null;
   readonly transcript: string | null;
   readonly transcript_status: string | null;
 }
@@ -72,7 +73,8 @@ export function useCallLog(filter: CallFilter): {
           (number.startsWith('+') ? formatPhone(number) : number),
         number: number.startsWith('+') ? formatPhone(number) : number,
         occurredAt: r.started_at ?? new Date(0).toISOString(),
-        recordingPath: r.recording_object_path,
+        isVoicemail: voicemail,
+        hasRecording: (r.recording_seconds ?? 0) > 0,
         recordingSeconds: r.recording_seconds,
         transcript: r.transcript,
         words: callLogWords({
@@ -80,7 +82,7 @@ export function useCallLog(filter: CallFilter): {
           isVoicemail: voicemail,
           answeredVia: via(r.answered_via),
           answeredByName: r.answered_name,
-          hasRecording: !!r.recording_object_path,
+          hasRecording: (r.recording_seconds ?? 0) > 0,
           transcript: r.transcript,
           transcriptStatus: status(r.transcript_status),
           durationSeconds: r.duration_seconds,

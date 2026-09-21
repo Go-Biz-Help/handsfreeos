@@ -71,8 +71,7 @@ export const MESSAGES_SQL = `
 export const CALLS_SQL = `
   SELECT k.id, k.conversation_id, k.direction, k.from_e164, k.to_e164, k.status, k.answered_via,
     k.answered_by_user_id, ${userName('au')} AS answered_name, k.placed_by, ${userName('pu')} AS placed_name,
-    k.started_at, k.answered_at, k.ended_at, k.duration_seconds, k.is_voicemail, k.recording_seconds,
-    k.recording_object_path, k.transcript
+    k.started_at, k.answered_at, k.ended_at, k.duration_seconds, k.is_voicemail, k.recording_seconds, k.transcript
   FROM calls k
   LEFT JOIN users au ON au.id = k.answered_by_user_id
   LEFT JOIN users pu ON pu.id = k.placed_by
@@ -92,7 +91,7 @@ export const CALL_LOG_SQL = `
     k.direction, k.from_e164, k.to_e164, k.status, k.answered_via, k.answered_by_user_id,
     ${userName('au')} AS answered_name, k.placed_by, ${userName('pu')} AS placed_name,
     k.started_at, k.answered_at, k.ended_at, k.duration_seconds, k.is_voicemail, k.recording_seconds,
-    k.recording_object_path, k.transcript, k.transcript_status
+    k.transcript, k.transcript_status
   FROM calls k
   LEFT JOIN people p ON p.id = k.person_id
   LEFT JOIN users au ON au.id = k.answered_by_user_id

@@ -249,7 +249,6 @@ export const syncedTables = {
       duration_seconds: column.integer,
       is_voicemail: column.integer,
       recording_seconds: column.integer,
-      recording_object_path: column.text,
       transcript: column.text,
       transcript_status: column.text,
       created_at: column.text,
@@ -1367,7 +1366,6 @@ export interface CallsRow {
   readonly is_voicemail: number | null;
   /** integer */
   readonly recording_seconds: number | null;
-  readonly recording_object_path: string | null;
   readonly transcript: string | null;
   readonly transcript_status: string | null;
   /** timestamp with time zone: ISO 8601 text here */

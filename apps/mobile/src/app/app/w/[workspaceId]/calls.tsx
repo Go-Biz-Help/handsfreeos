@@ -37,7 +37,15 @@ const TONE = {
  * One call. What is under it — the recording, the words, or why there is neither — is folded away until somebody
  * asks for it, because a whole call's transcript can run to thousands of words and the list has to stay a list.
  */
-function CallRow({ call, onOpen }: { call: CallLogEntry; onOpen: (id: string) => void }) {
+function CallRow({
+  call,
+  workspaceId,
+  onOpen,
+}: {
+  call: CallLogEntry;
+  workspaceId: string;
+  onOpen: (id: string) => void;
+}) {
   const [open, setOpen] = React.useState(false);
   const { words } = call;
   const [box, text] = TONE[words.tone];
@@ -86,10 +94,11 @@ function CallRow({ call, onOpen }: { call: CallLogEntry; onOpen: (id: string) =>
           </Pressable>
           {open ? (
             <View className="gap-2 pb-1">
-              {call.recordingPath ? (
+              {call.hasRecording ? (
                 <VoicemailPlayer
+                  workspaceId={workspaceId}
                   callId={call.id}
-                  path={call.recordingPath}
+                  voicemail={call.isVoicemail}
                   seconds={call.recordingSeconds}
                 />
               ) : null}
@@ -148,7 +157,7 @@ export default function Calls() {
       <FlatList
         data={items}
         keyExtractor={(call) => call.id}
-        renderItem={({ item }) => <CallRow call={item} onOpen={open} />}
+        renderItem={({ item }) => <CallRow call={item} workspaceId={business.id} onOpen={open} />}
         testID="call-list"
         ListEmptyComponent={
           loading ? null : (

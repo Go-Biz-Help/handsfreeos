@@ -367,7 +367,7 @@ function Transcript({ text }: { text: string }) {
 }
 
 /** A call in the conversation: a voicemail with its player and words, or a call with who answered and its length. */
-export function CallCard({ item }: { item: ThreadItemShape }) {
+export function CallCard({ item, workspaceId }: { item: ThreadItemShape; workspaceId: string }) {
   const words = callCardWords(item);
   const time = clockTime(item.occurredAt);
   const tone =
@@ -395,10 +395,11 @@ export function CallCard({ item }: { item: ThreadItemShape }) {
           </Text>
         </View>
       </View>
-      {item.recordingPath && (words.kind === 'voicemail' || item.answeredVia === 'bridge') ? (
+      {item.hasRecording && (words.kind === 'voicemail' || item.answeredVia === 'bridge') ? (
         <VoicemailPlayer
+          workspaceId={workspaceId}
           callId={item.id}
-          path={item.recordingPath}
+          voicemail={item.isVoicemail}
           seconds={item.recordingSeconds}
         />
       ) : null}

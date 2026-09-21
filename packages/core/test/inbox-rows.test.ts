@@ -9,6 +9,7 @@ import {
   CALL_SHEET_WORDS,
   callRecordingFolder,
   callRecordingPath,
+  recordingFileIn,
   callSheetWords,
   cellVerifiedOn,
   CONTACT_CARD_WORDS,
@@ -234,7 +235,6 @@ const call = (over: Partial<CallThreadRow> = {}): CallThreadRow => ({
   duration_seconds: 40,
   is_voicemail: 1,
   recording_seconds: 18,
-  recording_object_path: 'ws-1/calls/k1/voicemail.mp3',
   transcript: 'Hi, this is Mike Johnson on Oak Hollow.',
   ...over,
 });
@@ -294,7 +294,6 @@ describe('a thread from the copy', () => {
       type: 'call',
       isVoicemail: true,
       hasRecording: true,
-      recordingPath: 'ws-1/calls/k1/voicemail.mp3',
       recordingSeconds: 18,
     });
     expect(items.find((i) => i.id === 'm2')?.scheduledFor).toBe('2026-09-18T13:00:00.000Z');
@@ -359,21 +358,9 @@ describe('calls', () => {
   it('keeps a call’s recording where the worker stores it', () => {
     expect(callRecordingFolder('ws1', 'k1')).toBe('ws1/calls/k1');
     expect(callRecordingPath('ws1', 'k1', 'voicemail', 'mp3')).toBe('ws1/calls/k1/voicemail.mp3');
-  });
-
-  /**
-   * A length says the carrier recorded something; a path says we have it. They part company whenever the upload
-   * fails, and the phone read the length — so it drew a play button over a file that was never stored.
-   */
-  it('has a recording only when there is one stored, not merely a length', () => {
-    const [stored] = threadItemsOf([], [call()]);
-    expect(stored).toMatchObject({ hasRecording: true, recordingSeconds: 18 });
-    const [missing] = threadItemsOf([], [call({ recording_object_path: null })]);
-    expect(missing).toMatchObject({
-      hasRecording: false,
-      recordingPath: null,
-      recordingSeconds: 18,
-    });
+    expect(recordingFileIn(['voicemail.wav'], true)).toBe('voicemail.wav');
+    expect(recordingFileIn(['recording.mp3'], true)).toBeNull();
+    expect(recordingFileIn(['recording.mp3', 'x.txt'], false)).toBe('recording.mp3');
   });
 
   it('words the call sheet', () => {
