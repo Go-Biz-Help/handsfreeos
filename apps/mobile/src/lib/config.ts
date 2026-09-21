@@ -7,6 +7,26 @@ export function easProjectIdOf(extra: unknown): string | null {
   return id || null;
 }
 
+/** The live worker, which every release build talks to unless it was given another address. */
+export const WORKER_URL = 'https://hooks.handsfreeos.com';
+
+/**
+ * Where the worker is for this build: the address it was given, and otherwise the live one.
+ *
+ * A release build always has a worker, because a build made without `EXPO_PUBLIC_WORKER_URL` opened, signed in and
+ * looked entirely well — and then said "The Assistant can't be reached from this app" to every question, with nothing
+ * on the phone able to put it right (docs/operations.md, "What a build carries"). The address is the same for everyone
+ * and is no secret, so a build that wasn't told it uses it anyway rather than shipping without an Assistant.
+ *
+ * A build served by Metro on someone's Mac (`__DEV__`) gets no such fallback: it is told where the worker is, in
+ * `apps/mobile/.env.local`, or it goes without. Falling back there would point a local app at the live worker, which
+ * acts on a real business — sends the text, books the job — and that is not something to do by accident.
+ */
+export function workerUrlOf(value: string | undefined, dev: boolean): string {
+  const given = (value ?? '').trim();
+  return (given || (dev ? '' : WORKER_URL)).replace(/\/+$/, '');
+}
+
 /**
  * Where this build of the app points, from the EXPO_PUBLIC_* values Metro writes into the bundle when it builds (each
  * must be read as `process.env.EXPO_PUBLIC_…` for that to happen). Locally they come from apps/mobile/.env.local,
@@ -21,8 +41,11 @@ export const config = {
   syncUrl: (process.env.EXPO_PUBLIC_SYNC_URL ?? '').replace(/\/+$/, ''),
   /** The web app, for the pages the phone links out to (resetting a password, desk work). */
   webUrl: (process.env.EXPO_PUBLIC_WEB_URL || 'https://app.handsfreeos.com').replace(/\/+$/, ''),
-  /** Test builds: the worker, for its stand-in push service's test routes (Settings → Test notifications). */
-  workerUrl: (process.env.EXPO_PUBLIC_WORKER_URL ?? '').replace(/\/+$/, ''),
+  /**
+   * The worker: the Assistant behind Ask HandsFreeOS, the customer's own link for a money document, and test builds'
+   * stand-in push routes (Settings → Test notifications). `workerUrlOf` says what an unset one falls back to.
+   */
+  workerUrl: workerUrlOf(process.env.EXPO_PUBLIC_WORKER_URL, __DEV__),
   /**
    * The app's Expo project, which Expo's push service needs before it gives the phone a push token. Its one place is
    * app.json's `expo.extra.eas.projectId` (empty until the Expo account exists; `eas init` prints the id).

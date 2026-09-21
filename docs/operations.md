@@ -8409,13 +8409,15 @@ Metro, which packages the app, replaces every `process.env.EXPO_PUBLIC_…` it c
 | `EXPO_PUBLIC_API_URL`                  | Yes            | The API, which every change the phone makes goes to                  | `https://api.handsfreeos.com`                          |
 | `EXPO_PUBLIC_SYNC_URL`                 | Yes            | The sync service, which fills the phone's copy                       | `https://sync.handsfreeos.com`                         |
 | `EXPO_PUBLIC_WEB_URL`                  | No, but set it | The web app, for the pages the phone links out to                    | `https://app.handsfreeos.com` (also the default)       |
-| `EXPO_PUBLIC_WORKER_URL`               | No, but set it | The worker: **the Assistant**, and test builds' stand-in push routes | `https://hooks.handsfreeos.com`                        |
+| `EXPO_PUBLIC_WORKER_URL`               | No, but set it | The worker: **the Assistant**, and test builds' stand-in push routes | `https://hooks.handsfreeos.com` (also the default)     |
 | `EXPO_PUBLIC_PASSKEYS_ENABLED`         | No             | Shows passkey sign-in                                                | Leave unset until passkeys work                        |
 | `EXPO_PUBLIC_E2E`                      | No             | Builds for the Maestro flows                                         | Leave unset                                            |
 
 The first four are the ones `isConfigured()` checks (`apps/mobile/src/lib/config.ts`). With any one of them empty the app opens on **"This build isn't connected"** and goes no further. Every one of these ends up readable inside the app on anyone's phone, so a secret must never be among them — that is what `EXPO_PUBLIC_` means.
 
-`EXPO_PUBLIC_WORKER_URL` is not checked by `isConfigured()`, so a build without it starts and works — except that **Ask HandsFreeOS says "The Assistant can't be reached from this app"**, because the Assistant streams from the worker rather than the API (`apps/mobile/src/assistant/stream.ts`). It used to be described here as a test-build-only setting; that was wrong, and a build made on that advice has no Assistant. Set it for `production` and `preview` along with the other five.
+`EXPO_PUBLIC_WORKER_URL` is not checked by `isConfigured()`, so a build without it starts and works — and until it had a default, **Ask HandsFreeOS said "The Assistant can't be reached from this app"** to every question, because the Assistant streams from the worker rather than the API (`apps/mobile/src/assistant/stream.ts`). It used to be described here as a test-build-only setting; that was wrong, and the builds made on that advice have no Assistant and cannot be repaired — the address is inside them.
+
+A build that isn't given it now falls back to `https://hooks.handsfreeos.com` (`workerUrlOf` in `apps/mobile/src/lib/config.ts`), so no store or TestFlight build ships without an Assistant again. Set it in EAS for `production` and `preview` anyway, along with the other five: the fallback is a floor, not the setting, and pointing a build at another worker is done by setting it. A build served by Metro on your Mac (`__DEV__`) gets no fallback — it takes the address from `apps/mobile/.env.local` or goes without, so that a local app can't ask the live worker to act on a real business by accident.
 
 **They live in EAS, not in this repository.** `apps/mobile/.env.local` is for your Mac and is git-ignored, and `eas.json` sets `requireCommit: true`, so a build only ever sees committed files. Local values therefore cannot reach a build, by design. Each profile in `eas.json` names the EAS environment it reads with `"environment"`: `production` and `preview` both point at the live servers; `development` is for builds that talk to your Mac.
 
@@ -8471,9 +8473,9 @@ Do this once. They stay until you change them, and every later build picks them 
 
    You should see, early in the output and before the build is queued:
 
-   `Environment variables with visibility "Plain text" and "Sensitive" loaded from the "production" environment on EAS: EXPO_PUBLIC_API_URL, EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY, EXPO_PUBLIC_SUPABASE_URL, EXPO_PUBLIC_SYNC_URL, EXPO_PUBLIC_WEB_URL.`
+   `Environment variables with visibility "Plain text" and "Sensitive" loaded from the "production" environment on EAS: EXPO_PUBLIC_API_URL, EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY, EXPO_PUBLIC_SUPABASE_URL, EXPO_PUBLIC_SYNC_URL, EXPO_PUBLIC_WEB_URL, EXPO_PUBLIC_WORKER_URL.`
 
-   **Read that line every time.** It is the only place a build tells you what it is about to bake in, and a missing name here is the "This build isn't connected" screen twenty minutes later. A build takes roughly seven minutes.
+   **Read that line every time.** It is the only place a build tells you what it is about to bake in, and a missing name here is the "This build isn't connected" screen twenty minutes later. A build takes roughly seven minutes. (An earlier build's line was missing `EXPO_PUBLIC_WORKER_URL` — that build has no Assistant. `EXPO_PUBLIC_WEB_URL` and `EXPO_PUBLIC_WORKER_URL` both have defaults now, so a missing one of those two is worth fixing rather than urgent; the other four are not.)
 
 4. For Android, the same with `--platform android`. It produces an `.aab` for Play's internal testing track. `--auto-submit` only works there once a Play service-account key exists; without one, upload the `.aab` by hand under **Testing → Internal testing → Create new release** (see [`release-checklist.md`](../apps/mobile/store/release-checklist.md), item 6).
 
@@ -8495,6 +8497,7 @@ A GitHub build reads the commit **as GitHub has it**, so push first. It is an ea
 
 - **The app opens on "This build isn't connected":** one of the first four settings was empty when the build ran. `npx --yes eas-cli@latest env:list production` shows what EAS holds now; fix it and build again. The build on the phone cannot be repaired — the values are inside it.
 - **It signs in, but every screen is empty:** the app is connected but the sync service isn't answering. Check `curl -fsS https://sync.handsfreeos.com/probes/liveness` and "When the sync service needs attention".
+- **Ask HandsFreeOS says "The Assistant can't be reached from this app":** that build was made before `EXPO_PUBLIC_WORKER_URL` had a default, so it holds no worker address at all. Nothing on the phone can fix it. Set the setting (`npx --yes eas-cli@latest env:list production` shows what EAS holds now), build again, and install the new build — the screen's own words, "Updating to the latest version usually fixes it", are the whole of it. If a **new** build still says it, the worker itself is the thing to check: `curl -fsS https://hooks.handsfreeos.com/healthz`.
 - **`eas build` asks for a bundle identifier, or says "EAS project not configured":** you are in the wrong folder. See Phone Part 2, step 1, and delete any `eas.json` or `app.json` it wrote where it shouldn't have.
 - **A GitHub build never starts:** the profile has no `image`, the base directory isn't `apps/mobile`, or the commit isn't pushed.
 - **EAS refuses to build a dirty tree:** that is `requireCommit`, and it is on purpose. Commit, or stash.
