@@ -36,7 +36,7 @@ export async function buildApp(opts: BuildOptions): Promise<FastifyInstance> {
   app.setSerializerCompiler(serializerCompiler);
   app.setErrorHandler(errorHandler);
   app.setNotFoundHandler((_req, reply) => {
-    void reply.status(404).send(HfosError.notFound('No such route.').toBody());
+    void reply.status(404).send(HfosError.noSuchRoute().toBody());
   });
 
   const db = opts.db ?? createDb(opts.env.databaseUrl, { applicationName: 'hfos-api' });

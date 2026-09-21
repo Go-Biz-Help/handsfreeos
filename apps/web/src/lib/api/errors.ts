@@ -1,4 +1,5 @@
 import { isApiErrorBody } from '@hfos/api-client';
+import { NO_SUCH_ROUTE } from '@hfos/core';
 
 export class ApiError extends Error {
   constructor(
@@ -38,6 +39,10 @@ export function errorMessage(
   e: unknown,
   fallback = 'Something went wrong. Please try again.',
 ): string {
+  // A route this API build does not serve yet — one of ours, caught between the web deploy and the API's.
+  // "No such route." is plumbing and reads like the person did something wrong; the caller's own fallback
+  // is both kinder and truer, because a minute later the same button works.
+  if (e instanceof ApiError && e.rule === NO_SUCH_ROUTE) return fallback;
   if (e instanceof ApiError) return e.message;
   if (e instanceof Error && e.message) return e.message;
   return fallback;

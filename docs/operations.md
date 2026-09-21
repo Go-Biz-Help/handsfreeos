@@ -2032,7 +2032,7 @@ It must be an **organization** token. A deploy token (`fly tokens create deploy`
    gh run watch --repo gobizhelp/handsfreeos
    ```
 
-   You should see each step get a check mark, and the run end successfully after several minutes. On GitHub, **Actions** → **Deploy** shows the same run with a green check. Its job **API, worker and sync service to Fly.io** shows the step **Deploy the worker (webhooks first, so providers never hit a half-deployed pair)**, then **Deploy the API**. Until the sync service is set up, its steps note that they skipped (see Sync Part 8 in "Sync service: PowerSync on Fly").
+   You should see each step get a check mark, and the run end successfully after several minutes. On GitHub, **Actions** → **Deploy** shows the same run with a green check. Its first job, **The API and the worker on Fly.io**, shows the step **Deploy the worker (webhooks first, so providers never hit a half-deployed pair)**, then **Deploy the API**. A second job, **The sync service on Fly.io**, follows it; until the sync service is set up, its steps note that they skipped (see Sync Part 8 in "Sync service: PowerSync on Fly").
 
 The token lives only in GitHub. Never paste it into a file or a workflow. If it leaks or is lost, make a new one and store it as in step 3. Then find the old token's ID:
 
@@ -2063,6 +2063,7 @@ After the redeploy:
 ### Every deploy after that
 
 - A push to `main` runs CI. When CI passes, the Deploy workflow ships the commit CI checked: the worker first, then the API. CI can take up to 45 minutes.
+- Vercel builds the web app from the same push straight away, but does not put it live until this workflow's first job has passed, so the browser is never running a commit whose API is not up yet. That wait is a setting in the Vercel project, not in this repository: "Make Vercel wait for CI and the API" in "The web app on Vercel".
 - Only one deploy runs at a time. A deploy that starts while another is running waits for it to finish. At most one run waits. If another arrives while one is already waiting, GitHub cancels the older waiting run, and only the newest commit ships. A cancelled Deploy run is normal.
 - If the worker deploy fails, the API deploy does not run.
 - To run the workflow by hand in GitHub, go to **Actions** → **Deploy** → **Run workflow**, leave the branch on `main`, and click the green **Run workflow** button. Or run it from Terminal. A hand run skips the CI check and ships the newest commit on the branch you pick.
@@ -2250,7 +2251,7 @@ Fly's docs describe no rollback command. Instead you redeploy an earlier image.
 
     You should see CI start on GitHub. When it passes, the Deploy workflow ships the reverted code.
 
-11. Or, instead of steps 8 to 10, pause the Deploy workflow.
+11. Or, instead of steps 8 to 10, pause the Deploy workflow. This also stops the web app going live, because Vercel waits for this workflow's first job ("Make Vercel wait for CI and the API"). That is usually what you want while a bad commit is on `main`; if you need a web-only fix out while it is paused, use **Force Promote** on the Vercel deployment.
 
     ```bash
     gh workflow disable Deploy --repo gobizhelp/handsfreeos
@@ -2875,7 +2876,7 @@ The phone app's builds carry this address. Nothing else calls it.
 
 ### Sync Part 8: Let GitHub deploy it
 
-The organization token from Fly Part 9 already covers both new apps. From now on, after CI passes on `main`, the Deploy workflow's job **API, worker and sync service to Fly.io** also:
+The organization token from Fly Part 9 already covers both new apps. From now on, after CI passes on `main`, the Deploy workflow's second job, **The sync service on Fly.io**, runs once the API and the worker are up and:
 
 1. **Checks that the sync service is set up**: `handsfreeos-sync` exists and has all three secrets. Until then it notes "handsfreeos-sync doesn't exist on Fly yet, so the sync service wasn't deployed." and ends there.
 2. **Checks whether its settings changed** since the running machine was deployed, from a fingerprint of `apps/sync/fly.toml`, `service.yaml`, `sync-config.yaml` and the status check. Every deploy makes phones reconnect, so when nothing changed it notes "The sync service's config hasn't changed, so it wasn't redeployed." Your hand deploy in Sync Part 6 had no fingerprint, so the first run after it deploys once more.
@@ -3596,28 +3597,38 @@ Optional: stop building previews altogether.
 
 Vercel still starts each skipped build and cancels it, and those count toward its deployment limits.
 
-### Make Vercel wait for CI (optional)
+### Make Vercel wait for CI and the API
 
-By default, Vercel puts a new production build live as soon as it is ready, without waiting for CI. Vercel's Deployment Checks can hold it back until the CI jobs pass.
+**Do this one.** It is the only thing standing between a push and half an hour of a half-deployed product.
+
+By default Vercel puts a new production build live as soon as it is ready. The API waits for CI and then for a Fly deploy, twenty-odd minutes later. In between, the browser is running the new commit and the API is still running the last one, so every endpoint the new commit added answers 404 — and a page built out of one of them shows "We could not find that. The page does not exist, or you do not have access to it." It happened on 21 September 2026 to Texting & calls, Usage & balance, Booking site, Calls and two admin pages at once, and nothing was wrong with any of them.
+
+Vercel's Deployment Checks hold the address back until named GitHub jobs pass. Three of them cover it: the two CI jobs, and the Fly deploy itself, so the web app goes live in the minute **after** the API it calls, not before.
 
 1. Open the project and click **Settings** → **Environments** → **Production**.
 2. Check that automatic aliasing for production is on. It is the setting that gives each new production build `app.handsfreeos.com`, and Deployment Checks need it.
 3. Click **Settings** → **Build and Deployment** and find **Deployment Checks**.
 4. Click **Add Checks**.
 5. Choose **GitHub** as the provider.
-6. Search for and select the two CI jobs: **Lint, typecheck, tests, browser tests** and **Secret scan**.
+6. Search for and select three jobs: **Lint, typecheck, tests, browser tests** and **Secret scan** from CI, and **The API and the worker on Fly.io** from Deploy.
 
-   You should see both checks listed under **Deployment Checks**.
+   You should see all three listed under **Deployment Checks**.
+
+   The Deploy job only appears in the search once it has run at least once under that name. If it is missing, add the two CI jobs now, push once, and come back for the third.
 
 7. Push the next change to `main` as usual.
 
-   You should see the new production deployment wait for the checks, and `https://app.handsfreeos.com` switch to it only after CI passes.
+   You should see the new production deployment wait, and `https://app.handsfreeos.com` switch to it only after the API on Fly has been replaced.
 
-Production builds are still created, but they only get `app.handsfreeos.com` once the checks pass. In an emergency, open the deployment's page and choose **Force Promote** to put it live without waiting. GitHub identifies checks by job name, so if a CI job is ever renamed, update the checks here too.
+Production builds are still created, but they only get `app.handsfreeos.com` once the checks pass. In an emergency, open the deployment's page and choose **Force Promote** to put it live without waiting — worth remembering that this is exactly the ordering the checks exist to prevent, so only reach for it when the alternative is worse.
+
+GitHub identifies checks by job name, so renaming a job here quietly stops the wait rather than failing loudly. The two CI job names live in `.github/workflows/ci.yml` and the Deploy one in `.github/workflows/deploy.yml`; rename either and change the checks in Vercel in the same breath.
+
+The sync service is a separate job in Deploy on purpose. A changed PowerSync config copies the whole database and can take a quarter of an hour, and the web app has no reason to wait for that — only for the API.
 
 ### Good to know
 
-- **Vercel does not wait for CI by default.** A push to `main` goes live on Vercel within minutes, while the API and the worker wait for CI to pass. A web change that needs a new API can reach clients a few minutes before the API does. A web change that fails CI is live anyway, unless you set up "Make Vercel wait for CI" above.
+- **Vercel does not wait for anything by default.** A push to `main` goes live on Vercel within minutes, while the API and the worker wait for CI and then for Fly. Without the checks, a web change that needs a new API reaches people twenty-odd minutes before the API does, and a web change that fails CI is live anyway. Set up "Make Vercel wait for CI and the API" above; it is not optional in practice.
 - **Rolling back.** On the project's overview page, click **Instant Rollback** on the production deployment tile. Pick an earlier deployment, click **Continue**, then **Confirm Rollback**. The earlier deployment comes back with the settings it was built with. After a rollback, new pushes to `main` stop going live. To undo it, click **Undo Rollback** on the same tile, pick the deployment to put live (usually the newest good one), and click **Confirm**. New pushes to `main` then go live again.
 - **Calls need HTTPS.** Browsers only allow the microphone on HTTPS pages. Vercel serves HTTPS, so calls work at `https://app.handsfreeos.com`.
 - **New web settings.** The build may run through Turborepo, which hides every setting not listed for builds in `turbo.json`. That file already lists `NEXT_PUBLIC_*`. A future web setting with any other name must be added there too.
