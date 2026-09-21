@@ -48,6 +48,9 @@ import {
 export interface ConversationPerson {
   readonly id: string;
   readonly fullName: string;
+  /** The two halves behind `fullName`, which the edit sheet's fields and the merge base both want. */
+  readonly firstName: string;
+  readonly lastName: string;
   /** "(713) 555-0142". */
   readonly phone: string | null;
   readonly phoneE164: string | null;
@@ -55,6 +58,12 @@ export interface ConversationPerson {
   readonly smsConsent: string | null;
   readonly customerSince: string;
   readonly archived: boolean;
+  /** What the edit sheet opens with, beyond the name and the ways to reach them. */
+  readonly line1: string;
+  readonly city: string;
+  readonly state: string;
+  readonly postalCode: string;
+  readonly notes: string;
 }
 
 export interface ConversationData {
@@ -94,6 +103,11 @@ export function useConversation(conversationId: string): {
     sms_consent: string | null;
     archived_at: string | null;
     created_at: string | null;
+    address_line1: string | null;
+    city: string | null;
+    state: string | null;
+    postal_code: string | null;
+    notes: string | null;
   }>(PERSON_SQL, [row?.person_id ?? '']);
   const { data: optOuts } = useQuery<{ opted_out: number | null }>(OPTED_OUT_SQL, [
     business.id,
@@ -116,12 +130,19 @@ export function useConversation(conversationId: string): {
       ? {
           id: p.id,
           fullName: `${p.first_name ?? ''} ${p.last_name ?? ''}`.trim(),
+          firstName: p.first_name ?? '',
+          lastName: p.last_name ?? '',
           phone: p.phone_e164 ? formatPhone(p.phone_e164) : (p.phone ?? null),
           phoneE164: p.phone_e164,
           email: p.email,
           smsConsent: p.sms_consent,
           customerSince: p.created_at ?? conversation.createdAt,
           archived: !!p.archived_at,
+          line1: p.address_line1 ?? '',
+          city: p.city ?? '',
+          state: p.state ?? '',
+          postalCode: p.postal_code ?? '',
+          notes: p.notes ?? '',
         }
       : null;
     return {

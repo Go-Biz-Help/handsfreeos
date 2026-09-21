@@ -19,6 +19,9 @@ export const smsConsent = z.enum(['unknown', 'opted_in', 'opted_out']);
 export const OpenLeadRef = z.object({
   id: uuid,
   title: z.string(),
+  /** Its stage and pipeline, so a conversation can move the lead along without loading the board. */
+  stageId: uuid,
+  pipelineId: uuid,
   stageName: z.string(),
   valueCents: z.number(),
   nextAction: z.string().nullable(),
@@ -135,6 +138,13 @@ export const ConversationGetOutput = z.object({
     .object({
       id: uuid,
       fullName: z.string(),
+      /**
+       * The two halves behind `fullName`. Editing the name in the conversation sends what it saw as the merge
+       * base, and splitting `fullName` back would guess wrong on "Mary Jane Smith". The row is already loaded,
+       * so carrying both costs nothing.
+       */
+      firstName: z.string(),
+      lastName: z.string(),
       phone: z.string().nullable(),
       phoneE164: z.string().nullable(),
       email: z.string().nullable(),

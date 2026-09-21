@@ -69,6 +69,8 @@ export interface ConversationListRow {
   readonly taken_over_name?: Text;
   readonly lead_id?: Text;
   readonly lead_title?: Text;
+  readonly lead_stage_id?: Text;
+  readonly lead_pipeline_id?: Text;
   readonly lead_stage_name?: Text;
   readonly lead_value_cents?: number | string | null;
   readonly lead_next_action?: Text;
@@ -88,6 +90,9 @@ export interface ConversationShape extends RowFacts {
   readonly openLead: {
     readonly id: string;
     readonly title: string;
+    /** Its stage and pipeline, so the conversation can move the lead along without opening the board. */
+    readonly stageId: string;
+    readonly pipelineId: string;
     readonly stageName: string;
     readonly valueCents: number;
     readonly nextAction: string | null;
@@ -128,6 +133,8 @@ export function conversationOf(r: ConversationListRow): ConversationShape {
         ? {
             id: r.lead_id,
             title: r.lead_title,
+            stageId: r.lead_stage_id ?? '',
+            pipelineId: r.lead_pipeline_id ?? '',
             stageName: r.lead_stage_name ?? '',
             valueCents: Number(r.lead_value_cents ?? 0),
             nextAction: r.lead_next_action ?? null,

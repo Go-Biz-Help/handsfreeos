@@ -83,6 +83,8 @@ type ConversationRow = {
   open_lead: {
     id: string;
     title: string;
+    stageId: string;
+    pipelineId: string;
     stageName: string;
     valueCents: number | string;
     nextAction: string | null;
@@ -105,7 +107,8 @@ const conversationSelect = (
     c.handled_by::text as handled_by, c.ai_teammate_id, tm.name as teammate_name, c.needs_person_since,
     c.handoff_reason, c.handoff_note, c.taken_over_by,
     coalesce(nullif(tu.full_name, ''), tu.email::text) as taken_over_name,
-    (select json_build_object('id', l.id, 'title', l.title, 'stageName', s.name, 'valueCents', l.value_cents,
+    (select json_build_object('id', l.id, 'title', l.title, 'stageId', l.stage_id, 'pipelineId', s.pipeline_id,
+              'stageName', s.name, 'valueCents', l.value_cents,
               'nextAction', l.next_action, 'nextActionAt', l.next_action_at)
        from app.leads l join app.pipeline_stages s on s.id = l.stage_id
        where c.person_id is not null and l.person_id = c.person_id and l.status = 'open' and l.archived_at is null
@@ -153,6 +156,8 @@ function summary(r: ConversationRow): ConversationSummary {
       ? {
           id: r.open_lead.id,
           title: r.open_lead.title,
+          stageId: r.open_lead.stageId,
+          pipelineId: r.open_lead.pipelineId,
           stageName: r.open_lead.stageName,
           valueCents: Number(r.open_lead.valueCents),
           nextAction: r.open_lead.nextAction,
@@ -351,6 +356,8 @@ export const conversationGet = defineQuery({
     let person: {
       id: string;
       fullName: string;
+      firstName: string;
+      lastName: string;
       phone: string | null;
       phoneE164: string | null;
       email: string | null;
@@ -373,6 +380,8 @@ export const conversationGet = defineQuery({
         person = {
           id: p.id,
           fullName: fullName(p.firstName, p.lastName),
+          firstName: p.firstName,
+          lastName: p.lastName,
           phone: p.phoneE164 ? formatPhone(p.phoneE164) : null,
           phoneE164: p.phoneE164,
           email: p.email,

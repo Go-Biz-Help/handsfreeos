@@ -19,7 +19,8 @@ const CONVERSATION_BASE = `
     ls.sent_by AS last_sender_id, ${userName('lu')} AS last_sender_name,
     c.awaiting_reply_since, c.snoozed_until, c.created_at, c.handled_by, c.ai_teammate_id, t.name AS teammate_name,
     c.needs_person_since, c.handoff_reason, c.handoff_note, c.taken_over_by, ${userName('tu')} AS taken_over_name,
-    l.id AS lead_id, l.title AS lead_title, s.name AS lead_stage_name, l.value_cents AS lead_value_cents,
+    l.id AS lead_id, l.title AS lead_title, l.stage_id AS lead_stage_id, s.pipeline_id AS lead_pipeline_id,
+    s.name AS lead_stage_name, l.value_cents AS lead_value_cents,
     l.next_action AS lead_next_action, l.next_action_at AS lead_next_action_at,
     EXISTS (SELECT 1 FROM ai_teammate_drafts d
             WHERE d.conversation_id = c.id AND d.status = 'pending' AND d.kind = 'reply') AS draft_waiting
@@ -80,7 +81,8 @@ export const CALLS_SQL = `
 
 /** The customer beside a conversation: contact details, texting consent, when they became a customer. */
 export const PERSON_SQL = `
-  SELECT id, first_name, last_name, phone, phone_e164, email, sms_consent, archived_at, created_at
+  SELECT id, first_name, last_name, phone, phone_e164, email, sms_consent, archived_at, created_at,
+    address_line1, city, state, postal_code, notes
   FROM people WHERE id = ?`;
 
 /** Whether a number opted out of texts from the business. */

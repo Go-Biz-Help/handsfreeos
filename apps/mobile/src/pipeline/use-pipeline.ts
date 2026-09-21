@@ -126,6 +126,22 @@ export function useBoard(pipelineId: string | null): Board {
   }, [stageRows, leadRows, names, pipeline, pipelines, isLoading]);
 }
 
+/**
+ * One pipeline's stages, for a screen that has a lead but not the board — the conversation screen moving the
+ * customer's open lead along without leaving their texts.
+ */
+export function useStagesOf(pipelineId: string | null): readonly StageRef[] {
+  const { business } = useBusiness();
+  const { data: stageRows } = useQuery<{
+    id: string;
+    pipeline_id: string | null;
+    name: string | null;
+    kind: string | null;
+    position: number | null;
+  }>(STAGES_SQL, [business.id]);
+  return React.useMemo(() => stageRefsOf(stageRows, pipelineId), [stageRows, pipelineId]);
+}
+
 export interface LeadData {
   readonly loading: boolean;
   readonly lead: LeadCard | null;

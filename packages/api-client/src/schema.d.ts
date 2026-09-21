@@ -24602,6 +24602,10 @@ export interface operations {
                                 id: string;
                                 nextAction: string | null;
                                 nextActionAt: string | null;
+                                /** Format: uuid */
+                                pipelineId: string;
+                                /** Format: uuid */
+                                stageId: string;
                                 stageName: string;
                                 title: string;
                                 valueCents: number;
@@ -24648,9 +24652,11 @@ export interface operations {
                             /** Format: date-time */
                             customerSince: string;
                             email: string | null;
+                            firstName: string;
                             fullName: string;
                             /** Format: uuid */
                             id: string;
+                            lastName: string;
                             phone: string | null;
                             phoneE164: string | null;
                             /** @enum {string} */
@@ -26001,6 +26007,10 @@ export interface operations {
                                 id: string;
                                 nextAction: string | null;
                                 nextActionAt: string | null;
+                                /** Format: uuid */
+                                pipelineId: string;
+                                /** Format: uuid */
+                                stageId: string;
                                 stageName: string;
                                 title: string;
                                 valueCents: number;
